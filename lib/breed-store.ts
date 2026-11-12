@@ -862,6 +862,7 @@ export async function listPublishedCanonicalBreedAtlasCards(): Promise<BreedAtla
 
 export type BreedSitemapIndexItem = {
   slug: string;
+  fciGroup: number;
   image: string;
   seo: EditableSeo;
   updatedAt: string;
@@ -869,6 +870,7 @@ export type BreedSitemapIndexItem = {
 
 type BreedSitemapIndexRow = {
   slug: string;
+  fci_group: number;
   image_url: string;
   seo_json: string;
   updated_at: string;
@@ -887,6 +889,7 @@ export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSi
   if (!database) {
     return seedBreeds.map((breed) => ({
       slug: breed.slug,
+      fciGroup: breed.fciGroup,
       image: ownedBreedImage(breed.image),
       seo: breed.seo ?? {},
       updatedAt: "2026-08-17",
@@ -894,7 +897,7 @@ export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSi
   }
   const result = await database
     .prepare(
-      `SELECT slug,image_url,seo_json,updated_at
+      `SELECT slug,fci_group,image_url,seo_json,updated_at
      FROM managed_breeds
      WHERE id IN (${canonicalBreedIdsSql})
      ORDER BY fci_group,name`,
@@ -902,6 +905,7 @@ export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSi
     .all<BreedSitemapIndexRow>();
   return result.results.map((row) => ({
     slug: row.slug,
+    fciGroup: row.fci_group,
     image: ownedBreedImage(row.image_url),
     seo: parseSeo(row.seo_json),
     updatedAt: row.updated_at,
@@ -1265,7 +1269,7 @@ export async function getBreedDetailRelations(
     id: row.id,
     slug: row.slug,
     name: row.name,
-    href: breedProfileHref(row.slug),
+    href: breedProfileHref(row.slug, row.fci_group),
     image: row.image_url,
     fciGroup: row.fci_group,
     fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),

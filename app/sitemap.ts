@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import type { MetadataRoute } from "next";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
 import { listPublishedCanonicalBreedSitemapIndex } from "@/lib/breed-store";
+import { breedProfileHref, isBreedSelfCanonicalSeo } from "@/lib/breed-canonical";
 import { eventHref } from "@/lib/events";
 import { directoryCategories, isDirectoryCategory } from "@/lib/directory";
 import { getPublishedDirectorySitemapRecords } from "@/lib/directory-sitemap";
@@ -256,14 +257,14 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
   })), lostFoundEntries.map((entry) => entry.url)));
 
   const breedEntries = runSitemapStageSync("build-breed-entries", () => breeds
-    .filter((breed) => breed.slug?.trim() && isSelfCanonical(breed.seo, `/plemena/${breed.slug}`))
-    .map((breed) => sitemapEntry(`/plemena/${breed.slug}`, {
+    .filter((breed) => breed.slug?.trim() && isBreedSelfCanonicalSeo(breed.seo, breed.slug, breed.fciGroup))
+    .map((breed) => sitemapEntry(breedProfileHref(breed.slug, breed.fciGroup), {
       lastModified: latestModified([breed.updatedAt]), changeFrequency: "monthly", priority: 0.8,
       images: breed.image ? [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] : undefined,
     })));
   runSitemapStageSync("parity-breeds", () => assertSitemapEntityParity("breeds", breeds.map((breed) => {
-    const path = `/plemena/${breed.slug}`;
-    const indexable = isSelfCanonical(breed.seo, path);
+    const path = breedProfileHref(breed.slug, breed.fciGroup);
+    const indexable = isBreedSelfCanonicalSeo(breed.seo, breed.slug, breed.fciGroup);
     return parityCandidate({
       slug: breed.slug,
       url: absoluteSitemapUrl(path),

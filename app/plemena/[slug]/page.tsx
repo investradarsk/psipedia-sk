@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArticlePromo } from "@/components/article-promo";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { BreedPhoto } from "@/components/breed-photo";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
@@ -17,6 +17,7 @@ import {
   PublicFoundation,
 } from "@/components/public-visual-system";
 import { breedAtlasHref } from "@/lib/breed-atlas";
+import { breedCategorySlug, breedProfileHref, breedFciStandardHref } from "@/lib/breed-canonical";
 import {
   combinedFciMeasurement,
   publicBreedMeasurement,
@@ -46,7 +47,7 @@ import { getPublicArticleListMeta } from "@/lib/public-article-list";
 import { BreedProfileAccordion } from "./breed-profile-accordion";
 import styles from "./breed-profile.module.css";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string; category?: string }> };
 
 type AccordionItem = {
   key: string;
@@ -64,15 +65,17 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, category } = await params;
   const breed = await getPublishedBreed(slug);
-  const fallback = breed ? breedSeoFallback(breed.name) : null;
+  if (!breed || category !== breedCategorySlug(breed.fciGroup)) return {};
+  const fallback = breedSeoFallback(breed.name);
+  const seo = { ...breed.seo, canonicalUrl: breedProfileHref(breed.slug, breed.fciGroup) };
   return breed && fallback
     ? buildContentMetadata({
-        seo: breed.seo,
+        seo,
         fallbackTitle: fallback.title,
         fallbackDescription: fallback.description,
-        path: `/plemena/${breed.slug}`,
+        path: breedProfileHref(breed.slug, breed.fciGroup),
         image: breed.image,
         imageAlt: `${breed.name} – profil plemena`,
         type: "article",
@@ -112,9 +115,12 @@ function ReadingText({ paragraphs }: { paragraphs: string[] }) {
 }
 
 export default async function BreedDetailPage({ params }: Props) {
-  const { slug } = await params;
+  const { slug, category } = await params;
   const breed = await getPublishedBreed(slug);
   if (!breed) notFound();
+  if (category !== breedCategorySlug(breed.fciGroup)) {
+    permanentRedirect(breedProfileHref(breed.slug, breed.fciGroup));
+  }
 
   const managedBreed =
     "id" in breed && typeof breed.id === "number" ? (breed as ManagedBreed) : null;
@@ -164,7 +170,10 @@ export default async function BreedDetailPage({ params }: Props) {
     return meta ? [{ ...article, ...meta }] : [];
   });
 
-  const canonical = resolvedCanonical(breed.seo, `/plemena/${breed.slug}`);
+  const canonical = resolvedCanonical(
+    { ...breed.seo, canonicalUrl: breedProfileHref(breed.slug, breed.fciGroup) },
+    breedProfileHref(breed.slug, breed.fciGroup),
+  );
   const publishedAt =
     "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : undefined;
   const updatedAt =
@@ -217,7 +226,8 @@ export default async function BreedDetailPage({ params }: Props) {
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Domov", item: SITE_URL },
           { "@type": "ListItem", position: 2, name: "Plemená", item: `${SITE_URL}/plemena` },
-          { "@type": "ListItem", position: 3, name: breed.name, item: canonical },
+          { "@type": "ListItem", position: 3, name: getFciGroup(breed.fciGroup)?.label ?? "FCI", item: `${SITE_URL}/plemena?fciGroup=${breed.fciGroup}` },
+          { "@type": "ListItem", position: 4, name: breed.name, item: canonical },
         ],
       },
     ],
@@ -363,6 +373,10 @@ export default async function BreedDetailPage({ params }: Props) {
                 <Link href="/">Domov</Link>
                 <span>/</span>
                 <Link href="/plemena">Plemená</Link>
+                <span>/</span>
+                <Link href={breedAtlasHref({ query: "", fciGroup: String(breed.fciGroup), fciSection: "", origin: "" })}>
+                  {getFciGroup(breed.fciGroup)?.label ?? "FCI skupina"}
+                </Link>
                 <span>/</span>
                 <span>{breed.name}</span>
               </nav>
@@ -610,7 +624,7 @@ export default async function BreedDetailPage({ params }: Props) {
                   </dl>
                 ) : null}
                 <PublicActionLink
-                  href={`/plemena/${breed.slug}/fci-standard`}
+                  href={breedFciStandardHref(breed.slug, breed.fciGroup)}
                   className={styles.primaryLink}
                   data-testid="breed-fci-cta"
                 >
