@@ -20,6 +20,7 @@ export type BreedingStationLandingBreed = {
   id: number;
   slug: string;
   name: string;
+  fciGroup: number;
   updatedAt: string | null;
 };
 
@@ -54,6 +55,7 @@ type LandingRow = {
   breed_id: number | null;
   breed_slug: string | null;
   breed_name: string | null;
+  breed_fci_group: number | null;
   breed_updated_at: string | null;
   relation_created_at: string | null;
 };
@@ -180,7 +182,8 @@ export function buildBreedingStationLandingQuery(selector: BreedingStationLandin
       sql: `SELECT
         d.id, d.slug, d.name, d.excerpt, d.services_json, d.city, d.district, d.region,
         d.price_note, d.image_url, d.featured, d.updated_at,
-        b.id AS breed_id, b.slug AS breed_slug, b.name AS breed_name, b.updated_at AS breed_updated_at,
+        b.id AS breed_id, b.slug AS breed_slug, b.name AS breed_name,
+        b.fci_group AS breed_fci_group, b.updated_at AS breed_updated_at,
         MAX(r.created_at) AS relation_created_at
       FROM managed_breeds b
       JOIN breed_directory_relations r ON r.breed_id = b.id
@@ -192,7 +195,7 @@ export function buildBreedingStationLandingQuery(selector: BreedingStationLandin
       GROUP BY
         d.id, d.slug, d.name, d.excerpt, d.services_json, d.city, d.district, d.region,
         d.price_note, d.image_url, d.featured, d.updated_at,
-        b.id, b.slug, b.name, b.updated_at
+        b.id, b.slug, b.name, b.fci_group, b.updated_at
       ORDER BY d.featured DESC, d.name COLLATE NOCASE ASC, d.id ASC`,
       bindings: [breedSlug, ...regionBindings] as readonly unknown[],
     };
@@ -204,7 +207,8 @@ export function buildBreedingStationLandingQuery(selector: BreedingStationLandin
     sql: `SELECT
       d.id, d.slug, d.name, d.excerpt, d.services_json, d.city, d.district, d.region,
       d.price_note, d.image_url, d.featured, d.updated_at,
-      NULL AS breed_id, NULL AS breed_slug, NULL AS breed_name, NULL AS breed_updated_at,
+      NULL AS breed_id, NULL AS breed_slug, NULL AS breed_name,
+      NULL AS breed_fci_group, NULL AS breed_updated_at,
       NULL AS relation_created_at
     FROM directory_profiles d
     WHERE ${publicCanonicalBreedingStationSql("d")}
@@ -269,6 +273,7 @@ export async function getBreedingStationLanding(
         id: Number(first.breed_id),
         slug: first.breed_slug,
         name: first.breed_name,
+        fciGroup: Number(first.breed_fci_group),
         updatedAt: first.breed_updated_at,
       }
     : null;

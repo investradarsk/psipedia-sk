@@ -44,8 +44,11 @@ export function HomePortalSearch({
 } = {}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [liveQuery, setLiveQuery] = useState(defaultValue);
+  // A prefilled results-page query must not automatically open a menu over filters.
+  // Activate live suggestions only when the user interacts with this textbox.
+  const [suggestionsActivated, setSuggestionsActivated] = useState(false);
   // Do not change section-scoped GET search (services, help, events, reviews).
-  const enableSuggestions = action === "/hladat" && !searchScope && inputName === "q" && hidden.length === 0;
+  const enableSuggestions = suggestionsActivated && action === "/hladat" && !searchScope && inputName === "q" && hidden.length === 0;
   return (
     <section className="home-search-panel" aria-label={panelLabel}>
       <div className="home-search-copy">
@@ -64,7 +67,8 @@ export function HomePortalSearch({
             placeholder={placeholder}
             defaultValue={defaultValue}
             ref={inputRef}
-            onChange={(event) => setLiveQuery(event.target.value)}
+            onFocus={() => setSuggestionsActivated(true)}
+            onChange={(event) => { setLiveQuery(event.target.value); setSuggestionsActivated(true); }}
             autoComplete="off"
             minLength={allowEmpty ? undefined : 2}
             maxLength={120}

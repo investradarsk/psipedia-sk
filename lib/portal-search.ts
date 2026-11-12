@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import { env } from "cloudflare:workers";
 import { getDirectoryCategory } from "@/lib/directory";
 import { getHelpCategory } from "@/lib/help";
@@ -54,6 +55,7 @@ type SearchRow = {
   description: string;
   keywords: string;
   kind: PortalSearchRankable["kind"];
+  breed_fci_group?: number | null;
   category: string | null;
   city: string | null;
   district: string | null;
@@ -281,7 +283,7 @@ function breedQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec |
   const columns = `'/plemena/' || b.slug AS href, b.name AS title, 'Plemeno' AS type,
     b.intro AS description,
     b.official_fci_name || ' ' || b.group_name || ' ' || b.fci_section || ' ' || b.origin AS keywords,
-    'breed' AS kind, '' AS category, '' AS city, '' AS district, '' AS region, '' AS services`;
+    'breed' AS kind, b.fci_group AS breed_fci_group, '' AS category, '' AS city, '' AS district, '' AS region, '' AS services`;
   return { sql: selectWithWindow(columns, "managed_breeds b", clauses, `${exactOrder}, ${prefixOrder}, b.name COLLATE NOCASE ASC, b.slug ASC`, limit), bindings };
 }
 
@@ -429,12 +431,15 @@ function staticSectionItems(parsed: ParsedPortalSearchQuery, section: string, su
 }
 
 function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearchItem | null {
+  const href = row.kind === "breed" && row.breed_fci_group
+    ? breedProfileHref(row.href.slice("/plemena/".length), row.breed_fci_group)
+    : row.href;
   const city = row.city?.trim() ?? "";
   const district = row.district?.trim() ?? "";
   const region = row.region?.trim() ?? "";
   const description = row.description?.trim() ?? "";
   const item: PortalSearchItem = {
-    href: row.href,
+    href,
     title: row.title,
     type: row.type,
     description,

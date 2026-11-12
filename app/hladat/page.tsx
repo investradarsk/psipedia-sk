@@ -102,7 +102,7 @@ function knownContentFallbacks(query: string, section: string) {
       ? []
       : [
           {
-            href: "/plemena/labradorsky-retriever",
+            href: "/plemena/retrievery-sliedice-vodne/labradorsky-retriever",
             label: "Labradorský retriever",
             type: "Plemeno",
           },

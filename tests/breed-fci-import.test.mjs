@@ -793,7 +793,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   );
   assert.equal(editResponse.status, 200);
 
-  const detail = await get(worker, d1, "/plemena/labradorsky-retriever");
+  const detail = await get(worker, d1, "/plemena/retrievery-sliedice-vodne/labradorsky-retriever");
   assert.equal(detail.status, 200);
   const detailHtml = await detail.text();
   assert.match(detailHtml, /Plemeno v skratke/);
@@ -804,7 +804,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   assert.match(detailHtml, /Častá chyba majiteľov/);
   assert.match(detailHtml, /Agility/);
   assert.match(detailHtml, /Oficiálne zaradenie FCI/);
-  assert.match(detailHtml, /href="\/plemena\/labradorsky-retriever\/fci-standard"/);
+  assert.match(detailHtml, /href="\/plemena\/retrievery-sliedice-vodne\/labradorsky-retriever\/fci-standard"/);
   assert.doesNotMatch(detailHtml, /História plemena Labradorský retriever\./);
   assert.match(detailHtml, /href="\/plemena\?fciGroup=8"/);
   assert.match(detailHtml, /href="\/plemena\?fciGroup=8&amp;fciSection=1"/);
@@ -816,7 +816,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   assert.match(detailHtml, /href="\/adresar\/treneri"/);
   assert.doesNotMatch(detailHtml, /\/adresar\/treneri\?breed=/);
 
-  const fciDetail = await get(worker, d1, "/plemena/labradorsky-retriever/fci-standard");
+  const fciDetail = await get(worker, d1, "/plemena/retrievery-sliedice-vodne/labradorsky-retriever/fci-standard");
   assert.equal(fciDetail.status, 200);
   const fciDetailHtml = await fciDetail.text();
   // Notion 60 moved historical FCI subfields into the standalone História content field.
@@ -840,7 +840,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   assert.ok((fciDetailHtml.match(/data-fci-group=/g) ?? []).length >= 6);
   assert.ok((fciDetailHtml.match(/data-fci-group=/g) ?? []).length <= 8);
 
-  const tollerMain = await get(worker, d1, "/plemena/nova-scotia-duck-tolling-retriever");
+  const tollerMain = await get(worker, d1, "/plemena/retrievery-sliedice-vodne/nova-scotia-duck-tolling-retriever");
   assert.equal(tollerMain.status, 200);
   const tollerMainHtml = await tollerMain.text();
   assert.match(tollerMainHtml, /Nova Scotia Duck Tolling Retriever/);
@@ -851,7 +851,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   const tollerFciResponse = await get(
     worker,
     d1,
-    "/plemena/nova-scotia-duck-tolling-retriever/fci-standard",
+    "/plemena/retrievery-sliedice-vodne/nova-scotia-duck-tolling-retriever/fci-standard",
   );
   assert.equal(tollerFciResponse.status, 200);
   const tollerFci = await tollerFciResponse.text();
@@ -865,25 +865,30 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   assert.doesNotMatch(tollerFci, /1987-06-24/);
   assert.doesNotMatch(tollerFci, /Chovateľská poznámka/);
 
-  const fciOnly = await get(worker, d1, "/plemena/ciernohorsky-horsky-duric");
+  const fciOnly = await get(worker, d1, "/plemena/durice/ciernohorsky-horsky-duric");
   assert.equal(fciOnly.status, 200);
   const fciOnlyHtml = await fciOnly.text();
   assert.match(fciOnlyHtml, /Čiernohorský horský durič/);
   assert.match(fciOnlyHtml, /Fotografia sa pripravuje/);
-  assert.match(fciOnlyHtml, /href="\/plemena\/ciernohorsky-horsky-duric\/fci-standard"/);
+  assert.match(fciOnlyHtml, /href="\/plemena\/durice\/ciernohorsky-horsky-duric\/fci-standard"/);
   assert.doesNotMatch(fciOnlyHtml, /FCI nomenklatúra/);
-  const fciOnlyStandard = await get(worker, d1, "/plemena/ciernohorsky-horsky-duric/fci-standard");
+  const fciOnlyStandard = await get(worker, d1, "/plemena/durice/ciernohorsky-horsky-duric/fci-standard");
   assert.equal(fciOnlyStandard.status, 200);
   const fciOnlyStandardHtml = await fciOnlyStandard.text();
   assert.doesNotMatch(fciOnlyStandardHtml, /História plemena Čiernohorský horský durič/);
   assert.doesNotMatch(fciOnlyStandardHtml, /FCI nomenklatúra/);
   assert.doesNotMatch(fciOnlyStandardHtml, /Oficiálny FCI štandard \(PDF\)/);
 
-  for (const slug of ["nemecky-ovciak", "border-kolia", "rotvajler", "testovacie-plemeno-11"]) {
-    const response = await get(worker, d1, `/plemena/${slug}`);
+  for (const [slug, group] of [
+    ["nemecky-ovciak", "ovciarske-a-pastierske"],
+    ["border-kolia", "ovciarske-a-pastierske"],
+    ["rotvajler", "pince-bradace-molosy-salasnicke"],
+    ["testovacie-plemeno-11", "ovciarske-a-pastierske"],
+  ]) {
+    const response = await get(worker, d1, `/plemena/${group}/${slug}`);
     assert.equal(response.status, 200, slug);
     assert.match(await response.text(), /fci-standard/, slug);
-    const fciResponse = await get(worker, d1, `/plemena/${slug}/fci-standard`);
+    const fciResponse = await get(worker, d1, `/plemena/${group}/${slug}/fci-standard`);
     assert.equal(fciResponse.status, 200, `${slug} FCI`);
   }
 
@@ -904,7 +909,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   const sitemapUrls = [...sitemapText.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
   const breedUrls = sitemapUrls.filter(
     (url) =>
-      /^https:\/\/psipedia\.sk\/plemena\/[^/]+$/.test(url) &&
+      /^https:\/\/psipedia\.sk\/plemena\/[^/]+\/[^/]+$/.test(url) &&
       url !== "https://psipedia.sk/plemena/vyber-plemena",
   );
   assert.equal(breedUrls.length, 344);
@@ -917,8 +922,13 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   ]) {
     const legacy = await get(worker, d1, `/plemena/${legacySlug}`);
     assert.equal(legacy.status, 301);
-    assert.equal(legacy.headers.get("location"), `http://localhost/plemena/${canonicalSlug}`);
-    const canonical = await get(worker, d1, `/plemena/${canonicalSlug}`);
+    const group = {
+      "anglicky-kokerspaniel": "retrievery-sliedice-vodne",
+      bigl: "durice",
+      "madarsky-kratkosrsty-stavac-vyzla": "stavace",
+    }[canonicalSlug];
+    assert.equal(legacy.headers.get("location"), `http://localhost/plemena/${group}/${canonicalSlug}`);
+    const canonical = await get(worker, d1, `/plemena/${group}/${canonicalSlug}`);
     assert.equal(canonical.status, 200);
   }
 

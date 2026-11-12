@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { auditBreedRows, breedAuditRowsSql } from '../lib/breed-audit.ts';
-import { auditCanonicalIdentities } from '../lib/breed-canonical.ts';
+import { auditCanonicalIdentities, isBreedSelfCanonicalSeo } from '../lib/breed-canonical.ts';
 
 const remote=process.argv.includes('--remote');
 const file=process.argv.slice(2).find(arg=>!arg.startsWith('--'));
@@ -17,7 +17,7 @@ const canonicalClaims=rows.filter(row=>{
     const seo=JSON.parse(row.seo_json);
     return row.status==='published'&&Number.isSafeInteger(row.fci_number)&&row.fci_number>0&&row.import_key?.trim()
       &&row.name?.trim()&&Number.isInteger(row.fci_group)&&row.fci_group>=1&&row.fci_group<=10&&/^[a-z0-9-]+$/.test(row.slug)
-      &&!seo.noindex&&(!seo.canonicalUrl||seo.canonicalUrl===`https://psipedia.sk/plemena/${row.slug}`||seo.canonicalUrl===`/plemena/${row.slug}`);
+      &&isBreedSelfCanonicalSeo(seo, row.slug, row.fci_group);
   }catch{return false;}
 });
 const critical=[...auditCanonicalIdentities(canonicalClaims),...issues.filter(issue=>['broken-canonical-relation','invalid-seo-json'].includes(issue.code))];

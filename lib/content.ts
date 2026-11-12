@@ -411,7 +411,7 @@ export const fciGroups: FciGroup[] = [
   { number: 3, slug: "teriery", label: "Teriéry", description: "Odvážne, živé psy pôvodne využívané najmä na prácu pod zemou a lov škodcov." },
   { number: 4, slug: "jazveciky", label: "Jazvečíky", description: "Jedna samostatná skupina s viacerými veľkostnými a srstnými varietami." },
   { number: 5, slug: "spice-a-primitivne-typy", label: "Špice a primitívne typy", description: "Severské, ázijské a pôvodné plemená s výraznými prirodzenými vlohami." },
-  { number: 6, slug: "durice-a-pribuzne", label: "Duriče, farbiare a príbuzné plemená", description: "Psy pracujúce predovšetkým nosom, často vytrvalé a hlasité pri sledovaní stopy." },
+  { number: 6, slug: "durice", label: "Duriče, farbiare a príbuzné plemená", description: "Psy pracujúce predovšetkým nosom, často vytrvalé a hlasité pri sledovaní stopy." },
   { number: 7, slug: "stavace", label: "Stavače", description: "Poľovné psy vyhľadávajúce zver a typickým postojom označujúce jej polohu." },
   { number: 8, slug: "retrievery-sliedice-vodne", label: "Retrievery, sliediče a vodné psy", description: "Aportéri, sliediče a vodné pracovné plemená s úzkou spoluprácou s človekom." },
   { number: 9, slug: "spolocenske-a-sprievodne", label: "Spoločenské a sprievodné psy", description: "Plemená šľachtené predovšetkým pre blízke spolužitie s človekom." },

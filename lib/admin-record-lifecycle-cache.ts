@@ -1,4 +1,5 @@
 import { invalidateVersionedPublicHtmlCacheUrl } from "./public-html-cache";
+import { breedCategorySlug } from "./breed-canonical";
 
 /** Invalidate the detail as well as its listing to hide stale published cards. */
 export function lifecyclePublicPaths(kind:string, slug:string, category:string):string[] {
@@ -9,7 +10,15 @@ export function lifecyclePublicPaths(kind:string, slug:string, category:string):
     case "directory": paths=[`/adresar/${cleanCategory}/${cleanSlug}`,`/adresar/${cleanCategory}`,"/adresar"];break;
     case "events": paths=[`/podujatia/${cleanSlug}`,"/podujatia"];break;
     case "help": paths=[`/pomoc-psom/${cleanCategory}/${cleanSlug}`,`/pomoc-psom/${cleanCategory}`,"/pomoc-psom"];break;
-    case "breeds": paths=[`/plemena/${cleanSlug}`,"/plemena"];break;
+    case "breeds": {
+      // Lifecycle previews intentionally use the generic "breeds" category,
+      // not an FCI group. Invalidate every possible canonical category path.
+      paths = [`/plemena/${cleanSlug}`, "/plemena",
+        ...Array.from({ length: 10 }, (_, index) => breedCategorySlug(index + 1))
+          .filter((value): value is string => Boolean(value))
+          .map((value) => `/plemena/${value}/${cleanSlug}`)];
+      break;
+    }
     case "articles": {
       const section=cleanCategory==="clanky"?"clanky":cleanCategory;
       paths=[`/${section}/${cleanSlug}`,`/${section}`,"/clanky"];break;

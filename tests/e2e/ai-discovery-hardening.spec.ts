@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const routes = [
-  { area: "breed", path: "/plemena/biely-svajciarsky-ovciak" },
+  { area: "breed", path: "/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak" },
   { area: "breeder breed", path: "/adresar/chovatelske-stanice/plemeno/biely-svajciarsky-ovciak" },
   { area: "breeder region", path: "/adresar/chovatelske-stanice/kraj/nitriansky" },
   { area: "breeder breed+region", path: "/adresar/chovatelske-stanice/plemeno/biely-svajciarsky-ovciak/kraj/nitriansky" },

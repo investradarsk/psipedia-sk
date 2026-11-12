@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import { env } from "cloudflare:workers";
 import { formatSlovakCount } from "@/lib/slovak-count";
 import type { PublicDirectoryProfile } from "@/lib/directory";
@@ -248,7 +249,7 @@ export function buildBreedingStationDiscoveryLinks(landing: BreedingStationLandi
   }
   if (landing.breed) {
     links.push({
-      href: `/plemena/${landing.breed.slug}`,
+      href: breedProfileHref(landing.breed.slug, landing.breed.fciGroup),
       label: landing.breed.name,
       description: "Profil plemena",
     });

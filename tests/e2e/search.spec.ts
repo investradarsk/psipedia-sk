@@ -34,6 +34,8 @@ test("local veterinarian intent works with preposition and without diacritics", 
 
 test("type and location filters are URL-addressable and survive reload, back and forward", async ({ page }) => {
   await page.goto(`/hladat?q=${encodeURIComponent("veterinár v Trnave")}`);
+  // An URL-prefilled query is not an active autocomplete session and must not cover filters.
+  await expect(page.locator('[data-public-live-search]')).toHaveCount(0);
 
   const typeFilter = page.getByLabel("Typ výsledku");
   const locationFilter = page.getByLabel("Lokalita");
@@ -87,7 +89,7 @@ test("zero-result local intent keeps filters and offers bounded broader scopes",
 
 test("exact directory profile remains searchable beyond 500 published rows", async ({ page }) => {
   await page.goto(`/hladat?q=${encodeURIComponent("SEARCH E2E Zzz Veterina 506")}`);
-  const target = page.locator('a[href="/adresar/veterinari/search-e2e-target-506"]');
+  const target = page.locator('a[href="/adresar/veterinari/search-e2e-target-506"]:not([role="option"])');
   await expect(target).toBeVisible();
   await expect(target).toHaveAttribute("href", "/adresar/veterinari/search-e2e-target-506");
   await expect(page.getByText("Overené", { exact: true })).toHaveCount(0);

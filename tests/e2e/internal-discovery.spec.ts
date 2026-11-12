@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect,test,type Page } from "@playwright/test";
-const slug="biely-svajciarsky-ovciak",breed=`/plemena/${slug}`;
+const slug="biely-svajciarsky-ovciak",breed=`/plemena/ovciarske-a-pastierske/${slug}`;
 async function overflow(page:Page){const d=await page.evaluate(()=>({v:document.documentElement.clientWidth,s:document.documentElement.scrollWidth}));expect(d.s).toBeLessThanOrEqual(d.v+1)}
 async function axe(page:Page,label:string){const r=await new AxeBuilder({page}).analyze();const v=r.violations.filter(x=>x.impact==="critical"||x.impact==="serious");expect(v,`${label}: ${JSON.stringify(v,null,2)}`).toEqual([])}
 test("breed canonical breeder landing",async({request,page})=>{const href=`/adresar/chovatelske-stanice/plemeno/${slug}`,r=await request.get(breed);expect(r.status()).toBe(200);const h=await r.text();expect(h).toContain(`href="${href}"`);expect(h).not.toContain("/adresar/treneri?breed=");await page.goto(breed);await expect(page.locator(`a[href="${href}"]`)).toBeVisible();await page.setViewportSize({width:390,height:844});await overflow(page);await axe(page,"breed")});

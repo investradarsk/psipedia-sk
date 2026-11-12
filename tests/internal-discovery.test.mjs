@@ -131,7 +131,7 @@ test("breed-region graph is canonical and bounded", () => {
   const base = {
     kind: "breed-region",
     path: "/adresar/chovatelske-stanice/plemeno/labradorsky-retriver/kraj/nitriansky",
-    breed: { id: 1, slug: "labradorsky-retriver", name: "Labradorský retriever", updatedAt: null },
+    breed: { id: 1, slug: "labradorsky-retriver", name: "Labradorský retriever", fciGroup: 8, updatedAt: null },
     region,
     profiles: [{}, {}],
     total: 2,
@@ -147,14 +147,14 @@ test("breed-region graph is canonical and bounded", () => {
     [
       "/adresar/chovatelske-stanice/plemeno/labradorsky-retriver",
       "/adresar/chovatelske-stanice/kraj/nitriansky",
-      "/plemena/labradorsky-retriver",
+      "/plemena/retrievery-sliedice-vodne/labradorsky-retriver",
     ],
   );
   assert.deepEqual(
     buildBreedingStationDiscoveryLinks({ ...base, profiles: [{}], total: 1, indexable: false }).map(
       (x) => x.href,
     ),
-    ["/plemena/labradorsky-retriver"],
+    ["/plemena/retrievery-sliedice-vodne/labradorsky-retriver"],
   );
 });
 test("breed landing threshold reuses existing batch", () => {

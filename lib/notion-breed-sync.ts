@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import {
   createManagedBreed,
@@ -630,12 +631,13 @@ export async function writeBackBreedEditorialToNotion(args:{
   const oldNotion=historical.notion??before;
   const oldAdmin=historical.admin??before;
   const changed=(args.changedFieldKeys??BREED_NOTION_EDITABLE_FIELDS)
+    .filter((key):key is BreedNotionField=>BREED_NOTION_EDITABLE_FIELDS.includes(key as BreedNotionField))
     .filter(key=>args.forceFieldKeys?.includes(key)||!sameBreedField(before[key],after[key]));
   if(!changed.length)return {linked:true,updated:false,reason:"no-mirrored-field-change" as const};
   const patch:Record<string,unknown>={};
-  const queued:Array<{field:string;properties:Record<string,unknown>}>=[];
-  const acknowledged:string[]=[];
-  const pending:string[]=[];
+  const queued:Array<{field:BreedNotionField;properties:Record<string,unknown>}>=[];
+  const acknowledged:BreedNotionField[]=[];
+  const pending:BreedNotionField[]=[];
   for(const field of changed){
     // When a canonical Notion cell already contains migrated legacy sections,
     // blindly writing the Admin copy would erase those sections. Keep only
@@ -682,7 +684,7 @@ export async function writeBackBreedEditorialToNotion(args:{
     };
     try {
       written=await submit(patch);
-      const confirmed=breedFieldSnapshot(notionPageToManagedBreedInput(written));
+      const confirmed: Record<string, unknown> = breedFieldSnapshot(notionPageToManagedBreedInput(written));
       for(const {field} of queued){
         if(sameBreedField(confirmed[field],after[field]))acknowledged.push(field);
         else pending.push(field);
@@ -695,7 +697,7 @@ export async function writeBackBreedEditorialToNotion(args:{
       for(const {field,properties} of queued){
         try {
           const next=await submit(properties);
-          const confirmed=breedFieldSnapshot(notionPageToManagedBreedInput(next));
+          const confirmed: Record<string, unknown> = breedFieldSnapshot(notionPageToManagedBreedInput(next));
           written=next;
           if(sameBreedField(confirmed[field],after[field]))acknowledged.push(field);
           else pending.push(field);
@@ -1266,7 +1268,7 @@ export async function runNotionBreedSyncSweep(args: {
 export async function writeBackPublishedBreedToNotion(args: {
   database: D1Database;
   bindings: NotionBreedSyncBindings;
-  breed: Pick<ManagedBreed, "id" | "slug" | "status" | "publishedAt">;
+  breed: Pick<ManagedBreed, "id" | "slug" | "status" | "publishedAt" | "fciGroup">;
 }) {
   if (notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED)) {
     if (notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED))
@@ -1289,7 +1291,7 @@ export async function writeBackPublishedBreedToNotion(args: {
   }
 
   const now = new Date().toISOString();
-  const publicUrl = `${SITE_URL}/plemena/${args.breed.slug}`;
+  const publicUrl = `${SITE_URL}${breedProfileHref(args.breed.slug, args.breed.fciGroup)}`;
   await notionRequest(
     args.bindings,
     `/pages/${encodeURIComponent(mapping.notion_page_id)}`,
