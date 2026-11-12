@@ -59,6 +59,13 @@ export type AdoptionAdminListResult = {
 
 type RuntimeBindings = { DB?: AdoptionD1Database };
 type CountRow = { count: number };
+
+/** One bounded scan replaces the separate lifecycle and stale counters. */
+export const ADOPTION_ADMIN_STATUS_SUMMARY_SQL = `SELECT status, COUNT(*) AS count,
+      COALESCE(SUM(CASE WHEN status IN ('ACTIVE','RESERVED')
+        AND (last_verified_at IS NULL OR last_verified_at < ?)
+        THEN 1 ELSE 0 END),0) AS staleCount
+      FROM adoption_dogs GROUP BY status`;
 type AdoptionAdminRow = {
   id: number;
   name: string;
@@ -184,11 +191,7 @@ export async function listAdoptionAdminDashboard(
       ORDER BY ${query.orderBy}
       LIMIT ? OFFSET ?
     `).bind(...query.bindings, query.pageSize, query.offset).all<AdoptionAdminRow>(),
-    db.prepare(`SELECT status, COUNT(*) AS count,
-      COALESCE(SUM(CASE WHEN status IN ('ACTIVE','RESERVED')
-        AND (last_verified_at IS NULL OR last_verified_at < ?)
-        THEN 1 ELSE 0 END),0) AS staleCount
-      FROM adoption_dogs GROUP BY status`)
+    db.prepare(ADOPTION_ADMIN_STATUS_SUMMARY_SQL)
       .bind(threshold).all<{ status: string; count: number; staleCount: number }>(),
   ]);
   const total = Number(countRow?.count ?? 0);
