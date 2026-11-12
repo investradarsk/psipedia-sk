@@ -1,0 +1,47 @@
+name: PAGESPEED-MOBILE-5 focused regression gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/page.tsx'
+      - 'app/home-v2.module.css'
+      - 'app/globals.css'
+      - 'app/plemena/**'
+      - 'components/public-visual-system/unified-section-hero.tsx'
+      - 'lib/public-static-asset-cache.ts'
+      - 'worker/index.ts'
+      - 'tests/pagespeed-mobile-5-steps.test.mjs'
+      - 'tests/public-static-asset-cache.test.mjs'
+      - '.github/workflows/pagespeed-mobile-5.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pagespeed-mobile-5-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-regressions:
+    if: startsWith(github.head_ref, 'perf/pagespeed-mobile-5-steps-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          cache: npm
+      - run: npm ci
+      - name: CLS fallback, CSS split, exact-image LCP preload and public immutable cache
+        run: node --experimental-strip-types --test tests/pagespeed-mobile-5-steps.test.mjs tests/public-static-asset-cache.test.mjs
+      - name: Existing public CSS, hero image and performance regressions
+        run: |
+          npm run test:public-css-scope
+          npm run test:homepage-media
+          npm run test:perf-fastpaths
+      - name: Public page templates and breed detail contracts
+        run: |
+          npm run test:unified-section-hero
+          npm run test:breed-crawl-hierarchy
