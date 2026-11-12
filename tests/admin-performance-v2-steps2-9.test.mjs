@@ -76,6 +76,8 @@ test("7/10 Attention summary deduplicates only in React server request", () => {
   const loader = parse("lib/admin-attention-request.ts");
   const shell = parse("components/admin-shell.tsx");
   const home = parse("app/admin/page.tsx");
+  const operations = parse("app/admin/operations/page.tsx");
+  assert.match(operations, /attentionSummaryPromise = loadRequestAdminAttentionSummary\(\)/);
   assert.match(loader, /import \{ cache \} from "react"/);
   assert.match(loader, /loadExactAdminAttentionSummary\(\)/);
   assert.match(shell, /loadRequestAdminAttentionSummary\(\)/);
