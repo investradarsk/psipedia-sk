@@ -128,7 +128,7 @@ export function AdminFacebookGraphicEditor({
     const controller=new AbortController();
     async function loadLogo(){
       const url=new URL(initialProfileLogoUrl,window.location.origin);
-      if(url.origin!==window.location.origin||!/^\\/media\\/facebook-images\\//.test(url.pathname))
+      if(url.origin!==window.location.origin||!url.pathname.startsWith("/media/facebook-images/"))
         throw Error("Logo musí byť uložené na Psipedia.sk. Nahraj ho ručne.");
       const response=await fetch(url.pathname+url.search,{credentials:"same-origin",cache:"no-store",signal:controller.signal});
       if(!response.ok)throw Error("Logo sa nepodarilo načítať. Nahraj ho ručne.");
