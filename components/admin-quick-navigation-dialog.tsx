@@ -14,6 +14,7 @@ import styles from "./admin-quick-navigation.module.css";
 type Destination = { label: string; category: string; href: string; keywords: string; subtitle?: string };
 type CachedRecords = { results: Destination[]; incomplete: boolean; expiresAt: number };
 const SEARCH_DEBOUNCE_MS = 140;
+const SEARCH_QUERY_MAX_LENGTH = 80;
 const SEARCH_CACHE_TTL_MS = 15_000;
 const SEARCH_CACHE_LIMIT = 24;
 const shouldSearchRecords = (value: string) => value.trim().length >= 2 || /^\d$/.test(value.trim());
@@ -63,9 +64,12 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
   const [incomplete, setIncomplete] = useState(false);
   const [searchError, setSearchError] = useState("");
   const cache = useRef(new Map<string, CachedRecords>());
+  // Match the server's 80-character bound: keystrokes beyond that limit
+  // must not refetch the identical D1 query or create duplicate cache keys.
+  const searchTerm = query.trim().slice(0, SEARCH_QUERY_MAX_LENGTH);
 
   useEffect(() => {
-    const term = query.trim();
+    const term = searchTerm;
     if (!open || !shouldSearchRecords(term)) return;
 
     const cached = cache.current.get(term);
@@ -112,9 +116,9 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
           setLoading(false);
         }
       }
-    }, SEARCH_DEBOUNCE_MS);
+    }, /^#?[1-9]\d*$/.test(term) ? 0 : SEARCH_DEBOUNCE_MS);
     return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [open, query]);
+  }, [open, searchTerm]);
 
 
   // Keyboard navigation and pointer hover only update active index. Neither
