@@ -1,6 +1,6 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
-import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear} from "./directory-sync-recovery-policy";
+import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
 import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
@@ -1706,11 +1706,18 @@ async function syncBreederEvent(input: {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
     if (!paths.length && !relationsUpdated && !facetFields.length && !trustFields.length && !pilotMetaFields.length) return "unchanged";
-    // Also clear a legacy whole-profile conflict when the new event was
-    // already applied (for example, an inbox retry or a duplicate delivery).
-    await patchNotionPage(bindings, page.id, {
+    // A verified edit of Popis does not prove an old services deletion or
+    // unrelated identity conflict has been resolved. Re-read metadata before
+    // acknowledging to avoid erasing a newer independent error.
+    const latestMetadata = await fetchNotionPage(bindings, page.id);
+    const canClearError = directoryEditorialEventMayClearError(
+      propertyText(latestMetadata, "Sync chyba"), paths,
+    );
+    await patchNotionPage(bindings, page.id, canClearError ? {
       "Sync stav": select("Synchronizované"),
       "Sync chyba": richText(""),
+      "Posledný sync": date(now),
+    } : {
       "Posledný sync": date(now),
     });
     return updated || relationsUpdated || facetsUpdated || trustUpdated || pilotMetaUpdated ? "pulled" : "unchanged";
@@ -1768,11 +1775,17 @@ async function syncBreederEvent(input: {
   }
   if (failedFields.length)
     throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELDS_PENDING: " + failedFields.join(","));
-  // This acknowledgement applies ONLY when no requested editorial field
-  // remains pending. Historical unrelated errors are handled independently.
-  await patchNotionPage(bindings, page.id, {
+  // Every requested field was confirmed. Preserve any unrelated historical
+  // conflict and only retire errors for the fields just acknowledged.
+  const latestMetadata = await fetchNotionPage(bindings, page.id);
+  const canClearError = directoryEditorialEventMayClearError(
+    propertyText(latestMetadata, "Sync chyba"), fields,
+  );
+  await patchNotionPage(bindings, page.id, canClearError ? {
     "Sync stav": select("Synchronizované"),
     "Sync chyba": richText(""),
+    "Posledný sync": date(now),
+  } : {
     "Posledný sync": date(now),
   });
   return "pushed";
