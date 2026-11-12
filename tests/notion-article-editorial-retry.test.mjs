@@ -220,6 +220,24 @@ async function loadWriter(h) {
   }).outputText;
   const exports = {};
   const dependencies = {
+    "./notion-article-seo-properties": {
+      ARTICLE_NOTION_SEO_PROPERTIES: { ogImageUrl: { name: "OG obrázok" } },
+      articleSeoFromNotion: () => ({
+        seoTitle: "Old SEO", metaDescription: "Toto je opis článku pre SEO výsledky.",
+        focusKeyword: "krmivo", canonicalUrl: "", noindex: false,
+        ogTitle: "Old SEO", ogDescription: "", ogImageUrl: null, ogImageKey: null,
+      }),
+      articleSeoExplicitClears: () => new Set(),
+    },
+    "./notion-article-seo-writeback": {
+      articleSeoChangedFields: () => [],
+      planArticleSeoWriteback: () => ({ changed: [], properties: {} }),
+      verifyArticleSeoPatch: () => {},
+    },
+    "./notion-article-seo-receipt": {
+      decodeArticleSeoReceipt: value => ({ hash: value, seo: null }),
+      encodeArticleSeoReceipt: hash => hash,
+    },
     "./admin-record-lifecycle": { notionPageMustSkipInboundSync: async () => false },
     "@/lib/notion-field-authority": {readNotionFieldAuthorities:async()=>({})},
     "@/lib/notion-transfer-audit": {recordNotionTransfer:async()=>{}},
