@@ -16,7 +16,7 @@ type Group = "directory" | "help" | "events" | "breeds";
 type ScopedCategory = { group: Group; category: string };
 type PickerRow = {
   id: number; title: string; slug: string; detail: string | null; image_url: string | null;
-  source_category?: string; type?: string; fci_group?: number;
+  source_category?: string; type?: string; fci_group?: number; source_data_json?: string;
 };
 type PickerSql = {
   select: string; table: string; where: string; bindings: (string | number)[];
@@ -80,7 +80,7 @@ function pickerSql(scope: ScopedCategory): PickerSql {
     // Keep historical schools discoverable under the canonical Trainers category.
     const schools = scope.category === "treneri";
     return {
-      select: "id, name AS title, slug, city AS detail, image_url, category AS source_category",
+      select: "id, name AS title, slug, city AS detail, image_url, category AS source_category, source_data_json",
       table: "directory_profiles",
       where: schools
         ? "status = 'published' AND category IN ('treneri', 'psie-skoly')"
@@ -140,6 +140,22 @@ function profileUrl(scope: ScopedCategory, row: PickerRow): string {
   if (scope.category === "stratene-psy" || scope.category === "najdene-psy")
     return "/pomoc-psom/" + scope.category + "/" + row.slug;
   return "/pomoc-psom/" + scope.category + "/" + row.slug;
+}
+/** Best-effort optional logo. The D1 directory has no dedicated logo column yet. */
+function directoryLogoUrl(value: string | undefined): string {
+  if(!value)return "";
+  try{
+    const record=JSON.parse(value) as Record<string,unknown>;
+    for(const key of ["Logo URL","Logo Psipedia","logo_url","logoUrl"]){
+      const entry=record[key];
+      const candidate=typeof entry==="string"?entry:
+        entry&&typeof entry==="object"&&"url" in entry?(entry as {url?:unknown}).url:"";
+      if(typeof candidate!=="string")continue;
+      const logo=candidate.trim();
+      if(/^https:\\/\\//i.test(logo)||/^\\/(?:media|images|migrated-media)\\//.test(logo))return logo;
+    }
+  }catch{/* Legacy source metadata can be empty or non-JSON. */}
+  return "";
 }
 function displayTitle(scope: ScopedCategory, row: PickerRow) {
   if (scope.category === "stratene-psy") return "Stratený pes: " + row.title;
@@ -215,9 +231,18 @@ export async function POST(request: Request) {
       try { image = await copyFacebookProfileImage(sourceImage); }
       catch { imageWarning = "Fotografia profilu sa nepodarila prevziať. Nahraj ju ručne."; }
     } else imageWarning = "Profil nemá fotografiu. Nahraj ju ručne.";
+    let logo = {imageKey:"",imageUrl:""};
+    let logoWarning = "";
+    if(scope.group==="directory"){
+      const logoSource=directoryLogoUrl(profile.source_data_json);
+      if(logoSource){
+        try{logo=await copyFacebookProfileImage(logoSource);}
+        catch{logoWarning="Logo sa nepodarilo prevziať. Môžeš ho nahrať ručne.";}
+      }else logoWarning="Profil nemá samostatné logo. Môžeš ho nahrať ručne.";
+    }
     return Response.json({
       profile: { id: profile.id, title: displayTitle(scope, profile), url: "https://psipedia.sk" + profileUrl(scope, profile) },
-      image, imageWarning,
+      image, imageWarning, logo, logoWarning,
     }, { headers: NO_STORE });
   } catch {
     return Response.json({ error: "Profil sa nepodarilo načítať." }, {status:503, headers:NO_STORE});
