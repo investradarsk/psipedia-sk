@@ -51,6 +51,14 @@ test("4/10 Event map and geo tools are deferred, but stay mounted after first vi
   assert.match(event, /locationSectionVisited/);
   assert.match(event, /if \(next === "event-location"\) setLocationSectionVisited\(true\)/);
   assert.match(event, /event && locationSectionVisited/);
+  // Opening the location section must not start a second geo GET/SDK chunk.
+  // Advanced address-based verification mounts only on an explicit click and
+  // remains mounted after switching sections, preserving an unfinished preview.
+  assert.match(event, /geoFallbackOpened, setGeoFallbackOpened/);
+  assert.match(event, /!geoFallbackOpened && <button type="button" onClick=\{\(\) => setGeoFallbackOpened\(true\)\}/);
+  assert.match(event, /geoFallbackOpened && <AdminGeoLocation/);
+  assert.match(event, /showGoogleWorkflow=\{false\}/);
+  assert.doesNotMatch(event, /locationSectionVisited && <AdminGeoLocation/);
   assert.match(event, /imageEditorOpen && imageUrl && <ImageDisplayEditor/);
 });
 
