@@ -1,0 +1,101 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+import ts from "typescript";
+import { moveAdminGalleryItem } from "../lib/admin-gallery-order.ts";
+
+const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+
+function parse(path) {
+  const source = read(path);
+  const tree = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true,
+    path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  assert.deepEqual(tree.parseDiagnostics.map(diagnostic =>
+    ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")), [], path);
+  return source;
+}
+
+test("2/10 Article editor imports preview/crop only as lazy chunks and creates graphic on demand", () => {
+  const article = parse("components/admin-article-editor.tsx");
+  assert.match(article, /dynamic\(\(\) => import\("@\/components\/admin-article-fullscreen-preview"\)/);
+  assert.match(article, /dynamic\(\(\) => import\("@\/components\/image-display-editor"\)/);
+  assert.match(article, /fullscreenPreviewOpen && <AdminArticleFullscreenPreview/);
+  assert.match(article, /await import\("@\/lib\/facebook-article-graphic"\)/);
+  assert.doesNotMatch(article, /import \{createFacebookArticleGraphic\}/);
+});
+
+test("3/10 Media tools are code-split and visited media section retains gallery state", () => {
+  const dir = parse("components/admin-directory-editor.tsx");
+  const breed = parse("components/admin-breed-editor.tsx");
+  assert.match(dir, /mediaSectionVisited/);
+  assert.match(dir, /setMediaSectionVisited\(true\)/);
+  assert.match(dir, /dynamic\(\(\) => import\("@\/components\/admin-photo-gallery"\)/);
+  assert.match(dir, /&& mediaSectionVisited/);
+  assert.match(breed, /activeBreedSection === "breed-media" && <AdminSortableGallery/);
+  assert.match(breed, /activeBreedSection === "breed-media" && <AdminGalleryDropzone/);
+  assert.match(breed, /dynamic\(\(\) => import\("@\/components\/admin-sortable-gallery"\)/);
+  assert.doesNotMatch(breed, /import \{arrayMove\} from "@dnd-kit\/sortable"/);
+  const images = ["a", "b", "c", "d"];
+  assert.deepEqual(moveAdminGalleryItem(images, 0, 3), ["b", "c", "d", "a"]);
+  assert.deepEqual(moveAdminGalleryItem(images, 3, 0), ["d", "a", "b", "c"]);
+  assert.deepEqual(moveAdminGalleryItem(images, -1, 2), images);
+  assert.deepEqual(moveAdminGalleryItem(images, 10, 0), images);
+  assert.deepEqual(moveAdminGalleryItem(images, 1, 1), images);
+  assert.deepEqual(images, ["a", "b", "c", "d"], "gallery source must not be mutated");
+});
+
+test("4/10 Event map and geo tools are deferred, but stay mounted after first visit", () => {
+  const event = parse("components/admin-event-editor.tsx");
+  assert.match(event, /dynamic\(\(\) => import\("@\/components\/admin-profile-google-maps"\)/);
+  assert.match(event, /dynamic\(\(\) => import\("@\/components\/admin-geo-location"\)/);
+  assert.match(event, /locationSectionVisited/);
+  assert.match(event, /if \(activeEventSection === "event-location"\) setLocationSectionVisited\(true\)/);
+  assert.match(event, /event && locationSectionVisited/);
+  assert.match(event, /imageEditorOpen && imageUrl && <ImageDisplayEditor/);
+});
+
+test("5/10 Search benchmark measures old substring and existing indexed Admin-ID path locally", () => {
+  const bench = read("scripts/benchmark-admin-search-v2.mjs");
+  assert.match(bench, /new DatabaseSync\(":memory:"\)/);
+  assert.match(bench, /EXPLAIN QUERY PLAN/);
+  assert.match(bench, /in-memory-synthetic-sqlite-not-cloudflare-d1/);
+  assert.doesNotMatch(bench, /cloudflare:workers|wrangler|fetch\(/);
+});
+
+test("6/10 Admin-ID quick search skips text delay and identical overlong queries", () => {
+  const quick = parse("components/admin-quick-navigation-dialog.tsx");
+  assert.match(quick, /SEARCH_QUERY_MAX_LENGTH = 80/);
+  assert.match(quick, /query\.trim\(\)\.slice\(0, SEARCH_QUERY_MAX_LENGTH\)/);
+  assert.match(quick, /\^#\?\[1-9\]/);
+  assert.match(quick, /\[open, searchTerm\]/);
+  assert.match(quick, /controller\.abort\(\)/);
+  assert.match(quick, /cache\.current\.size > SEARCH_CACHE_LIMIT/);
+});
+
+test("7/10 Attention summary deduplicates only in React server request", () => {
+  const loader = parse("lib/admin-attention-request.ts");
+  const shell = parse("components/admin-shell.tsx");
+  const home = parse("app/admin/page.tsx");
+  assert.match(loader, /import \{ cache \} from "react"/);
+  assert.match(loader, /loadExactAdminAttentionSummary\(\)/);
+  assert.match(shell, /loadRequestAdminAttentionSummary\(\)/);
+  assert.match(home, /loadRequestAdminAttentionSummary\(\)/);
+  assert.doesNotMatch(loader, /setTimeout|new Map|globalThis|localStorage/);
+});
+
+test("8/10 An address-only save never requests a redundant RSC refresh", () => {
+  const org = parse("components/admin-organization-editor.tsx");
+  assert.match(org, /if \(organizationSaved\) router\.refresh\(\)/);
+  assert.match(org, /setSavedAddressSnapshot\(JSON\.stringify\(savedAddress\)\)/);
+  assert.match(org, /JSON\.stringify\(current\) === submittedSnapshot \? persistedDraft : current/);
+});
+
+test("9/10 Shared table keeps bounded-server sorting and deferred column resize", () => {
+  const table = parse("components/admin-record-table.tsx");
+  assert.match(table, /manualSorting: serverSorted \|\| Boolean\(serverSorting\)/);
+  assert.match(table, /columnResizeMode: "onEnd"/);
+  assert.match(table, /getRowId: recordRowId/);
+  assert.match(table, /rows\.filter\(record => next\[String\(record\.id\)\]\)/);
+  const orgQuery = parse("lib/help-organization-admin-query.ts");
+  assert.match(orgQuery, /ORGANIZATION_ADMIN_PAGE_SIZE = 50/);
+});
