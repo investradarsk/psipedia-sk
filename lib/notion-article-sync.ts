@@ -2089,8 +2089,11 @@ async function syncOneNotionPage(
       ...basePayload,
       blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
     };
+    const previouslyClearedOg = previousSeo?.ogImageUrl === "" &&
+      !urlProperty(page, SEO.ogImageUrl.name) &&
+      !existing.seo?.ogImage && !existing.ogImageKey;
     const prepared = await prepareNotionMainImage(bindings, page, preservedPayload, existing,
-      articleSeoExplicitClears(page, previousSeo).has("ogImageUrl"));
+      articleSeoExplicitClears(page, previousSeo).has("ogImageUrl") || previouslyClearedOg);
     let updated: Awaited<ReturnType<typeof updateManagedArticle>> | null = null;
     try {
       updated = await updateManagedArticle(existing.id, prepared.payload, SYNC_ACTOR, existing, { updatedAt: existing.updatedAt, status: "draft" });
