@@ -61,6 +61,28 @@ function LexicalPlainTextBridge({ value, onChange, disabled }: { value: string; 
     onChangeRef.current(next);
   }, []);
 
+  useEffect(() => {
+    // Lexical's onChange notification can be queued behind a Save click.
+    // Always deliver the latest committed editor content when focus leaves
+    // the field, before the adjacent Save button handles its click.
+    const commitOnBlur = () => {
+      const next = editor.getEditorState().read(readPlainText);
+      if (next === currentValue.current) return;
+      lastEmitted.current = next;
+      onChangeRef.current(next);
+    };
+    let activeRoot: HTMLElement | null = null;
+    const removeListener = editor.registerRootListener((root, previousRoot) => {
+      previousRoot?.removeEventListener("blur", commitOnBlur, true);
+      root?.addEventListener("blur", commitOnBlur, true);
+      activeRoot = root;
+    });
+    return () => {
+      removeListener();
+      activeRoot?.removeEventListener("blur", commitOnBlur, true);
+    };
+  }, [editor]);
+
   return <OnChangePlugin onChange={handleChange} ignoreSelectionChange />;
 }
 
