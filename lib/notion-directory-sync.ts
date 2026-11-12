@@ -1988,6 +1988,8 @@ async function syncMappedPage(input: {
   // A historical missing-baseline marker is obsolete if and only if both
   // current editable snapshots already agree. Never resolve differing values.
   if(isDirectoryFieldEventCategory(profile.category)&&!input.manualDirection&&
+     propertyText(page,"Sync stav")==="Chyba"&&
+     propertyText(page,"Sync chyba").includes("BASELINE_UNAVAILABLE")&&
      await recoverEqualLegacyDirectoryBaseline({
        database:input.database,bindings:input.bindings,dataSourceId:input.dataSourceId,
        page,mapping:input.mapping,profile,
