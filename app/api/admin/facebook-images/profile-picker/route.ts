@@ -152,7 +152,7 @@ function directoryLogoUrl(value: string | undefined): string {
         entry&&typeof entry==="object"&&"url" in entry?(entry as {url?:unknown}).url:"";
       if(typeof candidate!=="string")continue;
       const logo=candidate.trim();
-      if(/^https:\\/\\//i.test(logo)||/^\\/(?:media|images|migrated-media)\\//.test(logo))return logo;
+      if(logo.startsWith("https://")||logo.startsWith("/media/")||logo.startsWith("/images/")||logo.startsWith("/migrated-media/"))return logo;
     }
   }catch{/* Legacy source metadata can be empty or non-JSON. */}
   return "";
