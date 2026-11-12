@@ -25,6 +25,24 @@
 - `.github/workflows/admin-performance-v2.yml` vykonáva Node regresie a lokálnu query-plan diagnostiku s `permissions: contents: read`.
 - Pôvodné `e2e:admin-stability-step9` stále poskytuje read-only prehliadačové merania navigácie, no emulácia mobilu nie je reálny iPhone Safari.
 
+## Integrácia kroku 10 a oprava hlavného CI
+
+Prvý priechod hlavného `Playwright E2E and production smoke` workflowu pre PR #1321 skončil na
+`tests/admin-attention-queue.test.mjs`. Test stále hľadal `loadExactAdminAttentionSummary`
+v `AdminShell`, ktorý od kroku 7 správne používa `loadRequestAdminAttentionSummary`.
+Jeho očakávania som prepísal tak, aby overovali zdroj `react.cache` a volanie
+pôvodnej exact D1 agregácie **vo vnútri request-scoped loadera**, nie starý import.
+
+Stránka `/admin/operations` tiež používa `loadRequestAdminAttentionSummary()`,
+preto sa opakované RSC čítania v rámci jedného requestu správajú jednotne.
+Doplnil som ju do kontrolovaného TypeScript scope a do regresných testov. Zachované
+zostávajú dostupnosť/partial stavy počítadla, neukladá sa dlhodobá cache a nemení
+sa kanonický zdroj dát ani logika upozornení.
+
+**CI pre posledný commit sa musí vyhodnotiť podľa skutočných GitHub Actions runov.**
+Úspech predchádzajúceho scoping workflowu nie je dôkazom úspechu posledného
+commitu a zlúčenie sa nesmie vyhlasovať za dokončené pred finálnou kontrolou.
+
 ## TypeScript je samostatný projektový problém
 
 Pri prvom plnom `npx tsc --noEmit` kontrola na tejto vetve odhalila **994 projektových diagnostík**, väčšinou mimo zmenených súborov – napr. Cloudflare Env/DB typing, historické formuláre a verejné stránky. Nepravdivo by bolo tvrdiť, že projekt prešiel čistým typecheckom.
