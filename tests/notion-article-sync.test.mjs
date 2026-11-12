@@ -360,3 +360,35 @@ test("Notion-related manifest links require existing published canonical article
   assert.match(syncSource, /await getPublishedArticle\(slug\)/);
   assert.match(syncSource, /articleHref\(published\)/);
 });
+
+
+// ARTICLE-NOTION-SEO-1: the Notion source already owns all eight SEO columns.
+// A spelling drift must not create a second "OG description" column.
+test("article SEO property contract maps all eight Admin fields to the existing Notion schema", async () => {
+  const { ARTICLE_NOTION_SEO_PROPERTIES: fields } = await import("../lib/notion-article-seo-properties.ts");
+  assert.deepEqual(Object.keys(fields).sort(), [
+    "seoTitle", "metaDescription", "focusKeyword", "canonicalUrl",
+    "noindex", "ogTitle", "ogDescription", "ogImageUrl",
+  ].sort());
+  assert.deepEqual(Object.values(fields).map((field) => [field.name, field.type]), [
+    ["SEO title", "rich_text"],
+    ["Meta description", "rich_text"],
+    ["Hlavné kľúčové slovo", "rich_text"],
+    ["Canonical URL", "url"],
+    ["Noindex", "checkbox"],
+    ["OG title", "rich_text"],
+    ["OG popis", "rich_text"],
+    ["OG obrázok", "url"],
+  ]);
+  assert.equal(new Set(Object.values(fields).map(({ name }) => name)).size, 8);
+});
+
+test("article editorial draft writer uses existing OG popis and the shared SEO contract", async () => {
+  const source = await readFile(new URL("../lib/notion-article-content-plan.ts", import.meta.url), "utf8");
+  assert.match(source, /SEO\\.ogDescription\\.name in pageProperties/);
+  assert.match(source, /SEO\\.ogTitle\\.name in pageProperties/);
+  assert.doesNotMatch(source, /"OG description" in pageProperties/);
+  assert.match(syncSource, /richTextProperty\\(page, SEO\\.seoTitle\\.name\\)/);
+  assert.match(syncSource, /richTextProperty\\(page, SEO\\.metaDescription\\.name\\)/);
+  assert.match(syncSource, /richTextProperty\\(page, SEO\\.focusKeyword\\.name\\)/);
+});
