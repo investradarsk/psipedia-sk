@@ -1585,7 +1585,7 @@ async function syncBreederEvent(input: {
       .filter(path => path !== "services" || ["chovatelske-stanice", "salony-a-sluzby", "treneri"].includes(input.profile.category));
     const relationFields = ["chovatelske-stanice", "treneri"].includes(input.profile.category)
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
-    const facetFields = ["chovatelske-stanice", "treneri", "veterinari"].includes(input.profile.category)
+    const facetFields = isDirectoryFieldEventCategory(input.profile.category)
       ? breederChangedNotionFacets(page, input.changedPropertyIds)
           .filter(id => getDirectoryFilterDefinition(id)?.category === input.profile.category)
       : [];
