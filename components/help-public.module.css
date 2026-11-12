@@ -1154,3 +1154,15 @@
     max-width: 100%;
   }
 }
+
+/* PUBLIC AUDIT 2026-11-12: readable help-case titles without mid-word breaks. */
+@media (min-width: 961px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.card h3 {
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: manual;
+}
