@@ -45,6 +45,12 @@ export type AdminRecordTableSelection<T> = {
   disabled?: boolean;
 };
 
+// Keep TanStack model factories stable across selection and inline-edit state
+// updates. All Admin list pages have bounded server pagination.
+const coreRowModel = getCoreRowModel();
+const clientSortedRowModel = getSortedRowModel();
+const recordRowId = <T extends { id: number }>(record: T) => String(record.id);
+
 /** Read-first grid; optional selection delegates writes to the domain's existing bulk API. */
 export function AdminRecordTable<T extends { id: number }>({
   rows,
@@ -74,9 +80,9 @@ export function AdminRecordTable<T extends { id: number }>({
   rowDataAttribute?: `data-${string}`;
 }) {
   const [clientSorting, setClientSorting] = useState<SortingState>([]);
-  const sorting: SortingState = serverSorting
+  const sorting = useMemo<SortingState>(() => serverSorting
     ? [{ id: serverSorting.id, desc: serverSorting.desc }]
-    : clientSorting;
+    : clientSorting, [clientSorting, serverSorting?.id, serverSorting?.desc]);
   const [visibility, setVisibility] = useState<VisibilityState>(() =>
     Object.fromEntries(columns.filter((column) => column.initiallyHidden).map((column) => [column.id, false])),
   );
@@ -155,7 +161,8 @@ export function AdminRecordTable<T extends { id: number }>({
         setClientSorting(next);
       }
     },
-    manualSorting: Boolean(serverSorting),
+    // Never sort a single visible page again when SQL owns whole-result order.
+    manualSorting: serverSorted || Boolean(serverSorting),
     enableSortingRemoval: false,
     sortDescFirst: false,
     onColumnVisibilityChange: setVisibility,
@@ -165,10 +172,12 @@ export function AdminRecordTable<T extends { id: number }>({
       const next = typeof updater === "function" ? updater(rowSelection) : updater;
       selection.onChange(rows.filter(record => next[String(record.id)]).map(record => record.id));
     },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getRowId: (record) => String(record.id),
-    columnResizeMode: "onChange",
+    getCoreRowModel: coreRowModel,
+    getSortedRowModel: serverSorted || serverSorting ? undefined : clientSortedRowModel,
+    getRowId: recordRowId,
+    // "onChange" re-renders all cells for every pointermove, especially slow
+    // on iOS. "onEnd" keeps the resize affordance and commits once on release.
+    columnResizeMode: "onEnd",
   });
 
   return (
