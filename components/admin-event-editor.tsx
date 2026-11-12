@@ -13,7 +13,7 @@ import { AdminActionButton } from "@/components/admin-interaction-system";
 import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
 import { AdminEventMarkdownEditor } from "@/components/admin-event-markdown-editor";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
@@ -86,6 +86,8 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [activeEventSection, setActiveEventSection] = useState(EVENT_SECTIONS[0].id);
+  const [locationSectionVisited, setLocationSectionVisited] = useState(false);
+  useEffect(() => { if (activeEventSection === "event-location") setLocationSectionVisited(true); }, [activeEventSection]);
   const activeEventSectionIndex = EVENT_SECTIONS.findIndex((section) => section.id === activeEventSection);
   const navigateWithPager = useProfileEditorSectionPager(activeEventSection, setActiveEventSection);
 
@@ -270,7 +272,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
               <div className="admin-field"><label htmlFor="event-venue">Areál alebo budova</label><input id="event-venue" value={venue} onChange={(input) => setVenue(input.target.value)} placeholder="Agrokomplex" /></div>
               <div className="admin-field"><label htmlFor="event-address">Adresa</label><input id="event-address" value={address} onChange={(input) => setAddress(input.target.value)} placeholder="Výstavná 4" /></div>
             </div>
-            {event && activeEventSection === "event-location" ? (
+            {event && locationSectionVisited ? (
               <div id="event-google-maps">
                 <AdminProfileGoogleMaps targetType="MANAGED_EVENT" targetId={event.id} />
                 <AdminGeoLocation targetType="MANAGED_EVENT" targetId={event.id} showGoogleWorkflow={false} />
