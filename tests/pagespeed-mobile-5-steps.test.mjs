@@ -29,7 +29,7 @@ test("homepage still overlaps hero and below-fold data reads", () => {
 
 test("large breed-specific CSS is route scoped, preserving public global guards", () => {
   const global = read("app/globals.css");
-  const breed = read("app/plemena/breed-reference.css");
+  const breed = read("public/styles/breed-reference-3f5dab25d000.css");
   const nested = read("app/plemena/layout.tsx");
   assert.match(nested, /import "\.\/breed-reference\.css"/);
   assert.match(breed, /\/\* Breed encyclopedia UI \*\//);
