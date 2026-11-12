@@ -174,7 +174,7 @@ test("homepage breed cards read only presentation fields, not the editor's full 
   const end = store.indexOf("export async function getManagedBreed(", start);
   assert.ok(start >= 0 && end > start, "a dedicated homepage breed projection exists");
   const fn = store.slice(start, end);
-  assert.match(fn, /SELECT slug,name,image_url,intro FROM candidates/);
+  assert.match(fn, /SELECT slug,name,image_url,intro,fci_group FROM candidates/);
   assert.match(fn, /FROM managed_breeds/);
   assert.match(fn, /WHERE id IN \(\$\{canonicalBreedIdsSql\}\)/);
   // Homepage rotates eligible breeds once per local calendar day, keeping projection small.
