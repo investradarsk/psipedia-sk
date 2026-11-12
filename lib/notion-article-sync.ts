@@ -1315,6 +1315,7 @@ export async function writeBackArticleSeoToNotion(args: {
     "SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
   ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
+  const confirmedSeo = decodeArticleSeoReceipt(mapping.content_hash).seo;
 
   const assertCurrentRevision = async () => {
     const current = await args.database.prepare(
@@ -1358,7 +1359,7 @@ export async function writeBackArticleSeoToNotion(args: {
   // SEO change: the complete old remote content must still match the stored
   // import baseline before the targeted PATCH can advance that baseline.
   const originalBlocks = await getPageBlocks(args.bindings, page.id);
-  const originalPayload = notionPageToManagedArticleInput(page, originalBlocks, before);
+  const originalPayload = notionPageToManagedArticleInput(page, originalBlocks, before, confirmedSeo);
   const originalImage = notionArticleMainImageSource(page);
   const originalHash = await sha256(JSON.stringify({
     payload: originalPayload,
@@ -1367,7 +1368,7 @@ export async function writeBackArticleSeoToNotion(args: {
     notionImageAlt: richTextProperty(page, "Alt text obrázka"),
     notionImageCreditUrl: urlProperty(page, "Zdroj obrázka"),
   }));
-  if (originalHash !== mapping.content_hash) {
+  if (originalHash !== decodeArticleSeoReceipt(mapping.content_hash).hash) {
     throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
   }
   // Preflight the Notion preimage once more immediately before writing.
@@ -1400,7 +1401,7 @@ export async function writeBackArticleSeoToNotion(args: {
   // Use the same Notion-content fingerprint as the inbound import; otherwise
   // the next webhook could misclassify an acknowledged Admin change as a conflict.
   const blocks = await getPageBlocks(args.bindings, verified.id);
-  const payload = notionPageToManagedArticleInput(verified, blocks, article);
+  const payload = notionPageToManagedArticleInput(verified, blocks, article, confirmedSeo);
   const source = notionArticleMainImageSource(verified);
   const hash = await sha256(JSON.stringify({
     payload,
@@ -1414,7 +1415,7 @@ export async function writeBackArticleSeoToNotion(args: {
   const saved = await args.database.prepare(
     "UPDATE article_notion_sync SET content_hash = ?, notion_last_edited_time = ?, " +
     "last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ? AND content_hash = ?",
-  ).bind(hash, verified.last_edited_time ?? null, now, now,
+  ).bind(encodeArticleSeoReceipt(hash, verified), verified.last_edited_time ?? null, now, now,
     verified.id, article.id, mapping.content_hash).run();
   if (saved.meta?.changes !== 1) throw new Error("NOTION_ARTICLE_SEO_MAPPING_CONFLICT");
   await updateNotionSyncState(args.bindings, verified.id, {
@@ -1525,7 +1526,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
     plan = JSON.parse(journal.operations_json) as NotionEditorialPlan;
   } else {
     const remoteBlocks = await getPageBlocks(args.bindings, page.id);
-    const current = notionPageToManagedArticleInput(page, remoteBlocks, article);
+    const current = notionPageToManagedArticleInput(page, remoteBlocks, article,
+      decodeArticleSeoReceipt(mapping.content_hash).seo);
     const currentContentHash = await sha256(JSON.stringify({
       payload: current,
       notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
@@ -1535,7 +1537,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
       notionImageAlt: richTextProperty(page, "Alt text obrázka"),
       notionImageCreditUrl: urlProperty(page, "Zdroj obrázka"),
     }));
-    if (mapping.content_hash !== currentContentHash) {
+    if (decodeArticleSeoReceipt(mapping.content_hash).hash !== currentContentHash) {
       throw new Error("NOTION_EDITORIAL_REMOTE_CONFLICT");
     }
     const selected = selectNotionArticleBodyBlocks(remoteBlocks);
@@ -1712,7 +1714,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
   if (verified.blocks.length || Object.keys(verified.properties).length) {
     throw new Error("NOTION_EDITORIAL_VERIFICATION_FAILED");
   }
-  const newPayload = notionPageToManagedArticleInput(verifiedPage, verifiedBlocks, article);
+  const newPayload = notionPageToManagedArticleInput(verifiedPage, verifiedBlocks, article,
+    decodeArticleSeoReceipt(mapping.content_hash).seo);
   const finalHash = await sha256(JSON.stringify({
     payload: newPayload,
     notionImageSourceUrl: urlProperty(verifiedPage, "Hlavný obrázok URL"),
@@ -1726,8 +1729,10 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const dbUpdate = await args.database.prepare(
     "UPDATE article_notion_sync SET content_hash = ?, notion_last_edited_time = ?, last_synced_at = ?, " +
     "updated_at = ? WHERE notion_page_id = ? AND article_id = ? AND content_hash IN (?, ?)",
-  ).bind(finalHash, verifiedPage.last_edited_time ?? null, new Date().toISOString(),
-    new Date().toISOString(), page.id, article.id, journal!.base_content_hash, finalHash).run();
+  ).bind(encodeArticleSeoReceipt(finalHash, verifiedPage),
+    verifiedPage.last_edited_time ?? null, new Date().toISOString(),
+    new Date().toISOString(), page.id, article.id,
+    journal!.base_content_hash, encodeArticleSeoReceipt(finalHash, verifiedPage)).run();
   if (dbUpdate.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_MAPPING_CONFLICT");
   await renewLease();
   await updateNotionSyncState(args.bindings, page.id, {
