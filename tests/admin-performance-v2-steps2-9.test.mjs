@@ -93,11 +93,22 @@ test("7/10 Attention summary deduplicates only in React server request", () => {
   assert.doesNotMatch(loader, /setTimeout|new Map|globalThis|localStorage/);
 });
 
-test("8/10 An address-only save never requests a redundant RSC refresh", () => {
+test("8/10 Organization saves refresh the server shell only when its name or slug changes", () => {
   const org = parse("components/admin-organization-editor.tsx");
-  assert.match(org, /if \(organizationSaved\) router\.refresh\(\)/);
+  const page = parse("app/admin/organizacie/[id]/page.tsx");
+  assert.match(page, /title=\{organization\.name\}/);
+  assert.match(page, /organization\.slug/);
+  assert.match(org, /let serverIdentityChanged = false/);
+  assert.match(org, /serverIdentityChanged = Boolean\(organization &&\s*\(body\.item\.name !== organization\.name \|\| body\.item\.slug !== organization\.slug\)\)/);
+  assert.match(org, /if \(serverIdentityChanged\) router\.refresh\(\)/);
+  assert.doesNotMatch(org, /if \(organizationSaved\) router\.refresh\(\)/);
+  assert.equal((org.match(/router\.refresh\(\)/g) ?? []).length, 1, "no unconditional refresh after a text, contact, image or address save");
   assert.match(org, /setSavedAddressSnapshot\(JSON\.stringify\(savedAddress\)\)/);
+  assert.match(org, /JSON\.stringify\(current\) === submittedAddressSnapshot \? savedAddress : current/);
   assert.match(org, /JSON\.stringify\(current\) === submittedSnapshot \? persistedDraft : current/);
+  assert.match(org, /setExpectedUpdatedAt\(body\.item\.updatedAt\)/);
+  assert.match(org, /createdOrganizationId\.current = organizationId/);
+  assert.match(org, /router\.replace\(`\/admin\/organizacie\/\$\{organizationId\}`\)/);
 });
 
 test("9/10 Shared table keeps bounded-server sorting and deferred column resize", () => {
