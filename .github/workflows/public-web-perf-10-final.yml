@@ -1,0 +1,72 @@
+name: PUBLIC-WEB-PERF-10 focused regression gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/page.tsx'
+      - 'app/layout.tsx'
+      - 'app/globals.css'
+      - 'app/plemena/**'
+      - 'components/directory-*'
+      - 'components/event-*'
+      - 'components/breed-*'
+      - 'components/map/**'
+      - 'components/public-visual-system/**'
+      - 'components/public-profile/**'
+      - 'components/programmatic-ad-loader.tsx'
+      - 'components/cookie-consent.tsx'
+      - 'components/back-to-top.tsx'
+      - 'components/lazy-dog-age-calculator.tsx'
+      - 'lib/breed-browser-search.ts'
+      - 'lib/homepage-directory-query.ts'
+      - 'lib/defer-public-third-party.ts'
+      - 'lib/public-anonymous-html-cache.ts'
+      - 'lib/section-visual-store.ts'
+      - 'worker/index.ts'
+      - 'tests/public-*'
+      - 'tests/performance-fastpaths.test.mjs'
+      - 'tests/homepage-*'
+      - 'tests/breed-crawl-hierarchy.test.mjs'
+      - 'package.json'
+      - '.github/workflows/public-web-perf-10-final.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-web-perf-final-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-regressions:
+    # Keep the extra regression matrix scoped to the active 10-step
+    # performance PR. The standard CI remains the build/lint authority.
+    if: startsWith(github.head_ref, 'perf/public-web-10-steps-')
+    name: Public route performance, privacy, CSS and image regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          cache: npm
+      - run: npm ci
+      - name: Performance and public HTML cache safety
+        run: npm run test:perf-fastpaths
+      - name: Home media, image size, source parity and gallery
+        run: npm run test:homepage-media
+      - name: Public CSS scope and source design tokens
+        run: |
+          npm run test:public-css-scope
+          node --test tests/public-design-tokens.test.mjs
+      - name: Events, maps and FCI crawl behavior
+        run: |
+          npm run test:events-public-ux
+          npm run test:map-public-ui
+          npm run test:breed-crawl-hierarchy
+      - name: Privacy, advertising and AI referral contracts
+        run: |
+          npm run test:monetization
+          npm run test:ai-referral
