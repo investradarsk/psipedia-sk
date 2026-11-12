@@ -145,7 +145,7 @@ test("all six original 620px mobile overrides remain intact", () => {
   for (const [key, value] of mobile) assert.deepEqual(found.get(key), [value], key);
 });
 
-test("root and admin import order remains the original contract", () => {
+test("public and admin route import order keeps shared tokens without admin CSS on public pages", () => {
   const layout = read("app/layout.tsx");
   const imports = [...layout.matchAll(/import ["'](\.\/[^"']+\.css)["'];/g)].map(
     (match) => match[1],
@@ -155,9 +155,10 @@ test("root and admin import order remains the original contract", () => {
     "./design-system.css",
     "./breed-hero-safe-zone.css",
     "./navigation-loading.css",
-    "./navigation-hotfix.css",
   ]);
   const admin = read("app/admin/layout.tsx");
+  assert.ok(admin.includes('import "./admin-root-extracted.css";'));
+  assert.ok(admin.includes('import "../navigation-hotfix.css";'));
   assert.ok(
     admin.indexOf('import "./admin-legacy-scoped.css";') <
       admin.indexOf('import "./admin-workspace.css";'),

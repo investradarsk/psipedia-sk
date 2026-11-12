@@ -319,6 +319,11 @@ test("magic-link URLs are excluded from analytics, ads and referrer propagation"
   assert.match(consent, /!isAdminRoute && !isPartnerRoute/);
   assert.match(consent, /if \(isPartnerRoute\) return null/);
   assert.match(ads, /pathname\.startsWith\("\/partner"\)/);
-  assert.match(ads, /if \(isPartnerRoute\) return/);
+  // The consent-gated loader now centralizes private-route checks in eligible()
+  // and re-checks them at script injection time (including after idle deferral).
+  assert.match(ads, /if \(isPartnerRoute \|\| isReviewAuthRoute \|\| isInternalTraffic\(\)\) return false/);
+  assert.match(ads, /function injectIfEligible\(\)/);
+  assert.match(ads, /if \(!eligible\(\) \|\| document\.querySelector\("script\[data-psipedia-programmatic-ads\]"\)\) return/);
+  assert.match(ads, /cancelPending\(\)/);
   assert.match(layout, /referrer: "no-referrer"/);
 });

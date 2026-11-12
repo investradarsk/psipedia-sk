@@ -1,5 +1,6 @@
 import { directoryProfileHref, getDirectoryCategory, type PublicDirectoryProfile } from "@/lib/directory";
 import { ImageDisplay } from "@/components/image-display";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicListingRowCard } from "@/components/public-listing-row-card";
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
@@ -30,7 +31,11 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
             context="thumbnail"
             config={profile.thumbnailImageDisplay}
             src={profile.imageUrl}
+            srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])}
+            sizes="(max-width: 620px) 76px, 88px"
             alt=""
+            width={88}
+            height={76}
             loading="lazy"
             decoding="async"
           />

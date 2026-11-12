@@ -1,18 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./back-to-top.module.css";
 
 const SHOW_AFTER_PX = 480;
 
 export function BackToTop() {
   const [visible, setVisible] = useState(false);
+  const visibleRef = useRef(false);
+  const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const update = () => setVisible(window.scrollY > SHOW_AFTER_PX);
+    const update = () => {
+      frameRef.current = null;
+      const next = window.scrollY > SHOW_AFTER_PX;
+      // Scroll fires rapidly on mobile. Render only on a real threshold
+      // crossing, instead of scheduling React updates for every pixel.
+      if (visibleRef.current === next) return;
+      visibleRef.current = next;
+      setVisible(next);
+    };
+    const onScroll = () => {
+      if (frameRef.current !== null) return;
+      frameRef.current = window.requestAnimationFrame(update);
+    };
     update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    };
   }, []);
 
   if (!visible) return null;

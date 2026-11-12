@@ -244,6 +244,9 @@ export function UnifiedSectionHero({
               sizes="(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px"
               alt={visual.altText}
               decoding="async"
+              // Section heroes are above the fold. Keep the image immediately discoverable;
+              // avoid speculative <link> preloads that may fetch the wrong responsive candidate.
+              loading="eager"
               fetchPriority={variant === "homepage-style" ? "high" : undefined}
             />
           )}

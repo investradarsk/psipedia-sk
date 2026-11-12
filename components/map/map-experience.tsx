@@ -413,8 +413,10 @@ function MapResults({
   onNavigateToProfile: (itemId: string) => void;
   cardRefs: MutableRefObject<Map<string, HTMLElement>>;
 }) {
-  const items = responseItems(response);
-  const clusters = responseClusters(response);
+  // Markers and cluster payloads only change with the API response, not
+  // with every sheet drag, selection, filter-dialog toggle or map gesture.
+  const items = useMemo(() => responseItems(response), [response]);
+  const clusters = useMemo(() => responseClusters(response), [response]);
   const hasSelectedItem = Boolean(
     selectedItemId && items.some((item) => item.id === selectedItemId),
   );
@@ -827,8 +829,10 @@ export function MapExperience({
   const filterDialogRef = useRef<HTMLDivElement>(null);
 
   const apiUrl = useMemo(() => buildMapApiUrl(viewport, filters), [filters, viewport]);
-  const items = responseItems(response);
-  const clusters = responseClusters(response);
+  // Markers and cluster payloads only change with the API response, not
+  // with every sheet drag, selection, filter-dialog toggle or map gesture.
+  const items = useMemo(() => responseItems(response), [response]);
+  const clusters = useMemo(() => responseClusters(response), [response]);
   const filterCount = activeFilterCount(filters);
 
   const handleViewportChange = useCallback((next: MapViewport) => {

@@ -765,24 +765,38 @@ const PUBLIC_ARTICLE_SUMMARY_COLUMNS = `slug, title, excerpt, category, portal_s
 
 /** Public read compatibility with pre-migration 0119 D1 and isolated test fixtures. */
 const articleImageProjectionCache = new WeakMap<D1Database, string>();
+const articleImageProjectionLoads = new WeakMap<D1Database, Promise<string>>();
 const DEFAULT_IMAGE_PROJECTION = "'auto' AS image_display, NULL AS image_focus_x, NULL AS image_focus_y";
 async function articleImageProjection(database: D1Database): Promise<string> {
   const previous = articleImageProjectionCache.get(database);
   if (previous) return previous;
-  let projection = DEFAULT_IMAGE_PROJECTION;
-  try {
-    const columns = await database.prepare("PRAGMA table_info('managed_articles')").all<{ name: string }>();
-    const available = new Set((columns.results ?? []).map(column => column.name));
-    if (["image_display", "image_focus_x", "image_focus_y"].every(name => available.has(name))) {
-      projection = "image_display, image_focus_x, image_focus_y";
+  // Parallel public requests sharing a D1 binding must not independently probe
+  // the same article image columns on a cold isolate. Cache only per binding;
+  // preserve the existing compatibility fallback and never change the SELECT.
+  const pending = articleImageProjectionLoads.get(database);
+  if (pending) return pending;
+  const load = (async () => {
+    let projection = DEFAULT_IMAGE_PROJECTION;
+    try {
+      const columns = await database.prepare("PRAGMA table_info('managed_articles')").all<{ name: string }>();
+      const available = new Set((columns.results ?? []).map(column => column.name));
+      if (["image_display", "image_focus_x", "image_focus_y"].every(name => available.has(name))) {
+        projection = "image_display, image_focus_x, image_focus_y";
+      }
+      projection += available.has("thumbnail_display_json") ? ", thumbnail_display_json" : ", NULL AS thumbnail_display_json";
+      projection += available.has("detail_display_json") ? ", detail_display_json" : ", NULL AS detail_display_json";
+    } catch {
+      // An old fixture or a staged production rollout may not have the new columns.
     }
-    projection += available.has("thumbnail_display_json") ? ", thumbnail_display_json" : ", NULL AS thumbnail_display_json";
-    projection += available.has("detail_display_json") ? ", detail_display_json" : ", NULL AS detail_display_json";
-  } catch {
-    // An old fixture or a staged production rollout may not have the new columns.
+    articleImageProjectionCache.set(database, projection);
+    return projection;
+  })();
+  articleImageProjectionLoads.set(database, load);
+  try {
+    return await load;
+  } finally {
+    if (articleImageProjectionLoads.get(database) === load) articleImageProjectionLoads.delete(database);
   }
-  articleImageProjectionCache.set(database, projection);
-  return projection;
 }
 
 

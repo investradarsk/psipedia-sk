@@ -78,9 +78,12 @@ export async function DirectoryPage({
       filters.profileType,
     ].some(Boolean) &&
     Object.keys(filters.facets ?? {}).length === 0;
-  const categoryPreviews = isOverview ? await getDirectoryCategoryPreviews(5) : null;
   const basePath = active ? `/adresar/${active.slug}` : "/adresar";
-  const [heroVisual, discovery] = await Promise.all([
+  // These three independent D1 reads previously ran in two serial phases
+  // on the root overview. Start the conditional previews together with the
+  // hero and editorial sidebar without changing the page's result set.
+  const [categoryPreviews, heroVisual, discovery] = await Promise.all([
+    isOverview ? getDirectoryCategoryPreviews(5) : Promise.resolve(null),
     getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar"),
     getArticleDiscoveryData({ slug: "directory-listing", portalSection: "novinky" }),
   ]);

@@ -4,6 +4,9 @@ import { AdminNavigationRecovery } from "@/components/admin-navigation-recovery"
 import { AdminPwaRegistration } from "@/components/admin-pwa-registration";
 import { AdminMobileDocumentNavigation } from "@/components/admin-mobile-document-navigation";
 import { AdminQueryProvider } from "@/components/admin-query-provider";
+// Legacy admin styles stay behind the admin route boundary.
+import "./admin-root-extracted.css";
+import "../navigation-hotfix.css";
 import "./admin-legacy-scoped.css";
 import "./admin-workspace.css";
 import "./admin-unified-forms.css";

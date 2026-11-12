@@ -14,7 +14,7 @@ import {
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { PawMark, SparkIcon } from "@/components/icons";
-import { DogAgeCalculator } from "@/components/dog-age-calculator";
+import { LazyDogAgeCalculator } from "@/components/lazy-dog-age-calculator";
 import { AdSlot } from "@/components/ad-slot";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { listHomepageFeaturedBreeds } from "@/lib/breed-store";
@@ -34,6 +34,7 @@ import { EventImage } from "@/components/event-image";
 import { AD_PLACEMENTS } from "@/lib/monetization";
 import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import styles from "./home-v2.module.css";
 
@@ -52,30 +53,39 @@ export const metadata: Metadata = {
   title: { absolute: "Psipedia.sk – rozumej svojmu psovi" },
 };
 
-export default async function Home() {
-  const [
-    publishedArticles,
-    nextEvents,
-    activeHelpCases,
-    directoryGroups,
-    homeHeroVisual,
-    featuredBreeds,
-    publishedBannerColors,
-  ] = await Promise.all([
+// Fetch the visual independently from below-the-fold editorial collections.
+// The hero can stream as soon as its own D1 read finishes, without waiting for
+// articles, events, directory cards and rotating breed previews to complete.
+function loadHomepageContent() {
+  return Promise.all([
+
     getPublishedArticleSummaries({ limit: 120 }),
     getHomepageUpcomingEventsWithImages(8),
     getHomepageHighlightedHelpCasesWithImages(3),
     getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8),
-    getSectionHeroVisual("home.hero"),
     listHomepageFeaturedBreeds(8).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
     }),
     getPublishedDesktopBannerColorsBatch(["homepage:profil", "help:lost-found"]),
   ]);
+}
+
+async function HomeBelowHero({
+  contentPromise,
+}: {
+  contentPromise: ReturnType<typeof loadHomepageContent>;
+}) {
+  const [
+    publishedArticles,
+    nextEvents,
+    activeHelpCases,
+    directoryGroups,
+    featuredBreeds,
+    publishedBannerColors,
+  ] = await contentPromise;
   const veterinarians = directoryGroups.veterinari ?? [];
   const trainers = directoryGroups.treneri ?? [];
-  const homeHero = homeHeroVisual;
   const homeProfileBannerColors = publishedBannerColors["homepage:profil"];
   const lostFoundBannerColors = publishedBannerColors["help:lost-found"];
   const articleSelection = selectHomepageArticles(publishedArticles, {
@@ -88,29 +98,9 @@ export default async function Home() {
     .filter((breed, index, all) => all.findIndex((item) => item.slug === breed.slug) === index)
     .slice(0, 8);
 
-  return (
-    <main id="obsah" className={styles.homeV2}>
-      <UnifiedSectionHeroShell className="hero-section" data-home-hero>
-        <UnifiedSectionHero
-          variant="homepage-style"
-          eyebrow={
-            <>
-              <SparkIcon size={17} /> Slovenský portál pre psí život
-            </>
-          }
-          title={
-            <>
-              Všetko dôležité
-              <br />
-              pre život so psom.
-            </>
-          }
-          intro="Psipedia.sk je slovenský portál o psoch – rady, služby, podujatia a pomoc na jednom mieste."
-          visual={homeHero}
-          portalSearchSlot={<HomePortalSearch />}
-        />
-      </UnifiedSectionHeroShell>
 
+  return (
+    <>
       <HomeLatestArticles
         articles={articleSelection.latest}
         sidebar={
@@ -132,6 +122,7 @@ export default async function Home() {
                           mode={event.imageDisplay}
                           config={event.thumbnailImageDisplay}
                           alt={`Obrázok k podujatiu ${event.title}`}
+                          sizes="76px"
                           loading="lazy"
                           decoding="async"
                         />
@@ -409,11 +400,47 @@ export default async function Home() {
               <PawMark size={120} />
             </span>
           </div>
-          <DogAgeCalculator />
+          <LazyDogAgeCalculator />
         </div>
       </section>
 
       <AdSlot placementId={AD_PLACEMENTS.HOME_BOTTOM.id} />
+    </>
+  );
+}
+
+export default async function Home() {
+  // Launch the hero first, but overlap it with the six slower content reads.
+  const heroPromise = getSectionHeroVisual("home.hero");
+  const contentPromise = loadHomepageContent();
+  const homeHero = await heroPromise;
+
+  return (
+    <main id="obsah" className={styles.homeV2}>
+      <UnifiedSectionHeroShell className="hero-section" data-home-hero>
+        <UnifiedSectionHero
+          variant="homepage-style"
+          eyebrow={
+            <>
+              <SparkIcon size={17} /> Slovenský portál pre psí život
+            </>
+          }
+          title={
+            <>
+              Všetko dôležité
+              <br />
+              pre život so psom.
+            </>
+          }
+          intro="Psipedia.sk je slovenský portál o psoch – rady, služby, podujatia a pomoc na jednom mieste."
+          visual={homeHero}
+          portalSearchSlot={<HomePortalSearch />}
+        />
+      </UnifiedSectionHeroShell>
+
+      <Suspense fallback={null}>
+        <HomeBelowHero contentPromise={contentPromise} />
+      </Suspense>
     </main>
   );
 }

@@ -777,7 +777,8 @@ test("renders article freshness and expert sources", async () => {
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(css, /\.article-blocks\s*>\s*ul\s*\{[^}]*list-style:\s*disc outside/s);
   assert.match(css, /\.article-blocks\s*>\s*ol\s*\{[^}]*list-style:\s*decimal outside/s);
-  assert.match(css, /\.admin-section-nav\s*\{[^}]*position:\s*sticky[^}]*top:\s*76px/s);
+  const adminCss = readFileSync(new URL("../app/admin/admin-root-extracted.css", import.meta.url), "utf8");
+  assert.match(adminCss, /\.admin-section-nav\s*\{[^}]*position:\s*sticky[^}]*top:\s*76px/s);
 });
 
 test("redirects an old article URL to its portal section URL", async () => {
