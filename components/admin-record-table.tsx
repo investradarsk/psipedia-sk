@@ -114,7 +114,7 @@ export function AdminRecordTable<T extends { id: number }>({
   const selectionAllLabel = selection?.selectAllLabel;
   const selectionRowInputDataAttribute = selection?.rowInputDataAttribute;
   const serverSortingEnabled = Boolean(serverSorting);
-  const serverSortAllowedIdsKey = serverSorting?.allowedIds.join(",") ?? "";
+  const serverSortAllowedIdsKey = JSON.stringify(serverSorting?.allowedIds ?? []);
 
   const definitions = useMemo<ColumnDef<T>[]>(() => [
     ...(selectionEnabled ? [{
