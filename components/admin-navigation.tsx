@@ -40,7 +40,7 @@ function useAdminIntentPrefetch() {
     // One request per deliberate hover/focus, re-enabled when Next invalidates it.
     if (prefetched.current.has(href)) return;
     prefetched.current.add(href);
-    router.prefetch(href, { onInvalidate: () => prefetched.current.delete(href) });
+    router.prefetch(href, { onInvalidate: () => { prefetched.current.delete(href); } });
   };
 }
 
@@ -129,7 +129,7 @@ export function AdminNavigation({
   useEffect(() => {
     const element = desktopRef.current;
     element?.setAttribute("data-admin-hydrated", "true");
-    return () => element?.removeAttribute("data-admin-hydrated");
+    return () => { element?.removeAttribute("data-admin-hydrated"); };
   }, []);
 
   useEffect(() => {
