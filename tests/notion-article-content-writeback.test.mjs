@@ -2,10 +2,23 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import {
+import ts from "typescript";
+
+// Node's native TypeScript stripping cannot resolve bundler-style extensionless
+// imports inside a directly imported .ts file. Execute the same production
+// source with its real SEO contract through an ESM data URL.
+const asUrl = source => "data:text/javascript;base64," + Buffer.from(source).toString("base64");
+const compile = async path => ts.transpileModule(
+  await readFile(new URL(path, import.meta.url), "utf8"),
+  { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } },
+).outputText;
+const seoUrl = asUrl(await compile("../lib/notion-article-seo-properties.ts"));
+const contentPlanSource = (await compile("../lib/notion-article-content-plan.ts"))
+  .replace(/from ["']\\.\\/notion-article-seo-properties["']/, 'from "' + seoUrl + '"');
+const {
   buildNotionEditorialPlan, EditorialSyncConflict,
   notionEditorialBlockShape, notionEditorialPropertyText,
-} from "../lib/notion-article-content-plan.ts";
+} = await import(asUrl(contentPlanSource));
 
 const rich = (value, bold = false) => value
   ? [{ type: "text", plain_text: value, text: { content: value },
