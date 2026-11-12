@@ -42,7 +42,7 @@ test("optional review failures never masquerade as not reviewed", () => {
 test("organization editor data required for editing is never substituted by empty source on errors", () => {
   const page = read("app/admin/organizacie/[id]/page.tsx");
   const suggestions = read("components/admin-organization-suggestions.tsx");
-  const primary = page.slice(page.indexOf("const [organization, locations] = await Promise.all"), page.indexOf("]);", page.indexOf("const [organization, locations] = await Promise.all")));
+  const primary = page.slice(page.indexOf("const [organizationResult, locationsResult] = await Promise.allSettled"), page.indexOf("]);", page.indexOf("const [organizationResult, locationsResult] = await Promise.allSettled")));
   for (const token of ["getOrganizationPublicationAdminById", "listOrganizationLocationsAdmin"])
     assert.ok(primary.includes(token));
   for (const optional of ["listOrganizationFundraisingMethodsAdmin", "getAdminEntityReview", "getCanonicalDraftDuplicateWarning", "listCanonicalAutomationUpdateSuggestions"])
