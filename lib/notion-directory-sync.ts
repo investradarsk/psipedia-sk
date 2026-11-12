@@ -1822,66 +1822,71 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
   if (!input.fields.length) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
-    throw new Error("BREEDER_FACET_NOTION_SYNC_DISABLED");
+    throw new Error("DIRECTORY_FACET_NOTION_SYNC_DISABLED");
   const mapping = await loadMappingByProfile(input.database, input.profileId);
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!mapping || !profile || !["chovatelske-stanice", "treneri", "veterinari"].includes(profile.category))
-    throw new Error("BREEDER_FACET_NOTION_MAPPING_UNAVAILABLE");
+  if (!mapping || !profile || !isDirectoryFieldEventCategory(profile.category) ||
+      profile.status === "archived")
+    throw new Error("DIRECTORY_FACET_NOTION_MAPPING_UNAVAILABLE");
   const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
   if (page.id !== mapping.notion_page_id ||
       !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!) ||
       propertyText(page, "Psipedia ID") !== String(input.profileId))
-    throw new NotionDirectoryUnsafeTargetError("BREEDER_FACET_TARGET_INVALID");
-  const patch: Record<string, unknown> = {};
-  const expectedLabels: Record<string, string> = {};
-  const missingProperties: string[] = [];
-  for (const id of input.fields) {
-    if (!Object.hasOwn(breederFacetNotionProperties, id)) continue;
-    const key = breederFacetNotionProperties[id as BreederFacetId];
-    if (!Object.hasOwn(page.properties ?? {}, key)) {
-      if (profile.category !== "veterinari")
-        throw new Error("BREEDER_NOTION_FACET_MISSING: " + key);
-      missingProperties.push(key);
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_FACET_TARGET_INVALID");
+
+  // One select field per PATCH, regardless of category. An unprovisioned
+  // Notion property reports pending but cannot veto independent valid fields.
+  const failures: string[] = [];
+  let updated = false;
+  for (const id of new Set(input.fields)) {
+    const def = getDirectoryFilterDefinition(id);
+    if (!def || def.category !== profile.category) {
+      failures.push(id);
       continue;
     }
-    const def = getDirectoryFilterDefinition(id);
-    if (!def || def.category !== profile.category) continue;
+    const key = breederFacetNotionProperties[id];
+    if (!key || !Object.hasOwn(page.properties ?? {}, key)) {
+      failures.push(id);
+      continue;
+    }
     const state = normalizeDirectoryFilterValue(def, profile.importData?.[def.d1.key]);
-    if (state.status !== "known") continue;
-    const label = notionFacetLabel(state.value);
-    if (propertyText(page, key) !== label) {
-      patch[key] = select(label);
-      expectedLabels[key] = label;
+    if (state.status !== "known" && state.status !== "missing") {
+      failures.push(id);
+      continue;
     }
-  }
-  if (!Object.keys(patch).length && !missingProperties.length) return false;
-  // Vet facet edits remain independently transferable: one rejected Notion field
-  // must not suppress the others or rewrite unrelated category properties.
-  if (profile.category === "veterinari") {
-    const failures: string[] = [...missingProperties];
-    for (const [key, value] of Object.entries(patch)) {
-      try {
-        const echoed = await patchNotionPage(input.bindings, page.id, { [key]: value });
-        if (propertyText(echoed, key) !== expectedLabels[key])
-          throw new Error("VETERINARY_FACET_WRITEBACK_UNVERIFIED");
-      } catch (error) {
-        console.error("VETERINARY_FACET_WRITEBACK_FAILED", input.profileId, key, error);
-        failures.push(key);
+    const expectedLabel = state.status === "known" ? notionFacetLabel(state.value) : "";
+    if (propertyText(page, key) === expectedLabel) continue;
+    try {
+      const echoed = await patchNotionPage(input.bindings, page.id, {
+        [key]: expectedLabel ? select(expectedLabel) : { select: null },
+      });
+      if (echoed.id !== page.id || propertyText(echoed, key) !== expectedLabel) {
+        const refreshed = await fetchNotionPage(input.bindings, page.id);
+        if (refreshed.id !== page.id || propertyText(refreshed, key) !== expectedLabel)
+          throw new Error("DIRECTORY_FACET_WRITEBACK_UNVERIFIED");
       }
+      updated = true;
+    } catch (error) {
+      console.error("DIRECTORY_FACET_WRITEBACK_FAILED", input.profileId, id,
+        error instanceof Error ? error.name : "UNKNOWN");
+      failures.push(id);
     }
-    if (failures.length)
-      throw new Error("VETERINARY_FACET_FIELDS_PENDING: " + failures.join(","));
-    await patchNotionPage(input.bindings, page.id, {
-      "Sync stav": select("Synchronizované"),
-      "Sync chyba": richText(""),
-      "Posledný sync": date(new Date().toISOString()),
-    });
-    return true;
   }
-  patch["Sync stav"] = select("Synchronizované");
-  patch["Sync chyba"] = richText("");
-  patch["Posledný sync"] = date(new Date().toISOString());
-  await patchNotionPage(input.bindings, page.id, patch);
+  if (failures.length)
+    throw new Error("DIRECTORY_FACET_FIELDS_PENDING: " + failures.join(","));
+  if (!updated) return false;
+  const latestMetadata = await fetchNotionPage(input.bindings, page.id);
+  // Facet updates do not clear an unrelated editorial/services conflict.
+  const canClearError = directoryEditorialEventMayClearError(
+    propertyText(latestMetadata, "Sync chyba"), [],
+  );
+  await patchNotionPage(input.bindings, page.id, canClearError ? {
+    "Sync stav": select("Synchronizované"),
+    "Sync chyba": richText(""),
+    "Posledný sync": date(new Date().toISOString()),
+  } : {
+    "Posledný sync": date(new Date().toISOString()),
+  });
   return true;
 }
 
