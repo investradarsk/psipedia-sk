@@ -177,3 +177,35 @@ test("map production code uses the same 0149 schema readiness and canonical opti
  assert.match(relation,/importNotionServiceIds\(db,profileId,category,plan.target\)/);
  assert.doesNotMatch(relation,/projectServiceChoiceToDirectoryNotion|ensureCanonicalServiceChoicesInLegacy|reflectPublicServiceText/);
 });
+
+test("legacy editorial service changes are independent from V3 Notion relation choices",async()=>{
+ const f=fixture();
+ try{
+  await saveAdminServiceChoice(f.db,{profileId:1,optionId:builtin,choice:"yes",expectedVersion:0},actor);
+  const editorial=["Ručne doplnená služba","Informácie pre klientov"];
+  f.sqlite.prepare("UPDATE directory_profiles SET services_json=? WHERE id=?")
+   .run(JSON.stringify(editorial),1);
+  assert.deepEqual(legacy(f.sqlite),editorial);
+  assert.deepEqual(chosen(f.sqlite).map(x=>x.option_id),[builtin],
+   "editing old text must not change canonical V3 selections");
+  assert.deepEqual(await importNotionServiceIds(f.db,1,"veterinari",[]),{added:0,removed:1});
+  assert.deepEqual(legacy(f.sqlite),editorial,"Notion V3 removal must not edit old text");
+  assert.deepEqual(await importNotionServiceIds(f.db,1,"veterinari",[builtin]),{added:1,removed:0});
+  assert.deepEqual(legacy(f.sqlite),editorial,"Notion V3 addition must not edit old text");
+ }finally{f.close();}
+});
+
+test("the two Notion service properties have isolated write paths",()=>{
+ const route=read("app/api/admin/directory/[id]/service-options/route.ts");
+ const directory=read("lib/notion-directory-sync.ts");
+ const relation=read("lib/service-catalog-notion-relations.ts");
+ const bridge=read("lib/service-profile-notion-bridge.ts");
+ assert.match(directory,/"Služby": richText\(snapshot\.services\.join/);
+ assert.match(directory,/path === "services" \|\| path === "qualifications"/);
+ assert.doesNotMatch(directory,/importNotionServiceChoices/);
+ assert.match(relation,/const PROPERTY="Služby z katalógu"/);
+ assert.match(relation,/importNotionServiceIds\(db,profileId,category,plan.target\)/);
+ assert.doesNotMatch(relation,/reflectPublicServiceText|ensureCanonicalServiceChoicesInLegacy|projectServiceChoiceToDirectoryNotion/);
+ assert.doesNotMatch(route,/projectServiceChoiceToDirectoryNotion|notionProjection/);
+ assert.doesNotMatch(bridge,/UPDATE directory_profiles|services_json\s*=|projectServiceChoiceToDirectoryNotion/);
+});
