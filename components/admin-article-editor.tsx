@@ -10,7 +10,7 @@ import { Blocks, BookOpen, CalendarDays, Camera, CheckCircle2, ChevronDown, Cloc
 import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
 import { AdminTiptapArticleScope } from "@/components/admin-tiptap-article-editor";
-import { AdminArticleFullscreenPreview } from "@/components/admin-article-fullscreen-preview";
+import dynamic from "next/dynamic";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
@@ -24,7 +24,7 @@ import { effectiveArticleStatus, articleEffectiveStatusLabel } from "@/lib/artic
 import { formatArticleLocalDateTime } from "@/lib/article-schedule-time";
 import {facebookScheduleInstant,facebookWallTime,type FacebookImagePost} from "@/lib/facebook-image-post";
 import Link from "next/link";
-import {createFacebookArticleGraphic} from "@/lib/facebook-article-graphic";
+
 import type { AdminArticleBreedOption } from "@/lib/breed-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
@@ -38,7 +38,8 @@ import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/ne
 import { articleCategoryForPortalPlacement } from "@/lib/article-subsection-taxonomy";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { ImageDisplay } from "@/components/image-display";
-import { ImageDisplayEditor } from "@/components/image-display-editor";
+const ImageDisplayEditor = dynamic(() => import("@/components/image-display-editor").then(module => module.ImageDisplayEditor), { ssr: false });
+const AdminArticleFullscreenPreview = dynamic(() => import("@/components/admin-article-fullscreen-preview").then(module => module.AdminArticleFullscreenPreview), { ssr: false });
 import { legacyArticleThumbnail, legacyArticleDetail, type ImageDisplayConfig } from "@/lib/image-display";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import type { ArticleQaIssue } from "@/lib/article-content-qa";
@@ -282,6 +283,7 @@ export function AdminArticleEditor({
     if(!imageUrl||!title.trim()||fbGenerating)return;
     setFbGenerating(true);setError("");
     try{
+      const { createFacebookArticleGraphic } = await import("@/lib/facebook-article-graphic");
       const graphic=await createFacebookArticleGraphic(imageUrl,title);
       const upload=await uploadAdminImage(graphic,"facebook-images");
       setFbGraphic({imageKey:upload.imageKey,imageUrl:upload.imageUrl});
@@ -1035,7 +1037,7 @@ export function AdminArticleEditor({
       </EditorWorkspace>
       </div>
 
-      <AdminArticleFullscreenPreview
+      {fullscreenPreviewOpen && <AdminArticleFullscreenPreview
         open={fullscreenPreviewOpen}
         onClose={() => setFullscreenPreviewOpen(false)}
         sectionLabel={portalSectionLabel(portalSection)}
@@ -1052,7 +1054,7 @@ export function AdminArticleEditor({
         takeaway={takeaway}
         blocks={blocks}
         promoUtcDay={promoUtcDay}
-      />
+      />}
 {imageEditorOpen && imageUrl && <ImageDisplayEditor
         src={imageUrl} alt={imageAlt || title} title={title} excerpt={excerpt}
         thumbnail={thumbnailImageDisplay} detail={detailImageDisplay}

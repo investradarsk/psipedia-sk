@@ -91,6 +91,17 @@ function createDatabase() {
     CREATE TABLE directory_profile_change_requests (id INTEGER PRIMARY KEY);
     CREATE TABLE news_tips (id INTEGER PRIMARY KEY);
     CREATE TABLE article_feedback (id INTEGER PRIMARY KEY, helpful INTEGER NOT NULL DEFAULT 0);
+    -- Match the inbox acknowledgement contract from migration 0146. The
+    -- unread bell must see all unsnoozed inquiries in this isolated fixture.
+    CREATE TABLE admin_attention_ack (
+      source_type TEXT NOT NULL,
+      source_id TEXT NOT NULL,
+      relevant_at TEXT NOT NULL,
+      read_at TEXT,
+      snoozed_until TEXT,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (source_type, source_id)
+    );
   `);
   sqlite.prepare(`INSERT INTO directory_profiles (id, slug, name, category, status, internal_email) VALUES (1, ?, ?, 'veterinari', 'published', ?)`)
     .run("veterina-test", "Veterina Test", "provider@example.sk");

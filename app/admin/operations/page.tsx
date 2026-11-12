@@ -12,7 +12,8 @@ import {
   isAdminAttentionView,
   type AdminAttentionFilters,
 } from "@/lib/admin-attention-queue";
-import { loadAdminAttentionPage, loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
+import { loadAdminAttentionPage } from "@/lib/admin-attention-queue-store";
+import { loadRequestAdminAttentionSummary } from "@/lib/admin-attention-request";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -107,7 +108,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
   const attentionPromise = loadAdminAttentionPage({ filters, cursor });
   const notionAlertsPromise = loadDirectoryNotionAlerts((env as unknown as { DB?: D1Database }).DB)
     .catch(() => null);
-  const attentionSummaryPromise = loadExactAdminAttentionSummary();
+  const attentionSummaryPromise = loadRequestAdminAttentionSummary();
 
   return (
     <AdminShell

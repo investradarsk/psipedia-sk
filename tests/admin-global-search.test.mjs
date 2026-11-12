@@ -59,7 +59,7 @@ test("the admin search is available from every AdminShell, with auth and clean s
   const tour = read("components/admin-tour-button.tsx");
   assert.match(shell, /<AdminQuickNavigation\s*\/>/);
   assert.match(shell, /<AdminTourButton\s*\/>/);
-  assert.match(dialog, /onChange=\{event => \{ setQuery/);
+  assert.match(dialog, /onChange=\{event => \{\s*setQuery/);
   assert.match(dialog, /\/api\/admin\/global-search\?q=/);
   assert.match(nav, /event\.ctrlKey \|\| event\.metaKey/);
   assert.match(nav, /dynamic\(/);
