@@ -40,12 +40,17 @@ export function AdminNavigationRecovery() {
     window.addEventListener("psipedia:admin-route-committed", clear);
     window.addEventListener("pagehide", clear);
     window.addEventListener("pageshow", clear);
+    const clearOnBackground = () => {
+      if (document.visibilityState === "hidden") clear();
+    };
+    document.addEventListener("visibilitychange", clearOnBackground);
     return () => {
       window.removeEventListener(ADMIN_NAVIGATION_START_EVENT, onStart);
       window.removeEventListener("psipedia:route-committed", clear);
       window.removeEventListener("psipedia:admin-route-committed", clear);
       window.removeEventListener("pagehide", clear);
       window.removeEventListener("pageshow", clear);
+      document.removeEventListener("visibilitychange", clearOnBackground);
     };
   }, []);
 
