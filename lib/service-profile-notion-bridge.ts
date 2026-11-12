@@ -112,19 +112,30 @@ export async function importNotionServiceIds(
   ).bind(profileId).all<ChoiceRow>();
   const saved=new Map((rows.results??[]).map(row=>[row.option_id,row]));
   let added=0,removed=0;
+  const failedIds:string[]=[];
   for(const id of selected){
     const prior=saved.get(id);
     if(prior?.choice==="yes")continue;
-    await saveAdminServiceChoice(db,{profileId,optionId:id,choice:"yes",expectedVersion:prior?.version??0},actor);
-    added++;
+    try{
+      await saveAdminServiceChoice(db,{profileId,optionId:id,choice:"yes",expectedVersion:prior?.version??0},actor);
+      added++;
+    }catch{
+      // An unrelated service version conflict cannot block other independent
+      // service IDs. The caller must NOT acknowledge a full relation baseline
+      // when any item failed.
+      failedIds.push(id);
+    }
   }
   for(const row of rows.results??[]){
     if(row.choice!=="yes"||!availableIds.has(row.option_id)||selected.has(row.option_id))continue;
-    // Only a deliberate Notion "Služby" field change enters this function.
-    // Reset to unknown, never manufacture an explicit NO selection.
-    await resetAdminServiceChoice(db,{profileId,optionId:row.option_id,expectedVersion:row.version},actor);
-    removed++;
+    try{
+      // Only the verified relation reconciliation may reset a YES to unknown;
+      // do not manufacture an explicit NO or alter unrelated choices.
+      await resetAdminServiceChoice(db,{profileId,optionId:row.option_id,expectedVersion:row.version},actor);
+      removed++;
+    }catch{failedIds.push(row.option_id);}
   }
+  if(failedIds.length)throw Error("SERVICES_RELATION_PARTIAL_CAS_FAILURE");
   return {added,removed};
 }
 
