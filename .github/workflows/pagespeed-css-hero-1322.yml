@@ -35,7 +35,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Responsive image and stylesheet contract
-        run: node --experimental-strip-types --test tests/pagespeed-css-hero-20261112.test.mjs tests/pagespeed-mobile-5-steps.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/pagespeed-css-hero-20261112.test.mjs tests/pagespeed-mobile-5-steps.test.mjs
       - name: Existing public LCP and CSS regressions
         run: |
           npm run test:perf-fastpaths
