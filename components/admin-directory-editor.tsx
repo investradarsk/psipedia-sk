@@ -20,6 +20,7 @@ import {adminSelectedImage} from "@/lib/admin-selected-image";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
+import { readDirectoryEditorTextForSave } from "@/lib/directory-editor-text-change-contract";
 
 import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
 
@@ -412,8 +413,8 @@ export function AdminDirectoryEditor({
       // Optional contact/URL/SEO fields are not blockers. The server
       // sanitizes malformed optional values and returns field warnings.
       }
-    const submittedExcerpt = excerptValueReaderRef.current?.() ?? excerpt;
-    const submittedDescription = descriptionValueReaderRef.current?.() ?? description;
+    const submittedExcerpt = readDirectoryEditorTextForSave(excerpt, excerptValueReaderRef.current);
+    const submittedDescription = readDirectoryEditorTextForSave(description, descriptionValueReaderRef.current);
     const submittedRevision = formEditRevisionRef.current;
     const imageReplacement = replaceMainImageRequestedRef.current;
     const mainImageAction = removeMainImageRequestedRef.current
