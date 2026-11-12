@@ -304,6 +304,34 @@ test.describe("admin directory v2", () => {
     expect(savedProfile.importData["Telefón"]).toBe("neplatny-telefon");
     expect(savedProfile.importData["E-mail"]).toBe("to nie je email");
     expect(savedProfile.websiteUrl).toBe("neúplný web");
+
+    // Events-style Admin save: edit Perex without touching Popis and demand
+    // committed D1 state after a full page refresh, not an optimistic label.
+    const initialDescription = savedProfile.description;
+    const changedExcerpt = "Perex overený v D1 test444";
+    await openDirectoryEditorSection(page, "Hlavné");
+    await page.getByLabel("Krátky popis").fill(changedExcerpt);
+    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await expect(page.locator("form.admin-directory-editor [data-editor-status]").filter({ hasText: "Neuložené zmeny" })).toHaveCount(0);
+    const afterPerexResponse = await page.request.get(`/api/admin/directory/${id}`);
+    expect(afterPerexResponse.ok()).toBeTruthy();
+    const afterPerex = (await afterPerexResponse.json()).profile;
+    expect(afterPerex.excerpt).toBe(changedExcerpt);
+    expect(afterPerex.description).toBe(initialDescription);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
+    await expect(page.getByLabel("Krátky popis")).toHaveValue(changedExcerpt);
+    await openDirectoryEditorSection(page, "Obsah");
+    const changedDescription = "Nový podrobný opis\n\nDruhý odstavec bez normalizácie.";
+    await page.getByLabel("Podrobný popis").fill(changedDescription);
+    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    const afterDescriptionResponse = await page.request.get(`/api/admin/directory/${id}`);
+    expect(afterDescriptionResponse.ok()).toBeTruthy();
+    const afterDescription = (await afterDescriptionResponse.json()).profile;
+    expect(afterDescription.excerpt).toBe(changedExcerpt);
+    expect(afterDescription.description).toBe(changedDescription);
+
     // APIRequestContext does not set browser Origin automatically; preserve strict CSRF provenance.
     const cleanup = await page.request.delete(`/api/admin/directory/${id}`, {
       headers: { Origin: new URL(page.url()).origin },
