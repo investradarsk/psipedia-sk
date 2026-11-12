@@ -1637,29 +1637,43 @@ async function syncBreederEvent(input: {
       const def = getDirectoryFilterDefinition(id);
       if (!def) continue;
       const selected = propertyText(page, breederFacetNotionProperties[id]);
-      if (!selected) continue;
-      const normalized = normalizeDirectoryFilterValue(def, notionFacetSourceValue(selected));
-      if (normalized.status !== "known") {
+      const normalized = selected
+        ? normalizeDirectoryFilterValue(def, notionFacetSourceValue(selected)) : null;
+      // A signed blank select clears only this one structured value; it never
+      // implies "no". Missing/unmentioned properties remain untouched.
+      if (normalized && normalized.status !== "known") {
         failures.push(id);
         continue;
       }
       try {
         const row = await database.prepare("SELECT source_data_json, updated_at FROM directory_profiles WHERE id=? LIMIT 1")
           .bind(current.id).first<{ source_data_json: string; updated_at: string }>();
-        if (!row) throw new Error("BREEDER_FACET_PROFILE_MISSING");
+        if (!row) throw new Error("DIRECTORY_FACET_PROFILE_MISSING");
         const source = JSON.parse(row.source_data_json) as Record<string, unknown>;
-        if (source[def.d1.key] === normalized.value) continue;
-        const merged = mergeDirectoryFilterValues(row.source_data_json, current.category as "chovatelske-stanice" | "treneri", { [id]: normalized.value });
+        let merged: string;
+        if (!selected) {
+          if (!Object.hasOwn(source, def.d1.key)) continue;
+          delete source[def.d1.key];
+          merged = JSON.stringify(source);
+        } else {
+          if (source[def.d1.key] === normalized!.value) continue;
+          merged = mergeDirectoryFilterValues(
+            row.source_data_json, current.category as ServiceFilterCategory,
+            { [id]: normalized!.value },
+          );
+        }
         const changed = await database.prepare(`UPDATE directory_profiles
           SET source_data_json=?, updated_at=?, updated_by=?
-          WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id`)
-          .bind(merged, new Date().toISOString(), SYSTEM_ACTOR, current.id, row.source_data_json, row.updated_at)
+          WHERE id=? AND category=? AND source_data_json=? AND updated_at=? RETURNING id`)
+          .bind(merged, new Date().toISOString(), SYSTEM_ACTOR,
+            current.id, current.category, row.source_data_json, row.updated_at)
           .first<{ id: number }>();
-        if (!changed) throw new Error("BREEDER_FACET_WRITE_CONFLICT");
+        if (!changed) throw new Error("DIRECTORY_FACET_WRITE_CONFLICT");
         current = (await getManagedDirectoryProfileById(current.id, database)) ?? current;
         facetsUpdated = true;
       } catch (error) {
-        console.error("BREEDER_FACET_FIELD_WRITE_FAILED", current.id, id, error);
+        console.error("DIRECTORY_FACET_FIELD_WRITE_FAILED", current.id, id,
+          error instanceof Error ? error.name : "UNKNOWN");
         failures.push(id);
       }
     }
