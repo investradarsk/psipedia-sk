@@ -725,8 +725,8 @@ export function AdminDirectoryEditor({
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Stav kontroly sa nepodarilo uložiť.");
-      setReviewed(data.profile.reviewed);
-      setReviewedAt(data.profile.reviewedAt);
+      setReviewed(Boolean(data.profile.reviewed));
+      setReviewedAt(data.profile.reviewedAt ?? "");
       setMessage(data.profile.reviewed ? "Profil je označený ako odkontrolovaný." : "Označenie kontroly bolo zrušené.");
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : "Stav kontroly sa nepodarilo uložiť.");
