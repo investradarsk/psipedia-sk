@@ -68,8 +68,9 @@ function editPayload(raw:Record<string,unknown>,kind:Row["kind"]){
 }
 /**
  * CAS uses version AND the original lifecycle/mirror states in the UPDATE predicate.
- * ID/kind/created_at/created_by are immutable. ACTIVE edits and retired changes
- * intentionally remain unavailable pending a separate semantic reapproval policy.
+ * ID/kind/created_at/created_by are immutable. ACTIVE edits retain ACTIVE,
+ * mark the Notion mirror PENDING and rely on the current automatic mirror sweep.
+ * Historical DRAFT approval and retry paths are internal-only, not public API actions.
  */
 export async function mutateAdminCatalogOption(db:DB,idRaw:unknown,raw:unknown,actorRaw:string,now=new Date()):Promise<AdminCatalogOptionDto>{
   const actor=email(actorRaw),id=optionId(idRaw),body=inputObject(raw);
@@ -82,7 +83,7 @@ export async function mutateAdminCatalogOption(db:DB,idRaw:unknown,raw:unknown,a
   let sql:string,params:(string|number)[];
   if(action==="edit"){
     if(row.status==="RETIRED")
-      throw new ServiceCatalogConflictError("Edit is limited to non-conflicted DRAFT options.");
+      throw new ServiceCatalogConflictError("Retired catalog options cannot be edited.");
     const draft=editPayload(body,row.kind);
     try{
       const duplicate=await db.prepare(

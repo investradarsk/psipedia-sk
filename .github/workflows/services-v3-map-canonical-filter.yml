@@ -10,6 +10,8 @@ on:
       - "components/directory-page.tsx"
       - "components/directory-filter-form.tsx"
       - "tests/service-catalog-map-canonical-filter.test.mjs"
+      - "tests/service-catalog-public-parity-e2e.test.mjs"
+      - "lib/service-catalog-public-profile-services.ts"
       - ".github/workflows/services-v3-map-canonical-filter.yml"
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -29,4 +31,4 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Confirm public list and map parity, strict scoped URL, zero inference
         run: |
-          node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-map-canonical-filter.test.mjs
+          node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-map-canonical-filter.test.mjs tests/service-catalog-public-parity-e2e.test.mjs

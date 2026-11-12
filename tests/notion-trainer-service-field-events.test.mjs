@@ -19,7 +19,7 @@ test("RSDC: canonical YES choices fill missing public labels without duplicate a
     prepare(sql) {
       const statement = {
         async all() {
-          assert.match(sql, /service_catalog_admin_options/);
+          assert.match(sql, /service_catalog_(?:admin_options|builtin_overrides)/);
           return { results: [] };
         },
         bind(...params) {
@@ -47,10 +47,11 @@ test("RSDC: canonical YES choices fill missing public labels without duplicate a
     "svc.training.dogdancing", "svc.training.show_handling",
     "svc.training.socialization", "svc.training.rally_obedience",
   ];
-  assert.equal(await ensureCanonicalServiceChoicesInLegacy(db, 543, selections), 2);
+  // Six original aliases are normalized in place; two absent services added.
+  assert.equal(await ensureCanonicalServiceChoicesInLegacy(db, 543, selections), 8);
   assert.deepEqual(JSON.parse(profile.services_json), [
-    "základná poslušnosť", "agility", "obedience",
-    "dogfrisbee", "dogdancing", "show handling",
+    "Základná poslušnosť", "Tréning agility", "Obedience",
+    "Dogfrisbee", "Dogdancing", "Výstavný handling",
     "Socializačné tréningy", "Rally obedience",
   ]);
   assert.equal(await ensureCanonicalServiceChoicesInLegacy(db, 543, selections), 0);
@@ -63,7 +64,7 @@ test("trainer Notion webhook and Admin PUT reuse field events without bulk profi
   const editor = await readFile(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
   assert.match(directory, /isDirectoryFieldEventCategory\(profile\.category\)/);
   assert.match(directory, /relationChanged/);
-  assert.match(directory, /notionAdditionsOnly/);
+  assert.match(directory, /notionExplicitEdit/);
   assert.match(directory, /isDirectoryFieldEventCategory\(propertyText\(page, "Kategória"\)\)\) continue/);
   assert.match(webhook, /dp\.category IN \('chovatelske-stanice','treneri','salony-a-sluzby','veterinari','fyzioterapia','dalsie-sluzby','kynologicke-kluby','chovatelske-kluby','hotely-a-opatrovanie','vencenie'\)/);
   assert.match(admin, /isDirectoryFieldEventCategory\(before\.category\)/);
@@ -86,13 +87,15 @@ test("mapped trainer without an explicit change does not enter legacy baseline c
   assert.match(source.slice(breeder, legacy), /return syncBreederEvent\(\{/);
 });
 
-test("signed Notion catalog changes are additions-only and guarded by relation readback", async () => {
-  const relation = await readFile(new URL("../lib/service-catalog-notion-relations.ts", import.meta.url), "utf8");
-  assert.match(relation, /const target=\[\.\.\.new Set\(\[\.\.\.local,\.\.\.remote\]\)\]\.sort\(\)/);
-  assert.match(relation, /SERVICES_RELATION_CHANGED_BEFORE_IMPORT/);
-  assert.match(relation, /ensureCanonicalServiceChoicesInLegacy\(db,profileId,confirmed\)/);
-  assert.match(relation, /SERVICES_RELATION_WRITE_NOT_VERIFIED/);
-  assert.match(relation, /syncProfileCatalogRelation/);
+test("signed Notion catalog changes use verified baseline, IDs and relation readback",async()=>{
+ const relation=await readFile(new URL("../lib/service-catalog-notion-relations.ts",import.meta.url),"utf8");
+ assert.match(relation,/planSignedCatalogRelationSync/);
+ assert.match(relation,/SERVICES_RELATION_UNVERIFIED_DELETE/);
+ assert.match(relation,/SERVICES_RELATION_CHANGED_BEFORE_IMPORT/);
+ assert.match(relation,/importNotionServiceIds\(db,profileId,category,plan\.target\)/);
+ assert.match(relation,/ensureCanonicalServiceChoicesInLegacy\(db,profileId,await canonicalYes/);
+ assert.match(relation,/SERVICES_RELATION_WRITE_NOT_VERIFIED/);
+ assert.match(relation,/syncProfileCatalogRelation/);
 });
 
 test("trainer free text is separate from Services V3 and persisted without touching services_json", async () => {

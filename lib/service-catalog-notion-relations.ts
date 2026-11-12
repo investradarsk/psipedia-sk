@@ -4,13 +4,14 @@
  * One-way data-source ownership: the Notion relation can select *existing*
  * canonical service IDs, but never create new D1 catalog identities.
  * An acknowledged relation baseline makes "deselect all" unambiguous.
- * Divergent changes on both sides are never silently merged or overwritten.
+ * Independent changes to different service IDs are merged against the last
+ * acknowledged baseline; unverified initial deletions are never guessed.
  * The old Notion "Služby" rich-text property is preserved for historical data.
  */
 import {notionRequest,type NotionSyncBindings} from "./notion-sync-shared";
-import {planCatalogRelationSync} from "./service-catalog-notion-relation-plan";
-import {serviceCatalog} from "./service-catalog-contract";
-import {importNotionServiceChoices,projectServiceChoiceToDirectoryNotion,ensureCanonicalServiceChoicesInLegacy} from "./service-profile-notion-bridge";
+import {planCatalogRelationSync,planSignedCatalogRelationSync} from "./service-catalog-notion-relation-plan";
+import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
+import {importNotionServiceIds,projectServiceChoiceToDirectoryNotion,ensureCanonicalServiceChoicesInLegacy} from "./service-profile-notion-bridge";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port";
 import {notionPageBelongsToDataSource} from "./notion-sync-page-ownership";
 
@@ -79,17 +80,10 @@ export async function loadNotionCatalogRelationLookup(bindings:NotionSyncBinding
   throw Error("SERVICES_CATALOG_MAX_PAGES");
 }
 async function canonicalItems(db:D1Database,category:string):Promise<Map<string,Item>>{
-  const items=new Map<string,Item>();
-  for(const s of serviceCatalog)if(s.categories.some(x=>x===category))
-    items.set(s.id,{id:s.id,label:s.label,categories:s.categories});
-  const data=await db.prepare(
-    "SELECT id,label,categories_json FROM service_catalog_admin_options WHERE kind='service' AND status='ACTIVE'"
-  ).all<{id:string;label:string;categories_json:string}>();
-  for(const x of data.results??[]){
-    const cats=JSON.parse(x.categories_json) as string[];
-    if(Array.isArray(cats)&&cats.includes(category))items.set(x.id,{id:x.id,label:x.label,categories:cats});
-  }
-  return items;
+  // Use the same effective names/categories as Admin and the Notion text
+  // bridge: built-in D1 overrides must affect relation eligibility too.
+  const resolved=await loadResolvedServiceDefinitions(db,category);
+  return new Map<string,Item>(resolved.map(x=>[x.id,{id:x.id,label:x.label,categories:x.categories}] as const));
 }
 async function canonicalYes(db:D1Database,profileId:number,known:Map<string,Item>){
   const result=await db.prepare(
@@ -154,9 +148,11 @@ async function reflectPublicServiceText(
 export async function syncProfileCatalogRelation(input:{
  db:D1Database;bindings:NotionSyncBindings;pageId:string;profileId:number;category:string;
  directoryDataSourceId:string;lookup:CatalogRelationLookup;
- /** Signed relation edit or owner-approved Notion→Admin import; never infer deletes. */
- notionAdditionsOnly?:boolean;
-}):Promise<"skipped"|"unchanged"|"pushed"|"pulled">{
+ /** Signed relation event; absent services can only be deleted with confirmed baseline. */
+ notionExplicitEdit?:boolean;
+ /** Only a fresh explicit Admin checkbox save may establish an initial D1→Notion baseline. */
+ adminChoiceSave?:boolean;
+}):Promise<"skipped"|"unchanged"|"pushed"|"pulled"|"merged">{
  const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
  if(!await schemaExists(db))return "skipped"; // Migration not yet applied: do not break existing sync.
  const page=await readRemote(bindings,pageId,directoryDataSourceId);
@@ -184,52 +180,26 @@ export async function syncProfileCatalogRelation(input:{
      throw Error("SERVICES_RELATION_BAD_BASELINE");
    previous=decoded;
  }
- // Signed Notion relation edits are append-only. Omitted entries are never
- // deletion receipts; the canonical catalog identities and Admin YES choices win.
- if(input.notionAdditionsOnly){
-   const target=[...new Set([...local,...remote])].sort();
-   const additions=target.filter(id=>!local.includes(id));
-   const readIds=async()=>relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
-   const equalIds=(a:readonly string[]|null,b:readonly string[])=>
-     a!==null&&JSON.stringify([...a].sort())===JSON.stringify([...b].sort());
-   if(!equalIds(await readIds(),remote))
-     throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
-   if(additions.length){
-     await importNotionServiceChoices(db,profileId,category,
-       target.map(id=>available.get(id)!.label));
-   }
-   const confirmed=await canonicalYes(db,profileId,available);
-   if(!equalIds(confirmed,target))throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
-   await ensureCanonicalServiceChoicesInLegacy(db,profileId,confirmed);
-   await reflectPublicServiceText(db,bindings,pageId,profileId,directoryDataSourceId);
-   const pushed=!equalIds(remote,confirmed);
-   if(pushed){
-     if(!equalIds(await readIds(),remote))
-       throw Error("SERVICES_RELATION_CHANGED_BEFORE_EXPORT");
-     const pages=confirmed.map(id=>({id:lookup.serviceToPage.get(id)!}));
-     const ack=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId),{
-       method:"PATCH",body:JSON.stringify({properties:{[PROPERTY]:{relation:pages}}})
-     },{retryTransient:false});
-     if(normal(ack.id??"")!==normal(pageId)||!equalIds(await readIds(),pages.map(p=>p.id)))
-       throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
-   }
-   await db.prepare(
-     "INSERT INTO directory_service_notion_relation_sync (directory_profile_id,notion_page_id,confirmed_ids_json,synced_at) "+
-     "VALUES (?1,?2,?3,?4) ON CONFLICT(directory_profile_id) DO UPDATE SET "+
-     "confirmed_ids_json=excluded.confirmed_ids_json,synced_at=excluded.synced_at "+
-     "WHERE notion_page_id=excluded.notion_page_id"
-   ).bind(profileId,pageId,JSON.stringify(confirmed),new Date().toISOString()).run();
-   return additions.length?"pulled":pushed?"pushed":"unchanged";
+ // A signed relation event cannot authorize deletion without a prior
+ // confirmed common state. After that, every service is reconciled by ID.
+ if(previous===null&&local.some(id=>!remote.includes(id))){
+   if(input.notionExplicitEdit)throw Error("SERVICES_RELATION_UNVERIFIED_DELETE");
+   if(!input.adminChoiceSave)throw Error("SERVICES_RELATION_UNVERIFIED_INITIAL_PUSH");
  }
- const plan=planCatalogRelationSync(local,remote,previous);
+ const plan=input.notionExplicitEdit
+   ?planSignedCatalogRelationSync(local,remote,previous)
+   :planCatalogRelationSync(local,remote,previous);
  if(plan.action==="conflict")throw Error("SERVICES_RELATION_BOTH_SIDES_CHANGED_REVIEW");
- if(plan.action==="pull"){
+ if(plan.action==="pull"||plan.action==="merge"){
    // Recheck the relation before touching D1; never import a truncated/superseded page.
    const latest=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
+   const currentLocal=await canonicalYes(db,profileId,available);
+   if(JSON.stringify(currentLocal)!==JSON.stringify(local))
+     throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_IMPORT");
    const before=new Set(local);
-   await importNotionServiceChoices(db,profileId,category,plan.target.map(id=>available.get(id)!.label));
+   await importNotionServiceIds(db,profileId,category,plan.target);
    const after=new Set(await canonicalYes(db,profileId,available));
    for(const id of new Set([...before,...after])){
      if(before.has(id)===after.has(id))continue;
@@ -239,8 +209,11 @@ export async function syncProfileCatalogRelation(input:{
    if(JSON.stringify(confirmed)!==JSON.stringify([...plan.target].sort()))
      throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
  }
- if(plan.action==="push"){
+ if(plan.action==="push"||plan.action==="merge"){
    // Recheck before PATCH. PATCH touches only our relation, no editorial/identity fields.
+   const currentLocal=await canonicalYes(db,profileId,available);
+   if(JSON.stringify(currentLocal)!==JSON.stringify([...plan.target].sort()))
+     throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_EXPORT");
    const latest=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_EXPORT");
@@ -254,6 +227,13 @@ export async function syncProfileCatalogRelation(input:{
      throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
  }
  await ensureCanonicalServiceChoicesInLegacy(db,profileId,await canonicalYes(db,profileId,available));
+ if(plan.action==="pull"||plan.action==="merge"||input.notionExplicitEdit)
+   await reflectPublicServiceText(db,bindings,pageId,profileId,directoryDataSourceId);
+ // Do not commit a baseline if the remote relation changed while reconciling.
+ const finalRelation=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
+ const targetPages=plan.target.map(id=>lookup.serviceToPage.get(id)!);
+ if(!finalRelation||JSON.stringify([...finalRelation].sort())!==JSON.stringify([...targetPages].sort()))
+   throw Error("SERVICES_RELATION_CHANGED_BEFORE_BASELINE");
  const now=new Date().toISOString();
  await db.prepare(
    "INSERT INTO directory_service_notion_relation_sync (directory_profile_id,notion_page_id,confirmed_ids_json,synced_at) "+
@@ -261,5 +241,5 @@ export async function syncProfileCatalogRelation(input:{
    "confirmed_ids_json=excluded.confirmed_ids_json,synced_at=excluded.synced_at "+
    "WHERE notion_page_id=excluded.notion_page_id"
  ).bind(profileId,pageId,JSON.stringify([...plan.target].sort()),now).run();
- return plan.action==="pull"?"pulled":plan.action==="push"?"pushed":"unchanged";
+ return plan.action==="pull"?"pulled":plan.action==="push"?"pushed":plan.action==="merge"?"merged":"unchanged";
 }

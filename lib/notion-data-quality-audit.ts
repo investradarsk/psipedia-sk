@@ -91,12 +91,14 @@ export function summarizeNotionAuditBatch(
     if (!error) continue;
     summary.syncErrors += 1;
     const kind = classifyDirectorySyncError(error);
-    if (kind === "BIDIRECTIONAL_CONFLICT") summary.conflictErrors += 1;
+    if (["BIDIRECTIONAL_CONFLICT","MISSING_VERIFIED_BASELINE",
+      "SERVICE_RELATION_UNVERIFIED_DELETE"].includes(kind)) summary.conflictErrors += 1;
     summary.errorTypes[kind] = (summary.errorTypes[kind] ?? 0) + 1;
 
     const nextStep = kind === "ILLEGAL_INVOCATION"
       ? "INVESTIGATE_RUNTIME" as const
-      : kind === "BIDIRECTIONAL_CONFLICT"
+      : ["BIDIRECTIONAL_CONFLICT","MISSING_VERIFIED_BASELINE",
+         "SERVICE_RELATION_UNVERIFIED_DELETE"].includes(kind)
         ? "REVIEW_FIELDS" as const
         : "VALIDATE_SOURCE" as const;
 

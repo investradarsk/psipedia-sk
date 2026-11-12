@@ -155,7 +155,9 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
         "UPDATE service_profile_option_choices SET choice=?1,version=version+1,updated_at=?2,updated_by=?3",
         "WHERE profile_id=?4 AND option_id=?5 AND version=?6",
         "AND EXISTS (SELECT 1 FROM directory_profiles WHERE id=?4 AND category=?7 AND status<>'archived')",
-        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?5 AND status='ACTIVE' AND notion_mirror_status='SYNCED'",
+        // D1 is canonical. A previously saved choice must remain editable while
+        // its catalog definition is still being mirrored to Notion, just like a new choice.
+        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?5 AND status='ACTIVE'",
           "AND EXISTS (SELECT 1 FROM json_each(categories_json) WHERE value=?7))"]:[]),
         "RETURNING profile_id,option_id,choice,version"
       ].join(" ");
