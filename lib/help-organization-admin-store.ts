@@ -194,16 +194,22 @@ function adminWhere(filters: OrganizationAdminFilters) {
   return { where: clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "", args };
 }
 
-async function optionValues(database: AdoptionD1Database, column: "region" | "district" | "city") {
-  const result = await database.prepare(`
-    SELECT value FROM (
-      SELECT trim(${column}) AS value FROM organization_locations WHERE trim(${column}) <> ''
-      UNION
-      SELECT trim(${column}) AS value FROM help_organizations WHERE trim(${column}) <> ''
-    ) ORDER BY value COLLATE NOCASE ASC
-  `).all<{ value: string }>();
-  return result.results.map((row) => row.value).filter(Boolean);
-}
+/** One read of each location table produces the three original global facets.
+ * The labels are a fixed SQL literal whitelist; user filters never enter SQL.
+ */
+export const ORGANIZATION_ADMIN_LOCATION_FACETS_SQL = `
+  SELECT DISTINCT label.kind AS kind,
+    trim(CASE label.kind WHEN 'region' THEN source.region
+      WHEN 'district' THEN source.district ELSE source.city END) AS value
+  FROM (
+    SELECT region,district,city FROM organization_locations
+    UNION ALL SELECT region,district,city FROM help_organizations
+  ) AS source
+  CROSS JOIN (SELECT 'region' AS kind UNION ALL SELECT 'district' UNION ALL SELECT 'city') AS label
+  WHERE trim(CASE label.kind WHEN 'region' THEN source.region
+    WHEN 'district' THEN source.district ELSE source.city END) <> ''
+  ORDER BY kind, value COLLATE NOCASE ASC
+`;
 
 export async function getOrganizationAdminPage(
   filters: OrganizationAdminFilters,
@@ -211,17 +217,10 @@ export async function getOrganizationAdminPage(
 ): Promise<OrganizationAdminPage> {
   const db = requireD1Binding(database);
   const membership = adminWhere(filters);
-  const totalRow = await db.prepare(`SELECT COUNT(*) AS total,
-    COUNT(CASE WHEN status = 'DRAFT' THEN 1 END) AS draft,
-    COUNT(CASE WHEN status = 'PUBLISHED' THEN 1 END) AS published,
-    COUNT(CASE WHEN status = 'ARCHIVED' THEN 1 END) AS archived
-    FROM help_organizations`).first<{ total: number; draft: number; published: number; archived: number }>();
-  const countRow = await db.prepare(`SELECT COUNT(*) AS count FROM help_organizations o${membership.where}`)
-    .bind(...membership.args).first<{ count: number }>();
-  const resultCount = Number(countRow?.count ?? 0);
-  const totalPages = Math.max(1, Math.ceil(resultCount / ORGANIZATION_ADMIN_PAGE_SIZE));
-  const page = Math.min(Math.max(1, filters.page), totalPages);
-  // Whole-result ordering is whitelisted before LIMIT/OFFSET, never applied per page.
+  // Exactly as for the directory list: unfiltered global totals already
+  // provide the matching count; skip another COUNT(*) on the same rows.
+  const reuseTotalCount = membership.where === "";
+  const requestedPage = Math.max(1, filters.page);
   const ordering: Record<string, string> = {
     updated: "o.updated_at",
     name: "o.name COLLATE NOCASE",
@@ -230,18 +229,37 @@ export async function getOrganizationAdminPage(
   };
   const sortSql = ordering[filters.sort ?? "updated"] ?? ordering.updated;
   const directionSql = filters.direction === "asc" ? "ASC" : "DESC";
-  const result = await db.prepare(`
+  const loadPage = (page: number) => db.prepare(`
     SELECT ${ORGANIZATION_PUBLICATION_SELECT}
     FROM help_organizations o${membership.where}
     ORDER BY ${sortSql} ${directionSql}, o.id ${directionSql}
     LIMIT ? OFFSET ?
-  `).bind(...membership.args, ORGANIZATION_ADMIN_PAGE_SIZE, (page - 1) * ORGANIZATION_ADMIN_PAGE_SIZE).all<OrganizationPublicationRow>();
-  const [regions, districts, cities] = await Promise.all([
-    optionValues(db, "region"),
-    optionValues(db, "district"),
-    optionValues(db, "city"),
+  `).bind(...membership.args, ORGANIZATION_ADMIN_PAGE_SIZE, (page - 1) * ORGANIZATION_ADMIN_PAGE_SIZE)
+    .all<OrganizationPublicationRow>();
+
+  // Four independent D1 requests begin together; before this change they
+  // ran as successive count/count/page/facets stages (up to six round trips).
+  // The requested page only needs a second read when it is out of range.
+  const [totalRow, countRow, facets, requestedResult] = await Promise.all([
+    db.prepare(`SELECT COUNT(*) AS total,
+      COUNT(CASE WHEN status = 'DRAFT' THEN 1 END) AS draft,
+      COUNT(CASE WHEN status = 'PUBLISHED' THEN 1 END) AS published,
+      COUNT(CASE WHEN status = 'ARCHIVED' THEN 1 END) AS archived
+      FROM help_organizations`).first<{ total: number; draft: number; published: number; archived: number }>(),
+    reuseTotalCount ? Promise.resolve(null) :
+      db.prepare(`SELECT COUNT(*) AS count FROM help_organizations o${membership.where}`)
+        .bind(...membership.args).first<{ count: number }>(),
+    db.prepare(ORGANIZATION_ADMIN_LOCATION_FACETS_SQL)
+      .all<{ kind: "region" | "district" | "city"; value: string }>(),
+    loadPage(requestedPage),
   ]);
   const counts = totalRow ?? { total: 0, draft: 0, published: 0, archived: 0 };
+  const resultCount = Number(reuseTotalCount ? counts.total : countRow?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(resultCount / ORGANIZATION_ADMIN_PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+  const result = page === requestedPage ? requestedResult : await loadPage(page);
+  const facetValues = (kind: "region" | "district" | "city") =>
+    facets.results.filter((row) => row.kind === kind).map((row) => row.value).filter(Boolean);
   return {
     items: result.results.map(withPreflight),
     counts: {
@@ -252,7 +270,7 @@ export async function getOrganizationAdminPage(
     },
     resultCount,
     pagination: { page, pageSize: ORGANIZATION_ADMIN_PAGE_SIZE, total: resultCount, totalPages },
-    options: { regions, districts, cities },
+    options: { regions: facetValues("region"), districts: facetValues("district"), cities: facetValues("city") },
   };
 }
 
