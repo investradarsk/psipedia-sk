@@ -125,3 +125,19 @@ test("invalid schema or changed URL blocks the targeted operation before PATCH",
     "OG title": undefined,
   })), /NOTION_ARTICLE_SEO_PROPERTY_MISSING/);
 });
+
+
+test("Admin save route dispatches a SEO delta for drafts AND published articles", async () => {
+  const route = await readFile(new URL("../app/api/admin/articles/[id]/route.ts", import.meta.url), "utf8");
+  const sync = await readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8");
+  const planSource = await readFile(new URL("../lib/notion-article-content-plan.ts", import.meta.url), "utf8");
+  assert.match(route, /articleSeoChangedFields\\(before, article\\)\\.length > 0/);
+  assert.match(route, /writeBackArticleSeoToNotion\\(\\{[\\s\\S]*?before, article/);
+  assert.match(route, /writeBackDraftArticleContentToNotion/);
+  assert.match(sync, /export async function writeBackArticleSeoToNotion/);
+  assert.match(sync, /verifyArticleSeoPatch\\(plan, latest\\.properties \\?\\? \\{\\}, "before"\\)/);
+  assert.match(sync, /verifyArticleSeoPatch\\(plan, verified\\.properties \\?\\? \\{\\}, "after"\\)/);
+  assert.match(sync, /content_hash = \\?[^\n]*notion_last_edited_time/);
+  assert.match(sync, /seoFields: \\[\\]/);
+  assert.match(planSource, /args\\.seoFields === undefined \\|\\| args\\.seoFields\\.includes\\(key\\)/);
+});
