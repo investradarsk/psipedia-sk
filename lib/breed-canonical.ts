@@ -1,10 +1,59 @@
-export function breedProfileHref(slug: string) {
-  return `/plemena/${slug}`;
+/** Public FCI taxonomy – stable URL segments, independent of editorial content. */
+const BREED_GROUP_SLUGS: Readonly<Record<number, string>> = {
+  1: "ovciarske-a-pastierske",
+  2: "pince-bradace-molosy-salasnicke",
+  3: "teriery",
+  4: "jazveciky",
+  5: "spice-a-primitivne-typy",
+  6: "durice",
+  7: "stavace",
+  8: "retrievery-sliedice-vodne",
+  9: "spolocenske-a-sprievodne",
+  10: "chrty",
+};
+
+export function breedCategorySlug(fciGroup: number): string | null {
+  return BREED_GROUP_SLUGS[fciGroup] ?? null;
+}
+
+/** The old one-segment URL is a redirect source, not a canonical destination. */
+export function breedProfileHref(slug: string, fciGroup?: number): string {
+  const category = typeof fciGroup === "number" ? breedCategorySlug(fciGroup) : null;
+  return category ? `/plemena/${category}/${slug}` : `/plemena/${slug}`;
+}
+
+export function breedFciStandardHref(slug: string, fciGroup: number): string {
+  return `${breedProfileHref(slug, fciGroup)}/fci-standard`;
+}
+
+export function isBreedSelfCanonicalSeo(
+  seo: { canonicalUrl?: string; noindex?: boolean } | undefined,
+  slug: string,
+  fciGroup: number,
+): boolean {
+  if (seo?.noindex) return false;
+  if (!seo?.canonicalUrl) return true;
+  try {
+    const canonical = new URL(seo.canonicalUrl, "https://psipedia.sk");
+    return canonical.protocol === "https:" &&
+      canonical.hostname === "psipedia.sk" &&
+      !canonical.search && !canonical.hash &&
+      [`/plemena/${slug}`, breedProfileHref(slug, fciGroup)].includes(canonical.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function breedCategorySql(alias: string) {
+  return `CASE ${Object.entries(BREED_GROUP_SLUGS)
+    .map(([group, slug]) => `WHEN ${alias}.fci_group=${group} THEN '${slug}'`)
+    .join(" ")} ELSE '' END`;
 }
 
 /** One eligibility predicate for winners and competing rows. */
 export function canonicalBreedEligibilitySql(alias:string) {
   const seo=`CASE WHEN json_valid(${alias}.seo_json) THEN ${alias}.seo_json ELSE '{}' END`;
+  const modernPath = `'/plemena/'||(${breedCategorySql(alias)})||'/'||${alias}.slug`;
   return `${alias}.status='published'
     AND typeof(${alias}.fci_number)='integer' AND ${alias}.fci_number>0
     AND ${alias}.import_key IS NOT NULL AND TRIM(${alias}.import_key)<>''
@@ -13,7 +62,7 @@ export function canonicalBreedEligibilitySql(alias:string) {
     AND typeof(${alias}.fci_group)='integer' AND ${alias}.fci_group BETWEEN 1 AND 10
     AND json_valid(${alias}.seo_json)
     AND COALESCE(json_extract(${seo},'$.noindex'),0)=0
-    AND COALESCE(json_extract(${seo},'$.canonicalUrl'),'') IN ('','https://psipedia.sk/plemena/'||${alias}.slug,'/plemena/'||${alias}.slug)`;
+    AND COALESCE(json_extract(${seo},'$.canonicalUrl'),'') IN ('','https://psipedia.sk/plemena/'||${alias}.slug,'/plemena/'||${alias}.slug, 'https://psipedia.sk'||${modernPath}, ${modernPath})`;
 }
 
 /** Canonical winner predicate that can use a selective outer query (for example slug=?). */
@@ -48,9 +97,15 @@ export const canonicalBreedIdsSql = `SELECT winners.id
     AND winners.id = winners.slug_first_id
     AND winners.id = winners.import_first_id`;
 
-export type CanonicalIdentity = { id:number; slug:string; fci_number:number|null; import_key:string|null; status:string; seo_json:string };
+export type CanonicalIdentity = { id:number; slug:string; fci_number:number|null; import_key:string|null; status:string; seo_json:string; fci_group?:number };
 
 /** Audit the raw published rows, before filtering can hide conflicting identities. */
+function breedCanonicalAliases(row: CanonicalIdentity): string[] {
+  const paths = [`/plemena/${row.slug}`];
+  if (row.fci_group) paths.push(breedProfileHref(row.slug, row.fci_group));
+  return paths.flatMap(path => [path, `https://psipedia.sk${path}`]);
+}
+
 export function auditCanonicalIdentities(rows:CanonicalIdentity[]) {
   const issues:Array<{code:string; ids:number[]; value:string}>=[];
   const published=rows.filter(row=>row.status==='published');
@@ -70,13 +125,13 @@ export function auditCanonicalIdentities(rows:CanonicalIdentity[]) {
       const seo=JSON.parse(row.seo_json);
       if(!seo||typeof seo!=='object'||Array.isArray(seo))throw new Error('Invalid SEO object');
       const target=seo.canonicalUrl;
-      if(target && target!==`https://psipedia.sk/plemena/${row.slug}` && target!==`/plemena/${row.slug}`){
-        const targetRow=published.find(candidate=>target===`https://psipedia.sk/plemena/${candidate.slug}`||target===`/plemena/${candidate.slug}`);
+      if(target && !breedCanonicalAliases(row).includes(target)){
+        const targetRow=published.find(candidate=>breedCanonicalAliases(candidate).includes(target));
         let valid=Boolean(targetRow && Number.isSafeInteger(targetRow.fci_number) && Number(targetRow.fci_number)>0 && targetRow.import_key?.trim()
           && (!row.fci_number || row.fci_number===targetRow.fci_number));
         if(targetRow){
           const targetSeo=JSON.parse(targetRow.seo_json);
-          valid=valid && !targetSeo.noindex && (!targetSeo.canonicalUrl || targetSeo.canonicalUrl===`https://psipedia.sk/plemena/${targetRow.slug}` || targetSeo.canonicalUrl===`/plemena/${targetRow.slug}`);
+          valid=valid && !targetSeo.noindex && (!targetSeo.canonicalUrl || breedCanonicalAliases(targetRow).includes(targetSeo.canonicalUrl));
         }
         if(!valid)issues.push({code:'broken-canonical-relation',ids:[row.id],value:String(target)});
       }
@@ -102,12 +157,23 @@ export function rotateBreeds<T>(items:T[],day:number):T[] {
   return [...items.slice(offset),...items.slice(0,offset)];
 }
 
-export async function canonicalBreedRedirect(database:D1Database,slug:string):Promise<string|null> {
-  const row=await database.prepare(`SELECT target.slug FROM managed_breeds source
+/** Resolve legacy /plemena/:slug and losing duplicates to the category URL. */
+export async function canonicalBreedRedirect(database: D1Database, slug: string): Promise<string | null> {
+  const winner = await database.prepare(`SELECT slug, fci_group FROM managed_breeds
+    WHERE slug=? AND id IN (${canonicalBreedIdsSql}) LIMIT 1`)
+    .bind(slug).first<{ slug: string; fci_group: number }>();
+  if (winner) return breedProfileHref(winner.slug, winner.fci_group);
+
+  const categorySql = breedCategorySql("target");
+  const loser = await database.prepare(`SELECT target.slug, target.fci_group FROM managed_breeds source
     JOIN managed_breeds target ON (source.fci_number=target.fci_number
-      OR (source.fci_number IS NULL AND CASE WHEN json_valid(source.seo_json) THEN json_extract(source.seo_json,'$.canonicalUrl') ELSE '' END IN ('https://psipedia.sk/plemena/'||target.slug,'/plemena/'||target.slug)))
+      OR (source.fci_number IS NULL AND CASE WHEN json_valid(source.seo_json) THEN json_extract(source.seo_json,'$.canonicalUrl') ELSE '' END
+        IN ('https://psipedia.sk/plemena/'||target.slug, '/plemena/'||target.slug,
+          'https://psipedia.sk/plemena/'||(${categorySql})||'/'||target.slug,
+          '/plemena/'||(${categorySql})||'/'||target.slug)))
     WHERE source.slug=? AND source.status='published' AND source.id<>target.id
       AND target.id IN (${canonicalBreedIdsSql})
-      AND source.id NOT IN (${canonicalBreedIdsSql}) LIMIT 1`).bind(slug).first<{slug:string}>();
-  return row?`/plemena/${row.slug}`:null;
+      AND source.id NOT IN (${canonicalBreedIdsSql}) LIMIT 1`)
+    .bind(slug).first<{ slug: string; fci_group: number }>();
+  return loser ? breedProfileHref(loser.slug, loser.fci_group) : null;
 }

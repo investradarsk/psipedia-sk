@@ -12,7 +12,7 @@ function fixture() {
     CREATE TABLE adoption_dogs (id INTEGER, name TEXT, city TEXT, breed_name TEXT, organization_name TEXT, updated_at TEXT);
     CREATE TABLE lost_found_dog_reports (id INTEGER, dog_name TEXT, city TEXT, search_text TEXT, updated_at TEXT);
     CREATE TABLE help_cases (id INTEGER, title TEXT, category TEXT, city TEXT, organization TEXT, updated_at TEXT);
-    CREATE TABLE help_organizations (id INTEGER, name TEXT, city TEXT);
+    CREATE TABLE help_organizations (id INTEGER, name TEXT, city TEXT, updated_at TEXT);
     CREATE TABLE managed_articles (id INTEGER, title TEXT, category TEXT, excerpt TEXT, updated_at TEXT);
     CREATE TABLE managed_breeds (id INTEGER, name TEXT, official_fci_name TEXT, updated_at TEXT);
     INSERT INTO directory_profiles VALUES (7, 'Labrador veterinár', 'Nitra', 'veterinari', '2026');
@@ -20,7 +20,7 @@ function fixture() {
     INSERT INTO adoption_dogs VALUES (7, 'Labrador na adopciu', 'Nitra', '', '', '2026');
     INSERT INTO lost_found_dog_reports VALUES (7, 'Labrador stratený', 'Nitra', '', '2026');
     INSERT INTO help_cases VALUES (7, 'Labrador zbierka', 'zbierka', 'Nitra', '', '2026');
-    INSERT INTO help_organizations VALUES (7, 'Labrador pomoc', 'Nitra');
+    INSERT INTO help_organizations VALUES (7, 'Labrador pomoc', 'Nitra', '2026');
     INSERT INTO managed_articles VALUES (7, 'Labrador tipy', 'Zdravie', '', '2026');
     INSERT INTO managed_breeds VALUES (7, 'Labrador retriever', 'Labrador Retriever', '2026');
   `);
@@ -101,7 +101,7 @@ test("failed batch falls back to isolated reads without hiding healthy modules",
 });
 
 test("global search UI debounces, aborts stale responses and reuses a short-lived bounded cache", () => {
-  const ui = readFileSync(new URL("../components/admin-quick-navigation.tsx", import.meta.url), "utf8");
+  const ui = readFileSync(new URL("../components/admin-quick-navigation-dialog.tsx", import.meta.url), "utf8");
   assert.match(ui, /SEARCH_DEBOUNCE_MS = 140/);
   assert.match(ui, /SEARCH_CACHE_TTL_MS = 15_000/);
   assert.match(ui, /SEARCH_CACHE_LIMIT = 24/);

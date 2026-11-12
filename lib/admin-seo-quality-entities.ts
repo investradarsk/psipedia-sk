@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import {
   breedSeoFallback,
   directorySeoFallback,
@@ -292,7 +293,7 @@ function breedEntity(row: RawRow): AdminSeoQualityEntity {
     title: name,
     slug,
     adminHref: `/admin/plemena/${num(row.id)}`,
-    expectedCanonicalPath: `/plemena/${slug}`,
+    expectedCanonicalPath: breedProfileHref(slug, num(row.fci_group)),
     parentPath: "/plemena",
     excerpt: seoAuditText(row.intro),
     description: editorialText[0] || seoAuditText(row.intro),
@@ -424,7 +425,7 @@ export async function loadPublishedSeoQualityEntities(database: D1Database): Pro
         ORDER BY id
       `).all<RawRow>(),
     database.prepare(`
-        SELECT id, slug, name, image_url, intro, character, needs, history, exercise, training, health,
+        SELECT id, slug, name, fci_group, image_url, intro, character, needs, history, exercise, training, health,
           editorial_json, seo_json
         FROM managed_breeds
         WHERE status = 'published'

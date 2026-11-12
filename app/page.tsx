@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { HOME_PROFILE_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
 import { getPublishedDesktopBannerColorsBatch } from "@/lib/visual-library-edit-store";
@@ -28,6 +29,7 @@ import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { selectHomepageArticles } from "@/lib/homepage-content";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
+import { publicHeroImageSrc, publicHeroImageSrcSet, HERO_IMAGE_SIZES } from "@/lib/public-hero-image";
 import { ImageDisplay } from "@/components/image-display";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { EventImage } from "@/components/event-image";
@@ -169,7 +171,7 @@ async function HomeBelowHero({
               {featuredBreedCards.map((breed) => (
                 <HomeSidebarRow
                   key={breed.slug}
-                  href={`/plemena/${breed.slug}`}
+                  href={breedProfileHref(breed.slug, breed.fciGroup)}
                   media={
                     <BreedPhoto
                       src={breed.image!}
@@ -423,9 +425,9 @@ export default async function Home() {
       <link
         rel="preload"
         as="image"
-        href={homeHero.imageUrl}
-        imageSrcSet={responsiveMediaSrcSet(homeHero.imageUrl, [640, 960, 1280, 1600, 1920])}
-        imageSizes="(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px"
+        href={publicHeroImageSrc(homeHero.imageUrl)}
+        imageSrcSet={publicHeroImageSrcSet(homeHero.imageUrl)}
+        imageSizes={HERO_IMAGE_SIZES}
         fetchPriority="high"
       />
       <UnifiedSectionHeroShell className="hero-section" data-home-hero>

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getFciGroup } from "@/lib/content";
+import { breedCategorySlug, breedProfileHref, breedFciStandardHref } from "@/lib/breed-canonical";
 import {
   publicBreedMeasurement,
   fciSexMeasurementGroups,
@@ -19,14 +20,14 @@ import {
 } from "./fci-standard-sections";
 import styles from "./fci-standard.module.css";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string; category?: string }> };
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, category } = await params;
   const breed = await getPublishedBreed(slug);
-  if (!breed) return {};
+  if (!breed || category !== breedCategorySlug(breed.fciGroup)) return {};
 
   // Conservative launch policy: keep the secondary standard page out of the
   // index until its duplicate-content/search-intent role is reviewed explicitly.
@@ -52,9 +53,12 @@ function group(
 }
 
 export default async function BreedFciStandardPage({ params }: Props) {
-  const { slug } = await params;
+  const { slug, category } = await params;
   const breed = await getPublishedBreed(slug);
   if (!breed) notFound();
+  if (category !== breedCategorySlug(breed.fciGroup)) {
+    permanentRedirect(breedFciStandardHref(breed.slug, breed.fciGroup));
+  }
 
   const managed = "id" in breed && typeof breed.id === "number" ? breed as ManagedBreed : null;
   const controlled = managed ? await readPublicBreedControlledValues(managed.id) : null;
@@ -140,7 +144,7 @@ export default async function BreedFciStandardPage({ params }: Props) {
 
   if (!managed?.fciNumber && !groups.length && !officialLinks.length) notFound();
 
-  const canonicalPath = `/plemena/${breed.slug}/fci-standard`;
+  const canonicalPath = breedFciStandardHref(breed.slug, breed.fciGroup);
   const schema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -148,7 +152,7 @@ export default async function BreedFciStandardPage({ params }: Props) {
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Domov", item: SITE_URL },
       { "@type": "ListItem", position: 2, name: "Plemená", item: `${SITE_URL}/plemena` },
-      { "@type": "ListItem", position: 3, name: breed.name, item: `${SITE_URL}/plemena/${breed.slug}` },
+      { "@type": "ListItem", position: 3, name: breed.name, item: `${SITE_URL}${breedProfileHref(breed.slug, breed.fciGroup)}` },
       { "@type": "ListItem", position: 4, name: "FCI štandard", item: `${SITE_URL}${canonicalPath}` },
     ],
   };
@@ -159,7 +163,7 @@ export default async function BreedFciStandardPage({ params }: Props) {
       <div className={`shell ${styles.shell}`}>
         <nav className={`article-breadcrumbs ${styles.breadcrumbs}`} aria-label="Navigácia">
           <Link href="/">Domov</Link><span>/</span><Link href="/plemena">Plemená</Link><span>/</span>
-          <Link href={`/plemena/${breed.slug}`}>{breed.name}</Link><span>/</span><span>FCI štandard</span>
+          <Link href={breedProfileHref(breed.slug, breed.fciGroup)}>{breed.name}</Link><span>/</span><span>FCI štandard</span>
         </nav>
 
         <header className={styles.referenceHeader}>

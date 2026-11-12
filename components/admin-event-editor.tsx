@@ -5,7 +5,7 @@ import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
-import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
+const AdminShareToFacebook = dynamic(() => import("@/components/admin-share-to-facebook").then(m => m.AdminShareToFacebook), { ssr: false });
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { useRouter } from "next/navigation";
@@ -17,8 +17,9 @@ import { ChangeEvent, useRef, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
-import { AdminProfileGoogleMaps } from "@/components/admin-profile-google-maps";
-import { AdminGeoLocation } from "@/components/admin-geo-location";
+import dynamic from "next/dynamic";
+const AdminProfileGoogleMaps = dynamic(() => import("@/components/admin-profile-google-maps").then(m => m.AdminProfileGoogleMaps), { ssr: false });
+const AdminGeoLocation = dynamic(() => import("@/components/admin-geo-location").then(m => m.AdminGeoLocation), { ssr: false });
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import { eventSeoFallback } from "@/lib/content-seo";
@@ -26,7 +27,7 @@ import { eventChangedAdminFields } from "@/lib/notion-event-field-contract";
 import styles from "./admin-event-editor.module.css";
 import type { SmartImageMode } from "@/lib/smart-image";
 import { ImageDisplay } from "@/components/image-display";
-import { ImageDisplayEditor } from "@/components/image-display-editor";
+const ImageDisplayEditor = dynamic(() => import("@/components/image-display-editor").then(m => m.ImageDisplayEditor), { ssr: false });
 import { DEFAULT_DETAIL, DEFAULT_THUMBNAIL } from "@/lib/image-display";
 import { legacyArticleThumbnail, type ImageDisplayConfig } from "@/lib/image-display";
 
@@ -85,8 +86,17 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [activeEventSection, setActiveEventSection] = useState(EVENT_SECTIONS[0].id);
+  const [locationSectionVisited, setLocationSectionVisited] = useState(false);
+  // Fallback geolocation is significantly heavier than the canonical Google
+  // Maps status. Keep it truly opt-in to avoid a second D1 GET on first visit.
+  // Never unmount after opening: its in-progress preview must survive tab switches.
+  const [geoFallbackOpened, setGeoFallbackOpened] = useState(false);
+  const chooseEventSection = (next: string) => {
+    if (next === "event-location") setLocationSectionVisited(true);
+    setActiveEventSection(next);
+  };
   const activeEventSectionIndex = EVENT_SECTIONS.findIndex((section) => section.id === activeEventSection);
-  const navigateWithPager = useProfileEditorSectionPager(activeEventSection, setActiveEventSection);
+  const navigateWithPager = useProfileEditorSectionPager(activeEventSection, chooseEventSection);
 
   // Track the canonical form payload, not DOM input events: markdown toolbar,
   // SEO drawer, image display settings and automation patches all change React state.
@@ -154,7 +164,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
       ];
       const missing = requiredFields.find((field) => !field.value.trim());
       if (missing) {
-        setActiveEventSection(missing.section);
+        chooseEventSection(missing.section);
         setMessage("");
         setError(`Vyplň povinné pole: ${missing.label}.`);
         return;
@@ -217,7 +227,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         sections={EVENT_SECTIONS}
         sectionMode="switch"
         activeSectionId={activeEventSection}
-        onSectionChange={setActiveEventSection}
+        onSectionChange={chooseEventSection}
         preview={liveSummary}
         previewFocusable
         previewTitle="Živý súhrn podujatia"
@@ -269,13 +279,22 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
               <div className="admin-field"><label htmlFor="event-venue">Areál alebo budova</label><input id="event-venue" value={venue} onChange={(input) => setVenue(input.target.value)} placeholder="Agrokomplex" /></div>
               <div className="admin-field"><label htmlFor="event-address">Adresa</label><input id="event-address" value={address} onChange={(input) => setAddress(input.target.value)} placeholder="Výstavná 4" /></div>
             </div>
-            {event ? (
+            {event && locationSectionVisited ? (
               <div id="event-google-maps">
                 <AdminProfileGoogleMaps targetType="MANAGED_EVENT" targetId={event.id} />
-                <AdminGeoLocation targetType="MANAGED_EVENT" targetId={event.id} showGoogleWorkflow={false} />
+                <div className="admin-editor-actions">
+                  {!geoFallbackOpened && <button type="button" onClick={() => setGeoFallbackOpened(true)}>
+                    Otvoriť záložné overenie polohy podľa adresy
+                  </button>}
+                </div>
+                {geoFallbackOpened && <AdminGeoLocation
+                  targetType="MANAGED_EVENT"
+                  targetId={event.id}
+                  showGoogleWorkflow={false}
+                />}
               </div>
             ) : (
-              <p className="admin-help">Google Maps bude dostupné po prvom uložení podujatia.</p>
+              <p className="admin-help">{event ? "Mapa sa načíta po otvorení tejto sekcie." : "Google Maps bude dostupné po prvom uložení podujatia."}</p>
             )}
           </EditorSection>
 
@@ -314,7 +333,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
               <small>Verejný opis obrázka pre prístupnosť. Nie je to interná poznámka.</small>
             </div>
             {imageUrl && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
-            {event && <AdminShareToFacebook title={title} imageUrl={imageUrl} publicPath={"/podujatia/" + event.slug} />}
+            {event && activeEventSection === "event-media" && <AdminShareToFacebook title={title} imageUrl={imageUrl} publicPath={"/podujatia/" + event.slug} />}
              
           </EditorSection>
           <EditorSection id="event-notes" className="admin-form-card">

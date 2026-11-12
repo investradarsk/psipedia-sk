@@ -73,7 +73,7 @@ function relatedBreed(row: RelatedBreedRow): PublicRelatedBreed {
     id: Number(row.id),
     slug: row.slug,
     name: row.name,
-    href: breedProfileHref(row.slug),
+    href: breedProfileHref(row.slug, Number(row.fci_group)),
     imageUrl: row.image_url,
     fciGroup: Number(row.fci_group),
   };

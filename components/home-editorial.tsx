@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
@@ -194,6 +195,7 @@ export function HomeLatestArticles({
 
 export type HomeBreedCard = {
   slug: string;
+  fciGroup: number;
   name: string;
   image?: string | null;
   intro?: string | null;
@@ -212,7 +214,7 @@ export function HomeBreedMagazine({ breeds }: { breeds: HomeBreedCard[] }) {
   return (
     <div className="home-latest-layout home-breed-magazine" data-home-breed-layout>
       <article className="home-breed-feature">
-        <Link prefetch={false} href={`/plemena/${lead.slug}`}>
+        <Link prefetch={false} href={breedProfileHref(lead.slug, lead.fciGroup)}>
           <span className="home-breed-feature-media">
             <BreedPhoto
               src={lead.image ?? undefined}
@@ -233,7 +235,7 @@ export function HomeBreedMagazine({ breeds }: { breeds: HomeBreedCard[] }) {
         <div className="home-latest-list home-breed-list">
           {others.map((breed) => (
             <article className="home-breed-list-item" key={breed.slug}>
-              <Link prefetch={false} href={`/plemena/${breed.slug}`}>
+              <Link prefetch={false} href={breedProfileHref(breed.slug, breed.fciGroup)}>
                 <span className="home-breed-list-media">
                   <BreedPhoto
                     src={breed.image ?? undefined}

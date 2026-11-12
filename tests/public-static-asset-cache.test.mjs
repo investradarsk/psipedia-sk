@@ -17,6 +17,8 @@ test("only public fingerprinted vinext chunks qualify for immutable caching", ()
     "/assets/site-header-CraTQDmW.css",
     "/assets/chunk-934faDC67.js",
     "/assets/nested/chunk-934faDC67.js",
+    "/styles/breed-reference-3f5dab25d000.css",
+    "/styles/directory-146dc4e44713.css",
   ]) {
     assert.equal(isEligibleImmutableBuildAsset(...get(path)), true, path);
   }
@@ -30,6 +32,10 @@ test("only public fingerprinted vinext chunks qualify for immutable caching", ()
     "/assets/index-v1.css",
     "/assets/chunk-CuZ_jbgf.css?version=1",
     "/assets/chunk-CuZ_jbgf.css?private=1",
+    "/styles/breed-reference-3f5dab25d000.css?version=1",
+    "/styles/breed-reference.css",
+    "/styles/directory.css",
+    "/styles/directory-146dc4e44713.css?private=1",
   ]) {
     assert.equal(isEligibleImmutableBuildAsset(...get(path)), false, path);
   }

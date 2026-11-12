@@ -5,11 +5,11 @@ const CONSENT_KEY = "psipedia-cookie-consent";
 const WHITE_SWISS_LOCAL_IMAGE = "/images/e2e-biely-svajciarsky-ovciak.png";
 
 const REPRESENTATIVE_BREEDS = [
-  { slug: "biely-svajciarsky-ovciak", name: "Biely švajčiarsky ovčiak" },
-  { slug: "burgosky-stavac", name: "Burgoský stavač" },
-  { slug: "jazvecik", name: "Jazvečík" },
-  { slug: "anglicky-mastif", name: "Anglický mastif" },
-  { slug: "dansko-svedsky-farmarsky-pes", name: "Dánsko-švédsky farmársky pes" },
+  { slug: "biely-svajciarsky-ovciak", group: "ovciarske-a-pastierske", name: "Biely švajčiarsky ovčiak" },
+  { slug: "burgosky-stavac", group: "stavace", name: "Burgoský stavač" },
+  { slug: "jazvecik", group: "jazveciky", name: "Jazvečík" },
+  { slug: "anglicky-mastif", group: "pince-bradace-molosy-salasnicke", name: "Anglický mastif" },
+  { slug: "dansko-svedsky-farmarsky-pes", group: "pince-bradace-molosy-salasnicke", name: "Dánsko-švédsky farmársky pes" },
 ] as const;
 
 async function useNecessaryCookies(page: Page) {
@@ -114,7 +114,7 @@ test("breed atlas: compact header, legacy energy normalization, filters and comp
 
 test("breed profile: representative canonical details return 200, keep canonical metadata and avoid layout overflow", async ({ page }) => {
   for (const breed of REPRESENTATIVE_BREEDS) {
-    const path = `/plemena/${breed.slug}`;
+    const path = `/plemena/${breed.group}/${breed.slug}`;
     const response = await page.goto(path, { waitUntil: "domcontentloaded" });
     expect(response?.status(), `${path} did not return 200`).toBe(200);
     await expect(page.locator("h1")).toContainText(breed.name);
@@ -163,7 +163,7 @@ test("breed profile: representative canonical details return 200, keep canonical
 });
 
 test("breed profile: White Swiss uses a visible, decoded real image and not the fallback", async ({ request, page }) => {
-  const path = "/plemena/biely-svajciarsky-ovciak";
+  const path = "/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak";
   const response = await request.get(path);
   expect(response.status()).toBe(200);
   const html = await response.text();
@@ -209,13 +209,13 @@ test("breed profile: White Swiss uses a visible, decoded real image and not the 
 });
 
 test("breed profile: quick facts stay dense for rich data and collapse cleanly for sparse data", async ({ page }) => {
-  await page.goto("/plemena/biely-svajciarsky-ovciak");
+  await page.goto("/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak");
   // The shared DetailFactsCard owns the semantic definition list inside the sidebar wrapper.
   const denseFacts = page.getByTestId("breed-quick-facts").locator("[data-public-fact-list] > div");
   const denseCount = await denseFacts.count();
   expect(denseCount, "White Swiss Shepherd should expose a compact row of the available Notion-60 facts").toBeGreaterThanOrEqual(4);
 
-  await page.goto("/plemena/burgosky-stavac");
+  await page.goto("/plemena/stavace/burgosky-stavac");
   const sparseGrid = page.getByTestId("breed-quick-facts");
   const sparseFacts = sparseGrid.locator("[data-public-fact-list] > div");
   const sparseCount = await sparseFacts.count();
@@ -229,7 +229,7 @@ test("breed profile: quick facts stay dense for rich data and collapse cleanly f
 });
 
 test("breed profile: suitability, permanently visible expert sections and normalized sports work", async ({ page }) => {
-  await page.goto("/plemena/biely-svajciarsky-ovciak");
+  await page.goto("/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak");
 
   const fit = page.getByTestId("breed-fit");
   await expect(fit.getByRole("heading", { name: "Hodí sa pre" })).toBeVisible();
@@ -250,7 +250,7 @@ test("breed profile: suitability, permanently visible expert sections and normal
 });
 
 test("breed profile: canonical breadcrumbs and direct sections, no-crop media, useful cards and accessibility work", async ({ page }) => {
-  await page.goto("/plemena/biely-svajciarsky-ovciak");
+  await page.goto("/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak");
   // The approved compact profile no longer displays a redundant section navigation.
   // The breadcrumbs remain semantic and the content sections retain stable anchors.
   const breadcrumbs = page.getByTestId("breed-hero").getByRole("navigation", { name: "Navigácia", exact: true });
@@ -271,15 +271,15 @@ test("breed profile: canonical breadcrumbs and direct sections, no-crop media, u
   const fci = page.locator("#fci");
   await expect(fci.getByRole("heading", { name: "Oficiálne zaradenie FCI" })).toBeVisible();
   await expect(page.getByTestId("breed-fci-cta")).toHaveAttribute(
-    "href", "/plemena/biely-svajciarsky-ovciak/fci-standard",
+    "href", "/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak/fci-standard",
   );
   // Direct fragment links continue to resolve after removing the redundant nav.
-  await page.goto("/plemena/biely-svajciarsky-ovciak#fci");
+  await page.goto("/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak#fci");
   await expect(page).toHaveURL(/#fci$/);
   await expect(page.locator("#fci")).toBeVisible();
   const sports = page.locator("#sporty");
   if (await sports.count()) {
-    await page.goto("/plemena/biely-svajciarsky-ovciak#sporty");
+    await page.goto("/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak#sporty");
     await expect(page).toHaveURL(/#sporty$/);
     await expect(sports).toBeVisible();
   }
@@ -302,16 +302,16 @@ test("breed profile: canonical breadcrumbs and direct sections, no-crop media, u
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/plemena\/biely-svajciarsky-ovciak\/fci-standard$/);
 
-  await page.goto("/plemena/nova-scotia-duck-tolling-retriever");
+  await page.goto("/plemena/retrievery-sliedice-vodne/nova-scotia-duck-tolling-retriever");
   await expect(page.getByText("Fotografia sa pripravuje", { exact: true })).toBeVisible();
 });
 
 test("breed profile: FCI standard renders eight compact Notion sections and working anchor navigation", async ({ page }) => {
-  await page.goto("/plemena/biely-svajciarsky-ovciak");
+  await page.goto("/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak");
   const cta = page.getByTestId("breed-fci-cta");
-  await expect(cta).toHaveAttribute("href", "/plemena/biely-svajciarsky-ovciak/fci-standard");
+  await expect(cta).toHaveAttribute("href", "/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak/fci-standard");
 
-  const response = await page.goto("/plemena/biely-svajciarsky-ovciak/fci-standard", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak/fci-standard", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/i);
 
@@ -357,7 +357,7 @@ test("breed profile: FCI standard renders eight compact Notion sections and work
 });
 
 test("breed profile: sparse FCI content never renders empty groups or subsections", async ({ page }) => {
-  const response = await page.goto("/plemena/burgosky-stavac/fci-standard", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("/plemena/stavace/burgosky-stavac/fci-standard", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expectNoHorizontalOverflow(page, "Burgos FCI standard");
   const groups = page.locator("[data-fci-group]");

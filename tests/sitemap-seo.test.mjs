@@ -787,7 +787,7 @@ test("breed sitemap DTO stays lightweight and never probes R2 or static assets",
   const start = source.indexOf("export async function listPublishedCanonicalBreedSitemapIndex");
   const end = source.indexOf("export async function listPublishedBreedsForComparison", start);
   const sitemapReader = source.slice(start, end);
-  assert.match(sitemapReader, /SELECT\s*slug,\s*image_url,\s*seo_json,\s*updated_at/);
+  assert.match(sitemapReader, /SELECT\s*slug,\s*fci_group,\s*image_url,\s*seo_json,\s*updated_at/);
   assert.doesNotMatch(
     sitemapReader,
     /withAvailableBreedImages|BUCKET|ASSETS|HEAD|fci_standard_json/,

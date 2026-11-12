@@ -531,15 +531,14 @@ test("Services V3 selected choices trigger a targeted Notion relation after cano
     new URL("../app/api/admin/directory/[id]/service-options/route.ts", import.meta.url), "utf8");
   const saved = route.indexOf("await saveAdminServiceChoice(");
   const reset = route.indexOf("await resetAdminServiceChoice(");
-  const projection = route.indexOf("await projectServiceChoiceToDirectoryNotion(");
   const sync = route.indexOf("await runNotionDirectorySyncSweep(");
-  assert.ok(saved >= 0 && reset >= 0 && projection > saved && projection > reset);
-  assert.ok(sync > projection, "relation writeback must run only after canonical choice CAS and projection");
+  assert.ok(saved >= 0 && reset >= 0 && sync > saved && sync > reset,
+    "relation sync must run only after canonical choice save");
+  assert.doesNotMatch(route,/projectServiceChoiceToDirectoryNotion|notionProjection/);
   assert.ok(route.includes("targetProfileId:profileId,syncServiceRelations:true"));
   assert.ok(route.includes('NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED==="true"'));
   assert.ok(route.includes('notionFieldSync="pending"'));
-  assert.ok(route.includes('notionProjection==="deferred"'));
-  assert.ok(route.includes("return Response.json({selection,notionProjection,notionFieldSync,"));
+  assert.ok(route.includes("return Response.json({selection,notionFieldSync,"));
   assert.ok(route.includes("if(!cfg.DB)return Response.json("), "D1 must be available before saving");
   assert.equal(route.includes("runServicesV3CatalogAutoSweep"), false,
     "saving a service selection must not trigger unrelated catalog creation/sweeps");

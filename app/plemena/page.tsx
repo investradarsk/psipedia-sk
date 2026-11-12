@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
@@ -56,7 +57,7 @@ export default async function BreedsPage({ searchParams }: Props) {
       { name: "Domov", path: "/" },
       { name: "Plemená", path: "/plemena" },
     ],
-    items: breeds.map((breed) => ({ name: breed.name, path: `/plemena/${breed.slug}` })),
+    items: breeds.map((breed) => ({ name: breed.name, path: breedProfileHref(breed.slug, breed.fciGroup) })),
   }) : null;
   return (
     <>

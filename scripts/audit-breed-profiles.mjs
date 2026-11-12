@@ -55,7 +55,7 @@ function sitemapBreedPaths(xml) {
         return "";
       }
     })
-    .filter((path) => /^\/plemena\/[^/]+$/.test(path) && path !== "/plemena/vyber-plemena");
+    .filter((path) => /^\/plemena\/[^/]+\/[^/]+$/.test(path));
   return [...new Set(paths)].sort();
 }
 

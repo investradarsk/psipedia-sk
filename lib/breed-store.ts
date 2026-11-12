@@ -862,6 +862,7 @@ export async function listPublishedCanonicalBreedAtlasCards(): Promise<BreedAtla
 
 export type BreedSitemapIndexItem = {
   slug: string;
+  fciGroup: number;
   image: string;
   seo: EditableSeo;
   updatedAt: string;
@@ -869,6 +870,7 @@ export type BreedSitemapIndexItem = {
 
 type BreedSitemapIndexRow = {
   slug: string;
+  fci_group: number;
   image_url: string;
   seo_json: string;
   updated_at: string;
@@ -887,6 +889,7 @@ export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSi
   if (!database) {
     return seedBreeds.map((breed) => ({
       slug: breed.slug,
+      fciGroup: breed.fciGroup,
       image: ownedBreedImage(breed.image),
       seo: breed.seo ?? {},
       updatedAt: "2026-08-17",
@@ -894,7 +897,7 @@ export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSi
   }
   const result = await database
     .prepare(
-      `SELECT slug,image_url,seo_json,updated_at
+      `SELECT slug,fci_group,image_url,seo_json,updated_at
      FROM managed_breeds
      WHERE id IN (${canonicalBreedIdsSql})
      ORDER BY fci_group,name`,
@@ -902,6 +905,7 @@ export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSi
     .all<BreedSitemapIndexRow>();
   return result.results.map((row) => ({
     slug: row.slug,
+    fciGroup: row.fci_group,
     image: ownedBreedImage(row.image_url),
     seo: parseSeo(row.seo_json),
     updatedAt: row.updated_at,
@@ -1023,13 +1027,14 @@ export async function listFeaturedBreeds(limit = 3) {
  */
 export async function listHomepageFeaturedBreeds(
   limit = 6,
-): Promise<Array<Pick<Breed, "slug" | "name" | "image" | "intro">>> {
+): Promise<Array<Pick<Breed, "slug" | "name" | "image" | "intro" | "fciGroup">>> {
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const rotationOffset = homepageRotationOffset(bratislavaDateKey(), safeLimit);
   const database = db();
   if (!database)
-    return homepageRotatingWindow(seedBreeds, rotationOffset, safeLimit).map(({ slug, name, image, intro }) => ({
+    return homepageRotatingWindow(seedBreeds, rotationOffset, safeLimit).map(({ slug, name, image, intro, fciGroup }) => ({
       slug,
+      fciGroup,
       name,
       image: ownedBreedImage(image),
       intro,
@@ -1037,7 +1042,7 @@ export async function listHomepageFeaturedBreeds(
   const result = await database
     .prepare(
       `WITH candidates AS (
-        SELECT slug,name,image_url,intro,
+        SELECT slug,name,image_url,intro,fci_group,
           ROW_NUMBER() OVER (ORDER BY slug ASC) - 1 AS rotation_index,
           COUNT(*) OVER () AS rotation_count
         FROM managed_breeds
@@ -1050,14 +1055,15 @@ export async function listHomepageFeaturedBreeds(
             OR image_url LIKE 'https://psipedia.sk/migrated-media/%'
           )
       )
-      SELECT slug,name,image_url,intro FROM candidates
+      SELECT slug,name,image_url,intro,fci_group FROM candidates
       ORDER BY ((rotation_index - (? % rotation_count) + rotation_count) % rotation_count) ASC
       LIMIT ?`,
     )
     .bind(rotationOffset, safeLimit)
-    .all<{ slug: string; name: string; image_url: string; intro: string }>();
+    .all<{ slug: string; name: string; image_url: string; intro: string; fci_group: number }>();
   return result.results.map((row) => ({
     slug: row.slug,
+    fciGroup: row.fci_group,
     name: row.name,
     image: ownedBreedImage(row.image_url),
     intro: row.intro,
@@ -1265,7 +1271,7 @@ export async function getBreedDetailRelations(
     id: row.id,
     slug: row.slug,
     name: row.name,
-    href: breedProfileHref(row.slug),
+    href: breedProfileHref(row.slug, row.fci_group),
     image: row.image_url,
     fciGroup: row.fci_group,
     fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
@@ -1426,7 +1432,10 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed, allowNotionEd
     if (isSuspiciousPlaceholderText(publicCoat))
       throw new Error("Srsť plemena vyzerá ako testovacia alebo poškodená hodnota.");
     const canonical = cleanEditableSeo(input.seo).canonicalUrl;
-    if (canonical && canonical !== `https://psipedia.sk/plemena/${slug}`)
+    if (canonical && ![
+      `https://psipedia.sk/plemena/${slug}`,
+      `https://psipedia.sk${breedProfileHref(slug, Number(input.fciGroup))}`,
+    ].includes(canonical))
       throw new Error("Kanonický profil plemena musí odkazovať na vlastnú URL.");
   }
   return {

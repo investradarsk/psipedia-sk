@@ -161,7 +161,7 @@ export async function listPublicBreederBreedLinks(
     }>();
     return (rows.results ?? []).map(row => ({
       id: row.id, name: row.name, slug: row.slug,
-      href: breedProfileHref(row.slug), imageUrl: row.image_url, fciGroup: row.fci_group,
+      href: breedProfileHref(row.slug, row.fci_group), imageUrl: row.image_url, fciGroup: row.fci_group,
     }));
   }
   const rows = await database.prepare(
@@ -175,6 +175,6 @@ export async function listPublicBreederBreedLinks(
   }>();
   return (rows.results ?? []).map(row => ({
     id: row.id, name: row.name, slug: row.slug,
-    href: breedProfileHref(row.slug), imageUrl: row.image_url, fciGroup: row.fci_group,
+    href: breedProfileHref(row.slug, row.fci_group), imageUrl: row.image_url, fciGroup: row.fci_group,
   }));
 }

@@ -8,7 +8,7 @@ import { externalAgentEnabled, sweepExternalGemini } from "../lib/gemini-externa
 import { requireGeminiRunning } from "../lib/gemini-global-control.ts";
 import {runGeminiDirectoryCategory} from "../lib/gemini-automation-pilot.ts";
 import {runGeminiEventCategory} from "../lib/gemini-automation-event-runner.ts";
-import { canonicalBreedRedirect } from "../lib/breed-canonical";
+import { breedProfileHref, canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
 import { runAdminPushSweep } from "../lib/admin-push";
@@ -50,6 +50,12 @@ import {
   PUBLIC_MEDIA_EDGE_TTL_SECONDS,
   PUBLIC_MEDIA_BROWSER_CACHE_CONTROL,
 } from "../lib/public-media-edge-cache.ts";
+import {
+  publicHeroTransformEdgeCacheKey,
+  isCacheablePublicHeroTransformResponse,
+  PUBLIC_HERO_TRANSFORM_EDGE_TTL_SECONDS,
+  PUBLIC_HERO_TRANSFORM_BROWSER_CACHE_CONTROL,
+} from "../lib/public-hero-transform-cache";
 import { isExplicitAnonymousHtmlRoute, isExplicitAnonymousSsrHtml, isSafePublicHtmlVary } from "../lib/public-anonymous-html-cache";
 import { eligiblePublicSitemapRequest, servePublicSitemap } from "../lib/sitemap-edge-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
@@ -211,9 +217,9 @@ const USER_FULL_NAME_ENCODING_HEADER = "oai-authenticated-user-full-name-encodin
 const USER_FULL_NAME_HEADER = "oai-authenticated-user-full-name";
 const PERCENT_ENCODED_UTF8 = "percent-encoded-utf-8";
 const LEGACY_BREED_REDIRECTS: Readonly<Record<string, string>> = {
-  "/plemena/anglicky-koker-spaniel": "/plemena/anglicky-kokerspaniel",
-  "/plemena/beagle": "/plemena/bigl",
-  "/plemena/madarska-vyzla": "/plemena/madarsky-kratkosrsty-stavac-vyzla",
+  "/plemena/anglicky-koker-spaniel": breedProfileHref("anglicky-kokerspaniel", 8),
+  "/plemena/beagle": breedProfileHref("bigl", 6),
+  "/plemena/madarska-vyzla": breedProfileHref("madarsky-kratkosrsty-stavac-vyzla", 7),
 };
 const PUBLIC_HTML_CACHE_TTL_SECONDS = 45;
 const MAP_PAGE_CSP = [
@@ -336,10 +342,13 @@ const worker = {
       }
     }
 
-    const breedMatch=url.pathname.match(/^\/plemena\/([a-z0-9-]+)$/);
-    if(breedMatch&&env.DB){
-      const target=await cachedCanonicalBreedRedirect(env.DB,breedMatch[1]);
-      if(target){url.pathname=target;return Response.redirect(url,301);}
+    const breedMatch = url.pathname.match(/^\/plemena\/([a-z0-9-]+)(\/fci-standard)?\/?$/);
+    if (breedMatch && env.DB) {
+      const target = await cachedCanonicalBreedRedirect(env.DB, breedMatch[1]);
+      if (target) {
+        url.pathname = target + (breedMatch[2] ?? "");
+        return Response.redirect(url, 301);
+      }
     }
 
     let appRequest = request;
@@ -371,14 +380,44 @@ const worker = {
     }
 
     if (url.pathname === "/_vinext/image") {
+      // Mobile homepage LCP: reuse the exact public static image variants across
+      // anonymous visitors. Never cache arbitrary image optimizer inputs.
+      // Cache keys include negotiated Accept format and current Worker version.
+      const heroCacheKey = !isWorkersDevPreview
+        ? publicHeroTransformEdgeCacheKey(appRequest, env.CF_VERSION_METADATA?.id)
+        : null;
+      const heroCache = heroCacheKey
+        ? (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default
+        : null;
+      if (heroCache && heroCacheKey) {
+        const hit = await heroCache.match(heroCacheKey);
+        if (hit) return responseWithHeaders(hit, {
+          "Cache-Control": PUBLIC_HERO_TRANSFORM_BROWSER_CACHE_CONTROL,
+          "X-Psipedia-Hero-Cache": "HIT",
+        });
+      }
+
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
-      return handleImageOptimization(appRequest, {
+      const optimized = await handleImageOptimization(appRequest, {
         fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, appRequest.url))),
         transformImage: async (body, { width, format, quality }) => {
           const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
           return result.response();
         },
       }, allowedWidths);
+
+      if (heroCache && heroCacheKey && isCacheablePublicHeroTransformResponse(optimized)) {
+        const edgeCopy = responseWithHeaders(optimized.clone(), {
+          "Cache-Control": `public, max-age=${PUBLIC_HERO_TRANSFORM_EDGE_TTL_SECONDS}`,
+          "CDN-Cache-Control": `public, max-age=${PUBLIC_HERO_TRANSFORM_EDGE_TTL_SECONDS}`,
+        });
+        ctx.waitUntil(heroCache.put(heroCacheKey, edgeCopy));
+        return responseWithHeaders(optimized, {
+          "Cache-Control": PUBLIC_HERO_TRANSFORM_BROWSER_CACHE_CONTROL,
+          "X-Psipedia-Hero-Cache": "MISS",
+        });
+      }
+      return optimized;
     }
 
     let response = await handler.fetch(appRequest, env, ctx);

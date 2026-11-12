@@ -48,6 +48,9 @@ export type AdminRecordTableSelection<T> = {
 // All Admin list pages have bounded server pagination. A stable ID keeps
 // selection and the TanStack row cache aligned across local state changes.
 function recordRowId<T extends { id: number }>(record: T) { return String(record.id); }
+// Most list views do not enable bulk selection. Keep a stable empty state so
+// TanStack need not reconcile selection or regenerate row models for those views.
+const EMPTY_ROW_SELECTION: RowSelectionState = {};
 
 /** Read-first grid; optional selection delegates writes to the domain's existing bulk API. */
 export function AdminRecordTable<T extends { id: number }>({
@@ -92,31 +95,45 @@ export function AdminRecordTable<T extends { id: number }>({
   );
 
   const selectedIds = selection?.selectedIds;
+  // The listing's bulk selection IDs are often reconstructed on each parent
+  // render. Equal page selections must share the same TanStack state object.
+  const selectedIdsKey = selectedIds?.join(",") ?? "";
   const rowSelection = useMemo<RowSelectionState>(() => {
+    if (!selectedIdsKey) return EMPTY_ROW_SELECTION;
     const visibleIds = new Set(rows.map(row => row.id));
-    return Object.fromEntries((selectedIds ?? []).filter(id => visibleIds.has(id)).map(id => [String(id), true]));
-  }, [rows, selectedIds]);
+    return Object.fromEntries(selectedIdsKey.split(",").map(Number)
+      .filter(id => visibleIds.has(id)).map(id => [String(id), true]));
+  }, [rows, selectedIdsKey]);
+
+  // Memoize columns by the selection options that affect their rendering,
+  // not the parent's frequently recreated selection wrapper / selected IDs.
+  // Keep callbacks in the dependency list: never render stale disabled/label UI.
+  const selectionEnabled = Boolean(selection);
+  const selectionDisabled = selection?.disabled;
+  const selectionRowLabel = selection?.labelForRow;
+  const selectionAllLabel = selection?.selectAllLabel;
+  const selectionRowInputDataAttribute = selection?.rowInputDataAttribute;
 
   const definitions = useMemo<ColumnDef<T>[]>(() => [
-    ...(selection ? [{
+    ...(selectionEnabled ? [{
       id: "__select",
       header: ({ table }: { table: Table<T> }) => (
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
-          label={selection.selectAllLabel ?? ("Označiť všetky záznamy na tejto strane: " + label)}
+          label={selectionAllLabel ?? ("Označiť všetky záznamy na tejto strane: " + label)}
           checked={table.getIsAllPageRowsSelected()}
           indeterminate={table.getIsSomePageRowsSelected()}
-          disabled={busy || selection.disabled || !rows.length}
+          disabled={busy || selectionDisabled || !rows.length}
           onChange={checked => table.toggleAllPageRowsSelected(checked)}
         />
       ),
       cell: ({ row }: { row: Row<T> }) => (
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
-          label={selection.labelForRow?.(row.original) ?? ("Označiť záznam " + row.original.id)}
-          inputDataAttribute={selection.rowInputDataAttribute}
+          label={selectionRowLabel?.(row.original) ?? ("Označiť záznam " + row.original.id)}
+          inputDataAttribute={selectionRowInputDataAttribute}
           checked={row.getIsSelected()}
-          disabled={busy || selection.disabled}
+          disabled={busy || selectionDisabled}
           onChange={checked => row.toggleSelected(checked)}
         />
       ),
@@ -148,7 +165,8 @@ export function AdminRecordTable<T extends { id: number }>({
     size: column.width ?? 165,
     minSize: 85,
   })),
-  ], [columns, selection, label, busy, rows.length, serverSorted, serverSorting]);
+  ], [columns, selectionEnabled, selectionDisabled, selectionRowLabel, selectionAllLabel,
+    selectionRowInputDataAttribute, label, busy, rows.length, serverSorted, serverSorting]);
 
   const table = useReactTable({
     data: rows,

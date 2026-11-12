@@ -16,7 +16,7 @@ type Group = "directory" | "help" | "events" | "breeds";
 type ScopedCategory = { group: Group; category: string };
 type PickerRow = {
   id: number; title: string; slug: string; detail: string | null; image_url: string | null;
-  source_category?: string; type?: string;
+  source_category?: string; type?: string; fci_group?: number;
 };
 type PickerSql = {
   select: string; table: string; where: string; bindings: (string | number)[];
@@ -68,7 +68,7 @@ function pickerSql(scope: ScopedCategory): PickerSql {
   if (scope.group === "breeds") {
     const group = scope.category === "all" ? null : Number(scope.category.slice(4));
     return {
-      select: "id, name AS title, slug, ('FCI ' || fci_group || ' · ' || COALESCE(NULLIF(origin,''), 'Pôvod neuvedený')) AS detail, image_url",
+      select: "id, name AS title, slug, fci_group, ('FCI ' || fci_group || ' · ' || COALESCE(NULLIF(origin,''), 'Pôvod neuvedený')) AS detail, image_url",
       table: "managed_breeds",
       where: "id IN (" + canonicalBreedIdsSql + ")" + (group === null ? "" : " AND fci_group = ?"),
       bindings: group === null ? [] : [group],
@@ -128,7 +128,7 @@ function pickerSql(scope: ScopedCategory): PickerSql {
 }
 
 function profileUrl(scope: ScopedCategory, row: PickerRow): string {
-  if (scope.group === "breeds") return breedProfileHref(row.slug);
+  if (scope.group === "breeds") return breedProfileHref(row.slug, row.fci_group);
   if (scope.group === "directory") {
     const category = row.source_category || scope.category;
     if (!isDirectoryCategory(category)) throw Error("Neznáma kategória profilu.");

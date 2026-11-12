@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { canonicalBreedIdsSql } from "@/lib/breed-canonical";
+import { breedProfileHref, canonicalBreedIdsSql } from "@/lib/breed-canonical";
 import { directoryProfileHref, isDirectoryCategory } from "@/lib/directory";
 import { eventHref } from "@/lib/events";
 import { helpCaseHref, isHelpCategory } from "@/lib/help";
@@ -27,7 +27,7 @@ function localHref(kind: DynamicUrlKind, row: PublicRow): string | null {
     return row.category === "LOST" || row.category === "FOUND"
       ? dogReportHref({ type: row.category, slug: row.slug }) : null;
   if (kind === "events") return eventHref({slug:row.slug});
-  if (kind === "breeds") return "/plemena/" + row.slug;
+  if (kind === "breeds") return breedProfileHref(row.slug, Number(row.category));
   if (kind === "organizations") return "/organizacie/" + row.slug;
   if (kind === "adoptions") return "/pomoc-psom/adopcia/" + row.slug;
   if (kind === "eshops") return "/recenzie/eshopy/" + row.slug;
@@ -70,7 +70,7 @@ const SOURCES: Record<DynamicUrlKind, { from: string; where: string; label: stri
   breeds: {
     from: "managed_breeds b",
     where: `b.id IN (${canonicalBreedIdsSql})`,
-    label: "b.name", slug: "b.slug",
+    label: "b.name", slug: "b.slug", category: "b.fci_group",
   },
   articles: {
     from: "managed_articles a",

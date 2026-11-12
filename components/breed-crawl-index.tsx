@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import Link from "next/link";
 import type { FciGroup } from "@/lib/content";
 import type { BreedAtlasCard } from "@/lib/breed-store";
@@ -66,7 +67,7 @@ export function BreedCrawlIndex({ breeds, groups }: BreedCrawlIndexProps) {
               <ul>
                 {group.breeds.map((breed) => (
                   <li key={breed.slug}>
-                    <Link href={`/plemena/${breed.slug}`}>{breed.name}</Link>
+                    <Link href={breedProfileHref(breed.slug, breed.fciGroup)}>{breed.name}</Link>
                   </li>
                 ))}
               </ul>
