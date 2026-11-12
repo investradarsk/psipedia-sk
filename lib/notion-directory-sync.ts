@@ -1864,9 +1864,13 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
       const echoed = await patchNotionPage(input.bindings, page.id, {
         [key]: expectedLabel ? select(expectedLabel) : { select: null },
       });
-      if (echoed.id !== page.id || propertyText(echoed, key) !== expectedLabel) {
+      if (echoed.id !== page.id ||
+          !Object.hasOwn(echoed.properties ?? {}, key) ||
+          propertyText(echoed, key) !== expectedLabel) {
         const refreshed = await fetchNotionPage(input.bindings, page.id);
-        if (refreshed.id !== page.id || propertyText(refreshed, key) !== expectedLabel)
+        if (refreshed.id !== page.id ||
+            !Object.hasOwn(refreshed.properties ?? {}, key) ||
+            propertyText(refreshed, key) !== expectedLabel)
           throw new Error("DIRECTORY_FACET_WRITEBACK_UNVERIFIED");
       }
       updated = true;
