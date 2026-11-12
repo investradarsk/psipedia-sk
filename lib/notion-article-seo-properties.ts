@@ -18,6 +18,7 @@ export const ARTICLE_NOTION_SEO_PROPERTIES = {
 } as const satisfies Record<string, { name: string; type: "rich_text" | "url" | "checkbox" }>;
 
 export type ArticleNotionSeoKey = keyof typeof ARTICLE_NOTION_SEO_PROPERTIES;
+import { articleSeoExplicitClears, type ArticleSeoRemoteValues } from "./notion-article-seo-receipt";
 
 
 /** SEO values on a canonical article. New Notion properties are empty for
@@ -63,25 +64,38 @@ function urlProperty(page: SeoNotionPage, name: string): string {
  * Positive Notion values override Admin. Empty/unset properties on historical
  * records fall back to Admin until field-level clearing is implemented.
  */
-export function articleSeoFromNotion(page: SeoNotionPage, existing?: ExistingArticleSeo) {
+export function articleSeoFromNotion(
+  page: SeoNotionPage,
+  existing?: ExistingArticleSeo,
+  confirmedPrevious?: ArticleSeoRemoteValues | null,
+) {
+  const cleared = articleSeoExplicitClears(page, confirmedPrevious);
   const old = existing?.seo;
-  const seoTitle = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.seoTitle.name)
+  const seoTitle = cleared.has("seoTitle") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.seoTitle.name)
     || old?.title || "";
-  const metaDescription = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.metaDescription.name)
+  const metaDescription = cleared.has("metaDescription") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.metaDescription.name)
     || old?.description || "";
-  const focusKeyword = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.focusKeyword.name)
+  const focusKeyword = cleared.has("focusKeyword") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.focusKeyword.name)
     || old?.focusKeyword || "";
-  const canonicalUrl = urlProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.canonicalUrl.name)
+  const canonicalUrl = cleared.has("canonicalUrl") ? "" : urlProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.canonicalUrl.name)
     || old?.canonicalUrl || "";
-  const noindex = property(page, ARTICLE_NOTION_SEO_PROPERTIES.noindex.name)?.checkbox === true
-    || old?.noindex === true;
-  const ogTitle = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogTitle.name)
+  const noindex = cleared.has("noindex") ? false
+    : property(page, ARTICLE_NOTION_SEO_PROPERTIES.noindex.name)?.checkbox === true || old?.noindex === true;
+  const ogTitle = cleared.has("ogTitle") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogTitle.name)
     || old?.ogTitle || seoTitle;
-  const ogDescription = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogDescription.name)
+  const ogDescription = cleared.has("ogDescription") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogDescription.name)
     || old?.ogDescription || metaDescription;
-  const ogImageUrl = urlProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogImageUrl.name)
+  const ogImageUrl = cleared.has("ogImageUrl") ? null : urlProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogImageUrl.name)
     || old?.ogImage || null;
-  const ogImageKey = ogImageUrl && ogImageUrl === old?.ogImage
+  // The public absolute URL and the Admin media-relative path may refer to
+  // the same R2 object. Never lose the key for an unchanged image.
+  const isSameOgImage = (left: string | null | undefined, right: string | null | undefined) => {
+    if (!left || !right) return false;
+    try {
+      return new URL(left, "https://psipedia.sk").href === new URL(right, "https://psipedia.sk").href;
+    } catch { return left === right; }
+  };
+  const ogImageKey = isSameOgImage(ogImageUrl, old?.ogImage)
     ? existing?.ogImageKey ?? null : null;
   return {
     seoTitle, metaDescription, focusKeyword, canonicalUrl, noindex,
