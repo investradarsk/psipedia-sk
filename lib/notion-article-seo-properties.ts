@@ -18,3 +18,73 @@ export const ARTICLE_NOTION_SEO_PROPERTIES = {
 } as const satisfies Record<string, { name: string; type: "rich_text" | "url" | "checkbox" }>;
 
 export type ArticleNotionSeoKey = keyof typeof ARTICLE_NOTION_SEO_PROPERTIES;
+
+
+/** SEO values on a canonical article. New Notion properties are empty for
+ * historic articles; an initial import must not erase established Admin SEO.
+ * Deliberate clears and unchecking noindex are handled by the field-delta
+ * synchronization phase, not by interpreting a default Notion blank as a clear.
+ */
+export type ExistingArticleSeo = {
+  seo?: {
+    title?: string; description?: string; focusKeyword?: string;
+    canonicalUrl?: string; noindex?: boolean;
+    ogTitle?: string; ogDescription?: string; ogImage?: string | null;
+  };
+  ogImageKey?: string | null;
+};
+
+type SeoNotionPage = { properties?: Record<string, unknown> };
+type NotionProperty = Record<string, unknown>;
+
+function property(page: SeoNotionPage, name: string): NotionProperty | null {
+  const value = page.properties?.[name];
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as NotionProperty : null;
+}
+
+function textProperty(page: SeoNotionPage, name: string): string {
+  const raw = property(page, name)?.rich_text;
+  if (!Array.isArray(raw)) return "";
+  return raw.map((item: unknown) => {
+    if (!item || typeof item !== "object") return "";
+    const node = item as { plain_text?: unknown; text?: { content?: unknown } };
+    return typeof node.plain_text === "string"
+      ? node.plain_text : typeof node.text?.content === "string" ? node.text.content : "";
+  }).join("").trim();
+}
+
+function urlProperty(page: SeoNotionPage, name: string): string {
+  const raw = property(page, name)?.url;
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+/** Parses all eight SEO properties; does not change status, slug or article ID.
+ * Positive Notion values override Admin. Empty/unset properties on historical
+ * records fall back to Admin until field-level clearing is implemented.
+ */
+export function articleSeoFromNotion(page: SeoNotionPage, existing?: ExistingArticleSeo) {
+  const old = existing?.seo;
+  const seoTitle = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.seoTitle.name)
+    || old?.title || "";
+  const metaDescription = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.metaDescription.name)
+    || old?.description || "";
+  const focusKeyword = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.focusKeyword.name)
+    || old?.focusKeyword || "";
+  const canonicalUrl = urlProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.canonicalUrl.name)
+    || old?.canonicalUrl || "";
+  const noindex = property(page, ARTICLE_NOTION_SEO_PROPERTIES.noindex.name)?.checkbox === true
+    || old?.noindex === true;
+  const ogTitle = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogTitle.name)
+    || old?.ogTitle || seoTitle;
+  const ogDescription = textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogDescription.name)
+    || old?.ogDescription || metaDescription;
+  const ogImageUrl = urlProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogImageUrl.name)
+    || old?.ogImage || null;
+  const ogImageKey = ogImageUrl && ogImageUrl === old?.ogImage
+    ? existing?.ogImageKey ?? null : null;
+  return {
+    seoTitle, metaDescription, focusKeyword, canonicalUrl, noindex,
+    ogTitle, ogDescription, ogImageUrl, ogImageKey,
+  };
+}
