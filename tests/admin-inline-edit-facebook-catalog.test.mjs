@@ -36,7 +36,12 @@ test("Services V3 inline editing uses existing gated canonical option mutation, 
   const lifecycle = read("lib/service-catalog-admin-lifecycle.ts");
   const overrides = read("lib/service-catalog-builtin-overrides.ts");
   assert.match(ui, /const mayInlineEdit=/);
-  assert.match(ui, /item\.status==="DRAFT"/);
+  // Inline changes are allowed for active canonical admin options (and
+  // enabled built-in overrides), never draft/retired admin records. The
+  // previous DRAFT assertion was stale in both main and this PR.
+  assert.match(ui, /const mayEdit=/);
+  assert.match(ui, /item\.source==="built_in"\?builtinOverridesEnabled:item\.status==="ACTIVE"/);
+  assert.match(ui, /const mayInlineEdit=\(item:CatalogEditorItem\)=>mayEdit\(item\)&&item\.version!==null/);
   assert.match(ui, /<AdminInlineRowActions/);
   assert.match(ui, /<AdminInlineCellInput/);
   assert.match(ui, /action:"edit",expectedVersion:draft\.version,name:draft\.label/);
