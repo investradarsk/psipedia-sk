@@ -33,11 +33,13 @@ test("only iOS mobile navigation reloads the two unstable streamed routes", () =
 
 test("admin route failure renders retry and safe full-document escape links instead of white screen", () => {
   const boundary = read("app/admin/error.tsx");
+  const recovery = read("components/admin-recovery-actions.tsx");
   assert.match(boundary, /"use client"/);
-  assert.match(boundary, /Administrácia sa nenačítala/);
-  assert.match(boundary, /window\.location\.reload\(\)/);
-  assert.match(boundary, /onClick=\{reset\}/);
-  assert.match(boundary, /<Link href="\/admin" prefetch=\{false\}>Pracovný prehľad<\/Link>/);
-  assert.match(boundary, /<Link href="\/admin\/clanky" prefetch=\{false\}>Články<\/Link>/);
-  assert.doesNotMatch(boundary, /error\.message/);
+  assert.match(boundary, /<AdminErrorRecovery error=\{error\} reset=\{reset\}/);
+  assert.match(recovery, /Administrácia sa nenačítala/);
+  assert.match(recovery, /window\.location\.reload\(\)/);
+  assert.match(recovery, /startRecovery\(\(\) => reset\(\)\)/);
+  assert.match(recovery, /data-admin-unsaved-editor/);
+  assert.match(recovery, /target="_blank" rel="noopener noreferrer" prefetch=\{false\}/);
+  assert.doesNotMatch(boundary + recovery, /error\.message/);
 });
