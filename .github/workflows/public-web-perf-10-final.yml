@@ -27,6 +27,7 @@ on:
       - 'lib/section-visual-store.ts'
       - 'worker/index.ts'
       - 'tests/public-*'
+      - 'tests/public-landing-alignment.test.mjs'
       - 'tests/performance-fastpaths.test.mjs'
       - 'tests/homepage-*'
       - 'tests/breed-crawl-hierarchy.test.mjs'
@@ -63,6 +64,7 @@ jobs:
         run: |
           npm run test:public-css-scope
           node --test tests/public-design-tokens.test.mjs
+          node --test tests/public-landing-alignment.test.mjs
           node --test tests/visual-library-full-inventory.test.mjs
       - name: Events, maps and FCI crawl behavior
         run: |
