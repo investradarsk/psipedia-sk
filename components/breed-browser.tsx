@@ -13,7 +13,7 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { FciGroup } from "@/lib/content";
 import type { BreedAtlasCard } from "@/lib/breed-store";
-import { normalizeBreedSearchText } from "@/lib/breed-fci";
+import { indexBreedSearch, filterIndexedBreeds } from "@/lib/breed-browser-search";
 import {
   breedAtlasHref,
   listFciSectionOptions,
@@ -129,20 +129,16 @@ export function BreedBrowser({
     }
   }, [query, selectedGroup, selectedSection, selectedOrigin]);
 
-  const visible = useMemo(() => {
-    const normalized = normalizeBreedSearchText(query);
-    return breeds.filter((breed) => {
-      const queryMatch =
-        !normalized ||
-        normalizeBreedSearchText(
-          `${breed.name} ${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.intro} ${breed.searchText}`,
-        ).includes(normalized);
-      const groupMatch = selectedGroup === "all" || breed.fciGroup === Number(selectedGroup);
-      const sectionMatch = !selectedSection || breed.fciSectionNumber === selectedSection;
-      const originMatch = selectedOrigin === "all" || breed.origin === selectedOrigin;
-      return queryMatch && groupMatch && sectionMatch && originMatch;
-    });
-  }, [breeds, query, selectedGroup, selectedSection, selectedOrigin]);
+  const indexedBreeds = useMemo(() => indexBreedSearch(breeds), [breeds]);
+  const visible = useMemo(
+    () => filterIndexedBreeds(indexedBreeds, {
+      query,
+      group: selectedGroup,
+      section: selectedSection,
+      origin: selectedOrigin,
+    }),
+    [indexedBreeds, query, selectedGroup, selectedSection, selectedOrigin],
+  );
 
   const currentFilters: BreedAtlasFilters = {
     query,
@@ -165,18 +161,25 @@ export function BreedBrowser({
 
   // Each FCI group shows three real cards. Native links allow the complete
   // group-filtered server route to be discovered even without client JavaScript.
-  const groupedBreeds = useMemo(
-    () =>
-      groups
-        .map((group) => ({
-          group,
-          breeds: visible
-            .filter((breed) => breed.fciGroup === group.number)
-            .sort((first, second) => first.name.localeCompare(second.name, "sk")),
-        }))
-        .filter((entry) => entry.breeds.length > 0),
-    [groups, visible],
-  );
+  const groupedBreeds = useMemo(() => {
+    // One pass through the visible catalog, then sort only populated groups.
+    // Preserve the FCI group order and the original Slovak alphabetical order.
+    const byGroup = new Map<number, BreedAtlasCard[]>();
+    for (const breed of visible) {
+      const groupBreeds = byGroup.get(breed.fciGroup);
+      if (groupBreeds) groupBreeds.push(breed);
+      else byGroup.set(breed.fciGroup, [breed]);
+    }
+    return groups.flatMap((group) => {
+      const groupBreeds = byGroup.get(group.number);
+      return groupBreeds?.length
+        ? [{
+            group,
+            breeds: groupBreeds.sort((first, second) => first.name.localeCompare(second.name, "sk")),
+          }]
+        : [];
+    });
+  }, [groups, visible]);
   const isGroupExpanded = (number: number) =>
     selectedGroup === String(number) || expandedGroups.has(number);
   const toggleGroup = (number: number) => {
