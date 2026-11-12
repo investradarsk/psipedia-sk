@@ -4,6 +4,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const CONSENT_KEY = "psipedia-cookie-consent";
 const NO_CONSENT_TEST = "@production cookie consent first visit navigation and rejection work";
 const GOOGLE_SCRIPTS = 'script[src*="googletagmanager.com"], script[src*="pagead2.googlesyndication.com"]';
+// The canonical public breed URL includes its FCI group (the legacy one-segment URL redirects).
+const CANONICAL_BREED_PROFILE_PATH = /^\/plemena\/[a-z0-9-]+\/[a-z0-9-]+$/;
 
 async function useNecessaryCookies(page: Page) {
   await page.addInitScript(([key]) => localStorage.setItem(key, "necessary"), [CONSENT_KEY]);
@@ -427,7 +429,7 @@ test("@production homepage search, CTA and featured breeds work without JS error
     .toHaveCount(Math.min(breedCount, visibleBreedLimit));
   for (let index = 0; index < breedCount; index += 1) {
     const card = breedCards.nth(index);
-    await expect(card).toHaveAttribute("href", /^\/plemena\/[^/?#]+$/);
+    await expect(card).toHaveAttribute("href", CANONICAL_BREED_PROFILE_PATH);
     await expect(card.locator("strong")).not.toHaveText("");
     await expect(card.locator('img:not([aria-hidden="true"])')).toHaveCount(1);
   }
@@ -440,10 +442,10 @@ test("@production breed listing filters, detail, 404 and comparison work", async
   await expect(page.locator("h1")).toBeVisible();
   await page.getByPlaceholder("Hľadať plemeno, krajinu alebo FCI skupinu").fill("labrador");
   await expect(page.locator(".breed-card")).toHaveCount(1);
-  const detailHref = await firstPublicLink(page, ".breed-grid", /^\/plemena\/(?!vyber-plemena$)[^/?#]+$/);
+  const detailHref = await firstPublicLink(page, ".breed-grid", CANONICAL_BREED_PROFILE_PATH);
   await gotoProductionPage(page, detailHref);
   await expect(page.locator("h1")).toBeVisible();
-  const missing = await page.goto("/plemena/neexistujuce-plemeno-e2e", { waitUntil: "commit" });
+  const missing = await page.goto("/plemena/retrievery-sliedice-vodne/neexistujuce-plemeno-e2e", { waitUntil: "commit" });
   expect(missing?.status(), "Unknown breed must return HTTP 404").toBe(404);
   await gotoProductionPage(page, "/porovnat-plemena");
   await expect(page.locator("h1")).toContainText(/Dve plemená|Porovnanie plemien/i);
@@ -584,7 +586,7 @@ test("@production robots and sitemaps are available and valid", async ({ request
   const counts = {
     total: locations.length,
     directoryDetails: locations.filter((url) => /^\/adresar\/[^/]+\/[^/]+$/.test(pathname(url))).length,
-    breeds: locations.filter((url) => /^\/plemena\/[^/]+$/.test(pathname(url)) && pathname(url) !== "/plemena/vyber-plemena").length,
+    breeds: locations.filter((url) => CANONICAL_BREED_PROFILE_PATH.test(pathname(url))).length,
     events: locations.filter((url) => /^\/podujatia\/[^/]+$/.test(pathname(url)) && pathname(url) !== "/podujatia/kalendar").length,
     organizations: locations.filter((url) => /^\/organizacie\/[^/]+$/.test(pathname(url))).length,
     adoptions: locations.filter((url) => /^\/pomoc-psom\/adopcia\/[^/]+$/.test(pathname(url))).length,
@@ -723,7 +725,7 @@ test("@production key public pages have no serious axe violations", async ({ pag
   await gotoProductionPage(page, "/");
   await expectAxeClean(page, "Homepage");
   await gotoProductionPage(page, "/plemena");
-  await gotoProductionPage(page, await firstPublicLink(page, ".breed-grid", /^\/plemena\/(?!vyber-plemena$)[^/?#]+$/));
+  await gotoProductionPage(page, await firstPublicLink(page, ".breed-grid", CANONICAL_BREED_PROFILE_PATH));
   await expectAxeClean(page, "Breed detail");
   await gotoProductionPage(page, "/adresar/veterinari");
   await gotoProductionPage(page, await firstPublicLink(page, ".directory-grid", /^\/adresar\/veterinari\/[^/?#]+$/));

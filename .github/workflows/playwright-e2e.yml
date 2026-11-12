@@ -987,6 +987,19 @@ jobs:
           fi
 
           exit "$first_status"
+      # Collect read-only edge timing evidence only after a failing smoke.
+      # Do not turn real navigation failures into green checks.
+      - name: Diagnose production response latency after smoke failure
+        if: failure()
+        shell: bash
+        run: |
+          for path in / /plemena /adresar /podujatia; do
+            printf 'production-probe path=%s ' "$path"
+            curl --connect-timeout 5 --max-time 15 --location --silent --show-error \
+              --output /dev/null \
+              --write-out 'status=%{http_code} remote_ip=%{remote_ip} dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s ttfb=%{time_starttransfer}s total=%{time_total}s\n' \
+              "https://psipedia.sk${path}" || echo "production-probe-failed path=$path"
+          done
       - name: Upload Playwright HTML report on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -1359,6 +1372,48 @@ jobs:
                 assignees: [context.repo.owner],
               });
               core.info("Opened production smoke issue #" + created.data.number);
+            }
+
+
+  resolve-production-smoke:
+    name: Close production smoke incident after verified green
+    needs: production-smoke
+    if: ${{ always() && github.event_name != 'pull_request' && needs.production-smoke.result == 'success' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: psipedia-production-smoke-incident
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Close the existing incident only after both production projects pass
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const stableTitle = "Production smoke — otvorený incident";
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo,
+              state: "open",
+              per_page: 100,
+            });
+            const incidents = issues.filter(issue => !issue.pull_request && issue.title === stableTitle);
+            for (const incident of incidents) {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: incident.number,
+                body: "Oba produkčné smoke testy (desktop aj mobile) úspešne prešli v rune #" +
+                  context.runNumber + ".\n\n" +
+                  "[Overiť zelený workflow](" +
+                  context.serverUrl + "/" + context.repo.owner + "/" + context.repo.repo +
+                  "/actions/runs/" + context.runId + ").",
+              });
+              await github.rest.issues.update({
+                ...context.repo,
+                issue_number: incident.number,
+                state: "closed",
+                state_reason: "completed",
+              });
             }
 
   lost-found-public-e2e:
