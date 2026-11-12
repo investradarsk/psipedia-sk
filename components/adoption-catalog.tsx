@@ -56,7 +56,7 @@ type Props = {
 
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   const href = adoptionDetailPath(dog.slug);
-  const meta = [dog.organizationName, dog.city, dog.region].filter(Boolean).join(" · ");
+  const meta = dog.city?.trim() ?? "";
   // Confirmation is historical evidence, not a promise the dog is still available.
   const confirmationDate = formatAdoptionDetailVerification(dog.lastVerifiedAt);
   return (
@@ -89,7 +89,6 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
         </Link>
       }
       meta={meta}
-      excerpt={dog.shortDescription}
       extras={confirmationDate || (dog.organizationSlug && dog.organizationName) ? (
         <div>
           {confirmationDate ? (

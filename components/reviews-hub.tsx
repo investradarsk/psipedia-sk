@@ -338,7 +338,6 @@ export async function ReviewsHub({
                       href={`/recenzie/eshopy/${shop.slug}`}
                       title={shop.name}
                       eyebrow={<>E-shop{shop.focusTags.length ? ` · ${shop.focusTags.slice(0, 2).join(", ")}` : ""}</>}
-                      excerpt={shop.description}
                       image={shop.logoUrl ? { src: shop.logoUrl, alt: `Logo e-shopu ${shop.name}` } : undefined}
                       meta={
                         <>

@@ -62,7 +62,6 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
       title={item.title}
       category={item.eyebrow}
       meta={item.meta}
-      excerpt={item.excerpt}
       badge={item.badge
         ? <span className={[styles.overviewBadge, item.urgent ? styles.overviewBadgeUrgent : ""].filter(Boolean).join(" ")}>{item.badge}</span>
         : null}

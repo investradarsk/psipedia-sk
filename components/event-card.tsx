@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { eventDateStatus, eventHref, formatEventDate, type PublicEventCard } from "@/lib/events";
-import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
+import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
 import { EventImage } from "@/components/event-image";
 import { PublicListingRowCard } from "@/components/public-listing-row-card";
@@ -27,7 +27,7 @@ function endDateLabel(event: PublicEventCard) {
 }
 
 function eventLocation(event: PublicEventCard) {
-  return publicLocationLabel([event.venue, publicLocationValue(event.city, "city"), publicLocationValue(event.region, "region")]);
+  return publicLocationValue(event.city, "city");
 }
 
 export function EventCard({ event, today, variant }: { event: PublicEventCard; today?: string; variant?: "grid" }) {

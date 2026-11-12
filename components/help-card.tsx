@@ -5,7 +5,7 @@ import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { ImageDisplay } from "@/components/image-display";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
-import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
+import { publicLocationValue } from "@/lib/public-location";
 import { getHelpCategory, helpCaseHref, type PublicHelpCard } from "@/lib/help";
 import styles from "./help-public.module.css";
 
@@ -15,18 +15,7 @@ export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
   const item = applyHelpLifecycle(rawItem);
   const category = getHelpCategory(item.category);
   const href = helpCaseHref(item);
-  const showOrganization = Boolean(
-    item.organization?.trim() &&
-      item.organization.trim().toLocaleLowerCase("sk") !==
-        item.title.trim().toLocaleLowerCase("sk"),
-  );
-  const location = publicLocationLabel([
-    publicLocationValue(item.city, "city"),
-    publicLocationValue(item.region, "region"),
-  ]);
-  const meta = [showOrganization ? item.organization : null, location]
-    .filter(Boolean)
-    .join(" · ");
+  const meta = publicLocationValue(item.city, "city");
 
   return (
     <PublicHelpProfileCard
@@ -41,7 +30,6 @@ export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
       title={item.title}
       category={category?.singular ?? "Pomoc psom"}
       meta={meta}
-      excerpt={item.excerpt}
       extras={item.category === "zbierky"
         ? <HelpFinancialProgress item={item} compact />
         : null}

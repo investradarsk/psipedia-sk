@@ -51,11 +51,7 @@ function genericPreview(item: HelpLandingGenericItem): HelpOverviewItem {
     imageUrl: item.imageUrl,
     thumbnailImageDisplay: item.thumbnailImageDisplay,
     eyebrow: category?.singular ?? "Pomoc psom",
-    meta: placeMeta(
-      item.category === "utulky" && item.organization.trim().toLocaleLowerCase("sk") === item.title.trim().toLocaleLowerCase("sk")
-        ? "" : item.organization,
-      item.city, item.region,
-    ),
+    meta: placeMeta(item.city),
     excerpt: item.excerpt,
     badge: item.urgent ? "Urgentné" : null,
     urgent: item.urgent,
@@ -70,7 +66,7 @@ function adoptionPreview(dog: HelpLandingAdoptionItem): HelpOverviewItem {
     imageUrl: dog.mainImage,
     thumbnailImageDisplay: dog.thumbnailImageDisplay,
     eyebrow: "Pes na adopciu",
-    meta: placeMeta(dog.organizationName, dog.city, dog.region),
+    meta: placeMeta(dog.city),
     excerpt: dog.shortDescription,
     badge: dog.status === "RESERVED" ? "Rezervovaný" : null,
   };
@@ -84,7 +80,7 @@ function reportPreview(report: HelpLandingReportItem): HelpOverviewItem {
     imageUrl: report.mainImage,
     thumbnailImageDisplay: report.thumbnailImageDisplay,
     eyebrow: dogReportTypeShortLabel(report.type),
-    meta: placeMeta(report.city, report.region, report.breed),
+    meta: placeMeta(report.city),
     excerpt: report.description,
     badge: dogReportTypeShortLabel(report.type),
     urgent: report.type === "LOST",
