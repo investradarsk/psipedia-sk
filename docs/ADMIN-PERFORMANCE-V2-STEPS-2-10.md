@@ -113,6 +113,22 @@ dôkaz merateľného zlepšenia INP alebo celého renderu**; rodičia často
 vytvárajú aj nové `columns` callbacky, pri ktorých sú zmeny stále potrebné.
 Regresný test chráni hranicu viditeľnej stránky a pôvodné bulk callbacky.
 
+## Záverečné zosúladenie s main a oprava CI pre dopyty
+
+Pri poslednej kontrole zlyhal hlavný `Playwright E2E and production smoke` v izolovanom teste
+`tests/directory-inquiry-notifications.test.mjs`: fixture nemala tabuľku
+`admin_attention_ack`, ktorú exact unread summary po kroku 7 potrebuje.
+Testovacia SQLite schéma teraz obsahuje túto tabuľku v kanonickom tvare
+migrácie 0146; test zachováva kontrolu všetkých troch aktívnych dopytov,
+vrátane stavu `read` z doménového workflowu. Produkčný D1 ani Notion sa
+nemenili.
+
+Vetva PR #1321 bola bezpečne zosúladená s `main` merge commitom, pričom
+obidve vetvy upravovali odlišné súbory. História nebola prepisovaná,
+PR nebolo zlúčené a neprebehli produkčné akcie. Skutočný výsledok CI sa
+musí vyhodnotiť na **novom HEAD po zosúladení**, nie preniesť zo starších
+úspešných behov.
+
 ## Integrácia kroku 10 a oprava hlavného CI
 
 Prvý priechod hlavného `Playwright E2E and production smoke` workflowu pre PR #1321 skončil na
