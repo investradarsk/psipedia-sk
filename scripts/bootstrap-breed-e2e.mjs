@@ -100,7 +100,7 @@ function sitemapBreedPaths(xml, baseUrl) {
         return '';
       }
     })
-    .filter((pathname) => /^\/plemena\/[^/]+$/.test(pathname) && pathname !== '/plemena/vyber-plemena');
+    .filter((pathname) => /^\/plemena\/[^/]+\/[^/]+$/.test(pathname));
   const unique = [...new Set(raw)].sort();
   if (raw.length !== unique.length) fail(`Local sitemap contains duplicate breed URLs (${raw.length} entries / ${unique.length} unique).`);
   return unique;
@@ -275,10 +275,10 @@ async function verifyLocalSitemap(baseUrl, expectedSlugs) {
   if (routes.length !== EXPECTED_PUBLISHED) {
     fail(`Local sitemap exposes ${routes.length} published breed URLs; expected exactly ${EXPECTED_PUBLISHED}.`);
   }
-  if (routes.includes(`/plemena/${DRAFT_SLUG}`)) {
+  if (routes.some((path) => path.endsWith(`/${DRAFT_SLUG}`))) {
     fail(`Draft FCI ${DRAFT_FCI} / ${DRAFT_SLUG} appears in the local sitemap.`);
   }
-  const actualSlugs = routes.map((route) => route.slice('/plemena/'.length)).sort();
+  const actualSlugs = routes.map((route) => route.split('/').at(-1)).sort();
   const expected = [...expectedSlugs].sort();
   if (JSON.stringify(actualSlugs) !== JSON.stringify(expected)) {
     const actualSet = new Set(actualSlugs);
@@ -323,7 +323,7 @@ async function seed() {
     if (!breed || breed.status !== 'published') fail(`${slug} is not published after local CI seed.`);
   }
 
-  const detail = await fetch(`${baseUrl}/plemena/${WHITE_SWISS_SLUG}`);
+  const detail = await fetch(`${baseUrl}/plemena/ovciarske-a-pastierske/${WHITE_SWISS_SLUG}`);
   const html = await detail.text();
   if (!detail.ok || !html.includes('data-testid="breed-hero-image"') || !html.includes(LOCAL_IMAGE_PATH)) {
     fail(`White Swiss SSR did not expose the local real image fixture (HTTP ${detail.status}).`);
