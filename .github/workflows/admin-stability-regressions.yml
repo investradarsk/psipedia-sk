@@ -45,8 +45,8 @@ jobs:
       - name: Install pinned dependencies (no production credentials)
         run: npm ci
 
-      - name: Admin regression suite – steps 1 to 9
-        run: npm run test:admin-stability-step9
+      - name: Admin regression suite – steps 1 to 10
+        run: npm run test:admin-stability-step10
 
       - name: Synthetic SQLite query parity and diagnostic timings
         run: |
