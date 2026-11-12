@@ -32,7 +32,8 @@ export function sameSource(left: string | undefined, right: string | undefined) 
 /**
  * Notion supplies property IDs (not values), occasionally property names.
  * A metadata-only echo is not a human editorial change. If Notion omits the
- * changes list we conservatively run the existing hash-based reconciliation.
+ * changed-property list, each agenda must choose an explicit safe fallback;
+ * mapped Directory field events defer instead of claiming a no-op succeeded.
  */
 export function metadataOnlyChange(event: NotionWebhookEvent, page: WebhookPageProperties) {
   if (event.type !== "page.properties_updated" || !event.data?.updated_properties?.length) return false;
