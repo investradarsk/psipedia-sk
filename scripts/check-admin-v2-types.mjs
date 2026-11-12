@@ -17,6 +17,7 @@ export const changedPaths = new Set([
   "components/admin-event-editor.tsx",
   "components/admin-organization-editor.tsx",
   "components/admin-quick-navigation-dialog.tsx",
+  "components/admin-record-table.tsx",
   "components/admin-shell.tsx",
   "lib/admin-attention-request.ts",
   "lib/admin-gallery-order.ts",
