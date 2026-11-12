@@ -7,9 +7,8 @@
  * (including Noindex true -> false) can be distinguished from legacy blanks.
  */
 import { ARTICLE_NOTION_SEO_PROPERTIES as SEO } from "./notion-article-seo-properties";
-import type { ArticleNotionSeoKey } from "./notion-article-seo-properties";
+import type { ArticleNotionSeoKey, ArticleSeoRemoteValues } from "./notion-article-seo-properties";
 
-export type ArticleSeoRemoteValues = Partial<Record<ArticleNotionSeoKey, string | boolean>>;
 export type ArticleSeoReceipt = { hash: string; seo: ArticleSeoRemoteValues | null };
 const PREFIX = "seo2:";
 
@@ -85,26 +84,3 @@ export function encodeArticleSeoReceipt(hash: string, page: {
   return PREFIX + JSON.stringify({ hash, seo: articleSeoRemoteValues(page) });
 }
 
-/** Explicit blank/false only after we have PROOF of a previously nonblank
- * value. First sight of an empty Notion property never erases Admin data.
- */
-export function articleSeoExplicitClears(
-  page: {properties?: Record<string, unknown>},
-  previous: ArticleSeoRemoteValues | null | undefined,
-): Set<ArticleNotionSeoKey> {
-  const cleared = new Set<ArticleNotionSeoKey>();
-  if (!previous) return cleared;
-  const current = articleSeoRemoteValues(page);
-  for (const field of Object.keys(SEO) as ArticleNotionSeoKey[]) {
-    if (!Object.hasOwn(current, field) || !Object.hasOwn(previous, field)) continue;
-    const oldValue = previous[field];
-    const newValue = current[field];
-    if (field === "noindex") {
-      if (oldValue === true && newValue === false) cleared.add(field);
-    } else if (typeof oldValue === "string" && oldValue.length > 0 &&
-        newValue === "") {
-      cleared.add(field);
-    }
-  }
-  return cleared;
-}
