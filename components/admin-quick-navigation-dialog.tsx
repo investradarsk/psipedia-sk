@@ -213,7 +213,22 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
               aria-controls="admin-quick-navigation-results"
               aria-activedescendant={results.length ? "admin-quick-nav-option-" + selected : undefined}
               value={query}
-              onChange={event => { setQuery(event.target.value); searchGeneration.current += 1; setActive(0); setRecords([]); setLoading(shouldSearchRecords(event.target.value)); setSearchError(""); setIncomplete(false); }}
+              onChange={event => {
+                setQuery(event.target.value);
+                setActive(0);
+                const nextTerm = event.target.value.trim().slice(0, SEARCH_QUERY_MAX_LENGTH);
+                // Extra characters after the server's limit (or harmless
+                // surrounding whitespace) do not change the effective search.
+                // Invalidate an in-flight response ONLY for a different term,
+                // otherwise the unchanged request would be dropped forever.
+                if (nextTerm !== searchTerm) {
+                  searchGeneration.current += 1;
+                  setRecords([]);
+                  setLoading(shouldSearchRecords(nextTerm));
+                  setSearchError("");
+                  setIncomplete(false);
+                }
+              }}
               onKeyDown={handleKeys}
               placeholder="Názov profilu alebo Admin ID (napr. 1842)…"
             />
