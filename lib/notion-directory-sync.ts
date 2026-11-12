@@ -1,7 +1,7 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
-import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import { directoryFilterRegistry, getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
 import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
@@ -1277,7 +1277,9 @@ const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
   "seo.ogTitle": "ogTitle", "seo.ogDescription": "ogDescription",
   "seo.ogImage": "ogImage",
 };
-const breederFacetNotionProperties = {
+// Exact legacy labels stay stable; the canonical filter registry supplies
+// the remaining category-specific selects without a second hardcoded allowlist.
+const breederFacetNotionProperties: Readonly<Record<string, string>> = {
   "veterinari.facility_type": "Typ pracoviska",
   "veterinari.emergency": "Pohotovosť",
   "veterinari.home_visits": "Návštevy doma",
@@ -1285,9 +1287,10 @@ const breederFacetNotionProperties = {
   "chovatelske-stanice.health_testing_information": "Informácie o zdravotných testoch",
   "treneri.individual_training": "Individuálny výcvik",
   "treneri.group_training": "Skupinový výcvik",
-} as const;
-type BreederFacetId = keyof typeof breederFacetNotionProperties;
-const breederFacetIds = Object.keys(breederFacetNotionProperties) as BreederFacetId[];
+  ...Object.fromEntries(directoryFilterRegistry.map(def => [def.id, def.notion.property])),
+};
+type BreederFacetId = string;
+const breederFacetIds = directoryFilterRegistry.map(def => def.id);
 function breederChangedNotionFacets(page: NotionPage, changedIds: readonly string[]): BreederFacetId[] {
   const changed = new Set(changedIds);
   return breederFacetIds.filter(id => {
