@@ -31,7 +31,7 @@ test("legacy admin selectors only load from the admin layout, not the public roo
   }
   assert.match(globals, /@import "tailwindcss" source\(none\);/);
   for (const root of ["app", "components", "lib"]) {
-    assert.ok(globals.includes(\`@source "../\${root}";\`), "Tailwind runtime classes missing from " + root);
+    assert.ok(globals.includes('@source "../' + root + '";'), "Tailwind runtime classes missing from " + root);
   }
   assert.doesNotMatch(globals, /@source "\.\.\/tests"/);
   assert.ok(globals.length < 340_000, "The public stylesheet is unexpectedly large");
