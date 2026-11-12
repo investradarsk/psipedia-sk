@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { DIRECTORY_FIELD_EVENT_CATEGORIES, directoryPropertyEventMissingChangedIds, isDirectoryFieldEventCategory, isDirectoryEventPilotCategory } from "../lib/notion-directory-field-event-scope.ts";
 import { breederNotionChangedFields, breederApplyNotionChanges, breederAdminChangedFields } from "../lib/notion-breeder-field-events.ts";
+import { directoryFilterRegistry, serviceFiltersForCategory } from "../lib/directory-filter-contract.ts";
 
 const repoFile = path => readFile(new URL("../" + path, import.meta.url), "utf8");
 
@@ -118,4 +119,83 @@ test("Directory property events missing changed IDs must retry rather than false
   assert.match(dispatcher.slice(marker, runner), /return "deferred"/);
   assert.match(webhook, /result === "not-configured" \|\| result === "deferred"/);
   assert.match(webhook, /status: 503/);
+});
+
+test("Admin field writeback confirms each selected field and leaves failed fields pending",async()=>{
+ const [sync,admin] = await Promise.all([
+  repoFile("lib/notion-directory-sync.ts"),
+  repoFile("app/api/admin/directory/[id]/route.ts"),
+ ]);
+ const from=sync.indexOf("async function syncBreederEvent(");
+ const to=sync.indexOf("export async function mirrorBreederCategoryFiltersToNotion(",from);
+ const source=sync.slice(from,to);
+ assert.match(source,/for \(const path of fields\) \{/);
+ assert.match(source,/const echoed = await patchNotionPage\(bindings, page\.id, patch\)/);
+ assert.match(source,/Object\.hasOwn\(candidate\.properties \?\? \{\}, key\)/,
+  "an absent property must not confirm an empty deletion");
+ assert.match(source,/const fresh = await fetchNotionPage\(bindings, page\.id\)/);
+ assert.match(source,/failedFields\.push\(path\)/);
+ assert.match(source,/DIRECTORY_ADMIN_TO_NOTION_FIELDS_PENDING/);
+ assert.match(source,/directoryEditorialEventMayClearError/);
+ assert.match(admin,/breederAdminFields: isDirectoryFieldEventCategory\(before\.category\)/);
+ assert.match(admin,/breederAdminFields: breederBefore && isDirectoryFieldEventCategory\(breederBefore\.category\)/);
+ assert.match(admin,/isDirectoryFieldEventCategory\(profile\.category\)/);
+});
+
+test("category select fields use one registry for all ten categories and explicit blanks",async()=>{
+ const [sync,route]=await Promise.all([
+  repoFile("lib/notion-directory-sync.ts"),
+  repoFile("app/api/admin/directory/[id]/route.ts"),
+ ]);
+ assert.equal(directoryFilterRegistry.length,21);
+ for(const category of directoryCategories){
+   assert.ok(serviceFiltersForCategory(category).length>0,category+" missing configured selection fields");
+ }
+ assert.match(sync,/\.\.\.Object\.fromEntries\(directoryFilterRegistry\.map\(def => \[def\.id, def\.notion\.property\]\)\)/);
+ assert.match(sync,/const facetFields = isDirectoryFieldEventCategory\(input\.profile\.category\)/);
+ assert.match(sync,/delete source\[def\.d1\.key\]/);
+ assert.match(sync,/!Object\.hasOwn\(page\.properties \?\? \{\}, key\)/);
+ assert.match(sync,/\[key\]: expectedLabel \? select\(expectedLabel\) : \{ select: null \}/);
+ assert.match(sync,/for \(const id of new Set\(input\.fields\)\)/);
+ assert.match(sync,/DIRECTORY_FACET_FIELDS_PENDING/);
+ assert.match(route,/isDirectoryFieldEventCategory\(row\.category\) && Object\.keys\(requested\.updates\)\.length/);
+});
+
+test("Services V3 remains independent of prose, trust, GEO and editorial webhook writes",async()=>{
+ const [sync,v3,store]=await Promise.all([
+  repoFile("lib/notion-directory-sync.ts"),
+  repoFile("lib/service-catalog-notion-relations.ts"),
+  repoFile("lib/directory-profile-metadata.ts"),
+ ]);
+ const editorial=sync.slice(sync.indexOf("async function syncBreederEvent("),
+  sync.indexOf("export async function mirrorBreederCategoryFiltersToNotion("));
+ assert.doesNotMatch(editorial,/syncProfileCatalogRelation\(|importNotionServiceIds\(/);
+ assert.match(sync,/TRAINER_SERVICES_TEXT_METADATA_KEY, text/);
+ assert.match(sync,/DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY/);
+ assert.match(store,/_psipedia_trainer_services_text/);
+ assert.match(v3,/directory_service_notion_relation_sync/);
+ assert.match(v3,/SERVICES_RELATION_UNVERIFIED_DELETE/);
+ assert.match(v3,/confirmed_ids_json/);
+});
+
+test("profile-specific read-only diagnostics distinguish legacy mapping, editorial baseline and V3",async()=>{
+ const [data,component,page,hook]=await Promise.all([
+  repoFile("lib/directory-notion-sync-diagnostics.ts"),
+  repoFile("components/admin-directory-notion-sync-status.tsx"),
+  repoFile("app/admin/adresar/[id]/page.tsx"),
+  repoFile("app/api/integrations/notion/webhook/route.ts"),
+ ]);
+ assert.match(data,/readDirectoryNotionSyncDiagnostic/);
+ assert.match(data,/WHERE directory_profile_id=\? LIMIT 1/);
+ assert.match(data,/notion_profile_field_baselines/);
+ assert.match(data,/directory_service_notion_relation_sync/);
+ assert.match(data,/notion_webhook_inbox/);
+ assert.match(data,/service_profile_option_choices/);
+ assert.match(data,/optional\(\(\) => db\.prepare/);
+ assert.match(component,/AdminDirectoryNotionSyncStatus/);
+ assert.match(component,/môžu obísť front/);
+ assert.match(page,/AdminDirectoryNotionSyncStatus profileId=\{profile\.id\}/);
+ assert.match(hook,/event: "directory_notion_webhook"/);
+ assert.match(hook,/changedPropertyCount:/);
+ assert.doesNotMatch(hook,/console\.info\(JSON\.stringify\(data\)/);
 });
