@@ -110,7 +110,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     },
   };
   runInNewContext(js, {
-    exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory, isDirectoryFieldEventCategory, breederReadPath: (v, p) => p.split(".")
+    exports, SYSTEM_ACTOR: "sync", directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory, breederReadPath: (v, p) => p.split(".")
       .reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
     getManagedDirectoryProfileById: async () => current,
@@ -182,7 +182,7 @@ test("a trainer service description updates only its separate metadata field", a
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync",
     TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
-    isDirectoryEventPilotCategory: () => false, isDirectoryFieldEventCategory,
+    directoryFilterRegistry: [], isDirectoryEventPilotCategory: () => false, isDirectoryFieldEventCategory,
     breederReadPath: (v, p) => p.split(".").reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
     getManagedDirectoryProfileById: async () => profile,
