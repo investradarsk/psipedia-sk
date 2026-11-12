@@ -31,9 +31,10 @@ import {
   AdminHelpText,
 } from "@/components/admin-interaction-system";
 import styles from "./admin-breed-editor.module.css";
-import {AdminGalleryDropzone} from "@/components/admin-gallery-dropzone";
-import {AdminSortableGallery} from "@/components/admin-sortable-gallery";
-import {arrayMove} from "@dnd-kit/sortable";
+import dynamic from "next/dynamic";
+import { moveAdminGalleryItem } from "@/lib/admin-gallery-order";
+const AdminGalleryDropzone = dynamic(() => import("@/components/admin-gallery-dropzone").then(module => module.AdminGalleryDropzone), { ssr: false });
+const AdminSortableGallery = dynamic(() => import("@/components/admin-sortable-gallery").then(module => module.AdminSortableGallery), { ssr: false });
 import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 
 function slugify(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90);}
@@ -577,13 +578,13 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
             <div className="admin-field"><span>Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)</span><AdminSingleImageUpload label={form.image?"Vybrať inú titulnú fotografiu":"Nahrať titulnú fotografiu"} onFile={uploadCover} disabled={saving} busy={uploading} onRejected={setError}/><small>{uploading?"Nahrávam…":form.image||"Zatiaľ bez fotografie"}</small></div>
             {form.image&&<AdminActionButton variant="destructive" onClick={()=>setForm((current)=>({...current,image:"",imageKey:""}))}>Odstrániť titulnú fotografiu</AdminActionButton>}
             <AdminHelpText>Vyber zdrojovú fotografiu s rezervou okolo psa; focal-point schema zatiaľ neexistuje, preto tesný crop nie je možné v admine bezpečne korigovať.</AdminHelpText>
-            <div className="admin-field"><span>Ďalšie fotografie</span><AdminGalleryDropzone label="Nahrať fotografie plemena" disabled={uploading||saving||form.gallery.length>=30} busy={uploading} onFiles={uploadGallery} onRejected={setError}/></div>
+            <div className="admin-field"><span>Ďalšie fotografie</span>{activeBreedSection === "breed-media" && <AdminGalleryDropzone label="Nahrať fotografie plemena" disabled={uploading||saving||form.gallery.length>=30} busy={uploading} onFiles={uploadGallery} onRejected={setError}/>}</div>
           </div>
         </div>
-        <AdminSortableGallery urls={form.gallery.map(item=>item.imageUrl)} as="article"
+        {activeBreedSection === "breed-media" && <AdminSortableGallery urls={form.gallery.map(item=>item.imageUrl)} as="article"
           className={styles.galleryList} rowClassName={styles.galleryRow} disabled={uploading||saving}
-          onReorder={(from,to)=>setForm(current=>({...current,gallery:arrayMove(current.gallery,from,to)}))}
-          renderRow={(index,handle)=>{const item=form.gallery[index];return <><img src={item.imageUrl} alt={item.alt||"Náhľad"} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(item.imageUrl, [160, 320, 480])} sizes="(max-width: 680px) 44vw, 160px"/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}>{handle}<AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></>;}}/>
+          onReorder={(from,to)=>setForm(current=>({...current,gallery:moveAdminGalleryItem(current.gallery,from,to)}))}
+          renderRow={(index,handle)=>{const item=form.gallery[index];return <><img src={item.imageUrl} alt={item.alt||"Náhľad"} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(item.imageUrl, [160, 320, 480])} sizes="(max-width: 680px) 44vw, 160px"/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}>{handle}<AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></>;}}/>}
 
         <div className={styles.subsection}>
           <div className={styles.heading}><h3 className={styles.subheading}>Športy a aktivity</h3>
