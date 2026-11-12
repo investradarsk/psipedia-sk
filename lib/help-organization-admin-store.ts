@@ -1,5 +1,5 @@
 import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
-import { organizationAdminReadText } from "./organization-admin-read-state.ts";
+import { organizationAdminReadText } from "@/lib/organization-admin-read-state";
 import { env } from "cloudflare:workers";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import {
