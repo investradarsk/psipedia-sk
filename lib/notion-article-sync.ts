@@ -1348,6 +1348,22 @@ export async function writeBackArticleSeoToNotion(args: {
   const plan = planArticleSeoWriteback({
     before, after: article, properties: page.properties ?? {}, siteUrl: SITE_URL,
   });
+  // Never acknowledge unrelated Notion edits as if they came from this Admin
+  // SEO change: the complete old remote content must still match the stored
+  // import baseline before the targeted PATCH can advance that baseline.
+  const originalBlocks = await getPageBlocks(args.bindings, page.id);
+  const originalPayload = notionPageToManagedArticleInput(page, originalBlocks, before);
+  const originalImage = notionArticleMainImageSource(page);
+  const originalHash = await sha256(JSON.stringify({
+    payload: originalPayload,
+    notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
+    ...(originalImage.fileIdentity ? { notionImageFileIdentity: originalImage.fileIdentity } : {}),
+    notionImageAlt: richTextProperty(page, "Alt text obrázka"),
+    notionImageCreditUrl: urlProperty(page, "Zdroj obrázka"),
+  }));
+  if (originalHash !== mapping.content_hash) {
+    throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
+  }
   // Preflight the Notion preimage once more immediately before writing.
   const latest = await readPage();
   if (!sameArticle(latest)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
