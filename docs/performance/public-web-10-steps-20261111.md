@@ -24,7 +24,7 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 5. [x] **Úvodná stránka / D1.** Zmerať náklady paralelných čítaní, odstrániť iba preukázané duplicity, overiť obsah, poradie, publikovanie a SEO.
 6. [x] **HTML/RSC/cache.** Preskúmať reálny HIT/MISS, TTFB a invalidáciu; nikdy necacheovať administráciu, partnera, cookies, autentifikované, query alebo RSC požiadavky.
 7. [x] **Fotografie a médiá.** Kompresia/rozmery, správne `srcSet`, lazy loading pod prvým viewportom, stabilné rozmery pre CLS; bez odstránenia originálov.
-8. [ ] **Adresár, podujatia, plemená, mapy.** Route-specific profily, zoznamy a filtrovanie, mapové knižnice načítavať až pri potrebe, priebežne kontrolovať UX a funkčnosť.
+8. [x] **Adresár, podujatia, plemená, mapy.** Route-specific profily, zoznamy a filtrovanie, mapové knižnice načítavať až pri potrebe, priebežne kontrolovať UX a funkčnosť.
 9. [ ] **Tretie strany a dlhé úlohy.** Skripty analytiky, súhlasov a reklám, event handlery, INP; rešpektovať consent, reklamnú funkcionalitu a interný traffic.
 10. [ ] **Záverečný tuning a kontrola regresií.** Opakovať Lighthouse mobil/desktop na rovnakých URL, rovnakom prostredí a intervaloch, porovnať skóre, LCP, CLS, TBT, skutočné INP len ak sú dostupné field dáta; testovať desktop/mobil, skontrolovať odkazy a SEO.
 
@@ -146,3 +146,21 @@ Zdroje: https://developers.cloudflare.com/workers/runtime-apis/cache/ a https://
 **Limity a akceptácia:** Zdrojové R2 obrázky sa nemenia, neprepisuje sa uložený Notion odkaz a nevzniká nová migrácia. Nenastavujeme agresívne globálne `loading="lazy"` pre above-fold hero a nemeníme kvalitu kompresie bez Lighthouse. Voľba menšieho kandidáta závisí aj od DPR a šírky konkrétneho zariadenia; preto nemožno tvrdiť konkrétne prenesené kB alebo CLS zisk bez porovnateľného prehliadačového merania a validácie skutočného DOM. Následné merania mobil/desktop, kontrola fotografie pri zlyhaní transformácie a vizuálne porovnanie všetkých galérií musia prebehnúť pred merge v kroku 10.
 
 Referencia: https://web.dev/articles/serve-responsive-images a https://web.dev/articles/optimize-cls
+
+
+## Krok 8 — výkon verejných šablón adresára, kalendára, atlasu plemien a mapy
+
+**Doterajšie mechanizmy zachované:** úvodné údaje a SEO sa generujú serverovo. Google renderer sa už načítava cez `next/dynamic` len na mapovej stránke a samotný Google SDK má samostatnú kontrolu súhlasu. Desktopový FullCalendar má vlastný lazy chunk; mesačné a denné načítanie podujatí už používa `AbortController`, malú krátkodobú klientsku cache a preklápanie mesiacov bez reloadu. Na týchto hraniciach nie je potrebné pridávať ďalšie vrstvy ani externé platené volania.
+
+**Zmeny v tomto PR:**
+
+1. **Adresár:** `components/directory-page.tsx`: náhľady kategórií (len nefiltrovaný prehľad, `getDirectoryCategoryPreviews(5)`), hero vizuál a redakčný bočný panel sa načítavajú v **jednom `Promise.all`**. Predtým sa náhľady čakali pred ďalšími dvoma nezávislými D1 čítaniami. Filtre a celá stránkovaná množina profilov sú bez zmeny. Keď nejde o prehľad, náhľady sa naďalej vôbec nenačítajú.
+2. **Plemená — filtrovanie:** nový čistý modul `lib/breed-browser-search.ts` s `indexBreedSearch` a `filterIndexedBreeds`. Atlas znormalizuje vyhľadávacie texty pri zmene kolekcie plemien a pri každom stlačení klávesu už len porovnáva hotový text. Zachovaná skladba vyhľadávaných polí, diakritika, veľké/malé písmená, FCI sekcia, pôvod a poradie výsledkov.
+3. **Plemená — FCI zoskupovanie:** `groupVisibleBreeds` prejde výslednú kolekciu iba raz, vytvorí FCI buckety a zoradí len zaplnené skupiny. Predchádzajúci renderer robil pre každú skupinu nový `filter()` cez celý zoznam. Výstup je rovnaký: prvé tri plemená, odkazy a možnosť rozbaliť všetky ostávajú.
+4. **Podujatia:** `components/event-calendar.tsx` pomocou `useMemo` opakovane používa mriežku dní podľa mesiaca, súhrny dátumov podľa načítaných podujatí a denné udalosti podľa zvoleného dňa. Vedľajšie UI udalosti (napr. otvorenie filtra) už nemusia znovu prepočítavať pole podujatí. Žiadna zmena backend endpointu, pravidiel stavov alebo navigácie cez históriu prehliadača.
+5. **Mapa:** `components/map/map-experience.tsx`: transformácia odpovede na markery a skupiny zhlukov je memoizovaná podľa samotnej API odpovede v hlavnej mape aj výsledkovom paneli. Posúvanie spodného panela či výber profilu už nemusia prechádzať všetky zhluky. `GoogleMapRenderer` zostáva dynamicky načítaný a verejné mapové API aj Google billing limity zostávajú nedotknuté.
+6. **Testy:** `tests/public-route-performance-step8.test.mjs` porovnáva nový indexový filter a FCI grouping s pôvodnou logikou na kombináciách query, skupina, sekcia, pôvod; ďalej kontroluje bezpečné paralelné načítanie adresára, memoizáciu v kalendári aj mape a pôvodnú lazy hranicu. Zapojené do `npm run test:perf-fastpaths` spolu s bezpečnostnými testami z predchádzajúcich krokov.
+
+**Overovanie a limity:** samostatne vykonané porovnanie extrahovaných čisto JavaScriptových funkcií pre 344 syntetických plemien a 800 kombinácií filtrov bez rozdielu v obsahu/poradí; 6 nových regresných assertions prešlo v izolovanom vykonaní. To **nie je úplný Node/CI test suite, build ani produkčný Lighthouse**. Výkon nie je garantovaný v ms a závisí od skutočného počtu profilov, latencie D1 a prevádzky prehliadača. Nezmenila sa D1 schéma, počet podujatí na stránku, produkčné SEO správanie, administrácia ani synchronizácia s Notion.
+
+Referencie: https://react.dev/reference/react/useMemo a https://web.dev/articles/rendering-performance
