@@ -1,0 +1,67 @@
+name: Admin Stability Read-Only Regression
+
+on:
+  pull_request:
+    paths:
+      - "app/admin/**"
+      - "components/admin-**"
+      - "lib/admin-**"
+      - "lib/adoption-admin-store.ts"
+      - "lib/help-organization-admin-store.ts"
+      - "lib/lost-found-dog-store.ts"
+      - "lib/organization-admin-read-state.ts"
+      - "public/sw.js"
+      - "tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/admin-stability-regressions.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-stability-readonly-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out requested commit
+        uses: actions/checkout@v4
+
+      - name: Configure Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+          cache: npm
+
+      - name: Install pinned dependencies (no production credentials)
+        run: npm ci
+
+      - name: Admin regression suite – steps 1 to 9
+        run: npm run test:admin-stability-step9
+
+      - name: TypeScript project type checking
+        run: npx tsc --noEmit --pretty false
+
+      - name: Synthetic SQLite query parity and diagnostic timings
+        run: |
+          npm run benchmark:admin-step9 > admin-step9-sqlite-benchmark.json
+          cat admin-step9-sqlite-benchmark.json
+
+      - name: Save local SQLite diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-step9-readonly-benchmark
+          path: admin-step9-sqlite-benchmark.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+# Deliberately no Cloudflare bindings, deployment token, Notion key,
+# production database, browser auth session, migration or mutation job.
+# Browser E2E is separately invoked in an authenticated test environment:
+# npm run e2e:admin-stability-step9
