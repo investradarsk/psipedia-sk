@@ -10,6 +10,7 @@ function client(url, calls, name = "existing") {
     url,
     async focus() { calls.push(name + ":focus"); return this; },
     async navigate() { calls.push(name + ":UNSAFE_NAVIGATE"); return this; },
+    postMessage(message) { calls.push(name + ":postMessage:" + message.type + ":" + message.url); },
   };
 }
 
@@ -55,27 +56,28 @@ test("push reuses a matching Admin client, without navigating it", async () => {
   assert.deepEqual(calls, ["close", "tab1:focus"]);
 });
 
-test("push opens a separate target when existing editor may have an unsaved draft", async () => {
+test("push sends a guarded navigation intent instead of replacing an existing dirty editor", async () => {
   const calls = await clickPushNotification({
     windows: ["/admin/organizacie/128"],
     url: "/admin/operations?status=pending",
   });
   assert.deepEqual(calls, [
     "close",
-    "openWindow:https://psipedia.sk/admin/operations?status=pending",
-    "opened:focus",
+    "tab0:postMessage:psipedia-admin-push-intent:/admin/operations?status=pending",
+    "tab0:focus",
   ]);
   assert.ok(!calls.some(value => value.includes("UNSAFE_NAVIGATE")));
 });
 
-test("if installed PWA cannot open a new client, preserve draft by only focusing it", async () => {
+test("installed PWA never attempts to openWindow when an Admin document already exists", async () => {
   const calls = await clickPushNotification({
     windows: ["/admin/organizacie/128"],
     url: "/admin/clanky",
     canOpen: false,
   });
   assert.ok(calls.includes("tab0:focus"));
-  assert.ok(!calls.some(value => value.includes("UNSAFE_NAVIGATE")));
+  assert.ok(calls.includes("tab0:postMessage:psipedia-admin-push-intent:/admin/clanky"));
+  assert.ok(!calls.some(value => value.includes("UNSAFE_NAVIGATE") || value.startsWith("openWindow:")));
 });
 
 test("unsafe notification destinations remain constrained to authenticated Admin routes", async () => {
@@ -106,6 +108,9 @@ test("legacy service worker never automatically reloads a dirty Admin tab", () =
   assert.doesNotMatch(pwa, /window\.location\.reload\(\)/);
   assert.doesNotMatch(pwa, /sessionStorage\.setItem\("psipedia-admin-pwa-scope-migrated"/);
   assert.match(pwa, /window\.addEventListener\("pageshow", handleResume\)/);
+  assert.match(pwa, /navigator\.serviceWorker\.addEventListener\("message", onPushIntent\)/);
+  assert.match(pwa, /adminNavigationTarget\(payload\.url, window\.location\.href\)/);
+  assert.match(pwa, /<Link href=\{pushTarget\} prefetch=\{false\}/);
 });
 
 test("mobile drawer and navigation watchdog release stale state on PWA freeze", () => {
