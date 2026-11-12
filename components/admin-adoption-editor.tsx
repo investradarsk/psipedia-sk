@@ -124,10 +124,10 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
     // A selected panel is visible; other form fields remain mounted but
     // hidden. Native submit validation cannot focus hidden required inputs.
     // Check every mounted field before the request and reveal its own panel.
-    const invalid = Array.from(event.currentTarget.elements).find((control): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+    const invalid = Array.from(event.currentTarget.elements).find((control) =>
       (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
       && control.willValidate && !control.checkValidity() && (!control.validity.valueMissing || ["adoption-name", "adoption-slug"].includes(control.id))
-    );
+    ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | undefined;
     if (invalid) {
       const owner = invalid.closest("[data-admin-editor-section]") as HTMLElement | null;
       setActiveAdoptionSection(owner?.id ?? "adoption-basics");
