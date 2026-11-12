@@ -339,8 +339,11 @@ export function AdminFacebookWeeklyPlanner({ onCreate, onEdit, refresh }: Props)
           const past = date < today;
           const dayPosts = visible.filter((post) =>
             post.scheduledAt && facebookWallTime(post.scheduledAt).date === date);
-          const slots = template.slots.filter(slot=>slot.day===index)
-            .sort((a,b)=>a.time.localeCompare(b.time)||a.id.localeCompare(b.id));
+          const slots = (template.custom?template.slots.filter(slot=>slot.day===index):
+            facebookPlanSlotsForDay(index,date).map(slot=>({
+              id:"base-"+index+"-"+slot.key,day:index,time:slot.time,key:slot.key,
+              topic:slot.key==="article"?slot.label.replace(/^Článok · /,""):"",
+            }))).sort((a,b)=>a.time.localeCompare(b.time)||a.id.localeCompare(b.id));
           const templateTimes = new Set(slots.map((slot) => slot.time));
           const extra = dayPosts.filter((post) =>
             post.scheduledAt && !templateTimes.has(facebookWallTime(post.scheduledAt).time));
