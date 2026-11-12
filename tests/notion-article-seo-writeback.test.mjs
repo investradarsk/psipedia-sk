@@ -19,6 +19,7 @@ const writerSource = (await load("../lib/notion-article-seo-writeback.ts"))
 const {
   articleSeoChangedFields, planArticleSeoWriteback, verifyArticleSeoPatch,
   planArticleSeoIndependentWriteback, projectArticleSeoConfirmedBaseline,
+  articleSeoUnacknowledgedRemoteFields,
 } = await import(asUrl(writerSource));
 
 const rich = (value) => ({ type: "rich_text", rich_text: value ? [
@@ -188,4 +189,29 @@ test("partial SEO sync cannot be reported as fully synchronized", async () => {
   assert.match(source, /reason: "partial", failedFields: failures/);
   assert.match(source, /ARTICLE_SEO_WRITEBACK_PARTIAL/);
   assert.match(source, /if \(failures\.length\)/);
+});
+
+test("a separate Notion edit stays pending while an unrelated Admin SEO change can proceed", () => {
+  const remote = page({
+    "Noindex": checked(false),
+    "OG popis": rich("Edited in Notion"),
+  });
+  const baseline = {
+    seoTitle: "Title", metaDescription: "Meta", focusKeyword: "dog",
+    canonicalUrl: "https://psipedia.sk/clanky/old", noindex: true,
+    ogTitle: "OG Title", ogDescription: "OG Description",
+    ogImageUrl: "https://psipedia.sk/media/old.webp",
+  };
+  assert.deepEqual(articleSeoUnacknowledgedRemoteFields(remote, baseline),
+    ["noindex", "ogDescription"]);
+  const other = planArticleSeoIndependentWriteback({
+    before: canonical(), after: canonical({ description: "Meta from Admin" }),
+    properties: remote, siteUrl: "https://psipedia.sk",
+  });
+  assert.deepEqual(other.ready.map(x => x.field), ["metaDescription"]);
+  const projected = projectArticleSeoConfirmedBaseline({ properties: remote }, baseline,
+    ["noindex", "ogDescription"].map(field => ({ field, code: "REMOTE_EDIT_PENDING" })));
+  assert.equal(projected.properties["Noindex"].checkbox, true);
+  assert.equal(projected.properties["OG popis"].rich_text[0].plain_text, "OG Description");
+  assert.equal(projected.properties["Meta description"].rich_text[0].plain_text, "Meta");
 });
