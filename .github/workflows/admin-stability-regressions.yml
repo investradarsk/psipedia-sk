@@ -71,6 +71,7 @@ jobs:
           node scripts/admin-type-regression-gate-step10.mjs "$RUNNER_TEMP/admin-main-types.log" "$RUNNER_TEMP/admin-pr-types.log" "$BASE_EXIT" "$PR_EXIT"
 
       - name: Production-style build diagnostic (never deploy)
+        if: always()
         continue-on-error: true
         run: npm run build
 
