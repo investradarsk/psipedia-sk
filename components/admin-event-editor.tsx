@@ -87,6 +87,10 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   const [error, setError] = useState("");
   const [activeEventSection, setActiveEventSection] = useState(EVENT_SECTIONS[0].id);
   const [locationSectionVisited, setLocationSectionVisited] = useState(false);
+  // Fallback geolocation is significantly heavier than the canonical Google
+  // Maps status. Keep it truly opt-in to avoid a second D1 GET on first visit.
+  // Never unmount after opening: its in-progress preview must survive tab switches.
+  const [geoFallbackOpened, setGeoFallbackOpened] = useState(false);
   const chooseEventSection = (next: string) => {
     if (next === "event-location") setLocationSectionVisited(true);
     setActiveEventSection(next);
@@ -278,7 +282,16 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
             {event && locationSectionVisited ? (
               <div id="event-google-maps">
                 <AdminProfileGoogleMaps targetType="MANAGED_EVENT" targetId={event.id} />
-                <AdminGeoLocation targetType="MANAGED_EVENT" targetId={event.id} showGoogleWorkflow={false} />
+                <div className="admin-editor-actions">
+                  {!geoFallbackOpened && <button type="button" onClick={() => setGeoFallbackOpened(true)}>
+                    Otvoriť záložné overenie polohy podľa adresy
+                  </button>}
+                </div>
+                {geoFallbackOpened && <AdminGeoLocation
+                  targetType="MANAGED_EVENT"
+                  targetId={event.id}
+                  showGoogleWorkflow={false}
+                />}
               </div>
             ) : (
               <p className="admin-help">{event ? "Mapa sa načíta po otvorení tejto sekcie." : "Google Maps bude dostupné po prvom uložení podujatia."}</p>
