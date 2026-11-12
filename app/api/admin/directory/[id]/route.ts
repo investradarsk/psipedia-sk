@@ -543,8 +543,17 @@ export async function PUT(request: Request, { params }: Props) {
     // Salons and every other Directory category use the same contract:
     // a successful save must be backed by all expressly edited D1 fields,
     // not just Perex and Popis. Verify after Notion and metadata side-effects.
+    // Optional invalid contact values are intentionally sanitized with a
+    // visible warning, not a full-form blocker.
+    const sanitizedOptionalPaths = new Set<BreederEditorialField>();
+    for (const warning of optionalWarnings) {
+      for (const key of ["websiteUrl", "facebookUrl", "instagramUrl"] as const)
+        if (warning.includes(": " + key)) sanitizedOptionalPaths.add(key);
+      if (warning.includes("nepovinný e-mail")) sanitizedOptionalPaths.add("publicEmail");
+    }
     const unconfirmedEditorial = directoryEditedFieldMismatches({
-      submitted: payload, persisted: saved, editedPaths: editedPaths ?? [],
+      submitted: payload, persisted: saved,
+      editedPaths: (editedPaths ?? []).filter(path => !sanitizedOptionalPaths.has(path)),
     });
     const unconfirmedTrust = trainerTrustEditedPaths.filter(field =>
       Boolean(saved[field]) !== Boolean(payload[field]),
