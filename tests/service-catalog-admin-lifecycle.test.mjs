@@ -266,6 +266,45 @@ test("Notion relation removes only an explicitly deselected canonical service ID
   );
  }finally{sqlite.close();}
 });
+test("one Notion service CAS failure cannot block independent additions",async()=>{
+ const {sqlite,db}=fixture();
+ const failing="svc.vet.vaccination",ok="svc.vet.microchipping";
+ try{
+  sqlite.exec(`CREATE TRIGGER test_failed_service_insert BEFORE INSERT ON service_profile_option_choices
+    WHEN NEW.option_id='${failing}' BEGIN SELECT RAISE(ABORT,'injected independent field error'); END`);
+  await assert.rejects(()=>importNotionServiceIds(db,1,"veterinari",[failing,ok]),
+    /SERVICES_RELATION_PARTIAL_CAS_FAILURE/);
+  assert.equal(sqlite.prepare(
+    "SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(ok).choice,"yes");
+  assert.equal(sqlite.prepare(
+    "SELECT COUNT(*) AS n FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(failing).n,0);
+  sqlite.exec("DROP TRIGGER test_failed_service_insert");
+  const repaired=await importNotionServiceIds(db,1,"veterinari",[failing,ok]);
+  assert.deepEqual(repaired,{added:1,removed:0});
+ }finally{sqlite.close();}
+});
+test("one failed Notion deselection leaves other service removals committed for retry",async()=>{
+ const {sqlite,db}=fixture();
+ const failing="svc.vet.vaccination",ok="svc.vet.microchipping";
+ try{
+  for(const id of [failing,ok])
+    await saveAdminServiceChoice(db,{profileId:1,optionId:id,choice:"yes",expectedVersion:0},actor);
+  sqlite.exec(`CREATE TRIGGER test_failed_service_delete BEFORE DELETE ON service_profile_option_choices
+    WHEN OLD.option_id='${failing}' BEGIN SELECT RAISE(ABORT,'injected independent field error'); END`);
+  await assert.rejects(()=>importNotionServiceIds(db,1,"veterinari",[]),
+    /SERVICES_RELATION_PARTIAL_CAS_FAILURE/);
+  assert.equal(sqlite.prepare(
+    "SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(failing).choice,"yes");
+  assert.equal(sqlite.prepare(
+    "SELECT COUNT(*) AS n FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(ok).n,0);
+  sqlite.exec("DROP TRIGGER test_failed_service_delete");
+  assert.deepEqual(await importNotionServiceIds(db,1,"veterinari",[]),{added:0,removed:1});
+ }finally{sqlite.close();}
+});
 test("concurrent administrators have only one CAS winner per option and explicit choice",async()=>{
  const {sqlite,db}=fixture();
  try{
