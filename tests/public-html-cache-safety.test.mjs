@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache.ts";
-import { isExplicitAnonymousHtmlRoute } from "../lib/public-anonymous-html-cache.ts";
+import { isExplicitAnonymousHtmlRoute, isSafePublicHtmlVary } from "../lib/public-anonymous-html-cache.ts";
 
 const source = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 
@@ -46,10 +46,10 @@ function cacheOps(storage) {
     "const USER_EMAIL_HEADER = \"oai-authenticated-user-email\";\n" +
     "const ADMIN_AUTHORIZED_HEADER = \"x-psipedia-admin-authorized\";\n" +
     "const AUTH_PROVIDER_HEADER = \"x-psipedia-auth-provider\";\n";
-  return new Function("storage", "versionedPublicHtmlCacheUrl", "isExplicitAnonymousHtmlRoute",
+  return new Function("storage", "versionedPublicHtmlCacheUrl", "isExplicitAnonymousHtmlRoute", "isSafePublicHtmlVary",
     setup + routeSrc + "\n" + cacheSrc + "\n" + headSrc + "\n" +
     "return {publicHtmlCache, publicHtmlCacheHeaders, isCacheableHtmlResponse, responseWithHeaders};"
-  )(storage, versionedPublicHtmlCacheUrl, isExplicitAnonymousHtmlRoute);
+  )(storage, versionedPublicHtmlCacheUrl, isExplicitAnonymousHtmlRoute, isSafePublicHtmlVary);
 }
 
 function html(control = "public, s-maxage=120", extra = {}, status = 200) {
@@ -85,11 +85,17 @@ test("CDN, Surrogate, Pragma and Vary restrictions cannot be overwritten", () =>
     assert.equal(allowed(html(null, { Vary: vary })), false, vary);
   }
   assert.equal(allowed(html(null, { Vary: "Accept-Encoding" })), true);
+  assert.equal(allowed(html(null, { Vary: "RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Url" })), true);
+  // Shared HTML cache keys do not encode these representations. Fail closed.
+  for (const vary of ["Accept-Language", "User-Agent", "Origin", "Accept", "X-Experiment", " ", "RSC, X-Custom-User"]) {
+    assert.equal(allowed(html(null, { Vary: vary })), false, vary);
+  }
 });
 
 test("Set-Cookie, JSON and error responses cannot enter public HTML cache", () => {
   const { isCacheableHtmlResponse: allowed } = cacheOps({});
   assert.equal(allowed(html(null, { "Set-Cookie": "fake=test; HttpOnly" })), false);
+  assert.equal(allowed(html(null, { "X-Robots-Tag": "noindex, nofollow" })), false);
   assert.equal(allowed(html(null, {}, 201)), false);
   assert.equal(allowed(html(null, {}, 404)), false);
   assert.equal(allowed(new Response("{}", { headers: { "content-type": "application/json" } })), false);
@@ -143,4 +149,57 @@ test("Worker helpers maintain HIT/MISS while private and authenticated requests 
   const withCookie = await handle(new Request("https://psipedia.sk/with-cookie"), html("public", { "Set-Cookie": "fake=test" }));
   assert.equal(withCookie.headers.get("X-Psipedia-Cache"), null);
   assert.equal(entries.size, 1);
+});
+
+
+test("anonymous document cache bypasses forced reloads, conditional fetches, actions, RSC and prefetch", () => {
+  const ops = cacheOps({ async match() {}, async put() {} });
+  const url = "https://psipedia.sk/plemena/labradorsky-retriever";
+  const isEligible = (headers, target = url) =>
+    Boolean(ops.publicHtmlCache(new Request(target, { headers }), new URL(target), "test-version"));
+
+  for (const headers of [
+    { rsc: "1" },
+    { "next-router-state-tree": "[]" },
+    { "next-router-prefetch": "1" },
+    { "next-url": "/" },
+    { purpose: "prefetch" },
+    { "sec-purpose": "prefetch" },
+    { "next-action": "test" },
+    { "next-router-segment-prefetch": "1" },
+    { "x-nextjs-data": "1" },
+    { "x-middleware-subrequest": "test" },
+    { "x-middleware-prefetch": "1" },
+    { "if-none-match": '"v1"' },
+    { "if-modified-since": "Wed, 21 Oct 2015 07:28:00 GMT" },
+    { range: "bytes=0-100" },
+    { "if-range": '"v1"' },
+    { "cache-control": "no-cache" },
+    { "cache-control": "no-store" },
+    { "cache-control": "max-age=0" },
+    { "cache-control": "public, max-age = 0" },
+    { pragma: "no-cache" },
+    { "sec-fetch-dest": "empty", accept: "text/html" },
+    { "sec-fetch-dest": "iframe", accept: "text/html" },
+    { "sec-fetch-mode": "cors", accept: "text/html" },
+  ]) assert.equal(isEligible(headers), false, JSON.stringify(headers));
+
+  assert.equal(isEligible({ accept: "text/html", "sec-fetch-mode": "navigate", "sec-fetch-dest": "document" }), true);
+  assert.equal(isEligible({ accept: "text/html", "sec-fetch-dest": "document", "cache-control": "max-age=60" }), true);
+  assert.equal(isEligible({ accept: "text/html", "sec-fetch-dest": "document" }, "https://psipedia.sk/plemena?a=b"), false);
+  assert.equal(isEligible({ accept: "text/x-component" }), false);
+  assert.equal(isEligible({ accept: "text/html", cookie: "partner_session=not-real" }), false);
+  assert.equal(isEligible({ accept: "text/html", authorization: "Bearer testing" }), false);
+});
+
+test("Cloudflare Cache API advertises only its supported short freshness window", () => {
+  const ops = cacheOps({});
+  const hit = ops.publicHtmlCacheHeaders("HIT");
+  const miss = ops.publicHtmlCacheHeaders("MISS");
+  assert.equal(hit["X-Psipedia-Cache"], "HIT");
+  assert.equal(miss["X-Psipedia-Cache"], "MISS");
+  assert.match(hit["Cache-Control"], /max-age=0, s-maxage=45/);
+  assert.equal(hit["CDN-Cache-Control"], "public, max-age=45");
+  assert.equal(hit["Cloudflare-CDN-Cache-Control"], "public, max-age=45");
+  assert.doesNotMatch(hit["Cache-Control"], /stale-while-revalidate|stale-if-error/);
 });

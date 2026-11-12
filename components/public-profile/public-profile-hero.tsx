@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { DetailHero, PublicDetailLayout } from "@/components/detail-primitives/detail-primitives";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import styles from "./public-profile.module.css";
@@ -95,6 +96,8 @@ export function PublicProfileHero({
             context="detail"
             config={imageConfig}
             src={imageUrl}
+            srcSet={responsiveMediaSrcSet(imageUrl, [320, 480, 640, 768, 960, 1280])}
+            sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 1280px) 48vw, 610px"
             alt={imageAlt || title}
             loading="eager"
             fetchPriority="high"

@@ -206,7 +206,11 @@ test("SERVICES-V2 keeps one GET search while only the clean root shows five per 
   // No preview data path is allowed in root route, category route or filtered results.
   assert.match(directory, /!active\s*&&\s*filters\.page === 1/);
   assert.match(directory, /Object\.keys\(filters\.facets \?\? \{\}\)\.length === 0/);
-  assert.match(directory, /isOverview \? await getDirectoryCategoryPreviews\(5\) : null/);
+  // Step 8 starts the same bounded overview preview alongside hero and
+  // editorial data. Filtered/category routes must still skip this query.
+  assert.match(directory, /const \[categoryPreviews, heroVisual, discovery\] = await Promise\.all\(\[/);
+  assert.match(directory, /isOverview \? getDirectoryCategoryPreviews\(5\) : Promise\.resolve\(null\)/);
+  assert.doesNotMatch(directory, /isOverview \? await getDirectoryCategoryPreviews\(5\)/);
   assert.match(directory, /data-directory-category-previews/);
   assert.match(directory, /<DirectoryResults/);
   assert.doesNotMatch(root, /getDirectoryCategoryPreviews/);

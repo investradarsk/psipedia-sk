@@ -245,7 +245,8 @@ test("ADMIN-CORE navigation validates hierarchy, internal paths and active dupli
 
 test("ADMIN-CORE navigation editor exposes a lightweight structural preview", () => {
   const editor = read("components/admin-navigation-editor.tsx");
-  const css = read("app/globals.css");
+  // Admin legacy styling is route-scoped and no longer included in public globals.css.
+  const css = read("app/admin/admin-root-extracted.css");
   assert.match(editor, /Preview výslednej štruktúry/);
   assert.match(editor, /Nie je to druhý renderer verejného headeru/);
   assert.match(editor, /previewFamilies/);

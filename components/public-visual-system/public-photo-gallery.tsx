@@ -51,7 +51,9 @@ export function PublicPhotoGallery({
                 src={image.src}
                 alt={image.alt}
                 srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960])}
-                sizes="(max-width: 650px) 50vw, 33vw"
+                sizes="(max-width: 650px) calc((100vw - 40px) / 2), (max-width: 1250px) calc((100vw - 72px) / 3), 394px"
+                width={1280}
+                height={960}
                 loading="lazy"
                 decoding="async"
               />
@@ -59,7 +61,13 @@ export function PublicPhotoGallery({
                 src={image.src}
                 alt={image.alt}
                 srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960, 1280])}
-                sizes={variant === "breed" ? "(max-width: 620px) 100vw, 50vw" : "(max-width: 680px) 100vw, 75vw"}
+                sizes={variant === "breed"
+                  ? "(max-width: 620px) calc(100vw - 32px), (max-width: 900px) 48vw, (max-width: 1280px) 31vw, 360px"
+                  : image.size === "wide"
+                    ? "(max-width: 680px) calc(100vw - 32px), (max-width: 1280px) calc(100vw - 64px), 1120px"
+                    : "(max-width: 680px) calc(100vw - 32px), (max-width: 1280px) 48vw, 550px"}
+                width={1280}
+                height={960}
                 loading="lazy"
                 decoding="async"
               />;
@@ -78,7 +86,7 @@ export function PublicPhotoGallery({
           <img
             src={image.src}
             srcSet={responsiveMediaSrcSet(image.src, [160, 320, 480, 640, 768])}
-            sizes="(max-width: 600px) 50vw, 33vw"
+            sizes="(max-width: 600px) calc((100vw - 40px) / 2), (max-width: 1250px) calc((100vw - 72px) / 3), 394px"
             alt={image.alt}
             loading="lazy"
             decoding="async"

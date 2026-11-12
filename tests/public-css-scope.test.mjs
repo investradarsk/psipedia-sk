@@ -55,3 +55,81 @@ test("desktop site header has no empty mobile-controls grid row", () => {
   assert.match(css, /@media \(min-width:\s*1200px\)\s*\{\s*\.mobileNavControls\s*\{\s*display:\s*none;/);
   assert.match(css, /\.masthead:global\(\.header-inner\)\s*\{\s*min-height:\s*60px;/);
 });
+
+
+test("STEP 3: public root excludes legacy admin-only CSS; Admin retains it at its route boundary", () => {
+  const root = read("app/layout.tsx");
+  const admin = read("app/admin/layout.tsx");
+  const globals = read("app/globals.css");
+  const extracted = read("app/admin/admin-root-extracted.css");
+  const hotfix = read("app/navigation-hotfix.css");
+  assert.match(admin, /import "\.\/admin-root-extracted\.css";/);
+  assert.match(admin, /import "\.\.\/navigation-hotfix\.css";/);
+  assert.doesNotMatch(root, /admin-root-extracted\.css|navigation-hotfix\.css/);
+  assert.ok(hotfix.includes(".admin-navigation-automatic"));
+  assert.ok(globals.length <= 290_000, "Public CSS size budget regressed");
+  assert.ok(extracted.length >= 50_000, "Admin-only stylesheet disappeared");
+  for (const selector of [
+    ".admin-subsection-row-header",
+    ".admin-section-nav",
+    ".admin-event-filters",
+    ".admin-optional-settings",
+    ".admin-navigation-preview",
+    ".admin-import-summary-table",
+  ]) {
+    assert.ok(extracted.includes(selector), "Missing route-scoped admin selector: " + selector);
+    assert.ok(!globals.includes(selector), "Admin-only selector leaked into public bundle: " + selector);
+  }
+  // Explicit mixed CSS remains in the public sheet until all its public
+  // and admin consumers can be migrated together without a cascade change.
+  for (const selector of [
+    ".hero-card",
+    ".cookie-consent",
+    ".article-card-media",
+    ".event-markdown",
+    ".admin-relation-grid",
+    ".admin-inquiry-body",
+    ".admin-directory-flags",
+  ]) assert.ok(globals.includes(selector), "Mixed or public rule was moved: " + selector);
+});
+
+test("STEP 3: extracted CSS has balanced blocks and only admin-prefixed style selectors", () => {
+  const extracted = read("app/admin/admin-root-extracted.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  let depth = 0;
+  let rules = 0;
+  let headerStart = 0;
+  let quote = "";
+  for (let i = 0; i < extracted.length; i++) {
+    const ch = extracted[i];
+    if (quote) {
+      if (ch === "\\") { i++; continue; }
+      if (ch === quote) quote = "";
+      continue;
+    }
+    if (ch === "'" || ch === '"') { quote = ch; continue; }
+    if (ch === "{") {
+      const header = extracted.slice(headerStart, i).trim();
+      if (depth === 0 || header.startsWith("@media")) {
+        if (header.startsWith("@media")) {
+          assert.match(header, /^@media \(/);
+        } else {
+          assert.ok(header.split(",").every(selector => /^(?:\.admin[\w-]*|#admin[\w-]*|\[data-admin)/.test(selector.trim())), "Non-admin selector leaked: " + header);
+          rules++;
+        }
+      } else if (depth === 1) {
+        assert.ok(header.split(",").every(selector => /^(?:\.admin[\w-]*|#admin[\w-]*|\[data-admin)/.test(selector.trim())), "Non-admin media selector: " + header);
+        rules++;
+      }
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      assert.ok(depth >= 0, "Unmatched CSS closing brace");
+      headerStart = i + 1;
+    }
+    if (ch === "{" && depth === 1) {
+      headerStart = i + 1;
+    }
+  }
+  assert.equal(depth, 0, "Unclosed CSS rule");
+  assert.ok(rules >= 450, "Missing extracted admin rule coverage");
+});

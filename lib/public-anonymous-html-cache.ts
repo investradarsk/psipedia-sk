@@ -19,12 +19,23 @@ export function isExplicitAnonymousHtmlRoute(pathname: string): boolean {
   return match !== null && PUBLIC_DIRECTORY_CATEGORIES.has(match[1]);
 }
 
+// All HTML cache keys are URL-only. RSC/Next navigation request headers are
+// excluded at ingress; these response Vary names therefore always resolve to
+// the same anonymous *document* representation. Unknown Vary names must fail
+// closed (e.g. Accept-Language, User-Agent, Origin, user identity).
+const PUBLIC_HTML_DOCUMENT_VARY = new Set([
+  "accept-encoding",
+  "rsc", "next-router-state-tree", "next-router-prefetch", "next-url",
+  "next-router-segment-prefetch",
+]);
+
+export function isSafePublicHtmlVary(value: string | null): boolean {
+  if (value === null) return true;
+  return value.split(",").every((item) => PUBLIC_HTML_DOCUMENT_VARY.has(item.trim().toLowerCase()));
+}
+
 function forbiddenVariants(response: Response): boolean {
-  if (response.headers.has("set-cookie")) return true;
-  const vary = response.headers.get("vary");
-  return Boolean(vary?.split(",").some((item) =>
-    ["*", "cookie", "authorization", "cf-access-jwt-assertion"].includes(item.trim().toLowerCase())
-  ));
+  return response.headers.has("set-cookie") || !isSafePublicHtmlVary(response.headers.get("vary"));
 }
 
 /**
