@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { readDirectoryEditorTextForSave, selectDirectoryTextForSave, reconcileDirectorySubmittedTextFields } from "../lib/directory-editor-text-change-contract.ts";
+import { preserveUneditedTrainerTrust } from "../lib/notion-trainer-trust-fields.ts";
 
 const live = { excerpt: "Pôvodný perex", description: "Pôvodný popis" };
 
@@ -184,14 +185,45 @@ function breederStyleDiff(before, after) {
   return ["excerpt", "description"].filter(field => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
 }
 
-test("server cannot return HTTP 200 with the previous Perex after an edited-value PUT", () => {
+test("trust-preservation only returns checkboxes and cannot undo ANY Admin editorial edit", () => {
+  const oldProfile = {
+    id: 618,
+    category: "chovatelske-kluby",
+    verified: true,
+    featured: false,
+    name: "Pôvodný názov",
+    excerpt: "Starý Perex",
+    description: "Starý Popis",
+    publicEmail: "povodny@example.sk",
+    websiteUrl: "https://stary.sk",
+    seo: { title: "Starý SEO title" },
+  };
+  const form = {
+    verified: false,
+    featured: true,
+    excerpt: "Perex overený v D1 test444",
+    description: "Nový Popis",
+    publicEmail: "text bez @",
+    websiteUrl: "nesprávne URL",
+    seo: { title: "Nový SEO title" },
+  };
+  for (const edited of [[], ["verified"], ["featured"], ["verified", "featured"]]) {
+    const trust = preserveUneditedTrainerTrust(oldProfile, form, edited);
+    assert.deepEqual(Object.keys(trust).sort(), ["featured", "verified"]);
+    const savePayload = { ...form, ...trust };
+    assert.equal(savePayload.excerpt, form.excerpt);
+    assert.equal(savePayload.description, form.description);
+    assert.equal(savePayload.publicEmail, form.publicEmail);
+    assert.equal(savePayload.websiteUrl, form.websiteUrl);
+    assert.deepEqual(savePayload.seo, form.seo);
+  }
+});
+
+test("API compares D1 confirmation against actual submitted editorial text", () => {
   const api = readFileSync("app/api/admin/directory/[id]/route.ts", "utf8");
-  assert.match(api, /const changedTextFields = \(\["excerpt", "description"\] as const\)/);
   assert.match(api, /cleanText\(saved\[field\]\) !== cleanText\(submittedBody\[field\]\)/);
-  assert.match(api, /if \(changedTextFields\.length\) \{/);
-  assert.match(api, /SET excerpt=\?, description=\?, search_text=\?, updated_at=\?, updated_by=\?/);
-  assert.match(api, /WHERE id=\? AND category=\? AND status<>'archived' AND updated_at=\?/);
-  assert.match(api, /saved = await getManagedDirectoryProfileById\(id, db\)/);
   assert.match(api, /excerpt: submittedBody\.excerpt,\s*description: submittedBody\.description/);
+  assert.match(api, /DIRECTORY_TEXT_D1_SAVE_NOT_CONFIRMED/);
+  assert.match(api, /DIRECTORY_FIELDS_D1_SAVE_NOT_CONFIRMED/);
   assert.match(api, /status: 409, headers: \{ "cache-control": "no-store" \}/);
 });
