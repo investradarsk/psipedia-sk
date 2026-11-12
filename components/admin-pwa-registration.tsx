@@ -9,8 +9,13 @@ export function AdminPwaRegistration() {
   useEffect(() => {
     const handleOnline = () => setOnline(true);
     const handleOffline = () => setOnline(false);
+    // iOS can suspend a standalone PWA without emitting an online event.
+    // Re-evaluate the connection when Safari restores the document from BFCache.
+    setOnline(navigator.onLine);
+    const handleResume = () => setOnline(navigator.onLine);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    window.addEventListener("pageshow", handleResume);
 
     if ("serviceWorker" in navigator) {
       void (async () => {
@@ -22,15 +27,12 @@ export function AdminPwaRegistration() {
         });
         if (legacy.length > 0) {
           await Promise.all(legacy.map((item) => item.unregister()));
-          if (navigator.serviceWorker.controller && sessionStorage.getItem("psipedia-admin-pwa-scope-migrated") !== "1") {
-            sessionStorage.setItem("psipedia-admin-pwa-scope-migrated", "1");
-            window.location.reload();
-            return;
-          }
+          // The old root-scope controller can remain attached until the next
+          // natural document navigation. It has no fetch handler, so forcing a
+          // reload here only risks losing an unsaved editor on iOS/PWA resume.
         }
 
         await navigator.serviceWorker.register("/sw.js", { scope: "/admin/" });
-        sessionStorage.removeItem("psipedia-admin-pwa-scope-migrated");
       })().catch((error) => {
         console.warn("Admin PWA service worker registration failed.", error);
       });
@@ -39,6 +41,7 @@ export function AdminPwaRegistration() {
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("pageshow", handleResume);
     };
   }, []);
 
