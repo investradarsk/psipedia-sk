@@ -117,7 +117,7 @@ export function AdminFacebookGraphicEditor({
   },[]);
   useEffect(()=>{
     if(!restoreReady.current)return;
-    try{window.localStorage.setItem(PROFILE_LAYOUT_KEY,JSON.stringify({layout:profileLayout,options:profileOptions}));}
+    try{window.localStorage.setItem(PROFILE_LAYOUT_KEY,JSON.stringify({layout:profileLayout,options:{shape:profileOptions.shape}}));}
     catch{/* Private browsers may deny local storage; editing still works. */}
   },[profileLayout,profileOptions]);
   const saveProfileHistory=()=>setProfileHistory(old=>[{
