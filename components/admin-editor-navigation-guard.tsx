@@ -30,9 +30,13 @@ function authorizeCurrentPageExit() {
   const refs = [...activeDirtyAllowRefs];
   const generation = ++authorizedExitGeneration;
   for (const ref of refs) ref.current = true;
+  // The iOS full-document navigation fallback must distinguish a confirmed
+  // discard from an unconfirmed dirty editor during the Link replay.
+  document.documentElement.setAttribute("data-admin-exit-authorized", "true");
   setTimeout(() => {
     if (generation !== authorizedExitGeneration) return;
     for (const ref of refs) ref.current = false;
+    document.documentElement.removeAttribute("data-admin-exit-authorized");
   }, 2_000);
 }
 
@@ -156,6 +160,7 @@ export function useAdminEditorNavigationGuard({
       activeDirtyAllowRefs.delete(allowNativeExitRef);
       if (mountedDirtyGuardCount === 0) {
         document.documentElement.removeAttribute("data-admin-unsaved-editor");
+        document.documentElement.removeAttribute("data-admin-exit-authorized");
       }
     };
   }, [dirty, allowNativeExitRef, requestNavigation]);
