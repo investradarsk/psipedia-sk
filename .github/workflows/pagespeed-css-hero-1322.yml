@@ -1,0 +1,47 @@
+name: PAGESPEED-CSS-HERO build evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/page.tsx'
+      - 'app/plemena/**'
+      - 'components/public-visual-system/unified-section-hero.tsx'
+      - 'lib/public-hero-image.ts'
+      - 'public/styles/**'
+      - 'scripts/audit-public-css-bundle.mjs'
+      - 'tests/pagespeed-css-hero-20261112.test.mjs'
+      - 'tests/pagespeed-mobile-5-steps.test.mjs'
+      - 'tests/performance-fastpaths.test.mjs'
+      - '.github/workflows/pagespeed-css-hero-1322.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pagespeed-css-hero-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-evidence:
+    if: startsWith(github.head_ref, 'perf/pagespeed-css-hero-js-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          cache: npm
+      - run: npm ci
+      - name: Responsive image and stylesheet contract
+        run: node --experimental-strip-types --test tests/pagespeed-css-hero-20261112.test.mjs tests/pagespeed-mobile-5-steps.test.mjs
+      - name: Existing public LCP and CSS regressions
+        run: |
+          npm run test:perf-fastpaths
+          npm run test:public-css-scope
+          npm run test:homepage-media
+      - name: Verified production build
+        run: npm run build
+      - name: Prove resulting CSS index chunk is smaller
+        run: node scripts/audit-public-css-bundle.mjs
