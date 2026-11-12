@@ -3,6 +3,7 @@
  * drops, or reinterprets a block; incompatible structural edits fail closed.
  * Notion cannot atomically replace a page's ordered child-block collection.
  */
+import { ARTICLE_NOTION_SEO_PROPERTIES as SEO } from "./notion-article-seo-properties";
 import type { ArticleBlock } from "@/lib/article-blocks";
 import type { EditorialRichTextDocument, EditorialRichTextInline } from "@/lib/editorial-content";
 
@@ -239,16 +240,16 @@ export function buildNotionEditorialPlan(args: {
   const propertyAfter: Record<string, string> = {};
   const fields: Array<[string, "title" | "rich_text" | "url", string]> = [
     ["Názov", "title", article.title],
-    ["SEO title", "rich_text", article.seoTitle],
-    ["Meta description", "rich_text", article.metaDescription],
-    ["Hlavné kľúčové slovo", "rich_text", article.focusKeyword],
+    [SEO.seoTitle.name, SEO.seoTitle.type, article.seoTitle],
+    [SEO.metaDescription.name, SEO.metaDescription.type, article.metaDescription],
+    [SEO.focusKeyword.name, SEO.focusKeyword.type, article.focusKeyword],
     ["Hlavný obrázok URL", "url", article.image ? (article.image.startsWith("/") ? args.siteUrl + article.image : article.image) : ""],
     ["Alt text obrázka", "rich_text", article.imageAlt ?? ""],
     ["Zdroj obrázka", "url", article.imageCreditUrl ?? ""],
   ];
   if ("Popis na sociálne siete" in pageProperties) fields.push(["Popis na sociálne siete", "rich_text", article.socialCaption ?? ""]);
-  if ("OG title" in pageProperties) fields.push(["OG title", "rich_text", article.ogTitle ?? ""]);
-  if ("OG description" in pageProperties) fields.push(["OG description", "rich_text", article.ogDescription ?? ""]);
+  if (SEO.ogTitle.name in pageProperties) fields.push([SEO.ogTitle.name, SEO.ogTitle.type, article.ogTitle ?? ""]);
+  if (SEO.ogDescription.name in pageProperties) fields.push([SEO.ogDescription.name, SEO.ogDescription.type, article.ogDescription ?? ""]);
   for (const [name, type, value] of fields) {
     if (!(name in pageProperties)) {
       if (value && name !== "Hlavný obrázok URL") fail("MISSING_NOTION_PROPERTY_" + name);
