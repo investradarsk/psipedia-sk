@@ -95,6 +95,9 @@ test("Directory editor uses text inputs and does not erase unrelated location da
     editor.indexOf("onChange={(location) => {", editor.indexOf("<SlovakiaLocationSelector")),
     editor.indexOf("<DirectoryAddressAutocomplete"),
   );
-  assert.doesNotMatch(locationOnChange, /setPostalCode\(""\)|setHouseNumber\(""\)|setStreet\(""\)/);
+  // No address field may be automatically cleared by another field edit.
+  for (const setter of ["setPostalCode", "setHouseNumber", "setStreet"]) {
+    assert.doesNotMatch(locationOnChange, new RegExp(`${setter}\\\\(\\\\"\\\\"\\\\)`));
+  }
   assert.doesNotMatch(editor, /inputMode="numeric"/);
 });
