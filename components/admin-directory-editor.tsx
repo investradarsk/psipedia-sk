@@ -35,7 +35,7 @@ import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { EditorStatus, EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
 import { useAdminEditorNavigationGuard } from "@/components/admin-editor-navigation-guard";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
-import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
+const AdminShareToFacebook = dynamic(() => import("@/components/admin-share-to-facebook").then(module => module.AdminShareToFacebook), { ssr: false });
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import type { ArticleSeo } from "@/lib/content";
@@ -55,7 +55,7 @@ import {
 } from "@/lib/directory-service-address";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { ImageDisplay } from "@/components/image-display";
-import { ImageDisplayEditor } from "@/components/image-display-editor";
+const ImageDisplayEditor = dynamic(() => import("@/components/image-display-editor").then(module => module.ImageDisplayEditor), { ssr: false });
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { directorySeoFallback } from "@/lib/content-seo";
 import {
