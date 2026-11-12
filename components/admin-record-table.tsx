@@ -82,9 +82,11 @@ export function AdminRecordTable<T extends { id: number }>({
   const coreRowModel = useMemo(() => getCoreRowModel<T>(), []);
   const clientSortedRowModel = useMemo(() => getSortedRowModel<T>(), []);
   const [clientSorting, setClientSorting] = useState<SortingState>([]);
-  const sorting = useMemo<SortingState>(() => serverSorting
-    ? [{ id: serverSorting.id, desc: serverSorting.desc }]
-    : clientSorting, [clientSorting, serverSorting?.id, serverSorting?.desc]);
+  const controlledSortId = serverSorting?.id;
+  const controlledSortDesc = serverSorting?.desc;
+  const sorting = useMemo<SortingState>(() => controlledSortId !== undefined
+    ? [{ id: controlledSortId, desc: Boolean(controlledSortDesc) }]
+    : clientSorting, [clientSorting, controlledSortId, controlledSortDesc]);
   const [visibility, setVisibility] = useState<VisibilityState>(() =>
     Object.fromEntries(columns.filter((column) => column.initiallyHidden).map((column) => [column.id, false])),
   );
