@@ -20,7 +20,7 @@ import {adminSelectedImage} from "@/lib/admin-selected-image";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
-import { readDirectoryEditorTextForSave } from "@/lib/directory-editor-text-change-contract";
+import { selectDirectoryTextForSave } from "@/lib/directory-editor-text-change-contract";
 
 import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
 
@@ -170,6 +170,10 @@ export function AdminDirectoryEditor({
   // React state snapshot from before Lexical's last onChange/blur.
   const excerptValueReaderRef = useRef<(() => string) | null>(null);
   const descriptionValueReaderRef = useRef<(() => string) | null>(null);
+  // A Lexical mount/paragraph rewrite is not a user edit. Only an actual
+  // input event or explicit editorial action may mark these fields writable.
+  const excerptExplicitlyEditedRef = useRef(false);
+  const descriptionExplicitlyEditedRef = useRef(false);
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
   const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
@@ -365,8 +369,8 @@ export function AdminDirectoryEditor({
     for (const [field, value] of Object.entries(values)) {
       const text = value === null || value === undefined ? "" : String(value);
       if (field === "name") setName(text);
-      else if (field === "excerpt") setExcerpt(text);
-      else if (field === "description") setDescription(text);
+      else if (field === "excerpt") { excerptExplicitlyEditedRef.current = true; setExcerpt(text); }
+      else if (field === "description") { descriptionExplicitlyEditedRef.current = true; setDescription(text); }
       else if (field === "services" && Array.isArray(value)) setServices(value.map(String).join("\n"));
       else if (field === "qualifications" && Array.isArray(value)) setQualifications(value.map(String).join("\n"));
       else if (field === "address") setPublicAddress(text);
@@ -413,8 +417,16 @@ export function AdminDirectoryEditor({
       // Optional contact/URL/SEO fields are not blockers. The server
       // sanitizes malformed optional values and returns field warnings.
       }
-    const submittedExcerpt = readDirectoryEditorTextForSave(excerpt, excerptValueReaderRef.current);
-    const submittedDescription = readDirectoryEditorTextForSave(description, descriptionValueReaderRef.current);
+    const submittedExcerpt = selectDirectoryTextForSave({
+      original: profile ? breederSaveBaselineRef.current?.excerpt : undefined,
+      stateValue: excerpt, liveReader: excerptValueReaderRef.current,
+      explicitlyEdited: excerptExplicitlyEditedRef.current,
+    });
+    const submittedDescription = selectDirectoryTextForSave({
+      original: profile ? breederSaveBaselineRef.current?.description : undefined,
+      stateValue: description, liveReader: descriptionValueReaderRef.current,
+      explicitlyEdited: descriptionExplicitlyEditedRef.current,
+    });
     const submittedRevision = formEditRevisionRef.current;
     const imageReplacement = replaceMainImageRequestedRef.current;
     const mainImageAction = removeMainImageRequestedRef.current
@@ -491,7 +503,11 @@ export function AdminDirectoryEditor({
               addressFormat, priceNote, websiteUrl, publicPhone, publicEmail,
               facebookUrl, instagramUrl, seo,
             },
-          ).filter(path => path !== "services" || !isDirectoryEventPilotCategory(category))
+          ).filter(path =>
+            (path !== "services" || !isDirectoryEventPilotCategory(category)) &&
+            (path !== "excerpt" || excerptExplicitlyEditedRef.current) &&
+            (path !== "description" || descriptionExplicitlyEditedRef.current)
+          )
         : undefined;
       // The server must distinguish an explicit clear from an untouched
       // blank field in a long-open form. Only dirty contact paths are sent.
@@ -724,6 +740,8 @@ export function AdminDirectoryEditor({
         }
       }
       if (!hasNewerEdits) {
+        excerptExplicitlyEditedRef.current = false;
+        descriptionExplicitlyEditedRef.current = false;
         setGalleryUrls(savedProfile.galleryUrls ?? []);
         setQualityResolutions(qualityResolutionInput(savedProfile));
         setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
@@ -913,7 +931,7 @@ export function AdminDirectoryEditor({
               setCategory(nextCategory);
               setFilterChanges({});
             }}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
-            <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><AdminLexicalTextField id="directory-excerpt" valueReaderRef={excerptValueReaderRef} rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setFormDirty(true); }} placeholder="Čím je profil zaujímavý a komu pomáha?" ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
+            <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><AdminLexicalTextField id="directory-excerpt" valueReaderRef={excerptValueReaderRef} onUserInput={() => { excerptExplicitlyEditedRef.current = true; setFormDirty(true); }} rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setFormDirty(true); }} placeholder="Čím je profil zaujímavý a komu pomáha?" ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-location" className="admin-form-card">
@@ -1041,7 +1059,7 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
             <div className="admin-field"><label htmlFor="directory-public-organization">Organizácia <small>nepovinné</small></label><input id="directory-public-organization" value={publicOrganization} onChange={(event) => { setPublicOrganization(event.target.value); setFormDirty(true); }} placeholder="Napríklad: ZŠK SR" /><small>Verejný údaj z pôvodného profilu; ostatné importované informácie zostávajú zachované.</small></div>
             <div className="admin-field"><label htmlFor="directory-public-focus">Zameranie <small>nepovinné</small></label><input id="directory-public-focus" value={publicFocus} onChange={(event) => { setPublicFocus(event.target.value); setFormDirty(true); }} placeholder="Napríklad: športová kynológia, výcvik a skúšky" /></div>
-            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" valueReaderRef={descriptionValueReaderRef} rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
+            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" valueReaderRef={descriptionValueReaderRef} onUserInput={() => { descriptionExplicitlyEditedRef.current = true; setFormDirty(true); }} rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>{ descriptionExplicitlyEditedRef.current = true; setDescription(appendLexicalPlainText(description,text)); setFormDirty(true); }}/></div>
             <AdminHelpText term="Formát">Lexical ukladá popis do existujúceho textového poľa bez zmeny synchronizácie Notion.</AdminHelpText>
             <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
               {!isDirectoryEventPilotCategory(category) ? (
