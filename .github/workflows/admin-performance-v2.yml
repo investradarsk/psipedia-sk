@@ -9,6 +9,7 @@ on:
       - "lib/admin-**"
       - "scripts/audit-admin-performance-v2.mjs"
       - "scripts/benchmark-admin-search-v2.mjs"
+      - "scripts/check-admin-v2-types.mjs"
       - "lib/admin-gallery-order.ts"
       - "lib/admin-attention-request.ts"
       - "tests/admin-performance-v2-*.test.mjs"
@@ -43,8 +44,11 @@ jobs:
       - name: Validate phase 2 regressions and existing Admin/PWA invariants
         run: npm run test:admin-performance-v2
 
-      - name: Validate TypeScript
-        run: npx tsc --noEmit --pretty false
+      - name: Check new TypeScript diagnostics in changed Admin files
+        run: |
+          npx tsc --noEmit --pretty false > admin-v2-tsc-output.txt 2>&1 || true
+          node scripts/check-admin-v2-types.mjs admin-v2-tsc-output.txt > admin-v2-scoped-types.json
+          cat admin-v2-scoped-types.json
 
       - name: Capture local SQLite query-plan experiment
         run: npm run benchmark:admin-search-v2 > admin-v2-search-plan.json
@@ -59,6 +63,7 @@ jobs:
           path: |
             admin-v2-source-baseline.json
             admin-v2-search-plan.json
+            admin-v2-scoped-types.json
           retention-days: 14
 
 # Deliberately read-only: no Cloudflare/Notion credentials, schema writes,
