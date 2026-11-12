@@ -2,7 +2,7 @@
  * Per-field Admin -> Notion SEO projection. No publication, identity, content
  * blocks, technical metadata or unedited SEO properties belong in this PATCH.
  */
-import { ARTICLE_NOTION_SEO_PROPERTIES as FIELDS, type ExistingArticleSeo } from "./notion-article-seo-properties";
+import { ARTICLE_NOTION_SEO_PROPERTIES as FIELDS, type ExistingArticleSeo, type ArticleSeoRemoteValues } from "./notion-article-seo-properties";
 
 export type ArticleSeoField = keyof typeof FIELDS;
 export type SeoPageProperties = Record<string, unknown>;
@@ -91,9 +91,12 @@ export function planArticleSeoWriteback(input: {
   after: ExistingArticleSeo;
   properties: SeoPageProperties;
   siteUrl: string;
+  /** When supplied, validate and prepare only these independently edited fields. */
+  fields?: readonly ArticleSeoField[];
 }): SeoPatchPlan {
   const plan: SeoPatchPlan = {
-    changed: articleSeoChangedFields(input.before, input.after),
+    changed: articleSeoChangedFields(input.before, input.after)
+      .filter(field => !input.fields || input.fields.includes(field)),
     properties: {}, expectedRemote: {}, target: {},
   };
   for (const field of plan.changed) {
@@ -119,6 +122,63 @@ export function planArticleSeoWriteback(input: {
     }
   }
   return plan;
+}
+
+/** Separate planning errors so one conflicting field does not invalidate
+ * independent SEO edits. Identity, article revision and content guards remain global.
+ */
+export type ArticleSeoFieldFailure = { field: ArticleSeoField; code: string };
+
+export function planArticleSeoIndependentWriteback(input: {
+  before: ExistingArticleSeo;
+  after: ExistingArticleSeo;
+  properties: SeoPageProperties;
+  siteUrl: string;
+}): { ready: Array<{ field: ArticleSeoField; plan: SeoPatchPlan }>; failures: ArticleSeoFieldFailure[] } {
+  const ready: Array<{ field: ArticleSeoField; plan: SeoPatchPlan }> = [];
+  const failures: ArticleSeoFieldFailure[] = [];
+  for (const field of articleSeoChangedFields(input.before, input.after)) {
+    try {
+      ready.push({ field, plan: planArticleSeoWriteback({ ...input, fields: [field] }) });
+    } catch (error) {
+      const raw = error instanceof Error ? error.message : "";
+      failures.push({
+        field,
+        code: /^NOTION_ARTICLE_SEO_[A-Z0-9_]+$/.test(raw) ? raw : "REMOTE_WRITEBACK_FAILED",
+      });
+    }
+  }
+  return { ready, failures };
+}
+
+/** For a concurrent Notion edit that fails only one field, verify that the
+ * REST of the page still matches the acknowledged import baseline. Do not
+ * advance that baseline if any field remains unresolved.
+ */
+export function projectArticleSeoConfirmedBaseline<T extends { properties?: Record<string, unknown> }>(
+  page: T, confirmed: ArticleSeoRemoteValues | null, failures: readonly ArticleSeoFieldFailure[],
+): T {
+  if (!failures.length) return page;
+  if (!confirmed) throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
+  const properties = { ...page.properties };
+  for (const { field } of failures) {
+    if (!Object.hasOwn(confirmed, field)) throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
+    const prior = confirmed[field];
+    const def = FIELDS[field];
+    if (def.type === "checkbox") {
+      if (typeof prior !== "boolean") throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
+      properties[def.name] = { type: "checkbox", checkbox: prior };
+    } else if (def.type === "url") {
+      if (typeof prior !== "string") throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
+      properties[def.name] = { type: "url", url: prior || null };
+    } else {
+      if (typeof prior !== "string") throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
+      properties[def.name] = { type: "rich_text", rich_text: prior ? [{
+        type: "text", plain_text: prior, text: { content: prior },
+      }] : [] };
+    }
+  }
+  return { ...page, properties };
 }
 
 export function verifyArticleSeoPatch(
