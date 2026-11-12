@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import test from "node:test";
 import ts from "typescript";
 
