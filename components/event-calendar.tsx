@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -186,7 +187,9 @@ export function EventCalendar({
   const month = view.filterMonth;
   const visibleMonth = view.month;
   const todayMonth = today.slice(0, 7);
-  const days = calendarMonthDays(visibleMonth);
+  // Switching a day, opening filters or a mobile sheet does not change
+  // the calendar grid: reuse the same month cell array until the month changes.
+  const days = useMemo(() => calendarMonthDays(visibleMonth), [visibleMonth]);
   const selectedDay =
     /^\d{4}-\d{2}-\d{2}$/.test(view.day) &&
     days.some((item) => item.inMonth && item.date === view.day)
@@ -195,17 +198,26 @@ export function EventCalendar({
   const typePathname =
     view.type === "Všetky" ? "/podujatia" : (eventTypePortalHref(view.type) ?? "/podujatia");
   const filtered = pending && !pendingCalendarOnly ? [] : data.events;
-  const daySummaries = pending
-    ? new Map<string, { date: string; count: number; types: EventType[] }>()
-    : data.calendarSummaries
-      ? new Map(data.calendarSummaries.map((item) => [item.date, item]))
-      : new Map(
-          days
-            .filter((day) => day.inMonth)
-            .map((day) => [day.date, calendarDaySummary(data.calendarEvents, day.date)]),
-        );
-  const dailyEvents =
-    selectedDay && !pending && !pendingDay ? eventsForCalendarDay(data.calendarEvents, selectedDay) : [];
+  // A calendar response can contain many event previews. Avoid regenerating
+  // summaries and scanning day events when unrelated UI controls rerender.
+  const daySummaries = useMemo(
+    () => pending
+      ? new Map<string, { date: string; count: number; types: EventType[] }>()
+      : data.calendarSummaries
+        ? new Map(data.calendarSummaries.map((item) => [item.date, item]))
+        : new Map(
+            days
+              .filter((day) => day.inMonth)
+              .map((day) => [day.date, calendarDaySummary(data.calendarEvents, day.date)]),
+          ),
+    [pending, data.calendarSummaries, data.calendarEvents, days],
+  );
+  const dailyEvents = useMemo(
+    () => selectedDay && !pending && !pendingDay
+      ? eventsForCalendarDay(data.calendarEvents, selectedDay)
+      : [],
+    [selectedDay, pending, pendingDay, data.calendarEvents],
+  );
 
   async function navigate(href: string, next: View, addHistory = true) {
     requestRef.current?.abort();
