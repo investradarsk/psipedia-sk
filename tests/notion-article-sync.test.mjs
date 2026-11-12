@@ -23,7 +23,7 @@ test("Ready Notion articles auto-flow into Psipedia as draft only", () => {
   assert.doesNotMatch(syncSource, /SEO skontrolované/);
 });
 
-test("published articles keep public state, canonical URL, media and one-to-one identity", () => {
+test("published articles preserve identity and media while importing mapped SEO fields", () => {
   assert.match(syncSource, /findUnmappedCanonicalArticle/);
   assert.match(syncSource, /ARTICLE_MAPPING_REVIEW_REQUIRED/);
   assert.match(syncSource, /selectProperty\(page, "Stav"\) === "Publikované"/);
@@ -31,7 +31,10 @@ test("published articles keep public state, canonical URL, media and one-to-one 
   assert.match(syncSource, /status: existing\.status/);
   assert.match(syncSource, /publishedAt: existing\.publishedAt/);
   assert.match(syncSource, /imageUrl: existing\.image/);
-  assert.match(syncSource, /canonicalUrl: existing\.canonicalUrl/);
+  assert.match(syncSource, /\.\.\.basePayload/);
+  assert.doesNotMatch(syncSource, /canonicalUrl: existing\.canonicalUrl/);
+  assert.doesNotMatch(syncSource, /noindex: existing\.noindex/);
+  assert.doesNotMatch(syncSource, /ogImageUrl: existing\.ogImage/);
   assert.match(syncSource, /ARTICLE_ADMIN_REVISION_NOT_SYNCED/);
 });
 
@@ -285,7 +288,8 @@ test("Notion main image URL is downloaded safely and persisted to R2", () => {
   assert.match(syncSource, /notionSourceHash/);
   assert.match(syncSource, /notionSourceUrl/);
   assert.match(syncSource, /imageUrl,\s*imageKey: key/);
-  assert.match(syncSource, /ogImageUrl: imageUrl,\s*ogImageKey: key/);
+  assert.match(syncSource, /ogImageUrl: nextOgImageUrl,\s*ogImageKey: nextOgImageKey/);
+  assert.match(syncSource, /explicitOgImage \|\| imageUrl/);
   assert.match(routeSource, /BUCKET\?: R2Bucket/);
 });
 
@@ -388,7 +392,6 @@ test("article editorial draft writer uses existing OG popis and the shared SEO c
   assert.match(source, /SEO\.ogDescription\.name in pageProperties/);
   assert.match(source, /SEO\.ogTitle\.name in pageProperties/);
   assert.doesNotMatch(source, /"OG description" in pageProperties/);
-  assert.match(syncSource, /richTextProperty\(page, SEO\.seoTitle\.name\)/);
-  assert.match(syncSource, /richTextProperty\(page, SEO\.metaDescription\.name\)/);
-  assert.match(syncSource, /richTextProperty\(page, SEO\.focusKeyword\.name\)/);
+  assert.match(syncSource, /articleSeoFromNotion\(page, existing\)/);
+  assert.match(syncSource, /\.\.\.seoFields/);
 });
