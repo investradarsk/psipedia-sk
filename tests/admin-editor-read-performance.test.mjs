@@ -59,14 +59,15 @@ test("organization editor uses required identity and location only; side panels 
   const page = read(paths.organization);
   const editor = read("components/admin-organization-editor.tsx");
   const suggestions = read("components/admin-organization-suggestions.tsx");
-  const coreStart = page.indexOf("const [organization, locations] = await Promise.all([");
+  const coreStart = page.indexOf("const [organizationResult, locationsResult] = await Promise.allSettled([");
   const coreEnd = page.indexOf("]);", coreStart);
   assert.ok(coreStart > page.indexOf("await requireAdminPageUser("), "authorize before canonical reads");
   const core = page.slice(coreStart, coreEnd);
   assert.match(core, /getOrganizationPublicationAdminById\(organizationId\)/);
   assert.match(core, /listOrganizationLocationsAdmin\(organizationId\)/);
   assert.doesNotMatch(core, /Fundraising|Duplicate|Review|Automation|Suggestion/);
-  assert.match(page, /if \(!organization\) notFound\(\)/);
+  assert.match(page, /resolveOrganizationEditorReads\(organizationResult, locationsResult\)/);
+  assert.match(page, /if \(!resolved\) notFound\(\)/);
   assert.match(page, /<Suspense fallback=/);
   assert.match(page, /OrganizationFundraisingPanel/);
   assert.match(page, /OrganizationReviewAction/);
