@@ -632,7 +632,9 @@ export async function PATCH(request: Request, { params }: Props) {
             database: db,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
-            breederAdminFields: breederBefore && ["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(breederBefore.category) && profile
+            // Inline edits must have the same immediate per-field writeback for
+            // *all ten* Directory categories as the full editor PUT.
+            breederAdminFields: breederBefore && isDirectoryFieldEventCategory(breederBefore.category) && profile
               ? breederEditedFields(breederBefore, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
@@ -642,7 +644,7 @@ export async function PATCH(request: Request, { params }: Props) {
           notionFieldSync = "pending";
         }
       }
-      if (profile && breederBefore && notionEnv.DB && ["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(profile.category)) {
+      if (profile && breederBefore && notionEnv.DB && isDirectoryFieldEventCategory(profile.category)) {
         const edited = breederEditedFields(breederBefore, profile);
         if (edited.length) {
           const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
