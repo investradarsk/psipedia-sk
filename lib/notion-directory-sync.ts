@@ -3056,7 +3056,14 @@ export async function runNotionDirectorySyncSweep(input: {
         summary.serviceRelationSync = relation;
         if (relation === "skipped" && relationChanged) summary.failed++;
       }
-      if (input.changedPropertyIds?.length || result !== "unchanged")
+      // Do not dismiss the profile's existing pending alert just because a
+      // different field (for example Popis instead of legacy Služby) synced.
+      const canResolveEditorialAlert = !isDirectoryFieldEventCategory(propertyText(page, "Kategória"))
+        || directoryEditorialEventMayClearError(
+          propertyText(page, "Sync chyba"),
+          breederNotionChangedFields(page.properties, input.changedPropertyIds ?? []),
+        );
+      if ((input.changedPropertyIds?.length || result !== "unchanged") && canResolveEditorialAlert)
         await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id, "resolved", "", "NOTION_TO_ADMIN");
       if (result === "pulled") summary.pulledFromNotion += 1;
       else if (result === "pushed") summary.pushedToNotion += 1;
