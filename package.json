@@ -71,6 +71,8 @@
     "test:admin-mobile-step7": "node --experimental-strip-types --test tests/admin-mobile-pwa-step7.test.mjs tests/admin-mobile-document-navigation.test.mjs tests/admin-pwa.test.mjs",
     "test:admin-error-step8": "node --experimental-strip-types --test tests/admin-error-recovery-step8.test.mjs tests/admin-page-streaming-step4.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/organization-admin-read-recovery-integration.test.mjs",
     "test:admin-editor-source-step9": "node --test tests/admin-stability-verification-step9.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/help-organization-publication.test.mjs tests/directory-admin-query.test.mjs",
+    "test:admin-merge-step10": "node --test tests/admin-merge-step10.test.mjs",
+    "test:admin-stability-step10": "npm run test:admin-stability-step9 && npm run test:admin-merge-step10",
     "test:admin-stability-step9": "npm run test:admin-pwa && npm run test:admin-editor-source-step9",
     "benchmark:admin-step9": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs scripts/benchmark-admin-step9.mjs",
     "e2e:admin-stability-step9": "playwright test tests/e2e/admin-performance-step9.spec.ts tests/e2e/admin-mobile-pwa-step7.spec.ts tests/e2e/admin-error-recovery-step8.spec.ts tests/e2e/admin-stability-navigation.spec.ts tests/e2e/admin-editor-navigation-guard.spec.ts",
