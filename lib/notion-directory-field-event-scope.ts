@@ -26,3 +26,18 @@ export type DirectoryFieldEventCategory = typeof DIRECTORY_FIELD_EVENT_CATEGORIE
 export function isDirectoryFieldEventCategory(category: string): category is DirectoryFieldEventCategory {
   return (DIRECTORY_FIELD_EVENT_CATEGORIES as readonly string[]).includes(category);
 }
+
+/**
+ * Property edits must name at least one edited Notion property.
+ * Without those IDs we cannot safely infer which field was changed or
+ * whether an empty field is an intentional delete. Keep the event pending
+ * for review instead of acknowledging a no-op as a successful import.
+ */
+export function directoryPropertyEventMissingChangedIds(
+  eventType: string | undefined,
+  changedIds: readonly string[] | undefined,
+): boolean {
+  return eventType === "page.properties_updated" &&
+    (!Array.isArray(changedIds) ||
+      !changedIds.some(id => typeof id === "string" && id.trim().length > 0));
+}
