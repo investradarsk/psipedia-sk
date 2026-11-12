@@ -6,6 +6,7 @@ import {createAdminCatalogOption,saveAdminServiceChoice,resetAdminServiceChoice,
 import {mutateAdminCatalogOption,recordCatalogMirrorOutcome} from "../lib/service-catalog-admin-lifecycle.ts";
 import {listBuiltinCatalogOverrides,updateBuiltinCatalogOption} from "../lib/service-catalog-builtin-overrides.ts";
 import {serviceCatalog} from "../lib/service-catalog-contract.ts";
+import {importNotionServiceIds} from "../lib/service-profile-notion-bridge.ts";
 
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const migration=read("drizzle/0133_services_canonical_admin_foundation.sql");
@@ -52,7 +53,7 @@ const actor="admin@example.com";
 const option=()=>({name:"Nová veterinárna metóda",category:"veterinari",kind:"service",group:"Diagnostika",meaning:"Presne vymedzená diagnostická metóda."});
 const edit=o=>({action:"edit",expectedVersion:o.version,name:o.label,category:o.categories[0],group:o.group,meaning:o.meaning});
 const result=(id,expectedVersion,outcome)=>({id,expectedVersion,outcome,evidence:{origin:"verified_notion_reconciliation",externalId:"notion-page-123"}});
-test("DRAFT edits preserve immutable identity, require strict payload and CAS, and invalidate mirror",async()=>{
+test("ACTIVE edits preserve immutable identity, require strict payload and CAS, and invalidate mirror",async()=>{
   const {sqlite,db}=fixture();
   try{
     const created=await createAdminCatalogOption(db,option(),actor);
@@ -67,6 +68,58 @@ test("DRAFT edits preserve immutable identity, require strict payload and CAS, a
     await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,edit(changed),actor),ServiceCatalogInputError);
     assert.equal(sqlite.prepare("SELECT updated_by FROM service_catalog_admin_options WHERE id=?").get(created.id).updated_by,actor);
   }finally{sqlite.close();}
+});
+test("ACTIVE service choices remain editable while the Notion mirror is pending",async()=>{
+ const {sqlite,db}=fixture();
+ try{
+  const created=await createAdminCatalogOption(db,option(),actor);
+  assert.equal(created.status,"ACTIVE");
+  assert.equal(created.notionMirrorStatus,"PENDING");
+  const first=await saveAdminServiceChoice(db,{
+    profileId:1,optionId:created.id,choice:"yes",expectedVersion:0,
+  },actor);
+  const second=await saveAdminServiceChoice(db,{
+    profileId:1,optionId:created.id,choice:"no",expectedVersion:first.version,
+  },actor);
+  assert.equal(second.choice,"no");
+  assert.equal(second.version,first.version+1);
+  const edited=await mutateAdminCatalogOption(db,created.id,{
+    ...edit(created),name:"Nová veterinárna metóda aktualizovaná",
+  },actor);
+  assert.equal(edited.id,created.id);
+  assert.equal(edited.status,"ACTIVE");
+  assert.equal(edited.notionMirrorStatus,"PENDING");
+  const third=await saveAdminServiceChoice(db,{
+    profileId:1,optionId:edited.id,choice:"yes",expectedVersion:second.version,
+  },actor);
+  assert.equal(third.choice,"yes");
+  assert.equal(third.version,second.version+1);
+  const retired=await mutateAdminCatalogOption(db,edited.id,{
+    action:"retire",expectedVersion:edited.version,
+  },actor);
+  assert.equal(retired.status,"RETIRED");
+  await assert.rejects(()=>saveAdminServiceChoice(db,{
+    profileId:1,optionId:edited.id,choice:"no",expectedVersion:third.version,
+  },actor),ServiceCatalogInputError);
+  await assert.rejects(()=>mutateAdminCatalogOption(db,edited.id,{
+    ...edit(retired),name:"Nepovolená úprava archivovanej služby",
+  },actor),ServiceCatalogConflictError);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM service_catalog_admin_change_audit WHERE option_id=? AND entity_type='choice'").get(edited.id).n,3);
+ }finally{sqlite.close();}
+});
+test("editing an ACTIVE catalog option after a mirror conflict requests reconciliation",async()=>{
+ const {sqlite,db}=fixture();
+ try{
+  const created=await createAdminCatalogOption(db,option(),actor);
+  const conflict=await recordCatalogMirrorOutcome(db,result(created.id,created.version,"CONFLICT"),actor);
+  assert.equal(conflict.notionMirrorStatus,"CONFLICT");
+  const revised=await mutateAdminCatalogOption(db,created.id,{
+    ...edit(conflict),name:"Nová veterinárna metóda po kontrole",
+  },actor);
+  assert.equal(revised.status,"ACTIVE");
+  assert.equal(revised.notionMirrorStatus,"PENDING");
+  assert.equal(revised.version,conflict.version+1);
+ }finally{sqlite.close();}
 });
 test("approve needs real synced mirror outcome, conflicts need explicit retry, retirement terminal",async()=>{
  const {sqlite,db}=fixture();
@@ -116,6 +169,7 @@ test("mirror outcome needs trusted reconciliation evidence; cannot be forged via
   assert.match(route,/SERVICE_CATALOG_ADMIN_WRITES_ENABLED/);
   assert.match(route,/SERVICE_CATALOG_NOTION_MIRROR_READY/);
   assert.match(route,/SyntaxError\?400/);
+  assert.match(route,/action!=="edit"&&action!=="retire"/);
   assert.doesNotMatch(route,/recordCatalogMirrorOutcome/);
  }finally{sqlite.close();}
 });
@@ -181,6 +235,76 @@ test("0134 history is append-only, RESET is attributed, and every physical delet
  }finally{sqlite.close();}
 });
 
+test("Notion relation removes only an explicitly deselected canonical service ID",async()=>{
+ const {sqlite,db}=fixture();
+ const vaccination="svc.vet.vaccination",microchip="svc.vet.microchipping",diagnostics="svc.vet.xray";
+ try{
+  await saveAdminServiceChoice(db,{profileId:1,optionId:vaccination,choice:"yes",expectedVersion:0},actor);
+  await saveAdminServiceChoice(db,{profileId:1,optionId:microchip,choice:"yes",expectedVersion:0},actor);
+  await saveAdminServiceChoice(db,{profileId:1,optionId:diagnostics,choice:"no",expectedVersion:0},actor);
+  const result=await importNotionServiceIds(db,1,"veterinari",[microchip]);
+  assert.deepEqual(result,{added:0,removed:1});
+  const rows=sqlite.prepare(
+   "SELECT option_id,choice,version FROM service_profile_option_choices WHERE profile_id=1 ORDER BY option_id"
+  ).all();
+  assert.deepEqual(rows.map(x=>[x.option_id,x.choice]),[[diagnostics,"no"],[microchip,"yes"]].sort((x,y)=>x[0].localeCompare(y[0])));
+  assert.equal(await importNotionServiceIds(db,1,"veterinari",[microchip]).then(x=>x.removed),0);
+  const restore=await importNotionServiceIds(db,1,"veterinari",[microchip,vaccination]);
+  assert.deepEqual(restore,{added:1,removed:0});
+  assert.equal(sqlite.prepare(
+    "SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(vaccination).choice,"yes");
+  assert.equal(sqlite.prepare(
+    "SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(diagnostics).choice,"no");
+  assert.ok(sqlite.prepare(
+    "SELECT COUNT(*) n FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND option_id=? AND operation='RESET'"
+  ).get(vaccination).n>=1);
+  await assert.rejects(
+    ()=>importNotionServiceIds(db,1,"veterinari",["svc.unknown"]),
+    /SERVICES_RELATION_UNKNOWN_OR_WRONG_CATEGORY/
+  );
+ }finally{sqlite.close();}
+});
+test("one Notion service CAS failure cannot block independent additions",async()=>{
+ const {sqlite,db}=fixture();
+ const failing="svc.vet.vaccination",ok="svc.vet.microchipping";
+ try{
+  sqlite.exec(`CREATE TRIGGER test_failed_service_insert BEFORE INSERT ON service_profile_option_choices
+    WHEN NEW.option_id='${failing}' BEGIN SELECT RAISE(ABORT,'injected independent field error'); END`);
+  await assert.rejects(()=>importNotionServiceIds(db,1,"veterinari",[failing,ok]),
+    /SERVICES_RELATION_PARTIAL_CAS_FAILURE/);
+  assert.equal(sqlite.prepare(
+    "SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(ok).choice,"yes");
+  assert.equal(sqlite.prepare(
+    "SELECT COUNT(*) AS n FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(failing).n,0);
+  sqlite.exec("DROP TRIGGER test_failed_service_insert");
+  const repaired=await importNotionServiceIds(db,1,"veterinari",[failing,ok]);
+  assert.deepEqual(repaired,{added:1,removed:0});
+ }finally{sqlite.close();}
+});
+test("one failed Notion deselection leaves other service removals committed for retry",async()=>{
+ const {sqlite,db}=fixture();
+ const failing="svc.vet.vaccination",ok="svc.vet.microchipping";
+ try{
+  for(const id of [failing,ok])
+    await saveAdminServiceChoice(db,{profileId:1,optionId:id,choice:"yes",expectedVersion:0},actor);
+  sqlite.exec(`CREATE TRIGGER test_failed_service_delete BEFORE DELETE ON service_profile_option_choices
+    WHEN OLD.option_id='${failing}' BEGIN SELECT RAISE(ABORT,'injected independent field error'); END`);
+  await assert.rejects(()=>importNotionServiceIds(db,1,"veterinari",[]),
+    /SERVICES_RELATION_PARTIAL_CAS_FAILURE/);
+  assert.equal(sqlite.prepare(
+    "SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(failing).choice,"yes");
+  assert.equal(sqlite.prepare(
+    "SELECT COUNT(*) AS n FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(ok).n,0);
+  sqlite.exec("DROP TRIGGER test_failed_service_delete");
+  assert.deepEqual(await importNotionServiceIds(db,1,"veterinari",[]),{added:0,removed:1});
+ }finally{sqlite.close();}
+});
 test("concurrent administrators have only one CAS winner per option and explicit choice",async()=>{
  const {sqlite,db}=fixture();
  try{

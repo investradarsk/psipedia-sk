@@ -1,5 +1,6 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
+import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear} from "./directory-sync-recovery-policy";
 import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
@@ -172,7 +173,7 @@ export type NotionDirectorySyncSummary = {
   unchanged: number;
   failed: number;
   /** Only present when an explicit Admin choice save requests Services V3 sync. */
-  serviceRelationSync?: "skipped" | "unchanged" | "pushed" | "pulled";
+  serviceRelationSync?: "skipped" | "unchanged" | "pushed" | "pulled" | "merged";
 };
 
 export type NotionDirectoryBootstrapSummary = {
@@ -684,6 +685,11 @@ async function markPageError(
   page?: NotionPage,
 ) {
   const message = error instanceof Error ? error.message : String(error);
+  // A failure in Services V3 must not erase an existing editorial, address,
+  // identity or unrelated field error from the same Notion record.
+  if (/^(?:SERVICES_RELATION_|DIRECTORY_SERVICES_RELATION_)/.test(message)
+      && (!page || page.id !== pageId ||
+        !directoryServiceErrorCanReplace(propertyText(page,"Sync chyba"),message)))return;
   if (page?.id === pageId && !directorySyncErrorMetadataNeedsWrite({
     syncStatus: propertyText(page, "Sync stav"),
     syncError: propertyText(page, "Sync chyba"),
@@ -1918,6 +1924,41 @@ export async function mirrorBreederRelationNamesToNotion(input: {
   return true;
 }
 
+/**
+ * Older mapped Directory profiles can carry a stale BASELINE_UNAVAILABLE error
+ * after they were migrated to immediate per-field events. Repair their common
+ * receipt only when the FULL current editorial snapshots are identical.
+ * A differing value, wrong owner, stale page or concurrent Admin write leaves
+ * both sides and their existing error untouched.
+ */
+async function recoverEqualLegacyDirectoryBaseline(input:{
+ database:D1Database;bindings:NotionDirectorySyncBindings;dataSourceId:string;
+ page:NotionPage;mapping:DirectoryNotionMapping;profile:ManagedDirectoryProfile;
+}):Promise<boolean>{
+ const {database,bindings,dataSourceId,page,mapping,profile}=input;
+ if(page.id!==mapping.notion_page_id||
+    propertyText(page,"Psipedia ID")!==String(profile.id)||
+    !notionDirectoryPageBelongsToSource(page,dataSourceId)||
+    !recoverableDirectoryBaselineError(propertyText(page,"Sync stav"),propertyText(page,"Sync chyba")))
+   return false;
+ const monitor=await getMediaSourceMonitorForEntity(database,"DIRECTORY_PROFILE",profile.id);
+ const imageUrl=monitor?.sourceImageUrl||externalSourceImageUrl(profile.imageUrl);
+ const canonical=await snapshotHash(profileSnapshot(profile,imageUrl));
+ if(canonical!==await snapshotHash(notionSnapshot(page)))return false;
+ const latest=await fetchNotionPage(bindings,page.id);
+ const current=await getManagedDirectoryProfileById(profile.id,database);
+ if(!current||current.updatedAt!==profile.updatedAt||
+    latest.id!==page.id||!notionDirectoryPageBelongsToSource(latest,dataSourceId)||
+    propertyText(latest,"Psipedia ID")!==String(profile.id)||
+    canonical!==await snapshotHash(notionSnapshot(latest))||
+    canonical!==await snapshotHash(profileSnapshot(current,imageUrl)))
+   return false;
+ // Reuse the existing echo-verified writer: this writes only the necessary
+ // metadata when content is already equal, then records its D1 field baseline.
+ await writeProfileToNotion({database,bindings,dataSourceId,profile:current,pageId:page.id});
+ return true;
+}
+
 async function syncMappedPage(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -1943,6 +1984,16 @@ async function syncMappedPage(input: {
   if (!notionDirectoryPageBelongsToSource(page, input.dataSourceId)) {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
   }
+
+  // A historical missing-baseline marker is obsolete if and only if both
+  // current editable snapshots already agree. Never resolve differing values.
+  if(isDirectoryFieldEventCategory(profile.category)&&!input.manualDirection&&
+     propertyText(page,"Sync stav")==="Chyba"&&
+     propertyText(page,"Sync chyba").includes("BASELINE_UNAVAILABLE")&&
+     await recoverEqualLegacyDirectoryBaseline({
+       database:input.database,bindings:input.bindings,dataSourceId:input.dataSourceId,
+       page,mapping:input.mapping,profile,
+     }))return "pushed" as const;
 
   // Trainers already linked to Notion also use explicit field events. A
   // plain targeted sweep has no changed-property IDs and must not fall through
@@ -2598,7 +2649,8 @@ export async function runNotionDirectorySyncSweep(input: {
   // the entire service catalog; no new cron, schema or parallel writer.
   let relationSchemaReady: Promise<boolean> | undefined;
   let lookupPromise: Promise<CatalogRelationLookup> | null = null;
-  async function syncRelation(pageId: string, profileId: number, notionAdditionsOnly = false) {
+  async function syncRelation(pageId: string, profileId: number, notionExplicitEdit = false,
+    adminChoiceSave = false) {
     relationSchemaReady ??= input.database.prepare(
       "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'"
     ).first<{ok:number}>().then(Boolean);
@@ -2609,7 +2661,7 @@ export async function runNotionDirectorySyncSweep(input: {
     return syncProfileCatalogRelation({
       db: input.database, bindings: input.bindings, pageId, profileId,
       category: profile.category, directoryDataSourceId: dataSourceId,
-      lookup: await lookupPromise, notionAdditionsOnly,
+      lookup: await lookupPromise, notionExplicitEdit, adminChoiceSave,
     });
   }
 
@@ -2634,10 +2686,10 @@ export async function runNotionDirectorySyncSweep(input: {
           action==="pulled"?"NOTION_TO_ADMIN":"ADMIN_TO_NOTION");
       // Explicit Admin service choice or approved one-profile Notion→Admin
       // transfer also updates canonical service selections/legacy public text.
-      // The latter imports only additions, never infers a deletion.
+      // Without a confirmed baseline, absence never implies deletion.
       if (input.syncServiceRelations || input.manualDirection === "NOTION_TO_ADMIN") {
         const relation = await syncRelation(mapping.notion_page_id, input.targetProfileId,
-          input.manualDirection === "NOTION_TO_ADMIN");
+          input.manualDirection === "NOTION_TO_ADMIN", input.syncServiceRelations === true);
         summary.serviceRelationSync = relation;
         if (relation === "skipped") summary.failed++;
       }
@@ -2709,6 +2761,11 @@ export async function runNotionDirectorySyncSweep(input: {
       const mapped = await loadMappingByPage(input.database, candidate.id);
       if (mapped && propertyText(candidate, "Psipedia ID") === String(mapped.directory_profile_id)) {
         try {
+          const current=await getManagedDirectoryProfileById(mapped.directory_profile_id,input.database);
+          if(current&&await recoverEqualLegacyDirectoryBaseline({
+            database:input.database,bindings:input.bindings,dataSourceId,
+            page:candidate,mapping:mapped,profile:current,
+          }))summary.pushedToNotion++;
           const relation = await syncRelation(candidate.id, mapped.directory_profile_id);
           summary.serviceRelationSync = relation;
           if (relation === "skipped") throw new Error("DIRECTORY_SERVICES_RELATION_SCHEMA_MISSING");
@@ -2888,6 +2945,13 @@ export async function runNotionDirectorySyncSweep(input: {
           const key = TRAINER_TRUST_NOTION_PROPERTIES[field];
           const raw = page.properties?.[key] as { id?: unknown } | undefined;
           return id === key || id === raw?.id;
+        }) ||
+        // A Notion confirmation may update sync metadata alongside the
+        // relation itself. These fields must never trigger a whole-profile
+        // merge that can overwrite independent Admin edits.
+        ["Sync stav","Sync chyba","Posledný sync","Sync hash"].some(key => {
+          const raw = page.properties?.[key] as { id?: unknown } | undefined;
+          return id === key || id === raw?.id;
         }));
       if (onlyTrustOrServices && (trustFields.length || relationChanged)) {
         let current = await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database);
@@ -2910,14 +2974,18 @@ export async function runNotionDirectorySyncSweep(input: {
           summary.serviceRelationSync = relation;
           if (relation === "skipped") throw new Error("DIRECTORY_SERVICES_RELATION_SCHEMA_MISSING");
         }
-        await patchNotionPage(input.bindings, page.id, {
-          "Sync stav": select("Synchronizované"),
-          "Sync chyba": richText(""),
-          "Posledný sync": date(new Date().toISOString()),
-        });
-        await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id,
-          "resolved", "", "NOTION_TO_ADMIN");
-        if (trustUpdated || summary.serviceRelationSync === "pulled")
+        // A successfully reconciled relation or trust checkbox does not
+        // resolve independent older field errors. Keep their Notion metadata.
+        if(directoryServiceSuccessCanClear(propertyText(page,"Sync chyba"))){
+          await patchNotionPage(input.bindings, page.id, {
+            "Sync stav": select("Synchronizované"),
+            "Sync chyba": richText(""),
+            "Posledný sync": date(new Date().toISOString()),
+          });
+          await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id,
+            "resolved", "", "NOTION_TO_ADMIN");
+        }
+        if (trustUpdated || summary.serviceRelationSync === "pulled" || summary.serviceRelationSync === "merged")
           summary.pulledFromNotion += 1;
         else summary.unchanged += 1;
         continue;
@@ -2961,8 +3029,8 @@ export async function runNotionDirectorySyncSweep(input: {
         breederWebhookPropertyIds: input.changedPropertyIds,
       });
       // A signed change to the canonical relation is independent of text fields.
-      // The Notion event can add verified choices without silently removing
-      // older Admin YES selections. Ordinary sweeps retain 3-way reconciliation.
+      // A confirmed relation baseline permits precise deletion of an individual
+      // service ID. Without that baseline, omission cannot authorize a delete.
       if (input.changedPropertyIds === undefined || relationChanged) {
         const relation = await syncRelation(page.id, mapping.directory_profile_id, relationChanged);
         summary.serviceRelationSync = relation;

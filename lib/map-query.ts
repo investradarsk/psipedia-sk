@@ -200,7 +200,7 @@ function parameterizedSearch(query: MapQueryInput, expression: string) {
   };
 }
 
-function serviceStatement(query: MapQueryInput, db: MapD1Database) {
+function serviceStatement(query: MapQueryInput, db: MapD1Database, builtinOverridesReady: boolean) {
   const bbox = bboxSql(query);
   const publicFacets = directoryPublicFacetSql(
     query.subcategory ?? "",
@@ -215,6 +215,7 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
     query.canonicalService ?? "",
     canonicalPublicEnabled,
     "d",
+    builtinOverridesReady,
   );
   const canonicalCategory =
     query.canonicalService && query.subcategory
@@ -812,8 +813,21 @@ export function clusterMapItems(
 async function loadCandidates(query: MapQueryInput, db: MapD1Database, today: string) {
   const statements: Array<Promise<D1Result<CandidateRow>>> = [];
   const eventOnly = Boolean(query.eventType);
+  // Match the public Directory listing: the original static categories are
+  // authoritative only until migration 0149 is present. Once it is present,
+  // the same D1 builtin override controls BOTH list and map eligibility.
+  const builtinOverridesReady = Boolean(
+    !eventOnly &&
+    (!query.category || query.category === "services") &&
+    query.canonicalService &&
+    (env as unknown as {SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?:string})
+      .SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED === "true" &&
+    await db.prepare(
+      "SELECT name FROM sqlite_schema WHERE type='table' AND name='service_catalog_builtin_overrides' LIMIT 1",
+    ).first<{name:string}>(),
+  );
   if (!eventOnly && (!query.category || query.category === "services"))
-    statements.push(serviceStatement(query, db).all<CandidateRow>());
+    statements.push(serviceStatement(query, db, builtinOverridesReady).all<CandidateRow>());
   if (!eventOnly && (!query.category || query.category === "organizations"))
     statements.push(organizationStatement(query, db).all<CandidateRow>());
   if (eventOnly || !query.category || query.category === "events")
