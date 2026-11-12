@@ -3,7 +3,7 @@
  * drops, or reinterprets a block; incompatible structural edits fail closed.
  * Notion cannot atomically replace a page's ordered child-block collection.
  */
-import { ARTICLE_NOTION_SEO_PROPERTIES as SEO } from "./notion-article-seo-properties";
+import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, type ArticleNotionSeoKey } from "./notion-article-seo-properties";
 import type { ArticleBlock } from "@/lib/article-blocks";
 import type { EditorialRichTextDocument, EditorialRichTextInline } from "@/lib/editorial-content";
 
@@ -191,6 +191,8 @@ export function buildNotionEditorialPlan(args: {
   remoteBlocks: RemoteArticleBlock[];
   pageProperties: Record<string, unknown>;
   siteUrl: string;
+  /** The article SEO field-delta writer owns these properties on normal saves. */
+  seoFields?: readonly ArticleNotionSeoKey[];
 }): NotionEditorialPlan {
   const { article, remoteBlocks, pageProperties } = args;
   if (article.status !== "draft") fail("NOT_A_DRAFT");
@@ -240,16 +242,20 @@ export function buildNotionEditorialPlan(args: {
   const propertyAfter: Record<string, string> = {};
   const fields: Array<[string, "title" | "rich_text" | "url", string]> = [
     ["Názov", "title", article.title],
-    [SEO.seoTitle.name, SEO.seoTitle.type, article.seoTitle],
-    [SEO.metaDescription.name, SEO.metaDescription.type, article.metaDescription],
-    [SEO.focusKeyword.name, SEO.focusKeyword.type, article.focusKeyword],
     ["Hlavný obrázok URL", "url", article.image ? (article.image.startsWith("/") ? args.siteUrl + article.image : article.image) : ""],
     ["Alt text obrázka", "rich_text", article.imageAlt ?? ""],
     ["Zdroj obrázka", "url", article.imageCreditUrl ?? ""],
   ];
+  const permitSeo = (key: ArticleNotionSeoKey) =>
+    args.seoFields === undefined || args.seoFields.includes(key);
+  if (permitSeo("seoTitle")) fields.push([SEO.seoTitle.name, SEO.seoTitle.type, article.seoTitle]);
+  if (permitSeo("metaDescription")) fields.push([SEO.metaDescription.name, SEO.metaDescription.type, article.metaDescription]);
+  if (permitSeo("focusKeyword")) fields.push([SEO.focusKeyword.name, SEO.focusKeyword.type, article.focusKeyword]);
   if ("Popis na sociálne siete" in pageProperties) fields.push(["Popis na sociálne siete", "rich_text", article.socialCaption ?? ""]);
-  if (SEO.ogTitle.name in pageProperties) fields.push([SEO.ogTitle.name, SEO.ogTitle.type, article.ogTitle ?? ""]);
-  if (SEO.ogDescription.name in pageProperties) fields.push([SEO.ogDescription.name, SEO.ogDescription.type, article.ogDescription ?? ""]);
+  if (permitSeo("ogTitle") && SEO.ogTitle.name in pageProperties)
+    fields.push([SEO.ogTitle.name, SEO.ogTitle.type, article.ogTitle ?? ""]);
+  if (permitSeo("ogDescription") && SEO.ogDescription.name in pageProperties)
+    fields.push([SEO.ogDescription.name, SEO.ogDescription.type, article.ogDescription ?? ""]);
   for (const [name, type, value] of fields) {
     if (!(name in pageProperties)) {
       if (value && name !== "Hlavný obrázok URL") fail("MISSING_NOTION_PROPERTY_" + name);
