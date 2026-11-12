@@ -12,9 +12,12 @@ export function AdminPwaRegistration() {
   useEffect(() => {
     const handleOnline = () => setOnline(true);
     const handleOffline = () => setOnline(false);
-    // iOS can suspend a standalone PWA without emitting an online event.
-    // Re-evaluate the connection when Safari restores the document from BFCache.
-    setOnline(navigator.onLine);
+    // Reading the live connection immediately matters on initial mount, but
+    // React's effect lint forbids synchronous state writes in setup. Schedule
+    // this once outside the effect phase; cleanup prevents post-unmount writes.
+    let mounted = true;
+    queueMicrotask(() => { if (mounted) setOnline(navigator.onLine); });
+    // iOS may suspend a standalone PWA without emitting an online event.
     const handleResume = () => setOnline(navigator.onLine);
     const handleForeground = () => {
       if (document.visibilityState === "visible") handleResume();
@@ -55,6 +58,7 @@ export function AdminPwaRegistration() {
     }
 
     return () => {
+      mounted = false;
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("pageshow", handleResume);
