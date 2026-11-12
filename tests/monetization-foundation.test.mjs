@@ -109,8 +109,11 @@ test("DS-7 mobile cookie consent is compact without removing privacy choices", a
   const marker = "/* DS-7: smaller mobile consent panel, without hiding the disclosure or choices. */";
   const start = css.indexOf(marker);
   assert.ok(start > 0, "mobile-only rule marker must exist");
-  const end = css.indexOf("\n  .admin-section-item", start);
-  assert.ok(end > start, "consent overrides must stay inside the existing mobile block");
+  // Step 3 moved admin selectors out of public globals.css. The mobile
+  // consent rules now end at the real @media closing brace, not an admin
+  // selector that should no longer be present in a public stylesheet.
+  const end = css.indexOf("\n}", start);
+  assert.ok(end > start, "consent overrides must remain inside the public mobile CSS block");
   const mobile = css.slice(start, end);
   assert.match(mobile, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(mobile, /min-height:\s*44px/);
