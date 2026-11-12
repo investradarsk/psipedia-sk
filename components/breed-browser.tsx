@@ -13,7 +13,7 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { FciGroup } from "@/lib/content";
 import type { BreedAtlasCard } from "@/lib/breed-store";
-import { indexBreedSearch, filterIndexedBreeds } from "@/lib/breed-browser-search";
+import { indexBreedSearch, filterIndexedBreeds, groupVisibleBreeds } from "@/lib/breed-browser-search";
 import {
   breedAtlasHref,
   listFciSectionOptions,
@@ -161,25 +161,10 @@ export function BreedBrowser({
 
   // Each FCI group shows three real cards. Native links allow the complete
   // group-filtered server route to be discovered even without client JavaScript.
-  const groupedBreeds = useMemo(() => {
-    // One pass through the visible catalog, then sort only populated groups.
-    // Preserve the FCI group order and the original Slovak alphabetical order.
-    const byGroup = new Map<number, BreedAtlasCard[]>();
-    for (const breed of visible) {
-      const groupBreeds = byGroup.get(breed.fciGroup);
-      if (groupBreeds) groupBreeds.push(breed);
-      else byGroup.set(breed.fciGroup, [breed]);
-    }
-    return groups.flatMap((group) => {
-      const groupBreeds = byGroup.get(group.number);
-      return groupBreeds?.length
-        ? [{
-            group,
-            breeds: groupBreeds.sort((first, second) => first.name.localeCompare(second.name, "sk")),
-          }]
-        : [];
-    });
-  }, [groups, visible]);
+  const groupedBreeds = useMemo(
+    () => groupVisibleBreeds(visible, groups),
+    [groups, visible],
+  );
   const isGroupExpanded = (number: number) =>
     selectedGroup === String(number) || expandedGroups.has(number);
   const toggleGroup = (number: number) => {
