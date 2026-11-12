@@ -75,7 +75,7 @@ test("6/10 Admin-ID quick search skips text delay and identical overlong queries
   assert.match(quick, /SEARCH_QUERY_MAX_LENGTH = 80/);
   assert.match(quick, /query\.trim\(\)\.slice\(0, SEARCH_QUERY_MAX_LENGTH\)/);
   assert.match(quick, /\^#\?\[1-9\]/);
-  assert.match(quick, /\[open, searchTerm\]/);
+  assert.match(quick, /\[open, searchTerm, retryCount\]/);
   assert.match(quick, /controller\.abort\(\)/);
   assert.match(quick, /cache\.current\.size > SEARCH_CACHE_LIMIT/);
 });
