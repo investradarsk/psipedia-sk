@@ -29,8 +29,9 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
       layer.add(new Konva.Rect({width:W,height:H,fill:CREAM,listening:false}));
       layer.add(new Konva.Circle({x:140,y:113,radius:64,fill:GREEN,listening:false}));
       layer.add(paw(99,73,84,"#ffffff"));
-      layer.add(caption("psipedia",225,75,450,72,GREEN));
-      layer.add(caption(".sk",562,94,150,52,RED));
+      layer.add(caption("psi",225,75,150,72,GREEN));
+      layer.add(caption("pedia",322,75,250,72,RED));
+      layer.add(caption(".sk",548,94,140,52,GREEN));
       layer.add(new Konva.Rect({x:125,y:213,width:830,height:107,cornerRadius:55,fill:RED,listening:false}));
       layer.add(caption("PREDSTAVUJEME PROFIL",150,237,780,50,"#ffffff","center"));
       layer.add(new Konva.Rect({x:295,y:347,width:490,height:82,cornerRadius:45,fill:GREEN,listening:false}));
