@@ -47,6 +47,13 @@ porovnaním výsledkov a meraním skutočného D1 `rows_read`.
 **Bezpečnostná hranica:** všetky merania sú lokálne, syntetické a bez spojenia
 na Cloudflare D1, Notion alebo produkčné API.
 
+## Doplnený krok 7: korektné počty pri výpadku zdroja
+
+Zachovaný `react.cache` platí len počas jednej serverovej požiadavky; nepoužíva globálnu cache ani trvalé údaje.
+Audit odhalil, že náhradná vetva skupinového SQL dotazu pôvodne používala `probeSources()` určený pre **všetky aktívne položky**. Tým pri výpadku jedného zdroja mohla ikona zvončeka znova započítať aj prečítané alebo odložené upozornenia.
+
+Náhradná vetva teraz spúšťa `summaryGroupSql([sourceType])` osobitne pre každý zdroj z neúspešnej skupiny. Každý výsledok používa rovnaký `admin_attention_ack` filter ako bežný dotaz; nedostupný zdroj sa zobrazuje ako `UNAVAILABLE`, nie ako bezchybová nula. Samostatný regresný test porovnáva rozdielne počty aktívnych a neprečítaných položiek aj pri čiastočnom výpadku. Bez migrácií, zápisov do D1 alebo zásahu do Notion.
+
 ## Doplnený krok 6: bezpečnejšie vyhľadávacie okno
 
 Po kontrole pôvodného `AdminQuickNavigationDialog` sa opravili štyri skutočné
