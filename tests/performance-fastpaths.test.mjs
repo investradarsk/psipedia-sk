@@ -165,8 +165,8 @@ test("homepage streams LCP hero before slower editorial D1 reads, keeping all si
 test("section LCP photos use visible SSR img, eager load and one high priority hint without duplicate preloads", () => {
   const hero = readFileSync(new URL("../components/public-visual-system/unified-section-hero.tsx", import.meta.url), "utf8");
   const media = hero.slice(hero.indexOf('data-unified-section-hero-media'));
-  assert.match(media, /<img[\s\S]*src=\{visual\.imageUrl\}/);
-  assert.match(media, /srcSet=\{responsiveMediaSrcSet\(visual\.imageUrl/);
+  assert.match(media, /<img[\s\S]*src=\{publicHeroImageSrc\(visual\.imageUrl\)\}/);
+  assert.match(media, /srcSet=\{publicHeroImageSrcSet\(visual\.imageUrl/);
   assert.match(media, /loading="eager"/);
   assert.match(media, /fetchPriority=\{variant === "homepage-style" \? "high" : undefined\}/);
   assert.doesNotMatch(media, /<link[^>]*rel="preload"/);

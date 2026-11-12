@@ -13,7 +13,7 @@ import {
 } from "@/lib/section-visual-contract";
 import type { SectionHeroConfig } from "@/lib/portal";
 import { PageContainer } from "@/components/page-system";
-import { responsiveMediaSrcSet } from "@/lib/responsive-media";
+import { publicHeroImageSrc, publicHeroImageSrcSet, HERO_IMAGE_SIZES } from "@/lib/public-hero-image";
 import styles from "./unified-section-hero.module.css";
 import { PublicActionLink } from "./public-visual-system";
 
@@ -239,9 +239,9 @@ export function UnifiedSectionHero({
           ) : (
             <img
               className={styles.image}
-              src={visual.imageUrl}
-              srcSet={responsiveMediaSrcSet(visual.imageUrl, [640, 960, 1280, 1600, 1920])}
-              sizes="(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px"
+              src={publicHeroImageSrc(visual.imageUrl)}
+              srcSet={publicHeroImageSrcSet(visual.imageUrl)}
+              sizes={HERO_IMAGE_SIZES}
               alt={visual.altText}
               decoding="async"
               // Section heroes are above the fold. Keep the image immediately discoverable;
