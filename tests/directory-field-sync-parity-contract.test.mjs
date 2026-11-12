@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { DIRECTORY_FIELD_EVENT_CATEGORIES, isDirectoryFieldEventCategory, isDirectoryEventPilotCategory } from "../lib/notion-directory-field-event-scope.ts";
+import { DIRECTORY_FIELD_EVENT_CATEGORIES, directoryPropertyEventMissingChangedIds, isDirectoryFieldEventCategory, isDirectoryEventPilotCategory } from "../lib/notion-directory-field-event-scope.ts";
 import { breederNotionChangedFields, breederApplyNotionChanges, breederAdminChangedFields } from "../lib/notion-breeder-field-events.ts";
 
 const repoFile = path => readFile(new URL("../" + path, import.meta.url), "utf8");
@@ -98,4 +98,24 @@ test("one field failure must be diagnosed without marking an unrelated service r
   assert.match(dispatch, /NOTION_TARGETED_RECONCILIATION_FAILED/);
   assert.match(inbox, /"REVIEW"/);
   assert.match(inbox, /"PENDING"/);
+});
+
+test("Directory property events missing changed IDs must retry rather than falsely confirming a no-op", async () => {
+  const [dispatcher, webhook] = await Promise.all([
+    repoFile("lib/notion-webhook-dispatch.ts"),
+    repoFile("app/api/integrations/notion/webhook/route.ts"),
+  ]);
+  assert.equal(directoryPropertyEventMissingChangedIds("page.properties_updated", undefined), true);
+  assert.equal(directoryPropertyEventMissingChangedIds("page.properties_updated", []), true);
+  assert.equal(directoryPropertyEventMissingChangedIds("page.properties_updated", ["  "]), true);
+  assert.equal(directoryPropertyEventMissingChangedIds("page.properties_updated", ["Popis"]), false);
+  assert.equal(directoryPropertyEventMissingChangedIds("page.properties_updated", ["opq8"]), false);
+  assert.equal(directoryPropertyEventMissingChangedIds("page.content_updated", undefined), false);
+  assert.equal(directoryPropertyEventMissingChangedIds("page.created", undefined), false);
+  const marker = dispatcher.indexOf("directoryPropertyEventMissingChangedIds(event.type, event.data?.updated_properties)");
+  const runner = dispatcher.indexOf("summary = await runNotionDirectorySyncSweep({");
+  assert.ok(marker > 0 && runner > marker, "incomplete Directory event must be checked before its field sync");
+  assert.match(dispatcher.slice(marker, runner), /return "deferred"/);
+  assert.match(webhook, /result === "not-configured" \|\| result === "deferred"/);
+  assert.match(webhook, /status: 503/);
 });
