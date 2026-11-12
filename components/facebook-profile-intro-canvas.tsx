@@ -122,14 +122,13 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         const group=new Konva.Group({
           x:pos.x,y:pos.y,scaleX:pos.scale,scaleY:pos.scale,
           draggable:true,name:"profile-"+id,
-          dragBoundFunc:(next)=>{
-            // Keep at least a sliver of every element within the artwork.
-            return {
-              x:Math.min(W-24,Math.max(-width*group.scaleX()+24,next.x)),
-              y:Math.min(H-24,Math.max(-height*group.scaleY()+24,next.y)),
-            };
-          },
         });
+        // Configure drag bounds after initialization; referencing a node
+        // within its own constructor caused a TypeScript self-inference cycle.
+        group.dragBoundFunc(next=>({
+          x:Math.min(W-24,Math.max(-width*group.scaleX()+24,next.x)),
+          y:Math.min(H-24,Math.max(-height*group.scaleY()+24,next.y)),
+        }));
         paint(group);nodes[id]=group;design.add(group);
         group.on("click tap",()=>onSelect(id));
         group.on("dragend",()=>onChange(id,constrainProfilePlacement({
