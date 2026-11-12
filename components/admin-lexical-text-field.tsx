@@ -33,17 +33,19 @@ function writePlainText(value: string) {
 }
 
 function LexicalPlainTextBridge({
-  value, onChange, disabled, valueReaderRef,
+  value, onChange, disabled, valueReaderRef, onUserInput,
 }: {
   value: string;
   onChange: (value: string) => void;
   disabled: boolean;
   valueReaderRef?: { current: (() => string) | null };
+  onUserInput?: () => void;
 }) {
   const [editor] = useLexicalComposerContext();
   const lastEmitted = useRef(value);
   const currentValue = useRef(value);
   const onChangeRef = useRef(onChange);
+  const onUserInputRef = useRef(onUserInput);
 
   useEffect(() => { editor.setEditable(!disabled); }, [editor, disabled]);
 
@@ -61,6 +63,7 @@ function LexicalPlainTextBridge({
   useEffect(() => {
     currentValue.current = value;
     onChangeRef.current = onChange;
+    onUserInputRef.current = onUserInput;
   }, [value, onChange]);
 
   useEffect(() => {
@@ -89,15 +92,20 @@ function LexicalPlainTextBridge({
       lastEmitted.current = next;
       onChangeRef.current(next);
     };
+    const markRealUserInput = () => onUserInputRef.current?.();
     let activeRoot: HTMLElement | null = null;
     const removeListener = editor.registerRootListener((root, previousRoot) => {
       previousRoot?.removeEventListener("blur", commitOnBlur, true);
+      previousRoot?.removeEventListener("input", markRealUserInput);
       root?.addEventListener("blur", commitOnBlur, true);
+      // Do not mistake mount-time normalization for a user edit.
+      root?.addEventListener("input", markRealUserInput);
       activeRoot = root;
     });
     return () => {
       removeListener();
       activeRoot?.removeEventListener("blur", commitOnBlur, true);
+      activeRoot?.removeEventListener("input", markRealUserInput);
     };
   }, [editor]);
 
@@ -113,6 +121,8 @@ type Props = {
   onInput?: (value: string) => void;
   /** Optional synchronous read receipt for a Save button outside Lexical. */
   valueReaderRef?: { current: (() => string) | null };
+  /** Fires for actual contenteditable input, not value hydration. */
+  onUserInput?: () => void;
   rows?: number;
   required?: boolean;
   disabled?: boolean;
@@ -126,7 +136,7 @@ type Props = {
  * Hidden native textarea preserves FormData and the admin automation field name.
  */
 export function AdminLexicalTextField({
-  id, name, value, defaultValue = "", onChange, onInput, valueReaderRef, rows = 5,
+  id, name, value, defaultValue = "", onChange, onInput, valueReaderRef, onUserInput, rows = 5,
   required = false, disabled = false, placeholder, ariaLabel,
 }: Props) {
   const mounted = useSyncExternalStore(subscribeHydration, getClientSnapshot, getServerSnapshot);
@@ -164,7 +174,7 @@ export function AdminLexicalTextField({
             ErrorBoundary={LexicalErrorBoundary}
           />
           <HistoryPlugin />
-          <LexicalPlainTextBridge value={current} onChange={handleChange} disabled={disabled} valueReaderRef={valueReaderRef} />
+          <LexicalPlainTextBridge value={current} onChange={handleChange} disabled={disabled} valueReaderRef={valueReaderRef} onUserInput={onUserInput} />
         </div>
       </LexicalComposer> : (
         <div className={styles.surface} style={{ minHeight: `${Math.max(3, Math.min(rows, 14)) * 1.45}rem` }} aria-hidden="true" />
