@@ -16,7 +16,9 @@ export function AdminMobileDocumentNavigation() {
     const handler = (event: MouseEvent) => {
       // A dirty editor must own the click first; a full document request
       // would otherwise bypass its custom confirmation on iOS.
-      if (document.documentElement.hasAttribute("data-admin-unsaved-editor")) return;
+      const dirty = document.documentElement.hasAttribute("data-admin-unsaved-editor");
+      const confirmedExit = document.documentElement.hasAttribute("data-admin-exit-authorized");
+      if (dirty && !confirmedExit) return;
       if (event.defaultPrevented || event.button !== 0 ||
         event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
         !window.matchMedia("(max-width: 820px)").matches ||
