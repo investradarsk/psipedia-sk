@@ -165,6 +165,10 @@ export function AdminDirectoryEditor({
 }) {
   // Last saved D1 projection; supports one-field saves from a long-open editor.
   const breederSaveBaselineRef = useRef(profile);
+  // Read the editor's committed text at Save time, not a potentially stale
+  // React state snapshot from before Lexical's last onChange/blur.
+  const excerptValueReaderRef = useRef<(() => string) | null>(null);
+  const descriptionValueReaderRef = useRef<(() => string) | null>(null);
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
   const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
@@ -408,6 +412,8 @@ export function AdminDirectoryEditor({
       // Optional contact/URL/SEO fields are not blockers. The server
       // sanitizes malformed optional values and returns field warnings.
       }
+    const submittedExcerpt = excerptValueReaderRef.current?.() ?? excerpt;
+    const submittedDescription = descriptionValueReaderRef.current?.() ?? description;
     const submittedRevision = formEditRevisionRef.current;
     const imageReplacement = replaceMainImageRequestedRef.current;
     const mainImageAction = removeMainImageRequestedRef.current
@@ -424,7 +430,7 @@ export function AdminDirectoryEditor({
             credentials: "same-origin",
             body: JSON.stringify({
               lastEditedAt: notionVersion,
-              name, slug, category, excerpt, description,
+              name, slug, category, excerpt: submittedExcerpt, description: submittedDescription,
               services: isDirectoryEventPilotCategory(category)
                 ? listFromText(notionDraft.services ?? "") : listFromText(services),
               qualifications: listFromText(qualifications),
@@ -477,7 +483,7 @@ export function AdminDirectoryEditor({
               instagramUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").instagram,
             },
             {
-              name, excerpt, description,
+              name, excerpt: submittedExcerpt, description: submittedDescription,
               services: category === "treneri" ? listFromText(trainerServicesText) : listFromText(services),
               qualifications: listFromText(qualifications),
               region, district, city, address: publicAddress, postalCode, street, houseNumber,
@@ -542,7 +548,7 @@ export function AdminDirectoryEditor({
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
           ...(profile ? { mainImageAction } : {}),
           ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
-          name, slug, category, status: nextStatus, excerpt, description,
+          name, slug, category, status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription,
           services: profile && isDirectoryEventPilotCategory(profile.category)
             ? profile.services : listFromText(services),
           qualifications: listFromText(qualifications),
@@ -658,6 +664,17 @@ export function AdminDirectoryEditor({
             (details.error || "Neznáma chyba."));
         }
         if (formEditRevisionRef.current === submittedRevision) setBreederRelationsDirty(false);
+      }
+      // The server validates D1 too; do not show "Uložené" if the API ever
+      // returns an older text field after a concurrent Notion/webhook edit.
+      const textSaved = (value: string) => value.replace(/\r\n?/g, "\n").trim();
+      const textMismatch = (["excerpt", "description"] as const).filter(field =>
+        breederChangedPaths?.includes(field) &&
+        textSaved(savedProfile[field]) !== textSaved(field === "excerpt" ? submittedExcerpt : submittedDescription),
+      );
+      if (textMismatch.length) {
+        throw new Error("Zmena Perexu alebo Popisu sa nepotvrdila v Admine (" +
+          textMismatch.join(", ") + "). Skontroluj údaje a ulož ich znova.");
       }
       const hasNewerEdits = formEditRevisionRef.current !== submittedRevision;
       if (!hasNewerEdits) {
@@ -895,7 +912,7 @@ export function AdminDirectoryEditor({
               setCategory(nextCategory);
               setFilterChanges({});
             }}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
-            <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><AdminLexicalTextField id="directory-excerpt" rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setFormDirty(true); }} placeholder="Čím je profil zaujímavý a komu pomáha?" ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
+            <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><AdminLexicalTextField id="directory-excerpt" valueReaderRef={excerptValueReaderRef} rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setFormDirty(true); }} placeholder="Čím je profil zaujímavý a komu pomáha?" ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-location" className="admin-form-card">
@@ -1023,7 +1040,7 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
             <div className="admin-field"><label htmlFor="directory-public-organization">Organizácia <small>nepovinné</small></label><input id="directory-public-organization" value={publicOrganization} onChange={(event) => { setPublicOrganization(event.target.value); setFormDirty(true); }} placeholder="Napríklad: ZŠK SR" /><small>Verejný údaj z pôvodného profilu; ostatné importované informácie zostávajú zachované.</small></div>
             <div className="admin-field"><label htmlFor="directory-public-focus">Zameranie <small>nepovinné</small></label><input id="directory-public-focus" value={publicFocus} onChange={(event) => { setPublicFocus(event.target.value); setFormDirty(true); }} placeholder="Napríklad: športová kynológia, výcvik a skúšky" /></div>
-            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
+            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" valueReaderRef={descriptionValueReaderRef} rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
             <AdminHelpText term="Formát">Lexical ukladá popis do existujúceho textového poľa bez zmeny synchronizácie Notion.</AdminHelpText>
             <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
               {!isDirectoryEventPilotCategory(category) ? (
