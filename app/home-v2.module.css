@@ -2,6 +2,63 @@
   overflow-x: clip;
 }
 
+/* Reserve space while the six below-the-fold queries stream in. Without this
+ * fallback the global footer appears immediately below the hero and is pushed
+ * down by several screens when the content resolves (measured mobile CLS). */
+.homeStreamFallback {
+  box-sizing: border-box;
+  width: min(1200px, calc(100% - 32px));
+  margin: 28px auto 0;
+  min-height: max(150vh, 1040px);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  pointer-events: none;
+}
+
+.homeStreamHeading {
+  width: min(300px, 56%);
+  height: 28px;
+  border-radius: 8px;
+  background: #e6eae5;
+}
+
+.homeStreamGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 36px;
+}
+
+.homeStreamCard {
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  background: #edf0ec;
+}
+
+@media (max-width: 700px) {
+  .homeStreamFallback {
+    width: calc(100% - 24px);
+    margin-top: 20px;
+    min-height: max(185vh, 1600px);
+    gap: 16px;
+  }
+
+  .homeStreamHeading {
+    height: 24px;
+  }
+
+  .homeStreamGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .homeStreamCard {
+    aspect-ratio: 2.5 / 1;
+  }
+}
+
 .homeV2 :global(.hero-section) {
   padding-top: 18px;
 }
