@@ -27,7 +27,7 @@ function legacyFilter(cards, options) {
   const normalized = normalizeBreedSearchText(options.query);
   return cards.filter((breed) => {
     const queryMatch = !normalized || normalizeBreedSearchText(
-      [breed.name, breed.officialFciName, breed.group, breed.fciSection, breed.intro, breed.searchText].join(" "),
+      `${breed.name} ${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.intro} ${breed.searchText}`,
     ).includes(normalized);
     const groupMatch = options.group === "all" || breed.fciGroup === Number(options.group);
     const sectionMatch = !options.section || breed.fciSectionNumber === options.section;
