@@ -1267,7 +1267,7 @@ export async function runNotionBreedSyncSweep(args: {
 export async function writeBackPublishedBreedToNotion(args: {
   database: D1Database;
   bindings: NotionBreedSyncBindings;
-  breed: Pick<ManagedBreed, "id" | "slug" | "status" | "publishedAt">;
+  breed: Pick<ManagedBreed, "id" | "slug" | "status" | "publishedAt" | "fciGroup">;
 }) {
   if (notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED)) {
     if (notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED))

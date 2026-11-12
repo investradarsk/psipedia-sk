@@ -1027,13 +1027,14 @@ export async function listFeaturedBreeds(limit = 3) {
  */
 export async function listHomepageFeaturedBreeds(
   limit = 6,
-): Promise<Array<Pick<Breed, "slug" | "name" | "image" | "intro">>> {
+): Promise<Array<Pick<Breed, "slug" | "name" | "image" | "intro" | "fciGroup">>> {
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const rotationOffset = homepageRotationOffset(bratislavaDateKey(), safeLimit);
   const database = db();
   if (!database)
-    return homepageRotatingWindow(seedBreeds, rotationOffset, safeLimit).map(({ slug, name, image, intro }) => ({
+    return homepageRotatingWindow(seedBreeds, rotationOffset, safeLimit).map(({ slug, name, image, intro, fciGroup }) => ({
       slug,
+      fciGroup,
       name,
       image: ownedBreedImage(image),
       intro,
@@ -1041,7 +1042,7 @@ export async function listHomepageFeaturedBreeds(
   const result = await database
     .prepare(
       `WITH candidates AS (
-        SELECT slug,name,image_url,intro,
+        SELECT slug,name,image_url,intro,fci_group,
           ROW_NUMBER() OVER (ORDER BY slug ASC) - 1 AS rotation_index,
           COUNT(*) OVER () AS rotation_count
         FROM managed_breeds
@@ -1054,14 +1055,15 @@ export async function listHomepageFeaturedBreeds(
             OR image_url LIKE 'https://psipedia.sk/migrated-media/%'
           )
       )
-      SELECT slug,name,image_url,intro FROM candidates
+      SELECT slug,name,image_url,intro,fci_group FROM candidates
       ORDER BY ((rotation_index - (? % rotation_count) + rotation_count) % rotation_count) ASC
       LIMIT ?`,
     )
     .bind(rotationOffset, safeLimit)
-    .all<{ slug: string; name: string; image_url: string; intro: string }>();
+    .all<{ slug: string; name: string; image_url: string; intro: string; fci_group: number }>();
   return result.results.map((row) => ({
     slug: row.slug,
+    fciGroup: row.fci_group,
     name: row.name,
     image: ownedBreedImage(row.image_url),
     intro: row.intro,

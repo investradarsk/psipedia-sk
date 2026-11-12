@@ -129,7 +129,7 @@ test("Breed picker offers all canonical published FCI winners and deep links", (
   assert.match(route, /fciGroups\.map/);
   assert.match(route, /canonicalBreedIdsSql/);
   assert.match(route, /fci_group = \?/);
-  assert.match(route, /breedProfileHref\(row\.slug\)/);
+  assert.match(route, /breedProfileHref\(row\.slug, row\.fci_group\)/);
   assert.match(route, /ownedBreedImage\(profile\.image_url\)/);
   assert.match(route, /scope\.group === "breeds"/);
   const client = read("components/admin-facebook-images.tsx");

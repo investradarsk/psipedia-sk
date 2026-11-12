@@ -26,6 +26,7 @@ function ComparisonValue({
   value,
   kind,
   slug,
+  fciGroup,
 }: {
   value: string;
   kind?: "weight" | "lifespan";

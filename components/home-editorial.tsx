@@ -195,6 +195,7 @@ export function HomeLatestArticles({
 
 export type HomeBreedCard = {
   slug: string;
+  fciGroup: number;
   name: string;
   image?: string | null;
   intro?: string | null;
