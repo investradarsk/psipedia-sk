@@ -1726,38 +1726,50 @@ async function syncBreederEvent(input: {
   const monitor = await getMediaSourceMonitorForEntity(database, "DIRECTORY_PROFILE", input.profile.id);
   const sourceImageUrl = monitor?.sourceImageUrl || externalSourceImageUrl(input.profile.imageUrl);
   const allProperties = notionProfileProperties(input.profile, geo, "", now, sourceImageUrl);
-  const patch: Record<string, unknown> = {};
+  const canonical = profileSnapshot(input.profile, sourceImageUrl) as unknown as Record<string, unknown>;
+  // Each Notion field is a separate acknowledged write. One rejected URL/SEO
+  // field must not block independently valid prose or contact edits.
+  // A blank value is an explicit deletion and is verified like any value.
+  const equivalent = (a: string, b: string) => {
+    if (a === b) return true;
+    try {
+      const left = new URL(a); const right = new URL(b);
+      return ["http:", "https:"].includes(left.protocol) && left.href === right.href;
+    } catch { return false; }
+  };
+  const confirmed = (candidate: NotionPage, path: BreederEditorialField): boolean => {
+    if (candidate.id !== page.id) return false;
+    const raw = breederReadPath(canonical, path);
+    const expected = Array.isArray(raw) ? raw.join("\n") : typeof raw === "string" ? raw.trim() : "";
+    return equivalent(propertyText(candidate, BREEDER_NOTION_EDITORIAL_FIELDS[path]), expected);
+  };
+  const failedFields: BreederEditorialField[] = [];
   for (const path of fields) {
     const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
-    patch[key] = adaptDirectoryNotionTextProperties(
+    if (confirmed(page, path)) continue; // Verified equality, no duplicate PATCH.
+    const patch = adaptDirectoryNotionTextProperties(
       { [key]: allProperties[key] }, page.properties ?? {},
-    )[key];
+    );
+    try {
+      const echoed = await patchNotionPage(bindings, page.id, patch);
+      if (!confirmed(echoed, path)) {
+        // Notion may omit an unchanged property in the PATCH response. A
+        // targeted GET, not a successful HTTP status, confirms persistence.
+        const fresh = await fetchNotionPage(bindings, page.id);
+        if (!confirmed(fresh, path))
+          throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH");
+      }
+    } catch (error) {
+      console.error("DIRECTORY_ADMIN_TO_NOTION_FIELD_PENDING", input.profile.id, path,
+        error instanceof Error && /^[A-Z][A-Z0-9_]+$/.test(error.message)
+          ? error.message : "WRITE_NOT_CONFIRMED");
+      failedFields.push(path);
+    }
   }
-  const echoed = await patchNotionPage(bindings, page.id, patch);
-  // Notion's PATCH response must acknowledge every requested editorial field.
-  // Never call an unconfirmed remote write "synced" just because the request
-  // returned without throwing; empty strings are genuine deletion requests.
-  const canonical = profileSnapshot(input.profile, sourceImageUrl) as unknown as Record<string, unknown>;
-  const confirmed = (candidate: NotionPage) => candidate.id === page.id &&
-    fields.every(path => {
-      const raw = breederReadPath(canonical, path);
-      const expected = Array.isArray(raw) ? raw.join("\n") : typeof raw === "string" ? raw.trim() : "";
-      const actual = propertyText(candidate, BREEDER_NOTION_EDITORIAL_FIELDS[path]);
-      // URL text and URL properties may serialize the root path differently.
-      const equivalent = (a: string, b: string) => {
-        if (a === b) return true;
-        try {
-          const left = new URL(a); const right = new URL(b);
-          return ["http:", "https:"].includes(left.protocol) && left.href === right.href;
-        } catch { return false; }
-      };
-      return equivalent(actual, expected);
-    });
-  if (!confirmed(echoed)) {
-    const fresh = await fetchNotionPage(bindings, page.id);
-    if (!confirmed(fresh)) throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH");
-  }
-  // Metadata is a separate, final acknowledgement, never a premature success.
+  if (failedFields.length)
+    throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELDS_PENDING: " + failedFields.join(","));
+  // This acknowledgement applies ONLY when no requested editorial field
+  // remains pending. Historical unrelated errors are handled independently.
   await patchNotionPage(bindings, page.id, {
     "Sync stav": select("Synchronizované"),
     "Sync chyba": richText(""),
