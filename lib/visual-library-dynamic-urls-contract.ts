@@ -7,7 +7,7 @@ export const dynamicUrlKinds = [
   { id: "help", label: "Pomoc psom – prípady", template: "/pomoc-psom/[category]/[slug]" },
   { id: "lost-found", label: "Stratené a nájdené psy", template: "/pomoc-psom/stratene-psy/[slug]" },
   { id: "events", label: "Podujatia", template: "/podujatia/[slug]" },
-  { id: "breeds", label: "Plemená", template: "/plemena/[slug]" },
+  { id: "breeds", label: "Plemená", template: "/plemena/[category]/[slug]" },
   { id: "articles", label: "Články", template: "/[section]/[slug]" },
   { id: "eshops", label: "Recenzie e-shopov", template: "/recenzie/eshopy/[slug]" },
 ] as const;

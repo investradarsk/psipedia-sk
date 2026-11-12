@@ -101,7 +101,7 @@ test("readers execute one bounded query, preserve canonical hrefs and return emp
     id: 7,
     slug: "labradorsky-retriever",
     name: "Labradorský retriever",
-    href: "/plemena/labradorsky-retriever",
+    href: "/plemena/retrievery-sliedice-vodne/labradorsky-retriever",
     imageUrl: null,
     fciGroup: 8,
   }]);

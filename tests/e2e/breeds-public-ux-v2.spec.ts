@@ -27,7 +27,7 @@ test("breed atlas uses three text-only compact destinations and responsive stack
 test("breed detail presents the four existing utility destinations beside readable content", async ({ page }) => {
   for (const width of [1440, 1280, 1024, 430, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/plemena/biely-svajciarsky-ovciak");
+    await page.goto("/plemena/ovciarske-a-pastierske/biely-svajciarsky-ovciak");
     const layout = page.getByTestId("breed-content-layout");
     const sidebar = page.getByTestId("breed-utility-sidebar");
     await expect(sidebar).toBeVisible();
