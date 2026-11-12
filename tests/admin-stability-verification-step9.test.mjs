@@ -127,6 +127,9 @@ test("the PR's regression workflow is read-only and contains no deploy secrets",
   assert.match(workflow, /permissions:\s*\n\s*contents: read/);
   assert.match(workflow, /npm ci/);
   assert.match(workflow, /npm run test:admin-stability-step9/);
-  assert.match(workflow, /npx tsc --noEmit --pretty false/);
+  assert.match(workflow, /admin-type-regression-gate-step10\.mjs/);
+  assert.match(workflow, /node_modules\/\.bin\/tsc.*--noEmit --pretty false --incremental false/);
+  assert.match(workflow, /git worktree add --detach/);
+  assert.match(workflow, /Production-style build diagnostic \(never deploy\)/);
   assert.doesNotMatch(workflow, /wrangler deploy|db:migrate|deploy:cloudflare|secrets\./);
 });
