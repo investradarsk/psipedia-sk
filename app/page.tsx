@@ -438,7 +438,24 @@ export default async function Home() {
         />
       </UnifiedSectionHeroShell>
 
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={
+          <div className={styles.homeStreamFallback} aria-hidden="true" data-home-stream-fallback>
+            <div className={styles.homeStreamHeading} />
+            <div className={styles.homeStreamGrid}>
+              <div className={styles.homeStreamCard} />
+              <div className={styles.homeStreamCard} />
+              <div className={styles.homeStreamCard} />
+            </div>
+            <div className={styles.homeStreamHeading} />
+            <div className={styles.homeStreamGrid}>
+              <div className={styles.homeStreamCard} />
+              <div className={styles.homeStreamCard} />
+              <div className={styles.homeStreamCard} />
+            </div>
+          </div>
+        }
+      >
         <HomeBelowHero contentPromise={contentPromise} />
       </Suspense>
     </main>
