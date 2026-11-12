@@ -7,8 +7,8 @@ const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 
 test("verified and unchanged relation sync are reported separately from D1 save",()=>{
   const result=summarizeServiceChoiceSync([
-    {notionProjection:"updated",notionFieldSync:"synced"},
-    {notionProjection:"unchanged",notionFieldSync:"unchanged"},
+    {notionFieldSync:"synced"},
+    {notionFieldSync:"unchanged"},
   ]);
   assert.equal(result.savedCount,2);
   assert.equal(result.confirmedCount,1);
@@ -19,10 +19,10 @@ test("verified and unchanged relation sync are reported separately from D1 save"
 });
 test("pending, disabled and unlinked Notion outcomes never masquerade as synced",()=>{
  const result=summarizeServiceChoiceSync([
-   {notionProjection:"updated",notionFieldSync:"pending"},
-   {notionProjection:"unchanged",notionFieldSync:"disabled"},
-   {notionProjection:"unchanged",notionFieldSync:"unlinked"},
-   {notionProjection:"deferred",notionFieldSync:"synced"},
+   {notionFieldSync:"pending"},
+   {notionFieldSync:"disabled"},
+   {notionFieldSync:"unlinked"},
+   {notionFieldSync:"pending"},
    {}, // A stale API response cannot prove a Notion write.
  ]);
  assert.equal(result.savedCount,5);
@@ -36,10 +36,10 @@ test("pending, disabled and unlinked Notion outcomes never masquerade as synced"
  assert.match(result.message,/synchronizácia vypnutá 1/);
 });
 test("server warning remains visible after successful D1 persistence",()=>{
- const warning="Výber je uložený v Psipedii, ale prenos textových služieb do Notionu vyžaduje kontrolu.";
+ const warning="Výber je uložený v Psipedii, ale prenos katalógovej relácie do Notionu vyžaduje kontrolu.";
  const result=summarizeServiceChoiceSync([
-   {notionProjection:"updated",notionFieldSync:"synced",warning},
-   {notionProjection:"updated",notionFieldSync:"synced",warning},
+   {notionFieldSync:"synced",warning},
+   {notionFieldSync:"synced",warning},
  ]);
  assert.equal(result.savedCount,2);
  assert.equal(result.confirmedCount,2);
@@ -48,7 +48,7 @@ test("server warning remains visible after successful D1 persistence",()=>{
 });
 test("partial batch acknowledges only successful D1 selections",()=>{
   const feedback=summarizeServiceChoiceSync([
-    {notionProjection:"updated",notionFieldSync:"synced"},
+    {notionFieldSync:"synced"},
   ]);
   assert.equal(feedback.savedCount,1);
   assert.doesNotMatch(feedback.message,/uložené: 2/);
@@ -61,7 +61,7 @@ test("targeted service sync cannot infer confirmation from unrelated profile wri
  assert.match(route,/result\.serviceRelationSync==="skipped"\?"pending":"unlinked"/);
  assert.doesNotMatch(route,/result\.pulledFromNotion\|\|result\.pushedToNotion\?"synced"/);
  assert.match(route,/\["pending","unlinked","disabled"\]\.includes\(notionFieldSync\)/);
- assert.match(route,/notionProjection==="deferred"/);
+ assert.doesNotMatch(route,/notionProjection|projectServiceChoiceToDirectoryNotion/);
 });
 test("Services V3 editor actually consumes remote outcome and displays warning",()=>{
  const profile=read("components/admin-service-profile-values.tsx");
