@@ -23,7 +23,7 @@ function groupSources(sql) {
     .map((match) => match[1]);
 }
 
-function createMock(counts = {}, { unavailable = [], malformed = false } = {}) {
+function createMock(counts = {}, { unavailable = [], malformed = false, rawCounts = {} } = {}) {
   const calls = [];
   const invalid = new Set(unavailable);
   const database = {
@@ -39,11 +39,13 @@ function createMock(counts = {}, { unavailable = [], malformed = false } = {}) {
             async all() {
               assert.ok(group.length > 0);
               if (group.some((source) => invalid.has(source))) throw new Error("D1 table missing");
+              // Force group-level malformed results only: single-source retries
+              // must receive an otherwise valid acknowledgement-aware response.
               return {
                 results: group.map((source) => ({
                   sourceType: source,
                   activeCount: Number(counts[source] ?? 0),
-                })).slice(0, malformed ? -1 : undefined),
+                })).slice(0, malformed && group.length > 1 ? -1 : undefined),
               };
             },
             async first() {
@@ -53,7 +55,7 @@ function createMock(counts = {}, { unavailable = [], malformed = false } = {}) {
               );
               assert.ok(source, "fallback source probe must be canonical");
               if (invalid.has(source)) throw new Error("D1 table missing");
-              return { activeCount: Number(counts[source] ?? 0) };
+              return { activeCount: Number(rawCounts[source] ?? counts[source] ?? 0) };
             },
           };
         },
@@ -103,7 +105,12 @@ test("one source failure falls back only within its group and retains partial so
     console.warn = oldWarn;
   }
   assert.equal(calls.length, 8, "3 grouped statements + 5 isolated fallback probes");
-  assert.equal(calls.filter((call) => call.group.length === 0).length, 5);
+  assert.equal(calls.filter((call) => call.group.length === 1).length, 5);
+  for (const call of calls) {
+    assert.match(call.sql, /LEFT JOIN admin_attention_ack ack/);
+    assert.match(call.sql, /ack\.read_at IS NULL/);
+    assert.match(call.sql, /ack\.snoozed_until IS NULL/);
+  }
   assert.equal(result.availability, "PARTIAL");
   assert.deepEqual(result.unavailableSources, ["NEWS_TIP"]);
   assert.equal(result.bySource.NEWS_TIP, null);
@@ -125,6 +132,28 @@ test("a malformed group response retries rather than silently dropping source co
   assert.equal(calls.length, 18, "3 invalid grouped statements + 15 per-source reads");
   assert.equal(result.availability, "OK");
   assert.equal(result.active, 0);
+  assert.equal(calls.filter((call) => call.group.length === 1).length, 15);
+  assert.deepEqual(result.unavailableSources, []);
+});
+
+test("group fallback keeps unread counts even when total active queue items differ", async () => {
+  const unread = Object.fromEntries(adminAttentionQueueSourceTypes.map((source) => [source, 1]));
+  const rawCounts = Object.fromEntries(adminAttentionQueueSourceTypes.map((source) => [source, 9]));
+  const { database, calls } = createMock(unread, { unavailable: ["NEWS_TIP"], rawCounts });
+  const warn = console.warn;
+  console.warn = () => {};
+  let result;
+  try {
+    result = await loadExactAdminAttentionSummary(database, NOW);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(result.availability, "PARTIAL");
+  assert.deepEqual(result.unavailableSources, ["NEWS_TIP"]);
+  assert.equal(result.active, 14, "read or snoozed queue entries must not inflate unread badge");
+  assert.equal(result.bySource.MODERATION_SUBMISSION, 1);
+  assert.equal(calls.filter((call) => call.group.length === 1).length, 5);
+  assert.ok(calls.every(({ sql }) => sql.includes("admin_attention_ack")));
 });
 
 test("requests run concurrently, without global caching or stale counts", async () => {
