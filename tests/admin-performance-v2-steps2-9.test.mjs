@@ -111,12 +111,24 @@ test("8/10 Organization saves refresh the server shell only when its name or slu
   assert.match(org, /router\.replace\(`\/admin\/organizacie\/\$\{organizationId\}`\)/);
 });
 
-test("9/10 Shared table keeps bounded-server sorting and deferred column resize", () => {
+test("9/10 Shared table stabilizes equal page selections without changing bulk writes or server order", () => {
   const table = parse("components/admin-record-table.tsx");
   assert.match(table, /manualSorting: serverSorted \|\| Boolean\(serverSorting\)/);
+  assert.match(table, /getSortedRowModel: serverSorted \|\| serverSorting \? undefined : clientSortedRowModel/);
   assert.match(table, /columnResizeMode: "onEnd"/);
   assert.match(table, /getRowId: recordRowId/);
   assert.match(table, /rows\.filter\(record => next\[String\(record\.id\)\]\)/);
+  assert.match(table, /if \(!selectedIdsKey\) return EMPTY_ROW_SELECTION/);
+  assert.match(table, /const visibleIds = new Set\(rows\.map\(row => row\.id\)\)/);
+  assert.match(table, /selectedIdsKey\.split\(","\)\.map\(Number\)/);
+  assert.match(table, /\[rows, selectedIdsKey\]/);
+  assert.match(table, /useLayoutEffect\(\(\) => \{ selectionRef\.current = selection; \}, \[selection\]\)/);
+  assert.match(table, /selectionRef\.current\?\.labelForRow/);
+  assert.match(table, /selectionRef\.current\?\.rowInputDataAttribute/);
+  assert.match(table, /selectionRef\.current\?\.disabled/);
+  assert.match(table, /\[columns, selectionEnabled, label, busy, rows\.length, serverSorted, serverSorting\]/);
+  assert.doesNotMatch(table, /\[columns, selection, label, busy, rows\.length, serverSorted, serverSorting\]/);
+  assert.match(table, /selection\.onChange\(rows\.filter/);
   const orgQuery = parse("lib/help-organization-admin-query.ts");
   assert.match(orgQuery, /ORGANIZATION_ADMIN_PAGE_SIZE = 50/);
 });
