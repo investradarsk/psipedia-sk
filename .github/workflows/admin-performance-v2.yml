@@ -52,10 +52,12 @@ jobs:
           cat admin-v2-scoped-types.json
 
       - name: Capture local SQLite query-plan experiment
-        run: npm run benchmark:admin-search-v2 > admin-v2-search-plan.json
+        run: node --experimental-strip-types scripts/benchmark-admin-search-v2.mjs > admin-v2-search-plan.json
+      - name: Validate captured SQL-plan JSON
+        run: node -e 'const data=require("./admin-v2-search-plan.json");if(data.checkedCategories!==8||data.cases.exactId.resultCount!==8||data.cases.tombstonedExactId.resultCount!==7)process.exit(1)'
 
       - name: Capture reproducible source baseline
-        run: npm run audit:admin-performance-v2 -- --json > admin-v2-source-baseline.json
+        run: node scripts/audit-admin-performance-v2.mjs --json > admin-v2-source-baseline.json
 
       - name: Save source metrics (not runtime/browser metrics)
         uses: actions/upload-artifact@v4
