@@ -631,6 +631,7 @@ export async function writeBackBreedEditorialToNotion(args:{
   const oldNotion=historical.notion??before;
   const oldAdmin=historical.admin??before;
   const changed=(args.changedFieldKeys??BREED_NOTION_EDITABLE_FIELDS)
+    .filter((key):key is BreedNotionField=>BREED_NOTION_EDITABLE_FIELDS.includes(key as BreedNotionField))
     .filter(key=>args.forceFieldKeys?.includes(key)||!sameBreedField(before[key],after[key]));
   if(!changed.length)return {linked:true,updated:false,reason:"no-mirrored-field-change" as const};
   const patch:Record<string,unknown>={};
