@@ -49,12 +49,12 @@ export function AdminErrorRecovery({
   backHref?: string;
 }) {
   const [confirmation, setConfirmation] = useState<"reset" | "reload" | null>(null);
-  const [attempting, setAttempting] = useState(false);
+  const [attempting, startRecovery] = useTransition();
 
   const run = (action: "reset" | "reload") => {
-    setAttempting(true);
+    setConfirmation(null);
     if (action === "reload") window.location.reload();
-    else reset();
+    else startRecovery(() => reset());
   };
   const request = (action: "reset" | "reload") => {
     if (document.documentElement.hasAttribute("data-admin-unsaved-editor")) {
