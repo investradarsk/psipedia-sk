@@ -395,7 +395,7 @@ export function AdminDirectoryEditor({
   async function save(nextStatus: DirectoryProfileStatus) {
     // A newly created profile must finish navigation into its canonical D1 editor
     // before another save may run; otherwise a pending create form can POST twice.
-    if (saving || uploading || galleryBusy || savePendingRef.current || notionReadOnly || createdProfileHref) return;
+    if (saving || uploading || galleryBusy || savePendingRef.current || notionReadOnly || (!profile && createdProfileHref)) return;
     if (notionDraft && nextStatus === "published") {
       setError("Najprv bezpečne importuj koncept do D1 a publikuj v natívnom editore.");
       return;
