@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -105,11 +105,16 @@ export function AdminRecordTable<T extends { id: number }>({
       .filter(id => visibleIds.has(id)).map(id => [String(id), true]));
   }, [rows, selectedIdsKey]);
 
-  // The column layout does not depend on the changing selected IDs. Keep the
-  // latest labels, disabled state and callback available to stable renderers.
-  const selectionRef = useRef(selection);
-  useLayoutEffect(() => { selectionRef.current = selection; }, [selection]);
+  // Memoize columns by the selection options that affect their rendering,
+  // not the parent's frequently recreated selection wrapper / selected IDs.
+  // Keep callbacks in the dependency list: never render stale disabled/label UI.
   const selectionEnabled = Boolean(selection);
+  const selectionDisabled = selection?.disabled;
+  const selectionRowLabel = selection?.labelForRow;
+  const selectionAllLabel = selection?.selectAllLabel;
+  const selectionRowInputDataAttribute = selection?.rowInputDataAttribute;
+  const serverSortingEnabled = Boolean(serverSorting);
+  const serverSortAllowedIdsKey = serverSorting?.allowedIds.join(",") ?? "";
 
   const definitions = useMemo<ColumnDef<T>[]>(() => [
     ...(selectionEnabled ? [{
@@ -117,20 +122,20 @@ export function AdminRecordTable<T extends { id: number }>({
       header: ({ table }: { table: Table<T> }) => (
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
-          label={selectionRef.current?.selectAllLabel ?? ("Označiť všetky záznamy na tejto strane: " + label)}
+          label={selectionAllLabel ?? ("Označiť všetky záznamy na tejto strane: " + label)}
           checked={table.getIsAllPageRowsSelected()}
           indeterminate={table.getIsSomePageRowsSelected()}
-          disabled={busy || selectionRef.current?.disabled || !rows.length}
+          disabled={busy || selectionDisabled || !rows.length}
           onChange={checked => table.toggleAllPageRowsSelected(checked)}
         />
       ),
       cell: ({ row }: { row: Row<T> }) => (
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
-          label={selectionRef.current?.labelForRow?.(row.original) ?? ("Označiť záznam " + row.original.id)}
-          inputDataAttribute={selectionRef.current?.rowInputDataAttribute}
+          label={selectionRowLabel?.(row.original) ?? ("Označiť záznam " + row.original.id)}
+          inputDataAttribute={selectionRowInputDataAttribute}
           checked={row.getIsSelected()}
-          disabled={busy || selectionRef.current?.disabled}
+          disabled={busy || selectionDisabled}
           onChange={checked => row.toggleSelected(checked)}
         />
       ),
@@ -162,7 +167,8 @@ export function AdminRecordTable<T extends { id: number }>({
     size: column.width ?? 165,
     minSize: 85,
   })),
-  ], [columns, selectionEnabled, label, busy, rows.length, serverSorted, serverSorting]);
+  ], [columns, selectionEnabled, selectionDisabled, selectionRowLabel, selectionAllLabel,
+    selectionRowInputDataAttribute, label, busy, rows.length, serverSorted, serverSortingEnabled, serverSortAllowedIdsKey]);
 
   const table = useReactTable({
     data: rows,
