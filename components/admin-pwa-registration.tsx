@@ -60,7 +60,7 @@ export function AdminPwaRegistration() {
 
   if (online && !pushTarget) return null;
   return (
-    <>
+    <div className={styles.statusStack}>
       {!online && (
         <div className={styles.offlineBanner} role="status" aria-live="polite">
           Si offline. Redakčné dáta môžeš prezerať iba tam, kde ich načíta sieť; úpravy ani publikovanie sa neukladajú do fronty.
@@ -76,6 +76,6 @@ export function AdminPwaRegistration() {
           </div>
         </section>
       )}
-    </>
+    </div>
   );
 }
