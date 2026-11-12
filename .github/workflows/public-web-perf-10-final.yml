@@ -19,6 +19,8 @@ on:
       - 'components/back-to-top.tsx'
       - 'components/lazy-dog-age-calculator.tsx'
       - 'lib/breed-browser-search.ts'
+      - 'lib/generated/visual-library-public-inventory.json'
+      - 'tests/visual-library-full-inventory.test.mjs'
       - 'lib/homepage-directory-query.ts'
       - 'lib/defer-public-third-party.ts'
       - 'lib/public-anonymous-html-cache.ts'
@@ -57,10 +59,11 @@ jobs:
         run: npm run test:perf-fastpaths
       - name: Home media, image size, source parity and gallery
         run: npm run test:homepage-media
-      - name: Public CSS scope and source design tokens
+      - name: Public CSS scope, source design tokens and component inventory
         run: |
           npm run test:public-css-scope
           node --test tests/public-design-tokens.test.mjs
+          node --test tests/visual-library-full-inventory.test.mjs
       - name: Events, maps and FCI crawl behavior
         run: |
           npm run test:events-public-ux
