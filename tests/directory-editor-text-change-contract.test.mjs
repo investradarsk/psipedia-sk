@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { readDirectoryEditorTextForSave, reconcileDirectorySubmittedTextFields } from "../lib/directory-editor-text-change-contract.ts";
+import { readDirectoryEditorTextForSave, selectDirectoryTextForSave, reconcileDirectorySubmittedTextFields } from "../lib/directory-editor-text-change-contract.ts";
 
 const live = { excerpt: "Pôvodný perex", description: "Pôvodný popis" };
 
@@ -135,12 +135,46 @@ test("Directory Save reads committed Lexical content, posts it, and confirms the
   assert.match(lexical, /valueReaderRef\.current === readCurrentText/);
   assert.match(editor, /valueReaderRef=\{excerptValueReaderRef\}/);
   assert.match(editor, /valueReaderRef=\{descriptionValueReaderRef\}/);
-  assert.match(editor, /readDirectoryEditorTextForSave\(excerpt, excerptValueReaderRef\.current\)/);
-  assert.match(editor, /readDirectoryEditorTextForSave\(description, descriptionValueReaderRef\.current\)/);
+  assert.match(editor, /const submittedExcerpt = selectDirectoryTextForSave\(\{/);
+  assert.match(editor, /const submittedDescription = selectDirectoryTextForSave\(\{/);
   assert.match(editor, /name, excerpt: submittedExcerpt, description: submittedDescription/);
   assert.match(editor, /status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription/);
-  assert.match(editor, /textSaved\(savedProfile\[field\]\)/);
+  assert.match(editor, /textSaved\(candidate\[field\]\)/);
+  assert.match(editor, /freshResponse = await fetch/);
+  assert.match(editor, /textMismatch = mismatchedTextFields\(savedProfile\)/);
   assert.match(editor, /throw new Error\("Zmena Perexu alebo Popisu sa nepotvrdila/);
   assert.match(api, /expectedUpdatedAt: before\.updatedAt/);
   assert.match(api, /status: 409, headers: \{ "cache-control": "no-store" \}/);
+});
+
+test("an untouched Popis keeps its exact D1 value despite Lexical formatting changes", () => {
+  const original = "Odstavec 1\n\nOdstavec 2";
+  const serializedByLexical = "Odstavec 1\nOdstavec 2";
+  assert.equal(selectDirectoryTextForSave({
+    original, stateValue: original, liveReader: () => serializedByLexical,
+    explicitlyEdited: false,
+  }), original);
+  assert.equal(selectDirectoryTextForSave({
+    original, stateValue: original, liveReader: () => serializedByLexical,
+    explicitlyEdited: true,
+  }), serializedByLexical);
+  assert.equal(selectDirectoryTextForSave({
+    original, stateValue: original, liveReader: () => "",
+    explicitlyEdited: true,
+  }), "");
+});
+
+test("saving only Perex never reports an untouched description mismatch", () => {
+  const editor = readFileSync("components/admin-directory-editor.tsx", "utf8");
+  const lexical = readFileSync("components/admin-lexical-text-field.tsx", "utf8");
+  assert.match(editor, /path !== "description" \|\| descriptionExplicitlyEditedRef\.current/);
+  assert.match(editor, /path !== "excerpt" \|\| excerptExplicitlyEditedRef\.current/);
+  assert.match(editor, /valueReaderRef=\{excerptValueReaderRef\} onUserInput=/);
+  assert.match(editor, /valueReaderRef=\{descriptionValueReaderRef\} onUserInput=/);
+  assert.match(editor, /descriptionExplicitlyEditedRef\.current = false/);
+  assert.match(editor, /excerptExplicitlyEditedRef\.current = false/);
+  assert.match(editor, /descriptionExplicitlyEditedRef\.current = true; setDescription\(appendLexicalPlainText/);
+  assert.match(lexical, /root\?\.addEventListener\("input", markRealUserInput\)/);
+  assert.match(lexical, /previousRoot\?\.removeEventListener\("input", markRealUserInput\)/);
+  assert.match(lexical, /onUserInputRef\.current\?\.\(\)/);
 });

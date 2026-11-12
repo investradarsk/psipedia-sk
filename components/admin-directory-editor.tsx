@@ -20,7 +20,7 @@ import {adminSelectedImage} from "@/lib/admin-selected-image";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
-import { readDirectoryEditorTextForSave } from "@/lib/directory-editor-text-change-contract";
+import { selectDirectoryTextForSave } from "@/lib/directory-editor-text-change-contract";
 
 import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
 
@@ -170,6 +170,10 @@ export function AdminDirectoryEditor({
   // React state snapshot from before Lexical's last onChange/blur.
   const excerptValueReaderRef = useRef<(() => string) | null>(null);
   const descriptionValueReaderRef = useRef<(() => string) | null>(null);
+  // A Lexical mount/paragraph rewrite is not a user edit. Only an actual
+  // input event or explicit editorial action may mark these fields writable.
+  const excerptExplicitlyEditedRef = useRef(false);
+  const descriptionExplicitlyEditedRef = useRef(false);
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
   const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
@@ -365,8 +369,8 @@ export function AdminDirectoryEditor({
     for (const [field, value] of Object.entries(values)) {
       const text = value === null || value === undefined ? "" : String(value);
       if (field === "name") setName(text);
-      else if (field === "excerpt") setExcerpt(text);
-      else if (field === "description") setDescription(text);
+      else if (field === "excerpt") { excerptExplicitlyEditedRef.current = true; setExcerpt(text); }
+      else if (field === "description") { descriptionExplicitlyEditedRef.current = true; setDescription(text); }
       else if (field === "services" && Array.isArray(value)) setServices(value.map(String).join("\n"));
       else if (field === "qualifications" && Array.isArray(value)) setQualifications(value.map(String).join("\n"));
       else if (field === "address") setPublicAddress(text);
@@ -413,8 +417,16 @@ export function AdminDirectoryEditor({
       // Optional contact/URL/SEO fields are not blockers. The server
       // sanitizes malformed optional values and returns field warnings.
       }
-    const submittedExcerpt = readDirectoryEditorTextForSave(excerpt, excerptValueReaderRef.current);
-    const submittedDescription = readDirectoryEditorTextForSave(description, descriptionValueReaderRef.current);
+    const submittedExcerpt = selectDirectoryTextForSave({
+      original: profile ? breederSaveBaselineRef.current?.excerpt : undefined,
+      stateValue: excerpt, liveReader: excerptValueReaderRef.current,
+      explicitlyEdited: excerptExplicitlyEditedRef.current,
+    });
+    const submittedDescription = selectDirectoryTextForSave({
+      original: profile ? breederSaveBaselineRef.current?.description : undefined,
+      stateValue: description, liveReader: descriptionValueReaderRef.current,
+      explicitlyEdited: descriptionExplicitlyEditedRef.current,
+    });
     const submittedRevision = formEditRevisionRef.current;
     const imageReplacement = replaceMainImageRequestedRef.current;
     const mainImageAction = removeMainImageRequestedRef.current
@@ -491,7 +503,11 @@ export function AdminDirectoryEditor({
               addressFormat, priceNote, websiteUrl, publicPhone, publicEmail,
               facebookUrl, instagramUrl, seo,
             },
-          ).filter(path => path !== "services" || !isDirectoryEventPilotCategory(category))
+          ).filter(path =>
+            (path !== "services" || !isDirectoryEventPilotCategory(category)) &&
+            (path !== "excerpt" || excerptExplicitlyEditedRef.current) &&
+            (path !== "description" || descriptionExplicitlyEditedRef.current)
+          )
         : undefined;
       // The server must distinguish an explicit clear from an untouched
       // blank field in a long-open form. Only dirty contact paths are sent.
@@ -669,12 +685,31 @@ export function AdminDirectoryEditor({
       // The server validates D1 too; do not show "Uložené" if the API ever
       // returns an older text field after a concurrent Notion/webhook edit.
       const textSaved = (value: string) => value.replace(/\r\n?/g, "\n").trim();
-      const textMismatch = (["excerpt", "description"] as const).filter(field =>
-        breederChangedPaths?.includes(field) &&
-        textSaved(savedProfile[field]) !== textSaved(field === "excerpt" ? submittedExcerpt : submittedDescription),
-      );
+      const mismatchedTextFields = (candidate: ManagedDirectoryProfile) =>
+        (["excerpt", "description"] as const).filter(field =>
+          breederChangedPaths?.includes(field) &&
+          textSaved(candidate[field]) !== textSaved(field === "excerpt" ? submittedExcerpt : submittedDescription),
+        );
+      let textMismatch = mismatchedTextFields(savedProfile);
+      if (textMismatch.length && profile) {
+        // A secondary category-facet PATCH or a concurrent Notion event can
+        // make the initial response stale. Re-read the real D1 projection;
+        // never replay the original long-form PUT or falsely confirm a change.
+        const freshResponse = await fetch(`/api/admin/directory/${profile.id}`, {
+          cache: "no-store", credentials: "same-origin",
+        });
+        if (freshResponse.ok) {
+          const fresh = await freshResponse.json() as { profile?: ManagedDirectoryProfile };
+          if (fresh.profile?.id === savedProfile.id &&
+              fresh.profile.category === savedProfile.category &&
+              fresh.profile.slug === savedProfile.slug) {
+            savedProfile = fresh.profile;
+            textMismatch = mismatchedTextFields(savedProfile);
+          }
+        }
+      }
       if (textMismatch.length) {
-        throw new Error("Zmena Perexu alebo Popisu sa nepotvrdila v Admine (" +
+        throw new Error("Zmena Perexu alebo Popisu sa nepotvrdila ani po opätovnom načítaní D1 (" +
           textMismatch.join(", ") + "). Skontroluj údaje a ulož ich znova.");
       }
       const hasNewerEdits = formEditRevisionRef.current !== submittedRevision;
@@ -724,6 +759,8 @@ export function AdminDirectoryEditor({
         }
       }
       if (!hasNewerEdits) {
+        excerptExplicitlyEditedRef.current = false;
+        descriptionExplicitlyEditedRef.current = false;
         setGalleryUrls(savedProfile.galleryUrls ?? []);
         setQualityResolutions(qualityResolutionInput(savedProfile));
         setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
@@ -913,7 +950,7 @@ export function AdminDirectoryEditor({
               setCategory(nextCategory);
               setFilterChanges({});
             }}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
-            <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><AdminLexicalTextField id="directory-excerpt" valueReaderRef={excerptValueReaderRef} rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setFormDirty(true); }} placeholder="Čím je profil zaujímavý a komu pomáha?" ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
+            <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><AdminLexicalTextField id="directory-excerpt" valueReaderRef={excerptValueReaderRef} onUserInput={() => { excerptExplicitlyEditedRef.current = true; setFormDirty(true); }} rows={3} value={excerpt} onChange={(next) => setExcerpt(next)} placeholder="Čím je profil zaujímavý a komu pomáha?" ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-location" className="admin-form-card">
@@ -946,11 +983,9 @@ export function AdminDirectoryEditor({
                 setDistrict(location.district);
                 setCity(location.city);
                 if (changed) {
+                  // Changing one location choice must not silently erase other
+                  // editorial text. Only revoke an obsolete provider selection.
                   setAddressProviderResultId("");
-                  setPostalCode("");
-                  setStreet("");
-                  setHouseNumber("");
-                  setAddressFormat("");
                   setNumberlessLocalityConfirmed(false);
                 }
               }}
@@ -961,7 +996,7 @@ export function AdminDirectoryEditor({
               </p>
             ) : null}
             <DirectoryAddressAutocomplete
-              key={`${region}|${district}|${city}|${street}`}
+              key={`${region}|${district}|${city}`}
               region={region}
               district={district}
               city={city}
@@ -992,11 +1027,12 @@ export function AdminDirectoryEditor({
                 setAddressFormat(next.addressFormat);
               }}
             />
-            {street ? (
-              <div className="admin-field-grid" aria-label="Adresa prevádzky">
+            <div className="admin-field-grid" aria-label="Adresa prevádzky">
                 <div className="admin-field">
-                  <label>Ulica</label>
-                  <input value={street} readOnly />
+                  <label htmlFor="directory-street">Ulica / lokalita</label>
+                  <input id="directory-street" type="text" value={street}
+                    onChange={(event) => { setStreet(event.target.value); setAddressProviderResultId(""); }}
+                    placeholder="Ulica, areál alebo iná lokalita" />
                 </div>
                 <div className="admin-field">
                   <label htmlFor="directory-house-number">Číslo domu <small>nepovinné pri miestach bez prideleného čísla</small></label>
@@ -1005,10 +1041,7 @@ export function AdminDirectoryEditor({
                     value={houseNumber}
                     onChange={(event) => {
                       setHouseNumber(event.target.value);
-                      if (event.target.value.trim()) {
-                        setPostalCode("");
-                        setNumberlessLocalityConfirmed(false);
-                      }
+                      setNumberlessLocalityConfirmed(false);
                     }}
                     placeholder="Napríklad 1892/74 alebo 74"
                   />
@@ -1021,12 +1054,10 @@ export function AdminDirectoryEditor({
                     value={postalCode}
                     onChange={(event) => setPostalCode(event.target.value)}
                     placeholder="Napríklad 031 01"
-                    inputMode="numeric"
                   />
                   <small>{houseNumber.trim() ? "Ak PSČ nepoznáš, môže zostať prázdne; provider ho môže doplniť." : "PSČ je nepovinné. Ak ho nepoznáš, nechaj ho prázdne."}</small>
                 </div>
               </div>
-            ) : null}
             {addressEvaluation.state !== "COMPLETE" ? (
               <QualityResolutionField
                 field="address"
@@ -1041,7 +1072,7 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
             <div className="admin-field"><label htmlFor="directory-public-organization">Organizácia <small>nepovinné</small></label><input id="directory-public-organization" value={publicOrganization} onChange={(event) => { setPublicOrganization(event.target.value); setFormDirty(true); }} placeholder="Napríklad: ZŠK SR" /><small>Verejný údaj z pôvodného profilu; ostatné importované informácie zostávajú zachované.</small></div>
             <div className="admin-field"><label htmlFor="directory-public-focus">Zameranie <small>nepovinné</small></label><input id="directory-public-focus" value={publicFocus} onChange={(event) => { setPublicFocus(event.target.value); setFormDirty(true); }} placeholder="Napríklad: športová kynológia, výcvik a skúšky" /></div>
-            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" valueReaderRef={descriptionValueReaderRef} rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
+            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" valueReaderRef={descriptionValueReaderRef} onUserInput={() => { descriptionExplicitlyEditedRef.current = true; setFormDirty(true); }} rows={9} value={description} onChange={(next) => setDescription(next)} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>{ descriptionExplicitlyEditedRef.current = true; setDescription(appendLexicalPlainText(description,text)); setFormDirty(true); }}/></div>
             <AdminHelpText term="Formát">Lexical ukladá popis do existujúceho textového poľa bez zmeny synchronizácie Notion.</AdminHelpText>
             <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
               {!isDirectoryEventPilotCategory(category) ? (
@@ -1107,11 +1138,11 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Kontaktné údaje, ktoré sa zobrazujú návštevníkom profilu.</p></div></div></div>
 <AdminEditorToolFrame kind="contacts">
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="tel" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type={category === "chovatelske-stanice" ? "text" : "email"} value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type={category === "chovatelske-stanice" ? "text" : "url"} value={websiteUrl} onChange={(event) => { const value = event.target.value; setWebsiteUrl(value); if (value.trim()) clearQualityResolution("website"); }} placeholder="https://…" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type={category === "chovatelske-stanice" ? "text" : "url"} value={facebookUrl} onChange={(event) => setFacebookUrl(event.target.value)} placeholder="https://facebook.com/…" /></div>
-              <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type={category === "chovatelske-stanice" ? "text" : "url"} value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
+              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="text" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="text" value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type="text" value={websiteUrl} onChange={(event) => { const value = event.target.value; setWebsiteUrl(value); if (value.trim()) clearQualityResolution("website"); }} placeholder="https://…" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type="text" value={facebookUrl} onChange={(event) => setFacebookUrl(event.target.value)} placeholder="https://facebook.com/…" /></div>
+              <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="text" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
             </div>
             </AdminEditorToolFrame>
             <AdminHelpText term="Kvalita údajov">Ak profil web, telefón alebo e-mail naozaj nemá, nie je verejný alebo sa ho nepodarilo dohľadať, označ stav pri prázdnom poli. Taký údaj prestane byť falošným problémom v Kvalite údajov a po 12 mesiacoch sa automaticky znovu skontroluje.</AdminHelpText>
@@ -1179,7 +1210,7 @@ export function AdminDirectoryEditor({
                 onChange={(urls) => { setGalleryUrls(urls); setFormDirty(true); }}
               />
             ) : null}
-            {notionDraft && <div className="admin-field"><label htmlFor="directory-notion-logo">URL oficiálneho loga</label><input id="directory-notion-logo" type="url" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://…" /><small>Logo je samostatné od hlavnej fotografie. Nastavenie výrezu fotografie bude dostupné po synchronizácii profilu do Adresára.</small></div>}
+            {notionDraft && <div className="admin-field"><label htmlFor="directory-notion-logo">URL oficiálneho loga</label><input id="directory-notion-logo" type="text" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://…" /><small>Logo je samostatné od hlavnej fotografie. Nastavenie výrezu fotografie bude dostupné po synchronizácii profilu do Adresára.</small></div>}
             {!imageUrl ? (
               <QualityResolutionField
                 field="image"

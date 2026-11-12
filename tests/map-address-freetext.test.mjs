@@ -110,7 +110,7 @@ test("admin editor sends the confirmation only after the explicit locality actio
   );
   assert.match(
     editorSource,
-    /if \(event\.target\.value\.trim\(\)\) \{[\s\S]*setNumberlessLocalityConfirmed\(false\)/,
+    /setHouseNumber\(event\.target\.value\);\s*setNumberlessLocalityConfirmed\(false\)/,
   );
 });
 

@@ -49,7 +49,7 @@ import {
   resolveSlovakLocation,
 } from "@/lib/slovakia-locations";
 import type { GooglePlaceCandidate } from "@/lib/google-place-matching";
-import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
+import type { EditableSeo } from "@/lib/content-seo";
 import {
   isDirectoryInternalMetadataKey,
   TRAINER_SERVICES_TEXT_METADATA_KEY,
@@ -684,14 +684,15 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
     importData: safeImportData(row.source_data_json),
-    seo: parseSeo(row.seo_json, ["chovatelske-stanice", "treneri"].includes(row.category)),
+    seo: parseSeo(row.seo_json),
   };
 }
 
-function parseSeo(value: string, breederRawText = false): EditableSeo {
+function parseSeo(value: string): EditableSeo {
   try {
     const raw = JSON.parse(value) as EditableSeo;
-    if (!breederRawText) return cleanEditableSeo(raw);
+    // Editable Directory SEO is unvalidated editorial text in every category.
+    // Rendering canonical URLs and social assets validates their targets later.
     // Returning content from D1 must never silently remove an arbitrary SEO
     // string by attempting to validate its format on read.
     const text = (value: unknown) => typeof value === "string" ? value : "";
@@ -836,20 +837,6 @@ function rowToChangeRequest(
   };
 }
 
-function normalizeUrl(value: string | null | undefined) {
-  const clean = value?.trim() || null;
-  if (!clean) return null;
-  let parsed: URL;
-  try {
-    parsed = new URL(clean);
-  } catch {
-    throw new Error("Webová adresa nie je platná.");
-  }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
-    throw new Error("Webová adresa musí začínať http:// alebo https://.");
-  return clean;
-}
-
 function normalizeEmail(value: string | null | undefined, required = false) {
   const clean = value?.trim().toLowerCase() || null;
   if (!clean && !required) return null;
@@ -867,17 +854,6 @@ function cleanText(value: unknown, maxLength: number) {
     .slice(0, maxLength);
 }
 
-function safeDirectoryAddressText(value: unknown, maxLength: number, label: string) {
-  if (value === undefined || value === null) return "";
-  if (typeof value !== "string") throw new Error(`${label} musí byť text.`);
-  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F<>]/u.test(value)) {
-    throw new Error(`${label} obsahuje nepovolené znaky.`);
-  }
-  const clean = value.replace(/\r\n?/g, "\n").trim();
-  if (clean.length > maxLength) throw new Error(`${label} je príliš dlhá hodnota.`);
-  return clean;
-}
-
 function normalizeOptionalUrl(value: unknown, label: string) {
   const clean = cleanText(value, 500);
   if (!clean) return "";
@@ -888,14 +864,6 @@ function normalizeOptionalUrl(value: unknown, label: string) {
   } catch {
     throw new Error(`${label} musí byť platná adresa začínajúca http:// alebo https://.`);
   }
-}
-
-function normalizePublicPhone(value: string | null | undefined) {
-  const clean = value?.trim() ?? "";
-  if (!clean) return "";
-  if (clean.length > 50 || !/^[+0-9() .\/-]+$/.test(clean))
-    throw new Error("Telefónne číslo nie je platné.");
-  return clean;
 }
 
 function normalizeQualityCheckedAt(value: string | undefined) {
@@ -981,9 +949,11 @@ export function normalizeManagedDirectoryProfileInput(
   const status: DirectoryProfileStatus = payload.status === "published" ? "published" : "draft";
   const excerpt = payload.excerpt?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
-  const breederRawText = ["chovatelske-stanice", "treneri"].includes(category);
-  const editorialAddressText = (value: string | undefined, max: number, label: string) =>
-    breederRawText ? (value ?? "").trim() : safeDirectoryAddressText(value, max, label);
+  // Directory editor values are raw editorial text across all ten categories.
+  // Typed data (profile ID, category, publication status, actual GEO/API keys)
+  // keeps separate structural validation below.
+  const editorialAddressText = (value: string | undefined, _max: number, _label: string) =>
+    value ?? "";
   const city = editorialAddressText(payload.city, 120, "Mesto / obec");
   const district = editorialAddressText(payload.district, 120, "Okres");
   const rawRegion = editorialAddressText(payload.region, 80, "Kraj");
@@ -1011,9 +981,7 @@ export function normalizeManagedDirectoryProfileInput(
     : "";
   if (payload.addressFormat && !addressFormat) throw new Error("Neplatný formát adresy prevádzky.");
 
-  const postalCode = breederRawText ? (payload.postalCode ?? "").trim() : normalizeSlovakPostalCode(
-    safeDirectoryAddressText(payload.postalCode, 20, "PSČ"),
-  );
+  const postalCode = payload.postalCode ?? "";
   const street = editorialAddressText(payload.street, 180, "Ulica");
   const houseNumber = editorialAddressText(payload.houseNumber, 40, "Číslo domu");
   const serviceAddressConfirmation: DirectoryServiceAddressConfirmation =
@@ -1044,20 +1012,20 @@ export function normalizeManagedDirectoryProfileInput(
 
   // Breeder editorial content is stored literally. Validation of clickable
   // links happens on the public page, not when saving free-form text.
-  const rawContact = (value: string | null | undefined) => value?.trim() ?? "";
-  const services = normalizeStringList(payload.services);
-  const qualifications = breederRawText && Array.isArray(payload.qualifications)
-    ? payload.qualifications.filter((item): item is string => typeof item === "string")
-    : normalizeStringList(payload.qualifications);
-  const websiteUrl = breederRawText ? (rawContact(payload.websiteUrl) || null) : normalizeUrl(payload.websiteUrl);
-  const publicPhone = payload.publicPhone === undefined ? undefined
-    : breederRawText ? rawContact(payload.publicPhone) : normalizePublicPhone(payload.publicPhone);
-  const publicEmail = payload.publicEmail === undefined ? undefined
-    : breederRawText ? rawContact(payload.publicEmail) : (normalizeEmail(payload.publicEmail) ?? "");
-  const facebookUrl = payload.facebookUrl === undefined ? undefined
-    : breederRawText ? rawContact(payload.facebookUrl) : (normalizeUrl(payload.facebookUrl) ?? "");
-  const instagramUrl = payload.instagramUrl === undefined ? undefined
-    : breederRawText ? rawContact(payload.instagramUrl) : (normalizeUrl(payload.instagramUrl) ?? "");
+  const rawContact = (value: string | null | undefined) => value ?? "";
+  // A text field is never rejected or silently shortened because its content
+  // looks like a bad phone, email, URL or number. Lists retain every entered
+  // nonempty line; the Services V3 relation catalog remains independent.
+  const editorialLines = (value: unknown) => Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+    : [];
+  const services = editorialLines(payload.services);
+  const qualifications = editorialLines(payload.qualifications);
+  const websiteUrl = rawContact(payload.websiteUrl) || null;
+  const publicPhone = payload.publicPhone === undefined ? undefined : rawContact(payload.publicPhone);
+  const publicEmail = payload.publicEmail === undefined ? undefined : rawContact(payload.publicEmail);
+  const facebookUrl = payload.facebookUrl === undefined ? undefined : rawContact(payload.facebookUrl);
+  const instagramUrl = payload.instagramUrl === undefined ? undefined : rawContact(payload.instagramUrl);
   const contactSourceData = mergeDirectoryPublicContactData(currentImportData, {
     publicPhone,
     publicEmail,
@@ -1113,14 +1081,14 @@ export function normalizeManagedDirectoryProfileInput(
     facebookUrl,
     instagramUrl,
     sourceData,
-    internalEmail: breederRawText ? (rawContact(payload.internalEmail) || null) : normalizeEmail(payload.internalEmail),
+    internalEmail: rawContact(payload.internalEmail) || null,
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
     thumbnailImageDisplay: normalizeImageDisplayConfig(payload.thumbnailImageDisplay, "thumbnail"),
     detailImageDisplay: normalizeImageDisplayConfig(payload.detailImageDisplay, "detail"),
     verified: Boolean(payload.verified),
     featured: Boolean(payload.featured),
-    seo: breederRawText ? {
+    seo: {
       title: payload.seo?.title ?? "",
       focusKeyword: payload.seo?.focusKeyword ?? "",
       description: payload.seo?.description ?? "",
@@ -1129,7 +1097,7 @@ export function normalizeManagedDirectoryProfileInput(
       ogDescription: payload.seo?.ogDescription ?? "",
       ogImage: payload.seo?.ogImage ?? "",
       noindex: Boolean(payload.seo?.noindex),
-    } : cleanEditableSeo(payload.seo),
+    },
     searchText: directorySearchText({
       name,
       excerpt,
