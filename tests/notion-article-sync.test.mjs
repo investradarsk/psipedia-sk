@@ -23,7 +23,7 @@ test("Ready Notion articles auto-flow into Psipedia as draft only", () => {
   assert.doesNotMatch(syncSource, /SEO skontrolované/);
 });
 
-test("published articles keep public state, canonical URL, media and one-to-one identity", () => {
+test("published articles preserve identity and media while importing mapped SEO fields", () => {
   assert.match(syncSource, /findUnmappedCanonicalArticle/);
   assert.match(syncSource, /ARTICLE_MAPPING_REVIEW_REQUIRED/);
   assert.match(syncSource, /selectProperty\(page, "Stav"\) === "Publikované"/);
@@ -31,7 +31,10 @@ test("published articles keep public state, canonical URL, media and one-to-one 
   assert.match(syncSource, /status: existing\.status/);
   assert.match(syncSource, /publishedAt: existing\.publishedAt/);
   assert.match(syncSource, /imageUrl: existing\.image/);
-  assert.match(syncSource, /canonicalUrl: existing\.canonicalUrl/);
+  assert.match(syncSource, /\.\.\.basePayload/);
+  assert.doesNotMatch(syncSource, /canonicalUrl: existing\.canonicalUrl/);
+  assert.doesNotMatch(syncSource, /noindex: existing\.noindex/);
+  assert.doesNotMatch(syncSource, /ogImageUrl: existing\.ogImage/);
   assert.match(syncSource, /ARTICLE_ADMIN_REVISION_NOT_SYNCED/);
 });
 
@@ -67,7 +70,7 @@ test("Ready sync requires an explicit send opt-in, even for a page returned by a
 test("retry is idempotent, protects non-drafts and preserves Admin-owned promo blocks", () => {
   assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(migrationSource, /article_id INTEGER NOT NULL UNIQUE/);
-  assert.match(syncSource, /if \(mapping && mapping\.content_hash === contentHash\)/);
+  assert.match(syncSource, /if \(mapping && decodeArticleSeoReceipt\(mapping\.content_hash\)\.hash === contentHash\)/);
   assert.match(syncSource, /return "unchanged"/);
   assert.match(syncSource, /ON CONFLICT\(notion_page_id\) DO UPDATE SET/);
   assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"/);
@@ -181,7 +184,7 @@ test("article routes reject collisions with subsection landing slugs", () => {
 test("mapped Draft is loaded before placement resolution so a legacy missing subsection can preserve a valid route", () => {
   const mappingLoad = syncSource.indexOf("const mapping = await loadMapping");
   const existingLoad = syncSource.indexOf("const mappedExisting = mapping ?", mappingLoad);
-  const payloadBuild = syncSource.indexOf("notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined)", existingLoad);
+  const payloadBuild = syncSource.indexOf("notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo)", existingLoad);
   assert.ok(mappingLoad >= 0 && existingLoad > mappingLoad && payloadBuild > existingLoad);
   assert.match(syncSource, /existing\.status !== "draft"/);
 });
@@ -285,7 +288,8 @@ test("Notion main image URL is downloaded safely and persisted to R2", () => {
   assert.match(syncSource, /notionSourceHash/);
   assert.match(syncSource, /notionSourceUrl/);
   assert.match(syncSource, /imageUrl,\s*imageKey: key/);
-  assert.match(syncSource, /ogImageUrl: imageUrl,\s*ogImageKey: key/);
+  assert.match(syncSource, /ogImageUrl: nextOgImageUrl,\s*ogImageKey: nextOgImageKey/);
+  assert.match(syncSource, /explicitOgImage \|\| imageUrl/);
   assert.match(routeSource, /BUCKET\?: R2Bucket/);
 });
 
@@ -359,4 +363,49 @@ test("Notion-related manifest links require existing published canonical article
   assert.match(syncSource, /await assertPublishedRelatedBlocks\(/);
   assert.match(syncSource, /await getPublishedArticle\(slug\)/);
   assert.match(syncSource, /articleHref\(published\)/);
+});
+
+
+// ARTICLE-NOTION-SEO-1: the Notion source already owns all eight SEO columns.
+// A spelling drift must not create a second "OG description" column.
+test("article SEO property contract maps all eight Admin fields to the existing Notion schema", async () => {
+  const { ARTICLE_NOTION_SEO_PROPERTIES: fields } = await import("../lib/notion-article-seo-properties.ts");
+  assert.deepEqual(Object.keys(fields).sort(), [
+    "seoTitle", "metaDescription", "focusKeyword", "canonicalUrl",
+    "noindex", "ogTitle", "ogDescription", "ogImageUrl",
+  ].sort());
+  assert.deepEqual(Object.values(fields).map((field) => [field.name, field.type]), [
+    ["SEO title", "rich_text"],
+    ["Meta description", "rich_text"],
+    ["Hlavné kľúčové slovo", "rich_text"],
+    ["Canonical URL", "url"],
+    ["Noindex", "checkbox"],
+    ["OG title", "rich_text"],
+    ["OG popis", "rich_text"],
+    ["OG obrázok", "url"],
+  ]);
+  assert.equal(new Set(Object.values(fields).map(({ name }) => name)).size, 8);
+});
+
+test("article editorial draft writer uses existing OG popis and the shared SEO contract", async () => {
+  const source = await readFile(new URL("../lib/notion-article-content-plan.ts", import.meta.url), "utf8");
+  assert.match(source, /SEO\.ogDescription\.name in pageProperties/);
+  assert.match(source, /SEO\.ogTitle\.name in pageProperties/);
+  assert.doesNotMatch(source, /"OG description" in pageProperties/);
+  assert.match(syncSource, /articleSeoFromNotion\(page, existing, confirmedPrevious\)/);
+  assert.match(syncSource, /\.\.\.seoFields/);
+});
+
+test("legacy Ready error retry only acknowledges identical published article content", () => {
+  assert.match(syncSource, /MAX_LEGACY_READY_RECEIPTS_PER_SWEEP = 30/);
+  assert.match(syncSource, /property: "Odoslať na Psipedia", checkbox: \{ equals: false \}/);
+  assert.match(syncSource, /property: "Psipedia ID", rich_text: \{ is_not_empty: true \}/);
+  assert.match(syncSource, /contains: "Prepojený článok už nie je Draft"/);
+  assert.match(syncSource, /if \(legacyUnapprovedReady && \(!mapping \|\| mappedExisting\?\.status !== "published"\)\)/);
+  assert.match(syncSource, /ARTICLE_LEGACY_READY_IDENTITY_REVIEW_REQUIRED/);
+  assert.match(syncSource, /decodeArticleSeoReceipt\(mapping\.content_hash\)\.hash !== contentHash/);
+  assert.match(syncSource, /ARTICLE_LEGACY_READY_CONTENT_REVIEW_REQUIRED/);
+  assert.match(syncSource, /ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION/);
+  assert.match(syncSource, /if \(legacyUnapprovedReady\) \{[\s\S]*?await updateNotionSyncState\(bindings, page\.id, \{/);
+  assert.match(syncSource, /state: "Synchronizované", articleId: existing\.id, syncedAt: now/);
 });

@@ -14,10 +14,12 @@ import {
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { articleBlockImageKeys } from "@/lib/article-blocks";
 import { orphanedArticleMediaKeys } from "@/lib/article-media-key-preservation";
+import { articleSeoChangedFields } from "@/lib/notion-article-seo-writeback";
 import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 import {
   writeBackPublishedArticleToNotion,
   writeBackDraftArticleContentToNotion,
+  writeBackArticleSeoToNotion,
   type NotionSyncBindings,
 } from "@/lib/notion-article-sync";
 
@@ -132,30 +134,55 @@ export async function PUT(request: Request, { params }: RouteProps) {
       }
     }
 
-    // Local draft save is canonical even when Notion rejects or times out.
-    // Return a safe, machine-readable status so the editor can distinguish
-    // a saved draft from an acknowledged Notion writeback. Never forward the
-    // raw Notion API error body or token to the browser or logs.
-    let notionEditorialWriteback: { status: string; code?: string } | undefined;
-    if (before.status === "draft" && article.status === "draft") {
-      try {
-        const bindings = env as unknown as ArticleRouteBindings;
-        if (bindings.DB) {
-          const result = await writeBackDraftArticleContentToNotion({
-            database: bindings.DB,
-            bindings,
-            article,
-          });
+    // Local save is canonical even if an independently patched SEO field
+    // cannot be echoed by Notion. Report the remote result rather than
+    // silently claiming both systems are synchronized.
+    let notionEditorialWriteback: { status: string; code?: string; fields?: string[] } | undefined;
+    const bindings = env as unknown as ArticleRouteBindings;
+    if (bindings.DB) {
+      const report = (result: { updated: boolean; reason?: string; failedFields?: Array<{ field: string; code: string }> }) => {
+        if (notionEditorialWriteback?.status === "blocked" ||
+            notionEditorialWriteback?.status === "partial") return;
+        if (result.reason === "partial") {
           notionEditorialWriteback = {
-            status: result.updated ? "synced" : (result.reason ?? "unchanged"),
+            status: "partial", code: "NOTION_ARTICLE_SEO_PARTIAL",
+            fields: result.failedFields?.map(failure => failure.field),
           };
+          return;
         }
-      } catch (error) {
+        notionEditorialWriteback = {
+          status: result.updated || notionEditorialWriteback?.status === "synced"
+            ? "synced" : (result.reason ?? "unchanged"),
+        };
+      };
+      const reportError = (error: unknown, event: string) => {
         const raw = error instanceof Error ? error.message : "";
         const code = /^(?:NOTION_|ADMIN_|UNSUPPORTED_|MISSING_NOTION_PROPERTY_)[A-Z0-9_]+$/.test(raw)
           ? raw : "REMOTE_WRITEBACK_FAILED";
         notionEditorialWriteback = { status: "blocked", code };
-        console.error("notion_article_editorial_writeback_failed", { articleId: article.id, code });
+        console.error(event, { articleId: article.id, code });
+      };
+      // Only changed SEO properties are sent, for BOTH drafts and published
+      // articles. They run before draft body writeback so its Notion hash
+      // baseline reflects already-acknowledged SEO changes.
+      if (articleSeoChangedFields(before, article).length > 0) {
+        try {
+          report(await writeBackArticleSeoToNotion({
+            database: bindings.DB, bindings, before, article,
+          }));
+        } catch (error) {
+          reportError(error, "notion_article_seo_writeback_failed");
+        }
+      }
+      if (before.status === "draft" && article.status === "draft" &&
+          notionEditorialWriteback?.status !== "partial") {
+        try {
+          report(await writeBackDraftArticleContentToNotion({
+            database: bindings.DB, bindings, article,
+          }));
+        } catch (error) {
+          reportError(error, "notion_article_editorial_writeback_failed");
+        }
       }
     }
 
