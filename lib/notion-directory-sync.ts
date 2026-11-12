@@ -1636,7 +1636,14 @@ async function syncBreederEvent(input: {
     for (const id of facetFields) {
       const def = getDirectoryFilterDefinition(id);
       if (!def) continue;
-      const selected = propertyText(page, breederFacetNotionProperties[id]);
+      const key = breederFacetNotionProperties[id];
+      // The key itself must exist on the fetched Notion page: a missing
+      // property is not an explicit blank and may never delete D1 data.
+      if (!key || !Object.hasOwn(page.properties ?? {}, key)) {
+        failures.push(id);
+        continue;
+      }
+      const selected = propertyText(page, key);
       const normalized = selected
         ? normalizeDirectoryFilterValue(def, notionFacetSourceValue(selected)) : null;
       // A signed blank select clears only this one structured value; it never
