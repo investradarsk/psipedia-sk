@@ -328,6 +328,10 @@
       "coverage": "live-preview"
     },
     {
+      "path": "components/lazy-back-to-top.tsx",
+      "coverage": "nonvisual"
+    },
+    {
       "path": "components/lazy-dog-age-calculator.tsx",
       "coverage": "needs-preview"
     },

@@ -3,10 +3,8 @@
  * independently. A successful D1 response must never be presented as a
  * verified Notion write when its mirror outcome is missing or uncertain.
  */
-export type ServiceChoiceNotionProjection="updated"|"unchanged"|"deferred";
 export type ServiceChoiceNotionFieldSync="disabled"|"unlinked"|"synced"|"unchanged"|"pending";
 export type ServiceChoiceSyncOutcome=Readonly<{
-  notionProjection?:ServiceChoiceNotionProjection;
   notionFieldSync?:ServiceChoiceNotionFieldSync;
   warning?:string;
 }>;
@@ -25,8 +23,7 @@ export function summarizeServiceChoiceSync(outcomes:readonly ServiceChoiceSyncOu
   let confirmedCount=0,unchangedCount=0,pendingCount=0,unlinkedCount=0,disabledCount=0;
   for(const outcome of outcomes){
     // Missing fields from a stale or partial API response are not proof of sync.
-    // A failed local legacy projection also invalidates a remote success claim.
-    const state=outcome.notionProjection==="deferred"?"pending":outcome.notionFieldSync??"pending";
+    const state=outcome.notionFieldSync??"pending";
     switch(state){
       case "synced":confirmedCount++;break;
       case "unchanged":unchangedCount++;break;

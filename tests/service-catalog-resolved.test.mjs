@@ -6,9 +6,6 @@ import {serviceCatalog} from "../lib/service-catalog-contract.ts";
 import {
   resolveBuiltInServiceDefinitions,loadResolvedBuiltinServiceOverrides,loadResolvedServiceDefinitions,
 } from "../lib/service-catalog-resolved.ts";
-import {
-  projectServiceChoiceToDirectoryNotion,ensureCanonicalServiceChoicesInLegacy,
-} from "../lib/service-profile-notion-bridge.ts";
 import {canonicalPublicServiceOptions} from "../lib/service-catalog-public-service-filter.ts";
 
 const original=serviceCatalog.find(x=>x.id==="svc.vet.vaccination");
@@ -71,40 +68,6 @@ test("override is the single current source of labels, categories and historical
   assert.deepEqual(canonicalPublicServiceOptions("fyzioterapia",publicRows),[]);
  }finally{f.close();}
 });
-test("legacy Notion/public text is renamed in-place without duplicating old or unrelated names",async()=>{
- const f=fixture();
- try{
-  setOverride(f.sqlite);
-  const updated=await ensureCanonicalServiceChoicesInLegacy(f.db,1,[original.id]);
-  assert.equal(updated,1);
-  let services=JSON.parse(f.sqlite.prepare("SELECT services_json FROM directory_profiles WHERE id=1").get().services_json);
-  assert.deepEqual(services,["Očkovanie psov","Historický marketingový text"]);
-  assert.equal(await ensureCanonicalServiceChoicesInLegacy(f.db,1,[original.id]),0);
-  const removed=await projectServiceChoiceToDirectoryNotion(f.db,1,original.id,"unknown");
-  assert.equal(removed,"updated");
-  services=JSON.parse(f.sqlite.prepare("SELECT services_json FROM directory_profiles WHERE id=1").get().services_json);
-  assert.deepEqual(services,["Historický marketingový text"]);
-  assert.equal(await projectServiceChoiceToDirectoryNotion(f.db,1,original.id,"yes"),"updated");
-  services=JSON.parse(f.sqlite.prepare("SELECT services_json FROM directory_profiles WHERE id=1").get().services_json);
-  assert.deepEqual(services,["Historický marketingový text","Očkovanie psov"]);
- }finally{f.close();}
-});
-test("ambiguous historical alias never deletes unrelated text or binds to a guessed service",async()=>{
- const f=fixture();
- try{
-  setOverride(f.sqlite);
-  f.sqlite.prepare("UPDATE service_catalog_admin_options SET label='Vakcinácia' WHERE id=?")
-    .run(dynamicId);
-  f.sqlite.prepare("UPDATE directory_profiles SET services_json=? WHERE id=1")
-    .run(JSON.stringify(["Vakcinácia","Historický marketingový text"]));
-  assert.equal(await ensureCanonicalServiceChoicesInLegacy(f.db,1,[original.id]),1);
-  let services=JSON.parse(f.sqlite.prepare("SELECT services_json FROM directory_profiles WHERE id=1").get().services_json);
-  assert.deepEqual(services,["Vakcinácia","Historický marketingový text","Očkovanie psov"]);
-  assert.equal(await projectServiceChoiceToDirectoryNotion(f.db,1,original.id,"unknown"),"updated");
-  services=JSON.parse(f.sqlite.prepare("SELECT services_json FROM directory_profiles WHERE id=1").get().services_json);
-  assert.deepEqual(services,["Vakcinácia","Historický marketingový text"]);
- }finally{f.close();}
-});
 test("code-first deployment without 0149 uses original canonical services",async()=>{
  const f=fixture({withOverrideTable:false});
  try{
@@ -122,14 +85,13 @@ test("invalid override categories fail visibly instead of silently changing elig
   await assert.rejects(()=>loadResolvedServiceDefinitions(f.db,"veterinari"),/SERVICE_CATALOG_INVALID_CATEGORIES/);
  }finally{f.close();}
 });
-test("Notion relations and textual bridge use the same effective definitions as Admin",()=>{
+test("Notion relations resolve the same catalog as Admin without projecting legacy text",()=>{
  const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
  const relation=read("lib/service-catalog-notion-relations.ts");
- const bridge=read("lib/service-profile-notion-bridge.ts");
  const admin=read("lib/service-catalog-admin-editor-view.ts");
  const sync=read("lib/service-catalog-simple-sync.ts");
  assert.match(relation,/loadResolvedServiceDefinitions\(db,category\)/);
- assert.match(bridge,/return loadResolvedServiceDefinitions\(db,category\)/);
+ assert.doesNotMatch(relation,/projectServiceChoiceToDirectoryNotion|ensureCanonicalServiceChoicesInLegacy|reflectPublicServiceText/);
  assert.match(admin,/resolveBuiltInServiceDefinitions\(overrides\)/);
  assert.match(sync,/loadResolvedBuiltinServiceOverrides\(db\)/);
  assert.match(sync,/if\(row.source==="built_in"\)throw Error\("BUILTIN_NOTION_PAGE_MISSING"\)/);

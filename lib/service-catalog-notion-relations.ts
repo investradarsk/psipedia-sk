@@ -11,7 +11,7 @@
 import {notionRequest,type NotionSyncBindings} from "./notion-sync-shared";
 import {planCatalogRelationSync,planSignedCatalogRelationSync} from "./service-catalog-notion-relation-plan";
 import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
-import {importNotionServiceIds,projectServiceChoiceToDirectoryNotion,ensureCanonicalServiceChoicesInLegacy} from "./service-profile-notion-bridge";
+import {importNotionServiceIds} from "./service-profile-notion-bridge";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port";
 import {notionPageBelongsToDataSource} from "./notion-sync-page-ownership";
 
@@ -103,48 +103,7 @@ async function readRemote(bindings:NotionSyncBindings,pageId:string,expectedDire
     throw Error("SERVICES_PROFILE_NOTION_SOURCE_CHANGED");
   return p;
 }
-/**
- * The public page reads directory_profiles.services_json, while the Notion
- * "Služby" text is its editorial mirror. Reflect only this specific property
- * after a verified service-selection import; never PATCH unrelated fields.
- */
-async function reflectPublicServiceText(
-  db:D1Database,bindings:NotionSyncBindings,pageId:string,profileId:number,
-  directoryDataSourceId:string,
-){
-  const row=await db.prepare(
-    "SELECT services_json FROM directory_profiles WHERE id=?1 LIMIT 1"
-  ).bind(profileId).first<{services_json:string|null}>();
-  if(!row)throw Error("SERVICES_PROFILE_NOT_FOUND");
-  let values:unknown;
-  try{values=JSON.parse(row.services_json??"[]");}
-  catch{throw Error("INVALID_LEGACY_SERVICES_JSON");}
-  if(!Array.isArray(values)||!values.every(v=>typeof v==="string"))
-    throw Error("INVALID_LEGACY_SERVICES_JSON");
-  const target=(values as string[]).join("\n");
-  if(target.length>30000)throw Error("SERVICES_LEGACY_TEXT_TOO_LONG");
-  const latest=await readRemote(bindings,pageId,directoryDataSourceId);
-  const prop=latest.properties?.["Služby"] as {
-    rich_text?:Array<{plain_text?:string;text?:{content?:string}}>
-  }|undefined;
-  if(!Array.isArray(prop?.rich_text))throw Error("SERVICES_LEGACY_TEXT_PROPERTY_MISSING");
-  const text=prop.rich_text.map(v=>v.plain_text??v.text?.content??"").join("").replace(/\r\n?/g,"\n").trim();
-  if(text===target)return;
-  const rich_text=(target.match(/[\s\S]{1,1800}/g)??[]).map(content=>
-    ({type:"text",text:{content}}));
-  const written=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId),{
-    method:"PATCH",body:JSON.stringify({properties:{"Služby":{type:"rich_text",rich_text}}})
-  },{retryTransient:false});
-  if(normal(written.id??"")!==normal(pageId))
-    throw Error("SERVICES_LEGACY_TEXT_WRITE_UNCERTAIN");
-  const observed=await readRemote(bindings,pageId,directoryDataSourceId);
-  const items=(observed.properties?.["Služby"] as {
-    rich_text?:Array<{plain_text?:string;text?:{content?:string}}>
-  }|undefined)?.rich_text??[];
-  if(items.map(v=>v.plain_text??v.text?.content??"").join("").replace(/\r\n?/g,"\n").trim()!==target)
-    throw Error("SERVICES_LEGACY_TEXT_WRITE_NOT_VERIFIED");
-}
-
+/** Canonical relations never write the legacy "Služby" text. */
 export async function syncProfileCatalogRelation(input:{
  db:D1Database;bindings:NotionSyncBindings;pageId:string;profileId:number;category:string;
  directoryDataSourceId:string;lookup:CatalogRelationLookup;
@@ -198,13 +157,7 @@ export async function syncProfileCatalogRelation(input:{
    const currentLocal=await canonicalYes(db,profileId,available);
    if(JSON.stringify(currentLocal)!==JSON.stringify(local))
      throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_IMPORT");
-   const before=new Set(local);
    await importNotionServiceIds(db,profileId,category,plan.target);
-   const after=new Set(await canonicalYes(db,profileId,available));
-   for(const id of new Set([...before,...after])){
-     if(before.has(id)===after.has(id))continue;
-     await projectServiceChoiceToDirectoryNotion(db,profileId,id,after.has(id)?"yes":"unknown");
-   }
    const confirmed=await canonicalYes(db,profileId,available);
    if(JSON.stringify(confirmed)!==JSON.stringify([...plan.target].sort()))
      throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
@@ -226,9 +179,7 @@ export async function syncProfileCatalogRelation(input:{
    if(JSON.stringify(observed?.sort())!==JSON.stringify(pages.map(x=>x.id).sort()))
      throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
  }
- await ensureCanonicalServiceChoicesInLegacy(db,profileId,await canonicalYes(db,profileId,available));
- if(plan.action==="pull"||plan.action==="merge"||input.notionExplicitEdit)
-   await reflectPublicServiceText(db,bindings,pageId,profileId,directoryDataSourceId);
+ // Legacy editorial services are separate; relation reconciliation does not edit them.
  // Do not commit a baseline if the remote relation changed while reconciling.
  const finalRelation=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
  const targetPages=plan.target.map(id=>lookup.serviceToPage.get(id)!);

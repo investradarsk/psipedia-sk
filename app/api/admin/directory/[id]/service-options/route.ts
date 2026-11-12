@@ -1,7 +1,6 @@
 import {env} from "cloudflare:workers";
 import {requireAdminMutation} from "@/lib/admin-auth";
 import {saveAdminServiceChoice,resetAdminServiceChoice,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError,requireServiceCatalogAuditSchema} from "@/lib/service-catalog-admin-store";
-import {projectServiceChoiceToDirectoryNotion} from "@/lib/service-profile-notion-bridge";
 import {runNotionDirectorySyncSweep, type NotionDirectorySyncBindings} from "@/lib/notion-directory-sync";
 export const dynamic="force-dynamic";
 type Bindings=NotionDirectorySyncBindings & {DB?:D1Database;SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;SERVICE_CATALOG_NOTION_MIRROR_READY?:string;NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?:string};
@@ -27,14 +26,6 @@ export async function PATCH(request:Request,{params}:Props){
     const selection=input.choice==="unknown"
       ?await resetAdminServiceChoice(cfg.DB,{profileId,optionId:input.optionId,expectedVersion:input.expectedVersion},auth.user!.email)
       :await saveAdminServiceChoice(cfg.DB,{profileId,optionId:input.optionId,choice:input.choice,expectedVersion:input.expectedVersion},auth.user!.email);
-    // Reuse the already connected bidirectional Directory "Služby" property.
-    // Canonical choice save is complete; make partial projection failure explicit.
-    let notionProjection:"updated"|"unchanged"|"deferred"="unchanged";
-    try{
-      notionProjection=await projectServiceChoiceToDirectoryNotion(cfg.DB,profileId,input.optionId,input.choice);
-    }catch{
-      notionProjection="deferred";
-    }
     // The canonical choice is already saved. Reconcile ONLY this linked
     // Directory profile and its Services V3 Notion relation immediately.
     // A remote failure must not roll back the user's saved D1 selection.
@@ -54,18 +45,15 @@ export async function PATCH(request:Request,{params}:Props){
         notionFieldSync="pending";
       }
     }
-    if(notionProjection==="deferred"&&notionFieldSync!=="disabled")notionFieldSync="pending";
     // HTTP 200 acknowledges only the committed D1 choice. Never hide an
     // unavailable, unlinked or disabled Notion writer behind a success toast.
-    const needsReview=notionProjection==="deferred"||["pending","unlinked","disabled"].includes(notionFieldSync);
-    const warning=notionProjection==="deferred"
-      ?"Výber je uložený v Psipedii, ale prenos textových služieb do Notionu vyžaduje kontrolu."
-      :notionFieldSync==="disabled"
-        ?"Výber je uložený v Psipedii, ale automatický prenos do Notionu je vypnutý."
+    const needsReview=["pending","unlinked","disabled"].includes(notionFieldSync);
+    const warning=notionFieldSync==="disabled"
+      ?"Výber V3 je uložený v Psipedii, ale synchronizácia katalógovej relácie do Notionu je vypnutá."
       :notionFieldSync==="unlinked"
-        ?"Výber je uložený v Psipedii, ale profil zatiaľ nemá potvrdené prepojenie s Notionom."
-      :"Výber je uložený v Psipedii, ale potvrdenie prenosu do Notionu vyžaduje kontrolu.";
-    return Response.json({selection,notionProjection,notionFieldSync,
+        ?"Výber V3 je uložený v Psipedii, ale profil zatiaľ nemá potvrdené prepojenie s Notionom."
+        :"Výber V3 je uložený v Psipedii, ale potvrdenie prenosu katalógovej relácie do Notionu vyžaduje kontrolu.";
+    return Response.json({selection,notionFieldSync,
       ...(needsReview?{warning}:{})});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Selection failed."},

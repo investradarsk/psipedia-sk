@@ -1,61 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { ensureCanonicalServiceChoicesInLegacy } from "../lib/service-profile-notion-bridge.ts";
 import { readTrainerServicesText, isDirectoryInternalMetadataKey,
   TRAINER_SERVICES_TEXT_METADATA_KEY, TRAINER_BREED_IDS_METADATA_KEY,
   TRAINER_CLUB_IDS_METADATA_KEY } from "../lib/directory-profile-metadata.ts";
 import { getBreederRelationSelection } from "../lib/breeder-profile-relations.ts";
-
-test("RSDC: canonical YES choices fill missing public labels without duplicate aliases", async () => {
-  const profile = {
-    id: 543, category: "treneri", updated_at: "2026-11-06T00:00:00Z",
-    services_json: JSON.stringify([
-      "základná poslušnosť", "agility", "obedience",
-      "dogfrisbee", "dogdancing", "show handling",
-    ]),
-  };
-  const db = {
-    prepare(sql) {
-      const statement = {
-        async all() {
-          assert.match(sql, /service_catalog_(?:admin_options|builtin_overrides)/);
-          return { results: [] };
-        },
-        bind(...params) {
-          return {
-            async first() {
-              if (sql.startsWith("SELECT id,category,services_json")) return { ...profile };
-              if (sql.startsWith("UPDATE directory_profiles")) {
-                assert.equal(params[2], 543);
-                assert.equal(params[3], profile.services_json);
-                profile.services_json = params[0];
-                profile.updated_at = params[1];
-                return { id: 543 };
-              }
-              throw new Error("Unexpected SQL: " + sql);
-            },
-          };
-        },
-      };
-      return statement;
-    },
-  };
-  const selections = [
-    "svc.training.basic_obedience", "svc.training.agility",
-    "svc.training.obedience", "svc.training.dogfrisbee",
-    "svc.training.dogdancing", "svc.training.show_handling",
-    "svc.training.socialization", "svc.training.rally_obedience",
-  ];
-  // Six original aliases are normalized in place; two absent services added.
-  assert.equal(await ensureCanonicalServiceChoicesInLegacy(db, 543, selections), 8);
-  assert.deepEqual(JSON.parse(profile.services_json), [
-    "Základná poslušnosť", "Tréning agility", "Obedience",
-    "Dogfrisbee", "Dogdancing", "Výstavný handling",
-    "Socializačné tréningy", "Rally obedience",
-  ]);
-  assert.equal(await ensureCanonicalServiceChoicesInLegacy(db, 543, selections), 0);
-});
 
 test("trainer Notion webhook and Admin PUT reuse field events without bulk profile reconciliation", async () => {
   const directory = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
@@ -93,7 +42,7 @@ test("signed Notion catalog changes use verified baseline, IDs and relation read
  assert.match(relation,/SERVICES_RELATION_UNVERIFIED_DELETE/);
  assert.match(relation,/SERVICES_RELATION_CHANGED_BEFORE_IMPORT/);
  assert.match(relation,/importNotionServiceIds\(db,profileId,category,plan\.target\)/);
- assert.match(relation,/ensureCanonicalServiceChoicesInLegacy\(db,profileId,await canonicalYes/);
+ assert.doesNotMatch(relation,/ensureCanonicalServiceChoicesInLegacy|projectServiceChoiceToDirectoryNotion|reflectPublicServiceText/);
  assert.match(relation,/SERVICES_RELATION_WRITE_NOT_VERIFIED/);
  assert.match(relation,/syncProfileCatalogRelation/);
 });
