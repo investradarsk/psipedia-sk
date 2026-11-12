@@ -49,7 +49,7 @@ export type AdminRecordTableSelection<T> = {
 // updates. All Admin list pages have bounded server pagination.
 const coreRowModel = getCoreRowModel();
 const clientSortedRowModel = getSortedRowModel();
-const recordRowId = <T extends { id: number }>(record: T) => String(record.id);
+function recordRowId<T extends { id: number }>(record: T) { return String(record.id); }
 
 /** Read-first grid; optional selection delegates writes to the domain's existing bulk API. */
 export function AdminRecordTable<T extends { id: number }>({
