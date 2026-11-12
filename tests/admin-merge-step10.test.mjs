@@ -22,7 +22,9 @@ test("Services V3 keeps newest Notion sync feedback and the shared dirty-form gu
 test("mobile and desktop navigation effects clean up with void-returning callbacks", () => {
   const navigation = read("components/admin-navigation.tsx");
   const header = read("components/site-header.tsx");
-  assert.match(navigation, /onInvalidate: \(\) => \{ prefetched\.current\.delete\(href\); \}/);
+  assert.match(navigation, /router\.prefetch\(href\)/);
+  assert.match(navigation, /prefetched\.current\.clear\(\)/);
+  assert.doesNotMatch(navigation, /onInvalidate:/);
   assert.match(navigation, /return \(\) => \{ element\?\.removeAttribute\("data-admin-hydrated"\); \}/);
   assert.match(header, /return \(\) => \{ trigger\.removeAttribute\("data-search-ready"\); \}/);
   assert.match(header, /const menuElement = menu;/);
