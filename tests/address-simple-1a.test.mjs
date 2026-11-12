@@ -523,8 +523,8 @@ test("ADDRESS-SIMPLE-1A endpoint, editor and save flow preserve server authority
   assert.match(autocomplete, /selectedStreet/);
   assert.match(editor, /addressProviderResultId/);
   assert.match(editor, /confirmServiceAddress: false/);
-  assert.match(editor, /readOnly/);
-  assert.doesNotMatch(editor, /setStreet\(event\.target\.value\)/);
+  assert.match(editor, /id="directory-street" type="text"/);
+  assert.match(editor, /setStreet\(event\.target\.value\)/);
   assert.match(editor, /setHouseNumber\(event\.target\.value\)/);
   assert.match(editor, /selectedStreet=\{street\}/);
   assert.doesNotMatch(editor, /latitude|longitude/);

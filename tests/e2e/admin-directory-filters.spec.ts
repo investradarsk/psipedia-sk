@@ -282,8 +282,7 @@ test.describe("admin directory v2", () => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar/novy");
     await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
-    // Trainers intentionally retain raw editorial phone text without blocking.
-    // Exercise strict phone validation using a category with that contract.
+    // All Directory categories accept editorial phone/email/link text as-is.
     await page.getByLabel("Kategória").selectOption("salony-a-sluzby");
 
     await page.getByLabel("Názov profilu").fill("Directory Admin Created Fixture");
@@ -293,16 +292,18 @@ test.describe("admin directory v2", () => {
     await expect(page.getByLabel("Služby aj online")).toHaveCount(0);
     await openDirectoryEditorSection(page, "Kontakty");
     await page.getByLabel("Verejný telefón").fill("neplatny-telefon");
-    await page.getByRole("button", { name: "Publikovať profil" }).click();
-    await expect(page.getByRole("alert")).toContainText("Telefónne číslo nie je platné.");
-
-    await page.getByLabel("Verejný telefón").fill("+421 900 555 666");
+    await page.getByLabel("Verejný e-mail").fill("to nie je email");
+    await page.getByLabel("Verejný web").fill("neúplný web");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await page.waitForURL(/\/admin\/adresar\/\d+\?vytvorene=1/);
     const id = Number(page.url().match(/\/admin\/adresar\/(\d+)/)?.[1]);
     const api = await page.request.get(`/api/admin/directory/${id}`);
     expect(api.ok()).toBeTruthy();
-    expect((await api.json()).profile.status).toBe("draft");
+    const savedProfile = (await api.json()).profile;
+    expect(savedProfile.status).toBe("draft");
+    expect(savedProfile.importData["Telefón"]).toBe("neplatny-telefon");
+    expect(savedProfile.importData["E-mail"]).toBe("to nie je email");
+    expect(savedProfile.websiteUrl).toBe("neúplný web");
     // APIRequestContext does not set browser Origin automatically; preserve strict CSRF provenance.
     const cleanup = await page.request.delete(`/api/admin/directory/${id}`, {
       headers: { Origin: new URL(page.url()).origin },

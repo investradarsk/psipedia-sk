@@ -183,8 +183,9 @@ export async function PUT(request: Request, { params }: Props) {
     const fieldPreserved = editedPaths
       ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
       : safeSubmittedBody;
-    // Each optional contact is independent. Bad legacy links must not make
-    // a different field unsavable, and an explicit empty URL is a valid clear.
+    // Directory editorial contact values are raw text. Never validate, delete
+    // or normalize an entered email, phone, website or social link in this save.
+    // Public renderers decide separately whether a value is a clickable link.
     const safeOptionalFields = { ...fieldPreserved };
     // Preserve explicit clears even if a stale whole-form baseline carried
     // old contact aliases. This is a narrow authenticated field-level override.
@@ -192,28 +193,8 @@ export async function PUT(request: Request, { params }: Props) {
       if (field === "websiteUrl") safeOptionalFields.websiteUrl = null;
       else (safeOptionalFields as Record<string, unknown>)[field] = "";
     }
+    // No contact-format warnings or destructive edits: text is stored as entered.
     const optionalWarnings: string[] = [];
-    for (const key of ["websiteUrl", "facebookUrl", "instagramUrl"] as const) {
-      const text = safeOptionalFields[key];
-      if (typeof text !== "string" || !text.trim()) continue;
-      let valid = false;
-      try {
-        const url = new URL(text.trim());
-        valid = url.protocol === "https:" || url.protocol === "http:";
-      } catch { /* Only a warning: preserve other edited fields. */ }
-      if (valid) continue;
-      if (key === "websiteUrl") safeOptionalFields.websiteUrl = null;
-      else if (key === "facebookUrl") safeOptionalFields.facebookUrl = "";
-      else safeOptionalFields.instagramUrl = "";
-      optionalWarnings.push("Neplatný nepovinný odkaz bol vynechaný: " + key);
-    }
-    if (typeof safeOptionalFields.publicEmail === "string" &&
-        safeOptionalFields.publicEmail.trim() &&
-        (safeOptionalFields.publicEmail.length > 254 ||
-         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeOptionalFields.publicEmail.trim()))) {
-      safeOptionalFields.publicEmail = "";
-      optionalWarnings.push("Neplatný nepovinný e-mail bol vynechaný");
-    }
     // Trainer Notion prose is stored separately from Services V3; a stale
     // editor cannot change the canonical service choices. Pilot categories
     // likewise retain the Services V3-only editing contract.
@@ -543,17 +524,10 @@ export async function PUT(request: Request, { params }: Props) {
     // Salons and every other Directory category use the same contract:
     // a successful save must be backed by all expressly edited D1 fields,
     // not just Perex and Popis. Verify after Notion and metadata side-effects.
-    // Optional invalid contact values are intentionally sanitized with a
-    // visible warning, not a full-form blocker.
-    const sanitizedOptionalPaths = new Set<BreederEditorialField>();
-    for (const warning of optionalWarnings) {
-      for (const key of ["websiteUrl", "facebookUrl", "instagramUrl"] as const)
-        if (warning.includes(": " + key)) sanitizedOptionalPaths.add(key);
-      if (warning.includes("nepovinný e-mail")) sanitizedOptionalPaths.add("publicEmail");
-    }
+    // Every user-edited text field must be retained, including deliberately
+    // malformed contact strings. Do not exempt fields from D1 verification.
     const unconfirmedEditorial = directoryEditedFieldMismatches({
-      submitted: payload, persisted: saved,
-      editedPaths: (editedPaths ?? []).filter(path => !sanitizedOptionalPaths.has(path)),
+      submitted: payload, persisted: saved, editedPaths: editedPaths ?? [],
     });
     const unconfirmedTrust = trainerTrustEditedPaths.filter(field =>
       Boolean(saved[field]) !== Boolean(payload[field]),
