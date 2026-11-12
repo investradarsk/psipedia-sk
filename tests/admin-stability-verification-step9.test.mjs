@@ -126,7 +126,7 @@ test("the PR's regression workflow is read-only and contains no deploy secrets",
   const workflow = read(".github/workflows/admin-stability-regressions.yml");
   assert.match(workflow, /permissions:\s*\n\s*contents: read/);
   assert.match(workflow, /npm ci/);
-  assert.match(workflow, /npm run test:admin-stability-step9/);
+  assert.match(workflow, /npm run test:admin-stability-step10/);
   assert.match(workflow, /admin-type-regression-gate-step10\.mjs/);
   assert.match(workflow, /node_modules\/\.bin\/tsc.*--noEmit --pretty false --incremental false/);
   assert.match(workflow, /git worktree add --detach/);
