@@ -392,6 +392,6 @@ test("article editorial draft writer uses existing OG popis and the shared SEO c
   assert.match(source, /SEO\.ogDescription\.name in pageProperties/);
   assert.match(source, /SEO\.ogTitle\.name in pageProperties/);
   assert.doesNotMatch(source, /"OG description" in pageProperties/);
-  assert.match(syncSource, /articleSeoFromNotion\(page, existing\)/);
+  assert.match(syncSource, /articleSeoFromNotion\(page, existing, confirmedPrevious\)/);
   assert.match(syncSource, /\.\.\.seoFields/);
 });
