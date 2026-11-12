@@ -65,13 +65,13 @@ test("title, SEO, optional OG and explicit clearing are precise property PATCH c
   const a = article();
   const p = page();
   p["OG title"] = { rich_text: rich("SEO názov") };
-  p["OG description"] = { rich_text: rich("Pôvodný SEO opis článku.") };
+  p["OG popis"] = { rich_text: rich("Pôvodný SEO opis článku.") };
   a.title = "Nový názov";
   a.metaDescription = "";
   a.ogDescription = "Nový OG opis";
   const plan = build(a, originalBlocks(), p);
   assert.deepEqual(Object.keys(plan.properties).sort(),
-    ["Názov", "Meta description", "OG description"].sort());
+    ["Názov", "Meta description", "OG popis"].sort());
   assert.deepEqual(plan.properties["Meta description"].rich_text, []);
   assert.equal(plan.propertyBefore["Názov"], "Názov článku");
   assert.equal(plan.propertyAfter["Názov"], "Nový názov");
