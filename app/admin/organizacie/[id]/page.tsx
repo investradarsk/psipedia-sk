@@ -25,32 +25,29 @@ type Props = { params: Promise<{ id: string }> };
 
 /** A failed review lookup must not mark a record as unchecked. */
 async function OrganizationReviewAction({ organizationId }: { organizationId: number }) {
-  try {
-    const review = await getAdminEntityReview("ORGANIZATION", organizationId);
-    return <AdminReviewCheckbox entityType="ORGANIZATION" entityId={organizationId}
-      initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />;
-  } catch {
-    return <AdminOptionalReadError message="Stav redakčnej kontroly sa nepodarilo načítať." />;
-  }
+  const loaded = await getAdminEntityReview("ORGANIZATION", organizationId)
+    .then((review) => ({ review, failed: false as const }))
+    .catch(() => ({ review: null, failed: true as const }));
+  if (loaded.failed) return <AdminOptionalReadError message="Stav redakčnej kontroly sa nepodarilo načítať." />;
+  return <AdminReviewCheckbox entityType="ORGANIZATION" entityId={organizationId}
+    initialReviewed={loaded.review.reviewed} initialReviewedAt={loaded.review.reviewedAt} showDate />;
 }
 
 async function OrganizationDuplicateWarning({ organizationId }: { organizationId: number }) {
-  try {
-    const warning = await getCanonicalDraftDuplicateWarning("ORGANIZATION", organizationId);
-    return <AdminCanonicalDraftWarning warning={warning} />;
-  } catch {
-    return <AdminOptionalReadError message="Kontrola duplicít je dočasne nedostupná." />;
-  }
+  const loaded = await getCanonicalDraftDuplicateWarning("ORGANIZATION", organizationId)
+    .then((warning) => ({ warning, failed: false as const }))
+    .catch(() => ({ warning: null, failed: true as const }));
+  if (loaded.failed) return <AdminOptionalReadError message="Kontrola duplicít je dočasne nedostupná." />;
+  return <AdminCanonicalDraftWarning warning={loaded.warning} />;
 }
 
 /** Do not show an editable *empty* fundraising list if its source fails. */
 async function OrganizationFundraisingPanel({ organization }: { organization: OrganizationPublicationAdminItem }) {
-  try {
-    const methods = await listOrganizationFundraisingMethodsAdmin(organization.id);
-    return <AdminOrganizationFundraising organization={organization} initialMethods={methods} />;
-  } catch {
-    return <AdminOptionalReadError message="Fundraising sa nepodarilo načítať. Existujúce údaje zostávajú zachované, úpravy tohto panelu sú dočasne nedostupné." />;
-  }
+  const loaded = await listOrganizationFundraisingMethodsAdmin(organization.id)
+    .then((methods) => ({ methods, failed: false as const }))
+    .catch(() => ({ methods: null, failed: true as const }));
+  if (loaded.failed) return <AdminOptionalReadError message="Fundraising sa nepodarilo načítať. Existujúce údaje zostávajú zachované, úpravy tohto panelu sú dočasne nedostupné." />;
+  return <AdminOrganizationFundraising organization={organization} initialMethods={loaded.methods} />;
 }
 
 function organizationSuggestions(organizationId: number): Promise<OrganizationSuggestionsResult> {
