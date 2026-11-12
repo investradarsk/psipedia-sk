@@ -36,7 +36,10 @@ test("reviews hub separates editorial products, user service reviews and verifie
   assert.doesNotMatch(hub, /Čo chceš porovnať\?/);
   assert.match(hub, /<ArticleCard/);
   assert.match(hub, /portalSubpageHref\(section, category\)/);
-  assert.match(hub, /Najnovšie testy Psipedia/);
+  assert.match(hub, /Najnovšie články o produktoch/);
+  assert.match(hub, /productArticleKind\(article\)/);
+  assert.match(hub, /lizacia-podlozka-pre-psa-vyber-pouzivanie/);
+  assert.match(hub, /Čítať návod/);
   assert.match(hub, /Najnovšie recenzie služieb/);
   assert.match(hub, /Hodnotenia nákupnej skúsenosti/);
   assert.match(hub, /overený e-mail/);
