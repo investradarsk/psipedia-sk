@@ -57,3 +57,17 @@ test("breed reference stays outside the Vite CSS dependency graph", () => {
   assert.match(referenced, /\/\* Breed encyclopedia UI \*\//);
   assert.ok(referenced.length > 60_000);
 });
+
+test("scroll-to-top JS and its CSS are loaded only after the button becomes useful", () => {
+  const layout = read("app/layout.tsx");
+  const wrapper = read("components/lazy-back-to-top.tsx");
+  const widget = read("components/back-to-top.tsx");
+  assert.match(layout, /<LazyBackToTop \/>/);
+  assert.doesNotMatch(layout, /import \{ BackToTop \} from/);
+  assert.match(wrapper, /lazy\(async \(\) =>/);
+  assert.match(wrapper, /import\("\.\/back-to-top"\)/);
+  assert.match(wrapper, /window\.scrollY <= 480/);
+  assert.match(wrapper, /\{ passive: true \}/);
+  assert.match(wrapper, /activated \? \(/);
+  assert.match(widget, /aria-label="Späť hore"/);
+});
