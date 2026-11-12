@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { reconcileDirectorySubmittedTextFields } from "../lib/directory-editor-text-change-contract.ts";
+import { readDirectoryEditorTextForSave, reconcileDirectorySubmittedTextFields } from "../lib/directory-editor-text-change-contract.ts";
 
 const live = { excerpt: "Pôvodný perex", description: "Pôvodný popis" };
 
@@ -86,4 +86,61 @@ test("Lexical flushes its latest value on blur, before Save can read stale React
   assert.match(code, /addEventListener\("blur", commitOnBlur, true\)/);
   assert.match(code, /removeEventListener\("blur", commitOnBlur, true\)/);
   assert.match(code, /onChangeRef\.current\(next\)/);
+});
+
+
+test("last Lexical keystroke wins when React state has not rendered before Save", () => {
+  const staleReactValue = "Klub chovateľov dalmatínskych psov test";
+  const liveLexicalValue = staleReactValue + "2";
+  assert.equal(readDirectoryEditorTextForSave(staleReactValue, () => liveLexicalValue), liveLexicalValue);
+  // A deliberate empty string is a real deletion, not a fallback to old state.
+  assert.equal(readDirectoryEditorTextForSave(staleReactValue, () => ""), "");
+  assert.equal(readDirectoryEditorTextForSave(staleReactValue, null), staleReactValue);
+});
+
+test("explicitly edited Perex cannot overwrite a newer conflicting Notion revision", () => {
+  const result = reconcileDirectorySubmittedTextFields({
+    current: { ...live, excerpt: "Novší zápis z Notionu" },
+    submitted: { excerpt: "Môj dopísaný text", description: live.description },
+    original: live,
+    editedPaths: ["excerpt"],
+  });
+  assert.deepEqual(result.conflicts, ["excerpt"]);
+});
+
+test("same-value concurrent edit is safe and normal explicit Admin edits still save", () => {
+  const normal = reconcileDirectorySubmittedTextFields({
+    current: live,
+    submitted: { excerpt: live.excerpt + " aktualizácia", description: live.description },
+    original: live,
+    editedPaths: ["excerpt"],
+  });
+  assert.deepEqual(normal.conflicts, []);
+  assert.deepEqual(normal.editedPaths, ["excerpt"]);
+  const equal = reconcileDirectorySubmittedTextFields({
+    current: { ...live, excerpt: live.excerpt + " aktualizácia" },
+    submitted: { excerpt: live.excerpt + " aktualizácia" },
+    original: live,
+    editedPaths: ["excerpt"],
+  });
+  assert.deepEqual(equal.conflicts, []);
+});
+
+test("Directory Save reads committed Lexical content, posts it, and confirms the persisted D1 text", () => {
+  const editor = readFileSync("components/admin-directory-editor.tsx", "utf8");
+  const lexical = readFileSync("components/admin-lexical-text-field.tsx", "utf8");
+  const api = readFileSync("app/api/admin/directory/[id]/route.ts", "utf8");
+  assert.match(lexical, /const readCurrentText = \(\) => editor\.getEditorState\(\)\.read\(readPlainText\)/);
+  assert.match(lexical, /valueReaderRef\.current = readCurrentText/);
+  assert.match(lexical, /valueReaderRef\.current === readCurrentText/);
+  assert.match(editor, /valueReaderRef=\{excerptValueReaderRef\}/);
+  assert.match(editor, /valueReaderRef=\{descriptionValueReaderRef\}/);
+  assert.match(editor, /readDirectoryEditorTextForSave\(excerpt, excerptValueReaderRef\.current\)/);
+  assert.match(editor, /readDirectoryEditorTextForSave\(description, descriptionValueReaderRef\.current\)/);
+  assert.match(editor, /name, excerpt: submittedExcerpt, description: submittedDescription/);
+  assert.match(editor, /status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription/);
+  assert.match(editor, /textSaved\(savedProfile\[field\]\)/);
+  assert.match(editor, /throw new Error\("Zmena Perexu alebo Popisu sa nepotvrdila/);
+  assert.match(api, /expectedUpdatedAt: before\.updatedAt/);
+  assert.match(api, /status: 409, headers: \{ "cache-control": "no-store" \}/);
 });
