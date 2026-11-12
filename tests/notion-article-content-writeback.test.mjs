@@ -2,10 +2,23 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import {
+import ts from "typescript";
+
+// Node's native TypeScript stripping cannot resolve bundler-style extensionless
+// imports inside a directly imported .ts file. Execute the same production
+// source with its real SEO contract through an ESM data URL.
+const asUrl = source => "data:text/javascript;base64," + Buffer.from(source).toString("base64");
+const compile = async path => ts.transpileModule(
+  await readFile(new URL(path, import.meta.url), "utf8"),
+  { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } },
+).outputText;
+const seoUrl = asUrl(await compile("../lib/notion-article-seo-properties.ts"));
+const contentPlanSource = (await compile("../lib/notion-article-content-plan.ts"))
+  .replace('from "./notion-article-seo-properties"', 'from "' + seoUrl + '"');
+const {
   buildNotionEditorialPlan, EditorialSyncConflict,
   notionEditorialBlockShape, notionEditorialPropertyText,
-} from "../lib/notion-article-content-plan.ts";
+} = await import(asUrl(contentPlanSource));
 
 const rich = (value, bold = false) => value
   ? [{ type: "text", plain_text: value, text: { content: value },
@@ -65,13 +78,13 @@ test("title, SEO, optional OG and explicit clearing are precise property PATCH c
   const a = article();
   const p = page();
   p["OG title"] = { rich_text: rich("SEO názov") };
-  p["OG description"] = { rich_text: rich("Pôvodný SEO opis článku.") };
+  p["OG popis"] = { rich_text: rich("Pôvodný SEO opis článku.") };
   a.title = "Nový názov";
   a.metaDescription = "";
   a.ogDescription = "Nový OG opis";
   const plan = build(a, originalBlocks(), p);
   assert.deepEqual(Object.keys(plan.properties).sort(),
-    ["Názov", "Meta description", "OG description"].sort());
+    ["Názov", "Meta description", "OG popis"].sort());
   assert.deepEqual(plan.properties["Meta description"].rich_text, []);
   assert.equal(plan.propertyBefore["Názov"], "Názov článku");
   assert.equal(plan.propertyAfter["Názov"], "Nový názov");
