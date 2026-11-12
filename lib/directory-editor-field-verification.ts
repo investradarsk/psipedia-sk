@@ -1,7 +1,7 @@
 import type { ManagedDirectoryProfile } from "@/lib/directory";
 import type { ManagedDirectoryProfileInput } from "@/lib/directory-store";
-import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
-import { breederReadPath, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
+import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { breederReadPath, type BreederEditorialField } from "./notion-breeder-field-events.ts";
 
 /**
  * Canonical Directory PUT save receipt, shared by all ten categories.
