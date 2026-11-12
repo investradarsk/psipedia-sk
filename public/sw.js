@@ -66,7 +66,11 @@ self.addEventListener("notificationclick", (event) => {
     const matching = windows.find((client) => client.url === target);
     if (matching) return matching.focus();
     if (existing) {
-      existing.postMessage({ type: "psipedia-admin-push-intent", url: path });
+      try {
+        existing.postMessage({ type: "psipedia-admin-push-intent", url: path });
+      } catch (error) {
+        console.warn("Admin notification intent could not be delivered.", error);
+      }
       return existing.focus();
     }
     return self.clients.openWindow(target);
