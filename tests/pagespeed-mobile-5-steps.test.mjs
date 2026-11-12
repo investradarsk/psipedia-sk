@@ -14,7 +14,7 @@ test("homepage reserves visible layout while editorial sections stream", () => {
   assert.match(css, /\.homeStreamFallback\s*\{[\s\S]*?min-height: max\(150vh, 1040px\)/);
   assert.match(css, /@media \(max-width: 700px\)[\s\S]*?\.homeStreamFallback\s*\{[\s\S]*?min-height: max\(185vh, 1600px\)/);
   // Avoid replacing the streamed content with a fixed-height box.
-  assert.doesNotMatch(css, /\.homeStreamFallback\s*\{[^}]*height:/);
+  assert.doesNotMatch(css, /\.homeStreamFallback\s*\{[^}]*\n\s*height\s*:/);
 });
 
 test("homepage still overlaps hero and below-fold data reads", () => {
