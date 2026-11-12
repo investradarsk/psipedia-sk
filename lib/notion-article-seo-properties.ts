@@ -109,9 +109,9 @@ export function articleSeoFromNotion(
   const noindex = cleared.has("noindex") ? false
     : property(page, ARTICLE_NOTION_SEO_PROPERTIES.noindex.name)?.checkbox === true || old?.noindex === true;
   const ogTitle = cleared.has("ogTitle") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogTitle.name)
-    || old?.ogTitle || seoTitle;
+    || (existing ? old?.ogTitle ?? "" : seoTitle);
   const ogDescription = cleared.has("ogDescription") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogDescription.name)
-    || old?.ogDescription || metaDescription;
+    || (existing ? old?.ogDescription ?? "" : metaDescription);
   const ogImageUrl = cleared.has("ogImageUrl") ? null : urlProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogImageUrl.name)
     || old?.ogImage || null;
   // The public absolute URL and the Admin media-relative path may refer to
