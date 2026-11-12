@@ -27,7 +27,7 @@ type Props = {
   refresh: number;
 };
 
-function markId(date: string, key: FacebookPlanKey) {
+function markId(date: string, key: string) {
   return date + "|" + key;
 }
 function shortDate(date: string) {
