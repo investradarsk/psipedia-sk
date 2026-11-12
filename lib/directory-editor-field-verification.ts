@@ -1,4 +1,5 @@
-import type { ManagedDirectoryProfile, ManagedDirectoryProfileInput } from "@/lib/directory";
+import type { ManagedDirectoryProfile } from "@/lib/directory";
+import type { ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
 import { breederReadPath, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 
