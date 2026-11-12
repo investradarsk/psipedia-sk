@@ -380,7 +380,14 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
     else { where.push("r.search_text LIKE ?"); args.push(`%${normalizeSearch(filters.q)}%`); }
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-  const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r ${whereSql}`).bind(...args).first<{ count: number }>();
+  // Both the count and the compatibility projection are read-only and
+  // independent. The latter checks which additive public contact columns
+  // actually exist; never assume a migration has run.
+  const [count, projection] = await Promise.all([
+    database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r ${whereSql}`)
+      .bind(...args).first<{ count: number }>(),
+    selectWithOptionalShortDescription(database, adminSelect),
+  ]);
   const total = Number(count?.count || 0);
   const sortExpressions: Record<string, string> = {
     priority: "CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC",
@@ -395,7 +402,7 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   const orderSql = sortKey !== "priority" && sortExpressions[sortKey]
     ? sortExpressions[sortKey] + " " + directionSql + ", r.id " + directionSql
     : sortExpressions.priority;
-  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, adminSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
+  const result = await database.prepare(`SELECT ${projection} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
   const { encryptionKey } = requirePiiKeys();
   const items = await Promise.all((result.results ?? []).map((row) => rowToAdmin(row, encryptionKey)));
   return { items, total, page, pageSize, pages: Math.ceil(total / pageSize) };

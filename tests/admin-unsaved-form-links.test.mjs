@@ -5,7 +5,14 @@ const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 test("shared unsaved-link guard keeps safe navigation and excludes unpersisted file selections",()=>{
  const s=read("components/admin-unsaved-form-links.tsx");
  assert.match(s,/export function useAdminUnsavedFormLinks/);
- for(const token of ["event.ctrlKey","event.altKey","event.metaKey","event.shiftKey","anchor.hasAttribute(\"download\")","destination.origin!==current.origin","pendingAnchor.current=anchor","anchor.click()","markSavedBeforeRedirect","event.preventDefault()"])assert.ok(s.includes(token),token);
+ const guard=read("components/admin-editor-navigation-guard.tsx");
+ const core=read("lib/admin-editor-navigation.ts");
+ assert.match(s,/useAdminEditorNavigationGuard\(\{dirty,allowNativeExitRef\}\)/);
+ for(const token of ["event.ctrlKey","event.altKey","event.metaKey","event.shiftKey","anchor.hasAttribute(\"download\")","anchor.click()","event.preventDefault()"])assert.ok(guard.includes(token),token);
+ assert.match(core,/to.origin === from.origin/);
+ assert.match(guard,/navigationApi\?\.addEventListener\("navigate", onNativeNavigate\)/);
+ assert.match(s,/markSavedBeforeRedirect/);
+ assert.doesNotMatch(s,/captureLinkClick|onClickCapture/);
  assert.match(s,/event.target instanceof HTMLInputElement && event.target.type==="file"/);
  assert.doesNotMatch(s,/fetch\(|window\.confirm/);
 });
@@ -22,7 +29,7 @@ test("Help and Lost/Found use one shared guard with canonical save-state control
  for(const src of [help,lost]){
   assert.match(src,/useAdminUnsavedFormLinks\(\)/);
   assert.match(src,/onChangeCapture=\{navigation\.captureChange\}/);
-  assert.match(src,/onClickCapture=\{navigation\.captureLinkClick\}/);
+  assert.doesNotMatch(src,/onClickCapture=\{navigation\.captureLinkClick\}/);
   assert.match(src,/<EditorUnsavedChangesGuard active=\{navigation\.dirty\} open=\{navigation\.confirmOpen\}/);
   assert.match(src,/allowNativeExitRef=\{navigation\.allowNativeExitRef\}/);
   assert.match(src,/navigation\.markSavedBeforeRedirect\(\)/);
@@ -49,7 +56,7 @@ test("Adoption canonical form shares unsaved-link protection and preserves CAS w
  const profile=read("components/admin-adoption-editor-profile.tsx");
  assert.match(src,/useAdminUnsavedFormLinks\(\)/);
  assert.match(src,/onChangeCapture=\{navigation\.captureChange\}/);
- assert.match(src,/onClickCapture=\{navigation\.captureLinkClick\}/);
+ assert.doesNotMatch(src,/onClickCapture=\{navigation\.captureLinkClick\}/);
  assert.match(src,/<EditorUnsavedChangesGuard active=\{navigation\.dirty\} open=\{navigation\.confirmOpen\}/);
  assert.match(src,/navigation\.markSavedBeforeRedirect\(\)/);
  assert.match(src,/navigation\.markSavedIfUnchanged\(submittedRevision\)/);

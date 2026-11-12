@@ -23,9 +23,10 @@ import Link from "next/link";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
+import { useAdminEditorNavigationGuard } from "@/components/admin-editor-navigation-guard";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { ChangeEvent, FormEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AdminActionButton, AdminEditorSection, AdminHelpText } from "@/components/admin-interaction-system";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { ImageDisplay } from "@/components/image-display";
@@ -34,6 +35,7 @@ import { organizationAdminInputFromCandidate, type OrganizationAdminInput } from
 import type { OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
 import { organizationPublicationTypes } from "@/lib/help-organization-publication";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
+import { AdminOrganizationSuggestions, type OrganizationSuggestionsResult } from "@/components/admin-organization-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 
 const typeLabels: Record<string, string> = {
@@ -75,10 +77,12 @@ export function AdminOrganizationEditor({
   organization,
   initialLocations = [],
   automationSuggestions = [],
+  automationSuggestionsPromise,
 }: {
   organization?: OrganizationPublicationAdminItem | null;
   initialLocations?: OrganizationLocationAdminRecord[];
   automationSuggestions?: CanonicalUpdateSuggestion[];
+  automationSuggestionsPromise?: Promise<OrganizationSuggestionsResult>;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<OrganizationAdminInput>(() => organization ? organizationAdminInputFromCandidate(organization) : blankInput());
@@ -108,14 +112,8 @@ export function AdminOrganizationEditor({
   const [savedSnapshot, setSavedSnapshot] = useState(editorSnapshot);
   const addressDirty = addressSnapshot !== savedAddressSnapshot;
   const dirty = editorSnapshot !== savedSnapshot || addressDirty;
-  const [confirmNavigation, setConfirmNavigation] = useState(false);
-  const pendingNavigationRef = useRef<(() => void) | null>(null);
-  const allowNavigationRef = useRef(false);
+  const navigation = useAdminEditorNavigationGuard({ dirty });
   const mutationPending = useRef(false);
-  const requestNavigation = useCallback((navigate: () => void) => {
-    pendingNavigationRef.current = navigate;
-    setConfirmNavigation(true);
-  }, []);
 
   const sections = useMemo(() => [
     { id: "organization-general", label: "Základné" },
@@ -126,71 +124,6 @@ export function AdminOrganizationEditor({
   ], []);
   const activeOrganizationIndex = sections.findIndex((section) => section.id === activeOrganizationSection);
   const navigateOrganizationPager = useProfileEditorSectionPager(activeOrganizationSection, setActiveOrganizationSection);
-
-  useEffect(() => {
-    if (!dirty) return;
-    const onDocumentClick = (click: MouseEvent) => {
-      if (allowNavigationRef.current || click.defaultPrevented || click.button !== 0 ||
-          click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return;
-      const target = click.target;
-      const anchor = target instanceof Element ? target.closest<HTMLAnchorElement>("a[href]") : null;
-      if (!anchor || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
-      const destination = new URL(anchor.href, window.location.href);
-      if (destination.origin !== window.location.origin ||
-          (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
-      click.preventDefault();
-      click.stopPropagation();
-      requestNavigation(() => router.push(destination.pathname + destination.search + destination.hash));
-    };
-    document.addEventListener("click", onDocumentClick, true);
-
-    // The Navigation API catches history traversal and programmatic soft
-    // navigation that cannot be handled by a DOM link click.
-    const navigationApi = (window as Window & {
-      navigation?: EventTarget & { traverseTo?: (key: string) => Promise<unknown> };
-    }).navigation;
-    const onNativeNavigate = (event: Event) => {
-      if (allowNavigationRef.current || !event.cancelable) return;
-      const navigationEvent = event as Event & {
-        destination?: { url: string; key?: string };
-        navigationType?: string;
-        hashChange?: boolean;
-      };
-      if (navigationEvent.hashChange || !navigationEvent.destination?.url) return;
-      const destination = new URL(navigationEvent.destination.url);
-      if (destination.origin !== window.location.origin ||
-          (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
-      event.preventDefault();
-      const key = navigationEvent.destination.key;
-      if (navigationEvent.navigationType === "traverse") {
-        requestNavigation(() => {
-          if (key && navigationApi?.traverseTo) void navigationApi.traverseTo(key);
-          else window.history.back();
-        });
-      } else {
-        requestNavigation(() => router.push(destination.pathname + destination.search + destination.hash));
-      }
-    };
-    navigationApi?.addEventListener("navigate", onNativeNavigate);
-    return () => {
-      document.removeEventListener("click", onDocumentClick, true);
-      navigationApi?.removeEventListener("navigate", onNativeNavigate);
-    };
-  }, [dirty, requestNavigation, router]);
-
-  const stayInEditor = () => {
-    pendingNavigationRef.current = null;
-    setConfirmNavigation(false);
-  };
-  const discardAndNavigate = () => {
-    const navigate = pendingNavigationRef.current;
-    pendingNavigationRef.current = null;
-    allowNavigationRef.current = true;
-    setConfirmNavigation(false);
-    setSavedSnapshot(editorSnapshot);
-    setSavedAddressSnapshot(addressSnapshot);
-    navigate?.();
-  };
 
   function patch(values: Partial<OrganizationAdminInput>) {
     setDraft((current) => ({ ...current, ...values }));
@@ -219,10 +152,10 @@ export function AdminOrganizationEditor({
     if (archived || mutationPending.current || uploading) return;
     // All five form panels stay mounted. With noValidate, hidden native
     // constraints can be inspected and their panel revealed before saving.
-    const invalid = Array.from(event.currentTarget.elements).find((control): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+    const invalid = Array.from(event.currentTarget.elements).find((control) =>
       (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
       && control.willValidate && !control.checkValidity()
-    );
+    ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | undefined;
     if (invalid) {
       const owner = invalid.closest("[data-admin-editor-section]") as HTMLElement | null;
       setActiveOrganizationSection(owner?.id ?? "organization-general");
@@ -293,7 +226,7 @@ export function AdminOrganizationEditor({
       if (!organization) {
         // Redirect only after both writes succeed. An address failure keeps
         // the unsaved address and the newly created ID for a safe retry.
-        allowNavigationRef.current = true;
+        navigation.allowExitForNextNavigation();
         router.replace(`/admin/organizacie/${organizationId}`);
         return;
       }
@@ -318,7 +251,9 @@ export function AdminOrganizationEditor({
   }
 
   return <form noValidate className={`admin-event-editor ${styles.editor}`} data-admin-form-system="v4" data-admin-organization-editor="true" onSubmit={save}>
-    <EditorUnsavedChangesGuard active={dirty} open={confirmNavigation} onStay={stayInEditor} onDiscard={discardAndNavigate} />
+    <EditorUnsavedChangesGuard active={dirty} open={navigation.confirmOpen}
+      onStay={navigation.stay} onDiscard={navigation.discard}
+      allowNativeExitRef={navigation.allowNativeExitRef} />
     <AdminEditorSectionVisibility.Provider value={{ activeId: activeOrganizationSection, mode: "switch" }}>
       <div className={styles.layout} data-admin-organization-editor-workspace="true">
         <AdminSharedEditorNavigation sections={sections} activeId={activeOrganizationSection}
@@ -326,7 +261,9 @@ export function AdminOrganizationEditor({
         <div className={styles.content}>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
           <div className="admin-event-fields">
-      <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
+      {automationSuggestionsPromise
+        ? <AdminOrganizationSuggestions promise={automationSuggestionsPromise} onAccepted={applyAutomationUpdate} />
+        : <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />}
       {archived && <p className="admin-message admin-message--error">Archivovaná organizácia je iba na čítanie. Obnov ju zo zoznamu organizácií do konceptu, ak ju potrebuješ upraviť.</p>}
 
       <AdminEditorSection id="organization-general" className="admin-form-card">

@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
+import { AdminNavigationRecovery } from "@/components/admin-navigation-recovery";
 import { AdminPwaRegistration } from "@/components/admin-pwa-registration";
 import { AdminMobileDocumentNavigation } from "@/components/admin-mobile-document-navigation";
 import { AdminQueryProvider } from "@/components/admin-query-provider";
@@ -33,6 +35,7 @@ export default function AdminLayout({ children }: Readonly<{ children: React.Rea
         <a className="admin-skip-link" href="#obsah">Preskočiť na obsah</a>
       </nav>
       <AdminQueryProvider>{children}</AdminQueryProvider>
+      <Suspense fallback={null}><AdminNavigationRecovery /></Suspense>
       <AdminMobileDocumentNavigation />
       <AdminPwaRegistration />
     </div>

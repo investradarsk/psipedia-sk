@@ -91,3 +91,68 @@
     gap: 4px;
   }
 }
+
+/* Lightweight PWA push handoff: never cover the whole editor or block clicks. */
+.pushNotice {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 121;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border: 1px solid #a5c6b4;
+  border-radius: 12px;
+  color: #174b38;
+  background: #fffdf9;
+  box-shadow: 0 14px 32px rgba(16, 47, 37, .16);
+  font-size: .88rem;
+  line-height: 1.45;
+}
+.pushNotice strong { display: block; font-size: .96rem; }
+.pushNotice p { margin: 6px 0 12px; }
+.pushActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.pushActions a,
+.pushActions button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pushActions a { background: #174b38; color: #fff; text-decoration: none; }
+.pushActions button { background: #f3f7f4; color: #174b38; border: 1px solid #c9d8cc; }
+.pushActions :is(a, button):focus-visible { outline: 3px solid #b34832; outline-offset: 2px; }
+@media (max-width: 640px) {
+  .pushNotice { right: 10px; bottom: 10px; max-width: calc(100vw - 20px); }
+}
+
+/* A single non-modal stack avoids colliding offline and push notices on iPhone. */
+.statusStack {
+  position: fixed;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: min(420px, calc(100vw - 32px));
+  z-index: 120;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+.statusStack > :is(.offlineBanner, .pushNotice) {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  max-width: 100%;
+  pointer-events: auto;
+}
+@media (max-width: 640px) {
+  .statusStack {
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: calc(100vw - 20px);
+  }
+}

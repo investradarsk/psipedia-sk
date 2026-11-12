@@ -19,6 +19,7 @@ import styles from "./admin-editor-workspace.module.css";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
+import { useAdminEditorNavigationGuard } from "@/components/admin-editor-navigation-guard";
 
 export { AdminEditorSection as EditorSection } from "@/components/admin-interaction-system";
 
@@ -219,6 +220,7 @@ export function EditorWorkspace({
   actions,
   dirty = false,
   onClose,
+  allowNativeExitRef,
   closeLabel,
   children,
   sectionMode = "scroll",
@@ -249,13 +251,26 @@ export function EditorWorkspace({
   actions?: ReactNode | ((requestClose: () => void) => ReactNode);
   dirty?: boolean;
   onClose?: () => void;
+  /** Allow a confirmed create/save redirect without a second dirty prompt. */
+  allowNativeExitRef?: RefObject<boolean>;
   closeLabel?: string;
   children: ReactNode;
 }) {
   const [activeSection, setActiveSection] = useState(sections[0]?.id ?? "");
   const [showPreview, setShowPreview] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const navigation = useAdminEditorNavigationGuard({
+    dirty: dirty && (mode === "page" || open),
+    allowNativeExitRef,
+  });
   const contentRef = useRef<HTMLDivElement>(null);
+  // Callbacks and section objects are commonly reconstructed while typing.
+  // Track stable IDs instead so IntersectionObserver isn't disconnected and
+  // reattached for every keystroke in a long canonical editor.
+  const sectionIds = sections.map(section => section.id).join("|");
+  const onSectionChangeRef = useRef(onSectionChange);
+  useEffect(() => { onSectionChangeRef.current = onSectionChange; }, [onSectionChange]);
+  const lastObservedSectionRef = useRef<string | null>(null);
   const currentSection = sections.some((section) => section.id === (activeSectionId ?? activeSection))
     ? (activeSectionId ?? activeSection)
     : sections[0]?.id ?? "";
@@ -266,20 +281,27 @@ export function EditorWorkspace({
     if (mode !== "page" || sectionMode === "switch" || typeof IntersectionObserver === "undefined") return;
     const pane = contentRef.current;
     if (!pane) return;
-    const allowed = new Set(sections.map((section) => section.id));
+    const allowed = new Set(sectionIds.split("|").filter(Boolean));
     const targets = Array.from(pane.querySelectorAll<HTMLElement>("[data-admin-editor-section]"))
       .filter((section) => allowed.has(section.id));
+    lastObservedSectionRef.current = null;
     const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting)
-        .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
-      if (visible) {
-        setActiveSection(visible.target.id);
-        onSectionChange?.(visible.target.id);
+      // Avoid allocating and sorting a new array on every viewport update.
+      let closest: IntersectionObserverEntry | null = null;
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        if (!closest || entry.boundingClientRect.top < closest.boundingClientRect.top) closest = entry;
+      }
+      if (closest && lastObservedSectionRef.current !== closest.target.id) {
+        const id = closest.target.id;
+        lastObservedSectionRef.current = id;
+        setActiveSection(previous => previous === id ? previous : id);
+        onSectionChangeRef.current?.(id);
       }
     }, { root: null, rootMargin: "-18% 0px -66% 0px", threshold: 0 });
     targets.forEach((section) => observer.observe(section));
     return () => observer.disconnect();
-  }, [mode, sectionMode, sections, onSectionChange]);
+  }, [mode, sectionMode, sectionIds]);
 
   const requestClose = useCallback(() => {
     if (!onClose) return;
@@ -287,8 +309,17 @@ export function EditorWorkspace({
     else onClose();
   }, [dirty, onClose]);
   const discard = () => {
+    if (confirmClose) {
+      setConfirmClose(false);
+      navigation.allowExitForNextNavigation();
+      onClose?.();
+    } else {
+      navigation.discard();
+    }
+  };
+  const stay = () => {
     setConfirmClose(false);
-    onClose?.();
+    navigation.stay();
   };
   const navigate = (id: string) => {
     if (!sections.some((section) => section.id === id)) return;
@@ -366,8 +397,9 @@ export function EditorWorkspace({
       )}
       <EditorUnsavedChangesGuard
         active={dirty && (mode === "page" || open)}
-        open={confirmClose && (mode === "page" || open)}
-        onStay={() => setConfirmClose(false)}
+        allowNativeExitRef={navigation.allowNativeExitRef}
+        open={(confirmClose || navigation.confirmOpen) && (mode === "page" || open)}
+        onStay={stay}
         onDiscard={discard}
       />
     </>

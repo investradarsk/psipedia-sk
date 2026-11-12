@@ -63,9 +63,13 @@ test("event payload, markdown, maps, SEO, uploads and media behavior remain cano
   assert.match(editor, /const editorSnapshot = JSON\.stringify/);
   assert.match(editor, /setSavedSnapshot\(editorSnapshot\)/);
   assert.match(editor, /allowNavigationRef\.current = true/);
-  assert.match(editor, /<EditorUnsavedChangesGuard[\s\S]*open=\{confirmNavigation\}/);
-  assert.match(editor, /document\.addEventListener\("click", onDocumentClick, true\)/);
-  assert.match(editor, /navigationApi\?\.addEventListener\("navigate", onNativeNavigate\)/);
+  assert.doesNotMatch(editor, /<EditorUnsavedChangesGuard/);
+  assert.match(editor, /allowNativeExitRef=\{allowNavigationRef\}/);
+  assert.match(shell, /useAdminEditorNavigationGuard/);
+  assert.match(shell, /open=\{\(confirmClose \|\| navigation\.confirmOpen\)/);
+  const sharedGate=read("components/admin-editor-navigation-guard.tsx");
+  assert.match(sharedGate, /document\.addEventListener\("click", onClick, true\)/);
+  assert.match(sharedGate, /navigationApi\?\.addEventListener\("navigate", onNativeNavigate\)/);
   assert.match(editor, /<AdminRecordLifecycleActions kind="events"/);
   assert.doesNotMatch(editor, /<AdminDestructiveConfirmDialog/);
   assert.match(editor, /dirty=\{dirty\}/);

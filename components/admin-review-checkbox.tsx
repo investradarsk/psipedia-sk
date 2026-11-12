@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { AdminReviewEntityType } from "@/lib/admin-entity-review-store";
 import styles from "./admin-review-checkbox.module.css";
 
@@ -25,7 +25,7 @@ function formatReviewedAt(value: string) {
   }).format(date);
 }
 
-export function AdminReviewCheckbox({
+export const AdminReviewCheckbox = memo(function AdminReviewCheckbox({
   entityType,
   entityId,
   initialReviewed,
@@ -80,4 +80,4 @@ export function AdminReviewCheckbox({
     </label>
     {error ? <span className={styles.error} role="alert">{error}</span> : null}
   </span>;
-}
+});

@@ -23,7 +23,8 @@ test("only iOS mobile navigation reloads the two unstable streamed routes", () =
   assert.match(guard, /document\.removeEventListener\("click", handler, true\)/);
   assert.match(layout, /<AdminMobileDocumentNavigation \/>/);
   assert.match(navigation, /href === "\/admin" \|\| href === "\/admin\/clanky"/);
-  assert.match(navigation, /router\.prefetch\(href, \{ onInvalidate:/, "unaffected routes prefetch on intent and refresh invalidated payloads");
+  assert.match(navigation, /router\.prefetch\(href\)/, "unaffected routes prefetch only on deliberate user intent");
+  assert.match(navigation, /prefetched\.current\.clear\(\)/, "intent prefetch cache resets when the committed route changes");
   assert.match(navigation, /prefetch=\{false\}/, "admin destinations must not prefetch the whole D1-backed sidebar");
   assert.match(quickNavigation, /dynamic\(/, "Ctrl+K dialog must remain lazy loaded");
   assert.match(quickNavigation, /admin-quick-navigation-dialog/, "Ctrl+K navigation stays in the dynamically loaded dialog");
@@ -33,11 +34,13 @@ test("only iOS mobile navigation reloads the two unstable streamed routes", () =
 
 test("admin route failure renders retry and safe full-document escape links instead of white screen", () => {
   const boundary = read("app/admin/error.tsx");
+  const recovery = read("components/admin-recovery-actions.tsx");
   assert.match(boundary, /"use client"/);
-  assert.match(boundary, /Administrácia sa nenačítala/);
-  assert.match(boundary, /window\.location\.reload\(\)/);
-  assert.match(boundary, /onClick=\{reset\}/);
-  assert.match(boundary, /<Link href="\/admin" prefetch=\{false\}>Pracovný prehľad<\/Link>/);
-  assert.match(boundary, /<Link href="\/admin\/clanky" prefetch=\{false\}>Články<\/Link>/);
-  assert.doesNotMatch(boundary, /error\.message/);
+  assert.match(boundary, /<AdminErrorRecovery error=\{error\} reset=\{reset\}/);
+  assert.match(recovery, /Administrácia sa nenačítala/);
+  assert.match(recovery, /window\.location\.reload\(\)/);
+  assert.match(recovery, /startRecovery\(\(\) => reset\(\)\)/);
+  assert.match(recovery, /data-admin-unsaved-editor/);
+  assert.match(recovery, /target="_blank" rel="noopener noreferrer" prefetch=\{false\}/);
+  assert.doesNotMatch(boundary + recovery, /error\.message/);
 });

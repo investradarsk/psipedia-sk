@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminAdoptionDashboard } from "@/components/admin-adoption-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -15,6 +17,18 @@ export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 const one = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] || "" : value || "";
+
+async function AdoptionContent({ promise, filters }: {
+  promise: ReturnType<typeof listAdoptionAdminDashboard>;
+  filters: AdoptionAdminListFilters;
+}) {
+  const result = await promise;
+  const reviewedIds = await listReviewedAdminEntityIds("ADOPTION", result.items.map((item) => item.id)).catch(() => null);
+  return <>
+    {reviewedIds === null && <p role="alert">Stav redakčnej kontroly sa nepodarilo načítať. Označenia zostávajú nedostupné.</p>}
+    <AdminAdoptionDashboard result={result} filters={filters} reviewedIds={reviewedIds} />
+  </>;
+}
 
 export default async function AdoptionAdminPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireAdminPageUser("/admin/adopcie");
@@ -35,8 +49,7 @@ export default async function AdoptionAdminPage({ searchParams }: { searchParams
     page: Math.max(1, parseInt(one(raw.page) || "1", 10) || 1),
   };
 
-  const result = await listAdoptionAdminDashboard(filters);
-  const reviewedIds = await listReviewedAdminEntityIds("ADOPTION", result.items.map((item) => item.id));
+  const pagePromise = listAdoptionAdminDashboard(filters);
 
   return <AdminShell
     user={user}
@@ -45,6 +58,8 @@ export default async function AdoptionAdminPage({ searchParams }: { searchParams
     description="Read-only prehľad adopčných profilov, lifecycle stavov a potreby opätovného overenia."
     actions={<Link className="admin-primary-action" href="/admin/adopcie/novy">+ Pridať psa</Link>}
   >
-    <AdminAdoptionDashboard result={result} filters={filters} reviewedIds={reviewedIds} />
+    <Suspense fallback={<AdminDataLoading label="Adopcie" />}>
+      <AdoptionContent promise={pagePromise} filters={filters} />
+    </Suspense>
   </AdminShell>;
 }

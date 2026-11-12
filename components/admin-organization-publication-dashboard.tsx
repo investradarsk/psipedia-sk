@@ -58,11 +58,11 @@ function actionQuestion(item: OrganizationPublicationAdminItem, action: Organiza
 export function AdminOrganizationPublicationDashboard({ data, filters, reviewedIds = [] }: {
   data: OrganizationAdminPage;
   filters: OrganizationAdminFilters;
-  reviewedIds?: number[];
+  reviewedIds?: number[] | null;
 }) {
   const router = useRouter();
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
-  const reviewed = new Set(reviewedIds);
+  const reviewed = reviewedIds === null ? null : new Set(reviewedIds);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkAction, setBulkAction] = useState<OrganizationPublicationAction | null>(null);
@@ -324,7 +324,9 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
           { id: "actions", label: "Akcie", width: 360, cell: item => {
             const isPublic = item.status === "PUBLISHED" && Boolean(item.publishedAt) && !item.archivedAt;
             return <div className={styles.gridActions}>
-              <AdminReviewCheckbox entityType="ORGANIZATION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+              {reviewed
+                ? <AdminReviewCheckbox entityType="ORGANIZATION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+                : <span aria-label="Stav redakčnej kontroly nedostupný">—</span>}
               {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank" rel="noreferrer">Web ↗</Link>}
               {item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
                 editing={activeInline?.id === item.id} busy={inlineBusy}

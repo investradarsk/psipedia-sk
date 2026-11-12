@@ -234,7 +234,6 @@ export function AdminArticleEditor({
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
   const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string } | null>(null);
   const [dirty, setDirtyState] = useState(false);
-  const dirtyRef = useRef(false);
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
   const allowNavigationRef = useRef(false);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -275,7 +274,6 @@ export function AdminArticleEditor({
   const [topicIds, setTopicIds] = useState(article?.topics.map((topic) => topic.id) ?? []);
 
   function setEditorDirty(value: boolean) {
-    dirtyRef.current = value;
     setDirtyState(value);
   }
 
@@ -486,16 +484,6 @@ export function AdminArticleEditor({
     }
   }
 
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (!dirtyRef.current || allowNavigationRef.current) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, []);
-
   function cancelEditing() {
     // EditorWorkspace confirms discard before invoking this callback.
     allowNavigationRef.current = true;
@@ -537,6 +525,7 @@ export function AdminArticleEditor({
         activeSectionId={activeArticleSection}
         onSectionChange={setActiveArticleSection}
         dirty={dirty}
+        allowNativeExitRef={allowNavigationRef}
         onClose={cancelEditing}
         closeLabel={returnToCalendar ? "Späť do kalendára" : "Späť na články"}
         previewTitle="Živý náhľad článku"

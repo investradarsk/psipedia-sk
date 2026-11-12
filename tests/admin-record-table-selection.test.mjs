@@ -15,7 +15,8 @@ test("shared TanStack table supports page-scoped, accessible and controlled row 
   assert.match(table, /row\.toggleSelected\(checked\)/);
   assert.match(table, /visibleIds\.has\(id\)/);
   assert.match(table, /rows\.filter\(record => next\[String\(record\.id\)\]\)/);
-  assert.match(table, /getRowId: \(record\) => String\(record\.id\)/);
+  assert.match(table, /getRowId: recordRowId/);
+  assert.match(table, /function recordRowId<T extends \{ id: number \}>/);
   assert.match(table, /!busy && !selection\?\.disabled/);
   assert.doesNotMatch(table, /fetch\(/);
 });
@@ -58,7 +59,7 @@ test("paginated admin tables avoid background prefetch and support server-wide o
   assert.match(table, /serverSorting \|\| serverSorted \? "zoradenie platí pre celý zoznam"/);
   assert.match(table, /enableSorting: Boolean\(column\.sortValue\)/);
   assert.match(table, /serverSorting\.allowedIds\.includes\(column\.id\)/);
-  assert.match(table, /manualSorting: Boolean\(serverSorting\)/);
+  assert.match(table, /manualSorting: serverSorted \|\| Boolean\(serverSorting\)/);
   assert.match(directory, /serverSorted/);
   assert.match(directory, /name="sort"/);
 });

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import styles from "./admin-record-id.module.css";
 
 /** Stable Admin/D1 ID, not an FCI number or a Notion page ID. */
-export function AdminRecordId({ id, compact = false }: { id: number; compact?: boolean }) {
+export const AdminRecordId = memo(function AdminRecordId({ id, compact = false }: { id: number; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   return (
@@ -26,5 +26,5 @@ export function AdminRecordId({ id, compact = false }: { id: number; compact?: b
       <span aria-hidden="true">{copied ? "✓" : "⧉"}</span>
     </button>
   );
-}
+});
 

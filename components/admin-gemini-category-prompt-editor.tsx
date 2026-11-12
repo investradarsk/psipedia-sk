@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import {useRouter} from "next/navigation";
-import {AdminUnsavedNavigationDialog} from "@/components/admin-unsaved-navigation-dialog";
+import {EditorUnsavedChangesGuard} from "@/components/admin-editor-workspace";
+import {useAdminEditorNavigationGuard} from "@/components/admin-editor-navigation-guard";
 import { useState, type FormEvent } from "react";
 import { geminiAutomationSections, type GeminiSectionKey } from "@/lib/gemini-automation-catalog";
 import {
@@ -55,10 +55,8 @@ function GeminiCategoryPromptForm({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
-  const [pendingHref,setPendingHref]=useState<string|null>(null);
-  const router=useRouter();
-
   const dirty = draft !== current.effectivePrompt;
+  const navigation = useAdminEditorNavigationGuard({ dirty });
   const valid = draft.trim().length >= GEMINI_PROMPT_MIN_LENGTH
     && draft.trim().length <= GEMINI_PROMPT_MAX_LENGTH;
   const categoriesFor = (key: GeminiSectionKey) =>
@@ -147,12 +145,6 @@ function GeminiCategoryPromptForm({
                     href={"/admin/automatizacie-gemini/prompty?stable_key=" + encodeURIComponent(item.stableKey)}
                     aria-current={item.stableKey === selectedKey ? "page" : undefined}
                     className={item.stableKey === selectedKey ? styles.active : styles.categoryLink}
-                    onClick={(event) => {
-                      if (dirty && item.stableKey !== selectedKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-                        event.preventDefault();
-                        setPendingHref("/admin/automatizacie-gemini/prompty?stable_key="+encodeURIComponent(item.stableKey));
-                      }
-                    }}
                   >
                     <span>{item.label}</span>
                     <small>{item.stableKey === selectedKey ? (current.customized ? "Vlastný" : "Predvolený") :
@@ -214,9 +206,9 @@ function GeminiCategoryPromptForm({
           Použitie uloženého textu v externom Gemini pracovníkovi zabezpečí samostatná integrácia.
         </p>
       </section>
-      <AdminUnsavedNavigationDialog open={Boolean(pendingHref)} destination="inú kategóriu Gemini promptov"
-        onStay={()=>setPendingHref(null)}
-        onLeave={()=>{const next=pendingHref;setPendingHref(null);if(next)router.push(next);}}/>
+      <EditorUnsavedChangesGuard active={dirty} open={navigation.confirmOpen}
+        onStay={navigation.stay} onDiscard={navigation.discard}
+        allowNativeExitRef={navigation.allowNativeExitRef} />
     </div>
   );
 }

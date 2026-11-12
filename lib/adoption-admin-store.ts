@@ -12,7 +12,7 @@ import {
   type AdoptionRegion,
   type AdoptionStatus,
 } from "./adoption.ts";
-import { getAdoptionLifecycleCounts, type AdoptionD1Database } from "./adoption-store.ts";
+import type { AdoptionD1Database } from "./adoption-store.ts";
 
 import { adoptionAdminSorts, type AdoptionAdminSort } from "./adoption-admin-sorts.ts";
 export { adoptionAdminSorts };
@@ -59,6 +59,13 @@ export type AdoptionAdminListResult = {
 
 type RuntimeBindings = { DB?: AdoptionD1Database };
 type CountRow = { count: number };
+
+/** One bounded scan replaces the separate lifecycle and stale counters. */
+export const ADOPTION_ADMIN_STATUS_SUMMARY_SQL = `SELECT status, COUNT(*) AS count,
+      COALESCE(SUM(CASE WHEN status IN ('ACTIVE','RESERVED')
+        AND (last_verified_at IS NULL OR last_verified_at < ?)
+        THEN 1 ELSE 0 END),0) AS staleCount
+      FROM adoption_dogs GROUP BY status`;
 type AdoptionAdminRow = {
   id: number;
   name: string;
@@ -169,26 +176,32 @@ export async function listAdoptionAdminDashboard(
   const db = requireD1Binding(database);
   const query = buildAdoptionAdminListQuery(filters, now);
 
-  const countRow = await db
-    .prepare(`SELECT COUNT(*) AS count FROM adoption_dogs ${query.where}`)
-    .bind(...query.bindings)
-    .first<CountRow>();
-  const total = Number(countRow?.count ?? 0);
-
-  const result = await db.prepare(`
-    SELECT id, name, slug, status, breed_name, organization_name, city, district, region,
-      main_image, description, last_verified_at, published_at, updated_at
-    FROM adoption_dogs
-    ${query.where}
-    ORDER BY ${query.orderBy}
-    LIMIT ? OFFSET ?
-  `).bind(...query.bindings, query.pageSize, query.offset).all<AdoptionAdminRow>();
-
+  // A single grouped scan provides lifecycle and stale counts; the filtered
+  // count and bounded page are independent. Three concurrent reads replace
+  // four serialized round trips without adding schema/index assumptions.
   const threshold = new Date(now.getTime() - ADOPTION_STALE_DAYS * 86_400_000).toISOString();
-  const staleRow = await db.prepare(
-    "SELECT COUNT(*) AS count FROM adoption_dogs WHERE status IN ('ACTIVE','RESERVED') AND (last_verified_at IS NULL OR last_verified_at < ?)",
-  ).bind(threshold).first<CountRow>();
-  const lifecycle = await getAdoptionLifecycleCounts(db);
+  const [countRow, result, statusRows] = await Promise.all([
+    db.prepare(`SELECT COUNT(*) AS count FROM adoption_dogs ${query.where}`)
+      .bind(...query.bindings).first<CountRow>(),
+    db.prepare(`
+      SELECT id, name, slug, status, breed_name, organization_name, city, district, region,
+        main_image, description, last_verified_at, published_at, updated_at
+      FROM adoption_dogs
+      ${query.where}
+      ORDER BY ${query.orderBy}
+      LIMIT ? OFFSET ?
+    `).bind(...query.bindings, query.pageSize, query.offset).all<AdoptionAdminRow>(),
+    db.prepare(ADOPTION_ADMIN_STATUS_SUMMARY_SQL)
+      .bind(threshold).all<{ status: string; count: number; staleCount: number }>(),
+  ]);
+  const total = Number(countRow?.count ?? 0);
+  const lifecycle = Object.fromEntries(adoptionStatuses.map((status) => [status, 0])) as Record<AdoptionStatus, number>;
+  let staleCount = 0;
+  for (const row of statusRows.results) {
+    if (!isAdoptionStatus(row.status)) continue;
+    lifecycle[row.status] = Number(row.count ?? 0);
+    staleCount += Number(row.staleCount ?? 0);
+  }
   const lifecycleTotal = adoptionStatuses.reduce((sum, status) => sum + lifecycle[status], 0);
 
   const items = result.results.map((row): AdoptionAdminSummary => {
@@ -224,7 +237,7 @@ export async function listAdoptionAdminDashboard(
     counts: {
       ...lifecycle,
       total: lifecycleTotal,
-      stale: Number(staleRow?.count ?? 0),
+      stale: staleCount,
     },
   };
 }

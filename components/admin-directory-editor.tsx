@@ -33,6 +33,7 @@ import {
 } from "@/components/admin-interaction-system";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { EditorStatus, EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
+import { useAdminEditorNavigationGuard } from "@/components/admin-editor-navigation-guard";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
@@ -297,12 +298,10 @@ export function AdminDirectoryEditor({
     if (next) formEditRevisionRef.current += 1;
     setFormDirtyState(next);
   };
-  const [confirmDirectoryExit, setConfirmDirectoryExit] = useState(false);
-  const directoryBackLinkRef = useRef<HTMLAnchorElement>(null);
+  const navigation = useAdminEditorNavigationGuard({ dirty: formDirty });
   const createdProfileLinkRef = useRef<HTMLAnchorElement>(null);
   const [createdProfileHref, setCreatedProfileHref] = useState("");
   const restoredProfileLinkRef = useRef<HTMLAnchorElement>(null);
-  const allowDirectoryExitRef = useRef(false);
 
   useEffect(() => {
     if (formRef.current) formRef.current.dataset.hydrated = "true";
@@ -726,8 +725,8 @@ export function AdminDirectoryEditor({
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Stav kontroly sa nepodarilo uložiť.");
-      setReviewed(data.profile.reviewed);
-      setReviewedAt(data.profile.reviewedAt);
+      setReviewed(Boolean(data.profile.reviewed));
+      setReviewedAt(data.profile.reviewedAt ?? "");
       setMessage(data.profile.reviewed ? "Profil je označený ako odkontrolovaný." : "Označenie kontroly bolo zrušené.");
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : "Stav kontroly sa nepodarilo uložiť.");
@@ -1198,13 +1197,7 @@ export function AdminDirectoryEditor({
       </AdminEditorSectionVisibility.Provider>
       <AdminEditorFooter dirty={formDirty} pending={saving}>
       <div className="admin-editor-actions">
-        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" ref={directoryBackLinkRef} onClick={event => {
-          // Preserve native behavior for modified clicks and background tabs.
-          if (formDirty && !allowDirectoryExitRef.current && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-            event.preventDefault();
-            setConfirmDirectoryExit(true);
-          }
-        }}>← Späť na adresár</Link>}</div>
+        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar">← Späť na adresár</Link>}</div>
         {notionDraft && !notionDraft.psipediaId && !canonicalEditorUrl && (
           <div>
             {!reviewConfirm ? <AdminActionButton variant="secondary" disabled={saving} onClick={() => {
@@ -1232,15 +1225,10 @@ export function AdminDirectoryEditor({
       {!notionDraft && <Link href={createdProfileHref || "/admin/adresar"} ref={createdProfileLinkRef} hidden tabIndex={-1} aria-hidden="true">Otvoriť vytvorený profil</Link>}
       <EditorUnsavedChangesGuard
         active={formDirty}
-        open={confirmDirectoryExit}
-        onStay={() => setConfirmDirectoryExit(false)}
-        onDiscard={() => {
-          allowDirectoryExitRef.current = true;
-          setConfirmDirectoryExit(false);
-          setFormDirty(false);
-          // Reuse the existing Next Link, keeping Gemini/Notion modal free of router context.
-          directoryBackLinkRef.current?.click();
-        }}
+        open={navigation.confirmOpen}
+        onStay={navigation.stay}
+        onDiscard={navigation.discard}
+        allowNativeExitRef={navigation.allowNativeExitRef}
       />
     </form>
   );

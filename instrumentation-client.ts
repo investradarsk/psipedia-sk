@@ -1,4 +1,5 @@
 import { eligibleNavigationClick, navigationProgress, routeKey } from "./lib/navigation-progress";
+import { adminNavigationTarget, ADMIN_NAVIGATION_START_EVENT, type AdminNavigationStartDetail } from "./lib/admin-navigation-recovery";
 
 // Supported Next/Vinext lifecycle hook. This runs only when the router actually
 // accepts navigation; preventDefault/onNavigate cancellations do not start UI.
@@ -16,7 +17,10 @@ document.addEventListener("click", (event) => {
   // an RSC request can block. The router hook below remains the source for
   // programmatic transitions and history traversal. This listener observes
   // only; it never prevents the click or replaces Link/router behavior.
-  if (clickAllowed) navigationProgress.begin();
+  // Admin guards run after this document capture listener. Only the router's
+  // accepted-transition hook may mark an Admin navigation as pending.
+  if (clickAllowed && !(window.location.pathname === "/admin" ||
+    window.location.pathname.startsWith("/admin/"))) navigationProgress.begin();
   queueMicrotask(() => { clickAllowed = undefined; });
 }, true);
 
@@ -41,4 +45,10 @@ export function onRouterTransitionStart(href: string, navigationType: "push" | "
     return;
   }
   navigationProgress.begin();
+  const adminHref = adminNavigationTarget(href, window.location.href);
+  if (adminHref) {
+    window.dispatchEvent(new CustomEvent<AdminNavigationStartDetail>(ADMIN_NAVIGATION_START_EVENT, {
+      detail: { href: adminHref, navigationType },
+    }));
+  }
 }

@@ -48,7 +48,7 @@ test("EDITOR-6: publish, unpublish and return still belong to canonical code", (
   assert.match(directory, /void save\("published"\)/);
   assert.match(directory, /void save\("draft"\)/);
   assert.match(directory, /notionReadOnly/);
-  assert.match(directory, /setConfirmDirectoryExit\(true\)/);
+  assert.match(directory, /useAdminEditorNavigationGuard/);
   assert.match(directory, /onNotionSaved\?/);
   const help = read("components/admin-help-editor.tsx");
   assert.match(help, /setConfirmUnpublish\(true\)/);
@@ -56,8 +56,8 @@ test("EDITOR-6: publish, unpublish and return still belong to canonical code", (
   const lost = read("components/admin-lost-found-editor.tsx");
   assert.match(lost, /allowedTransitions\.map/);
   const org = read("components/admin-organization-editor.tsx");
-  assert.match(org, /useCallback/);
-  assert.match(org, /requestNavigation\(/);
+  assert.match(org, /useAdminEditorNavigationGuard/);
+  assert.match(org, /navigation\.discard/);
   const guard = read("components/admin-editor-workspace.tsx");
   assert.match(guard, /window\.addEventListener\("beforeunload", warn\)/);
   assert.match(guard, /Neuložené zmeny/);

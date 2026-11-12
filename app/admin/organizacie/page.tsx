@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminOrganizationPublicationDashboard } from "@/components/admin-organization-publication-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -11,14 +13,26 @@ export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
+async function OrganizationList({ promise, filters }: {
+  promise: ReturnType<typeof getOrganizationAdminPage>;
+  filters: ReturnType<typeof parseOrganizationAdminFilters>;
+}) {
+  const data = await promise;
+  const reviewedIds = await listReviewedAdminEntityIds("ORGANIZATION", data.items.map((item) => item.id)).catch(() => null);
+  return <>
+    {reviewedIds === null && <p role="alert">Stav redakčnej kontroly nie je dostupný; nezobrazuje sa ako neoverený.</p>}
+    <AdminOrganizationPublicationDashboard data={data} filters={filters} reviewedIds={reviewedIds} />
+  </>;
+}
+
 export default async function OrganizationPublicationAdminPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireAdminPageUser("/admin/organizacie");
   const params = await searchParams;
   const filters = parseOrganizationAdminFilters({
     get: (key) => typeof params[key] === "string" ? params[key] as string : null,
   });
-  const data = await getOrganizationAdminPage(filters);
-  const reviewedIds = await listReviewedAdminEntityIds("ORGANIZATION", data.items.map((item) => item.id));
+  // The primary list is not needed to stream navigation and actions.
+  const pagePromise = getOrganizationAdminPage(filters);
 
   return <AdminShell
     user={user}
@@ -27,6 +41,8 @@ export default async function OrganizationPublicationAdminPage({ searchParams }:
     description="Canonical organization management: vyhľadávanie, filtre, editácia, lokality, fundraising a jasný publication lifecycle."
     actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/organizacie/novy">+ Nová organizácia</Link>}
   >
-    <AdminOrganizationPublicationDashboard data={data} filters={filters} reviewedIds={reviewedIds} />
+    <Suspense fallback={<AdminDataLoading label="Organizácie" />}>
+      <OrganizationList promise={pagePromise} filters={filters} />
+    </Suspense>
   </AdminShell>;
 }

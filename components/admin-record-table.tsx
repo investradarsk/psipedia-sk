@@ -45,6 +45,10 @@ export type AdminRecordTableSelection<T> = {
   disabled?: boolean;
 };
 
+// All Admin list pages have bounded server pagination. A stable ID keeps
+// selection and the TanStack row cache aligned across local state changes.
+function recordRowId<T extends { id: number }>(record: T) { return String(record.id); }
+
 /** Read-first grid; optional selection delegates writes to the domain's existing bulk API. */
 export function AdminRecordTable<T extends { id: number }>({
   rows,
@@ -73,10 +77,16 @@ export function AdminRecordTable<T extends { id: number }>({
   /** Optional stable data attribute for module-specific selectors and E2E tests. */
   rowDataAttribute?: `data-${string}`;
 }) {
+  // Table<T> is invariant; cache typed factories per instance, not as
+  // module-level unknown factories that can break TypeScript generics.
+  const coreRowModel = useMemo(() => getCoreRowModel<T>(), []);
+  const clientSortedRowModel = useMemo(() => getSortedRowModel<T>(), []);
   const [clientSorting, setClientSorting] = useState<SortingState>([]);
-  const sorting: SortingState = serverSorting
-    ? [{ id: serverSorting.id, desc: serverSorting.desc }]
-    : clientSorting;
+  const controlledSortId = serverSorting?.id;
+  const controlledSortDesc = serverSorting?.desc;
+  const sorting = useMemo<SortingState>(() => controlledSortId !== undefined
+    ? [{ id: controlledSortId, desc: Boolean(controlledSortDesc) }]
+    : clientSorting, [clientSorting, controlledSortId, controlledSortDesc]);
   const [visibility, setVisibility] = useState<VisibilityState>(() =>
     Object.fromEntries(columns.filter((column) => column.initiallyHidden).map((column) => [column.id, false])),
   );
@@ -155,7 +165,8 @@ export function AdminRecordTable<T extends { id: number }>({
         setClientSorting(next);
       }
     },
-    manualSorting: Boolean(serverSorting),
+    // Never sort a single visible page again when SQL owns whole-result order.
+    manualSorting: serverSorted || Boolean(serverSorting),
     enableSortingRemoval: false,
     sortDescFirst: false,
     onColumnVisibilityChange: setVisibility,
@@ -165,10 +176,12 @@ export function AdminRecordTable<T extends { id: number }>({
       const next = typeof updater === "function" ? updater(rowSelection) : updater;
       selection.onChange(rows.filter(record => next[String(record.id)]).map(record => record.id));
     },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getRowId: (record) => String(record.id),
-    columnResizeMode: "onChange",
+    getCoreRowModel: coreRowModel,
+    getSortedRowModel: serverSorted || serverSorting ? undefined : clientSortedRowModel,
+    getRowId: recordRowId,
+    // "onChange" re-renders all cells for every pointermove, especially slow
+    // on iOS. "onEnd" keeps the resize affordance and commits once on release.
+    columnResizeMode: "onEnd",
   });
 
   return (

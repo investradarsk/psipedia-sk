@@ -64,7 +64,8 @@ test("Eshop, Organization and Directory editors share the same save feedback wit
     assert.match(source, /<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
     assert.doesNotMatch(source, /\{error \|\| message\}<\/div>/);
   }
-  assert.match(eshop, /AdminUnsavedNavigationDialog/);
+  assert.match(eshop, /<EditorWorkspace/);
+  assert.match(read("components/admin-editor-workspace.tsx"), /useAdminEditorNavigationGuard/);
   assert.match(eshop, /\.\/admin\/recenzie\/eshopy|\/admin\/recenzie\/eshopy/);
   assert.match(organization, /EditorUnsavedChangesGuard active=\{dirty\}/);
   assert.match(organization, /expectedUpdatedAt/);
@@ -82,7 +83,8 @@ test("Event editor shows save feedback above switchable sections without nesting
   assert.equal((event.match(/<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/g) ?? []).length, 1);
   assert.match(event,/sectionMode="switch"/);
   assert.match(event,/message=\{dirty \? "Neuložené zmeny" : undefined\}/);
-  assert.match(event,/EditorUnsavedChangesGuard/);
+  assert.match(workspace,/EditorUnsavedChangesGuard/);
+  assert.doesNotMatch(event,/<EditorUnsavedChangesGuard/);
   assert.match(event,/save\("published"\)/);
   assert.match(event,/<AdminRecordLifecycleActions kind="events"/);
   assert.doesNotMatch(event,/void save\("draft"\)/);

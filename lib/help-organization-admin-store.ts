@@ -1,4 +1,5 @@
 import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
+import { organizationAdminReadText } from "@/lib/organization-admin-read-state";
 import { env } from "cloudflare:workers";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import {
@@ -96,11 +97,15 @@ function requireD1Binding(database?: AdoptionD1Database) {
 
 function completenessHints(row: OrganizationPublicationRow) {
   const hints: string[] = [];
-  const hasLocation = Number(row.location_count) > 0 || Boolean(row.resolved_city.trim() || row.resolved_district.trim() || row.resolved_region.trim());
+  const hasLocation = Number(row.location_count) > 0 || Boolean(organizationAdminReadText(row.resolved_city).trim() ||
+    organizationAdminReadText(row.resolved_district).trim() || organizationAdminReadText(row.resolved_region).trim());
   if (!hasLocation) hints.push("Bez lokality");
-  if (!(row.public_email?.trim() || row.public_phone?.trim() || row.website_url?.trim())) hints.push("Bez kontaktu");
-  if (!(row.short_description.trim() || row.description.trim())) hints.push("Bez verejného popisu");
-  if (!row.image_url?.trim()) hints.push("Bez obrázka");
+  if (!(organizationAdminReadText(row.public_email).trim() ||
+    organizationAdminReadText(row.public_phone).trim() ||
+    organizationAdminReadText(row.website_url).trim())) hints.push("Bez kontaktu");
+  if (!(organizationAdminReadText(row.short_description).trim() ||
+    organizationAdminReadText(row.description).trim())) hints.push("Bez verejného popisu");
+  if (!organizationAdminReadText(row.image_url).trim()) hints.push("Bez obrázka");
   if (!isOrganizationPublicationType(row.type)) hints.push("Neplatný typ");
   return hints;
 }
@@ -111,23 +116,23 @@ function toCandidate(row: OrganizationPublicationRow): OrganizationPublicationCa
   }
   return {
     id: Number(row.id),
-    name: row.name,
-    slug: row.slug,
-    legalName: row.legal_name,
+    name: organizationAdminReadText(row.name),
+    slug: organizationAdminReadText(row.slug),
+    legalName: organizationAdminReadText(row.legal_name),
     registrationNumber: row.registration_number,
-    type: row.type,
+    type: organizationAdminReadText(row.type),
     status: row.status,
-    shortDescription: row.short_description,
-    description: row.description,
+    shortDescription: organizationAdminReadText(row.short_description),
+    description: organizationAdminReadText(row.description),
     publicEmail: row.public_email,
     publicPhone: row.public_phone,
     websiteUrl: row.website_url,
     facebookUrl: row.facebook_url,
     instagramUrl: row.instagram_url,
-    city: row.resolved_city ?? row.city,
-    district: row.resolved_district ?? row.district,
-    region: row.resolved_region ?? row.region,
-    countryCode: row.country_code,
+    city: organizationAdminReadText(row.resolved_city ?? row.city),
+    district: organizationAdminReadText(row.resolved_district ?? row.district),
+    region: organizationAdminReadText(row.resolved_region ?? row.region),
+    countryCode: organizationAdminReadText(row.country_code),
     imageUrl: row.image_url,
     sourceUrl: row.source_url,
     publishedAt: row.published_at,
@@ -148,9 +153,9 @@ function withPreflight(row: OrganizationPublicationRow): OrganizationPublication
     directoryProfileId: row.directory_profile_id === null ? null : Number(row.directory_profile_id),
     locationCount: Number(row.location_count ?? 0),
     fundraisingCount: Number(row.fundraising_count ?? 0),
-    primaryCity: row.resolved_city ?? "",
-    primaryDistrict: row.resolved_district ?? "",
-    primaryRegion: row.resolved_region ?? "",
+    primaryCity: organizationAdminReadText(row.resolved_city),
+    primaryDistrict: organizationAdminReadText(row.resolved_district),
+    primaryRegion: organizationAdminReadText(row.resolved_region),
     completenessHints: completenessHints(row),
   };
 }
@@ -194,16 +199,31 @@ function adminWhere(filters: OrganizationAdminFilters) {
   return { where: clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "", args };
 }
 
-async function optionValues(database: AdoptionD1Database, column: "region" | "district" | "city") {
-  const result = await database.prepare(`
-    SELECT value FROM (
-      SELECT trim(${column}) AS value FROM organization_locations WHERE trim(${column}) <> ''
-      UNION
-      SELECT trim(${column}) AS value FROM help_organizations WHERE trim(${column}) <> ''
-    ) ORDER BY value COLLATE NOCASE ASC
-  `).all<{ value: string }>();
-  return result.results.map((row) => row.value).filter(Boolean);
-}
+/** One D1 statement for all three global facets. Each UNION branch exactly
+ * matches the former DISTINCT query, including whitespace and case semantics.
+ * Unlike a CROSS JOIN with three CASE branches per source row, this form
+ * avoids repeated per-row CASE evaluation on large directories.
+ */
+export const ORGANIZATION_ADMIN_LOCATION_FACETS_SQL = `
+  SELECT 'region' AS kind, value FROM (
+    SELECT trim(region) AS value FROM organization_locations WHERE trim(region) <> ''
+    UNION
+    SELECT trim(region) AS value FROM help_organizations WHERE trim(region) <> ''
+  )
+  UNION ALL
+  SELECT 'district' AS kind, value FROM (
+    SELECT trim(district) AS value FROM organization_locations WHERE trim(district) <> ''
+    UNION
+    SELECT trim(district) AS value FROM help_organizations WHERE trim(district) <> ''
+  )
+  UNION ALL
+  SELECT 'city' AS kind, value FROM (
+    SELECT trim(city) AS value FROM organization_locations WHERE trim(city) <> ''
+    UNION
+    SELECT trim(city) AS value FROM help_organizations WHERE trim(city) <> ''
+  )
+  ORDER BY kind, value COLLATE NOCASE ASC
+`;
 
 export async function getOrganizationAdminPage(
   filters: OrganizationAdminFilters,
@@ -211,17 +231,10 @@ export async function getOrganizationAdminPage(
 ): Promise<OrganizationAdminPage> {
   const db = requireD1Binding(database);
   const membership = adminWhere(filters);
-  const totalRow = await db.prepare(`SELECT COUNT(*) AS total,
-    COUNT(CASE WHEN status = 'DRAFT' THEN 1 END) AS draft,
-    COUNT(CASE WHEN status = 'PUBLISHED' THEN 1 END) AS published,
-    COUNT(CASE WHEN status = 'ARCHIVED' THEN 1 END) AS archived
-    FROM help_organizations`).first<{ total: number; draft: number; published: number; archived: number }>();
-  const countRow = await db.prepare(`SELECT COUNT(*) AS count FROM help_organizations o${membership.where}`)
-    .bind(...membership.args).first<{ count: number }>();
-  const resultCount = Number(countRow?.count ?? 0);
-  const totalPages = Math.max(1, Math.ceil(resultCount / ORGANIZATION_ADMIN_PAGE_SIZE));
-  const page = Math.min(Math.max(1, filters.page), totalPages);
-  // Whole-result ordering is whitelisted before LIMIT/OFFSET, never applied per page.
+  // Exactly as for the directory list: unfiltered global totals already
+  // provide the matching count; skip another COUNT(*) on the same rows.
+  const reuseTotalCount = membership.where === "";
+  const requestedPage = Math.max(1, filters.page);
   const ordering: Record<string, string> = {
     updated: "o.updated_at",
     name: "o.name COLLATE NOCASE",
@@ -230,18 +243,37 @@ export async function getOrganizationAdminPage(
   };
   const sortSql = ordering[filters.sort ?? "updated"] ?? ordering.updated;
   const directionSql = filters.direction === "asc" ? "ASC" : "DESC";
-  const result = await db.prepare(`
+  const loadPage = (page: number) => db.prepare(`
     SELECT ${ORGANIZATION_PUBLICATION_SELECT}
     FROM help_organizations o${membership.where}
     ORDER BY ${sortSql} ${directionSql}, o.id ${directionSql}
     LIMIT ? OFFSET ?
-  `).bind(...membership.args, ORGANIZATION_ADMIN_PAGE_SIZE, (page - 1) * ORGANIZATION_ADMIN_PAGE_SIZE).all<OrganizationPublicationRow>();
-  const [regions, districts, cities] = await Promise.all([
-    optionValues(db, "region"),
-    optionValues(db, "district"),
-    optionValues(db, "city"),
+  `).bind(...membership.args, ORGANIZATION_ADMIN_PAGE_SIZE, (page - 1) * ORGANIZATION_ADMIN_PAGE_SIZE)
+    .all<OrganizationPublicationRow>();
+
+  // Four independent D1 requests begin together; before this change they
+  // ran as successive count/count/page/facets stages (up to six round trips).
+  // The requested page only needs a second read when it is out of range.
+  const [totalRow, countRow, facets, requestedResult] = await Promise.all([
+    db.prepare(`SELECT COUNT(*) AS total,
+      COUNT(CASE WHEN status = 'DRAFT' THEN 1 END) AS draft,
+      COUNT(CASE WHEN status = 'PUBLISHED' THEN 1 END) AS published,
+      COUNT(CASE WHEN status = 'ARCHIVED' THEN 1 END) AS archived
+      FROM help_organizations`).first<{ total: number; draft: number; published: number; archived: number }>(),
+    reuseTotalCount ? Promise.resolve(null) :
+      db.prepare(`SELECT COUNT(*) AS count FROM help_organizations o${membership.where}`)
+        .bind(...membership.args).first<{ count: number }>(),
+    db.prepare(ORGANIZATION_ADMIN_LOCATION_FACETS_SQL)
+      .all<{ kind: "region" | "district" | "city"; value: string }>(),
+    loadPage(requestedPage),
   ]);
   const counts = totalRow ?? { total: 0, draft: 0, published: 0, archived: 0 };
+  const resultCount = Number(reuseTotalCount ? counts.total : countRow?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(resultCount / ORGANIZATION_ADMIN_PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+  const result = page === requestedPage ? requestedResult : await loadPage(page);
+  const facetValues = (kind: "region" | "district" | "city") =>
+    facets.results.filter((row) => row.kind === kind).map((row) => row.value).filter(Boolean);
   return {
     items: result.results.map(withPreflight),
     counts: {
@@ -252,7 +284,7 @@ export async function getOrganizationAdminPage(
     },
     resultCount,
     pagination: { page, pageSize: ORGANIZATION_ADMIN_PAGE_SIZE, total: resultCount, totalPages },
-    options: { regions, districts, cities },
+    options: { regions: facetValues("region"), districts: facetValues("district"), cities: facetValues("city") },
   };
 }
 

@@ -39,12 +39,16 @@ export function SiteHeader({
   const headerRef = useRef<HTMLElement>(null);
   const suppressMenuFocus = useRef(false);
   const pathname = usePathname();
+  // The public header persists in the shared root layout on Admin routes.
+  // Keep Admin keyboard shortcuts and overlays exclusively in Admin.
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   const partnerHref = partnerAuthenticated ? "/partner" : "/partner/prihlasenie";
   const partnerLabel = "Partner účet";
   const nav = navigationItems;
 
 
   useEffect(() => {
+    if (isAdminRoute) return;
     function openWithKeyboard(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -55,13 +59,13 @@ export function SiteHeader({
     }
     window.addEventListener("keydown", openWithKeyboard);
     return () => window.removeEventListener("keydown", openWithKeyboard);
-  }, []);
+  }, [isAdminRoute]);
 
   useEffect(() => {
     const trigger = searchTriggerRef.current;
     if (!trigger) return;
     trigger.setAttribute("data-search-ready", "true");
-    return () => trigger.removeAttribute("data-search-ready");
+    return () => { trigger.removeAttribute("data-search-ready"); };
   }, []);
 
   useEffect(() => {
@@ -328,8 +332,10 @@ export function SiteHeader({
     const trigger = menuReturnFocusRef.current;
     if (!menu || !trigger) return;
 
+    const menuElement = menu;
+    const menuTrigger = trigger;
     function focusableMenuItems() {
-      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled]):not([tabindex="-1"])'))
+      return Array.from(menuElement.querySelectorAll<HTMLElement>('a[href], button:not([disabled]):not([tabindex="-1"])'))
         .filter((element) => element.offsetParent !== null && !element.closest("[inert]"));
     }
 
@@ -337,13 +343,13 @@ export function SiteHeader({
       if (event.key === "Escape") {
         event.preventDefault();
         if (openMobileMenu) {
-          const submenuToggle = menu.querySelector<HTMLButtonElement>(`[aria-controls="mobile-submenu-${openMobileMenu}"]`);
+          const submenuToggle = menuElement.querySelector<HTMLButtonElement>(`[aria-controls="mobile-submenu-${openMobileMenu}"]`);
           setOpenMobileMenu(null);
           submenuToggle?.focus();
           return;
         }
         setMenuOpen(false);
-        trigger.focus();
+        menuTrigger.focus();
         return;
       }
       if (event.key !== "Tab") return;
@@ -357,13 +363,13 @@ export function SiteHeader({
         (event.shiftKey ? last : first).focus();
       } else if (!items.includes(active as HTMLElement)) {
         event.preventDefault();
-        trigger.focus();
+        menuTrigger.focus();
       } else if (event.shiftKey && active === first) {
         event.preventDefault();
-        trigger.focus();
+        menuTrigger.focus();
       } else if (!event.shiftKey && active === last) {
         event.preventDefault();
-        trigger.focus();
+        menuTrigger.focus();
       }
     }
 
@@ -372,7 +378,7 @@ export function SiteHeader({
   }, [menuOpen, openMobileMenu]);
 
   useEffect(() => {
-    if (!searchOpen) return;
+    if (!searchOpen || isAdminRoute) return;
     const previous = document.body.style.overflow;
     const trigger = searchReturnFocusRef.current;
     document.body.style.overflow = "hidden";
@@ -408,7 +414,7 @@ export function SiteHeader({
       window.removeEventListener("keydown", onKeyDown);
       if (trigger && document.body.contains(trigger)) queueMicrotask(() => trigger.focus());
     };
-  }, [searchOpen]);
+  }, [searchOpen, isAdminRoute]);
 
   function submitSearch(event: FormEvent) {
     event.preventDefault();
@@ -592,7 +598,7 @@ export function SiteHeader({
         />
       )}
 
-      {searchOpen && (
+      {searchOpen && !isAdminRoute && (
         <div ref={searchDialogRef} className="search-modal" role="dialog" aria-modal="true" aria-label="Vyhľadávanie">
           <button className="search-backdrop" type="button" onClick={() => setSearchOpen(false)} aria-label="Zavrieť vyhľadávanie" />
           <div className="search-panel">

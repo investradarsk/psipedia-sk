@@ -1,0 +1,47 @@
+.notice {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 160;
+  box-sizing: border-box;
+  width: min(390px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid #bdd3c6;
+  border-radius: 14px;
+  background: #fffdfa;
+  box-shadow: 0 12px 36px rgb(21 49 36 / 18%);
+  color: #173f31;
+}
+.notice strong { display: block; font-size: 1rem; }
+.notice p { margin: 8px 0 14px; font-size: .9rem; line-height: 1.5; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions button, .actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid #b8d1c1;
+  border-radius: 8px;
+  background: #eaf3ed;
+  color: #174b38;
+  font: inherit;
+  font-size: .875rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.actions button:focus-visible, .actions a:focus-visible {
+  outline: 3px solid #c45438;
+  outline-offset: 2px;
+}
+.actions .dismiss { background: transparent; }
+@media (max-width: 480px) {
+  .notice {
+    right: 12px;
+    left: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: auto;
+  }
+}

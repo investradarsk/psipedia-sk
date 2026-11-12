@@ -110,7 +110,14 @@ test("ARTICLE-ADMIN save path carries canonical rich text, author profile select
   assert.match(articleEditor, /takeawayRichText,/);
   assert.match(articleEditor, /authorProfileId:/);
   assert.match(articleEditor, /EditorWorkspace/);
-  assert.match(articleEditor, /beforeunload/);
+  // The shared workspace now owns beforeunload; the article editor must not
+  // install an independent listener that could race the shared dirty guard.
+  const workspace = readFileSync("components/admin-editor-workspace.tsx", "utf8");
+  const navigationGuard = readFileSync("components/admin-editor-navigation-guard.tsx", "utf8");
+  assert.match(workspace, /window\.addEventListener\("beforeunload", warn\)/);
+  assert.match(workspace, /<EditorUnsavedChangesGuard/);
+  assert.match(navigationGuard, /useAdminEditorNavigationGuard/);
+  assert.doesNotMatch(articleEditor, /window\.addEventListener\("beforeunload"/);
   assert.match(articleEditor, /AdminEditorialAuthorField/);
   assert.match(articleEditor, /To najdôležitejšie <small>nepovinné<\/small>/);
   assert.match(articleEditor, /Vizuálne nastavenia <small>nepovinné<\/small>/);

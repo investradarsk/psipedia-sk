@@ -69,6 +69,7 @@ test("EDITOR-11: validations focus the right section and canonical API/publishin
   assert.match(editor, /contactPhone, contactEmail, admissionFee/);
   assert.match(editor, /method: event \? "PUT" : "POST"/);
   assert.match(editor, /"\/api\/admin\/events"/);
-  assert.match(editor, /<EditorUnsavedChangesGuard/);
+  assert.match(editor, /<EditorWorkspace/);
+  assert.match(read("components/admin-editor-workspace.tsx"), /useAdminEditorNavigationGuard/);
   assert.match(editor, /<AdminDestructiveConfirmDialog/);
 });

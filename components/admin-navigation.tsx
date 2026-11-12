@@ -24,9 +24,17 @@ function NavigationPendingIndicator() {
 
 function useAdminIntentPrefetch() {
   const router = useRouter();
+  const pathname = usePathname();
   const prefetched = useRef(new Set<string>());
 
+  // Vinext's router.prefetch currently has no onInvalidate option. Clear
+  // this intent-only guard on each committed route, not on every render.
+  useEffect(() => { prefetched.current.clear(); }, [pathname]);
+
   return (href: string) => {
+    // Opening the mobile drawer focuses a link automatically. That is not
+    // user intent to fetch an authenticated, D1-backed route.
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     // Only iOS/iPadOS needs a full document on these two streamed routes.
     // Android and desktop can reuse the client router without a reload.
     if ((href === "/admin" || href === "/admin/clanky") &&
@@ -34,10 +42,11 @@ function useAdminIntentPrefetch() {
       isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) return;
 
     // No speculative prefetch of dozens of authenticated D1-backed pages.
-    // One request per deliberate hover/focus, re-enabled when Next invalidates it.
+    // One request per deliberate hover/focus per committed route. No
+    // unsupported onInvalidate callback or speculative D1-backed traffic.
     if (prefetched.current.has(href)) return;
     prefetched.current.add(href);
-    router.prefetch(href, { onInvalidate: () => prefetched.current.delete(href) });
+    router.prefetch(href);
   };
 }
 
@@ -126,7 +135,7 @@ export function AdminNavigation({
   useEffect(() => {
     const element = desktopRef.current;
     element?.setAttribute("data-admin-hydrated", "true");
-    return () => element?.removeAttribute("data-admin-hydrated");
+    return () => { element?.removeAttribute("data-admin-hydrated"); };
   }, []);
 
   useEffect(() => {
@@ -169,10 +178,26 @@ export function AdminNavigation({
       }
     };
 
+    // A standalone iOS PWA can be frozen while its mobile drawer owns the
+    // body scroll lock. Release it on background/BFCache lifecycle events so
+    // a restored page never remains covered by an unresponsive overlay.
+    const releaseOnLifecycle = () => {
+      document.body.style.overflow = previousOverflow;
+      setOpenPath(null);
+    };
+    const releaseWhenHidden = () => {
+      if (document.visibilityState === "hidden") releaseOnLifecycle();
+    };
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pagehide", releaseOnLifecycle);
+    window.addEventListener("pageshow", releaseOnLifecycle);
+    document.addEventListener("visibilitychange", releaseWhenHidden);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pagehide", releaseOnLifecycle);
+      window.removeEventListener("pageshow", releaseOnLifecycle);
+      document.removeEventListener("visibilitychange", releaseWhenHidden);
     };
   }, [open]);
 
@@ -227,7 +252,22 @@ export function AdminNavigation({
                 ×
               </button>
             </div>
-            <nav className={styles.mobileNavigation} aria-label="Redakčné moduly">
+            <nav className={styles.mobileNavigation} aria-label="Redakčné moduly"
+              onClickCapture={(event) => {
+                // A dirty editor's document capture guard may cancel navigation.
+                // If it does, leave the drawer alone; never bypass the guard.
+                if (event.defaultPrevented || event.button !== 0 ||
+                  event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
+                if (!(anchor instanceof HTMLAnchorElement) || anchor.hasAttribute("download") ||
+                  (anchor.target && anchor.target !== "_self")) return;
+                const destination = new URL(anchor.href, window.location.href);
+                if (destination.origin !== window.location.origin ||
+                  (destination.pathname !== "/admin" && !destination.pathname.startsWith("/admin/"))) return;
+                // Release the overlay and body scroll before the RSC navigation.
+                // Otherwise a stalled transition leaves the entire mobile UI blocked.
+                setOpenPath(null);
+              }}>
               <NavigationGroups mobile />
             </nav>
             <div className={styles.mobilePublic}>

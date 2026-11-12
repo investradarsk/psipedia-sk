@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminDirectoryModuleNav } from "@/components/admin-directory-module-nav";
 import { AdminHelpUnifiedTable, type HelpDirectoryRow } from "@/components/admin-help-unified-table";
 import { AdminSectionHub, type AdminSectionHubItem } from "@/components/admin-section-hub";
@@ -83,6 +85,23 @@ async function loadTable(category: (typeof helpCategories)[number]["slug"], q: s
   return { rows, total, pages, page: currentPage };
 }
 
+async function HelpTable({ promise, category, q }: {
+  promise: ReturnType<typeof loadTable>;
+  category: (typeof helpCategories)[number]["slug"];
+  q: string;
+}) {
+  const table = await promise;
+  return <AdminHelpUnifiedTable
+    category={category}
+    categories={helpCategories.map(item => ({ slug: item.slug, label: item.label, icon: item.icon, href: hrefByCategory[item.slug] }))}
+    rows={table.rows}
+    query={q}
+    page={table.page}
+    pages={table.pages}
+    total={table.total}
+  />;
+}
+
 export default async function AdminDogHelpPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireAdminPageUser("/admin/pomoc-psom");
   const raw = await searchParams;
@@ -97,21 +116,15 @@ export default async function AdminDogHelpPage({ searchParams }: { searchParams:
       : item.description,
     icon: item.icon, href: hrefByCategory[item.slug],
   }));
-  const table = await loadTable(category, q, page);
+  const tablePromise = loadTable(category, q, page);
 
   return (
     <AdminShell user={user} eyebrow="Pomoc psom" title="Pomoc psom"
       description="Vyber kategóriu a otvor konkrétny profil priamo z tabuľky. Úpravy prebiehajú v pôvodných editoroch.">
       <AdminDirectoryModuleNav active="help" />
-      <AdminHelpUnifiedTable
-        category={category}
-        categories={helpCategories.map(item => ({ slug: item.slug, label: item.label, icon: item.icon, href: hrefByCategory[item.slug] }))}
-        rows={table.rows}
-        query={q}
-        page={table.page}
-        pages={table.pages}
-        total={table.total}
-      />
+      <Suspense fallback={<AdminDataLoading label="Pomoc psom" />}>
+        <HelpTable promise={tablePromise} category={category} q={q} />
+      </Suspense>
       <div className={styles.mobileHub}><AdminSectionHub items={items} /></div>
     </AdminShell>
   );

@@ -59,17 +59,20 @@ self.addEventListener("notificationclick", (event) => {
       }
     });
 
+    // The service worker has no access to dirty form state. On iOS an
+    // installed PWA may reuse its only window even for openWindow(), so never
+    // navigate or open a replacement client while an Admin window exists.
+    // The focused app displays the target as an ordinary, guarded link.
+    const matching = windows.find((client) => client.url === target);
+    if (matching) return matching.focus();
     if (existing) {
-      if ("navigate" in existing && existing.url !== target) {
-        try {
-          await existing.navigate(target);
-        } catch {
-          // Focus the existing safe admin window even if navigation is unavailable.
-        }
+      try {
+        existing.postMessage({ type: "psipedia-admin-push-intent", url: path });
+      } catch (error) {
+        console.warn("Admin notification intent could not be delivered.", error);
       }
       return existing.focus();
     }
-
     return self.clients.openWindow(target);
   })());
 });

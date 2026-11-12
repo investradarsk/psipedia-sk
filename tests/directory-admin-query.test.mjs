@@ -357,7 +357,7 @@ test("shared grid has compact density and controlled whole-result sorting contra
   const table = readFileSync(new URL("../components/admin-record-table.tsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../components/admin-record-table.module.css", import.meta.url), "utf8");
   const directory = readFileSync(new URL("../components/admin-directory-dashboard.tsx", import.meta.url), "utf8");
-  assert.match(table, /manualSorting: Boolean\(serverSorting\)/);
+  assert.match(table, /manualSorting: serverSorted \|\| Boolean\(serverSorting\)/);
   assert.match(table, /enableSortingRemoval: false/);
   assert.match(table, /aria-sort=\{/);
   assert.match(table, /serverSorting\.onChange/);

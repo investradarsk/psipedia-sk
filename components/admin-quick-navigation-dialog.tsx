@@ -4,9 +4,11 @@ import * as Dialog from "@radix-ui/react-dialog";
 import Fuse from "fuse.js";
 import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
+import { mergeUniqueAdminDestinations } from "@/lib/admin-quick-navigation-results";
+import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
 import styles from "./admin-quick-navigation.module.css";
 
 type Destination = { label: string; category: string; href: string; keywords: string; subtitle?: string };
@@ -115,33 +117,40 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
   }, [open, query]);
 
 
-  const sectionResults = query.trim()
+  // Keyboard navigation and pointer hover only update active index. Neither
+  // should re-run Fuse matching or the quadratic duplicate filter.
+  const sectionResults = useMemo(() => query.trim()
     ? search.search(query.trim(), { limit: 12 }).map(match => match.item)
-    : destinations.filter(item => suggestedHrefs.has(item.href));
-  // Exact section destinations and backend records share one listbox, but the
-  // endpoint only searches stored data after two characters.
-  const results = [...sectionResults, ...(shouldSearchRecords(query) ? records : [])]
-    .filter((item, index, all) => all.findIndex(candidate => candidate.href === item.href) === index);
+    : destinations.filter(item => suggestedHrefs.has(item.href)), [query]);
+  const results = useMemo(() => mergeUniqueAdminDestinations(
+    sectionResults, shouldSearchRecords(query) ? records : [],
+  ), [sectionResults, records, query]);
   const selected = Math.min(active, Math.max(0, results.length - 1));
 
   function changeOpen(value: boolean) {
     onOpenChange(value);
   }
   function go(href: string) {
+    const navigate = () => {
+      const target = new URL(href, window.location.origin);
+      if (target.origin === window.location.origin &&
+        (target.pathname === "/admin" || target.pathname === "/admin/clanky") &&
+        window.matchMedia("(max-width: 820px)").matches &&
+        isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) {
+        window.location.assign(target.href);
+        return;
+      }
+      router.push(href);
+    };
+    // Ctrl+K uses buttons. Ask the shared dirty editor guard before router.push,
+    // preserving the current draft if the user declines the exit.
     changeOpen(false);
-
-    // Ctrl+K uses buttons rather than anchors, so the iOS document fallback
-    // in AdminMobileDocumentNavigation cannot intercept this route change.
-    const target = new URL(href, window.location.origin);
-    if (target.origin === window.location.origin &&
-      (target.pathname === "/admin" || target.pathname === "/admin/clanky") &&
-      window.matchMedia("(max-width: 820px)").matches &&
-      isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) {
-      window.location.assign(target.href);
-      return;
-    }
-
-    router.push(href);
+    const event = new CustomEvent<AdminNavigationIntent>(ADMIN_NAVIGATION_INTENT_EVENT, {
+      cancelable: true,
+      detail: { href, navigate },
+    });
+    if (!window.dispatchEvent(event)) return;
+    navigate();
   }
   function handleKeys(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown" && results.length) {
@@ -194,7 +203,7 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
                 aria-selected={index === selected}
                 data-active={index === selected ? "true" : undefined}
                 className={styles.result}
-                onMouseEnter={() => setActive(index)}
+                onMouseEnter={() => setActive(previous => previous === index ? previous : index)}
                 onClick={() => go(item.href)}
               >
                 <span><strong>{item.label}</strong><small>{item.category}{item.subtitle ? " · " + item.subtitle : ""}</small></span>
