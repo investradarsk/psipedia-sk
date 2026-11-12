@@ -49,7 +49,7 @@ const shownAt=(stamp:string|null|undefined)=>stamp?new Intl.DateTimeFormat("sk-S
 export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initialMonth:string}){
   const ready=useSyncExternalStore(subscribe,()=>true,()=>false);
   const[data,setData]=useState(initial),[month,setMonth]=useState(initialMonth),[status,setStatus]=useState("all"),[source,setSource]=useState("all"),[page,setPage]=useState(1);
-  const[calendarView,setCalendarView]=useState<"week"|"month">("week");
+  const[calendarView,setCalendarView]=useState<"week"|"month">("month");
   const[opening,setOpening]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[day,setDay]=useState<string|null>(null),[refresh,setRefresh]=useState(0);
   const[publisher,setPublisher]=useState<{enabled:boolean;connected:boolean;technicallyEnabled:boolean}|null>(null);
   const[publisherError,setPublisherError]=useState(""),[publisherBusy,setPublisherBusy]=useState(false);
@@ -479,7 +479,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           </div>
         </details>
       </aside>
-      <section className={styles.calendarPanel} aria-label="Kalendár Facebook príspevkov" aria-busy={loading}>
+      <section className={styles.calendarPanel} aria-label="Kalendár Facebook obrázkov" aria-busy={loading}>
         <div className={styles.sectionHead}>
           <div>
             <h2>Redakčný kalendár Facebooku</h2>
@@ -518,8 +518,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
                     <time dateTime={cell.date}>{cell.day}</time>
                     {posts.length>0&&<span className={styles.dayCount}>{posts.length}</span>}
                   </AdminActionButton>
-                  {posts.slice(0,2).map(entry)}
-                  {posts.length>2&&<span className={styles.morePosts}>+ {posts.length-2} ďalšie</span>}
+                  {posts.slice(0,1).map(entry)}
+                  {posts.length>1&&<span className={styles.morePosts}>+ {posts.length-1} ďalšie</span>}
                 </div>;
               })}
             </div>
