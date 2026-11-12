@@ -91,6 +91,15 @@ function ReviewFeedCard({ review }: { review: PublicProfileReviewFeedItem }) {
   );
 }
 
+// A review-section article is not automatically a hands-on product test.
+// Explicit editorial metadata is required; the known licking-mat guide is
+// classified conservatively until its source record can carry reviewFormat.
+function productArticleKind(article: Article): "test" | "guide" | "article" {
+  if (article.reviewFormat === "test") return "test";
+  if (article.reviewFormat === "guide" || article.slug === "lizacia-podlozka-pre-psa-vyber-pouzivanie") return "guide";
+  return "article";
+}
+
 const serviceCategorySlugs = new Set([
   "veterinari",
   "treneri",
@@ -137,7 +146,7 @@ export async function ReviewsHub({
             }
             eyebrow="Rozhodovanie podľa skúseností"
             title="Recenzie a testy"
-            intro="Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste."
+            intro="Praktické návody na výber produktov, porovnania, zdokumentované redakčné testy a skúsenosti používateľov so službami pre psov."
             visual={heroVisual}
             portalSearchSlot={
               <HomePortalSearch
@@ -165,7 +174,7 @@ export async function ReviewsHub({
             <PublicLandingSectionHeading
               eyebrow="Vyber si, čo chceš pozrieť"
               title="Tri hlavné vstupy do recenzií"
-              description="Vyber si redakčné testy produktov, skúsenosti so službami alebo hodnotenia e-shopov."
+              description="Vyber si články o produktoch, skúsenosti so službami alebo hodnotenia e-shopov."
               id="reviews-mode-heading"
             />
             <PublicCategoryTiles
@@ -174,7 +183,7 @@ export async function ReviewsHub({
                 {
                   href: viewHref("products"),
                   title: "Produkty",
-                  description: "Redakčné testy krmív, výbavy a produktov pre psy.",
+                  description: "Návody na výber, porovnania aj skutočné redakčné testy produktov pre psy.",
                   meta: view === "products" ? "Zobrazené" : undefined,
                   icon: <BowlIcon size={22} />,
                   current: view === "products",
@@ -216,8 +225,8 @@ export async function ReviewsHub({
         <section className={styles.trustStrip} aria-label="Pravidlá hodnotenia">
           <PageContainer className={styles.trustGrid}>
             <div>
-              <strong>Redakčný test</strong>
-              <span>Metodika, podmienky testu a záver sú viditeľne oddelené od reklamy.</span>
+              <strong>Článok alebo test</strong>
+              <span>Skutočný test označujeme iba pri zdokumentovanom fyzickom testovaní; návody a porovnania označujeme samostatne.</span>
             </div>
             <div>
               <strong>Hodnotenia používateľov</strong>
@@ -238,24 +247,25 @@ export async function ReviewsHub({
             <section className={styles.section}>
               <PageContainer>
                 <PublicLandingSectionHeading
-                  eyebrow="Najnovšie testy Psipedia"
-                  title="Produkty, ktoré sme rozobrali prakticky"
-                  description="Pri každom teste uvádzame, čo bolo hodnotené, pre akého psa dáva produkt zmysel a či článok obsahuje partnerský alebo affiliate odkaz."
+                  eyebrow="Najnovšie články o produktoch"
+                  title="Návody, porovnania a redakčné testy"
+                  description="Pri produktoch rozlišujeme návod na výber od redakčného testu, pri ktorom prebehlo skutočné skúšanie. Partnerské odkazy označujeme."
                 />
                 {reviewArticles.length ? (
-                  <PublicContentList className={styles.articleGrid} label="Najnovšie redakčné testy">
+                  <PublicContentList className={styles.articleGrid} label="Najnovšie články o produktoch">
                     {reviewArticles.slice(0, 3).map((article) => {
                       const category = article.portalSubpage
                         ? subpages.find((item) => item.slug === article.portalSubpage)
                         : null;
+                      const kind = productArticleKind(article);
                       return (
                         <ArticleCard
                           key={article.slug}
                           article={article}
                           variant="compact"
                           topicHref={category ? portalSubpageHref(section, category) : "/recenzie"}
-                          topicLabel={category?.label ?? "Recenzie a testy"}
-                          actionLabel="Čítať test"
+                          topicLabel={kind === "test" ? "Redakčný test" : kind === "guide" ? "Nákupný sprievodca" : category?.label ?? "Články o produktoch"}
+                          actionLabel={kind === "test" ? "Čítať test" : kind === "guide" ? "Čítať návod" : "Čítať článok"}
                         />
                       );
                     })}
