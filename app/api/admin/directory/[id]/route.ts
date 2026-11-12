@@ -13,6 +13,7 @@ import { cleanupUnreferencedNotionUpload } from "@/lib/notion-sync-shared";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-text-change-contract";
+import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -291,8 +292,14 @@ export async function PUT(request: Request, { params }: Props) {
       // remains LEGACY_UNCONFIRMED; if it did not, the prior technical state is
       // preserved.
     }
-    let profile = await updateManagedDirectoryProfile(id, payload, user.email, before);
-    if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+    // A Notion webhook may update D1 after we read the profile but before
+    // the full-form UPDATE. Never overwrite that concurrent revision silently.
+    let profile = await updateManagedDirectoryProfile(
+      id, payload, user.email, before, db, { expectedUpdatedAt: before.updatedAt },
+    );
+    if (!profile) return Response.json({
+      error: "Profil sa medzitým zmenil v databáze. Obnov ho a zopakuj svoju úpravu.",
+    }, { status: 409, headers: { "cache-control": "no-store" } });
 
     // Verify clear requests against BOTH representations of public contacts:
     // website_url and legacy aliases in source_data_json. A stale alias must
@@ -531,6 +538,32 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({
         error: "Text profilu sa po uložení v databáze nepotvrdil (" +
           mismatchedText.join(", ") + "). Obnov profil a skontroluj hodnotu.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
+    // Salons and every other Directory category use the same contract:
+    // a successful save must be backed by all expressly edited D1 fields,
+    // not just Perex and Popis. Verify after Notion and metadata side-effects.
+    // Optional invalid contact values are intentionally sanitized with a
+    // visible warning, not a full-form blocker.
+    const sanitizedOptionalPaths = new Set<BreederEditorialField>();
+    for (const warning of optionalWarnings) {
+      for (const key of ["websiteUrl", "facebookUrl", "instagramUrl"] as const)
+        if (warning.includes(": " + key)) sanitizedOptionalPaths.add(key);
+      if (warning.includes("nepovinný e-mail")) sanitizedOptionalPaths.add("publicEmail");
+    }
+    const unconfirmedEditorial = directoryEditedFieldMismatches({
+      submitted: payload, persisted: saved,
+      editedPaths: (editedPaths ?? []).filter(path => !sanitizedOptionalPaths.has(path)),
+    });
+    const unconfirmedTrust = trainerTrustEditedPaths.filter(field =>
+      Boolean(saved[field]) !== Boolean(payload[field]),
+    );
+    if (unconfirmedEditorial.length || unconfirmedTrust.length) {
+      const fields = [...unconfirmedEditorial, ...unconfirmedTrust];
+      console.warn("DIRECTORY_FIELDS_D1_SAVE_NOT_CONFIRMED", id, fields);
+      return Response.json({
+        error: "Niektoré upravené polia sa v Admine neuložili (" +
+          fields.join(", ") + "). Obnov profil a zopakuj konkrétnu úpravu.",
       }, { status: 409, headers: { "cache-control": "no-store" } });
     }
     return Response.json({ profile: saved, notionFieldSync, metadataWarnings },

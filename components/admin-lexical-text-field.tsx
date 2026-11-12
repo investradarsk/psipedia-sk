@@ -32,13 +32,31 @@ function writePlainText(value: string) {
   }
 }
 
-function LexicalPlainTextBridge({ value, onChange, disabled }: { value: string; onChange: (value: string) => void; disabled: boolean }) {
+function LexicalPlainTextBridge({
+  value, onChange, disabled, valueReaderRef,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  valueReaderRef?: { current: (() => string) | null };
+}) {
   const [editor] = useLexicalComposerContext();
   const lastEmitted = useRef(value);
   const currentValue = useRef(value);
   const onChangeRef = useRef(onChange);
 
   useEffect(() => { editor.setEditable(!disabled); }, [editor, disabled]);
+
+  useEffect(() => {
+    // The parent Save handler must read the committed Lexical value directly.
+    // React's onChange callback can still be queued when Save is clicked.
+    if (!valueReaderRef) return;
+    const readCurrentText = () => editor.getEditorState().read(readPlainText);
+    valueReaderRef.current = readCurrentText;
+    return () => {
+      if (valueReaderRef.current === readCurrentText) valueReaderRef.current = null;
+    };
+  }, [editor, valueReaderRef]);
 
   useEffect(() => {
     currentValue.current = value;
@@ -93,6 +111,8 @@ type Props = {
   defaultValue?: string;
   onChange?: (value: string) => void;
   onInput?: (value: string) => void;
+  /** Optional synchronous read receipt for a Save button outside Lexical. */
+  valueReaderRef?: { current: (() => string) | null };
   rows?: number;
   required?: boolean;
   disabled?: boolean;
@@ -106,7 +126,7 @@ type Props = {
  * Hidden native textarea preserves FormData and the admin automation field name.
  */
 export function AdminLexicalTextField({
-  id, name, value, defaultValue = "", onChange, onInput, rows = 5,
+  id, name, value, defaultValue = "", onChange, onInput, valueReaderRef, rows = 5,
   required = false, disabled = false, placeholder, ariaLabel,
 }: Props) {
   const mounted = useSyncExternalStore(subscribeHydration, getClientSnapshot, getServerSnapshot);
@@ -144,7 +164,7 @@ export function AdminLexicalTextField({
             ErrorBoundary={LexicalErrorBoundary}
           />
           <HistoryPlugin />
-          <LexicalPlainTextBridge value={current} onChange={handleChange} disabled={disabled} />
+          <LexicalPlainTextBridge value={current} onChange={handleChange} disabled={disabled} valueReaderRef={valueReaderRef} />
         </div>
       </LexicalComposer> : (
         <div className={styles.surface} style={{ minHeight: `${Math.max(3, Math.min(rows, 14)) * 1.45}rem` }} aria-hidden="true" />
