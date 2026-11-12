@@ -1,7 +1,7 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion, articleSeoExplicitClears, type ArticleSeoRemoteValues } from "./notion-article-seo-properties";
 import { decodeArticleSeoReceipt, encodeArticleSeoReceipt } from "./notion-article-seo-receipt";
-import { articleSeoChangedFields, planArticleSeoIndependentWriteback, projectArticleSeoConfirmedBaseline, verifyArticleSeoPatch, type ArticleSeoFieldFailure } from "./notion-article-seo-writeback";
+import { articleSeoChangedFields, articleSeoUnacknowledgedRemoteFields, planArticleSeoIndependentWriteback, projectArticleSeoConfirmedBaseline, verifyArticleSeoPatch, type ArticleSeoFieldFailure } from "./notion-article-seo-writeback";
 import { notionRequest as notionSharedRequest } from "@/lib/notion-sync-shared";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
@@ -1359,6 +1359,11 @@ export async function writeBackArticleSeoToNotion(args: {
   const { ready, failures } = planArticleSeoIndependentWriteback({
     before, after: article, properties: page.properties ?? {}, siteUrl: SITE_URL,
   });
+  const externalDrift = articleSeoUnacknowledgedRemoteFields(page.properties ?? {}, confirmedSeo)
+    .filter(field => !changed.includes(field));
+  for (const field of externalDrift) {
+    failures.push({ field, code: "NOTION_ARTICLE_SEO_REMOTE_EDIT_PENDING" });
+  }
 
   // Compare against the full acknowledged import. If a changed SEO field
   // diverged in Notion, restore ONLY its confirmed raw value in the hash
@@ -1379,7 +1384,8 @@ export async function writeBackArticleSeoToNotion(args: {
   let originalHash = await contentHash(page, before);
   if (originalHash !== receipt.hash) {
     const confirmed = projectArticleSeoConfirmedBaseline(page, confirmedSeo,
-      changed.map(field => ({ field, code: "NOTION_ARTICLE_SEO_FIELD_CONFLICT" })));
+      [...new Set([...changed, ...externalDrift])]
+        .map(field => ({ field, code: "NOTION_ARTICLE_SEO_FIELD_CONFLICT" })));
     originalHash = await contentHash(confirmed, before);
     if (originalHash !== receipt.hash) {
       throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
