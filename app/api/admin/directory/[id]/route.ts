@@ -3,7 +3,7 @@ import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@
 import { env } from "cloudflare:workers";
 import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
-import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
+import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, normalizeDirectorySearchText, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
 import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, mirrorDirectoryMainImageToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
 import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_TRUST_FIELDS, type TrainerTrustField } from "@/lib/notion-trainer-trust-fields";
@@ -504,15 +504,67 @@ export async function PUT(request: Request, { params }: Props) {
     }
     // Re-read persisted D1 after all metadata and provider side-effects; a stale
     // intermediate projection must never be reported as the final lifecycle.
-    const saved = await getManagedDirectoryProfileById(id, db);
+    let saved = await getManagedDirectoryProfileById(id, db);
     if (!saved) return Response.json({ error: "Záznam po uložení neexistuje." }, { status: 409 });
     // Validate the actual D1 result, never a successful HTTP call or a stale
     // form echo. In particular, an unpersisted Perex must never say "Uložené".
     const cleanText = (value: unknown) => typeof value === "string"
       ? value.replace(/\r\n?/g, "\n").trim() : "";
+    // Ordinary Admin content follows Events: the value the editor submitted
+    // is authoritative for its expressly edited field. Never compare only to
+    // the internally merged full-form payload: a preservation layer can
+    // accidentally replace that payload with the previous D1 text and return
+    // HTTP 200 with zero change (caught by the local Directory Playwright).
+    const changedTextFields = (["excerpt", "description"] as const).filter(field =>
+      editedPaths?.includes(field) &&
+      typeof submittedBody[field] === "string" &&
+      cleanText(saved[field]) !== cleanText(submittedBody[field]),
+    );
+    if (changedTextFields.length) {
+      // Do not overwrite a third-party edit made after the form was opened.
+      // Recover only fields that still contain exactly the value we started
+      // with. A CAS guard protects the complete current row revision.
+      if (changedTextFields.some(field =>
+        cleanText(saved[field]) !== cleanText(before[field])
+      )) {
+        return Response.json({
+          error: "Text bol súbežne zmenený v D1. Obnov profil a skontroluj: " +
+            changedTextFields.join(", "),
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+      const nextText = {
+        excerpt: changedTextFields.includes("excerpt")
+          ? cleanText(submittedBody.excerpt) : saved.excerpt,
+        description: changedTextFields.includes("description")
+          ? cleanText(submittedBody.description) : saved.description,
+      };
+      const searchText = normalizeDirectorySearchText([
+        saved.name, nextText.excerpt, nextText.description,
+        saved.services.join(" "), saved.qualifications.join(" "),
+        saved.city, saved.district, saved.region, saved.address,
+        saved.postalCode, saved.street, saved.houseNumber,
+      ].join(" "));
+      const now = new Date().toISOString();
+      const recovered = await db.prepare(`UPDATE directory_profiles
+        SET excerpt=?, description=?, search_text=?, updated_at=?, updated_by=?
+        WHERE id=? AND category=? AND status<>'archived' AND updated_at=?
+        RETURNING id`)
+        .bind(nextText.excerpt, nextText.description, searchText, now, user.email,
+          id, saved.category, saved.updatedAt)
+        .first<{ id: number }>();
+      if (!recovered) {
+        return Response.json({
+          error: "Text sa medzičasom zmenil. Obnov profil a zopakuj uloženie.",
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+      saved = await getManagedDirectoryProfileById(id, db);
+      if (!saved) return Response.json({
+        error: "Profil po zápise textu neexistuje.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
     const mismatchedText = (["excerpt", "description"] as const).filter(field =>
       editedPaths?.includes(field) &&
-      cleanText(saved[field]) !== cleanText(payload[field]),
+      cleanText(saved[field]) !== cleanText(submittedBody[field]),
     );
     if (mismatchedText.length) {
       console.warn("DIRECTORY_TEXT_D1_SAVE_NOT_CONFIRMED", id, mismatchedText);
