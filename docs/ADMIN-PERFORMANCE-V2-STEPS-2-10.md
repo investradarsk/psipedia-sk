@@ -14,7 +14,7 @@
 | 6. Command palette | Číselné Admin ID preskočí 140 ms debounce; textové zostanú so debounce. Doplnil sa request-generation guard proti oneskoreným odpovediam, opakovanie chybového alebo neúplného vyhľadávania, ochrana proti nadlimitným rovnakým query a správne správanie pri odmietnutom odchode z rozpracovaného editora | AbortController a 15-sekundová obmedzená cache zostávajú; neúplné výsledky sa **neukladajú** do cache a zrušená navigácia ponechá dialóg otvorený |
 | 7. Upozornenia | `react.cache` pre exact summary **len v rámci jedného server requestu**; zdieľané medzi AdminShell a pracovným prehľadom | Nie je to globálna alebo viacsekundová cache, pri ďalšom RSC requeste sa stav zistí znovu |
 | 8. Organizácie | Uloženie adresy, popisov, kontaktov alebo obrázka nevyvolá druhé `router.refresh()`; obnovenie serverového kontextu zostáva len pri zmene názvu alebo slug-u | Formulár, CAS verzia a adresa sa aktualizujú podľa serverovej odpovede; ochrana novších úprav platí |
-| 9. Tabuľky | Recyklovaná prázdna selekcia pre bežné tabuľky bez výberu, aby TanStack nemusel prepočítavať selection model; benchmark a kontrakt limitu 50 záznamov pri organizáciách | Server-side ordering, ID a bulk preflight bez zmeny |
+| 9. Tabuľky | Okrem stabilnej prázdnej selekcie používa nenulový výber stabilný podpis označených ID: pri novom poli s rovnakým obsahom sa neregeneruje TanStack rowSelection. Definície stĺpcov nereagujú na identitu selection wrappera, len na relevantné popisky, callbacky a stav | Server-side sorting, výber výhradne viditeľnej stránky, stabilné ID a bulk preflight bez zmeny |
 | 10. Integrácia | Regresný Node/AST test, rozšírený read-only CI, syntetický benchmark, meranie TypeScript diagnostík podľa zmenených súborov, konfliktový audit a zosúladenie `main` | Žiadny deploy, produkčný zápis, migrácia, Notion edit ani automatické zlúčenie |
 
 ## Ako sa testuje
@@ -95,6 +95,23 @@ jediné podmienené volanie `router.refresh()` a zachovanie CAS.
 Ide o optimalizáciu navigačného RSC roundtripu, **nie o meranie reálneho p95
 na zariadení**. API ukladanie, Cloudflare D1 zápisy a Notion synchronizácia
 zostávajú nezmenené.
+
+## Doplnený krok 9: stabilný výber stránkovaných riadkov
+
+Nadradené tabuľky vytvárajú `selectedIds` ako nové polia aj vtedy, keď
+sú vybrané rovnaké ID. Pôvodný `useMemo` preto opakovane vytváral
+`rowSelection` už pri zmene identity poľa. Teraz sa používajú obsahové ID
+a referencia `rowSelection` zostáva stabilná, pokiaľ zostávajú rovnaké aj
+dáta konkrétnej stránky. Nevzniká výber mimo viditeľných riadkov.
+
+Definície stĺpcov už nezávisia od identity celého objektu `selection`,
+ale naďalej sledujú jeho funkčné časti (stav disabled, popisky, callback
+a príslušný data atribút), aby sa neukazovali zastarané stavy.
+`serverSorting` zostáva reaktívny a triedenie celej databázy na serveri
+sa nemení. To minimalizuje časť zbytočných alokácií, **nie je to však
+dôkaz merateľného zlepšenia INP alebo celého renderu**; rodičia často
+vytvárajú aj nové `columns` callbacky, pri ktorých sú zmeny stále potrebné.
+Regresný test chráni hranicu viditeľnej stránky a pôvodné bulk callbacky.
 
 ## Integrácia kroku 10 a oprava hlavného CI
 
