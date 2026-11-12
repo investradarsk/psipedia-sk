@@ -72,7 +72,7 @@ export function AdminErrorRecovery({
     <div className="admin-shell shell">
       <section className="admin-panel" role="alert" aria-labelledby="admin-recovery-title">
         <h1 id="admin-recovery-title">{title}</h1>
-        <p>Načítanie zlyhalo. Žiadne údaje sme neuložili ani automaticky nevymazali.</p>
+        <p>Načítanie zlyhalo. Pokus o obnovu nemení uložené údaje. Ak si pred chybou ukladal formulár, výsledok uloženia skontroluj v Admine.</p>
         <p>Ak si mal rozpracovaný formulár, obnova stránky môže neuložené zmeny stratiť.</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
           <button type="button" disabled={attempting} onClick={() => request("reset")}>
