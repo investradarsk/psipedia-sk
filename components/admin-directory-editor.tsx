@@ -685,12 +685,31 @@ export function AdminDirectoryEditor({
       // The server validates D1 too; do not show "Uložené" if the API ever
       // returns an older text field after a concurrent Notion/webhook edit.
       const textSaved = (value: string) => value.replace(/\r\n?/g, "\n").trim();
-      const textMismatch = (["excerpt", "description"] as const).filter(field =>
-        breederChangedPaths?.includes(field) &&
-        textSaved(savedProfile[field]) !== textSaved(field === "excerpt" ? submittedExcerpt : submittedDescription),
-      );
+      const mismatchedTextFields = (candidate: ManagedDirectoryProfile) =>
+        (["excerpt", "description"] as const).filter(field =>
+          breederChangedPaths?.includes(field) &&
+          textSaved(candidate[field]) !== textSaved(field === "excerpt" ? submittedExcerpt : submittedDescription),
+        );
+      let textMismatch = mismatchedTextFields(savedProfile);
+      if (textMismatch.length && profile) {
+        // A secondary category-facet PATCH or a concurrent Notion event can
+        // make the initial response stale. Re-read the real D1 projection;
+        // never replay the original long-form PUT or falsely confirm a change.
+        const freshResponse = await fetch(`/api/admin/directory/${profile.id}`, {
+          cache: "no-store", credentials: "same-origin",
+        });
+        if (freshResponse.ok) {
+          const fresh = await freshResponse.json() as { profile?: ManagedDirectoryProfile };
+          if (fresh.profile?.id === savedProfile.id &&
+              fresh.profile.category === savedProfile.category &&
+              fresh.profile.slug === savedProfile.slug) {
+            savedProfile = fresh.profile;
+            textMismatch = mismatchedTextFields(savedProfile);
+          }
+        }
+      }
       if (textMismatch.length) {
-        throw new Error("Zmena Perexu alebo Popisu sa nepotvrdila v Admine (" +
+        throw new Error("Zmena Perexu alebo Popisu sa nepotvrdila ani po opätovnom načítaní D1 (" +
           textMismatch.join(", ") + "). Skontroluj údaje a ulož ich znova.");
       }
       const hasNewerEdits = formEditRevisionRef.current !== submittedRevision;
