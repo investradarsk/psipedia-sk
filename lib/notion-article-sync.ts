@@ -1,7 +1,7 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion, articleSeoExplicitClears, type ArticleSeoRemoteValues } from "./notion-article-seo-properties";
 import { decodeArticleSeoReceipt, encodeArticleSeoReceipt } from "./notion-article-seo-receipt";
-import { articleSeoChangedFields, planArticleSeoWriteback, verifyArticleSeoPatch } from "./notion-article-seo-writeback";
+import { articleSeoChangedFields, planArticleSeoIndependentWriteback, projectArticleSeoConfirmedBaseline, verifyArticleSeoPatch, type ArticleSeoFieldFailure } from "./notion-article-seo-writeback";
 import { notionRequest as notionSharedRequest } from "@/lib/notion-sync-shared";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
@@ -1297,7 +1297,7 @@ export async function writeBackArticleSeoToNotion(args: {
   bindings: NotionSyncBindings;
   before: ManagedArticle;
   article: ManagedArticle;
-}): Promise<{ linked: boolean; updated: boolean; reason?: string }> {
+}): Promise<{ linked: boolean; updated: boolean; reason?: string; failedFields?: ArticleSeoFieldFailure[] }> {
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED) ||
       !flagEnabled(args.bindings.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED)) {
     return { linked: false, updated: false, reason: "disabled" };
@@ -1315,7 +1315,8 @@ export async function writeBackArticleSeoToNotion(args: {
     "SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
   ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
-  const confirmedSeo = decodeArticleSeoReceipt(mapping.content_hash).seo;
+  const receipt = decodeArticleSeoReceipt(mapping.content_hash);
+  const confirmedSeo = receipt.seo;
 
   const assertCurrentRevision = async () => {
     const current = await args.database.prepare(
@@ -1345,83 +1346,112 @@ export async function writeBackArticleSeoToNotion(args: {
     richTextProperty(page, "Slug") === article.slug &&
     (!page.parent?.data_source_id ||
       page.parent.data_source_id === args.bindings.NOTION_ARTICLES_DATA_SOURCE_ID);
+  const assertApproved = (page: NotionPage) => {
+    if (!sameArticle(page)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+    if (article.status === "draft" &&
+        (selectProperty(page, "Stav") !== "Ready" ||
+         !checkboxProperty(page, "Odoslať na Psipedia"))) {
+      throw new Error("NOTION_DRAFT_WRITEBACK_NOT_APPROVED");
+    }
+  };
   const page = await readPage();
-  if (!sameArticle(page)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
-  if (article.status === "draft" &&
-      (selectProperty(page, "Stav") !== "Ready" ||
-       !checkboxProperty(page, "Odoslať na Psipedia"))) {
-    throw new Error("NOTION_DRAFT_WRITEBACK_NOT_APPROVED");
-  }
-  const plan = planArticleSeoWriteback({
+  assertApproved(page);
+  const { ready, failures } = planArticleSeoIndependentWriteback({
     before, after: article, properties: page.properties ?? {}, siteUrl: SITE_URL,
   });
-  // Never acknowledge unrelated Notion edits as if they came from this Admin
-  // SEO change: the complete old remote content must still match the stored
-  // import baseline before the targeted PATCH can advance that baseline.
-  const originalBlocks = await getPageBlocks(args.bindings, page.id);
-  const originalPayload = notionPageToManagedArticleInput(page, originalBlocks, before, confirmedSeo);
-  const originalImage = notionArticleMainImageSource(page);
-  const originalHash = await sha256(JSON.stringify({
-    payload: originalPayload,
-    notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
-    ...(originalImage.fileIdentity ? { notionImageFileIdentity: originalImage.fileIdentity } : {}),
-    notionImageAlt: richTextProperty(page, "Alt text obrázka"),
-    notionImageCreditUrl: urlProperty(page, "Zdroj obrázka"),
-  }));
-  if (originalHash !== decodeArticleSeoReceipt(mapping.content_hash).hash) {
-    throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
-  }
-  // Preflight the Notion preimage once more immediately before writing.
-  const latest = await readPage();
-  if (!sameArticle(latest)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
-  verifyArticleSeoPatch(plan, latest.properties ?? {}, "before");
-  if (article.status === "draft" &&
-      (selectProperty(latest, "Stav") !== "Ready" ||
-       !checkboxProperty(latest, "Odoslať na Psipedia"))) {
-    throw new Error("NOTION_DRAFT_WRITEBACK_NOT_APPROVED");
-  }
-  await assertCurrentRevision();
 
-  if (Object.keys(plan.properties).length) {
-    // Mark pending before the remote PATCH. Never report success if its echo
-    // or the D1 field-baseline update fails.
+  // Compare against the full acknowledged import. If a changed SEO field
+  // diverged in Notion, restore ONLY its confirmed raw value in the hash
+  // projection. Unrelated Notion edits still block writeback, but a bad SEO
+  // property cannot block the other independently edited SEO properties.
+  const contentHash = async (sourcePage: NotionPage, fallback: ManagedArticle) => {
+    const blocks = await getPageBlocks(args.bindings, sourcePage.id);
+    const payload = notionPageToManagedArticleInput(sourcePage, blocks, fallback, confirmedSeo);
+    const image = notionArticleMainImageSource(sourcePage);
+    return sha256(JSON.stringify({
+      payload,
+      notionImageSourceUrl: urlProperty(sourcePage, "Hlavný obrázok URL"),
+      ...(image.fileIdentity ? { notionImageFileIdentity: image.fileIdentity } : {}),
+      notionImageAlt: richTextProperty(sourcePage, "Alt text obrázka"),
+      notionImageCreditUrl: urlProperty(sourcePage, "Zdroj obrázka"),
+    }));
+  };
+  let originalHash = await contentHash(page, before);
+  if (originalHash !== receipt.hash) {
+    const confirmed = projectArticleSeoConfirmedBaseline(page, confirmedSeo,
+      changed.map(field => ({ field, code: "NOTION_ARTICLE_SEO_FIELD_CONFLICT" })));
+    originalHash = await contentHash(confirmed, before);
+    if (originalHash !== receipt.hash) {
+      throw new Error("NOTION_ARTICLE_SEO_REMOTE_CONFLICT");
+    }
+  }
+
+  let written = 0;
+  let markedPending = false;
+  const failure = (field: ArticleSeoFieldFailure["field"], error: unknown) => {
+    const raw = error instanceof Error ? error.message : "";
+    failures.push({
+      field,
+      code: /^NOTION_ARTICLE_SEO_[A-Z0-9_]+$/.test(raw) ? raw : "REMOTE_WRITEBACK_FAILED",
+    });
+  };
+  // Send each field separately. A concurrent edit or transient PATCH/echo
+  // failure affects that property only, not the remaining eligible fields.
+  for (const { field, plan } of ready) {
+    try {
+      const latest = await readPage();
+      assertApproved(latest);
+      verifyArticleSeoPatch(plan, latest.properties ?? {}, "before");
+      await assertCurrentRevision();
+      if (Object.keys(plan.properties).length) {
+        if (!markedPending) {
+          await updateNotionSyncState(args.bindings, page.id, {
+            state: "Chyba", error: "ARTICLE_SEO_WRITEBACK_PENDING",
+          });
+          markedPending = true;
+        }
+        await notionRequest(args.bindings, "/pages/" + encodeURIComponent(page.id), {
+          method: "PATCH", body: JSON.stringify({ properties: plan.properties }),
+        });
+      }
+      const verified = await readPage();
+      assertApproved(verified);
+      verifyArticleSeoPatch(plan, verified.properties ?? {}, "after");
+      if (Object.keys(plan.properties).length) written++;
+    } catch (error) {
+      // Revision, identity or approval violations are global safeguards.
+      const code = error instanceof Error ? error.message : "";
+      if (code === "ADMIN_ARTICLE_REVISION_CONFLICT" ||
+          code === "NOTION_ARTICLE_IDENTITY_CONFLICT" ||
+          code === "NOTION_DRAFT_WRITEBACK_NOT_APPROVED") throw error;
+      failure(field, error);
+    }
+  }
+
+  if (failures.length) {
+    // Never acknowledge the entire remote snapshot while any SEO field is
+    // unresolved: doing so would make a later inbound sync skip Notion edits.
     await updateNotionSyncState(args.bindings, page.id, {
-      state: "Chyba", error: "ARTICLE_SEO_WRITEBACK_PENDING",
+      state: "Chyba", error: "ARTICLE_SEO_WRITEBACK_PARTIAL",
     });
-    await assertCurrentRevision();
-    await notionRequest(args.bindings, "/pages/" + encodeURIComponent(page.id), {
-      method: "PATCH", body: JSON.stringify({ properties: plan.properties }),
-    });
+    return { linked: true, updated: written > 0, reason: "partial", failedFields: failures };
   }
 
-  const verified = await readPage();
-  if (!sameArticle(verified)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
-  verifyArticleSeoPatch(plan, verified.properties ?? {}, "after");
+  const verifiedPage = await readPage();
+  assertApproved(verifiedPage);
   await assertCurrentRevision();
-  // Use the same Notion-content fingerprint as the inbound import; otherwise
-  // the next webhook could misclassify an acknowledged Admin change as a conflict.
-  const blocks = await getPageBlocks(args.bindings, verified.id);
-  const payload = notionPageToManagedArticleInput(verified, blocks, article, confirmedSeo);
-  const source = notionArticleMainImageSource(verified);
-  const hash = await sha256(JSON.stringify({
-    payload,
-    notionImageSourceUrl: urlProperty(verified, "Hlavný obrázok URL"),
-    ...(source.fileIdentity ? { notionImageFileIdentity: source.fileIdentity } : {}),
-    notionImageAlt: richTextProperty(verified, "Alt text obrázka"),
-    notionImageCreditUrl: urlProperty(verified, "Zdroj obrázka"),
-  }));
-  await assertCurrentRevision();
+  const finalHash = await contentHash(verifiedPage, article);
   const now = new Date().toISOString();
   const saved = await args.database.prepare(
     "UPDATE article_notion_sync SET content_hash = ?, notion_last_edited_time = ?, " +
     "last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ? AND content_hash = ?",
-  ).bind(encodeArticleSeoReceipt(hash, verified), verified.last_edited_time ?? null, now, now,
-    verified.id, article.id, mapping.content_hash).run();
+  ).bind(encodeArticleSeoReceipt(finalHash, verifiedPage), verifiedPage.last_edited_time ?? null,
+    now, now, verifiedPage.id, article.id, mapping.content_hash).run();
   if (saved.meta?.changes !== 1) throw new Error("NOTION_ARTICLE_SEO_MAPPING_CONFLICT");
-  await updateNotionSyncState(args.bindings, verified.id, {
+  await updateNotionSyncState(args.bindings, verifiedPage.id, {
     state: "Synchronizované", articleId: article.id, syncedAt: now,
   });
-  return { linked: true, updated: Object.keys(plan.properties).length > 0 };
+  return { linked: true, updated: written > 0 };
 }
 
 /**
