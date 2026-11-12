@@ -285,6 +285,12 @@ export function AdminDirectoryEditor({
     ? activeDirectorySection
     : editorSectionsForProfile[0].id;
   const activeDirectoryIndex = editorSectionsForProfile.findIndex((section) => section.id === currentDirectorySection);
+  // Delay heavy media widgets until the section is first opened. Then keep
+  // them mounted so switching tabs never discards an unfinished gallery edit.
+  const [mediaSectionVisited, setMediaSectionVisited] = useState(false);
+  useEffect(() => {
+    if (currentDirectorySection === "directory-media-trust") setMediaSectionVisited(true);
+  }, [currentDirectorySection]);
   const navigateDirectoryPager = useProfileEditorSectionPager(currentDirectorySection, setActiveDirectorySection);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
@@ -1131,11 +1137,11 @@ export function AdminDirectoryEditor({
             </AdminEditorSection>
           ) : null}
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
-            {profile && <AdminShareToFacebook title={name} imageUrl={imageUrl} publicPath={"/adresar/" + profile.category + "/" + profile.slug} />}
+            {profile && mediaSectionVisited && <AdminShareToFacebook title={name} imageUrl={imageUrl} publicPath={"/adresar/" + profile.category + "/" + profile.slug} />}
             <div className="admin-card-heading"><div><span>{profile && ["chovatelske-stanice", "treneri"].includes(category) ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
             <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { replaceMainImageRequestedRef.current = null; removeMainImageRequestedRef.current = true; setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
-            {!notionDraft && category === "chovatelske-stanice" ? (
+            {!notionDraft && category === "chovatelske-stanice" && mediaSectionVisited ? (
               <AdminPhotoGallery
                 folder="directory"
                 limit={DIRECTORY_BREEDER_GALLERY_LIMIT}
