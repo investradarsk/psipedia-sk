@@ -66,6 +66,7 @@ export function formatAdoptionDetailAge(
 ) {
   const months = adoptionAgeMonths(dog, now);
   if (months === null) return null;
+  if (months === 0) return "menej ako 1 mesiac";
   if (months < 12) return `${months} ${months === 1 ? "mesiac" : months >= 2 && months <= 4 ? "mesiace" : "mesiacov"}`;
   const years = Math.max(1, Math.round(months / 12));
   return `približne ${years} ${years === 1 ? "rok" : years >= 2 && years <= 4 ? "roky" : "rokov"}`;
