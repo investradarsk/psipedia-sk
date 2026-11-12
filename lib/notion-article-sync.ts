@@ -1,5 +1,6 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
-import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion } from "./notion-article-seo-properties";
+import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion, articleSeoExplicitClears, type ArticleSeoRemoteValues } from "./notion-article-seo-properties";
+import { decodeArticleSeoReceipt, encodeArticleSeoReceipt } from "./notion-article-seo-receipt";
 import { articleSeoChangedFields, planArticleSeoWriteback, verifyArticleSeoPatch } from "./notion-article-seo-writeback";
 import { notionRequest as notionSharedRequest } from "@/lib/notion-sync-shared";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
@@ -969,13 +970,14 @@ export function notionPageToManagedArticleInput(
   page: NotionPage,
   blocks: NotionBlock[],
   existing?: ExistingNotionArticlePlacement,
+  confirmedPrevious?: ArticleSeoRemoteValues | null,
 ): ManagedArticleInput {
   const title = titleProperty(page, "Názov");
   const slug = richTextProperty(page, "Slug");
   const notionCategory = selectProperty(page, "Kategória");
   const notionSubsection = selectProperty(page, "Podsekcia");
   const contentType = selectProperty(page, "Typ obsahu");
-  const seoFields = articleSeoFromNotion(page, existing);
+  const seoFields = articleSeoFromNotion(page, existing, confirmedPrevious);
   const metaDescription = seoFields.metaDescription;
   const socialCaption = propertyRecord(page, "Popis na sociálne siete")
     ? richTextProperty(page, "Popis na sociálne siete")
@@ -1779,7 +1781,7 @@ async function upsertMapping(
     page.id,
     articleId,
     page.last_edited_time ?? null,
-    contentHash,
+    encodeArticleSeoReceipt(contentHash, page),
     now,
     now,
     now,
@@ -1930,6 +1932,7 @@ async function syncOneNotionPage(
     if (pending) throw new Error("NOTION_EDITORIAL_WRITEBACK_PENDING");
   }
   const mapping = await loadMapping(database, page.id);
+  const previousSeo = mapping ? decodeArticleSeoReceipt(mapping.content_hash).seo : null;
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
   // Review-only Notion drafts must not be treated as failed syncs. A public
   // canonical counterpart is the sole exception to their review-state gate.
@@ -1947,7 +1950,7 @@ async function syncOneNotionPage(
   const blocks = await getPageBlocks(bindings, page.id);
   // Legacy article placements require the canonical mapped article for a
   // correct fallback; do not parse a mapped page without that context.
-  const proposed = notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined);
+  const proposed = notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo);
   const existing: ManagedArticle | null = mappedExisting
     ?? (mapping ? null : await findUnmappedCanonicalArticle(database, page, proposed));
   if (mapping && !existing) {
@@ -1962,7 +1965,7 @@ async function syncOneNotionPage(
   if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
   validateSyncGate(page, existing?.status === "published");
 
-  const sourcePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined);
+  const sourcePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined, previousSeo);
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
   const authorityPayload = existing && mapping
@@ -1995,7 +1998,7 @@ async function syncOneNotionPage(
   const now = new Date().toISOString();
 
   if (existing) {
-    if (mapping && mapping.content_hash === contentHash) {
+    if (mapping && decodeArticleSeoReceipt(mapping.content_hash).hash === contentHash) {
       // Hash equality proves only that Notion did not change. It does NOT
       // prove a newer human Admin edit was written back successfully.
       // Keep the last-success receipt intact until the editor revision has
@@ -2008,6 +2011,9 @@ async function syncOneNotionPage(
       }
       if (selectProperty(page, "Sync stav") === "Synchronizované"
         && richTextProperty(page, "Psipedia ID") === String(existing.id)) {
+        // The first safe read of an old hash-only row establishes the raw SEO
+        // baseline without treating legacy empty Notion fields as clears.
+        if (!previousSeo) await upsertMapping(database, page, existing.id, contentHash, now);
         return "unchanged"; // No metadata-only writeback loop.
       }
       await upsertMapping(database, page, existing.id, contentHash, now);
@@ -2074,7 +2080,8 @@ async function syncOneNotionPage(
       ...basePayload,
       blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
     };
-    const prepared = await prepareNotionMainImage(bindings, page, preservedPayload, existing);
+    const prepared = await prepareNotionMainImage(bindings, page, preservedPayload, existing,
+      articleSeoExplicitClears(page, previousSeo).has("ogImageUrl"));
     let updated: Awaited<ReturnType<typeof updateManagedArticle>> | null = null;
     try {
       updated = await updateManagedArticle(existing.id, prepared.payload, SYNC_ACTOR, existing, { updatedAt: existing.updatedAt, status: "draft" });
