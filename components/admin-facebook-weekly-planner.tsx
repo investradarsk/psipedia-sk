@@ -68,6 +68,7 @@ export function AdminFacebookWeeklyPlanner({ onCreate, onEdit, refresh }: Props)
     available:false,custom:false,version:0,slots:defaultFacebookWeeklyTemplate(),
   }));
   const [editPlan,setEditPlan] = useState(false);
+  const [editVersion,setEditVersion] = useState(0);
   const [draft,setDraft] = useState<FacebookWeeklySlot[]>([]);
   const [editDay,setEditDay] = useState(0);
   const [templateBusy,setTemplateBusy] = useState(false);
@@ -171,6 +172,7 @@ export function AdminFacebookWeeklyPlanner({ onCreate, onEdit, refresh }: Props)
 
   function beginTemplateEdit() {
     setDraft(template.slots.map(slot=>({...slot})));
+    setEditVersion(template.version);
     setEditDay(week===0?selectedDay:0);
     setEditPlan(true);
     setError("");
@@ -205,7 +207,7 @@ export function AdminFacebookWeeklyPlanner({ onCreate, onEdit, refresh }: Props)
       const response=await fetch("/api/admin/facebook-weekly-plan",{
         method:"PUT",credentials:"same-origin",cache:"no-store",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({slots,expectedVersion:template.version}),
+        body:JSON.stringify({slots,expectedVersion:editVersion}),
       });
       const result=await response.json() as {template?:TemplateState;error?:string};
       if(!response.ok||!result.template)throw new Error(result.error||"Plán sa neuložil.");
