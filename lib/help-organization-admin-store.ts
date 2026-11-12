@@ -94,12 +94,21 @@ function requireD1Binding(database?: AdoptionD1Database) {
   return resolved;
 }
 
+/** Imported legacy rows can contain NULL in old text columns despite the
+ * canonical schema. Keep read-only Admin rendering safe; never write back.
+ */
+export function organizationAdminReadText(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
 function completenessHints(row: OrganizationPublicationRow) {
   const hints: string[] = [];
-  const hasLocation = Number(row.location_count) > 0 || Boolean(row.resolved_city.trim() || row.resolved_district.trim() || row.resolved_region.trim());
+  const hasLocation = Number(row.location_count) > 0 || Boolean(organizationAdminReadText(row.resolved_city).trim() ||
+    organizationAdminReadText(row.resolved_district).trim() || organizationAdminReadText(row.resolved_region).trim());
   if (!hasLocation) hints.push("Bez lokality");
   if (!(row.public_email?.trim() || row.public_phone?.trim() || row.website_url?.trim())) hints.push("Bez kontaktu");
-  if (!(row.short_description.trim() || row.description.trim())) hints.push("Bez verejného popisu");
+  if (!(organizationAdminReadText(row.short_description).trim() ||
+    organizationAdminReadText(row.description).trim())) hints.push("Bez verejného popisu");
   if (!row.image_url?.trim()) hints.push("Bez obrázka");
   if (!isOrganizationPublicationType(row.type)) hints.push("Neplatný typ");
   return hints;
@@ -111,23 +120,23 @@ function toCandidate(row: OrganizationPublicationRow): OrganizationPublicationCa
   }
   return {
     id: Number(row.id),
-    name: row.name,
-    slug: row.slug,
-    legalName: row.legal_name,
+    name: organizationAdminReadText(row.name),
+    slug: organizationAdminReadText(row.slug),
+    legalName: organizationAdminReadText(row.legal_name),
     registrationNumber: row.registration_number,
-    type: row.type,
+    type: organizationAdminReadText(row.type),
     status: row.status,
-    shortDescription: row.short_description,
-    description: row.description,
+    shortDescription: organizationAdminReadText(row.short_description),
+    description: organizationAdminReadText(row.description),
     publicEmail: row.public_email,
     publicPhone: row.public_phone,
     websiteUrl: row.website_url,
     facebookUrl: row.facebook_url,
     instagramUrl: row.instagram_url,
-    city: row.resolved_city ?? row.city,
-    district: row.resolved_district ?? row.district,
-    region: row.resolved_region ?? row.region,
-    countryCode: row.country_code,
+    city: organizationAdminReadText(row.resolved_city ?? row.city),
+    district: organizationAdminReadText(row.resolved_district ?? row.district),
+    region: organizationAdminReadText(row.resolved_region ?? row.region),
+    countryCode: organizationAdminReadText(row.country_code),
     imageUrl: row.image_url,
     sourceUrl: row.source_url,
     publishedAt: row.published_at,
@@ -148,9 +157,9 @@ function withPreflight(row: OrganizationPublicationRow): OrganizationPublication
     directoryProfileId: row.directory_profile_id === null ? null : Number(row.directory_profile_id),
     locationCount: Number(row.location_count ?? 0),
     fundraisingCount: Number(row.fundraising_count ?? 0),
-    primaryCity: row.resolved_city ?? "",
-    primaryDistrict: row.resolved_district ?? "",
-    primaryRegion: row.resolved_region ?? "",
+    primaryCity: organizationAdminReadText(row.resolved_city),
+    primaryDistrict: organizationAdminReadText(row.resolved_district),
+    primaryRegion: organizationAdminReadText(row.resolved_region),
     completenessHints: completenessHints(row),
   };
 }
