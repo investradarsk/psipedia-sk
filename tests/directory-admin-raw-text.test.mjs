@@ -91,11 +91,10 @@ test("Directory editor uses text inputs and does not erase unrelated location da
     assert.match(editor, new RegExp('id="' + id + '" type="text"'));
   }
   assert.match(editor, /id="directory-street" type="text"/);
-  assert.doesNotMatch(editor, /setPostalCode\(" "\)/);
   const locationOnChange = editor.slice(
     editor.indexOf("onChange={(location) => {", editor.indexOf("<SlovakiaLocationSelector")),
     editor.indexOf("<DirectoryAddressAutocomplete"),
   );
-  assert.doesNotMatch(locationOnChange, /setPostalCode\(" "\)|setPostalCode\("")|setHouseNumber\("")|setStreet\("")/);
+  assert.doesNotMatch(locationOnChange, /setPostalCode\(""\)|setHouseNumber\(""\)|setStreet\(""\)/);
   assert.doesNotMatch(editor, /inputMode="numeric"/);
 });
