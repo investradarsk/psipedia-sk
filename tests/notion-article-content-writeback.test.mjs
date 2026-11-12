@@ -14,7 +14,7 @@ const compile = async path => ts.transpileModule(
 ).outputText;
 const seoUrl = asUrl(await compile("../lib/notion-article-seo-properties.ts"));
 const contentPlanSource = (await compile("../lib/notion-article-content-plan.ts"))
-  .replace(/from ["']\\.\\/notion-article-seo-properties["']/, 'from "' + seoUrl + '"');
+  .replace('from "./notion-article-seo-properties"', 'from "' + seoUrl + '"');
 const {
   buildNotionEditorialPlan, EditorialSyncConflict,
   notionEditorialBlockShape, notionEditorialPropertyText,
