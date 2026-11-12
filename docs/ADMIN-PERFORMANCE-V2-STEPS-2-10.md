@@ -10,7 +10,7 @@
 | 2. Články | Celoobrazovkový náhľad a editor výrezu sú `next/dynamic`; grafika Facebook sa importuje až pri spustení generovania; náhľad sa ani nemountuje, kým nie je otvorený | Uloženie, status a rich-text kontrakt nezmenené |
 | 3. Služby a plemená | V adresári sa crop, FB panel a breeder galéria načítajú až pri potrebe; galéria a FB zostávajú namontované po prvom otvorení, aby sa nestratili rozpracované úpravy; galéria plemien a DnD sú v samostatnom chunku | Parent editor stále vlastní skutočné dáta; immutable `moveAdminGalleryItem` nahrádza iba utility `arrayMove` |
 | 4. Podujatia a mobil | Základný panel Google Maps sa načíta až pri prvej návšteve sekcie; druhý, samostatný adresný geo-fallback sa zapne **iba po kliknutí**. Foto crop a FB panel zostávajú lazy importy | Pri bežnom otvorení lokality sa už nespúšťa druhé geo GET čítanie; po zapnutí fallback zostáva namontovaný, takže sa nestratí rozpracované overenie. Žiadne automatické Google Places discovery |
-| 5. D1 vyhľadávanie | Read-only SQLite EXPLAIN/bench porovná existujúci substring filter s indexovaným presným Admin ID; bez nových indexov alebo produkčnej migrácie | Bez zmeny výsledkov, tombstone filtrov, ACL, schematických lockov; FTS5 až po zvláštnom schválenom návrhu |
+| 5. D1 vyhľadávanie | Syntetický read-only SQLite benchmark teraz vykoná **skutočné generované SQL všetkých 8 kategórií** pre text, presné ID a tombstone filtering. Zaznamená pre každý dotaz `EXPLAIN QUERY PLAN`, lokálne p50/p95 a zachovanie výsledkov | Žiadna migrácia či zmena produkčného SQL, autentifikácie ani Notion dát; výsledky lokálneho SQLite nie sú produkčné D1 `rows_read` alebo reálny výkon iPhone |
 | 6. Command palette | Číselné Admin ID preskočí 140 ms debounce; textové zostanú so debounce; query sa skráti na existujúci serverový limit 80 znakov, takže nadlimitné znaky nespúšťajú identické requesty | AbortController a krátka in-memory cache zostávajú |
 | 7. Upozornenia | `react.cache` pre exact summary **len v rámci jedného server requestu**; zdieľané medzi AdminShell a pracovným prehľadom | Nie je to globálna alebo viacsekundová cache, pri ďalšom RSC requeste sa stav zistí znovu |
 | 8. Organizácie | Uloženie samotnej adresy alebo noop už nevyvolá celú `router.refresh()` sekvenciu; po uložení identity sa naďalej obnoví kanonický kontext | Údaje a snapshoty adresy sa aktualizujú podľa serverovej odpovede; ochrana novších úprav platí |
@@ -24,6 +24,28 @@
 - `npm run benchmark:admin-search-v2` meria **iba syntetickú SQLite** v pamäti, SQL plán a lokálny p50/p95; čísla sa nesmú vydávať za produkčné D1/INP.
 - `.github/workflows/admin-performance-v2.yml` vykonáva Node regresie a lokálnu query-plan diagnostiku s `permissions: contents: read`.
 - Pôvodné `e2e:admin-stability-step9` stále poskytuje read-only prehliadačové merania navigácie, no emulácia mobilu nie je reálny iPhone Safari.
+
+## Doplnený audit kroku 5: osem skutočných dotazov
+
+Syntetický benchmark `scripts/benchmark-admin-search-v2.mjs` používa
+`searchAdminRecords()` z produkčného kódu a verný, ale úplne **in-memory**
+SQL model ôsmich tabuliek. Pre každý režim vyhľadávania zachytí osem
+pripravených/bindovaných SELECTov, ich query plány a lokálne časy:
+
+- **Substring text:** porovná, kde sú v plánovači SQLite scan kroky a kde index.
+- **Číselné Admin ID:** overí, že všetkých osem query plánov používa indexovaný lookup na `id`.
+- **Tombstone:** overí, že odstránený profil je vylúčený len zo svojej kategórie, výsledky ostatných siedmich zostanú.
+- **CI JSON artefakt:** workflow zbiera `admin-v2-search-plan.json` ako validný JSON (bez `npm run` banneru) a validuje počet kategórií a paritu výsledkov.
+
+**Interpretácia:** `instr(lower(coalesce(...)))` neznamená automaticky, že každý
+dotaz vždy prečíta celú tabuľku: plán závisí od zoradenia a indexov. `FTS5`
+tokenové matchovanie sa nesmie slepo zameniť za pôvodné substring správanie
+(čiastočné slová, diakritika, iné stĺpce). V tomto PR preto nerobíme FTS
+migráciu; tá potrebuje samostatný návrh so zápismi/triggerom, backfillom,
+porovnaním výsledkov a meraním skutočného D1 `rows_read`.
+
+**Bezpečnostná hranica:** všetky merania sú lokálne, syntetické a bez spojenia
+na Cloudflare D1, Notion alebo produkčné API.
 
 ## Integrácia kroku 10 a oprava hlavného CI
 
