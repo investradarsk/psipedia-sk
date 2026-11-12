@@ -56,3 +56,17 @@ Chovateľské stanice sú manuálne otestovaný model: podpísaný webhook `page
 V existujúcej Notion databáze Adresár (97 vlastností) je 7 z 21 výberových polí. Chýbajúcich 14 má bezpečný iba read-only plán v lib/directory-notion-facet-schema-plan.ts; návrhy ADD COLUMN sú idempotentné a viazané na presný Notion data source. Žiadna nová databáza ani živá schema zmena sa nevykonala.
 
 Po merge treba jednotlivo otestovať Notion → Admin a Admin → Notion pre každú kategóriu: Popis, SEO, kontakty, prázdne hodnoty, select filtre, samostatné V3, zmazanie a súbežné editácie. Tarabora #1826 zostáva otvorený produkčný test (Popis končí x; staré Služby obsahujú test). Subscription môže byť Paused a jej stav nie je z D1 doložený.
+
+## Stav CI a produkčnej akceptácie
+
+Najnovší overený commit `40da6a5d3c4cfe65d0ac3be58ad6f871267311e3`: všetkých 9 GitHub workflowov dokončených (7 `success`, 2 `skipped`). Úspešné: NOTION-SYNC focused validation, Notion profile lossless sync (offline), NOTION-BIDIRECTIONAL events/help, Admin Stability Read-Only, Admin Performance V2 Read-Only, Admin Legacy Mutation CSRF, Playwright E2E and production smoke. Nejde o potvrdenie reálneho live webhooku zo zmeny Notion.
+
+Krok 10: **CI/regresné testy úspešné, produkčná akceptácia otvorená**. Branch bol pri porovnaní 52 commitov za `main`, hoci GitHub `mergeable=true`. Pred merge treba aktualizovať vetvu proti aktuálnemu `main` a znova skontrolovať testy. Produkčné údaje neboli prepísané.
+
+**Otvorené prevádzkové podmienky:**
+
+- 14 chýbajúcich select stĺpcov v existujúcej Notion databáze Adresár: pripravený read-only schema plán, nie samotný schema zápis; ich použitie potrebuje samostatný ownerom schválený rollout.
+- Overiť, či Notion webhook subscription je `Active`; `Paused` vyžaduje obnovenie v Notione.
+- Živý test Notion → Admin a Admin → Notion aspoň jedného profilu v každej z 10 kategórií, vrátane explicitného clear a kontroly V3.
+- Tarabora #1826: preukázať prenos zadaného `x` v `Popis` a `test` v starých `Služby` do D1; kontrolovať, že 8 V3 služieb ostalo nedotknutých.
+
