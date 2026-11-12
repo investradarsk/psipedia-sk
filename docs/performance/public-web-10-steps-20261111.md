@@ -26,7 +26,7 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 7. [x] **Fotografie a médiá.** Kompresia/rozmery, správne `srcSet`, lazy loading pod prvým viewportom, stabilné rozmery pre CLS; bez odstránenia originálov.
 8. [x] **Adresár, podujatia, plemená, mapy.** Route-specific profily, zoznamy a filtrovanie, mapové knižnice načítavať až pri potrebe, priebežne kontrolovať UX a funkčnosť.
 9. [x] **Tretie strany a dlhé úlohy.** Skripty analytiky, súhlasov a reklám, event handlery, INP; rešpektovať consent, reklamnú funkcionalitu a interný traffic.
-10. [ ] **Záverečný tuning a kontrola regresií.** Opakovať Lighthouse mobil/desktop na rovnakých URL, rovnakom prostredí a intervaloch, porovnať skóre, LCP, CLS, TBT, skutočné INP len ak sú dostupné field dáta; testovať desktop/mobil, skontrolovať odkazy a SEO.
+10. [x] **Záverečný kódový audit, oprava zachytených regresií a CI brána (merania čakajú na porovnateľné nasadenie).** Opakovať Lighthouse mobil/desktop na rovnakých URL, rovnakom prostredí a intervaloch, porovnať skóre, LCP, CLS, TBT, skutočné INP len ak sú dostupné field dáta; testovať desktop/mobil, skontrolovať odkazy a SEO.
 
 ## Meracie ciele a akceptácia
 
@@ -180,3 +180,53 @@ Referencie: https://react.dev/reference/react/useMemo a https://web.dev/articles
 **Bez zmien:** GA4 ID, poradové udalosti, `send_page_view: false`, súhlas na reklamné a analytické cookies, synchronizácia medzi záložkami, priamo spravované kampane, označenie `Reklama`, interný traffic, admin, Notion, R2, D1, Cloudflare billing. Zrušenie reklamného súhlasu po už vloženom skripte stále používa pôvodné obnovenie stránky. Neklameme o zmeranom `INP`, ktorý potrebuje terénne (field) dáta; Lighthouse/TBT, request waterfalls, marketing udalosti a click/scroll testy na mobiloch patria do záverečného kroku 10. Eventuálne ďalšie úpravy závisia od konkrétnych dlhých úloh z profilu prehliadača.
 
 Referencie: https://web.dev/articles/optimize-inp a https://developer.mozilla.org/en-US/docs/Web/API/Window/requestIdleCallback
+
+
+## Krok 10 — QA nálezy, opravy a rozhodnutie o release
+
+**Rozsah:** PR #1317, jedna vetva `perf/public-web-10-steps-20261111`. Žiadne produkčné zápisy, meranie z používateľských dát, úpravy Notion ani SQL migrácie.
+
+### Zachytené a opravené regresie
+
+1. Predchádzajúci hlavný `Playwright E2E and production smoke` build gate skončil na `npm run lint`: dve **errors** v `components/lazy-dog-age-calculator.tsx`. Pomenovanie premennej `module` bolo zakázané pravidlom Next.js; vetva bez `IntersectionObserver` volala `setEnabled(true)` synchronne v `useEffect`. Premenná bola premenovaná na `calculatorModule`, fallback je teraz pripojený k `requestAnimationFrame` a pri unmount sa zruší. Rovnako zostáva funkčný Safari fallback, lazy import, `Suspense` a placeholder.
+2. Nová cielená regresná sada odhalila zastarané tvrdenie v `tests/monetization-foundation.test.mjs`: posledný selektor `.admin-section-item` sa očakával *vo verejných* `app/globals.css`, hoci bol správne odrezaný v kroku 3 do Admin-only CSS. Test teraz končí na uzatváracej zátvorke existujúceho verejného `@media (max-width: 680px)`. Vizuál cookies sa nezmenil; osobitne bolo skontrolovaných desať CSS invariantov.
+3. Vyhnúť sa prehnanému tvrdeniu, že kontrola zdrojového kódu alebo Lighthouse produkčného `main` dokazuje zrýchlenie **tohto nezlúčeného PR**. Neprehlásiť `INP` za zmerané z Lighthouse laboratórnych údajov (Lighthouse obsahuje `TBT`, nie field INP).
+
+### Automatizovaná brána
+
+Nový súbor `.github/workflows/public-web-perf-10-final.yml` spúšťa len pri výkonovej vetve: `npm run test:perf-fastpaths`, `npm run test:homepage-media`, `npm run test:public-css-scope`, dizajnové tokeny, `npm run test:events-public-ux`, `npm run test:map-public-ui`, FCI crawl, monetizáciu a AI referral. Zámerne **neduplikuje** produkčný build, ktorý beží v existujúcom hlavnom CI. Kontroluje hlavne bezpečnosť cache, SSR/FCI obsah, obrázky, CSS, event/month navigáciu, mapové consent a marketingové súhlasy.
+
+Na opravenom SHA `7287dd95178d588507ade213a8b49107a50c54bf` nový cielený GitHub CI workflow `PUBLIC-WEB-PERF-10 focused regression gate` skončil **SUCCESS**. Samostatný `Public HTML Cache Safety Guard (offline)` a `Public DS-5 card and media contract` sú tiež **SUCCESS**. Stav hlavného produkčného buildu/lintu sa posudzuje osobitne podľa **najnovšieho** SHA, nie starých úspešných commitov. Ak vzniknú ďalšie commity, všetky výsledky z predchádzajúceho SHA už nie sú konečným merge dôkazom.
+
+### Nepotvrdené metriky — žiadne vymyslené zrýchlenia
+
+| Metrika | Stav pre nezlúčený PR | Meranie |
+| --- | --- | --- |
+| Lighthouse performance (mobil / desktop) | **UNKNOWN** | dve porovnateľné laboratórne série |
+| LCP (mobil / desktop) | **UNKNOWN** | LCP node a čas, rovnaká šírka a profil |
+| CLS (mobil / desktop) | **UNKNOWN** | Lighthouse a vizuálny scroll kontrolný záznam |
+| TTFB / HIT→MISS | **UNKNOWN** | verzovaný Worker deploy + read-only `perf:html-cache:probe` |
+| Prenos JS/CSS/fotiek | **UNKNOWN** | real transferred bytes + waterfall |
+| TBT | **UNKNOWN** | Lighthouse lab, nie náhrada za field INP |
+| INP p75 | **UNKNOWN** | CrUX alebo iné spoľahlivé field dáta, nie syntetický odhad |
+| Admin po extrakcii CSS | **POTREBNÝ vizuálny smoke test** | desktop a mobil, najmä Admin PWA |
+
+**Podmienka porovnania:** `scripts/web-perf-observability.mjs` už existuje a jeho workflow `WEB-PERF Observability` pre PR zámerne **nespúšťa živý Chrome/Lighthouse** (iba offline testy). Meria aktuálnu produkciu `https://psipedia.sk`. Nie je dôkazom výkonu nenasadeného PR. Bez porovnateľného preview alebo nasadenia verzovaného SHA **nie je čestné vyhodnotiť before/after**. Po dostupnom deployment SHA zachovať rovnaké URL, `baseline` režim (3 merania × 8 URL × 2 zariadenia) a konštantné verzie Chrome/Node/Lighthouse, vzdialenosť merania, cookie/consent, cache stav a rozsah zdrojových dát. `scripts/web-perf-compare.mjs` vyžaduje aj nezávislé identifikátory predchádzajúceho a nasadeného produkčného SHA; neodhadovať ich.
+
+**Bezpečné príkazy pre kontrolu:**
+- `npm run test:perf-fastpaths`
+- `npm run test:homepage-media`
+- `npm run test:public-css-scope`
+- `npm run test:events-public-ux && npm run test:map-public-ui`
+- `npm run test:monetization && npm run test:ai-referral`
+- `npm run lint && npm run build` (v hlavnom CI)
+- `npm run perf:html-cache:probe -- / /adresar/veterinari /plemena` (len anonymný read-only HTTP GET, po vhodnom nasadení)
+
+### Pred zlúčením povinné release gate
+
+- Aktuálny SHA musí mať **SUCCESS** v hlavnom `Playwright E2E and production smoke` aj cielenej `PUBLIC-WEB-PERF-10` suite. Predchádzajúca zelená z iného SHA nestačí.
+- Overiť vizuálne mobil/desktop: hero homepage a plemien, zoom galérie PhotoSwipe, veková kalkulačka, 2/3 stĺpcové fotogalérie, directory filtre, podujatia bez reloadu, mapa bez súhlasu/s ním, cookies/ad/GA4 (vrátane odvolania), Admin CSS/PWA; nezamieňať E2E izolovaného lokálneho servera za produkčný smoke test.
+- Potvrdiť absenciu HTTP 500, 404 image variantov, JS chunk errors, súkromného SSR cache a regresií v LCP/CLS; predchádzajúci incident HTTP 500 je dôvodom nevynechať smoke.
+- Zaznamenať pred/po výkon iba keď existujú dva porovnateľné deploye. Bez toho uviesť `UNKNOWN`. Tento bod môže byť dokončený len po preview/nasadení — nie falošným vyhlásením o zlepšení pred merge.
+- **NEZLUČOVAŤ automaticky.** Tento desaťkrokový PR je po kódovej stránke pripravený na review a CI validáciu; merge je oddelené vedomé rozhodnutie až po zelených release gates.
+
