@@ -1599,6 +1599,14 @@ async function syncBreederEvent(input: {
     let updated = false;
     const failures: string[] = [];
     for (const path of paths) {
+      // A signed property name by itself is not the property value. A partial
+      // Notion GET must not translate an absent field into an empty-string
+      // deletion in D1. Keep this path pending while independent fields apply.
+      const notionKey = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+      if (!Object.hasOwn(page.properties ?? {}, notionKey)) {
+        failures.push(path);
+        continue;
+      }
       // The Notion address is editorial text only: never modify the Google
       // Place ID, geo_points coordinates or paid-provider verification.
       const before = profileSnapshot(current) as unknown as Record<string, unknown>;
@@ -1618,6 +1626,10 @@ async function syncBreederEvent(input: {
     // An empty edited text field is a real deletion and must clear the D1 value.
     let pilotMetaUpdated = false;
     for (const field of pilotMetaFields) {
+      if (!Object.hasOwn(page.properties ?? {}, field)) {
+        failures.push(field);
+        continue;
+      }
       const value = propertyText(page, field).trim();
       try {
         const next = await savePilotDirectoryMetadataField({
