@@ -35,7 +35,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   let row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toBeVisible();
   await expect(row).toContainText("Koncept");
-  await expect(row).toContainText("READY");
+  await expect(row).toContainText("Pripravené");
   await expect(row.getByRole("button", { name: "Publikovať", exact: true })).toBeEnabled();
 
   // Canonical admin confirmation is an accessible HTML dialog, not window.confirm.
@@ -60,7 +60,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
 
   row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Publikované");
-  await expect(row).toContainText("Verejný profil");
+  await expect(row.getByRole("link", { name: "Web ↗" })).toBeVisible();
   await expect(row.getByRole("button", { name: "Presunúť do konceptu", exact: true })).toBeEnabled();
 
   const publicAfterPublish = await request.get(`/organizacie/${fixtureSlug}`);
@@ -85,7 +85,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
 
   row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Koncept");
-  await expect(row).toContainText("Neverejný profil");
+  await expect(row.getByRole("link", { name: "Web ↗" })).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Publikovať", exact: true })).toBeEnabled();
 
   const publicAfterUnpublish = await request.get(`/organizacie/${fixtureSlug}`);
@@ -136,7 +136,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   const result = page.locator("[data-admin-organization-row]").filter({ hasText: name });
   await expect(result).toBeVisible();
   await expect(result).toContainText("Koncept");
-  await expect(result).toContainText("Publication READY");
+  await expect(result).toContainText("Pripravené");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.keyboard.press("Tab");
   expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");

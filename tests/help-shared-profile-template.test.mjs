@@ -185,3 +185,40 @@ test("unnamed lost/found reports show human-readable breadcrumb instead of URL s
   assert.match(detail, /report\.publicContactNote/);
   assert.match(detail, /<PublicPhotoGallery/);
 });
+
+
+test("adoption details reuse the exact lost/found dog template, contacts and public actions", () => {
+  const adoption = read("components/adoption-detail.tsx");
+  const lost = read("components/lost-found-dog-detail.tsx");
+  const adoptionCss = read("components/adoption-detail.module.css");
+  const sharedCss = read("components/lost-found-dogs.module.css");
+
+  for (const component of [
+    "DetailHero", "PublicHelpProfileDetailLayout", "DetailContactsCard",
+    "DetailSection", "DetailParagraphs", "DetailFactsCard",
+    "DetailActions", "PublicActionLink", "PublicPhotoGallery",
+  ]) {
+    assert.ok(adoption.includes("<" + component), component + " not used by adoption");
+    assert.ok(lost.includes("<" + component), component + " not used by lost/found");
+  }
+  for (const className of ["detail", "detailCopy", "detailAside", "detailMeta", "detailLead", "statusBanner", "badge", "safetyPanel", "reportGallery"]) {
+    assert.ok(adoption.includes("dogStyles." + className), "adoption must share " + className);
+    assert.ok(sharedCss.includes("." + className), "shared dog CSS must own " + className);
+  }
+  assert.match(adoption, /<DetailContactsCard title="Adresa a kontakt" id="adoption-contact"/);
+  assert.match(adoption, /variant="linked" fit="contain"/);
+  assert.match(adoption, /dog\.gallery\.filter\(Boolean\)\.slice\(0, 6\)/);
+  assert.match(adoption, /dog\.contactPhone/);
+  assert.match(adoption, /dog\.contactEmail/);
+  assert.match(adoption, /dog\.contactUrl/);
+  assert.match(adoption, /dog\.externalSourceUrl/);
+  assert.match(adoption, /dog\.status === "RESERVED"/);
+  assert.match(adoption, /Naposledy potvrdená dostupnosť/);
+  assert.match(adoption, /adoptionDetailIsStale/);
+  assert.match(adoption, /dog\.adoptionRequirements/);
+  assert.match(adoption, /dog\.temperament/);
+  assert.match(adoption, /dog\.healthNotes/);
+  assert.match(adoption, /dog\.specialNeeds/);
+  assert.doesNotMatch(adoption, /private_details|encrypted|contact_name_encrypted/);
+  assert.doesNotMatch(adoptionCss, /\.detailGrid|\.detailPanel|\.contactCard|\.detailFacts|\.heroActions/);
+});

@@ -188,7 +188,9 @@ test("article row selection uses native checkbox semantics and existing single-r
   const dashboardSource = readFileSync(new URL("../components/admin-dashboard.tsx", import.meta.url), "utf8");
   assert.match(bulkSource, /type="checkbox"/);
   assert.match(bulkSource, /aria-live="polite"/);
-  assert.match(dashboardSource, /Pozrieť ↗/);
+  assert.match(dashboardSource, /<Link href=\{articleHref\(article\)\} target="_blank">Web ↗<\/Link>/);
+  assert.match(dashboardSource, /<AdminRecordTable/);
+  assert.match(dashboardSource, /selection=\{\{/);
   assert.match(dashboardSource, />Upraviť</);
   assert.match(dashboardSource, /removeArticle\(article\)/);
 });

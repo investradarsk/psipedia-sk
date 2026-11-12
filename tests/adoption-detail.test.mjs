@@ -148,7 +148,8 @@ test("detail route is canonical-only and cannot reach the legacy Help renderer",
 
 test("detail links only to the resolved canonical organization profile", () => {
   const component = read("../components/adoption-detail.tsx");
-  assert.match(component, /organization \? <Link className=\{styles\.organizationLink\}/);
+  assert.match(component, /organization \? \[\{/);
+  assert.match(component, /<Link className=\{styles\.organizationLink\}/);
   assert.match(component, /organization\.slug/);
   assert.doesNotMatch(component, /dog\.organizationSlug.*organizacie/);
 });

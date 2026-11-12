@@ -24,16 +24,23 @@ test("directory, help and events keep selection visible to the current page/quer
 
   assert.doesNotMatch(help, /selectionMode/);
   assert.doesNotMatch(help, /mode: "filter"/);
-  assert.match(help, /<BulkSelectionCheckbox/);
-  assert.match(help, /indeterminate=\{pageSomeSelected\}/);
-  assert.match(help, /onChange=\{togglePage\}/);
+  assert.match(help, /<AdminRecordTable/);
+  assert.match(help, /selection=\{\{/);
+  assert.match(help, /selectedIds: \[\.\.\.selected\]/);
+  assert.match(help, /onChange: ids => setSelected\(new Set\(ids\)\)/);
+  assert.match(help, /onClear=\{clearSelection\}/);
   assert.match(help, /viewFingerprint/);
   assert.match(help, /AdminBulkActionToolbar/);
   assert.match(help, /AdminModalDialog/);
   assert.doesNotMatch(help, /window\.confirm\([^\n]*Hromad/);
 
-  assert.match(events, /<BulkSelectionCheckbox/);
-  assert.match(events, /indeterminate=\{pageSomeSelected\}/);
+  assert.match(events, /<AdminRecordTable/);
+  assert.match(events, /selection=\{\{/);
+  assert.match(events, /selectedIds: \[\.\.\.selected\]\.filter/);
+  const shared = read("components/admin-record-table.tsx");
+  assert.match(shared, /<BulkSelectionCheckbox/);
+  assert.match(shared, /indeterminate=\{table\.getIsSomePageRowsSelected\(\)\}/);
+  assert.match(shared, /table\.toggleAllPageRowsSelected\(checked\)/);
   const checkbox = read("components/admin-bulk-selection.tsx");
   assert.match(checkbox, /ref\.current\.indeterminate = indeterminate/);
   assert.match(checkbox, /onChange\(event\.currentTarget\.checked\)/);
@@ -69,10 +76,13 @@ test("organization bulk reuses canonical lifecycle writes and returns explicit p
 
   assert.match(dashboard, /AdminBulkActionToolbar/);
   assert.match(dashboard, /AdminModalDialog/);
-  assert.match(dashboard, /indeterminate=\{bulkSelection\.currentPageSomeSelected\}/);
+  assert.match(dashboard, /<AdminRecordTable/);
+  assert.match(dashboard, /selectedIds: bulkSelection\.selection\.mode === "explicit"/);
+  assert.match(dashboard, /onChange: ids => \{/);
   assert.match(dashboard, /payload\.counts\.failed > 0/);
   assert.match(dashboard, /Výber zostal zachovaný na kontrolu/);
-  assert.match(dashboard, /variant=\{bulkAction === "archive" \? "destructive" : "primary"\}/);
+  assert.match(dashboard, /destructiveAction=\{<AdminActionButton variant="destructive"/);
+  assert.match(dashboard, /primaryAction=\{<AdminActionButton variant="primary"/);
 });
 
 test("domains with richer lifecycle semantics do not get invented generic bulk endpoints", () => {
