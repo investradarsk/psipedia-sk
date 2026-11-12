@@ -1,4 +1,5 @@
 import { metadataOnlyChange, sameSource, UUID, EVENT_TYPES, type NotionWebhookEvent as WebhookEvent } from "@/lib/notion-webhook-contract";
+import { directoryPropertyEventMissingChangedIds } from "@/lib/notion-directory-field-event-scope";
 import type { NotionWebhookInboxResult } from "@/lib/notion-webhook-inbox";
 import { runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
 import { runNotionBreedSyncSweep } from "@/lib/notion-breed-sync";
@@ -82,6 +83,14 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   } | undefined;
   if (sameSource(sourceId, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!)) {
+    // A signed property edit without the edited property IDs is not proof of
+    // a successful per-field import. Keep it pending/reviewable rather than
+    // silently treating the Directory no-op as processed. A later complete
+    // event can still apply the actual edit without overwriting other fields.
+    if (directoryPropertyEventMissingChangedIds(event.type, event.data?.updated_properties)) {
+      console.warn("DIRECTORY_WEBHOOK_MISSING_CHANGED_PROPERTIES", id);
+      return "deferred";
+    }
     summary = await runNotionDirectorySyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
       changedPropertyIds: event.data?.updated_properties ?? [],
