@@ -4,7 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import Fuse from "fuse.js";
 import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
 import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
@@ -116,13 +116,19 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
   }, [open, query]);
 
 
-  const sectionResults = query.trim()
+  // Keyboard navigation and pointer hover only update active index. Neither
+  // should re-run Fuse matching or the quadratic duplicate filter.
+  const sectionResults = useMemo(() => query.trim()
     ? search.search(query.trim(), { limit: 12 }).map(match => match.item)
-    : destinations.filter(item => suggestedHrefs.has(item.href));
-  // Exact section destinations and backend records share one listbox, but the
-  // endpoint only searches stored data after two characters.
-  const results = [...sectionResults, ...(shouldSearchRecords(query) ? records : [])]
-    .filter((item, index, all) => all.findIndex(candidate => candidate.href === item.href) === index);
+    : destinations.filter(item => suggestedHrefs.has(item.href)), [query]);
+  const results = useMemo(() => {
+    const seen = new Set<string>();
+    return [...sectionResults, ...(shouldSearchRecords(query) ? records : [])].filter(item => {
+      if (seen.has(item.href)) return false;
+      seen.add(item.href);
+      return true;
+    });
+  }, [sectionResults, records, query]);
   const selected = Math.min(active, Math.max(0, results.length - 1));
 
   function changeOpen(value: boolean) {
@@ -201,7 +207,7 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
                 aria-selected={index === selected}
                 data-active={index === selected ? "true" : undefined}
                 className={styles.result}
-                onMouseEnter={() => setActive(index)}
+                onMouseEnter={() => setActive(previous => previous === index ? previous : index)}
                 onClick={() => go(item.href)}
               >
                 <span><strong>{item.label}</strong><small>{item.category}{item.subtitle ? " · " + item.subtitle : ""}</small></span>
