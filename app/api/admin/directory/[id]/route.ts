@@ -13,6 +13,7 @@ import { cleanupUnreferencedNotionUpload } from "@/lib/notion-sync-shared";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-text-change-contract";
+import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -537,6 +538,23 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({
         error: "Text profilu sa po uložení v databáze nepotvrdil (" +
           mismatchedText.join(", ") + "). Obnov profil a skontroluj hodnotu.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
+    // Salons and every other Directory category use the same contract:
+    // a successful save must be backed by all expressly edited D1 fields,
+    // not just Perex and Popis. Verify after Notion and metadata side-effects.
+    const unconfirmedEditorial = directoryEditedFieldMismatches({
+      submitted: payload, persisted: saved, editedPaths: editedPaths ?? [],
+    });
+    const unconfirmedTrust = trainerTrustEditedPaths.filter(field =>
+      Boolean(saved[field]) !== Boolean(payload[field]),
+    );
+    if (unconfirmedEditorial.length || unconfirmedTrust.length) {
+      const fields = [...unconfirmedEditorial, ...unconfirmedTrust];
+      console.warn("DIRECTORY_FIELDS_D1_SAVE_NOT_CONFIRMED", id, fields);
+      return Response.json({
+        error: "Niektoré upravené polia sa v Admine neuložili (" +
+          fields.join(", ") + "). Obnov profil a zopakuj konkrétnu úpravu.",
       }, { status: 409, headers: { "cache-control": "no-store" } });
     }
     return Response.json({ profile: saved, notionFieldSync, metadataWarnings },
