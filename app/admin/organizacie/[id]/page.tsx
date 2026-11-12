@@ -16,6 +16,7 @@ import { getOrganizationPublicationAdminById } from "@/lib/help-organization-adm
 import type { OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
 import { listOrganizationFundraisingMethodsAdmin } from "@/lib/organization-fundraising-admin-store";
 import { listOrganizationLocationsAdmin } from "@/lib/organization-location-admin-store";
+import { resolveOrganizationEditorReads } from "@/lib/organization-admin-read-state";
 import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 import { listCanonicalAutomationUpdateSuggestions } from "@/lib/data-automation-update-review";
 
@@ -78,11 +79,9 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
   // A genuinely missing canonical ID is 404 even if an unrelated location
   // query failed. However, an existing record cannot enter an editor with
   // missing/empty address data after a failed read: fail closed instead.
-  if (organizationResult.status === "rejected") throw organizationResult.reason;
-  const organization = organizationResult.value;
-  if (!organization) notFound();
-  if (locationsResult.status === "rejected") throw locationsResult.reason;
-  const locations = locationsResult.value;
+  const resolved = resolveOrganizationEditorReads(organizationResult, locationsResult);
+  if (!resolved) notFound();
+  const { organization, locations } = resolved;
 
   // Start the non-essential request without awaiting it. React 19 Suspense
   // streams its panel when ready; failure never rejects the editor's render.
