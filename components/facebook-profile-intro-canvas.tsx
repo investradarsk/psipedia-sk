@@ -33,34 +33,34 @@ function roundClip(ctx:Konva.Context,w:number,h:number,r:number){
   ctx.lineTo(0,r);ctx.quadraticCurveTo(0,0,r,0);ctx.closePath();
 }
 function addLogo(group:Konva.Group,bitmap:ImageBitmap|null,options:ProfileLogoOptions){
-  const size=408,r=size/2;
+  const size=408,width=options.shape==="rounded"?520:size,height=options.shape==="rounded"?320:size,r=size/2;
   if(options.shape==="circle"){
     group.add(new Konva.Circle({x:r,y:r,radius:r,fill:WHITE,stroke:"#e5dbca",strokeWidth:5}));
   }else if(options.shape!=="none"){
-    group.add(new Konva.Rect({width:size,height:size,cornerRadius:options.shape==="rounded"?54:0,fill:WHITE,stroke:"#e5dbca",strokeWidth:5}));
+    group.add(new Konva.Rect({width,height,cornerRadius:options.shape==="rounded"?54:0,fill:WHITE,stroke:"#e5dbca",strokeWidth:5}));
   }
   const clipped=new Konva.Group({
     clipFunc:options.shape==="none"?undefined:(ctx)=>{
       if(options.shape==="circle"){ctx.beginPath();ctx.arc(r,r,r-9,0,Math.PI*2);ctx.closePath();}
-      else roundClip(ctx,size,size,options.shape==="rounded"?48:0);
+      else roundClip(ctx,width,height,options.shape==="rounded"?48:0);
     },
   });
   if(bitmap){
     const crop=cropBounds(bitmap.width,bitmap.height,options);
-    const factor=Math.min((size-35)/crop.width,(size-35)/crop.height)*options.zoom/100;
+    const factor=Math.min((width-35)/crop.width,(height-35)/crop.height)*options.zoom/100;
     const dw=crop.width*factor,dh=crop.height*factor;
-    const x=(size-dw)/2+options.offsetX*1.4;
-    const y=(size-dh)/2+options.offsetY*1.4;
+    const x=(width-dw)/2+options.offsetX*1.4;
+    const y=(height-dh)/2+options.offsetY*1.4;
     clipped.add(new Konva.Image({
       image:bitmap,x,y,width:dw,height:dh,
       cropX:crop.x,cropY:crop.y,cropWidth:crop.width,cropHeight:crop.height,
     }));
   }else{
-    clipped.add(caption("LOGO PROFILU",44,185,size-88,36,"#89958d","center"));
+    clipped.add(caption("LOGO PROFILU",44,height/2-20,width-88,36,"#89958d","center"));
   }
   group.add(clipped);
   // Transparent logos still need a generous selectable touch target.
-  group.add(new Konva.Rect({width:size,height:size,opacity:0.001}));
+  group.add(new Konva.Rect({width,height,opacity:0.001}));
 }
 
 function addBrand(group:Konva.Group,originalIcon:HTMLImageElement|null){
@@ -116,10 +116,9 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
           draggable:true,name:"profile-"+id,
           dragBoundFunc:(next)=>{
             // Keep at least a sliver of every element within the artwork.
-            const ratio=Math.min(1,root.getBoundingClientRect().width/W)||1;
             return {
-              x:Math.min((W-24)*ratio,Math.max((-width*pos.scale+24)*ratio,next.x)),
-              y:Math.min((H-24)*ratio,Math.max((-height*pos.scale+24)*ratio,next.y)),
+              x:Math.min(W-24,Math.max(-width*group.scaleX()+24,next.x)),
+              y:Math.min(H-24,Math.max(-height*group.scaleY()+24,next.y)),
             };
           },
         });
@@ -152,7 +151,8 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         group.add(title);
         group.add(new Konva.Rect({width:956,height:179,opacity:.001}));
       });
-      add("logo",408,408,group=>addLogo(group,logo,logoOptions));
+      add("logo",logoOptions.shape==="rounded"?520:408,logoOptions.shape==="rounded"?320:408,
+        group=>addLogo(group,logo,logoOptions));
       add("footer",800,126,group=>{
         group.add(new Konva.Circle({x:56,y:59,radius:56,fill:WHITE}));
         group.add(paw(23,24,67,RED));
