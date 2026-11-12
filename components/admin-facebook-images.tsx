@@ -71,6 +71,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const[pickerMarkerBusy,setPickerMarkerBusy]=useState<number|null>(null);
   const[selectionBusy,setSelectionBusy]=useState(false);
   const[selectedContentUrl,setSelectedContentUrl]=useState("");
+  const[selectedProfile,setSelectedProfile]=useState<{category:string;logoUrl:string}|null>(null);
   const[inlineDraft,setInlineDraft]=useState<{id:string;version:number;key:string;title:string;caption:string}|null>(null);
   const[inlineBusy,setInlineBusy]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
@@ -139,7 +140,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       const result=await response.json() as {
         article?:{id:number;title:string;url:string};
         profile?:{id:number;title:string;url:string};
-        image?:{imageUrl:string;imageKey:string};imageWarning?:string;error?:string;
+        image?:{imageUrl:string;imageKey:string};imageWarning?:string;
+        logo?:{imageUrl:string;imageKey:string};logoWarning?:string;error?:string;
       };
       if(!response.ok)throw Error(result.error||"Obsah sa nepodarilo prevziať.");
       const selected=result.article||result.profile;
@@ -207,8 +209,14 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           imageUrl:selectedImage?.imageUrl||"",imageKey:selectedImage?.imageKey||""};
       });
       setSelectedContentUrl(selected.url);
-      setPickerError(imageWarning);
-      setNotice(selectedImage?.imageKey
+      const categoryLabel=pickerGroups.find(group=>group.id===pickerGroup)?.categories
+        .find(category=>category.slug===pickerCategory)?.label||pickerCategory;
+      setSelectedProfile(result.profile?{category:categoryLabel,logoUrl:result.logo?.imageUrl||""}:null);
+      setPickerError(result.profile&&result.logo?.imageUrl?"":imageWarning);
+      setNotice(result.profile?(result.logo?.imageUrl
+        ?"Profil a logo boli prevzaté. V editore vyber šablónu Predstavujeme profil."
+        :"Profil bol prevzatý. Logo môžeš nahrať v šablóne Predstavujeme profil.")
+        :selectedImage?.imageKey
         ?"Obsah aj fotografia boli prevzaté. Môžeš otvoriť editor grafiky."
         :"Obsah bol prevzatý bez fotografie. Pred vytvorením grafiky nahraj fotografiu.");
       setPickerKind("none");
@@ -382,7 +390,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   function edit(post:FacebookImagePost|null,date=""){
     if(post?.articleId){window.location.assign(`/admin/clanky/${post.articleId}`);return;}
     origin.current=document.activeElement as HTMLElement;setEditorError("");setNotice("");setGraphicOpen(false);openRequest.current?.abort();
-    setPickerKind("none");setPickerQuery("");setPickerPage(1);setPickerCategory("");setPickerError("");setSelectedContentUrl("");
+    setPickerKind("none");setPickerQuery("");setPickerPage(1);setPickerCategory("");setPickerError("");setSelectedContentUrl("");setSelectedProfile(null);
     if(!post){const next=blank(date);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:null});return;}
     const abort=new AbortController();openRequest.current=abort;setOpening(true);
     fetch(`/api/admin/facebook-images/${post.id}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as {post:FacebookImagePost;error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");if(abort.signal.aborted)return;const next=formFor(body.post);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:body.post});}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setOpening(false);});
@@ -590,6 +598,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         </div>}
         {graphicOpen?
           <AdminFacebookGraphicEditor initialTitle={form.title} initialPhotoUrl={form.imageUrl}
+            initialProfileCategory={selectedProfile?.category} initialProfileLogoUrl={selectedProfile?.logoUrl}
             onUse={async(file,title)=>{const success=await upload(file);if(success){setForm(old=>({...old,title}));setGraphicOpen(false);}return success;}}
             onCancel={()=>setGraphicOpen(false)} />:
           <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked||selectionBusy||pickerMarkerBusy!==null} className={styles.fields}>
