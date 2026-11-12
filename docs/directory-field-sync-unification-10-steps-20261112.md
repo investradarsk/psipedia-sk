@@ -22,7 +22,7 @@ Chovateľské stanice sú manuálne otestovaný model: podpísaný webhook `page
 ## Realizačné kroky (v tomto jedinom PR)
 
 1. **Inventár a kontrakt (hotový).** Vymenovať 10 kategórií a overiť ich prijímanie webhookom, cestu Admin PUT a univerzálne mapovanie `Popis`, SEO, kontaktov a mazania. Zachovať red/regresné testy konkrétneho incidentu Tarabora #1826.
-2. **Jeden register kategórií a polí.** Odstrániť duplicity allowlistov webhooku/synchronizátora/editorov; povolené kategórie riadi jedna spoločná definícia. Odlišné polia budú iba explicitné adaptéry.
+2. **Jeden register kategórií a polí (hotový základ).** Registrácia všetkých 10 kategórií je zjednotená v `DIRECTORY_FIELD_EVENT_CATEGORIES` a používa ju aj SQL whitelist okamžitého webhookového dispatchu. Existujúcu mapu bežných redakčných polí `BREEDER_NOTION_EDITORIAL_FIELDS` znovu používajú všetky kategórie; podrobné kategóriové adaptéry sa dopracujú v kroku 6. Regresné testy aktualizované.
 3. **Notion → Admin, rovnaké cielené spracovanie.** Pre všetky kategórie podpísané udalosti konkrétnych ID vlastností; bez celoprofilového merge, hodinovej náhrady alebo blokovania nesúvisiacich polí.
 4. **Admin → Notion, rovnaké ukladanie.** Dirty-field tracking, nezmenené hodnoty neprepisovať; jednotlivé zápisy s overením odpovede/GET a presnou spätnou väzbou.
 5. **Vymazanie a prázdne hodnoty.** Správne šíriť `""`, vymazanie URL, e-mailu, textu a voliteľných hodnôt; name/identita ostávajú chránené.
@@ -48,4 +48,4 @@ Chovateľské stanice sú manuálne otestovaný model: podpísaný webhook `page
 4. Rovnako fungujú aspoň referenčné profily každej z 10 kategórií a spätný smer Admin → Notion.
 5. Ak Notion webhook subscription zostáva `Paused`, produkčný test nemôže prejsť bez ownerom vykonaného obnovenia subscription; úpravy kódu ho samy neobnovia.
 
-**Krok 1 je bezpečný audit + regresné testy, nie tvrdenie o dokončení celého projektu.**
+**Kroky 1–2 sú pripravené a zapísané do PR; zostávajúce kroky 3–10 ešte nie sú dokončené.**
