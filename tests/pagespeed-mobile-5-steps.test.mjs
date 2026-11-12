@@ -44,3 +44,16 @@ test("large breed-specific CSS is route scoped, preserving public global guards"
   assert.ok(global.length < 240_000);
   assert.ok(breed.length > 65_000);
 });
+
+test("LCP image preload matches the real resolved hero and its responsive candidate", () => {
+  const home = read("app/page.tsx");
+  const hero = read("components/public-visual-system/unified-section-hero.tsx");
+  assert.match(home, /rel="preload"\s+as="image"\s+href=\{homeHero\.imageUrl\}/);
+  assert.match(home, /imageSrcSet=\{responsiveMediaSrcSet\(homeHero\.imageUrl, \[640, 960, 1280, 1600, 1920\]\)\}/);
+  assert.match(home, /fetchPriority="high"/);
+  assert.match(hero, /srcSet=\{responsiveMediaSrcSet\(visual\.imageUrl, \[640, 960, 1280, 1600, 1920\]\)\}/);
+  const sizes = "(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px";
+  assert.ok(home.includes(`imageSizes="${sizes}"`));
+  assert.ok(hero.includes(`sizes="${sizes}"`));
+  assert.match(hero, /loading="eager"/);
+});
