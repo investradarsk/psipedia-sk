@@ -395,3 +395,17 @@ test("article editorial draft writer uses existing OG popis and the shared SEO c
   assert.match(syncSource, /articleSeoFromNotion\(page, existing, confirmedPrevious\)/);
   assert.match(syncSource, /\.\.\.seoFields/);
 });
+
+test("legacy Ready error retry only acknowledges identical published article content", () => {
+  assert.match(syncSource, /MAX_LEGACY_READY_RECEIPTS_PER_SWEEP = 30/);
+  assert.match(syncSource, /property: "Odoslať na Psipedia", checkbox: \{ equals: false \}/);
+  assert.match(syncSource, /property: "Psipedia ID", rich_text: \{ is_not_empty: true \}/);
+  assert.match(syncSource, /contains: "Prepojený článok už nie je Draft"/);
+  assert.match(syncSource, /if \(legacyUnapprovedReady && \(!mapping \|\| mappedExisting\?\.status !== "published"\)\)/);
+  assert.match(syncSource, /ARTICLE_LEGACY_READY_IDENTITY_REVIEW_REQUIRED/);
+  assert.match(syncSource, /decodeArticleSeoReceipt\(mapping\.content_hash\)\.hash !== contentHash/);
+  assert.match(syncSource, /ARTICLE_LEGACY_READY_CONTENT_REVIEW_REQUIRED/);
+  assert.match(syncSource, /ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION/);
+  assert.match(syncSource, /if \(legacyUnapprovedReady\) \{[\s\S]*?await updateNotionSyncState\(bindings, page\.id, \{/);
+  assert.match(syncSource, /state: "Synchronizované", articleId: existing\.id, syncedAt: now/);
+});
