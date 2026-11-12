@@ -30,6 +30,7 @@ export const BREEDER_NOTION_EDITORIAL_FIELDS = {
   "seo.ogTitle": "OG title",
   "seo.ogDescription": "OG popis",
   "seo.ogImage": "OG obrázok",
+  "seo.noindex": "Noindex",
 } as const;
 
 export type BreederEditorialField = keyof typeof BREEDER_NOTION_EDITORIAL_FIELDS;

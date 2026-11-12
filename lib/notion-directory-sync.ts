@@ -1,7 +1,7 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
-import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear} from "./directory-sync-recovery-policy";
-import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
+import { directoryFilterRegistry, getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
 import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
@@ -1277,7 +1277,9 @@ const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
   "seo.ogTitle": "ogTitle", "seo.ogDescription": "ogDescription",
   "seo.ogImage": "ogImage",
 };
-const breederFacetNotionProperties = {
+// Exact legacy labels stay stable; the canonical filter registry supplies
+// the remaining category-specific selects without a second hardcoded allowlist.
+const breederFacetNotionProperties: Readonly<Record<string, string>> = {
   "veterinari.facility_type": "Typ pracoviska",
   "veterinari.emergency": "Pohotovosť",
   "veterinari.home_visits": "Návštevy doma",
@@ -1285,9 +1287,10 @@ const breederFacetNotionProperties = {
   "chovatelske-stanice.health_testing_information": "Informácie o zdravotných testoch",
   "treneri.individual_training": "Individuálny výcvik",
   "treneri.group_training": "Skupinový výcvik",
-} as const;
-type BreederFacetId = keyof typeof breederFacetNotionProperties;
-const breederFacetIds = Object.keys(breederFacetNotionProperties) as BreederFacetId[];
+  ...Object.fromEntries(directoryFilterRegistry.map(def => [def.id, def.notion.property])),
+};
+type BreederFacetId = string;
+const breederFacetIds = directoryFilterRegistry.map(def => def.id);
 function breederChangedNotionFacets(page: NotionPage, changedIds: readonly string[]): BreederFacetId[] {
   const changed = new Set(changedIds);
   return breederFacetIds.filter(id => {
@@ -1367,6 +1370,11 @@ async function saveBreederEditorialValue(
       assignments.push("website_url = ?");
       params.push(value);
     }
+  } else if (path === "seo.noindex") {
+    // Checkbox false is an explicit action, never an omitted/empty string.
+    if (typeof raw !== "boolean") throw new Error("DIRECTORY_NOINDEX_BOOLEAN_REQUIRED");
+    assignments.push("seo_json = json_set(COALESCE(seo_json, '{}'), '$.noindex', json(?))");
+    params.push(raw ? "true" : "false");
   } else if (seoKey) {
     assignments.push("seo_json = json_set(COALESCE(seo_json, '{}'), ?, ?)");
     params.push("$." + seoKey, value);
@@ -1579,10 +1587,10 @@ async function syncBreederEvent(input: {
   const now = new Date().toISOString();
   if (input.changedPropertyIds !== undefined) {
     const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds)
-      .filter(path => path !== "services" || ["chovatelske-stanice", "salony-a-sluzby", "treneri"].includes(input.profile.category));
+      .filter(path => path !== "services" || !isDirectoryEventPilotCategory(input.profile.category));
     const relationFields = ["chovatelske-stanice", "treneri"].includes(input.profile.category)
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
-    const facetFields = ["chovatelske-stanice", "treneri", "veterinari"].includes(input.profile.category)
+    const facetFields = isDirectoryFieldEventCategory(input.profile.category)
       ? breederChangedNotionFacets(page, input.changedPropertyIds)
           .filter(id => getDirectoryFilterDefinition(id)?.category === input.profile.category)
       : [];
@@ -1596,6 +1604,14 @@ async function syncBreederEvent(input: {
     let updated = false;
     const failures: string[] = [];
     for (const path of paths) {
+      // A signed property name by itself is not the property value. A partial
+      // Notion GET must not translate an absent field into an empty-string
+      // deletion in D1. Keep this path pending while independent fields apply.
+      const notionKey = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+      if (!Object.hasOwn(page.properties ?? {}, notionKey)) {
+        failures.push(path);
+        continue;
+      }
       // The Notion address is editorial text only: never modify the Google
       // Place ID, geo_points coordinates or paid-provider verification.
       const before = profileSnapshot(current) as unknown as Record<string, unknown>;
@@ -1615,6 +1631,10 @@ async function syncBreederEvent(input: {
     // An empty edited text field is a real deletion and must clear the D1 value.
     let pilotMetaUpdated = false;
     for (const field of pilotMetaFields) {
+      if (!Object.hasOwn(page.properties ?? {}, field)) {
+        failures.push(field);
+        continue;
+      }
       const value = propertyText(page, field).trim();
       try {
         const next = await savePilotDirectoryMetadataField({
@@ -1633,30 +1653,51 @@ async function syncBreederEvent(input: {
     for (const id of facetFields) {
       const def = getDirectoryFilterDefinition(id);
       if (!def) continue;
-      const selected = propertyText(page, breederFacetNotionProperties[id]);
-      if (!selected) continue;
-      const normalized = normalizeDirectoryFilterValue(def, notionFacetSourceValue(selected));
-      if (normalized.status !== "known") {
+      const key = breederFacetNotionProperties[id];
+      // The key itself must exist on the fetched Notion page: a missing
+      // property is not an explicit blank and may never delete D1 data.
+      if (!key || !Object.hasOwn(page.properties ?? {}, key)) {
+        failures.push(id);
+        continue;
+      }
+      const selected = propertyText(page, key);
+      const normalized = selected
+        ? normalizeDirectoryFilterValue(def, notionFacetSourceValue(selected)) : null;
+      // A signed blank select clears only this one structured value; it never
+      // implies "no". Missing/unmentioned properties remain untouched.
+      if (normalized && normalized.status !== "known") {
         failures.push(id);
         continue;
       }
       try {
         const row = await database.prepare("SELECT source_data_json, updated_at FROM directory_profiles WHERE id=? LIMIT 1")
           .bind(current.id).first<{ source_data_json: string; updated_at: string }>();
-        if (!row) throw new Error("BREEDER_FACET_PROFILE_MISSING");
+        if (!row) throw new Error("DIRECTORY_FACET_PROFILE_MISSING");
         const source = JSON.parse(row.source_data_json) as Record<string, unknown>;
-        if (source[def.d1.key] === normalized.value) continue;
-        const merged = mergeDirectoryFilterValues(row.source_data_json, current.category as "chovatelske-stanice" | "treneri", { [id]: normalized.value });
+        let merged: string;
+        if (!selected) {
+          if (!Object.hasOwn(source, def.d1.key)) continue;
+          delete source[def.d1.key];
+          merged = JSON.stringify(source);
+        } else {
+          if (source[def.d1.key] === normalized!.value) continue;
+          merged = mergeDirectoryFilterValues(
+            row.source_data_json, current.category as ServiceFilterCategory,
+            { [id]: normalized!.value },
+          );
+        }
         const changed = await database.prepare(`UPDATE directory_profiles
           SET source_data_json=?, updated_at=?, updated_by=?
-          WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id`)
-          .bind(merged, new Date().toISOString(), SYSTEM_ACTOR, current.id, row.source_data_json, row.updated_at)
+          WHERE id=? AND category=? AND source_data_json=? AND updated_at=? RETURNING id`)
+          .bind(merged, new Date().toISOString(), SYSTEM_ACTOR,
+            current.id, current.category, row.source_data_json, row.updated_at)
           .first<{ id: number }>();
-        if (!changed) throw new Error("BREEDER_FACET_WRITE_CONFLICT");
+        if (!changed) throw new Error("DIRECTORY_FACET_WRITE_CONFLICT");
         current = (await getManagedDirectoryProfileById(current.id, database)) ?? current;
         facetsUpdated = true;
       } catch (error) {
-        console.error("BREEDER_FACET_FIELD_WRITE_FAILED", current.id, id, error);
+        console.error("DIRECTORY_FACET_FIELD_WRITE_FAILED", current.id, id,
+          error instanceof Error ? error.name : "UNKNOWN");
         failures.push(id);
       }
     }
@@ -1706,11 +1747,18 @@ async function syncBreederEvent(input: {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
     if (!paths.length && !relationsUpdated && !facetFields.length && !trustFields.length && !pilotMetaFields.length) return "unchanged";
-    // Also clear a legacy whole-profile conflict when the new event was
-    // already applied (for example, an inbox retry or a duplicate delivery).
-    await patchNotionPage(bindings, page.id, {
+    // A verified edit of Popis does not prove an old services deletion or
+    // unrelated identity conflict has been resolved. Re-read metadata before
+    // acknowledging to avoid erasing a newer independent error.
+    const latestMetadata = await fetchNotionPage(bindings, page.id);
+    const canClearError = directoryEditorialEventMayClearError(
+      propertyText(latestMetadata, "Sync chyba"), paths,
+    );
+    await patchNotionPage(bindings, page.id, canClearError ? {
       "Sync stav": select("Synchronizované"),
       "Sync chyba": richText(""),
+      "Posledný sync": date(now),
+    } : {
       "Posledný sync": date(now),
     });
     return updated || relationsUpdated || facetsUpdated || trustUpdated || pilotMetaUpdated ? "pulled" : "unchanged";
@@ -1719,48 +1767,72 @@ async function syncBreederEvent(input: {
   const fields = (input.adminChangedFields ?? []).filter(
     (path): path is BreederEditorialField =>
       Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
-      (path !== "services" || ["chovatelske-stanice", "salony-a-sluzby", "treneri"].includes(input.profile.category)),
+      (path !== "services" || !isDirectoryEventPilotCategory(input.profile.category)),
   );
   if (!fields.length) return "unchanged";
   const geo = await loadGeoMirror(database, input.profile.id);
   const monitor = await getMediaSourceMonitorForEntity(database, "DIRECTORY_PROFILE", input.profile.id);
   const sourceImageUrl = monitor?.sourceImageUrl || externalSourceImageUrl(input.profile.imageUrl);
   const allProperties = notionProfileProperties(input.profile, geo, "", now, sourceImageUrl);
-  const patch: Record<string, unknown> = {};
+  const canonical = profileSnapshot(input.profile, sourceImageUrl) as unknown as Record<string, unknown>;
+  // Each Notion field is a separate acknowledged write. One rejected URL/SEO
+  // field must not block independently valid prose or contact edits.
+  // A blank value is an explicit deletion and is verified like any value.
+  const equivalent = (a: string, b: string) => {
+    if (a === b) return true;
+    try {
+      const left = new URL(a); const right = new URL(b);
+      return ["http:", "https:"].includes(left.protocol) && left.href === right.href;
+    } catch { return false; }
+  };
+  const confirmed = (candidate: NotionPage, path: BreederEditorialField): boolean => {
+    const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+    // A missing Notion property is NOT evidence that a requested empty value
+    // was deleted: only an explicit existing property may acknowledge a clear.
+    if (candidate.id !== page.id || !Object.hasOwn(candidate.properties ?? {}, key))
+      return false;
+    const raw = breederReadPath(canonical, path);
+    if (path === "seo.noindex")
+      return typeof raw === "boolean" && property(candidate, key)?.checkbox === raw;
+    const expected = Array.isArray(raw) ? raw.join("\n") : typeof raw === "string" ? raw.trim() : "";
+    return equivalent(propertyText(candidate, key), expected);
+  };
+  const failedFields: BreederEditorialField[] = [];
   for (const path of fields) {
     const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
-    patch[key] = adaptDirectoryNotionTextProperties(
+    if (confirmed(page, path)) continue; // Verified equality, no duplicate PATCH.
+    const patch = adaptDirectoryNotionTextProperties(
       { [key]: allProperties[key] }, page.properties ?? {},
-    )[key];
+    );
+    try {
+      const echoed = await patchNotionPage(bindings, page.id, patch);
+      if (!confirmed(echoed, path)) {
+        // Notion may omit an unchanged property in the PATCH response. A
+        // targeted GET, not a successful HTTP status, confirms persistence.
+        const fresh = await fetchNotionPage(bindings, page.id);
+        if (!confirmed(fresh, path))
+          throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH");
+      }
+    } catch (error) {
+      console.error("DIRECTORY_ADMIN_TO_NOTION_FIELD_PENDING", input.profile.id, path,
+        error instanceof Error && /^[A-Z][A-Z0-9_]+$/.test(error.message)
+          ? error.message : "WRITE_NOT_CONFIRMED");
+      failedFields.push(path);
+    }
   }
-  const echoed = await patchNotionPage(bindings, page.id, patch);
-  // Notion's PATCH response must acknowledge every requested editorial field.
-  // Never call an unconfirmed remote write "synced" just because the request
-  // returned without throwing; empty strings are genuine deletion requests.
-  const canonical = profileSnapshot(input.profile, sourceImageUrl) as unknown as Record<string, unknown>;
-  const confirmed = (candidate: NotionPage) => candidate.id === page.id &&
-    fields.every(path => {
-      const raw = breederReadPath(canonical, path);
-      const expected = Array.isArray(raw) ? raw.join("\n") : typeof raw === "string" ? raw.trim() : "";
-      const actual = propertyText(candidate, BREEDER_NOTION_EDITORIAL_FIELDS[path]);
-      // URL text and URL properties may serialize the root path differently.
-      const equivalent = (a: string, b: string) => {
-        if (a === b) return true;
-        try {
-          const left = new URL(a); const right = new URL(b);
-          return ["http:", "https:"].includes(left.protocol) && left.href === right.href;
-        } catch { return false; }
-      };
-      return equivalent(actual, expected);
-    });
-  if (!confirmed(echoed)) {
-    const fresh = await fetchNotionPage(bindings, page.id);
-    if (!confirmed(fresh)) throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH");
-  }
-  // Metadata is a separate, final acknowledgement, never a premature success.
-  await patchNotionPage(bindings, page.id, {
+  if (failedFields.length)
+    throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELDS_PENDING: " + failedFields.join(","));
+  // Every requested field was confirmed. Preserve any unrelated historical
+  // conflict and only retire errors for the fields just acknowledged.
+  const latestMetadata = await fetchNotionPage(bindings, page.id);
+  const canClearError = directoryEditorialEventMayClearError(
+    propertyText(latestMetadata, "Sync chyba"), fields,
+  );
+  await patchNotionPage(bindings, page.id, canClearError ? {
     "Sync stav": select("Synchronizované"),
     "Sync chyba": richText(""),
+    "Posledný sync": date(now),
+  } : {
     "Posledný sync": date(now),
   });
   return "pushed";
@@ -1780,66 +1852,75 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
   if (!input.fields.length) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
-    throw new Error("BREEDER_FACET_NOTION_SYNC_DISABLED");
+    throw new Error("DIRECTORY_FACET_NOTION_SYNC_DISABLED");
   const mapping = await loadMappingByProfile(input.database, input.profileId);
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!mapping || !profile || !["chovatelske-stanice", "treneri", "veterinari"].includes(profile.category))
-    throw new Error("BREEDER_FACET_NOTION_MAPPING_UNAVAILABLE");
+  if (!mapping || !profile || !isDirectoryFieldEventCategory(profile.category) ||
+      profile.status === "archived")
+    throw new Error("DIRECTORY_FACET_NOTION_MAPPING_UNAVAILABLE");
   const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
   if (page.id !== mapping.notion_page_id ||
       !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!) ||
       propertyText(page, "Psipedia ID") !== String(input.profileId))
-    throw new NotionDirectoryUnsafeTargetError("BREEDER_FACET_TARGET_INVALID");
-  const patch: Record<string, unknown> = {};
-  const expectedLabels: Record<string, string> = {};
-  const missingProperties: string[] = [];
-  for (const id of input.fields) {
-    if (!Object.hasOwn(breederFacetNotionProperties, id)) continue;
-    const key = breederFacetNotionProperties[id as BreederFacetId];
-    if (!Object.hasOwn(page.properties ?? {}, key)) {
-      if (profile.category !== "veterinari")
-        throw new Error("BREEDER_NOTION_FACET_MISSING: " + key);
-      missingProperties.push(key);
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_FACET_TARGET_INVALID");
+
+  // One select field per PATCH, regardless of category. An unprovisioned
+  // Notion property reports pending but cannot veto independent valid fields.
+  const failures: string[] = [];
+  let updated = false;
+  for (const id of new Set(input.fields)) {
+    const def = getDirectoryFilterDefinition(id);
+    if (!def || def.category !== profile.category) {
+      failures.push(id);
       continue;
     }
-    const def = getDirectoryFilterDefinition(id);
-    if (!def || def.category !== profile.category) continue;
+    const key = breederFacetNotionProperties[id];
+    if (!key || !Object.hasOwn(page.properties ?? {}, key)) {
+      failures.push(id);
+      continue;
+    }
     const state = normalizeDirectoryFilterValue(def, profile.importData?.[def.d1.key]);
-    if (state.status !== "known") continue;
-    const label = notionFacetLabel(state.value);
-    if (propertyText(page, key) !== label) {
-      patch[key] = select(label);
-      expectedLabels[key] = label;
+    if (state.status !== "known" && state.status !== "missing") {
+      failures.push(id);
+      continue;
     }
-  }
-  if (!Object.keys(patch).length && !missingProperties.length) return false;
-  // Vet facet edits remain independently transferable: one rejected Notion field
-  // must not suppress the others or rewrite unrelated category properties.
-  if (profile.category === "veterinari") {
-    const failures: string[] = [...missingProperties];
-    for (const [key, value] of Object.entries(patch)) {
-      try {
-        const echoed = await patchNotionPage(input.bindings, page.id, { [key]: value });
-        if (propertyText(echoed, key) !== expectedLabels[key])
-          throw new Error("VETERINARY_FACET_WRITEBACK_UNVERIFIED");
-      } catch (error) {
-        console.error("VETERINARY_FACET_WRITEBACK_FAILED", input.profileId, key, error);
-        failures.push(key);
+    const expectedLabel = state.status === "known" ? notionFacetLabel(state.value) : "";
+    if (propertyText(page, key) === expectedLabel) continue;
+    try {
+      const echoed = await patchNotionPage(input.bindings, page.id, {
+        [key]: expectedLabel ? select(expectedLabel) : { select: null },
+      });
+      if (echoed.id !== page.id ||
+          !Object.hasOwn(echoed.properties ?? {}, key) ||
+          propertyText(echoed, key) !== expectedLabel) {
+        const refreshed = await fetchNotionPage(input.bindings, page.id);
+        if (refreshed.id !== page.id ||
+            !Object.hasOwn(refreshed.properties ?? {}, key) ||
+            propertyText(refreshed, key) !== expectedLabel)
+          throw new Error("DIRECTORY_FACET_WRITEBACK_UNVERIFIED");
       }
+      updated = true;
+    } catch (error) {
+      console.error("DIRECTORY_FACET_WRITEBACK_FAILED", input.profileId, id,
+        error instanceof Error ? error.name : "UNKNOWN");
+      failures.push(id);
     }
-    if (failures.length)
-      throw new Error("VETERINARY_FACET_FIELDS_PENDING: " + failures.join(","));
-    await patchNotionPage(input.bindings, page.id, {
-      "Sync stav": select("Synchronizované"),
-      "Sync chyba": richText(""),
-      "Posledný sync": date(new Date().toISOString()),
-    });
-    return true;
   }
-  patch["Sync stav"] = select("Synchronizované");
-  patch["Sync chyba"] = richText("");
-  patch["Posledný sync"] = date(new Date().toISOString());
-  await patchNotionPage(input.bindings, page.id, patch);
+  if (failures.length)
+    throw new Error("DIRECTORY_FACET_FIELDS_PENDING: " + failures.join(","));
+  if (!updated) return false;
+  const latestMetadata = await fetchNotionPage(input.bindings, page.id);
+  // Facet updates do not clear an unrelated editorial/services conflict.
+  const canClearError = directoryEditorialEventMayClearError(
+    propertyText(latestMetadata, "Sync chyba"), [],
+  );
+  await patchNotionPage(input.bindings, page.id, canClearError ? {
+    "Sync stav": select("Synchronizované"),
+    "Sync chyba": richText(""),
+    "Posledný sync": date(new Date().toISOString()),
+  } : {
+    "Posledný sync": date(new Date().toISOString()),
+  });
   return true;
 }
 
@@ -3031,7 +3112,14 @@ export async function runNotionDirectorySyncSweep(input: {
         summary.serviceRelationSync = relation;
         if (relation === "skipped" && relationChanged) summary.failed++;
       }
-      if (input.changedPropertyIds?.length || result !== "unchanged")
+      // Do not dismiss the profile's existing pending alert just because a
+      // different field (for example Popis instead of legacy Služby) synced.
+      const canResolveEditorialAlert = !isDirectoryFieldEventCategory(propertyText(page, "Kategória"))
+        || directoryEditorialEventMayClearError(
+          propertyText(page, "Sync chyba"),
+          breederNotionChangedFields(page.properties, input.changedPropertyIds ?? []),
+        );
+      if ((input.changedPropertyIds?.length || result !== "unchanged") && canResolveEditorialAlert)
         await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id, "resolved", "", "NOTION_TO_ADMIN");
       if (result === "pulled") summary.pulledFromNotion += 1;
       else if (result === "pushed") summary.pushedToNotion += 1;

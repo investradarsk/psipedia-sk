@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { verifyNotionWebhook, UUID, EVENT_TYPES, type NotionWebhookEvent as WebhookEvent } from "@/lib/notion-webhook-contract";
 import { enqueueNotionWebhook } from "@/lib/notion-webhook-inbox";
+import { DIRECTORY_FIELD_EVENT_CATEGORIES } from "@/lib/notion-directory-field-event-scope";
 import { dispatchNotionPageChange, type WebhookBindings } from "@/lib/notion-webhook-dispatch";
 
 export { dispatchNotionPageChange } from "@/lib/notion-webhook-dispatch";
@@ -67,7 +68,10 @@ export async function POST(request: Request) {
   if (bindings.NOTION_WEBHOOK_INBOX_ENABLED !== "true") {
     try {
       const result = await dispatchNotionPageChange(data, bindings);
-      if (result === "not-configured") return new Response(null, { status: 503 });
+      // Without the durable inbox, a deferred targeted event must be retried
+      // by Notion; returning HTTP 200 would permanently lose its field edit.
+      if (result === "not-configured" || result === "deferred")
+        return new Response(null, { status: 503 });
       return Response.json({ received: true, result }, { status: 200 });
     } catch {
       console.error("notion_targeted_webhook_failed");
@@ -78,13 +82,25 @@ export async function POST(request: Request) {
   // service categories. Only known, already-linked profiles dispatch inline.
   // Failed/time-limited transfers retain the durable minute-queue retry below.
   try {
+    // Reuse the same category register as the per-field sync engine.
+    // Every existing linked Directory category gets the identical inline path.
+    const placeholders = DIRECTORY_FIELD_EVENT_CATEGORIES.map(() => "?").join(",");
     const breeder = await bindings.DB.prepare(
       "SELECT dp.id FROM directory_notion_sync dns " +
       "JOIN directory_profiles dp ON dp.id=dns.directory_profile_id " +
-      "WHERE dns.notion_page_id=? AND dp.category IN ('chovatelske-stanice','treneri','salony-a-sluzby','veterinari','fyzioterapia','dalsie-sluzby','kynologicke-kluby','chovatelske-kluby','hotely-a-opatrovanie','vencenie') LIMIT 1",
-    ).bind(data.entity!.id).first<{ id: number }>();
+      "WHERE dns.notion_page_id=? AND dp.category IN (" + placeholders + ") LIMIT 1",
+    ).bind(data.entity!.id, ...DIRECTORY_FIELD_EVENT_CATEGORIES).first<{ id: number }>();
     if (breeder) {
       const result = await dispatchNotionPageChange(data, bindings);
+      // Structured, value-free evidence for a specific Directory profile.
+      // Success here proves dispatch returned, not that an unrelated old
+      // profile-wide error or Services V3 relation was reconciled.
+      console.info(JSON.stringify({
+        event: "directory_notion_webhook",
+        profileId: breeder.id,
+        outcome: result,
+        changedPropertyCount: data.data?.updated_properties?.length ?? 0,
+      }));
       if (result === "processed" || result === "metadata-only" || result === "ignored") {
         return Response.json({ received: true, result }, { status: 200 });
       }

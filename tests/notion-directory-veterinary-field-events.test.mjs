@@ -49,7 +49,7 @@ test("a pilot editor save exports only changed fields and never creates Notion p
   const webhook = await get("../app/api/integrations/notion/webhook/route.ts");
   const admin = await get("../app/api/admin/directory/[id]/route.ts");
   const editor = await get("../components/admin-directory-editor.tsx");
-  assert.match(webhook, /'veterinari','fyzioterapia','dalsie-sluzby'/);
+  assert.match(webhook, /DIRECTORY_FIELD_EVENT_CATEGORIES/);
   assert.match(source, /isDirectoryFieldEventCategory\(profile\.category\)/);
   assert.match(source, /isDirectoryEventPilotCategory\(propertyText\(page, "Kategória"\)\)\) continue/);
   assert.match(source, /const pilotMetaFields = isDirectoryFieldEventCategory\(input\.profile\.category\)/);
@@ -61,7 +61,7 @@ test("a pilot editor save exports only changed fields and never creates Notion p
   // Services V3 is the only editable service selector for pilot categories.
   // Neither Notion editorial events nor the Admin form may overwrite legacy
   // services_json; the canonical relation API remains independent.
-  assert.match(source, /path !== "services" \|\| \["chovatelske-stanice", "salony-a-sluzby", "treneri"\]\.includes\(input\.profile\.category\)/);
+  assert.match(source, /path !== "services" \|\| !isDirectoryEventPilotCategory\(input\.profile\.category\)/);
   assert.match(source, /DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY/);
   assert.match(admin, /isDirectoryEventPilotCategory\(before\.category\)[\s\S]*?services: before\.services/);
   assert.match(editor, /!isDirectoryEventPilotCategory\(category\)\s*\?\s*\([\s\S]*?id="directory-services"/);
@@ -89,7 +89,7 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
     } }; } };
     const exports = {};
     runInNewContext(js, {
-      exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
+      exports, SYSTEM_ACTOR: "sync", directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
       breederReadPath: (data, path) => path.split(".").reduce((v, k) => v?.[k], data),
       normalizeDirectorySearchText: str => str,
       getManagedDirectoryProfileById: async () => profile,
@@ -128,12 +128,12 @@ test("veterinary select facets have an exact Notion contract and event writeback
     assert.ok(source.includes('"' + id + '": "' + name + '"'), id);
   }
   assert.match(contract, /category === "veterinari" &&[\s\S]*?name === "facility_type"/);
-  assert.match(route, /\["chovatelske-stanice", "treneri", "veterinari"\]\.includes\(row\.category\)/);
-  assert.match(source, /const facetFields = \["chovatelske-stanice", "treneri", "veterinari"\]/);
+  assert.match(route, /isDirectoryFieldEventCategory\(row\.category\)/);
+  assert.match(source, /const facetFields = isDirectoryFieldEventCategory\(input\.profile\.category\)/);
   assert.match(source, /normalizeDirectoryFilterValue\(def, notionFacetSourceValue\(selected\)\)/);
-  assert.match(source, /if \(profile\.category === "veterinari"\) \{[\s\S]*?for \(const \[key, value\] of Object\.entries\(patch\)\)/);
-  assert.match(source, /VETERINARY_FACET_WRITEBACK_UNVERIFIED/);
-  const start = source.indexOf("const breederFacetNotionProperties = {");
+  assert.match(source, /for \(const id of new Set\(input\.fields\)\)/);
+  assert.match(source, /DIRECTORY_FACET_WRITEBACK_UNVERIFIED/);
+  const start = source.indexOf("const breederFacetNotionProperties:");
   const end = source.indexOf("const breederSearchFields =", start);
   assert.ok(start >= 0 && end > start);
   const js = ts.transpileModule(source.slice(start, end) +
@@ -143,7 +143,7 @@ test("veterinary select facets have an exact Notion contract and event writeback
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const exports = {};
-  runInNewContext(js, { exports });
+  runInNewContext(js, { exports, directoryFilterRegistry: [] });
   for (const [canonical, label] of [
     ["ambulance", "Ambulancia"], ["clinic", "Klinika"],
     ["hospital", "Nemocnica"], ["unknown", "Neznáme"],

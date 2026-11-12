@@ -115,12 +115,12 @@ test("webhook, Admin edit and filter PATCH use explicit scoped field transport",
   assert.match(sync, /mirrorTrainerTrustFieldsToNotion/);
   assert.match(sync, /"treneri\.individual_training": "Individuálny výcvik"/);
   assert.match(sync, /"treneri\.group_training": "Skupinový výcvik"/);
-  assert.match(sync, /mergeDirectoryFilterValues\(row\.source_data_json, current\.category as "chovatelske-stanice" \| "treneri"/);
+  assert.match(sync, /row\.source_data_json, current\.category as ServiceFilterCategory/);
   assert.match(route, /trainerTrustEditedPaths: rawTrainerTrustEditedPaths/);
   assert.match(route, /preserveUneditedTrainerTrust\(before, submittedBody, trainerTrustEditedPaths\)/);
   assert.match(route, /changedTrainerTrustAdminFields\(before, profile\)/);
   assert.match(route, /mirrorTrainerTrustFieldsToNotion\(\{/);
-  assert.match(route, /\["chovatelske-stanice", "treneri", "veterinari"\]\.includes\(row\.category\)/);
+  assert.match(route, /isDirectoryFieldEventCategory\(row\.category\)/);
   assert.match(editor, /changedTrainerTrustAdminFields\(breederBaseline, \{ verified, featured \}\)/);
   assert.match(editor, /trainerTrustEditedPaths \}/);
   // No accidental coupling of trainer filters or trust to catalog services.

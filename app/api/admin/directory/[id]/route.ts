@@ -632,7 +632,9 @@ export async function PATCH(request: Request, { params }: Props) {
             database: db,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
-            breederAdminFields: breederBefore && ["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(breederBefore.category) && profile
+            // Inline edits must have the same immediate per-field writeback for
+            // *all ten* Directory categories as the full editor PUT.
+            breederAdminFields: breederBefore && isDirectoryFieldEventCategory(breederBefore.category) && profile
               ? breederEditedFields(breederBefore, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
@@ -642,7 +644,7 @@ export async function PATCH(request: Request, { params }: Props) {
           notionFieldSync = "pending";
         }
       }
-      if (profile && breederBefore && notionEnv.DB && ["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(profile.category)) {
+      if (profile && breederBefore && notionEnv.DB && isDirectoryFieldEventCategory(profile.category)) {
         const edited = breederEditedFields(breederBefore, profile);
         if (edited.length) {
           const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
@@ -688,7 +690,7 @@ export async function PATCH(request: Request, { params }: Props) {
       // Category filters are a separate structured channel from free-text
       // services and the canonical Services V3 catalog.
       let notionFieldSync: "synced" | "unchanged" | "pending" | "disabled" = "disabled";
-      if (["chovatelske-stanice", "treneri", "veterinari"].includes(row.category) && Object.keys(requested.updates).length) {
+      if (isDirectoryFieldEventCategory(row.category) && Object.keys(requested.updates).length) {
         const bindings = env as Parameters<typeof mirrorBreederCategoryFiltersToNotion>[0]["bindings"];
         const enabled = (env as unknown as { NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string }).NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true";
         if (enabled) {
