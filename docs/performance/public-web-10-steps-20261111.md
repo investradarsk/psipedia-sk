@@ -25,7 +25,7 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 6. [x] **HTML/RSC/cache.** Preskúmať reálny HIT/MISS, TTFB a invalidáciu; nikdy necacheovať administráciu, partnera, cookies, autentifikované, query alebo RSC požiadavky.
 7. [x] **Fotografie a médiá.** Kompresia/rozmery, správne `srcSet`, lazy loading pod prvým viewportom, stabilné rozmery pre CLS; bez odstránenia originálov.
 8. [x] **Adresár, podujatia, plemená, mapy.** Route-specific profily, zoznamy a filtrovanie, mapové knižnice načítavať až pri potrebe, priebežne kontrolovať UX a funkčnosť.
-9. [ ] **Tretie strany a dlhé úlohy.** Skripty analytiky, súhlasov a reklám, event handlery, INP; rešpektovať consent, reklamnú funkcionalitu a interný traffic.
+9. [x] **Tretie strany a dlhé úlohy.** Skripty analytiky, súhlasov a reklám, event handlery, INP; rešpektovať consent, reklamnú funkcionalitu a interný traffic.
 10. [ ] **Záverečný tuning a kontrola regresií.** Opakovať Lighthouse mobil/desktop na rovnakých URL, rovnakom prostredí a intervaloch, porovnať skóre, LCP, CLS, TBT, skutočné INP len ak sú dostupné field dáta; testovať desktop/mobil, skontrolovať odkazy a SEO.
 
 ## Meracie ciele a akceptácia
@@ -164,3 +164,19 @@ Referencia: https://web.dev/articles/serve-responsive-images a https://web.dev/a
 **Overovanie a limity:** samostatne vykonané porovnanie extrahovaných čisto JavaScriptových funkcií pre 344 syntetických plemien a 800 kombinácií filtrov bez rozdielu v obsahu/poradí; 6 nových regresných assertions prešlo v izolovanom vykonaní. To **nie je úplný Node/CI test suite, build ani produkčný Lighthouse**. Výkon nie je garantovaný v ms a závisí od skutočného počtu profilov, latencie D1 a prevádzky prehliadača. Nezmenila sa D1 schéma, počet podujatí na stránku, produkčné SEO správanie, administrácia ani synchronizácia s Notion.
 
 Referencie: https://react.dev/reference/react/useMemo a https://web.dev/articles/rendering-performance
+
+
+## Krok 9 — skripty tretích strán, consent, práca hlavného vlákna a INP
+
+**Audit:** `components/cookie-consent.tsx` už striktne viaže GA4 na `analytics` alebo `advertising` a vylučuje Admin/Partner/review-auth, interné návštevy, nechcené AI-referral počítanie a kontroluje súhlas **opakovane po dokončení externého skriptu**. `components/programmatic-ad-loader.tsx` používa centrálnu kontrolu `canLoadProgrammaticAds` (iba reklamný súhlas, platné publisher ID, zapnutý feature flag), kontrolu interných návštev a oddeľuje Google AdSense od serverových reklám. Existujúce consent/revoke/funkčné merania sú kritické; nemeňme začiatok GA4 merania a nevymýšľajme fiktívne zlepšenie INP.
+
+**Uskutočnené zmeny:**
+
+1. **`lib/defer-public-third-party.ts`** — čistý testovateľný pomocník na odloženie *neurgentného* klientského skriptu. `requestIdleCallback` s deadline 900 ms, pre Safari/embedded prehliadače jeden `setTimeout` s rovnakým deadline. V oboch režimoch je úloha zrušiteľná, nevyžaduje polling a nikdy sa nesmie vykonať dvakrát.
+2. **`components/programmatic-ad-loader.tsx`** — keď stránka pri prvom hydratovaní narazí na už uložený reklamný súhlas, vloženie Google AdSense skriptu odloží až na idle/deadline; tým nezaťažuje prioritný prvý interval vykreslenia/internačnej odozvy. **Pri priamom novom kliknutí na súhlas alebo pri zmene interného režimu sa oprávnená akcia spracuje okamžite.** Pred skutočným vložením skriptu sa **nanovo overí** súhlas, interná návšteva, súkromná cesta a existencia načítaného skriptu. Ak návštevník pred dokončením úlohy zmení súhlas, je pending úloha zrušená; cleanup ju ruší aj pri prechode na inú trasu. Žiadna reklama bez súhlasu, žiadna duplicita skriptov; súčasné zobrazovanie priamych kampaní sa nemení.
+3. **`components/back-to-top.tsx`** — pasívny scroll listener sa zoskupuje do najviac jedného `requestAnimationFrame` za snímok. React `setVisible` sa zavolá iba pri skutočnom prekročení 480 px; pri iných posunoch sa zbytočne neplánuje render. Odstránenie listenera a zrušenie čakajúceho frame pri unmount; samotná klávesnicová prístupnosť a tlačidlo zostali rovnaké.
+4. **`tests/public-third-party-inp-step9.test.mjs`** — 7 kontrol: idle/deadline, presné volanie raz, zrušenie pred spustením, fallback, ochranné podmienky programmatickej reklamy, zachovanie GA4/AI-referral/monetizačných kontraktov a frame-throttling tlačidla. Zapojené do existujúceho `npm run test:perf-fastpaths`. Samostatne izolovane vykonaných 7/7 úspešných testov; nie je to potvrdenie full Node CI ani E2E.
+
+**Bez zmien:** GA4 ID, poradové udalosti, `send_page_view: false`, súhlas na reklamné a analytické cookies, synchronizácia medzi záložkami, priamo spravované kampane, označenie `Reklama`, interný traffic, admin, Notion, R2, D1, Cloudflare billing. Zrušenie reklamného súhlasu po už vloženom skripte stále používa pôvodné obnovenie stránky. Neklameme o zmeranom `INP`, ktorý potrebuje terénne (field) dáta; Lighthouse/TBT, request waterfalls, marketing udalosti a click/scroll testy na mobiloch patria do záverečného kroku 10. Eventuálne ďalšie úpravy závisia od konkrétnych dlhých úloh z profilu prehliadača.
+
+Referencie: https://web.dev/articles/optimize-inp a https://developer.mozilla.org/en-US/docs/Web/API/Window/requestIdleCallback
