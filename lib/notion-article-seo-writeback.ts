@@ -151,6 +151,26 @@ export function planArticleSeoIndependentWriteback(input: {
   return { ready, failures };
 }
 
+/** Remote edits in SEO fields that Admin did NOT touch must also stay
+ * pending until the inbound sync imports them. Never mark those as acknowledged
+ * merely because a different Admin SEO field was saved successfully.
+ */
+export function articleSeoUnacknowledgedRemoteFields(
+  properties: SeoPageProperties, confirmed: ArticleSeoRemoteValues | null,
+): ArticleSeoField[] {
+  if (!confirmed) return [];
+  const changed: ArticleSeoField[] = [];
+  for (const field of Object.keys(FIELDS) as ArticleSeoField[]) {
+    if (!Object.hasOwn(confirmed, field)) continue;
+    try {
+      if (remoteProperty(properties[FIELDS[field].name], field) !== confirmed[field]) changed.push(field);
+    } catch {
+      changed.push(field);
+    }
+  }
+  return changed;
+}
+
 /** For a concurrent Notion edit that fails only one field, verify that the
  * REST of the page still matches the acknowledged import baseline. Do not
  * advance that baseline if any field remains unresolved.
