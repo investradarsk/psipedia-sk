@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { isDirectoryFieldEventCategory, isDirectoryEventPilotCategory } from "../lib/notion-directory-field-event-scope.ts";
+import { DIRECTORY_FIELD_EVENT_CATEGORIES, isDirectoryFieldEventCategory, isDirectoryEventPilotCategory } from "../lib/notion-directory-field-event-scope.ts";
 import { breederNotionChangedFields, breederApplyNotionChanges, breederAdminChangedFields } from "../lib/notion-breeder-field-events.ts";
 
 const repoFile = path => readFile(new URL("../" + path, import.meta.url), "utf8");
