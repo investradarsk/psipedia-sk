@@ -58,7 +58,7 @@ test("paginated admin tables avoid background prefetch and support server-wide o
   assert.match(table, /serverSorting \|\| serverSorted \? "zoradenie platí pre celý zoznam"/);
   assert.match(table, /enableSorting: Boolean\(column\.sortValue\)/);
   assert.match(table, /serverSorting\.allowedIds\.includes\(column\.id\)/);
-  assert.match(table, /manualSorting: Boolean\(serverSorting\)/);
+  assert.match(table, /manualSorting: serverSorted \|\| Boolean\(serverSorting\)/);
   assert.match(directory, /serverSorted/);
   assert.match(directory, /name="sort"/);
 });
