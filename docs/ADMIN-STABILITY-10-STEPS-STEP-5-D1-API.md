@@ -24,6 +24,8 @@ Pri nevyfiltrovanej stránke pritom filtrovaný počet presne kopíroval globál
 
 **Počet D1 SELECT volaní pri platnej stránke:** predtým 6, teraz 3 bez filtra a 4 s filtrom. Celkové SQL náklady môžu závisieť od veľkosti tabuliek; nie je to meranie reálneho času.
 
+**Spresnenie v kroku 9:** Prvé zjednotenie facetov cez `CROSS JOIN` a opakované `CASE` výrazy malo na lokálnej syntetickej SQLite vzorke vyššie CPU náklady. SQL sa preto prepísalo na tri presne ekvivalentné `DISTINCT UNION` vetvy, spojené `UNION ALL` **v jednom D1 volaní**, bez opakovanej per-row `CASE` evaluácie. Počty volaní (3/4) sa nemenia. Pripravené `npm run benchmark:admin-step9` meria obe verzie na syntetických dátach; ide o vývojovú diagnostiku, nie potvrdenie produkčného p95.
+
 ### Adopcie: štyri čítania do troch, bez duplicitného full-scan
 
 Pôvodný `listAdoptionAdminDashboard()` v `lib/adoption-admin-store.ts` sekvenčne vykonal `COUNT(*)` filtrovaných záznamov, stránku, `COUNT(*)` neaktuálnych adopcií a `GROUP BY status`.
