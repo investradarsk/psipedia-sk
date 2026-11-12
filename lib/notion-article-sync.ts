@@ -377,6 +377,7 @@ async function prepareNotionMainImage(
   page: NotionPage,
   payload: ManagedArticleInput,
   existing?: ManagedArticle | null,
+  ogImageWasCleared = false,
 ): Promise<PreparedNotionImage> {
   const source = notionArticleMainImageSource(page);
   const sourceUrl = source.url;
@@ -386,8 +387,11 @@ async function prepareNotionMainImage(
   // replaced by the hero-image fallback during a later Notion image import.
   const explicitOgImage = urlProperty(page, SEO.ogImageUrl.name);
   const oldOgImage = existing?.seo?.ogImage ?? storedImageUrl(existing?.ogImageKey);
-  const explicitOgKey = explicitOgImage && explicitOgImage === oldOgImage
-    ? existing?.ogImageKey ?? null : null;
+  const explicitOgKey = explicitOgImage && oldOgImage && (
+    (() => { try {
+      return new URL(explicitOgImage, SITE_URL).href === new URL(oldOgImage, SITE_URL).href;
+    } catch { return explicitOgImage === oldOgImage; } })()
+  ) ? existing?.ogImageKey ?? null : null;
 
   if (!sourceUrl) {
     if (!existing) return { payload, uploadedKey: null, replacedKeys: [] };
@@ -400,8 +404,8 @@ async function prepareNotionMainImage(
         imageKey: existing.imageKey,
         imageAlt: altText || existing.imageAlt || null,
         imageCreditUrl: imageSourceUrl || existing.imageCreditUrl || null,
-        ogImageUrl: explicitOgImage || existingOgImageUrl,
-        ogImageKey: explicitOgImage ? explicitOgKey : existing.ogImageKey,
+        ogImageUrl: ogImageWasCleared ? null : (explicitOgImage || existingOgImageUrl),
+        ogImageKey: ogImageWasCleared ? null : (explicitOgImage ? explicitOgKey : existing.ogImageKey),
       },
       uploadedKey: null,
       replacedKeys: [],
@@ -428,8 +432,8 @@ async function prepareNotionMainImage(
           imageKey: existing.imageKey,
           imageAlt: altText || existing.imageAlt || null,
           imageCreditUrl: imageSourceUrl || existing.imageCreditUrl || null,
-          ogImageUrl: explicitOgImage || existingOgImageUrl,
-          ogImageKey: explicitOgImage ? explicitOgKey : existing.ogImageKey ?? existing.imageKey,
+          ogImageUrl: ogImageWasCleared ? null : (explicitOgImage || existingOgImageUrl),
+          ogImageKey: ogImageWasCleared ? null : (explicitOgImage ? explicitOgKey : existing.ogImageKey ?? existing.imageKey),
         },
         uploadedKey: null,
         replacedKeys: [],
@@ -454,8 +458,8 @@ async function prepareNotionMainImage(
     },
   });
 
-  const nextOgImageUrl = explicitOgImage || imageUrl;
-  const nextOgImageKey = explicitOgImage ? explicitOgKey : key;
+  const nextOgImageUrl = ogImageWasCleared ? null : (explicitOgImage || imageUrl);
+  const nextOgImageKey = ogImageWasCleared ? null : (explicitOgImage ? explicitOgKey : key);
   const replacedKeys = [...new Set(
     [existing?.imageKey, existing?.ogImageKey]
       .filter((value): value is string => Boolean(value) && value !== key && value !== nextOgImageKey),
