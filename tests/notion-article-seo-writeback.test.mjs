@@ -18,6 +18,7 @@ const writerSource = (await load("../lib/notion-article-seo-writeback.ts"))
   .replace(/from ["']\.\/notion-article-seo-properties["']/, 'from "' + schemaUrl + '"');
 const {
   articleSeoChangedFields, planArticleSeoWriteback, verifyArticleSeoPatch,
+  planArticleSeoIndependentWriteback, projectArticleSeoConfirmedBaseline,
 } = await import(asUrl(writerSource));
 
 const rich = (value) => ({ type: "rich_text", rich_text: value ? [
@@ -140,4 +141,51 @@ test("Admin save route dispatches a SEO delta for drafts AND published articles"
   assert.match(sync, /content_hash = \?[^\n]*notion_last_edited_time/);
   assert.match(sync, /seoFields: \[\]/);
   assert.match(planSource, /args\.seoFields === undefined \|\| args\.seoFields\.includes\(key\)/);
+});
+
+test("one conflicting SEO property does not prevent independently valid field updates", () => {
+  const old = canonical();
+  const next = canonical({ description: "Meta updated", ogDescription: "Edited in Admin" });
+  const remote = page({ "OG popis": rich("Edited in Notion") });
+  const outcome = planArticleSeoIndependentWriteback({
+    before: old, after: next, properties: remote, siteUrl: "https://psipedia.sk",
+  });
+  assert.deepEqual(outcome.ready.map(entry => entry.field), ["metaDescription"]);
+  assert.deepEqual(Object.keys(outcome.ready[0].plan.properties), ["Meta description"]);
+  assert.deepEqual(outcome.failures, [{
+    field: "ogDescription", code: "NOTION_ARTICLE_SEO_FIELD_CONFLICT",
+  }]);
+  verifyArticleSeoPatch(outcome.ready[0].plan, remote, "before");
+  const baseline = projectArticleSeoConfirmedBaseline(
+    { properties: remote }, { ogDescription: "OG Description" }, outcome.failures,
+  );
+  assert.equal(baseline.properties["OG popis"].rich_text[0].plain_text, "OG Description");
+  assert.equal(baseline.properties["Meta description"].rich_text[0].plain_text, "Meta");
+  assert.equal(remote["OG popis"].rich_text[0].plain_text, "Edited in Notion");
+});
+
+test("an invalid URL or missing remote field fails only that SEO field", () => {
+  const before = canonical();
+  const after = canonical({ title: "New SEO title", canonicalUrl: "invalid-url", focusKeyword: "updated" });
+  const outcome = planArticleSeoIndependentWriteback({
+    before, after, properties: page({ "Hlavné kľúčové slovo": undefined }),
+    siteUrl: "https://psipedia.sk",
+  });
+  assert.deepEqual(outcome.ready.map(entry => entry.field), ["seoTitle"]);
+  assert.deepEqual(outcome.failures, [
+    { field: "focusKeyword", code: "NOTION_ARTICLE_SEO_PROPERTY_MISSING" },
+    { field: "canonicalUrl", code: "NOTION_ARTICLE_SEO_URL_INVALID" },
+  ]);
+  assert.throws(() => projectArticleSeoConfirmedBaseline(
+    { properties: page() }, null, outcome.failures,
+  ), /NOTION_ARTICLE_SEO_REMOTE_CONFLICT/);
+});
+
+test("partial SEO sync cannot be reported as fully synchronized", async () => {
+  const route = await readFile(new URL("../app/api/admin/articles/[id]/route.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8");
+  assert.match(route, /result\.reason === "partial"/);
+  assert.match(source, /reason: "partial", failedFields: failures/);
+  assert.match(source, /ARTICLE_SEO_WRITEBACK_PARTIAL/);
+  assert.match(source, /if \(failures\.length\)/);
 });
