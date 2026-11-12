@@ -119,8 +119,10 @@ test("Admin built-in rename/reclassification affects Notion metadata, dropdown, 
   // A historical category becomes newly valid in trainers and invalid in vets.
   const original=serviceCatalog.find(x=>x.id===builtin);
   f.sqlite.prepare(
-   "INSERT INTO service_catalog_builtin_overrides(option_id,label,categories_json,group_name,meaning,version) VALUES (?,?,?,?,?,?)"
-  ).run(builtin,"Očkovanie psov",JSON.stringify(["treneri"]),original.group,original.meaning,1);
+   "INSERT INTO service_catalog_builtin_overrides(option_id,label,normalized_label,categories_json,group_name,meaning,version,created_at,updated_at,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+  ).run(builtin,"Očkovanie psov","ockovanie psov",JSON.stringify(["treneri"]),
+    original.group,original.meaning,1,"2026-11-12T01:00:00.000Z",
+    "2026-11-12T01:00:00.000Z",actor,actor);
   await saveAdminServiceChoice(f.db,{profileId:3,optionId:builtin,choice:"yes",expectedVersion:0},actor);
   const defs=await loadResolvedServiceDefinitions(f.db);
   const effective=defs.find(x=>x.id===builtin);
@@ -149,7 +151,8 @@ test("Notion verified removal keeps unrelated historical text and a separate NO"
   assert.deepEqual(removed,{added:0,removed:1});
   await projectServiceChoiceToDirectoryNotion(f.db,1,builtin,"unknown");
   assert.deepEqual(legacy(f.sqlite),["Historický text"]);
-  assert.deepEqual(chosen(f.sqlite),[{option_id:noId,choice:"no"}]);
+  assert.deepEqual(chosen(f.sqlite).map(({option_id,choice})=>({option_id,choice})),
+    [{option_id:noId,choice:"no"}]);
   assert.deepEqual(selected(f.sqlite,"veterinari",builtin),[]);
   const selectedAgain=await importNotionServiceIds(f.db,1,"veterinari",[builtin]);
   assert.deepEqual(selectedAgain,{added:1,removed:0});
