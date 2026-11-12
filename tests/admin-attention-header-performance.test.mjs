@@ -152,7 +152,10 @@ test("shared admin shell streams independently of a slow attention summary", () 
   assert.match(shell, /<Suspense fallback=\{<AdminNotificationBellPending \/>\}>\s*<AdminNotificationBell count=\{attentionCount\} partial=\{attentionCountPartial\} summaryPromise=\{attentionSummaryPromise\} \/>\s*<\/Suspense>/);
   assert.match(shell, /aria-label="Upozornenia: načítava sa počet neprečítaných upozornení"/);
   assert.match(shell, /function AdminNotificationBellPending\(\) \{/);
-  assert.match(shell, /if \(activeCount === undefined\) \{\s*const summary = await \(summaryPromise \?\? loadExactAdminAttentionSummary\(\)\)/);
+  assert.match(shell, /if \(activeCount === undefined\) \{\s*const summary = await \(summaryPromise \?\? loadRequestAdminAttentionSummary\(\)\)/);
+  const requestLoader = readFileSync(new URL("../lib/admin-attention-request.ts", import.meta.url), "utf8");
+  assert.match(requestLoader, /cache\(/);
+  assert.match(requestLoader, /loadExactAdminAttentionSummary\(\)/);
   assert.match(shell, /data-testid="admin-notification-bell"/g);
   assert.doesNotMatch(shell.match(/function AdminNotificationBellPending\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "", /loadExactAdminAttentionSummary/);
 });
