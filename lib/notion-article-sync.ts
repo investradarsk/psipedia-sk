@@ -1,5 +1,5 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
-import { ARTICLE_NOTION_SEO_PROPERTIES as SEO } from "./notion-article-seo-properties";
+import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion } from "./notion-article-seo-properties";
 import { notionRequest as notionSharedRequest } from "@/lib/notion-sync-shared";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
@@ -570,7 +570,7 @@ type NotionArticlePlacement = {
 type ExistingNotionArticlePlacement = Pick<
   ManagedArticle,
   "category" | "portalSection" | "portalSubpage" | "newsCategory"
->;
+> & Partial<Pick<ManagedArticle, "seo" | "ogImageKey">>;
 
 const LEGACY_UNAMBIGUOUS_CATEGORY_PLACEMENTS: Record<string, NotionArticlePlacement> = {
   "Výživa": {
@@ -966,12 +966,11 @@ export function notionPageToManagedArticleInput(
   const notionCategory = selectProperty(page, "Kategória");
   const notionSubsection = selectProperty(page, "Podsekcia");
   const contentType = selectProperty(page, "Typ obsahu");
-  const metaDescription = richTextProperty(page, SEO.metaDescription.name);
+  const seoFields = articleSeoFromNotion(page, existing);
+  const metaDescription = seoFields.metaDescription;
   const socialCaption = propertyRecord(page, "Popis na sociálne siete")
     ? richTextProperty(page, "Popis na sociálne siete")
     : (existing && "socialCaption" in existing ? (existing as { socialCaption?: string }).socialCaption ?? "" : "");
-  const seoTitle = richTextProperty(page, SEO.seoTitle.name);
-  const focusKeyword = richTextProperty(page, SEO.focusKeyword.name);
   const { intro, introRichText, blocks: articleBlocks } = convertBodyBlocks(blocks);
 
   if (!title) throw new Error("Doplň v Notione názov článku.");
@@ -1000,14 +999,8 @@ export function notionPageToManagedArticleInput(
     readingMinutes: estimateReadingMinutes(intro, articleBlocks),
     publishedAt: null,
     showUpdated: false,
-    seoTitle,
-    metaDescription,
+    ...seoFields,
     socialCaption,
-    canonicalUrl: "",
-    noindex: false,
-    focusKeyword,
-    ogTitle: seoTitle,
-    ogDescription: metaDescription,
     relatedBreedIds: [],
   };
 }
@@ -1678,6 +1671,7 @@ async function findUnmappedCanonicalArticle(
 
 const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [
   "title","excerpt","intro","blocks","seoTitle","metaDescription","socialCaption","focusKeyword",
+  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl",
 ] as const;
 type ArticleAuthorityKey=(typeof ARTICLE_EDITABLE_AUTHORITY_FIELDS)[number];
 function articleCurrentField(existing:ManagedArticle,key:ArticleAuthorityKey):unknown{
@@ -1685,6 +1679,11 @@ function articleCurrentField(existing:ManagedArticle,key:ArticleAuthorityKey):un
     case "seoTitle": return existing.seo?.title??"";
     case "metaDescription": return existing.seo?.description??"";
     case "focusKeyword": return existing.seo?.focusKeyword??"";
+    case "canonicalUrl": return existing.seo?.canonicalUrl??"";
+    case "noindex": return existing.seo?.noindex??false;
+    case "ogTitle": return existing.seo?.ogTitle??"";
+    case "ogDescription": return existing.seo?.ogDescription??"";
+    case "ogImageUrl": return existing.seo?.ogImage??null;
     case "socialCaption": return existing.socialCaption??"";
     default: return existing[key];
   }
@@ -1705,6 +1704,7 @@ function applyArticleAuthority(
       next.blocks=existing.blocks;next.readingMinutes=existing.readingMinutes;
     }else{
       (next as Record<string,unknown>)[key]=articleCurrentField(existing,key);
+      if(key==="ogImageUrl")next.ogImageKey=existing.ogImageKey;
     }
   }
   return next;
@@ -1904,10 +1904,6 @@ async function syncOneNotionPage(
         takeawayRichText: existing.takeawayRichText,
         imageUrl: existing.image,
         imageKey: existing.imageKey,
-        ogImageUrl: existing.ogImage,
-        ogImageKey: existing.ogImageKey,
-        canonicalUrl: existing.canonicalUrl,
-        noindex: existing.noindex,
         contentUpdatedAt: now,
         showUpdated: existing.showUpdated,
         blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
