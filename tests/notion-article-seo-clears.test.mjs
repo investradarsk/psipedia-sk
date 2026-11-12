@@ -136,3 +136,20 @@ test("SEO receipt integration covers inbound, draft, and targeted writeback", as
   assert.match(source, /articleSeoExplicitClears\(page, previousSeo\)\.has\("ogImageUrl"\)/);
   assert.match(source, /notionPageToManagedArticleInput\(page, blocks, existing \?\? undefined, previousSeo\)/);
 });
+
+test("an invalid Notion field must not masquerade as a deliberate SEO deletion", () => {
+  const previous = articleSeoRemoteValues(remote());
+  const invalid = remote({
+    "SEO title": { type: "select", select: { name: "invalid" } },
+    "Canonical URL": { type: "url", url: 12 },
+    "Noindex": { type: "checkbox", checkbox: "false" },
+  });
+  const clears = articleSeoExplicitClears(invalid, previous);
+  assert.equal(clears.has("seoTitle"), false);
+  assert.equal(clears.has("canonicalUrl"), false);
+  assert.equal(clears.has("noindex"), false);
+  const actual = articleSeoFromNotion(invalid, old(), previous);
+  assert.equal(actual.seoTitle, "Old title");
+  assert.equal(actual.canonicalUrl, "https://psipedia.sk/clanky/original");
+  assert.equal(actual.noindex, true);
+});
