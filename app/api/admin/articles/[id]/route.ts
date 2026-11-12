@@ -137,14 +137,17 @@ export async function PUT(request: Request, { params }: RouteProps) {
     // Local save is canonical even if an independently patched SEO field
     // cannot be echoed by Notion. Report the remote result rather than
     // silently claiming both systems are synchronized.
-    let notionEditorialWriteback: { status: string; code?: string } | undefined;
+    let notionEditorialWriteback: { status: string; code?: string; fields?: string[] } | undefined;
     const bindings = env as unknown as ArticleRouteBindings;
     if (bindings.DB) {
-      const report = (result: { updated: boolean; reason?: string }) => {
+      const report = (result: { updated: boolean; reason?: string; failedFields?: Array<{ field: string; code: string }> }) => {
         if (notionEditorialWriteback?.status === "blocked" ||
             notionEditorialWriteback?.status === "partial") return;
         if (result.reason === "partial") {
-          notionEditorialWriteback = { status: "partial", code: "NOTION_ARTICLE_SEO_PARTIAL" };
+          notionEditorialWriteback = {
+            status: "partial", code: "NOTION_ARTICLE_SEO_PARTIAL",
+            fields: result.failedFields?.map(failure => failure.field),
+          };
           return;
         }
         notionEditorialWriteback = {
