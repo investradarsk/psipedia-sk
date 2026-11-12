@@ -1,73 +1,50 @@
-.detailShell { composes: page from "./detail-primitives/detail-primitives.module.css"; }
-.breadcrumbs { display: flex; flex-wrap: wrap; gap: 7px; }
-.reservedBanner, .staleNotice { composes: note from "./detail-primitives/detail-primitives.module.css"; display: grid; gap: 4px; margin-bottom: 12px; }
-.statusBadge { display: inline-flex; padding: 5px 10px; border-radius: 999px; border: 1px solid #c9ded3; font-size: .74rem; font-weight: 800; text-transform: uppercase; }
-.active { color: #075342; background: #f0f6ef; }
-.reserved { color: #795018; background: #fff6e2; }
-.detailLocation { composes: location from "./detail-primitives/detail-primitives.module.css"; }
-.detailBreed { margin: 10px 0; color: #075342; font-weight: 800; }
-.detailLead { composes: lead from "./detail-primitives/detail-primitives.module.css"; }
-.detailFacts { composes: factTiles from "./detail-primitives/detail-primitives.module.css"; }
-.heroActions { composes: heroActions from "./detail-primitives/detail-primitives.module.css"; }
-.primaryAction { composes: primaryAction from "./detail-primitives/detail-primitives.module.css"; }
-.secondaryAction { composes: secondaryAction from "./detail-primitives/detail-primitives.module.css"; }
-.detailGrid { composes: shell layout from "./detail-primitives/detail-primitives.module.css"; }
-.detailContent { composes: body from "./detail-primitives/detail-primitives.module.css"; }
-.detailAside { composes: aside from "./detail-primitives/detail-primitives.module.css"; }
-.detailPanel { composes: section from "./detail-primitives/detail-primitives.module.css"; }
-.contactCard, .verificationCard { composes: card from "./detail-primitives/detail-primitives.module.css"; }
-.detailEyebrow { composes: eyebrow from "./detail-primitives/detail-primitives.module.css"; }
-.preline { white-space: pre-line; }
-.contactLinks, .verificationCard { display: grid; gap: 10px; }
-.organizationLink, .contactLinks a, .verificationCard a { color: #075342; overflow-wrap: anywhere; text-decoration: underline; text-underline-offset: .16em; }
+/* Adoption adds only status and editorial accents.
+   Geometry, hero, cards, contacts, media, facts and responsive layout come
+   from the same lost/found CSS and public detail primitives. */
+.adoptionBadge {
+  background: #edf5ef;
+  color: #155438;
+}
 
-/* V2.1: legible facts and natural uncut gallery photographs. */
-.detailBreed { overflow-wrap: anywhere; }
-.reservedBanner { border-color: #e8c989; border-left-color: #b78028; background: #fff7e5; color: #6e4912; }
-.staleNotice { border-color: #eadab7; border-left-color: #ae7c2e; background: #fffaf0; }
-.statusBadge { line-height: 1.35; }
-.detailFacts { gap: 10px; }
-.contactLinks a { min-height: 34px; }
-@media(max-width:800px) { .detailFacts { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+.reservedBanner {
+  border-color: #e8c989;
+  background: #fff7e5;
+  color: #6e4912;
+}
 
-/* S-25 shared detail rhythm: same photo/fact/section tokens as Help details. */
+.detailBreed {
+  min-width: 0;
+  color: #075342;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.detailBreed a,
+.organizationLink {
+  color: #075342;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+  overflow-wrap: anywhere;
+}
+
 .detailVerification {
-  margin: 10px 0 0;
+  margin: 10px 0;
   color: var(--detail-muted, #53695e);
-  font-size: .78rem;
-  line-height: 1.45;
+  font-size: 0.82rem;
+  line-height: 1.55;
 }
 .detailVerification strong { color: var(--detail-ink, #17352b); }
-.detailPanel { overflow-wrap: anywhere; }
-.detailPanel .preline { line-height: 1.56; }
-.contactLinks { gap: 8px; }
-.contactLinks a { min-height: 44px; display: flex; align-items: center; }
-.heroActions { gap: 9px; }
-@media (max-width: 760px) {
-  .detailFacts { gap: 8px; }
-  .detailFacts > div { padding: 10px 11px; }
-  .detailPanel { padding: 16px; }
-  .detailPanel .preline { line-height: 1.53; }
-  .contactCard { padding: 16px; }
-  .heroActions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .heroActions a { min-width: 0; font-size: .77rem; line-height: 1.3; }
-}
-@media (max-width: 360px) {
-  .heroActions { grid-template-columns: minmax(0, 1fr); }
-}
 
-/* Adoption actions and every card must remain readable on narrow phones. */
-@media (max-width: 620px) {
-  .heroActions { grid-template-columns: minmax(0, 1fr); }
-  .heroActions > a { min-width: 0; width: 100%; }
-  .detailContent, .detailAside { width: 100%; min-width: 0; overflow-wrap: anywhere; }
-  .contactLinks a, .organizationLink { overflow-wrap: anywhere; word-break: normal; }
+.staleNotice {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0;
+  padding: 12px 14px;
+  border: 1px solid #eadab7;
+  border-left: 4px solid #ae7c2e;
+  border-radius: 12px;
+  background: #fffaf0;
+  color: #6e4912;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
-
-
-/* Match compact Help profile density, without changing data or public actions. */
-.detailContent, .detailAside { gap: 12px; }
-.detailPanel { padding: clamp(14px, 1.7vw, 18px); }
-.detailPanel h2 { margin-bottom: 10px; font-size: clamp(1.28rem, 2vw, 1.55rem); }
-.detailFacts { gap: 8px; margin-top: 10px; }
-.contactCard { border-left: 3px solid var(--forest, #174b38); }

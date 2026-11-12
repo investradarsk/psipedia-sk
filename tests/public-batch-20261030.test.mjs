@@ -63,7 +63,11 @@ test("shared adoption detail layout stacks contact after story even with a direc
   const css = read("components/detail-primitives/detail-primitives.module.css");
   const adoptionCss = read("components/adoption-detail.module.css");
   assert.match(css, /@media \(max-width: 800px\) \{\s*\.publicDetailInline:has\(> aside\) \{\s*grid-template-columns: minmax\(0, 1fr\)/);
-  assert.match(adoptionCss, /@media \(max-width: 620px\) \{\s*\.heroActions \{ grid-template-columns: minmax\(0, 1fr\)/);
+  const adoption = read("components/adoption-detail.tsx");
+  assert.match(adoption, /<PublicHelpProfileDetailLayout/);
+  assert.match(adoption, /className=\{dogStyles\.detailCopy\}/);
+  assert.match(adoption, /className=\{dogStyles\.detailAside\}/);
+  assert.doesNotMatch(adoptionCss, /grid-template-columns|\.heroActions/);
 });
 
 test("lost-and-found hub reuses exactly the Help report photo banner", () => {
