@@ -94,7 +94,7 @@ test("versioned template saves are CAS-safe; manual slot marks are independent o
   assert.equal(updated.version,2);
   await assert.rejects(saveFacebookWeeklyTemplate(slots,1,"other",store),FacebookTemplateConflict);
   await setFacebookTemplateMark("2026-11-16","monday-salon",true,"owner",store);
-  assert.deepEqual(await listFacebookTemplateMarks("2026-11-16",store),
+  assert.deepEqual((await listFacebookTemplateMarks("2026-11-16",store)).map(row=>({...row})),
     [{slot_date:"2026-11-16",slot_id:"monday-salon"}]);
   await assert.rejects(setFacebookTemplateMark("2026-11-17","monday-salon",true,"owner",store),/nie je v uloženom/);
   await setFacebookTemplateMark("2026-11-16","monday-salon",false,"owner",store);
