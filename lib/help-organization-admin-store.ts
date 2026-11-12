@@ -1,4 +1,5 @@
 import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
+import { organizationAdminReadText } from "./organization-admin-read-state.ts";
 import { env } from "cloudflare:workers";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import {
@@ -92,13 +93,6 @@ function requireD1Binding(database?: AdoptionD1Database) {
   const resolved = database ?? (bound && typeof bound.prepare === "function" ? bound : null);
   if (!resolved) throw new Error("Databáza organizácií zatiaľ nie je pripojená.");
   return resolved;
-}
-
-/** Imported legacy rows can contain NULL in old text columns despite the
- * canonical schema. Keep read-only Admin rendering safe; never write back.
- */
-export function organizationAdminReadText(value: unknown): string {
-  return typeof value === "string" ? value : "";
 }
 
 function completenessHints(row: OrganizationPublicationRow) {
