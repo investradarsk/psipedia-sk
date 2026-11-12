@@ -291,8 +291,14 @@ export async function PUT(request: Request, { params }: Props) {
       // remains LEGACY_UNCONFIRMED; if it did not, the prior technical state is
       // preserved.
     }
-    let profile = await updateManagedDirectoryProfile(id, payload, user.email, before);
-    if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+    // A Notion webhook may update D1 after we read the profile but before
+    // the full-form UPDATE. Never overwrite that concurrent revision silently.
+    let profile = await updateManagedDirectoryProfile(
+      id, payload, user.email, before, db, { expectedUpdatedAt: before.updatedAt },
+    );
+    if (!profile) return Response.json({
+      error: "Profil sa medzitým zmenil v databáze. Obnov ho a zopakuj svoju úpravu.",
+    }, { status: 409, headers: { "cache-control": "no-store" } });
 
     // Verify clear requests against BOTH representations of public contacts:
     // website_url and legacy aliases in source_data_json. A stale alias must
