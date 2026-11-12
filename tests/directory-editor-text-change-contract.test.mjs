@@ -183,3 +183,15 @@ test("Perex and Popis changes are independent without Lexical and without Notion
 function breederStyleDiff(before, after) {
   return ["excerpt", "description"].filter(field => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
 }
+
+test("server cannot return HTTP 200 with the previous Perex after an edited-value PUT", () => {
+  const api = readFileSync("app/api/admin/directory/[id]/route.ts", "utf8");
+  assert.match(api, /const changedTextFields = \(\["excerpt", "description"\] as const\)/);
+  assert.match(api, /cleanText\(saved\[field\]\) !== cleanText\(submittedBody\[field\]\)/);
+  assert.match(api, /if \(changedTextFields\.length\) \{/);
+  assert.match(api, /SET excerpt=\?, description=\?, search_text=\?, updated_at=\?, updated_by=\?/);
+  assert.match(api, /WHERE id=\? AND category=\? AND status<>'archived' AND updated_at=\?/);
+  assert.match(api, /saved = await getManagedDirectoryProfileById\(id, db\)/);
+  assert.match(api, /excerpt: submittedBody\.excerpt,\s*description: submittedBody\.description/);
+  assert.match(api, /status: 409, headers: \{ "cache-control": "no-store" \}/);
+});
