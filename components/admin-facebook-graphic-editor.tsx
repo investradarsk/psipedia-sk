@@ -2,10 +2,11 @@
 
 import {useCallback, useEffect, useRef, useState} from "react";
 import {useDropzone} from "react-dropzone";
+import {FacebookProfileIntroCanvas} from "./facebook-profile-intro-canvas";
 import {FacebookKonvaCanvas, type GraphicCanvasHandle, type GraphicPart, type GraphicSettings, type GraphicTemplate, type GraphicFormat} from "./facebook-konva-canvas";
 import styles from "./admin-facebook-graphic-editor.module.css";
 
-type Template = GraphicTemplate;
+type Template = GraphicTemplate | "profile";
 type Format = GraphicFormat;
 type Settings = GraphicSettings;
 const TEMPLATES: { id: Template; name: string; description: string }[] = [
@@ -14,17 +15,22 @@ const TEMPLATES: { id: Template; name: string; description: string }[] = [
   {id:"editorial",name:"03 · Krémový redakčný pás",description:"Svetlá karta s tehlovočerveným akcentom"},
   {id:"clean",name:"04 · Čistá kompozícia",description:"Minimalistická fotografia a svetlá textová karta"},
   {id:"split",name:"05 · Delená kompozícia",description:"Fotografia s oddelenou tmavozelenou spodnou sekciou"},
+  {id:"profile",name:"06 · Predstavujeme profil",description:"Jednotná grafika s logom prevádzky, bez fotografie"},
 ];
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export function AdminFacebookGraphicEditor({
   initialTitle,
   initialPhotoUrl,
+  initialProfileCategory,
+  initialProfileLogoUrl,
   onUse,
   onCancel,
 }: {
   initialTitle: string;
   initialPhotoUrl?: string;
+  initialProfileCategory?: string;
+  initialProfileLogoUrl?: string;
   onUse: (file: File, title: string) => Promise<boolean>;
   onCancel: () => void;
 }) {
@@ -47,6 +53,11 @@ export function AdminFacebookGraphicEditor({
     logoY: 0,
     logoScale: 100,
   });
+  const [selectedTemplate,setSelectedTemplate]=useState<Template>("gradient");
+  const [profileCategory,setProfileCategory]=useState(initialProfileCategory||"");
+  const [profileLogoFile,setProfileLogoFile]=useState<File|null>(null);
+  const [profileLogoLoaded,setProfileLogoLoaded]=useState<{file:File;bitmap:ImageBitmap}|null>(null);
+  const profileLogoBitmap=profileLogoLoaded?.file===profileLogoFile?profileLogoLoaded.bitmap:null;
   const [photo, setPhoto] = useState<File | null>(null);
   const [loaded, setLoaded] = useState<{ file: File; bitmap: ImageBitmap } | null>(null);
   const bitmap = loaded?.file === photo ? loaded.bitmap : null;
@@ -104,6 +115,41 @@ export function AdminFacebookGraphicEditor({
     if (rejected.length) { setError("Použi fotografiu JPG, PNG alebo WebP do 8 MB."); return; }
     if (accepted[0]) { setPhoto(accepted[0]); setError(""); }
   }, []);
+  const onLogoDrop=useCallback((accepted:File[],rejected:{errors:{message:string}[]}[])=>{
+    if(rejected.length){setError("Použi logo JPG, PNG alebo WebP do 8 MB.");return;}
+    if(accepted[0]){setProfileLogoFile(accepted[0]);setError("");}
+  },[]);
+  const logoDropzone=useDropzone({
+    onDrop:onLogoDrop,accept:{"image/jpeg":[],"image/png":[],"image/webp":[]},
+    maxSize:MAX_BYTES,multiple:false,disabled:busy,
+  });
+  useEffect(()=>{
+    if(!initialProfileLogoUrl)return;
+    const controller=new AbortController();
+    async function loadLogo(){
+      const url=new URL(initialProfileLogoUrl,window.location.origin);
+      if(url.origin!==window.location.origin||!/^\\/media\\/facebook-images\\//.test(url.pathname))
+        throw Error("Logo musí byť uložené na Psipedia.sk. Nahraj ho ručne.");
+      const response=await fetch(url.pathname+url.search,{credentials:"same-origin",cache:"no-store",signal:controller.signal});
+      if(!response.ok)throw Error("Logo sa nepodarilo načítať. Nahraj ho ručne.");
+      const blob=await response.blob();
+      const mime=blob.type.split(";")[0].toLowerCase();
+      if(!blob.size||blob.size>MAX_BYTES||!["image/jpeg","image/png","image/webp"].includes(mime))
+        throw Error("Logo musí byť JPG, PNG alebo WebP do 8 MB.");
+      if(!controller.signal.aborted)setProfileLogoFile(new File([blob],"logo-profilu",{type:mime}));
+    }
+    void loadLogo().catch(error=>{if(!controller.signal.aborted)setError(error instanceof Error?error.message:"Logo sa nepodarilo načítať.");});
+    return()=>controller.abort();
+  },[initialProfileLogoUrl]);
+  useEffect(()=>{
+    if(!profileLogoFile)return;
+    let active=true,bitmap:ImageBitmap|null=null;
+    createImageBitmap(profileLogoFile).then(value=>{
+      bitmap=value;if(active)setProfileLogoLoaded({file:profileLogoFile,bitmap:value});else value.close();
+    }).catch(()=>{if(active)setError("Logo sa nedá otvoriť.");});
+    return()=>{active=false;bitmap?.close();};
+  },[profileLogoFile]);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "image/jpeg": [], "image/png": [], "image/webp": [] },
@@ -125,8 +171,14 @@ export function AdminFacebookGraphicEditor({
   }, [photo]);
 
   async function makeFile(): Promise<File> {
-    if (!bitmap) throw new Error("Najprv nahraj fotografiu.");
-    if (!settings.title.trim()) throw new Error("Doplň nadpis článku.");
+    if(selectedTemplate==="profile"){
+      if(!settings.title.trim())throw new Error("Doplň názov profilu.");
+      if(!profileCategory.trim())throw new Error("Vyber kategóriu profilu.");
+      if(!profileLogoBitmap)throw new Error("Najprv nahraj logo profilu.");
+    }else{
+      if(!bitmap)throw new Error("Najprv nahraj fotografiu.");
+      if(!settings.title.trim())throw new Error("Doplň nadpis článku.");
+    }
     const blob = await previewRef.current?.exportPng();
     if (!blob) throw new Error("Editor ešte nie je pripravený na export.");
     if (blob.size > MAX_BYTES) throw new Error("Výsledná grafika presiahla 8 MB. Skús štvorcový formát.");
@@ -158,7 +210,7 @@ export function AdminFacebookGraphicEditor({
 
   return <section className={styles.editor} aria-label="Grafický editor Facebook obrázkov">
     <div className={styles.top}>
-      <div><h3>Grafické šablóny Psipedia</h3><p>Päť grafických šablón s presúvateľným textom, fotografiou a vektorovým logom. Grafika sa na Facebook neodošle automaticky.</p></div>
+      <div><h3>Grafické šablóny Psipedia</h3><p>Šesť šablón vrátane predstavenia profilu bez fotografie. Grafika sa na Facebook neodošle automaticky.</p></div>
       <button type="button" onClick={onCancel} disabled={busy}>Späť k príspevku</button>
     </div>
     <div className={styles.layout}>
@@ -166,12 +218,29 @@ export function AdminFacebookGraphicEditor({
         <fieldset disabled={busy}>
           <legend>1. Vyber šablónu</legend>
           <div className={styles.templateGrid}>{TEMPLATES.map(item =>
-            <button key={item.id} type="button" className={settings.template === item.id ? styles.selected : ""}
-              aria-pressed={settings.template === item.id} onClick={() => set("template", item.id)}>
+            <button key={item.id} type="button" className={selectedTemplate === item.id ? styles.selected : ""}
+              aria-pressed={selectedTemplate === item.id} onClick={()=>{
+                setSelectedTemplate(item.id);
+                if(item.id!=="profile")set("template",item.id);
+              }}>
               <strong>{item.name}</strong><small>{item.description}</small>
             </button>)}</div>
         </fieldset>
-        <fieldset disabled={busy}>
+        {selectedTemplate==="profile"&&<fieldset disabled={busy}>
+          <legend>2. Údaje predstavovaného profilu</legend>
+          <p className={styles.hint}>Názov, kategória a logo sa načítajú z vybraného profilu, ak sú dostupné. Údaje môžeš upraviť.</p>
+          <label>Kategória<input type="text" maxLength={80} value={profileCategory}
+            onChange={event=>setProfileCategory(event.target.value)} placeholder="Napr. Veterinár"/></label>
+          <label>Názov profilu<input type="text" maxLength={160} value={settings.title}
+            onChange={event=>set("title",event.target.value)} placeholder="Názov prevádzky"/></label>
+          <div {...logoDropzone.getRootProps({className:styles.dropzone})}>
+            <input {...logoDropzone.getInputProps()} aria-label="Logo predstavovaného profilu"/>
+            <strong>{profileLogoFile?profileLogoFile.name:logoDropzone.isDragActive?"Pusti logo sem":"Nahraj logo prevádzky"}</strong>
+            <small>JPG, PNG alebo WebP do 8 MB. Nevyžaduje sa fotografia psa.</small>
+          </div>
+          <p className={styles.hint}>Rozmer výstupu: 1080 × 1350 px (4:5).</p>
+        </fieldset>}
+        {selectedTemplate!=="profile"&&<fieldset disabled={busy}>
           <legend>2. Fotografia z článku/profilu alebo vlastná</legend>
           <div {...getRootProps({ className: styles.dropzone })}>
             <input {...getInputProps()} aria-label="Fotografia do grafiky" />
@@ -183,8 +252,8 @@ export function AdminFacebookGraphicEditor({
             <label>Posun fotografie vodorovne <input type="range" min="-100" max="100" value={settings.photoX} onChange={e => set("photoX", Number(e.target.value))} /></label>
             <label>Posun fotografie zvisle <input type="range" min="-100" max="100" value={settings.photoY} onChange={e => set("photoY", Number(e.target.value))} /></label>
           </div>
-        </fieldset>
-        <fieldset disabled={busy}>
+        </fieldset>}
+        {selectedTemplate!=="profile"&&<fieldset disabled={busy}>
           <legend>3. Uprav nadpis</legend>
           <p className={styles.hint}>Nadpis môžeš presunúť priamo v náhľade. Ťahaním rohov meníš jeho veľkosť.</p>
           <label>Nadpis príspevku<textarea rows={3} maxLength={160} value={settings.title} onChange={e => set("title", e.target.value)} /></label>
@@ -202,8 +271,8 @@ export function AdminFacebookGraphicEditor({
             </select></label>
             <label className={styles.check}><input type="checkbox" checked={settings.showBrand} onChange={e => set("showBrand", e.target.checked)} />Zobraziť logo Psipedia</label>
           </div>
-        </fieldset>
-        <fieldset disabled={busy}>
+        </fieldset>}
+        {selectedTemplate!=="profile"&&<fieldset disabled={busy}>
           <legend>Vzhľad fotografie</legend>
           <label>Zobrazenie obrázka
             <select value={settings.photoFit} onChange={e=>set("photoFit",e.target.value as Settings["photoFit"])}>
@@ -212,8 +281,8 @@ export function AdminFacebookGraphicEditor({
             </select>
           </label>
           <label>Intenzita stmavenia · {settings.overlay}% <input type="range" min="0" max="95" value={settings.overlay} onChange={e=>set("overlay",Number(e.target.value))}/></label>
-        </fieldset>
-        <fieldset disabled={busy}>
+        </fieldset>}
+        {selectedTemplate!=="profile"&&<fieldset disabled={busy}>
           <legend>4. Logo Psipedia · voľná pozícia</legend>
           <p className={styles.hint}>Vyber jeden z troch variantov rovnakého loga. Potiahni ho priamo v náhľade prstom alebo myšou na ľubovoľné miesto.</p>
           <div className={styles.logoStyles}>
@@ -245,18 +314,20 @@ export function AdminFacebookGraphicEditor({
               value={settings.logoY} onChange={e=>set("logoY",Number(e.target.value))}/></label>
           </div>
           <p className={styles.hint}>Logo ostáva v bezpečných okrajoch. Môžeš ho tiež úplne vypnúť v nastaveniach nadpisu.</p>
-        </fieldset>
+        </fieldset>}
       </div>
       <div className={styles.previewSide}>
         <div className={styles.previewFrame}>
-          <FacebookKonvaCanvas ref={previewRef} settings={settings} bitmap={bitmap} onMove={onMove} onWarning={setQualityWarning} />
+          {selectedTemplate==="profile"
+            ?<FacebookProfileIntroCanvas ref={previewRef} name={settings.title} category={profileCategory} logo={profileLogoBitmap}/>
+            :<FacebookKonvaCanvas ref={previewRef} settings={settings} bitmap={bitmap} onMove={onMove} onWarning={setQualityWarning}/>}
         </div>
-        <p className={styles.note}>{bitmap ? "Náhľad zodpovedá výslednému PNG." : "Náhľad šablóny bez psa. Nahraj vlastnú fotografiu, aby si mohol vytvoriť výsledný obrázok."}</p>
+        <p className={styles.note}>{selectedTemplate==="profile"?(profileLogoBitmap?"Náhľad zodpovedá výslednému PNG.":"Nahraj logo profilu na dokončenie grafiky."):(bitmap?"Náhľad zodpovedá výslednému PNG.":"Nahraj fotografiu na dokončenie grafiky.")}</p>
         {qualityWarning && <p className={styles.error} role="status">{qualityWarning}</p>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
         <div className={styles.actions}>
-          <button type="button" disabled={busy || !bitmap} onClick={() => void download()}>Stiahnuť PNG</button>
-          <button className={styles.primary} type="button" disabled={busy || !bitmap} onClick={() => void applyGraphic()}>{busy ? "Pripravujem…" : "Použiť v príspevku"}</button>
+          <button type="button" disabled={busy || (selectedTemplate==="profile"?!profileLogoBitmap:!bitmap)} onClick={() => void download()}>Stiahnuť PNG</button>
+          <button className={styles.primary} type="button" disabled={busy || (selectedTemplate==="profile"?!profileLogoBitmap:!bitmap)} onClick={() => void applyGraphic()}>{busy ? "Pripravujem…" : "Použiť v príspevku"}</button>
         </div>
       </div>
     </div>
