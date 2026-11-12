@@ -55,6 +55,7 @@ export function validateFacebookWeeklyTemplate(raw: unknown): FacebookWeeklySlot
   }
   const used = new Set<string>();
   const counts = Array<number>(7).fill(0);
+  const times = Array.from({length:7},()=>new Set<string>());
   const result: FacebookWeeklySlot[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
@@ -75,6 +76,8 @@ export function validateFacebookWeeklyTemplate(raw: unknown): FacebookWeeklySlot
     if (typeof row.time !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(row.time)) {
       throw new Error("Čas musí mať formát HH:MM.");
     }
+    if(times[day].has(row.time))throw new Error("Dva príspevky v jednom dni nemôžu mať rovnaký čas.");
+    times[day].add(row.time);
     if (typeof row.key !== "string" || !(FACEBOOK_PLAN_KEYS as readonly string[]).includes(row.key)) {
       throw new Error("Neplatná kategória príspevku.");
     }
