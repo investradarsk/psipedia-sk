@@ -226,7 +226,7 @@ export function AdminOrganizationEditor({
       if (!organization) {
         // Redirect only after both writes succeed. An address failure keeps
         // the unsaved address and the newly created ID for a safe retry.
-        navigation.allowNativeExitRef.current = true;
+        navigation.allowExitForNextNavigation();
         router.replace(`/admin/organizacie/${organizationId}`);
         return;
       }
