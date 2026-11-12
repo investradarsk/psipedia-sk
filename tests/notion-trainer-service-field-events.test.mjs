@@ -15,7 +15,8 @@ test("trainer Notion webhook and Admin PUT reuse field events without bulk profi
   assert.match(directory, /relationChanged/);
   assert.match(directory, /notionExplicitEdit/);
   assert.match(directory, /isDirectoryFieldEventCategory\(propertyText\(page, "Kategória"\)\)\) continue/);
-  assert.match(webhook, /dp\.category IN \('chovatelske-stanice','treneri','salony-a-sluzby','veterinari','fyzioterapia','dalsie-sluzby','kynologicke-kluby','chovatelske-kluby','hotely-a-opatrovanie','vencenie'\)/);
+  assert.match(webhook, /DIRECTORY_FIELD_EVENT_CATEGORIES/);
+  assert.match(webhook, /\.bind\(data\.entity!\.id, \.\.\.DIRECTORY_FIELD_EVENT_CATEGORIES\)/);
   assert.match(admin, /isDirectoryFieldEventCategory\(before\.category\)/);
   assert.match(editor, /category === profile\.category && breederBaseline/);
 });
