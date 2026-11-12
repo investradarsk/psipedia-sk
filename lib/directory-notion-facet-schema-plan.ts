@@ -12,7 +12,14 @@ type Column = {
   options?: readonly { name?: string }[];
   select?: { options?: readonly { name?: string }[] };
 };
-const expectedNames = ["Áno", "Nie", "Neznáme"] as const;
+const notionLabels: Readonly<Record<string, string>> = {
+  yes: "Áno", no: "Nie", unknown: "Neznáme",
+  ambulance: "Ambulancia", clinic: "Klinika", hospital: "Nemocnica",
+};
+const optionColors: Readonly<Record<string, string>> = {
+  yes: "green", no: "red", unknown: "gray",
+  ambulance: "blue", clinic: "green", hospital: "purple",
+};
 
 function sameSource(a: string, b: string) {
   return a.replaceAll("-", "").toLowerCase() === b.replaceAll("-", "").toLowerCase();
@@ -39,13 +46,22 @@ export function planDirectoryNotionFacetColumns(input: {
     }
     const options = existing.options ?? existing.select?.options ?? [];
     const names = options.map(item => item.name);
+    const expectedNames = field.allowedValues.map(value => notionLabels[value] ?? value);
     if (existing.type !== "select" || !expectedNames.every(expected => names.includes(expected)))
       throw new Error("DIRECTORY_NOTION_FACET_SCHEMA_CONFLICT: " + field.id);
   }
   const statements = missing.map(name => {
     if (name.includes('"') || name.includes("\n"))
       throw new Error("DIRECTORY_NOTION_FACET_NAME_INVALID");
-    return `ADD COLUMN "${name}" SELECT('Áno':green, 'Nie':red, 'Neznáme':gray)`;
+    const definition = directoryFilterRegistry.find(field => field.notion.property === name);
+    if (!definition) throw new Error("DIRECTORY_NOTION_FACET_DEFINITION_MISSING");
+    const options = definition.allowedValues.map(value => {
+      const label = notionLabels[value] ?? value;
+      if (!/^[^'";\\\n]{1,80}$/.test(label))
+        throw new Error("DIRECTORY_NOTION_FACET_OPTION_INVALID");
+      return "'" + label + "':" + (optionColors[value] ?? "gray");
+    });
+    return `ADD COLUMN "${name}" SELECT(${options.join(", ")})`;
   });
   return {
     dataSourceId: DIRECTORY_NOTION_DATA_SOURCE_ID,
