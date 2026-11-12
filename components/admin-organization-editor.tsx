@@ -152,10 +152,10 @@ export function AdminOrganizationEditor({
     if (archived || mutationPending.current || uploading) return;
     // All five form panels stay mounted. With noValidate, hidden native
     // constraints can be inspected and their panel revealed before saving.
-    const invalid = Array.from(event.currentTarget.elements).find((control): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+    const invalid = Array.from(event.currentTarget.elements).find((control) =>
       (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
       && control.willValidate && !control.checkValidity()
-    );
+    ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | undefined;
     if (invalid) {
       const owner = invalid.closest("[data-admin-editor-section]") as HTMLElement | null;
       setActiveOrganizationSection(owner?.id ?? "organization-general");
