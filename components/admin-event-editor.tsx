@@ -13,7 +13,7 @@ import { AdminActionButton } from "@/components/admin-interaction-system";
 import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
 import { AdminEventMarkdownEditor } from "@/components/admin-event-markdown-editor";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useRef, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
@@ -87,9 +87,12 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   const [error, setError] = useState("");
   const [activeEventSection, setActiveEventSection] = useState(EVENT_SECTIONS[0].id);
   const [locationSectionVisited, setLocationSectionVisited] = useState(false);
-  useEffect(() => { if (activeEventSection === "event-location") setLocationSectionVisited(true); }, [activeEventSection]);
+  const chooseEventSection = (next: string) => {
+    if (next === "event-location") setLocationSectionVisited(true);
+    setActiveEventSection(next);
+  };
   const activeEventSectionIndex = EVENT_SECTIONS.findIndex((section) => section.id === activeEventSection);
-  const navigateWithPager = useProfileEditorSectionPager(activeEventSection, setActiveEventSection);
+  const navigateWithPager = useProfileEditorSectionPager(activeEventSection, chooseEventSection);
 
   // Track the canonical form payload, not DOM input events: markdown toolbar,
   // SEO drawer, image display settings and automation patches all change React state.
@@ -157,7 +160,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
       ];
       const missing = requiredFields.find((field) => !field.value.trim());
       if (missing) {
-        setActiveEventSection(missing.section);
+        chooseEventSection(missing.section);
         setMessage("");
         setError(`Vyplň povinné pole: ${missing.label}.`);
         return;
@@ -220,7 +223,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         sections={EVENT_SECTIONS}
         sectionMode="switch"
         activeSectionId={activeEventSection}
-        onSectionChange={setActiveEventSection}
+        onSectionChange={chooseEventSection}
         preview={liveSummary}
         previewFocusable
         previewTitle="Živý súhrn podujatia"
