@@ -380,6 +380,12 @@ async function prepareNotionMainImage(
   const sourceUrl = source.url;
   const imageSourceUrl = urlProperty(page, "Zdroj obrázka");
   const altText = richTextProperty(page, "Alt text obrázka");
+  // An explicit OG image belongs to the SEO field and must not be silently
+  // replaced by the hero-image fallback during a later Notion image import.
+  const explicitOgImage = urlProperty(page, SEO.ogImageUrl.name);
+  const oldOgImage = existing?.seo?.ogImage ?? storedImageUrl(existing?.ogImageKey);
+  const explicitOgKey = explicitOgImage && explicitOgImage === oldOgImage
+    ? existing?.ogImageKey ?? null : null;
 
   if (!sourceUrl) {
     if (!existing) return { payload, uploadedKey: null, replacedKeys: [] };
@@ -392,8 +398,8 @@ async function prepareNotionMainImage(
         imageKey: existing.imageKey,
         imageAlt: altText || existing.imageAlt || null,
         imageCreditUrl: imageSourceUrl || existing.imageCreditUrl || null,
-        ogImageUrl: existingOgImageUrl,
-        ogImageKey: existing.ogImageKey,
+        ogImageUrl: explicitOgImage || existingOgImageUrl,
+        ogImageKey: explicitOgImage ? explicitOgKey : existing.ogImageKey,
       },
       uploadedKey: null,
       replacedKeys: [],
@@ -420,8 +426,8 @@ async function prepareNotionMainImage(
           imageKey: existing.imageKey,
           imageAlt: altText || existing.imageAlt || null,
           imageCreditUrl: imageSourceUrl || existing.imageCreditUrl || null,
-          ogImageUrl: existingOgImageUrl,
-          ogImageKey: existing.ogImageKey ?? existing.imageKey,
+          ogImageUrl: explicitOgImage || existingOgImageUrl,
+          ogImageKey: explicitOgImage ? explicitOgKey : existing.ogImageKey ?? existing.imageKey,
         },
         uploadedKey: null,
         replacedKeys: [],
@@ -446,9 +452,11 @@ async function prepareNotionMainImage(
     },
   });
 
+  const nextOgImageUrl = explicitOgImage || imageUrl;
+  const nextOgImageKey = explicitOgImage ? explicitOgKey : key;
   const replacedKeys = [...new Set(
     [existing?.imageKey, existing?.ogImageKey]
-      .filter((value): value is string => Boolean(value) && value !== key),
+      .filter((value): value is string => Boolean(value) && value !== key && value !== nextOgImageKey),
   )];
 
   return {
@@ -458,8 +466,8 @@ async function prepareNotionMainImage(
       imageKey: key,
       imageAlt: altText || null,
       imageCreditUrl: imageSourceUrl || null,
-      ogImageUrl: imageUrl,
-      ogImageKey: key,
+      ogImageUrl: nextOgImageUrl,
+      ogImageKey: nextOgImageKey,
     },
     uploadedKey: key,
     replacedKeys,
