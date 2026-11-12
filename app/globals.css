@@ -1,4 +1,11 @@
-@import "tailwindcss";
+/* Tailwind 4 auto-detection previously scanned the entire repository:
+ * docs, test fixtures, SQL and scripts yielded utilities no page renders.
+ * Scan the actual runtime app, components and shared view helpers only.
+ * Keep Admin in scope: it consumes this same root stylesheet. */
+@import "tailwindcss" source(none);
+@source "../app";
+@source "../components";
+@source "../lib";
 @import "../components/public-visual-system/public-result-global.css";
 
 :root {
@@ -11399,9 +11406,9 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   }
 }
 
-/* Breed reference styles for /plemena now live in
- * app/plemena/breed-reference.css and load only on that route.
- * Keep the original globally applicable overflow and scroll-anchor rules. */
+/* Breed reference styles for /plemena load as the route-specific static
+ * /styles/breed-reference-3f5dab25d000.css, outside vinext's shared CSS.
+ * Keep the globally applicable overflow and scroll-anchor rules here. */
 @media (max-width: 760px) {
   html,
   body {

@@ -162,7 +162,7 @@ test("mobile admin navigation has Escape close, focus trap and focus return with
   assert.match(navigation, /aria-expanded=\{open\}/);
   assert.match(navigationCss, /@media \(max-width:\s*390px\)/);
   assert.match(navigationCss, /grid-template-columns:\s*1fr/);
-  assert.match(layout, /<BackToTop \/>/);
+  assert.match(layout, /<LazyBackToTop \/>/);
   assert.match(backToTop, /aria-label="Späť hore"/);
   assert.doesNotMatch(navigation, /Späť hore/);
 });
