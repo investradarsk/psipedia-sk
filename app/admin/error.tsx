@@ -1,14 +1,9 @@
 "use client";
 
-import Link from "next/link";
-
 import { useEffect } from "react";
+import { AdminErrorRecovery } from "@/components/admin-recovery-actions";
 
-/**
- * A route render failure must not leave an empty white admin workspace,
- * especially in iOS standalone / PWA mode. The links are ordinary document
- * navigations and do not reuse a potentially invalid client router tree.
- */
+/** A failed Admin route must always show an explicit escape, never a white page. */
 export default function AdminError({
   error,
   reset,
@@ -17,26 +12,9 @@ export default function AdminError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // No user, cookie, article or provider data in the error report.
+    // Never log a raw response, user details or a potentially sensitive stack.
     console.error("admin_route_render_failed", error.digest ?? error.name);
   }, [error]);
 
-  return (
-    <main id="obsah" className="admin-root" data-admin-recovery="true">
-      <div className="admin-shell shell">
-        <section className="admin-panel" role="alert" aria-labelledby="admin-recovery-title">
-          <h1 id="admin-recovery-title">Administrácia sa nenačítala</h1>
-          <p>Skús stránku obnoviť. Neuložené zmeny v editore sa môžu stratiť.</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
-            <button type="button" onClick={() => window.location.reload()}>
-              Obnoviť stránku
-            </button>
-            <button type="button" onClick={reset}>Skúsiť znova</button>
-            <Link href="/admin" prefetch={false}>Pracovný prehľad</Link>
-            <Link href="/admin/clanky" prefetch={false}>Články</Link>
-          </div>
-        </section>
-      </div>
-    </main>
-  );
+  return <AdminErrorRecovery error={error} reset={reset} />;
 }
