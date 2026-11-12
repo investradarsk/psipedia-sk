@@ -1430,7 +1430,10 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed, allowNotionEd
     if (isSuspiciousPlaceholderText(publicCoat))
       throw new Error("Srsť plemena vyzerá ako testovacia alebo poškodená hodnota.");
     const canonical = cleanEditableSeo(input.seo).canonicalUrl;
-    if (canonical && canonical !== `https://psipedia.sk/plemena/${slug}`)
+    if (canonical && ![
+      `https://psipedia.sk/plemena/${slug}`,
+      `https://psipedia.sk${breedProfileHref(slug, Number(input.fciGroup))}`,
+    ].includes(canonical))
       throw new Error("Kanonický profil plemena musí odkazovať na vlastnú URL.");
   }
   return {
