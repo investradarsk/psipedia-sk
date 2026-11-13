@@ -40,7 +40,7 @@ test("grip alone owns downward gesture and preserves native list/browser navigat
   assert.match(header, /grip\.addEventListener\("touchstart", onStart/);
   assert.match(header, /grip\.addEventListener\("touchmove", onMove/);
   assert.match(header, /const close = startY !== null && distance >= 60/);
-  assert.match(header, /menu!\.style\.transform = "translate3d\(0," \+ distance \+ "px,0\)"/);
+  assert.match(header, /drawer\.style\.transform = "translate3d\(0," \+ distance \+ "px,0\)"/);
   assert.match(header, /menuReturnFocusRef\.current\?\.focus\(\)/);
   assert.doesNotMatch(header, /document\.addEventListener\("touchstart"/);
   assert.match(header, /aria-label=\{menuOpen \? "Zavrieť menu" : "Otvoriť menu"\}/);

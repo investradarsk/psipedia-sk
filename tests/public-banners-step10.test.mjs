@@ -17,7 +17,7 @@ test("six explicitly approved section banners use existing photos and real publi
     aktivity: "/aktivity/trening",
   };
   for (const name of sections) {
-    assert.match(presets, new RegExp(`^  ${name}: \\\\{`, "m"), name);
+    assert.ok(presets.includes(`  ${name}: {`), `Missing preset: ${name}`);
     assert.ok(presets.includes(`href: "${urls[name]}"`), `Missing usable target for ${name}`);
   }
   assert.equal((presets.match(/^    tone: "(?:care|rescue|volunteer)",/gm) ?? []).length, 6);

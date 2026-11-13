@@ -44,7 +44,8 @@ test("all public listing consumers have numbered links and targeted scroll posit
   ]) {
     const source = read(file);
     assert.ok(source.includes(pageLink), `Missing numbered links in ${file}`);
-    assert.ok(source.includes(anchor), `Missing results anchor in ${file}`);
+    const hrefSource = file === "components/help-browser.tsx" ? read("lib/help-listing.ts") : source;
+    assert.ok(hrefSource.includes(anchor), `Missing results anchor in ${file}`);
   }
   assert.match(read("components/event-listing-results.tsx"), /else next\.delete\("strana"\)/);
   const editorial = read("components/editorial-section.tsx");
