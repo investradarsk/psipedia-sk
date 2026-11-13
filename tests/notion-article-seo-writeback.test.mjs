@@ -106,14 +106,16 @@ test("completed retry skips fields whose Notion value already equals the desired
   verifyArticleSeoPatch(current, page({ "OG popis": rich("New OG") }), "after");
 });
 
-test("concurrent Notion edits are not overwritten", () => {
-  assert.throws(() => plan(canonical(), canonical({ ogDescription: "Admin" }), page({
-    "OG popis": rich("Changed in Notion"),
-  })), /NOTION_ARTICLE_SEO_FIELD_CONFLICT/);
-  const pre = plan(canonical(), canonical({ ogDescription: "Admin" }));
-  assert.throws(() => verifyArticleSeoPatch(pre, page({ "OG popis": rich("Other") }), "before"),
+test("latest explicit Admin SEO edit wins, but a later remote edit is not overwritten", () => {
+  const current = plan(canonical(), canonical({ ogDescription: "Admin" }), page({
+    "OG popis": rich("Changed earlier in Notion"),
+  }));
+  assert.deepEqual(current.changed, ["ogDescription"]);
+  assert.deepEqual(Object.keys(current.properties), ["OG popis"]);
+  verifyArticleSeoPatch(current, page({ "OG popis": rich("Changed earlier in Notion") }), "before");
+  assert.throws(() => verifyArticleSeoPatch(current, page({ "OG popis": rich("Changed later in Notion") }), "before"),
     /NOTION_ARTICLE_SEO_FIELD_CONFLICT/);
-  assert.throws(() => verifyArticleSeoPatch(pre, page(), "after"),
+  assert.throws(() => verifyArticleSeoPatch(current, page(), "after"),
     /NOTION_ARTICLE_SEO_ECHO_MISMATCH/);
 });
 
@@ -144,25 +146,20 @@ test("Admin save route dispatches a SEO delta for drafts AND published articles"
   assert.match(planSource, /args\.seoFields === undefined \|\| args\.seoFields\.includes\(key\)/);
 });
 
-test("one conflicting SEO property does not prevent independently valid field updates", () => {
+test("two independently edited Admin SEO fields both qualify despite older Notion values", () => {
   const old = canonical();
   const next = canonical({ description: "Meta updated", ogDescription: "Edited in Admin" });
-  const remote = page({ "OG popis": rich("Edited in Notion") });
+  const remote = page({ "OG popis": rich("Earlier Notion edit") });
   const outcome = planArticleSeoIndependentWriteback({
     before: old, after: next, properties: remote, siteUrl: "https://psipedia.sk",
   });
-  assert.deepEqual(outcome.ready.map(entry => entry.field), ["metaDescription"]);
+  assert.deepEqual(outcome.ready.map(entry => entry.field),
+    ["metaDescription", "ogDescription"]);
+  assert.deepEqual(outcome.failures, []);
   assert.deepEqual(Object.keys(outcome.ready[0].plan.properties), ["Meta description"]);
-  assert.deepEqual(outcome.failures, [{
-    field: "ogDescription", code: "NOTION_ARTICLE_SEO_FIELD_CONFLICT",
-  }]);
+  assert.deepEqual(Object.keys(outcome.ready[1].plan.properties), ["OG popis"]);
   verifyArticleSeoPatch(outcome.ready[0].plan, remote, "before");
-  const baseline = projectArticleSeoConfirmedBaseline(
-    { properties: remote }, { ogDescription: "OG Description" }, outcome.failures,
-  );
-  assert.equal(baseline.properties["OG popis"].rich_text[0].plain_text, "OG Description");
-  assert.equal(baseline.properties["Meta description"].rich_text[0].plain_text, "Meta");
-  assert.equal(remote["OG popis"].rich_text[0].plain_text, "Edited in Notion");
+  verifyArticleSeoPatch(outcome.ready[1].plan, remote, "before");
 });
 
 test("an invalid URL or missing remote field fails only that SEO field", () => {

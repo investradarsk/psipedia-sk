@@ -329,6 +329,38 @@ test("blank Notion fields never clear Admin data, while filled fields update ind
   assert.equal(actual.patch.health, "Nové zdravie");
 });
 
+
+test("latest signed Notion blank edit is a valid field clear, not an absent cell", async () => {
+  const page = {
+    properties: {
+      Charakter: { id: "changedCharacter", type: "rich_text", rich_text: [] },
+      "FCI oči": { id: "changedEye", type: "rich_text", rich_text: [] },
+      Zdravie: { id: "unchangedHealth", type: "rich_text", rich_text: [{ plain_text: "Old" }] },
+      Deti: { id: "changedChildren", type: "number", number: null },
+      "SEO noindex": { id: "changedNoindex", type: "checkbox", checkbox: false },
+    },
+  };
+  const present = breedNotionPresentFieldIds(page, [
+    "changedCharacter", "changedEye", "changedChildren", "changedNoindex",
+  ]);
+  assert.equal(present.has("character"), true);
+  assert.equal(present.has("fciStandard.oci"), true);
+  assert.equal(present.has("children"), true);
+  assert.equal(present.has("seo.noindex"), true);
+  assert.equal(present.has("health"), true);
+  const existing = breed({ character: "Pôvodný text", health: "Zachovať" });
+  const old = breedFieldSnapshot(existing);
+  const imported = source({ character: "", health: "Zachovať", children: null });
+  const plan = planBreedNotionFieldDelta(existing, imported, old, old, {}, present);
+  assert.equal(plan.patch.character, "");
+  assert.equal(plan.patch.children, 3);
+  assert.equal(plan.patch.health, undefined);
+  const sourceCode = await import("node:fs/promises")
+    .then(m => m.readFile(new URL("../lib/notion-breed-sync.ts", import.meta.url), "utf8"));
+  assert.match(sourceCode, /breedNotionPresentFieldIds\(page, changedPropertyIds\)/);
+  assert.match(sourceCode, /signedFields\.has\("fciStandard"\)/);
+});
+
 test("filled legacy FCI aggregate can supply a blank individual subfield", () => {
   const present = breedNotionPresentFieldIds({
     properties: {

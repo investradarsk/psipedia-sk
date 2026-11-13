@@ -103,6 +103,21 @@ export function articleSeoExplicitClears(
   return cleared;
 }
 
+/** Notion webhook property IDs describe the newest explicit SEO edits, including clears. */
+export function articleSeoSignedChangedFields(
+  page: SeoNotionPage, ids: readonly string[],
+): ReadonlySet<ArticleNotionSeoKey> {
+  const touched = new Set(ids);
+  const fields = new Set<ArticleNotionSeoKey>();
+  for (const field of Object.keys(ARTICLE_NOTION_SEO_PROPERTIES) as ArticleNotionSeoKey[]) {
+    const name = ARTICLE_NOTION_SEO_PROPERTIES[field].name;
+    const raw = property(page, name);
+    if (raw && (touched.has(name) || (typeof raw.id === "string" && touched.has(raw.id))))
+      fields.add(field);
+  }
+  return fields;
+}
+
 /** Parses all eight SEO properties; does not change status, slug or article ID.
  * Positive Notion values override Admin. Empty/unset properties on historical
  * records fall back to Admin until field-level clearing is implemented.
@@ -111,8 +126,19 @@ export function articleSeoFromNotion(
   page: SeoNotionPage,
   existing?: ExistingArticleSeo,
   confirmedPrevious?: ArticleSeoRemoteValues | null,
+  explicitlyEdited?: ReadonlySet<ArticleNotionSeoKey>,
 ) {
   const cleared = articleSeoExplicitClears(page, confirmedPrevious);
+  // An explicit signed Notion edit is a deletion even if this page has no old
+  // SEO receipt: an empty property is a value, not an uninitialised default.
+  for (const field of explicitlyEdited ?? []) {
+    if (!readableSeoProperty(page, field)) continue;
+    const name = ARTICLE_NOTION_SEO_PROPERTIES[field].name;
+    const value = field === "noindex" ? property(page, name)?.checkbox
+      : ARTICLE_NOTION_SEO_PROPERTIES[field].type === "url"
+        ? urlProperty(page, name) : textProperty(page, name);
+    if (value === "" || value === false) cleared.add(field);
+  }
   const old = existing?.seo;
   const seoTitle = cleared.has("seoTitle") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.seoTitle.name)
     || old?.title || "";
