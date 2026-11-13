@@ -184,3 +184,36 @@
 /* Preserve checkbox accessibility while preventing long labels from collapsing the first grid column. */
 .tableRowCheckbox { display: inline-flex; align-items: center; justify-content: center; }
 .tableRowCheckbox > span { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+
+/* ADMIN-UNIFIED-UI 3/10: one compact, accessible filter disclosure on phones.
+   Desktop keeps the existing grid layout and every filter field. */
+.advancedFilters { display: contents; }
+.advancedToggle { display: none; }
+@media (max-width: 720px) {
+  .filters { gap: 0.55rem; padding: 0.65rem; }
+  .advancedToggle {
+    display: inline-flex;
+    min-width: 0;
+    min-height: 44px;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid #cbdad0;
+    border-radius: 9px;
+    background: #f4f8f5;
+    padding: 0.55rem 0.75rem;
+    color: #183f2d;
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+  }
+  .advancedToggle::after { content: "⌄"; font-size: 1.1rem; }
+  .advancedToggle[aria-expanded="true"]::after { content: "⌃"; }
+  .advancedToggle:focus-visible { outline: 3px solid #a26a1b; outline-offset: 2px; }
+  .advancedFilters { display: none; min-width: 0; }
+  .advancedFilters[data-expanded="true"] { display: grid; gap: 0.55rem; }
+  .advancedFilters > label { min-width: 0; }
+  .filterActions { flex-direction: row; flex-wrap: wrap; gap: 0.4rem; }
+  .filterActions > * { flex: 1 1 auto; }
+}
