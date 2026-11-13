@@ -104,15 +104,13 @@ export function planArticleSeoWriteback(input: {
     if (!Object.hasOwn(input.properties, definition.name)) throw new Error("NOTION_ARTICLE_SEO_PROPERTY_MISSING");
     const current = remoteProperty(input.properties[definition.name], field);
     const desired = normalize(field, seoValue(input.after, field), input.siteUrl);
-    const prior = normalize(field, seoValue(input.before, field), input.siteUrl);
     plan.expectedRemote[field] = current;
     plan.target[field] = desired;
     if (current === desired) continue;
-    // A separately edited value is a conflict. A pristine empty Notion field
-    // is permitted for backwards compatibility with historical Admin articles.
-    if (current !== prior && current !== "" && current !== false) {
-      throw new Error("NOTION_ARTICLE_SEO_FIELD_CONFLICT");
-    }
+    // A genuine Admin save of THIS SEO field is the latest explicit edit,
+    // regardless of the earlier Notion value (including a nonempty value).
+    // The executor must still re-read before PATCH so a subsequent Notion edit
+    // can win instead of being lost.
     if (definition.type === "checkbox") {
       plan.properties[definition.name] = { checkbox: desired };
     } else if (definition.type === "url") {
