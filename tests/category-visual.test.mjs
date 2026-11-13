@@ -23,11 +23,10 @@ test("CATEGORY-BANNERS reuses one shared hero and category-tile system", () => {
 
   assert.match(events, /<UnifiedSectionHero/);
   assert.match(events, /"section\.podujatia"/);
-  assert.match(events, /<PublicCategoryTiles/);
+  assert.match(events, /<PublicSubcategoryNavigator/);
   assert.match(directory, /<UnifiedSectionHero/);
   assert.match(directory, /"section\.adresar"/);
-  assert.match(directory, /<PublicSubcategoryNavigator/);
-  assert.match(directory, /mode="landing"/);
+  assert.match(directory, /<DirectoryCategoryNavigation/);
   assert.match(reviews, /<UnifiedSectionHero/);
   assert.match(reviews, /"section\.recenzie"/);
   assert.match(reviews, /<PublicCategoryTiles/);
