@@ -99,6 +99,9 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   const [restoredFingerprint, setRestoredFingerprint] = useState<string | null>(null);
 
   useLayoutEffect(() => {
+    // A previously visited page must not suppress restoration after the user
+    // changes filters and later returns to the same fingerprint.
+    userInteractedFingerprintRef.current = null;
     const key = storageKey(module);
     let nextSelection: AdminBulkSelectionState = emptySelection;
     try {
