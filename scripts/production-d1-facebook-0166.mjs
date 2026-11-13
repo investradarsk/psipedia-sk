@@ -135,6 +135,8 @@ function readState() {
   }
   const history = dbQuery("SELECT id,name,applied_at FROM d1_migrations ORDER BY id");
   requireCondition(history.length > 0, "Canonical D1 migration history is missing");
+  requireCondition(history.some(row => row.name === "0157_facebook_weekly_plan_marks.sql"),
+    "0157 must be recorded in the D1 migration ledger before standalone 0166");
   return {
     installed:seen.length===2,
     historyHash:hash(JSON.stringify(history)),
@@ -184,7 +186,7 @@ async function apply() {
     "0166 already installed or state changed; no repeat APPLY");
   // Execute the pinned SQL file only. DO NOT use wrangler d1 migrations apply.
   wrangler(["d1","execute","psipedia-sk-db","--remote","--config",CONFIG,
-    "--file",FILE,"--json"]);
+    "--file",FILE,"--yes","--json"]);
   console.log("0166 standalone schema bootstrap executed; canonical migration history not modified");
 }
 
