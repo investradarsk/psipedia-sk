@@ -5,6 +5,7 @@ import ts from "typescript";
 import {
   articleSeoFromNotion,
   articleSeoExplicitClears,
+  articleSeoSignedChangedFields,
 } from "../lib/notion-article-seo-properties.ts";
 
 // Standalone Node test of the same TypeScript source used by Workers.
@@ -134,7 +135,29 @@ test("SEO receipt integration covers inbound, draft, and targeted writeback", as
   assert.match(source, /encodeArticleSeoReceipt\(hash, verified\)/);
   assert.match(source, /encodeArticleSeoReceipt\(finalHash, verifiedPage\)/);
   assert.match(source, /articleSeoExplicitClears\(page, previousSeo\)\.has\("ogImageUrl"\)/);
-  assert.match(source, /notionPageToManagedArticleInput\(page, blocks, existing \?\? undefined, previousSeo\)/);
+  assert.match(source, /notionPageToManagedArticleInput\(page, blocks, existing \?\? undefined, previousSeo, explicitSeo\)/);
+});
+
+
+test("latest signed SEO edit overrides even a formerly empty Notion field", () => {
+  const blank = remote({
+    "SEO title": { ...rich(""), id: "edited-title" },
+    "Noindex": { type: "checkbox", checkbox: false, id: "edited-noindex" },
+    "Canonical URL": { type: "url", url: null, id: "edited-canonical" },
+  });
+  const signed = articleSeoSignedChangedFields(blank, [
+    "edited-title", "edited-noindex", "edited-canonical",
+  ]);
+  assert.deepEqual([...signed].sort(), ["seoTitle", "noindex", "canonicalUrl"].sort());
+  const resolved = articleSeoFromNotion(blank, old(), null, signed);
+  assert.equal(resolved.seoTitle, "");
+  assert.equal(resolved.noindex, false);
+  assert.equal(resolved.canonicalUrl, "");
+  assert.equal(resolved.metaDescription, "Old description");
+  const code = await import("node:fs/promises")
+    .then(m => m.readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8"));
+  assert.match(code, /articleApplySignedFields\(sourcePayload, existing, signedFields\)/);
+  assert.match(code, /changedPropertyIds: event\.data\?\.updated_properties \?\? \[\]/);
 });
 
 test("an invalid Notion field must not masquerade as a deliberate SEO deletion", () => {
