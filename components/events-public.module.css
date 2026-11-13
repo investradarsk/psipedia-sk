@@ -3248,3 +3248,14 @@
     min-height: 44px;
   }
 }
+
+/* Public event category links reuse the Help mobile 2 × 3 grid, not a
+   second custom card/slider. Existing calendar type filters remain functional. */
+.eventCategoryNavigator {
+  min-width: 0;
+  margin: 0 0 14px;
+}
+.eventCategoryNavigator :global([data-public-subcategory-track]) {
+  max-width: 100%;
+  padding-inline: 0;
+}

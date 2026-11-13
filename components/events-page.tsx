@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContextBanner,
   PublicContentShell,
+  PublicSubcategoryNavigator,
   PublicFoundation,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
@@ -199,6 +200,19 @@ export async function EventsPage({
 
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">
+            <div className={styles.eventCategoryNavigator} data-event-category-navigation>
+              <PublicSubcategoryNavigator
+                mode="compact"
+                mobileLayout="grid"
+                columns={6}
+                label="Kategórie podujatí"
+                items={eventTypes.map((type) => ({
+                  href: eventTypePortalHref(type) ?? "/podujatia",
+                  title: eventTypePresentation[type].label,
+                  current: initialType === type,
+                }))}
+              />
+            </div>
             <EventCalendar
               key={listingIdentity}
               filters={filters}
