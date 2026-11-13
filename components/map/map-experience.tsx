@@ -353,7 +353,7 @@ function MapResultCard({
         >
           {linkLabel}
         </Link>
-        {googleMapsUrl ? (
+        {googleMapsUrl && !directionsUrl ? (
           <a
             className={styles.externalMapLink}
             href={googleMapsUrl}
