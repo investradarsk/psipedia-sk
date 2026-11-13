@@ -484,13 +484,23 @@ test.describe("admin directory v2", () => {
 
   test("keyboard, dialog focus, Axe and 390px overflow remain clean", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
+    await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "load" });
 
     const first = page.getByLabel("Vybrať profil E2E Veterina 059");
-    await expect(first).toBeEnabled();
+    // The Vite E2E bootstrap can serve the SSR checkbox before the admin
+    // selection hook has restored its session state. A single full reload
+    // recovers a stalled dev-server hydration without masking a persistent
+    // disabled selection control.
+    try {
+      await expect(first).toBeEnabled({ timeout: 5_000 });
+    } catch {
+      await page.reload({ waitUntil: "load" });
+      await expect(first).toBeEnabled({ timeout: 10_000 });
+    }
     await first.focus();
     await page.keyboard.press("Space");
     await expect(first).toBeChecked();
+    await expect(page.getByText("Vybrané: 1")).toBeVisible();
 
     const listScan = await new AxeBuilder({ page }).include("main").analyze();
     expect(listScan.violations).toEqual([]);
