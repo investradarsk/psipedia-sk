@@ -3241,3 +3241,30 @@
     font-size: clamp(1.35rem, 2vw, 1.7rem);
   }
 }
+
+
+/* One compact category CTA after each visible five-per-type event group.
+   Shared action styling is kept; no redundant CTA on filtered results. */
+.eventTypeGroupFooter {
+  display: flex;
+  min-width: 0;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0 2px 7px;
+  border-bottom: 1px solid var(--ps-border-soft);
+}
+.eventTypeGroupFooter :global([data-public-action]) {
+  min-height: 40px;
+  padding-inline: 8px;
+  color: var(--forest-dark);
+  font-size: 0.79rem;
+  font-weight: 800;
+}
+@media (max-width: 620px) {
+  .eventTypeGroupFooter {
+    padding-bottom: 4px;
+  }
+  .eventTypeGroupFooter :global([data-public-action]) {
+    min-height: 44px;
+  }
+}

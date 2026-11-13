@@ -16,14 +16,16 @@ import {
 import Link from "next/link";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { EventCard } from "./event-card";
+import { ArrowIcon } from "@/components/icons";
 import {
   PublicActionButton,
+  PublicActionLink,
   PublicFilterTag,
   PublicNotice,
   PublicPagination,
 } from "@/components/public-visual-system";
 import { eventListingParams, eventTypeBatchGroupingEnabled, EVENT_PAGE_SIZE, type EventListingFilters } from "@/lib/event-listing";
-import { eventTypes, slovakRegions, type PublicEventCard } from "@/lib/events";
+import { eventTypePortalHref, eventTypes, slovakRegions, type PublicEventCard } from "@/lib/events";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
 import styles from "./events-public.module.css";
 import directoryStyles from "./directory-public.module.css";
@@ -271,6 +273,19 @@ export function EventListingResults({
                     </h3>
                   ) : null}
                   <EventCard event={event} today={today} variant="grid" />
+                  {groupedByType && (index === events.length - 1 || events[index + 1]?.eventType !== event.eventType) ? (
+                    <div className={styles.eventTypeGroupFooter} data-event-type-cta={event.eventType}>
+                      <PublicActionLink
+                        href={`${eventTypePortalHref(event.eventType) ?? "/podujatia"}#events-list`}
+                        variant="tertiary"
+                        icon={<ArrowIcon size={16} />}
+                      >
+                        Zobraziť všetky {event.eventType === "Iné"
+                          ? "ostatné podujatia"
+                          : eventTypePresentation[event.eventType].label.toLocaleLowerCase("sk")}
+                      </PublicActionLink>
+                    </div>
+                  ) : null}
                 </Fragment>
               ))}
             </div>
