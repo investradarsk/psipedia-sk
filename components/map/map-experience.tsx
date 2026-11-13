@@ -353,7 +353,7 @@ function MapResultCard({
         >
           {linkLabel}
         </Link>
-        {googleMapsUrl ? (
+        {googleMapsUrl && !directionsUrl ? (
           <a
             className={styles.externalMapLink}
             href={googleMapsUrl}
@@ -1266,7 +1266,10 @@ export function MapExperience({
           </div>
         </PublicFilterPanel>
 
-        <div className={styles.workspace}>
+        <div
+          className={styles.workspace}
+          data-map-activated={testRenderer || (effectiveRendererEnabled && googleMapsConsent && mapActivated) ? "true" : "false"}
+        >
           <MapResults
             response={response}
             loading={loading}

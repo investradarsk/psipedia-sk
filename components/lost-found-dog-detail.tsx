@@ -99,7 +99,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
     <DetailHero kind="lost-found" breadcrumbs={    <nav className={styles.crumbs} aria-label="Omrvinková navigácia"><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><Link href={dogReportBasePath(type)}>{type === "LOST" ? "Stratené psy" : "Nájdené psy"}</Link><span aria-hidden="true">/</span><span>{breadcrumbLabel}</span></nav>}
       copy={<>    <div className={styles.statusBanner} data-state={report.status}><strong>{dogReportStatusLabel[report.status]}</strong><span>{active ? "Hlásenie je stále aktuálne." : "Tento prípad už nie je vedený ako aktívny."}</span></div>
         <span className={`${styles.badge} ${type === "LOST" ? styles.lost : styles.found}`}>{dogReportTypeLabel(type)}</span>
-        <h1 id={`dog-report-${report.id}`}>{dogReportTitle(report)}</h1>
+        <h1 className={styles.reportTitle} id={`dog-report-${report.id}`}>{dogReportTitle(report)}</h1>
         <div className={styles.detailMeta}><span><strong>Lokalita</strong> {report.city}{report.district ? ` · ${report.district}` : ""} · {report.region}</span><span><strong>Dátum</strong> {formatDogReportDate(report.eventDate)}</span></div>
         {type === "LOST" && <div className={styles.lastSeen}><strong>Naposledy videný:</strong><span>{formatDogReportDate(report.lastSeenDateTime || report.eventDate, Boolean(report.lastSeenDateTime))} · {report.locationDescription || report.city}</span></div>}
         {type === "FOUND" && report.locationDescription && <div className={styles.foundAt}><strong>Miesto nájdenia</strong><span>{report.locationDescription}</span></div>}{report.shortDescription?.trim() && <p className={styles.detailLead}>{report.shortDescription}</p>}

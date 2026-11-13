@@ -67,6 +67,9 @@ export default async function MapPage() {
           title="Mapa Psipedie"
           intro="Vyhľadajte služby, organizácie a podujatia vo svojom okolí. Pri citlivých záznamoch zobrazujeme iba približnú oblasť."
           visual={heroVisual}
+          variant="compact"
+          className={styles.mapIntroHero}
+          hideQuickLinks
           portalSearchSlot={<HomePortalSearch />}
         />
       </UnifiedSectionHeroShell>

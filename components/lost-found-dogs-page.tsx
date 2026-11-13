@@ -38,6 +38,8 @@ import {
   dogReportBasePath,
   dogReportHref,
   dogReportTypeLabel,
+  dogReportStatusLabel,
+  activeDogReportCountNoun,
   dogReportTypeShortLabel,
   formatDogReportDate,
   type DogReportType,
@@ -228,7 +230,7 @@ export async function LostFoundDogsPage({
               }
               metaSlot={
                 <span>
-                  <strong>{result.total}</strong> aktívnych hlásení
+                  <strong>{result.total}</strong> {activeDogReportCountNoun(result.total)}
                 </span>
               }
             />
@@ -333,7 +335,6 @@ export async function LostFoundDogsPage({
                     </div>
                     <div className={styles.actions}>
                       <button type="submit">Filtrovať</button>
-                      <Link href={dogReportBasePath(type)}>Vyčistiť</Link>
                     </div>
                   </form>
                 </PublicFilterDisclosure>
@@ -377,7 +378,7 @@ export async function LostFoundDogsPage({
                   <PublicHeading role="section" as="h2">
                     {dogReportTypeLabel(type)}
                   </PublicHeading>
-                  <p>{result.total} aktívnych hlásení</p>
+                  <p>{result.total} {activeDogReportCountNoun(result.total)}</p>
                 </PublicResultsToolbar>
                 {result.items.length ? (
                   <div className={styles.grid}>
@@ -389,18 +390,9 @@ export async function LostFoundDogsPage({
                         title={report.dogName || report.breed || "Pes bez známeho mena"}
                         category={dogReportTypeLabel(type)}
                         actionLabel="Zobraziť hlásenie"
-                        badge={
-                          <>
-                            <span
-                              className={[
-                                styles.badge,
-                                type === "LOST" ? styles.lost : styles.found,
-                              ].join(" ")}
-                            >
-                              {dogReportTypeLabel(type)}
-                            </span>
-                          </>
-                        }
+                        badge={report.status === "ACTIVE" ? undefined : (
+                          <span className={styles.badge}>{dogReportStatusLabel[report.status]}</span>
+                        )}
                         media={
                           <Link
                             href={dogReportHref(report)}

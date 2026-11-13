@@ -246,7 +246,7 @@ export async function ReviewsHub({
                           article={article}
                           variant="compact"
                           topicHref={category ? portalSubpageHref(section, category) : "/recenzie"}
-                          topicLabel={kind === "test" ? "Redakčný test" : kind === "guide" ? "Nákupný sprievodca" : category?.label ?? "Články o produktoch"}
+                          topicLabel={kind === "test" ? `Redakčný test · Téma: ${category?.label ?? article.category}` : kind === "guide" ? `Nákupný sprievodca · Téma: ${category?.label ?? article.category}` : category?.label ?? "Články o produktoch"}
                           actionLabel={kind === "test" ? "Čítať test" : kind === "guide" ? "Čítať návod" : "Čítať článok"}
                         />
                       );
@@ -338,14 +338,16 @@ export async function ReviewsHub({
                       meta={
                         <>
                           {shop.averages ? (
-                            <strong aria-label={`Celkové hodnotenie ${shop.averages.overall} z 5`}>
-                              {shop.averages.overall.toLocaleString("sk-SK", {
-                                minimumFractionDigits: 1, maximumFractionDigits: 1,
-                              })} ★
-                            </strong>
+                            <>
+                              <strong aria-label={`Celkové hodnotenie ${shop.averages.overall} z 5`}>
+                                {shop.averages.overall.toLocaleString("sk-SK", {
+                                  minimumFractionDigits: 1, maximumFractionDigits: 1,
+                                })} ★
+                              </strong>
+                              {" · "}
+                              {shop.ratingCount} {shop.ratingCount === 1 ? "hodnotenie" : "hodnotení"}
+                            </>
                           ) : <span>Bez hodnotení</span>}
-                          {" · "}
-                          {shop.ratingCount} {shop.ratingCount === 1 ? "hodnotenie" : "hodnotení"}
                         </>
                       }
                       actionLabel="Detail a hodnotenie"

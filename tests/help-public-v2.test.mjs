@@ -41,8 +41,8 @@ test("Help landing uses the canonical unified hero and curated category previews
 
 test("Help category navigation routes canonical modules without emoji UI", () => {
   assert.match(landing, /category === "adopcia"\) return "\/pomoc-psom\/adopcia"/);
-  assert.match(landing, /category === "stratene-a-najdene"\) return "\/pomoc-psom\/stratene-psy"/);
-  assert.match(categoryRoute, /redirect\("\/pomoc-psom\/stratene-psy"\)/);
+  assert.match(landing, /category === "stratene-a-najdene"\) return "\/pomoc-psom\/stratene-a-najdene"/);
+  assert.match(categoryRoute, /redirect\("\/pomoc-psom\/stratene-a-najdene"\)/);
   assert.match(landing, /<PublicHelpCategoryNav/);
   assert.match(helpNav, /<HelpCategoryIcon/);
   assert.doesNotMatch(landing, emojiUi);

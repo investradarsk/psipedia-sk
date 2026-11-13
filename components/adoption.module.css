@@ -457,3 +457,9 @@
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
+
+/* Same roomy desktop two-column help cards as dočasná opatera.
+   Shared PublicHelpProfileCard retains its media/copy geometry and mobile layout. */
+@media (min-width: 961px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
