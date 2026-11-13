@@ -197,6 +197,24 @@ export function mergeDirectoryFilterValues(
   return JSON.stringify(next);
 }
 
+/**
+ * Read-after-write receipt for explicit category-facet edits.
+ * "unknown" is a real stored choice, not the same as a missing D1 key.
+ * Never report success merely because an UPDATE or HTTP response succeeded.
+ */
+export function unconfirmedDirectoryCategoryFilters(
+  category: ServiceFilterCategory,
+  sourceData: Record<string, unknown> | null | undefined,
+  updates: Readonly<Record<string, string>>,
+): string[] {
+  return Object.entries(updates).flatMap(([id, requested]) => {
+    const definition = getDirectoryFilterDefinition(id);
+    if (!definition || definition.category !== category) return [id];
+    const committed = normalizeDirectoryFilterValue(definition, sourceData?.[definition.d1.key]);
+    return committed.status === "known" && committed.value === requested ? [] : [id];
+  });
+}
+
 export function reconcileDirectoryFilterValue(
   definition: DirectoryFilterDefinition,
   d1Raw: unknown,

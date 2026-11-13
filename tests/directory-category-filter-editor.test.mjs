@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   DIRECTORY_FILTER_CONTRACT_VERSION, directoryFilterRegistry,
   mergeDirectoryFilterValues, serviceFilterCategories, serviceFiltersForCategory,
+  unconfirmedDirectoryCategoryFilters,
 } from "../lib/directory-filter-contract.ts";
 import {
   buildDirectoryCategoryFilterPatch, getDirectoryCategoryFilterFields,
@@ -121,4 +122,61 @@ test("shared UI is accessible, callback-only, responsive and mounted in both edi
   assert.match(api, /mergeDirectoryFilterValues/);
   assert.match(api, /source_data_json=\?6/);
   assert.match(api, /row\.category !== requested\.category/);
+});
+
+test("all 21 facets require an exact persisted D1 receipt, including explicit Neznáme", () => {
+  for (const category of serviceFilterCategories) {
+    const defs = serviceFiltersForCategory(category);
+    const changes = Object.fromEntries(defs.map((def, i) => [
+      def.id, def.allowedValues[i % def.allowedValues.length],
+    ]));
+    const raw = JSON.stringify({ unrelated: "unchanged", previous: 42 });
+    const written = JSON.parse(mergeDirectoryFilterValues(raw, category, changes));
+    assert.deepEqual(unconfirmedDirectoryCategoryFilters(category, written, changes), [], category);
+    assert.deepEqual(unconfirmedDirectoryCategoryFilters(category, JSON.parse(raw), changes),
+      Object.keys(changes), "Missing facet choices cannot be acknowledged: " + category);
+    const id = defs[0].id;
+    const altered = { ...written, [defs[0].d1.key]: "invalid" };
+    assert.deepEqual(unconfirmedDirectoryCategoryFilters(category, altered, changes), [id]);
+  }
+  const salon = "salony-a-sluzby";
+  const updates = {
+    "salony-a-sluzby.nail_trimming": "yes",
+    "salony-a-sluzby.hand_stripping": "unknown",
+  };
+  const written = JSON.parse(mergeDirectoryFilterValues("{}", salon, updates));
+  assert.deepEqual(unconfirmedDirectoryCategoryFilters(salon, written, updates), []);
+  const unknownKey = directoryFilterRegistry.find(x => x.id === "salony-a-sluzby.hand_stripping").d1.key;
+  delete written[unknownKey];
+  assert.deepEqual(unconfirmedDirectoryCategoryFilters(salon, written, updates),
+    ["salony-a-sluzby.hand_stripping"], "Explicit unknown must differ from missing");
+});
+
+test("Admin facet editor never clears choices from a partial or unconfirmed PATCH", () => {
+  const editor = source("components/admin-directory-editor.tsx");
+  const api = source("app/api/admin/directory/[id]/route.ts");
+  assert.match(editor, /onChange=\{\(next\) => \{ setFilterChanges\(\{ \.\.\.next \}\); setFormDirty\(true\); \}\}/);
+  assert.match(editor, /const unconfirmed = unconfirmedDirectoryCategoryFilters\(/);
+  assert.match(editor, /if \(unconfirmed\.length\) \{\s*throw new Error\(/);
+  assert.match(editor, /setFilterSourceData\(savedProfile\.importData \?\? \{\}\)/);
+  assert.match(api, /DIRECTORY_CATEGORY_FILTERS_D1_NOT_CONFIRMED/);
+  assert.match(api, /const committed = await db\.prepare\(/);
+  assert.match(api, /unconfirmedDirectoryCategoryFilters\(/);
+  assert.match(api, /status: 409, headers: \{ "cache-control": "no-store" \}/);
+});
+
+test("all five public contacts are plain text, form-dirty and format-agnostic", () => {
+  const editor = source("components/admin-directory-editor.tsx");
+  const api = source("app/api/admin/directory/[id]/route.ts");
+  for (const id of [
+    "directory-phone", "directory-public-email", "directory-website",
+    "directory-facebook", "directory-instagram",
+  ]) {
+    assert.match(editor, new RegExp('id="' + id + '" type="text"'));
+  }
+  assert.match(editor, /onChange=\{\(event\) => \{ setFacebookUrl\(event\.target\.value\); setFormDirty\(true\); \}\}/);
+  assert.match(editor, /onChange=\{\(event\) => \{ setInstagramUrl\(event\.target\.value\); setFormDirty\(true\); \}\}/);
+  assert.match(editor, /noValidate/);
+  assert.match(editor, /Kontakty sú obyčajné textové polia/);
+  assert.doesNotMatch(api, /Neplatný nepovinný odkaz bol vynechaný/);
 });

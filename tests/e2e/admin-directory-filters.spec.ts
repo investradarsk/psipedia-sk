@@ -294,9 +294,17 @@ test.describe("admin directory v2", () => {
     await page.getByLabel("Verejný telefón").fill("neplatny-telefon");
     await page.getByLabel("Verejný e-mail").fill("to nie je email");
     await page.getByLabel("Verejný web").fill("neúplný web");
+    await page.getByLabel("Facebook").fill("môj facebook bez http");
+    await page.getByLabel("Instagram").fill("instagram bez https");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await page.waitForURL(/\/admin\/adresar\/\d+\?vytvorene=1/);
     const id = Number(page.url().match(/\/admin\/adresar\/(\d+)/)?.[1]);
+    // A client-side URL transition is not proof the new (existing profile)
+    // editor has mounted. Prevent re-POST from the still-mounted create form.
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute(
+      "data-directory-profile-id", String(id),
+    );
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
     const api = await page.request.get(`/api/admin/directory/${id}`);
     expect(api.ok()).toBeTruthy();
     const savedProfile = (await api.json()).profile;
@@ -304,6 +312,110 @@ test.describe("admin directory v2", () => {
     expect(savedProfile.importData["Telefón"]).toBe("neplatny-telefon");
     expect(savedProfile.importData["E-mail"]).toBe("to nie je email");
     expect(savedProfile.websiteUrl).toBe("neúplný web");
+    expect(savedProfile.importData["Facebook"]).toBe("môj facebook bez http");
+    expect(savedProfile.importData["Instagram"]).toBe("instagram bez https");
+
+    // Both salon category selectors must persist after an Admin save,
+    // independent from the ordinary text fields, then survive refresh.
+    await openDirectoryEditorSection(page, "Obsah");
+    await page.getByRole("combobox", { name: "Strihanie pazúrov" }).selectOption("yes");
+    await page.getByRole("combobox", { name: "Trimovanie" }).selectOption("no");
+    const [facetResponse] = await Promise.all([
+      page.waitForResponse(response =>
+        response.url().endsWith(`/api/admin/directory/${id}`) &&
+        response.request().method() === "PATCH" &&
+        response.request().postData()?.includes('"set-category-filters"') === true,
+      ),
+      page.getByRole("button", { name: "Uložiť koncept" }).click(),
+    ]);
+    expect(facetResponse.status()).toBe(200);
+    const facetReceipt = (await facetResponse.json()).profile;
+    const nailKey = "_psipedia_filter_v1_salony_a_sluzby_nail_trimming";
+    const trimmingKey = "_psipedia_filter_v1_salony_a_sluzby_hand_stripping";
+    expect(facetReceipt.importData[nailKey]).toBe("yes");
+    expect(facetReceipt.importData[trimmingKey]).toBe("no");
+    const facetReadback = await page.request.get(`/api/admin/directory/${id}`);
+    expect(facetReadback.ok()).toBeTruthy();
+    const persistedFacets = (await facetReadback.json()).profile;
+    expect(persistedFacets.importData[nailKey]).toBe("yes");
+    expect(persistedFacets.importData[trimmingKey]).toBe("no");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
+    await openDirectoryEditorSection(page, "Obsah");
+    await expect(page.getByRole("combobox", { name: "Strihanie pazúrov" })).toHaveValue("yes");
+    await expect(page.getByRole("combobox", { name: "Trimovanie" })).toHaveValue("no");
+
+    // "Neznáme" is an explicit stored choice, NOT an empty/unset facet.
+    await page.getByRole("combobox", { name: "Trimovanie" }).selectOption("unknown");
+    const [unknownResponse] = await Promise.all([
+      page.waitForResponse(response =>
+        response.url().endsWith(`/api/admin/directory/${id}`) &&
+        response.request().method() === "PATCH" &&
+        response.request().postData()?.includes('"set-category-filters"') === true,
+      ),
+      page.getByRole("button", { name: "Uložiť koncept" }).click(),
+    ]);
+    expect(unknownResponse.status()).toBe(200);
+    const unknownReceipt = (await unknownResponse.json()).profile;
+    expect(unknownReceipt.importData[nailKey]).toBe("yes");
+    expect(unknownReceipt.importData[trimmingKey]).toBe("unknown");
+
+    // Events-style Admin save: edit Perex without touching Popis and demand
+    // committed D1 state after a full page refresh, not an optimistic label.
+    const initialDescription = savedProfile.description;
+    const changedExcerpt = "Perex overený v D1 test444";
+    await openDirectoryEditorSection(page, "Hlavné");
+    await page.getByLabel("Krátky popis").fill(changedExcerpt);
+    const [perexSaveResponse] = await Promise.all([
+      page.waitForResponse(response =>
+        response.url().endsWith(`/api/admin/directory/${id}`) &&
+        response.request().method() === "PUT",
+      ),
+      page.getByRole("button", { name: "Uložiť koncept" }).click(),
+    ]);
+    expect(perexSaveResponse.status()).toBe(200);
+    const perexRequest = perexSaveResponse.request().postDataJSON() as {
+      excerpt?: string; breederEditedPaths?: string[]; breederOriginalText?: { excerpt?: string };
+    };
+    // Diagnose the source of an unchanged D1 value: client payload vs server
+    // field-preservation policy. Never accept an HTTP 200 with silent data loss.
+    expect(perexRequest.excerpt, "React/editor submitted an outdated Perex").toBe(changedExcerpt);
+    expect(perexRequest.breederOriginalText?.excerpt).toBe(savedProfile.excerpt);
+    expect(perexRequest.breederEditedPaths, "New Perex missing in changedPaths").toContain("excerpt");
+    const perexReceipt = (await perexSaveResponse.json()).profile;
+    expect(perexReceipt.excerpt, "Server returned 200 without persisting the changed Perex").toBe(changedExcerpt);
+    expect(perexReceipt.description).toBe(initialDescription);
+    await expect(page.locator("form.admin-directory-editor").getByText("Koncept je bezpečne uložený.")).toBeVisible();
+    const afterPerexResponse = await page.request.get(`/api/admin/directory/${id}`);
+    expect(afterPerexResponse.ok()).toBeTruthy();
+    const afterPerex = (await afterPerexResponse.json()).profile;
+    expect(afterPerex.excerpt).toBe(changedExcerpt);
+    expect(afterPerex.description).toBe(initialDescription);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
+    await expect(page.getByLabel("Krátky popis")).toHaveValue(changedExcerpt);
+    await openDirectoryEditorSection(page, "Obsah");
+    const changedDescription = "Nový podrobný opis\n\nDruhý odstavec bez normalizácie.";
+    await page.getByLabel("Podrobný popis").fill(changedDescription);
+    const [descriptionSaveResponse] = await Promise.all([
+      page.waitForResponse(response =>
+        response.url().endsWith(`/api/admin/directory/${id}`) &&
+        response.request().method() === "PUT",
+      ),
+      page.getByRole("button", { name: "Uložiť koncept" }).click(),
+    ]);
+    expect(descriptionSaveResponse.status()).toBe(200);
+    const descriptionReceipt = (await descriptionSaveResponse.json()).profile;
+    expect(descriptionReceipt.excerpt).toBe(changedExcerpt);
+    expect(descriptionReceipt.description).toBe(changedDescription);
+    await expect(page.locator("form.admin-directory-editor").getByText("Koncept je bezpečne uložený.")).toBeVisible();
+    const afterDescriptionResponse = await page.request.get(`/api/admin/directory/${id}`);
+    expect(afterDescriptionResponse.ok()).toBeTruthy();
+    const afterDescription = (await afterDescriptionResponse.json()).profile;
+    expect(afterDescription.excerpt).toBe(changedExcerpt);
+    expect(afterDescription.description).toBe(changedDescription);
+
     // APIRequestContext does not set browser Origin automatically; preserve strict CSRF provenance.
     const cleanup = await page.request.delete(`/api/admin/directory/${id}`, {
       headers: { Origin: new URL(page.url()).origin },

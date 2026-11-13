@@ -248,6 +248,10 @@
       "coverage": "nonvisual"
     },
     {
+      "path": "components/facebook-profile-intro-canvas.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/favorite-button.tsx",
       "coverage": "needs-preview"
     },

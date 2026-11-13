@@ -1,7 +1,7 @@
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
-import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, unconfirmedDirectoryCategoryFilters, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
@@ -512,7 +512,7 @@ export async function PUT(request: Request, { params }: Props) {
       ? value.replace(/\r\n?/g, "\n").trim() : "";
     const mismatchedText = (["excerpt", "description"] as const).filter(field =>
       editedPaths?.includes(field) &&
-      cleanText(saved[field]) !== cleanText(payload[field]),
+      cleanText(saved[field]) !== cleanText(submittedBody[field]),
     );
     if (mismatchedText.length) {
       console.warn("DIRECTORY_TEXT_D1_SAVE_NOT_CONFIRMED", id, mismatchedText);
@@ -527,7 +527,14 @@ export async function PUT(request: Request, { params }: Props) {
     // Every user-edited text field must be retained, including deliberately
     // malformed contact strings. Do not exempt fields from D1 verification.
     const unconfirmedEditorial = directoryEditedFieldMismatches({
-      submitted: payload, persisted: saved, editedPaths: editedPaths ?? [],
+      // Check against the user's actual form values, not a preservation-layer
+      // payload that may have silently reverted the edited Perex/Popis.
+      submitted: {
+        ...payload,
+        excerpt: submittedBody.excerpt,
+        description: submittedBody.description,
+      },
+      persisted: saved, editedPaths: editedPaths ?? [],
     });
     const unconfirmedTrust = trainerTrustEditedPaths.filter(field =>
       Boolean(saved[field]) !== Boolean(payload[field]),
@@ -755,7 +762,37 @@ export async function PATCH(request: Request, { params }: Props) {
           await recordDirectoryNotionAlert(db, id, "resolved", "", "ADMIN_TO_NOTION");
         }
       }
-      return Response.json({ profile: await getManagedDirectoryProfileById(id), notionFieldSync });
+      // The PATCH is only successful when the exact selected values survive
+      // D1 storage and any synchronous side effects. In particular, a selected
+      // "Neznáme" must not be mistaken for an absent/missing key.
+      const committed = await db.prepare(
+        "SELECT category,source_data_json FROM directory_profiles WHERE id=?1 LIMIT 1",
+      ).bind(id).first<{ category: string; source_data_json: string }>();
+      let committedData: Record<string, unknown> | null = null;
+      if (committed) {
+        try {
+          const parsed: unknown = JSON.parse(committed.source_data_json);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+            committedData = parsed as Record<string, unknown>;
+        } catch { /* A malformed D1 source must never be reported as success. */ }
+      }
+      const unconfirmed = unconfirmedDirectoryCategoryFilters(
+        requested.category as ServiceFilterCategory, committedData,
+        requested.updates as Record<string, string>,
+      );
+      if (!committed || committed.category !== requested.category || unconfirmed.length) {
+        console.warn("DIRECTORY_CATEGORY_FILTERS_D1_NOT_CONFIRMED", id, unconfirmed);
+        return Response.json({
+          error: "Kategóriové filtre sa v D1 nepotvrdili (" +
+            (unconfirmed.join(", ") || "kategória") + "). Výber zostáva neuložený; obnovte profil a skúste znova.",
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+      const confirmedProfile = await getManagedDirectoryProfileById(id, db);
+      if (!confirmedProfile) return Response.json({
+        error: "Profil po zápise kategóriových filtrov nie je dostupný.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+      return Response.json({ profile: confirmedProfile, notionFieldSync },
+        { headers: { "cache-control": "no-store" } });
     }
     if (body.action === "set-reviewed") {
       if (typeof body.reviewed !== "boolean") {
