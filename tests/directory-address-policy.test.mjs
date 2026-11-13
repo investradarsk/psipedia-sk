@@ -115,9 +115,11 @@ test("store treats address quality as non-blocking, keeps identity checks and sa
   assert.match(store, /const publicEmail = payload\.publicEmail === undefined \? undefined : rawContact\(payload\.publicEmail\)/);
   assert.match(store, /const facebookUrl = payload\.facebookUrl === undefined \? undefined : rawContact\(payload\.facebookUrl\)/);
   assert.match(store, /const instagramUrl = payload\.instagramUrl === undefined \? undefined : rawContact\(payload\.instagramUrl\)/);
-  assert.match(store, /function safeDirectoryAddressText/);
-  assert.match(store, /typeof value !== "string"/);
-  assert.match(store, /\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F<>/);
+  // Editable addresses are raw text; the former safeDirectoryAddressText function
+  // and strict character filter were intentionally removed from this save path.
+  assert.match(store, /const editorialAddressText = \(value: string \| undefined, _max: number, _label: string\) =>/);
+  assert.match(store, /const publicAddress = editorialAddressText\(/);
+  assert.doesNotMatch(store, /function safeDirectoryAddressText/);
 });
 
 test("manual public address participates in search indexing", () => {
