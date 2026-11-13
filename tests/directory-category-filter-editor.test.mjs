@@ -174,8 +174,10 @@ test("all five public contacts are plain text, form-dirty and format-agnostic", 
   ]) {
     assert.match(editor, new RegExp('id="' + id + '" type="text"'));
   }
-  assert.match(editor, /onChange=\{\(event\) => \{ setFacebookUrl\(event\.target\.value\); setFormDirty\(true\); \}\}/);
-  assert.match(editor, /onChange=\{\(event\) => \{ setInstagramUrl\(event\.target\.value\); setFormDirty\(true\); \}\}/);
+  assert.match(editor, /onChange=\{\(event\) => \{ touchContact\("facebookUrl"\); setFacebookUrl\(event\.target\.value\); setFormDirty\(true\); \}\}/);
+  assert.match(editor, /onChange=\{\(event\) => \{ touchContact\("instagramUrl"\); setInstagramUrl\(event\.target\.value\); setFormDirty\(true\); \}\}/);
+  assert.match(editor, /contactOriginalValues/);
+  assert.match(editor, /contactEditedFields/);
   assert.match(editor, /noValidate/);
   assert.match(editor, /Kontakty sú obyčajné textové polia/);
   assert.doesNotMatch(api, /Neplatný nepovinný odkaz bol vynechaný/);
