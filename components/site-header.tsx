@@ -543,7 +543,7 @@ export function SiteHeader({
           </nav>
         </div>
 
-        <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
+        <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""} ${styles.mobileMenuShell}`} aria-hidden={!menuOpen} inert={!menuOpen}>
           <nav className="shell public-shell" aria-label="Mobilná navigácia">
             {nav.map((item) => (
               <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>

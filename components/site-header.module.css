@@ -611,13 +611,18 @@
   display: none;
 }
 
+/* Scope the open drawer layout to the local CSS Module class. */
+.mobileMenuShell {
+  min-width: 0;
+}
+
 @media (max-width: 1199px) {
-  :global(#mobile-menu.is-open) {
+  .mobileMenuShell:global(#mobile-menu.is-open) {
     display: flex;
     flex-direction: column;
   }
 
-  :global(#mobile-menu.is-open) > :global(nav) {
+  .mobileMenuShell:global(#mobile-menu.is-open) > :global(nav) {
     flex: 1 1 auto;
     min-height: 0;
     height: auto;

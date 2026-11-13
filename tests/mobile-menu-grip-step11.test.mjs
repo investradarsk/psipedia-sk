@@ -28,8 +28,8 @@ test("the viewport-aware menu reserves the bottom grip outside the scroll area",
   assert.match(style, /min-height: 48px/);
   assert.match(style, /touch-action: none/);
   assert.match(style, /:focus-visible/);
-  assert.match(style, /:global\(#mobile-menu\.is-open\)\s*\{\s*display: flex;\s*flex-direction: column/);
-  assert.match(style, /:global\(#mobile-menu\.is-open\) > :global\(nav\)\s*\{\s*flex: 1 1 auto;\s*min-height: 0;\s*height: auto/);
+  assert.match(style, /\.mobileMenuShell:global\(#mobile-menu\.is-open\)\s*\{\s*display: flex;\s*flex-direction: column/);
+  assert.match(style, /\.mobileMenuShell:global\(#mobile-menu\.is-open\) > :global\(nav\)\s*\{\s*flex: 1 1 auto;\s*min-height: 0;\s*height: auto/);
   assert.match(system, /overflow-y: auto/);
   assert.match(system, /100dvh - var\(--psipedia-mobile-menu-top/);
 });
