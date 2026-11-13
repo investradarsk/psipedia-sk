@@ -87,6 +87,7 @@ test.describe("PUBLIC-UX-FOUNDATION-V3 shared public shell", () => {
       await opener.click();
       const menu = page.locator("#mobile-menu");
       const nav = menu.locator(":scope > nav");
+      const grip = menu.locator(":scope > [data-menu-dismiss-grip]");
       await expect(opener).toHaveAttribute("aria-expanded", "true");
       await expect(menu).toHaveAttribute("aria-hidden", "false");
       await expect(nav.getByRole("link", { name: "Partner účet" })).toHaveCount(1);
@@ -110,6 +111,8 @@ test.describe("PUBLIC-UX-FOUNDATION-V3 shared public shell", () => {
       expect(metrics.bodyLocked).not.toBe("hidden");
       expect(metrics.headerHeight).toBeGreaterThan(0);
       expect(metrics.menuFits).toBe(true);
+      await expect(grip).toBeVisible();
+      await expect(grip).toBeInViewport();
 
       await nav.evaluate(el => { el.scrollTop = el.scrollHeight; });
       await expect(nav.getByRole("link", { name: "Partner účet" })).toBeInViewport();
