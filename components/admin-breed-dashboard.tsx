@@ -114,7 +114,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       setBusy(false);
     }
   }
-  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(true);
   const selectedBreeds = breeds.filter((breed) => selected.has(breed.id));
   const bulkTargets = bulkStatus ? selectedBreeds.filter((breed) => breed.status !== bulkStatus) : [];
 
