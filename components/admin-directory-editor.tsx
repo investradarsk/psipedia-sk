@@ -467,6 +467,11 @@ export function AdminDirectoryEditor({
       const filterPatch = filterCategory
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
+      // Saving from the Contacts section also repairs contacts already in D1
+      // but missing in Notion; a repeated click must not be treated as no-op.
+      // Other sections keep the normal per-field dirty-path contract.
+      const confirmContactSync = Boolean(profile && category === profile.category &&
+        currentDirectorySection === "directory-contacts");
       const breederBaseline = breederSaveBaselineRef.current;
       const breederChangedPaths = profile && isDirectoryFieldEventCategory(profile.category)
         && category === profile.category && breederBaseline
@@ -543,6 +548,7 @@ export function AdminDirectoryEditor({
             },
             explicitlyClearedContacts,
           } : {}),
+          ...(confirmContactSync ? { confirmContactSync: true } : {}),
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
@@ -631,7 +637,7 @@ export function AdminDirectoryEditor({
       const unconfirmedWebsite = Boolean(breederChangedPaths?.includes("websiteUrl") &&
         (data.profile.websiteUrl ?? "").trim() !== websiteUrl.trim());
       const pendingNotionFields = Boolean(
-        ((breederChangedPaths?.length || (profile && mainImageAction !== "keep")) &&
+        ((breederChangedPaths?.length || confirmContactSync || (profile && mainImageAction !== "keep")) &&
           ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? "")) ||
         (recoveredPublicationNotionState &&
           ["pending", "disabled", "unlinked"].includes(recoveredPublicationNotionState))

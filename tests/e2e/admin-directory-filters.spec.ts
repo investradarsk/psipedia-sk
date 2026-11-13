@@ -400,6 +400,25 @@ test.describe("admin directory v2", () => {
       await expect(page.getByLabel(label), label + " lost after refresh").toHaveValue("xxx");
     }
 
+    // A second save must repair Notion contacts even though D1 already has
+    // "xxx" and no text field changed since the previous save.
+    const [contactRetryResponse] = await Promise.all([
+      page.waitForResponse(response =>
+        response.url().endsWith("/api/admin/directory/" + id) &&
+        response.request().method() === "PUT",
+      ),
+      page.getByRole("button", { name: "Uložiť koncept" }).click(),
+    ]);
+    expect(contactRetryResponse.status()).toBe(200);
+    const contactRetryPayload = contactRetryResponse.request().postDataJSON() as {
+      confirmContactSync?: boolean; breederEditedPaths?: string[];
+    };
+    expect(contactRetryPayload.confirmContactSync).toBe(true);
+    const repeatContacts = (await contactRetryResponse.json()).profile;
+    for (const property of ["Telefón", "E-mail", "Web", "Facebook", "Instagram"]) {
+      expect(repeatContacts.importData[property]).toBe("xxx");
+    }
+
     // Events-style Admin save: edit Perex without touching Popis and demand
     // committed D1 state after a full page refresh, not an optimistic label.
     const initialDescription = savedProfile.description;

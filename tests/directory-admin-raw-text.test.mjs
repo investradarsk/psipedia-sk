@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { normalizeManagedDirectoryProfileInput } from "../lib/directory-store.ts";
 import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
+import { DIRECTORY_CONTACT_EDITORIAL_PATHS } from "../lib/notion-breeder-field-events.ts";
 
 const categories = [
   "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
@@ -138,4 +139,25 @@ test("literal xxx survives D1 contact encoding for every directory category", ()
       phone: "xxx", email: "xxx", website: "xxx", facebook: "xxx", instagram: "xxx",
     });
   }
+});
+
+test("saving Contacts re-confirms all five D1 text values in Notion, including an unchanged xxx", () => {
+  assert.deepEqual([...DIRECTORY_CONTACT_EDITORIAL_PATHS], [
+    "websiteUrl", "publicPhone", "publicEmail", "facebookUrl", "instagramUrl",
+  ]);
+  const editor = readFileSync("components/admin-directory-editor.tsx", "utf8");
+  const route = readFileSync("app/api/admin/directory/[id]/route.ts", "utf8");
+  const notion = readFileSync("lib/notion-directory-sync.ts", "utf8");
+  assert.match(editor, /currentDirectorySection === "directory-contacts"/);
+  assert.match(editor, /confirmContactSync \? \{ confirmContactSync: true \} : \{\}/);
+  assert.match(editor, /breederChangedPaths\?\.length \|\| confirmContactSync/);
+  assert.match(route, /rawConfirmContactSync === true && editedPaths !== null/);
+  assert.match(route, /submittedBody\.category === before\.category/);
+  assert.match(route, /\.\.\.\(confirmContactSync \? DIRECTORY_CONTACT_EDITORIAL_PATHS : \[\]\)/);
+  assert.match(route, /metadataWarnings\.push\("Kontakty sú uložené v Admine, ale prenos do Notionu nie je potvrdený\."/);
+  assert.match(notion, /const batchContacts = fields\.filter\(path => contactPaths\.has\(path\)\)/);
+  assert.match(notion, /const echoed = await patchNotionPage\(bindings, page\.id, patch\)/);
+  assert.match(notion, /acknowledgedBatchContacts\.has\(path\)/);
+  assert.match(notion, /if \(confirmed\(page, path\)\) continue/);
+  assert.match(notion, /DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH/);
 });

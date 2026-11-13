@@ -34,6 +34,10 @@ export const BREEDER_NOTION_EDITORIAL_FIELDS = {
 } as const;
 
 export type BreederEditorialField = keyof typeof BREEDER_NOTION_EDITORIAL_FIELDS;
+/** Only these five plain text contacts may be explicitly re-confirmed from the Contacts tab. */
+export const DIRECTORY_CONTACT_EDITORIAL_PATHS = [
+  "websiteUrl", "publicPhone", "publicEmail", "facebookUrl", "instagramUrl",
+] as const satisfies readonly BreederEditorialField[];
 export const BREEDER_EDITORIAL_PATHS = Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS) as BreederEditorialField[];
 
 export function breederReadPath(snapshot: Record<string, unknown>, path: string): unknown {

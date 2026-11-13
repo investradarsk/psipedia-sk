@@ -10,7 +10,7 @@ import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_T
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { parseDirectoryMainImageAction, directoryMainImageMatches } from "@/lib/directory-main-image-action";
 import { cleanupUnreferencedNotionUpload } from "@/lib/notion-sync-shared";
-import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
+import { BREEDER_NOTION_EDITORIAL_FIELDS, DIRECTORY_CONTACT_EDITORIAL_PATHS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-text-change-contract";
 import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
@@ -79,6 +79,7 @@ export async function PUT(request: Request, { params }: Props) {
       pilotMetadataFields?: unknown;
       explicitlyClearedContacts?: unknown;
       breederOriginalText?: unknown;
+      confirmContactSync?: unknown;
     };
     const {
       numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
@@ -90,6 +91,7 @@ export async function PUT(request: Request, { params }: Props) {
       pilotMetadataFields: rawPilotMetadataFields,
       explicitlyClearedContacts: rawExplicitlyClearedContacts,
       breederOriginalText: rawBreederOriginalText,
+      confirmContactSync: rawConfirmContactSync,
       ...submittedBody
     } = rawBody;
     // A stale full-form payload must never silently undo a newer Notion edit
@@ -120,6 +122,11 @@ export async function PUT(request: Request, { params }: Props) {
       }
       editedPaths = recovered.editedPaths as BreederEditorialField[];
     }
+    // An explicit owner save from the Contacts tab may re-confirm contact values
+    // already present in D1 but missing in Notion. This never expands the
+    // full-form D1 write or resynchronizes unrelated fields.
+    const confirmContactSync = rawConfirmContactSync === true && editedPaths !== null &&
+      submittedBody.category === before.category && before.status !== "archived";
     // An explicit empty contact field is a deletion, not an omitted field in
     // an old editor. Only whitelisted, expressly edited contacts qualify.
     const contactAliases = {
@@ -393,7 +400,10 @@ export async function PUT(request: Request, { params }: Props) {
             // rather than re-inferring a change from legacy contact aliases:
             // the canonical D1 value was already committed above.
             breederAdminFields: isDirectoryFieldEventCategory(before.category)
-              ? (editedPaths ?? breederEditedFields(before, profile)) : undefined,
+              ? [...new Set<BreederEditorialField>([
+                  ...(editedPaths ?? breederEditedFields(before, profile)),
+                  ...(confirmContactSync ? DIRECTORY_CONTACT_EDITORIAL_PATHS : []),
+                ])] : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
             : result.pushedToNotion || result.pulledFromNotion ? "synced"
@@ -402,6 +412,9 @@ export async function PUT(request: Request, { params }: Props) {
           notionFieldSync = "pending";
         }
       }
+    }
+    if (confirmContactSync && ["pending", "disabled", "unlinked"].includes(notionFieldSync)) {
+      metadataWarnings.push("Kontakty sú uložené v Admine, ale prenos do Notionu nie je potvrdený.");
     }
     if (mainImageChanged && notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") {
       notionFieldSync = "pending";
@@ -466,7 +479,7 @@ export async function PUT(request: Request, { params }: Props) {
     }
     if (notionEnv.DB && (isDirectoryFieldEventCategory(before.category) || changedTrainerTrustFields.length || mainImageChanged)) {
       const edited = breederEditedFields(before, profile);
-      if (edited.length || changedTrainerTrustFields.length || Object.keys(changedPilotMetadata).length || mainImageChanged) {
+      if (edited.length || confirmContactSync || changedTrainerTrustFields.length || Object.keys(changedPilotMetadata).length || mainImageChanged) {
         const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
         await recordDirectoryNotionAlert(notionEnv.DB, id, failed ? "pending" : "resolved",
           failed ? "Zmena profilu je uložená v Admine, ale prenos do Notionu nie je potvrdený." : "",
