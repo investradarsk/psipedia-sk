@@ -191,6 +191,7 @@ export function HelpBrowser({
             <PublicPagination
               currentPage={listing.page}
               totalPages={listing.totalPages}
+              pageHref={pageHref}
               previousHref={listing.page > 1 ? pageHref(listing.page - 1) : undefined}
               nextHref={listing.page < listing.totalPages ? pageHref(listing.page + 1) : undefined}
               label="Stránkovanie Pomoci psom"

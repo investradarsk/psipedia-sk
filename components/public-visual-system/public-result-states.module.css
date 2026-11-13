@@ -8,22 +8,53 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 5px;
+  margin: 12px 0 0;
+  padding: 0;
+  color: var(--forest-dark);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
 }
-.pagination :is(a, strong, span) {
+.pagination :is(a, span, strong) {
   display: inline-flex;
-  min-height: var(--ps-control-min-height, 44px);
+  min-width: 44px;
+  min-height: 44px;
   align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  line-height: 1.1;
+  text-align: center;
 }
-.pagination a { color: var(--forest); }
-.pagination a:focus-visible {
-  outline: 3px solid var(--brand-focus, var(--forest));
-  outline-offset: 3px;
+.pagination a, .pagination .pageNumber, .pagination .pageArrow {
+  padding: 0 9px;
+  border: 1px solid var(--ps-border-soft, #ccd7d0);
+  background: var(--white, #fff);
+  color: var(--forest-dark);
+  text-decoration: none;
+  font-weight: 800;
 }
-.pagination [aria-disabled="true"] { opacity: .52; }
-.pagination strong { font-size: .875rem; }
+.pagination a:hover { border-color: var(--forest); background: var(--sage-light); }
+.pagination [aria-current="page"] {
+  background: var(--forest, #174b38);
+  border-color: var(--forest, #174b38);
+  color: #fff;
+  font-weight: 850;
+}
+.pagination [aria-disabled="true"] { opacity: 0.44; background: transparent; }
+.pagination .paginationEllipsis { min-width: 16px; padding: 0; color: var(--muted); }
+.pagination .paginationSummary {
+  width: auto;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--ps-border-soft);
+  color: var(--forest-dark);
+}
+.pagination .paginationSpacer { min-width: 0; width: 0; }
+.pagination a:focus-visible { outline: 3px solid var(--brand-focus, var(--forest)); outline-offset: 2px; }
+.reportPagination { margin-top: 12px; }
+@media (max-width: 420px) { .pagination { gap: 4px; font-size: 0.78rem; } }
 /* Public notices share the banner frame but keep semantic color distinctions.
    Do not flatten warning into error or override explicit role=alert. */
 .notice {
@@ -85,12 +116,6 @@
   .notice { border-color: CanvasText; background: Canvas; color: CanvasText; }
   .pagination a:focus-visible { outline-color: Highlight; }
 }
-
-/* Existing lost/found pagination: numbered native links, current page as text. */
-.reportPagination{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:28px}
-.reportPagination a,.reportPagination span{min-width:40px;min-height:40px;display:grid;place-items:center;padding:0 10px;border-radius:10px;border:1px solid #ccd7d0;text-decoration:none;color:#173f2d}
-.reportPagination span{background:#173f2d;color:#fff;border-color:#173f2d}
-.reportPagination a,.reportPagination span{min-width:44px;min-height:44px}
 
 /* Existing removable directory filter chip; static status tags keep their own variant. */
 .removableFilterTag {

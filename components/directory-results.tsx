@@ -63,12 +63,13 @@ export function DirectoryResults({
           className="directory-pagination"
           currentPage={result.page}
           totalPages={result.totalPages}
+          pageHref={(page) => directoryPageHref(basePath, filters, page) + "#directory-results-heading"}
           previousHref={
-            result.page > 1 ? directoryPageHref(basePath, filters, result.page - 1) : undefined
+            result.page > 1 ? directoryPageHref(basePath, filters, result.page - 1) + "#directory-results-heading" : undefined
           }
           nextHref={
             result.page < result.totalPages
-              ? directoryPageHref(basePath, filters, result.page + 1)
+              ? directoryPageHref(basePath, filters, result.page + 1) + "#directory-results-heading"
               : undefined
           }
         />
