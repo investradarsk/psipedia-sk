@@ -58,6 +58,18 @@ test("shared record tables keep their full-column fallback and mobile selection"
   assert.match(css, /data-column-label/);
 });
 
+test("directory selection remains present in compact mobile cards after hydration", () => {
+  const table = read("components/admin-record-table.tsx");
+  const directory = read("components/admin-directory-dashboard.tsx");
+  const css = read("components/admin-record-table.module.css");
+  // Directory passes a custom 'selected' column, not the table's '__select'.
+  // It must survive compact-view column visibility and occupy the card header.
+  assert.match(directory, /id: "selected", label: "Výber"/);
+  assert.match(table, /mobileEssentialIds = new Set\\(\\[[\\s\\S]*?"selected"/);
+  assert.match(css, /td:is\\(\\[data-column-id="__select"\\], \\[data-column-id="selected"\\]\\)/);
+  assert.match(css, /td:is\\(\\[data-column-id="__select"\\], \\[data-column-id="selected"\\],[\\s\\S]*?::before/);
+});
+
 test("the service editor does not keep a full-height sticky top or save overlay on mobile", () => {
   const directory = read("components/admin-directory-editor.module.css");
   const service = read("components/admin-service-catalog.module.css");
