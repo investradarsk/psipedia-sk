@@ -86,11 +86,15 @@ jobs:
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/map-1d
-          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/map-1d/server.log 2>&1 &
+          nohup node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173 --strictPort > .e2e-artifacts/map-1d/server.log 2>&1 &
           echo $! > .e2e-artifacts/map-1d/server.pid
           ready=0
           for attempt in $(seq 1 90); do
-            if curl --silent --fail http://localhost:5173/mapa >/dev/null; then
+            if ! kill -0 "$(cat .e2e-artifacts/map-1d/server.pid)" 2>/dev/null; then
+              echo "::error::Vite exited before readiness on port 5173"
+              exit 1
+            fi
+            if curl --silent --fail --max-time 5 http://127.0.0.1:5173/mapa >/dev/null; then
               ready=1
               break
             fi
@@ -119,7 +123,18 @@ jobs:
           if [ -f .e2e-artifacts/map-1d/server.pid ]; then
             kill "$(cat .e2e-artifacts/map-1d/server.pid)" 2>/dev/null || true
           fi
-          sleep 1
+          # Wait for the original Vite listener to release port 5173 before
+          # starting a differently configured server for kill-switch checks.
+          for attempt in $(seq 1 30); do
+            if ! curl --silent --max-time 1 http://127.0.0.1:5173/ >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          if curl --silent --max-time 1 http://127.0.0.1:5173/ >/dev/null; then
+            echo "::error::Launch-enabled server still occupies port 5173"
+            exit 1
+          fi
       - name: Configure launch-disabled kill-switch runtime
         run: sed -i 's/^PUBLIC_MAP_ENABLED=1$/PUBLIC_MAP_ENABLED=0/' .dev.vars
       - name: Start launch-disabled local app
@@ -127,11 +142,15 @@ jobs:
           MAP_UI_TEST_RENDERER: "0"
           PUBLIC_MAP_ENABLED: "0"
         run: |
-          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/map-1d/kill-switch-server.log 2>&1 &
+          nohup node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173 --strictPort > .e2e-artifacts/map-1d/kill-switch-server.log 2>&1 &
           echo $! > .e2e-artifacts/map-1d/server.pid
           ready=0
           for attempt in $(seq 1 90); do
-            if curl --silent --fail http://localhost:5173/mapa >/dev/null; then
+            if ! kill -0 "$(cat .e2e-artifacts/map-1d/server.pid)" 2>/dev/null; then
+              echo "::error::Vite exited before readiness on port 5173"
+              exit 1
+            fi
+            if curl --silent --fail --max-time 5 http://127.0.0.1:5173/mapa >/dev/null; then
               ready=1
               break
             fi

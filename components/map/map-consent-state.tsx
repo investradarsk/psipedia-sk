@@ -8,17 +8,19 @@ export function MapConsentState({
   onGrant,
   alternative,
   testId,
+  alreadyGranted = false,
 }: {
   onGrant: () => void;
   alternative: string;
   testId?: string;
+  alreadyGranted?: boolean;
 }) {
   return (
     <div className={styles.state} data-public-map-consent data-testid={testId}>
-      <strong>Načítať interaktívnu Google mapu?</strong>
-      <p>{alternative} Mapu načítame až po vašom povolení.</p>
+      <strong>{alreadyGranted ? "Zobraziť interaktívnu Google mapu?" : "Načítať interaktívnu Google mapu?"}</strong>
+      <p>{alternative} {alreadyGranted ? "Mapu načítame až po kliknutí." : "Mapu načítame až po vašom povolení."}</p>
       <PublicActionButton type="button" onClick={onGrant}>
-        Povoliť Google Maps
+        {alreadyGranted ? "Zobraziť Google mapu" : "Povoliť Google Maps"}
       </PublicActionButton>
       <small>
         Použitím mapy súhlasíte s{" "}

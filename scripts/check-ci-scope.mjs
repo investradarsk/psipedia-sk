@@ -236,7 +236,7 @@ assert.equal(prWorkflowWouldRun("gemini-automation-foundation-ci.yml", ["wrangle
 
 const productionContracts = {
   "playwright-e2e.yml": ["push:", "schedule:", "workflow_dispatch:"],
-  "map-production-live-audit.yml": ["push:", "workflow_dispatch:"],
+  "map-production-live-audit.yml": ["workflow_dispatch:"],
   "map-production-readiness.yml": ["workflow_dispatch:"],
   "production-d1-migrate.yml": ["workflow_dispatch:"],
   "production-d1-backlog.yml": ["workflow_dispatch:"],
@@ -250,6 +250,8 @@ for (const [name, events] of Object.entries(productionContracts)) {
   const trigger = onBlock(source);
   for (const event of events) assert.ok(trigger.includes(event), `${name}: lost ${event} trigger`);
 }
+// Never make billable Google Maps API calls from an unattended GitHub event.
+assert.doesNotMatch(onBlock(workflows.get("map-production-live-audit.yml")), /\n  (?:push|pull_request|schedule):/, "live Google map audit must stay manual-only");
 // Manual Update branch/auto-merge recovery is intentionally opt-in: never run on main pushes.
 assert.doesNotMatch(onBlock(workflows.get("auto-update-automerge-prs.yml")), /\n  push:/, "auto-update helper must not run after every main push");
 

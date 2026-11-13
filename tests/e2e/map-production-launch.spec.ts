@@ -34,7 +34,7 @@ test.describe("MAP-1E launch navigation", () => {
     await page.goto("/");
     await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
     await page.waitForTimeout(100);
-    const menuTrigger = page.locator('button[aria-controls="mobile-menu"]:visible');
+    const menuTrigger = page.locator('button[aria-controls="mobile-menu"]:visible').first();
     await expect(menuTrigger).toHaveAttribute("aria-label", "Otvoriť menu");
     await menuTrigger.click();
     await expect(menuTrigger).toHaveAttribute("aria-expanded", "true");
@@ -98,7 +98,7 @@ test.describe("MAP-1E launch navigation", () => {
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
     if (isMobile) {
-      const menuTrigger = page.locator('button[aria-controls="mobile-menu"]:visible');
+      const menuTrigger = page.locator('button[aria-controls="mobile-menu"]:visible').first();
       await menuTrigger.click();
       await expect(page.locator("#mobile-menu").getByRole("link", { name: "Mapa", exact: true })).toHaveCount(0);
     } else {

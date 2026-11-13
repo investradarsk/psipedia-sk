@@ -142,6 +142,9 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false, show
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [publicLocation, setPublicLocation] = useState(!sensitive);
+  // A confirmed location must not trigger a billable Google Maps load on editor open.
+  const [visibleMapTarget, setVisibleMapTarget] = useState<string | null>(null);
+  const mapVisible = visibleMapTarget === endpoint;
 
   async function reload() {
     setLoading(true);
@@ -332,6 +335,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false, show
                 <>
                   <p className="admin-message" role="status"><strong>✅ Poloha potvrdená</strong></p>
                   {snapshot.point.latitude !== null && snapshot.point.longitude !== null ? (
+                    mapVisible ? (
                     <AdminLocationMap
                       snapshot={snapshot}
                       latitude={snapshot.point.latitude}
@@ -339,6 +343,11 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false, show
                       label={snapshot.source.label}
                       displayLocation={[snapshot.source.street ? [snapshot.source.street, snapshot.source.houseNumber].filter(Boolean).join(" ") : "", snapshot.source.city].filter(Boolean).join(", ")}
                     />
+                  ) : (
+                    <div className="admin-editor-actions">
+                      <button type="button" onClick={() => setVisibleMapTarget(endpoint)}>Zobraziť Google mapu</button>
+                    </div>
+                  )
                   ) : null}
                   <div className="admin-editor-actions">
                     <button type="button" disabled={busy || !snapshot.provider.configured} onClick={() => void findLocation()}>
@@ -372,13 +381,19 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false, show
                     </div>
                   )}
 
-                  <AdminLocationMap
+                  {mapVisible ? (
+                    <AdminLocationMap
                     snapshot={snapshot}
                     latitude={preview.latitude}
                     longitude={preview.longitude}
                     label={snapshot.source.label}
                     displayLocation={preview.google.formattedAddress ?? preview.canonicalAddress.replace(/\n/g, ", ")}
                   />
+                  ) : (
+                    <div className="admin-editor-actions">
+                      <button type="button" onClick={() => setVisibleMapTarget(endpoint)}>Zobraziť Google mapu</button>
+                    </div>
+                  )}
 
                   <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
                     <button type="button" disabled={busy} onClick={() => void confirmPreview()}>

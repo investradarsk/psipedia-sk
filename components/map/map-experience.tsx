@@ -822,6 +822,7 @@ export function MapExperience({
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [desktopFiltersOpen, setDesktopFiltersOpen] = useState(false);
   const [googleMapsConsent, setGoogleMapsConsentState] = useState(false);
+  const [mapActivated, setMapActivated] = useState(false);
   const [mapType, setMapType] = useState<PublicMapType>("roadmap");
   const requestGateRef = useRef(new MapRequestGate());
   const cardRefs = useRef(new Map<string, HTMLElement>());
@@ -857,10 +858,11 @@ export function MapExperience({
   }, []);
 
   useEffect(() => {
-    const read = () =>
-      setGoogleMapsConsentState(
-        hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY)),
-      );
+    const read = () => {
+      const granted = hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY));
+      setGoogleMapsConsentState(granted);
+      if (!granted) setMapActivated(false);
+    };
     read();
     window.addEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
     return () => window.removeEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
@@ -1290,7 +1292,7 @@ export function MapExperience({
           />
 
           <div className={styles.mapPanel}>
-            {testRenderer || (effectiveRendererEnabled && googleMapsConsent) ? (
+            {testRenderer || (effectiveRendererEnabled && googleMapsConsent && mapActivated) ? (
             <GoogleMapRenderer
               apiKey={effectiveGoogleApiKey}
               mapId={effectiveGoogleMapId}
@@ -1311,7 +1313,7 @@ export function MapExperience({
             ) : (
               <MapRendererPlaceholder />
             )}
-            {testRenderer || (effectiveRendererEnabled && googleMapsConsent) ? (
+            {testRenderer || (effectiveRendererEnabled && googleMapsConsent && mapActivated) ? (
               <div
                 className={styles.mapTypeControl}
                 role="group"
@@ -1345,14 +1347,19 @@ export function MapExperience({
                 </button>
               </div>
             ) : null}
-            {effectiveRendererEnabled && !googleMapsConsent && !testRenderer ? (
+            {effectiveRendererEnabled && !mapActivated && !testRenderer ? (
               <MapConsentState
                 testId="map-consent-gate"
                 alternative="Textové výsledky a výber oblastí fungujú aj bez nej."
-                onGrant={() => setGoogleMapsConsent(true)}
+                alreadyGranted={googleMapsConsent}
+                onGrant={() => {
+                  if (!googleMapsConsent) setGoogleMapsConsent(true);
+                  setGoogleMapsConsentState(true);
+                  setMapActivated(true);
+                }}
               />
             ) : null}
-            {googleMapsConsent || testRenderer || !effectiveRendererEnabled ? (
+            {(googleMapsConsent && mapActivated) || testRenderer || !effectiveRendererEnabled ? (
               <PublicNotice
                 as="div"
                 appearance="context"

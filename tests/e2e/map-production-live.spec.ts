@@ -400,6 +400,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await page.addInitScript(() => localStorage.setItem("psipedia-google-maps-consent", "granted"));
     await page.goto("/mapa", { waitUntil: "domcontentloaded" });
     await dismissAnalyticsBanner(page);
+    await page.getByTestId("map-consent-gate").getByRole("button", { name: "Zobraziť Google mapu" }).click();
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
     await expect.poll(() => page.evaluate(() => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
 
@@ -427,6 +428,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await page.addInitScript(() => localStorage.setItem("psipedia-google-maps-consent", "granted"));
     await page.goto("/mapa", { waitUntil: "domcontentloaded" });
     await dismissAnalyticsBanner(page);
+    await page.getByTestId("map-consent-gate").getByRole("button", { name: "Zobraziť Google mapu" }).click();
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
 
     const panel = page.getByTestId("map-results-panel");
