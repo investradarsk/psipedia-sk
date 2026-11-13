@@ -67,9 +67,9 @@ test("a pilot editor save exports only changed fields and never creates Notion p
   assert.match(editor, /!isDirectoryEventPilotCategory\(category\)\s*\?\s*\([\s\S]*?id="directory-services"/);
   // Both the original one-line filter and the newer main-branch filter
   // (which additionally gates untouched contacts) must preserve this guard.
-  assert.match(editor, /\\.filter\\(path\\s*=>\\s*\\(?\\s*path !== "services" \\|\\| !isDirectoryEventPilotCategory\\(category\\)/);
+  assert.match(editor, /\.filter\(path\s*=>\s*\(?\s*path !== "services" \|\| !isDirectoryEventPilotCategory\(category\)/);
   if (editor.includes("editedContactsRef.current.has(path as DirectoryContactSaveField)")) {
-    assert.match(editor, /DIRECTORY_CONTACT_SAVE_FIELDS[\\s\\S]{0,160}editedContactsRef\\.current\\.has\\(path as DirectoryContactSaveField\\)/);
+    assert.match(editor, /DIRECTORY_CONTACT_SAVE_FIELDS[\s\S]{0,160}editedContactsRef\.current\.has\(path as DirectoryContactSaveField\)/);
   }
   const eventBody = source.slice(source.indexOf("async function syncBreederEvent("),
     source.indexOf("export async function mirrorBreederCategoryFiltersToNotion("));
