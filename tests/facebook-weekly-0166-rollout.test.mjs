@@ -51,6 +51,8 @@ test("one-off runner pins target and preserves migration history and 0157", () =
   assert.match(runner,/EXPECTED_SHA256 = "f9ff02bec55f814dbb738246ecacaa86c120d00428251c3fbc774f2670ce5dc6"/);
   assert.match(runner,/historyHash===state\.historyHash/);
   assert.match(runner,/legacySchemaHash===state\.legacySchemaHash/);
+  assert.match(runner,/0157_facebook_weekly_plan_marks\.sql/);
+  assert.match(runner,/--file",FILE,"--yes","--json"/);
   assert.match(runner,/Partial 0166 schema detected/);
   assert.match(runner,/findBookmark/);
   assert.match(runner,/--file",FILE/);
