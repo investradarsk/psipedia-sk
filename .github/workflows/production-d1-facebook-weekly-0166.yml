@@ -1,0 +1,94 @@
+name: Production D1 Facebook Weekly 0166 (isolated)
+
+# Owner-dispatched only. This job creates ONLY two additive 0166 planner tables.
+# It never dispatches the normal sequential migrator or touches 0158-0165.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type APPLY-0166-psipedia-sk-db exactly
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  planner-schema:
+    name: Pinned preflight, two tables only, verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main and explicit production confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test '${{ inputs.confirmation }}' = 'APPLY-0166-psipedia-sk-db'
+
+      - name: Checkout exact dispatched revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Require dispatched revision to still match current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Require protected D1 credential and canonical account
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          account_id="$(node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8"));process.stdout.write(x.account_id||"")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+
+      - name: Existing offline migration safety checks
+        run: |
+          npm run db:check-migrations
+          npm run test:migration-safety
+
+      - name: 0166 isolated rollout contract tests
+        run: node --test tests/facebook-weekly-0166-rollout.test.mjs
+
+      - name: Protected remote preflight and D1 Time Travel bookmark
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-d1-facebook-0166.mjs preflight
+          installed="$(node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync(".production-d1-facebook-0166/preflight.json","utf8"));process.stdout.write(String(p.installed))')"
+          echo "installed=$installed" >> "$GITHUB_OUTPUT"
+
+      - name: Apply pinned 0166 SQL only (NEVER migrations apply)
+        if: steps.preflight.outputs.installed != 'true'
+        run: node scripts/production-d1-facebook-0166.mjs apply
+
+      - name: Verify both planner tables and unchanged legacy migration history
+        run: node scripts/production-d1-facebook-0166.mjs verify
+
+      - name: Operator summary
+        run: |
+          echo "0166 planner tables verified in canonical D1."
+          echo "Legacy 0157 data untouched; migrations 0158-0165 never applied."
+          echo "The canonical d1_migrations ledger remains unchanged."
