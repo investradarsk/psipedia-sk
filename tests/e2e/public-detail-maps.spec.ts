@@ -89,6 +89,7 @@ test.describe("PUBLIC-MAPS-1 canonical detail maps", () => {
     await setViewport(page, testInfo.project.name);
     await page.addInitScript((key) => localStorage.setItem(key, "granted"), GOOGLE_CONSENT);
     await page.goto("/organizacie/map-e2e-multi-site-org", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("detail-map-consent-gate").getByRole("button", { name: "Zobraziť Google mapu" }).click();
 
     await expect(page.getByRole("heading", { level: 1, name: "MAP E2E Multi Site Org" })).toBeVisible();
     const map = page.getByTestId("public-location-map");
@@ -109,6 +110,7 @@ test.describe("PUBLIC-MAPS-1 canonical detail maps", () => {
     await page.addInitScript((key) => localStorage.setItem(key, "granted"), GOOGLE_CONSENT);
 
     await page.goto("/podujatia/map-e2e-upcoming-event", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("detail-map-consent-gate").getByRole("button", { name: "Zobraziť Google mapu" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "MAP E2E Budúca výstava" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Miesto podujatia" })).toBeVisible();
     await expect(page.getByTestId("marker-event:991200")).toBeVisible();
