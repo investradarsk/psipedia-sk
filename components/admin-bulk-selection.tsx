@@ -76,11 +76,11 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   supportsAllMatching?: boolean;
 }) {
   const viewFingerprint = `${membershipFingerprint}|page:${pageIds.join(",")}`;
-  // SSR and the first client paint must agree on a usable, empty selection.
-  // Waiting for an effect to establish the initial fingerprint leaves every
-  // row checkbox disabled while a slow client bundle is hydrating.
-  const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string; selection: AdminBulkSelectionState }>({
-    membershipFingerprint: viewFingerprint,
+  // Never enable SSR checkboxes before React hydrates their onChange handlers.
+  // An early click would otherwise look checked in the DOM but not update the
+  // selection state, silently losing the user's intended bulk selection.
+  const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string | null; selection: AdminBulkSelectionState }>({
+    membershipFingerprint: null,
     selection: emptySelection,
   });
   // Never persist that initial empty paint: restore the per-view session
