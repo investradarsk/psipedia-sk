@@ -14,20 +14,9 @@ function pageHref(basePath: string, page: number) {
   return page <= 1 ? basePath : `${basePath}${basePath.includes("?") ? "&" : "?"}page=${page}`;
 }
 
-function NativePaginationLink({ href, label }: { href: string; label: string }) {
-  return (
-    // This GET-only listing must navigate even if the client router has not
-    // hydrated or is interrupted by a Vite reload.
-    // eslint-disable-next-line @next/next/no-html-link-for-pages
-    <a href={href}>{label}</a>
-  );
-}
-
-export function AdminPagination({ pagination, basePath, nativeNavigation = false }: {
+export function AdminPagination({ pagination, basePath }: {
   pagination: AdminPaginationState;
   basePath: string;
-  /** Follow the server GET href without a client router hydration dependency. */
-  nativeNavigation?: boolean;
 }) {
   if (pagination.totalPages <= 1) return null;
   const previous = pagination.page - 1;
@@ -36,15 +25,11 @@ export function AdminPagination({ pagination, basePath, nativeNavigation = false
   return (
     <nav className="admin-pagination" aria-label="Stránkovanie zoznamu">
       {pagination.page > 1
-        ? nativeNavigation
-          ? <NativePaginationLink href={pageHref(basePath, previous)} label="← Predchádzajúca" />
-          : <Link prefetch={false} href={pageHref(basePath, previous)}>← Predchádzajúca</Link>
+        ? <Link prefetch={false} href={pageHref(basePath, previous)}>← Predchádzajúca</Link>
         : <span aria-disabled="true">← Predchádzajúca</span>}
       <strong>Strana {pagination.page} z {pagination.totalPages}</strong>
       {pagination.page < pagination.totalPages
-        ? nativeNavigation
-          ? <NativePaginationLink href={pageHref(basePath, next)} label="Ďalšia →" />
-          : <Link prefetch={false} href={pageHref(basePath, next)}>Ďalšia →</Link>
+        ? <Link prefetch={false} href={pageHref(basePath, next)}>Ďalšia →</Link>
         : <span aria-disabled="true">Ďalšia →</span>}
     </nav>
   );
