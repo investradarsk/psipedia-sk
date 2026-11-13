@@ -76,10 +76,16 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   supportsAllMatching?: boolean;
 }) {
   const viewFingerprint = `${membershipFingerprint}|page:${pageIds.join(",")}`;
-  const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string | null; selection: AdminBulkSelectionState }>({
-    membershipFingerprint: null,
+  // SSR and the first client paint must agree on a usable, empty selection.
+  // Waiting for an effect to establish the initial fingerprint leaves every
+  // row checkbox disabled while a slow client bundle is hydrating.
+  const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string; selection: AdminBulkSelectionState }>({
+    membershipFingerprint: viewFingerprint,
     selection: emptySelection,
   });
+  // Never persist that initial empty paint: restore the per-view session
+  // snapshot first, or it could be erased before hydration completes.
+  const [restoredFingerprint, setRestoredFingerprint] = useState<string | null>(null);
 
   useEffect(() => {
     const key = storageKey(module);
@@ -97,7 +103,9 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
     }
     let active = true;
     queueMicrotask(() => {
-      if (active) setSelectionState({ membershipFingerprint: viewFingerprint, selection: nextSelection });
+      if (!active) return;
+      setSelectionState({ membershipFingerprint: viewFingerprint, selection: nextSelection });
+      setRestoredFingerprint(viewFingerprint);
     });
     return () => { active = false; };
   }, [module, supportsAllMatching, viewFingerprint]);
@@ -106,12 +114,12 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   const selection = ready ? selectionState.selection : emptySelection;
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || restoredFingerprint !== viewFingerprint) return;
     const key = storageKey(module);
     const selectedCount = selection.mode === "all-matching" ? resultCount : selection.ids.length;
     if (selectedCount === 0) sessionStorage.removeItem(key);
     else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint: viewFingerprint, selection }));
-  }, [module, ready, resultCount, selection, viewFingerprint]);
+  }, [module, ready, restoredFingerprint, resultCount, selection, viewFingerprint]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
   const explicitSet = new Set(explicitIds);
