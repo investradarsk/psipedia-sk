@@ -110,6 +110,7 @@ export function AdminDashboard({
   const [message, setMessage] = useState("");
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; excerpt: string } | null>(null);
   const [inlineBusy, setInlineBusy] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
 
   const membershipFilter = useMemo(() => normalizeArticleAdminBulkFilter({
     portalSection: fixedPortalSection ?? (filters.portalSection === "all" ? "" : filters.portalSection),
@@ -258,6 +259,11 @@ export function AdminDashboard({
             <span className="sr-only">Hľadať článok</span>
             <input name="query" defaultValue={filters.query} maxLength={120} placeholder="Názov, slug, perex alebo téma" title="Vyhľadáva aj podľa presného Admin ID, napr. 2295" />
           </label>
+          <button type="button" className={styles.filterToggle} aria-controls="admin-article-advanced-filters"
+            aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
+            {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
+          </button>
+          <div id="admin-article-advanced-filters" className={styles.advancedFilters} data-expanded={advancedFiltersOpen}>
           <label className="admin-select-filter">
             <span>Stav</span>
             <select name="status" defaultValue={filters.status} onChange={(event) => applyFilter({ status: event.target.value as ArticleAdminListFilters["status"] })}>
@@ -306,6 +312,7 @@ export function AdminDashboard({
               {articleAdminDirections.map((value) => <option key={value} value={value}>{directionLabels[value]}</option>)}
             </select>
           </label>
+          </div>
           <button type="submit">Filtrovať</button>
           {(filters.query || filters.status !== "all" || filters.portalSection !== "all" || filters.topicId || filters.sort !== "updated" || filters.direction !== "desc")
             && <Link href={routePath}>Vyčistiť filtre</Link>}
