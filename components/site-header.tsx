@@ -122,12 +122,32 @@ export function SiteHeader({
     const target = document.getElementById(id);
     if (!target) return;
 
-    // Browsers can perform the initial hash scroll before the hydrated sticky
-    // header has its final measured height. Align once immediately and once
-    // after layout settles so the target respects its scroll-margin-top.
+    // Browsers can perform initial fragment scrolling before the hydrated
+    // header and calendar settle. Preserve the native anchor, then correct only
+    // the events results target after the initial calendar layout stabilizes.
     target.scrollIntoView({ block: "start" });
     const frame = window.requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
-    return () => window.cancelAnimationFrame(frame);
+    const eventsTimer = id === "events-list" ? window.setTimeout(() => {
+      if (window.location.hash !== "#events-list" || !target.isConnected) return;
+      const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+      const header = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--psipedia-sticky-header-height"),
+      ) || 76;
+      const preferredTop = Math.max(104, margin, header + 16);
+      const currentTop = target.getBoundingClientRect().top;
+      // Only intervene when the results are hidden by the sticky header or
+      // the anchor did not scroll at all; leave intentional user scroll alone.
+      if (currentTop < preferredTop - 8 || currentTop > window.innerHeight) {
+        window.scrollTo({
+          top: Math.max(0, window.scrollY + currentTop - preferredTop),
+          behavior: "instant",
+        });
+      }
+    }, 250) : null;
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (eventsTimer !== null) window.clearTimeout(eventsTimer);
+    };
   }, [pathname]);
 
   useEffect(() => {
