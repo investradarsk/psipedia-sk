@@ -73,9 +73,19 @@ export default defineConfig(async () => {
     server: {
       host: "0.0.0.0",
       allowedHosts: ["terminal.local"],
-      ...(isCodexSeatbeltSandbox
-        ? { watch: { useFsEvents: false, usePolling: true } }
-        : {}),
+      // Playwright writes traces, HTML reports and snapshots during local CI.
+      // Watching them triggers Vite full-page reloads on every assertion,
+      // interrupting React hydration and leaving admin selection disabled.
+      watch: {
+        ignored: [
+          "**/.e2e-artifacts/**",
+          "**/playwright-report/**",
+          "**/test-results/**",
+        ],
+        ...(isCodexSeatbeltSandbox
+          ? { useFsEvents: false, usePolling: true }
+          : {}),
+      },
     },
     plugins: [
       vinext(),

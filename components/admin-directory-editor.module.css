@@ -177,3 +177,48 @@
   .sectionPager span { order: -1; width: 100%; text-align: center; }
   .editorWorkspaceContent :global(.admin-field-grid) { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* ADMIN-UNIFIED-UI 5+7/10: the former sticky utility stack occupied most
+   of the phone viewport and covered subsequent fields while scrolling. */
+@media (max-width: 820px) {
+  .editorTopline {
+    position: static;
+    top: auto;
+    z-index: auto;
+    display: block;
+    padding: 0.35rem 0;
+    background: transparent;
+    border-bottom: 0;
+  }
+  .toplineLabel { display: none; }
+  .toplineActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0.4rem;
+    width: 100%;
+  }
+  .toplineActions > * {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .toplineActions :global(button) {
+    min-height: 44px;
+    max-width: 100%;
+    white-space: normal;
+  }
+  .reviewControl {
+    justify-content: center;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.82rem;
+  }
+  .editorWorkspace { gap: 0.45rem; }
+  .editorWorkspaceContent :global(.admin-form-card) { scroll-margin-top: calc(var(--admin-sticky-stack, 96px) + 12px); }
+}
+@media (max-width: 390px) {
+  .toplineActions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .toplineActions :global([data-editor-status]) { font-size: 0.72rem; }
+}

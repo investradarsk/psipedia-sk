@@ -25,7 +25,7 @@ test("complete source inventory includes every public or shared component file e
     "Source inventory is stale: update the file list, not the count alone");
   assert.equal(new Set(paths).size,paths.length);
   assert.equal(inventory.version,1);
-  assert.equal(paths.length,173);
+  assert.equal(paths.length,175);
 });
 
 test("real visual previews and server examples are accounted for without mislabeling helper files", () => {

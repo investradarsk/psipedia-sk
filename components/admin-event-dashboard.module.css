@@ -288,3 +288,52 @@
 
 .tableActions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 10px; }
 .tableActions :is(a, button) { white-space: nowrap; }
+
+
+/* ADMIN-UNIFIED-UI 3/10: event time pills remain immediately available; the
+   six secondary filters collapse to one touch-sized control on phones. */
+.advancedToggle { display: none; }
+@media (max-width: 760px) {
+  .timeFilters {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    gap: 0.3rem;
+    padding: 0.2rem;
+    overscroll-behavior-inline: contain;
+  }
+  .timeFilters :global(button) { flex: 0 0 auto; min-height: 44px; }
+  .advancedToggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 44px;
+    width: 100%;
+    margin-block: 0.45rem;
+    padding: 0.5rem 0.75rem;
+    background: #f4f8f5;
+    border: 1px solid #cbdad0;
+    border-radius: 9px;
+    color: #183f2d;
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+  }
+  .advancedToggle::after { content: "⌄"; }
+  .advancedToggle[aria-expanded="true"]::after { content: "⌃"; }
+  .advancedToggle:focus-visible { outline: 3px solid #a26a1b; outline-offset: 2px; }
+  .advancedFilters { display: none !important; }
+  .advancedFilters[data-expanded="true"] {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin-bottom: 0.45rem;
+  }
+  .advancedFilters > div { min-width: 0; }
+  .advancedFilters :global(select) { width: 100%; min-width: 0; }
+}
+@media (max-width: 360px) {
+  .advancedFilters[data-expanded="true"] { grid-template-columns: minmax(0, 1fr); }
+}

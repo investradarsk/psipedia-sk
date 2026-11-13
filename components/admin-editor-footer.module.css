@@ -107,3 +107,44 @@
     flex: 1 1 auto;
   }
 }
+
+
+/* ADMIN-UNIFIED-UI 6+7/10: keep the existing canonical footer handlers,
+   but make secondary actions readable without a multi-row mobile overlap. */
+@media (max-width: 820px) {
+  .footer {
+    gap: 0.4rem;
+    padding: 0.45rem max(0.55rem, env(safe-area-inset-right))
+      calc(0.45rem + env(safe-area-inset-bottom))
+      max(0.55rem, env(safe-area-inset-left));
+  }
+  .start { font-size: 0.8rem; }
+  .end > :global(.admin-editor-actions) { gap: 0.4rem; }
+  .end > :global(.admin-editor-actions) > :global(div:last-child) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0.45rem;
+    width: 100%;
+    min-width: 0;
+  }
+  .end > :global(.admin-editor-actions) > :global(div:last-child) > :is(button, a) {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    max-width: 100%;
+    padding: 0.55rem 0.65rem;
+    font-size: 0.8rem;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .end > :global(.admin-editor-actions) > :global(div:last-child) > :is(button, a):last-child {
+    font-weight: 800;
+  }
+}
+@media (max-width: 360px) {
+  .end > :global(.admin-editor-actions) > :global(div:last-child) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -81,7 +81,9 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
     })}{services.length===0&&<p>Nenašli sa žiadne vhodné služby.</p>}</div>
     </section>
     <section className={styles.profileSection} aria-label="Vlastnosti profilu"><h3>Vlastnosti — Áno/Nie/Neznáme ({attributes.length})</h3>
-      <p className={styles.muted}>Tieto vlastnosti podporujú explicitnú trojstavovú hodnotu bez odhadovania chýbajúcich údajov.</p>
+      <details className={styles.technicalNotes}><summary>Čo znamená Neznáme?</summary>
+        <p className={styles.muted}>Tieto vlastnosti podporujú explicitnú trojstavovú hodnotu bez odhadovania chýbajúcich údajov.</p>
+      </details>
       <div className={styles.profileList}>{attributes.map(item=>{
         const savedValue=saved[item.id];
         const value=draft[item.id]??selectionForEditor(savedValue);
@@ -101,7 +103,9 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
       <ul className={styles.attributeList}>{structuredAttributes.map(a=><li key={a.id}>{a.label}</li>)}</ul>
     </section>}
     <EditorActionBar message={message} primary={<AdminActionButton variant="primary" onClick={save} disabled={!writeEnabled||Boolean(error)||busy||changed.length===0}>{busy?"Ukladám…":`Uložiť hodnoty (${changed.length})`}</AdminActionButton>}/>
-    <p className={styles.muted}>Zmeny služieb a trojstavových vlastností využívajú verziované API. Návrat na Neznáme odstráni iba explicitnú uloženú hodnotu cez CAS a auditované API; nikdy nezapíše Nie.</p>
+    <details className={styles.technicalNotes}><summary>Technické informácie o ukladaní</summary>
+       <p className={styles.muted}>Zmeny služieb a trojstavových vlastností využívajú verziované API. Návrat na Neznáme odstráni iba explicitnú uloženú hodnotu cez CAS a auditované API; nikdy nezapíše Nie.</p>
+     </details>
     <EditorUnsavedChangesGuard active={changed.length>0} open={navigation.confirmOpen}
       onStay={navigation.stay} onDiscard={navigation.discard}
       allowNativeExitRef={navigation.allowNativeExitRef}/>

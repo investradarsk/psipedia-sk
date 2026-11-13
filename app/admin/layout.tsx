@@ -10,6 +10,7 @@ import "../navigation-hotfix.css";
 import "./admin-legacy-scoped.css";
 import "./admin-workspace.css";
 import "./admin-unified-forms.css";
+import "./admin-editorial-foundation.css";
 
 export const viewport: Viewport = { themeColor: "#174b38" };
 

@@ -53,6 +53,7 @@ const sortLabels: Record<AdoptionAdminSort, string> = {
 
 export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] | null }) {
   const router = useRouter();
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const reviewed = reviewedIds === null ? null : new Set(reviewedIds);
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -98,12 +99,18 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
     <nav className={`${styles.tabs} ${styles.adoptionTabs}`} aria-label="Globálne počty adopcií">{stats.map((stat)=><Link key={stat.key} data-active={stat.active} href={stat.href}>{stat.label} <strong>{stat.count}</strong></Link>)}</nav>
     <form className={styles.filters} method="get" aria-label="Filtrovať adopcie">
       <input name="q" defaultValue={filters.q} aria-label="Vyhľadávanie" placeholder="Meno, organizácia, mesto…" />
+      <button type="button" className={styles.advancedToggle} aria-controls="admin-adoption-advanced-filters"
+        aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
+        {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
+      </button>
+      <div id="admin-adoption-advanced-filters" className={styles.advancedFilters} data-expanded={advancedFiltersOpen}>
       <select name="status" defaultValue={filters.status ?? ""} aria-label="Lifecycle stav"><option value="">Všetky stavy</option>{adoptionStatuses.map((status)=><option key={status} value={status}>{adoptionStatusLabels[status]}</option>)}</select>
       <select name="freshness" defaultValue={filters.freshness ?? "all"} aria-label="Overenie"><option value="all">Všetky overenia</option><option value="stale">Treba overiť</option><option value="fresh">Čerstvo overené</option></select>
       <input name="breed" defaultValue={filters.breed} aria-label="Plemeno" placeholder="Plemeno" />
       <select name="region" defaultValue={filters.region ?? ""} aria-label="Kraj"><option value="">Všetky kraje</option>{adoptionRegions.map((region)=><option key={region} value={region}>{region}</option>)}</select>
       <input name="locality" defaultValue={filters.locality} aria-label="Mesto alebo okres" placeholder="Mesto / okres" />
       <select name="sort" defaultValue={filters.sort ?? "updated-desc"} aria-label="Radenie">{adoptionAdminSorts.map((sort)=><option key={sort} value={sort}>{sortLabels[sort]}</option>)}</select>
+      </div>
       <button type="submit">Filtrovať</button>
     </form>
     {message && <p role="status">{message}</p>}

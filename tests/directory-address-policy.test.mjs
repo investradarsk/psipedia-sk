@@ -102,17 +102,24 @@ test("create and edit preserve a safe editorial address when provider/locality v
   assert.doesNotMatch(updateRoute, /throw new Error\("Zadanú lokalitu možno použiť/);
 });
 
-test("store treats address quality as non-blocking while retaining hard identity/contact validation", () => {
+test("store treats address quality as non-blocking, keeps identity checks and saves public contacts as text", () => {
   assert.doesNotMatch(store, /serviceAddress\.reason === "LOCALITY_INVALID"[\s\S]{0,180}throw new Error/);
   assert.match(store, /const authoritativeAddressText = publicAddress \|\| serviceAddress\.formattedAddress \|\| ""/);
   assert.match(store, /address: publicAddress/);
   assert.match(store, /if \(!name\) throw new Error\("Doplň názov profilu\."\)/);
   assert.match(store, /if \(!category\) throw new Error\("Vyber kategóriu adresára\."\)/);
-  assert.match(store, /Webová adresa nie je platná/);
-  assert.match(store, /E-mailová adresa nie je platná/);
-  assert.match(store, /function safeDirectoryAddressText/);
-  assert.match(store, /typeof value !== "string"/);
-  assert.match(store, /\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F<>/);
+  // Editorial contacts must not be rejected for missing http(s), malformed email or phone formatting.
+  assert.match(store, /const rawContact = \(value: string \| null \| undefined\) => value \?\? ""/);
+  assert.match(store, /const websiteUrl = rawContact\(payload\.websiteUrl\) \|\| null/);
+  assert.match(store, /const publicPhone = payload\.publicPhone === undefined \? undefined : rawContact\(payload\.publicPhone\)/);
+  assert.match(store, /const publicEmail = payload\.publicEmail === undefined \? undefined : rawContact\(payload\.publicEmail\)/);
+  assert.match(store, /const facebookUrl = payload\.facebookUrl === undefined \? undefined : rawContact\(payload\.facebookUrl\)/);
+  assert.match(store, /const instagramUrl = payload\.instagramUrl === undefined \? undefined : rawContact\(payload\.instagramUrl\)/);
+  // Editable addresses are raw text; the former safeDirectoryAddressText function
+  // and strict character filter were intentionally removed from this save path.
+  assert.match(store, /const editorialAddressText = \(value: string \| undefined, _max: number, _label: string\) =>/);
+  assert.match(store, /const publicAddress = editorialAddressText\(/);
+  assert.doesNotMatch(store, /function safeDirectoryAddressText/);
 });
 
 test("manual public address participates in search indexing", () => {

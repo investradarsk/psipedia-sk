@@ -114,6 +114,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       setBusy(false);
     }
   }
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(true);
   const selectedBreeds = breeds.filter((breed) => selected.has(breed.id));
   const bulkTargets = bulkStatus ? selectedBreeds.filter((breed) => breed.status !== bulkStatus) : [];
 
@@ -200,12 +201,18 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
           <span>Hľadať</span>
           <div><SearchIcon size={18}/><input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, slug, pôvod, FCI…" title="Vyhľadáva aj podľa presného Admin ID, napr. 1842"/></div>
         </label>
-        <label><span>FCI skupina</span><select value={filters.fciGroup} onChange={(event) => changeFilter("fciGroup", event.target.value)}><option value="all">Všetky skupiny</option>{fciGroups.map(([number, label]) => <option value={number} key={number}>FCI {number} · {label}</option>)}</select></label>
+        <button type="button" className={styles.advancedToggle} aria-controls="admin-breed-advanced-filters"
+           aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
+           {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
+         </button>
+         <div id="admin-breed-advanced-filters" className={styles.advancedFilters} data-expanded={advancedFiltersOpen}>
+         <label><span>FCI skupina</span><select value={filters.fciGroup} onChange={(event) => changeFilter("fciGroup", event.target.value)}><option value="all">Všetky skupiny</option>{fciGroups.map(([number, label]) => <option value={number} key={number}>FCI {number} · {label}</option>)}</select></label>
         <label><span>FCI sekcia</span><select value={filters.fciSection} onChange={(event) => changeFilter("fciSection", event.target.value)}><option value="all">Všetky sekcie</option>{sections.map((section) => <option value={section} key={section}>{section}</option>)}</select></label>
         <label><span>Pôvod</span><select value={filters.origin} onChange={(event) => changeFilter("origin", event.target.value)}><option value="all">Všetky krajiny</option>{origins.map((origin) => <option value={origin} key={origin}>{origin}</option>)}</select></label>
         <label><span>Publikovanie</span><select value={filters.status} onChange={(event) => changeFilter("status", event.target.value)}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
         <label><span>Úplnosť</span><select value={filters.completeness} onChange={(event) => changeFilter("completeness", event.target.value)}><option value="all">Všetky profily</option><option value="incomplete">Len neúplné</option><option value="complete">Bez detegovaných medzier</option></select></label>
-        <div className={styles.filterActions}><AdminActionButton variant="link" onClick={() => { setFilters(defaultAdminBreedFilters); setSelected(new Set()); setRequestedPage(1); }}>Zrušiť filtre</AdminActionButton></div>
+        </div>
+         <div className={styles.filterActions}><AdminActionButton variant="link" onClick={() => { setFilters(defaultAdminBreedFilters); setSelected(new Set()); setRequestedPage(1); }}>Zrušiť filtre</AdminActionButton></div>
       </div>
 
       <div className={styles.resultBar}>
