@@ -233,16 +233,31 @@ export async function POST(request: Request) {
     } else imageWarning = "Profil nemá fotografiu. Nahraj ju ručne.";
     let logo = {imageKey:"",imageUrl:""};
     let logoWarning = "";
+    let logoSourceType: "separate" | "main-image" | "none" = "none";
     if(scope.group==="directory"){
       const logoSource=directoryLogoUrl(profile.source_data_json);
       if(logoSource){
-        try{logo=await copyFacebookProfileImage(logoSource);}
-        catch{logoWarning="Logo sa nepodarilo prevziať. Môžeš ho nahrať ručne.";}
-      }else logoWarning="Profil nemá samostatné logo. Môžeš ho nahrať ručne.";
+        try{
+          logo=await copyFacebookProfileImage(logoSource);
+          logoSourceType="separate";
+        }catch{logoWarning="Samostatné logo sa nepodarilo prevziať.";}
+      }
     }
+    // The public profile may have a main image without a separate Logo URL.
+    // Reuse its already-copied FB asset rather than incorrectly saying that
+    // the selected profile has no image (or copying it to R2 a second time).
+    // This is an explicit fallback for the profile graphic, not a claim that
+    // the main photo is a standalone company logo.
+    if(!logo.imageKey && image.imageKey){
+      logo=image;
+      logoSourceType="main-image";
+      logoWarning="";
+    }
+    if(!logo.imageKey && !logoWarning)
+      logoWarning="Profil nemá dostupné logo ani hlavnú fotografiu. Nahraj obrázok ručne.";
     return Response.json({
       profile: { id: profile.id, title: displayTitle(scope, profile), url: "https://psipedia.sk" + profileUrl(scope, profile) },
-      image, imageWarning, logo, logoWarning,
+      image, imageWarning, logo, logoWarning, logoSourceType,
     }, { headers: NO_STORE });
   } catch {
     return Response.json({ error: "Profil sa nepodarilo načítať." }, {status:503, headers:NO_STORE});

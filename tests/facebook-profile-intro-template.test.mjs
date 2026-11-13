@@ -25,12 +25,16 @@ test("sixth template preserves five existing photo templates",()=>{
   assert.match(editor,/selectedTemplate==="profile"\?!logoReady:!bitmap/);
 });
 
-test("picker supplies separate logo, never substitutes the cover photo",()=>{
+test("picker prefers a separate logo and falls back to the profile's main image",()=>{
   const api=read("app/api/admin/facebook-images/profile-picker/route.ts");
   const parent=read("components/admin-facebook-images.tsx");
   assert.match(api,/function directoryLogoUrl/);
   assert.match(api,/logo=await copyFacebookProfileImage\(logoSource\)/);
-  assert.match(api,/image, imageWarning, logo, logoWarning/);
+  assert.match(api,/if\(!logo\.imageKey && image\.imageKey\)/);
+  assert.match(api,/logo=image/);
+  assert.match(api,/logoSourceType="main-image"/);
+  assert.match(api,/image, imageWarning, logo, logoWarning, logoSourceType/);
+  assert.match(parent,/result\.logoSourceType==="main-image"/);
   assert.match(parent,/initialProfileCategory=\{selectedProfile\?\.category\}/);
   assert.match(parent,/initialProfileLogoUrl=\{selectedProfile\?\.logoUrl\}/);
   assert.match(parent,/setSelectedProfile\(null\)/);

@@ -142,7 +142,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         article?:{id:number;title:string;url:string};
         profile?:{id:number;title:string;url:string};
         image?:{imageUrl:string;imageKey:string};imageWarning?:string;
-        logo?:{imageUrl:string;imageKey:string};logoWarning?:string;error?:string;
+        logo?:{imageUrl:string;imageKey:string};logoWarning?:string;
+        logoSourceType?:"separate"|"main-image"|"none";error?:string;
       };
       if(!response.ok)throw Error(result.error||"Obsah sa nepodarilo prevziať.");
       const selected=result.article||result.profile;
@@ -223,8 +224,10 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       setSelectedProfile(result.profile?{id:selected.id,group:pickerGroup,categorySlug:pickerCategory,category:categoryLabel,logoUrl:result.logo?.imageUrl||""}:null);
       setPickerError(result.profile&&result.logo?.imageUrl?"":imageWarning);
       setNotice(result.profile?(result.logo?.imageUrl
-        ?"Profil a logo boli prevzaté. V editore vyber šablónu Predstavujeme profil."
-        :"Profil bol prevzatý. Logo môžeš nahrať v šablóne Predstavujeme profil.")
+        ?result.logoSourceType==="main-image"
+          ?"Profil a hlavná fotografia boli prevzaté. Fotografiu môžeš použiť v šablóne Predstavujeme profil alebo ju nahradiť logom."
+          :"Profil a logo boli prevzaté. V editore vyber šablónu Predstavujeme profil."
+        :"Profil bol prevzatý bez dostupného obrázka. V šablóne Predstavujeme profil ho môžeš nahrať ručne.")
         :selectedImage?.imageKey
         ?"Obsah aj fotografia boli prevzaté. Môžeš otvoriť editor grafiky."
         :"Obsah bol prevzatý bez fotografie. Pred vytvorením grafiky nahraj fotografiu.");
