@@ -95,3 +95,17 @@ test("article names remain accessible headings and admin slug contrast meets WCA
   assert.match(organization, /\.gridIdentity small \{ color: #52695c/);
   assert.doesNotMatch(organization, /\.gridIdentity small \{ color: #728379/);
 });
+
+test("local Vite watcher ignores Playwright output so admin hydration is not interrupted", () => {
+  const config = read("vite.config.ts");
+  assert.match(config, /watch:\s*\{/);
+  assert.match(config, /ignored:\s*\[/);
+  for (const directory of [".e2e-artifacts", "playwright-report", "test-results"]) {
+    assert.ok(
+      config.includes(`"**/${directory}/**"`),
+      `Vite must not trigger a full-page reload when ${directory} changes`,
+    );
+  }
+  // Keep the existing Seatbelt polling configuration while ignoring reports.
+  assert.match(config, /isCodexSeatbeltSandbox[\s\S]{0,120}useFsEvents: false, usePolling: true/);
+});
