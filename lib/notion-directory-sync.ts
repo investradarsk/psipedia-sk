@@ -1,4 +1,6 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
+import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
+import { directoryCategories } from "./directory";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
 import { directoryFilterRegistry, getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
@@ -123,6 +125,7 @@ type EditableDirectorySnapshot = {
   slug: string;
   name: string;
   category: string;
+  additionalCategories: string[];
   status: "draft" | "published" | "archived";
   excerpt: string;
   description: string;
@@ -334,6 +337,7 @@ function profileSnapshot(profile: ManagedDirectoryProfile, sourceImageUrl = ""):
     slug: clean(profile.slug),
     name: clean(profile.name),
     category: clean(profile.category),
+    additionalCategories: normalizeAdditionalDirectoryCategories(profile.additionalCategories, profile.category),
     status: profile.status,
     excerpt: clean(profile.excerpt),
     description: clean(profile.description),
@@ -382,10 +386,19 @@ function profileSnapshot(profile: ManagedDirectoryProfile, sourceImageUrl = ""):
 
 function notionSnapshot(page: NotionPage): EditableDirectorySnapshot {
   const format = propertyText(page, "Formát adresy");
+  const categoryOptions = property(page, "Ďalšie kategórie")?.multi_select;
+  const additionalCategories = normalizeAdditionalDirectoryCategories(
+    Array.isArray(categoryOptions) ? categoryOptions.map((option) => {
+      const name = option && typeof option === "object" ? (option as Record<string, unknown>).name : "";
+      return directoryCategories.find((item) => item.label === name)?.slug ?? name;
+    }) : [],
+    propertyText(page, "Kategória"),
+  );
   return {
     slug: propertyText(page, "Slug"),
     name: propertyText(page, "Názov"),
     category: propertyText(page, "Kategória"),
+    additionalCategories,
     status: statusFromNotion(propertyText(page, "Psipedia stav")),
     excerpt: propertyText(page, "Perex"),
     description: propertyText(page, "Popis"),
@@ -494,6 +507,7 @@ function notionProfileProperties(
     "Psipedia ID": richText(String(profile.id)),
     "Slug": richText(snapshot.slug),
     "Kategória": richText(snapshot.category),
+    "Ďalšie kategórie": { multi_select: snapshot.additionalCategories.map((category) => ({ name: directoryCategories.find((item) => item.slug === category)?.label ?? category })) },
     "Psipedia stav": select(statusToNotion(snapshot.status)),
     "Stav": select(editorialStateForProfile(snapshot.status)),
     "Perex": richText(snapshot.excerpt),
@@ -774,6 +788,7 @@ function fullProfileInput(
     slug: desired.slug,
     name: desired.name,
     category: desired.category,
+    additionalCategories: desired.additionalCategories,
     status: desired.status === "published" ? "published" : "draft",
     excerpt: desired.excerpt,
     description: desired.description,
@@ -828,6 +843,7 @@ function newProfileInput(
     slug: desired.slug,
     name: desired.name,
     category: desired.category,
+    additionalCategories: desired.additionalCategories,
     // New Notion Ready records must first enter canonical draft review.
     // Publication requires explicit Notion Psipedia stav = Publikované.
     status: "draft", // Notion-first creates never publish without canonical Admin action.

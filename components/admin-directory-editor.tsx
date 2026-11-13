@@ -175,6 +175,8 @@ export function AdminDirectoryEditor({
   const [slug, setSlug] = useState(profile?.slug ?? notionDraft?.slug ?? (notionDraft?.name ? slugify(notionDraft.name) : ""));
   const [slugEdited, setSlugEdited] = useState(Boolean(profile || notionDraft?.slug));
   const [category, setCategory] = useState<DirectoryCategorySlug>(profile?.category ?? (notionDraft?.category as DirectoryCategorySlug | undefined) ?? "treneri");
+  const [additionalCategories, setAdditionalCategories] = useState<DirectoryCategorySlug[]>(profile?.additionalCategories ?? []);
+  const [additionalCategoriesTouched, setAdditionalCategoriesTouched] = useState(false);
   // Physiotherapy treatments live in Services V3, not duplicate legacy category controls.
   const filterCategory = category !== "fyzioterapia" && (serviceFilterCategories as readonly string[]).includes(category) ? category as ServiceFilterCategory : null;
   // Keep a full baseline so changing category never discards previously stored facets.
@@ -554,7 +556,9 @@ export function AdminDirectoryEditor({
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
           ...(profile ? { mainImageAction } : {}),
           ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
-          name, slug, category, status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription,
+          name, slug, category,
+          ...(additionalCategoriesTouched || !profile ? { additionalCategories } : {}),
+          status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription,
           services: profile && isDirectoryEventPilotCategory(profile.category)
             ? profile.services : listFromText(services),
           qualifications: listFromText(qualifications),
@@ -920,6 +924,25 @@ export function AdminDirectoryEditor({
               setCategory(nextCategory);
               setFilterChanges({});
             }}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
+            <div className="admin-field">
+              <label>Ďalšie kategórie</label>
+              <p className="admin-help">Profil sa zobrazí aj v označených kategóriách. Hlavná kategória a verejná URL zostanú nezmenené.</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "8px 16px" }}>
+                {directoryCategories.filter((item) => item.slug !== category).map((item) => (
+                  <label key={item.slug} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="checkbox" checked={additionalCategories.includes(item.slug)}
+                      onChange={(event) => {
+                        setAdditionalCategories((current) => event.target.checked
+                          ? [...current, item.slug]
+                          : current.filter((slug) => slug !== item.slug));
+                        setAdditionalCategoriesTouched(true);
+                        setFormDirty(true);
+                      }} />
+                    <span>{item.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
             <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><textarea id="directory-excerpt" rows={3} value={excerpt} onChange={(event) => { setExcerpt(event.target.value); setFormDirty(true); }} placeholder="Čím je profil zaujímavý a komu pomáha?" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </AdminEditorSection>
 
