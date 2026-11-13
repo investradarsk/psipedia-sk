@@ -40,7 +40,13 @@ test("Help landing is compact, canonical, accessible and touch-safe", async ({ p
     sections.map((section) => section.querySelectorAll("[data-help-overview-card]").length),
   );
   for (const count of previewCounts) expect(count).toBeLessThanOrEqual(6);
-  await expect(page.getByRole("link", { name: "Zobraziť všetky" }).first()).toBeVisible();
+  const overviewCtas = overviewSections.locator("[data-help-overview-cta]");
+  await expect(overviewCtas).toHaveCount(6);
+  for (const slug of ["adopcia", "utulky", "docasna-opatera", "zbierky", "stratene-a-najdene", "dobrovolnictvo"]) {
+    await expect(page.locator(`[data-help-overview-section="${slug}"] [data-help-overview-cta] a`)).toHaveCount(1);
+  }
+  await expect(page.locator('[data-help-overview-section="utulky"] [data-help-overview-cta] a'))
+    .toHaveAttribute("href", "/organizacie");
 
   const targets = await categoryNav.locator("a").evaluateAll((links) => links.map((link) => {
     const rect = link.getBoundingClientRect();
