@@ -231,6 +231,20 @@ test("real Chrome touch: dragging the marked grip closes the menu", async ({ pag
   await expect(page).toHaveURL(/\/$/);
 });
 
+test("real Chrome touch: swiping the bottom grip upward closes the menu", async ({ page }) => {
+  const menu = page.locator("#mobile-menu");
+  const opener = page.getByRole("button", { name: "Otvoriť menu", exact: true });
+  await opener.click();
+  await expect(menu).toHaveClass(/is-open/);
+  const rect = await menu.locator("[data-menu-dismiss-grip]").boundingBox();
+  expect(rect).not.toBeNull();
+  const x = Math.round(rect!.x + rect!.width * 0.5);
+  const y = Math.round(rect!.y + rect!.height * 0.5);
+  await chromeFingerSwipe(page, [x, y], [x, y - 115]);
+  await expect(menu).not.toHaveClass(/is-open/);
+  await expect(opener).toHaveAttribute("aria-expanded", "false");
+});
+
 test("real Chrome touch: an upward swipe keeps the long menu available", async ({ page }) => {
   const menu = page.locator("#mobile-menu");
   const nav = menu.locator(":scope > nav");
