@@ -62,12 +62,12 @@ test("directory selection remains present in compact mobile cards after hydratio
   const table = read("components/admin-record-table.tsx");
   const directory = read("components/admin-directory-dashboard.tsx");
   const css = read("components/admin-record-table.module.css");
-  // Directory passes a custom 'selected' column, not the table's '__select'.
-  // It must survive compact-view column visibility and occupy the card header.
-  assert.match(directory, /id: "selected", label: "Výber"/);
-  assert.match(table, /mobileEssentialIds = new Set\\(\\[[\\s\\S]*?"selected"/);
-  assert.match(css, /td:is\\(\\[data-column-id="__select"\\], \\[data-column-id="selected"\\]\\)/);
-  assert.match(css, /td:is\\(\\[data-column-id="__select"\\], \\[data-column-id="selected"\\],[\\s\\S]*?::before/);
+  // Directory uses a custom 'selected' column, rather than '__select'.
+  const mobileColumns = table.split("const mobileEssentialIds = new Set([")[1]?.split("]);")[0];
+  assert.ok(mobileColumns?.includes('"selected"'), "mobile card must retain the directory selection column");
+  assert.ok(directory.includes('id: "selected", label: "Výber"'));
+  assert.ok(css.includes('td:is([data-column-id="__select"], [data-column-id="selected"])'));
+  assert.ok(css.includes('[data-column-id="selected"], [data-column-id="__recordId"]'));
 });
 
 test("the service editor does not keep a full-height sticky top or save overlay on mobile", () => {
