@@ -52,7 +52,7 @@ function addLogo(group:Konva.Group,bitmap:ImageBitmap|null,options:ProfileLogoOp
   // The outside shape is always static. Only the source image inside this
   // permanent clip can be dragged, zoomed and cropped.
   const clipped=new Konva.Group({
-    clipFunc:options.shape==="none"?undefined:(ctx)=>{
+    clipFunc:(ctx)=>{
       if(options.shape==="circle"){ctx.beginPath();ctx.arc(r,r,r-9,0,Math.PI*2);ctx.closePath();}
       else roundClip(ctx,width,height,options.shape==="rounded"?48:0);
     },
@@ -94,10 +94,10 @@ function addLogo(group:Konva.Group,bitmap:ImageBitmap|null,options:ProfileLogoOp
 }
 function addBrand(group:Konva.Group,officialLogo:HTMLImageElement|null){
   if(officialLogo)group.add(new Konva.Image({
-    image:officialLogo,x:0,y:0,width:340,height:235,listening:false,
+    image:officialLogo,x:0,y:0,width:360,height:249,listening:false,
   }));
-  else group.add(caption("Načítavam logo Psipedia.sk…",0,80,340,30,GREEN,"center"));
-  group.add(new Konva.Rect({width:340,height:235,opacity:0.001}));
+  else group.add(caption("Načítavam logo Psipedia.sk…",0,80,360,30,GREEN,"center"));
+  group.add(new Konva.Rect({width:360,height:249,opacity:0.001}));
 }
 
 export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
@@ -178,7 +178,7 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         }));
         });
       };
-      add("brand",340,235,group=>addBrand(group,brandIcon));
+      add("brand",360,249,group=>addBrand(group,brandIcon));
       add("intro",844,110,group=>{
         group.add(new Konva.Rect({width:844,height:110,cornerRadius:55,fill:RED}));
         group.add(caption("PREDSTAVUJEME PROFIL",25,29,794,48,WHITE,"center"));
