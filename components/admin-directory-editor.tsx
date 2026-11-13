@@ -700,6 +700,8 @@ export function AdminDirectoryEditor({
       }
       if (!hasNewerEdits) {
         setFilterSourceData(savedProfile.importData ?? {});
+        setAdditionalCategories(savedProfile.additionalCategories ?? []);
+        setAdditionalCategoriesTouched(false);
         setFilterChanges({});
       }
       if (isDirectoryFieldEventCategory(savedProfile.category)) {
