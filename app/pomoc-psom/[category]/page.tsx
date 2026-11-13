@@ -39,7 +39,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function HelpCategoryPage({ params, searchParams }: Props) {
   const { category } = await params;
   if (!isHelpCategory(category)) notFound();
-  if (category === "stratene-a-najdene") redirect("/pomoc-psom/stratene-psy");
+  if (category === "stratene-a-najdene") redirect("/pomoc-psom/stratene-a-najdene");
   const definition = getHelpCategory(category);
   if (!definition) notFound();
   const [items, rawSearchParams] = await Promise.all([
