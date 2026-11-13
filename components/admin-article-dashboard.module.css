@@ -151,3 +151,14 @@
 @media (max-width: 360px) {
   .advancedFilters[data-expanded="true"] { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* Row names remain headings for screen readers and admin search navigation. */
+.gridTitle {
+  margin: 0;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.gridTitle a { color: #183f2d; overflow-wrap: anywhere; }
