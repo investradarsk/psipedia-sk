@@ -237,9 +237,17 @@ test.describe("admin directory v2", () => {
 
   test("editor safely edits contacts/media, preserves relation metadata and keeps trust separate from publication", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
-    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
+    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "load" });
     await waitForDirectoryTableLayout(page);
-    await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
+    // This is a mutation-contract test, not a navigation test. The list can
+    // reflow when its responsive CSS arrives, shifting the link during click.
+    // The dedicated navigation test above exercises the link itself; here we
+    // verify the real href, then open that editor directly for deterministic
+    // contact, media and D1 assertions.
+    const editorLink = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
+    const editorHref = await editorLink.getAttribute("href");
+    expect(editorHref).toMatch(/^\/admin\/adresar\/\d+$/);
+    await page.goto(editorHref!, { waitUntil: "load" });
     await expect(page.getByRole("heading", { level: 1, name: "Upraviť profil" })).toBeVisible();
     // The server-rendered editor appears before its event handlers are hydrated.
     // Interact with the advanced drawer only after the client editor is ready.
