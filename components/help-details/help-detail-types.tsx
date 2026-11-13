@@ -19,6 +19,22 @@ function location(item: HelpCase) {
   return publicLocationLabel([usefulHelpValue(item.locationNote), publicLocationValue(item.city, "city"), publicLocationValue(item.region, "region")]);
 }
 
+/** An imported instruction must not be presented as a geographical locality. */
+function volunteerDeliveryInstructions(item: HelpCase): string | null {
+  if (item.category !== "dobrovolnictvo") return null;
+  const note = usefulHelpValue(item.locationNote);
+  if (!note) return null;
+  return note.length > 100 || /(?:odovzdať|doručiť|priniesť|zaslať|poskytnúť|pomoc|materiál|kontaktuj|pošlite|zbierame|potrebujeme)/i.test(note)
+    ? note : null;
+}
+
+function volunteerLocation(item: HelpCase) {
+  return volunteerDeliveryInstructions(item)
+    ? publicLocationLabel([publicLocationValue(item.city, "city"), publicLocationValue(item.region, "region")])
+    : location(item);
+}
+
+
 function textFact(label: string, value: string | null | undefined): HelpFact | null {
   const clean = usefulHelpValue(value);
   return clean ? { label, value: clean } : null;
@@ -72,7 +88,8 @@ export function VolunteerHelpDetail({ item }: Props) {
   return <HelpDetailShell item={item} sidebar={<>
     <HelpFactsCard facts={[
       textFact("Organizácia", item.organization),
-      textFact("Lokalita", location(item)),
+      textFact("Lokalita", volunteerLocation(item)),
+      textFact("Pokyny na poskytnutie pomoci", volunteerDeliveryInstructions(item)),
       rawFact("Termín", formatHelpDate(item.deadlineDate)),
     ]} />
     <GenericContacts item={item} />
