@@ -40,52 +40,6 @@ export const DIRECTORY_CONTACT_EDITORIAL_PATHS = [
 ] as const satisfies readonly BreederEditorialField[];
 export const BREEDER_EDITORIAL_PATHS = Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS) as BreederEditorialField[];
 
-/**
- * An inbound Notion blank is not proof that a previously saved Admin contact
- * should be removed. Own Notion writebacks and delayed webhooks can deliver
- * empty rich_text values after a successful D1 commit. Protect only the five
- * public contact fields; explicit Admin clears and non-empty Notion edits
- * keep their normal independent per-field behavior.
- */
-export function directoryContactNotionBlankWouldEraseAdmin(
-  path: BreederEditorialField,
-  adminValue: unknown,
-  notionValue: unknown,
-): boolean {
-  return (DIRECTORY_CONTACT_EDITORIAL_PATHS as readonly string[]).includes(path)
-    && typeof adminValue === "string" && Boolean(adminValue.trim())
-    && (notionValue === null || notionValue === undefined
-      || (typeof notionValue === "string" && !notionValue.trim()));
-}
-
-export function breederReadPath(snapshot: Record<string, unknown>, path: string): unknown {
-  return path.split(".").reduce<unknown>((value, key) =>
-    value && typeof value === "object"
-      ? (value as Record<string, unknown>)[key]
-      : undefined, snapshot);
-}
-
-function breederSetPath(target: Record<string, unknown>, path: string, value: unknown): void {
-  const keys = path.split(".");
-  let cursor = target;
-  for (const key of keys.slice(0, -1)) {
-    if (!cursor[key] || typeof cursor[key] !== "object" || Array.isArray(cursor[key]))
-      cursor[key] = {};
-    cursor = cursor[key] as Record<string, unknown>;
-  }
-  cursor[keys[keys.length - 1]] = value;
-}
-
-export function breederAdminChangedFields(
-  before: Record<string, unknown>,
-  after: Record<string, unknown>,
-): BreederEditorialField[] {
-  const stable = (value: unknown) => JSON.stringify(value == null ? "" : value);
-  return BREEDER_EDITORIAL_PATHS.filter(path =>
-    stable(breederReadPath(before, path)) !== stable(breederReadPath(after, path)));
-}
-
-/** Notion sends opaque property IDs, not the new values. */
 export function breederNotionChangedFields(
   properties: Record<string, unknown> | undefined,
   updatedProperties: readonly string[],
