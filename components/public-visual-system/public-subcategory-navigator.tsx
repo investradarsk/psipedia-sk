@@ -6,6 +6,7 @@ import { PublicIcon } from "./public-visual-system";
 import { PublicMediaFallback } from "./public-media-fallback";
 import styles from "./public-subcategory-navigator.module.css";
 import { PublicSubcategoryPagedTrack } from "./public-subcategory-paged-track";
+import { publicSubcategoryPageGroups, PUBLIC_SUBCATEGORY_PAGE_SIZE } from "@/lib/public-subcategory-paging";
 
 function cx(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -107,15 +108,15 @@ export function PublicSubcategoryNavigator({
   if (!items.length) return null;
 
   if (mode === "compact") {
-    const paged = mobileLayout === "grid" && items.length > 6;
-    const initialPage = Math.max(0, Math.floor(items.findIndex((item) => item.current) / 6));
+    const paged = mobileLayout === "grid" && items.length > PUBLIC_SUBCATEGORY_PAGE_SIZE;
+    const initialPage = Math.max(0, Math.floor(items.findIndex((item) => item.current) / PUBLIC_SUBCATEGORY_PAGE_SIZE));
     const pages = paged
-      ? Array.from({ length: Math.ceil(items.length / 6) }, (_, page) =>
-          items.slice(page * 6, (page + 1) * 6).map((item, index) => (
+      ? publicSubcategoryPageGroups(items).map((group, page) =>
+          group.map((item, index) => (
             <CompactItem
               item={item}
-              key={item.href + "-" + (page * 6 + index)}
-              onSelect={onSelect ? (event) => onSelect(event, page * 6 + index) : undefined}
+              key={item.href + "-" + (page * PUBLIC_SUBCATEGORY_PAGE_SIZE + index)}
+              onSelect={onSelect ? (event) => onSelect(event, page * PUBLIC_SUBCATEGORY_PAGE_SIZE + index) : undefined}
             />
           )))
       : [];

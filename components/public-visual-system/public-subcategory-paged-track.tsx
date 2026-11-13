@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import styles from "./public-subcategory-navigator.module.css";
-
-const ITEMS_PER_PAGE = 6;
+import { PUBLIC_SUBCATEGORY_PAGE_SIZE } from "@/lib/public-subcategory-paging";
 
 /**
  * A progressive-enhancement layer for the shared public category navigator.
@@ -37,7 +36,7 @@ export function PublicSubcategoryPagedTrack({
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     element.scrollTo({
       left: boundedPage * element.clientWidth,
-      behavior: reduceMotion ? "instant" : "smooth",
+      behavior: reduceMotion ? "auto" : "smooth",
     });
   }
 
@@ -49,7 +48,7 @@ export function PublicSubcategoryPagedTrack({
   }
 
   return (
-    <div className={styles.pagedShell} data-public-subcategory-pager data-page-size={ITEMS_PER_PAGE}>
+    <div className={styles.pagedShell} data-public-subcategory-pager data-page-size={PUBLIC_SUBCATEGORY_PAGE_SIZE}>
       <div
         className={`${styles.compactTrack} ${styles.pagedTrack}`}
         ref={track}
