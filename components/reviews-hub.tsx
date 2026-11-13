@@ -259,13 +259,13 @@ export async function ReviewsHub({
                   </PublicEmptyState>
                 )}
                 {view === "all" ? (
-                <div className={styles.sectionFooter}>
-                  <PublicActionLink href={viewHref("products")} variant="tertiary" icon={<ArrowIcon size={16} />} rel="nofollow">
-                    Zobraziť všetky články
-                  </PublicActionLink>
-                </div>
-              ) : null}
-            </PageContainer>
+                  <div className={styles.sectionFooter}>
+                    <PublicActionLink href={viewHref("products")} variant="tertiary" icon={<ArrowIcon size={16} />} rel="nofollow">
+                      Zobraziť všetky články
+                    </PublicActionLink>
+                  </div>
+                ) : null}
+              </PageContainer>
             </section>
 
           </>

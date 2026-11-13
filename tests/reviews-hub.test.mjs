@@ -18,21 +18,25 @@ test("reviews landing route uses the dedicated unified hub and keeps failures no
 
 test("reviews hub separates editorial products, user service reviews and verified e-shop ratings", () => {
   const hub = read("components/reviews-hub.tsx");
-  // The landing offers three categories; "all" is a return link, not a fourth tile.
+  // "Všetko" is the already-supported overview, not an invented review category.
   assert.match(hub, /return "\/recenzie#obsah-recenzie"/);
-  assert.match(hub, /view !== "all" \? \(/);
-  assert.match(hub, /<Link href=\{viewHref\("all"\)\} rel="nofollow">Zobraziť všetko<\/Link>/);
+  assert.match(hub, /href: viewHref\("all"\)/);
+  assert.match(hub, /current: view === "all"/);
   assert.match(hub, /Produkty/);
   assert.match(hub, /Služby/);
   assert.match(hub, /E-shopy/);
-  assert.match(hub, /Tri hlavné vstupy do recenzií/);
-  assert.match(hub, /Zobraziť všetko|Všetko je zobrazené/);
+  assert.match(hub, /Vyberte, čo chcete pozrieť/);
+  assert.match(hub, /Zobraziť všetky články/);
+  assert.match(hub, /Zobraziť recenzie služieb/);
+  assert.match(hub, /Zobraziť všetky e-shopy/);
   assert.match(hub, /<UnifiedSectionHero/);
   assert.match(hub, /getSectionHeroVisual\("section\.recenzie"\)/);
-  assert.match(hub, /<PublicCategoryTiles/);
-  // Redakčné testy sú články: neukazovať ďalší duplicitný veľký zoznam
-  // kategórií na review hub-e, ale zachovať existujúce kategórie článkov.
-  assert.doesNotMatch(hub, /<PublicSubcategoryNavigator/);
+  assert.match(hub, /<PublicSubcategoryNavigator/);
+  assert.match(hub, /mode="compact"/);
+  assert.match(hub, /mobileLayout="grid"/);
+  assert.match(hub, /columns=\{4\}/);
+  // No second category taxonomy or automatically labeled physical tests.
+  assert.doesNotMatch(hub, /<PublicCategoryTiles/);
   assert.doesNotMatch(hub, /Čo chceš porovnať\?/);
   assert.match(hub, /<ArticleCard/);
   assert.match(hub, /portalSubpageHref\(section, category\)/);
@@ -64,13 +68,13 @@ test("latest public review feed exposes only visible reviews of public canonical
   assert.doesNotMatch(source, /email_ciphertext|email_hash/);
 });
 
-test("reviews hub styling stays isolated and shared landing tiles live in the public visual system", () => {
+test("reviews hub styling stays isolated and category links reuse the Help public navigator", () => {
   const hub = read("components/reviews-hub.tsx");
   const css = read("components/reviews-hub.module.css");
-  const sharedCss = read("components/public-visual-system/public-visual-system.module.css");
+  const sharedCss = read("components/public-visual-system/public-subcategory-navigator.module.css");
   assert.match(hub, /reviews-hub\.module\.css/);
-  assert.match(sharedCss, /\.categoryTiles/);
-  assert.match(sharedCss, /\.categoryTile/);
+  assert.match(sharedCss, /\.compactGridMobile \.compactTrack/);
+  assert.match(sharedCss, /\.compactFour \.compactTrack/);
   assert.match(css, /\.reviewGrid/);
   assert.match(css, /\.categoryGrid/);
   assert.match(css, /\.eshopGrid/);
@@ -90,8 +94,8 @@ test("S-29 reuses the established compact cards instead of standalone oversized 
   assert.match(hub, /shop\.ratingCount/);
   assert.match(hub, /shop\.logoUrl/);
   assert.match(hub, /<PublicDataCard/);
-  assert.match(hub, /<PublicCategoryTiles/);
-  assert.doesNotMatch(hub, /<PublicSubcategoryNavigator/);
+  assert.match(hub, /<PublicSubcategoryNavigator/);
+  assert.doesNotMatch(hub, /<PublicCategoryTiles/);
   assert.match(shared, /export function PublicContentListItem/);
   assert.match(shared, /export function PublicDataCard/);
   assert.doesNotMatch(css, /\.eshopCard\s*\{|\.eshopMiniRatings\s*\{|\.serviceLinks a\s*\{/);
