@@ -490,3 +490,45 @@
   .mobileCardSelect { display: inline-flex; align-items: center; gap: 9px; min-height: 40px; font-size: .83rem; font-weight: 650; }
   .mobileCardSelect input { width: 18px; height: 18px; accent-color: #1f4a3a; }
 }
+
+
+/* ADMIN-UNIFIED-UI 3+5/10: compact adoption card/list and search surface.
+   The full desktop form remains unchanged; hidden mobile filters are still
+   real form controls and are included in GET submissions. */
+.advancedFilters { display: contents; }
+.advancedToggle { display: none; }
+@media (max-width: 760px) {
+  .filters {
+    padding: 0.65rem;
+    gap: 0.55rem;
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+  }
+  .advancedToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    width: 100%;
+    background: #f4f8f5;
+    border: 1px solid #cbdad0;
+    border-radius: 9px;
+    padding: 0.55rem 0.75rem;
+    color: #183f2d;
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+  }
+  .advancedToggle::after { content: "⌄"; }
+  .advancedToggle[aria-expanded="true"]::after { content: "⌃"; }
+  .advancedToggle:focus-visible { outline: 3px solid #a26a1b; outline-offset: 2px; }
+  .advancedFilters { display: none; min-width: 0; }
+  .advancedFilters[data-expanded="true"] { display: grid; gap: 0.55rem; }
+  .filters > button[type="submit"] { min-height: 44px; }
+  .adoptionCard { gap: 0.55rem; padding: 0.75rem; border-radius: 12px; }
+  .adoptionCardFacts { gap: 0.35rem; }
+  .adoptionCardFacts > div { gap: 0.5rem; }
+  .adoptionCardActions { gap: 0.4rem; padding-top: 0.5rem; }
+  .adoptionTabs { padding-bottom: 0.35rem; }
+  .adoptionTabs a { padding: 0.5rem 0.65rem; }
+}
