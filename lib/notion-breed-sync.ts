@@ -623,13 +623,8 @@ export async function writeBackBreedEditorialToNotion(args:{
     !notionPageBelongsToDataSource(page,sourceId)||
     notionRichTextProperty(page,"Psipedia ID")!==String(args.breed.id))
     throw new Error("BREED_NOTION_WRITEBACK_IDENTITY_MISMATCH");
-  const authorities=await readNotionFieldAuthorities(args.database,"breeds");
   const before=args.baselineSnapshot??breedFieldSnapshot(args.before);
   const after=breedFieldSnapshot(args.breed);
-  const remote=breedFieldSnapshot(notionPageToManagedBreedInput(page));
-  const historical=decodeBreedReceipt(mapping.content_hash);
-  const oldNotion=historical.notion??before;
-  const oldAdmin=historical.admin??before;
   const changed=(args.changedFieldKeys??BREED_NOTION_EDITABLE_FIELDS)
     .filter((key):key is BreedNotionField=>BREED_NOTION_EDITABLE_FIELDS.includes(key as BreedNotionField))
     .filter(key=>args.forceFieldKeys?.includes(key)||!sameBreedField(before[key],after[key]));
