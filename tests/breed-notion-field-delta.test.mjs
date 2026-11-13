@@ -330,7 +330,7 @@ test("blank Notion fields never clear Admin data, while filled fields update ind
 });
 
 
-test("latest signed Notion blank edit is a valid field clear, not an absent cell", () => {
+test("latest signed Notion blank edit is a valid field clear, not an absent cell", async () => {
   const page = {
     properties: {
       Charakter: { id: "changedCharacter", type: "rich_text", rich_text: [] },
