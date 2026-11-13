@@ -37,7 +37,13 @@ export function preserveUneditedTrainerTrust(
   submitted: Readonly<Partial<Record<TrainerTrustField, unknown>>>,
   edited: readonly TrainerTrustField[],
 ): Record<TrainerTrustField, boolean> {
-  const next = { ...live };
+  // IMPORTANT: 'live' is often a full ManagedDirectoryProfile at runtime.
+  // Spreading it silently overwrites all submitted editorial fields when the
+  // API later merges these trust values. Return ONLY the two trust booleans.
+  const next: Record<TrainerTrustField, boolean> = {
+    verified: live.verified === true,
+    featured: live.featured === true,
+  };
   for (const field of edited) {
     if (typeof submitted[field] !== "boolean")
       throw new Error("TRAINER_TRUST_VALUE_INVALID: " + field);
