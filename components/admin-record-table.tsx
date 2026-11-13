@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -52,6 +52,20 @@ function recordRowId<T extends { id: number }>(record: T) { return String(record
 // TanStack need not reconcile selection or regenerate row models for those views.
 const EMPTY_ROW_SELECTION: RowSelectionState = {};
 
+/* Server rendering stays stable; the compact card view starts only after the
+   client reports a narrow viewport. No table data, sort or selection changes. */
+function subscribeToNarrowTable(listener: () => void) {
+  const query = window.matchMedia("(max-width: 700px)");
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
+function getNarrowTableSnapshot() {
+  return window.matchMedia("(max-width: 700px)").matches;
+}
+function getServerNarrowTableSnapshot() {
+  return false;
+}
+
 /** Read-first grid; optional selection delegates writes to the domain's existing bulk API. */
 export function AdminRecordTable<T extends { id: number }>({
   rows,
@@ -85,6 +99,11 @@ export function AdminRecordTable<T extends { id: number }>({
   const coreRowModel = useMemo(() => getCoreRowModel<T>(), []);
   const clientSortedRowModel = useMemo(() => getSortedRowModel<T>(), []);
   const [clientSorting, setClientSorting] = useState<SortingState>([]);
+  const narrowViewport = useSyncExternalStore(
+    subscribeToNarrowTable, getNarrowTableSnapshot, getServerNarrowTableSnapshot,
+  );
+  const [compactView, setCompactView] = useState(true);
+  const mobileFocus = narrowViewport && compactView;
   const controlledSortId = serverSorting?.id;
   const controlledSortDesc = serverSorting?.desc;
   const sorting = useMemo<SortingState>(() => controlledSortId !== undefined
@@ -94,6 +113,22 @@ export function AdminRecordTable<T extends { id: number }>({
     Object.fromEntries(columns.filter((column) => column.initiallyHidden).map((column) => [column.id, false])),
   );
 
+  /* Keep ID, the main record title, status, review and edit actions in the
+     mobile view. All other columns remain available via "Všetky stĺpce". */
+  const mobileMainColumn = columns.find(column =>
+    ["name", "title", "breed", "event", "profile", "dog", "subject"].includes(column.id),
+  ) ?? columns.find(column => !["photo", "image", "actions", "status"].includes(column.id));
+  const mobileEssentialIds = new Set([
+    mobileMainColumn?.id, "id", "__recordId", "__select", "actions", "status", "reviewed",
+  ]);
+  const effectiveVisibility: VisibilityState = mobileFocus
+    ? {
+      ...visibility,
+      ...Object.fromEntries(columns.map(column => [
+        column.id, mobileEssentialIds.has(column.id) && visibility[column.id] !== false,
+      ])),
+    }
+    : visibility;
   const selectedIds = selection?.selectedIds;
   // The listing's bulk selection IDs are often reconstructed on each parent
   // render. Equal page selections must share the same TanStack state object.
@@ -171,7 +206,7 @@ export function AdminRecordTable<T extends { id: number }>({
   const table = useReactTable({
     data: rows,
     columns: definitions,
-    state: { sorting, columnVisibility: visibility, rowSelection },
+    state: { sorting, columnVisibility: effectiveVisibility, rowSelection },
     onSortingChange: updater => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
       if (serverSorting) {
@@ -203,12 +238,17 @@ export function AdminRecordTable<T extends { id: number }>({
   });
 
   return (
-    <div className={styles.workspace} data-density={density} aria-busy={busy}>
+    <div className={styles.workspace} data-density={density} data-mobile-focus={mobileFocus} aria-busy={busy}>
       <div className={styles.toolbar}>
         <div className={styles.tableIntro}>
           <strong>{label}</strong>
           <span>{rows.length} záznamov na tejto strane · {serverSorting || serverSorted ? "zoradenie platí pre celý zoznam" : "zoradenie platí len pre túto stranu"}</span>
         </div>
+        <button type="button" className={styles.mobileViewToggle}
+          aria-pressed={mobileFocus}
+          onClick={() => setCompactView(current => !current)}>
+          {mobileFocus ? "Všetky stĺpce" : "Kompaktný pohľad"}
+        </button>
         <details className={styles.columnPicker}>
           <summary>Stĺpce</summary>
           <div className={styles.columnPickerMenu}>
@@ -226,7 +266,7 @@ export function AdminRecordTable<T extends { id: number }>({
         </details>
       </div>
       <div className={styles.scroll} role="region" aria-label={label + " – tabuľka"} tabIndex={0}>
-        <table className={styles.table} style={{ width: stretch ? `max(100%, ${Math.max(table.getTotalSize(), 820)}px)` : Math.max(table.getTotalSize(), 820) }}>
+        <table className={styles.table} style={{ width: mobileFocus ? undefined : stretch ? `max(100%, ${Math.max(table.getTotalSize(), 820)}px)` : Math.max(table.getTotalSize(), 820) }}>
           <colgroup>
             {table.getVisibleLeafColumns().map((column) => (
               <col key={column.id} style={{ width: column.getSize() }} />
@@ -272,7 +312,11 @@ export function AdminRecordTable<T extends { id: number }>({
               <tr key={row.id} data-testid="admin-record-row"
                 {...(rowDataAttribute ? { [rowDataAttribute]: "" } : {})}>
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                  <td key={cell.id} data-column-id={cell.column.id}
+                    data-column-label={typeof cell.column.columnDef.header === "string"
+                      ? cell.column.columnDef.header : cell.column.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
                 ))}
               </tr>
             ))}
