@@ -5,7 +5,7 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceF
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, mirrorDirectoryMainImageToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
+import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, mirrorDirectoryMainImageToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, mirrorDirectoryAdditionalCategoriesToNotion, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
 import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_TRUST_FIELDS, type TrainerTrustField } from "@/lib/notion-trainer-trust-fields";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { parseDirectoryMainImageAction, directoryMainImageMatches } from "@/lib/directory-main-image-action";
@@ -13,6 +13,7 @@ import { cleanupUnreferencedNotionUpload } from "@/lib/notion-sync-shared";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, DIRECTORY_CONTACT_EDITORIAL_PATHS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-text-change-contract";
+import { normalizeAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
 import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -351,6 +352,13 @@ export async function PUT(request: Request, { params }: Props) {
     }
     const mainImageChanged = before.imageUrl !== profile.imageUrl ||
       before.imageKey !== profile.imageKey;
+    const additionalCategoriesChanged =
+      JSON.stringify(before.additionalCategories ?? []) !== JSON.stringify(profile.additionalCategories ?? []);
+    if (submittedBody.additionalCategories !== undefined) {
+      const expected = normalizeAdditionalDirectoryCategories(submittedBody.additionalCategories, profile.category);
+      if (JSON.stringify(expected) !== JSON.stringify(profile.additionalCategories ?? []))
+        return Response.json({ error: "Ďalšie kategórie sa nepotvrdili v D1. Obnov profil." }, { status: 409 });
+    }
     if (verified) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
     }
@@ -415,6 +423,26 @@ export async function PUT(request: Request, { params }: Props) {
     }
     if (confirmContactSync && ["pending", "disabled", "unlinked"].includes(notionFieldSync)) {
       metadataWarnings.push("Kontakty sú uložené v Admine, ale prenos do Notionu nie je potvrdený.");
+    }
+    if (additionalCategoriesChanged) {
+      if (notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true" || !notionEnv.DB) {
+        notionFieldSync = "pending";
+        metadataWarnings.push("Ďalšie kategórie sú v D1, ale Notion ich zatiaľ nepotvrdil.");
+      } else {
+        try {
+          await mirrorDirectoryAdditionalCategoriesToNotion({
+            database: notionEnv.DB,
+            bindings: env as Parameters<typeof mirrorDirectoryAdditionalCategoriesToNotion>[0]["bindings"],
+            profileId: id,
+          });
+          if (notionFieldSync !== "pending") notionFieldSync = "synced";
+        } catch (error) {
+          console.error("DIRECTORY_CATEGORIES_NOTION_WRITEBACK_FAILED", id,
+            error instanceof Error ? error.message : "UNKNOWN");
+          notionFieldSync = "pending";
+          metadataWarnings.push("Ďalšie kategórie sú v D1, ale prenos do Notionu čaká.");
+        }
+      }
     }
     if (mainImageChanged && notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") {
       notionFieldSync = "pending";
