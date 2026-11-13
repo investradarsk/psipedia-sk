@@ -487,16 +487,9 @@ test.describe("admin directory v2", () => {
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "load" });
 
     const first = page.getByLabel("Vybrať profil E2E Veterina 059");
-    // The Vite E2E bootstrap can serve the SSR checkbox before the admin
-    // selection hook has restored its session state. A single full reload
-    // recovers a stalled dev-server hydration without masking a persistent
-    // disabled selection control.
-    try {
-      await expect(first).toBeEnabled({ timeout: 5_000 });
-    } catch {
-      await page.reload({ waitUntil: "load" });
-      await expect(first).toBeEnabled({ timeout: 10_000 });
-    }
+    // The selection hook must hydrate and enable the checkbox without a
+    // forced reload. Vite must ignore generated Playwright reports/traces.
+    await expect(first).toBeEnabled({ timeout: 15_000 });
     await first.focus();
     await page.keyboard.press("Space");
     await expect(first).toBeChecked();
