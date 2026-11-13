@@ -211,7 +211,7 @@ test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable type shortcuts and comp
     "utf8",
   );
 
-  assert.doesNotMatch(page, /PublicSubcategoryNavigator/);
+  assert.match(page, /<PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
   assert.match(page, /shortcuts=\{\s*searchShortcuts\s*\}/);
   assert.match(
