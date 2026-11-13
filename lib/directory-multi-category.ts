@@ -4,10 +4,17 @@
  * existing source_data_json so no production D1 migration is required.
  * Never create a second directory profile to represent a secondary category.
  */
-import { directoryCategories, type DirectoryCategorySlug } from "./directory";
+import type { DirectoryCategorySlug } from "./directory";
 
 export const DIRECTORY_ADDITIONAL_CATEGORIES_KEY = "_psipedia_additional_categories";
-const categoryOrder = directoryCategories.map((item) => item.slug);
+// Keep in sync with the canonical public directoryCategories registry in directory.ts.
+// A literal readonly registry keeps this pure helper usable by Node's TS test runner
+// without importing unrelated Next/Cloudflare modules into standalone tests.
+const categoryOrder = [
+  "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
+  "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
+  "vencenie", "fyzioterapia", "dalsie-sluzby",
+] as const satisfies readonly DirectoryCategorySlug[];
 const validCategories = new Set<string>(categoryOrder);
 
 export function normalizeAdditionalDirectoryCategories(
