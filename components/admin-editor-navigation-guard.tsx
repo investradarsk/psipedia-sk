@@ -105,9 +105,23 @@ export function useAdminEditorNavigationGuard({
 
       event.preventDefault();
       event.stopPropagation();
-      // Replay the real Link after explicit user confirmation: retain Next's
-      // history behavior, route cache and the link's original query/hash.
-      requestNavigation(() => anchor.click());
+      // Prefer the real Link after explicit confirmation: keep client-side
+      // history, route cache and the original query/hash on the normal path.
+      // If the RSC request fails (e.g. a local Worker disconnect), a confirmed
+      // discard must not leave the user trapped in the dirty editor.
+      const fromHref = window.location.href;
+      const destinationHref = anchor.href;
+      requestNavigation(() => {
+        anchor.click();
+        window.setTimeout(() => {
+          if (window.location.href !== fromHref ||
+            !isEditorExit(destinationHref, window.location.href)) return;
+          // This fallback is possible only after the user explicitly discarded
+          // changes; an unconfirmed click never schedules a native exit.
+          authorizeCurrentPageExit();
+          window.location.assign(destinationHref);
+        }, 2_500);
+      });
     };
 
     const navigationApi = (window as NavigationWindow).navigation;
