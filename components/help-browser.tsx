@@ -14,7 +14,6 @@ import type { ReactNode } from "react";
 import { HelpCard } from "@/components/help-card";
 import {
   PublicActionButton,
-  PublicActionLink,
   PublicContentShell,
   PublicFilterTag,
 } from "@/components/public-visual-system";
