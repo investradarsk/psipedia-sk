@@ -127,6 +127,20 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
       background.add(new Konva.Path({data:"M0 1113 C250 1043 555 1200 1080 1090 L1080 1350 L0 1350 Z",fill:RED,listening:false}));
       background.add(new Konva.Path({data:"M0 1133 C250 1063 555 1220 1080 1112 L1080 1350 L0 1350 Z",fill:GREEN,listening:false}));
 
+      // Visual-only alignment guides; not part of the exported image.
+      const centerVertical=new Konva.Line({
+        points:[W/2,0,W/2,H],stroke:"#c93624",strokeWidth:2,dash:[13,10],
+        visible:false,listening:false,
+      });
+      const centerHorizontal=new Konva.Line({
+        points:[0,H/2,W,H/2],stroke:"#c93624",strokeWidth:2,dash:[13,10],
+        visible:false,listening:false,
+      });
+      selectionLayer.add(centerVertical,centerHorizontal);
+      const showGuides=(visible:boolean)=>{
+        centerVertical.visible(visible);centerHorizontal.visible(visible);
+        selectionLayer.batchDraw();
+      };
       const nodes={} as Record<ProfilePart,Konva.Group>;
       const add=(id:ProfilePart,width:number,height:number,paint:(group:Konva.Group)=>void)=>{
         const pos=layout[id];
@@ -142,14 +156,29 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         }));
         paint(group);nodes[id]=group;design.add(group);
         group.on("click tap",()=>onSelect(id));
-        group.on("dragend",()=>onChange(id,constrainProfilePlacement({
+        group.on("dragstart",()=>showGuides(true));
+        group.on("dragmove",()=>{
+          const scale=group.scaleX();
+          const centerX=group.x()+width*scale/2;
+          const centerY=group.y()+height*scale/2;
+          if(Math.abs(centerX-W/2)<14)group.x(W/2-width*scale/2);
+          if(Math.abs(centerY-H/2)<14)group.y(H/2-height*scale/2);
+        });
+        group.on("dragend",()=>{
+          showGuides(false);
+          onChange(id,constrainProfilePlacement({
           x:group.x(),y:group.y(),scale:group.scaleX(),
-        })));
-        group.on("transformend",()=>onChange(id,constrainProfilePlacement({
+        }));
+        });
+        group.on("transformstart",()=>showGuides(true));
+        group.on("transformend",()=>{
+          showGuides(false);
+          onChange(id,constrainProfilePlacement({
           x:group.x(),y:group.y(),scale:group.scaleX(),
-        })));
+        }));
+        });
       };
-      add("brand",560,110,group=>addBrand(group,brandIcon));
+      add("brand",340,235,group=>addBrand(group,brandIcon));
       add("intro",844,110,group=>{
         group.add(new Konva.Rect({width:844,height:110,cornerRadius:55,fill:RED}));
         group.add(caption("PREDSTAVUJEME PROFIL",25,29,794,48,WHITE,"center"));
@@ -170,8 +199,42 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         group.add(title);
         group.add(new Konva.Rect({width:956,height:179,opacity:.001}));
       });
-      add("logo",logoOptions.shape==="rounded"?520:408,logoOptions.shape==="rounded"?320:408,
-        group=>addLogo(group,logo,logoOptions));
+      // Fixed frame: never register it through add(), which would make the
+      // circle draggable or transformable. Only the clipped bitmap can move.
+      const logoFrame=new Konva.Group({
+        x:layout.logo.x,y:layout.logo.y,name:"fixed-logo-frame",draggable:false,
+      });
+      const logoMotion=addLogo(logoFrame,logo,logoOptions);
+      logoFrame.on("click tap",()=>onSelect("logo"));
+      design.add(logoFrame);
+      const imageInside=logoMotion.image;
+      if(imageInside){
+        imageInside.on("dragstart",()=>{
+          onSelect("logo");
+          logoMotion.guidelines.visible(true);
+        });
+        imageInside.on("dragmove",()=>{
+          const midX=logoMotion.baseX+logoMotion.width/2-
+            (logoMotion.width-imageInside.width()*imageInside.scaleX())/2;
+          const midY=logoMotion.baseY+logoMotion.height/2-
+            (logoMotion.height-imageInside.height()*imageInside.scaleY())/2;
+          // Snap the image's center to the fixed mask's center.
+          if(Math.abs(imageInside.x()+imageInside.width()*imageInside.scaleX()/2-logoMotion.width/2)<10)
+            imageInside.x((logoMotion.width-imageInside.width()*imageInside.scaleX())/2);
+          if(Math.abs(imageInside.y()+imageInside.height()*imageInside.scaleY()/2-logoMotion.height/2)<10)
+            imageInside.y((logoMotion.height-imageInside.height()*imageInside.scaleY())/2);
+          void midX;void midY;
+        });
+        imageInside.on("dragend",()=>{
+          logoMotion.guidelines.visible(false);
+          onLogoInsideChange({
+            offsetX:Math.max(-200,Math.min(200,Math.round(
+              (imageInside.x()-logoMotion.baseX)/1.4))),
+            offsetY:Math.max(-200,Math.min(200,Math.round(
+              (imageInside.y()-logoMotion.baseY)/1.4))),
+          });
+        });
+      }
       add("footer",800,126,group=>{
         group.add(new Konva.Circle({x:56,y:59,radius:56,fill:WHITE}));
         group.add(paw(23,24,67,RED));
@@ -187,7 +250,7 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         boundBoxFunc:(oldBox,nextBox)=>nextBox.width<40||nextBox.height<30?oldBox:nextBox,
       });
       selectionLayer.add(transformer);
-      if(selected&&nodes[selected]){
+      if(selected&&selected!=="logo"&&nodes[selected]){
         transformer.nodes([nodes[selected]]);
         transformer.visible(true);
       }
@@ -225,7 +288,7 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
       (s as Konva.Stage & {profileTransformer?:Konva.Transformer}).profileTransformer=transformer;
       s.draw();
       return()=>{if(stage.current===s)stage.current=null;s.destroy();root.replaceChildren();};
-    },[name,category,logo,layout,logoOptions,selected,brandIcon,onSelect,onChange]);
+    },[name,category,logo,layout,logoOptions,selected,brandIcon,onSelect,onChange,onLogoInsideChange]);
     useImperativeHandle(ref,()=>({async exportPng(){
       if(!logo)throw Error("Najprv nahraj logo profilu.");
       if(!stage.current)throw Error("Náhľad ešte nie je pripravený.");
