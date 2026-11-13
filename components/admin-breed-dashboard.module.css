@@ -153,3 +153,32 @@
 .gridActions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .gridActions :is(a, button) { font-size: .76rem; }
 .gridActions :is(a, button):focus-visible { outline: 2px solid #266d4c; outline-offset: 2px; }
+
+
+/* ADMIN-UNIFIED-UI 3/10: preserve live breed filtering while reducing the
+   default amount of mobile chrome. */
+.advancedFilters { display: contents; }
+.advancedToggle { display: none; }
+@media (max-width: 760px) {
+  .filters { gap: 0.55rem; }
+  .advancedToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    border: 1px solid #cbdad0;
+    border-radius: 9px;
+    background: #f4f8f5;
+    color: #183f2d;
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+  }
+  .advancedToggle::after { content: "⌄"; }
+  .advancedToggle[aria-expanded="true"]::after { content: "⌃"; }
+  .advancedToggle:focus-visible { outline: 3px solid #a26a1b; outline-offset: 2px; }
+  .advancedFilters { display: none; min-width: 0; }
+  .advancedFilters[data-expanded="true"] { display: grid; gap: 0.55rem; }
+  .advancedFilters > label { min-width: 0; }
+}
