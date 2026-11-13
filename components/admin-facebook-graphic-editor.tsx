@@ -160,7 +160,7 @@ export function AdminFacebookGraphicEditor({
       processed=result;
       if(active)setCleanLogo({source:profileImageBitmap,bitmap:result});
       else result.close();
-    }).catch(()=>{if(active)setError("Pozadie loga sa nepodarilo odstrániť.");});
+    }).catch(()=>{if(active)setError("Pozadie obrázka sa nepodarilo odstrániť.");});
     return()=>{active=false;processed?.close();};
   },[profileImageBitmap,profileOptions.removeWhite]);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -227,18 +227,18 @@ export function AdminFacebookGraphicEditor({
     }
   },[]);
   const profileImageDropzone=useDropzone({
-    onDrop:onLogoDrop,onDropRejected:()=>setError("Použi logo JPG, PNG alebo WebP do 8 MB."),
+    onDrop:onLogoDrop,onDropRejected:()=>setError("Použi hlavný obrázok JPG, PNG alebo WebP do 8 MB."),
     accept:{"image/jpeg":[],"image/png":[],"image/webp":[]},
     maxSize:MAX_BYTES,multiple:false,disabled:busy,
   });
   useEffect(()=>{
-    const logoUrl: string=initialProfileImageUrl??"";
-    if(!logoUrl)return;
+    const profileImageUrl: string=initialProfileImageUrl??"";
+    if(!profileImageUrl)return;
     const controller=new AbortController();
-    void loadProfileImageFile(logoUrl,controller.signal).then(file=>{
+    void loadProfileImageFile(profileImageUrl,controller.signal).then(file=>{
       if(!controller.signal.aborted){setProfileImageFile(file);setError("");}
     }).catch(error=>{
-      if(!controller.signal.aborted)setError(error instanceof Error?error.message:"Logo sa nepodarilo načítať.");
+      if(!controller.signal.aborted)setError(error instanceof Error?error.message:"Hlavný obrázok sa nepodarilo načítať.");
     });
     return()=>controller.abort();
   },[initialProfileImageUrl]);
