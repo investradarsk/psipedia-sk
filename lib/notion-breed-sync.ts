@@ -650,13 +650,9 @@ export async function writeBackBreedEditorialToNotion(args:{
       });
       continue;
     }
-    const remoteChanged=!sameBreedField(remote[field],oldNotion[field])
-      &&!sameBreedField(remote[field],after[field]);
-    if(remoteChanged&&!args.ownerConfirmedOverwrite&&authorities[field]!=="admin"){
-      // The owner's Notion priority (or the documented fallback) is resolved
-      // on the next inbound sweep. Do not turn it into a manual profile lock.
-      pending.push(field);continue;
-    }
+    // A current, explicit Admin save is the latest edit of this field.
+    // An older Notion value (including a different nonempty value) does not
+    // block that outbound update. Field echo verification remains mandatory.
     try {
       const properties=breedNotionContentPatch(field,after[field]);
       Object.assign(patch,properties);
@@ -897,7 +893,18 @@ async function syncOneBreed(
   manualDirection?: ManualFieldDirection,
 ): Promise<"created" | "updated" | "unchanged"> {
   const basePayload = notionPageToManagedBreedInput(page);
-  const presentBreedFields = breedNotionPresentFieldIds(page);
+  const allPresentBreedFields = breedNotionPresentFieldIds(page, changedPropertyIds);
+  const signedFields = changedPropertyIds.length
+    ? new Set(signedBreedChangedFields(page, changedPropertyIds)) : null;
+  // A signed Notion event names ONLY the fields the editor changed.
+  // A blank present cell is a valid deletion; no unrelated field is imported.
+  const presentBreedFields = signedFields
+    ? new Set([...allPresentBreedFields].filter(field =>
+        signedFields.has(field as keyof typeof BREED_WEBHOOK_PROPERTIES) ||
+        (field.startsWith("fciStandard.") && signedFields.has("fciStandard")) ||
+        (field.startsWith("editorial.") && signedFields.has("editorial"))))
+    : allPresentBreedFields;
+  const eventAuthority = signedFields ? {} : authority;
   const contentHash = await notionBreedSourceHash(page);
   const mapping = await loadMapping(database, page.id);
   const now = new Date().toISOString();
@@ -1011,7 +1018,6 @@ async function syncOneBreed(
     if (mapping && explicitField) {
       if (!expectedNotionHash || !/^[a-f0-9]{64}$/i.test(expectedNotionHash))
         throw new Error("BREED_EXPLICIT_HASH_REQUIRED");
-      if (authority[explicitField] === "admin") throw new Error("BREED_FIELD_ADMIN_AUTHORITY");
       if (invalidStructuredBreedFields(page).has(explicitField)) throw new Error("BREED_STAGED_FIELD_REQUIRES_REVIEW");
       const actualHash = await sha256Text(JSON.stringify(breedFieldSnapshot(basePayload)[explicitField]) ?? "null");
       if (actualHash !== expectedNotionHash) throw new Error("BREED_EXPLICIT_REMOTE_CHANGED");
@@ -1021,7 +1027,7 @@ async function syncOneBreed(
       const oldAdminSnapshot = breedFieldSnapshot(existing);
       oldNotionSnapshot[explicitField] = oldAdminSnapshot[explicitField];
       const plan = planBreedNotionFieldDelta(existing, basePayload,
-        oldNotionSnapshot, oldAdminSnapshot, authority, presentBreedFields);
+        oldNotionSnapshot, oldAdminSnapshot, {}, new Set([explicitField]));
       if (plan.conflicts.length) throw new Error("BREED_EXPLICIT_FIELD_CONFLICT");
       const patch = plan.patch;
       const merged = { ...existing, ...patch, seo:{...existing.seo,...(patch.seo??{})},
@@ -1045,7 +1051,7 @@ async function syncOneBreed(
 
     if (mapping && fieldReceipt) {
       const plan=planBreedNotionFieldDelta(existing,basePayload,
-        fieldReceipt.notion,fieldReceipt.admin,authority,presentBreedFields);
+        fieldReceipt.notion,fieldReceipt.admin,eventAuthority,presentBreedFields);
       const invalid=invalidStructuredBreedFields(page);
       // Even if just one source field is invalid or contested, valid Notion
       // editorial edits are committed together. Skipped fields remain pending.
@@ -1055,7 +1061,7 @@ async function syncOneBreed(
         && !notionRichTextProperty(page,"Sync chyba")
         && notionRichTextProperty(page,"Psipedia ID")===String(existing.id))return "unchanged";
       return applySafeBreedSync(database,bindings,page,existing,plan,
-        fieldReceipt.notion,fieldReceipt.admin,plan.latest,authority,contentHash,invalid);
+        fieldReceipt.notion,fieldReceipt.admin,plan.latest,eventAuthority,contentHash,invalid);
     }
 
     // Legacy SHA receipts have no field history. Do not block a whole breed
@@ -1097,11 +1103,11 @@ async function syncOneBreed(
       });
       for (const field of fields) previousNotion[field] = previousAdmin[field];
       const plan = planBreedNotionFieldDelta(
-        existing, basePayload, previousNotion, previousAdmin, authority, presentBreedFields,
+        existing, basePayload, previousNotion, previousAdmin, eventAuthority, presentBreedFields,
       );
       return applySafeBreedSync(
         database, bindings, page, existing, plan, previousNotion,
-        previousAdmin, plan.latest, authority, contentHash,
+        previousAdmin, plan.latest, eventAuthority, contentHash,
         invalidStructuredBreedFields(page),
       );
     }
