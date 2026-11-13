@@ -47,6 +47,9 @@ test("shared record tables keep their full-column fallback and mobile selection"
   assert.match(table, /getServerNarrowTableSnapshot/);
   assert.match(table, /data-mobile-focus=\{mobileFocus\}/);
   assert.match(table, /Všetky stĺpce/);
+  assert.match(table, /className=\{styles\.mobileSelectAll\}/);
+  assert.match(table, /"completeness"/);
+  assert.match(table, /!mobileFocus && <thead>/);
   assert.match(table, /setCompactView/);
   assert.match(table, /onColumnVisibilityChange: setVisibility/);
   assert.match(table, /onRowSelectionChange:/);
@@ -79,4 +82,16 @@ test("technical sync messages have compact disclosures without hiding their data
   const breeds = read("components/admin-breed-workcopy-live-status.tsx");
   assert.match(breeds, /admin-sync-disclosure/);
   assert.match(breeds, /Obnoviť živý stav D1/);
+});
+
+
+test("article names remain accessible headings and admin slug contrast meets WCAG AA", () => {
+  const article = read("components/admin-dashboard.tsx");
+  assert.match(article, /<h2 className=\{styles\.gridTitle\}>/);
+  assert.match(article, /advancedFiltersOpen, setAdvancedFiltersOpen\] = useState\(true\)/);
+  const breed = read("components/admin-breed-dashboard.tsx");
+  assert.match(breed, /advancedFiltersOpen, setAdvancedFiltersOpen\] = useState\(true\)/);
+  const organization = read("components/admin-organization-publication.module.css");
+  assert.match(organization, /\.gridIdentity small \{ color: #52695c/);
+  assert.doesNotMatch(organization, /\.gridIdentity small \{ color: #728379/);
 });
