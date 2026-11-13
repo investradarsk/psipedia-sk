@@ -43,7 +43,7 @@ import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, 
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 import { DirectoryCategoryFilterFields } from "@/components/directory-category-filter-fields";
 import { buildDirectoryCategoryFilterPatch, readDirectoryCategoryFilterOriginals, scopeDirectoryCategoryFilterChanges } from "@/lib/directory-category-filter-editor";
-import { serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import { serviceFilterCategories, unconfirmedDirectoryCategoryFilters, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { DirectoryAddressAutocomplete } from "@/components/directory-address-autocomplete";
 import {
   applyDirectoryStreetSelection,
@@ -650,6 +650,15 @@ export function AdminDirectoryEditor({
         if (!filterResponse.ok || !filtered.profile) {
           throw new Error(filtered.error || "Profil bol uložený, ale kategóriové filtre nie. Skontrolujte ich a uložte znova.");
         }
+        // A 200 response alone does not prove the choices were stored. Keep
+        // the user's filter selections if the D1 receipt is incomplete.
+        const unconfirmed = unconfirmedDirectoryCategoryFilters(
+          filterPatch.category, filtered.profile.importData ?? {}, filterPatch.updates,
+        );
+        if (unconfirmed.length) {
+          throw new Error("Kategóriové filtre sa v D1 neuložili: " + unconfirmed.join(", ") +
+            ". Výber zostal vo formulári; oprav ho a ulož znova.");
+        }
         savedProfile = filtered.profile;
       }
       if (profile && ["chovatelske-stanice", "treneri"].includes(profile.category) && breederRelationsDirty) {
@@ -1082,7 +1091,7 @@ export function AdminDirectoryEditor({
                 category={filterCategory}
                 originalValues={filterOriginals}
                 changes={filterChanges}
-                onChange={(next) => setFilterChanges({ ...next })}
+                onChange={(next) => { setFilterChanges({ ...next }); setFormDirty(true); }}
                 disabled={saving}
                 idPrefix="admin-directory"
               />
@@ -1093,12 +1102,13 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Kontaktné údaje, ktoré sa zobrazujú návštevníkom profilu.</p></div></div></div>
 <AdminEditorToolFrame kind="contacts">
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="text" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="text" value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type="text" value={websiteUrl} onChange={(event) => { const value = event.target.value; setWebsiteUrl(value); if (value.trim()) clearQualityResolution("website"); }} placeholder="https://…" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type="text" value={facebookUrl} onChange={(event) => setFacebookUrl(event.target.value)} placeholder="https://facebook.com/…" /></div>
-              <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="text" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
+              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="text" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); setFormDirty(true); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="text" value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); setFormDirty(true); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type="text" value={websiteUrl} onChange={(event) => { const value = event.target.value; setWebsiteUrl(value); setFormDirty(true); if (value.trim()) clearQualityResolution("website"); }} placeholder="Text alebo webová adresa – bez povinného https://" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type="text" value={facebookUrl} onChange={(event) => { setFacebookUrl(event.target.value); setFormDirty(true); }} placeholder="Text alebo odkaz na Facebook" /></div>
+              <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="text" value={instagramUrl} onChange={(event) => { setInstagramUrl(event.target.value); setFormDirty(true); }} placeholder="Text alebo odkaz na Instagram" /></div>
             </div>
+            <small>Kontakty sú obyčajné textové polia. Môžeš vložiť aj neúplný odkaz, číslo či e-mail; formát neblokuje uloženie.</small>
             </AdminEditorToolFrame>
             <AdminHelpText term="Kvalita údajov">Ak profil web, telefón alebo e-mail naozaj nemá, nie je verejný alebo sa ho nepodarilo dohľadať, označ stav pri prázdnom poli. Taký údaj prestane byť falošným problémom v Kvalite údajov a po 12 mesiacoch sa automaticky znovu skontroluje.</AdminHelpText>
           </AdminEditorSection>
