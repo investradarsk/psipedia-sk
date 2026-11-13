@@ -460,14 +460,6 @@ function url(value: string) {
   return { url: value || null };
 }
 
-function email(value: string) {
-  return { email: value || null };
-}
-
-function phone(value: string) {
-  return { phone_number: value || null };
-}
-
 function date(value: string | null | undefined) {
   return { date: value ? { start: value } : null };
 }
