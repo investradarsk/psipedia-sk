@@ -1,4 +1,3 @@
-import { DetailContactsCard } from "@/components/detail-primitives/detail-primitives";
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -103,19 +102,6 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
           </div>
         </section>
 
-        {shop.websiteUrl ? (
-          <DetailContactsCard
-            title="Kontakty"
-            contacts={[{
-              label: "Web",
-              value: (
-                <a href={shop.websiteUrl} target="_blank" rel="noreferrer">
-                  Navštíviť e-shop ↗
-                </a>
-              ),
-            }]}
-          />
-        ) : null}
         {shop.averages ? (
           <section className={styles.summary} aria-label={`Hodnotenie e-shopu ${shop.name}`}>
             <div className={styles.score}>
