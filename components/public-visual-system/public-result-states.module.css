@@ -36,6 +36,11 @@
   font-weight: 800;
 }
 .pagination a:hover { border-color: var(--forest); background: var(--sage-light); }
+.pagination a[aria-current="page"]:hover {
+  border-color: var(--forest);
+  background: var(--forest);
+  color: #fff;
+}
 .pagination [aria-current="page"] {
   background: var(--forest, #174b38);
   border-color: var(--forest, #174b38);
