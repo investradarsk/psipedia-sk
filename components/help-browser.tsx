@@ -120,13 +120,6 @@ export function HelpBrowser({
                 <PublicActionButton className={styles.searchSubmit} type="submit">
                   Použiť filtre
                 </PublicActionButton>
-                <PublicActionLink
-                  className={styles.resetFilters}
-                  variant="tertiary"
-                  href={basePath}
-                >
-                  Zrušiť filtre
-                </PublicActionLink>
               </PublicFilterDisclosure>
             </form>
             {activeSelections.length > 0 && (
@@ -143,9 +136,6 @@ export function HelpBrowser({
                     <span aria-hidden="true">×</span>
                   </PublicFilterTag>
                 ))}
-                <Link href={basePath} data-public-filter-reset>
-                  Vymazať všetko
-                </Link>
               </PublicActiveFilters>
             )}
           </PublicFilterPanel>
