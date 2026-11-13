@@ -1354,7 +1354,7 @@
     display: none;
   }
   .workspace[data-map-activated="false"] .mapPanel :global([data-public-map-consent]) {
-    max-width: min(100% - 24px, 620px);
+    max-width: min(calc(100% - 24px), 620px);
   }
   .resultLink {
     color: white;
