@@ -1,5 +1,5 @@
-import { canonicalBreedIdsSql } from "./breed-canonical";
-import type { PublicDirectoryProfile } from "./directory";
+import { canonicalBreedIdsSql } from "@/lib/breed-canonical";
+import type { PublicDirectoryProfile } from "@/lib/directory";
 
 const BREEDER_CATEGORY = "chovatelske-stanice";
 
