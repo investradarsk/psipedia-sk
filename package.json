@@ -73,7 +73,7 @@
     "test:admin-error-step8": "node --experimental-strip-types --test tests/admin-error-recovery-step8.test.mjs tests/admin-page-streaming-step4.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/organization-admin-read-recovery-integration.test.mjs",
     "test:admin-editor-source-step9": "node --test tests/admin-stability-verification-step9.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/help-organization-publication.test.mjs tests/directory-admin-query.test.mjs",
     "test:admin-merge-step10": "node --test tests/admin-merge-step10.test.mjs",
-    "test:admin-stability-step10": "npm run test:admin-stability-step9 && npm run test:admin-merge-step10 && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-editor-text-change-contract.test.mjs tests/directory-editor-field-verification.test.mjs tests/directory-admin-raw-text.test.mjs",
+    "test:admin-stability-step10": "npm run test:admin-stability-step9 && npm run test:admin-merge-step10 && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-editor-text-change-contract.test.mjs tests/directory-editor-field-verification.test.mjs tests/directory-admin-raw-text.test.mjs tests/directory-category-filter-editor.test.mjs",
     "test:admin-stability-step9": "npm run test:admin-pwa && npm run test:admin-editor-source-step9",
     "benchmark:admin-search-v2": "node --experimental-strip-types scripts/benchmark-admin-search-v2.mjs",
     "test:admin-performance-v2-steps2-9": "node --experimental-strip-types --test tests/admin-performance-v2-steps2-9.test.mjs",
