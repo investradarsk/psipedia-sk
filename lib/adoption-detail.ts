@@ -66,6 +66,9 @@ export function formatAdoptionDetailAge(
 ) {
   const months = adoptionAgeMonths(dog, now);
   if (months === null) return null;
+  // A numeric zero without a verified birth date is ambiguous source data,
+  // not evidence that the dog is a newborn.
+  if (!dog.birthDate && dog.approximateAgeMonths === 0) return "neoverený";
   if (months === 0) return "menej ako 1 mesiac";
   if (months < 12) return `${months} ${months === 1 ? "mesiac" : months >= 2 && months <= 4 ? "mesiace" : "mesiacov"}`;
   const years = Math.max(1, Math.round(months / 12));
