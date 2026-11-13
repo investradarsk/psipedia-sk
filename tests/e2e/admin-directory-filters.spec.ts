@@ -360,6 +360,46 @@ test.describe("admin directory v2", () => {
     expect(unknownReceipt.importData[nailKey]).toBe("yes");
     expect(unknownReceipt.importData[trimmingKey]).toBe("unknown");
 
+    // Regression: existing salon contacts must save literal "xxx", like Popis.
+    await openDirectoryEditorSection(page, "Kontakty");
+    for (const label of ["Verejný telefón", "Verejný e-mail", "Verejný web", "Facebook", "Instagram"]) {
+      await page.getByLabel(label).fill("xxx");
+    }
+    const [contactSaveResponse] = await Promise.all([
+      page.waitForResponse(response =>
+        response.url().endsWith("/api/admin/directory/" + id) &&
+        response.request().method() === "PUT",
+      ),
+      page.getByRole("button", { name: "Uložiť koncept" }).click(),
+    ]);
+    expect(contactSaveResponse.status()).toBe(200);
+    const contactPayload = contactSaveResponse.request().postDataJSON() as {
+      breederEditedPaths?: string[];
+      publicPhone?: string; publicEmail?: string; websiteUrl?: string;
+      facebookUrl?: string; instagramUrl?: string;
+    };
+    for (const field of ["publicPhone", "publicEmail", "websiteUrl", "facebookUrl", "instagramUrl"] as const) {
+      expect(contactPayload[field], field + " missing from save payload").toBe("xxx");
+      expect(contactPayload.breederEditedPaths, field + " missing from changedPaths").toContain(field);
+    }
+    const contactSaved = (await contactSaveResponse.json()).profile;
+    for (const property of ["Telefón", "E-mail", "Web", "Facebook", "Instagram"]) {
+      expect(contactSaved.importData[property], property + " missing from save receipt").toBe("xxx");
+    }
+    expect(contactSaved.websiteUrl).toBe("xxx");
+    const contactReadback = await page.request.get("/api/admin/directory/" + id);
+    expect(contactReadback.ok()).toBeTruthy();
+    const contactStored = (await contactReadback.json()).profile;
+    for (const property of ["Telefón", "E-mail", "Web", "Facebook", "Instagram"]) {
+      expect(contactStored.importData[property], property + " missing from D1 GET").toBe("xxx");
+    }
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
+    await openDirectoryEditorSection(page, "Kontakty");
+    for (const label of ["Verejný telefón", "Verejný e-mail", "Verejný web", "Facebook", "Instagram"]) {
+      await expect(page.getByLabel(label), label + " lost after refresh").toHaveValue("xxx");
+    }
+
     // Events-style Admin save: edit Perex without touching Popis and demand
     // committed D1 state after a full page refresh, not an optimistic label.
     const initialDescription = savedProfile.description;
