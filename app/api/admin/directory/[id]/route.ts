@@ -15,6 +15,8 @@ import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/
 import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-text-change-contract";
 import { normalizeAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
 import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
+import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import { scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -79,6 +81,8 @@ export async function PUT(request: Request, { params }: Props) {
       mainImageAction?: unknown;
       pilotMetadataFields?: unknown;
       explicitlyClearedContacts?: unknown;
+      contactEditedFields?: unknown;
+      contactOriginalValues?: unknown;
       breederOriginalText?: unknown;
       confirmContactSync?: unknown;
     };
@@ -91,6 +95,8 @@ export async function PUT(request: Request, { params }: Props) {
       mainImageAction: rawMainImageAction,
       pilotMetadataFields: rawPilotMetadataFields,
       explicitlyClearedContacts: rawExplicitlyClearedContacts,
+      contactEditedFields: rawContactEditedFields,
+      contactOriginalValues: rawContactOriginalValues,
       breederOriginalText: rawBreederOriginalText,
       confirmContactSync: rawConfirmContactSync,
       ...submittedBody
@@ -122,6 +128,27 @@ export async function PUT(request: Request, { params }: Props) {
         }, { status: 409 });
       }
       editedPaths = recovered.editedPaths as BreederEditorialField[];
+      const liveContacts = readDirectoryPublicContacts(before.importData, before.websiteUrl ?? "");
+      const contactScope = scopeAdminContactSave({
+        editedPaths,
+        interactedFields: rawContactEditedFields,
+        originalValues: rawContactOriginalValues,
+        submitted: submittedBody as Record<string, unknown>,
+        currentValues: {
+          websiteUrl: liveContacts.website, publicPhone: liveContacts.phone,
+          publicEmail: liveContacts.email, facebookUrl: liveContacts.facebook,
+          instagramUrl: liveContacts.instagram,
+        },
+      });
+      if (contactScope.incompatible) return Response.json({
+        error: "Editor kontaktov je zastaraný. Obnov stránku pred ďalším uložením; nedotknuté kontakty zostali zachované.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+      if (contactScope.conflicts.length) return Response.json({
+        error: "Kontakty sa medzičasom zmenili v databáze (" +
+          contactScope.conflicts.join(", ") +
+          "). Obnov profil a skontroluj hodnoty. Nič sa neprepísalo.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+      editedPaths = contactScope.editedPaths as BreederEditorialField[];
     }
     // An explicit owner save from the Contacts tab may re-confirm contact values
     // already present in D1 but missing in Notion. This never expands the
@@ -138,12 +165,17 @@ export async function PUT(request: Request, { params }: Props) {
       instagramUrl: ["Instagram"],
     } as const;
     type ClearableContact = keyof typeof contactAliases;
+    // The editor's dirty diff alone is never permission to clear D1. A
+    // deletion additionally requires a real input-interaction receipt.
     const explicitlyClearedContacts: ClearableContact[] =
       Array.isArray(rawExplicitlyClearedContacts) && editedPaths
         ? [...new Set(rawExplicitlyClearedContacts.filter(
             (field): field is ClearableContact => {
               if (typeof field !== "string" || !Object.hasOwn(contactAliases, field) ||
                   !editedPaths.includes(field as BreederEditorialField)) return false;
+              const interacted = Array.isArray(rawContactEditedFields) &&
+                rawContactEditedFields.includes(field);
+              if (!interacted) return false;
               const value = (submittedBody as Record<string, unknown>)[field];
               return value === null || (typeof value === "string" && !value.trim());
             },
@@ -385,6 +417,25 @@ export async function PUT(request: Request, { params }: Props) {
         }
       }
     }
+    // Record whether an edited contact already differs immediately after the
+    // canonical D1 save, before any Notion network round-trips. This separates
+    // a D1 persistence issue from a later incoming webhook overwriting a value.
+    // Log only field names, never the user's contact values.
+    const editedContactPaths = (editedPaths ?? []).filter(
+      (path): path is typeof DIRECTORY_CONTACT_EDITORIAL_PATHS[number] =>
+        (DIRECTORY_CONTACT_EDITORIAL_PATHS as readonly string[]).includes(path),
+    );
+    const beforeNotionContactProfile = editedContactPaths.length
+      ? await getManagedDirectoryProfileById(id, db) : null;
+    const contactMismatchesBeforeNotion = beforeNotionContactProfile
+      ? directoryEditedFieldMismatches({
+          submitted: payload,
+          persisted: beforeNotionContactProfile,
+          editedPaths: editedContactPaths,
+        }) : [];
+    if (contactMismatchesBeforeNotion.length) {
+      console.warn("DIRECTORY_CONTACT_D1_MISMATCH_BEFORE_NOTION", id, contactMismatchesBeforeNotion);
+    }
     // Saving a profile never triggers a paid Google Places search.
     // Only the just-saved linked profile is reconciled. This does not run an
     // entire directory scan, trigger Services V3 or affect Facebook images.
@@ -582,7 +633,12 @@ export async function PUT(request: Request, { params }: Props) {
     );
     if (unconfirmedEditorial.length || unconfirmedTrust.length) {
       const fields = [...unconfirmedEditorial, ...unconfirmedTrust];
-      console.warn("DIRECTORY_FIELDS_D1_SAVE_NOT_CONFIRMED", id, fields);
+      console.warn("DIRECTORY_FIELDS_D1_SAVE_NOT_CONFIRMED", id, fields, {
+        contactMismatchesBeforeNotion,
+        contactMismatchAfterNotion: unconfirmedEditorial.filter(
+          path => (DIRECTORY_CONTACT_EDITORIAL_PATHS as readonly string[]).includes(path),
+        ),
+      });
       return Response.json({
         error: "Niektoré upravené polia sa v Admine neuložili (" +
           fields.join(", ") + "). Obnov profil a zopakuj konkrétnu úpravu.",

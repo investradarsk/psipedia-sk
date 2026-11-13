@@ -119,7 +119,7 @@ export function AdminRecordTable<T extends { id: number }>({
     ["name", "title", "breed", "event", "profile", "dog", "subject"].includes(column.id),
   ) ?? columns.find(column => !["photo", "image", "actions", "status"].includes(column.id));
   const mobileEssentialIds = new Set([
-    mobileMainColumn?.id, "id", "__recordId", "__select", "actions", "status", "reviewed", "completeness",
+    mobileMainColumn?.id, "id", "__recordId", "__select", "selected", "actions", "status", "reviewed", "completeness",
   ]);
   const effectiveVisibility: VisibilityState = mobileFocus
     ? {

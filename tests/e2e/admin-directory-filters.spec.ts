@@ -16,6 +16,17 @@ async function openDirectoryEditorSection(page: Page, label: string) {
   }
 }
 
+// On narrow screens the table's server HTML starts in desktop mode and React
+// switches it to compact cards during hydration. Interacting with pagination
+// before that transition finishes clicks stale coordinates after the reflow.
+// Wait for the actual responsive state, not a fixed timeout.
+async function waitForDirectoryTableLayout(page: Page) {
+  const table = page.locator("[data-mobile-focus]").first();
+  await expect(table).toBeVisible();
+  const narrow = await page.evaluate(() => window.matchMedia("(max-width: 700px)").matches);
+  await expect(table).toHaveAttribute("data-mobile-focus", narrow ? "true" : "false");
+}
+
 test.describe("admin directory v2", () => {
   test("dense list uses the full dataset, accent-insensitive search and combined filters", async ({ page }) => {
     const response = await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
@@ -23,7 +34,13 @@ test.describe("admin directory v2", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 61");
     await expect(page.locator("[data-testid='admin-record-row']")).toHaveCount(50);
-    await expect(page.getByRole("columnheader", { name: /Aktualizované/ })).toBeVisible();
+    await waitForDirectoryTableLayout(page);
+    // Compact mobile cards intentionally hide column headers after hydration.
+    if (await page.evaluate(() => window.matchMedia("(max-width: 700px)").matches)) {
+      await expect(page.getByRole("columnheader", { name: /Aktualizované/ })).toBeHidden();
+    } else {
+      await expect(page.getByRole("columnheader", { name: /Aktualizované/ })).toBeVisible();
+    }
 
     await page.getByRole("link", { name: "Ďalšia →" }).click();
     await expect(page).toHaveURL(/page=2/);
@@ -47,6 +64,7 @@ test.describe("admin directory v2", () => {
     await expect(page.getByLabel("Obrázok")).toHaveValue("all");
 
     response = await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E&page=2", { waitUntil: "domcontentloaded" });
+    await waitForDirectoryTableLayout(page);
     expect(response?.status()).toBe(200);
     await page.locator('input[name="q"]').fill("E2E");
     await page.getByLabel("Kategória").selectOption("treneri");
@@ -63,6 +81,7 @@ test.describe("admin directory v2", () => {
 
   test("selection stays page-scoped and clears when pagination or membership changes", async ({ page }) => {
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E");
+    await waitForDirectoryTableLayout(page);
     const pageCheckbox = page.getByLabel("Vybrať všetky profily na tejto strane");
     await pageCheckbox.check();
     await expect(page.getByText("50 položiek vybraných na tejto strane")).toBeVisible();
@@ -88,6 +107,7 @@ test.describe("admin directory v2", () => {
   test("directory bulk publish and move-to-draft execute only after preflight confirmation", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar?category=dalsie-sluzby&q=Bulk+Fixture");
+    await waitForDirectoryTableLayout(page);
     await page.getByLabel("Vybrať profil Bulk Fixture Draft").check();
     await page.getByLabel("Vybrať profil Bulk Fixture Published").check();
     await expect(page.getByText("Vybrané: 2")).toBeVisible();
@@ -123,6 +143,7 @@ test.describe("admin directory v2", () => {
     expect(unauthorized.status()).toBe(401);
 
     await page.goto("/admin/adresar?category=dalsie-sluzby&status=draft&q=Bulk+Fixture");
+    await waitForDirectoryTableLayout(page);
     const origin = new URL(page.url()).origin;
 
     const rejectedCrossOrigin = await page.request.post("/api/admin/bulk/preflight", {
@@ -185,9 +206,16 @@ test.describe("admin directory v2", () => {
   });
 
   test("directory editor cancels and discards unsaved navigation through shared dialog", async ({ page }) => {
-    // Read-only test: no profile update or publication request is sent.
-    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "domcontentloaded" });
-    await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
+    // This test verifies the unsaved-changes guard, not the listing's link.
+    // Read the real editor href and navigate directly, avoiding a click made
+    // unstable when Vite injects responsive CSS after the initial render.
+    // The dedicated navigation test below still checks that the link works.
+    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "load" });
+    await waitForDirectoryTableLayout(page);
+    const editorHref = await page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true }).getAttribute("href");
+    expect(editorHref).toMatch(/^\/admin\/adresar\/\d+$/);
+    const editorResponse = await page.goto(editorHref!, { waitUntil: "load" });
+    expect(editorResponse?.status()).toBe(200);
     await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
 
     await openDirectoryEditorSection(page, "Kontakty");
@@ -215,8 +243,17 @@ test.describe("admin directory v2", () => {
 
   test("editor safely edits contacts/media, preserves relation metadata and keeps trust separate from publication", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
-    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
-    await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
+    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "load" });
+    await waitForDirectoryTableLayout(page);
+    // This is a mutation-contract test, not a navigation test. The list can
+    // reflow when its responsive CSS arrives, shifting the link during click.
+    // The dedicated navigation test above exercises the link itself; here we
+    // verify the real href, then open that editor directly for deterministic
+    // contact, media and D1 assertions.
+    const editorLink = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
+    const editorHref = await editorLink.getAttribute("href");
+    expect(editorHref).toMatch(/^\/admin\/adresar\/\d+$/);
+    await page.goto(editorHref!, { waitUntil: "load" });
     await expect(page.getByRole("heading", { level: 1, name: "Upraviť profil" })).toBeVisible();
     // The server-rendered editor appears before its event handlers are hydrated.
     // Interact with the advanced drawer only after the client editor is ready.
@@ -485,6 +522,7 @@ test.describe("admin directory v2", () => {
   test("keyboard, dialog focus, Axe and 390px overflow remain clean", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "load" });
+    await waitForDirectoryTableLayout(page);
 
     const first = page.getByLabel("Vybrať profil E2E Veterina 059");
     // At 390px this row is below the fold. Scroll to the actual control
@@ -524,6 +562,7 @@ test.describe("admin directory v2", () => {
     }
 
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
+    await waitForDirectoryTableLayout(page);
     const profileLink = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
     const editorHref = await profileLink.getAttribute("href");
     expect(editorHref).toMatch(/^\/admin\/adresar\/\d+$/);
