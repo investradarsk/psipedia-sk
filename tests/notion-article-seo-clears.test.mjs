@@ -157,7 +157,9 @@ test("latest signed SEO edit overrides even a formerly empty Notion field", () =
   const code = await import("node:fs/promises")
     .then(m => m.readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8"));
   assert.match(code, /articleApplySignedFields\(sourcePayload, existing, signedFields\)/);
-  assert.match(code, /changedPropertyIds: event\.data\?\.updated_properties \?\? \[\]/);
+  const dispatch = await import("node:fs/promises")
+    .then(m => m.readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8"));
+  assert.match(dispatch, /changedPropertyIds: event\.data\?\.updated_properties \?\? \[\]/);
 });
 
 test("an invalid Notion field must not masquerade as a deliberate SEO deletion", () => {
