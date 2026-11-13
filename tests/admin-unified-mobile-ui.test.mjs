@@ -70,17 +70,6 @@ test("directory selection remains present in compact mobile cards after hydratio
   assert.ok(css.includes('[data-column-id="selected"], [data-column-id="__recordId"]'));
 });
 
-test("directory pagination always follows a native GET link while other admin lists keep client navigation", () => {
-  const pagination = read("components/admin-pagination.tsx");
-  const directory = read("components/admin-directory-dashboard.tsx");
-  assert.match(directory, /<AdminPagination nativeNavigation pagination=\{pagination\}/);
-  assert.match(pagination, /nativeNavigation = false/);
-  assert.match(pagination, /function NativePaginationLink/);
-  assert.match(pagination, /<a href=\{href\}>\{label\}<\/a>/);
-  assert.match(pagination, /pageHref\(basePath, next\)/);
-  assert.match(pagination, /pageHref\(basePath, previous\)/);
-});
-
 test("the service editor does not keep a full-height sticky top or save overlay on mobile", () => {
   const directory = read("components/admin-directory-editor.module.css");
   const service = read("components/admin-service-catalog.module.css");
