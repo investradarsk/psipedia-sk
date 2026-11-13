@@ -15,6 +15,7 @@ type Props={
   selected:ProfilePart|null;
   onSelect:(part:ProfilePart|null)=>void;
   onChange:(part:ProfilePart,placement:ProfilePlacement)=>void;
+  onLogoInsideChange:(values:Partial<Pick<ProfileLogoOptions,"offsetX"|"offsetY"|"zoom">>)=>void;
 };
 const caption=(value:string,x:number,y:number,width:number,size:number,color:string,align:"left"|"center"="left")=>
   new Konva.Text({text:value,x,y,width,fontSize:size,fontFamily:"Arial",fontStyle:"bold",fill:color,align,wrap:"word",lineHeight:1.1});
@@ -32,65 +33,75 @@ function roundClip(ctx:Konva.Context,w:number,h:number,r:number){
   ctx.lineTo(r,h);ctx.quadraticCurveTo(0,h,0,h-r);
   ctx.lineTo(0,r);ctx.quadraticCurveTo(0,0,r,0);ctx.closePath();
 }
-function addLogo(group:Konva.Group,bitmap:ImageBitmap|null,options:ProfileLogoOptions){
+type LogoMotion={
+  image:Konva.Image|null;
+  guidelines:Konva.Group;
+  baseX:number;
+  baseY:number;
+  width:number;
+  height:number;
+};
+function addLogo(group:Konva.Group,bitmap:ImageBitmap|null,options:ProfileLogoOptions):LogoMotion{
   const size=408,width=options.shape==="rounded"?520:size,height=options.shape==="rounded"?320:size,r=size/2;
   if(options.shape==="circle"){
     group.add(new Konva.Circle({x:r,y:r,radius:r,fill:WHITE,stroke:"#e5dbca",strokeWidth:5}));
   }else if(options.shape!=="none"){
-    group.add(new Konva.Rect({width,height,cornerRadius:options.shape==="rounded"?54:0,fill:WHITE,stroke:"#e5dbca",strokeWidth:5}));
+    group.add(new Konva.Rect({width,height,cornerRadius:options.shape==="rounded"?54:0,
+      fill:WHITE,stroke:"#e5dbca",strokeWidth:5}));
   }
+  // The outside shape is always static. Only the source image inside this
+  // permanent clip can be dragged, zoomed and cropped.
   const clipped=new Konva.Group({
-    clipFunc:options.shape==="none"?undefined:(ctx)=>{
+    clipFunc:(ctx)=>{
       if(options.shape==="circle"){ctx.beginPath();ctx.arc(r,r,r-9,0,Math.PI*2);ctx.closePath();}
       else roundClip(ctx,width,height,options.shape==="rounded"?48:0);
     },
   });
+  let image:Konva.Image|null=null,baseX=0,baseY=0;
   if(bitmap){
     const crop=cropBounds(bitmap.width,bitmap.height,options);
     const factor=Math.min((width-35)/crop.width,(height-35)/crop.height)*options.zoom/100;
     const dw=crop.width*factor,dh=crop.height*factor;
-    const x=(width-dw)/2+options.offsetX*1.4;
-    const y=(height-dh)/2+options.offsetY*1.4;
-    clipped.add(new Konva.Image({
-      image:bitmap,x,y,width:dw,height:dh,
-      cropX:crop.x,cropY:crop.y,cropWidth:crop.width,cropHeight:crop.height,
-    }));
+    baseX=(width-dw)/2;baseY=(height-dh)/2;
+    image=new Konva.Image({
+      image:bitmap,x:baseX+options.offsetX*1.4,y:baseY+options.offsetY*1.4,
+      width:dw,height:dh,cropX:crop.x,cropY:crop.y,cropWidth:crop.width,cropHeight:crop.height,
+      draggable:true,name:"image-inside-fixed-logo-frame",
+    });
+    const movingImage=image;
+    movingImage.dragBoundFunc(next=>{
+      const origin=clipped.getAbsolutePosition();
+      return {
+        x:Math.max(origin.x+baseX-280,Math.min(origin.x+baseX+280,next.x)),
+        y:Math.max(origin.y+baseY-280,Math.min(origin.y+baseY+280,next.y)),
+      };
+    });
+    clipped.add(movingImage);
   }else{
     clipped.add(caption("LOGO PROFILU",44,height/2-20,width-88,36,"#89958d","center"));
   }
+  const guidelines=new Konva.Group({visible:false,listening:false});
+  guidelines.add(new Konva.Line({
+    points:[width/2,0,width/2,height],stroke:"#c93624",strokeWidth:2,dash:[10,8],listening:false,
+  }));
+  guidelines.add(new Konva.Line({
+    points:[0,height/2,width,height/2],stroke:"#c93624",strokeWidth:2,dash:[10,8],listening:false,
+  }));
+  clipped.add(guidelines);
   group.add(clipped);
-  // Transparent logos still need a generous selectable touch target.
-  group.add(new Konva.Rect({width,height,opacity:0.001}));
+  // The outline and its placement never receive any drag/transform handler.
+  return {image,guidelines,baseX,baseY,width,height};
 }
-
-function addBrand(group:Konva.Group,originalIcon:HTMLImageElement|null){
-  if(originalIcon){
-    // This is the exact public/favicon.svg asset, not a reconstructed paw.
-    const naturalWidth=originalIcon.naturalWidth||originalIcon.width;
-    const naturalHeight=originalIcon.naturalHeight||originalIcon.height;
-    const side=Math.min(naturalWidth,naturalHeight);
-    // A viewBox-only SVG may load into a 300x150 browser image; crop its
-    // centered square so the official mark keeps its native proportions.
-    group.add(new Konva.Image({
-      image:originalIcon,x:0,y:0,width:100,height:100,
-      cropX:(naturalWidth-side)/2,cropY:(naturalHeight-side)/2,cropWidth:side,cropHeight:side,
-    }));
-  }else{
-    group.add(new Konva.Rect({width:100,height:100,cornerRadius:28,fill:"#174b38"}));
-    group.add(paw(21,16,64,WHITE));
-  }
-  // Same wordmark segmentation and brand colors as the public header:
-  // <span>psi<span>pedia</span><small>.sk</small></span>.
-  const psi=caption("psi",119,22,155,67,GREEN);psi.letterSpacing(-3);
-  group.add(psi);
-  const pedia=caption("pedia",226,22,274,67,"#b94732");pedia.letterSpacing(-3);
-  group.add(pedia);
-  group.add(caption(".sk",425,37,120,45,"#52665d"));
-  group.add(new Konva.Rect({width:560,height:110,opacity:0.001}));
+function addBrand(group:Konva.Group,officialLogo:HTMLImageElement|null){
+  if(officialLogo)group.add(new Konva.Image({
+    image:officialLogo,x:0,y:0,width:360,height:249,listening:false,
+  }));
+  else group.add(caption("Načítavam logo Psipedia.sk…",0,80,360,30,GREEN,"center"));
+  group.add(new Konva.Rect({width:360,height:249,opacity:0.001}));
 }
 
 export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
-  function FacebookProfileIntroCanvas({name,category,logo,layout,logoOptions,selected,onSelect,onChange},ref){
+  function FacebookProfileIntroCanvas({name,category,logo,layout,logoOptions,selected,onSelect,onChange,onLogoInsideChange},ref){
     const host=useRef<HTMLDivElement>(null),viewport=useRef<HTMLDivElement>(null),stage=useRef<Konva.Stage|null>(null);
     const [brandIcon,setBrandIcon]=useState<HTMLImageElement|null>(null);
     const selectionRef=useRef<ProfilePart|null>(selected);
@@ -98,7 +109,7 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
     useEffect(()=>{
       const image=new Image();
       image.onload=()=>setBrandIcon(image);
-      image.src="/favicon.svg";
+      image.src="/images/psipedia-logo-social.svg";
       return()=>{image.onload=null;};
     },[]);
     useEffect(()=>{
@@ -116,6 +127,20 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
       background.add(new Konva.Path({data:"M0 1113 C250 1043 555 1200 1080 1090 L1080 1350 L0 1350 Z",fill:RED,listening:false}));
       background.add(new Konva.Path({data:"M0 1133 C250 1063 555 1220 1080 1112 L1080 1350 L0 1350 Z",fill:GREEN,listening:false}));
 
+      // Visual-only alignment guides; not part of the exported image.
+      const centerVertical=new Konva.Line({
+        points:[W/2,0,W/2,H],stroke:"#c93624",strokeWidth:2,dash:[13,10],
+        visible:false,listening:false,
+      });
+      const centerHorizontal=new Konva.Line({
+        points:[0,H/2,W,H/2],stroke:"#c93624",strokeWidth:2,dash:[13,10],
+        visible:false,listening:false,
+      });
+      selectionLayer.add(centerVertical,centerHorizontal);
+      const showGuides=(visible:boolean)=>{
+        centerVertical.visible(visible);centerHorizontal.visible(visible);
+        selectionLayer.batchDraw();
+      };
       const nodes={} as Record<ProfilePart,Konva.Group>;
       const add=(id:ProfilePart,width:number,height:number,paint:(group:Konva.Group)=>void)=>{
         const pos=layout[id];
@@ -131,14 +156,29 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         }));
         paint(group);nodes[id]=group;design.add(group);
         group.on("click tap",()=>onSelect(id));
-        group.on("dragend",()=>onChange(id,constrainProfilePlacement({
+        group.on("dragstart",()=>showGuides(true));
+        group.on("dragmove",()=>{
+          const scale=group.scaleX();
+          const centerX=group.x()+width*scale/2;
+          const centerY=group.y()+height*scale/2;
+          if(Math.abs(centerX-W/2)<14)group.x(W/2-width*scale/2);
+          if(Math.abs(centerY-H/2)<14)group.y(H/2-height*scale/2);
+        });
+        group.on("dragend",()=>{
+          showGuides(false);
+          onChange(id,constrainProfilePlacement({
           x:group.x(),y:group.y(),scale:group.scaleX(),
-        })));
-        group.on("transformend",()=>onChange(id,constrainProfilePlacement({
+        }));
+        });
+        group.on("transformstart",()=>showGuides(true));
+        group.on("transformend",()=>{
+          showGuides(false);
+          onChange(id,constrainProfilePlacement({
           x:group.x(),y:group.y(),scale:group.scaleX(),
-        })));
+        }));
+        });
       };
-      add("brand",560,110,group=>addBrand(group,brandIcon));
+      add("brand",360,249,group=>addBrand(group,brandIcon));
       add("intro",844,110,group=>{
         group.add(new Konva.Rect({width:844,height:110,cornerRadius:55,fill:RED}));
         group.add(caption("PREDSTAVUJEME PROFIL",25,29,794,48,WHITE,"center"));
@@ -159,8 +199,36 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         group.add(title);
         group.add(new Konva.Rect({width:956,height:179,opacity:.001}));
       });
-      add("logo",logoOptions.shape==="rounded"?520:408,logoOptions.shape==="rounded"?320:408,
-        group=>addLogo(group,logo,logoOptions));
+      // Fixed frame: never register it through add(), which would make the
+      // circle draggable or transformable. Only the clipped bitmap can move.
+      const logoFrame=new Konva.Group({
+        x:layout.logo.x,y:layout.logo.y,name:"fixed-logo-frame",draggable:false,
+      });
+      const logoMotion=addLogo(logoFrame,logo,logoOptions);
+      logoFrame.on("click tap",()=>onSelect("logo"));
+      design.add(logoFrame);
+      const imageInside=logoMotion.image;
+      if(imageInside){
+        imageInside.on("dragstart",()=>{
+          logoMotion.guidelines.visible(true);
+        });
+        imageInside.on("dragmove",()=>{
+          // Snap the image's center to the fixed mask's center.
+          if(Math.abs(imageInside.x()+imageInside.width()*imageInside.scaleX()/2-logoMotion.width/2)<10)
+            imageInside.x((logoMotion.width-imageInside.width()*imageInside.scaleX())/2);
+          if(Math.abs(imageInside.y()+imageInside.height()*imageInside.scaleY()/2-logoMotion.height/2)<10)
+            imageInside.y((logoMotion.height-imageInside.height()*imageInside.scaleY())/2);
+        });
+        imageInside.on("dragend",()=>{
+          logoMotion.guidelines.visible(false);
+          onLogoInsideChange({
+            offsetX:Math.max(-200,Math.min(200,Math.round(
+              (imageInside.x()-logoMotion.baseX)/1.4))),
+            offsetY:Math.max(-200,Math.min(200,Math.round(
+              (imageInside.y()-logoMotion.baseY)/1.4))),
+          });
+        });
+      }
       add("footer",800,126,group=>{
         group.add(new Konva.Circle({x:56,y:59,radius:56,fill:WHITE}));
         group.add(paw(23,24,67,RED));
@@ -176,7 +244,7 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         boundBoxFunc:(oldBox,nextBox)=>nextBox.width<40||nextBox.height<30?oldBox:nextBox,
       });
       selectionLayer.add(transformer);
-      if(selected&&nodes[selected]){
+      if(selected&&selected!=="logo"&&nodes[selected]){
         transformer.nodes([nodes[selected]]);
         transformer.visible(true);
       }
@@ -186,47 +254,82 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
       let pinchDistance=0,pinchCenter:{x:number;y:number}|null=null;
       s.on("touchmove",event=>{
         if(event.evt.touches.length!==2||!selectionRef.current)return;
-        const g=nodes[selectionRef.current];if(!g)return;
+        const id=selectionRef.current;
+        const item=id==="logo"?imageInside:nodes[id];
+        if(!item)return;
         const [a,b]=[event.evt.touches[0],event.evt.touches[1]];
         if(!a||!b)return;
         const distance=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
         const center={x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2};
         if(pinchDistance&&pinchCenter){
           event.evt.preventDefault();
-          g.stopDrag();
+          item.stopDrag();
           const factor=Math.max(.7,Math.min(1.3,distance/pinchDistance));
-          const scale=Math.max(.3,Math.min(3,g.scaleX()*factor));
+          const low=id==="logo"?40/Math.max(1,logoOptions.zoom):.3;
+          const high=id==="logo"?280/Math.max(1,logoOptions.zoom):3;
+          const scale=Math.max(low,Math.min(high,item.scaleX()*factor));
           const ratio=Math.max(.01,root.getBoundingClientRect().width/W);
-          g.position({x:g.x()+(center.x-pinchCenter.x)/ratio,
-            y:g.y()+(center.y-pinchCenter.y)/ratio});
-          g.scale({x:scale,y:scale});
-          transformer.forceUpdate();selectionLayer.batchDraw();
+          item.position({x:item.x()+(center.x-pinchCenter.x)/ratio,
+            y:item.y()+(center.y-pinchCenter.y)/ratio});
+          item.scale({x:scale,y:scale});
+          if(id==="logo")logoMotion.guidelines.visible(true);
+          else transformer.forceUpdate();
+          selectionLayer.batchDraw();design.batchDraw();
         }
         pinchDistance=distance;pinchCenter=center;
       });
       s.on("touchend",event=>{
         if(pinchDistance&&event.evt.touches.length<2&&selectionRef.current){
-          const id=selectionRef.current,g=nodes[id];
-          if(g)onChange(id,constrainProfilePlacement({x:g.x(),y:g.y(),scale:g.scaleX()}));
+          const id=selectionRef.current;
+          if(id==="logo"&&imageInside){
+            logoMotion.guidelines.visible(false);
+            const zoom=Math.max(40,Math.min(280,Math.round(logoOptions.zoom*imageInside.scaleX())));
+            const baseX=(logoMotion.width-imageInside.width()*imageInside.scaleX())/2;
+            const baseY=(logoMotion.height-imageInside.height()*imageInside.scaleY())/2;
+            onLogoInsideChange({
+              zoom,
+              offsetX:Math.max(-200,Math.min(200,Math.round((imageInside.x()-baseX)/1.4))),
+              offsetY:Math.max(-200,Math.min(200,Math.round((imageInside.y()-baseY)/1.4))),
+            });
+          }else{
+            const g=nodes[id];
+            if(g)onChange(id,constrainProfilePlacement({x:g.x(),y:g.y(),scale:g.scaleX()}));
+          }
         }
         pinchDistance=0;pinchCenter=null;
       });
-      (s as Konva.Stage & {profileTransformer?:Konva.Transformer}).profileTransformer=transformer;
+      (s as Konva.Stage & {
+        profileTransformer?:Konva.Transformer;profileGuides?:Konva.Line[];
+        logoGuides?:Konva.Group;
+      }).profileTransformer=transformer;
+      (s as Konva.Stage & {profileGuides?:Konva.Line[]}).profileGuides=[centerVertical,centerHorizontal];
+      (s as Konva.Stage & {logoGuides?:Konva.Group}).logoGuides=logoMotion.guidelines;
       s.draw();
       return()=>{if(stage.current===s)stage.current=null;s.destroy();root.replaceChildren();};
-    },[name,category,logo,layout,logoOptions,selected,brandIcon,onSelect,onChange]);
+    },[name,category,logo,layout,logoOptions,selected,brandIcon,onSelect,onChange,onLogoInsideChange]);
     useImperativeHandle(ref,()=>({async exportPng(){
       if(!logo)throw Error("Najprv nahraj logo profilu.");
       if(!stage.current)throw Error("Náhľad ešte nie je pripravený.");
+      if(!brandIcon)throw Error("Originálne logo Psipedie sa ešte načítava.");
       const s=stage.current;
       const transformer=(s as Konva.Stage & {profileTransformer?:Konva.Transformer}).profileTransformer;
       const visible=transformer?.visible()??false;
+      const display=s as Konva.Stage & {profileGuides?:Konva.Line[];logoGuides?:Konva.Group};
+      const lines=display.profileGuides||[];
+      const previous=lines.map(line=>line.visible());
+      const logoGuideVisible=display.logoGuides?.visible()??false;
       transformer?.visible(false);
+      lines.forEach(line=>line.visible(false));
+      display.logoGuides?.visible(false);
       try{
         return await new Promise<Blob>((resolve,reject)=>s.toCanvas({pixelRatio:1}).toBlob(
           blob=>blob?resolve(blob):reject(Error("Export PNG sa nepodaril.")),"image/png"));
-      }finally{transformer?.visible(visible);}
-    }}),[logo]);
+      }finally{
+        transformer?.visible(visible);
+        lines.forEach((line,index)=>line.visible(previous[index]??false));
+        display.logoGuides?.visible(logoGuideVisible);
+      }
+    }}),[logo,brandIcon]);
     return <div ref={viewport} style={{width:"100%",position:"relative",overflow:"hidden"}}
       aria-label="Náhľad Predstavujeme profil: prvok presunieš prstom alebo myšou a zmeníš veľkosť rohov či dvoma prstami">
       <div ref={host} style={{width:W,transformOrigin:"top left",touchAction:"none"}}/>
