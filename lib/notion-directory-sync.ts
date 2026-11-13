@@ -518,11 +518,11 @@ function notionProfileProperties(
     "Formát adresy": select(snapshot.addressFormat),
     "Potvrdená prevádzka": checkbox(snapshot.confirmedServiceLocation),
     "Cena / poznámka": richText(snapshot.priceNote),
-    "Web": url(snapshot.websiteUrl),
-    "Telefón": phone(snapshot.publicPhone),
-    "E-mail": email(snapshot.publicEmail),
-    "Facebook": url(snapshot.facebookUrl),
-    "Instagram": url(snapshot.instagramUrl),
+    "Web": richText(snapshot.websiteUrl),
+    "Telefón": richText(snapshot.publicPhone),
+    "E-mail": richText(snapshot.publicEmail),
+    "Facebook": richText(snapshot.facebookUrl),
+    "Instagram": richText(snapshot.instagramUrl),
     "Hlavný obrázok URL": url(snapshot.imageUrl),
     "Kvalita · Telefón": select(qualityStatusToNotion(snapshot.qualityResolutions.phone)),
     "Kvalita · E-mail": select(qualityStatusToNotion(snapshot.qualityResolutions.email)),
@@ -640,8 +640,11 @@ function adaptDirectoryNotionTextProperties(
     const declared = remote[name] as { type?: unknown } | undefined;
     if (declared?.type !== "rich_text") continue;
     const previous = output[name] as {
-      url?: string | null; email?: string | null; phone_number?: string | null;
+      rich_text?: unknown; url?: string | null; email?: string | null; phone_number?: string | null;
     } | undefined;
+    // Contacts now use the same plain-text Notion payload as Popis. Do not
+    // replace an already serialized rich_text value with an empty string.
+    if (Array.isArray(previous?.rich_text)) continue;
     const value = previous?.url ?? previous?.email ?? previous?.phone_number ?? "";
     output[name] = richText(value);
   }
