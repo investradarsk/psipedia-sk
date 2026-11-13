@@ -879,3 +879,17 @@
 
 /* Shared DetailContactsCard supplies visual geometry. Only multiline contact-note formatting is local. */
 .publicContactNote { display:block; margin-bottom:9px; white-space:pre-line; color:var(--detail-ink,#17352b); font-weight:650; overflow-wrap:anywhere; }
+
+/* Lost/found reports use the same roomy two-column desktop cards as foster care. */
+@media (min-width: 961px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Match the compact sans-serif headline of the other Help detail templates. */
+.detail .reportTitle {
+  margin: 8px 0;
+  font-family: inherit;
+  font-size: clamp(1.8rem, 3vw, 2.7rem);
+  font-weight: 820;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
