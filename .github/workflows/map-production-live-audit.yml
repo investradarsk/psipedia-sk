@@ -1,24 +1,8 @@
 name: MAP V1 Live Production Audit
 
+# Real Google Maps JavaScript loads are billable. Run this production audit only
+# after an explicit operator dispatch; PR/main CI uses mock map renderers.
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/map-production-live-audit.yml"
-      - "tests/e2e/map-production-live.spec.ts"
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/map-production-live-audit.yml"
-      - "tests/e2e/map-production-live.spec.ts"
-      - "lib/map-query.ts"
-      - "components/map/**"
-      - "app/mapa/**"
-      - "app/api/map/**"
-      - "lib/google-maps-consent.ts"
-      - "components/google-maps-consent-controls.tsx"
-      - "lib/navigation-store.ts"
-      - "config/runtime-env.ts"
-      - "wrangler.jsonc"
   workflow_dispatch:
 
 concurrency:
@@ -30,9 +14,6 @@ permissions:
 
 jobs:
   live-production-map:
-    # Production uses main, not an unmerged PR. Never bill Google for testing a
-    # PR whose map loader is not deployed to the production URL.
-    if: github.event_name != 'pull_request'
     name: Live production map (${{ matrix.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 35
