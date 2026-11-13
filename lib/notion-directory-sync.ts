@@ -125,7 +125,7 @@ type EditableDirectorySnapshot = {
   slug: string;
   name: string;
   category: string;
-  additionalCategories?: string[];
+  additionalCategories?: import("@/lib/directory").DirectoryCategorySlug[];
   status: "draft" | "published" | "archived";
   excerpt: string;
   description: string;
