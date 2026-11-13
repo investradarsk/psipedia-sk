@@ -108,7 +108,8 @@ test("store treats address quality as non-blocking while retaining hard identity
   assert.match(store, /address: publicAddress/);
   assert.match(store, /if \(!name\) throw new Error\("Doplň názov profilu\."\)/);
   assert.match(store, /if \(!category\) throw new Error\("Vyber kategóriu adresára\."\)/);
-  assert.match(store, /Webová adresa.*musí byť platná adresa začínajúca http:\/\/ alebo https:\/\//);
+  assert.match(store, /website: normalizeOptionalUrl\(value\?\.website, "Webová adresa"\)/);
+  assert.match(store, /musí byť platná adresa začínajúca/);
   assert.match(store, /E-mailová adresa nie je platná/);
   assert.match(store, /function safeDirectoryAddressText/);
   assert.match(store, /typeof value !== "string"/);
