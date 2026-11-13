@@ -115,6 +115,8 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       && notionPageBelongsToDataSource(page, bindings.NOTION_ARTICLES_DATA_SOURCE_ID!)) {
     summary = await runNotionArticleSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
+      changedPropertyIds: event.data?.updated_properties ?? [],
+      eventType: event.type,
     });
   } else if (sameSource(sourceId, bindings.NOTION_ESHOPS_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_ESHOPS_DATA_SOURCE_ID!)) {
