@@ -180,19 +180,19 @@ test("internal discovery controls remain crawlable while directory pagination st
   assert.match(directoryResults, /totalPages=\{\s*result\s*\.totalPages\s*\}/);
   assert.match(
     directoryResults,
-    /previousHref=\{\s*result\s*\.page\s*>\s*1\s*\?\s*directoryPageHref\(\s*basePath,\s*filters,\s*result\s*\.page\s*-\s*1\s*\)\s*:\s*undefined\s*\}/,
+    /previousHref=\{\s*result\s*\.page\s*>\s*1\s*\?\s*directoryPageHref\(\s*basePath,\s*filters,\s*result\s*\.page\s*-\s*1\s*\)\s*\+\s*"#directory-results-heading"\s*:\s*undefined\s*\}/,
   );
   assert.match(
     directoryResults,
-    /nextHref=\{\s*result\s*\.page\s*<\s*result\s*\.totalPages\s*\?\s*directoryPageHref\(\s*basePath,\s*filters,\s*result\s*\.page\s*\+\s*1\s*\)\s*:\s*undefined\s*\}/,
+    /nextHref=\{\s*result\s*\.page\s*<\s*result\s*\.totalPages\s*\?\s*directoryPageHref\(\s*basePath,\s*filters,\s*result\s*\.page\s*\+\s*1\s*\)\s*\+\s*"#directory-results-heading"\s*:\s*undefined\s*\}/,
   );
   assert.match(
     pagination,
-    /<Link\s+href=\{\s*previousHref\s*\}\s+rel="prev"\s+aria-label=\{\s*previousAriaLabel\s*\}>\s*\{\s*previousLabel\s*\}\s*<\/Link>/,
+    /<Link[^>]*href=\{previousHref\} rel="prev" aria-label=\{previousAriaLabel \?\? previousLabel\}>‹<\/Link>/,
   );
   assert.match(
     pagination,
-    /<Link\s+href=\{\s*nextHref\s*\}\s+rel="next"\s+aria-label=\{\s*nextAriaLabel\s*\}>\s*\{\s*nextLabel\s*\}\s*<\/Link>/,
+    /<Link[^>]*href=\{nextHref\} rel="next" aria-label=\{nextAriaLabel \?\? nextLabel\}>›<\/Link>/,
   );
   assert.match(
     relatedEntities,

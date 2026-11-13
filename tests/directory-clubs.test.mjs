@@ -230,7 +230,7 @@ test("migrates club locations idempotently and serves server-filtered, paginated
     d1.queries.length = 0;
     const defaultHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby");
     assert.match(defaultHtml, /248 profilov/);
-    assert.match(defaultHtml, /Strana 1 z 11/);
+    assert.match(defaultHtml, /aria-current="page"[^>]*>1<\/a>/);
     assert.equal((defaultHtml.match(/<a\b[^>]*\bdata-directory-card\b[^>]*>/g) ?? []).length, 24);
     const listQueries = d1.queries.filter(({ sql }) => /FROM directory_profiles/i.test(sql) && /LIMIT \?/i.test(sql));
     assert.ok(listQueries.length >= 1);
@@ -256,7 +256,7 @@ test("migrates club locations idempotently and serves server-filtered, paginated
     const descendingHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby?sort=name-desc");
     assert.ok(descendingHtml.indexOf("klub-248") < descendingHtml.indexOf("klub-247"));
     const pageTwoHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby?q=klub&page=2");
-    assert.match(pageTwoHtml, /Strana 2 z 11/);
+    assert.match(pageTwoHtml, /aria-current="page"[^>]*>2<\/a>/);
     assert.match(pageTwoHtml, /q=klub&amp;page=3/);
 
     const detailHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby/klub-004");
