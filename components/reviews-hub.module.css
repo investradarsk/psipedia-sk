@@ -458,3 +458,40 @@
   .methodGrid p { font-size: .78rem; line-height: 1.45; }
   .serviceLinks { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* Reviews use the exact compact category navigator shared with Pomoc psom:
+   four existing views, no separate large tile implementation. */
+.modeSection {
+  padding-bottom: 18px;
+}
+.reviewCategoryNav {
+  min-width: 0;
+  width: 100%;
+}
+.reviewCategoryNav :global([data-public-subcategory-track]) {
+  width: 100%;
+  max-width: 100%;
+  padding-inline: 0;
+}
+.reviewCategoryNav :global([data-public-subcategory-item]) {
+  min-height: 52px;
+}
+.section,
+.sectionAlt {
+  border-top: 1px solid rgba(23, 53, 43, .08);
+}
+.sectionFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  min-height: 44px;
+}
+@media (max-width: 620px) {
+  .modeSection { padding-bottom: 12px; }
+  .reviewCategoryNav :global([data-public-subcategory-track]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .sectionFooter { margin-top: 10px; }
+}

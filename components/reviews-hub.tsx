@@ -1,11 +1,12 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
-import { ArrowIcon, BowlIcon, PawMark, SearchIcon } from "@/components/icons";
+import { ArrowIcon, BowlIcon, PawMark, SearchIcon, SparkIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import {
-  PublicCategoryTiles,
+  PublicActionLink,
+  PublicSubcategoryNavigator,
   PublicContentShell,
   PublicContentList,
   PublicContentListItem,
@@ -172,20 +173,30 @@ export async function ReviewsHub({
         >
           <PublicContentShell variant="landing">
             <PublicLandingSectionHeading
-              eyebrow="Vyber si, čo chceš pozrieť"
-              title="Tri hlavné vstupy do recenzií"
-              description="Vyber si články o produktoch, skúsenosti so službami alebo hodnotenia e-shopov."
+              eyebrow="Kategórie recenzií"
+              title="Vyberte, čo chcete pozrieť"
+              description="Vyberte všetky recenzie, produkty, služby alebo e-shopy."
               id="reviews-mode-heading"
             />
-            <PublicCategoryTiles
-              label="Typ recenzií"
+            <PublicSubcategoryNavigator
+              label="Kategórie recenzií a testov"
+              mode="compact"
+              mobileLayout="grid"
+              columns={4}
+              className={styles.reviewCategoryNav}
               items={[
+                {
+                  href: viewHref("all"),
+                  title: "Všetko",
+                  icon: <SparkIcon size={20} />,
+                  current: view === "all",
+                  rel: "nofollow",
+                  prefetch: false,
+                },
                 {
                   href: viewHref("products"),
                   title: "Produkty",
-                  description: "Návody na výber, porovnania aj skutočné redakčné testy produktov pre psy.",
-                  meta: view === "products" ? "Zobrazené" : undefined,
-                  icon: <BowlIcon size={22} />,
+                  icon: <BowlIcon size={20} />,
                   current: view === "products",
                   rel: "nofollow",
                   prefetch: false,
@@ -193,10 +204,7 @@ export async function ReviewsHub({
                 {
                   href: viewHref("services"),
                   title: "Služby",
-                  description:
-                    "Skúsenosti používateľov s veterinármi, trénermi a ďalšími službami.",
-                  meta: view === "services" ? "Zobrazené" : undefined,
-                  icon: <PawMark size={22} />,
+                  icon: <PawMark size={20} />,
                   current: view === "services",
                   rel: "nofollow",
                   prefetch: false,
@@ -204,42 +212,14 @@ export async function ReviewsHub({
                 {
                   href: viewHref("eshops"),
                   title: "E-shopy",
-                  description:
-                    "Jednoduché hodnotenia nákupnej skúsenosti od e-mailom overených používateľov.",
-                  meta: view === "eshops" ? "Zobrazené" : undefined,
-                  icon: <SearchIcon size={22} />,
+                  icon: <SearchIcon size={20} />,
                   current: view === "eshops",
                   rel: "nofollow",
                   prefetch: false,
                 },
               ]}
             />
-            {view !== "all" ? (
-              <div className={styles.allReviewsRow}>
-                <Link href={viewHref("all")} rel="nofollow">Zobraziť všetko</Link>
-              </div>
-            ) : null}
           </PublicContentShell>
-        </section>
-
-        <section className={styles.trustStrip} aria-label="Pravidlá hodnotenia">
-          <PageContainer className={styles.trustGrid}>
-            <div>
-              <strong>Článok alebo test</strong>
-              <span>Skutočný test označujeme iba pri zdokumentovanom fyzickom testovaní; návody a porovnania označujeme samostatne.</span>
-            </div>
-            <div>
-              <strong>Hodnotenia používateľov</strong>
-              <span>
-                Skóre Psipedia vzniká iba z používateľských recenzií a e-shop hodnotení od overených
-                e-mailov.
-              </span>
-            </div>
-            <div>
-              <strong>Externé hodnotenia</strong>
-              <span>Google ani iné externé skóre nikdy nemiešame do priemeru Psipedia.</span>
-            </div>
-          </PageContainer>
         </section>
 
         {showProducts ? (
@@ -253,7 +233,7 @@ export async function ReviewsHub({
                 />
                 {reviewArticles.length ? (
                   <PublicContentList className={styles.articleGrid} label="Najnovšie články o produktoch">
-                    {reviewArticles.slice(0, 3).map((article) => {
+                    {(view === "all" ? reviewArticles.slice(0, 3) : reviewArticles).map((article) => {
                       const category = article.portalSubpage
                         ? subpages.find((item) => item.slug === article.portalSubpage)
                         : null;
@@ -278,7 +258,14 @@ export async function ReviewsHub({
                     </p>
                   </PublicEmptyState>
                 )}
-              </PageContainer>
+                {view === "all" ? (
+                <div className={styles.sectionFooter}>
+                  <PublicActionLink href={viewHref("products")} variant="tertiary" icon={<ArrowIcon size={16} />} rel="nofollow">
+                    Zobraziť všetky články
+                  </PublicActionLink>
+                </div>
+              ) : null}
+            </PageContainer>
             </section>
 
           </>
@@ -318,6 +305,13 @@ export async function ReviewsHub({
                   />
                 ))}
               </div>
+              {view === "all" ? (
+                <div className={styles.sectionFooter}>
+                  <PublicActionLink href={viewHref("services")} variant="tertiary" icon={<ArrowIcon size={16} />} rel="nofollow">
+                    Zobraziť recenzie služieb
+                  </PublicActionLink>
+                </div>
+              ) : null}
             </PageContainer>
           </section>
         ) : null}
@@ -362,9 +356,36 @@ export async function ReviewsHub({
                   <p>Skúste to prosím neskôr.</p>
                 </PublicEmptyState>
               )}
+              {view === "all" ? (
+                <div className={styles.sectionFooter}>
+                  <PublicActionLink href={viewHref("eshops")} variant="tertiary" icon={<ArrowIcon size={16} />} rel="nofollow">
+                    Zobraziť všetky e-shopy
+                  </PublicActionLink>
+                </div>
+              ) : null}
             </PageContainer>
           </section>
         ) : null}
+
+        <section className={styles.trustStrip} aria-label="Pravidlá hodnotenia">
+          <PageContainer className={styles.trustGrid}>
+            <div>
+              <strong>Článok alebo test</strong>
+              <span>Skutočný test označujeme iba pri zdokumentovanom fyzickom testovaní; návody a porovnania označujeme samostatne.</span>
+            </div>
+            <div>
+              <strong>Hodnotenia používateľov</strong>
+              <span>
+                Skóre Psipedia vzniká iba z používateľských recenzií a e-shop hodnotení od overených
+                e-mailov.
+              </span>
+            </div>
+            <div>
+              <strong>Externé hodnotenia</strong>
+              <span>Google ani iné externé skóre nikdy nemiešame do priemeru Psipedia.</span>
+            </div>
+          </PageContainer>
+        </section>
 
         <section className={styles.methodology}>
           <PageContainer>
