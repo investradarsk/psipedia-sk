@@ -92,7 +92,12 @@ test("event type navigation and time filters stay crawlable with the intended tr
     "utf8",
   );
   assert.match(eventsPage, /eventTypePortalHref\(type\)/);
-  assert.doesNotMatch(eventsPage, /PublicSubcategoryNavigator/);
+  // Events now reuse the canonical crawlable category navigator while
+  // preserving the canonical type links from eventTypePortalHref.
+  assert.match(eventsPage, /<PublicSubcategoryNavigator/);
+  assert.match(eventsPage, /items=\{eventTypes\.map\(\(type\) => \(\{/);
+  assert.match(eventsPage, /href: eventTypePortalHref\(type\) \?\? "\/podujatia"/);
+  assert.match(eventsPage, /current: initialType === type/);
   assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
   assert.match(eventsPage, /eventTypePortalHref\(type\)/);
   assert.match(calendar, /data-events-legend/);
