@@ -612,6 +612,17 @@
 }
 
 @media (max-width: 1199px) {
+  :global(#mobile-menu.is-open) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  :global(#mobile-menu.is-open) > :global(nav) {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+  }
+
   :global(#mobile-menu.is-open) > .menuDismissGrip {
     display: flex;
     flex: 0 0 48px;

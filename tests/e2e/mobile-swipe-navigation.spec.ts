@@ -137,10 +137,14 @@ test("mobile dismissal grip stays below the scroll area on 320px, 390px and tabl
     expect(before.focusable).toBe(true);
 
     await nav.locator('[aria-controls="mobile-submenu-steniatka"]').click();
+    await expect(nav.locator('[aria-controls="mobile-submenu-steniatka"]')).toHaveAttribute("aria-expanded", "true");
+    await page.waitForTimeout(210);
+    const afterExpand = await grip.boundingBox();
+    expect(afterExpand).not.toBeNull();
     await nav.evaluate((element) => { element.scrollTop = element.scrollHeight; });
-    const after = await grip.boundingBox();
-    expect(after).not.toBeNull();
-    expect(after!.y, `${width}px: grip moved with the long list`).toBeCloseTo(before.gripTop, 0);
+    const afterScroll = await grip.boundingBox();
+    expect(afterScroll).not.toBeNull();
+    expect(afterScroll!.y, `${width}px: grip scrolled away with the long list`).toBeCloseTo(afterExpand!.y, 0);
     await expect(menu).toHaveClass(/is-open/);
     await grip.focus();
     await page.keyboard.press("Enter");
