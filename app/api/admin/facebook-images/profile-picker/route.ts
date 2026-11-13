@@ -16,7 +16,7 @@ type Group = "directory" | "help" | "events" | "breeds";
 type ScopedCategory = { group: Group; category: string };
 type PickerRow = {
   id: number; title: string; slug: string; detail: string | null; image_url: string | null;
-  source_category?: string; type?: string; fci_group?: number; source_data_json?: string;
+  source_category?: string; type?: string; fci_group?: number;
 };
 type PickerSql = {
   select: string; table: string; where: string; bindings: (string | number)[];
@@ -80,7 +80,7 @@ function pickerSql(scope: ScopedCategory): PickerSql {
     // Keep historical schools discoverable under the canonical Trainers category.
     const schools = scope.category === "treneri";
     return {
-      select: "id, name AS title, slug, city AS detail, image_url, category AS source_category, source_data_json",
+      select: "id, name AS title, slug, city AS detail, image_url, category AS source_category",
       table: "directory_profiles",
       where: schools
         ? "status = 'published' AND category IN ('treneri', 'psie-skoly')"
@@ -140,22 +140,6 @@ function profileUrl(scope: ScopedCategory, row: PickerRow): string {
   if (scope.category === "stratene-psy" || scope.category === "najdene-psy")
     return "/pomoc-psom/" + scope.category + "/" + row.slug;
   return "/pomoc-psom/" + scope.category + "/" + row.slug;
-}
-/** Best-effort optional logo. The D1 directory has no dedicated logo column yet. */
-function directoryLogoUrl(value: string | undefined): string {
-  if(!value)return "";
-  try{
-    const record=JSON.parse(value) as Record<string,unknown>;
-    for(const key of ["Logo URL","Logo Psipedia","logo_url","logoUrl"]){
-      const entry=record[key];
-      const candidate=typeof entry==="string"?entry:
-        entry&&typeof entry==="object"&&"url" in entry?(entry as {url?:unknown}).url:"";
-      if(typeof candidate!=="string")continue;
-      const logo=candidate.trim();
-      if(logo.startsWith("https://")||logo.startsWith("/media/")||logo.startsWith("/images/")||logo.startsWith("/migrated-media/"))return logo;
-    }
-  }catch{/* Legacy source metadata can be empty or non-JSON. */}
-  return "";
 }
 function displayTitle(scope: ScopedCategory, row: PickerRow) {
   if (scope.category === "stratene-psy") return "Stratený pes: " + row.title;
@@ -229,35 +213,13 @@ export async function POST(request: Request) {
     const sourceImage = scope.group === "breeds" ? ownedBreedImage(profile.image_url) : profile.image_url;
     if (sourceImage) {
       try { image = await copyFacebookProfileImage(sourceImage); }
-      catch { imageWarning = "Fotografia profilu sa nepodarila prevziať. Nahraj ju ručne."; }
-    } else imageWarning = "Profil nemá fotografiu. Nahraj ju ručne.";
-    let logo = {imageKey:"",imageUrl:""};
-    let logoWarning = "";
-    let logoSourceType: "separate" | "main-image" | "none" = "none";
-    if(scope.group==="directory"){
-      const logoSource=directoryLogoUrl(profile.source_data_json);
-      if(logoSource){
-        try{
-          logo=await copyFacebookProfileImage(logoSource);
-          logoSourceType="separate";
-        }catch{logoWarning="Samostatné logo sa nepodarilo prevziať.";}
-      }
-    }
-    // The public profile may have a main image without a separate Logo URL.
-    // Reuse its already-copied FB asset rather than incorrectly saying that
-    // the selected profile has no image (or copying it to R2 a second time).
-    // This is an explicit fallback for the profile graphic, not a claim that
-    // the main photo is a standalone company logo.
-    if(!logo.imageKey && image.imageKey){
-      logo=image;
-      logoSourceType="main-image";
-      logoWarning="";
-    }
-    if(!logo.imageKey && !logoWarning)
-      logoWarning="Profil nemá dostupné logo ani hlavnú fotografiu. Nahraj obrázok ručne.";
+      catch { imageWarning = "Hlavný obrázok profilu sa nepodarilo prevziať. Nahraj ho ručne."; }
+    } else imageWarning = "Profil nemá hlavný obrázok. Nahraj ho ručne.";
+    // The profile's canonical image_url is the only image source.
+    // There is no separate required profile logo or second R2 copy.
     return Response.json({
       profile: { id: profile.id, title: displayTitle(scope, profile), url: "https://psipedia.sk" + profileUrl(scope, profile) },
-      image, imageWarning, logo, logoWarning, logoSourceType,
+      image, imageWarning,
     }, { headers: NO_STORE });
   } catch {
     return Response.json({ error: "Profil sa nepodarilo načítať." }, {status:503, headers:NO_STORE});

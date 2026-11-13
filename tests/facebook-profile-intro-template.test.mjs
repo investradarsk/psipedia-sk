@@ -4,14 +4,14 @@ import {test} from "node:test";
 
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
-test("profile introduction uses its own photographic-free Konva canvas",()=>{
+test("profile introduction supports the selected main profile image on its own Konva canvas",()=>{
   const canvas=read("components/facebook-profile-intro-canvas.tsx");
   assert.match(canvas,/PREDSTAVUJEME PROFIL/);
-  assert.match(canvas,/LOGO PROFILU/);
+  assert.match(canvas,/OBRÁZOK PROFILU/);
   assert.match(canvas,/Profil nájdeš na/);
   assert.match(canvas,/Psipedia.sk/);
   assert.match(canvas,/W=1080,H=1350/);
-  assert.match(canvas,/if\(!logo\)throw Error\("Najprv nahraj logo profilu."\)/);
+  assert.match(canvas,/if\(!logo\)throw Error\("Najprv nahraj hlavný obrázok profilu."\)/);
   assert.doesNotMatch(canvas,/fotografia psa|dog photo/i);
 });
 
@@ -21,22 +21,24 @@ test("sixth template preserves five existing photo templates",()=>{
     assert.match(editor,new RegExp('id:"'+template+'"'));
   assert.match(editor,/selectedTemplate==="profile"/);
   assert.match(editor,/FacebookProfileIntroCanvas/);
-  assert.match(editor,/initialProfileLogoUrl/);
-  assert.match(editor,/selectedTemplate==="profile"\?!logoReady:!bitmap/);
+  assert.match(editor,/initialProfileImageUrl/);
+  assert.match(editor,/selectedTemplate==="profile"\?!profileImageReady:!bitmap/);
 });
 
-test("picker prefers a separate logo and falls back to the profile's main image",()=>{
+test("picker only uses the canonical main image and never reads a separate logo",()=>{
   const api=read("app/api/admin/facebook-images/profile-picker/route.ts");
   const parent=read("components/admin-facebook-images.tsx");
-  assert.match(api,/function directoryLogoUrl/);
-  assert.match(api,/logo=await copyFacebookProfileImage\(logoSource\)/);
-  assert.match(api,/if\(!logo\.imageKey && image\.imageKey\)/);
-  assert.match(api,/logo=image/);
-  assert.match(api,/logoSourceType="main-image"/);
-  assert.match(api,/image, imageWarning, logo, logoWarning, logoSourceType/);
-  assert.match(parent,/result\.logoSourceType==="main-image"/);
-  assert.match(parent,/initialProfileCategory=\{selectedProfile\?\.category\}/);
-  assert.match(parent,/initialProfileLogoUrl=\{selectedProfile\?\.logoUrl\}/);
+  const editor=read("components/admin-facebook-graphic-editor.tsx");
+  assert.match(api,/sourceImage = scope.group === "breeds"/);
+  assert.match(api,/image = await copyFacebookProfileImage\(sourceImage\)/);
+  assert.match(api,/image, imageWarning,/);
+  assert.doesNotMatch(api,/directoryLogoUrl|logoSourceType|source_data_json|logoWarning/);
+  assert.match(parent,/imageUrl:selectedImage\?\.imageUrl\|\|""/);
+  assert.match(parent,/initialProfileImageUrl=\{selectedProfile\?\.imageUrl\}/);
+  assert.match(parent,/onReloadProfileImage=\{selectedProfile\?reloadSelectedProfileImage:undefined\}/);
+  assert.match(editor,/onReloadProfileImage/);
+  assert.match(editor,/initialProfileImageUrl/);
+  assert.doesNotMatch(parent,/result\.logo\?|result\.logoWarning/);
   assert.match(parent,/setSelectedProfile\(null\)/);
 });
 
@@ -62,9 +64,9 @@ test("logo edits are reversible, allow real wide frames and do not mutate the so
   const editor=read("components/admin-facebook-graphic-editor.tsx");
   const processing=read("components/facebook-profile-logo-processing.ts");
   assert.match(stage,/options.shape==="rounded"\?520:408/);
-  assert.match(editor,/Znova načítať logo z profilu/);
+  assert.match(editor,/Znova načítať hlavný obrázok z profilu/);
   assert.match(editor,/Automatický výrez okrajov/);
-  assert.match(editor,/Odstrániť jednoliate biele pozadie loga/);
+  assert.match(editor,/Odstrániť jednoliate biele pozadie obrázka/);
   assert.match(editor,/Otvoriť celý náhľad|Zväčšiť náhľad/);
   assert.match(editor,/Späť o krok/);
   assert.match(editor,/Obnoviť pôvodné rozloženie/);
