@@ -377,6 +377,25 @@ export async function PUT(request: Request, { params }: Props) {
         }
       }
     }
+    // Record whether an edited contact already differs immediately after the
+    // canonical D1 save, before any Notion network round-trips. This separates
+    // a D1 persistence issue from a later incoming webhook overwriting a value.
+    // Log only field names, never the user's contact values.
+    const editedContactPaths = (editedPaths ?? []).filter(
+      (path): path is typeof DIRECTORY_CONTACT_EDITORIAL_PATHS[number] =>
+        (DIRECTORY_CONTACT_EDITORIAL_PATHS as readonly string[]).includes(path),
+    );
+    const beforeNotionContactProfile = editedContactPaths.length
+      ? await getManagedDirectoryProfileById(id, db) : null;
+    const contactMismatchesBeforeNotion = beforeNotionContactProfile
+      ? directoryEditedFieldMismatches({
+          submitted: payload,
+          persisted: beforeNotionContactProfile,
+          editedPaths: editedContactPaths,
+        }) : [];
+    if (contactMismatchesBeforeNotion.length) {
+      console.warn("DIRECTORY_CONTACT_D1_MISMATCH_BEFORE_NOTION", id, contactMismatchesBeforeNotion);
+    }
     // Saving a profile never triggers a paid Google Places search.
     // Only the just-saved linked profile is reconciled. This does not run an
     // entire directory scan, trigger Services V3 or affect Facebook images.
@@ -554,7 +573,12 @@ export async function PUT(request: Request, { params }: Props) {
     );
     if (unconfirmedEditorial.length || unconfirmedTrust.length) {
       const fields = [...unconfirmedEditorial, ...unconfirmedTrust];
-      console.warn("DIRECTORY_FIELDS_D1_SAVE_NOT_CONFIRMED", id, fields);
+      console.warn("DIRECTORY_FIELDS_D1_SAVE_NOT_CONFIRMED", id, fields, {
+        contactMismatchesBeforeNotion,
+        contactMismatchAfterNotion: unconfirmedEditorial.filter(
+          path => (DIRECTORY_CONTACT_EDITORIAL_PATHS as readonly string[]).includes(path),
+        ),
+      });
       return Response.json({
         error: "Niektoré upravené polia sa v Admine neuložili (" +
           fields.join(", ") + "). Obnov profil a zopakuj konkrétnu úpravu.",
