@@ -617,6 +617,14 @@
 }
 
 @media (max-width: 1199px) {
+  /* The bottom grip is a sibling of nav: don't leave a collapsed nav row
+     occupying space or trapping focus after the drawer closes. */
+  .mobileMenuShell:not(:global(.is-open)) {
+    display: none;
+  }
+}
+
+@media (max-width: 1199px) {
   .mobileMenuShell:global(#mobile-menu.is-open) {
     display: flex;
     flex-direction: column;

@@ -147,7 +147,7 @@ test("shared context pagination preserves native query links, search slots and r
   });
   assert.match(html, /aria-current="page">Strana 1 z 3<\/span>/);
   assert.match(html, /href="\/hladat\?q=pes&amp;lokalita=Nitra&amp;page=2" rel="next"/);
-  assert.match(html, /aria-label="Nasledujúca"/);
+  assert.match(html, /aria-label="Ďalšia →"/);
   assert.doesNotMatch(html, /<strong|aria-disabled/);
   const review = render(states.PublicPagination, {
     variant: "context",
