@@ -78,7 +78,7 @@ function addLogo(group:Konva.Group,bitmap:ImageBitmap|null,options:ProfileLogoOp
     });
     clipped.add(movingImage);
   }else{
-    clipped.add(caption("LOGO PROFILU",44,height/2-20,width-88,36,"#89958d","center"));
+    clipped.add(caption("OBRÁZOK PROFILU",44,height/2-20,width-88,36,"#89958d","center"));
   }
   const guidelines=new Konva.Group({visible:false,listening:false});
   guidelines.add(new Konva.Line({
@@ -308,7 +308,7 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
       return()=>{if(stage.current===s)stage.current=null;s.destroy();root.replaceChildren();};
     },[name,category,logo,layout,logoOptions,selected,brandIcon,onSelect,onChange,onLogoInsideChange]);
     useImperativeHandle(ref,()=>({async exportPng(){
-      if(!logo)throw Error("Najprv nahraj logo profilu.");
+      if(!logo)throw Error("Najprv nahraj hlavný obrázok profilu.");
       if(!stage.current)throw Error("Náhľad ešte nie je pripravený.");
       if(!brandIcon)throw Error("Originálne logo Psipedie sa ešte načítava.");
       const s=stage.current;

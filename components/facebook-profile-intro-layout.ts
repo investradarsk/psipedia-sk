@@ -18,7 +18,7 @@ export const PROFILE_PARTS:{id:ProfilePart;label:string}[]=[
   {id:"intro",label:"Predstavujeme profil"},
   {id:"category",label:"Kategória"},
   {id:"name",label:"Názov profilu"},
-  {id:"logo",label:"Logo prevádzky"},
+  {id:"logo",label:"Hlavný obrázok profilu"},
   {id:"footer",label:"Spodný text"},
 ];
 export const DEFAULT_PROFILE_LAYOUT:ProfileLayout={
