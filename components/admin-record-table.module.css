@@ -183,3 +183,28 @@
     white-space: normal;
   }
 }
+
+
+/* Mobile select-all is a real, visible control above card rows. The hidden
+   desktop table header must never be the only selection affordance on phones. */
+.mobileSelectAll { display: none; }
+@media (max-width: 700px) {
+  .workspace[data-mobile-focus="true"] .mobileSelectAll {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.3rem;
+    border: 1px solid #cbdad0;
+    border-radius: 9px;
+    background: #f4f8f5;
+  }
+  .mobileSelectAll input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+  }
+  .mobileSelectAll:focus-within { outline: 3px solid #a26a1b; outline-offset: 2px; }
+}
