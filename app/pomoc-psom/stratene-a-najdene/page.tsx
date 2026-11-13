@@ -5,6 +5,7 @@ import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectio
 import { StructuredData } from "@/components/structured-data";
 import { PublicHelpPhotoBanner, lostFoundSubmitPromo } from "@/components/public-visual-system/public-help-banner";
 import { listPublicDogReports } from "@/lib/lost-found-dog-store";
+import { activeDogReportCountNoun } from "@/lib/lost-found-dogs";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { buildPageMetadata } from "@/lib/seo";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
@@ -59,7 +60,7 @@ export default async function LostFoundHubPage() {
               title="Stratené a nájdené psy"
               intro="Vyberte správny prehľad podľa toho, či psa hľadáte alebo ste ho našli."
               visual={heroVisual}
-              metaSlot={<span><strong>{lost.total + found.total}</strong> aktívnych hlásení</span>}
+              metaSlot={<span><strong>{lost.total + found.total}</strong> {activeDogReportCountNoun(lost.total + found.total)}</span>}
             />
           </UnifiedSectionHeroShell>
 
