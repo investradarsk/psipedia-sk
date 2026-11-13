@@ -56,7 +56,7 @@ import { reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedP
 import { readNotionFieldAuthorities, NOTION_AUTHORITY_GROUPS } from "@/lib/notion-field-authority";
 import { planOwnerDirectedFields, type ManualFieldDirection } from "@/lib/notion-manual-transfer-plan";
 import {
-  BREEDER_NOTION_EDITORIAL_FIELDS, DIRECTORY_CONTACT_EDITORIAL_PATHS, breederAdminChangedFields,
+  BREEDER_NOTION_EDITORIAL_FIELDS, DIRECTORY_CONTACT_EDITORIAL_PATHS, directoryContactNotionBlankWouldEraseAdmin, breederAdminChangedFields,
   breederNotionChangedFields, breederApplyNotionChanges, breederReadPath,
   breederPreserveUneditedFields, type BreederEditorialField,
 } from "@/lib/notion-breeder-field-events";
@@ -1598,6 +1598,7 @@ async function syncBreederEvent(input: {
     let current = input.profile;
     let updated = false;
     const failures: string[] = [];
+    const nonDestructiveContactRepairs: BreederEditorialField[] = [];
     for (const path of paths) {
       // A signed property name by itself is not the property value. A partial
       // Notion GET must not translate an absent field into an empty-string
@@ -1611,6 +1612,14 @@ async function syncBreederEvent(input: {
       // Place ID, geo_points coordinates or paid-provider verification.
       const before = profileSnapshot(current) as unknown as Record<string, unknown>;
       const desired = breederApplyNotionChanges(before, fromNotion, [path]);
+      // An empty Notion echo must not erase an already committed D1 contact.
+      // Repair the remote copy from the current Admin value instead.
+      if (directoryContactNotionBlankWouldEraseAdmin(
+        path, breederReadPath(before, path), breederReadPath(fromNotion, path),
+      )) {
+        nonDestructiveContactRepairs.push(path);
+        continue;
+      }
       if (JSON.stringify(breederReadPath(before, path)) ===
           JSON.stringify(breederReadPath(desired, path))) continue;
       try {
@@ -1738,6 +1747,20 @@ async function syncBreederEvent(input: {
         console.warn("BREEDER_RELATION_TEXT_SYNC_SKIPPED", input.profile.id, error);
       }
     }
+    if (nonDestructiveContactRepairs.length) {
+      try {
+        // Re-use the verified Admin→Notion contact writeback, never a
+        // record-wide reconciliation. One batch PATCH with per-field fallback.
+        await syncBreederEvent({
+          database, bindings, page, profile: current,
+          adminChangedFields: nonDestructiveContactRepairs,
+        });
+      } catch (error) {
+        console.error("DIRECTORY_CONTACT_NOTION_REPAIR_PENDING", current.id,
+          nonDestructiveContactRepairs, error);
+        failures.push(...nonDestructiveContactRepairs);
+      }
+    }
     if (failures.length) {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
@@ -1756,7 +1779,8 @@ async function syncBreederEvent(input: {
     } : {
       "Posledný sync": date(now),
     });
-    return updated || relationsUpdated || facetsUpdated || trustUpdated || pilotMetaUpdated ? "pulled" : "unchanged";
+    return updated || relationsUpdated || facetsUpdated || trustUpdated || pilotMetaUpdated
+      ? "pulled" : nonDestructiveContactRepairs.length ? "pushed" : "unchanged";
   }
 
   const fields = (input.adminChangedFields ?? []).filter(
