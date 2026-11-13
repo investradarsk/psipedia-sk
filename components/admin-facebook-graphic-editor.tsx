@@ -24,7 +24,7 @@ const TEMPLATES: { id: Template; name: string; description: string }[] = [
   {id:"profile",name:"06 · Predstavujeme profil",description:"Jednotná grafika s logom prevádzky, bez fotografie"},
 ];
 const MAX_BYTES = 8 * 1024 * 1024;
-const PROFILE_LAYOUT_KEY="psipedia-facebook-profile-intro-v2";
+const PROFILE_LAYOUT_KEY="psipedia-facebook-profile-intro-v3";
 async function loadProfileLogoFile(source:string,signal?:AbortSignal):Promise<File>{
   const url=new URL(source,window.location.origin);
   if(url.origin!==window.location.origin||!url.pathname.startsWith("/media/facebook-images/"))
@@ -128,6 +128,9 @@ export function AdminFacebookGraphicEditor({
     setProfileHistory(old=>[{layout:profileLayout,options:profileOptions},...old].slice(0,20));
     setProfileLayout(old=>({...old,[part]:constrainProfilePlacement(placement)}));
   },[profileLayout,profileOptions]);
+  const changeLogoInside=useCallback((values:Partial<Pick<ProfileLogoOptions,"offsetX"|"offsetY"|"zoom">>)=>{
+    setProfileOptions(old=>({...old,...values}));
+  },[]);
   const changeProfileOption=<K extends keyof ProfileLogoOptions>(key:K,value:ProfileLogoOptions[K])=>{
     saveProfileHistory();
     setProfileOptions(old=>({...old,[key]:value}));
@@ -373,7 +376,7 @@ export function AdminFacebookGraphicEditor({
               {part.label}
             </button>)}
           </div>
-          {selectedProfilePart&&<div className={styles.profileAdjust}>
+          {selectedProfilePart&&selectedProfilePart!=="logo"&&<div className={styles.profileAdjust}>
             <strong>{PROFILE_PARTS.find(p=>p.id===selectedProfilePart)?.label}</strong>
             <label>Veľkosť · {Math.round(profileLayout[selectedProfilePart].scale*100)} %
               <input type="range" min="30" max="300" step="5"
@@ -395,6 +398,10 @@ export function AdminFacebookGraphicEditor({
                 })}/>
             </label>
           </div>}
+          {selectedProfilePart==="logo"&&<p className={styles.hint}>
+            Rámik loga je pevný. Prstom alebo myšou posúvaš iba obrázok vnútri;
+            dvojprstovým gestom ho zväčšíš. Obrázok zostáva orezaný v kruhu.
+          </p>}
           <div className={styles.profileTools}>
             <button type="button" disabled={!profileHistory.length} onClick={undoProfileChange}>Späť o krok</button>
             <button type="button" onClick={resetProfileLayout}>Obnoviť pôvodné rozloženie</button>
@@ -418,11 +425,11 @@ export function AdminFacebookGraphicEditor({
           </label>
           <div className={styles.dual}>
             <label>Posun loga vodorovne · {profileOptions.offsetX}
-              <input type="range" min="-100" max="100" value={profileOptions.offsetX}
+              <input type="range" min="-200" max="200" value={profileOptions.offsetX}
                 onChange={e=>changeProfileOption("offsetX",Number(e.target.value))}/>
             </label>
             <label>Posun loga zvisle · {profileOptions.offsetY}
-              <input type="range" min="-100" max="100" value={profileOptions.offsetY}
+              <input type="range" min="-200" max="200" value={profileOptions.offsetY}
                 onChange={e=>changeProfileOption("offsetY",Number(e.target.value))}/>
             </label>
           </div>
@@ -538,7 +545,7 @@ export function AdminFacebookGraphicEditor({
             ?<FacebookProfileIntroCanvas ref={previewRef} name={settings.title} category={profileCategory}
               logo={displayLogoBitmap} layout={profileLayout} logoOptions={profileOptions}
               selected={selectedProfilePart} onSelect={setSelectedProfilePart}
-              onChange={changeProfilePlacement}/>
+              onChange={changeProfilePlacement} onLogoInsideChange={changeLogoInside}/>
             :<FacebookKonvaCanvas ref={previewRef} settings={settings} bitmap={bitmap} onMove={onMove} onWarning={setQualityWarning}/>}
         </div>
         <p className={styles.note}>{selectedTemplate==="profile"?(profileLogoBitmap?"Náhľad zodpovedá výslednému PNG.":"Nahraj logo profilu na dokončenie grafiky."):(bitmap?"Náhľad zodpovedá výslednému PNG.":"Nahraj fotografiu na dokončenie grafiky.")}</p>
