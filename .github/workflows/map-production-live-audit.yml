@@ -30,6 +30,9 @@ permissions:
 
 jobs:
   live-production-map:
+    # Production uses main, not an unmerged PR. Never bill Google for testing a
+    # PR whose map loader is not deployed to the production URL.
+    if: github.event_name != 'pull_request'
     name: Live production map (${{ matrix.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 35
