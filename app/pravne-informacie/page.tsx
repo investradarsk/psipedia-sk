@@ -29,6 +29,7 @@ export default async function LegalInformationPage() {
   return (
     <main id="obsah">
       <UniversalPageHero
+        variant="compact"
         eyebrow="Transparentnosť"
         title="Prevádzkovateľ a právne informácie"
         intro="Psipedia.sk je slovenský odborný a informačný portál o psoch. Na tejto stránke nájdeš údaje o jeho prevádzkovateľovi a základné právne informácie."
@@ -36,11 +37,11 @@ export default async function LegalInformationPage() {
       <section className="prose-page legal-page">
 
       <div className="legal-status-note">
-        <strong>Pilotná prevádzka</strong>
+        <strong>Ako funguje portál</strong>
         <p>
-          Psipedia.sk je v súčasnosti nekomerčný projekt prevádzkovaný fyzickou osobou –
-          nepodnikateľom. Portál neprevádzkuje internetový obchod, nepredáva produkty a neposkytuje
-          platené používateľské účty.
+          Psipedia.sk je informačný portál o psoch, nie internetový obchod. Bežné čítanie
+          nevyžaduje registráciu. Partner účet slúži na správu profilov a podujatí;
+          jeho vytvorenie samo osebe nepriznáva právo spravovať konkrétny profil.
         </p>
       </div>
 
@@ -139,7 +140,7 @@ export default async function LegalInformationPage() {
         úložiska je vysvetlené na stránke <Link href="/cookies">Cookies a lokálne úložisko</Link>.
       </p>
 
-      <p className="legal-updated">Aktualizované 12. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 13. novembra 2026.</p>
       </section>
     </main>
   );

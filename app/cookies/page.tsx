@@ -16,9 +16,10 @@ export default function CookiesPage() {
   return (
     <main id="obsah">
       <UniversalPageHero
+        variant="compact"
         eyebrow="Tvoje zariadenie"
         title="Cookies a lokálne úložisko"
-        intro="Psipedia.sk používa nevyhnutné technické údaje a lokálne úložisko. Google Analytics 4 sa spustí iba vtedy, keď návštevník analytiku výslovne povolí. Prípadné reklamné technológie tretích strán sa spustia až po príslušnom súhlase."
+        intro="Na chod stránky používame nevyhnutné technické údaje. Analytiku zapneme iba s tvojím súhlasom a reklamné cookies tretích strán až po samostatnom povolení."
       />
       <section className="prose-page legal-page">
 
@@ -26,67 +27,51 @@ export default function CookiesPage() {
         Nevyhnutné technológie
       </PublicHeading>
       <p>
-        Hosting a bezpečnostná vrstva môžu používať krátkodobé technické cookies alebo obdobné údaje
-        potrebné na doručenie stránky, ochranu pred zneužitím a bezpečnú prevádzku. Tieto
-        technológie sa nepoužívajú na reklamné profilovanie.
+        Základné cookies pomáhajú bezpečne zobrazovať stránku a chrániť ju pred zneužitím.
+        Fungujú aj bez súhlasu s analytikou a nepoužívame ich na reklamné profilovanie.
       </p>
-
       <PublicHeading role="section" as="h2">
         Voľba analytiky
       </PublicHeading>
       <p>
-        Informáciu o tom, či si analytiku prijal alebo odmietol, ukladáme v lokálnom úložisku
-        prehliadača pod názvom <code>psipedia-cookie-consent</code>. Vďaka tomu sa na rovnakú voľbu
-        nemusíme pýtať pri každom otvorení stránky.
+        Tvoj výber si uložíme v prehliadači, aby sme sa naň nemuseli pýtať pri každej návšteve.
+        Súhlas môžeš kedykoľvek zmeniť.
       </p>
-
       <PublicHeading role="section" as="h2">
         Obľúbené články
       </PublicHeading>
       <p>
-        Keď si výslovne uložíš článok medzi obľúbené, jeho adresa sa uloží do lokálneho úložiska
-        prehliadača pod názvom <code>psipedia-favorites</code>. Zoznam zostáva v danom zariadení,
-        neobsahuje tvoje meno ani e-mail a Psipedia ho neposiela na server.
+        Ak si uložíš článok medzi obľúbené, jeho odkaz zostáva v tomto prehliadači.
+        Zoznam neobsahuje tvoje meno ani e-mail a automaticky ho neposielame na server.
       </p>
       <PrivacyControls />
-
       <PublicHeading role="section" as="h2">
         Google Analytics 4
       </PublicHeading>
       <p>
-        So súhlasom návštevníka používame službu Google Analytics 4 od spoločnosti Google Ireland
-        Limited na súhrnné meranie návštevnosti a používania portálu. Identifikátor merania je{" "}
-        <code>G-Z6KV64S2CK</code>. Google Analytics sa pred prijatím analytiky nenačíta.
+        Ak povolíš analytiku, Google Analytics 4 nám pomôže zistiť, koľko ľudí web navštevuje
+        a ktoré stránky čítajú. Bez tvojho súhlasu sa služba nenačíta.
       </p>
       <p>
-        Pri povolenej analytike môžu byť spracúvané údaje o navštívenej stránke, čase návštevy,
-        zariadení, prehliadači, približnej geografickej oblasti a interakciách. Nepoužívame Google
-        Signals ani reklamné personalizačné signály.
+        Pri povolení môže Google spracúvať údaje o navštívených stránkach, čase návštevy,
+        zariadení, prehliadači a približnej oblasti. Môže používať analytické cookies, napríklad
+        <code>_ga</code>. Nepoužívame Google Signals ani reklamné personalizačné signály.
       </p>
-      <p>
-        Po povolení môže Google Analytics používať analytické cookies, napríklad <code>_ga</code> a{" "}
-        <code>_ga_*</code>.
-      </p>
-
       <PublicHeading role="section" as="h2">
         Google Maps
       </PublicHeading>
       <p>
-        Na stránke Mapa Psipedie môžeš samostatne povoliť interaktívny mapový podklad Google Maps.
-        Pred týmto výslovným povolením Psipedia Google Maps JavaScript nenačíta a textové výsledky
-        mapy zostávajú dostupné bez neho.
+        Interaktívnu mapu Google Maps načítame až po tvojom samostatnom povolení.
+        Bez neho zostane dostupný textový zoznam výsledkov mapy.
       </p>
       <p>
-        Po povolení prehliadač nadviaže spojenie so službou Google Maps. Google môže pri poskytovaní
-        mapy spracúvať technické údaje potrebné na doručenie služby, napríklad IP adresu, informácie
-        o prehliadači a súradnice zobrazovanej mapovej oblasti, podľa svojich podmienok a zásad
-        ochrany súkromia. Psipedia neodosiela Google súkromné geo polohy ani nepoužíva Google Places
-        alebo browser geocoding.
+        Po povolení môže Google spracúvať technické údaje, napríklad IP adresu,
+        informácie o prehliadači a zobrazovanú oblasť mapy. Psipedia neposiela Google
+        tvoju súkromnú polohu.
       </p>
       <p>
-        Voľbu ukladáme lokálne pod názvom <code>psipedia-google-maps-consent</code>. Môžeš ju
-        kedykoľvek odvolať nižšie; po odvolaní stránku obnovíme, aby sa ďalší Google mapový podklad
-        nenačítaval.
+        Tvoju voľbu si prehliadač zapamätá. Nižšie ju môžeš odvolať; stránka sa
+        následne obnoví.
       </p>
       <GoogleMapsConsentControls />
       <p>
@@ -98,53 +83,46 @@ export default function CookiesPage() {
           Zásady ochrany súkromia Google
         </a>
       </p>
-
       <PublicHeading role="section" as="h2">
         Reklamné technológie tretích strán
       </PublicHeading>
       <p>
-        Technická architektúra Psipedie umožňuje v budúcnosti zapnúť programmatic reklamu
-        samostatnou konfiguráciou. Kým nie je táto integrácia nakonfigurovaná platným publisher
-        identifikátorom, reklamný skript sa nenačíta. Ak bude integrácia zapnutá, načítanie
-        third-party reklamného skriptu bude vyžadovať samostatnú voľbu reklamných cookies; samotný
-        súhlas s analytikou na to nestačí.
+        Reklamné cookies externých partnerov použijeme iba vtedy, ak je taká reklama zapnutá
+        a ty ju samostatne povolíš. Súhlas s analytikou sám osebe nestačí.
       </p>
       <p>
-        Priame first-party kampane môžu byť vykreslené bez third-party reklamného skriptu. Taký
-        obsah je na stránke jasne označený ako <strong>Reklama</strong>; zvýraznený canonical profil
-        alebo listing ako <strong>Sponzorované</strong>. First-party meranie zobrazení a kliknutí sa
-        odosiela iba pri povolenej analytike alebo reklamných cookies.
+        Na webe sa môžu zobrazovať aj reklamy bez cookies externých partnerov.
+        Platené umiestnenia označujeme ako <strong>Reklama</strong> alebo
+        <strong> Sponzorované</strong>. Zobrazenia a kliknutia meriame iba pri povolenej
+        analytike alebo reklamných cookies.
       </p>
-
       <PublicHeading role="section" as="h2">
-        Prihlásenie a budúce používateľské účty
+        Partner účet a prihlásenie
       </PublicHeading>
       <p>
-        Redakčná administrácia môže používať nevyhnutné autentifikačné alebo bezpečnostné údaje. Ak
-        Psipedia neskôr spustí účty pre veterinárov, salóny, trénerov alebo iných poskytovateľov,
-        nevyhnutné údaje potrebné na prihlásenie, bezpečnosť a udržanie relácie budú patriť medzi
-        technológie potrebné na používateľom vyžiadanú funkciu. Pred verejným spustením účtov tento
-        dokument doplníme o konkrétne používané technológie.
+        Partner účet už slúži poskytovateľom služieb, organizáciám a organizátorom podujatí
+        na správu ich profilov a návrhov. Prihlásiť sa dá heslom alebo jednorazovým odkazom
+        zaslaným e-mailom; prihlásenie cez Google je dostupné, ak je zapnuté.
+        Na bezpečné prihlásenie a udržanie relácie používame nevyhnutné technické cookies.
+        Tie nevyžadujú súhlas s analytikou.
       </p>
-
       <PublicHeading role="section" as="h2">
         Tvoja voľba
       </PublicHeading>
       <p>
-        Analytiku môžeš prijať alebo odmietnuť priamo v ozname. Rozhodnutie môžeš kedykoľvek zmeniť
-        tlačidlom <strong>Nastavenia cookies</strong> v pätičke každej stránky. Odmietnutie
-        analytiky nemá vplyv na používanie verejnej časti portálu.
+        Analytiku a prípadné reklamné cookies môžeš prijať alebo odmietnuť v ozname.
+        Rozhodnutie kedykoľvek zmeníš cez <strong>Nastavenia cookies</strong> v pätičke.
+        Odmietnutie nebráni bežnému používaniu webu.
       </p>
       <p>
-        Pri odvolaní súhlasu Psipedia zakáže ďalšie analytické meranie a pokúsi sa odstrániť
-        analytické cookies vytvorené pre doménu Psipedia.sk.
+        Ak odvoláš súhlas s analytikou, vypneme ďalšie meranie a pokúsime sa odstrániť
+        analytické cookies pre doménu Psipedia.sk.
       </p>
-
       <p>
         Ďalšie informácie o spracúvaní údajov sú v{" "}
         <Link href="/sukromie">zásadách ochrany osobných údajov</Link>.
       </p>
-      <p className="legal-updated">Aktualizované 23. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 13. novembra 2026.</p>
       </section>
     </main>
   );

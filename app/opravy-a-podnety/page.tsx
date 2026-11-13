@@ -15,6 +15,7 @@ export default function CorrectionsPage() {
   return (
     <main id="obsah">
       <UniversalPageHero
+        variant="compact"
         eyebrow="Presnosť obsahu"
         title="Opravy a podnety"
         intro="Ak nájdeš chybný, neaktuálny alebo neúplný údaj, daj nám vedieť. Podnet preveríme a podľa výsledku obsah opravíme alebo doplníme."
@@ -57,14 +58,14 @@ export default function CorrectionsPage() {
       </p>
 
       <PublicHeading role="section" as="h2">
-        Budúce úpravy profilov poskytovateľmi
+        Správa profilov cez Partner účet
       </PublicHeading>
       <p>
-        Psipedia pripravuje možnosť, aby si poskytovatelia služieb mohli po prihlásení navrhovať
-        zmeny svojho profilu. Aj po spustení tejto funkcie bude návrh zmeny pred verejným zobrazením
-        podliehať kontrole a schváleniu Psipediou.
+        Poskytovatelia služieb a organizácie môžu cez{" "}
+        <Link href="/partner/registracia">Partner účet</Link> požiadať o správu svojho profilu
+        a navrhovať jeho úpravy. Oprávnenie na správu sa overuje a návrhy
+        pred zverejnením kontroluje Psipedia.
       </p>
-
       <PublicHeading role="section" as="h2">
         Tip na príbeh alebo zaujímavosť
       </PublicHeading>
@@ -83,7 +84,7 @@ export default function CorrectionsPage() {
         <Link href="/sukromie">Ochrana osobných údajov</Link>.
       </p>
 
-      <p className="legal-updated">Aktualizované 12. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 13. novembra 2026.</p>
       </section>
     </main>
   );
