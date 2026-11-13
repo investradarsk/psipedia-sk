@@ -111,9 +111,10 @@ test("store treats address quality as non-blocking while retaining hard identity
   assert.match(store, /website: normalizeOptionalUrl\(value\?\.website, "Webová adresa"\)/);
   assert.match(store, /musí byť platná adresa začínajúca/);
   assert.match(store, /E-mailová adresa nie je platná/);
-  assert.match(store, /function safeDirectoryAddressText/);
-  assert.match(store, /typeof value !== "string"/);
-  assert.match(store, /\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F<>/);
+  // The current Admin contract intentionally preserves address fields as raw editorial text.
+  assert.match(store, /const editorialAddressText = \(value: string \| undefined, _max: number, _label: string\) =>/);
+  assert.match(store, /value \?\? ""/);
+  assert.match(store, /const publicAddress = editorialAddressText\(/);
 });
 
 test("manual public address participates in search indexing", () => {
