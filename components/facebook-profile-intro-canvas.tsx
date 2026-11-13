@@ -210,20 +210,14 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
       const imageInside=logoMotion.image;
       if(imageInside){
         imageInside.on("dragstart",()=>{
-          onSelect("logo");
           logoMotion.guidelines.visible(true);
         });
         imageInside.on("dragmove",()=>{
-          const midX=logoMotion.baseX+logoMotion.width/2-
-            (logoMotion.width-imageInside.width()*imageInside.scaleX())/2;
-          const midY=logoMotion.baseY+logoMotion.height/2-
-            (logoMotion.height-imageInside.height()*imageInside.scaleY())/2;
           // Snap the image's center to the fixed mask's center.
           if(Math.abs(imageInside.x()+imageInside.width()*imageInside.scaleX()/2-logoMotion.width/2)<10)
             imageInside.x((logoMotion.width-imageInside.width()*imageInside.scaleX())/2);
           if(Math.abs(imageInside.y()+imageInside.height()*imageInside.scaleY()/2-logoMotion.height/2)<10)
             imageInside.y((logoMotion.height-imageInside.height()*imageInside.scaleY())/2);
-          void midX;void midY;
         });
         imageInside.on("dragend",()=>{
           logoMotion.guidelines.visible(false);
@@ -260,47 +254,82 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
       let pinchDistance=0,pinchCenter:{x:number;y:number}|null=null;
       s.on("touchmove",event=>{
         if(event.evt.touches.length!==2||!selectionRef.current)return;
-        const g=nodes[selectionRef.current];if(!g)return;
+        const id=selectionRef.current;
+        const item=id==="logo"?imageInside:nodes[id];
+        if(!item)return;
         const [a,b]=[event.evt.touches[0],event.evt.touches[1]];
         if(!a||!b)return;
         const distance=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
         const center={x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2};
         if(pinchDistance&&pinchCenter){
           event.evt.preventDefault();
-          g.stopDrag();
+          item.stopDrag();
           const factor=Math.max(.7,Math.min(1.3,distance/pinchDistance));
-          const scale=Math.max(.3,Math.min(3,g.scaleX()*factor));
+          const low=id==="logo"?40/Math.max(1,logoOptions.zoom):.3;
+          const high=id==="logo"?280/Math.max(1,logoOptions.zoom):3;
+          const scale=Math.max(low,Math.min(high,item.scaleX()*factor));
           const ratio=Math.max(.01,root.getBoundingClientRect().width/W);
-          g.position({x:g.x()+(center.x-pinchCenter.x)/ratio,
-            y:g.y()+(center.y-pinchCenter.y)/ratio});
-          g.scale({x:scale,y:scale});
-          transformer.forceUpdate();selectionLayer.batchDraw();
+          item.position({x:item.x()+(center.x-pinchCenter.x)/ratio,
+            y:item.y()+(center.y-pinchCenter.y)/ratio});
+          item.scale({x:scale,y:scale});
+          if(id==="logo")logoMotion.guidelines.visible(true);
+          else transformer.forceUpdate();
+          selectionLayer.batchDraw();design.batchDraw();
         }
         pinchDistance=distance;pinchCenter=center;
       });
       s.on("touchend",event=>{
         if(pinchDistance&&event.evt.touches.length<2&&selectionRef.current){
-          const id=selectionRef.current,g=nodes[id];
-          if(g)onChange(id,constrainProfilePlacement({x:g.x(),y:g.y(),scale:g.scaleX()}));
+          const id=selectionRef.current;
+          if(id==="logo"&&imageInside){
+            logoMotion.guidelines.visible(false);
+            const zoom=Math.max(40,Math.min(280,Math.round(logoOptions.zoom*imageInside.scaleX())));
+            const baseX=(logoMotion.width-imageInside.width()*imageInside.scaleX())/2;
+            const baseY=(logoMotion.height-imageInside.height()*imageInside.scaleY())/2;
+            onLogoInsideChange({
+              zoom,
+              offsetX:Math.max(-200,Math.min(200,Math.round((imageInside.x()-baseX)/1.4))),
+              offsetY:Math.max(-200,Math.min(200,Math.round((imageInside.y()-baseY)/1.4))),
+            });
+          }else{
+            const g=nodes[id];
+            if(g)onChange(id,constrainProfilePlacement({x:g.x(),y:g.y(),scale:g.scaleX()}));
+          }
         }
         pinchDistance=0;pinchCenter=null;
       });
-      (s as Konva.Stage & {profileTransformer?:Konva.Transformer}).profileTransformer=transformer;
+      (s as Konva.Stage & {
+        profileTransformer?:Konva.Transformer;profileGuides?:Konva.Line[];
+        logoGuides?:Konva.Group;
+      }).profileTransformer=transformer;
+      (s as Konva.Stage & {profileGuides?:Konva.Line[]}).profileGuides=[centerVertical,centerHorizontal];
+      (s as Konva.Stage & {logoGuides?:Konva.Group}).logoGuides=logoMotion.guidelines;
       s.draw();
       return()=>{if(stage.current===s)stage.current=null;s.destroy();root.replaceChildren();};
     },[name,category,logo,layout,logoOptions,selected,brandIcon,onSelect,onChange,onLogoInsideChange]);
     useImperativeHandle(ref,()=>({async exportPng(){
       if(!logo)throw Error("Najprv nahraj logo profilu.");
       if(!stage.current)throw Error("Náhľad ešte nie je pripravený.");
+      if(!brandIcon)throw Error("Originálne logo Psipedie sa ešte načítava.");
       const s=stage.current;
       const transformer=(s as Konva.Stage & {profileTransformer?:Konva.Transformer}).profileTransformer;
       const visible=transformer?.visible()??false;
+      const display=s as Konva.Stage & {profileGuides?:Konva.Line[];logoGuides?:Konva.Group};
+      const lines=display.profileGuides||[];
+      const previous=lines.map(line=>line.visible());
+      const logoGuideVisible=display.logoGuides?.visible()??false;
       transformer?.visible(false);
+      lines.forEach(line=>line.visible(false));
+      display.logoGuides?.visible(false);
       try{
         return await new Promise<Blob>((resolve,reject)=>s.toCanvas({pixelRatio:1}).toBlob(
           blob=>blob?resolve(blob):reject(Error("Export PNG sa nepodaril.")),"image/png"));
-      }finally{transformer?.visible(visible);}
-    }}),[logo]);
+      }finally{
+        transformer?.visible(visible);
+        lines.forEach((line,index)=>line.visible(previous[index]??false));
+        display.logoGuides?.visible(logoGuideVisible);
+      }
+    }}),[logo,brandIcon]);
     return <div ref={viewport} style={{width:"100%",position:"relative",overflow:"hidden"}}
       aria-label="Náhľad Predstavujeme profil: prvok presunieš prstom alebo myšou a zmeníš veľkosť rohov či dvoma prstami">
       <div ref={host} style={{width:W,transformOrigin:"top left",touchAction:"none"}}/>
