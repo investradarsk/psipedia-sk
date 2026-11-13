@@ -73,7 +73,7 @@ test("fixed logo frame only drags its clipped inner image",()=>{
   const editor=read("components/admin-facebook-graphic-editor.tsx");
   assert.match(stage,/name:"fixed-logo-frame",draggable:false/);
   assert.match(stage,/name:"image-inside-fixed-logo-frame"/);
-  assert.match(stage,/clipFunc:options.shape==="none"\?undefined/);
+  assert.match(stage,/clipFunc:\(ctx\)=>\{/);
   assert.match(stage,/onLogoInsideChange/);
   assert.match(stage,/on\("dragend"/);
   assert.doesNotMatch(stage,/add\("logo"/);
