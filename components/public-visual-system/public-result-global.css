@@ -150,3 +150,8 @@
   color: #8b3126;
   background: #fff1ed;
 }
+
+/* Fragment navigation on help pagination must clear the fixed public header. */
+#help-results-heading {
+  scroll-margin-top: max(120px, calc(var(--psipedia-sticky-header-height, 76px) + 36px));
+}

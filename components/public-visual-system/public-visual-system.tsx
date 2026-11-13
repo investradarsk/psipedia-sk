@@ -395,11 +395,11 @@ export function PublicContentListItem({
   className?: string;
 }) {
   return (
-    <Link
-      className={cx(styles.contentItem, styles.contentItemWithImage, className)}
-      href={href}
-      role="listitem"
-    >
+    <div role="listitem" style={{ minWidth: 0 }}>
+      <Link
+        className={cx(styles.contentItem, styles.contentItemWithImage, className)}
+        href={href}
+      >
       <span className={styles.contentMedia}>
         {image ? (
           <ImageDisplay
@@ -432,7 +432,8 @@ export function PublicContentListItem({
           </span>
         </span>
       </span>
-    </Link>
+      </Link>
+    </div>
   );
 }
 

@@ -55,10 +55,9 @@ test("directory, help, events and breeds use shared visible actions", () => {
     help,
     /<PublicActionButton\s*className=\{\s*styles.searchSubmit\s*\}\s*type="submit">/,
   );
-  assert.match(
-    help,
-    /<PublicActionLink\s*className=\{\s*styles.resetFilters\s*\}\s*variant="tertiary"/,
-  );
+  // Help now has one shared reset in the filter panel, not a duplicate CTA.
+  assert.match(help, /<PublicFilterPanel\s+title="Filtrovať pomoc"\s+resetHref=\{basePath\}/);
+  assert.doesNotMatch(help, /<PublicActionLink\s+className=\{styles\.resetFilters\}/);
   assert.equal(events.match(/<PublicActionButton type="submit">/g)?.length, 2);
   assert.match(breeds, /className="breed-group-cta"/);
   assert.match(breeds, /toggleGroup\(\s*group\s*\.number\s*\)/);

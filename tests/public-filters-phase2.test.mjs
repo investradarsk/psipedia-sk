@@ -18,7 +18,12 @@ test("directory, events, help and breeds display removable URL-backed active fil
   ]) {
     assert.match(src, /<PublicActiveFilters|data-public-active-filters/, name);
     assert.match(src, /<PublicFilterTag[^>]*href=\{\s*clearOneHref\(\s*key\s*\)\s*\}/, name);
-    assert.match(src, /data-public-filter-reset/, name);
+    if (name === "help") {
+      // The shared panel header is the single reset destination for Help.
+      assert.match(src, /<PublicFilterPanel\s+title="Filtrovať pomoc"\s+resetHref=\{basePath\}/);
+    } else {
+      assert.match(src, /data-public-filter-reset/, name);
+    }
   }
   assert.match(
     design,

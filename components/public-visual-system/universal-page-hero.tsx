@@ -22,6 +22,7 @@ export function UniversalPageHero({
   searchHidden = [],
   searchScope,
   allowEmptySearch = false,
+  showSearch = true,
 }: {
   title: ReactNode;
   intro?: ReactNode;
@@ -36,6 +37,8 @@ export function UniversalPageHero({
   searchHidden?: Array<{ name: string; value: string }>;
   searchScope?: string;
   allowEmptySearch?: boolean;
+  /** Form and task pages can keep the hero without a second site-wide search. */
+  showSearch?: boolean;
 }) {
   const visual: ResolvedSectionVisual = {
     visualKey: "detail.public",
@@ -60,7 +63,8 @@ export function UniversalPageHero({
         intro={intro}
         visual={visual}
         mediaSlot={mediaSlot}
-        portalSearchSlot={
+        hideQuickLinks={!showSearch}
+        portalSearchSlot={showSearch ? (
           <HomePortalSearch
             action={searchAction}
             defaultValue={searchDefaultValue}
@@ -68,7 +72,7 @@ export function UniversalPageHero({
             searchScope={searchScope}
             allowEmpty={allowEmptySearch}
           />
-        }
+        ) : null}
       />
     </UnifiedSectionHeroShell>
   );

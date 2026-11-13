@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 function UnavailableState({ security = false }: { security?: boolean }) {
   return (
     <main id="obsah">
-      <UniversalPageHero eyebrow="Pomoc psom" title="Nahlásiť strateného alebo nájdeného psa" intro="Pošli hlásenie o stratenom alebo nájdenom psovi. Záznam sa zobrazí po kontrole." />
+      <UniversalPageHero eyebrow="Pomoc psom" title="Nahlásiť strateného alebo nájdeného psa" intro="Pošli hlásenie o stratenom alebo nájdenom psovi. Záznam sa zobrazí po kontrole." variant="compact" showSearch={false} />
       <div className="page-body shell">
       <section className="article-card article-card--large">
         <div className="article-card-body">
@@ -35,7 +35,7 @@ export default function LostFoundSubmissionPage() {
   if (!siteKey) return <UnavailableState security />;
   return (
     <main id="obsah" className={headerStyles.routeCssAnchor}>
-      <UniversalPageHero eyebrow="Pomoc psom" title="Nahlásiť strateného alebo nájdeného psa" intro="Vyplň hlásenie o psovi. Kontaktné údaje zostanú súkromné a záznam sa zobrazí po kontrole." />
+      <UniversalPageHero eyebrow="Pomoc psom" title="Nahlásiť strateného alebo nájdeného psa" intro="Vyplň hlásenie o psovi. Kontaktné údaje zostanú súkromné a záznam sa zobrazí po kontrole." variant="compact" showSearch={false} />
       <LostFoundSubmissionForm siteKey={siteKey} />
     </main>
   );

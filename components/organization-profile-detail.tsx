@@ -107,6 +107,7 @@ export function OrganizationProfileDetail({
           {publicMap?.items.length ? (
             <PublicLocationMap
               title="Poloha organizácie"
+              compactHeading
               items={publicMap.items}
               attribution={publicMap.attribution}
               googleApiKey={publicMap.googleApiKey}
@@ -179,13 +180,13 @@ export function OrganizationProfileDetail({
 
 
           {presentation.description ? (
-            <DetailSection eyebrow="O organizácii" title="Kto sú a čo robia">
+            <DetailSection compactHeading eyebrow="O organizácii" title="Kto sú a čo robia">
               <DetailParagraphs value={presentation.description} />
             </DetailSection>
           ) : null}
 
           {fundraising.length > 0 ? (
-            <DetailSection eyebrow="Podpora" title="Ako môžete pomôcť">
+            <DetailSection compactHeading eyebrow="Podpora" title="Ako môžete pomôcť">
               <div id="podpora" className={styles.fundraisingGrid} data-organization-fundraising>
                 {fundraising.map((method) => (
                   <article
@@ -221,7 +222,7 @@ export function OrganizationProfileDetail({
           ) : null}
 
           {adoptions.length > 0 ? (
-            <DetailSection eyebrow="Adopcie" title="Psy na adopciu v tejto organizácii">
+            <DetailSection compactHeading eyebrow="Adopcie" title="Psy na adopciu v tejto organizácii">
               <div id="psy-na-adopciu" className={styles.adoptionGrid}>
                 {adoptions.map((adoption) => (
                   <OrganizationAdoptionCard adoption={adoption} key={adoption.id} />
@@ -231,6 +232,7 @@ export function OrganizationProfileDetail({
           ) : null}
 
           <ProfileReviewSection
+            compactHeading
             data={reviews}
             baseHref={`/organizacie/${organization.slug}`}
             readError={reviewReadError}

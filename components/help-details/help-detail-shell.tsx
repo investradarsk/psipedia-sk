@@ -276,6 +276,9 @@ export function HelpProgressCard({ item }: { item: HelpCase }) {
         Stav zbierky
       </PublicHeading>
       <HelpFinancialProgress item={item} />
+      {item.raisedAmount !== null ? (
+        <p className={detailStyles.noteNeutral}>Dátum overenia vyzbieranej sumy zatiaľ nie je evidovaný. Dátum aktualizácie profilu nemusí znamenať kontrolu sumy.</p>
+      ) : null}
     </section>
   );
 }

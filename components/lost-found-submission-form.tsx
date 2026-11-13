@@ -144,9 +144,8 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
       encType="multipart/form-data"
       aria-busy={sending}
     >
-      <header className={styles.header}>
-        <span className="eyebrow">Pomoc psom</span>
-        <h2>Nahlásiť strateného alebo nájdeného psa</h2>
+      <header className={`${styles.header} ${styles.headerCompact}`}>
+        <h2 className="sr-only">Údaje hlásenia</h2>
         <p>Hlásenie pred zverejnením skontrolujeme. Telefón a e-mail sa verejne nezobrazia.</p>
       </header>
 

@@ -27,7 +27,7 @@ type PublicHelpCategorySlug = (typeof helpCategories)[number]["slug"];
 
 function categoryDestination(category: PublicHelpCategorySlug) {
   if (category === "adopcia") return "/pomoc-psom/adopcia";
-  if (category === "stratene-a-najdene") return "/pomoc-psom/stratene-psy";
+  if (category === "stratene-a-najdene") return "/pomoc-psom/stratene-a-najdene";
   return helpCategoryHref({ slug: category });
 }
 

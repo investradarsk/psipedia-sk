@@ -1323,3 +1323,66 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Desktop map-first UI: keep the canonical hero/search on mobile, but skip the
+   duplicate homepage search and give textual results the primary desktop space. */
+@media (min-width: 821px) {
+  .mapIntroHero :global([data-unified-hero-portal-search]) {
+    display: none;
+  }
+}
+@media (min-width: 761px) {
+  .workspace[data-map-activated="false"] {
+    height: auto;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+  }
+  .workspace[data-map-activated="false"] .resultsPanel {
+    height: clamp(440px, 65vh, 680px);
+    border-right: 0;
+    border-bottom: 1px solid var(--map-panel-border);
+  }
+  .workspace[data-map-activated="false"] .resultList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .workspace[data-map-activated="false"] .mapPanel {
+    min-height: 158px;
+    background: transparent;
+  }
+  .workspace[data-map-activated="false"] .mapPanel > :first-child {
+    display: none;
+  }
+  .workspace[data-map-activated="false"] .mapPanel :global([data-public-map-consent]) {
+    max-width: min(calc(100% - 24px), 620px);
+  }
+  .resultLink {
+    color: white;
+    background: var(--forest, #174b38);
+  }
+  .externalMapLink, .navigationLink {
+    min-height: 36px;
+    padding: 5px 8px;
+    font-weight: 650;
+    color: var(--forest, #174b38);
+    background: transparent;
+    border: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .cardFooter { justify-content: flex-start; }
+  .searchField { flex-direction: row; align-items: center; }
+  .searchField input {
+    min-width: 0;
+    min-height: 42px;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+  .searchField input:focus { outline: 0; }
+  .searchField svg { flex: 0 0 19px; }
+}
+@media (min-width: 761px) and (max-width: 960px) {
+  .workspace[data-map-activated="false"] .resultList { grid-template-columns: 1fr; }
+}
