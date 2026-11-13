@@ -408,6 +408,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/partner-auth-method-switcher.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/partner-claim-form.tsx",
       "coverage": "needs-preview"
     },
@@ -630,6 +634,10 @@
     {
       "path": "components/public-visual-system/public-subcategory-navigator.tsx",
       "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-subcategory-paged-track.tsx",
+      "coverage": "needs-preview"
     },
     {
       "path": "components/public-visual-system/public-visual-system.tsx",
