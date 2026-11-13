@@ -111,6 +111,7 @@ export function buildAdoptionCatalogView(items: PublicAdoptionCard[]) {
 export function formatAdoptionCatalogAge(dog: Pick<AdoptionDog, "birthDate" | "approximateAgeMonths">, now = new Date()) {
   const months = adoptionAgeMonths(dog, now);
   if (months === null) return "Vek neuvedený";
+  if (!dog.birthDate && dog.approximateAgeMonths === 0) return "Vek neoverený";
   if (months === 0) return "Menej ako 1 mesiac";
   if (months < 12) return `${months} ${months === 1 ? "mesiac" : months >= 2 && months <= 4 ? "mesiace" : "mesiacov"}`;
   const years = Math.max(1, Math.round(months / 12));
