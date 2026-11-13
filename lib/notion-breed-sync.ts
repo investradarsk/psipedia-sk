@@ -625,6 +625,10 @@ export async function writeBackBreedEditorialToNotion(args:{
     throw new Error("BREED_NOTION_WRITEBACK_IDENTITY_MISMATCH");
   const before=args.baselineSnapshot??breedFieldSnapshot(args.before);
   const after=breedFieldSnapshot(args.breed);
+  // Preserve existing per-field receipts for independently acknowledged writes.
+  const historical=decodeBreedReceipt(mapping.content_hash);
+  const oldNotion=historical.notion??before;
+  const oldAdmin=historical.admin??before;
   const changed=(args.changedFieldKeys??BREED_NOTION_EDITABLE_FIELDS)
     .filter((key):key is BreedNotionField=>BREED_NOTION_EDITABLE_FIELDS.includes(key as BreedNotionField))
     .filter(key=>args.forceFieldKeys?.includes(key)||!sameBreedField(before[key],after[key]));
