@@ -101,3 +101,41 @@ test("Directory editor uses text inputs and does not erase unrelated location da
   }
   assert.doesNotMatch(editor, /inputMode="numeric"/);
 });
+
+test("all five Notion contact properties use the same plain rich-text serializer as Popis", () => {
+  const notion = readFileSync("lib/notion-directory-sync.ts", "utf8");
+  const start = notion.indexOf("function notionProfileProperties(");
+  const end = notion.indexOf("function ", start + 10);
+  assert.ok(start >= 0 && end > start);
+  const serializer = notion.slice(start, end);
+  for (const [property, field] of [
+    ["Web", "websiteUrl"],
+    ["Telefón", "publicPhone"],
+    ["E-mail", "publicEmail"],
+    ["Facebook", "facebookUrl"],
+    ["Instagram", "instagramUrl"],
+  ]) {
+    assert.ok(serializer.includes('"' + property + '": richText(snapshot.' + field + ')'),
+      property + " must accept arbitrary text, including xxx");
+  }
+  assert.ok(serializer.includes('"Popis": richText(snapshot.description)'));
+  const converterStart = notion.indexOf("function adaptDirectoryNotionTextProperties(");
+  const converterEnd = notion.indexOf("async function createNotionPage(", converterStart);
+  const converter = notion.slice(converterStart, converterEnd);
+  assert.match(converter, /Array\.isArray\(previous\?\.rich_text\)\) continue/);
+  assert.match(notion, /adaptDirectoryNotionTextProperties\(\s*\{ \[key\]: allProperties\[key\] \}, page\.properties \?\? \{\}/);
+});
+
+test("literal xxx survives D1 contact encoding for every directory category", () => {
+  for (const category of categories) {
+    const normalized = normalizeManagedDirectoryProfileInput({
+      name: "Test contacts", category, status: "draft",
+      description: "Popis xxx", excerpt: "Perex xxx",
+      websiteUrl: "xxx", publicPhone: "xxx", publicEmail: "xxx",
+      facebookUrl: "xxx", instagramUrl: "xxx",
+    });
+    assert.deepEqual(readDirectoryPublicContacts(normalized.sourceData, normalized.websiteUrl), {
+      phone: "xxx", email: "xxx", website: "xxx", facebook: "xxx", instagram: "xxx",
+    });
+  }
+});
