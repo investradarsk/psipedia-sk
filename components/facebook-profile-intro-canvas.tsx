@@ -15,6 +15,7 @@ type Props={
   selected:ProfilePart|null;
   onSelect:(part:ProfilePart|null)=>void;
   onChange:(part:ProfilePart,placement:ProfilePlacement)=>void;
+  onLogoInsideChange:(values:Partial<Pick<ProfileLogoOptions,"offsetX"|"offsetY"|"zoom">>)=>void;
 };
 const caption=(value:string,x:number,y:number,width:number,size:number,color:string,align:"left"|"center"="left")=>
   new Konva.Text({text:value,x,y,width,fontSize:size,fontFamily:"Arial",fontStyle:"bold",fill:color,align,wrap:"word",lineHeight:1.1});
@@ -32,65 +33,75 @@ function roundClip(ctx:Konva.Context,w:number,h:number,r:number){
   ctx.lineTo(r,h);ctx.quadraticCurveTo(0,h,0,h-r);
   ctx.lineTo(0,r);ctx.quadraticCurveTo(0,0,r,0);ctx.closePath();
 }
-function addLogo(group:Konva.Group,bitmap:ImageBitmap|null,options:ProfileLogoOptions){
+type LogoMotion={
+  image:Konva.Image|null;
+  guidelines:Konva.Group;
+  baseX:number;
+  baseY:number;
+  width:number;
+  height:number;
+};
+function addLogo(group:Konva.Group,bitmap:ImageBitmap|null,options:ProfileLogoOptions):LogoMotion{
   const size=408,width=options.shape==="rounded"?520:size,height=options.shape==="rounded"?320:size,r=size/2;
   if(options.shape==="circle"){
     group.add(new Konva.Circle({x:r,y:r,radius:r,fill:WHITE,stroke:"#e5dbca",strokeWidth:5}));
   }else if(options.shape!=="none"){
-    group.add(new Konva.Rect({width,height,cornerRadius:options.shape==="rounded"?54:0,fill:WHITE,stroke:"#e5dbca",strokeWidth:5}));
+    group.add(new Konva.Rect({width,height,cornerRadius:options.shape==="rounded"?54:0,
+      fill:WHITE,stroke:"#e5dbca",strokeWidth:5}));
   }
+  // The outside shape is always static. Only the source image inside this
+  // permanent clip can be dragged, zoomed and cropped.
   const clipped=new Konva.Group({
     clipFunc:options.shape==="none"?undefined:(ctx)=>{
       if(options.shape==="circle"){ctx.beginPath();ctx.arc(r,r,r-9,0,Math.PI*2);ctx.closePath();}
       else roundClip(ctx,width,height,options.shape==="rounded"?48:0);
     },
   });
+  let image:Konva.Image|null=null,baseX=0,baseY=0;
   if(bitmap){
     const crop=cropBounds(bitmap.width,bitmap.height,options);
     const factor=Math.min((width-35)/crop.width,(height-35)/crop.height)*options.zoom/100;
     const dw=crop.width*factor,dh=crop.height*factor;
-    const x=(width-dw)/2+options.offsetX*1.4;
-    const y=(height-dh)/2+options.offsetY*1.4;
-    clipped.add(new Konva.Image({
-      image:bitmap,x,y,width:dw,height:dh,
-      cropX:crop.x,cropY:crop.y,cropWidth:crop.width,cropHeight:crop.height,
-    }));
+    baseX=(width-dw)/2;baseY=(height-dh)/2;
+    image=new Konva.Image({
+      image:bitmap,x:baseX+options.offsetX*1.4,y:baseY+options.offsetY*1.4,
+      width:dw,height:dh,cropX:crop.x,cropY:crop.y,cropWidth:crop.width,cropHeight:crop.height,
+      draggable:true,name:"image-inside-fixed-logo-frame",
+    });
+    const movingImage=image;
+    movingImage.dragBoundFunc(next=>{
+      const origin=clipped.getAbsolutePosition();
+      return {
+        x:Math.max(origin.x+baseX-280,Math.min(origin.x+baseX+280,next.x)),
+        y:Math.max(origin.y+baseY-280,Math.min(origin.y+baseY+280,next.y)),
+      };
+    });
+    clipped.add(movingImage);
   }else{
     clipped.add(caption("LOGO PROFILU",44,height/2-20,width-88,36,"#89958d","center"));
   }
+  const guidelines=new Konva.Group({visible:false,listening:false});
+  guidelines.add(new Konva.Line({
+    points:[width/2,0,width/2,height],stroke:"#c93624",strokeWidth:2,dash:[10,8],listening:false,
+  }));
+  guidelines.add(new Konva.Line({
+    points:[0,height/2,width,height/2],stroke:"#c93624",strokeWidth:2,dash:[10,8],listening:false,
+  }));
+  clipped.add(guidelines);
   group.add(clipped);
-  // Transparent logos still need a generous selectable touch target.
-  group.add(new Konva.Rect({width,height,opacity:0.001}));
+  // The outline and its placement never receive any drag/transform handler.
+  return {image,guidelines,baseX,baseY,width,height};
 }
-
-function addBrand(group:Konva.Group,originalIcon:HTMLImageElement|null){
-  if(originalIcon){
-    // This is the exact public/favicon.svg asset, not a reconstructed paw.
-    const naturalWidth=originalIcon.naturalWidth||originalIcon.width;
-    const naturalHeight=originalIcon.naturalHeight||originalIcon.height;
-    const side=Math.min(naturalWidth,naturalHeight);
-    // A viewBox-only SVG may load into a 300x150 browser image; crop its
-    // centered square so the official mark keeps its native proportions.
-    group.add(new Konva.Image({
-      image:originalIcon,x:0,y:0,width:100,height:100,
-      cropX:(naturalWidth-side)/2,cropY:(naturalHeight-side)/2,cropWidth:side,cropHeight:side,
-    }));
-  }else{
-    group.add(new Konva.Rect({width:100,height:100,cornerRadius:28,fill:"#174b38"}));
-    group.add(paw(21,16,64,WHITE));
-  }
-  // Same wordmark segmentation and brand colors as the public header:
-  // <span>psi<span>pedia</span><small>.sk</small></span>.
-  const psi=caption("psi",119,22,155,67,GREEN);psi.letterSpacing(-3);
-  group.add(psi);
-  const pedia=caption("pedia",226,22,274,67,"#b94732");pedia.letterSpacing(-3);
-  group.add(pedia);
-  group.add(caption(".sk",425,37,120,45,"#52665d"));
-  group.add(new Konva.Rect({width:560,height:110,opacity:0.001}));
+function addBrand(group:Konva.Group,officialLogo:HTMLImageElement|null){
+  if(officialLogo)group.add(new Konva.Image({
+    image:officialLogo,x:0,y:0,width:340,height:235,listening:false,
+  }));
+  else group.add(caption("Načítavam logo Psipedia.sk…",0,80,340,30,GREEN,"center"));
+  group.add(new Konva.Rect({width:340,height:235,opacity:0.001}));
 }
 
 export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
-  function FacebookProfileIntroCanvas({name,category,logo,layout,logoOptions,selected,onSelect,onChange},ref){
+  function FacebookProfileIntroCanvas({name,category,logo,layout,logoOptions,selected,onSelect,onChange,onLogoInsideChange},ref){
     const host=useRef<HTMLDivElement>(null),viewport=useRef<HTMLDivElement>(null),stage=useRef<Konva.Stage|null>(null);
     const [brandIcon,setBrandIcon]=useState<HTMLImageElement|null>(null);
     const selectionRef=useRef<ProfilePart|null>(selected);
@@ -98,7 +109,7 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
     useEffect(()=>{
       const image=new Image();
       image.onload=()=>setBrandIcon(image);
-      image.src="/favicon.svg";
+      image.src="/images/psipedia-logo-social.svg";
       return()=>{image.onload=null;};
     },[]);
     useEffect(()=>{
