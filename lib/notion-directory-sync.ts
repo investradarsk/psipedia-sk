@@ -788,7 +788,10 @@ function fullProfileInput(
     slug: desired.slug,
     name: desired.name,
     category: desired.category,
-    additionalCategories: desired.additionalCategories ?? [],
+    // Existing mapped profiles accept structural category edits only through the
+    // dedicated webhook or canonical Admin action; ordinary text sync must not
+    // clear an unrelated category selection from a stale Notion page.
+    additionalCategories: current.additionalCategories ?? [],
     status: desired.status === "published" ? "published" : "draft",
     excerpt: desired.excerpt,
     description: desired.description,
