@@ -2,8 +2,6 @@
 
 import {
   useEffect,
-  useLayoutEffect,
-  useSyncExternalStore,
   useRef,
   useState,
   type ChangeEvent,
@@ -55,13 +53,6 @@ const skipLabels: Record<SkipReason, string> = {
 
 const emptySelection: AdminBulkSelectionState = { mode: "explicit", ids: [] };
 
-// React switches this snapshot to true only after it has hydrated the client
-// component. Unlike an effect-driven flag, it cannot enable SSR controls
-// before their onChange handlers are attached.
-const subscribeToHydration = () => () => {};
-const hydratedSnapshot = () => true;
-const serverSnapshot = () => false;
-
 function storageKey(module: string) {
   return `psipedia-admin-bulk-selection:${module}`;
 }
@@ -85,23 +76,12 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   supportsAllMatching?: boolean;
 }) {
   const viewFingerprint = `${membershipFingerprint}|page:${pageIds.join(",")}`;
-  // Never enable SSR checkboxes before React hydrates their onChange handlers.
-  // An early click would otherwise look checked in the DOM but not update the
-  // selection state, silently losing the user's intended bulk selection.
-  const hydrated = useSyncExternalStore(subscribeToHydration, hydratedSnapshot, serverSnapshot);
   const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string | null; selection: AdminBulkSelectionState }>({
-    membershipFingerprint: viewFingerprint,
+    membershipFingerprint: null,
     selection: emptySelection,
   });
-  const userInteractedFingerprintRef = useRef<string | null>(null);
-  // Never persist that initial empty paint: restore the per-view session
-  // snapshot first, or it could be erased before hydration completes.
-  const [restoredFingerprint, setRestoredFingerprint] = useState<string | null>(null);
 
-  useLayoutEffect(() => {
-    // A previously visited page must not suppress restoration after the user
-    // changes filters and later returns to the same fingerprint.
-    userInteractedFingerprintRef.current = null;
+  useEffect(() => {
     const key = storageKey(module);
     let nextSelection: AdminBulkSelectionState = emptySelection;
     try {
@@ -117,27 +97,21 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
     }
     let active = true;
     queueMicrotask(() => {
-      if (!active) return;
-      setSelectionState((current) =>
-        userInteractedFingerprintRef.current === viewFingerprint
-          ? current
-          : { membershipFingerprint: viewFingerprint, selection: nextSelection },
-      );
-      setRestoredFingerprint(viewFingerprint);
+      if (active) setSelectionState({ membershipFingerprint: viewFingerprint, selection: nextSelection });
     });
     return () => { active = false; };
   }, [module, supportsAllMatching, viewFingerprint]);
 
-  const ready = hydrated && selectionState.membershipFingerprint === viewFingerprint;
+  const ready = selectionState.membershipFingerprint === viewFingerprint;
   const selection = ready ? selectionState.selection : emptySelection;
 
   useEffect(() => {
-    if (!ready || restoredFingerprint !== viewFingerprint) return;
+    if (!ready) return;
     const key = storageKey(module);
     const selectedCount = selection.mode === "all-matching" ? resultCount : selection.ids.length;
     if (selectedCount === 0) sessionStorage.removeItem(key);
     else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint: viewFingerprint, selection }));
-  }, [module, ready, restoredFingerprint, resultCount, selection, viewFingerprint]);
+  }, [module, ready, resultCount, selection, viewFingerprint]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
   const explicitSet = new Set(explicitIds);
@@ -148,7 +122,6 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
 
   function updateSelection(updater: (current: AdminBulkSelectionState) => AdminBulkSelectionState) {
     if (!ready) return;
-    userInteractedFingerprintRef.current = viewFingerprint;
     setSelectionState((current) => current.membershipFingerprint !== viewFingerprint
       ? current
       : { ...current, selection: updater(current.selection) });
