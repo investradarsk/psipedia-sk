@@ -267,7 +267,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
             />
           </>
         ) : <div className="admin-empty"><span>📍</span><h2>Žiadne profily</h2><p>Zmeň filtre alebo pridaj nový profil.</p></div>}
-        <AdminPagination pagination={pagination} basePath={directoryAdminHref({ ...filters, page: 1 }).replace("/admin/adresar", basePath)} />
+        <AdminPagination nativeNavigation pagination={pagination} basePath={directoryAdminHref({ ...filters, page: 1 }).replace("/admin/adresar", basePath)} />
       </section>
 
       <AdminDestructiveConfirmDialog
