@@ -698,3 +698,71 @@
     gap: 7px;
   }
 }
+
+
+/* ADMIN-UNIFIED-UI 8/10: preserve every Notion alert without turning one
+   machine-readable error into a full-width, overflowing mobile paragraph. */
+.notionAlerts {
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 0.65rem;
+  border: 1px solid #dce5de;
+  border-radius: 12px;
+  background: #fff;
+  color: #173b2c;
+}
+.notionAlerts > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.65rem;
+  min-height: 44px;
+  padding: 0.7rem 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+.notionAlerts > summary::-webkit-details-marker { display: none; }
+.notionAlerts > summary:focus-visible { outline: 3px solid #a26a1b; outline-offset: 2px; }
+.notionAlertCount {
+  color: #52695c;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+.notionAlertBody {
+  min-width: 0;
+  padding: 0 0.85rem 0.75rem;
+}
+.notionAlertBody > p { margin: 0 0 0.65rem; color: #607568; font-size: 0.83rem; }
+.notionAlertList { display: grid; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+.notionAlertList > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  gap: 0.25rem 0.6rem;
+  padding: 0.65rem;
+  background: #f7faf8;
+  border: 1px solid #e2eae3;
+  border-radius: 9px;
+  overflow-wrap: anywhere;
+}
+.notionAlertList a { min-width: 0; color: #14513a; font-weight: 750; }
+.notionAlertList li > span { color: #607568; font-size: 0.76rem; }
+.notionAlertMessage {
+  display: block;
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+@media (max-width: 760px) {
+  .notionAlerts > summary { padding: 0.65rem; }
+  .notionAlertBody { padding-inline: 0.65rem; }
+  .notionAlertList > li { grid-template-columns: minmax(0, 1fr); }
+}
