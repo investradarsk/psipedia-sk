@@ -2082,6 +2082,8 @@ async function syncOneNotionPage(
   database: D1Database,
   bindings: NotionSyncBindings,
   page: NotionPage,
+  changedPropertyIds?: readonly string[],
+  eventType?: string,
 ): Promise<"created" | "updated" | "unchanged"> {
   // An in-flight editor writeback is not a valid Notion import baseline.
   // Check schema existence to keep legacy imports safe while the article outbox is only an unnumbered proposal.
@@ -2095,11 +2097,13 @@ async function syncOneNotionPage(
     if (pending) throw new Error("NOTION_EDITORIAL_WRITEBACK_PENDING");
   }
   const mapping = await loadMapping(database, page.id);
+  const signedFields = articleSignedNotionFields(page, changedPropertyIds, eventType);
   const legacyUnapprovedReady = selectProperty(page, "Stav") === "Ready"
     && !checkboxProperty(page, "Odoslať na Psipedia")
     && richTextProperty(page, "Sync chyba").includes("Prepojený článok už nie je Draft");
   const previousSeo = mapping ? decodeArticleSeoReceipt(mapping.content_hash).seo : null;
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
+  if (mappedExisting && signedFields && signedFields.size === 0) return "unchanged";
   // Unapproved legacy Ready rows must never create a new draft or publish.
   if (legacyUnapprovedReady && (!mapping || mappedExisting?.status !== "published")) {
     return "unchanged";
@@ -2120,7 +2124,9 @@ async function syncOneNotionPage(
   const blocks = await getPageBlocks(bindings, page.id);
   // Legacy article placements require the canonical mapped article for a
   // correct fallback; do not parse a mapped page without that context.
-  const proposed = notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo);
+  const explicitSeo = signedFields
+    ? articleSeoSignedChangedFields(page, changedPropertyIds ?? []) : undefined;
+  const proposed = notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo);
   const existing: ManagedArticle | null = mappedExisting
     ?? (mapping ? null : await findUnmappedCanonicalArticle(database, page, proposed));
   if (mapping && !existing) {
@@ -2135,14 +2141,16 @@ async function syncOneNotionPage(
   if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
   validateSyncGate(page, existing?.status === "published");
 
-  const sourcePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined, previousSeo);
+  const sourcePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined, previousSeo, explicitSeo);
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
-  const authorityPayload = existing && mapping
+  const authorityPayload = existing && mapping && signedFields === null
     ? applyArticleAuthority(sourcePayload,existing,articleModes) : sourcePayload;
-  const basePayload = existing && mapping
-    ? preserveNotionUnrepresentableStyles(authorityPayload, existing, articleModes)
-    : authorityPayload;
+  const basePayload = existing && mapping && signedFields !== null
+    ? articleApplySignedFields(sourcePayload, existing, signedFields)
+    : existing && mapping
+      ? preserveNotionUnrepresentableStyles(authorityPayload, existing, articleModes)
+      : authorityPayload;
   // Notion manifests bypass the Admin's published-article-only picker.
   // Resolve related article blocks against the currently public canonical URL.
   await assertPublishedRelatedBlocks(
@@ -2191,7 +2199,7 @@ async function syncOneNotionPage(
   }
 
   if (existing) {
-    if (mapping && decodeArticleSeoReceipt(mapping.content_hash).hash === contentHash) {
+    if (!signedFields && mapping && decodeArticleSeoReceipt(mapping.content_hash).hash === contentHash) {
       // Hash equality proves only that Notion did not change. It does NOT
       // prove a newer human Admin edit was written back successfully.
       // Keep the last-success receipt intact until the editor revision has
@@ -2227,7 +2235,7 @@ async function syncOneNotionPage(
       if (mapping && existing.updatedBy !== SYNC_ACTOR
         && (!Number.isFinite(Date.parse(mapping.last_synced_at))
           || Date.parse(existing.updatedAt) > Date.parse(mapping.last_synced_at) + 2_000)
-        && !articleAuthorityCoversDifferences(sourcePayload,existing,articleModes)) {
+        && !signedFields && !articleAuthorityCoversDifferences(sourcePayload,existing,articleModes)) {
         throw new Error("ARTICLE_ADMIN_REVISION_NOT_SYNCED");
       }
       const publishedPayload: ManagedArticleInput = {
@@ -2265,7 +2273,7 @@ async function syncOneNotionPage(
       return "updated";
     }
     // Drafts retain the existing Admin-authority conflict contract.
-    if (mapping && existing.updatedBy !== SYNC_ACTOR
+    if (mapping && existing.updatedBy !== SYNC_ACTOR && !signedFields
       && !articleAuthorityCoversDifferences(sourcePayload,existing,articleModes)) {
       throw new Error("Prepojený koncept bol upravený v administrácii. Automatický sync ho neprepíše; zmeny treba zosúladiť ručne.");
     }
@@ -2276,7 +2284,17 @@ async function syncOneNotionPage(
     const previouslyClearedOg = previousSeo?.ogImageUrl === "" &&
       !urlProperty(page, SEO.ogImageUrl.name) &&
       !existing.seo?.ogImage && !existing.ogImageKey;
-    const prepared = await prepareNotionMainImage(bindings, page, preservedPayload, existing,
+    const prepared = signedFields ? {
+      payload: {
+        ...preservedPayload,
+        imageUrl: existing.image,
+        imageKey: existing.imageKey,
+        imageAlt: existing.imageAlt,
+        imageCreditUrl: existing.imageCreditUrl,
+        ogImageUrl: signedFields.has("ogImageUrl") ? preservedPayload.ogImageUrl : existing.seo?.ogImage,
+        ogImageKey: signedFields.has("ogImageUrl") ? null : existing.ogImageKey,
+      }, uploadedKey: null, replacedKeys: [],
+    } : await prepareNotionMainImage(bindings, page, preservedPayload, existing,
       articleSeoExplicitClears(page, previousSeo).has("ogImageUrl") || previouslyClearedOg);
     let updated: Awaited<ReturnType<typeof updateManagedArticle>> | null = null;
     try {
@@ -2334,6 +2352,8 @@ export async function runNotionArticleSyncSweep(args: {
   database: D1Database;
   bindings: NotionSyncBindings;
   targetPageId?: string;
+  changedPropertyIds?: readonly string[];
+  eventType?: string;
 }): Promise<NotionArticleSyncSummary> {
   const summary: NotionArticleSyncSummary = {
     enabled: flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED),
@@ -2364,7 +2384,8 @@ export async function runNotionArticleSyncSweep(args: {
     if (await notionPageMustSkipInboundSync(args.database,page.id)) {summary.unchanged += 1;continue;}
     summary.scanned += 1;
     try {
-      const result = await syncOneNotionPage(args.database, args.bindings, page);
+      const result = await syncOneNotionPage(args.database, args.bindings, page,
+        args.changedPropertyIds, args.eventType);
       summary[result] += 1;
     } catch (error) {
       summary.failed += 1;
