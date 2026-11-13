@@ -9,6 +9,9 @@ import styles from "./directory-public.module.css";
 export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) {
   const category = getDirectoryCategory(profile.category);
   const city = publicLocationValue(profile.city, "city");
+  const breederBreeds = profile.category === "chovatelske-stanice"
+    ? profile.breedSummary?.trim()
+    : "";
 
   return (
     <PublicListingRowCard
@@ -17,6 +20,7 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
       typeLabel={category?.singular ?? "Služba pre psov"}
       title={profile.name}
       location={city}
+      meta={breederBreeds ? <span className={styles.breederBreedSummary} title={breederBreeds}>{breederBreeds}</span> : undefined}
       featured={profile.featured}
       badge={profile.featured ? <span className={styles.featured}>Odporúčame</span> : undefined}
       media={

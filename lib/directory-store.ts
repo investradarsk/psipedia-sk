@@ -7,6 +7,7 @@ import {
 import { cache } from "react";
 import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery, readDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
+import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card.ts";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import {
   parsePublicDirectoryFacets,
@@ -211,6 +212,7 @@ type DirectoryProfileRow = {
   detail_display_json?: string | null;
   import_key: string | null;
   source_data_json: string;
+  breeder_breed_source?: string | null;
   search_text: string;
   verified: number;
   featured: number;
@@ -561,7 +563,14 @@ const DIRECTORY_CARD_COLUMNS = `
   '[]' AS qualifications_json, city, district, region, '' AS address, online,
   price_note, website_url, NULL AS internal_email, image_url, NULL AS image_key,
   thumbnail_display_json, detail_display_json,
-  import_key, '{}' AS source_data_json, search_text, verified, featured, '{}' AS seo_json,
+  import_key,
+  CASE WHEN category = 'chovatelske-stanice' AND json_valid(source_data_json)
+    THEN COALESCE(
+      NULLIF(TRIM(CAST(json_extract(source_data_json, '$."Plemená"') AS TEXT)), ''),
+      NULLIF(TRIM(CAST(json_extract(source_data_json, '$."Plemeno"') AS TEXT)), ''),
+      '')
+    ELSE '' END AS breeder_breed_source,
+  '{}' AS source_data_json, search_text, verified, featured, '{}' AS seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
@@ -638,6 +647,10 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED";
   const city = runtimeDirectoryLocationText(row.city);
+  const importData = safeImportData(row.source_data_json);
+  const breedSummary = row.category === "chovatelske-stanice"
+    ? breederBreedSourceLabel(row.breeder_breed_source || importData?.["Plemená"] || importData?.["Plemeno"])
+    : "";
   const district = runtimeDirectoryLocationText(row.district);
   const region = runtimeDirectoryLocationText(row.region);
   const serviceAddress = evaluateDirectoryServiceAddress({
@@ -675,6 +688,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     priceNote: row.price_note,
     websiteUrl: row.website_url,
     imageUrl: row.image_url,
+    ...(breedSummary ? { breedSummary } : {}),
     ...(row.category === "chovatelske-stanice"
       ? { galleryUrls: readDirectoryBreederGallery(safeImportData(row.source_data_json, true)) }
       : {}),
@@ -683,7 +697,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
-    importData: safeImportData(row.source_data_json),
+    importData,
     seo: parseSeo(row.seo_json),
   };
 }
@@ -1243,7 +1257,7 @@ export async function getPublishedDirectoryProfiles(category?: DirectoryCategory
         )
         .bind(safeLimit)
         .all<DirectoryProfileRow>();
-  return result.results.map(rowToPublicProfile);
+  return attachBreederCardBreeds(database, result.results.map(rowToPublicProfile));
 }
 
 /** Homepage-only image cards: filter at the database, not after the bounded LIMIT. */
@@ -1569,7 +1583,10 @@ export async function listPublishedDirectoryProfiles(options: {
     listStatement.all<DirectoryProfileRow>(),
   );
   return {
-    profiles: (listResult.results as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
+    profiles: await attachBreederCardBreeds(
+      database,
+      (listResult.results as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
+    ),
     total,
     page,
     pageSize,
@@ -1623,12 +1640,16 @@ export async function getDirectoryCategoryPreviews(limit = 3) {
       .bind(category.slug, safeLimit),
   );
   const results = await database.batch(statements);
-  return Object.fromEntries(
+  const previews = Object.fromEntries(
     directoryCategories.map((category, index) => [
       category.slug,
       ((results[index]?.results ?? []) as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
     ]),
   ) as Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
+  previews["chovatelske-stanice"] = await attachBreederCardBreeds(
+    database, previews["chovatelske-stanice"] ?? [],
+  );
+  return previews;
 }
 
 export async function getFeaturedDirectoryProfiles(limit = 2) {
