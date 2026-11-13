@@ -22,11 +22,11 @@ export const PROFILE_PARTS:{id:ProfilePart;label:string}[]=[
   {id:"footer",label:"Spodný text"},
 ];
 export const DEFAULT_PROFILE_LAYOUT:ProfileLayout={
-  brand:{x:102,y:63,scale:1},
-  intro:{x:118,y:207,scale:1},
-  category:{x:298,y:349,scale:1},
-  name:{x:62,y:454,scale:1},
-  logo:{x:337,y:677,scale:1},
+  brand:{x:360,y:8,scale:1},
+  intro:{x:118,y:270,scale:1},
+  category:{x:298,y:391,scale:1},
+  name:{x:62,y:495,scale:1},
+  logo:{x:337,y:684,scale:1},
   footer:{x:124,y:1194,scale:1},
 };
 export const DEFAULT_PROFILE_LOGO_OPTIONS:ProfileLogoOptions={
