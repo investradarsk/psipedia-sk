@@ -315,9 +315,14 @@ for (const articleCase of cases) {
     await expect(page.getByRole("button", { name: "Späť hore" })).toHaveCount(0);
     await page.evaluate(() => window.scrollTo(0, 0));
 
-    const toc = page.getByRole("navigation", { name: "Obsah článku" });
+    const toc = page.locator('nav[aria-label="Obsah článku"]');
     if (articleCase.toc) {
       await expect(toc).toHaveCount(1);
+      const tocDetails = page.locator("details").filter({ has: toc });
+      await expect(tocDetails).not.toHaveAttribute("open");
+      await expect(toc).toBeHidden();
+      await tocDetails.locator("summary").click();
+      await expect(tocDetails).toHaveAttribute("open", "");
       await expect(toc).toBeVisible();
       const firstAnchor = toc.locator("a[href^='#']").first();
       await expect(firstAnchor).toBeVisible();
@@ -334,8 +339,10 @@ for (const articleCase of cases) {
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(new RegExp(`#${href!.slice(1)}`));
       await expectAnchorClearsStickyHeader(page, href!);
-      const directToc = page.getByRole("navigation", { name: "Obsah článku" });
-      await expect(directToc).toBeVisible();
+      const directToc = page.locator('nav[aria-label="Obsah článku"]');
+      await expect(directToc).toHaveCount(1);
+      await expect(directToc).toBeHidden();
+      await expect(page.locator("details").filter({ has: directToc })).not.toHaveAttribute("open");
     } else {
       await expect(toc).toHaveCount(0);
     }
@@ -511,9 +518,14 @@ for (const articleCase of cases) {
     expect(desktopSidebarBox).not.toBeNull();
     expect(desktopSidebarBox!.x).toBeGreaterThan(desktopProseBox!.x + desktopProseBox!.width);
 
-    const toc = page.getByRole("navigation", { name: "Obsah článku" });
+    const toc = page.locator('nav[aria-label="Obsah článku"]');
     await expect(toc).toHaveCount(articleCase.toc ? 1 : 0);
     if (articleCase.toc) {
+      const tocDetails = page.locator("details").filter({ has: toc });
+      await expect(tocDetails).not.toHaveAttribute("open");
+      await expect(toc).toBeHidden();
+      await tocDetails.locator("summary").click();
+      await expect(tocDetails).toHaveAttribute("open", "");
       await expect(toc).toBeVisible();
       const firstAnchor = toc.locator("a[href^='#']").first();
       const href = await firstAnchor.getAttribute("href");
@@ -525,8 +537,10 @@ for (const articleCase of cases) {
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(new RegExp(`#${href!.slice(1)}`));
       await expectAnchorClearsStickyHeader(page, href!);
-      const directToc = page.getByRole("navigation", { name: "Obsah článku" });
-      await expect(directToc).not.toHaveAttribute("open");
+      const directToc = page.locator('nav[aria-label="Obsah článku"]');
+      await expect(directToc).toHaveCount(1);
+      await expect(directToc).toBeHidden();
+      await expect(page.locator("details").filter({ has: directToc })).not.toHaveAttribute("open");
     }
     await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
     await expectSemanticArticleHeadings(page);
