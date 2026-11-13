@@ -46,3 +46,12 @@ test("canonical editors share one document capture and one native beforeunload o
   assert.match(workspace, /window\.addEventListener\("beforeunload", warn\)/);
   assert.match(event, /allowNativeExitRef=\{allowNavigationRef\}/);
 });
+
+test("confirmed unsaved-link exit falls back only when client navigation fails", () => {
+  const gate = read("components/admin-editor-navigation-guard.tsx");
+  assert.match(gate, /requestNavigation\(\(\) => \{\s*anchor\.click\(\);\s*window\.setTimeout/);
+  assert.match(gate, /window\.location\.href !== fromHref/);
+  assert.match(gate, /!isEditorExit\(destinationHref, window\.location\.href\)/);
+  assert.match(gate, /authorizeCurrentPageExit\(\);\s*window\.location\.assign\(destinationHref\)/);
+  assert.match(gate, /2_500/);
+});
