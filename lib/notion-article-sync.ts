@@ -1,5 +1,5 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
-import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion, articleSeoExplicitClears, type ArticleSeoRemoteValues } from "./notion-article-seo-properties";
+import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion, articleSeoExplicitClears, articleSeoSignedChangedFields, type ArticleSeoRemoteValues, type ArticleNotionSeoKey } from "./notion-article-seo-properties";
 import { decodeArticleSeoReceipt, encodeArticleSeoReceipt } from "./notion-article-seo-receipt";
 import { articleSeoChangedFields, articleSeoUnacknowledgedRemoteFields, planArticleSeoIndependentWriteback, projectArticleSeoConfirmedBaseline, verifyArticleSeoPatch, type ArticleSeoFieldFailure } from "./notion-article-seo-writeback";
 import { notionRequest as notionSharedRequest } from "@/lib/notion-sync-shared";
@@ -976,13 +976,14 @@ export function notionPageToManagedArticleInput(
   blocks: NotionBlock[],
   existing?: ExistingNotionArticlePlacement,
   confirmedPrevious?: ArticleSeoRemoteValues | null,
+  explicitlyEditedSeo?: ReadonlySet<ArticleNotionSeoKey>,
 ): ManagedArticleInput {
   const title = titleProperty(page, "Názov");
   const slug = richTextProperty(page, "Slug");
   const notionCategory = selectProperty(page, "Kategória");
   const notionSubsection = selectProperty(page, "Podsekcia");
   const contentType = selectProperty(page, "Typ obsahu");
-  const seoFields = articleSeoFromNotion(page, existing, confirmedPrevious);
+  const seoFields = articleSeoFromNotion(page, existing, confirmedPrevious, explicitlyEditedSeo);
   const metaDescription = seoFields.metaDescription;
   const socialCaption = propertyRecord(page, "Popis na sociálne siete")
     ? richTextProperty(page, "Popis na sociálne siete")
@@ -1924,6 +1925,67 @@ const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [
   "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl",
 ] as const;
 type ArticleAuthorityKey=(typeof ARTICLE_EDITABLE_AUTHORITY_FIELDS)[number];
+/**
+ * A Notion webhook identifies the latest user action, not a reason to replay
+ * unrelated saved fields. The Notion API supplies opaque property IDs.
+ * Page-content events change the body; property events change only named cells.
+ */
+function articleSignedNotionFields(
+  page: NotionPage, changedPropertyIds?: readonly string[], eventType?: string,
+): ReadonlySet<ArticleAuthorityKey> | null {
+  if (eventType === "page.content_updated")
+    return new Set<ArticleAuthorityKey>(["intro", "blocks", "excerpt"]);
+  if (eventType !== "page.properties_updated" || !changedPropertyIds?.length)
+    return null;
+  const ids = new Set(changedPropertyIds);
+  const changed = new Set<ArticleAuthorityKey>();
+  const direct = {
+    title: "Názov", socialCaption: "Popis na sociálne siete",
+  } as const;
+  for (const [field, name] of Object.entries(direct)) {
+    const prop = propertyRecord(page, name);
+    const id = typeof prop?.id === "string" ? prop.id : "";
+    if (ids.has(name) || (id && ids.has(id)))
+      changed.add(field as ArticleAuthorityKey);
+  }
+  for (const field of articleSeoSignedChangedFields(page, changedPropertyIds))
+    changed.add(field);
+  if (changed.has("metaDescription")) changed.add("excerpt");
+  return changed;
+}
+
+/** Only actually edited Notion cells override canonical editorial content. */
+function articleApplySignedFields(
+  incoming: ManagedArticleInput, existing: ManagedArticle,
+  edited: ReadonlySet<ArticleAuthorityKey>,
+): ManagedArticleInput {
+  const next: ManagedArticleInput = {
+    ...existing, ...incoming,
+    slug: existing.slug, category: existing.category,
+    portalSection: existing.portalSection,
+    portalSubpage: existing.portalSubpage,
+    newsCategory: existing.newsCategory,
+    status: existing.status, author: existing.author,
+    authorProfileId: existing.authorProfileId,
+    publishedAt: existing.publishedAt,
+    imageUrl: existing.image, imageKey: existing.imageKey,
+  };
+  for (const key of ARTICLE_EDITABLE_AUTHORITY_FIELDS) {
+    if (edited.has(key)) continue;
+    if (key === "intro") {
+      next.intro = existing.intro;
+      next.introRichText = existing.introRichText;
+    } else if (key === "blocks") {
+      next.blocks = existing.blocks;
+      next.readingMinutes = existing.readingMinutes;
+    } else {
+      (next as Record<string, unknown>)[key] = articleCurrentField(existing, key);
+      if (key === "ogImageUrl") next.ogImageKey = existing.ogImageKey;
+    }
+  }
+  return next;
+}
+
 function articleCurrentField(existing:ManagedArticle,key:ArticleAuthorityKey):unknown{
   switch(key){
     case "seoTitle": return existing.seo?.title??"";
