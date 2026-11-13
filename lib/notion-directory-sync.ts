@@ -1764,6 +1764,11 @@ async function syncBreederEvent(input: {
     if (failures.length) {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
+    // The verified repair already updated Notion sync metadata. Avoid a
+    // redundant second metadata PATCH for an event that only carried stale
+    // empty contacts; this also reduces Notion webhook echo churn.
+    if (nonDestructiveContactRepairs.length && !updated && !relationsUpdated &&
+        !facetsUpdated && !trustUpdated && !pilotMetaUpdated) return "pushed";
     if (!paths.length && !relationsUpdated && !facetFields.length && !trustFields.length && !pilotMetaFields.length) return "unchanged";
     // A verified edit of Popis does not prove an old services deletion or
     // unrelated identity conflict has been resolved. Re-read metadata before
