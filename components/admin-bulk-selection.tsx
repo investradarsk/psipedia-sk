@@ -76,8 +76,13 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   supportsAllMatching?: boolean;
 }) {
   const viewFingerprint = `${membershipFingerprint}|page:${pageIds.join(",")}`;
+  // The first server and client render share the same page-scoped fingerprint.
+  // Start with an empty, selectable page instead of a permanently disabled
+  // SSR checkbox while the later sessionStorage restoration effect hydrates.
+  // When filters/pagination change, the fingerprint mismatch still disables
+  // stale selection until the new view has been restored.
   const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string | null; selection: AdminBulkSelectionState }>({
-    membershipFingerprint: null,
+    membershipFingerprint: viewFingerprint,
     selection: emptySelection,
   });
 
