@@ -29,6 +29,8 @@ import {
 } from "@/lib/directory-store";
 import { EMPTY_MAP_FILTERS, serializeMapUiFilters } from "@/lib/map-public-ui";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
+import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import { CTA_DIRECTORY_MAP_ANCHOR } from "@/lib/visual-library-anchors";
 import styles from "./directory-public.module.css";
 
@@ -278,6 +280,12 @@ export async function DirectoryPage({
             </PublicFilterLayout>
           </PublicContentShell>
         </section>
+        {isOverview ? (
+          <PublicPhotoCallout
+            promo={publicSectionPhotoPromos.services}
+            bannerId="section-services"
+          />
+        ) : null}
       </PublicFoundation>
     </main>
   );

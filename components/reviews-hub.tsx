@@ -23,6 +23,8 @@ import type { PortalSection } from "@/lib/portal";
 import { articlePortalSection, portalSubpageHref } from "@/lib/portal";
 import type { PublicProfileReviewFeedItem } from "@/lib/profile-review-read";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
+import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import styles from "./reviews-hub.module.css";
 
 export type ReviewsHubView = "all" | "products" | "services" | "eshops";
@@ -365,6 +367,13 @@ export async function ReviewsHub({
               ) : null}
             </PageContainer>
           </section>
+        ) : null}
+
+        {view === "all" ? (
+          <PublicPhotoCallout
+            promo={publicSectionPhotoPromos.reviews}
+            bannerId="section-reviews"
+          />
         ) : null}
 
         <section className={styles.trustStrip} aria-label="Pravidlá hodnotenia">

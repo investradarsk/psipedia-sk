@@ -29,6 +29,8 @@ import {
 } from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
+import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import styles from "./events-public.module.css";
 
 export async function EventsPage({
@@ -244,6 +246,12 @@ export async function EventsPage({
             />
           </PublicContentShell>
         </section>
+        {isMainListing ? (
+          <PublicPhotoCallout
+            promo={publicSectionPhotoPromos.events}
+            bannerId="section-events"
+          />
+        ) : null}
       </PublicFoundation>
     </main>
   );
