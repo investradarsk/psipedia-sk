@@ -56,7 +56,7 @@ import { reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedP
 import { readNotionFieldAuthorities, NOTION_AUTHORITY_GROUPS } from "@/lib/notion-field-authority";
 import { planOwnerDirectedFields, type ManualFieldDirection } from "@/lib/notion-manual-transfer-plan";
 import {
-  BREEDER_NOTION_EDITORIAL_FIELDS, breederAdminChangedFields,
+  BREEDER_NOTION_EDITORIAL_FIELDS, DIRECTORY_CONTACT_EDITORIAL_PATHS, breederAdminChangedFields,
   breederNotionChangedFields, breederApplyNotionChanges, breederReadPath,
   breederPreserveUneditedFields, type BreederEditorialField,
 } from "@/lib/notion-breeder-field-events";
@@ -1793,7 +1793,36 @@ async function syncBreederEvent(input: {
     return equivalent(propertyText(candidate, key), expected);
   };
   const failedFields: BreederEditorialField[] = [];
+  // A Contacts-tab save can request all five editorial contacts at once.
+  // A single Notion PATCH avoids bursts of five writes and the associated
+  // throttling risk. Verify every field's echo; retry individually on failure.
+  const contactPaths = new Set<BreederEditorialField>(DIRECTORY_CONTACT_EDITORIAL_PATHS);
+  const batchContacts = fields.filter(path => contactPaths.has(path));
+  const acknowledgedBatchContacts = new Set<BreederEditorialField>();
+  if (batchContacts.length > 1) {
+    const needed = batchContacts.filter(path => !confirmed(page, path));
+    if (needed.length) {
+      const desired: Record<string, unknown> = {};
+      for (const path of needed) {
+        const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+        desired[key] = allProperties[key];
+      }
+      try {
+        const patch = adaptDirectoryNotionTextProperties(desired, page.properties ?? {});
+        const echoed = await patchNotionPage(bindings, page.id, patch);
+        const verified = needed.every(path => confirmed(echoed, path))
+          ? echoed : await fetchNotionPage(bindings, page.id);
+        for (const path of needed)
+          if (confirmed(verified, path)) acknowledgedBatchContacts.add(path);
+      } catch (error) {
+        console.warn("DIRECTORY_CONTACT_BATCH_WRITE_RETRY", input.profile.id,
+          error instanceof Error ? error.message : "UNKNOWN");
+        // Individual field writes below remain the fallback.
+      }
+    }
+  }
   for (const path of fields) {
+    if (acknowledgedBatchContacts.has(path)) continue;
     const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
     if (confirmed(page, path)) continue; // Verified equality, no duplicate PATCH.
     const patch = adaptDirectoryNotionTextProperties(
