@@ -295,7 +295,7 @@ export function SiteHeader({
   }, [menuOpen]);
 
   // Scroll the navigation naturally; only the separate bottom grabber owns
-  // dismissal. No swipe listeners on the document, links or the scrollable list.
+  // upward/downward dismissal. No swipe listeners on links or the scrollable list.
   useEffect(() => {
     if (!menuOpen) return;
     const menu = mobileMenuRef.current;
@@ -321,12 +321,12 @@ export function SiteHeader({
     }
     function onMove(event: globalThis.TouchEvent) {
       if (startY === null || event.touches.length !== 1) return;
-      distance = Math.max(0, Math.min(180, event.touches[0].clientY - startY));
+      distance = Math.max(-180, Math.min(180, event.touches[0].clientY - startY));
       if (event.cancelable) event.preventDefault();
       drawer.style.transform = "translate3d(0," + distance + "px,0)";
     }
     function onEnd() {
-      const close = startY !== null && distance >= 60;
+      const close = startY !== null && Math.abs(distance) >= 60;
       reset();
       if (close) {
         setOpenMobileMenu(null);
@@ -606,7 +606,7 @@ export function SiteHeader({
               menuReturnFocusRef.current?.focus();
             }}
             aria-label="Zavrieť navigačné menu"
-            title="Potiahni nadol alebo klepni pre zatvorenie"
+            title="Potiahni nahor alebo nadol, prípadne klepni pre zatvorenie"
           >
             <span aria-hidden="true" />
           </button>
