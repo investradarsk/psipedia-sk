@@ -119,7 +119,7 @@ export function AdminRecordTable<T extends { id: number }>({
     ["name", "title", "breed", "event", "profile", "dog", "subject"].includes(column.id),
   ) ?? columns.find(column => !["photo", "image", "actions", "status"].includes(column.id));
   const mobileEssentialIds = new Set([
-    mobileMainColumn?.id, "id", "__recordId", "__select", "actions", "status", "reviewed",
+    mobileMainColumn?.id, "id", "__recordId", "__select", "actions", "status", "reviewed", "completeness",
   ]);
   const effectiveVisibility: VisibilityState = mobileFocus
     ? {
@@ -244,6 +244,16 @@ export function AdminRecordTable<T extends { id: number }>({
           <strong>{label}</strong>
           <span>{rows.length} záznamov na tejto strane · {serverSorting || serverSorted ? "zoradenie platí pre celý zoznam" : "zoradenie platí len pre túto stranu"}</span>
         </div>
+        {mobileFocus && selection && (
+          <BulkSelectionCheckbox
+            className={styles.mobileSelectAll}
+            label={selection.selectAllLabel ?? ("Označiť všetky záznamy na tejto strane: " + label)}
+            checked={table.getIsAllPageRowsSelected()}
+            indeterminate={table.getIsSomePageRowsSelected()}
+            disabled={busy || selection.disabled || !rows.length}
+            onChange={checked => table.toggleAllPageRowsSelected(checked)}
+          />
+        )}
         <button type="button" className={styles.mobileViewToggle}
           aria-pressed={mobileFocus}
           onClick={() => setCompactView(current => !current)}>
@@ -272,7 +282,7 @@ export function AdminRecordTable<T extends { id: number }>({
               <col key={column.id} style={{ width: column.getSize() }} />
             ))}
           </colgroup>
-          <thead>
+          {!mobileFocus && <thead>
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
                 {group.headers.map((header) => (
@@ -306,7 +316,7 @@ export function AdminRecordTable<T extends { id: number }>({
                 ))}
               </tr>
             ))}
-          </thead>
+          </thead>}
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <tr key={row.id} data-testid="admin-record-row"
