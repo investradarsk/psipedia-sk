@@ -76,10 +76,16 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   supportsAllMatching?: boolean;
 }) {
   const viewFingerprint = `${membershipFingerprint}|page:${pageIds.join(",")}`;
-  const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string | null; selection: AdminBulkSelectionState }>({
-    membershipFingerprint: null,
+  // The server already knows the exact visible page fingerprint. Start ready
+  // instead of rendering permanently disabled checkboxes while the first
+  // client effect/sessionStorage restoration is pending (e.g. Vite E2E reloads).
+  // Still defer any persistence until that restoration finishes, so a saved
+  // selection cannot be deleted by the initial empty server snapshot.
+  const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string | null; selection: AdminBulkSelectionState }>(() => ({
+    membershipFingerprint: viewFingerprint,
     selection: emptySelection,
-  });
+  }));
+  const [restoredViewFingerprint, setRestoredViewFingerprint] = useState<string | null>(null);
 
   useEffect(() => {
     const key = storageKey(module);
@@ -97,7 +103,14 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
     }
     let active = true;
     queueMicrotask(() => {
-      if (active) setSelectionState({ membershipFingerprint: viewFingerprint, selection: nextSelection });
+      if (!active) return;
+      setSelectionState((current) =>
+        // A real user selection made before restoration must win over a
+        // stale session snapshot. A changed page/view always restores anew.
+        current.membershipFingerprint === viewFingerprint && current.selection !== emptySelection
+          ? current
+          : { membershipFingerprint: viewFingerprint, selection: nextSelection });
+      setRestoredViewFingerprint(viewFingerprint);
     });
     return () => { active = false; };
   }, [module, supportsAllMatching, viewFingerprint]);
@@ -106,12 +119,12 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   const selection = ready ? selectionState.selection : emptySelection;
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || restoredViewFingerprint !== viewFingerprint) return;
     const key = storageKey(module);
     const selectedCount = selection.mode === "all-matching" ? resultCount : selection.ids.length;
     if (selectedCount === 0) sessionStorage.removeItem(key);
     else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint: viewFingerprint, selection }));
-  }, [module, ready, resultCount, selection, viewFingerprint]);
+  }, [module, ready, restoredViewFingerprint, resultCount, selection, viewFingerprint]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
   const explicitSet = new Set(explicitIds);
