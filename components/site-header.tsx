@@ -281,7 +281,8 @@ export function SiteHeader({
     const menu = mobileMenuRef.current;
     const nav = menu?.querySelector<HTMLElement>("nav");
     const grip = menu?.querySelector<HTMLButtonElement>(":scope > [data-menu-dismiss-grip]");
-    if (!nav || !grip) return;
+    if (!menu || !nav || !grip) return;
+    const drawer = menu;
     nav.scrollTop = 0;
     let startY: number | null = null;
     let distance = 0;
@@ -289,20 +290,20 @@ export function SiteHeader({
     const reset = () => {
       startY = null;
       distance = 0;
-      menu!.style.transition = "transform 180ms ease";
-      menu!.style.transform = "";
+      drawer.style.transition = "transform 180ms ease";
+      drawer.style.transform = "";
     };
     function onStart(event: globalThis.TouchEvent) {
       if (event.touches.length !== 1) return;
       startY = event.touches[0].clientY;
       distance = 0;
-      menu!.style.transition = "none";
+      drawer.style.transition = "none";
     }
     function onMove(event: globalThis.TouchEvent) {
       if (startY === null || event.touches.length !== 1) return;
       distance = Math.max(0, Math.min(180, event.touches[0].clientY - startY));
       if (event.cancelable) event.preventDefault();
-      menu!.style.transform = "translate3d(0," + distance + "px,0)";
+      drawer.style.transform = "translate3d(0," + distance + "px,0)";
     }
     function onEnd() {
       const close = startY !== null && distance >= 60;
@@ -322,8 +323,8 @@ export function SiteHeader({
       grip.removeEventListener("touchmove", onMove);
       grip.removeEventListener("touchend", onEnd);
       grip.removeEventListener("touchcancel", reset);
-      menu.style.transition = "";
-      menu.style.transform = "";
+      drawer.style.transition = "";
+      drawer.style.transform = "";
     };
   }, [menuOpen]);
 

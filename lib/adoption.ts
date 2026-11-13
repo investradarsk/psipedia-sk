@@ -57,6 +57,8 @@ export type AdoptionDog = {
   breedId: number | null;
   breedName: string;
   breedSlug: string | null;
+  /** Canonical FCI group, when linked to an eligible published breed. */
+  breedFciGroup?: number | null;
   breedMix: boolean;
   color: string;
   region: AdoptionRegion | "";

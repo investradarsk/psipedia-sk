@@ -69,7 +69,7 @@ export type AdoptionPublicQueryFilters = AdoptionPublicFilters & {
 type AdoptionDogRow = {
   id: number; name: string; slug: string; status: string; sex: string; birth_date: string | null;
   approximate_age_months: number | null; size: string; weight: number | null; breed_id: number | null;
-  breed_name: string; breed_slug: string | null; breed_profile_name: string | null; breed_mix: number; color: string;
+  breed_name: string; breed_slug: string | null; breed_profile_name: string | null; breed_fci_group: number | null; breed_mix: number; color: string;
   region: string; district: string; city: string; organization_id: number | null; organization_name: string;
   organization_slug: string | null; canonical_organization_name: string | null; canonical_organization_slug: string | null;
   main_image: string | null; thumbnail_display_json?: string | null; detail_display_json?: string | null; gallery_json: string; short_description: string;
@@ -139,7 +139,7 @@ export type PreparedAdoptionWrite = NormalizedAdoptionInput & {
   breedSlug: string | null; publishedAt: string | null; updatedAt: string; updatedBy: string;
 };
 
-const PUBLIC_SELECT = `SELECT d.*, b.slug AS breed_slug, b.name AS breed_profile_name,
+const PUBLIC_SELECT = `SELECT d.*, b.slug AS breed_slug, b.name AS breed_profile_name, b.fci_group AS breed_fci_group,
     o.name AS canonical_organization_name, o.slug AS canonical_organization_slug
   FROM adoption_dogs d
   LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.id IN (${canonicalBreedIdsSql})
@@ -182,7 +182,10 @@ function rowToDog(row: AdoptionDogRow): AdoptionDog {
     sex: normalizeRowChoice(row.sex, adoptionSexes, "UNKNOWN"), birthDate: row.birth_date,
     approximateAgeMonths: row.approximate_age_months, size: normalizeRowChoice(row.size, adoptionSizes, "UNKNOWN"), weight: row.weight,
     breedId: row.breed_id, breedName: normalizeAdoptionText(row.breed_profile_name) || row.breed_name,
-    breedSlug: normalizeAdoptionText(row.breed_slug) || null, breedMix: Boolean(row.breed_mix), color: row.color, region,
+    breedSlug: normalizeAdoptionText(row.breed_slug) || null,
+    breedFciGroup: Number.isInteger(row.breed_fci_group) && row.breed_fci_group !== null && row.breed_fci_group >= 1 && row.breed_fci_group <= 10
+      ? row.breed_fci_group : null,
+    breedMix: Boolean(row.breed_mix), color: row.color, region,
     district: row.district, city: row.city, organizationId: row.organization_id, organizationName,
     organizationSlug, mainImage: row.main_image,
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"), detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"), gallery: parseGallery(row.gallery_json),
