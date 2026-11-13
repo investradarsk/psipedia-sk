@@ -95,6 +95,12 @@ export function ArticleDetail({
       ? portalSubpageHref({ slug: section }, managedTopic)
       : articleCategoryHref(article.category);
   const topicLabel = newsCategory?.label ?? managedTopic?.label ?? article.category;
+  // The editorial format (guide/test) and the subject (e.g. Hračky) are separate metadata.
+  const reviewTypeLabel = section === "recenzie"
+    ? article.reviewFormat === "test" ? "Redakčný test"
+      : article.reviewFormat === "guide" || article.slug === "lizacia-podlozka-pre-psa-vyber-pouzivanie"
+        ? "Nákupný sprievodca" : null
+    : null;
   const canonical = absoluteUrl(article.seo?.canonicalUrl || articleHref(article));
   const image = article.image ? absoluteUrl(article.image) : undefined;
   const imageCreditHref = safeExternalImageCreditUrl(article.imageCreditUrl);
@@ -239,7 +245,7 @@ export function ArticleDetail({
             <div className={styles.heroGrid}>
               <div className={styles.title}>
                 <span className={styles.kicker}>
-                  {portalSectionLabel(section)} · {topicLabel}
+                  {reviewTypeLabel ? `${reviewTypeLabel} · Téma: ${topicLabel}` : `${portalSectionLabel(section)} · ${topicLabel}`}
                 </span>
                 <h1>{article.title}</h1>
                 <div className={styles.metaActions}>
