@@ -55,7 +55,6 @@ export function ArticleCard({
       }
       topicHref={topicHref ?? presentation.topicHref}
       actionLabel={actionLabel ?? presentation.actionLabel}
-      excerpt={article.excerpt?.trim()}
       accent={article.accent}
       headingLevel={headingLevel}
       footer={

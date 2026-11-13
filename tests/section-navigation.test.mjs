@@ -9,7 +9,7 @@ test("editorial section tabs use the managed subsection source of truth", () => 
   assert.match(tabs, /section\.subpages\.filter/);
   assert.match(tabs, /subpage\.visible !== false/);
   assert.match(tabs, /portalSubpageHref\(section, subpage\)/);
-  assert.match(tabs, /PortalMobileCategorySelect/);
+  assert.match(tabs, /mobileLayout="grid"/);
   assert.match(tabs, /mode="compact"/);
   assert.match(tabs, /current: activeSlug === subpage\.slug/);
   assert.doesNotMatch(tabs, /pred-kupou-psa|zdravie|psie-sporty/);
@@ -100,13 +100,17 @@ test("structured topic landing pages keep the section system and active tab", ()
   assert.match(topic, /featuredArticleSlugs/);
 });
 
-test("section tabs remain compact and horizontally scrollable on small screens", () => {
-  const css = read("app/design-system.css");
-  assert.match(css, /\.section-tabs-inner[\s\S]*overflow-x: auto/);
-  assert.match(css, /scroll-snap-type: x proximity/);
-  assert.match(css, /\.section-tab\.is-active/);
-  assert.match(css, /\.section-tab\[aria-current="page"\]/);
-  assert.match(css, /\.section-tab\s*\{[\s\S]*?min-height:\s*44px/);
+test("section category navigation uses Help-style grid and pages only above six", () => {
+  const css = read("components/public-visual-system/public-subcategory-navigator.module.css");
+  const nav = read("components/public-visual-system/public-subcategory-navigator.tsx");
+  const pager = read("components/public-visual-system/public-subcategory-paged-track.tsx");
+  assert.match(nav, /mobileLayout === "grid" && items\.length > PUBLIC_SUBCATEGORY_PAGE_SIZE/);
+  assert.match(nav, /styles\.compactGridMobile/);
+  assert.match(css, /\.compactGridMobile \.pagedPage/);
+  assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /scroll-snap-type:\s*x mandatory/);
+  assert.match(pager, /aria-label="Ďalších šesť kategórií"/);
+  assert.match(pager, /aria-current=\{index === activePage/);
 });
 
 test("SECTION-PUBLIC uses the shared visual foundation without global CSS ownership", () => {
@@ -193,12 +197,15 @@ test("SECTION-PUBLIC keeps puppies, care and activities on one shared visual con
   assert.match(css, /var\(--section-accent-soft\)/);
 });
 
-test("SECTION-PUBLIC keeps all compact categories visible in a responsive grid", () => {
+test("SECTION-PUBLIC keeps compact categories visible in mobile groups of six", () => {
   const tabs = read("components/portal-section-tabs.tsx");
   const css = read("components/public-visual-system/public-subcategory-navigator.module.css");
   assert.match(tabs, /styles\.nav/);
-  assert.match(tabs, /PortalMobileCategorySelect/);
+  assert.match(tabs, /mobileLayout="grid"/);
   assert.match(css, /\/\* PUBLIC NAV: no hidden horizontal rails/);
+  assert.match(tabs, /columns=\{6\}/);
+  assert.match(css, /\.compactGridMobile \.pagedTrack/);
+  assert.match(css, /\.pagedPage \{ display: contents; \}/);
   assert.match(css, /\.compactTrack \{\s*display: grid;/);
   assert.match(css, /scroll-snap-type:\s*none/);
   assert.match(css, /\.compactItem \{[\s\S]*?min-height:\s*48px/);

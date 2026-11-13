@@ -2103,27 +2103,7 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-.pagination {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 24px;
-}
-.pagination a {
-  display: grid;
-  place-items: center;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px;
-  border: 1px solid #cbd6cc;
-  border-radius: 8px;
-  background: white;
-  color: #173f35;
-}
-.pagination a[aria-current="page"] {
-  color: white;
-  background: #205443;
-}
+.pagination { margin-top: 12px; }
 @media (max-width: 1199px) {
   .cardGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3240,4 +3220,42 @@
   .calendar[data-event-workspace] .listingLayout .listHeading h2 {
     font-size: clamp(1.35rem, 2vw, 1.7rem);
   }
+}
+
+
+/* One compact category CTA after each visible five-per-type event group.
+   Shared action styling is kept; no redundant CTA on filtered results. */
+.eventTypeGroupFooter {
+  display: flex;
+  min-width: 0;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0 2px 7px;
+  border-bottom: 1px solid var(--ps-border-soft);
+}
+.eventTypeGroupFooter :global([data-public-action]) {
+  min-height: 40px;
+  padding-inline: 8px;
+  color: var(--forest-dark);
+  font-size: 0.79rem;
+  font-weight: 800;
+}
+@media (max-width: 620px) {
+  .eventTypeGroupFooter {
+    padding-bottom: 4px;
+  }
+  .eventTypeGroupFooter :global([data-public-action]) {
+    min-height: 44px;
+  }
+}
+
+/* Public event category links reuse the Help mobile 2 × 3 grid, not a
+   second custom card/slider. Existing calendar type filters remain functional. */
+.eventCategoryNavigator {
+  min-width: 0;
+  margin: 0 0 14px;
+}
+.eventCategoryNavigator :global([data-public-subcategory-track]) {
+  max-width: 100%;
+  padding-inline: 0;
 }

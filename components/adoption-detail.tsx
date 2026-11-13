@@ -28,6 +28,7 @@ import type { AdoptionPublicOrganizationLink } from "@/lib/adoption-store";
 import { ImageDisplay } from "@/components/image-display";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { PublicActionLink, PublicMediaFallback, PublicPhotoGallery } from "@/components/public-visual-system";
+import { breedProfileHref } from "@/lib/breed-canonical";
 import dogStyles from "./lost-found-dogs.module.css";
 import styles from "./adoption-detail.module.css";
 
@@ -119,7 +120,7 @@ export function AdoptionDetail({ dog, organization }: {
           {location && <span><strong>Lokalita</strong> {location}</span>}
           {dog.breedName && <span><strong>Plemeno</strong> <span className={styles.detailBreed}>
             {dog.breedMix && !genericBreedName ? "Kríženec · " : ""}
-            {dog.breedSlug ? <Link href={`/plemena/${dog.breedSlug}`}>{dog.breedName}</Link> : dog.breedName}
+            {dog.breedSlug ? <Link href={breedProfileHref(dog.breedSlug, dog.breedFciGroup ?? undefined)}>{dog.breedName}</Link> : dog.breedName}
           </span></span>}
         </div>
         {verifiedAt && <p className={styles.detailVerification}>Naposledy potvrdená dostupnosť: <strong>{verifiedAt}</strong></p>}

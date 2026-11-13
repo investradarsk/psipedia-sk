@@ -1085,7 +1085,7 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.match(helpHtml, /Zbierky a výzvy/);
   assert.match(helpHtml, /Vyberte, čo chcete riešiť/);
   assert.match(helpHtml, /Hlavný prehľad ukazuje len výber aktuálnych možností/);
-  assert.match(helpHtml, /Ďalšie prípady a organizácie nájdeš v prehľade kategórie\./);
+  assert.match(helpHtml, /Ďalšie prípady a organizácie nájdeš v úplnom prehľade kategórie\./);
   assert.doesNotMatch(helpHtml, /V tejto kategórii momentálne nemáme nový publikovaný záznam\./);
   assert.match(helpHtml, /"CollectionPage"/);
   assert.match(helpHtml, /"BreadcrumbList"/);

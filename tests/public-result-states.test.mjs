@@ -30,7 +30,7 @@ test("shared public feedback stays semantic and public-scoped", () => {
   assert.ok(css.includes("prefers-reduced-motion: reduce"));
   assert.ok(css.includes("forced-colors: active"));
   assert.ok(
-    src.includes("numberedPages.map((page, index)"),
+    src.includes("displayPages.map((page, index)"),
     "numbered links use the common component",
   );
   assert.ok(src.includes('aria-current={page === currentPage ? "page" : undefined}'));

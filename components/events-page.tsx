@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContextBanner,
   PublicContentShell,
+  PublicSubcategoryNavigator,
   PublicFoundation,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
@@ -28,6 +29,8 @@ import {
 } from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
+import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import styles from "./events-public.module.css";
 
 export async function EventsPage({
@@ -199,6 +202,19 @@ export async function EventsPage({
 
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">
+            <div className={styles.eventCategoryNavigator} data-event-category-navigation>
+              <PublicSubcategoryNavigator
+                mode="compact"
+                mobileLayout="grid"
+                columns={6}
+                label="Kategórie podujatí"
+                items={eventTypes.map((type) => ({
+                  href: eventTypePortalHref(type) ?? "/podujatia",
+                  title: eventTypePresentation[type].label,
+                  current: initialType === type,
+                }))}
+              />
+            </div>
             <EventCalendar
               key={listingIdentity}
               filters={filters}
@@ -230,6 +246,12 @@ export async function EventsPage({
             />
           </PublicContentShell>
         </section>
+        {isMainListing ? (
+          <PublicPhotoCallout
+            promo={publicSectionPhotoPromos.events}
+            bannerId="section-events"
+          />
+        ) : null}
       </PublicFoundation>
     </main>
   );

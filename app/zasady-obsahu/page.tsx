@@ -17,7 +17,7 @@ export default function EditorialPolicyPage() {
         title="Zásady obsahu"
         intro="Dôvera sa nedá postaviť iba pekným dizajnom. Preto otvorene uvádzame, čo môže čitateľ od textov Psipedia.sk očakávať."
       />
-      <section className="prose-page">
+      <section className="prose-page prose-page--after-hero">
 
       <h2>Praktické, ale nie univerzálne</h2>
       <p>Každý pes má inú históriu, zdravie a temperament. Všeobecný návod preto opisujeme ako východisko, nie ako záruku výsledku. Pri správaní, ktoré predstavuje riziko, odporúčame osobnú pomoc kvalifikovaného odborníka.</p>

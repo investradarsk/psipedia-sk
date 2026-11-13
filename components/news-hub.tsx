@@ -9,7 +9,6 @@ import {
   PublicSectionHeader,
   PublicSubcategoryNavigator,
 } from "@/components/public-visual-system";
-import { PortalMobileCategorySelect } from "@/components/portal-mobile-category-select";
 import type { Article } from "@/lib/content";
 import {
   getNewsCategory,
@@ -104,18 +103,13 @@ export function NewsHub({
 
         <section className={`${styles.archive} shell`} aria-labelledby="news-archive-title">
           <h2 id="news-archive-title" className={styles.visuallyHidden}>Novinky podľa kategórie</h2>
-          <div className={styles.mobileCategories} data-news-category-navigation>
-            <PortalMobileCategorySelect
-              sectionLabel="Novinky"
-              items={categoryItems.map(({ href, label, current }) => ({ href, label, current }))}
-            />
-          </div>
-          <div className={styles.desktopCategories} data-news-category-navigation>
+          <div className={styles.categoryNavigation} data-news-category-navigation>
             <PublicSubcategoryNavigator
               mode="compact"
-              label="Filtrovať novinky podľa kategórie"
+              mobileLayout="grid"
+              columns={6}
+              label="Novinky podľa kategórie"
               items={categoryItems}
-              columns={4}
             />
           </div>
 

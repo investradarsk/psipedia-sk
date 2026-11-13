@@ -1367,7 +1367,7 @@
 
 .resultsShell {
   min-width: 0;
-  padding-bottom: var(--public-space-section);
+  padding-bottom: 20px;
 }
 
 .contextSection {
@@ -2266,4 +2266,45 @@
   width: 100%;
   max-width: 100%;
   padding-inline: 0;
+}
+
+/* Breeder previews show real breed names, not a generic "Aktívny chov" status.
+   Keep very long multi-breed lists compact without hiding them from assistive tech. */
+.breederBreedSummary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* Event previews: type -> prominent date/time -> title -> city.
+   Only event-grid cards are affected; directory and breeder cards keep their
+   original hierarchy and inherited compact geometry. */
+.card[data-public-card="event-grid"] .eventDateMeta {
+  display: block;
+  margin: 0;
+  color: var(--coral-dark, #99402d);
+  font-size: 0.88rem;
+  font-weight: 850;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.card[data-public-card="event-grid"] .eventDateMeta time {
+  color: inherit;
+  font: inherit;
+}
+.card[data-public-card="event-grid"] .cardTitle {
+  color: var(--forest-dark);
+}
+@media (max-width: 620px) {
+  .listRows .card[data-public-card="event-grid"] .eventDateMeta {
+    font-size: clamp(0.82rem, 3.65vw, 0.93rem);
+    line-height: 1.3;
+  }
 }

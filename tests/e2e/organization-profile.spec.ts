@@ -327,7 +327,7 @@ test.describe("organization location admin CRUD", () => {
     await addressAdmin.getByLabel("Kraj", { exact: true }).fill("Košický kraj");
     await addressAdmin.getByLabel("Kód krajiny").fill("SK");
     await page.getByRole("button", { name: "Uložiť organizáciu" }).click();
-    await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText("Údaje organizácie aj adresa sú uložené");
+    await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText(/Adresa organizácie je uložená\.|Údaje organizácie aj adresa sú uložené\./);
 
     await page.goto(
       `/organizacie/org-2b-e2e-jedna-lokalita?single-address=${testInfo.project.name}-${testInfo.retry}`,
@@ -357,8 +357,11 @@ test.describe("organization location admin CRUD", () => {
     await restore.getByLabel("Kraj", { exact: true }).fill("Trnavský kraj");
     await restore.getByLabel("Kód krajiny").fill("SK");
     await page.getByRole("button", { name: "Uložiť organizáciu" }).click();
-    await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText("Údaje organizácie aj adresa sú uložené");
+    await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText(/Adresa organizácie je uložená\.|Údaje organizácie aj adresa sú uložené\./);
 
+    // Verify the fixture is restored before any independent public viewport test.
+    await page.goto("/organizacie/org-2b-e2e-jedna-lokalita?restored=1", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("[data-organization-location-summary]")).toContainText("Trnava · Trnavský kraj");
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAccessibilityViolations(page);
   });

@@ -220,6 +220,8 @@ export type PublicDirectoryProfile = {
   websiteUrl: string | null;
   imageUrl: string | null;
   galleryUrls?: string[];
+  /** Published breed names for breeder preview cards only; no invented defaults. */
+  breedSummary?: string;
   thumbnailImageDisplay?: ImageDisplayConfig | null;
   detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;

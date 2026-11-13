@@ -55,7 +55,7 @@ function pageHref(type: DogReportType, params: URLSearchParams, page: number) {
   if (page <= 1) next.delete("page");
   else next.set("page", String(page));
   const query = next.toString();
-  return dogReportBasePath(type) + (query ? "?" + query : "");
+  return dogReportBasePath(type) + (query ? "?" + query : "") + "#lost-found-results";
 }
 
 export async function LostFoundDogsPage({
@@ -372,7 +372,7 @@ export async function LostFoundDogsPage({
                   </PublicActiveFilters>
                 ) : null}
               </PublicFilterPanel>
-              <div data-public-filter-results>
+              <div id="lost-found-results" data-public-filter-results>
                 <PublicResultsToolbar className={styles.summary}>
                   <PublicHeading role="section" as="h2">
                     {dogReportTypeLabel(type)}
@@ -458,10 +458,6 @@ export async function LostFoundDogsPage({
                   nextLabel="→"
                   previousAriaLabel="Predchádzajúca strana"
                   nextAriaLabel="Ďalšia strana"
-                  numberedPages={Array.from(
-                    { length: Math.min(result.pages, 7) },
-                    (_, index) => Math.max(1, Math.min(result.page - 3, result.pages - 6)) + index,
-                  )}
                   pageHref={(page) => pageHref(type, params, page)}
                   currentPageAsText
                   showDisabledControls={false}

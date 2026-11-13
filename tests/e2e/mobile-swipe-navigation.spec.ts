@@ -100,6 +100,59 @@ test.beforeEach(async ({ page, baseURL, isMobile }) => {
   );
 });
 
+test("mobile dismissal grip stays below the scroll area on 320px, 390px and tablet drawer", async ({ page }) => {
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 740 });
+    const opener = page.locator('.site-header button[aria-controls="mobile-menu"]:visible');
+    await opener.click();
+    const menu = page.locator("#mobile-menu");
+    const nav = menu.locator(":scope > nav");
+    const grip = menu.locator(":scope > [data-menu-dismiss-grip]");
+    await expect(menu).toHaveClass(/is-open/);
+    await expect(grip).toBeVisible();
+    await expect(grip).toHaveAttribute("aria-label", "Zavrieť navigačné menu");
+
+    const before = await page.evaluate(() => {
+      const menu = document.querySelector<HTMLElement>("#mobile-menu")!;
+      const nav = menu.querySelector<HTMLElement>(":scope > nav")!;
+      const grip = menu.querySelector<HTMLElement>(":scope > [data-menu-dismiss-grip]")!;
+      return {
+        navBottom: nav.getBoundingClientRect().bottom,
+        gripTop: grip.getBoundingClientRect().top,
+        gripBottom: grip.getBoundingClientRect().bottom,
+        gripHeight: grip.getBoundingClientRect().height,
+        viewport: window.innerHeight,
+        nativeScrolling: getComputedStyle(nav).overflowY,
+        menuBottom: menu.getBoundingClientRect().bottom,
+        focusable: grip.tabIndex >= 0,
+        tabOrder: grip === nav.nextElementSibling,
+      };
+    });
+    expect(before.tabOrder, `${width}px: grip must follow nav`).toBe(true);
+    expect(before.navBottom, `${width}px: nav overlaps grip`).toBeLessThanOrEqual(before.gripTop + 2);
+    expect(before.gripHeight, `${width}px: grip touch target too small`).toBeGreaterThanOrEqual(44);
+    expect(before.gripBottom).toBeLessThanOrEqual(before.viewport + 2);
+    expect(before.menuBottom).toBeLessThanOrEqual(before.viewport + 2);
+    expect(before.nativeScrolling).toBe("auto");
+    expect(before.focusable).toBe(true);
+
+    await nav.locator('[aria-controls="mobile-submenu-steniatka"]').click();
+    await expect(nav.locator('[aria-controls="mobile-submenu-steniatka"]')).toHaveAttribute("aria-expanded", "true");
+    await page.waitForTimeout(210);
+    const afterExpand = await grip.boundingBox();
+    expect(afterExpand).not.toBeNull();
+    await nav.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    const afterScroll = await grip.boundingBox();
+    expect(afterScroll).not.toBeNull();
+    expect(afterScroll!.y, `${width}px: grip scrolled away with the long list`).toBeCloseTo(afterExpand!.y, 0);
+    await expect(menu).toHaveClass(/is-open/);
+    await grip.focus();
+    await page.keyboard.press("Enter");
+    await expect(menu).not.toHaveClass(/is-open/);
+    await expect(opener).toBeFocused();
+  }
+});
+
 test("pulling the visible grip dismisses the menu while content scrolling stays native", async ({
   page,
 }) => {

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import * as React from "react";
 import * as jsx from "react/jsx-runtime";
+import { publicPaginationPages } from "../lib/public-pagination.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 const read = (p) => readFileSync(new URL("../" + p, import.meta.url), "utf8");
 function load(path, extra = {}) {
@@ -18,6 +19,7 @@ function load(path, extra = {}) {
   new Function("require", "exports", code)((name) => {
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsx;
+    if (name === "@/lib/public-pagination") return { publicPaginationPages };
     if (name.endsWith(".module.css"))
       return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
     if (name in extra) return extra[name];
@@ -150,7 +152,7 @@ test("report pagination preserves text current page, arrows and omitted disabled
     currentPageAsText: true,
     showDisabledControls: false,
   });
-  assert.match(html, /<span\s*aria-current="page">1<\/span>/);
+  assert.match(html, /<span\b[^>]*aria-current="page">1<\/span>/);
   assert.doesNotMatch(html, /aria-disabled|href="\?strana=1"/);
   assert.match(html, /aria-label="Ďalšia\s*strana"/);
   assert.equal(render(PublicPagination, { currentPage: 1, totalPages: 1 }), "");

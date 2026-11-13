@@ -56,7 +56,7 @@
 .browserTop {
   display: grid;
   gap: 14px;
-  padding-bottom: 28px;
+  padding-bottom: 16px;
 }
 .toolbar {
   display: grid;
@@ -1117,14 +1117,14 @@
 .overviewSectionFooter {
   display: flex;
   justify-content: flex-start;
-  margin-top: 14px;
+  margin-top: 8px;
   min-height: 44px;
 }
 .overviewSectionFooter a {
   min-height: 44px;
 }
 .overviewSection {
-  padding-block: 22px 26px;
+  padding-block: 16px 18px;
 }
 .overviewGrid {
   gap: var(--ps-ds5-grid-gap, 14px);
@@ -1138,7 +1138,7 @@
 }
 @media (max-width: 650px) {
   .overviewSection {
-    padding-block: 20px 24px;
+    padding-block: 14px 16px;
   }
   .overviewGrid {
     gap: 10px;
@@ -1147,10 +1147,22 @@
     padding: 11px 12px;
   }
   .overviewSectionFooter {
-    margin-top: 10px;
+    margin-top: 6px;
   }
   .overviewSectionFooter a {
     width: fit-content;
     max-width: 100%;
   }
+}
+
+/* PUBLIC AUDIT 2026-11-12: readable help-case titles without mid-word breaks. */
+@media (min-width: 961px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.card h3 {
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: manual;
 }

@@ -300,7 +300,7 @@ test("breed profile: canonical breadcrumbs and direct sections, no-crop media, u
   await fciCta.focus();
   await expect(fciCta).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/plemena\/biely-svajciarsky-ovciak\/fci-standard$/);
+  await expect(page).toHaveURL(/\/plemena\/ovciarske-a-pastierske\/biely-svajciarsky-ovciak\/fci-standard$/);
 
   await page.goto("/plemena/retrievery-sliedice-vodne/nova-scotia-duck-tolling-retriever");
   await expect(page.getByText("Fotografia sa pripravuje", { exact: true })).toBeVisible();

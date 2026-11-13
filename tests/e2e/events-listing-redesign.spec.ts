@@ -294,8 +294,10 @@ test.describe("final events acceptance", () => {
         .toBe(true);
       await expect(image).toHaveAttribute("data-smart-image-fit", "contain");
     }
-    // Historical Online region is not a physical locality; a supplied venue remains visible.
-    await expect(fixtureCard("Finalaudit Preteky 7")).toContainText("Klubové cvičisko");
+    // Step 4: listing previews show only a real city, not a venue or region.
+    // The Online fixture has no usable city, so show the explicit unknown-city fallback.
+    await expect(fixtureCard("Finalaudit Preteky 7")).toContainText("Miesto nie je uvedené");
+    await expect(fixtureCard("Finalaudit Preteky 7")).not.toContainText("Klubové cvičisko");
     await expect(fixtureCard("Finalaudit Preteky 7")).not.toContainText("Online podujatie");
     await expect(
       page.getByRole("heading", { name: /Mimoriadne dlhý názov kynologického stretnutia/ }),

@@ -723,19 +723,19 @@ test("ARTICLE-PUBLIC canonical news landing and topic URLs stay available", asyn
   await page.goto("/novinky", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/novinky$/);
   await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
-  // News reuses the same compact category picker as the other editorial sections.
-  const categoryPicker = page.getByRole("combobox", { name: "Oblasť v sekcii Novinky" });
-  await expect(categoryPicker).toBeVisible();
-  await expect(categoryPicker).toHaveValue("/novinky");
-  await expect(page.locator('[data-news-category-navigation]').first()).toBeVisible();
+  // News shares the compact, fully linked category grid (no old mobile select).
+  const categories = page.locator("[data-news-category-navigation]");
+  await expect(categories).toBeVisible();
+  await expect(categories.locator('a[href="/novinky"]')).toHaveAttribute("aria-current", "page");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
   await page.goto("/novinky/veda-a-zdravie", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/novinky\/veda-a-zdravie$/);
   await expect(page.getByRole("list", { name: "Novinky: Veda a zdravie" }).getByText("E2E výskum psov 2026")).toBeVisible();
   await expect(page.getByText("E2E zaujímavosť zo sveta psov")).toHaveCount(0);
-  await expect(page.getByRole("combobox", { name: "Oblasť v sekcii Novinky" })).toHaveValue("/novinky/veda-a-zdravie");
-  await expect(page.getByRole("combobox", { name: "Oblasť v sekcii Novinky" }).locator('option[value="/novinky"]')).toHaveText("Všetky");
+  const topicCategories = page.locator("[data-news-category-navigation]");
+  await expect(topicCategories.locator('a[href="/novinky/veda-a-zdravie"]')).toHaveAttribute("aria-current", "page");
+  await expect(topicCategories.locator('a[href="/novinky"]')).toContainText("Všetky");
   await expectNoSeriousAccessibilityViolations(page);
 });
 

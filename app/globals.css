@@ -4445,6 +4445,13 @@ h3 {
   margin: 0 auto;
   padding: 85px 0 110px;
 }
+/* A full-height shared hero already supplies the section's vertical rhythm. */
+.prose-page--after-hero {
+  padding-top: 32px;
+}
+@media (max-width: 650px) {
+  .prose-page--after-hero { padding-top: 24px; }
+}
 
 .prose-page h1 {
   margin-bottom: 25px;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Fragment, type ComponentPropsWithRef, type HTMLAttributes, type ReactNode } from "react";
 import styles from "./public-result-states.module.css";
+import { publicPaginationPages } from "@/lib/public-pagination";
 
 function classes(...values: Array<string | undefined | false>) {
   return values.filter(Boolean).join(" ");
@@ -68,7 +69,7 @@ export function PublicPagination({
   emptyDisabledControls = false,
 }: {
   currentPage: number;
-  totalPages: number;
+  totalPages: number | null;
   previousHref?: string;
   nextHref?: string;
   className?: string;
@@ -86,61 +87,48 @@ export function PublicPagination({
   summaryAs?: "strong" | "span";
   emptyDisabledControls?: boolean;
 }) {
-  if (totalPages <= 1) return null;
+  if (totalPages === null ? !previousHref && !nextHref : totalPages <= 1) return null;
+  const displayPages = totalPages === null ? [] : (numberedPages ?? publicPaginationPages(currentPage, totalPages));
   return (
     <nav
-      className={classes(
-        variant === "reports"
-          ? styles.reportPagination
-          : variant === "default"
-            ? styles.pagination
-            : undefined,
-        className,
-      )}
+      className={classes(styles.pagination, variant === "reports" && styles.reportPagination, className)}
       aria-label={label}
       data-public-pagination
     >
       {previousHref ? (
-        <Link href={previousHref} rel="prev" aria-label={previousAriaLabel}>
-          {previousLabel}
-        </Link>
+        <Link className={styles.pageArrow} href={previousHref} rel="prev" aria-label={previousAriaLabel ?? previousLabel}>‹</Link>
       ) : showDisabledControls ? (
-        emptyDisabledControls ? (
-          <span />
-        ) : (
-          <span aria-disabled="true">{previousLabel}</span>
-        )
+        emptyDisabledControls ? <span className={styles.paginationSpacer} /> :
+          <span className={styles.pageArrow} aria-disabled="true" aria-label={previousAriaLabel ?? previousLabel}>‹</span>
       ) : null}
-      {numberedPages && pageHref ? (
-        numberedPages.map((page, index) => (
+      {totalPages === null ? (
+        <span className={styles.paginationSummary} aria-current="page">Strana {currentPage}</span>
+      ) : displayPages.length && pageHref ? (
+        displayPages.map((page, index) => (
           <Fragment key={page}>
-            {index > 0 && page > numberedPages[index - 1] + 1 ? (
-              <span aria-hidden="true">…</span>
+            {index > 0 && page > displayPages[index - 1] + 1 ? (
+              <span className={styles.paginationEllipsis} aria-hidden="true">…</span>
             ) : null}
             {currentPageAsText && page === currentPage ? (
-              <span aria-current="page">{page}</span>
+              <span className={styles.pageNumber} aria-current="page">{page}</span>
             ) : (
-              <Link href={pageHref(page)} aria-current={page === currentPage ? "page" : undefined}>
+              <Link className={styles.pageNumber} href={pageHref(page)}
+                aria-current={page === currentPage ? "page" : undefined}>
                 {page}
               </Link>
             )}
           </Fragment>
         ))
       ) : (
-        <Summary aria-current="page">
+        <Summary className={styles.paginationSummary} aria-current="page">
           Strana {currentPage} z {totalPages}
         </Summary>
       )}
       {nextHref ? (
-        <Link href={nextHref} rel="next" aria-label={nextAriaLabel}>
-          {nextLabel}
-        </Link>
+        <Link className={styles.pageArrow} href={nextHref} rel="next" aria-label={nextAriaLabel ?? nextLabel}>›</Link>
       ) : showDisabledControls ? (
-        emptyDisabledControls ? (
-          <span />
-        ) : (
-          <span aria-disabled="true">{nextLabel}</span>
-        )
+        emptyDisabledControls ? <span className={styles.paginationSpacer} /> :
+          <span className={styles.pageArrow} aria-disabled="true" aria-label={nextAriaLabel ?? nextLabel}>›</span>
       ) : null}
     </nav>
   );

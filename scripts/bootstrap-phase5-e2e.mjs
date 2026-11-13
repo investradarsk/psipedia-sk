@@ -145,10 +145,10 @@ async function verifyPublicRoutes(baseUrl) {
   const hub = await request(baseUrl, "/recenzie");
   if (hub.response.status !== 200) fail(`/recenzie returned ${hub.response.status}.`);
   assertContains(hub.body, "Recenzie a testy", "/recenzie H1");
-  // The redesigned review hub presents three review types instead of the
-  // old eight-link managed tab strip. The subpages are still persisted above.
-  assertContains(hub.body, "Tri hlavné vstupy do recenzií", "/recenzie review type navigation");
-  for (const type of ["Produkty", "Služby", "E-shopy"]) {
+  // The review hub uses the existing "all" overview plus three review types;
+  // no new review classification or redundant category tab strip is created.
+  assertContains(hub.body, "Vyberte, čo chcete pozrieť", "/recenzie review type navigation");
+  for (const type of ["Všetko", "Produkty", "Služby", "E-shopy"]) {
     assertContains(hub.body, type, `/recenzie review type ${type}`);
   }
   assertContains(hub.body, REVIEW_TITLE, "/recenzie review card");

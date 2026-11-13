@@ -56,7 +56,7 @@ type Props = {
 
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   const href = adoptionDetailPath(dog.slug);
-  const meta = [dog.organizationName, dog.city, dog.region].filter(Boolean).join(" · ");
+  const meta = dog.city?.trim() ?? "";
   // Confirmation is historical evidence, not a promise the dog is still available.
   const confirmationDate = formatAdoptionDetailVerification(dog.lastVerifiedAt);
   return (
@@ -89,7 +89,6 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
         </Link>
       }
       meta={meta}
-      excerpt={dog.shortDescription}
       extras={confirmationDate || (dog.organizationSlug && dog.organizationName) ? (
         <div>
           {confirmationDate ? (
@@ -403,7 +402,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
               </PublicActiveFilters>
             ) : null}
           </PublicFilterPanel>
-          <div data-public-filter-results>
+          <div id="adoption-results" data-public-filter-results>
             <PublicResultsToolbar className={styles.summary}>
               <div>
                 <PublicHeading role="section" as="h2">
@@ -455,14 +454,15 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
               label="Stránkovanie adopcií"
               currentPage={pagination.page}
               totalPages={pagination.totalPages}
+              pageHref={(page) => adoptionCatalogHref(filters, { page }) + "#adoption-results"}
               previousHref={
                 pagination.page > 1
-                  ? adoptionCatalogHref(filters, { page: pagination.page - 1 })
+                  ? adoptionCatalogHref(filters, { page: pagination.page - 1 }) + "#adoption-results"
                   : undefined
               }
               nextHref={
                 pagination.page < pagination.totalPages
-                  ? adoptionCatalogHref(filters, { page: pagination.page + 1 })
+                  ? adoptionCatalogHref(filters, { page: pagination.page + 1 }) + "#adoption-results"
                   : undefined
               }
               showDisabledControls={false}

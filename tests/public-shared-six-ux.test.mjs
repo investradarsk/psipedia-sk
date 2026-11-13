@@ -53,7 +53,7 @@ test("shared detail fact list is slimmer and keeps semantic values", () => {
   assert.match(event, /<dt>Miesto<\/dt>/);
 });
 
-test("all categories can be selected on mobile without horizontal scroll", () => {
+test("up to six categories stay visible; larger directory groups swipe by six on mobile", () => {
   // After unification with Help/Events, services use one responsive link grid,
   // not a mobile select or scrollable toolbar.
   assert.match(category, /<PublicSubcategoryNavigator/);
@@ -63,6 +63,8 @@ test("all categories can be selected on mobile without horizontal scroll", () =>
   assert.match(sharedTabs, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(sharedTabs, /\.compactGridMobile \.compactItem/);
   assert.match(sharedTabs, /min-height: 52px/);
+  assert.match(sharedTabs, /\.compactGridMobile \.pagedPage/);
+  assert.match(sharedTabs, /scroll-snap-type:\s*x mandatory/);
 });
 
 test("all opt-in service profiles use a wide contain photo and three accessible hero actions", () => {
