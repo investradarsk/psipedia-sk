@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
-  BREEDER_EDITORIAL_PATHS,
+  BREEDER_EDITORIAL_PATHS, DIRECTORY_CONTACT_EDITORIAL_PATHS,
+  directoryContactNotionBlankWouldEraseAdmin,
   breederNotionChangedFields, breederAdminChangedFields,
   breederApplyNotionChanges, breederPreserveUneditedFields,
 } from "../lib/notion-breeder-field-events.ts";
@@ -251,4 +252,29 @@ test("salon changes remain per-field and explicit blanks clear selected values",
     { ...previous, description: "Upravený popis" },
     { ...previous, services: ["Kúpanie", "Trimovanie"] }, ["description"],
   ).services, ["Kúpanie", "Trimovanie"]);
+});
+
+test("stale empty Notion contact events cannot erase five saved Admin contact values", async () => {
+  const expected = ["websiteUrl", "publicPhone", "publicEmail", "facebookUrl", "instagramUrl"];
+  assert.deepEqual([...DIRECTORY_CONTACT_EDITORIAL_PATHS], expected);
+  for (const path of expected) {
+    assert.equal(directoryContactNotionBlankWouldEraseAdmin(path, "xxx", ""), true, path);
+    assert.equal(directoryContactNotionBlankWouldEraseAdmin(path, "xxx", "   "), true, path);
+    assert.equal(directoryContactNotionBlankWouldEraseAdmin(path, "xxx", null), true, path);
+    assert.equal(directoryContactNotionBlankWouldEraseAdmin(path, "", ""), false, path);
+    assert.equal(directoryContactNotionBlankWouldEraseAdmin(path, "xxx", "Nový text"), false, path);
+    assert.equal(directoryContactNotionBlankWouldEraseAdmin(path, "", "xxx"), false, path);
+  }
+  for (const path of ["description", "excerpt", "name", "seo.title"]) {
+    assert.equal(directoryContactNotionBlankWouldEraseAdmin(path, "Pôvodná hodnota", ""), false, path);
+  }
+  const sync = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const inbound = sync.slice(sync.indexOf("if (input.changedPropertyIds !== undefined) {"),
+    sync.indexOf("  const fields = (input.adminChangedFields ?? []).filter("));
+  assert.match(inbound, /directoryContactNotionBlankWouldEraseAdmin\(/);
+  assert.match(inbound, /nonDestructiveContactRepairs\.push\(path\)/);
+  assert.match(inbound, /adminChangedFields: nonDestructiveContactRepairs/);
+  assert.match(inbound, /DIRECTORY_CONTACT_NOTION_REPAIR_PENDING/);
+  assert.ok(inbound.indexOf("directoryContactNotionBlankWouldEraseAdmin(")
+    < inbound.indexOf("saveBreederEditorialValue(database, current, desired, path)"));
 });
