@@ -16,14 +16,17 @@ import {
 import Link from "next/link";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { EventCard } from "./event-card";
+import { ArrowIcon } from "@/components/icons";
 import {
   PublicActionButton,
+  PublicActionLink,
   PublicFilterTag,
   PublicNotice,
   PublicPagination,
 } from "@/components/public-visual-system";
 import { eventListingParams, eventTypeBatchGroupingEnabled, EVENT_PAGE_SIZE, type EventListingFilters } from "@/lib/event-listing";
-import { eventTypes, slovakRegions, type PublicEventCard } from "@/lib/events";
+import { publicPaginationPages } from "@/lib/public-pagination";
+import { eventTypePortalHref, eventTypes, slovakRegions, type PublicEventCard } from "@/lib/events";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
 import styles from "./events-public.module.css";
 import directoryStyles from "./directory-public.module.css";
@@ -62,6 +65,7 @@ export function EventListingResults({
   function href(page: number) {
     const next = new URLSearchParams(params);
     if (page > 1) next.set("strana", String(page));
+    else next.delete("strana");
     return `${pathname}?${next.toString()}#events-list`;
   }
   const active = [
@@ -96,9 +100,7 @@ export function EventListingResults({
     if (key === "termin") next.set("termin", "vsetky");
     return target + (next.size ? `?${next.toString()}` : "") + "#events-list";
   };
-  const pages = [...new Set([1, listing.page - 1, listing.page, listing.page + 1, listing.pages])]
-    .filter((page) => page >= 1 && page <= listing.pages)
-    .sort((a, b) => a - b);
+  const pages = publicPaginationPages(listing.page, listing.pages);
 
   return (
     <PublicFilterLayout className={styles.listingLayout} data-events-listing-layout>
@@ -271,6 +273,19 @@ export function EventListingResults({
                     </h3>
                   ) : null}
                   <EventCard event={event} today={today} variant="grid" />
+                  {groupedByType && (index === events.length - 1 || events[index + 1]?.eventType !== event.eventType) ? (
+                    <div className={styles.eventTypeGroupFooter} data-event-type-cta={event.eventType}>
+                      <PublicActionLink
+                        href={`${eventTypePortalHref(event.eventType) ?? "/podujatia"}#events-list`}
+                        variant="tertiary"
+                        icon={<ArrowIcon size={16} />}
+                      >
+                        Zobraziť všetky {event.eventType === "Iné"
+                          ? "ostatné podujatia"
+                          : eventTypePresentation[event.eventType].label.toLocaleLowerCase("sk")}
+                      </PublicActionLink>
+                    </div>
+                  ) : null}
                 </Fragment>
               ))}
             </div>

@@ -27,7 +27,8 @@ test("NEWS-LANDING-2 keeps /novinky distinct from the general /clanky archive", 
 test("NEWS-LANDING-2 uses shared category navigation instead of custom full-width pills", () => {
   const newsHub = read("components/news-hub.tsx");
   const newsStyles = read("components/news-hub.module.css");
-  assert.match(newsHub, /<PortalMobileCategorySelect/);
+  assert.match(newsHub, /mobileLayout="grid"/);
+  assert.doesNotMatch(newsHub, /<PortalMobileCategorySelect/);
   assert.match(newsHub, /<PublicSubcategoryNavigator/);
   assert.match(newsHub, /data-news-category-navigation/);
   assert.doesNotMatch(newsHub, /meta=\{\x60\$\{newsArticles\.length\}/);

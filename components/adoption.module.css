@@ -265,33 +265,7 @@
   font-size: 0.8rem;
   font-weight: 700;
 }
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 28px;
-}
-.pagination a,
-.pagination span,
-.pagination strong {
-  min-height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 14px;
-  border-radius: 11px;
-  border: 1px solid #ccd7d0;
-  text-decoration: none;
-  color: #173f2d;
-}
-.pagination span,
-.pagination strong {
-  background: #173f2d;
-  color: #fff;
-  border-color: #173f2d;
-}
+.pagination { margin-top: 12px; }
 @media (max-width: 960px) {
   .filters {
     grid-template-columns: repeat(2, 1fr);

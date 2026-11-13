@@ -122,12 +122,32 @@ export function SiteHeader({
     const target = document.getElementById(id);
     if (!target) return;
 
-    // Browsers can perform the initial hash scroll before the hydrated sticky
-    // header has its final measured height. Align once immediately and once
-    // after layout settles so the target respects its scroll-margin-top.
+    // Browsers can perform initial fragment scrolling before the hydrated
+    // header and calendar settle. Preserve the native anchor, then correct only
+    // the events results target after the initial calendar layout stabilizes.
     target.scrollIntoView({ block: "start" });
     const frame = window.requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
-    return () => window.cancelAnimationFrame(frame);
+    const eventsTimer = id === "events-list" ? window.setTimeout(() => {
+      if (window.location.hash !== "#events-list" || !target.isConnected) return;
+      const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+      const header = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--psipedia-sticky-header-height"),
+      ) || 76;
+      const preferredTop = Math.max(104, margin, header + 16);
+      const currentTop = target.getBoundingClientRect().top;
+      // Only intervene when the results are hidden by the sticky header or
+      // the anchor did not scroll at all; leave intentional user scroll alone.
+      if (currentTop < preferredTop - 8 || currentTop > window.innerHeight) {
+        window.scrollTo({
+          top: Math.max(0, window.scrollY + currentTop - preferredTop),
+          behavior: "instant",
+        });
+      }
+    }, 250) : null;
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (eventsTimer !== null) window.clearTimeout(eventsTimer);
+    };
   }, [pathname]);
 
   useEffect(() => {
@@ -274,14 +294,15 @@ export function SiteHeader({
     };
   }, [menuOpen]);
 
-  // The content list keeps native scrolling. Only the visibly marked grabber
-  // owns drawer dismissal so ordinary attempts to browse don't close the menu.
+  // Scroll the navigation naturally; only the separate bottom grabber owns
+  // dismissal. No swipe listeners on the document, links or the scrollable list.
   useEffect(() => {
     if (!menuOpen) return;
     const menu = mobileMenuRef.current;
     const nav = menu?.querySelector<HTMLElement>("nav");
-    const grip = menu?.querySelector<HTMLButtonElement>("[data-menu-dismiss-grip]");
-    if (!nav || !grip) return;
+    const grip = menu?.querySelector<HTMLButtonElement>(":scope > [data-menu-dismiss-grip]");
+    if (!menu || !nav || !grip) return;
+    const drawer = menu;
     nav.scrollTop = 0;
     let startY: number | null = null;
     let distance = 0;
@@ -289,20 +310,20 @@ export function SiteHeader({
     const reset = () => {
       startY = null;
       distance = 0;
-      nav.style.transition = "transform 180ms ease";
-      nav.style.transform = "";
+      drawer.style.transition = "transform 180ms ease";
+      drawer.style.transform = "";
     };
     function onStart(event: globalThis.TouchEvent) {
       if (event.touches.length !== 1) return;
       startY = event.touches[0].clientY;
       distance = 0;
-      nav!.style.transition = "none";
+      drawer.style.transition = "none";
     }
     function onMove(event: globalThis.TouchEvent) {
       if (startY === null || event.touches.length !== 1) return;
       distance = Math.max(0, Math.min(180, event.touches[0].clientY - startY));
       if (event.cancelable) event.preventDefault();
-      nav!.style.transform = "translate3d(0," + distance + "px,0)";
+      drawer.style.transform = "translate3d(0," + distance + "px,0)";
     }
     function onEnd() {
       const close = startY !== null && distance >= 60;
@@ -310,6 +331,7 @@ export function SiteHeader({
       if (close) {
         setOpenMobileMenu(null);
         setMenuOpen(false);
+        menuReturnFocusRef.current?.focus();
       }
     }
     grip.addEventListener("touchstart", onStart, { passive: true });
@@ -321,8 +343,8 @@ export function SiteHeader({
       grip.removeEventListener("touchmove", onMove);
       grip.removeEventListener("touchend", onEnd);
       grip.removeEventListener("touchcancel", reset);
-      nav.style.transition = "";
-      nav.style.transform = "";
+      drawer.style.transition = "";
+      drawer.style.transform = "";
     };
   }, [menuOpen]);
 
@@ -542,19 +564,8 @@ export function SiteHeader({
           </nav>
         </div>
 
-        <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
+        <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""} ${styles.mobileMenuShell}`} aria-hidden={!menuOpen} inert={!menuOpen}>
           <nav className="shell public-shell" aria-label="Mobilná navigácia">
-            <button
-              type="button"
-              className={styles.menuDismissGrip}
-              tabIndex={-1}
-              data-menu-dismiss-grip
-              onClick={() => { setOpenMobileMenu(null); setMenuOpen(false); }}
-              aria-label="Zavrieť navigačné menu"
-              title="Potiahni nadol alebo klepni pre zatvorenie"
-            >
-              <span aria-hidden="true" />
-            </button>
             {nav.map((item) => (
               <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>
                 <div className="mobile-nav-parent">
@@ -585,6 +596,20 @@ export function SiteHeader({
             <div className={styles.mobileUtilityLinks}><Link href="/kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link><Link href={partnerHref} className="mobile-contact-link" data-partner-login-entry onClick={() => setMenuOpen(false)}>{partnerLabel}</Link></div>
             <button type="button" onClick={(event) => openSearch(event.currentTarget)}><SearchIcon /> Hľadať na Psipedii</button>
           </nav>
+          <button
+            type="button"
+            className={styles.menuDismissGrip}
+            data-menu-dismiss-grip
+            onClick={() => {
+              setOpenMobileMenu(null);
+              setMenuOpen(false);
+              menuReturnFocusRef.current?.focus();
+            }}
+            aria-label="Zavrieť navigačné menu"
+            title="Potiahni nadol alebo klepni pre zatvorenie"
+          >
+            <span aria-hidden="true" />
+          </button>
         </div>
         <NavigationProgress />
       </header>

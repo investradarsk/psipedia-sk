@@ -1,4 +1,4 @@
-import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
+import { PublicEmptyState, PublicPagination } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import { PublicHeading } from "@/components/public-heading";
 import { ArticleListItem } from "@/components/article-list-item";
@@ -20,6 +20,8 @@ import { StructuredData } from "@/components/structured-data";
 import type { Article } from "@/lib/content";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
+import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import {
   articleHref,
   articlePortalSection,
@@ -554,6 +556,11 @@ export async function EditorialSectionHub({
           </PageContainer>
         </div>
 
+        <PublicPhotoCallout
+          promo={publicSectionPhotoPromos[sectionSlug]}
+          bannerId={`section-${sectionSlug}`}
+        />
+
         <section className={styles.nextSection} aria-labelledby={`${sectionSlug}-next`}>
           <PageContainer>
             <PublicLandingSectionHeading
@@ -706,19 +713,20 @@ export async function EditorialSectionTopic({
               limit={Math.max(10, topicArticles.length)}
             />
             {pagination && (pagination.page > 1 || pagination.hasNext) && (
-              <nav aria-label="Stránkovanie článkov">
-                {pagination.page > 1 && (
-                  <Link href={pagination.page === 2 ? path : `${path}?strana=${pagination.page - 1}`}>
-                    ← Predchádzajúce články
-                  </Link>
-                )}
-                <span> Strana {pagination.page} </span>
-                {pagination.hasNext && (
-                  <Link href={`${path}?strana=${pagination.page + 1}`}>
-                    Ďalšie články →
-                  </Link>
-                )}
-              </nav>
+              <PublicPagination
+                label="Stránkovanie článkov"
+                currentPage={pagination.page}
+                totalPages={null}
+                previousHref={pagination.page > 1
+                  ? (pagination.page === 2 ? path : `${path}?strana=${pagination.page - 1}`) + "#topic-related-heading"
+                  : undefined}
+                nextHref={pagination.hasNext
+                  ? `${path}?strana=${pagination.page + 1}#topic-related-heading`
+                  : undefined}
+                previousLabel="← Predchádzajúce články"
+                nextLabel="Ďalšie články →"
+                showDisabledControls={false}
+              />
             )}
           </section>
           <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>

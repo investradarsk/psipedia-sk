@@ -403,7 +403,7 @@ export default async function SearchPage({ searchParams }: Props) {
         </section>
       ) : null}
 
-      <section className="section shell portal-search-results" aria-live="polite" aria-busy="false">
+      <section id="search-results" className="section shell portal-search-results" aria-live="polite" aria-busy="false">
         {query.length < 2 ? (
           <PublicEmptyState variant="context" className="portal-search-start">
             <span aria-hidden="true">🔎</span>
@@ -488,6 +488,7 @@ export default async function SearchPage({ searchParams }: Props) {
                 label="Stránkovanie výsledkov"
                 currentPage={result.page}
                 totalPages={result.totalPages}
+                pageHref={(page) => searchHref(query, section, page, typeFilterParam, locationFilterParam, subsection) + "#search-results"}
                 previousHref={
                   result.page > 1
                     ? searchHref(
@@ -497,7 +498,7 @@ export default async function SearchPage({ searchParams }: Props) {
                         typeFilterParam,
                         locationFilterParam,
                         subsection,
-                      )
+                      ) + "#search-results"
                     : undefined
                 }
                 nextHref={
@@ -509,7 +510,7 @@ export default async function SearchPage({ searchParams }: Props) {
                         typeFilterParam,
                         locationFilterParam,
                         subsection,
-                      )
+                      ) + "#search-results"
                     : undefined
                 }
                 summaryAs="span"

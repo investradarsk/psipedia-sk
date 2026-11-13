@@ -55,6 +55,8 @@ export type Article = {
   blocks?: import("@/lib/article-blocks").ArticleBlock[];
   portalSection?: import("@/lib/portal").ArticlePortalSection;
   portalSubpage?: string;
+  /** Explicit editorial classification: do not infer a hands-on test from a review section. */
+  reviewFormat?: "test" | "guide";
   newsCategory?: import("@/lib/news").NewsCategorySlug;
   seo?: ArticleSeo;
   showUpdated?: boolean;

@@ -57,6 +57,8 @@ export type AdoptionDog = {
   breedId: number | null;
   breedName: string;
   breedSlug: string | null;
+  /** Canonical FCI group, when linked to an eligible published breed. */
+  breedFciGroup?: number | null;
   breedMix: boolean;
   color: string;
   region: AdoptionRegion | "";
@@ -505,7 +507,11 @@ export function adoptionAgeMonths(
 ) {
   if (dog.birthDate) {
     const born = new Date(`${dog.birthDate}T12:00:00Z`);
-    if (!Number.isNaN(born.getTime())) return Math.max(0, Math.round((now.getTime() - born.getTime()) / (30.4375 * 86_400_000)));
+    if (!Number.isNaN(born.getTime())) {
+      // A future birth date is invalid source data, not a newborn aged 0 months.
+      if (born.getTime() > now.getTime()) return null;
+      return Math.max(0, Math.round((now.getTime() - born.getTime()) / (30.4375 * 86_400_000)));
+    }
   }
   return dog.approximateAgeMonths;
 }

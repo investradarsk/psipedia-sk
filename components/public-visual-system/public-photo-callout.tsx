@@ -18,12 +18,15 @@ export function PublicPhotoCallout({
   promo,
   headingId,
   anchorId,
+  bannerId,
   desktopColors,
   desktopCopy,
 }: {
   promo: PublicPhotoCalloutData;
   headingId?: string;
   anchorId?: string;
+  /** Optional unique placement key outside Help; the shared banner stays identical. */
+  bannerId?: string;
   desktopColors?: ComponentProps<typeof PublicMagazineBanner>["desktopColors"];
   desktopCopy?: ComponentProps<typeof PublicMagazineBanner>["desktopCopy"];
 }) {
@@ -37,7 +40,7 @@ export function PublicPhotoCallout({
       description={promo.text}
       label={promo.action}
       href={promo.href}
-      testId={`help-${promo.tone}`}
+      testId={bannerId ?? `help-${promo.tone}`}
       photoTone={promo.tone}
       headingId={headingId}
     />

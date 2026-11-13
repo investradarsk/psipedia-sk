@@ -34,7 +34,7 @@ function pageHref(current: DirectoryClubSearchParams, page: number) {
   if (current.sort !== "name-asc") params.set("sort", current.sort);
   if (page > 1) params.set("page", String(page));
   const query = params.toString();
-  return `/adresar/kynologicke-kluby${query ? `?${query}` : ""}`;
+  return `/adresar/kynologicke-kluby${query ? `?${query}` : ""}#directory-results-heading`;
 }
 
 function DirectoryClubCard({ profile }: { profile: DirectoryClubCardProfile }) {
@@ -135,6 +135,7 @@ export function DirectoryClubResults({
           label="Stránkovanie klubov"
           currentPage={result.pagination.page}
           totalPages={result.pagination.totalPages}
+          pageHref={(page) => pageHref(current, page)}
           previousHref={
             result.pagination.page > 1 ? pageHref(current, result.pagination.page - 1) : undefined
           }

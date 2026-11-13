@@ -89,8 +89,8 @@ test("directory root and categories retain shared content shell and canonical ro
   assert.match(directory, /DirectoryCategoryNavigation/);
   assert.match(directory, /directoryCategoryHref\(category\)/);
   assert.match(directory, /UnifiedSectionHeroShell/);
-  assert.doesNotMatch(events, /PublicSubcategoryNavigator/);
-  assert.match(reviews, /PublicCategoryTiles/);
+  assert.match(events, /<PublicSubcategoryNavigator/);
+  assert.match(reviews, /PublicSubcategoryNavigator/);
   assert.match(helpOverview, /<PublicHelpCategoryNav/);
 });
 

@@ -53,8 +53,8 @@ test("Services show one mobile category control, not duplicated shortcuts in her
   const css = read("components/directory-public.module.css");
   assert.match(directory, /shortcuts=\{\[\]\}/);
   assert.match(directory, /<DirectoryCategoryNavigation items=\{categoryItems\}/);
-  assert.match(switcher, /aria-label="Vyber kategóriu služby"/);
-  assert.match(switcher, /router\.push\(event\.target\.value\)/);
-  assert.match(css, /\.categoryDesktopTabs\s*\{\s*display: none;\s*\}/);
-  assert.match(css, /\.categoryMobileSelect\s*\{[\s\S]*min-height: 46px/);
+  assert.match(switcher, /<PublicSubcategoryNavigator/);
+  assert.match(switcher, /mobileLayout="grid"/);
+  assert.doesNotMatch(switcher, /<select|router\.push/);
+  assert.match(css, /\.sharedCategoryNavigation/);
 });

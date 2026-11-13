@@ -316,11 +316,11 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
 
   assert.match(card, /href=\{directoryProfileHref\(profile\)\}/);
   assert.match(results, /<PublicPagination/);
-  assert.match(results, /previousHref=\{\s*result\.page\s*>\s*1\s*\?\s*directoryPageHref\(basePath,\s*filters,\s*result\.page\s*-\s*1\)\s*:\s*undefined\s*\}/);
-  assert.match(results, /nextHref=\{\s*result\.page\s*<\s*result\.totalPages\s*\?\s*directoryPageHref\(basePath,\s*filters,\s*result\.page\s*\+\s*1\)\s*:\s*undefined\s*\}/);
+  assert.match(results, /previousHref=\{\s*result\.page\s*>\s*1\s*\?\s*directoryPageHref\(basePath,\s*filters,\s*result\.page\s*-\s*1\)\s*\+\s*"#directory-results-heading"\s*:\s*undefined\s*\}/);
+  assert.match(results, /nextHref=\{\s*result\.page\s*<\s*result\.totalPages\s*\?\s*directoryPageHref\(basePath,\s*filters,\s*result\.page\s*\+\s*1\)\s*\+\s*"#directory-results-heading"\s*:\s*undefined\s*\}/);
   const pagination = fs.readFileSync(new URL("../components/public-visual-system/public-result-states.tsx", import.meta.url), "utf8");
-  assert.match(pagination, /<Link href=\{previousHref\} rel="prev" aria-label=\{previousAriaLabel\}>/);
-  assert.match(pagination, /<Link href=\{nextHref\} rel="next" aria-label=\{nextAriaLabel\}>/);
+  assert.match(pagination, /<Link className=\{styles\.pageArrow\} href=\{previousHref\} rel="prev" aria-label=\{previousAriaLabel \?\? previousLabel\}>‹<\/Link>/);
+  assert.match(pagination, /<Link className=\{styles\.pageArrow\} href=\{nextHref\} rel="next" aria-label=\{nextAriaLabel \?\? nextLabel\}>›<\/Link>/);
   assert.match(directoryPage, /href: directoryCategoryHref\(category\),/);
   assert.match(directoryPage, /<DirectoryCategoryNavigation items=\{categoryItems\} \/>/);
   assert.match(detail, /href=\{"\/adresar\/" \+ presentation\.category\}/);

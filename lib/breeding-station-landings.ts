@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { canonicalBreedWinnerSql } from "@/lib/breed-canonical";
 import { publicDirectoryRelationTargetSql } from "@/lib/content-relations";
 import type { PublicDirectoryProfile } from "@/lib/directory";
+import { attachBreederCardBreeds } from "@/lib/directory-breeder-card";
 import { SLOVAK_REGION_LANDINGS, type SlovakRegionLandingLocation } from "@/lib/slovak-location-landings";
 
 export const BREEDING_STATION_CATEGORY = "chovatelske-stanice" as const;
@@ -117,6 +118,7 @@ function profileFromRow(row: LandingRow): PublicDirectoryProfile {
     priceNote: row.price_note?.trim() ?? "",
     websiteUrl: null,
     imageUrl: row.image_url?.trim() || null,
+    ...(row.breed_name?.trim() ? { breedSummary: row.breed_name.trim() } : {}),
     verified: false,
     featured: Number(row.featured) === 1,
     updatedAt: row.updated_at?.trim() ?? "",
@@ -292,7 +294,7 @@ export async function getBreedingStationLanding(
     ...presentation,
     breed,
     region: query.region,
-    profiles: rows.map(profileFromRow),
+    profiles: await attachBreederCardBreeds(database, rows.map(profileFromRow)),
     total,
     indexable: breedingStationLandingIndexable(total),
     lastModified: newestTimestamp(rows.flatMap((row) => [

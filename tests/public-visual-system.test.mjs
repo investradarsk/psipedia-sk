@@ -464,7 +464,7 @@ test("PUBLIC-UX-FOUNDATION-1 centralizes future public spacing without changing 
   assert.match(hero, /\{hasTools \? \([\s\S]*data-unified-section-hero-tools[\s\S]*\) : null\}/);
 });
 
-test("mobile public shells use one 12px gutter and swipe-only grip stays out of keyboard tab order", () => {
+test("mobile public shells use one 12px gutter and bottom grip supports keyboard dismissal", () => {
   assert.match(designSystem, /max\(12px, env\(safe-area-inset-left, 0px\)\)/);
   assert.match(designSystem, /max\(12px, env\(safe-area-inset-right, 0px\)\)/);
   const editorialStyles = read("components/editorial-section.module.css");
@@ -473,7 +473,9 @@ test("mobile public shells use one 12px gutter and swipe-only grip stays out of 
     /\.foundation :global\(\.public-shell\)/,
     "editorial routes must not override the canonical public gutter",
   );
-  assert.match(siteHeader, /tabIndex=\{-1\}\s+data-menu-dismiss-grip/);
+  assert.doesNotMatch(siteHeader, /tabIndex=\{-1\}\s+data-menu-dismiss-grip/);
+  assert.match(siteHeader, /data-menu-dismiss-grip/);
+  assert.match(siteHeader, /menuReturnFocusRef\.current\?\.focus\(\)/);
   assert.ok(siteHeader.includes('button:not([disabled]):not([tabindex="-1"])'));
 });
 

@@ -53,6 +53,17 @@ export type HelpOverviewSection = {
 
 type PromoBanner = PublicHelpPhotoBannerData;
 
+/** One explicit, grammatical CTA for each Help category preview. */
+const overviewActionLabels: Record<HelpCategorySlug, string> = {
+  adopcia: "Zobraziť všetkých psov na adopciu",
+  utulky: "Zobraziť všetky organizácie",
+  "docasna-opatera": "Zobraziť všetky ponuky dočasnej opatery",
+  zbierky: "Zobraziť všetky zbierky a výzvy",
+  "stratene-a-najdene": "Zobraziť všetky hlásenia",
+  dobrovolnictvo: "Zobraziť všetky možnosti pomoci",
+  "urgentne-pripady": "Zobraziť všetky urgentné prípady",
+};
+
 
 function OverviewCard({ item }: { item: HelpOverviewItem }) {
   return (
@@ -62,7 +73,6 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
       title={item.title}
       category={item.eyebrow}
       meta={item.meta}
-      excerpt={item.excerpt}
       badge={item.badge
         ? <span className={[styles.overviewBadge, item.urgent ? styles.overviewBadgeUrgent : ""].filter(Boolean).join(" ")}>{item.badge}</span>
         : null}
@@ -192,26 +202,18 @@ export async function HelpOverview({
                       </div>
                     ) : (
                       <div className={styles.overviewEmpty}>
-                        <p>Ďalšie prípady a organizácie nájdeš v prehľade kategórie.</p>
-                        <Link href={section.href}>
-                          Otvoriť kategóriu <ArrowIcon size={15} />
-                        </Link>
+                        <p>Ďalšie prípady a organizácie nájdeš v úplnom prehľade kategórie.</p>
                       </div>
                     )}
-                    {section.slug === "utulky" ? (
-                      <div className={styles.overviewSectionFooter}>
-                        <PublicActionLink href="/organizacie" variant="tertiary" icon={<ArrowIcon size={16} />}>
-                          Všetky organizácie
-                        </PublicActionLink>
-                      </div>
-                    ) : null}
-                    {section.items.length > 0 && (
-                      <div className={styles.overviewSectionFooter}>
-                        <PublicActionLink href={section.href} variant="tertiary" icon={<ArrowIcon size={16} />}>
-                          Zobraziť všetky
-                        </PublicActionLink>
-                      </div>
-                    )}
+                    <div className={styles.overviewSectionFooter} data-help-overview-cta={section.slug}>
+                      <PublicActionLink
+                        href={section.slug === "utulky" ? "/organizacie" : section.href}
+                        variant="tertiary"
+                        icon={<ArrowIcon size={16} />}
+                      >
+                        {overviewActionLabels[section.slug]}
+                      </PublicActionLink>
+                    </div>
                   </PageContainer>
                 </section>
                 {promo ? <Promo promo={promo} anchorId={helpOverviewBannerAnchor(index)} published={publishedHelp[`help:overview:${index}`]} /> : null}

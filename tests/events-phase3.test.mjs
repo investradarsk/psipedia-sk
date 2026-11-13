@@ -95,7 +95,7 @@ test("event categories link from search shortcuts and calendar legend without du
   assert.match(eventsPage, /eventTypes\s*\.filter/);
   assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
   assert.match(calendar, /eventTypePortalHref\(type\)/);
-  assert.doesNotMatch(eventsPage, /PublicSubcategoryNavigator/);
+  assert.match(eventsPage, /<PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
   assert.match(listing, /className=\{`\$\{styles\.cardGrid\}\s+\$\{directoryStyles\.listRows\}`\}\s+data-event-list/);
   assert.doesNotMatch(

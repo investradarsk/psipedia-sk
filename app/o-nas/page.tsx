@@ -19,7 +19,7 @@ export default function AboutPage() {
         title="Lepší život so psom začína porozumením"
         intro="Psipedia.sk vzniká ako moderný slovenský magazín a praktická encyklopédia pre ľudí, ktorí chcú svojmu psovi lepšie rozumieť."
       />
-      <section className="prose-page">
+      <section className="prose-page prose-page--after-hero">
       <h2>Čo chceme robiť inak</h2>
       <p>O psoch existuje obrovské množstvo obsahu, no často je neaktuálny, protirečivý alebo napísaný hlavne preto, aby niečo predal. My oddeľujeme informáciu od reklamy, pomenúvame hranice všeobecnej rady a dávame prednosť praktickým postupom.</p>
 

@@ -27,6 +27,8 @@ function load(file) {
       return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
     if (name === "./public-banner-frame")
       return load("components/public-visual-system/public-banner-frame.tsx");
+    if (name === "@/lib/public-pagination")
+      return load("lib/public-pagination.ts");
     throw new Error("Unexpected dependency " + name);
   }, exports);
   return exports;
@@ -143,9 +145,10 @@ test("shared context pagination preserves native query links, search slots and r
     emptyDisabledControls: true,
     nextHref: "/hladat?q=pes&lokalita=Nitra&page=2",
   });
-  assert.match(html, /<span><\/span><span aria-current="page">Strana 1 z 3<\/span>/);
+  assert.match(html, /aria-current="page">Strana 1 z 3<\/span>/);
   assert.match(html, /href="\/hladat\?q=pes&amp;lokalita=Nitra&amp;page=2" rel="next"/);
-  assert.doesNotMatch(html, /class="pagination|<strong|aria-disabled/);
+  assert.match(html, /aria-label="Ďalšia →"/);
+  assert.doesNotMatch(html, /<strong|aria-disabled/);
   const review = render(states.PublicPagination, {
     variant: "context",
     currentPage: 2,
@@ -154,8 +157,8 @@ test("shared context pagination preserves native query links, search slots and r
     previousLabel: "← Predchádzajúce",
     nextLabel: "Ďalšie →",
   });
-  assert.match(review, /rel="prev">← Predchádzajúce/);
-  assert.match(review, /aria-disabled="true">Ďalšie →/);
+  assert.match(review, /rel="prev" aria-label="← Predchádzajúce">‹<\/a>/);
+  assert.match(review, /aria-disabled="true"[^>]*>›<\/span>/);
   assert.equal(render(states.PublicPagination, { currentPage: 1, totalPages: 1 }), "");
 });
 

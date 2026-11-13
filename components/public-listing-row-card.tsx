@@ -38,17 +38,22 @@ export function PublicListingRowCard({
           <span className={styles.cardType}>{typeLabel}</span>
           {badge}
         </div>
+        {kind === "event" && meta ? (
+          <div className={`${styles.cardMeta} ${styles.eventDateMeta}`} data-public-card-meta data-event-date-line>
+            {meta}
+          </div>
+        ) : null}
         {kind === "event" ? (
           <h3 className={styles.cardTitle} data-public-card-title>{title}</h3>
         ) : (
           <strong className={styles.cardTitle} data-public-card-title>{title}</strong>
         )}
         {location && <span className={styles.cardLocation}>{location}</span>}
-        {meta && (
+        {kind !== "event" && meta ? (
           <div className={styles.cardMeta} data-public-card-meta>
             {meta}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

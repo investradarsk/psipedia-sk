@@ -37,7 +37,9 @@ test("S-24 Help root renders five previews then ONE common action after cards", 
   const items = overview.indexOf("section.items.slice(0, 5)");
   assert.ok(items > 0 && footer > items);
   assert.doesNotMatch(overview.slice(overview.indexOf("id={`help-overview-"), items), /action=\{/);
-  assert.match(overview, /section\.items\.length > 0 && \(/);
+  assert.match(overview, /data-help-overview-cta=\{section\.slug\}/);
+  assert.match(overview, /overviewActionLabels\[section\.slug\]/);
+  assert.match(overview, /href=\{section\.slug === "utulky" \? "\/organizacie" : section\.href\}/);
   assert.match(root, /\.slice\(0, 5\)/);
   assert.match(overview, /<PublicHelpCategoryNav/);
   assert.match(overview, /<PublicHelpPhotoBanner/);
