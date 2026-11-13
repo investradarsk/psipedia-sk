@@ -245,6 +245,19 @@
   padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
 }
 
+/* The bottom grabber is a sibling of the scroll area. Keep it visible while
+   long submenus scroll naturally; the viewport-sized drawer owns both pieces. */
+@media (max-width: 1199px) {
+  #mobile-menu.is-open {
+    display: flex;
+    flex-direction: column;
+  }
+  #mobile-menu.is-open > nav {
+    flex: 1 1 auto;
+    height: auto;
+  }
+}
+
 /* Portal flow: tabs and the first content block use one positive spacing token. */
 .portal-section-tabs + .care-urgent,
 .portal-section-tabs + .activity-fit,
