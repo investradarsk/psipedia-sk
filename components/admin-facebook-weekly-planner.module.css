@@ -148,3 +148,46 @@
 @media (max-width: 360px) {
   .slots { grid-template-columns: 1fr; }
 }
+
+
+/* Editable editorial timetable; scoped to FB weekly planner. */
+.templateToolbar { display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;
+  padding:8px 0 10px;margin:6px 0 10px;border-bottom:1px solid #dfebe2; }
+.templateToolbar span { margin-right:auto;color:#5e6f61;font-size:.75rem; }
+.templateToolbar strong { margin-right:auto;font-size:.85rem; }
+.templateToolbar button, .addSlot { min-height:42px;padding:8px 12px;border-radius:8px;
+  background:white;border:1px solid #a7c3b2;color:#1f4a3a;font:inherit;font-weight:700;font-size:.8rem;cursor:pointer; }
+.templateToolbar .saveTemplate, .addSlot { background:#1f4a3a;border-color:#1f4a3a;color:white; }
+.templateToolbar button:disabled, .addSlot:disabled { opacity:.5;cursor:not-allowed; }
+.templateEditor { display:grid;gap:12px;padding:12px;border:1px solid #c9ddce;
+  border-radius:10px;background:#f8faf7;margin-bottom:14px; }
+.templateEditor > p { font-size:.77rem;margin:0;color:#4d6b58;line-height:1.5; }
+.editorDays { display:flex;flex-wrap:wrap;gap:5px; }
+.editorDays button { display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:54px;min-height:45px;gap:2px;padding:5px;
+  border:1px solid #c8d9cd;background:white;border-radius:8px;color:#1f4a3a;
+  font:inherit;font-size:.78rem;font-weight:750;cursor:pointer; }
+.editorDays button[aria-pressed="true"] { background:#1f4a3a;border-color:#1f4a3a;color:white; }
+.editorDays small { font-size:.65rem;font-weight:600; }
+.editorRows { display:grid;gap:6px; }
+.editorRow { display:grid;grid-template-columns:96px minmax(120px,1fr) minmax(170px,1.5fr) auto;
+  gap:7px;align-items:end;background:white;border:1px solid #e0eae2;border-radius:8px;padding:8px; }
+.editorRow label { display:grid;gap:4px;min-width:0;font-size:.69rem;color:#466753;font-weight:700; }
+.editorRow input, .editorRow select { width:100%;min-width:0;min-height:40px;padding:7px;
+  border:1px solid #c5d8ca;border-radius:7px;color:#173e2c;background:#fff;font:inherit;font-size:.8rem; }
+.editorRow .deleteSlot { min-height:40px;padding:6px 9px;border-radius:7px;cursor:pointer;
+  background:#fff4f1;border:1px solid #dfb9ae;color:#842b23;font-size:.75rem;font-weight:700; }
+.addSlot { justify-self:start; }
+@media(max-width:700px) {
+  .templateToolbar { justify-content:stretch; }
+  .templateToolbar button { flex:1; }
+  .templateToolbar span, .templateToolbar strong { width:100%;margin:0; }
+  .templateEditor { padding:9px; }
+  .editorDays { display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px; }
+  .editorDays button { min-width:0;padding:4px;font-size:.69rem; }
+  .editorRow { grid-template-columns:80px minmax(0,1fr); }
+  .editorRow label:nth-child(3) { grid-column:1 / -1; }
+  .editorRow .deleteSlot { grid-column:1 / -1; }
+  .addSlot { width:100%; }
+}
+@media(max-width:360px) { .editorDays button { font-size:.64rem; } }

@@ -31,7 +31,6 @@ test("ADMIN-LEXICAL has one normalized string contract including newline and ext
 
 test("ADMIN-LEXICAL covers all canonical profile text editors", () => {
   const paths = [
-    "components/admin-directory-editor.tsx",
     "components/admin-help-editor.tsx",
     "components/admin-organization-editor.tsx",
     "components/admin-adoption-editor-profile.tsx",
@@ -41,6 +40,14 @@ test("ADMIN-LEXICAL covers all canonical profile text editors", () => {
     "components/admin-eshop-editor.tsx",
   ];
   for (const path of paths) assert.match(source(path), /AdminLexicalTextField/, path);
+  // Directory editor intentionally switched to native plain text fields:
+  // a keystroke is controlled state, and Save sends that exact string.
+  const directory = source("components/admin-directory-editor.tsx");
+  assert.match(directory, /<textarea id="directory-excerpt"[^>]*value=\{excerpt\}/);
+  assert.match(directory, /<textarea id="directory-description"[^>]*value=\{description\}/);
+  assert.match(directory, /setExcerpt\(event\.target\.value\); setFormDirty\(true\)/);
+  assert.match(directory, /setDescription\(event\.target\.value\); setFormDirty\(true\)/);
+  assert.doesNotMatch(directory, /<AdminLexicalTextField\b/);
   assert.match(source("components/admin-adoption-editor-profile.tsx"), /name="description"/);
   assert.match(source("components/admin-adoption-editor-details.tsx"), /name="adoptionRequirements"/);
   assert.match(source("components/admin-adoption-editor.tsx"), /new FormData\(event\.currentTarget\)/);
