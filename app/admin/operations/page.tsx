@@ -28,19 +28,24 @@ async function AdminNotionAlertsPanel({ promise }: {
   const notionAlerts = await promise;
   if (notionAlerts === null) return <p role="alert" className="admin-panel">Stav prenosu do Notion sa nepodarilo načítať. Upozornenia sa nepovažujú za vybavené.</p>;
   if (!notionAlerts.length) return null;
-  return <section className="admin-panel" aria-labelledby="notion-sync-alert-title">
-    <h2 id="notion-sync-alert-title">Synchronizácia Notion</h2>
-    <p>Profil je uložený v administrácii, ale niektoré zmeny čakajú na potvrdenie prenosu. Zobrazujú sa tu, nie v editore profilu.</p>
-    <ul>
-      {notionAlerts.map(alert => (
-        <li key={alert.profile_id}>
-          <Link href={`/admin/adresar/${alert.profile_id}`}>{alert.name} (#{alert.profile_id})</Link>
-          {" – "}{alert.direction === "NOTION_TO_ADMIN" ? "Notion → Admin" : "Admin → Notion"}
-          {": "}{alert.message || "Prenos nie je potvrdený."}
-        </li>
-      ))}
-    </ul>
-  </section>;
+  return <details className={styles.notionAlerts}>
+    <summary id="notion-sync-alert-title">
+      <span>Synchronizácia Notion</span>
+      <span className={styles.notionAlertCount}>{notionAlerts.length} hlásení · Zobraziť podrobnosti</span>
+    </summary>
+    <div className={styles.notionAlertBody}>
+      <p>Niektoré prenosy ešte nemajú potvrdenie. Otvor konkrétny profil, ak potrebuješ údaje skontrolovať.</p>
+      <ul className={styles.notionAlertList}>
+        {notionAlerts.map(alert => (
+          <li key={alert.profile_id}>
+            <Link href={`/admin/adresar/${alert.profile_id}`}>{alert.name} (#{alert.profile_id})</Link>
+            <span>{alert.direction === "NOTION_TO_ADMIN" ? "Notion → Admin" : "Admin → Notion"}</span>
+            <code className={styles.notionAlertMessage}>{alert.message || "Prenos nie je potvrdený."}</code>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </details>;
 }
 
 async function AdminOperationsContent({
