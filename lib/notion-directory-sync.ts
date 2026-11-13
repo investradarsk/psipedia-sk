@@ -1,5 +1,5 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
-import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
+import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { directoryCategories } from "./directory";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
@@ -2078,6 +2078,76 @@ async function recoverEqualLegacyDirectoryBaseline(input:{
  return true;
 }
 
+
+/** Category memberships are structural events; never run a whole-profile import. */
+function additionalCategoriesEvent(page: NotionPage, changes: readonly string[]) {
+  const prop = property(page, "Ďalšie kategórie");
+  return changes.some((id) => id === "Ďalšie kategórie" || id === prop?.id);
+}
+
+async function applyNotionAdditionalCategories(input: {
+  database: D1Database; bindings: NotionDirectorySyncBindings;
+  dataSourceId: string; page: NotionPage; mapping: DirectoryNotionMapping;
+}): Promise<boolean> {
+  const page = await fetchNotionPage(input.bindings, input.page.id);
+  const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
+  if (!profile || profile.status === "archived") throw Error("DIRECTORY_CATEGORIES_PROFILE_UNAVAILABLE");
+  if (page.id !== input.mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(page, input.dataSourceId) ||
+      propertyText(page, "Psipedia ID") !== String(profile.id) ||
+      propertyText(page, "Kategória") !== profile.category ||
+      !Object.hasOwn(page.properties ?? {}, "Ďalšie kategórie"))
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_CATEGORIES_IDENTITY_CONFLICT");
+  const desired = normalizeAdditionalDirectoryCategories(notionSnapshot(page).additionalCategories ?? [], profile.category);
+  if (JSON.stringify(profile.additionalCategories ?? []) === JSON.stringify(desired)) return false;
+  const now = new Date().toISOString();
+  const saved = await input.database.prepare(`
+    UPDATE directory_profiles
+    SET source_data_json = json_set(source_data_json, '$."${DIRECTORY_ADDITIONAL_CATEGORIES_KEY}"', ?),
+        updated_at = ?, updated_by = ?
+    WHERE id = ? AND category = ? AND status <> 'archived'
+      AND updated_at = ? AND json_valid(source_data_json)
+    RETURNING id
+  `).bind(JSON.stringify(desired), now, SYSTEM_ACTOR,
+    profile.id, profile.category, profile.updatedAt).first<{ id: number }>();
+  if (!saved) throw Error("DIRECTORY_CATEGORIES_SAVE_CONFLICT");
+  const current = await getManagedDirectoryProfileById(profile.id, input.database);
+  if (!current || JSON.stringify(current.additionalCategories ?? []) !== JSON.stringify(desired))
+    throw Error("DIRECTORY_CATEGORIES_SAVE_UNCONFIRMED");
+  return true;
+}
+
+export async function mirrorDirectoryAdditionalCategoriesToNotion(input: {
+  database: D1Database; bindings: NotionDirectorySyncBindings; profileId: number;
+}): Promise<boolean> {
+  if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
+      !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
+    throw Error("DIRECTORY_CATEGORIES_NOTION_DISABLED");
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  const mapping = await loadMappingByProfile(input.database, input.profileId);
+  if (!profile || !mapping || profile.status === "archived")
+    throw Error("DIRECTORY_CATEGORIES_NOTION_MAPPING_MISSING");
+  const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+  if (page.id !== mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!) ||
+      propertyText(page, "Psipedia ID") !== String(profile.id) ||
+      propertyText(page, "Kategória") !== profile.category ||
+      !Object.hasOwn(page.properties ?? {}, "Ďalšie kategórie"))
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_CATEGORIES_NOTION_IDENTITY_CONFLICT");
+  const desired = normalizeAdditionalDirectoryCategories(profile.additionalCategories ?? [], profile.category);
+  if (JSON.stringify(notionSnapshot(page).additionalCategories ?? []) === JSON.stringify(desired)) return false;
+  const payload = { "Ďalšie kategórie": { multi_select: desired.map((slug) => ({
+    name: directoryCategories.find((entry) => entry.slug === slug)?.label ?? slug,
+  })) } };
+  const echo = await patchNotionPage(input.bindings, page.id, payload);
+  const matches = (candidate: NotionPage) => candidate.id === page.id &&
+    JSON.stringify(notionSnapshot(candidate).additionalCategories ?? []) === JSON.stringify(desired);
+  if (!matches(echo) && !matches(await fetchNotionPage(input.bindings, page.id)))
+    throw Error("DIRECTORY_CATEGORIES_NOTION_ECHO_MISMATCH");
+  // Do not alter the shared editorial hash or clear another field's conflict.
+  return true;
+}
+
 async function syncMappedPage(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -3055,6 +3125,23 @@ export async function runNotionDirectorySyncSweep(input: {
       // legacy whole-profile merge, which can overwrite unrelated Admin data.
       const relationProp = page.properties?.["Služby z katalógu"] as { id?: unknown } | undefined;
       const changedIds = input.changedPropertyIds ?? [];
+      const additionalChanged = additionalCategoriesEvent(page, changedIds);
+      let categorySaved = false;
+      if (additionalChanged) {
+        categorySaved = await applyNotionAdditionalCategories({
+          database: input.database, bindings: input.bindings, dataSourceId,
+          page, mapping,
+        });
+        const metadata = ["Sync stav", "Sync chyba", "Posledný sync", "Sync hash"];
+        const onlyCategory = changedIds.length > 0 && changedIds.every((id) =>
+          additionalCategoriesEvent(page, [id]) ||
+          metadata.some((key) => id === key || id === property(page, key)?.id));
+        if (onlyCategory) {
+          if (categorySaved) summary.pulledFromNotion += 1;
+          else summary.unchanged += 1;
+          continue;
+        }
+      }
       const trustFields = changedTrainerTrustNotionFields(page.properties, changedIds);
       const relationChanged = changedIds.some(id =>
         id === "Služby z katalógu" || id === relationProp?.id);
