@@ -40,6 +40,33 @@ export const DIRECTORY_CONTACT_EDITORIAL_PATHS = [
 ] as const satisfies readonly BreederEditorialField[];
 export const BREEDER_EDITORIAL_PATHS = Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS) as BreederEditorialField[];
 
+export function breederReadPath(snapshot: Record<string, unknown>, path: string): unknown {
+  return path.split(".").reduce<unknown>((value, key) =>
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)[key]
+      : undefined, snapshot);
+}
+
+function breederSetPath(target: Record<string, unknown>, path: string, value: unknown): void {
+  const keys = path.split(".");
+  let cursor = target;
+  for (const key of keys.slice(0, -1)) {
+    if (!cursor[key] || typeof cursor[key] !== "object" || Array.isArray(cursor[key]))
+      cursor[key] = {};
+    cursor = cursor[key] as Record<string, unknown>;
+  }
+  cursor[keys[keys.length - 1]] = value;
+}
+
+export function breederAdminChangedFields(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): BreederEditorialField[] {
+  const stable = (value: unknown) => JSON.stringify(value == null ? "" : value);
+  return BREEDER_EDITORIAL_PATHS.filter(path =>
+    stable(breederReadPath(before, path)) !== stable(breederReadPath(after, path)));
+}
+
 export function breederNotionChangedFields(
   properties: Record<string, unknown> | undefined,
   updatedProperties: readonly string[],
