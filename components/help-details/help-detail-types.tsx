@@ -24,7 +24,7 @@ function volunteerDeliveryInstructions(item: HelpCase): string | null {
   if (item.category !== "dobrovolnictvo") return null;
   const note = usefulHelpValue(item.locationNote);
   if (!note) return null;
-  return note.length > 100 || /(?:odovzdať|doručiť|priniesť|zaslať|poskytnúť|pomoc|materiál|kontaktuj|pošlite|zbierame|potrebujeme)/i.test(note)
+  return note.length > 100 || /(?:odovzdať|doručiť|priniesť|zaslať|poskytnúť|kontaktuj|pošlite|zbierame|potrebujeme)/i.test(note)
     ? note : null;
 }
 
