@@ -32,6 +32,7 @@ export default async function ContactPage({
   return (
     <main id="obsah" className={styles.page}>
       <UniversalPageHero
+        variant="compact"
         breadcrumbs={<nav className={styles.breadcrumbs} aria-label="Navigácia">
           <Link href="/">Domov</Link><span aria-hidden="true">/</span><span>Kontakt</span>
         </nav>}
@@ -39,15 +40,6 @@ export default async function ContactPage({
         title="Ako ti môžeme pomôcť?"
         intro="Vyber tému, ktorá najlepšie vystihuje tvoju správu. Ak už pre daný typ podnetu existuje samostatný postup, pošleme ťa priamo tam."
       />
-      <div className="shell">
-        <aside className={styles.emailPanel} aria-label="Všeobecný kontakt">
-          <span>Všeobecný kontakt</span>
-          <strong>{EDITORIAL_EMAIL_ADDRESS}</strong>
-          <p>Ak si nie si istý, kam správa patrí, napíš redakcii priamo e-mail.</p>
-          <a data-contact-action href={generalEmailHref}>Napísať e-mail</a>
-        </aside>
-      </div>
-
       <section className={`shell ${styles.routeSection}`} aria-labelledby="contact-routes-title">
         <div className={styles.sectionHeading}>
           <span className="eyebrow">Správna cesta</span>
@@ -87,7 +79,7 @@ export default async function ContactPage({
           <Link className={styles.routeCard} data-contact-route="directory-change" data-contact-action href="/adresar">
             <span className={styles.routeKicker}>Údaje profilu</span>
             <h3>Zmena existujúceho profilu</h3>
-            <p>Nájdi svoj profil služby a použi „Navrhnúť úpravu profilu“. Návrh prejde samostatnou kontrolou.</p>
+            <p>Nájdi profil svojej služby. Opravu údajov môžeš navrhnúť priamo na profile; o jeho správu požiadaš cez Partner účet.</p>
             <strong className={styles.routeAction}>Nájsť profil →</strong>
           </Link>
 
@@ -149,7 +141,7 @@ export default async function ContactPage({
       <section className={`shell ${styles.infoGrid}`}>
         <article className={styles.infoCard}>
           <span className="eyebrow">Prevádzkovateľ</span>
-          <h2>Kontaktné údaje</h2>
+          <h2>Prevádzkovateľ portálu</h2>
           <dl>
             <div>
               <dt>Meno</dt>
@@ -158,10 +150,6 @@ export default async function ContactPage({
             <div>
               <dt>Adresa</dt>
               <dd>{PUBLIC_OPERATOR_ADDRESS}</dd>
-            </div>
-            <div>
-              <dt>E-mail</dt>
-              <dd><a className={styles.longText} href={`mailto:${EDITORIAL_EMAIL_ADDRESS}`}>{EDITORIAL_EMAIL_ADDRESS}</a></dd>
             </div>
           </dl>
         </article>

@@ -14,6 +14,7 @@ export default function TermsPage() {
   return (
     <main id="obsah">
       <UniversalPageHero
+        variant="compact"
         eyebrow="Pravidlá portálu"
         title="Podmienky používania"
         intro="Psipedia.sk je odborný a informačný portál o psoch. Používaním portálu berieš na vedomie tieto pravidlá."
@@ -61,9 +62,9 @@ export default function TermsPage() {
         spotrebiteľský ani sociálny účet.
       </p>
       <p>
-        Podľa aktuálne dostupných možností sa možno prihlásiť jednorazovým odkazom zaslaným
-        e-mailom, heslom alebo cez Google. Používateľ zodpovedá za zabezpečenie svojho prístupu a za
-        pravdivosť údajov, ktoré v Partner účte poskytne alebo navrhne.
+        Do Partner účtu sa možno prihlásiť heslom alebo jednorazovým odkazom zaslaným
+        e-mailom; ak je dostupné prihlásenie cez Google, môžeš použiť aj to. Používateľ
+        zodpovedá za zabezpečenie prístupu a za pravdivosť údajov, ktoré poskytne alebo navrhne.
       </p>
       <p>
         Vytvorenie Partner účtu samo osebe nezakladá právo spravovať konkrétny profil. O správu
@@ -183,7 +184,7 @@ export default function TermsPage() {
         Tieto podmienky môžeme aktualizovať najmä pri rozšírení funkcií portálu alebo zmene právnych
         povinností. Aktuálne znenie bude vždy dostupné na tejto adrese.
       </p>
-      <p className="legal-updated">Aktualizované 24. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 13. novembra 2026.</p>
       </section>
     </main>
   );

@@ -1354,3 +1354,42 @@
     padding: 24px;
   }
 }
+/* Single visible method for both existing Partner authentication flows. */
+.partner-auth-method-selector { display: grid; gap: 14px; }
+.partner-auth-method-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid #d5dfd9;
+  border-radius: 12px;
+  background: #f5f8f5;
+}
+.partner-auth-method-tabs button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.partner-auth-method-tabs button[aria-pressed="true"] {
+  color: #174b38;
+  background: white;
+  box-shadow: 0 2px 7px rgba(23, 53, 43, 0.12);
+}
+.partner-auth-method-tabs button:focus-visible {
+  outline: 3px solid var(--coral, #b94732);
+  outline-offset: 2px;
+}
+.partner-auth-method-description {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
