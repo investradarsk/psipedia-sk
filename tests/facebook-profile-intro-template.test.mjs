@@ -45,7 +45,7 @@ test("profile card has independently movable and scalable layers",()=>{
   assert.match(stage,/transformend/);
   assert.match(stage,/touchmove/);
   assert.match(stage,/touchend/);
-  assert.match(stage,/exact public\/favicon.svg/);
+  assert.match(stage,/psipedia-logo-social.svg/);
   for(const id of ["brand","intro","category","name","logo","footer"])
     assert.match(layout,new RegExp(id+':\\{x:'));
   assert.match(stage,/title.height\(179\)/);
@@ -66,4 +66,39 @@ test("logo edits are reversible, allow real wide frames and do not mutate the so
   assert.match(editor,/Obnoviť pôvodné rozloženie/);
   assert.match(processing,/pixels\[i\*4\+3\]=0/);
   assert.match(processing,/return createImageBitmap\(canvas\)/);
+});
+
+test("fixed logo frame only drags its clipped inner image",()=>{
+  const stage=read("components/facebook-profile-intro-canvas.tsx");
+  const editor=read("components/admin-facebook-graphic-editor.tsx");
+  assert.match(stage,/name:"fixed-logo-frame",draggable:false/);
+  assert.match(stage,/name:"image-inside-fixed-logo-frame"/);
+  assert.match(stage,/clipFunc:options.shape==="none"\?undefined/);
+  assert.match(stage,/onLogoInsideChange/);
+  assert.match(stage,/on\("dragend"/);
+  assert.doesNotMatch(stage,/add\("logo"/);
+  assert.match(editor,/selectedProfilePart!=="logo"/);
+  assert.match(editor,/psipedia-facebook-profile-intro-v3/);
+  assert.match(editor,/min="-200" max="200" value=\{profileOptions.offsetX\}/);
+});
+
+test("alignment guides snap to center and never leak into PNG exports",()=>{
+  const stage=read("components/facebook-profile-intro-canvas.tsx");
+  assert.match(stage,/centerVertical=new Konva.Line/);
+  assert.match(stage,/centerHorizontal=new Konva.Line/);
+  assert.match(stage,/Math.abs\(centerX-W\/2\)<14/);
+  assert.match(stage,/Math.abs\(centerY-H\/2\)<14/);
+  assert.match(stage,/lines.forEach\(line=>line.visible\(false\)\)/);
+  assert.match(stage,/display.logoGuides\?\.visible\(false\)/);
+});
+
+test("real customer-provided Psipedia brand is a transparent traced vector",()=>{
+  const asset=read("public/images/psipedia-logo-social.svg");
+  const stage=read("components/facebook-profile-intro-canvas.tsx");
+  assert.match(asset,/<svg[^>]*viewBox="105 245 1050 725"/);
+  assert.match(asset,/<path fill="#004b30"/);
+  assert.match(asset,/<path fill="#ff593f"/);
+  assert.match(asset,/<path fill="#d3a35a"/);
+  assert.match(stage,/image.src="\/images\/psipedia-logo-social.svg"/);
+  assert.doesNotMatch(stage,/caption\("pedia"/);
 });
