@@ -10,6 +10,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
 import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
+import { DIRECTORY_CONTACT_SAVE_FIELDS, type DirectoryContactSaveField } from "@/lib/directory-contact-save-contract";
 import { changedTrainerTrustAdminFields } from "@/lib/notion-trainer-trust-fields";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
@@ -164,6 +165,13 @@ export function AdminDirectoryEditor({
 }) {
   // Last saved D1 projection; supports one-field saves from a long-open editor.
   const breederSaveBaselineRef = useRef(profile);
+  // A changed value in an old form is not proof of user intent. Only a real
+  // input edit (or an explicitly accepted automation suggestion) may change a
+  // contact on save, especially when the new value is empty.
+  const editedContactsRef = useRef(new Set<DirectoryContactSaveField>());
+  const touchContact = (field: DirectoryContactSaveField) => {
+    editedContactsRef.current.add(field);
+  };
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
   const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
@@ -365,11 +373,11 @@ export function AdminDirectoryEditor({
       else if (field === "qualifications" && Array.isArray(value)) setQualifications(value.map(String).join("\n"));
       else if (field === "address") setPublicAddress(text);
       else if (field === "priceNote") setPriceNote(text);
-      else if (field === "websiteUrl") { setWebsiteUrl(text); if (text.trim()) clearQualityResolution("website"); }
-      else if (field === "publicPhone") { setPublicPhone(text); if (text.trim()) clearQualityResolution("phone"); }
-      else if (field === "publicEmail") { setPublicEmail(text); if (text.trim()) clearQualityResolution("email"); }
-      else if (field === "facebookUrl") setFacebookUrl(text);
-      else if (field === "instagramUrl") setInstagramUrl(text);
+      else if (field === "websiteUrl") { touchContact("websiteUrl"); setWebsiteUrl(text); if (text.trim()) clearQualityResolution("website"); }
+      else if (field === "publicPhone") { touchContact("publicPhone"); setPublicPhone(text); if (text.trim()) clearQualityResolution("phone"); }
+      else if (field === "publicEmail") { touchContact("publicEmail"); setPublicEmail(text); if (text.trim()) clearQualityResolution("email"); }
+      else if (field === "facebookUrl") { touchContact("facebookUrl"); setFacebookUrl(text); }
+      else if (field === "instagramUrl") { touchContact("instagramUrl"); setInstagramUrl(text); }
     }
   }
 
@@ -473,6 +481,15 @@ export function AdminDirectoryEditor({
       const confirmContactSync = Boolean(profile && category === profile.category &&
         currentDirectorySection === "directory-contacts");
       const breederBaseline = breederSaveBaselineRef.current;
+      const contactOriginal = readDirectoryPublicContacts(
+        breederBaseline?.importData, breederBaseline?.websiteUrl ?? "",
+      );
+      const contactOriginalValues = {
+        websiteUrl: contactOriginal.website, publicPhone: contactOriginal.phone,
+        publicEmail: contactOriginal.email, facebookUrl: contactOriginal.facebook,
+        instagramUrl: contactOriginal.instagram,
+      };
+      const contactEditedFields = [...editedContactsRef.current];
       const breederChangedPaths = profile && isDirectoryFieldEventCategory(profile.category)
         && category === profile.category && breederBaseline
         ? breederAdminChangedFields(
@@ -495,11 +512,17 @@ export function AdminDirectoryEditor({
               addressFormat, priceNote, websiteUrl, publicPhone, publicEmail,
               facebookUrl, instagramUrl, seo,
             },
-          ).filter(path => path !== "services" || !isDirectoryEventPilotCategory(category))
+          ).filter(path =>
+            (path !== "services" || !isDirectoryEventPilotCategory(category)) &&
+            (!(DIRECTORY_CONTACT_SAVE_FIELDS as readonly string[]).includes(path) ||
+              editedContactsRef.current.has(path as DirectoryContactSaveField)),
+          )
         : undefined;
       // The server must distinguish an explicit clear from an untouched
       // blank field in a long-open form. Only dirty contact paths are sent.
       const explicitlyClearedContacts = (breederChangedPaths ?? []).filter(path => {
+        // Clearing a contact is allowed only after its own input was edited.
+        if (!editedContactsRef.current.has(path as DirectoryContactSaveField)) return false;
         if (path === "websiteUrl") return !websiteUrl.trim();
         if (path === "publicPhone") return !publicPhone.trim();
         if (path === "publicEmail") return !publicEmail.trim();
@@ -547,6 +570,8 @@ export function AdminDirectoryEditor({
               description: breederBaseline?.description ?? "",
             },
             explicitlyClearedContacts,
+              contactEditedFields,
+              contactOriginalValues,
           } : {}),
           ...(confirmContactSync ? { confirmContactSync: true } : {}),
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
@@ -713,7 +738,7 @@ export function AdminDirectoryEditor({
         setStreet(savedProfile.street); setHouseNumber(savedProfile.houseNumber);
         setAddressFormat(savedProfile.addressFormat);
         setPriceNote(savedProfile.priceNote);
-        setWebsiteUrl(savedProfile.websiteUrl ?? ""); setPublicPhone(syncedContacts.phone);
+        setWebsiteUrl(syncedContacts.website); setPublicPhone(syncedContacts.phone);
         setPublicEmail(syncedContacts.email); setFacebookUrl(syncedContacts.facebook);
         setInstagramUrl(syncedContacts.instagram); setSeo(savedProfile.seo ?? {});
         {
@@ -734,6 +759,7 @@ export function AdminDirectoryEditor({
         setGalleryUrls(savedProfile.galleryUrls ?? []);
         setQualityResolutions(qualityResolutionInput(savedProfile));
         setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
+        editedContactsRef.current.clear();
         setFormDirty(false);
       }
       setStatus(savedProfile.status);
@@ -1108,11 +1134,11 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Kontaktné údaje, ktoré sa zobrazujú návštevníkom profilu.</p></div></div></div>
 <AdminEditorToolFrame kind="contacts">
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="text" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); setFormDirty(true); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="text" value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); setFormDirty(true); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type="text" value={websiteUrl} onChange={(event) => { const value = event.target.value; setWebsiteUrl(value); setFormDirty(true); if (value.trim()) clearQualityResolution("website"); }} placeholder="Text alebo webová adresa – bez povinného https://" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type="text" value={facebookUrl} onChange={(event) => { setFacebookUrl(event.target.value); setFormDirty(true); }} placeholder="Text alebo odkaz na Facebook" /></div>
-              <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="text" value={instagramUrl} onChange={(event) => { setInstagramUrl(event.target.value); setFormDirty(true); }} placeholder="Text alebo odkaz na Instagram" /></div>
+              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="text" value={publicPhone} onChange={(event) => { const value = event.target.value; touchContact("publicPhone"); setPublicPhone(value); setFormDirty(true); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="text" value={publicEmail} onChange={(event) => { const value = event.target.value; touchContact("publicEmail"); setPublicEmail(value); setFormDirty(true); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type="text" value={websiteUrl} onChange={(event) => { const value = event.target.value; touchContact("websiteUrl"); setWebsiteUrl(value); setFormDirty(true); if (value.trim()) clearQualityResolution("website"); }} placeholder="Text alebo webová adresa – bez povinného https://" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type="text" value={facebookUrl} onChange={(event) => { touchContact("facebookUrl"); setFacebookUrl(event.target.value); setFormDirty(true); }} placeholder="Text alebo odkaz na Facebook" /></div>
+              <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="text" value={instagramUrl} onChange={(event) => { touchContact("instagramUrl"); setInstagramUrl(event.target.value); setFormDirty(true); }} placeholder="Text alebo odkaz na Instagram" /></div>
             </div>
             <small>Kontakty sú obyčajné textové polia. Môžeš vložiť aj neúplný odkaz, číslo či e-mail; formát neblokuje uloženie.</small>
             </AdminEditorToolFrame>
