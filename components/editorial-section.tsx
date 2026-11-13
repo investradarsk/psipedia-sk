@@ -20,6 +20,8 @@ import { StructuredData } from "@/components/structured-data";
 import type { Article } from "@/lib/content";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
+import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import {
   articleHref,
   articlePortalSection,
@@ -553,6 +555,11 @@ export async function EditorialSectionHub({
             )}
           </PageContainer>
         </div>
+
+        <PublicPhotoCallout
+          promo={publicSectionPhotoPromos[sectionSlug]}
+          bannerId={`section-${sectionSlug}`}
+        />
 
         <section className={styles.nextSection} aria-labelledby={`${sectionSlug}-next`}>
           <PageContainer>
