@@ -15,11 +15,12 @@ export default function AboutPage() {
   return (
     <main id="obsah">
       <UniversalPageHero
+        variant="compact"
         eyebrow="O projekte"
         title="Lepší život so psom začína porozumením"
         intro="Psipedia.sk vzniká ako moderný slovenský magazín a praktická encyklopédia pre ľudí, ktorí chcú svojmu psovi lepšie rozumieť."
       />
-      <section className="prose-page prose-page--after-hero">
+      <section className="prose-page prose-page--after-hero info-page">
       <h2>Čo chceme robiť inak</h2>
       <p>O psoch existuje obrovské množstvo obsahu, no často je neaktuálny, protirečivý alebo napísaný hlavne preto, aby niečo predal. My oddeľujeme informáciu od reklamy, pomenúvame hranice všeobecnej rady a dávame prednosť praktickým postupom.</p>
 
@@ -35,7 +36,7 @@ export default function AboutPage() {
       </ul>
 
       <h2>Psipedia práve rastie</h2>
-      <p>Toto je prvá funkčná verzia. Postupne pribudnú ďalšie plemená, odborní spolupracovníci, praktické nástroje a nové články podľa otázok slovenských majiteľov psov.</p>
+      <p>Psipedia priebežne aktualizuje články, profily plemien a prehľady služieb. Rozširujeme praktické nástroje a odborný obsah podľa potrieb majiteľov psov.</p>
       <section className="about-contact" id="kontakt">
         <span className="eyebrow">Kontakt</span>
         <h2>Napíš nám</h2>

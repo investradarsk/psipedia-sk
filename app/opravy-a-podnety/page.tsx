@@ -52,19 +52,19 @@ export default function CorrectionsPage() {
         Ako podnet spracujeme
       </PublicHeading>
       <p>
-        Podnet neznamená automatickú zmenu stránky. Informáciu najprv preveríme podľa dostupných
-        zdrojov a charakteru údaja. Pri profile služby alebo organizácie môžeme požiadať aj o
-        primerané potvrdenie, že navrhovateľ je oprávnený za daný subjekt konať.
+        Opravu obsahu nám môžeš nahlásiť aj bez Partner účtu. Podnet preveríme a podľa
+        výsledku údaj opravíme alebo doplníme. Ak žiadaš o správu profilu v mene služby
+        či organizácie, použiješ Partner účet a Psipedia overí tvoje oprávnenie.
       </p>
 
       <PublicHeading role="section" as="h2">
         Správa profilov cez Partner účet
       </PublicHeading>
       <p>
-        Poskytovatelia služieb a organizácie môžu cez{" "}
-        <Link href="/partner/registracia">Partner účet</Link> požiadať o správu svojho profilu
-        a navrhovať jeho úpravy. Oprávnenie na správu sa overuje a návrhy
-        pred zverejnením kontroluje Psipedia.
+        Ak zastupuješ poskytovateľa služby alebo organizáciu, cez{" "}
+        <Link href="/partner/registracia">Partner účet</Link> môžeš požiadať o správu profilu
+        a po schválení navrhovať jeho úpravy. Pred zverejnením návrh kontroluje redakcia.
+        Bežné oznámenie chyby zostáva dostupné aj bez registrácie.
       </p>
       <PublicHeading role="section" as="h2">
         Tip na príbeh alebo zaujímavosť

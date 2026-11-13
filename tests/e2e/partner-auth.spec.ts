@@ -68,8 +68,19 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
       await expect(page.getByRole("button", { name: "Prihlásiť sa" })).toBeDisabled();
       await expect(page.getByRole("link", { name: "Zabudli ste heslo?" })).toBeVisible();
     }
+    const methodSelector = page.getByRole("group", { name: "Spôsob prihlásenia" });
+    const passwordMethod = methodSelector.getByRole("button", { name: "Heslo", exact: true });
+    const emailMethod = methodSelector.getByRole("button", { name: "E-mailový odkaz" });
+    await expect(passwordMethod).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByLabel("Pracovný e-mail")).toHaveCount(0);
+    await emailMethod.click();
+    await expect(emailMethod).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByLabel("Pracovný e-mail")).toBeVisible();
     await expect(page.getByRole("button", { name: "Poslať prihlasovací odkaz" })).toBeDisabled();
+    await expect(page.getByLabel("Heslo", { exact: true })).toHaveCount(0);
+    await passwordMethod.click();
+    await expect(page.getByLabel("Heslo", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Pracovný e-mail")).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
     const accessibility = await new AxeBuilder({ page }).analyze();
     expect(accessibility.violations).toEqual([]);

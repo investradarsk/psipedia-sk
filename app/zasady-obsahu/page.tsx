@@ -13,11 +13,12 @@ export default function EditorialPolicyPage() {
   return (
     <main id="obsah">
       <UniversalPageHero
+        variant="compact"
         eyebrow="Transparentnosť"
         title="Zásady obsahu"
         intro="Dôvera sa nedá postaviť iba pekným dizajnom. Preto otvorene uvádzame, čo môže čitateľ od textov Psipedia.sk očakávať."
       />
-      <section className="prose-page prose-page--after-hero">
+      <section className="prose-page prose-page--after-hero info-page">
 
       <h2>Praktické, ale nie univerzálne</h2>
       <p>Každý pes má inú históriu, zdravie a temperament. Všeobecný návod preto opisujeme ako východisko, nie ako záruku výsledku. Pri správaní, ktoré predstavuje riziko, odporúčame osobnú pomoc kvalifikovaného odborníka.</p>
@@ -26,7 +27,7 @@ export default function EditorialPolicyPage() {
       <p>Články o zdraví slúžia na orientáciu a včasné rozpoznanie rizika. Nenahrádzajú diagnózu, vyšetrenie ani liečbu. Pri urgentných príznakoch vždy smerujeme čitateľa k veterinárnej pomoci.</p>
 
       <h2>Opravy a aktualizácie</h2>
-      <p>Ak zistíme vecnú chybu alebo sa odporúčania zmenia, text upravíme. Pri článkoch uvádzame dátum publikovania aj poslednej aktualizácie a pripájame odkazy na odborné zdroje, z ktorých obsah vychádza. Formálny postup pre zákonné žiadosti je na stránke <Link href="/opravy-a-podnety">Opravy a podnety</Link>.</p>
+      <p>Ak zistíme vecnú chybu alebo sa odporúčania zmenia, text upravíme. Pri článkoch uvádzame dátum publikovania aj poslednej aktualizácie a pripájame odkazy na odborné zdroje, z ktorých obsah vychádza. Chybu alebo neaktuálny údaj nám môžeš nahlásiť cez <Link href="/opravy-a-podnety">Opravy a podnety</Link>. Žiadosti týkajúce sa osobných údajov vybavujeme podľa <Link href="/sukromie">Ochrany osobných údajov</Link>.</p>
 
       <h2>Komerčný obsah</h2>
       <p>Platená spolupráca, sponzorovanie, bezplatne poskytnutý produkt aj affiliate odkaz musia byť jasne označené a ľahko odlíšiteľné od redakčného obsahu. Partner si nebude môcť kúpiť pozitívny odborný záver ani ovplyvniť odporúčanie, ktoré súvisí so zdravím alebo bezpečnosťou psa.</p>
