@@ -155,9 +155,13 @@ test("saving Contacts re-confirms all five D1 text values in Notion, including a
   assert.match(route, /submittedBody\.category === before\.category/);
   assert.match(route, /\.\.\.\(confirmContactSync \? DIRECTORY_CONTACT_EDITORIAL_PATHS : \[\]\)/);
   assert.match(route, /metadataWarnings\.push\("Kontakty sú uložené v Admine, ale prenos do Notionu nie je potvrdený\."/);
-  assert.match(notion, /const batchContacts = fields\.filter\(path => contactPaths\.has\(path\)\)/);
+  // Contacts, prose and SEO must share one targeted PATCH during a bulk save.
+  assert.match(notion, /const pendingBatchFields = fields\.filter\(path => !confirmed\(page, path\)\)/);
+  assert.match(notion, /if \(pendingBatchFields\.length > 1\)/);
+  assert.match(notion, /desired\[key\] = allProperties\[key\]/);
   assert.match(notion, /const echoed = await patchNotionPage\(bindings, page\.id, patch\)/);
-  assert.match(notion, /acknowledgedBatchContacts\.has\(path\)/);
+  assert.match(notion, /acknowledgedBatchFields\.has\(path\)/);
+  assert.match(notion, /DIRECTORY_EDITORIAL_BATCH_WRITE_RETRY/);
   assert.match(notion, /if \(confirmed\(page, path\)\) continue/);
   assert.match(notion, /DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH/);
 });
