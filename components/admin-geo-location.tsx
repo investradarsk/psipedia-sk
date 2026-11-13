@@ -335,7 +335,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false, show
                 <>
                   <p className="admin-message" role="status"><strong>✅ Poloha potvrdená</strong></p>
                   {snapshot.point.latitude !== null && snapshot.point.longitude !== null ? (
-                    {mapVisible ? (
+                    mapVisible ? (
                     <AdminLocationMap
                       snapshot={snapshot}
                       latitude={snapshot.point.latitude}
@@ -347,7 +347,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false, show
                     <div className="admin-editor-actions">
                       <button type="button" onClick={() => setVisibleMapTarget(endpoint)}>Zobraziť Google mapu</button>
                     </div>
-                  )}
+                  )
                   ) : null}
                   <div className="admin-editor-actions">
                     <button type="button" disabled={busy || !snapshot.provider.configured} onClick={() => void findLocation()}>
