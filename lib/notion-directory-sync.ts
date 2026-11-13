@@ -125,7 +125,7 @@ type EditableDirectorySnapshot = {
   slug: string;
   name: string;
   category: string;
-  additionalCategories: string[];
+  additionalCategories?: string[];
   status: "draft" | "published" | "archived";
   excerpt: string;
   description: string;
@@ -337,7 +337,7 @@ function profileSnapshot(profile: ManagedDirectoryProfile, sourceImageUrl = ""):
     slug: clean(profile.slug),
     name: clean(profile.name),
     category: clean(profile.category),
-    additionalCategories: normalizeAdditionalDirectoryCategories(profile.additionalCategories, profile.category),
+    ...(profile.additionalCategories?.length ? { additionalCategories: normalizeAdditionalDirectoryCategories(profile.additionalCategories, profile.category) } : {}),
     status: profile.status,
     excerpt: clean(profile.excerpt),
     description: clean(profile.description),
@@ -398,7 +398,7 @@ function notionSnapshot(page: NotionPage): EditableDirectorySnapshot {
     slug: propertyText(page, "Slug"),
     name: propertyText(page, "Názov"),
     category: propertyText(page, "Kategória"),
-    additionalCategories,
+    ...(additionalCategories.length ? { additionalCategories } : {}),
     status: statusFromNotion(propertyText(page, "Psipedia stav")),
     excerpt: propertyText(page, "Perex"),
     description: propertyText(page, "Popis"),
@@ -507,7 +507,7 @@ function notionProfileProperties(
     "Psipedia ID": richText(String(profile.id)),
     "Slug": richText(snapshot.slug),
     "Kategória": richText(snapshot.category),
-    "Ďalšie kategórie": { multi_select: snapshot.additionalCategories.map((category) => ({ name: directoryCategories.find((item) => item.slug === category)?.label ?? category })) },
+    "Ďalšie kategórie": { multi_select: (snapshot.additionalCategories ?? []).map((category) => ({ name: directoryCategories.find((item) => item.slug === category)?.label ?? category })) },
     "Psipedia stav": select(statusToNotion(snapshot.status)),
     "Stav": select(editorialStateForProfile(snapshot.status)),
     "Perex": richText(snapshot.excerpt),
@@ -788,7 +788,7 @@ function fullProfileInput(
     slug: desired.slug,
     name: desired.name,
     category: desired.category,
-    additionalCategories: desired.additionalCategories,
+    additionalCategories: desired.additionalCategories ?? [],
     status: desired.status === "published" ? "published" : "draft",
     excerpt: desired.excerpt,
     description: desired.description,
@@ -843,7 +843,7 @@ function newProfileInput(
     slug: desired.slug,
     name: desired.name,
     category: desired.category,
-    additionalCategories: desired.additionalCategories,
+    additionalCategories: desired.additionalCategories ?? [],
     // New Notion Ready records must first enter canonical draft review.
     // Publication requires explicit Notion Psipedia stav = Publikované.
     status: "draft", // Notion-first creates never publish without canonical Admin action.
@@ -2397,7 +2397,7 @@ async function syncMappedPage(input: {
         publicPhone: ["Telefón"], publicEmail: ["E-mail"],
         facebookUrl: ["Facebook"], instagramUrl: ["Instagram"],
         "seo.title": ["SEO title"], "seo.description": ["SEO popis"],
-        slug: ["Slug"], category: ["Kategória"],
+        slug: ["Slug"], category: ["Kategória"], additionalCategories: ["Ďalšie kategórie"],
         status: ["Psipedia stav", "Stav"],
         services: ["Služby"],
         confirmedServiceLocation: ["Potvrdená prevádzka"],
