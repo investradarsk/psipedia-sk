@@ -27,28 +27,13 @@
   border: 0;
 }
 
-.mobileCategories {
-  margin-bottom: 18px;
+.categoryNavigation {
+  min-width: 0;
+  margin-bottom: 14px;
 }
-
-.desktopCategories {
-  display: none;
-  margin-bottom: 18px;
-}
-
-@media (min-width: 821px) {
-  .mobileCategories {
-    display: none;
-  }
-
-  .desktopCategories {
-    display: block;
-  }
-
-  .desktopCategories :global([data-public-subcategory-track]) {
-    max-width: 100%;
-    padding-inline: 0;
-  }
+.categoryNavigation :global([data-public-subcategory-track]) {
+  max-width: 100%;
+  padding-inline: 0;
 }
 
 .guidance,

@@ -1,7 +1,6 @@
 import { PublicSubcategoryNavigator } from "@/components/public-visual-system";
 import { portalSubpageHref, type PortalSection } from "@/lib/portal";
 import styles from "./portal-section-tabs.module.css";
-import { PortalMobileCategorySelect } from "./portal-mobile-category-select";
 
 export function PortalSectionTabs({
   section,
@@ -22,17 +21,15 @@ export function PortalSectionTabs({
     })),
   ];
   return (
-    <nav className={`portal-section-tabs portal-section-tabs--${section.accent} ${styles.nav}`}
-      aria-label={`Navigácia v sekcii ${section.label}`}>
-      <PortalMobileCategorySelect sectionLabel={section.label}
-        items={items.map((item) => ({ href: item.href, label: item.title, current: item.current }))} />
-      <div className={styles.desktopTabs}>
-        <PublicSubcategoryNavigator
-          mode="compact"
-          label={`Kategórie v sekcii ${section.label}`}
-          items={items}
-        />
-      </div>
-    </nav>
+    <div className={`portal-section-tabs portal-section-tabs--${section.accent} ${styles.nav}`}
+      data-public-editorial-category-navigation>
+      <PublicSubcategoryNavigator
+        mode="compact"
+        mobileLayout="grid"
+        columns={6}
+        label={`Kategórie v sekcii ${section.label}`}
+        items={items}
+      />
+    </div>
   );
 }

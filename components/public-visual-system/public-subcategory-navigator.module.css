@@ -531,3 +531,11 @@
 @media (prefers-reduced-motion: reduce) {
   .compactGridMobile .pagedTrack { scroll-behavior: auto; }
 }
+
+/* <= 6: always preserve the Help two-column / three-row mobile layout,
+   including narrow devices which used to collapse to a single column. */
+@media (max-width: 620px) {
+  .compactGridMobile .compactTrack:not(.pagedTrack) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
