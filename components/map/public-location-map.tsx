@@ -55,6 +55,7 @@ export function PublicLocationMap({
   const [selectedItemId, setSelectedItemId] = useState(items[0]?.id ?? null);
   const [mapType, setMapType] = useState<PublicMapType>("roadmap");
   const [consentGranted, setConsentGranted] = useState(false);
+  const [mapActivated, setMapActivated] = useState(false);
   const [mapNearViewport, setMapNearViewport] = useState(testRenderer);
   const [rendererStatus, setRendererStatus] = useState<MapRendererStatus>("loading");
   const [command, setCommand] = useState<MapRendererCommand | null>(() =>
@@ -64,8 +65,11 @@ export function PublicLocationMap({
 
   useEffect(() => {
     if (sectionRef.current) sectionRef.current.dataset.hydrated = "true";
-    const read = () =>
-      setConsentGranted(hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY)));
+    const read = () => {
+      const granted = hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY));
+      setConsentGranted(granted);
+      if (!granted) setMapActivated(false);
+    };
     read();
     window.addEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
     return () => window.removeEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
@@ -115,7 +119,8 @@ export function PublicLocationMap({
       : null;
   const rendererAvailable = testRenderer || rendererEnabled;
   const waitingForConsent = rendererAvailable && !consentGranted;
-  const showRenderer = consentGranted && rendererAvailable;
+  const waitingForManualStart = rendererAvailable && consentGranted && !mapActivated;
+  const showRenderer = consentGranted && rendererAvailable && mapActivated;
   const mountRenderer = showRenderer && mapNearViewport;
   const showMapControls = mountRenderer;
 
@@ -186,7 +191,7 @@ export function PublicLocationMap({
             <PublicNotice as="div" appearance="context" className={styles.fallback} role="status">
               <strong>Mapa sa načíta pri zobrazení.</strong>
             </PublicNotice>
-          ) : !waitingForConsent ? (
+          ) : !waitingForConsent && !waitingForManualStart ? (
             <PublicNotice as="div" appearance="context" className={styles.fallback} role="status">
               <strong>Interaktívna mapa momentálne nie je dostupná</strong>
               <span>Ostatný obsah profilu zostáva plne dostupný.</span>
@@ -212,13 +217,15 @@ export function PublicLocationMap({
             </div>
           ) : null}
 
-          {waitingForConsent ? (
+          {(waitingForConsent || waitingForManualStart) ? (
             <MapConsentState
               testId="detail-map-consent-gate"
+              alreadyGranted={consentGranted}
               alternative="Adresa a odkazy na navigáciu sú dostupné aj bez nej."
               onGrant={() => {
-                setGoogleMapsConsent(true);
+                if (!consentGranted) setGoogleMapsConsent(true);
                 setConsentGranted(true);
+                setMapActivated(true);
               }}
             />
           ) : null}
