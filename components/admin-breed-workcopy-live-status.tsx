@@ -57,7 +57,10 @@ export function AdminBreedWorkcopyLiveStatus() {
 
   return (
     <section className="admin-card" aria-label="Živý stav synchronizácie plemien">
-      <h2>Plemená – krok 7: živá synchronizácia Notion ↔ Admin</h2>
+      <details className="admin-sync-disclosure">
+        <summary>Synchronizácia plemien <span>{status ? `${status.active}/${status.total} · ${status.activeErrors} chýb` : "Zobraziť stav"}</span></summary>
+        <div className="admin-sync-disclosure-content">
+          <h2 className="sr-only">Živý stav synchronizácie Notion a administrácie</h2>
       {status ? (
         <p role="status">
           D1: {status.active}/{status.total} ACTIVE, {status.shadow} SHADOW,
@@ -84,6 +87,8 @@ export function AdminBreedWorkcopyLiveStatus() {
       <button type="button" onClick={() => void refresh()} disabled={busy}>
         {busy ? "Overujem…" : "Obnoviť živý stav D1"}
       </button>
+        </div>
+      </details>
     </section>
   );
 }

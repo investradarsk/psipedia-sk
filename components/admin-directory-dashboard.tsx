@@ -39,6 +39,10 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
   basePath?: "/admin/adresar" | "/admin/sluzby-pre-psov";
 }) {
   const router = useRouter();
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(() => Boolean(
+    filters.status !== "all" || filters.sort !== "updated" || filters.region || filters.district ||
+    filters.city || filters.verification !== "all" || filters.media !== "all",
+  ));
   const [deleteTarget, setDeleteTarget] = useState<ManagedDirectoryProfileSummary | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [reviewingId, setReviewingId] = useState<number | null>(null);
@@ -148,6 +152,11 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
             <input name="q" defaultValue={filters.q} maxLength={100} placeholder="Názov, Admin ID, mesto, okres alebo služba" />
           </label>
           <label className="admin-select-filter"><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="">Všetky kategórie</option>{allDirectoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}</select></label>
+          <button type="button" className={styles.advancedToggle} aria-expanded={advancedFiltersOpen}
+            aria-controls="admin-directory-advanced-filters" onClick={() => setAdvancedFiltersOpen(open => !open)}>
+            {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
+          </button>
+          <div id="admin-directory-advanced-filters" className={styles.advancedFilters} data-expanded={advancedFiltersOpen}>
           <label className="admin-select-filter"><span>Stav publikácie</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option><option value="archived">Archivované</option></select></label>
           <label className="admin-select-filter"><span>Zoradiť celý zoznam</span><select name="sort" defaultValue={filters.sort ?? "updated"}><option value="updated">Naposledy aktualizované</option><option value="name">Názov</option><option value="city">Mesto</option><option value="status">Stav publikácie</option></select></label>
           <label className="admin-select-filter"><span>Smer triedenia</span><select name="direction" defaultValue={filters.direction ?? ((filters.sort ?? "updated") === "updated" ? "desc" : "asc")}><option value="asc">Vzostupne ↑</option><option value="desc">Zostupne ↓</option></select></label>
@@ -156,6 +165,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
           <label className="admin-select-filter"><span>Mesto</span><select name="city" defaultValue={filters.city}><option value="">Všetky mestá</option>{options.cities.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
           <label className="admin-select-filter"><span>Overenie</span><select name="verification" defaultValue={filters.verification}><option value="all">Všetky</option><option value="verified">Overené</option><option value="unverified">Neoverené</option></select></label>
           <label className="admin-select-filter"><span>Obrázok</span><select name="media" defaultValue={filters.media}><option value="all">Všetky</option><option value="with-image">S obrázkom</option><option value="without-image">Bez obrázka</option></select></label>
+          </div>
           <div className={styles.filterActions}>
             <AdminActionButton variant="primary" type="submit">Použiť filtre</AdminActionButton>
             <Link className={styles.clearFilters} href={basePath}>Vyčistiť</Link>

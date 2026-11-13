@@ -120,7 +120,7 @@ export async function getVisualLibraryExamples(): Promise<VisualLibraryExample[]
       placement: "Útulky a organizácie – Zobraziť všetky",
       anchorId: "help-overview-utulky",
     }],
-    preview: <PublicActionLink href="/pomoc-psom/utulky" variant="tertiary">Zobraziť všetky</PublicActionLink>,
+    preview: <PublicActionLink href="/organizacie" variant="tertiary">Zobraziť všetky</PublicActionLink>,
   });
 
   const newestArticle = published.status === "fulfilled" ? published.value[0] : null;

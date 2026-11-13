@@ -113,3 +113,52 @@
 .gridActions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .gridActions :is(a, button) { font-size: .76rem; }
 .gridActions :is(a, button):focus-visible { outline: 2px solid #266d4c; outline-offset: 2px; }
+
+
+/* ADMIN-UNIFIED-UI 3/10: articles and Šteniatka share one responsive filter
+   disclosure. Desktop retains the current inline form and instant selectors. */
+.filterToggle { display: none; }
+.advancedFilters { display: contents; }
+@media (max-width: 760px) {
+  .filterToggle {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid #cbdad0;
+    border-radius: 9px;
+    background: #f4f8f5;
+    color: #183f2d;
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+  }
+  .filterToggle::after { content: "⌄"; }
+  .filterToggle[aria-expanded="true"]::after { content: "⌃"; }
+  .filterToggle:focus-visible { outline: 3px solid #a26a1b; outline-offset: 2px; }
+  .advancedFilters { display: none; grid-column: 1 / -1; min-width: 0; }
+  .advancedFilters[data-expanded="true"] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+  .advancedFilters > label { min-width: 0; }
+  .advancedFilters :global(select) { width: 100%; min-width: 0; }
+}
+@media (max-width: 360px) {
+  .advancedFilters[data-expanded="true"] { grid-template-columns: minmax(0, 1fr); }
+}
+
+
+/* Row names remain headings for screen readers and admin search navigation. */
+.gridTitle {
+  margin: 0;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.gridTitle a { color: #183f2d; overflow-wrap: anywhere; }

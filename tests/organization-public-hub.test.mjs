@@ -37,7 +37,10 @@ test("organization hub renders canonical detail discovery and collection schema"
 });
 
 test("organization hub is crawlably connected from Pomoc psom and included in sitemap", () => {
-  assert.match(helpOverviewSource, /href="\/organizacie"/);
+  // The Help overview links its "utulky" category to the canonical
+  // organizations hub while retaining existing destinations for other sections.
+  assert.match(helpOverviewSource, /href=\{section\.slug === "utulky" \? "\/organizacie" : section\.href\}/);
+  assert.match(helpOverviewSource, /data-help-overview-cta=\{section\.slug\}/);
   assert.match(sitemapSource, /sitemapEntry\("\/organizacie"/);
 });
 

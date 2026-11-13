@@ -106,3 +106,22 @@
     scroll-behavior: auto;
   }
 }
+
+
+/* ADMIN-UNIFIED-UI 2+5/10: same mobile navigation spacing as the
+   canonical article editor; section-switch behavior remains unchanged. */
+@media (max-width: 820px) {
+  .sidebar .mobile,
+  .horizontal .mobile { gap: 0.2rem; }
+  .mobile span { font-size: 0.73rem; }
+  .mobile select {
+    min-height: 44px;
+    padding: 0.45rem 0.6rem;
+    border-radius: 9px;
+  }
+}
+@media (min-width: 821px) {
+  .sidebar { padding: 0.55rem; border-radius: 12px; }
+  .sidebar .links { gap: 0.2rem; }
+  .sidebar .links :is(button, a) { padding-inline: 0.65rem; }
+}

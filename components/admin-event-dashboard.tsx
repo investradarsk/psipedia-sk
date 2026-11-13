@@ -62,6 +62,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState(defaultEventFilters);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [settledSearch, setSettledSearch] = useState(defaultEventFilters.query);
   const [today, setToday] = useState(bratislavaDateKey);
   const [page, setPage] = useState(1);
@@ -296,7 +297,11 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
               <button type="button" key={value} aria-pressed={filters.time === value} className={filters.time === value ? "is-active" : ""} onClick={() => changeFilter("time", value)}>{label}</button>
             ))}
           </div>
-          <div className="admin-event-filters">
+          <button type="button" className={styles.advancedToggle} aria-controls="admin-event-advanced-filters"
+            aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
+            {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
+          </button>
+          <div id="admin-event-advanced-filters" className={`admin-event-filters ${styles.advancedFilters}`} data-expanded={advancedFiltersOpen}>
             <div><label htmlFor="admin-event-filter-status">Publikačný stav</label><select id="admin-event-filter-status" value={filters.status} onChange={(event) => changeFilter("status", event.target.value)}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></div>
             <div><label htmlFor="admin-event-filter-type">Typ podujatia</label><select id="admin-event-filter-type" value={filters.type} onChange={(event) => changeFilter("type", event.target.value)}><option value="">Všetky typy</option>{eventTypes.map((value) => <option key={value}>{value}</option>)}</select></div>
             <div><label htmlFor="admin-event-filter-region">Kraj</label><select id="admin-event-filter-region" value={filters.region} onChange={(event) => changeFilter("region", event.target.value)}><option value="">Všetky kraje</option>{slovakRegions.map((value) => <option key={value}>{value}</option>)}</select></div>

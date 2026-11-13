@@ -1192,7 +1192,8 @@ test("renders the public legal centre and privacy controls", async () => {
   assert.equal(legal.status, 200);
   const legalHtml = await legal.text();
   assert.match(legalHtml, /Právne informácie/);
-  assert.match(legalHtml, /Pilotná prevádzka/);
+  assert.match(legalHtml, /Ako funguje portál/);
+  assert.match(legalHtml, /Partner účet slúži na správu profilov a podujatí/);
   assert.match(legalHtml, /Prevádzkovateľ/);
 
   const privacy = await worker.fetch(new Request("http://localhost/sukromie", { headers: { accept: "text/html" } }), bindings, context);
@@ -1212,7 +1213,7 @@ test("renders the public legal centre and privacy controls", async () => {
   assert.equal(cookies.status, 200);
   const cookiesHtml = await cookies.text();
   assert.match(cookiesHtml, /Cookies a lokálne úložisko/);
-  assert.match(cookiesHtml, /Google Analytics sa pred prijatím analytiky nenačíta/i);
+  assert.match(cookiesHtml, /Bez tvojho súhlasu sa služba nenačíta/i);
 
   const terms = await worker.fetch(new Request("http://localhost/podmienky-pouzivania", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(terms.status, 200);
@@ -1220,7 +1221,8 @@ test("renders the public legal centre and privacy controls", async () => {
   assert.match(termsHtml, /Podmienky používania/);
   assert.match(termsHtml, /Partner účet/);
   assert.match(termsHtml, /jednorazovým odkazom zaslaným e-mailom/);
-  assert.match(termsHtml, /heslom alebo cez Google/);
+  assert.match(termsHtml, /heslom alebo jednorazovým odkazom zaslaným/);
+  assert.match(termsHtml, /prihlásenie cez Google/);
   assert.match(termsHtml, /samo osebe nezakladá právo spravovať konkrétny profil/);
   assert.match(termsHtml, /Deaktivácia Partner účtu/);
   assert.doesNotMatch(termsHtml, /zatiaľ nie je verejne spustená/i);
