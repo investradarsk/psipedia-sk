@@ -402,7 +402,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
               </PublicActiveFilters>
             ) : null}
           </PublicFilterPanel>
-          <div data-public-filter-results>
+          <div id="adoption-results" data-public-filter-results>
             <PublicResultsToolbar className={styles.summary}>
               <div>
                 <PublicHeading role="section" as="h2">
@@ -454,14 +454,15 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
               label="Stránkovanie adopcií"
               currentPage={pagination.page}
               totalPages={pagination.totalPages}
+              pageHref={(page) => adoptionCatalogHref(filters, { page }) + "#adoption-results"}
               previousHref={
                 pagination.page > 1
-                  ? adoptionCatalogHref(filters, { page: pagination.page - 1 })
+                  ? adoptionCatalogHref(filters, { page: pagination.page - 1 }) + "#adoption-results"
                   : undefined
               }
               nextHref={
                 pagination.page < pagination.totalPages
-                  ? adoptionCatalogHref(filters, { page: pagination.page + 1 })
+                  ? adoptionCatalogHref(filters, { page: pagination.page + 1 }) + "#adoption-results"
                   : undefined
               }
               showDisabledControls={false}

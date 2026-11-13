@@ -56,7 +56,7 @@
 .browserTop {
   display: grid;
   gap: 14px;
-  padding-bottom: 28px;
+  padding-bottom: 16px;
 }
 .toolbar {
   display: grid;

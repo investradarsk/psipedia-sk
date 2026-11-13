@@ -303,7 +303,7 @@ export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewI
     case "notice":
       return <PublicNotice tone="info" as="div">Toto je vzorové informačné upozornenie.</PublicNotice>;
     case "pagination":
-      return <PublicPagination currentPage={2} totalPages={5} previousHref="/clanky" nextHref="/clanky" />;
+      return <PublicPagination currentPage={2} totalPages={5} previousHref="/clanky?page=1" nextHref="/clanky?page=3" pageHref={(page) => `/clanky?page=${page}`} />;
     case "filter-tag":
       return <div style={{ padding: 16 }}><PublicFilterTag>Veterinári</PublicFilterTag></div>;
     case "loading":

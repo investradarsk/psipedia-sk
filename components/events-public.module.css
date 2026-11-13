@@ -2103,27 +2103,7 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-.pagination {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 24px;
-}
-.pagination a {
-  display: grid;
-  place-items: center;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px;
-  border: 1px solid #cbd6cc;
-  border-radius: 8px;
-  background: white;
-  color: #173f35;
-}
-.pagination a[aria-current="page"] {
-  color: white;
-  background: #205443;
-}
+.pagination { margin-top: 12px; }
 @media (max-width: 1199px) {
   .cardGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

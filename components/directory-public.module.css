@@ -1367,7 +1367,7 @@
 
 .resultsShell {
   min-width: 0;
-  padding-bottom: var(--public-space-section);
+  padding-bottom: 20px;
 }
 
 .contextSection {
