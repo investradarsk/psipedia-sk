@@ -2,15 +2,16 @@ import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry.ts";
 import { notionBreedRichTextProperty } from "./notion-breed-text.ts";
 
 /**
- * An empty Notion cell never authorizes deleting a nonempty Admin value.
- * This applies to automatic sync, webhooks and manual transfer alike.
- * Explicit checkbox false is meaningful; missing/empty text, numbers, lists,
- * links and JSON sections are not. No other field is blocked by a blank.
+ * A present, explicitly edited Notion property is authoritative even if its
+ * new value is blank, false, null or an empty list. Missing properties never
+ * count as edits; legacy untargeted sweeps retain their old presence behavior
+ * until a signed field event establishes the owner's latest action.
  */
 export function breedNotionPresentFieldIds(page: {
   properties?: Record<string, unknown>;
-}): ReadonlySet<string> {
+}, changedPropertyIds: readonly string[] = []): ReadonlySet<string> {
   const props = page.properties ?? {};
+  const explicitlyEdited = new Set(changedPropertyIds);
   const textOf = (pieces: unknown): string => {
     if (!Array.isArray(pieces)) return "";
     return pieces.map((piece: unknown) => {
@@ -64,6 +65,12 @@ export function breedNotionPresentFieldIds(page: {
   const fields = new Set<string>();
   for (const entry of BREED_NOTION_SCHEMA) {
     if (entry.mode !== "content") continue;
+    const physical = props[entry.notion] as { id?: unknown } | undefined;
+    if (physical && (explicitlyEdited.has(entry.notion) ||
+        (typeof physical.id === "string" && explicitlyEdited.has(physical.id)))) {
+      fields.add(entry.id);
+      continue;
+    }
     if (filled(entry.notion, entry.type, entry.id)) {
       fields.add(entry.id);
       continue;
