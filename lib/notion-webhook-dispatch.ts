@@ -59,6 +59,11 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   const page = await notionRequest<OwnedPage>(bindings, "/pages/" + encodeURIComponent(id));
   if (page.id !== id || page.archived || page.in_trash) return "ignored";
   if (metadataOnlyChange(event, page)) return "metadata-only";
+  // A field edit without field IDs does not identify which value is newest.
+  // Never guess by replaying the entire page; only signed explicit fields may
+  // overwrite D1. Let Notion retry instead of acknowledging an unsafe import.
+  if (event.type === "page.properties_updated" &&
+      !event.data?.updated_properties?.length) return "deferred";
 
   const sourceId = page.parent?.data_source_id;
   // Existing mapped Events use signed, individual property events just like
