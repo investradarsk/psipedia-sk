@@ -99,6 +99,10 @@ export type AdminDogReportFilters = DogReportFilters & {
 
 export const dogReportTypeLabel = (type: DogReportType) => type === "LOST" ? "STRATENÝ PES" : "NÁJDENÝ PES";
 export const dogReportTypeShortLabel = (type: DogReportType) => type === "LOST" ? "Stratený" : "Nájdený";
+export function activeDogReportCountNoun(count: number) {
+  return count === 1 ? "aktívne hlásenie" : count >= 2 && count <= 4 ? "aktívne hlásenia" : "aktívnych hlásení";
+}
+
 export const dogReportStatusLabel: Record<LostFoundStatus, string> = {
   DRAFT: "Koncept", PENDING: "Čaká na kontrolu", ACTIVE: "Aktívne", RESOLVED: "Vyriešené", EXPIRED: "Expirované", REJECTED: "Zamietnuté", ARCHIVED: "Archivované",
 };
