@@ -304,11 +304,43 @@
 }
 
 .tocTitle {
-  display: block;
-  padding: 12px 2px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 12px 2px;
   color: var(--forest);
   font-size: 0.82rem;
   font-weight: 800;
+  list-style: none;
+  cursor: pointer;
+}
+
+.tocTitle::-webkit-details-marker {
+  display: none;
+}
+
+.tocTitle::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: none;
+  margin-right: 5px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.toc[open] > .tocTitle::after {
+  transform: rotate(225deg);
+}
+
+.tocTitle:focus-visible {
+  outline: 3px solid var(--brand-focus, var(--coral-dark));
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .sidebar a:focus-visible {

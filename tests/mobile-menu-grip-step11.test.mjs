@@ -16,7 +16,7 @@ test("mobile menu grip is after scrollable nav, not at the top of its list", () 
   assert.match(drawer, /<button\s+type="button"\s+className=\{styles\.menuDismissGrip\}/);
   assert.doesNotMatch(drawer, /tabIndex=\{-1\}/);
   assert.match(drawer, /aria-label="Zavrieť navigačné menu"/);
-  assert.match(drawer, /title="Potiahni nadol alebo klepni pre zatvorenie"/);
+  assert.match(drawer, /title="Potiahni nahor alebo nadol, prípadne klepni pre zatvorenie"/);
 });
 
 test("the viewport-aware menu reserves the bottom grip outside the scroll area", () => {
@@ -34,13 +34,14 @@ test("the viewport-aware menu reserves the bottom grip outside the scroll area",
   assert.match(system, /100dvh - var\(--psipedia-mobile-menu-top/);
 });
 
-test("grip alone owns downward gesture and preserves native list/browser navigation", () => {
+test("grip owns upward and downward gestures without intercepting list/browser navigation", () => {
   const header = read("components/site-header.tsx");
   assert.match(header, /menu\?\.querySelector<HTMLButtonElement>\(":scope > \[data-menu-dismiss-grip\]"\)/);
   assert.match(header, /grip\.addEventListener\("touchstart", onStart/);
   assert.match(header, /grip\.addEventListener\("touchmove", onMove/);
-  assert.match(header, /const close = startY !== null && distance >= 60/);
+  assert.match(header, /const close = startY !== null && Math\.abs\(distance\) >= 60/);
   assert.match(header, /drawer\.style\.transform = "translate3d\(0," \+ distance \+ "px,0\)"/);
+  assert.match(header, /distance = Math\.max\(-180, Math\.min\(180,/);
   assert.match(header, /menuReturnFocusRef\.current\?\.focus\(\)/);
   assert.doesNotMatch(header, /document\.addEventListener\("touchstart"/);
   assert.match(header, /aria-label=\{menuOpen \? "Zavrieť menu" : "Otvoriť menu"\}/);

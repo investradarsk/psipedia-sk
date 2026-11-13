@@ -332,16 +332,18 @@ export function ArticleDetail({
                 </aside>
               ) : null}
               {showTableOfContents ? (
-                <nav className={styles.toc} aria-label="Obsah článku">
-                  <strong className={styles.tocTitle}>Obsah článku</strong>
-                  <ol>
-                    {tocHeadings.map((heading) => (
-                      <li key={heading.blockId}>
-                        <a href={`#${heading.id}`}>{heading.text}</a>
-                      </li>
-                    ))}
-                  </ol>
-                </nav>
+                <details className={styles.toc}>
+                  <summary className={styles.tocTitle}>Obsah článku</summary>
+                  <nav aria-label="Obsah článku">
+                    <ol>
+                      {tocHeadings.map((heading) => (
+                        <li key={heading.blockId}>
+                          <a href={`#${heading.id}`}>{heading.text}</a>
+                        </li>
+                      ))}
+                    </ol>
+                  </nav>
+                </details>
               ) : null}
               <ArticleBlocks blocks={contentBlocks} promoUtcDay={discovery.utcDay} />
               {sourceBlocks.length > 0 ? (
