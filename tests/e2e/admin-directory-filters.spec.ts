@@ -206,10 +206,16 @@ test.describe("admin directory v2", () => {
   });
 
   test("directory editor cancels and discards unsaved navigation through shared dialog", async ({ page }) => {
-    // Read-only test: no profile update or publication request is sent.
-    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "domcontentloaded" });
+    // This test verifies the unsaved-changes guard, not the listing's link.
+    // Read the real editor href and navigate directly, avoiding a click made
+    // unstable when Vite injects responsive CSS after the initial render.
+    // The dedicated navigation test below still checks that the link works.
+    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "load" });
     await waitForDirectoryTableLayout(page);
-    await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
+    const editorHref = await page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true }).getAttribute("href");
+    expect(editorHref).toMatch(/^\/admin\/adresar\/\d+$/);
+    const editorResponse = await page.goto(editorHref!, { waitUntil: "load" });
+    expect(editorResponse?.status()).toBe(200);
     await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
 
     await openDirectoryEditorSection(page, "Kontakty");
