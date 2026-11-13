@@ -3,12 +3,13 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { eventDateStatus, eventHref, formatEventDate, type PublicEventCard } from "@/lib/events";
+import { compactEventCardDate, EVENT_CARD_MONTHS } from "@/lib/event-card-date";
 import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
 import { EventImage } from "@/components/event-image";
 import { PublicListingRowCard } from "@/components/public-listing-row-card";
 
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MÁJ", "JÚN", "JÚL", "AUG", "SEP", "OKT", "NOV", "DEC"];
+const MONTHS = EVENT_CARD_MONTHS;
 
 function eventTimeLabel(event: PublicEventCard) {
   if (event.startTime && event.endTime) return event.startTime + " – " + event.endTime;
@@ -71,8 +72,12 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
           />
         }
         meta={
-          <time dateTime={event.startDate}>
-            {formatEventDate(event)}
+          <time
+            dateTime={event.startDate}
+            aria-label={formatEventDate(event) + (timeLabel ? `, ${timeLabel}` : "")}
+            data-event-date
+          >
+            {compactEventCardDate(event)}
             {timeLabel ? " · " + timeLabel : ""}
           </time>
         }
@@ -103,7 +108,7 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
 
       <div className={styles.cardBody}>
         <div className={styles.cardMeta} data-public-card-meta>
-          <span>{event.eventType}</span>
+          <span>{eventTypePresentation[event.eventType].label}</span>
           {statusLabel && <b>{statusLabel}</b>}
         </div>
         <h3 data-public-card-title><Link href={eventHref(event)}>{event.title}</Link></h3>
