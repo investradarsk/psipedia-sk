@@ -14,9 +14,11 @@ function pageHref(basePath: string, page: number) {
   return page <= 1 ? basePath : `${basePath}${basePath.includes("?") ? "&" : "?"}page=${page}`;
 }
 
-export function AdminPagination({ pagination, basePath }: {
+export function AdminPagination({ pagination, basePath, nativeNavigation = false }: {
   pagination: AdminPaginationState;
   basePath: string;
+  /** Follow the server GET href without a client router hydration dependency. */
+  nativeNavigation?: boolean;
 }) {
   if (pagination.totalPages <= 1) return null;
   const previous = pagination.page - 1;
@@ -25,11 +27,15 @@ export function AdminPagination({ pagination, basePath }: {
   return (
     <nav className="admin-pagination" aria-label="Stránkovanie zoznamu">
       {pagination.page > 1
-        ? <Link prefetch={false} href={pageHref(basePath, previous)}>← Predchádzajúca</Link>
+        ? nativeNavigation
+          ? <a href={pageHref(basePath, previous)}>← Predchádzajúca</a>
+          : <Link prefetch={false} href={pageHref(basePath, previous)}>← Predchádzajúca</Link>
         : <span aria-disabled="true">← Predchádzajúca</span>}
       <strong>Strana {pagination.page} z {pagination.totalPages}</strong>
       {pagination.page < pagination.totalPages
-        ? <Link prefetch={false} href={pageHref(basePath, next)}>Ďalšia →</Link>
+        ? nativeNavigation
+          ? <a href={pageHref(basePath, next)}>Ďalšia →</a>
+          : <Link prefetch={false} href={pageHref(basePath, next)}>Ďalšia →</Link>
         : <span aria-disabled="true">Ďalšia →</span>}
     </nav>
   );
