@@ -28,6 +28,7 @@ export default async function PrivacyPage() {
   return (
     <main id="obsah">
       <UniversalPageHero
+        variant="compact"
         eyebrow="Tvoje údaje"
         title="Ochrana osobných údajov"
         intro="Psipedia.sk nevyžaduje registráciu bežných návštevníkov, osobné údaje nepredáva a nevytvára reklamné používateľské profily. Spracúvame iba údaje potrebné na fungovanie portálu, komunikáciu a funkcie, ktoré návštevník sám použije."
@@ -106,10 +107,10 @@ export default async function PrivacyPage() {
             evidujeme aj súvisiace žiadosti a stav dohôd.
           </p>
           <p>
-            Tieto údaje používame na vytvorenie a zabezpečenie Partner účtu, overenie prístupu,
-            vybavenie žiadostí o správu, kontrolu navrhovaných zmien a komunikáciu o stave Partner
-            účtu a jeho podaní. Vytvorenie účtu samo osebe neznamená automatické právo spravovať
-            konkrétny profil.
+            Tieto údaje používame pri registrácii a prihlasovaní do Partner účtu, vybavovaní
+            žiadostí o správu, kontrole navrhovaných zmien a komunikácii o stave účtu.
+            Partner účet možno používať aj bez prepojeného profilu; právo na správu
+            konkrétneho profilu vzniká až po schválení žiadosti.
           </p>
           <p>
             Ak si Partner nastaví heslo, neuchovávame ho v čitateľnej podobe. Systém uchováva iba
@@ -282,7 +283,7 @@ export default async function PrivacyPage() {
         Text aktualizujeme pred spustením funkcie, ktorá významne mení účel alebo rozsah spracúvania
         osobných údajov, a pri zmene právnych alebo technických podmienok.
       </p>
-      <p className="legal-updated">Aktualizované 24. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 13. novembra 2026.</p>
       </section>
     </main>
   );

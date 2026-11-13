@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import type { ResolvedSectionVisual } from "@/lib/section-visual-contract";
-import { UnifiedSectionHero, UnifiedSectionHeroShell } from "./unified-section-hero";
+import { UnifiedSectionHero, UnifiedSectionHeroShell, type UnifiedSectionHeroVariant } from "./unified-section-hero";
 
 /**
  * One facade for static pages and data-driven details.
@@ -16,6 +16,7 @@ export function UniversalPageHero({
   imageUrl,
   imageAlt,
   mediaSlot,
+  variant = "homepage-style",
   searchAction = "/hladat",
   searchDefaultValue = "",
   searchHidden = [],
@@ -29,6 +30,7 @@ export function UniversalPageHero({
   imageUrl?: string | null;
   imageAlt?: string | null;
   mediaSlot?: ReactNode;
+  variant?: UnifiedSectionHeroVariant;
   searchAction?: string;
   searchDefaultValue?: string;
   searchHidden?: Array<{ name: string; value: string }>;
@@ -51,6 +53,7 @@ export function UniversalPageHero({
     <UnifiedSectionHeroShell>
       <UnifiedSectionHero
         contentSource="route"
+        variant={variant}
         breadcrumbs={breadcrumbs}
         eyebrow={eyebrow}
         title={title}

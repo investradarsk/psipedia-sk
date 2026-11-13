@@ -1190,17 +1190,46 @@
   --ps-heading-eyebrow: 0.68rem;
 }
 @media (min-width: 821px) {
-  .legal-page.prose-page {
-    padding-top: 28px;
+  .prose-page:is(.legal-page, .info-page) {
+    padding-top: 24px;
+  }
+  .prose-page.info-page {
+    width: min(860px, calc(100% - 48px));
   }
   .legal-page.prose-page h1 {
     font-size: var(--ps-heading-page);
     line-height: 1.15;
   }
-  .legal-page.prose-page h2 {
+  .prose-page:is(.legal-page, .info-page) > h2 {
+    margin: 28px 0 9px;
+    color: var(--ink);
+    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
     font-size: var(--ps-heading-content-section);
+    font-weight: 750;
+    letter-spacing: -0.025em;
     line-height: 1.3;
-    margin-top: 24px;
+  }
+  /* PublicHeading has a more specific default margin; override it here for
+     the same section rhythm as plain headings on informational pages. */
+  .prose-page:is(.legal-page, .info-page) > h2[data-public-heading] {
+    margin: 28px 0 9px;
+  }
+  .prose-page:is(.legal-page, .info-page) > h2:first-child {
+    margin-top: 0;
+  }
+  .prose-page.info-page .about-contact h2 {
+    margin: 8px 0 10px;
+    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: var(--ps-heading-content-section);
+    font-weight: 750;
+    letter-spacing: -0.025em;
+    line-height: 1.3;
+  }
+  .prose-page:is(.legal-page, .info-page) > h2 + :is(p, ul, ol, dl, div) {
+    margin-top: 0;
+  }
+  .legal-page.prose-page > .legal-status-note:first-child {
+    margin-top: 0;
   }
 }
 

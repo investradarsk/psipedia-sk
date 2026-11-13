@@ -285,13 +285,20 @@ test("Google tokens and OAuth secrets are transient and never persisted", () => 
   assert.doesNotMatch(migration, /access_token|refresh_token|id_token|authorization_code|pkce_verifier|nonce/i);
 });
 
-test("login and registration retain visible magic-link alternatives and distinct semantics", () => {
-  assert.match(loginPage, /PartnerPasswordAuthForm mode="login"/);
-  assert.match(loginPage, /Prihlásiť sa odkazom na e-mail/);
-  assert.match(loginPage, /PartnerAuthForm mode="login"/);
-  assert.match(registerPage, /PartnerPasswordAuthForm mode="register"/);
-  assert.match(registerPage, /Registrovať sa pomocou odkazu na e-mail/);
-  assert.match(registerPage, /PartnerAuthForm mode="register"/);
+test("login and registration retain switchable password and magic-link authentication", async () => {
+  const methodSwitcher = await read("components/partner-auth-method-switcher.tsx");
+  const passwordForm = await read("components/partner-password-auth-form.tsx");
+  const magicLinkForm = await read("components/partner-auth-form.tsx");
+
+  assert.match(loginPage, /PartnerAuthMethodSwitcher mode="login"/);
+  assert.match(registerPage, /PartnerAuthMethodSwitcher mode="register"/);
+  assert.match(methodSwitcher, /PartnerPasswordAuthForm mode=\{mode\}/);
+  assert.match(methodSwitcher, /PartnerAuthForm mode=\{mode\}/);
+  assert.match(methodSwitcher, /aria-pressed=\{method === "password"\}/);
+  assert.match(methodSwitcher, /aria-pressed=\{method === "email"\}/);
+  assert.match(methodSwitcher, /Pošleme vám jednorazový prihlasovací odkaz platný 15 minút/);
+  assert.match(passwordForm, /\/api\/partner\/auth\/password\/\$\{mode\}/);
+  assert.match(magicLinkForm, /\/api\/partner\/auth\/request-link/);
   assert.match(loginPage, /Pokračovať cez Google/);
   assert.match(registerPage, /Pokračovať cez Google/);
 });

@@ -70,7 +70,7 @@ test("Ready sync requires an explicit send opt-in, even for a page returned by a
 test("retry is idempotent, protects non-drafts and preserves Admin-owned promo blocks", () => {
   assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(migrationSource, /article_id INTEGER NOT NULL UNIQUE/);
-  assert.match(syncSource, /if \(mapping && decodeArticleSeoReceipt\(mapping\.content_hash\)\.hash === contentHash\)/);
+  assert.match(syncSource, /if \(!signedFields && mapping && decodeArticleSeoReceipt\(mapping\.content_hash\)\.hash === contentHash\)/);
   assert.match(syncSource, /return "unchanged"/);
   assert.match(syncSource, /ON CONFLICT\(notion_page_id\) DO UPDATE SET/);
   assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"/);
@@ -184,7 +184,7 @@ test("article routes reject collisions with subsection landing slugs", () => {
 test("mapped Draft is loaded before placement resolution so a legacy missing subsection can preserve a valid route", () => {
   const mappingLoad = syncSource.indexOf("const mapping = await loadMapping");
   const existingLoad = syncSource.indexOf("const mappedExisting = mapping ?", mappingLoad);
-  const payloadBuild = syncSource.indexOf("notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo)", existingLoad);
+  const payloadBuild = syncSource.indexOf("notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo)", existingLoad);
   assert.ok(mappingLoad >= 0 && existingLoad > mappingLoad && payloadBuild > existingLoad);
   assert.match(syncSource, /existing\.status !== "draft"/);
 });
@@ -392,7 +392,7 @@ test("article editorial draft writer uses existing OG popis and the shared SEO c
   assert.match(source, /SEO\.ogDescription\.name in pageProperties/);
   assert.match(source, /SEO\.ogTitle\.name in pageProperties/);
   assert.doesNotMatch(source, /"OG description" in pageProperties/);
-  assert.match(syncSource, /articleSeoFromNotion\(page, existing, confirmedPrevious\)/);
+  assert.match(syncSource, /articleSeoFromNotion\(page, existing, confirmedPrevious, explicitlyEditedSeo\)/);
   assert.match(syncSource, /\.\.\.seoFields/);
 });
 

@@ -38,7 +38,8 @@ test.describe("CONTACT 2.0", () => {
     await expect(page.locator('[data-contact-route="missing-service"]')).toHaveAttribute("href", /^mailto:psipedia\.sk@gmail\.com\?subject=/);
     await expect(page.locator('[data-contact-route="collaboration"]')).toHaveAttribute("href", /^mailto:psipedia\.sk@gmail\.com\?subject=/);
 
-    await expect(page.getByRole("link", { name: "Napísať e-mail" })).toHaveAttribute("href", /^mailto:psipedia\.sk@gmail\.com\?subject=/);
+    await expect(page.getByRole("link", { name: "Napísať e-mail" })).toHaveCount(0);
+    await expect(page.locator('[data-contact-route="general"]')).toHaveCount(1);
     await expect(page.getByRole("link", { name: "Ochrana osobných údajov" })).toHaveAttribute("href", "/sukromie");
     await expect(page.getByRole("link", { name: "Prevádzkovateľ a právne informácie" })).toHaveAttribute("href", "/pravne-informacie");
 

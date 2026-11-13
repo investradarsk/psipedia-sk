@@ -15,6 +15,7 @@ export default function CorrectionsPage() {
   return (
     <main id="obsah">
       <UniversalPageHero
+        variant="compact"
         eyebrow="Presnosť obsahu"
         title="Opravy a podnety"
         intro="Ak nájdeš chybný, neaktuálny alebo neúplný údaj, daj nám vedieť. Podnet preveríme a podľa výsledku obsah opravíme alebo doplníme."
@@ -51,20 +52,20 @@ export default function CorrectionsPage() {
         Ako podnet spracujeme
       </PublicHeading>
       <p>
-        Podnet neznamená automatickú zmenu stránky. Informáciu najprv preveríme podľa dostupných
-        zdrojov a charakteru údaja. Pri profile služby alebo organizácie môžeme požiadať aj o
-        primerané potvrdenie, že navrhovateľ je oprávnený za daný subjekt konať.
+        Opravu obsahu nám môžeš nahlásiť aj bez Partner účtu. Podnet preveríme a podľa
+        výsledku údaj opravíme alebo doplníme. Ak žiadaš o správu profilu v mene služby
+        či organizácie, použiješ Partner účet a Psipedia overí tvoje oprávnenie.
       </p>
 
       <PublicHeading role="section" as="h2">
-        Budúce úpravy profilov poskytovateľmi
+        Správa profilov cez Partner účet
       </PublicHeading>
       <p>
-        Psipedia pripravuje možnosť, aby si poskytovatelia služieb mohli po prihlásení navrhovať
-        zmeny svojho profilu. Aj po spustení tejto funkcie bude návrh zmeny pred verejným zobrazením
-        podliehať kontrole a schváleniu Psipediou.
+        Ak zastupuješ poskytovateľa služby alebo organizáciu, cez{" "}
+        <Link href="/partner/registracia">Partner účet</Link> môžeš požiadať o správu profilu
+        a po schválení navrhovať jeho úpravy. Pred zverejnením návrh kontroluje redakcia.
+        Bežné oznámenie chyby zostáva dostupné aj bez registrácie.
       </p>
-
       <PublicHeading role="section" as="h2">
         Tip na príbeh alebo zaujímavosť
       </PublicHeading>
@@ -83,7 +84,7 @@ export default function CorrectionsPage() {
         <Link href="/sukromie">Ochrana osobných údajov</Link>.
       </p>
 
-      <p className="legal-updated">Aktualizované 12. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 13. novembra 2026.</p>
       </section>
     </main>
   );

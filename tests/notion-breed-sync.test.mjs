@@ -153,7 +153,7 @@ test("outbound writeback protects identity but not whole-page content revisions"
     syncSource.indexOf("/** Kept as a public alias"));
   assert.match(writer,/notionPageBelongsToDataSource\(page,sourceId\)/);
   assert.match(writer,/notionRichTextProperty\(page,"Psipedia ID"\)/);
-  assert.match(writer,/sameBreedField\(remote\[field\],oldNotion\[field\]\)/);
+  assert.match(writer,/const changed=\(args.changedFieldKeys\?\?BREED_NOTION_EDITABLE_FIELDS\)/);
   assert.match(writer,/acknowledged/);
   assert.match(writer,/await upsertMapping/);
   assert.doesNotMatch(writer,/BREED_NOTION_REMOTE_EDITORIAL_CHANGED/);

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { PartnerAuthForm } from "@/components/partner-auth-form";
-import { PartnerPasswordAuthForm } from "@/components/partner-password-auth-form";
+import { PartnerAuthMethodSwitcher } from "@/components/partner-auth-method-switcher";
 import { isPartnerGoogleOAuthEnabled } from "@/lib/partner-google-auth";
 import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
 import { normalizePartnerReturnTo } from "@/lib/partner-return-to";
@@ -33,14 +32,7 @@ export default async function PartnerRegistrationPage({ searchParams }: { search
           {googleEnabled ? <a className="button button--google partner-google-button" href={googleHref}>Pokračovať cez Google</a> : null}
           {googleEnabled ? <div className="partner-auth-divider"><span>alebo</span></div> : null}
 
-          <PartnerPasswordAuthForm mode="register" siteKey={siteKey} returnTo={returnTo} />
-
-          <div className="partner-auth-divider"><span>alebo</span></div>
-          <div className="partner-auth-alternative">
-            <h3>Registrovať sa pomocou odkazu na e-mail</h3>
-            <p>Ak nechcete používať heslo, môžete pokračovať existujúcim jednorazovým odkazom.</p>
-            <PartnerAuthForm mode="register" siteKey={siteKey} returnTo={returnTo} />
-          </div>
+          <PartnerAuthMethodSwitcher mode="register" siteKey={siteKey} returnTo={returnTo} />
         </div>
       </section>
     </main>
