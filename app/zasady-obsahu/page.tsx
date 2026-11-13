@@ -42,7 +42,7 @@ export default function EditorialPolicyPage() {
       <p>Odoslaný tip je námet, nie automaticky zverejnená správa. Pred publikovaním hľadáme pôvodný zdroj, overujeme dátum a miesto a pri citlivých prípadoch chránime súkromie ľudí aj bezpečnosť zvierat. Ak sa podstatné tvrdenie nedá overiť, tip nezverejníme.</p>
 
       <h2>Zbierky a pomoc psom</h2>
-      <p>Výzvu na finančnú pomoc zverejníme iba po primeranom preverení organizátora, príjemcu a účelu. Peniaze v pilotnej verzii nejdú cez Psipediu; odkaz vedie na oficiálnu stránku organizátora. Pri zmene alebo ukončení výzvy údaj aktualizujeme.</p>
+      <p>Výzvu na finančnú pomoc zverejníme iba po primeranom preverení organizátora, príjemcu a účelu. Príspevky na zbierky neposielaš Psipedii; odkazy smerujú na oficiálne stránky príslušných organizátorov. Pri zmene alebo ukončení výzvy údaj aktualizujeme.</p>
       </section>
     </main>
   );

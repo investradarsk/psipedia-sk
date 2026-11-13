@@ -1209,8 +1209,21 @@
     letter-spacing: -0.025em;
     line-height: 1.3;
   }
+  /* PublicHeading has a more specific default margin; override it here for
+     the same section rhythm as plain headings on informational pages. */
+  .prose-page:is(.legal-page, .info-page) > h2[data-public-heading] {
+    margin: 28px 0 9px;
+  }
   .prose-page:is(.legal-page, .info-page) > h2:first-child {
     margin-top: 0;
+  }
+  .prose-page.info-page .about-contact h2 {
+    margin: 8px 0 10px;
+    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: var(--ps-heading-content-section);
+    font-weight: 750;
+    letter-spacing: -0.025em;
+    line-height: 1.3;
   }
   .prose-page:is(.legal-page, .info-page) > h2 + :is(p, ul, ol, dl, div) {
     margin-top: 0;
