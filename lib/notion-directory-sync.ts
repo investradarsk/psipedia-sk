@@ -1796,36 +1796,34 @@ async function syncBreederEvent(input: {
     return equivalent(propertyText(candidate, key), expected);
   };
   const failedFields: BreederEditorialField[] = [];
-  // A Contacts-tab save can request all five editorial contacts at once.
-  // A single Notion PATCH avoids bursts of five writes and the associated
-  // throttling risk. Verify every field's echo; retry individually on failure.
-  const contactPaths = new Set<BreederEditorialField>(DIRECTORY_CONTACT_EDITORIAL_PATHS);
-  const batchContacts = fields.filter(path => contactPaths.has(path));
-  const acknowledgedBatchContacts = new Set<BreederEditorialField>();
-  if (batchContacts.length > 1) {
-    const needed = batchContacts.filter(path => !confirmed(page, path));
-    if (needed.length) {
-      const desired: Record<string, unknown> = {};
-      for (const path of needed) {
-        const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
-        desired[key] = allProperties[key];
-      }
-      try {
-        const patch = adaptDirectoryNotionTextProperties(desired, page.properties ?? {});
-        const echoed = await patchNotionPage(bindings, page.id, patch);
-        const verified = needed.every(path => confirmed(echoed, path))
-          ? echoed : await fetchNotionPage(bindings, page.id);
-        for (const path of needed)
-          if (confirmed(verified, path)) acknowledgedBatchContacts.add(path);
-      } catch (error) {
-        console.warn("DIRECTORY_CONTACT_BATCH_WRITE_RETRY", input.profile.id,
-          error instanceof Error ? error.message : "UNKNOWN");
-        // Individual field writes below remain the fallback.
-      }
+  // A large Admin form can edit contacts, prose and SEO together. Writing
+  // every property with a separate Notion PATCH extends the save by many
+  // network round-trips and increases the window for competing webhooks.
+  // Send the exact edited properties together; never replay the whole profile.
+  // A failed or partially echoed batch falls back only for unconfirmed fields.
+  const pendingBatchFields = fields.filter(path => !confirmed(page, path));
+  const acknowledgedBatchFields = new Set<BreederEditorialField>();
+  if (pendingBatchFields.length > 1) {
+    const desired: Record<string, unknown> = {};
+    for (const path of pendingBatchFields) {
+      const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+      desired[key] = allProperties[key];
+    }
+    try {
+      const patch = adaptDirectoryNotionTextProperties(desired, page.properties ?? {});
+      const echoed = await patchNotionPage(bindings, page.id, patch);
+      const verified = pendingBatchFields.every(path => confirmed(echoed, path))
+        ? echoed : await fetchNotionPage(bindings, page.id);
+      for (const path of pendingBatchFields)
+        if (confirmed(verified, path)) acknowledgedBatchFields.add(path);
+    } catch (error) {
+      console.warn("DIRECTORY_EDITORIAL_BATCH_WRITE_RETRY", input.profile.id,
+        error instanceof Error ? error.message : "UNKNOWN");
+      // Retry only the unsuccessful fields individually, including text clears.
     }
   }
   for (const path of fields) {
-    if (acknowledgedBatchContacts.has(path)) continue;
+    if (acknowledgedBatchFields.has(path)) continue;
     const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
     if (confirmed(page, path)) continue; // Verified equality, no duplicate PATCH.
     const patch = adaptDirectoryNotionTextProperties(
