@@ -12,7 +12,7 @@ test("e-shop rows preserve real link semantics and show a single zero-rating sta
   assert.doesNotMatch(item, /<Link[\s\S]*?role="listitem"/);
   const hub = read("components/reviews-hub.tsx");
   assert.match(hub, /: <span>Bez hodnotení<\/span>/);
-  assert.doesNotMatch(hub, /\{shop\.ratingCount\}[\s\S]*?: <span>Bez hodnotení/);
+  assert.doesNotMatch(hub, /<\/span>\}\s*\{" · "\}\s*\{shop\.ratingCount\}/);
   const detail = read("app/recenzie/eshopy/[slug]/page.tsx");
   assert.doesNotMatch(detail, /<DetailContactsCard/);
   assert.match(detail, /Navštíviť e-shop/);
