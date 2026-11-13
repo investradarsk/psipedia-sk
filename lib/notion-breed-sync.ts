@@ -1045,8 +1045,20 @@ async function syncOneBreed(
     }
 
     if (mapping && fieldReceipt) {
+      // A signed edit is newer than a historical receipt, even if the user
+      // changed the Notion cell back to its previously acknowledged value.
+      // Compare only those explicitly edited cells against live Admin values.
+      const previousNotionForEvent = signedFields
+        ? { ...fieldReceipt.notion } : fieldReceipt.notion;
+      if (signedFields) {
+        const liveAdmin = breedFieldSnapshot(existing);
+        for (const field of presentBreedFields) {
+          const key = field as BreedNotionField;
+          previousNotionForEvent[key] = liveAdmin[key];
+        }
+      }
       const plan=planBreedNotionFieldDelta(existing,basePayload,
-        fieldReceipt.notion,fieldReceipt.admin,eventAuthority,presentBreedFields);
+        previousNotionForEvent,fieldReceipt.admin,eventAuthority,presentBreedFields);
       const invalid=invalidStructuredBreedFields(page);
       // Even if just one source field is invalid or contested, valid Notion
       // editorial edits are committed together. Skipped fields remain pending.
