@@ -110,7 +110,7 @@ export function AdminDashboard({
   const [message, setMessage] = useState("");
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; excerpt: string } | null>(null);
   const [inlineBusy, setInlineBusy] = useState(false);
-  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(true);
 
   const membershipFilter = useMemo(() => normalizeArticleAdminBulkFilter({
     portalSection: fixedPortalSection ?? (filters.portalSection === "all" ? "" : filters.portalSection),
@@ -388,7 +388,7 @@ export function AdminDashboard({
                     : <span>🐾</span>}</span> },
                 { id: "title", label: "Názov", width: 295, sortValue: article => article.title,
                   cell: article => <div className={styles.gridIdentity}>
-                    <strong><Link href={`/admin/clanky/${article.id}`}>{article.title}</Link></strong>
+                    <h2 className={styles.gridTitle}><Link href={`/admin/clanky/${article.id}`}>{article.title}</Link></h2>
                     <small>{article.category}{article.newsCategory
                       ? ` · ${getNewsCategory(article.newsCategory)?.shortLabel ?? article.newsCategory}` : ""}</small>
                   </div> },
