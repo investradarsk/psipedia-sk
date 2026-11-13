@@ -139,7 +139,7 @@ test("SEO receipt integration covers inbound, draft, and targeted writeback", as
 });
 
 
-test("latest signed SEO edit overrides even a formerly empty Notion field", () => {
+test("latest signed SEO edit overrides even a formerly empty Notion field", async () => {
   const blank = remote({
     "SEO title": { ...rich(""), id: "edited-title" },
     "Noindex": { type: "checkbox", checkbox: false, id: "edited-noindex" },
