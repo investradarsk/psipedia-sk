@@ -1,0 +1,58 @@
+name: Public listings and mobile UX QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/public-visual-system/**"
+      - "components/site-header*"
+      - "components/help-overview.tsx"
+      - "components/help-public.module.css"
+      - "components/reviews-hub*"
+      - "components/directory-*.tsx"
+      - "components/event-listing-results.tsx"
+      - "components/events-page.tsx"
+      - "components/editorial-section.tsx"
+      - "components/news-hub.tsx"
+      - "components/adoption-detail.tsx"
+      - "app/hladat/page.tsx"
+      - "lib/public-pagination.ts"
+      - "lib/public-subcategory-paging.ts"
+      - "lib/public-section-photo-promos.ts"
+      - "tests/public-pagination-step6.test.mjs"
+      - "tests/public-subcategory-paging-step7.test.mjs"
+      - "tests/reviews-hub-step8.test.mjs"
+      - "tests/public-help-overview-cta-step9.test.mjs"
+      - "tests/public-banners-step10.test.mjs"
+      - "tests/mobile-menu-grip-step11.test.mjs"
+      - "tests/public-final-qa-step12.test.mjs"
+      - ".github/workflows/public-listings-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-listings-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public-listings-regressions:
+    name: Public listing, categories, banners and mobile menu contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Validate all public UX regression contracts
+        run: |
+          node --experimental-strip-types --test \
+            tests/public-pagination-step6.test.mjs \
+            tests/public-subcategory-paging-step7.test.mjs \
+            tests/reviews-hub-step8.test.mjs \
+            tests/public-help-overview-cta-step9.test.mjs \
+            tests/public-banners-step10.test.mjs \
+            tests/mobile-menu-grip-step11.test.mjs \
+            tests/public-final-qa-step12.test.mjs
