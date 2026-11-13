@@ -76,13 +76,10 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   supportsAllMatching?: boolean;
 }) {
   const viewFingerprint = `${membershipFingerprint}|page:${pageIds.join(",")}`;
-  // The initial server markup remains disabled until React is hydrated.
-  // Never expose clickable SSR inputs before event handlers are attached:
-  // early clicks were lost in mobile directory and article E2E.
-  const [selectionState, setSelectionState] = useState<{
-    membershipFingerprint: string | null;
-    selection: AdminBulkSelectionState;
-  }>({ membershipFingerprint: null, selection: emptySelection });
+  const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string | null; selection: AdminBulkSelectionState }>({
+    membershipFingerprint: null,
+    selection: emptySelection,
+  });
 
   useEffect(() => {
     const key = storageKey(module);
@@ -90,23 +87,19 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
     try {
       const raw = sessionStorage.getItem(key);
       if (raw) {
-        const stored = JSON.parse(raw) as {
-          membershipFingerprint?: unknown;
-          selection?: unknown;
-        };
-        const normalized = stored.membershipFingerprint === viewFingerprint
-          ? normalizeStoredState(stored.selection) : null;
-        if (normalized && (supportsAllMatching || normalized.mode !== "all-matching"))
-          nextSelection = normalized;
+        const stored = JSON.parse(raw) as { membershipFingerprint?: unknown; selection?: unknown };
+        const normalized = stored.membershipFingerprint === viewFingerprint ? normalizeStoredState(stored.selection) : null;
+        if (normalized && (supportsAllMatching || normalized.mode !== "all-matching")) nextSelection = normalized;
         else sessionStorage.removeItem(key);
       }
     } catch {
       sessionStorage.removeItem(key);
     }
-    // Activate the exact SSR page selection immediately after hydration
-    // instead of deferring the only readiness update to a cancellable microtask.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectionState({ membershipFingerprint: viewFingerprint, selection: nextSelection });
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setSelectionState({ membershipFingerprint: viewFingerprint, selection: nextSelection });
+    });
+    return () => { active = false; };
   }, [module, supportsAllMatching, viewFingerprint]);
 
   const ready = selectionState.membershipFingerprint === viewFingerprint;
@@ -117,9 +110,7 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
     const key = storageKey(module);
     const selectedCount = selection.mode === "all-matching" ? resultCount : selection.ids.length;
     if (selectedCount === 0) sessionStorage.removeItem(key);
-    else sessionStorage.setItem(key, JSON.stringify({
-      membershipFingerprint: viewFingerprint, selection,
-    }));
+    else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint: viewFingerprint, selection }));
   }, [module, ready, resultCount, selection, viewFingerprint]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
