@@ -155,6 +155,9 @@ test("saving Contacts re-confirms all five D1 text values in Notion, including a
   assert.match(route, /submittedBody\.category === before\.category/);
   assert.match(route, /\.\.\.\(confirmContactSync \? DIRECTORY_CONTACT_EDITORIAL_PATHS : \[\]\)/);
   assert.match(route, /metadataWarnings\.push\("Kontakty sú uložené v Admine, ale prenos do Notionu nie je potvrdený\."/);
+  assert.match(notion, /const batchContacts = fields\.filter\(path => contactPaths\.has\(path\)\)/);
+  assert.match(notion, /const echoed = await patchNotionPage\(bindings, page\.id, patch\)/);
+  assert.match(notion, /acknowledgedBatchContacts\.has\(path\)/);
   assert.match(notion, /if \(confirmed\(page, path\)\) continue/);
   assert.match(notion, /DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH/);
 });
