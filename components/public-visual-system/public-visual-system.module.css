@@ -321,7 +321,8 @@
   transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.contentList > .articleListItem {
+.contentList > .articleListItem,
+.contentList > [role="listitem"] > .articleListItem {
   min-height: 58px;
   padding: 14px 4px;
   border: 0;
@@ -335,7 +336,8 @@
   background: rgba(237, 243, 233, .5);
 }
 
-.contentList > .articleListItem:hover {
+.contentList > .articleListItem:hover,
+.contentList > [role="listitem"] > .articleListItem:hover {
   background: rgba(237, 243, 233, .5);
 }
 
