@@ -1,4 +1,5 @@
--- First-party, consent-based, sitewide analytics. Prepared only.
+-- First-party sitewide aggregate pageviews work without consent/device storage.
+-- Identified browser sessions/uniques remain opt-in. Prepared only.
 -- Protected migration: NEVER apply automatically via merge/deployment.
 -- Keep article_read_hourly and directory_profile_view_hourly untouched.
 CREATE TABLE site_analytics_hourly (
@@ -20,6 +21,7 @@ CREATE TABLE site_analytics_sources_hourly (
   bucket_hour TEXT NOT NULL,
   source TEXT NOT NULL,
   device TEXT NOT NULL,
+  pageviews INTEGER NOT NULL DEFAULT 0 CHECK(pageviews >= 0),
   sessions INTEGER NOT NULL DEFAULT 0 CHECK(sessions >= 0),
   PRIMARY KEY(bucket_hour, source, device)
 );
