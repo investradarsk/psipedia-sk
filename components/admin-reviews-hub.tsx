@@ -26,9 +26,9 @@ export function AdminReviewsHub({
         <div className={styles.heading}>
           <div>
             <span>Prehľad</span>
-            <h2 id="reviews-admin-overview">Jedno miesto pre celý review workflow</h2>
+            <h2 id="reviews-admin-overview">Recenzie a testy v skratke</h2>
           </div>
-          <Link href="/recenzie" target="_blank" rel="noreferrer">Otvoriť verejný hub ↗</Link>
+          <Link href="/recenzie" target="_blank" rel="noreferrer">Verejná stránka ↗</Link>
         </div>
 
         <div className={styles.metrics}>
@@ -59,9 +59,9 @@ export function AdminReviewsHub({
         <div className={styles.heading}>
           <div>
             <span>Správa</span>
-            <h2 id="reviews-admin-actions">Čo chceš urobiť?</h2>
+            <h2 id="reviews-admin-actions">Rýchle pracovné odkazy</h2>
           </div>
-          <p>Každá karta vedie do existujúceho canonical modulu. Dáta sa neduplikujú.</p>
+          <p>Prejdi priamo do článkov, moderácie, kategórií alebo e-shopov.</p>
         </div>
 
         <div className={styles.cardGrid}>
@@ -71,11 +71,7 @@ export function AdminReviewsHub({
               <span className={styles.status} data-tone="live">Aktívne</span>
             </div>
             <h3>Testy produktov</h3>
-            <p>Vytváraj a publikuj redakčné recenzie krmív, hračiek, GPS, postrojov a ďalšej výbavy.</p>
-            <div className={styles.cardMetrics}>
-              <span>{articleCounts.draft === null ? "—" : articleCounts.draft} konceptov</span>
-              <span>{articleCounts.scheduled === null ? "—" : articleCounts.scheduled} naplánovaných</span>
-            </div>
+            <p>Nové redakčné testy a úpravy existujúcich článkov.</p>
             <div className={styles.actions}>
               <Link className={styles.primary} href="/admin/novy?sekcia=recenzie">+ Nový test</Link>
               <Link href="/admin/clanky?section=recenzie">Spravovať testy →</Link>
@@ -90,11 +86,7 @@ export function AdminReviewsHub({
               </span>
             </div>
             <h3>Recenzie používateľov</h3>
-            <p>Moderuj hodnotenia veterinárov, trénerov, hotelov, klubov a organizácií. Text ani hviezdičky používateľa sa neupravujú.</p>
-            <div className={styles.cardMetrics}>
-              <span>{pendingReviews === null ? "—" : pendingReviews} čaká</span>
-              <span>{totalReviews === null ? "—" : totalReviews} spolu</span>
-            </div>
+            <p>Skontroluj a schvaľuj čakajúce hodnotenia profilov.</p>
             <div className={styles.actions}>
               <Link className={styles.primary} href="/admin/recenzie-profilov">Otvoriť moderáciu</Link>
               <Link href="/admin/recenzie-profilov?status=all">Všetky recenzie →</Link>
@@ -107,11 +99,7 @@ export function AdminReviewsHub({
               <span className={styles.status} data-tone="live">Spravované</span>
             </div>
             <h3>Kategórie a metodika</h3>
-            <p>Meň názvy, poradie, viditeľnosť, SEO a obsah kategórií ako Krmivá, GPS lokátory alebo Výcviková výbava.</p>
-            <div className={styles.cardMetrics}>
-              <span>{categoryCount === null ? "—" : categoryCount} kategórií</span>
-              <span>bez zásahu do kódu</span>
-            </div>
+            <p>Nastav poradie, názvy, viditeľnosť a obsah kategórií.</p>
             <div className={styles.actions}>
               <Link className={styles.primary} href="/admin/sekcie?sekcia=recenzie">Upraviť kategórie</Link>
               <Link href="/recenzie" target="_blank" rel="noreferrer">Skontrolovať web ↗</Link>
@@ -124,18 +112,14 @@ export function AdminReviewsHub({
               <span className={styles.status} data-tone="live">Aktívne</span>
             </div>
             <h3>E-shopy</h3>
-            <p>Samostatné profily e-shopov s jednoduchým hodnotením od overených používateľov bez registrácie účtu.</p>
-            <div className={styles.cardMetrics}>
-              <span>{eshopCounts.published === null ? "—" : eshopCounts.published} publikovaných</span>
-              <span>{eshopCounts.total === null ? "—" : eshopCounts.total} spolu</span>
-            </div>
-            <div className={styles.eshopRules}>
+            <p>Profily e-shopov a ich používateľské hodnotenia.</p>
+            <details className={styles.eshopDetails}><summary>Oblasti hodnotenia</summary><div className={styles.eshopRules}>
               <span>Doručenie</span>
               <span>Komunikácia</span>
               <span>Sortiment</span>
               <span>Ceny</span>
               <span>Celková skúsenosť</span>
-            </div>
+            </div></details>
             <div className={styles.actions}>
               <Link className={styles.primary} href="/admin/recenzie/eshopy">Spravovať e-shopy</Link>
               <Link href="/recenzie?typ=eshopy" target="_blank" rel="noreferrer">Skontrolovať web ↗</Link>
@@ -144,17 +128,14 @@ export function AdminReviewsHub({
         </div>
       </section>
 
-      <section className={styles.rules} aria-labelledby="reviews-admin-rules">
-        <div>
-          <span>Pravidlá</span>
-          <h2 id="reviews-admin-rules">Čo zostáva oddelené</h2>
-        </div>
+      <details className={styles.rules} aria-labelledby="reviews-admin-rules">
+        <summary id="reviews-admin-rules">Ako sa počítajú hodnotenia</summary>
         <div className={styles.ruleGrid}>
           <article><strong>Psipedia používateľské skóre</strong><p>Pri službách vzniká z publikovaných recenzií; pri e-shopoch z piatich známok od e-mailom overených používateľov.</p></article>
           <article><strong>Redakčný test</strong><p>Je samostatný obsah Psipedia s metodikou, kontextom a transparentným záverom.</p></article>
           <article><strong>Externé hodnotenia</strong><p>Google alebo iný externý zdroj sa nikdy nezmieša do priemeru Psipedia.</p></article>
         </div>
-      </section>
+      </details>
     </div>
   );
 }
