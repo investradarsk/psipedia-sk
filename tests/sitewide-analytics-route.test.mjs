@@ -1,91 +1,77 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { POST } from "../app/api/analytics/pageview/route.ts";
 import { env } from "cloudflare:workers";
+import { POST } from "../app/api/analytics/pageview/route.ts";
 
-// The production flag defaults OFF; this isolated suite deliberately turns it on.
-env.SITE_ANALYTICS_ENABLED = "true";
 const url = "https://psipedia.sk/api/analytics/pageview";
-const payload = {
-  path: "/",
-  source: "google",
-  visitorToken: "550e8400-e29b-41d4-a716-446655440000",
-  sessionToken: "550e8400-e29b-41d4-a716-446655440001",
-};
 const browser = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36";
-function request(value = payload, headers = {}) {
+
+function request(body = { path: "/" }, overrides = {}) {
   return new Request(url, {
     method: "POST",
     headers: {
-      "origin": "https://psipedia.sk",
+      origin: "https://psipedia.sk",
       "content-type": "application/json",
-      "user-agent": browser,
-      "cf-connecting-ip": "203.0.113.10",
       "sec-fetch-site": "same-origin",
-      ...headers,
+      "user-agent": browser,
+      ...overrides,
     },
-    body: JSON.stringify(value),
+    body: JSON.stringify(body),
   });
 }
 
-test("disabled feature flag does not invoke the database or count a visit", async () => {
+test("analytics feature is opt-in to deploy and does no writes while disabled", async () => {
   env.SITE_ANALYTICS_ENABLED = "false";
-  try {
-    const response = await POST(request({ path: "/", source: "direct" }));
-    assert.equal(response.status, 204);
-  } finally {
-    env.SITE_ANALYTICS_ENABLED = "true";
+  assert.equal((await POST(request())).status, 204);
+});
+
+test("only one public page path is admissible, never personal metadata", async () => {
+  env.SITE_ANALYTICS_ENABLED = "true";
+  for (const body of [
+    { path: "/admin" },
+    { path: "/api/articles/read" },
+    { path: "/?email=private" },
+    { path: "/", visitorToken: "550e8400-e29b-41d4-a716-446655440000" },
+    { path: "/", source: "facebook" },
+    { path: "/", device: "mobile" },
+    { path: "/", referrer: "https://other.site/secret" },
+    { path: "/", ip: "198.51.100.1" },
+    { path: "/", sessionToken: "abc" },
+    {},
+  ]) {
+    assert.equal((await POST(request(body))).status, 400, JSON.stringify(body));
   }
 });
 
-test("sitewide write endpoint is POST-only and rejects a different origin", async () => {
-  const response = await POST(request(payload, { origin: "https://evil.example" }));
-  assert.equal(response.status, 403);
-  assert.equal(response.headers.get("cache-control"), "private, no-store");
+test("cross-origin requests and crawlers are rejected without storing visitor data", async () => {
+  env.SITE_ANALYTICS_ENABLED = "true";
+  const foreign = await POST(request({ path: "/" }, { origin: "https://evil.example" }));
+  assert.equal(foreign.status, 403);
+  assert.equal(foreign.headers.get("cache-control"), "private, no-store");
+  assert.equal((await POST(request({ path: "/" }, { "user-agent": "Googlebot/2.1" }))).status, 204);
 });
 
-test("sitewide write endpoint rejects admin and sensitive pages and malformed tokens", async () => {
-  assert.equal((await POST(request({ ...payload, path: "/admin" }))).status, 400);
-  assert.equal((await POST(request({ ...payload, path: "/api/secret" }))).status, 400);
-  assert.equal((await POST(request({ ...payload, path: "/?utm_source=x" }))).status, 400);
-  assert.equal((await POST(request({ ...payload, sessionToken: "bad" }))).status, 400);
-  assert.equal((await POST(request({ ...payload, source: "secret-personal-referrer" }))).status, 400);
+test("valid pathname reaches aggregate writer; missing D1 returns an unavailable state", async () => {
+  env.SITE_ANALYTICS_ENABLED = "true";
+  assert.equal((await POST(request({ path: "/" }))).status, 503);
+  assert.equal((await POST(request({ path: "/plemena/labradorsky-retriever" }))).status, 503);
 });
 
-test("internal browsers and known crawlers never trigger D1 reads or writes", async () => {
-  assert.equal((await POST(request(payload, { cookie: "psipedia_internal=1" }))).status, 204);
-  assert.equal((await POST(request(payload, { "user-agent": "Googlebot/2.1" }))).status, 204);
-  assert.equal((await POST(request(payload, { "user-agent": "curl/8.0" }))).status, 204);
-});
-
-test("aggregate-only request with no consent tokens is valid; identity must come as a pair", async () => {
-  const anonymous = { path: "/plemena/labradorsky-retriever", source: "direct" };
-  // The test environment has no DB: 503 means the anonymous request passed validation.
-  assert.equal((await POST(request(anonymous))).status, 503);
-  assert.equal((await POST(request({ ...anonymous, visitorToken: payload.visitorToken }))).status, 400);
-  assert.equal((await POST(request({ ...anonymous, sessionToken: payload.sessionToken }))).status, 400);
-});
-
-test("missing D1 binding or HMAC key is a 503, never a fabricated success", async () => {
-  const res = await POST(request());
-  assert.equal(res.status, 503);
-});
-
-test("endpoint is not a general-purpose GET analytics API", async () => {
-  const route = await readFile(
-    new URL("../app/api/analytics/pageview/route.ts", import.meta.url),
-    "utf8",
+test("sitewide analytics contains no user-identity or source classification in storage", async () => {
+  const api = await readFile(
+    new URL("../app/api/analytics/pageview/route.ts", import.meta.url), "utf8",
   );
-  const client = await readFile(
-    new URL("../components/site-analytics-tracker.tsx", import.meta.url),
-    "utf8",
+  const writer = await readFile(
+    new URL("../lib/site-analytics.ts", import.meta.url), "utf8",
   );
-  assert.match(route, /export async function POST\(/);
-  assert.doesNotMatch(route, /export async function GET\(/);
-  assert.match(route, /isLikelyCrawlerRequest/);
-  assert.match(route, /enforceRateLimit/);
-  assert.match(route, /PII_HASH_KEY/);
-  assert.match(client, /isInternalArticleReadBrowser/);
-  assert.match(client, /hasQualifiedAnalyticsConsent/);
+  const tracker = await readFile(
+    new URL("../components/site-analytics-tracker.tsx", import.meta.url), "utf8",
+  );
+
+  assert.match(api, /recordSitePageView\(\{ path, database: bindings\.DB \}\)/);
+  assert.doesNotMatch(api, /cf-connecting-ip|deriveRateLimitKey|PROFILE_VISIT_TOKEN|PII_HASH_KEY/);
+  assert.doesNotMatch(writer, /deriveRateLimitKey|localStorage|session_hash|visitor_hash|INSERT INTO security_rate_limits/);
+  assert.doesNotMatch(tracker, /localStorage|sessionStorage|visitorToken|sessionToken|document\.referrer/);
+  assert.match(tracker, /JSON\.stringify\(\{ path: pathname \}\)/);
 });
