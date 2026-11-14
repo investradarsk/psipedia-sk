@@ -42,6 +42,7 @@ export function EditorHeader({
   status,
   onClose,
   closeLabel,
+  hideTitle = false,
 }: {
   title?: string;
   description?: string;
