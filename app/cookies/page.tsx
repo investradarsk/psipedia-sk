@@ -35,8 +35,10 @@ export default function CookiesPage() {
       </PublicHeading>
       <p>
         Tvoj výber si uložíme v prehliadači, aby sme sa naň nemuseli pýtať pri každej návšteve.
-        Existujúca voľba „Prijať analytiku“ platí spoločne pre vlastnú analytiku Psipedie
-        aj Google Analytics; druhý súhlas na meranie návštevnosti nezavádzame.
+        Základné anonymné súčty zobrazení verejných stránok meriame bez cookies a bez
+        vytvárania identifikátora návštevníka, aj bez tvojej voľby v ozname.
+        Existujúca voľba „Prijať analytiku“ platí pre doplnkové identifikované
+        relácie a čítanosť aj pre Google Analytics. Ďalšie okno nepridávame.
         Súhlas môžeš kedykoľvek zmeniť.
       </p>
       <PublicHeading role="section" as="h2">
