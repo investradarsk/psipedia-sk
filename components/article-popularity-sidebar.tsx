@@ -90,7 +90,12 @@ export function ArticlePopularitySidebar({
                 <a href={item.href}>
                   <span className={styles.thumbnail}>{item.image ? <img src={item.image} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback />}</span>
                   <span className={styles.itemText}><strong>{item.title}</strong>
-                  <small>{item.label}</small></span>
+                  <small>{item.label}</small>
+                  {typeof item.qualifiedReads === "number" ? (
+                    <small className={styles.readCount}>
+                      Počet prečítaní: {new Intl.NumberFormat("sk-SK").format(item.qualifiedReads)}
+                    </small>
+                  ) : null}</span>
                 </a>
               </li>
             ))}
