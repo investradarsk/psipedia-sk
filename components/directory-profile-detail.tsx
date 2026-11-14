@@ -35,6 +35,7 @@ import type { PublicProfileReviewData } from "@/lib/profile-review-read";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 import type { InternalDiscoveryLink } from "@/lib/internal-discovery";
 import styles from "./directory-profile-detail.module.css";
+import { isDuplicatedDirectoryDescription } from "@/lib/directory-description-dedupe";
 
 type DetailRow = { label: string; value: ReactNode };
 
@@ -290,8 +291,8 @@ export function DirectoryProfileDetail({
     expertFacts.length > 0 || breederLinkFacts.length > 0 ||
     visibleQualifications.length > 0 ||
     Boolean(!isPhysiotherapy && presentation.priceNote);
-  // Short and long descriptions are independent editorial fields.
-  // Both remain visible whenever explicitly populated, even if the text matches.
+  // Keep editorial fields independent; hide the hero excerpt when it exactly
+  // duplicates the long description in the “O službe” section.
   const hasExtendedDescription = Boolean(presentation.description?.trim());
 
   const breederGallery = presentation.category === "chovatelske-stanice"
@@ -494,7 +495,7 @@ export function DirectoryProfileDetail({
         categoryLabel={category?.singular ?? "Profil služby"}
         commercial={commercial}
         navigationHref={navigationHref}
-        showExcerpt={true}
+        showExcerpt={!isDuplicatedDirectoryDescription(presentation.excerpt, presentation.description)}
       />
       <PublicDetailFlow blocks={blocks} className={styles.layout} />
 
