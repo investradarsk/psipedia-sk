@@ -99,3 +99,54 @@
 .previewFullscreen .previewToolbar,.previewFullscreen .actions,.previewFullscreen .note{width:min(100%,520px);margin-inline:auto}
 .previewFullscreen .actions{margin-top:auto}
 @media(max-width:850px){.profileParts{grid-template-columns:repeat(2,minmax(0,1fr))}.profilePreviewSide .previewFrame{max-width:520px;width:100%;margin-inline:auto}.previewFullscreen .previewFrame{width:min(100%,470px)}}
+
+
+/* ADMIN VISUAL 14/18 – compact graphic editing without changing the Konva
+   drag, crop, zoom, snapping or export pipeline. */
+.editor { gap: var(--admin-ui-section-gap, .625rem); }
+.top { gap: var(--admin-ui-space-sm, .55rem); padding-bottom: .55rem; }
+.top h3 { font-family: inherit; font-size: 1rem; }
+.layout {
+  box-sizing: border-box;
+  min-width: 0;
+  gap: var(--admin-ui-space-sm, .55rem);
+}
+.controls { gap: var(--admin-ui-space-sm, .55rem); }
+.controls fieldset {
+  box-sizing: border-box;
+  padding: var(--admin-ui-panel-padding, .75rem);
+  gap: var(--admin-ui-space-sm, .55rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.controls label { gap: .35rem; font-size: var(--admin-ui-type-label, .82rem); }
+.controls :is(input[type=text],select,textarea) {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  max-width: 100%;
+  min-width: 0;
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.previewSide { min-width: 0; top: calc(var(--admin-sticky-stack, 96px) + 12px); }
+.previewFrame { max-width: 100%; border-radius: var(--admin-ui-radius, 12px); }
+.top button, .actions button, .profileTools button,
+.profileParts button, .logoPositions button, .logoStyles button {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+}
+.editor :is(button,input,textarea,select):focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+@media (max-width: 850px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .previewSide { position: static; }
+  .controls fieldset { padding: .65rem; }
+  .controls :is(input[type=text],select,textarea) { font-size: 16px; }
+  .actions {
+    bottom: env(safe-area-inset-bottom);
+    padding: .45rem 0 calc(.45rem + env(safe-area-inset-bottom));
+  }
+  .previewFullscreen {
+    padding-bottom: calc(.65rem + env(safe-area-inset-bottom));
+  }
+}
