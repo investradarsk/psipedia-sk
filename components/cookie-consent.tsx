@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ConsentChoice } from "@/lib/monetization";
 import { clearQualifiedAnalyticsStorage } from "@/lib/qualified-analytics-consent";
-import { clearSiteAnalyticsSessionStorage } from "@/lib/site-analytics-client";
 import { classifyAiReferralReferrer } from "@/lib/ai-referral";
 import {
   INTERNAL_TRAFFIC_EVENT,
@@ -177,7 +176,6 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     const choice: ConsentChoice | null = stored === "analytics" || stored === "necessary" || stored === "advertising" ? stored : null;
     if (choice !== "analytics" && choice !== "advertising") {
       clearQualifiedAnalyticsStorage(window.localStorage);
-      clearSiteAnalyticsSessionStorage(window.sessionStorage);
     }
     let mounted = true;
     queueMicrotask(() => {
@@ -223,7 +221,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
       <div>
         <strong id="cookie-consent-title">Tvoje súkromie na Psipedii</strong>
         <p>
-          Nevyhnutné údaje používame na fungovanie a bezpečnosť webu. Anonymné súhrnné zobrazenia stránok Psipedia počíta aj bez analytických cookies. Voľba „Prijať analytiku“ povoľuje navyše meranie relácií, unikátnych prehliadačov, kvalifikovanej čítanosti a Google Analytics. Druhé okno na súhlas nepridávame.{advertisingEnabled ? " Reklamné technológie tretích strán zapneme iba po samostatnej voľbe nižšie." : ""} <Link href="/cookies">Viac informácií</Link>
+          Nevyhnutné údaje používame na fungovanie a bezpečnosť webu. Psipedia počíta iba anonymné zobrazenia stránok bez identifikovania návštevníkov. Google Analytics a samostatná kvalifikovaná čítanosť obsahu sa zapínajú len so súhlasom.{advertisingEnabled ? " Reklamné technológie tretích strán zapneme iba po samostatnej voľbe nižšie." : ""} <Link href="/cookies">Viac informácií</Link>
         </p>
         {savedChoice && <small>Aktuálna voľba: {savedChoice === "advertising" ? "analytika a reklamné cookies" : savedChoice === "analytics" ? "povolená analytika" : "iba nevyhnutné údaje"}.</small>}
       </div>
