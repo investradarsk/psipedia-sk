@@ -66,6 +66,7 @@ export function ArticleDetail({
   article,
   magazine,
   discovery,
+  qualifiedReads = null,
   portalSection,
   authorProfile,
   relatedBreeds = [],
@@ -73,6 +74,8 @@ export function ArticleDetail({
   article: Article;
   magazine: ArticleMagazineData;
   discovery: ArticleDiscoveryData;
+  /** Null means unavailable, zero means no qualified reads yet. */
+  qualifiedReads?: number | null;
   portalSection?: PortalSection;
   authorProfile?: EditorialAuthorProfile | null;
   relatedBreeds?: PublicRelatedBreed[];
@@ -267,6 +270,11 @@ export function ArticleDetail({
                         <span>
                           Aktualizované{" "}
                           <time dateTime={article.updatedDateIso}>{article.updatedDate}</time>
+                        </span>
+                      ) : null}
+                      {typeof qualifiedReads === "number" && Number.isFinite(qualifiedReads) && qualifiedReads >= 0 ? (
+                        <span data-article-qualified-reads>
+                          Prečítané <strong>{new Intl.NumberFormat("sk-SK").format(qualifiedReads)}×</strong>
                         </span>
                       ) : null}
                     </div>
