@@ -67,8 +67,8 @@ export default async function AdminProfileReviewsPage({
       title="Moderácia profilových recenzií"
       description="Kontrola a schvaľovanie recenzií. Meniť možno ich stav a viditeľnosť; text ani počet hviezdičiek používateľa sa neupravujú."
     >
-      <section className="admin-review-card">
-        <form className="admin-review-filters" method="get" aria-label="Filtrovať profilové recenzie">
+      <section className="admin-review-card" data-admin-community-moderation>
+        <form className="admin-review-filters" method="get" role="search" aria-label="Filtrovať profilové recenzie" data-admin-list-filters>
           <label>
             Stav
             <select name="status" defaultValue={data.filters.status}>
@@ -111,9 +111,10 @@ export default async function AdminProfileReviewsPage({
         </p>
       </section>
 
-      <section className="admin-review-list" aria-label="Profilové recenzie">
+      <p role="status" data-admin-list-results className="admin-review-results">Na tejto strane: {data.items.length} recenzií</p>
+      <section className="admin-review-list" aria-label="Profilové recenzie" data-admin-community-list>
         {data.items.length ? data.items.map((item) => (
-          <article key={item.id} className="admin-review-row">
+          <article key={item.id} className="admin-review-row" data-admin-community-review>
             <div className="admin-review-row-main">
               <div className="admin-review-badges">
                 <span className="admin-review-status">{profileReviewStatusLabel(item.status)}</span>
