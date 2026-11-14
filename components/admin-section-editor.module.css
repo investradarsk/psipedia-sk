@@ -486,3 +486,58 @@
     white-space: normal;
   }
 }
+
+/* CONTENT UNIFICATION 9/18 — Section editor inherits the compact article
+   workspace scale. Keep hierarchy, controls, sort/reorder and save intact. */
+.workspace {
+  gap: var(--admin-ui-section-gap, 0.625rem);
+}
+.toolbar {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.search,
+.primaryFields label,
+.subsection label,
+.drawerFields label {
+  gap: var(--admin-ui-space-xs, 0.35rem);
+  font-size: var(--admin-ui-type-label, 0.82rem);
+}
+.search input,
+.primaryFields input,
+.primaryFields textarea,
+.subsection input,
+.subsection textarea,
+.drawerFields input,
+.drawerFields textarea {
+  box-sizing: border-box;
+  border-radius: var(--admin-ui-field-radius, 9px);
+  padding: var(--admin-ui-control-padding-block, 0.55rem) var(--admin-ui-control-padding-inline, 0.75rem);
+}
+.list {
+  gap: var(--admin-ui-space-sm, 0.55rem);
+}
+.sectionCard {
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.sectionRow {
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+}
+.sectionToggle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sectionToggle:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+@media (max-width: 980px) {
+  .toolbar { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .sectionRow { padding: 0.65rem; }
+  .toolbar { padding: 0.65rem; }
+}
