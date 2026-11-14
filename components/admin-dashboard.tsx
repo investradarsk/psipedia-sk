@@ -361,6 +361,7 @@ export function AdminDashboard({
               busy={inlineBusy || deletingId !== null}
               rowDataAttribute="data-admin-article-row"
               stretch
+              stickyActions
               serverSorted
               serverSorting={{
                 id: filters.sort,
@@ -384,31 +385,31 @@ export function AdminDashboard({
                 },
               }}
               columns={[
-                { id: "photo", label: "Foto", width: 70, cell: article =>
+                { id: "photo", label: "Foto", width: 58, cell: article =>
                   <span className={styles.gridThumb}>{article.image
                     ? <img src={article.image} alt="" loading="lazy" decoding="async" />
                     : <span>🐾</span>}</span> },
-                { id: "title", label: "Názov", width: 295, sortValue: article => article.title,
+                { id: "title", label: "Názov", width: 260, sortValue: article => article.title,
                   cell: article => <div className={styles.gridIdentity}>
                     <h2 className={styles.gridTitle}><Link href={`/admin/clanky/${article.id}`}>{article.title}</Link></h2>
                     <small>{article.category}{article.newsCategory
                       ? ` · ${getNewsCategory(article.newsCategory)?.shortLabel ?? article.newsCategory}` : ""}</small>
                   </div> },
-                { id: "status", label: "Publikovanie", width: 130, cell: article =>
+                { id: "status", label: "Publikovanie", width: 115, cell: article =>
                   <span className={`admin-status admin-status--${article.status}`}>
                     {article.status === "published" ? "Publikovaný" : article.status === "scheduled" ? "Naplánovaný" : "Koncept"}
                   </span> },
-                { id: "section", label: "Sekcia", width: 140, cell: article => portalSectionLabel(article.portalSection) },
-                { id: "excerpt", label: "Krátky popis", width: 245, cell: article =>
+                { id: "section", label: "Sekcia", width: 110, cell: article => portalSectionLabel(article.portalSection) },
+                { id: "excerpt", label: "Krátky popis", width: 190, cell: article =>
                   activeInline?.id === article.id
                     ? <AdminInlineCellInput label={`Krátky popis článku ${article.title}`}
                         value={activeInline.excerpt} maxLength={700} disabled={inlineBusy}
                         onChange={excerpt => setInlineDraft(current => current ? { ...current, excerpt } : null)} />
                     : <span className={styles.inlineDesktop} title={article.excerpt || ""}>
                         {article.excerpt || "Bez krátkeho popisu"}</span> },
-                { id: "updated", label: "Upravené", width: 150, sortValue: article => article.updatedAt,
+                { id: "updated", label: "Upravené", width: 120, sortValue: article => article.updatedAt,
                   cell: article => formattedDate(article.updatedAt) },
-                { id: "actions", label: "Akcie", width: 265, cell: article =>
+                { id: "actions", label: "Akcie", width: 215, cell: article =>
                   <div className={styles.gridActions}>
                     {article.status === "published" && <Link href={articleHref(article)} target="_blank">Web ↗</Link>}
                     <span className={styles.inlineDesktop}><AdminInlineRowActions
