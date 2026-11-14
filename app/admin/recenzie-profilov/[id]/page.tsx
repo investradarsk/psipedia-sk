@@ -4,7 +4,7 @@ import { AdminProfileReviewActions } from "@/components/admin-profile-review-act
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getProfileReviewAdmin } from "@/lib/profile-review-admin";
-import { profileReviewStatusLabel, profileReviewEntityTypeLabel, profileReviewCategoryLabel, profileReviewActorLabel, profileReviewActionLabel } from "@/lib/admin-profile-review-labels";
+import { profileReviewStatusLabel, profileReviewEntityTypeLabel, profileReviewCategoryLabel, profileReviewActorLabel, profileReviewActionLabel, profileReviewAccountStatusLabel, profileReviewRiskLabel } from "@/lib/admin-profile-review-labels";
 import "../reviews.css";
 
 export const dynamic = "force-dynamic";
@@ -19,12 +19,6 @@ function formatDate(value: string | null) {
         timeStyle: "short",
         timeZone: "Europe/Bratislava",
       }).format(date);
-}
-
-function riskLabel(flag: string) {
-  if (flag === "EXCESSIVE_URLS") return "Nadmerný počet URL";
-  if (flag === "REPEATED_CHARACTERS") return "Opakované znaky";
-  return flag;
 }
 
 export default async function AdminProfileReviewDetailPage({
@@ -52,7 +46,7 @@ export default async function AdminProfileReviewDetailPage({
             <div><dt>Celkové hodnotenie</dt><dd>{review.overallRating} / 5</dd></div>
             <div><dt>Stav</dt><dd>{profileReviewStatusLabel(review.status)}</dd></div>
             <div><dt>Mesiac služby</dt><dd>{review.serviceMonth ?? "—"}</dd></div>
-            <div><dt>Typ služby</dt><dd>{review.serviceTypeKey ?? "—"}</dd></div>
+            <div><dt>Typ služby</dt><dd>{review.serviceTypeKey ? profileReviewCategoryLabel(review.serviceTypeKey) : "—"}</dd></div>
             <div><dt>Vytvorené</dt><dd>{formatDate(review.createdAt)}</dd></div>
             <div><dt>Zverejnené</dt><dd>{formatDate(review.publishedAt)}</dd></div>
           </dl>
@@ -83,7 +77,7 @@ export default async function AdminProfileReviewDetailPage({
           <h2>Recenzent</h2>
           <dl className="admin-review-definition">
             <div><dt>Zobrazované meno</dt><dd>{review.reviewerDisplayName}</dd></div>
-            <div><dt>Stav účtu</dt><dd>{review.reviewerStatus}</dd></div>
+            <div><dt>Stav účtu</dt><dd>{profileReviewAccountStatusLabel(review.reviewerStatus)}</dd></div>
             <div><dt>Identifikátor recenzenta</dt><dd className="admin-review-technical">{review.reviewerId}</dd></div>
           </dl>
           <p className="admin-review-hint">Súkromné kontaktné údaje recenzenta sa tu nezobrazujú.</p>
@@ -93,7 +87,7 @@ export default async function AdminProfileReviewDetailPage({
           <h2>Rizikové signály</h2>
           {review.riskFlags.length ? (
             <ul className="admin-review-risk-list">
-              {review.riskFlags.map((flag) => <li key={flag}>{riskLabel(flag)}</li>)}
+              {review.riskFlags.map((flag) => <li key={flag}>{profileReviewRiskLabel(flag)}</li>)}
             </ul>
            ) : <p>Bez rizikových signálov.</p>}
           <p className="admin-review-hint">Upozornenie na riziko slúži na posúdenie moderátorom; samo osebe neznamená porušenie pravidiel.</p>
