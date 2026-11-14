@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { randomUUID } from "node:crypto";
 import { env } from "cloudflare:workers";
 import { POST } from "../app/api/analytics/pageview/route.ts";
 
@@ -32,7 +33,7 @@ test("only one public page path is admissible, never personal metadata", async (
     { path: "/admin" },
     { path: "/api/articles/read" },
     { path: "/?email=private" },
-    { path: "/", visitorToken: "550e8400-e29b-41d4-a716-446655440000" },
+    { path: "/", visitorToken: randomUUID() },
     { path: "/", source: "facebook" },
     { path: "/", device: "mobile" },
     { path: "/", referrer: "https://other.site/secret" },
