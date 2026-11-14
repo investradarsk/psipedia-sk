@@ -216,7 +216,7 @@ dialog.workspaceModal[open] > div:nth-child(3) {
 /* Workspace-only typography and controls; does not restyle any canonical editor. */
 dialog.workspaceModal[open],
 .pageWorkspace {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 0.91rem;
   line-height: 1.55;
 }
