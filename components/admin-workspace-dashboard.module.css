@@ -144,7 +144,7 @@
 }
 
 .metricValue strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 3.25rem;
   font-weight: 500;
   line-height: .92;
@@ -206,7 +206,7 @@
 }
 
 .queueLink b {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 1.75rem;
   font-weight: 500;
 }
@@ -243,7 +243,7 @@
 }
 
 .inlineMetric strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 1.7rem;
   font-weight: 500;
 }
