@@ -100,3 +100,40 @@
   .tools button { min-height: 44px; }
   .activeLabel { max-width: 7rem; }
 }
+
+/* MOBILE-STABILITY STEP 7: contain popovers inside the editor, even at
+   320px; scroll only the palette and formatting tools, not the document.
+   16px textual inputs avoid automatic Safari focus zoom. */
+.colorPanel {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .toolbar { min-width: 0; }
+  .colorPanel {
+    width: min(350px, 100%);
+    max-width: 100%;
+    max-height: min(55dvh, 420px);
+    padding: 0.65rem;
+  }
+  .paletteGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+  .paletteGrid .paletteSwatch {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .customColorRow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.55rem;
+  }
+  .customColorRow > * { min-width: 0; }
+  .customColorRow .applyColor { grid-column: 1 / -1; width: 100%; }
+  .colorPanel :is(button, input[type="color"]),
+  .linkBar button { min-height: 44px; }
+  .nativeColor input { width: 44px; min-height: 44px; }
+  .hexControl input, .linkBar input { min-width: 0; font-size: 16px; min-height: 44px; }
+  .linkBar { min-width: 0; }
+}
