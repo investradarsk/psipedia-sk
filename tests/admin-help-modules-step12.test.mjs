@@ -46,7 +46,12 @@ test("step 12: four editors keep dirty guards, navigation, upload, footer and li
     assert.match(src, /<EditorUnsavedChangesGuard/, path);
     assert.match(src, /<AdminEditorFooter/, path);
     assert.match(src, /<AdminRecordLifecycleActions/, path);
-    assert.match(src, /<AdminSingleImageUpload/, path);
+    if (id === "adoptions-editor") {
+      assert.match(src, /<AdminAdoptionEditorDetails/, path);
+      assert.match(read("components/admin-adoption-editor-details.tsx"), /<AdminSingleImageUpload/);
+    } else {
+      assert.match(src, /<AdminSingleImageUpload/, path);
+    }
     assert.match(src, /data-admin-editor-pager/, path);
     assert.match(src, /data-admin-form-system="v4"/, path);
   }
