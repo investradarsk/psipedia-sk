@@ -161,6 +161,23 @@ export default async function PrivacyPage() {
       </div>
 
       <PublicHeading role="section" as="h2">
+        Vlastné meranie prečítaní a návštev profilov
+      </PublicHeading>
+      <p>
+        Po udelení súhlasu s analytikou meriame kvalifikované prečítania článkov a zobrazenia
+        profilov po 10 sekundách viditeľnosti. Počítadlá obsahu sa uchovávajú ako súhrnné
+        hodinové hodnoty, nie ako zoznam jednotlivých návštevníkov. Zobrazenia toho istého
+        obsahu v prehliadači obmedzujeme na šesťhodinový interval.
+      </p>
+      <p>
+        Pri prevencii proti automatizovaným požiadavkám môžeme krátkodobo používať
+        pseudonymizované HMAC identifikátory, ktoré neobsahujú pôvodnú IP adresu.
+        Súhlas možno odvolať v nastaveniach cookies, čím sa zastaví nové počítanie
+        a odstráni lokálny stav analytických počítadiel. Podrobnosti sú na stránke{" "}
+        <Link href="/cookies">Cookies a lokálne úložisko</Link>.
+      </p>
+
+      <PublicHeading role="section" as="h2">
         Google Analytics 4
       </PublicHeading>
       <p>
