@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
+import { randomUUID } from "node:crypto";
 import {
   PROFILE_VIEW_COOLDOWN_MS,
   reserveQualifiedProfileView,
@@ -15,8 +16,8 @@ import { deriveRateLimitKey } from "../lib/rate-limit.ts";
 import { pruneExpiredProfileViewRateKeys, shouldPruneProfileViewRateKeys } from "../lib/profile-view-retention.ts";
 import { POST as postProfileView } from "../app/api/directory/views/route.ts";
 
-const tokenA = "550e8400-e29b-41d4-a716-446655440000";
-const tokenB = "550e8400-e29b-41d4-a716-446655440001";
+const tokenA = randomUUID();
+const tokenB = randomUUID();
 const hashKey = Buffer.alloc(32, 7).toString("base64url");
 const browser = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36";
 const migration = await readFile(new URL("../drizzle/0167_content_analytics_profile_views.sql", import.meta.url), "utf8");
