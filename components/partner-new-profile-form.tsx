@@ -138,11 +138,12 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
       required("address", directory.address, "Adresa je povinná.");
       max("address", directory.address, 300, "Adresa");
       max("priceNote", directory.priceNote, 1000, "Poznámka k cene");
-      validateUrl("websiteUrl", directory.websiteUrl, "Web");
-      validateUrl("facebookUrl", directory.facebookUrl, "Facebook");
-      validateUrl("instagramUrl", directory.instagramUrl, "Instagram");
-      validateEmail(directory.publicEmail);
-      validatePhone(directory.publicPhone);
+      // Directory contact values are raw editorial text; no URL/mail/phone format gate.
+      max("websiteUrl", directory.websiteUrl, 1200, "Web");
+      max("facebookUrl", directory.facebookUrl, 1200, "Facebook");
+      max("instagramUrl", directory.instagramUrl, 1200, "Instagram");
+      max("publicEmail", directory.publicEmail, 320, "Verejný e-mail");
+      max("publicPhone", directory.publicPhone, 100, "Verejný telefón");
       if (!directory.publicEmail.trim() && !directory.publicPhone.trim() && !directory.websiteUrl.trim()) {
         errors.contact = "Zadajte aspoň jeden verejný kontakt: e-mail, telefón alebo web.";
       }
@@ -324,13 +325,13 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
             <p id="partner-directory-contact-help">Vyplňte aspoň jeden: e-mail, telefón alebo web.</p>
             {fieldErrors.contact ? <p className="partner-field-error" id="partner-directory-contact-error">{fieldErrors.contact}</p> : null}
             <div className="partner-contact-grid">
-              {(() => { const p = errorProps("publicEmail", fieldErrors.contact ? "partner-directory-contact-error" : undefined); return <label className="partner-field"><span>Verejný e-mail</span><input {...p.input} type="email" maxLength={320} value={directory.publicEmail} onChange={(e)=>setDirectory({...directory,publicEmail:e.target.value})}/>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
+              {(() => { const p = errorProps("publicEmail", fieldErrors.contact ? "partner-directory-contact-error" : undefined); return <label className="partner-field"><span>Verejný e-mail</span><input {...p.input} type="text" maxLength={320} value={directory.publicEmail} onChange={(e)=>setDirectory({...directory,publicEmail:e.target.value})}/>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
               {(() => { const p = errorProps("publicPhone", fieldErrors.contact ? "partner-directory-contact-error" : undefined); return <label className="partner-field"><span>Verejný telefón</span><input {...p.input} maxLength={100} value={directory.publicPhone} onChange={(e)=>setDirectory({...directory,publicPhone:e.target.value})}/>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
-              {(() => { const p = errorProps("websiteUrl", fieldErrors.contact ? "partner-directory-contact-error" : "partner-directory-web-help"); return <label className="partner-field"><span>Web</span><input {...p.input} type="url" maxLength={1200} placeholder="https://www.example.sk" value={directory.websiteUrl} onChange={(e)=>setDirectory({...directory,websiteUrl:e.target.value})}/><small id="partner-directory-web-help">{urlHelp}</small>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
+              {(() => { const p = errorProps("websiteUrl", fieldErrors.contact ? "partner-directory-contact-error" : "partner-directory-web-help"); return <label className="partner-field"><span>Web</span><input {...p.input} type="text" maxLength={1200} placeholder="https://www.example.sk" value={directory.websiteUrl} onChange={(e)=>setDirectory({...directory,websiteUrl:e.target.value})}/><small id="partner-directory-web-help">Text sa uloží bez kontroly formátu; klikateľný odkaz sa tvorí až pri verejnom zobrazení.</small>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
             </div>
           </fieldset>
-          {(() => { const p = errorProps("facebookUrl","partner-directory-facebook-help"); return <label className="partner-field"><span>Facebook</span><input {...p.input} type="url" maxLength={1200} placeholder="https://www.facebook.com/..." value={directory.facebookUrl} onChange={(e)=>setDirectory({...directory,facebookUrl:e.target.value})}/><small id="partner-directory-facebook-help">{urlHelp}</small>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
-          {(() => { const p = errorProps("instagramUrl","partner-directory-instagram-help"); return <label className="partner-field"><span>Instagram</span><input {...p.input} type="url" maxLength={1200} placeholder="https://www.instagram.com/..." value={directory.instagramUrl} onChange={(e)=>setDirectory({...directory,instagramUrl:e.target.value})}/><small id="partner-directory-instagram-help">{urlHelp}</small>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
+          {(() => { const p = errorProps("facebookUrl","partner-directory-facebook-help"); return <label className="partner-field"><span>Facebook</span><input {...p.input} type="text" maxLength={1200} placeholder="https://www.facebook.com/..." value={directory.facebookUrl} onChange={(e)=>setDirectory({...directory,facebookUrl:e.target.value})}/><small id="partner-directory-facebook-help">Voliteľný text alebo odkaz.</small>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
+          {(() => { const p = errorProps("instagramUrl","partner-directory-instagram-help"); return <label className="partner-field"><span>Instagram</span><input {...p.input} type="text" maxLength={1200} placeholder="https://www.instagram.com/..." value={directory.instagramUrl} onChange={(e)=>setDirectory({...directory,instagramUrl:e.target.value})}/><small id="partner-directory-instagram-help">Voliteľný text alebo odkaz.</small>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
         </div>
       ) : (
         <div className="partner-profile-edit-grid">
