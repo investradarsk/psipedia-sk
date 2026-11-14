@@ -46,6 +46,14 @@ test("internal browsers and known crawlers never trigger D1 reads or writes", as
   assert.equal((await POST(request(payload, { "user-agent": "curl/8.0" }))).status, 204);
 });
 
+test("aggregate-only request with no consent tokens is valid; identity must come as a pair", async () => {
+  const anonymous = { path: "/plemena/labradorsky-retriever", source: "direct" };
+  // The test environment has no DB: 503 means the anonymous request passed validation.
+  assert.equal((await POST(request(anonymous))).status, 503);
+  assert.equal((await POST(request({ ...anonymous, visitorToken: payload.visitorToken }))).status, 400);
+  assert.equal((await POST(request({ ...anonymous, sessionToken: payload.sessionToken }))).status, 400);
+});
+
 test("missing D1 binding or HMAC key is a 503, never a fabricated success", async () => {
   const res = await POST(request());
   assert.equal(res.status, 503);
