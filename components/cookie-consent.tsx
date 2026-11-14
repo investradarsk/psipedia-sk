@@ -223,7 +223,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
       <div>
         <strong id="cookie-consent-title">Tvoje súkromie na Psipedii</strong>
         <p>
-          Nevyhnutné údaje používame na fungovanie a bezpečnosť webu. Jedna voľba „Prijať analytiku“ povoľuje vlastné štatistiky Psipedie aj Google Analytics. Žiadny ďalší súhlas na návštevnosť webu nepýtame.{advertisingEnabled ? " Reklamné technológie tretích strán zapneme iba po samostatnej voľbe nižšie." : ""} <Link href="/cookies">Viac informácií</Link>
+          Nevyhnutné údaje používame na fungovanie a bezpečnosť webu. Anonymné súhrnné zobrazenia stránok Psipedia počíta aj bez analytických cookies. Voľba „Prijať analytiku“ povoľuje navyše meranie relácií, unikátnych prehliadačov, kvalifikovanej čítanosti a Google Analytics. Druhé okno na súhlas nepridávame.{advertisingEnabled ? " Reklamné technológie tretích strán zapneme iba po samostatnej voľbe nižšie." : ""} <Link href="/cookies">Viac informácií</Link>
         </p>
         {savedChoice && <small>Aktuálna voľba: {savedChoice === "advertising" ? "analytika a reklamné cookies" : savedChoice === "analytics" ? "povolená analytika" : "iba nevyhnutné údaje"}.</small>}
       </div>
