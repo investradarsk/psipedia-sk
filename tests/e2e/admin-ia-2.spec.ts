@@ -28,9 +28,16 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   // Old Tavily attention cards are retired: Gemini and Quality own active work.
   await expect(page.getByRole("link", { name: /Automatizácie na kontrolu/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Automatizácie Gemini →", exact: true })).toHaveAttribute("href", "/admin/automatizacie-gemini");
-  await expect(page.getByRole("link", { name: "Kvalita údajov →", exact: true })).toHaveAttribute("href", "/admin/kvalita");
-  await expect(page.getByRole("link", { name: /Žiadosti o správu profilu/ })).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
+  // Quality has one priority shortcut; known empty queues live in a compact disclosure.
+  await expect(page.locator('a[href="/admin/operations?source=PARTNER_CLAIM_REVIEW"]')).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
+  await expect(page.getByRole("link", { name: "Kvalita údajov →", exact: true })).toHaveCount(0);
   await expect(page.locator('a[href="/admin/kvalita"][class*="metricCard"]')).toHaveAttribute("href", "/admin/kvalita");
+  const completedQueues = page.locator("[data-admin-completed-queues]");
+  if (await completedQueues.count()) {
+    await expect(completedQueues.locator("summary")).toBeVisible();
+    await completedQueues.locator("summary").click();
+    await expect(completedQueues.locator('a[href^="/admin/operations?source="]').first()).toBeVisible();
+  }
 
   const breadcrumb = page.getByRole("navigation", { name: "Drobečková navigácia" });
   await expect(breadcrumb.getByText("Pracovný prehľad", { exact: true })).toHaveAttribute("aria-current", "page");
@@ -289,6 +296,59 @@ test("compact finish 02: specialized admin screens have rendered before-merge ev
         route.replaceAll("/", "-").replace(/^-/, "") + "-" + width + ".png",
       fullPage: true,
       animations: "disabled",
+    });
+  }
+});
+
+test("step 6: compact topbar, drawer and navigation remain collision-free", async ({ page }, info) => {
+  const widths = info.project.name === "mobile-chromium" ? [320, 375, 390, 430] : [768, 1440];
+  const response = await page.goto("/admin/operations", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 844 });
+    const header = page.locator("[data-admin-topbar]");
+    const search = page.locator("[data-admin-quick-nav-trigger]");
+    const tour = page.locator("[data-admin-tour-trigger]");
+    const bell = page.getByTestId("admin-notification-bell");
+    const web = page.getByRole("link", { name: "Návrat na Psipedia.sk" });
+    for (const control of [search, tour, bell, web]) {
+      await expect(control).toBeInViewport();
+      expect(await control.evaluate(el => el.getBoundingClientRect().height), "44px target at " + width).toBeGreaterThanOrEqual(44);
+    }
+    await expect(header).toHaveCSS("position", "sticky");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+
+    if (width <= 1100) {
+      const menu = page.getByRole("button", { name: "Menu", exact: true });
+      await expect(menu).toBeInViewport();
+      expect(await menu.evaluate(el => el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(44);
+      const bellBox = await bell.boundingBox();
+      const menuBox = await menu.boundingBox();
+      expect(bellBox && menuBox).toBeTruthy();
+      expect((bellBox?.x ?? 0) + (bellBox?.width ?? 0), "bell must not hide under menu at " + width)
+        .toBeLessThanOrEqual((menuBox?.x ?? 0) + 1);
+
+      await menu.click();
+      const dialog = page.getByRole("dialog", { name: "Navigácia administrácie" });
+      await expect(dialog).toBeVisible();
+      const drawerBox = await dialog.boundingBox();
+      expect(drawerBox).not.toBeNull();
+      expect(drawerBox?.x ?? -1).toBeGreaterThanOrEqual(0);
+      expect((drawerBox?.x ?? 0) + (drawerBox?.width ?? 0)).toBeLessThanOrEqual(width + 1);
+      await expect(dialog.getByRole("link", { name: "Odhlásiť" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(menu).toBeFocused();
+    } else {
+      const sidebar = page.locator("[data-admin-sidebar]");
+      await expect(sidebar).toBeVisible();
+      await expect(sidebar).toHaveCSS("overflow-y", "auto");
+      expect(await sidebar.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    }
+    await page.screenshot({
+      path: ".e2e-artifacts/admin-ia-2/step6-shell-" + width + ".png",
+      animations: "disabled",
+      fullPage: true,
     });
   }
 });

@@ -304,7 +304,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
   const hasFilters = data.filters.group !== "ALL" || Boolean(data.filters.category) || Boolean(data.filters.query);
 
   return (
-    <div className="admin-geo-operator-workspace">
+    <div className="admin-geo-operator-workspace" data-admin-content-module="geo-operator">
       <section className="admin-form-card" data-admin-map-summary>
         <div className="admin-section-heading">
           <div>
@@ -329,7 +329,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
       </section>
 
       <section className="admin-form-card" data-admin-map-filters>
-        <div className="admin-field-grid">
+        <div className="admin-field-grid" data-admin-list-filters>
           <div className="admin-field">
             <label htmlFor="map-category">Kategória</label>
             <select
@@ -520,7 +520,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
       </section>
 
       {data.pagination.totalPages > 1 ? (
-        <nav className="admin-editor-actions" aria-label="Stránkovanie mapového inboxu">
+        <nav className="admin-editor-actions" data-admin-list-pagination aria-label="Stránkovanie mapového inboxu">
           {data.pagination.page > 1 ? <Link href={pageHref(data.pagination.page - 1)}>← Predchádzajúca</Link> : null}
           <span className="admin-help">
             {data.pagination.from}–{data.pagination.to} z {data.pagination.totalItems}

@@ -156,3 +156,26 @@
     width: calc(100vw - 20px);
   }
 }
+
+/* ADMIN VISUAL 16/18 — compact per-device settings, no push behavior changes. */
+.settingsGrid {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--admin-ui-section-gap, 0.625rem);
+  font-family: inherit;
+}
+.statusList { min-width: 0; margin: var(--admin-ui-space-sm, 0.55rem) 0; }
+.statusList > div {
+  min-width: 0;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding-block: var(--admin-ui-space-sm, 0.55rem);
+}
+.statusList :is(dt, dd) { min-width: 0; overflow-wrap: anywhere; font-size: var(--admin-ui-type-label, 0.82rem); }
+.installNote { margin-top: var(--admin-ui-space-sm, 0.55rem); padding: var(--admin-ui-panel-padding, 0.75rem); }
+.infoNote, .message { margin-top: var(--admin-ui-space-sm, 0.55rem); }
+.pushActions :is(a, button) { min-height: var(--admin-ui-control-height, 44px); }
+@media (max-width: 640px) {
+  .statusList > div { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+}

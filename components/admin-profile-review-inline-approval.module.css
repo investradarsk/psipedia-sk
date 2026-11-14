@@ -7,3 +7,19 @@
 .desktopOnly small { max-width: 240px; font-size: .75rem; color: #8e3d25; }
 .desktopOnly button:focus-visible { outline: 3px solid #e5ad32; outline-offset: 2px; }
 @media (max-width: 899px) { .desktopOnly { display: none; } }
+
+
+/* ADMIN COMMUNITY STEP 13 — the inline low-risk moderation action stays
+   desktop-only and uses the same 44px touch/focus contract. */
+.desktopOnly { min-width: 0; }
+.desktopOnly button {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  font-weight: 750;
+}
+.controls { gap: var(--admin-ui-space-sm, .55rem); }
+.desktopOnly button:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}

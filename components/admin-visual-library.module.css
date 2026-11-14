@@ -370,3 +370,86 @@
 .fullCoverageInventory .usages li div:first-child{min-width:0}
 .fullCoverageInventory code{overflow-wrap:anywhere}
 @media(max-width:760px){.fullCoverageHeader{flex-direction:column}.fullCoverageControls{grid-template-columns:minmax(0,1fr)}.fullCoverageInventory .usages li{flex-direction:column}.fullCoverageActions{display:flex;flex-wrap:wrap;justify-items:start}}
+
+/* ADMIN VISUAL 16/18: compact management chrome only; preview art untouched. */
+.library {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--admin-ui-section-gap, 0.625rem);
+  font-family: inherit;
+}
+.intro {
+  min-width: 0;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.intro > * { min-width: 0; }
+.intro h2 {
+  font-family: inherit;
+  font-size: var(--admin-ui-type-section, 1.05rem);
+  margin: 0 0 var(--admin-ui-space-xs, 0.35rem);
+}
+.intro p { font-size: var(--admin-ui-type-caption, 0.83rem); overflow-wrap: anywhere; }
+.count strong { font-size: var(--admin-ui-type-stat, 1.6rem); }
+.types {
+  min-width: 0;
+  gap: var(--admin-ui-space-xs, 0.35rem);
+}
+.types button {
+  min-height: var(--admin-ui-control-height, 44px);
+  max-width: 100%;
+  font-family: inherit;
+  white-space: normal;
+}
+.controls,
+.workspace,
+.catalog,
+.details {
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+}
+.workspace { grid-template-columns: minmax(0, 0.75fr) minmax(0, 2fr); }
+.catalog,
+.details {
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.catalogItem {
+  min-width: 0;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: var(--admin-ui-space-sm, 0.55rem);
+  font-family: inherit;
+  overflow-wrap: anywhere;
+}
+.controls :is(input, select),
+.usageSearch input {
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--admin-ui-control-height, 44px);
+  font-family: inherit;
+}
+.detailHead { flex-wrap: wrap; min-width: 0; }
+.detailHead > * { min-width: 0; }
+.detailHead h3 { font-family: inherit; font-size: var(--admin-ui-type-section, 1.05rem); }
+.variants button,
+.moreButton,
+.fullCoverageActions :is(button, a) {
+  min-height: var(--admin-ui-control-height, 44px);
+  font-family: inherit;
+  white-space: normal;
+}
+@media (max-width: 900px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .catalog { max-height: 24rem; }
+}
+@media (max-width: 760px) {
+  .intro { flex-wrap: wrap; }
+  .controls { grid-template-columns: minmax(0, 1fr); }
+  .types { display: flex; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; }
+  .types button { flex: 0 0 auto; }
+  .controls :is(input, select),
+  .usageSearch input { font-size: 16px; }
+}

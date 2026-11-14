@@ -14,7 +14,9 @@ export default async function AdminMonetizationPage() {
       title="Reklamy, kampane a promoted listingy"
       description="Foundation pre priame kampane, programmatic reklamu a jasne označené sponzorované canonical entity. Bez reálnych kampaní sa na public webe nič nezobrazí."
     >
-      <AdminMonetizationDashboard initialData={await listMonetizationAdminData()} />
+      <div data-admin-content-module="monetization-settings">
+        <AdminMonetizationDashboard initialData={await listMonetizationAdminData()} />
+      </div>
     </AdminShell>
   );
 }

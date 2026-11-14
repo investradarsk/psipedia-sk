@@ -552,38 +552,15 @@ export function AdminArticleEditor({
               <div className={editorStyles.railHeading}>
                 <h3><CalendarDays size={17} aria-hidden="true" /> Publikovanie</h3>
               </div>
-              <div className={editorStyles.railField}>
-                <label htmlFor="article-rail-published-at">Dátum a čas publikovania</label>
-                <input id="article-rail-published-at" type="datetime-local"
-                  value={publishedAt} readOnly={displayedStatus === "published"}
-                  onChange={(event) => { setPublishedAt(event.target.value); setEditorDirty(true); }} />
-              </div>
-              <p className={editorStyles.railNote}>
-                {displayedStatus === "published"
-                  ? "Publikovaný článok si zachováva pôvodný čas publikovania."
-                  : "Bez termínu môžeš článok publikovať okamžite."}
+              <p className={editorStyles.railMeta} data-article-publication-summary>
+                {publishedAt ? `Termín: ${publishedAt.replace("T", " ")}` : "Bez naplánovaného termínu"}
               </p>
-              <div className={editorStyles.railActions}>
-                <button type="button" className={editorStyles.railSecondary}
-                  disabled={saving || uploading} onClick={submitArticleForm}>
-                  {saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť zmeny" : displayedStatus === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}
-                </button>
-                {displayedStatus !== "published" && (
-                  <button type="button" className={editorStyles.railSecondary}
-                    disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>
-                    Naplánovať
-                  </button>
-                )}
-                {displayedStatus === "published" ? (
-                  <span>Publikovanie spravuje panel akcií editora.</span>
-                ) : (
-                  <button type="button" className={editorStyles.railPrimary}
-                    disabled={saving || uploading} onClick={() => void save("published")}>Publikovať článok</button>
-                )}
-              </div>
+              <p className={editorStyles.railNote}>
+                Termín a publikačné akcie upravíš na jednom mieste v sekcii Publikovanie.
+              </p>
               <button type="button" className={editorStyles.railTextLink}
                 onClick={() => chooseArticleSection("article-publish")}>
-                Otvoriť všetky nastavenia publikovania
+                Otvoriť nastavenia publikovania
               </button>
             </section>
 

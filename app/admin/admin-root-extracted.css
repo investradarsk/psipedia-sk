@@ -773,7 +773,7 @@
 }
 
 .admin-overview-grid strong {
-  font-family: Georgia, serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 1.65rem;
   font-weight: 500;
 }
@@ -792,7 +792,7 @@
 
 
 .admin-event-date strong {
-  font-family: Georgia, serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 1.65rem;
   font-weight: 500;
   line-height: 1;
@@ -1079,7 +1079,7 @@
 
 .admin-inquiry-card header > strong {
   display: block;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 1.45rem;
   font-weight: 500;
 }

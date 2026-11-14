@@ -92,12 +92,12 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
 
   return (
     <>
-      <section className="admin-stats" aria-label="Stav redakčných tipov">
+      <section className="admin-stats" aria-label="Stav redakčných tipov" data-admin-community-metrics>
         <div><span>Všetky tipy</span><strong>{tips.length}</strong></div>
         <div><span>Nové</span><strong>{tips.filter((tip) => tip.status === "new").length}</strong></div>
         <div><span>Spracované</span><strong>{tips.filter((tip) => tip.status === "used").length}</strong></div>
       </section>
-      <section className="admin-panel">
+      <section className="admin-panel" data-admin-content-module="community-tips">
         <div className="admin-toolbar">
           <label className="admin-search"><SearchIcon size={19} /><span className="sr-only">Hľadať tip</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Názov, téma, miesto alebo kontakt" /></label>
           <div className="admin-status-filter" aria-label="Filtrovať podľa stavu">
@@ -107,9 +107,9 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
         </div>
         {message && <p className="admin-flash" role="status">{message}</p>}
         {visible.length ? (
-          <div className="admin-tip-list">
+          <div className="admin-tip-list" data-admin-community-list>
             {visible.map((tip) => (
-              <article id={`tip-${tip.id}`} className={`admin-tip-card is-${tip.status}`} key={tip.id}>
+              <article id={`tip-${tip.id}`} className={`admin-tip-card is-${tip.status}`} key={tip.id} data-admin-community-card>
                 <header>
                   <span className="admin-tip-icon" aria-hidden="true">{newsTipTopicIcon(tip.topic)}</span>
                   <div><div><span className={`admin-tip-status is-${tip.status}`}>{statusLabels[tip.status]}</span><span>{formatDate(tip.createdAt)}</span></div><small>{newsTipTopicLabel(tip.topic)}</small><h2>{tip.title}</h2></div>

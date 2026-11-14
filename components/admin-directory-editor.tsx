@@ -907,12 +907,12 @@ export function AdminDirectoryEditor({
 
   const categoryInfo = getDirectoryCategory(category);
   return (
-    <form ref={formRef} inert={saving} aria-busy={saving} data-directory-profile-id={profile?.id ?? ""} noValidate data-hydrated="false" data-admin-form-system="v4" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
+    <form ref={formRef} inert={saving} aria-busy={saving} data-directory-profile-id={profile?.id ?? ""} data-admin-directory-editor noValidate data-hydrated="false" data-admin-form-system="v4" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
       <AdminEditorSectionVisibility.Provider value={{ activeId: currentDirectorySection, mode: "switch" }}>
       <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
 
       <div className={styles.editorTopline} data-admin-editor-navigation-container>
-        <div className={styles.toplineLabel}>Úprava profilu služby · {editorSectionsForProfile[activeDirectoryIndex]?.label ?? "Hlavné"}</div>
+        <div className={styles.toplineLabel}>Sekcia: {editorSectionsForProfile[activeDirectoryIndex]?.label ?? "Hlavné"}</div>
         <div className={styles.toplineActions}>
           <EditorStatus label={status === "published" ? "Publikovaný" : "Koncept"} tone={status === "published" ? "success" : "warning"} />
           {formDirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
@@ -928,9 +928,14 @@ export function AdminDirectoryEditor({
               {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
             </label>
           )}
-          {profile && !notionDraft && <AdminNotionProfileImportButton scope="directory" profileId={profile.id}
-            dirty={formDirty} disabled={saving || uploading || galleryBusy} />}
-          <AdminActionButton variant="secondary" onClick={() => setAdvancedOpen(true)}>Pokročilé a SEO</AdminActionButton>
+          <details className={styles.secondaryTools} data-admin-directory-secondary-tools>
+            <summary>Ďalšie nástroje</summary>
+            <div className={styles.secondaryToolsContent}>
+              {profile && !notionDraft && <AdminNotionProfileImportButton scope="directory" profileId={profile.id}
+                dirty={formDirty} disabled={saving || uploading || galleryBusy} />}
+              <AdminActionButton variant="secondary" onClick={() => setAdvancedOpen(true)}>Pokročilé a SEO</AdminActionButton>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -1303,7 +1308,7 @@ export function AdminDirectoryEditor({
         {canonicalEditorUrl && <a href={canonicalEditorUrl}>Otvoriť overený D1 editor →</a>}
         <div>
           {profile && !notionDraft && <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status={status} disabled={saving || uploading || galleryBusy} returnHref="/admin/adresar" onUnpublished={(next) => setStatus(next as DirectoryProfileStatus)} />}
-          <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || galleryBusy || notionReadOnly}>{saving ? "Ukladám…" : status === "published" && !notionDraft ? "Uložiť bez zmeny publikovania" : "Uložiť koncept"}</AdminActionButton>
+          {(notionDraft || status !== "published") && <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || galleryBusy || notionReadOnly}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>}
           {!notionDraft && <AdminActionButton variant="primary" disabled={saving || uploading || galleryBusy || Boolean(reviewConfirm)}
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
         </div>

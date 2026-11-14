@@ -137,15 +137,15 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
 
   return (
     <>
-      <section className="admin-stats" aria-label="Stav adresára">
+      <section className="admin-stats" aria-label="Stav adresára" data-admin-directory-overview>
         <div><span>Všetky profily</span><strong>{counts.total}</strong></div>
         <div><span>Publikované</span><strong>{counts.published}</strong></div>
         <div><span>Koncepty</span><strong>{counts.draft}</strong></div>
         <div><span>Archivované</span><strong>{counts.archived}</strong></div>
       </section>
 
-      <section className="admin-panel">
-        <form className={`admin-directory-category-filter ${styles.filters}`} action={basePath} method="get" role="search">
+      <section className="admin-panel" data-admin-directory-list>
+        <form className={`admin-directory-category-filter ${styles.filters}`} action={basePath} method="get" role="search" data-admin-list-filters>
           <label className={`admin-search ${styles.search}`}>
             <SearchIcon size={19} />
             <span>Hľadať</span>
@@ -156,7 +156,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
             aria-controls="admin-directory-advanced-filters" onClick={() => setAdvancedFiltersOpen(open => !open)}>
             {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
           </button>
-          <div id="admin-directory-advanced-filters" className={styles.advancedFilters} data-expanded={advancedFiltersOpen}>
+          <div id="admin-directory-advanced-filters" className={styles.advancedFilters} data-admin-list-advanced data-expanded={advancedFiltersOpen}>
           <label className="admin-select-filter"><span>Stav publikácie</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option><option value="archived">Archivované</option></select></label>
           <label className="admin-select-filter"><span>Zoradiť celý zoznam</span><select name="sort" defaultValue={filters.sort ?? "updated"}><option value="updated">Naposledy aktualizované</option><option value="name">Názov</option><option value="city">Mesto</option><option value="status">Stav publikácie</option></select></label>
           <label className="admin-select-filter"><span>Smer triedenia</span><select name="direction" defaultValue={filters.direction ?? ((filters.sort ?? "updated") === "updated" ? "desc" : "asc")}><option value="asc">Vzostupne ↑</option><option value="desc">Zostupne ↓</option></select></label>
@@ -173,8 +173,8 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
         </form>
 
         {message && <p className="admin-flash" role="status">{message}</p>}
-        <p className="admin-help-results">V tabuľke môžeš priamo upraviť názov a krátky popis profilu. Ostatné údaje zostávajú v editore.</p>
-        <p className="admin-help-results admin-directory-results">Nájdené: <strong>{resultCount}</strong> · Strana {pagination.page} z {pagination.totalPages}</p>
+        <p className="admin-help-results">Názov a krátky popis upravíš priamo v tabuľke. Ostatné údaje otvoríš cez Detail.</p>
+        <p className="admin-help-results admin-directory-results" role="status" data-admin-list-results>Nájdené: <strong>{resultCount}</strong> · Strana {pagination.page} z {pagination.totalPages}</p>
 
         {profiles.length ? (
           <>
