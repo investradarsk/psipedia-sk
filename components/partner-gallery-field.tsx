@@ -136,7 +136,7 @@ export function PartnerGalleryField({
         <input id="partner-gallery-files" ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp"
           className="partner-media-input" disabled={disabled || busy || total >= LIMIT}
           onChange={(event) => void upload(event.target.files)} />
-        <input type="url" aria-label="URL fotografie" placeholder="https://… fotografia" value={newUrl}
+        <input type="text" aria-label="URL fotografie" placeholder="https://… fotografia" value={newUrl}
           onChange={(event) => setNewUrl(event.target.value)} disabled={disabled || busy || total >= LIMIT} />
         <button type="button" className="button" onClick={addUrl} disabled={disabled || busy || total >= LIMIT || !newUrl.trim()}>Pridať URL</button>
       </div>
