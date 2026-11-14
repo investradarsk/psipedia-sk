@@ -99,7 +99,7 @@ test("dashboard prioritizes real queues and quick agendas over the activity feed
   const attention = dashboard.indexOf('id="admin-priority-title"');
   const community = dashboard.indexOf("<WorkspaceCommunity promise={attentionPromise} />");
   const quick = dashboard.indexOf('aria-label="Automatizácie a rýchla správa"');
-  const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} qualityPromise={qualityPromise} />");
+  const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} />");
   assert.ok(attention !== -1 && attention < community && community < quick && quick < feed);
   assert.match(activity, /Otvoriť pracovnú sekciu/);
   assert.match(activity, /href="\/admin\/operations"/);
