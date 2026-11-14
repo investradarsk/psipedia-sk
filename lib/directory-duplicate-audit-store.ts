@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import {
   auditExistingDirectoryDuplicates,
   type DirectoryAuditRow,
-} from "./directory-duplicate-audit.ts";
+} from "./directory-duplicate-audit";
 
 // Read-only: no DDL, no writes, no external APIs, no Notion synchronizer.
 // The hard ceiling must be surfaced as INCOMPLETE rather than silently
