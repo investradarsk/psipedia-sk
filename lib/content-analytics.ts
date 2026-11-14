@@ -51,8 +51,9 @@ export async function getQualifiedContentViewCount(input: {
   const database = input.database === undefined ? getD1Binding() : input.database;
   if (!database) return null;
 
-  const currentBucket = articleReadHourBucket(input.now ?? new Date());
-  const startBucket = contentAnalyticsWindowStart(input.window, input.now ?? new Date());
+  const now = input.now ?? new Date();
+  const currentBucket = articleReadHourBucket(now);
+  const startBucket = contentAnalyticsWindowStart(input.window, now);
 
   try {
     const statement = startBucket === null
