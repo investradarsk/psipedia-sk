@@ -15,7 +15,7 @@ function fail(error: string, status: number) {
   return Response.json({ error }, { status, headers: NO_STORE });
 }
 
-/** No GET endpoint or public read API. Only same-origin, opted-in browser POSTs. */
+/** No GET endpoint. Anonymous aggregate pageviews need no cookie consent; identity tracking still does. */
 export async function POST(request: Request) {
   if (isInternalTrafficRequest(request) || isLikelyCrawlerRequest(request)) {
     return new Response(null, { status: 204, headers: NO_STORE });
@@ -48,13 +48,16 @@ export async function POST(request: Request) {
     return fail("Neplatné údaje.", 400);
   }
 
+  const hasVisitor = body.visitorToken !== undefined;
+  const hasSession = body.sessionToken !== undefined;
   if (
     !isSafeSiteAnalyticsPath(body.path)
-    || typeof body.visitorToken !== "string"
-    || !PROFILE_VISIT_TOKEN.test(body.visitorToken)
-    || typeof body.sessionToken !== "string"
-    || !PROFILE_VISIT_TOKEN.test(body.sessionToken)
     || !validSiteTrafficSource(body.source)
+    || hasVisitor !== hasSession
+    || (hasVisitor && (typeof body.visitorToken !== "string"
+      || !PROFILE_VISIT_TOKEN.test(body.visitorToken)))
+    || (hasSession && (typeof body.sessionToken !== "string"
+      || !PROFILE_VISIT_TOKEN.test(body.sessionToken)))
   ) {
     return fail("Neplatné údaje návštevy.", 400);
   }
@@ -75,8 +78,8 @@ export async function POST(request: Request) {
 
     const result = await recordSitePageView({
       path: body.path,
-      visitorToken: body.visitorToken,
-      sessionToken: body.sessionToken,
+      visitorToken: hasVisitor ? body.visitorToken as string : undefined,
+      sessionToken: hasSession ? body.sessionToken as string : undefined,
       source: body.source,
       userAgent: request.headers.get("user-agent") ?? "",
       database,
@@ -84,9 +87,9 @@ export async function POST(request: Request) {
     });
     if (!result.recorded) return fail("Štatistiky nie sú momentálne dostupné.", 503);
 
-    // Sampling is driven by the random per-session token. Retention is bounded
-    // and best-effort, independent of the success of the pageview.
-    if (Number.parseInt(body.sessionToken.slice(-2), 16) % 64 === 17) {
+    // Stateless sampled maintenance: works for aggregate-only browser visits
+    // without creating a visitor token, cookie or localStorage identifier.
+    if (Math.random() < 1 / 64) {
       try { await pruneSiteAnalyticsIdentityRows(database); }
       catch { console.warn("Site analytics expiry maintenance deferred"); }
     }
