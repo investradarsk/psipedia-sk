@@ -205,12 +205,13 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
         </table>
       </section>
 
-      <section className={styles.importPanel} aria-labelledby="name-day-import-title">
-        <div><span>Kontrolovaný import</span><h2 id="name-day-import-title">JSON import bez automatickej publikácie</h2><p>Povolené polia: <code>month</code>, <code>day</code>, <code>name</code>, <code>source</code>, voliteľne <code>note</code>. Import vždy vytvorí nové položky ako koncept.</p></div>
+      <details className={styles.importPanel} aria-labelledby="name-day-import-title">
+        <summary id="name-day-import-title">Hromadný import mien (JSON)</summary><div className={styles.importBody}><p>Import vytvára koncepty bez automatického publikovania. Povolené polia: <code>month</code>, <code>day</code>, <code>name</code>, <code>source</code>, voliteľne <code>note</code>. Import vždy vytvorí nové položky ako koncept.</p></div>
         <textarea value={importText} onChange={(event) => { setImportText(event.target.value); setImportPlan(null); }} spellCheck={false} aria-label="JSON dáta na import" />
         {importPlan && <div className={styles.importSummary} aria-live="polite"><strong>INSERT {importPlan.summary.INSERT}</strong><strong>UPDATE {importPlan.summary.UPDATE}</strong><strong>SKIP {importPlan.summary.SKIP}</strong><strong>ERROR {importPlan.summary.ERROR}</strong>{importPlan.actions.filter((action) => action.action === "ERROR").slice(0, 5).map((action) => <p key={action.index}>Riadok {action.index + 1}: {action.message}</p>)}</div>}
         <div className={styles.importActions}><AdminActionButton variant="secondary" disabled={importPending} onClick={() => runImport(false)}>Preview</AdminActionButton><AdminActionButton variant="primary" disabled={importPending || !importPlan || importPlan.summary.ERROR > 0} onClick={() => runImport(true)}>Aplikovať bezpečný import</AdminActionButton></div>
-      </section>
+      </div>
+      </details>
 
       <AdminModalDialog
         open={editorOpen}
