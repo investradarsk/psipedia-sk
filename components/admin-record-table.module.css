@@ -244,3 +244,58 @@
   .table tbody tr:focus-within td[data-column-id="actions"] {
   background: #edf5ef;
 }
+
+/* ADMIN-LISTS STEP 8: compact TanStack table chrome without hiding any
+   columns, changing sort semantics or altering the mobile card toggle. */
+.workspace {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+.toolbar {
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--admin-list-filter-gap, 0.55rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+}
+.tableIntro {
+  min-width: 0;
+  flex: 1 1 12rem;
+  overflow-wrap: anywhere;
+}
+.tableIntro span {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.columnPicker { flex: 0 0 auto; max-width: 100%; }
+.columnPicker summary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  box-sizing: border-box;
+}
+.columnPickerMenu {
+  box-sizing: border-box;
+  max-width: min(320px, calc(100dvw - 32px));
+  min-width: min(190px, calc(100dvw - 32px));
+}
+.columnPickerMenu label {
+  min-height: 36px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.scroll {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width: 700px) {
+  .workspace[data-density="compact"] .toolbar {
+    padding: var(--admin-ui-panel-padding, 0.65rem);
+    gap: var(--admin-list-pager-gap, 0.5rem);
+  }
+  .tableIntro { flex-basis: 100%; }
+  .columnPickerMenu {
+    max-height: min(55dvh, 320px);
+    overscroll-behavior: contain;
+  }
+}
