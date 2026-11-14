@@ -4,7 +4,7 @@ import { AdminProfileReviewActions } from "@/components/admin-profile-review-act
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getProfileReviewAdmin } from "@/lib/profile-review-admin";
-import { profileReviewStatusLabel, profileReviewEntityTypeLabel, profileReviewCategoryLabel, profileReviewActorLabel, profileReviewActionLabel, profileReviewAccountStatusLabel, profileReviewRiskLabel } from "@/lib/admin-profile-review-labels";
+import { profileReviewStatusLabel, profileReviewEntityTypeLabel, profileReviewCategoryLabel, profileReviewActorLabel, profileReviewActionLabel, profileReviewAccountStatusLabel, profileReviewRiskLabel, profileReviewReasonLabel } from "@/lib/admin-profile-review-labels";
 import "../reviews.css";
 
 export const dynamic = "force-dynamic";
@@ -118,7 +118,7 @@ export default async function AdminProfileReviewDetailPage({
                   <strong>{profileReviewActionLabel(event.action)}</strong>
                   <span>{event.fromStatus ? profileReviewStatusLabel(event.fromStatus) : "—"} → {event.toStatus ? profileReviewStatusLabel(event.toStatus) : "—"}</span>
                 </div>
-                <p>{event.reasonCode ? "Dôvod zmeny bol zaznamenaný." : "Bez doplneného dôvodu."}</p>
+                <p>{event.reasonCode ? `Dôvod: ${profileReviewReasonLabel(event.reasonCode)}` : "Bez doplneného dôvodu."}</p>
                 {event.moderatorNote ? <p>Interná poznámka: {event.moderatorNote}</p> : null}
                 <small>
                   {profileReviewActorLabel(event.actorType)}{event.actorRef ? ` · ${event.actorRef}` : ""} · {formatDate(event.createdAt)}
