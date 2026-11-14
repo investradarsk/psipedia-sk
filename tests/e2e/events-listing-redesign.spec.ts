@@ -124,12 +124,13 @@ test("responsive grid, accessible mobile disclosure, full-card links and smart i
     expect(label).toBeTruthy();
     const type = card
       .locator("span")
-      .filter({ hasText: /^(Výstavy|Preteky|Semináre|Tréningy|Stretnutia|Ostatné)$/ })
+      .filter({ hasText: /^(Výstavy|Preteky|Semináre|Tréningy|Stretnutia|Ostatné podujatia)$/ })
       .last();
     const typeLabel = await type.textContent();
     const legendColor = await page
       .locator("[data-events-legend]")
-      .getByRole("link", { name: typeLabel!, exact: true })
+      .getByRole("listitem")
+      .filter({ hasText: typeLabel! })
       .locator("[data-event-type]")
       .evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(await type.evaluate((el) => getComputedStyle(el).borderLeftColor)).toBe(legendColor);
