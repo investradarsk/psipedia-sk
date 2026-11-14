@@ -47,7 +47,6 @@ const SPECS: Record<Kind,{table:string;fields:Field[];label:string}> = {
   ]},
   ORGANIZATION: {table:"help_organizations",label:"name",fields:[
     website,photo("image_url"),phone("public_phone"),email("public_email"),...social,
-    field("registrationNumber","registration_number","Registračné číslo","other"),
   ]},
   ADOPTION: {table:"adoption_dogs",label:"name",fields:[
     photo("main_image"),field("contactUrl","contact_url","Odkaz na kontakt","web"),
