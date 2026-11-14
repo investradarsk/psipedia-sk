@@ -34,7 +34,7 @@
 }
 
 .horizontal {
-  width: min(100% - 28px, 468px);
+  width: min(calc(100% - 28px), 468px);
   margin: 12px auto 26px;
 }
 
