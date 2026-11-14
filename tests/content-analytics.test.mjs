@@ -29,6 +29,12 @@ function fixture() {
       id INTEGER PRIMARY KEY,
       status TEXT NOT NULL
     );
+    CREATE TABLE security_rate_limits (
+      bucket_key TEXT PRIMARY KEY,
+      window_started_at TEXT NOT NULL,
+      count INTEGER NOT NULL,
+      expires_at TEXT NOT NULL
+    );
   `);
   sqlite.exec(articleMigration);
   sqlite.exec(migration);
