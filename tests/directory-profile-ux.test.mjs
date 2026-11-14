@@ -105,21 +105,18 @@ test("breeder gallery rejects unsafe, duplicated, oversized and wrong-category w
   assert.deepEqual(readDirectoryBreederGallery({ [DIRECTORY_BREEDER_GALLERY_KEY]: '["javascript:alert(1)","/media/directory/ok.webp"]' }), ["/media/directory/ok.webp"]);
 });
 
-test("existing photo gallery components are available only for breeder stations", () => {
+test("public gallery is available on every directory profile while Admin breeder controls remain", () => {
   const admin = readFileSync("components/admin-directory-editor.tsx", "utf8");
   const store = readFileSync("lib/directory-store.ts", "utf8");
   const detailPresentation = readFileSync("lib/directory-detail-presentation.ts", "utf8");
-  assert.match(admin, /category === "chovatelske-stanice"\s*\?\s*\(/);
+  const partner = readFileSync("components/partner-profile-edit-form.tsx", "utf8");
   assert.match(admin, /<AdminPhotoGallery[\s\S]*?folder="directory"/);
-  assert.match(admin, /galleryUrls\s*}\s*:\s*\{\}/);
-  assert.match(admin, /galleryBusy/);
   assert.match(store, /mergeDirectoryBreederGallery\(qualitySourceData, category, payload\.galleryUrls\)/);
-  assert.match(store, /readDirectoryBreederGallery\(safeImportData\(row\.source_data_json, true\)\)/);
-  assert.match(store, /\.\.\.\(row\.category === "chovatelske-stanice"/,
-    "public and admin GET responses for non-breeder profiles must omit breeder-only galleryUrls");
-  assert.match(detailPresentation, /profile\.category === "chovatelske-stanice"/);
+  assert.match(store, /readProfileGallery\(safeImportData\(row\.source_data_json, true\), row\.category\)/);
+  assert.match(detailPresentation, /galleryUrls: profile\.galleryUrls \?\? \[\]/);
   assert.match(source, /<PublicPhotoGallery/);
-  assert.match(source, /breederGallery\.length/);
+  assert.match(source, /profileGallery\.length/);
   assert.match(source, /url !== presentation\.imageUrl/);
   assert.match(source, /title="Galéria"/);
+  assert.match(partner, /<PartnerGalleryField/);
 });
