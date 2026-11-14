@@ -66,3 +66,15 @@
   .pager { gap: 0.4rem; padding: 0.45rem 0; }
   .pager button { padding: 0.45rem 0.6rem; }
 }
+
+
+/* ADMIN CONTENT STEP 12 – adoption keeps canonical save/lifecycle handlers. */
+.layout { gap:var(--admin-ui-space-sm,.55rem); }
+.content :global([data-admin-editor-section]:not([hidden])) { min-width:0; }
+.content :global(.admin-card-heading) { margin-bottom:.55rem; }
+.pager { padding:.55rem 0; gap:.5rem; }
+@media(max-width:820px){
+  .content :global([data-admin-editor-section]:not([hidden])) { padding:.65rem; }
+  .content :global(input:not([type="checkbox"]):not([type="file"])),
+  .content :global(select),.content :global(textarea) { font-size:16px; }
+}
