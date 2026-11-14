@@ -48,7 +48,7 @@ test("shared detail template places expertise under contact and gallery before r
   const contact = source.indexOf('key: "contact"');
   const expertise = source.indexOf('key: "expertise"');
   const services = source.indexOf('key: "services"');
-  const gallery = source.indexOf('key: "breeder-gallery"');
+  const gallery = source.indexOf('key: "profile-gallery"');
   const reviews = source.indexOf('key: "reviews"');
   assert.ok(contact > 0 && expertise > contact && services > expertise);
   assert.ok(gallery > services && reviews > gallery);
