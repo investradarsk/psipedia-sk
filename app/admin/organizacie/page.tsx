@@ -38,7 +38,7 @@ export default async function OrganizationPublicationAdminPage({ searchParams }:
     user={user}
     eyebrow="Pomoc psom"
     title="Organizácie"
-    description="Canonical organization management: vyhľadávanie, filtre, editácia, lokality, fundraising a jasný publication lifecycle."
+    description="Vyhľadávaj a upravuj organizácie, ich kontakty, lokality a stav publikovania."
     actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/organizacie/novy">+ Nová organizácia</Link>}
   >
     <Suspense fallback={<AdminDataLoading label="Organizácie" />}>
