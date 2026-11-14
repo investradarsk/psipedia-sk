@@ -336,3 +336,65 @@
     margin-bottom: 0.5rem;
   }
 }
+
+/* CONTENT UNIFICATION 9/18 — content editors use the same compact card
+   and label rhythm as the canonical article EditorWorkspace. */
+[data-admin-workspace] [data-admin-content-module] {
+  min-width: 0;
+  max-width: 100%;
+}
+[data-admin-workspace] [data-admin-content-module] :where(h2, h3) {
+  font-family: var(--admin-ui-font-family);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-areas-heading {
+  margin-bottom: var(--admin-ui-space-xs, 0.35rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-list {
+  margin-top: var(--admin-ui-space-sm, 0.55rem);
+  gap: var(--admin-ui-space-sm, 0.55rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item {
+  min-width: 0;
+  padding: 0;
+  border-radius: var(--admin-ui-radius, 12px);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary {
+  box-sizing: border-box;
+  grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+  min-height: var(--admin-ui-control-height, 44px);
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: var(--admin-ui-space-sm, 0.55rem) var(--admin-ui-space-md, 0.75rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-fields {
+  gap: var(--admin-ui-editor-field-gap, 0.5rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-actions {
+  gap: var(--admin-ui-space-sm, 0.55rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-actions :is(a, button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--admin-ui-control-height, 44px);
+}
+@media (max-width: 420px) {
+  [data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary {
+    grid-template-columns: 1.8rem minmax(0, 1fr);
+    padding: 0.55rem;
+  }
+  [data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary small { display: none; }
+  [data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-fields { padding: 0.55rem; }
+  [data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-actions :is(a, button) {
+    flex: 1 1 8rem;
+    white-space: normal;
+  }
+}
