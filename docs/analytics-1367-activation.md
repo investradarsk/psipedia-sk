@@ -3,10 +3,21 @@
 This PR is a **draft-only, code-ready proposal**. It must **not** be merged or deployed before the checks below have been completed and the separate production migration has been approved.
 
 
+## Aggregate pageviews without analytics consent — privacy and rollout gate
+
+**Two separate datasets:**
+- **Without consent:** `SiteAnalyticsTracker` sends an aggregate-only POST with the *public pathname* (no query string) and a finite referrer category, but **no visitor UUID, session token, cookies, localStorage writes or per-visitor D1 records**. D1 updates hourly pageviews, top paths and source/device pageview aggregates. An HMAC-based abuse limiter processes the network IP only for rate limiting.
+- **With existing analytics consent:** the same pageview is counted **once**, plus short-lived HMAC session/visitor identifiers can supply sessions, unique consenting browsers and recently active consenting sessions. Qualified 10-second article and profile reads retain their consent check.
+- The dashboard explicitly marks consented-only numbers; it never labels those as all visitors. Source/device distributions are based on pageview counts for everyone.
+
+**Do not infer legal compliance merely from absence of cookies.** The EDPB advises that tracking requests triggered by website JavaScript can fall within ePrivacy Article 5(3), even without persistent client-side state. A Slovak legal/privacy review of the chosen first-party beacon, referrer classification, and IP-security limiter is required before activation: https://www.edpb.europa.eu/documents/guideline/guidelines-22023-on-technical-scope-of-art-53-of-eprivacy-directive_en and https://www.slov-lex.sk/ezbierky/pravne-predpisy/SK/ZZ/2021/452/20260818 .
+
+**Deployment safety:** `SITE_ANALYTICS_ENABLED` defaults **OFF**. Both the global tracker and POST endpoint are disabled, without any D1 rate-limit writes, unless the owner explicitly sets it to `true` **after** migrating 0168 through the protected staged workflow, completing privacy review, and verifying D1 cost/volume. It is an operator rollout switch, **not a visitor consent prompt**. The existing Google consent UI is not duplicated.
+
 ## First-party sitewide statistics (new extension)
 
 This PR also adds **genuine sitewide first-party analytics**, NOT a GA4 report.
-- The single global `SiteAnalyticsTracker` records consented route views on all eligible public pages, including the homepage, article listing/details, dog breeds, events and help pages.
+- The single global `SiteAnalyticsTracker` records aggregate-only route pageviews with no visitor ID on eligible public pages, including the homepage, article listing/details, dog breeds, events and help pages; consent enables only the optional per-visitor metrics.
 - D1 migration `0168_sitewide_first_party_analytics.sql` adds hourly total pageviews/sessions, hourly page breakdowns, hourly source/device breakdowns, and short-lived HMAC identity tables.
 - Visit = new random session after 30 minutes of inactivity; unique visitors = distinct pseudonymous consenting browsers over 24 h / 7 d / 30 d, not identified people. Live counter = sessions with a pageview in the past five minutes, not a heartbeat/true active-tab count.
 - Only the pathname is sent. Search parameters, full incoming referrer, raw IP, and browser User-Agent are **not stored**. Search/social categories and device class are finite labels. Origin, bot, internal cookie and HMAC IP-rate guards apply.
