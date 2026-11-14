@@ -17,13 +17,13 @@ import { anonymousSitePageview, reserveSiteAnalyticsVisit, sendSiteAnalyticsPage
  * Only explicitly consented views attach short-lived session/visitor IDs.
  * Excludes internal/admin pages and sends no query strings or raw referrers.
  */
-export function SiteAnalyticsTracker() {
+export function SiteAnalyticsTracker({ enabled = false }: { enabled?: boolean }) {
   const pathname = usePathname();
   const lastSentPath = useRef<string | null>(null);
 
   useEffect(() => {
     const track = () => {
-      if (!isSafeSiteAnalyticsPath(pathname) || lastSentPath.current === pathname) return;
+      if (!enabled || !isSafeSiteAnalyticsPath(pathname) || lastSentPath.current === pathname) return;
       try {
         if (isInternalArticleReadBrowser(window.localStorage, window.location.search)) return;
       } catch {
@@ -49,7 +49,7 @@ export function SiteAnalyticsTracker() {
     track();
     window.addEventListener(QUALIFIED_ANALYTICS_CONSENT_EVENT, track);
     return () => window.removeEventListener(QUALIFIED_ANALYTICS_CONSENT_EVENT, track);
-  }, [pathname]);
+  }, [enabled, pathname]);
 
   return null;
 }
