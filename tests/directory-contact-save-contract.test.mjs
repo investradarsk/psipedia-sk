@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scopeAdminContactSave, preserveUntouchedDirectoryContacts, DIRECTORY_CONTACT_SAVE_FIELDS } from "../lib/directory-contact-save-contract.ts";
+import { scopeAdminContactSave, preserveUntouchedDirectoryContacts, directoryContactValueMismatches, DIRECTORY_CONTACT_SAVE_FIELDS } from "../lib/directory-contact-save-contract.ts";
 
 const original = {
   websiteUrl: "darcyx", publicPhone: "darcyx", publicEmail: "darcyx",
@@ -128,4 +128,11 @@ test("missing dirty paths have no authority to remove ANY contact", () => {
     facebookUrl: "", instagramUrl: "",
   }, original, []);
   assert.deepEqual(safe, original);
+});
+
+test("the post-save receipt fails on ANY unexpectedly lost contact", () => {
+  const live = { ...original };
+  assert.deepEqual(directoryContactValueMismatches(live, { ...live, publicPhone: "" }), ["publicPhone"]);
+  assert.deepEqual(directoryContactValueMismatches(live, { ...live, websiteUrl: "" }), ["websiteUrl"]);
+  assert.deepEqual(directoryContactValueMismatches(live, live), []);
 });
