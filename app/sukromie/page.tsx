@@ -164,7 +164,9 @@ export default async function PrivacyPage() {
         Vlastná analytika návštevnosti Psipedie
       </PublicHeading>
       <p>
-        Po udelení súhlasu s analytikou meriame zobrazenia verejných stránok, návštevy,
+        Na vlastné štatistiky Psipedie používame tú istú existujúcu voľbu „Prijať analytiku“
+        ako na Google Analytics, bez ďalšieho súhlasového okna. Po jej udelení meriame
+        zobrazenia verejných stránok, návštevy,
         rôzne prehliadače v zvolenom období, zdroje návštevnosti a kategórie zariadení
         priamo v Psipedii, bez potreby Google Analytics. Zároveň meriame kvalifikované
         prečítania článkov a zobrazenia profilov po 10 sekundách viditeľnosti.
