@@ -1,3 +1,12 @@
+/* Semantic list wrapper must never change the card's measured width. */
+.rowListItem {
+  min-width: 0;
+}
+
+.rowListItem > .row {
+  width: 100%;
+}
+
 /* Desktop article geometry belongs to the variant, not the page containing it. */
 @media (min-width: 901px) {
   .row {
