@@ -22,7 +22,7 @@ for (const { path, module } of [
     const res = await page.goto(path, { waitUntil: "domcontentloaded" });
     expect(res?.status()).toBe(200);
     const moduleRoot = page.locator('[data-admin-content-module="' + module + '"]');
-    const filter = moduleRoot.locator("[data-admin-list-filters]");
+    const filter = page.locator(`[data-admin-content-module="${module}"][data-admin-list-filters], [data-admin-content-module="${module}"] [data-admin-list-filters]`);
     await expect(moduleRoot).toBeVisible();
     await expect(filter).toBeVisible();
     for (const width of [320, 390, 768, 1440]) {
