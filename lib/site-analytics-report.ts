@@ -14,7 +14,7 @@ export type SiteTrafficReport = {
   topPages: SiteTrafficPage[];
 };
 
-type Bindings = { DB?: D1Database };
+type Bindings = { DB?: D1Database; SITE_ANALYTICS_ENABLED?: string };
 type TotalRow = { pageviews: number | null };
 type ChartRow = { slot: string | number; pageviews: number };
 type PageRow = { path: string; pageviews: number };
@@ -39,9 +39,12 @@ export async function loadSiteTrafficReport(input: {
     topPages: [],
   });
 
-  const database = input.database === undefined
-    ? (env as unknown as Bindings).DB
-    : input.database;
+  const bindings = env as unknown as Bindings;
+  // A prepared but not yet activated migration is not evidence of zero traffic.
+  if (input.database === undefined && bindings.SITE_ANALYTICS_ENABLED !== "true") {
+    return unavailable();
+  }
+  const database = input.database === undefined ? bindings.DB : input.database;
   if (!database || typeof database.prepare !== "function") return unavailable();
 
   const end = articleReadHourBucket(now);
