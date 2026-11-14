@@ -209,3 +209,38 @@
   }
   .mobileSelectAll:focus-within { outline: 3px solid #a26a1b; outline-offset: 2px; }
 }
+
+
+/* ADMIN-WORK-AUDIT: opt-in frozen actions on desktop-wide tables.
+   Do not freeze every table or disable its horizontal scrolling. */
+.workspace[data-sticky-actions="true"]:not([data-mobile-focus="true"])
+  .table :is(th, td)[data-column-id="actions"] {
+  position: sticky;
+  right: 0;
+  width: 215px;
+  min-width: 190px;
+  max-width: 215px;
+  white-space: normal;
+  overflow: visible;
+  background: #fff;
+  border-left: 1px solid #d8e4dc;
+  border-right: 0;
+  box-shadow: -6px 0 12px rgb(20 53 37 / 7%);
+  z-index: 2;
+}
+.workspace[data-sticky-actions="true"]:not([data-mobile-focus="true"])
+  .table th[data-column-id="actions"] {
+  top: 0;
+  z-index: 4;
+  background: #f0f5f0;
+}
+.workspace[data-sticky-actions="true"]:not([data-mobile-focus="true"])
+  .table tbody tr:nth-child(even) td[data-column-id="actions"] {
+  background: #fafcf9;
+}
+.workspace[data-sticky-actions="true"]:not([data-mobile-focus="true"])
+  .table tbody tr:hover td[data-column-id="actions"],
+.workspace[data-sticky-actions="true"]:not([data-mobile-focus="true"])
+  .table tbody tr:focus-within td[data-column-id="actions"] {
+  background: #edf5ef;
+}
