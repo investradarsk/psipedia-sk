@@ -98,7 +98,7 @@ test("editorial topic pages show articles directly while preserving urgent veter
   const cta = read("components/content-hub-cta.tsx");
   const css = read("components/content-hub-cta.module.css");
   assert.match(section, /data-section-topic-groups/);
-  assert.match(section, /<ArticleListItem article=\{article\}/);
+  assert.match(section, /<ArticleListItem\s+article=\{article\}/);
   assert.match(section, /<HubCallout sectionSlug="starostlivost" \/>/);
   assert.match(section, /data-health-urgent/);
   assert.doesNotMatch(section, /data-content-hub-pillar/);
