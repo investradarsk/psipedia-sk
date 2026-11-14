@@ -330,9 +330,9 @@ const EVENT_TYPE_LISTING_SEO: Record<EventType, { title: string; description: st
       "Stretnutia majiteľov psov, klubové a komunitné akcie s termínmi, lokalitou, organizátorom a praktickými informáciami pre návštevníkov.",
   },
   Iné: {
-    title: "Ďalšie podujatia so psami",
+    title: "Ostatné podujatia",
     description:
-      "Ďalšie verejné podujatia zo sveta psov s termínmi, miestom konania, organizátorom a praktickými informáciami na jednom mieste.",
+      "Ostatné verejné podujatia zo sveta psov s termínmi, miestom konania, organizátorom a praktickými informáciami na jednom mieste.",
   },
 };
 
@@ -375,7 +375,7 @@ export function eventPortalCategory(eventType: EventType) {
       Seminár: { href: "/podujatia/seminare", label: "Semináre" },
       Tréning: { href: "/podujatia/treningy", label: "Tréningy" },
       Stretnutie: { href: "/podujatia/stretnutia", label: "Stretnutia" },
-      Iné: { href: "/podujatia/dalsie", label: "Ďalšie podujatia" },
+      Iné: { href: "/podujatia/dalsie", label: "Ostatné podujatia" },
     } satisfies Record<EventType, { href: string; label: string }>
   )[eventType];
 }
