@@ -40,6 +40,7 @@ on:
       - "components/admin-workspace-dashboard.module.css"
       - "components/admin-workspace-activity.tsx"
       - "tests/e2e/article-admin-editor.spec.ts"
+      - "tests/e2e/admin-work-audit-round2.spec.ts"
       - "components/admin-shell.tsx"
       - "components/admin-navigation.tsx"
       - "tests/e2e/admin-ia-2.spec.ts"
