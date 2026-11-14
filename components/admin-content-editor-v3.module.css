@@ -1292,3 +1292,23 @@
   .editorDisclosure { padding-inline: 0.55rem; }
   .editorDisclosure > summary { align-items: flex-start; }
 }
+
+/* ADMIN-WORK-AUDIT: section switches need room for the fixed admin header AND
+   the live-height Tiptap toolbar. Scope to the article page, not every editor.
+   ResizeObserver updates the variable if wrapping changes at a breakpoint. */
+.workspaceRoot :global(
+  [data-editor-layout="article"][data-editor-section-mode="switch"]
+  [data-editor-content] [data-admin-editor-section][data-editor-section-active="true"]
+) {
+  scroll-margin-top: calc(
+    var(--admin-sticky-stack, 96px) + var(--admin-tiptap-toolbar-height, 76px) + 16px
+  );
+}
+.workspaceRoot :global(
+  [data-editor-layout="article"][data-editor-section-mode="switch"]
+  [data-editor-content] [data-admin-editor-section][data-editor-section-active="true"] :is(input, textarea, [contenteditable])
+) {
+  scroll-margin-top: calc(
+    var(--admin-sticky-stack, 96px) + var(--admin-tiptap-toolbar-height, 76px) + 16px
+  );
+}
