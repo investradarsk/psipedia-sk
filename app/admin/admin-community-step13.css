@@ -1,0 +1,164 @@
+/* Community visual unification, step 13/18. Opt-in read-only presentation:
+   tips, inquiries and directory correction suggestions retain original
+   React status transitions, approval guards and author-supplied content. */
+[data-admin-workspace] [data-admin-community-metrics] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 135px), 1fr));
+  gap: var(--admin-ui-space-sm, .55rem);
+  margin-bottom: var(--admin-ui-section-gap, .625rem);
+  min-width: 0;
+}
+[data-admin-workspace] [data-admin-community-metrics] > div {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--admin-ui-panel-padding, .75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+[data-admin-workspace] [data-admin-community-metrics] strong {
+  font-family: inherit;
+  font-size: var(--admin-ui-type-stat, 1.6rem);
+  font-variant-numeric: tabular-nums;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] .admin-toolbar {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--admin-ui-space-sm, .55rem);
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  margin-bottom: var(--admin-ui-space-sm, .55rem);
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] .admin-search {
+  flex: 1 1 15rem;
+  min-width: 0;
+  max-width: 100%;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] .admin-search input {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  min-height: var(--admin-ui-control-height, 44px);
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] .admin-status-filter {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  min-width: 0;
+  max-width: 100%;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] .admin-status-filter button {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: .45rem .7rem;
+  border-radius: var(--admin-ui-field-radius, 9px);
+  white-space: nowrap;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-list] {
+  display: grid;
+  gap: var(--admin-ui-space-sm, .55rem);
+  min-width: 0;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-card] {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--admin-ui-panel-padding, .75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+  overflow-wrap: anywhere;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-card] :is(h2,h3) {
+  font-family: inherit;
+  line-height: 1.35;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-card] h2 {
+  font-size: 1rem;
+  margin-block: .25rem;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-card] :is(p, blockquote) {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-card] footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem;
+  margin-top: .55rem;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-card] :is(
+  footer a, footer button, .admin-change-edit-link
+) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--admin-ui-control-height, 44px);
+  max-width: 100%;
+  white-space: normal;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] :where(
+  button, input, select, textarea, a, summary
+):focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+[data-admin-workspace] [data-admin-content-module^="community-"] button:disabled {
+  opacity: .52;
+  cursor: not-allowed;
+}
+[data-admin-workspace] [data-admin-content-module="community-profile-suggestions"] .admin-change-table {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+[data-admin-workspace] [data-admin-content-module="community-profile-suggestions"] .admin-change-snapshots summary {
+  min-height: var(--admin-ui-control-height, 44px);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+@media (max-width: 760px) {
+  [data-admin-workspace] [data-admin-community-metrics] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .4rem;
+  }
+  [data-admin-workspace] [data-admin-community-metrics] > div { padding: .6rem; }
+  [data-admin-workspace] [data-admin-community-metrics] strong { font-size: 1.3rem; }
+  [data-admin-workspace] [data-admin-content-module^="community-"] .admin-toolbar {
+    gap: .45rem;
+  }
+  [data-admin-workspace] [data-admin-content-module^="community-"] .admin-search {
+    flex-basis: 100%;
+  }
+  [data-admin-workspace] [data-admin-content-module^="community-"] .admin-search input,
+  [data-admin-workspace] [data-admin-content-module^="community-"] textarea {
+    font-size: 16px;
+  }
+  [data-admin-workspace] [data-admin-content-module^="community-"] .admin-status-filter {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding-bottom: .2rem;
+  }
+  [data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-card] {
+    padding: .65rem;
+  }
+  [data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-card] :is(
+    .admin-tip-body, .admin-inquiry-body, .admin-change-contact
+  ) {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+  [data-admin-workspace] [data-admin-content-module^="community-"] [data-admin-community-card] footer :is(a,button) {
+    flex: 1 1 8rem;
+  }
+}
