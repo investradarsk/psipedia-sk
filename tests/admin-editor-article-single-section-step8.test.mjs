@@ -89,9 +89,10 @@ test("ARTICLE-VISUAL-3: the right rail reuses existing status, schedule, SEO and
   assert.match(src, /aria-label="Publikovanie článku"/);
   assert.match(src, /data-article-rail-seo/);
   assert.match(src, /data-article-compact-preview/);
-  assert.match(src, /id="article-rail-published-at"/);
+  assert.doesNotMatch(src, /id="article-rail-published-at"/);
+  assert.match(src, /data-article-publication-summary/);
   assert.match(src, /id="article-published-at"/);
-  assert.match(src, /onChange=\{\(event\) => \{ setPublishedAt\(event.target.value\); setEditorDirty\(true\); \}\}/);
+  assert.match(src, /value=\{publishedAt\} readOnly=\{displayedStatus === "published"\}/);
   assert.match(src, /onClick=\{\(\) => chooseArticleSection\("article-seo"\)\}/);
   assert.match(src, /onClick=\{\(\) => chooseArticleSection\("article-publish"\)\}/);
   assert.match(src, /onClick=\{\(\) => void save\("scheduled"\)\}/);
