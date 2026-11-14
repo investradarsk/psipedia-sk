@@ -359,8 +359,8 @@ export function ArticleDetail({
               <p className="article-disclaimer">
                 {section === "novinky"
                   ? sourceBlocks.length > 0
-                    ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku."
-                    : "Správu pri ďalšom vývoji udalosti priebežne aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku."
+                    ? `Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme.${showUpdated ? " Dátum poslednej úpravy je uvedený pri titulku." : ""}`
+                    : `Správu pri ďalšom vývoji udalosti priebežne aktualizujeme.${showUpdated ? " Dátum poslednej úpravy je uvedený pri titulku." : ""}`
                   : section === "recenzie"
                     ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze."
                     : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."}{" "}
