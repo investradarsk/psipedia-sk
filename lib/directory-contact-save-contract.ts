@@ -75,7 +75,7 @@ export function scopeAdminContactSave(input: {
  * Only a field with a validated explicit edit receipt may change. This is
  * independent of whether a contact is formatted as a URL, phone or e-mail.
  */
-export function preserveUntouchedDirectoryContacts<T extends Record<string, unknown>>(
+export function preserveUntouchedDirectoryContacts<T extends object>(
   submitted: T,
   live: Record<DirectoryContactSaveField, string>,
   editedPaths: readonly string[],
