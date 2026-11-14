@@ -53,12 +53,14 @@ export default function CookiesPage() {
         Vlastné štatistiky návštevnosti Psipedie
       </PublicHeading>
       <p>
-        Ak povolíš analytiku, Psipedia si sama zaznamená zobrazenia verejných stránok, návštevy,
-        približný počet rôznych prehliadačov, typ zariadenia a kategóriu zdroja návštevy
-        (napríklad vyhľadávač, sociálna sieť alebo priamy prístup). Zároveň môžeme
-        započítať prečítanie článku alebo návštevu profilu po aspoň 10 sekundách
-        jeho viditeľného zobrazenia. Opakované zobrazenia toho istého obsahu v jednom
-        prehliadači obmedzujeme na šesť hodín. Tieto štatistiky sú nezávislé od Google Analytics.
+        Bez analytického súhlasu zbierame iba súhrnné zobrazenia verejných stránok
+        s cestou bez parametrov, kategóriou zdroja návštevy a typom zariadenia.
+        Nevytvárame pri tom žiadne analytické cookies, miestne ID ani históriu
+        jednotlivých návštevníkov. Po povolení analytiky môžeme navyše merať
+        približný počet rôznych prehliadačov a 30-minútové relácie. Po 10 sekundách
+        viditeľnosti zaznamenávame kvalifikovanú čítanosť článku alebo profilu,
+        s obmedzením opakovaného započítania na šesť hodín.
+        Vlastné štatistiky sú nezávislé od Google Analytics.
       </p>
       <p>
         Na počítanie rôznych prehliadačov používame lokálne vytvorený náhodný
