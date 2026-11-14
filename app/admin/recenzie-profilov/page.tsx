@@ -8,6 +8,7 @@ import {
   profileReviewAdminEntityTypes,
 } from "@/lib/profile-review-admin";
 import { profileReviewStatuses } from "@/lib/profile-review-domain";
+import { profileReviewStatusLabel, profileReviewEntityTypeLabel, profileReviewCategoryLabel } from "@/lib/admin-profile-review-labels";
 import "./reviews.css";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +65,7 @@ export default async function AdminProfileReviewsPage({
       user={user}
       eyebrow="Profilové recenzie"
       title="Moderácia profilových recenzií"
-      description="Kontrola recenzií služieb a organizácií. Moderácia mení iba lifecycle a viditeľnosť; text ani rating používateľa sa neupravujú."
+      description="Kontrola a schvaľovanie recenzií. Meniť možno ich stav a viditeľnosť; text ani počet hviezdičiek používateľa sa neupravujú."
     >
       <section className="admin-review-card">
         <form className="admin-review-filters" method="get" aria-label="Filtrovať profilové recenzie">
@@ -72,7 +73,7 @@ export default async function AdminProfileReviewsPage({
             Stav
             <select name="status" defaultValue={data.filters.status}>
               <option value="all">Všetky stavy</option>
-              {profileReviewStatuses.map((item) => <option key={item} value={item}>{item}</option>)}
+              {profileReviewStatuses.map((item) => <option key={item} value={item}>{profileReviewStatusLabel(item)}</option>)}
             </select>
           </label>
           <label>
@@ -81,7 +82,7 @@ export default async function AdminProfileReviewsPage({
               <option value="all">Všetky typy</option>
               {profileReviewAdminEntityTypes.map((item) => (
                 <option key={item} value={item}>
-                  {item === "DIRECTORY_PROFILE" ? "Adresár" : "Organizácia"}
+                  {profileReviewEntityTypeLabel(item)}
                 </option>
               ))}
             </select>
@@ -106,7 +107,7 @@ export default async function AdminProfileReviewsPage({
           <button type="submit">Filtrovať</button>
         </form>
         <p className="admin-review-filter-note">
-          Vyhľadávanie používa iba text recenzie, názov profilu a zobrazované meno recenzenta. E-mail ani jeho hash sa neprehľadávajú.
+          Vyhľadávanie zahŕňa text recenzie, názov profilu a meno recenzenta. E-mailové adresy sa nepoužívajú.
         </p>
       </section>
 
@@ -115,15 +116,15 @@ export default async function AdminProfileReviewsPage({
           <article key={item.id} className="admin-review-row">
             <div className="admin-review-row-main">
               <div className="admin-review-badges">
-                <span className="admin-review-status">{item.status}</span>
+                <span className="admin-review-status">{profileReviewStatusLabel(item.status)}</span>
                 <span aria-label={`Hodnotenie ${item.overallRating} z 5`}>{item.overallRating} / 5 ★</span>
-                {item.riskFlags.length ? <span className="admin-review-risk">Risk {item.riskFlags.length}</span> : null}
-                {item.reportCount ? <span>Reporty {item.reportCount}</span> : null}
+                {item.riskFlags.length ? <span className="admin-review-risk">Rizikové signály: {item.riskFlags.length}</span> : null}
+                {item.reportCount ? <span>Nahlásenia: {item.reportCount}</span> : null}
               </div>
               <h2>{item.targetName}</h2>
               <p>{excerpt(item.body)}</p>
               <div className="admin-review-meta">
-                <span>{item.entityType}{item.targetCategory ? ` · ${item.targetCategory}` : ""}</span>
+                <span>{profileReviewEntityTypeLabel(item.entityType)}{item.targetCategory ? ` · ${profileReviewCategoryLabel(item.targetCategory)}` : ""}</span>
                 <span>Recenzent: {item.reviewerDisplayName}</span>
                 <span>Vytvorené: {formatDate(item.createdAt)}</span>
               </div>
