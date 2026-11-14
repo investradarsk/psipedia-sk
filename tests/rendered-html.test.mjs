@@ -617,12 +617,14 @@ test("uses light admin lists and loads full records only for detail and save", a
     assert.match(articleDetailHtml, /Pozrieť produkt/);
     assert.match(articleDetailHtml, /Partnerský odkaz/);
     assert.match(articleDetailHtml, /rel="sponsored nofollow noreferrer"/);
-    // Tiptap contenteditable mounts after client hydration, while SSR keeps
-    // a stable rich-text shell. The shared formatting toolbar is scoped above
-    // the editor and does not include the old per-field Lexical toolbar.
+    // Tiptap's editable shell exists in SSR; its shared formatting toolbar is
+    // conditional on the active Basics/Blocks section and must not be required
+    // in a server-rendered initial view with another active panel.
     assert.match(articleDetailHtml, /data-admin-tiptap-rich-text/);
     assert.match(articleDetailHtml, /data-admin-rich-text-editor/);
-    assert.match(articleDetailHtml, /Spoločná lišta formátovania článku/);
+    const tiptapSource = readFileSync(new URL("../components/admin-tiptap-article-editor.tsx", import.meta.url), "utf8");
+    assert.match(tiptapSource, /aria-label="Spoločná lišta formátovania článku"/);
+    assert.match(tiptapSource, /formattingSection && <TiptapSharedToolbar/);
     assert.doesNotMatch(articleDetailHtml, /aria-label="Formátovanie textu"/);
     assert.doesNotMatch(articleDetailHtml, /Prázdny riadok vytvorí na webe nový odsek/);
 
