@@ -92,3 +92,45 @@
   .helpSectionPager span { order: -1; flex: 0 0 100%; text-align: center; }
   .helpEditorBody :global(.admin-field-grid) { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* ADMIN CONTENT STEP 12 – compact Help case editor and overview. */
+.dashboard { max-width: 100%; }
+.boundary {
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: var(--admin-ui-space-sm, .55rem);
+  padding: var(--admin-ui-panel-padding, .75rem);
+  margin-bottom: var(--admin-ui-section-gap, .625rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.boundary h2 { font: 800 .95rem/1.35 inherit; margin: .15rem 0; }
+.boundary p { font-size: .78rem; line-height: 1.4; }
+.moduleLinks { gap: .4rem; }
+.moduleLinks a { padding-inline: .65rem; min-height: 44px; }
+.filters { gap: .55rem; padding: var(--admin-ui-panel-padding,.75rem); }
+.bulk { margin: .55rem .75rem 0; padding: .55rem .75rem; }
+.editorBoundary {
+  margin-bottom: var(--admin-ui-section-gap, .625rem);
+  padding: .55rem .75rem;
+  gap: .4rem .75rem;
+}
+.editorBoundary .moduleLinks a { flex: 0 1 auto; }
+.helpEditorLayout { gap: var(--admin-ui-space-sm,.55rem); }
+.helpEditorBody :global([data-admin-editor-section]:not([hidden])) { min-width:0; }
+.helpEditorBody :global(.admin-card-heading) { margin-bottom: .55rem; }
+.helpSectionPager { padding: .55rem 0; }
+.tableActions { gap: .35rem; }
+.tableActions :is(a,button) { min-height:44px; }
+.dashboard :global([data-sticky-actions="true"] [data-column-id="actions"] a) {
+  white-space: normal;
+}
+@media(max-width:760px){
+  .boundary { padding: .65rem; gap: .45rem; }
+  .boundary .moduleLinks { grid-template-columns:minmax(0,1fr); }
+  .filters { padding:.65rem; gap:.55rem; }
+  .editorBoundary .moduleLinks { flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-inline:contain; }
+  .editorBoundary .moduleLinks a { flex:0 0 auto; white-space:nowrap; }
+  .helpEditorBody :global([data-admin-editor-section]:not([hidden])) { padding:.65rem; border-radius:12px; }
+  .helpEditorBody :global(input:not([type="checkbox"]):not([type="file"])),
+  .helpEditorBody :global(select), .helpEditorBody :global(textarea) { font-size:16px; }
+}
