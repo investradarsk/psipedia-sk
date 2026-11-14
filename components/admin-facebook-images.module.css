@@ -316,3 +316,101 @@
   .calendarPanel .calendarDay { height: 50px; }
   .morePosts { display: none; }
 }
+
+
+/* ADMIN VISUAL 14/18 – compact Facebook planning and inline post workflow.
+   Retain calendar hit targets, publisher STOP and explicit publish consent. */
+.root { min-width: 0; max-width: 100%; }
+.dashboard {
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--admin-ui-section-gap, .625rem);
+}
+.heading { gap: var(--admin-ui-space-sm, .55rem); }
+.heading h2 { font-family: inherit; font-size: 1rem; }
+.dashboard .stats { gap: var(--admin-ui-space-sm, .55rem); }
+.dashboard .statCard {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--admin-ui-control-height, 44px);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.sectionHead { gap: var(--admin-ui-space-sm, .55rem); }
+.sectionHead h2,.sectionHead h3 { font-family: inherit; }
+.systemPanel, .calendarPanel, .listPanel, .upcomingPanel {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--admin-ui-panel-padding, .75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.listPanel .filters { gap: var(--admin-ui-space-sm, .55rem); }
+.listPanel .filters label { min-width: 0; }
+.listPanel .filters select {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.listPanel .list { gap: var(--admin-ui-space-sm, .55rem); }
+.listPanel .listItem {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: .65rem;
+  border: 1px solid var(--admin-ui-border, #dce5de);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.listPanel .itemActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+}
+.listPanel .itemActions :is(a,button),
+.pagination :is(button,a),
+.monthNav button,
+.calendarViewSwitch button,
+.pickerPagination button {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+}
+.listPanel .itemActions a {
+  display: inline-flex;
+  align-items: center;
+}
+.listPanel .itemActions button {
+  min-height: var(--admin-ui-control-height, 44px);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.pagination { gap: var(--admin-ui-space-sm, .55rem); }
+.dialog {
+  box-sizing: border-box;
+  max-width: calc(100dvw - 24px);
+  padding: var(--admin-ui-panel-padding, .75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+  overscroll-behavior: contain;
+}
+.dialogHeader { top: calc(-1 * var(--admin-ui-panel-padding, .75rem)); }
+.fields { gap: var(--admin-ui-section-gap, .625rem); }
+.fields :is(input:not([type="checkbox"]), textarea, select) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.actions { gap: var(--admin-ui-space-sm, .55rem); }
+.actions button { min-height: var(--admin-ui-control-height, 44px); }
+.root :is(button,input,select,textarea,summary,a):focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .systemPanel, .calendarPanel, .listPanel, .upcomingPanel { padding: .65rem; }
+  .dialog { padding: .65rem; width: calc(100dvw - 12px); max-width: calc(100dvw - 12px); }
+  .dialogHeader { top: -.65rem; }
+  .fields :is(input:not([type="checkbox"]), textarea, select),
+  .listPanel .filters select { font-size: 16px; }
+  .listPanel .listItem { padding: .6rem; }
+  .listPanel .itemActions { align-items: stretch; }
+  .listPanel .itemActions :is(button,a) { flex: 1 1 9rem; justify-content: center; }
+}
