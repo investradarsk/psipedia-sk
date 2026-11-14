@@ -18,7 +18,8 @@ test("workspace uses lightweight actionable overview while canonical event histo
  assert.match(feed,/export async function loadAdminWorkspaceOverview/);
  assert.match(ui,/href="\/admin\/operations"/);
  assert.match(ui,/href="\/admin\/mapy"/);
- assert.match(ui,/href="\/admin\/kvalita"/);
+ assert.doesNotMatch(ui,/href="\/admin\/kvalita"/);
+ assert.match(read("components/admin-workspace-dashboard.tsx"),/href="\/admin\/kvalita"/);
  assert.doesNotMatch(ui,/shown\.map|data\.items\.map/);
  assert.doesNotMatch(ui,/Math\.random\(\)/);
 });
