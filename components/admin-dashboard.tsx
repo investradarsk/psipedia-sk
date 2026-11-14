@@ -253,7 +253,7 @@ export function AdminDashboard({
             </Link>
           ))}
         </nav>
-        <form ref={filterFormRef} className="admin-toolbar" method="get" action={routePath} role="search" data-admin-article-filters>
+        <form ref={filterFormRef} className="admin-toolbar" method="get" action={routePath} role="search" data-admin-article-filters data-admin-list-filters>
           <label className="admin-search">
             <SearchIcon size={19} />
             <span className="sr-only">Hľadať článok</span>
@@ -263,7 +263,7 @@ export function AdminDashboard({
             aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
             {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
           </button>
-          <div id="admin-article-advanced-filters" className={styles.advancedFilters} data-expanded={advancedFiltersOpen}>
+          <div id="admin-article-advanced-filters" className={styles.advancedFilters} data-admin-list-advanced data-expanded={advancedFiltersOpen}>
           <label className="admin-select-filter">
             <span>Stav</span>
             <select name="status" defaultValue={filters.status} onChange={(event) => applyFilter({ status: event.target.value as ArticleAdminListFilters["status"] })}>
@@ -320,7 +320,7 @@ export function AdminDashboard({
             && <Link href={routePath}>Vyčistiť filtre</Link>}
         </form>
 
-        <p className="admin-event-result-count" role="status">
+        <p className="admin-event-result-count" role="status" data-admin-list-results>
           Nájdené: {resultCount} · Zobrazené: {articles.length}
         </p>
         {message && <p className="admin-flash" role="status">{message}</p>}
