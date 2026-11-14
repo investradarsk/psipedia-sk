@@ -76,7 +76,7 @@ function TrafficChart({ report }: { report: AdminTrafficReport }) {
 
       {ready ? (
         <>
-          <div className={styles.chart} role="img" aria-label="Graf kvalifikovaných zobrazení článkov a profilov. Presné hodnoty sú dostupné v tabuľke pod grafom.">
+          <div className={styles.chart} style={{ gridTemplateColumns: `repeat(${articlePoints.length}, minmax(0, 1fr))` }} role="img" aria-label="Graf kvalifikovaných zobrazení článkov a profilov. Presné hodnoty sú dostupné v tabuľke pod grafom.">
             {articlePoints.map((point: TrafficPoint, index: number) => {
               const profile = profilePoints[index];
               return (
