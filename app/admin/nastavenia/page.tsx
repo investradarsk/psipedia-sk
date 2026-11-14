@@ -17,7 +17,7 @@ export default async function AdminSettingsPage() {
     >
       <section className="admin-form-card" style={{ padding: "0.85rem", marginBottom: 12 }}>
         <h2 style={{ margin: "0 0 0.35rem", fontSize: "1rem" }}>Štatistiky návštevnosti</h2>
-        <p style={{ margin: "0 0 0.55rem" }}>Prečítania článkov, návštevy profilov, grafy a rebríčky.</p>
+        <p style={{ margin: "0 0 0.55rem" }}>Návštevnosť celého webu, návštevy, zdroje, zariadenia, najčítanejšie stránky a obsah.</p>
         <Link href="/admin/nastavenia/statistiky" style={{ color: "#246044", fontWeight: 700 }}>
           Otvoriť štatistiky →
         </Link>
