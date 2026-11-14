@@ -33,6 +33,11 @@
 .profile {font-size:15px;font-weight:700;color:#23392e;}
 .field {font-size:12px;color:#597061;font-weight:600;}
 .value {font-size:14px;overflow-wrap:anywhere;color:#22372a;}
+.comparison {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:3px;}
+.comparisonValue {display:grid;align-content:start;gap:5px;min-width:0;padding:8px 10px;border:1px solid #e2e9e3;border-radius:9px;background:#fff;}
+.comparisonValue>span {font-size:12px;font-weight:750;color:#526e5c;}
+.emptyValue {font-size:14px;color:#718177;font-style:italic;}
+@media(max-width:650px){.comparison{grid-template-columns:1fr;gap:6px}}
 a.value {color:#145ca5;}
 .source {color:#386853;font-size:12px;width:max-content;max-width:100%;}
 .preview {display:block;width:160px;height:104px;object-fit:contain;border-radius:8px;border:1px solid #d6e1d8;}
