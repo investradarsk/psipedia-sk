@@ -11,6 +11,8 @@ on:
       - "app/admin/admin-root-extracted.css"
       - "components/admin-editor-workspace.module.css"
       - "components/admin-workspace-dashboard.module.css"
+      - "components/admin-content-editor-v3.module.css"
+      - "components/admin-facebook-graphic-editor.module.css"
       - "lib/admin-navigation.ts"
       - "docs/audits/admin-ui-unification-inventory.json"
       - "tests/admin-typography-step3.test.mjs"
