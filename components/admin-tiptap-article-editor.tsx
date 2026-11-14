@@ -170,6 +170,26 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   const rememberedSelection = useRef<{ from: number; to: number } | null>(null);
   const editor = active?.editor;
 
+  // Section navigation scrolls the document. Reserve the *measured* height of
+  // this sticky, sometimes wrapping toolbar so the first form label stays
+  // visible beneath both the admin topbar and the formatting controls.
+  useEffect(() => {
+    const toolbar = toolbarRef.current;
+    const page = toolbar?.closest<HTMLElement>('[data-editor-layout="article"]');
+    if (!toolbar || !page) return;
+    const update = () => {
+      page.style.setProperty("--admin-tiptap-toolbar-height", `${Math.ceil(toolbar.getBoundingClientRect().height)}px`);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return () => page.style.removeProperty("--admin-tiptap-toolbar-height");
+    const observer = new ResizeObserver(update);
+    observer.observe(toolbar);
+    return () => {
+      observer.disconnect();
+      page.style.removeProperty("--admin-tiptap-toolbar-height");
+    };
+  }, []);
+
   useEffect(() => {
     if (!editor) return;
     const handle = () => {
