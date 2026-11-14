@@ -38,7 +38,7 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
 [data-admin-workspace] .admin-field > label,
 [data-admin-workspace] .admin-field > span {
   color: var(--admin-v3-label);
-  font-size: .8rem;
+  font-size: var(--admin-ui-type-label, 0.82rem);
   font-weight: 800;
   line-height: 1.4;
 }
