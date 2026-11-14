@@ -68,3 +68,15 @@ Akceptačné podmienky pred merge:
 6. Výslovný súhlas vlastníka pred merge a nasadením.
 
 **Žiadne produkčné úpravy, migrácie, schvaľovanie obsahu, platené volania ani merge.**
+
+
+---
+
+## Aktualizácia po zosúladení s main (14. 11. 2026)
+
+**Predchádzajúci stav `mergeable=false` a 272 commitov za `main` uvedený vyššie je už historický.**
+Konflikty sa vyriešili, skutočný GitHub merge commit `7d7ef6ac67826fb14206cc7f3ff1850450414695` bol fast-forward prenesený do vetvy PR #1369 a naň boli vrátené úpravy. Overenie po aktualizácii vrátilo `mergeable=true`, `behind=0` a stále `Draft` bez produkčného merge.
+
+Nová karta **Štatistiky návštevnosti** je zachovaná; odstránené **Registračné číslo** sa nevrátilo. Knip tooling bol integrovaný z PR #1368 do #1369 a #1368 bol zatvorený bez merge. Pridaný `tests/admin-main-reconciliation.test.mjs`.
+
+**Čo zostáva:** posledný HEAD CI, TypeScript, Playwright, mobilné screenshoty a Safari sa musia vyhodnotiť pred schválením merge. Kompletný postup: `docs/audits/admin-main-reconciliation-20261114.md`.
