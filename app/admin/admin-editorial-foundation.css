@@ -5,6 +5,16 @@
    Scope every selector to the admin route. */
 
 [data-admin-workspace] {
+  /* Canonical admin-only type system, aligned with the article EditorWorkspace. */
+  --admin-ui-font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --admin-ui-type-body: 0.91rem;
+  --admin-ui-type-heading: clamp(1.2rem, 1.7vw, 1.5rem);
+  --admin-ui-type-section: 1.05rem;
+  --admin-ui-type-label: 0.82rem;
+  --admin-ui-type-caption: 0.83rem;
+  --admin-ui-type-stat: clamp(1.6rem, 2.5vw, 2.1rem);
+  font-family: var(--admin-ui-font-family);
+  font-size: var(--admin-ui-type-body);
   --admin-ui-radius: 12px;
   --admin-ui-field-radius: 9px;
   --admin-ui-space-xs: 0.35rem;
@@ -20,6 +30,20 @@
   --admin-ui-focus: var(--admin-v3-focus, #a26a1b);
 }
 
+/* Native controls do not always inherit typefaces; keep the same family.
+   Low specificity preserves intentional rich-text and rendered article previews. */
+[data-admin-workspace] :where(
+  button, input, select, textarea, legend, summary, table,
+  h1, h2, h3, h4, h5, h6
+) {
+  font-family: inherit;
+}
+
+[data-admin-workspace] :is(.admin-stats strong, .admin-overview-grid strong,
+  .admin-quality-tabs strong, .admin-quality-media-placeholder) {
+  font-family: var(--admin-ui-font-family);
+}
+
 /* All admin sections share the same editorial type scale. The article editor
    keeps its own fine-tuned component-module typography. */
 [data-admin-workspace] :is(.admin-heading, .admin-card-heading) {
@@ -31,7 +55,7 @@
   margin-block: 0 var(--admin-ui-space-xs);
   color: var(--admin-ui-heading);
   font-family: inherit;
-  font-size: 1.05rem;
+  font-size: var(--admin-ui-type-section);
   font-weight: 800;
   line-height: 1.3;
   letter-spacing: -0.015em;
@@ -40,7 +64,7 @@
 [data-admin-workspace] .admin-card-heading p {
   margin-block: 0 var(--admin-ui-space-sm);
   color: var(--admin-ui-muted);
-  font-size: 0.83rem;
+  font-size: var(--admin-ui-type-caption);
   line-height: 1.45;
   overflow-wrap: break-word;
 }
@@ -151,7 +175,7 @@
   margin: 0;
   font-family: inherit;
   font-weight: 850;
-  font-size: clamp(1.35rem, 1.8vw, 1.85rem);
+  font-size: var(--admin-ui-type-heading);
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -234,7 +258,7 @@
     padding-block: 0.1rem 0.45rem;
     gap: 0.4rem;
   }
-  [data-admin-workspace] .admin-heading h1 { font-size: 1.38rem; }
+  [data-admin-workspace] .admin-heading h1 { font-size: var(--admin-ui-type-heading); }
   [data-admin-workspace] .admin-heading p { font-size: 0.85rem; }
   [data-admin-workspace] .admin-heading-actions { gap: 0.4rem; }
   [data-admin-workspace] .admin-stats { gap: 0.45rem; }
@@ -257,7 +281,7 @@
 }
 [data-admin-workspace] .admin-puppy-areas-heading h2 {
   font-family: inherit;
-  font-size: 1.05rem;
+  font-size: var(--admin-ui-type-section);
   font-weight: 800;
   line-height: 1.3;
   margin: 0 0 0.25rem;
