@@ -226,7 +226,7 @@ export function AdminTrafficDashboard({ report, siteReport }: { report: AdminTra
       <p className={styles.footnote}>
         Údaje sú z D1 a predstavujú kvalifikované zobrazenia obsahu, nie unikátnych ľudí ani všetky návštevy webu.
         Návštevníci celej stránky a používatelia práve online sa zatiaľ v tomto prehľade nemerajú.
-        GA4 meria súhlasom povolené návštevy oddelene. Posledné načítanie:{" "}
+        Vlastná návštevnosť celého webu je uvedená vyššie a nečerpá údaje z Google Analytics. Posledné načítanie:{" "}
         <time dateTime={report.generatedAt}>
           {new Intl.DateTimeFormat("sk-SK", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Bratislava" }).format(new Date(report.generatedAt))}
         </time>.
