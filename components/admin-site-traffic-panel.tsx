@@ -40,7 +40,7 @@ function RankedBreakdown({
   rows,
 }: {
   title: string;
-  rows: { label: string; sessions: number }[];
+  rows: { label: string; pageviews: number }[];
 }) {
   return (
     <section className={styles.panel}>
@@ -51,11 +51,11 @@ function RankedBreakdown({
             {rows.map((row) => (
               <li key={row.label}>
                 <span>{title === "Zariadenia" ? deviceLabels[row.label] ?? row.label : sourceLabels[row.label] ?? row.label}</span>
-                <strong>{numberFormat.format(row.sessions)}</strong>
+                <strong>{numberFormat.format(row.pageviews)}</strong>
               </li>
             ))}
           </ol>}
-      <small>Počet začatých návštev, nie počet všetkých kliknutí.</small>
+      <small>Anonymné zobrazenia verejných stránok, aj bez prijatia analytiky.</small>
     </section>
   );
 }
@@ -67,7 +67,7 @@ export function AdminSiteTrafficPanel({ report }: { report: SiteTrafficReport })
         <h2>Návštevnosť celého webu</h2>
         <p className={styles.empty}>
           Vlastné štatistiky zatiaľ nie sú dostupné. Potrebujú schválené nasadenie
-          migrácie D1 č. 0168 a prvé návštevy so súhlasom s analytikou.
+          migrácie D1 č. 0168. Anonymné zobrazenia sa potom merajú aj bez prijatia analytiky.
         </p>
       </section>
     );
@@ -83,16 +83,16 @@ export function AdminSiteTrafficPanel({ report }: { report: SiteTrafficReport })
       <div className={styles.header}>
         <div>
           <h2>Návštevnosť celého webu</h2>
-          <p>Vlastné údaje Psipedia.sk z D1 — nezávislé od Google Analytics.</p>
+          <p>Anonymné zobrazenia stránok meriame bez cookies a bez súhlasu. Relácie a unikátnych prehliadačov počítame len po prijatí analytiky.</p>
         </div>
       </div>
 
       <div className={styles.metrics}>
         <NumberCard name="Zobrazenia stránok" value={report.pageviews} caption="Verejné stránky webu" />
-        <NumberCard name="Návštevy" value={report.sessions} caption="Relácie s 30-minútovou prestávkou" />
-        <NumberCard name="Unikátni návštevníci" value={report.uniqueVisitors}
-          caption={report.window === "all" ? "Celoživotný unikátny počet neuchovávame" : "Rôzne anonymné prehliadače za obdobie"} />
-        <NumberCard name="Aktívne relácie (5 min)" value={report.activeSessions5m}
+        <NumberCard name="Návštevy (so súhlasom)" value={report.sessions} caption="Identifikovateľné anonymné relácie · prestávka 30 min" />
+        <NumberCard name="Unikátni návštevníci (so súhlasom)" value={report.uniqueVisitors}
+          caption={report.window === "all" ? "Celoživotný unikátny počet neuchovávame" : "Rôzne súhlasiace prehliadače za obdobie"} />
+        <NumberCard name="Aktívne relácie so súhlasom (5 min)" value={report.activeSessions5m}
           caption="Posledné zaznamenané zobrazenia, nie živý počet otvorených kariet" />
       </div>
 
@@ -154,8 +154,9 @@ export function AdminSiteTrafficPanel({ report }: { report: SiteTrafficReport })
 
       <p className={styles.footnote}>
         Štatistiky sa začínajú zbierať až po schválenom spustení, bez spätnej rekonštrukcie návštev.
-        Merajú iba návštevy so súhlasom s analytikou; blokátory a návštevníci bez súhlasu
-        sa nepočítajú. Údaje nie sú identické s celkovým serverovým prenosom.
+        Počty stránok, zdrojov a zariadení sú anonymné a nezávislé od voľby cookies.
+        Návštevy, unikátne prehliadače a aktívne relácie sa rátajú len pri prijatej analytike.
+        Blokátory alebo automatizované požiadavky môžu údaje skresliť. Nie je to úplný serverový prenos.
       </p>
     </section>
   );
