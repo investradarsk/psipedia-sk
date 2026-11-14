@@ -1,0 +1,184 @@
+import { env } from "cloudflare:workers";
+import { articleReadHourBucket } from "@/lib/article-popularity";
+import { deriveRateLimitKey } from "@/lib/rate-limit";
+
+export const SITE_ANALYTICS_SESSION_IDLE_MS = 30 * 60_000;
+export const SITE_ANALYTICS_VISITOR_LIFETIME_MS = 30 * 86_400_000;
+export const SITE_ANALYTICS_RETENTION_MS = 35 * 86_400_000;
+
+export const SITE_SOURCES = [
+  "direct", "google", "bing", "other-search", "facebook", "instagram",
+  "tiktok", "youtube", "other-social", "referral",
+] as const;
+export type SiteTrafficSource = (typeof SITE_SOURCES)[number];
+export type SiteTrafficDevice = "mobile" | "tablet" | "desktop";
+
+type Bindings = { DB?: D1Database; PII_HASH_KEY?: string };
+type SitePageView = {
+  path: string;
+  visitorToken: string;
+  sessionToken: string;
+  source: SiteTrafficSource;
+  userAgent: string;
+  database?: D1Database | null;
+  hashKey?: string;
+  now?: Date;
+};
+export type SiteAnalyticsRecordResult = {
+  recorded: boolean;
+  startedSession?: boolean;
+  reason?: "unavailable" | "invalid" | "failed";
+};
+
+export function isSafeSiteAnalyticsPath(path: unknown): path is string {
+  if (typeof path !== "string" || path.length > 220 || !/^\/[A-Za-z0-9%._~/-]*$/.test(path)) {
+    return false;
+  }
+  if (path.includes("//") || path.split("/").some((part) => part === ".." || part === ".")) return false;
+  if (/\/%2f|\/%5c/i.test(path)) return false;
+  const first = path.split("/")[1]?.toLowerCase() ?? "";
+  return !["admin", "partner", "api", "_next", "recenzia", "favicon.ico"].includes(first);
+}
+
+export function classifySiteTrafficSource(referrer: string, siteOrigin = "https://psipedia.sk"): SiteTrafficSource {
+  if (!referrer) return "direct";
+  let host: string;
+  try {
+    const url = new URL(referrer);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "direct";
+    if (url.origin === siteOrigin) return "direct";
+    host = url.hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "direct";
+  }
+  const domain = (candidate: string) => host === candidate || host.endsWith("." + candidate);
+  if (domain("google.com") || /^google\.[a-z.]{2,12}$/.test(host)) return "google";
+  if (domain("bing.com")) return "bing";
+  if (domain("facebook.com") || domain("fb.com") || domain("l.facebook.com")) return "facebook";
+  if (domain("instagram.com")) return "instagram";
+  if (domain("tiktok.com")) return "tiktok";
+  if (domain("youtube.com") || domain("youtu.be")) return "youtube";
+  if (["duckduckgo.com", "yahoo.com", "search.yahoo.com", "ecosia.org", "seznam.cz"].some(domain)) {
+    return "other-search";
+  }
+  if (["x.com", "twitter.com", "linkedin.com", "pinterest.com", "reddit.com"].some(domain)) {
+    return "other-social";
+  }
+  return "referral";
+}
+
+export function classifySiteTrafficDevice(agent: string): SiteTrafficDevice {
+  if (/ipad|tablet|kindle|silk|playbook/i.test(agent)) return "tablet";
+  if (/mobile|iphone|ipod|android/i.test(agent)) return "mobile";
+  return "desktop";
+}
+
+export function validSiteTrafficSource(source: unknown): source is SiteTrafficSource {
+  return typeof source === "string" && (SITE_SOURCES as readonly string[]).includes(source);
+}
+
+export async function recordSitePageView(input: SitePageView): Promise<SiteAnalyticsRecordResult> {
+  if (!isSafeSiteAnalyticsPath(input.path) || !validSiteTrafficSource(input.source)) {
+    return { recorded: false, reason: "invalid" };
+  }
+  const bindings = env as unknown as Bindings;
+  const database = input.database === undefined ? bindings.DB : input.database;
+  const hashKey = input.hashKey ?? bindings.PII_HASH_KEY;
+  if (!database || typeof database.prepare !== "function" || !hashKey) {
+    return { recorded: false, reason: "unavailable" };
+  }
+
+  const now = input.now ?? new Date();
+  const nowIso = now.toISOString();
+  const hour = articleReadHourBucket(now);
+  const day = nowIso.slice(0, 10);
+  const expires = new Date(now.getTime() + SITE_ANALYTICS_RETENTION_MS).toISOString();
+  const visitorHash = await deriveRateLimitKey("site-visitor", input.visitorToken, hashKey);
+  const sessionHash = await deriveRateLimitKey("site-session", input.sessionToken, hashKey);
+  const device = classifySiteTrafficDevice(input.userAgent);
+
+  try {
+    // The short-lived HMAC session is server-deduplicated. No raw visitor token,
+    // IP, user-agent, URL query string or third-party referrer is stored.
+    const created = await database.prepare(`
+      INSERT OR IGNORE INTO site_analytics_sessions
+        (session_hash, visitor_hash, started_at, last_seen, source, device, expires_at)
+      VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6)
+    `).bind(sessionHash, visitorHash, nowIso, input.source, device, expires).run();
+    const startedSession = Number(created.meta?.changes ?? 0) === 1;
+
+    if (!startedSession) {
+      // A rotating visitor ID must never be tied to a stale session ID.
+      const updated = await database.prepare(`
+        UPDATE site_analytics_sessions
+        SET last_seen = ?3, expires_at = ?4
+        WHERE session_hash = ?1 AND visitor_hash = ?2 AND last_seen <= ?3
+      `).bind(sessionHash, visitorHash, nowIso, expires).run();
+      if (Number(updated.meta?.changes ?? 0) < 1) {
+        return { recorded: false, reason: "invalid" };
+      }
+    }
+
+    const visitors = database.prepare(`
+      INSERT INTO site_analytics_visitors_daily(day, visitor_hash, last_seen, expires_at)
+      VALUES (?1, ?2, ?3, ?4)
+      ON CONFLICT(day, visitor_hash) DO UPDATE SET
+        last_seen = MAX(site_analytics_visitors_daily.last_seen, excluded.last_seen),
+        expires_at = excluded.expires_at
+    `).bind(day, visitorHash, nowIso, expires);
+
+    const hourly = database.prepare(`
+      INSERT INTO site_analytics_hourly(bucket_hour, pageviews, sessions)
+      VALUES (?1, 1, ?2)
+      ON CONFLICT(bucket_hour) DO UPDATE SET
+        pageviews = site_analytics_hourly.pageviews + 1,
+        sessions = site_analytics_hourly.sessions + excluded.sessions
+    `).bind(hour, startedSession ? 1 : 0);
+
+    const page = database.prepare(`
+      INSERT INTO site_analytics_pages_hourly(bucket_hour, path, pageviews)
+      VALUES (?1, ?2, 1)
+      ON CONFLICT(bucket_hour, path) DO UPDATE SET
+        pageviews = site_analytics_pages_hourly.pageviews + 1
+    `).bind(hour, input.path);
+
+    const statements = [visitors, hourly, page];
+    if (startedSession) {
+      statements.push(database.prepare(`
+        INSERT INTO site_analytics_sources_hourly(bucket_hour, source, device, sessions)
+        VALUES (?1, ?2, ?3, 1)
+        ON CONFLICT(bucket_hour, source, device) DO UPDATE SET
+          sessions = site_analytics_sources_hourly.sessions + 1
+      `).bind(hour, input.source, device));
+    }
+    await database.batch(statements);
+    return { recorded: true, startedSession };
+  } catch (cause) {
+    console.error("Site analytics write unavailable", {
+      error: cause instanceof Error ? cause.message : String(cause),
+    });
+    return { recorded: false, reason: "failed" };
+  }
+}
+
+/** Small, bounded expiry maintenance on a fraction of sitewide pageview writes. */
+export async function pruneSiteAnalyticsIdentityRows(database: D1Database, now = new Date()) {
+  const current = now.toISOString();
+  return database.batch([
+    database.prepare(`
+      DELETE FROM site_analytics_sessions WHERE session_hash IN
+      (SELECT session_hash FROM site_analytics_sessions INDEXED BY site_analytics_sessions_expiry_idx
+       WHERE expires_at < ? LIMIT 128)
+    `).bind(current),
+    database.prepare(`
+      DELETE FROM site_analytics_visitors_daily WHERE (day, visitor_hash) IN
+      (SELECT day, visitor_hash FROM site_analytics_visitors_daily INDEXED BY site_analytics_visitors_daily_expiry_idx
+       WHERE expires_at < ? LIMIT 128)
+    `).bind(current),
+    database.prepare(`
+      DELETE FROM security_rate_limits WHERE bucket_key IN
+      (SELECT bucket_key FROM security_rate_limits INDEXED BY site_analytics_security_rate_expiry_idx
+       WHERE bucket_key GLOB 'site-traffic-ip:*' AND expires_at < ? LIMIT 128)
+    `).bind(current),
+  ]);
+}
