@@ -85,3 +85,77 @@
 .confirmCard h3 { margin:0 0 10px;font-size:1.05rem; }
 .confirmCard p { font-size:.86rem;line-height:1.5; }
 @media(max-width:700px) { .tableToolbar {align-items:stretch;} .tableScroll {overscroll-behavior-x:contain;} .table {min-width:880px;} }
+
+
+/* ADMIN VISUAL 14/18 – shared list density; the complete data grid
+   retains its own local horizontal scroll and dangerous actions remain gated. */
+.workspace {
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--admin-ui-section-gap, .625rem);
+}
+.toolbar {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--admin-ui-space-sm, .55rem);
+  padding: var(--admin-ui-panel-padding, .75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.toolbar :is(input,select) {
+  box-sizing: border-box;
+  height: auto;
+  min-height: var(--admin-ui-control-height, 44px);
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.toolbar button, .reload {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  max-width: 100%;
+  white-space: normal;
+}
+.tableToolbar { gap: .5rem; padding: .55rem .75rem; }
+.tableToolbar select { min-height: 44px; }
+.tableScroll {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+}
+.tableScroll:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.table th, .table td { padding: .6rem .7rem; }
+.table tbody td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: #fff;
+  box-shadow: -1px 0 #e2eae5;
+}
+.table thead th:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  background: #f0f6f2;
+}
+.table tbody tr:nth-child(even) td:last-child { background: #fbfdfb; }
+.table tbody tr:hover td:last-child { background: #f5faf5; }
+.actions { gap: .4rem; }
+.actions :is(button, a), .pager button {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  white-space: normal;
+}
+.pager { flex-wrap: wrap; justify-content: center; gap: .55rem; }
+.workspace :is(button,a,input,select,summary):focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .toolbar { padding: .65rem; }
+  .toolbar :is(input,select) { font-size: 16px; }
+  .toolbar label { flex-basis: 100%; }
+  .table { min-width: 880px; }
+}
