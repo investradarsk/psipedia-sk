@@ -2,12 +2,8 @@ import { env } from "cloudflare:workers";
 import { isInternalTrafficRequest } from "@/lib/internal-traffic";
 import { PROFILE_VISIT_TOKEN, isLikelyCrawlerRequest } from "@/lib/profile-view-security";
 import { createD1RateLimitStore, deriveRateLimitKey, enforceRateLimit } from "@/lib/rate-limit";
-import {
-  isSafeSiteAnalyticsPath,
-  pruneSiteAnalyticsIdentityRows,
-  recordSitePageView,
-  validSiteTrafficSource,
-} from "@/lib/site-analytics";
+import { pruneSiteAnalyticsIdentityRows, recordSitePageView } from "@/lib/site-analytics";
+import { isSafeSiteAnalyticsPath, validSiteTrafficSource } from "@/lib/site-analytics-public";
 
 export const dynamic = "force-dynamic";
 
