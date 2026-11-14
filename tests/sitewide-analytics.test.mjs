@@ -86,7 +86,7 @@ test("single view increases two hourly counters, with zero individual events", a
     assert.ok(queries.every((sql) => /site_analytics_(?:pages_)?hourly/.test(sql)));
     assert.equal(sqlite.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 1);
     assert.deepEqual(
-      sqlite.prepare("SELECT path, pageviews FROM site_analytics_pages_hourly").get(),
+      { ...sqlite.prepare("SELECT path, pageviews FROM site_analytics_pages_hourly").get() },
       { path: "/", pageviews: 1 },
     );
     await recordSitePageView({ path: "/", now, database });
@@ -95,7 +95,7 @@ test("single view increases two hourly counters, with zero individual events", a
     });
     assert.equal(sqlite.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 3);
     assert.deepEqual(
-      sqlite.prepare("SELECT path, pageviews FROM site_analytics_pages_hourly ORDER BY path").all(),
+      sqlite.prepare("SELECT path, pageviews FROM site_analytics_pages_hourly ORDER BY path").all().map((row) => ({ ...row })),
       [
         { path: "/", pageviews: 2 },
         { path: "/plemena/labradorsky-retriever", pageviews: 1 },
