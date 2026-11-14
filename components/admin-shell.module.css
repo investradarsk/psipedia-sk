@@ -288,26 +288,29 @@
 .sidebarFrame { padding: 14px 8px 10px; }
 .sidebarBrand { min-height: 52px; gap: 8px; padding: 4px 9px 12px; }
 .sidebarFrame :global([data-admin-sidebar]) { margin-top: 8px; }
-.workspaceMain { padding: 12px clamp(12px, 1.6vw, 24px) 0; }
+.workspaceMain { padding: var(--admin-ui-space-md, 12px) clamp(12px, 1.6vw, 24px) 0; }
 .topbarSticky { min-height: 60px; padding: 8px clamp(12px, 1.6vw, 24px); }
-.topbarActions { gap: 6px; }
+.topbarActions { gap: var(--admin-ui-space-xs, 6px); }
+/* Keep the header in one compact row while allowing the document, not the
+   icons, to shrink. The existing fixed mobile menu owns its reserved slot. */
+.topbarSticky { min-width: 0; }
+.mobileBrand { min-width: 0; }
+.topbarActions > * { flex-shrink: 0; }
 @media (max-width: 1100px) {
   .workspace { display: block; }
-  .workspaceMain { padding: 10px 12px 0; }
+  .workspaceMain { padding: var(--admin-ui-section-gap, 10px) var(--admin-ui-space-md, 12px) 0; }
   /* Reserve space for the fixed mobile navigation trigger. */
   .topbarSticky { min-height: 60px; padding: 8px 64px 8px 12px; }
 }
 @media (max-width: 420px) {
-  .workspaceMain { padding: 9px 10px 0; }
+  .workspaceMain { padding: var(--admin-ui-space-sm, 9px) var(--admin-ui-section-gap, 10px) 0; }
   .topbarSticky { padding: 8px 60px 8px 10px; }
-}
-
-/* On 320px admin screens, the long brand name crowded the search, tour,
-   back link and bell into the fixed menu trigger. Keep the paw/logo link
-   accessible (AdminHomeBrandLink supplies its aria-label) and preserve
-   all 44px touch targets rather than shrinking or overlapping them. */
-@media (max-width: 360px) {
+  /* On phones the logo link is still fully labeled accessibly. Hide only its
+     decorative wordmark to keep the search, tour, web link and bell tappable. */
   .mobileBrand > span { display: none; }
+}
+@media (max-width: 760px) {
+  .topbarActions { gap: var(--admin-ui-space-xs, 6px); }
 }
 
 /* Article editor: a single small page heading; ordinary admin headings are unchanged. */

@@ -41,7 +41,7 @@ test("compact admin treatment covers shared surfaces and specialized workspaces"
 
 test("compactness is admin-only and retains explicit mobile drawer clearance", () => {
   assert.match(compact("global"), /\[data-admin-workspace\] \.admin-heading/);
-  assert.match(compact("global"), /--admin-v3-card-padding: 12px/);
+  assert.match(compact("global"), /--admin-v3-card-padding: var\(--admin-ui-panel-padding, 12px\)/);
   assert.match(compact("shell"), /grid-template-columns: 210px minmax\(0, 1fr\)/);
   assert.match(compact("shell"), /padding: 8px 64px 8px 12px/);
   assert.match(compact("navigation"), /\.mobileGroup a \{ min-height: 44px/);

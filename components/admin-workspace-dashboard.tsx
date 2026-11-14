@@ -102,20 +102,9 @@ function PendingMetric({ label }: { label: string }) {
   return <div className={styles.metricCard} role="status" aria-busy="true">{label}: načítava sa…</div>;
 }
 
-async function WorkspaceActivityPanel({
-  promise,
-  qualityPromise,
-}: {
-  promise: ActivityPromise;
-  qualityPromise: QualityPromise;
-}) {
-  const [activity, qualityRead] = await Promise.all([promise, qualityPromise]);
-  return (
-    <AdminWorkspaceActivity
-      initial={activity}
-      qualityPending={qualityRead.status === "UNAVAILABLE" ? null : qualityRead.data.profilesWithCoreIssues}
-    />
-  );
+async function WorkspaceActivityPanel({ promise }: { promise: ActivityPromise }) {
+  const activity = await promise;
+  return <AdminWorkspaceActivity initial={activity} />;
 }
 
 async function WorkspaceReliabilityPanel({ promise }: { promise: QualityPromise }) {
@@ -182,29 +171,41 @@ const communitySources: Array<{ title: string; source: AdminAttentionQueueSource
 
 function WorkspaceCommunityPending() {
   return (
-    <div className={styles.queueGrid} aria-busy="true">
-      {communitySources.map(({ title, source }) => (
-        <Link prefetch={false}
-          key={source}
-          className={styles.queueLink}
-          href={`/admin/operations?source=${source}`}
-          aria-label={`${title}: načítava sa počet položiek`}
-        >
-          <span><strong>{title}</strong><small>Načítava sa…</small></span>
-          <b>—</b>
-        </Link>
-      ))}
-    </div>
+    <p className={styles.communityPending} role="status" aria-busy="true">
+      Načítavajú sa otvorené podnety a žiadosti…
+    </p>
   );
 }
 
 async function WorkspaceCommunityCounts({ promise }: { promise: AttentionPromise }) {
   const attention = await promise;
+  const actionable = communitySources.filter(({ source }) => sourceMetric(attention, source).value !== 0);
+  const completed = communitySources.filter(({ source }) => sourceMetric(attention, source).value === 0);
+
   return (
-    <div className={styles.queueGrid}>
-      {communitySources.map(({ title, source }) => (
-        <QueueLink key={source} title={title} source={source} summary={attention} />
-      ))}
+    <div className={styles.communityQueues}>
+      {actionable.length > 0 && (
+        <div className={styles.queueGrid} data-admin-actionable-queues>
+          {actionable.map(({ title, source }) => (
+            <QueueLink key={source} title={title} source={source} summary={attention} />
+          ))}
+        </div>
+      )}
+      {completed.length > 0 && (
+        <details className={styles.completedQueues} data-admin-completed-queues>
+          <summary>
+            <span>{actionable.length === 0 ? "Bez otvorených podnetov a žiadostí" : "Ďalšie vybavené agendy"}</span>
+            <small>{completed.length} bez otvorených položiek · zobraziť</small>
+          </summary>
+          <div className={styles.completedQueueLinks}>
+            {completed.map(({ title, source }) => (
+              <Link key={source} prefetch={false} href={`/admin/operations?source=${source}`}>
+                {title}<span>0</span>
+              </Link>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -266,10 +267,9 @@ export function AdminWorkspaceDashboard({
               <h2>Vyhľadávanie a plánovanie</h2>
             </div>
           </div>
-          <p>Nové vyhľadávanie spravujú Automatizácie Gemini. Návrhy chýbajúcich údajov spravuje samostatná Kvalita údajov.</p>
+          <p>Nové návrhy a ich plánovanie spravujú Automatizácie Gemini.</p>
           <div className={styles.actionRow}>
             <Link prefetch={false} href="/admin/automatizacie-gemini">Automatizácie Gemini →</Link>
-            <Link prefetch={false} href="/admin/kvalita">Kvalita údajov →</Link>
           </div>
         </article>
 
@@ -293,7 +293,7 @@ export function AdminWorkspaceDashboard({
       </section>
       {/* Event history belongs after actionable queues and commonly used agendas. */}
       <Suspense fallback={<p role="status">Načítava sa pracovný feed…</p>}>
-        <WorkspaceActivityPanel promise={activityPromise} qualityPromise={qualityPromise} />
+        <WorkspaceActivityPanel promise={activityPromise} />
       </Suspense>
 
     </div>

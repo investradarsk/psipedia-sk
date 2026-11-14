@@ -184,7 +184,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
     } finally { setSaving(false); }
   }
 
-  return <form ref={formRef} inert={saving} aria-busy={saving} noValidate data-admin-form-system="v4" className={`admin-event-editor ${styles.editor}`} onChangeCapture={navigation.captureChange} onSubmit={save}>
+  return <form ref={formRef} inert={saving} aria-busy={saving} noValidate data-admin-form-system="v4" data-admin-content-module="adoptions-editor" className={`admin-event-editor ${styles.editor}`} onChangeCapture={navigation.captureChange} onSubmit={save}>
     <EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} />
     <AdminEditorSectionVisibility.Provider value={{ activeId: activeAdoptionSection, mode: "switch" }}>
       <div className={styles.layout} data-admin-adoption-editor-workspace>

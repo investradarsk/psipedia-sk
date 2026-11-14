@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Mark, Node, type Editor } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -169,6 +169,25 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const rememberedSelection = useRef<{ from: number; to: number } | null>(null);
   const editor = active?.editor;
+
+  // The toolbar is mounted only for text-editing sections. Measure before the
+  // navigation animation so even the first label starts below the sticky tools.
+  useLayoutEffect(() => {
+    const toolbar = toolbarRef.current;
+    const page = toolbar?.closest<HTMLElement>('[data-editor-layout="article"]');
+    if (!toolbar || !page) return;
+    const update = () => {
+      page.style.setProperty("--admin-tiptap-toolbar-height", `${Math.ceil(toolbar.getBoundingClientRect().height)}px`);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return () => page.style.removeProperty("--admin-tiptap-toolbar-height");
+    const observer = new ResizeObserver(update);
+    observer.observe(toolbar);
+    return () => {
+      observer.disconnect();
+      page.style.removeProperty("--admin-tiptap-toolbar-height");
+    };
+  }, []);
 
   useEffect(() => {
     if (!editor) return;
@@ -388,8 +407,9 @@ export function AdminTiptapArticleScope({ children, activeSectionId }: { childre
   const visible = active && (active.id.startsWith("block-")
     ? activeSectionId === "article-blocks"
     : activeSectionId === "article-basics") ? active : null;
+  const formattingSection = activeSectionId === "article-basics" || activeSectionId === "article-blocks";
   return <ScopeContext.Provider value={scope}>
-    <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible} />
+    {formattingSection && <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible} />}
     {children}
   </ScopeContext.Provider>;
 }

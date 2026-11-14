@@ -142,7 +142,7 @@ export function AdminAttentionQueue({
         })}
       </ul>
 
-      <form className={styles.filters} method="get" action="/admin/operations" aria-label="Filtrovať upozornenia">
+      <form className={styles.filters} method="get" action="/admin/operations" role="search" aria-label="Filtrovať upozornenia" data-admin-list-filters>
         <label>
           <span>Zobrazenie</span>
           <select name="view" defaultValue={filters.view ?? "active"}>
@@ -171,7 +171,7 @@ export function AdminAttentionQueue({
         {hasFilters && <Link href="/admin/operations#centrum-pozornosti">Vyčistiť filtre</Link>}
       </form>
 
-      <p role="status">
+      <p role="status" data-admin-list-results>
         {page.availability === "PARTIAL" ? "Nájdené v dostupných zdrojoch" : "Nájdené"}: <strong>{page.resultCount}</strong>
         {" · "}Zobrazené: <strong>{page.items.length}</strong>
       </p>
@@ -238,7 +238,7 @@ export function AdminAttentionQueue({
       )}
 
       {(page.pagination.nextCursor || page.pagination.invalidCursor) && (
-        <nav className="admin-pagination" aria-label="Stránkovanie upozornení">
+        <nav className="admin-pagination" aria-label="Stránkovanie upozornení" data-admin-list-pagination>
           {page.pagination.invalidCursor
             ? <Link href={queueHref(filters)}>Prvá strana</Link>
             : <span aria-disabled="true">Aktuálna strana</span>}

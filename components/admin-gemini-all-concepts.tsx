@@ -286,7 +286,7 @@ export function AdminGeminiAllConcepts() {
   }
 
   return (
-    <div className={styles.workspace}>
+    <div className={styles.workspace} data-admin-content-module="gemini-concepts">
       <section className={styles.intro} aria-label="Súhrn konceptov">
         <div>
           <span className={styles.eyebrow}>CENTRÁLNY PREHĽAD · 22 KATEGÓRIÍ</span>
@@ -299,7 +299,7 @@ export function AdminGeminiAllConcepts() {
         </div>
       </section>
 
-      <div className={styles.toolbar}>
+      <div className={styles.toolbar} role="search" aria-label="Filtre Gemini konceptov" data-admin-list-filters>
         <label>
           Hľadať koncept
           <input type="search" autoComplete="off" placeholder="Názov, lokalita alebo kategória"
@@ -369,14 +369,14 @@ export function AdminGeminiAllConcepts() {
         </select></label>
         <span>{visible.length} výsledkov · Strana {Math.min(page, maxPage)} z {maxPage}</span>
       </div>
-      <div className={styles.tableScroll}>
+      <div className={styles.tableScroll} role="region" aria-label="Tabuľka Gemini konceptov" tabIndex={0} data-admin-list-table>
         <table className={styles.table}>
           <thead><tr><th>Názov</th><th>Kategória</th><th>Mesto</th><th>Stav</th><th>Upravené</th><th>Synchronizácia</th><th>Akcie</th></tr></thead>
           <tbody>{displayed.map(renderTableRow)}</tbody>
         </table>
         {!displayed.length && <p className={styles.empty}>Žiadne koncepty nezodpovedajú filtrom.</p>}
       </div>
-      <div className={styles.pager}>
+      <div className={styles.pager} data-admin-list-pagination>
         <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Predchádzajúca</button>
         <span>Strana {Math.min(page, maxPage)} / {maxPage}</span>
         <button type="button" disabled={page >= maxPage} onClick={() => setPage(p => Math.min(maxPage, p + 1))}>Ďalšia</button>

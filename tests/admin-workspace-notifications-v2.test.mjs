@@ -18,7 +18,8 @@ test("workspace uses lightweight actionable overview while canonical event histo
  assert.match(feed,/export async function loadAdminWorkspaceOverview/);
  assert.match(ui,/href="\/admin\/operations"/);
  assert.match(ui,/href="\/admin\/mapy"/);
- assert.match(ui,/href="\/admin\/kvalita"/);
+ assert.doesNotMatch(ui,/href="\/admin\/kvalita"/);
+ assert.match(read("components/admin-workspace-dashboard.tsx"),/href="\/admin\/kvalita"/);
  assert.doesNotMatch(ui,/shown\.map|data\.items\.map/);
  assert.doesNotMatch(ui,/Math\.random\(\)/);
 });
@@ -99,7 +100,7 @@ test("dashboard prioritizes real queues and quick agendas over the activity feed
   const attention = dashboard.indexOf('id="admin-priority-title"');
   const community = dashboard.indexOf("<WorkspaceCommunity promise={attentionPromise} />");
   const quick = dashboard.indexOf('aria-label="Automatizácie a rýchla správa"');
-  const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} qualityPromise={qualityPromise} />");
+  const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} />");
   assert.ok(attention !== -1 && attention < community && community < quick && quick < feed);
   assert.match(activity, /Otvoriť pracovnú sekciu/);
   assert.match(activity, /href="\/admin\/operations"/);

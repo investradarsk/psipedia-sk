@@ -167,7 +167,7 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
   }
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-admin-content-module="name-days">
       <section className={styles.summary} aria-label="Súhrn kalendára">
         <div><strong>{records.length}</strong><span>spolu</span></div>
         <div><strong>{counts.published}</strong><span>publikované</span></div>
@@ -175,28 +175,29 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
         <div><strong>{counts.archived}</strong><span>archivované</span></div>
       </section>
 
-      <section className={styles.toolbar} aria-label="Filtre kalendára">
+      <section className={styles.toolbar} role="search" aria-label="Filtre kalendára" data-admin-content-filters>
         <label>Hľadať podľa mena alebo zdroja<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Meno alebo zdroj" /></label>
         <label>Mesiac<select value={month} onChange={(event) => setMonth(event.target.value)}><option value="">Všetky mesiace</option>{MONTHS.map((label, index) => <option value={index + 1} key={label}>{label}</option>)}</select></label>
         <label>Stav<select value={status} onChange={(event) => setStatus(event.target.value as DogNameDayStatus | "all")}><option value="all">Všetky stavy</option><option value="draft">Koncept</option><option value="published">Publikované</option><option value="archived">Archivované</option></select></label>
         <AdminActionButton variant="primary" onClick={openCreate}>+ Nové meno</AdminActionButton>
       </section>
 
+      <p className={styles.results} role="status">Zobrazené: {filtered.length} z {records.length} mien</p>
       {message && <p className={styles.message} role="status">{message}</p>}
       {error && !editorOpen && <p className={styles.error} role="alert">{error}</p>}
 
-      <section className={styles.tableWrap} aria-label="Záznamy psích menín" tabIndex={0}>
+      <section className={styles.tableWrap} role="region" aria-label="Záznamy psích menín" tabIndex={0} data-admin-content-table>
         <table className={styles.table}>
           <thead><tr><th>Dátum</th><th>Meno</th><th>Stav</th><th>Zdroj / proveniencia</th><th>Upravené</th><th>Akcie</th></tr></thead>
           <tbody>
             {filtered.map((record) => (
               <tr key={record.id}>
-                <td><strong>{record.day}. {MONTHS[record.month - 1]}</strong></td>
-                <td><strong>{record.name}</strong><small>{record.normalizedName}</small></td>
-                <td><span className={`${styles.status} ${styles[record.status]}`}>{statusLabel(record.status)}</span></td>
-                <td className={styles.source}>{record.source}{record.note ? <small>{record.note}</small> : null}</td>
-                <td><time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleDateString("sk-SK")}</time></td>
-                <td><div className={styles.rowActions}><AdminActionButton variant="secondary" onClick={() => openEdit(record)}>Upraviť</AdminActionButton>{record.status !== "archived" && <AdminActionButton variant="destructive" onClick={() => setArchiveTarget(record)}>Archivovať</AdminActionButton>}</div></td>
+                <td data-label="Dátum"><strong>{record.day}. {MONTHS[record.month - 1]}</strong></td>
+                <td data-label="Meno"><strong>{record.name}</strong><small>{record.normalizedName}</small></td>
+                <td data-label="Stav"><span className={`${styles.status} ${styles[record.status]}`}>{statusLabel(record.status)}</span></td>
+                <td data-label="Zdroj" className={styles.source}>{record.source}{record.note ? <small>{record.note}</small> : null}</td>
+                <td data-label="Upravené"><time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleDateString("sk-SK")}</time></td>
+                <td data-label="Akcie"><div className={styles.rowActions}><AdminActionButton variant="secondary" onClick={() => openEdit(record)}>Upraviť</AdminActionButton>{record.status !== "archived" && <AdminActionButton variant="destructive" onClick={() => setArchiveTarget(record)}>Archivovať</AdminActionButton>}</div></td>
               </tr>
             ))}
             {!filtered.length && <tr><td colSpan={6} className={styles.empty}>Žiadne záznamy pre zvolené filtre.</td></tr>}
@@ -204,12 +205,13 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
         </table>
       </section>
 
-      <section className={styles.importPanel} aria-labelledby="name-day-import-title">
-        <div><span>Kontrolovaný import</span><h2 id="name-day-import-title">JSON import bez automatickej publikácie</h2><p>Povolené polia: <code>month</code>, <code>day</code>, <code>name</code>, <code>source</code>, voliteľne <code>note</code>. Import vždy vytvorí nové položky ako koncept.</p></div>
+      <details className={styles.importPanel} aria-labelledby="name-day-import-title">
+        <summary id="name-day-import-title">Hromadný import mien (JSON)</summary><div className={styles.importBody}><p>Import vytvára iba koncepty. Povolené polia: <code>month</code>, <code>day</code>, <code>name</code>, <code>source</code>, voliteľne <code>note</code>. Každé nové meno zostane nepublikované až do schválenia.</p>
         <textarea value={importText} onChange={(event) => { setImportText(event.target.value); setImportPlan(null); }} spellCheck={false} aria-label="JSON dáta na import" />
-        {importPlan && <div className={styles.importSummary} aria-live="polite"><strong>INSERT {importPlan.summary.INSERT}</strong><strong>UPDATE {importPlan.summary.UPDATE}</strong><strong>SKIP {importPlan.summary.SKIP}</strong><strong>ERROR {importPlan.summary.ERROR}</strong>{importPlan.actions.filter((action) => action.action === "ERROR").slice(0, 5).map((action) => <p key={action.index}>Riadok {action.index + 1}: {action.message}</p>)}</div>}
-        <div className={styles.importActions}><AdminActionButton variant="secondary" disabled={importPending} onClick={() => runImport(false)}>Preview</AdminActionButton><AdminActionButton variant="primary" disabled={importPending || !importPlan || importPlan.summary.ERROR > 0} onClick={() => runImport(true)}>Aplikovať bezpečný import</AdminActionButton></div>
-      </section>
+        {importPlan && <div className={styles.importSummary} aria-live="polite"><strong>Nové: {importPlan.summary.INSERT}</strong><strong>Aktualizácie: {importPlan.summary.UPDATE}</strong><strong>Preskočené: {importPlan.summary.SKIP}</strong><strong>Chyby: {importPlan.summary.ERROR}</strong>{importPlan.actions.filter((action) => action.action === "ERROR").slice(0, 5).map((action) => <p key={action.index}>Riadok {action.index + 1}: {action.message}</p>)}</div>}
+        <div className={styles.importActions}><AdminActionButton variant="secondary" disabled={importPending} onClick={() => runImport(false)}>Skontrolovať import</AdminActionButton><AdminActionButton variant="primary" disabled={importPending || !importPlan || importPlan.summary.ERROR > 0} onClick={() => runImport(true)}>Aplikovať bezpečný import</AdminActionButton></div>
+      </div>
+      </details>
 
       <AdminModalDialog
         open={editorOpen}

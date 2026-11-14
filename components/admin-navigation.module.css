@@ -89,6 +89,8 @@
   position: fixed;
   z-index: 120;
   inset: 0;
+  box-sizing: border-box;
+  min-width: 0;
   display: grid;
   align-items: stretch;
   justify-items: end;
@@ -98,9 +100,15 @@
 }
 
 .drawer {
-  width: min(390px, calc(100vw - 24px));
-  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  overflow: auto;
+  /* Use the backdrop's safe-area-aware content box, not 100vw minus a
+     guessed inset; this avoids horizontal drift on narrow iOS screens. */
+  box-sizing: border-box;
+  width: min(390px, 100%);
+  max-width: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 20px;
   background: #fffdf9;
@@ -186,12 +194,13 @@
 
 .mobileGroup > div {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
 
 .mobileGroup a {
   min-width: 0;
+  overflow-wrap: anywhere;
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -218,6 +227,8 @@
 }
 
 .mobilePublic a {
+  min-width: 0;
+  overflow-wrap: anywhere;
   min-height: 44px;
   display: inline-flex;
   flex: 1;
@@ -351,7 +362,7 @@
   .menuText { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 }
 @media (max-width: 390px) {
-  .drawer { width: calc(100vw - 20px); }
+  .drawer { width: 100%; }
 }
 
 /* V3 small screens: account and sign-out remain accessible inside the drawer. */
@@ -390,7 +401,7 @@
 .desktopNavigation:global(.admin-section-nav) { gap: 3px; padding-bottom: 10px; }
 .groupButton { min-height: 44px; gap: 8px; padding: 7px 9px; }
 .desktopGroup > div { gap: 1px; padding: 2px 0 4px 24px; }
-.desktopGroup a { min-height: 40px; padding: 6px 8px; }
+.desktopGroup a { min-height: 44px; padding: 6px 8px; }
 .breadcrumbs { margin-bottom: 8px; }
 .mobileNavigation { gap: 9px; padding: 12px; }
 .mobileGroup > div { gap: 5px; }

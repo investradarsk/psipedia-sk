@@ -451,16 +451,16 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const scheduledInMonth=data.calendar.filter(post=>post.status==="scheduled"&&!post.deletedAt&&post.scheduledAt)
     .sort((a,b)=>(a.scheduledAt??"").localeCompare(b.scheduledAt??"")).slice(0,4);
   const publisherReady=Boolean(publisher?.connected&&publisher.technicallyEnabled);
-  return <div className={styles.root} data-interactive={ready?"true":"false"}>
+  return <div className={styles.root} data-interactive={ready?"true":"false"} data-admin-content-module="facebook-posts">
     <div className={styles.dashboard}>
       <header className={styles.heading}>
         <div>
-          <h2>Spoločný kalendár Facebooku</h2>
-          <p>Obrázky aj články v jednom plánovači · časové pásmo Bratislava</p>
+          <h2>Plánovanie Facebook príspevkov</h2>
+          <p>Obrázky a články · časové pásmo Bratislava</p>
         </div>
         <AdminActionButton data-facebook-create-post type="button" variant="primary" disabled={loading||!!error||!ready} onClick={()=>edit(null)}>Vytvoriť príspevok</AdminActionButton>
       </header>
-      <section className={styles.stats} aria-label="Počty príspevkov v zobrazenom mesiaci">
+      <section className={styles.stats} aria-label="Počty príspevkov v zobrazenom mesiaci" data-admin-social-metrics>
         {(["scheduled","draft","published","sending","review"] as const).map(kind=>
           <button key={kind} type="button" className={[styles.statCard,status===kind?styles.activeStat:""].join(" ")}
             aria-pressed={status===kind} onClick={()=>{setStatus(kind);setPage(1);}}>
@@ -470,7 +470,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       </section>
       <section className={styles.upcomingPanel} aria-label="Naplánované príspevky v mesiaci">
         <div className={styles.sectionHead}>
-          <div><h2>Naplánované v mesiaci</h2><p>Najbližšie termíny zo zobrazeného mesiaca</p></div>
+          <div><h2>Naplánované v mesiaci</h2><p>Najbližšie termíny v zobrazenom mesiaci</p></div>
           <span className={styles.monthLabel}>{calendarMonthLabel(month)}</span>
         </div>
         {scheduledInMonth.length? <div className={styles.upcomingList}>{scheduledInMonth.map(post=>
@@ -509,7 +509,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           </div>
         </details>
       </aside>
-      <section className={styles.calendarPanel} aria-label="Kalendár Facebook obrázkov" aria-busy={loading}>
+      <section className={styles.calendarPanel} aria-label="Kalendár Facebook obrázkov" aria-busy={loading} data-admin-social-calendar>
         <div className={styles.sectionHead}>
           <div>
             <h2>Redakčný kalendár Facebooku</h2>
@@ -567,7 +567,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       <section className={styles.listPanel} aria-labelledby="facebook-posts-heading">
         <div className={styles.sectionHead}>
           <div><h2 id="facebook-posts-heading">Všetky príspevky ({data.total})</h2><p>Zoznam a podrobnosti</p></div>
-          <div className={styles.filters}>
+          <div className={styles.filters} role="group" aria-label="Filtrovať Facebook príspevky" data-admin-list-filters>
             <label>Stav <select disabled={loading||!ready} value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}}>
               {Object.entries(filters).map(([key,label])=><option key={key} value={key}>{label}</option>)}
             </select></label>
@@ -581,7 +581,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         {error&&<p role="alert" className="admin-message admin-message--error">{error}</p>}
         {notice&&<p role="status" className="admin-message">{notice}</p>}
         {!data.items.length&&<p className={styles.emptyNote}>Žiadne príspevky pre zvolený filter.</p>}
-        <div className={styles.list}>{data.items.map(post=><article key={post.id}
+        <div className={styles.list} data-admin-social-list>{data.items.map(post=><article key={post.id}
           className={[styles.listItem,styles[visualStatus(post).kind+"Card"]??""].join(" ")}>
           {post.imageUrl?<img src={post.imageUrl} alt="" width={72} height={72} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(post.imageUrl, [160, 320])} sizes="72px"/>:
             <span className={styles.imageFallback} aria-hidden="true">FB</span>}
@@ -620,7 +620,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
             </div>
           </div>
         </article>)}</div>
-        <div className={styles.pagination}>
+        <div className={styles.pagination} data-admin-list-pagination>
           <AdminActionButton type="button" variant="secondary" disabled={page<=1||loading} onClick={()=>setPage(p=>p-1)}>Predošlá strana</AdminActionButton>
           <span>Strana {data.page} / {data.pages}</span>
           <AdminActionButton type="button" variant="secondary" disabled={page>=data.pages||loading} onClick={()=>setPage(p=>p+1)}>Ďalšia strana</AdminActionButton>

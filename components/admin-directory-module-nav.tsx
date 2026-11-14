@@ -9,15 +9,15 @@ const modules = [
 ] as const;
 
 export function AdminDirectoryModuleNav({ active }: { active: "services" | "help" | "events" }) {
-  return <nav className={styles.modules} aria-label="Sekcie adresára">
+  return <nav className={styles.modules} aria-label="Sekcie adresára" data-admin-directory-modules>
     {modules.map((module) => <Link prefetch={false} key={module.key} href={module.href} aria-current={active === module.key ? "page" : undefined}>{module.label}</Link>)}
   </nav>;
 }
 
 export function AdminDirectoryCategoryNav({ selected }: { selected: string }) {
-  return <section className={styles.categoryWorkspace} aria-label="Kategórie a nástroje služieb pre psov">
+  return <section className={styles.categoryWorkspace} aria-label="Kategórie a nástroje služieb pre psov" data-admin-directory-categories>
     <div className={styles.categoryHeader}><h2>Kategórie služieb</h2><span>Vyber kategóriu, potom pracuj s tabuľkou profilov.</span></div>
-    <nav className={styles.categories} aria-label="Kategórie profilov">
+    <nav className={styles.categories} aria-label="Kategórie profilov" tabIndex={0}>
       <Link prefetch={false} href="/admin/sluzby-pre-psov" aria-current={!selected ? "page" : undefined}>Všetky profily</Link>
       {allDirectoryCategories.map((category) => <Link prefetch={false}
         key={category.slug}
@@ -25,10 +25,13 @@ export function AdminDirectoryCategoryNav({ selected }: { selected: string }) {
         aria-current={selected === category.slug ? "page" : undefined}
       >{category.icon} {category.label}</Link>)}
     </nav>
-    <div className={styles.tools}>
-      <div><strong>Správa katalógu a technické nástroje</strong><span>Oddelené od zoznamu profilov, bez zásahu do existujúcej synchronizácie.</span></div>
-      <Link prefetch={false} href="/admin/sluzby-pre-psov/katalog">Katalóg služieb a vlastností</Link>
-      <Link prefetch={false} href="/admin/adresar/navrhy">Návrhy úprav</Link>
-    </div>
+    <details className={styles.tools} data-admin-directory-tools>
+      <summary>Ďalšie nástroje adresára</summary>
+      <div className={styles.toolsContent}>
+        <p>Katalóg služieb a návrhy úprav profilu.</p>
+        <Link prefetch={false} href="/admin/sluzby-pre-psov/katalog">Katalóg služieb a vlastností</Link>
+        <Link prefetch={false} href="/admin/adresar/navrhy">Návrhy úprav</Link>
+      </div>
+    </details>
   </section>;
 }

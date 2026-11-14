@@ -12,8 +12,8 @@ export default async function AdminDogNameDaysPage() {
     <AdminShell
       user={user}
       eyebrow="Kalendár psích mien"
-      title="Canonical psie meniny"
-      description="Spravuj iba overené mená s dohľadateľným zdrojom. Verejný header používa výhradne publikované záznamy."
+      title="Psie meniny"
+      description="Spravuj mená v kalendári, ich publikovanie a zdroje. Na verejnom webe sa zobrazujú iba publikované záznamy."
     >
       <AdminDogNameDayDashboard initialRecords={records} />
     </AdminShell>

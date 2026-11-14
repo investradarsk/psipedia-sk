@@ -278,15 +278,15 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
     : [];
 
   return (
-    <div className={`admin-events-workspace ${styles.workspace}`} data-hydrated={hydrated}>
+    <div className={`admin-events-workspace ${styles.workspace}`} data-hydrated={hydrated} data-admin-content-module="events-list">
       <section className="admin-stats admin-event-stats" aria-label="Stav celého kalendára">
         {([["all", "Všetky"], ["upcoming", "Nadchádzajúce"], ["current", "Prebiehajúce"], ["past", "Minulé"], ["published", "Publikované"], ["draft", "Koncepty"]] as const).map(([key, label]) => (
           <div key={key} data-count={key}><span>{label}</span><strong>{counts[key]}</strong></div>
         ))}
       </section>
 
-      <section className="admin-panel">
-        <fieldset className="admin-event-controls" disabled={!hydrated || busy}>
+      <section className="admin-panel" data-admin-event-list>
+        <fieldset className="admin-event-controls" data-admin-list-filters role="search" aria-label="Filtrovať podujatia" disabled={!hydrated || busy}>
           <legend className="sr-only">Vyhľadávanie a filtre podujatí</legend>
           <label className="admin-search">
             <span className="sr-only">Hľadať podujatie</span>
@@ -301,7 +301,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
             aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
             {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
           </button>
-          <div id="admin-event-advanced-filters" className={`admin-event-filters ${styles.advancedFilters}`} data-expanded={advancedFiltersOpen}>
+          <div id="admin-event-advanced-filters" className={`admin-event-filters ${styles.advancedFilters}`} data-admin-list-advanced data-expanded={advancedFiltersOpen}>
             <div><label htmlFor="admin-event-filter-status">Publikačný stav</label><select id="admin-event-filter-status" value={filters.status} onChange={(event) => changeFilter("status", event.target.value)}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></div>
             <div><label htmlFor="admin-event-filter-type">Typ podujatia</label><select id="admin-event-filter-type" value={filters.type} onChange={(event) => changeFilter("type", event.target.value)}><option value="">Všetky typy</option>{eventTypes.map((value) => <option key={value}>{value}</option>)}</select></div>
             <div><label htmlFor="admin-event-filter-region">Kraj</label><select id="admin-event-filter-region" value={filters.region} onChange={(event) => changeFilter("region", event.target.value)}><option value="">Všetky kraje</option>{slovakRegions.map((value) => <option key={value}>{value}</option>)}</select></div>
@@ -380,7 +380,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
           </div>
         )}
 
-        <p className="admin-event-result-count" role="status">Nájdené: {data.total} z {counts.all} · Zobrazené: {rows.length}. Časové filtre nezahŕňajú zrušené podujatia.</p>
+        <p className="admin-event-result-count" role="status" data-admin-list-results>Nájdené: {data.total} z {counts.all} · Zobrazené: {rows.length}. Časové filtre nezahŕňajú zrušené podujatia.</p>
         {message && <p className="admin-flash" role="status">{message}</p>}
         {eventQuery.error && <p className="admin-flash" role="alert">
           {eventQuery.error instanceof Error ? eventQuery.error.message : "Načítanie podujatí zlyhalo."}
@@ -390,6 +390,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
         {rows.length > 0 && <AdminRecordTable
           rows={rows}
           label="Zoznam podujatí"
+          stickyActions
           busy={busy || loading || !hydrated}
           serverSorted
           serverSorting={{
@@ -435,7 +436,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
             { id: "updated", label: "Aktualizované", width: 150, sortValue: (event) => event.updatedAt, cell: (event) => new Date(event.updatedAt).toLocaleDateString("sk-SK") },
             { id: "created", label: "Vytvorené", width: 145, initiallyHidden: true, sortValue: (event) => event.createdAt, cell: (event) => new Date(event.createdAt).toLocaleDateString("sk-SK") },
             { id: "reviewed", label: "AI kontrola", width: 145, cell: (event) => <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={reviewed.has(event.id)} compact /> },
-            { id: "actions", label: "Akcie", width: 260, cell: (event) => <div className={styles.tableActions}>
+            { id: "actions", label: "Akcie", width: 238, cell: (event) => <div className={styles.tableActions}>
               <Link prefetch={false} href={"/admin/podujatia/" + event.id}>Upraviť</Link>
               {event.status === "published" && <Link prefetch={false} href={eventHref(event)} target="_blank" rel="noreferrer">Web ↗</Link>}
               <AdminInlineRowActions
@@ -452,9 +453,9 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
         />}
 
         {!rows.length && <div className="admin-empty"><h2>Žiadne podujatia</h2><p>Skús zmeniť vyhľadávanie alebo filtre.</p></div>}
-        <nav className="admin-event-pagination" aria-label="Stránky podujatí">
+        <nav className="admin-event-pagination" aria-label="Stránky podujatí" data-admin-list-pagination>
           <button type="button" disabled={!hydrated || busy || loading || currentPage === 1} onClick={() => { clearSelection(); setPage(currentPage - 1); }}>Predchádzajúca</button>
-          <span>Strana {currentPage} z {pages}</span>
+          <span aria-live="polite" aria-atomic="true">Strana {currentPage} z {pages}</span>
           <button type="button" disabled={!hydrated || busy || loading || currentPage === pages} onClick={() => { clearSelection(); setPage(currentPage + 1); }}>Nasledujúca</button>
         </nav>
       </section>

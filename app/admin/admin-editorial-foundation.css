@@ -5,19 +5,54 @@
    Scope every selector to the admin route. */
 
 [data-admin-workspace] {
+  /* Canonical admin-only type system, aligned with the article EditorWorkspace. */
+  --admin-ui-font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --admin-ui-type-body: 0.91rem;
+  --admin-ui-type-heading: clamp(1.2rem, 1.7vw, 1.5rem);
+  --admin-ui-type-section: 1.05rem;
+  --admin-ui-type-label: 0.82rem;
+  --admin-ui-type-caption: 0.83rem;
+  --admin-ui-type-stat: clamp(1.6rem, 2.5vw, 2.1rem);
+  font-family: var(--admin-ui-font-family);
+  font-size: var(--admin-ui-type-body);
   --admin-ui-radius: 12px;
   --admin-ui-field-radius: 9px;
   --admin-ui-space-xs: 0.35rem;
   --admin-ui-space-sm: 0.55rem;
   --admin-ui-space-md: 0.75rem;
   --admin-ui-space-lg: 1rem;
-  --admin-ui-panel-padding: 0.85rem;
+  /* Compact geometry shared by dashboards, cards and canonical editors. */
+  --admin-ui-section-gap: 0.625rem;
+  --admin-ui-editor-field-gap: 0.5rem;
+  --admin-ui-panel-padding: 0.75rem;
+  /* Shared control and feedback geometry; behavior remains component-owned. */
+  --admin-ui-control-padding-block: 0.55rem;
+  --admin-ui-control-padding-inline: 0.75rem;
+  --admin-ui-control-height: 44px;
+  --admin-ui-feedback-space: var(--admin-ui-space-sm);
+  --admin-ui-error-text: #842f35;
+  --admin-ui-error-border: #e9b5b2;
+  --admin-ui-error-background: #fff3f2;
   --admin-ui-text: var(--admin-v3-ink, #142c21);
   --admin-ui-muted: var(--admin-v3-muted, #607568);
   --admin-ui-border: var(--admin-v3-line, #e3eae5);
   --admin-ui-surface: var(--admin-v3-surface, #fff);
   --admin-ui-heading: var(--admin-v3-heading, #11281d);
   --admin-ui-focus: var(--admin-v3-focus, #a26a1b);
+}
+
+/* Native controls do not always inherit typefaces; keep the same family.
+   Low specificity preserves intentional rich-text and rendered article previews. */
+[data-admin-workspace] :where(
+  button, input, select, textarea, legend, summary, table,
+  h1, h2, h3, h4, h5, h6
+) {
+  font-family: inherit;
+}
+
+[data-admin-workspace] :is(.admin-stats strong, .admin-overview-grid strong,
+  .admin-quality-tabs strong, .admin-quality-media-placeholder) {
+  font-family: var(--admin-ui-font-family);
 }
 
 /* All admin sections share the same editorial type scale. The article editor
@@ -31,7 +66,7 @@
   margin-block: 0 var(--admin-ui-space-xs);
   color: var(--admin-ui-heading);
   font-family: inherit;
-  font-size: 1.05rem;
+  font-size: var(--admin-ui-type-section);
   font-weight: 800;
   line-height: 1.3;
   letter-spacing: -0.015em;
@@ -40,7 +75,7 @@
 [data-admin-workspace] .admin-card-heading p {
   margin-block: 0 var(--admin-ui-space-sm);
   color: var(--admin-ui-muted);
-  font-size: 0.83rem;
+  font-size: var(--admin-ui-type-caption);
   line-height: 1.45;
   overflow-wrap: break-word;
 }
@@ -123,7 +158,7 @@
    or creating nested scrolling/overflow clipping. */
 @media (max-width: 820px) {
   [data-admin-workspace] {
-    --admin-ui-panel-padding: 0.7rem;
+    --admin-ui-panel-padding: 0.65rem;
   }
   [data-admin-workspace] [data-admin-form-system="v4"]:not([data-editor-layout="article"])
     [data-admin-editor-section] .admin-field-grid {
@@ -144,14 +179,14 @@
 /* ADMIN-UNIFIED-UI 2+6+9/10: one hierarchy for headings, toolbar actions
    and desktop/mobile density. Keep the article-specific editor untouched. */
 [data-admin-workspace] .admin-heading {
-  gap: 0.55rem;
+  gap: var(--admin-ui-space-sm);
   padding-block: 0.25rem 0.65rem;
 }
 [data-admin-workspace] .admin-heading h1 {
   margin: 0;
   font-family: inherit;
   font-weight: 850;
-  font-size: clamp(1.35rem, 1.8vw, 1.85rem);
+  font-size: var(--admin-ui-type-heading);
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -170,12 +205,12 @@
   min-width: 0;
 }
 [data-admin-workspace] :is(.admin-stats, .admin-heading-actions) {
-  gap: 0.55rem;
+  gap: var(--admin-ui-space-sm);
 }
 [data-admin-workspace] .admin-stats > div { border-radius: var(--admin-ui-radius); }
 [data-admin-workspace] :is(.admin-heading-actions, .admin-editor-actions)
   :is(button, a) { line-height: 1.3; }
-[data-admin-workspace] .admin-toolbar { min-width: 0; gap: 0.55rem; }
+[data-admin-workspace] .admin-toolbar { min-width: 0; gap: var(--admin-ui-space-sm); }
 [data-admin-workspace] :is(.admin-panel, .admin-form-card) {
   overflow-wrap: break-word;
 }
@@ -234,17 +269,17 @@
     padding-block: 0.1rem 0.45rem;
     gap: 0.4rem;
   }
-  [data-admin-workspace] .admin-heading h1 { font-size: 1.38rem; }
+  [data-admin-workspace] .admin-heading h1 { font-size: var(--admin-ui-type-heading); }
   [data-admin-workspace] .admin-heading p { font-size: 0.85rem; }
   [data-admin-workspace] .admin-heading-actions { gap: 0.4rem; }
   [data-admin-workspace] .admin-stats { gap: 0.45rem; }
   [data-admin-workspace] .admin-stats > div { padding: 0.6rem; }
-  [data-admin-workspace] :is(.admin-panel, .admin-form-card) { padding: 0.7rem; }
+  [data-admin-workspace] :is(.admin-panel, .admin-form-card) { padding: var(--admin-ui-panel-padding); }
   [data-admin-workspace] .admin-sync-disclosure-content { padding-inline: 0.4rem; }
 }
 @media (min-width: 821px) {
   [data-admin-workspace] .admin-heading { padding-block: 0.3rem 0.75rem; }
-  [data-admin-workspace] .admin-form-card { padding: 0.9rem; }
+  [data-admin-workspace] .admin-form-card { padding: var(--admin-ui-panel-padding); }
 }
 
 
@@ -257,7 +292,7 @@
 }
 [data-admin-workspace] .admin-puppy-areas-heading h2 {
   font-family: inherit;
-  font-size: 1.05rem;
+  font-size: var(--admin-ui-type-section);
   font-weight: 800;
   line-height: 1.3;
   margin: 0 0 0.25rem;
@@ -299,5 +334,67 @@
   }
   [data-admin-workspace] .admin-puppy-areas-heading {
     margin-bottom: 0.5rem;
+  }
+}
+
+/* CONTENT UNIFICATION 9/18 — content editors use the same compact card
+   and label rhythm as the canonical article EditorWorkspace. */
+[data-admin-workspace] [data-admin-content-module] {
+  min-width: 0;
+  max-width: 100%;
+}
+[data-admin-workspace] [data-admin-content-module] :where(h2, h3) {
+  font-family: var(--admin-ui-font-family);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-areas-heading {
+  margin-bottom: var(--admin-ui-space-xs, 0.35rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-list {
+  margin-top: var(--admin-ui-space-sm, 0.55rem);
+  gap: var(--admin-ui-space-sm, 0.55rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item {
+  min-width: 0;
+  padding: 0;
+  border-radius: var(--admin-ui-radius, 12px);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary {
+  box-sizing: border-box;
+  grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+  min-height: var(--admin-ui-control-height, 44px);
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: var(--admin-ui-space-sm, 0.55rem) var(--admin-ui-space-md, 0.75rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-fields {
+  gap: var(--admin-ui-editor-field-gap, 0.5rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-actions {
+  gap: var(--admin-ui-space-sm, 0.55rem);
+}
+[data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-actions :is(a, button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--admin-ui-control-height, 44px);
+}
+@media (max-width: 420px) {
+  [data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary {
+    grid-template-columns: 1.8rem minmax(0, 1fr);
+    padding: 0.55rem;
+  }
+  [data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-item summary small { display: none; }
+  [data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-fields { padding: 0.55rem; }
+  [data-admin-workspace] [data-admin-content-module="puppy-areas"] .admin-puppy-content-actions :is(a, button) {
+    flex: 1 1 8rem;
+    white-space: normal;
   }
 }

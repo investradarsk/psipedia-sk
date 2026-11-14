@@ -74,6 +74,7 @@ export function AdminRecordTable<T extends { id: number }>({
   busy = false,
   selection,
   stretch = false,
+  stickyActions = false,
   serverSorted = false,
   serverSorting,
   density = "compact",
@@ -86,6 +87,8 @@ export function AdminRecordTable<T extends { id: number }>({
   selection?: AdminRecordTableSelection<T>;
   /** Opt in to filling available desktop width, while preserving horizontal scrolling. */
   stretch?: boolean;
+  /** Keep last-row actions visible while a wide table scrolls (opt-in only). */
+  stickyActions?: boolean;
   /** Server already sorted the entire result set before pagination. */
   serverSorted?: boolean;
   /** Controlled whole-result sorting; parent reloads page 1 with a server ORDER BY. */
@@ -238,7 +241,7 @@ export function AdminRecordTable<T extends { id: number }>({
   });
 
   return (
-    <div className={styles.workspace} data-density={density} data-mobile-focus={mobileFocus} aria-busy={busy}>
+    <div className={styles.workspace} data-density={density} data-mobile-focus={mobileFocus} data-sticky-actions={stickyActions ? "true" : undefined} aria-busy={busy}>
       <div className={styles.toolbar}>
         <div className={styles.tableIntro}>
           <strong>{label}</strong>
@@ -289,6 +292,7 @@ export function AdminRecordTable<T extends { id: number }>({
                   <th
                     key={header.id}
                     scope="col"
+                    data-column-id={header.column.id}
                     style={{ width: header.getSize() }}
                     aria-sort={header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : "none"}
                   >

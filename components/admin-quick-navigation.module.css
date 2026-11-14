@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 36px;
+  min-height: var(--admin-ui-control-height, 44px);
   padding: 6px 10px;
   color: #174b38;
   background: #fff;
@@ -191,7 +191,7 @@
   .trigger > span { overflow: hidden; text-overflow: ellipsis; }
 }
 @media (max-width: 760px) {
-  .trigger { width: 36px; min-width: 36px; padding: 6px; }
+  .trigger { width: 44px; min-width: 44px; padding: 6px; }
   .trigger > span { display: none; }
 }
 

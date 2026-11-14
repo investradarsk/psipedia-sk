@@ -23,3 +23,95 @@
 .admin-review-audit{display:grid;gap:10px}.admin-review-audit article{padding:12px;border:1px solid #e2e8e4;border-radius:10px}.admin-review-audit article>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}.admin-review-audit p{margin:7px 0;overflow-wrap:anywhere}.admin-review-audit small{color:#60756c;overflow-wrap:anywhere}
 @media(max-width:900px){.admin-review-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-review-filters button{width:100%}}
 @media(max-width:760px){.admin-review-filters,.admin-review-row,.admin-review-detail-grid,.admin-review-form-grid{grid-template-columns:1fr}.admin-review-row{align-items:start}.admin-review-open{min-height:44px;display:inline-flex;align-items:center}.admin-review-definition div{grid-template-columns:1fr;gap:3px}.admin-review-actions{display:grid}.admin-review-actions button{width:100%}.admin-review-search{grid-column:auto}}
+
+
+/* ADMIN COMMUNITY STEP 13 — moderation queue matches other admin lists;
+   review approval still goes through the existing guarded action handlers. */
+.admin-review-card {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--admin-ui-panel-padding, .75rem);
+  margin-bottom: var(--admin-ui-section-gap, .625rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.admin-review-filters {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.5fr) auto;
+  gap: var(--admin-ui-space-sm, .55rem);
+}
+.admin-review-filters label {
+  min-width: 0;
+  color: var(--admin-ui-muted, #607568);
+  font-size: var(--admin-ui-type-label, .82rem);
+}
+.admin-review-filters :is(input,select,button) {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  min-height: var(--admin-ui-control-height, 44px);
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.admin-review-filters button {
+  background: #245d47;
+  border: 1px solid #245d47;
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+.admin-review-row {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: .65rem .75rem;
+  gap: .55rem;
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.admin-review-list {
+  gap: var(--admin-ui-space-sm, .55rem);
+  min-width: 0;
+}
+.admin-review-row-main { min-width: 0; }
+.admin-review-row h2 { font-family: inherit; margin: .2rem 0; }
+.admin-review-row p { line-height: 1.45; }
+.admin-review-badges { gap: .35rem; }
+.admin-review-meta { margin-top: .4rem; gap: .3rem .6rem; }
+.admin-review-open {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  border: 1px solid var(--admin-ui-border, #d5dfd7);
+  background: #f5faf6;
+  border-radius: var(--admin-ui-field-radius, 9px);
+  padding: .45rem .7rem;
+  color: #24533d;
+  text-decoration: none;
+  justify-content: center;
+  white-space: normal;
+}
+.admin-review-results {
+  margin: .45rem 0;
+  color: var(--admin-ui-muted, #607568);
+  font-size: var(--admin-ui-type-caption, .83rem);
+  font-variant-numeric: tabular-nums;
+}
+.admin-review-filters :is(input,select,button):focus-visible,
+.admin-review-open:focus-visible,
+.admin-review-actions button:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.admin-review-detail-grid { gap: var(--admin-ui-space-sm, .55rem); }
+.admin-review-definition { gap: .5rem; }
+.admin-review-audit { gap: .5rem; }
+.admin-review-actions { gap: .55rem; margin-top: .65rem; }
+@media(max-width: 900px) {
+  .admin-review-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-review-search { grid-column: 1 / -1; }
+}
+@media(max-width: 760px) {
+  .admin-review-card { padding: .65rem; }
+  .admin-review-filters { grid-template-columns: minmax(0, 1fr); }
+  .admin-review-search { grid-column: auto; }
+  .admin-review-filters :is(input,select) { font-size: 16px; }
+  .admin-review-row { grid-template-columns: minmax(0,1fr); padding: .65rem; }
+  .admin-review-open { width: 100%; }
+}

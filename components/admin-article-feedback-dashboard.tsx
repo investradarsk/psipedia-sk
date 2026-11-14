@@ -87,19 +87,19 @@ export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { f
 
   return (
     <>
-      <section className="admin-stats" aria-label="Súhrn hodnotení článkov">
+      <section className="admin-stats" aria-label="Súhrn hodnotení článkov" data-admin-community-metrics>
         <div><span>Všetky hodnotenia</span><strong>{feedback.length}</strong></div>
         <div><span>Užitočné</span><strong>{helpfulRate} %</strong></div>
         <div><span>Aktívne podnety</span><strong>{active}</strong></div>
         <div><span>Odpovede s podnetom</span><strong>{withComment}</strong></div>
       </section>
-      <section className="admin-panel admin-feedback-panel">
+      <section className="admin-panel admin-feedback-panel" data-admin-content-module="reader-feedback">
         <div className="admin-feedback-summary"><strong>👍 {helpful} Áno</strong><strong>👎 {notHelpful} Nie</strong></div>
         {message && <p className="admin-flash" role="status">{message}</p>}
         {feedback.length ? (
-          <div className="admin-feedback-list">
+          <div className="admin-feedback-list" data-admin-community-list>
             {feedback.map((item) => (
-              <article id={`hodnotenie-${item.id}`} className={item.helpful ? "is-helpful" : "is-not-helpful"} key={item.id}>
+              <article id={`hodnotenie-${item.id}`} className={item.helpful ? "is-helpful" : "is-not-helpful"} key={item.id} data-admin-community-feedback>
                 <header className={styles.header}>
                   <span>{item.helpful ? "👍 Áno" : "👎 Nie"}</span>
                   {!item.helpful && <span className={`${styles.status} ${statusClass(item.status)}`}>{statusLabels[item.status]}</span>}

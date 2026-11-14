@@ -210,15 +210,15 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
   }
 
   return <>
-    <section className="admin-stats" aria-label="Stav organizácií">
+    <section className="admin-stats" aria-label="Stav organizácií" data-admin-content-module="organizations-list">
       <div><span>Všetky</span><strong>{data.counts.total}</strong></div>
       <div><span>Koncepty</span><strong>{data.counts.draft}</strong></div>
       <div><span>Publikované</span><strong>{data.counts.published}</strong></div>
       <div><span>Archivované</span><strong>{data.counts.archived}</strong></div>
     </section>
 
-    <section className="admin-panel">
-      <form className={styles.filters} action="/admin/organizacie" method="get" role="search">
+    <section className="admin-panel" data-admin-organization-list>
+      <form className={styles.filters} action="/admin/organizacie" method="get" role="search" data-admin-list-filters>
         <label className={"admin-search " + styles.search}>
           <SearchIcon size={19} /><span>Hľadať</span>
           <input name="q" defaultValue={filters.q} maxLength={120} placeholder="Názov, slug, mesto, okres, e-mail…" />
@@ -235,7 +235,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
 
       {message && <p className={styles.message} role="status">{message}</p>}
       {error && <p className={styles.message + " " + styles.error} role="alert">{error}</p>}
-      <p className="admin-help-results">Nájdené: <strong>{data.resultCount}</strong> · Strana {data.pagination.page} z {data.pagination.totalPages}</p>
+      <p className="admin-help-results" role="status" data-admin-list-results>Nájdené: <strong>{data.resultCount}</strong> · Strana {data.pagination.page} z {data.pagination.totalPages}</p>
 
       {!!data.items.length && <p className={styles.bulkSelect}>
         {bulkSelection.currentPageSelected} z {data.items.length} označených na tejto strane
@@ -263,6 +263,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
       />}
 
       {data.items.length ? <AdminRecordTable
+        stickyActions
         rows={data.items}
         label="Organizácie"
         rowDataAttribute="data-admin-organization-row"

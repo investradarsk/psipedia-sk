@@ -144,7 +144,7 @@
 }
 
 .metricValue strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 3.25rem;
   font-weight: 500;
   line-height: .92;
@@ -206,7 +206,7 @@
 }
 
 .queueLink b {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 1.75rem;
   font-weight: 500;
 }
@@ -243,7 +243,7 @@
 }
 
 .inlineMetric strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 1.7rem;
   font-weight: 500;
 }
@@ -329,30 +329,91 @@
 }
 
 /* ADMIN-V3-COMPACT-01: dashboard density without removing status or actions. */
-.workspace { gap: 13px; padding-bottom: 6px; }
+.workspace { gap: var(--admin-ui-section-gap, 10px); padding-bottom: var(--admin-ui-space-xs, 6px); }
 .sectionHeading { margin-bottom: 7px; gap: 8px; }
 .sectionHeading h2, .panelHeading h2 { font-family: inherit; font-weight: 800; font-size: clamp(1.05rem, 1.6vw, 1.24rem); }
-.priorityGrid, .splitGrid { gap: 9px; }
-.metricCard { min-height: 142px; gap: 8px; padding: 13px 14px; border-radius: 13px; box-shadow: 0 3px 12px rgba(23, 53, 43, .045); }
+.priorityGrid, .splitGrid { gap: var(--admin-ui-space-sm, 9px); }
+.metricCard { min-height: 132px; gap: var(--admin-ui-editor-field-gap, 8px); padding: var(--admin-ui-panel-padding, 12px); border-radius: var(--admin-ui-radius, 12px); box-shadow: 0 3px 12px rgba(23, 53, 43, .045); }
 .metricValue { gap: 7px; flex-wrap: wrap; }
-.metricValue strong { font-family: inherit; font-size: clamp(1.6rem, 2.5vw, 2.1rem); font-weight: 800; line-height: 1.05; }
+.metricValue strong { font-family: inherit; font-size: var(--admin-ui-type-stat, clamp(1.6rem, 2.5vw, 2.1rem)); font-weight: 800; line-height: 1.05; }
 .metricCard p { line-height: 1.4; }
 .metricCard b { margin-top: 2px; }
-.queueGrid { gap: 7px; }
-.queueLink { min-height: 60px; padding: 9px 12px; gap: 8px; border-radius: 11px; box-shadow: 0 3px 12px rgba(23, 53, 43, .04); }
+.queueGrid { gap: var(--admin-ui-editor-field-gap, 8px); }
+.queueLink { min-height: 56px; padding: 8px 10px; gap: var(--admin-ui-editor-field-gap, 8px); border-radius: var(--admin-ui-radius, 12px); box-shadow: 0 3px 12px rgba(23, 53, 43, .04); }
 .queueLink b { font-family: inherit; font-size: 1.3rem; font-weight: 800; }
-.panel { padding: 13px 14px; border-radius: 13px; box-shadow: 0 3px 12px rgba(23, 53, 43, .04); }
-.inlineMetric { margin-top: 9px; padding: 10px 12px; }
+.panel { padding: var(--admin-ui-panel-padding, 12px); border-radius: var(--admin-ui-radius, 12px); box-shadow: 0 3px 12px rgba(23, 53, 43, .04); }
+.inlineMetric { margin-top: var(--admin-ui-space-sm, 9px); padding: var(--admin-ui-panel-padding, 12px); }
 .inlineMetric strong { font-family: inherit; font-size: 1.35rem; font-weight: 800; }
-.actionRow, .quickLinks { margin-top: 10px; }
+.actionRow, .quickLinks { margin-top: var(--admin-ui-section-gap, 10px); }
 .actionRow a, .quickLinks a { min-height: 44px; }
 .reliabilityNotice { padding: 11px 12px; gap: 8px; }
 @media (max-width: 760px) {
-  .workspace { gap: 10px; }
-  .metricCard { min-height: 0; padding: 12px; }
+  .workspace { gap: var(--admin-ui-section-gap, 10px); }
+  .metricCard { min-height: 0; padding: var(--admin-ui-panel-padding, 10px); }
   .metricValue strong { font-size: 1.75rem; }
   .queueLink { min-height: 54px; }
 }
 @media (min-width: 521px) and (max-width: 760px) {
   .priorityGrid, .queueGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+/* ADMIN-WORK-AUDIT: render only actionable/unknown queues as large cards;
+   empty known queues remain one expandable, fully navigable group. */
+.communityQueues { display: grid; gap: var(--admin-ui-space-sm, 0.55rem); min-width: 0; }
+.communityPending {
+  margin: 0;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border: 1px solid var(--admin-v3-line, #dce5de);
+  border-radius: var(--admin-ui-radius, 12px);
+  color: var(--admin-v3-muted, #607568);
+  background: #fff;
+  font-size: var(--admin-ui-type-caption, 0.83rem);
+}
+.completedQueues {
+  min-width: 0;
+  border: 1px solid var(--admin-v3-line, #dce5de);
+  border-radius: var(--admin-ui-radius, 12px);
+  background: #f8fbf8;
+}
+.completedQueues > summary {
+  display: flex;
+  min-height: 44px;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  font-weight: 750;
+  color: #315246;
+  overflow-wrap: anywhere;
+}
+.completedQueues > summary small { color: var(--admin-v3-muted, #64766e); font-weight: 600; }
+.completedQueues > summary:focus-visible { outline: 3px solid var(--admin-ui-focus, #a26a1b); outline-offset: 2px; }
+.completedQueueLinks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding: 0 0.75rem 0.75rem;
+}
+.completedQueueLinks a {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid #e1e9e3;
+  border-radius: 9px;
+  padding: 0.45rem 0.6rem;
+  color: #315246;
+  background: #fff;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.completedQueueLinks a:focus-visible { outline: 3px solid var(--admin-ui-focus, #a26a1b); outline-offset: 2px; }
+.completedQueueLinks a span { flex: none; color: #607568; }
+@media (max-width: 760px) {
+  .completedQueues > summary { align-items: flex-start; flex-wrap: wrap; }
+  .completedQueueLinks { grid-template-columns: minmax(0, 1fr); }
 }
