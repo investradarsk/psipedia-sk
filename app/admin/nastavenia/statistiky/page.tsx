@@ -27,7 +27,7 @@ export default async function AdminTrafficStatisticsPage({
       user={user}
       eyebrow="Nastavenia / Štatistiky"
       title="Štatistiky návštevnosti"
-      description="Vlastné meranie návštevnosti celého webu, zdrojov, zariadení a čítanosti obsahu. Bez Google Analytics."
+      description="Súhrnné počty zobrazení verejných stránok, ich vývoj a najnavštevovanejší obsah. Bez Google Analytics."
       actions={<Link href="/admin/nastavenia">Späť na nastavenia</Link>}
     >
       <AdminTrafficDashboard report={report} siteReport={siteReport} />
