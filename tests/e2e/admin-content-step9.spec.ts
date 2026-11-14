@@ -22,11 +22,11 @@ for (const route of [
     const response = await page.goto(route.path, { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { name: route.title, exact: true, level: 1 })).toHaveCount(1);
-    const module = page.locator('[data-admin-content-module="' + route.module + '"]');
-    await expect(module).toBeVisible();
+    const contentModule = page.locator('[data-admin-content-module="' + route.module + '"]');
+    await expect(contentModule).toBeVisible();
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 844 });
-      await expect(module).toBeVisible();
+      await expect(contentModule).toBeVisible();
       await expectNoPageOverflow(page, width);
     }
   });
@@ -50,15 +50,15 @@ test("step 9: puppy accordion keeps edit and article links accessible", async ({
 test("step 9: name-day table uses mobile cards and import is optional", async ({ page }) => {
   const response = await page.goto("/admin/meniny", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
-  const module = page.locator('[data-admin-content-module="name-days"]');
-  const importPanel = module.locator("details");
+  const contentModule = page.locator('[data-admin-content-module="name-days"]');
+  const importPanel = contentModule.locator("details");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(importPanel).not.toHaveAttribute("open", "");
   await expect(importPanel.locator("summary")).toBeVisible();
   await importPanel.locator("summary").click();
   await expect(importPanel.getByRole("textbox", { name: "JSON dáta na import" })).toBeVisible();
   await expect(importPanel.getByRole("button", { name: "Skontrolovať import" })).toBeVisible();
-  const table = module.getByRole("table");
+  const table = contentModule.getByRole("table");
   await expect(table).toBeVisible();
   const cards = table.locator("tbody tr");
   if (await cards.count() && await cards.first().locator('td[data-label="Dátum"]').count()) {
