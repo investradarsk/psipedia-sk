@@ -160,7 +160,7 @@ test("internal category navigation remains crawlable while directory pagination 
   );
   assert.match(eventsPage, /eventTypePortalHref\(\s*type\s*\)/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(calendar, /eventTypePortalHref\(\s*type\s*\)/);
+  assert.match(calendar, /eventTypePortalHref\(\s*view\.type\s*\)/);
   assert.doesNotMatch(
     calendar,
     /eventTypeFilters|selectType|className=\{\s*styles\s*\.typeBar\s*\}/,
@@ -219,7 +219,7 @@ test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable compact category links"
     /items=\{eventTypes\.map\(\(type\)\s*=>\s*\(\{/,
   );
   assert.match(page, /eventTypePortalHref\(\s*type\s*\)/);
-  assert.match(calendar, /eventTypePortalHref\(\s*type\s*\)/);
+  assert.match(calendar, /eventTypePortalHref\(\s*view\.type\s*\)/);
   // Active state follows client-side calendar selection, not initial SSR props.
   assert.match(calendar, /aria-current=\{\s*view\s*\.type\s*===\s*type/);
   assert.match(calendar, /data-events-legend/);
