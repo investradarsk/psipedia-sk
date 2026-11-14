@@ -42,8 +42,8 @@ export default async function AdminReviewsPage() {
   return <AdminShell
     user={user}
     eyebrow="Recenzie a testy"
-    title="Správa recenzií a testov"
-    description="Redakčné testy, používateľské recenzie a kategórie spravuj z jedného pracovného miesta. Každá agenda zostáva vo svojom canonical module."
+    title="Recenzie a testy"
+    description="Redakčné testy, hodnotenia profilov a kategórie spravuj prehľadne z jedného miesta."
     actions={<Link className="admin-primary-action" href="/admin/novy?sekcia=recenzie">+ Nový test</Link>}
   >
     <Suspense fallback={<AdminDataLoading label="Recenzie a testy" />}>
