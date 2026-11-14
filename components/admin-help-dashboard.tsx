@@ -134,12 +134,12 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
     finally { setDeletingId(null); }
   }
 
-  return <div className={styles.dashboard}>
+  return <div className={styles.dashboard} data-admin-content-module="help-list">
     <section className={styles.boundary} aria-label="Pomoc psom">
       <div>
         <span className="admin-eyebrow">Pomoc psom</span>
-        <h2>Agendy sú zoskupené podľa verejného webu</h2>
-        <p>Späť na prehľade Pomoc psom nájdeš adopcie, útulky, dočasnú opateru, zbierky, stratené a nájdené psy aj dobrovoľníctvo.</p>
+        <h2>Správa prípadov a výziev</h2>
+        <p>Ostatné agendy Pomoci psom majú vlastné editory.</p>
       </div>
       <nav className={styles.moduleLinks} aria-label="Pomoc psom">
         <Link prefetch={false} href="/admin/pomoc-psom">Všetky kategórie</Link>
@@ -155,7 +155,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
       <div><span>Vybavené</span><strong>{totals.resolved}</strong></div>
     </section>
 
-    <section className="admin-panel">
+    <section className="admin-panel" data-admin-help-list>
       <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať Help záznamy" data-admin-list-filters>
         <label className={styles.searchField}><span>Hľadať</span><input name="q" defaultValue={filters.q} placeholder="Názov, Admin ID, pes, mesto alebo organizácia" maxLength={120} /></label>
         <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="all">Všetky kategórie ({totals.total})</option>{HELP_ADMIN_CATEGORIES.map((slug) => <option value={slug} key={slug}>{slug === "utulky" ? "Útulky" : getHelpCategory(slug)?.label ?? slug} ({categoryCounts[slug] ?? 0})</option>)}</select></label>
@@ -184,6 +184,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
       {message && <p className="admin-flash" role="status">{message}</p>}
       <p className="admin-help-results" role="status" data-admin-list-results>Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
       {items.length ? <AdminRecordTable
+        stickyActions
         rows={items}
         label="Prípady Pomoci psom"
         busy={bulkBusy}
