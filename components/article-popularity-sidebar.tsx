@@ -42,7 +42,7 @@ export function ArticlePopularitySidebar({
       data-popularity-hydrated="false"
     >
       <div className={styles.header}>
-        <h2 id={`${id}-heading`}>Najčítanejšie články a profily</h2>
+        <h2 id={`${id}-heading`}>Najčítanejšie</h2>
         <div className={styles.tabs} role="tablist" aria-label="Obdobie rebríčka">
           {windows.map((window) => {
             const selected = activeWindow === window.key;
