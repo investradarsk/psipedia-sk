@@ -9,6 +9,13 @@ import { useMemo, useState } from "react";
 
 const pace = { small: 4, medium: 5, large: 6, giant: 7 } as const;
 
+/** Slovak fractional ages take the singular genitive (e.g. 4,5 roka). */
+export function formatDogAge(age: number): string {
+  const formatted = age.toLocaleString("sk-SK", { maximumFractionDigits: 1 });
+  const unit = !Number.isInteger(age) ? "roka" : age === 1 ? "rok" : age >= 2 && age <= 4 ? "roky" : "rokov";
+  return `${formatted} ${unit}`;
+}
+
 export function DogAgeCalculator() {
   const [age, setAge] = useState(4);
   const [size, setSize] = useState<keyof typeof pace>("large");
@@ -25,7 +32,7 @@ export function DogAgeCalculator() {
         <label>
           Vek psa
           <span>
-            <b>{age}</b> {age === 1 ? "rok" : age > 1 && age < 5 ? "roky" : "rokov"}
+            <b>{formatDogAge(age)}</b>
           </span>
           <PublicTextInput
             appearance="context"
