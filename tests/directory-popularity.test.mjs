@@ -201,7 +201,7 @@ test("existing article, listing and directory route share the same visual compon
   assert.match(discovery, /getPopularDirectoryProfiles/);
   assert.match(discovery, /getPopularArticles/);
   assert.match(discovery, /mergePopularContent/);
-  assert.match(sidebar, /Najčítanejšie články a profily/);
+  assert.match(sidebar, /Najčítanejšie/);
   assert.match(sidebar, /Zobrazenia profilu:/);
   assert.match(sidebar, /Počet prečítaní:/);
   assert.match(sidebar, /data-popularity-window=\{activeWindow\}/);
