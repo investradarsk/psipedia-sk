@@ -164,14 +164,15 @@ export default async function PrivacyPage() {
         Vlastná analytika návštevnosti Psipedie
       </PublicHeading>
       <p>
-        Na vlastné štatistiky Psipedie používame tú istú existujúcu voľbu „Prijať analytiku“
-        ako na Google Analytics, bez ďalšieho súhlasového okna. Po jej udelení meriame
-        zobrazenia verejných stránok, návštevy,
-        rôzne prehliadače v zvolenom období, zdroje návštevnosti a kategórie zariadení
-        priamo v Psipedii, bez potreby Google Analytics. Zároveň meriame kvalifikované
-        prečítania článkov a zobrazenia profilov po 10 sekundách viditeľnosti.
-        Súhrnné počítadlá uchovávame v hodinových agregátoch; na odlíšenie návštev
-        používame krátkodobé pseudonymizované identifikátory, nie meno ani e-mail.
+        Základnú anonymnú návštevnosť meriame aj bez analytického súhlasu.
+        Uchovávame iba súhrnné počty zobrazení verejných stránok podľa
+        cesty bez parametrov, časového obdobia, zdroja a kategórie zariadenia.
+        Na tento základný súčet nevytvárame cookies, identifikátor prehliadača
+        ani záznam návštevy. Pri povolenej analytike navyše používame krátkodobé
+        pseudonymizované identifikátory na približné počty relácií a prehliadačov.
+        Kvalifikovanú čítanosť článkov a profilov meriame len po súhlase a
+        po 10 sekundách viditeľnosti. Údaje sa ukladajú do vlastnej databázy D1,
+        nie do Google Analytics.
       </p>
       <p>
         Pri prevencii proti automatizovaným požiadavkám môžeme krátkodobo používať
