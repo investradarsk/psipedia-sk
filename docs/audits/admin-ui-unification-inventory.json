@@ -174,6 +174,13 @@
     },
     {
       "group": "Nastavenia",
+      "label": "Štatistiky",
+      "href": "/admin/nastavenia/statistiky",
+      "step": 16,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Nastavenia",
       "label": "Komponenty a šablóny",
       "href": "/admin/komponenty",
       "step": 16,
