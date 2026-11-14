@@ -50,11 +50,13 @@ export default async function LegacyArticlePage({ params }: Props) {
       });
       return [];
     }),
-    getQualifiedContentViewCount({
-      entityType: "ARTICLE",
-      entityId: storedArticle.id,
-      window: "all",
-    }),
+    "id" in storedArticle && typeof storedArticle.id === "number"
+      ? getQualifiedContentViewCount({
+          entityType: "ARTICLE",
+          entityId: storedArticle.id,
+          window: "all",
+        })
+      : Promise.resolve(null),
   ]);
   return <ArticleDetail article={article} magazine={magazine} discovery={discovery} qualifiedReads={qualifiedReads} authorProfile={authorProfile} relatedBreeds={relatedBreeds} />;
 }
