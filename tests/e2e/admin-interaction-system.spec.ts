@@ -40,7 +40,7 @@ test("real AdminDrawer in new breed editor traps focus, skips disabled/hidden an
   // The breed editor now uses switchable sections; its real AdminDrawer
   // edits sports from the media section rather than obsolete FCI settings.
   const navigation = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
-  await expect(navigation.locator("[data-admin-editor-nav-ready='true']")).toHaveCount(1);
+  await expect(navigation).toHaveAttribute("data-admin-editor-nav-ready", "true");
   if (page.viewportSize()!.width <= 760) {
     await navigation.getByRole("combobox", { name: "Sekcia editora" }).selectOption("breed-media");
   } else {
