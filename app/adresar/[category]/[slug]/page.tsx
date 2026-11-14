@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { DirectoryProfileDetail } from "@/components/directory-profile-detail";
+import { DirectoryProfileViewTracker } from "@/components/directory-profile-view-tracker";
 import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
 import { getDirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
 import { getPublishedDirectoryProfile } from "@/lib/directory-store";
@@ -167,6 +168,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
   return (
     <>
       <StructuredData value={schema} />
+      <DirectoryProfileViewTracker profileId={profile.id} profileSlug={profile.slug} />
       <DirectoryProfileDetail
         presentation={presentation}
         reviews={reviewResult.data}

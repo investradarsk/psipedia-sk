@@ -34,8 +34,10 @@ export default function CookiesPage() {
         Voľba analytiky
       </PublicHeading>
       <p>
-        Tvoj výber si uložíme v prehliadači, aby sme sa naň nemuseli pýtať pri každej návšteve.
-        Súhlas môžeš kedykoľvek zmeniť.
+        Vlastné počítadlo zobrazení stránok funguje nezávisle od tejto voľby
+        a neukladá informácie o návštevníkoch. Súhlas sa týka Google Analytics
+        a samostatnej kvalifikovanej čítanosti obsahu. Voľbu si prehliadač
+        zapamätá a kedykoľvek ju môžeš zmeniť.
       </p>
       <PublicHeading role="section" as="h2">
         Obľúbené články
@@ -45,6 +47,22 @@ export default function CookiesPage() {
         Zoznam neobsahuje tvoje meno ani e-mail a automaticky ho neposielame na server.
       </p>
       <PrivacyControls />
+      <PublicHeading role="section" as="h2">
+        Vlastné počítadlo zobrazení Psipedie
+      </PublicHeading>
+      <p>
+        Zaznamenávame iba počet otvorení verejných stránok. Každé otvorenie
+        zvýši hodinový súčet webu a súčet konkrétnej stránky.
+        Neukladáme identifikátory návštevníkov, IP adresy, relácie,
+        cookies, miestne ID, zdroje návštevnosti ani údaje o zariadení.
+        Odkaz stránky sa ukladá bez parametrov.
+      </p>
+      <p>
+        Počítadlo funguje aj bez voľby v cookies oznámení. Neurčuje,
+        koľko rôznych ľudí stránku navštívilo, a opakované otvorenia
+        započítava opakovane. Samostatné meranie kvalifikovanej
+        čítanosti článkov a profilov je viazané na súhlas s analytikou.
+      </p>
       <PublicHeading role="section" as="h2">
         Google Analytics 4
       </PublicHeading>

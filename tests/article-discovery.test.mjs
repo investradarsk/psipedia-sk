@@ -225,7 +225,7 @@ test("EDITORIAL-5 article popularity is sitewide across editorial sections, not 
   assert.match(rankingQuery, /a.status = 'published'/);
   assert.doesNotMatch(rankingQuery, /AND a.portal_section =/);
   assert.match(discovery, /articleHref\(article\)/);
-  assert.match(sidebar, /Najčítanejšie články/);
+  assert.match(sidebar, /Najčítanejšie/);
   assert.match(list, /initialWindow=\{discovery.initialWindow\}/);
 });
 

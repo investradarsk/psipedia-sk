@@ -161,6 +161,24 @@ export default async function PrivacyPage() {
       </div>
 
       <PublicHeading role="section" as="h2">
+        Vlastné počítadlo zobrazení Psipedie
+      </PublicHeading>
+      <p>
+        Vlastné počítadlo eviduje iba súhrnné počty otvorení
+        verejných stránok podľa hodiny a cesty bez parametrov.
+        Nevytvára ani neuchováva ID návštevníka, IP adresu,
+        históriu relácií, zdroj návštevy alebo informácie o zariadení.
+        Na toto počítanie nepoužíva cookies ani lokálne úložisko.
+      </p>
+      <p>
+        Ide o počty zobrazení, nie o unikátne osoby. Funguje nezávisle
+        od Google Analytics a od voľby analytiky v cookies oznámení.
+        Samostatná kvalifikovaná čítanosť článkov a profilov je
+        viazaná na udelenie súhlasu. Podrobnosti sú na stránke{" "}
+        <Link href="/cookies">Cookies a lokálne úložisko</Link>.
+      </p>
+
+      <PublicHeading role="section" as="h2">
         Google Analytics 4
       </PublicHeading>
       <p>
