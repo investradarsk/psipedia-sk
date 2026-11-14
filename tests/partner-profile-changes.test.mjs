@@ -91,12 +91,12 @@ test("central field registry excludes system, ranking, media and source fields",
     for (const key of forbidden) assert.equal(keys.includes(key), false, `${type} must not expose ${key}`);
   }
   assert.deepEqual(getPartnerEditableFields("DIRECTORY_PROFILE").map((field) => field.key), [
-    "name","excerpt","description","services","qualifications","city","district","region","address",
-    "priceNote","websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl",
+    "name","excerpt","description","additionalCategories","services","qualifications","city","district","region","address",
+    "openingHours","priceNote","websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl","galleryUrls",
   ]);
   assert.deepEqual(getPartnerEditableFields("HELP_ORGANIZATION").map((field) => field.key), [
-    "name","legalName","registrationNumber","type","shortDescription","description","publicEmail","publicPhone",
-    "websiteUrl","facebookUrl","instagramUrl","address","city","district","region","countryCode",
+    "name","legalName","type","shortDescription","description","publicEmail","publicPhone",
+    "websiteUrl","facebookUrl","instagramUrl","address","city","district","region","countryCode","galleryUrls",
   ]);
 });
 
@@ -347,10 +347,51 @@ test("partner filter-only change uses permission gate, revision and moderation; 
   assert.match(domain, /serviceFiltersForCategory\(row\.category\)/);
   assert.match(domain, /sourceDataJson: row\.source_data_json/);
   assert.match(domain, /directoryCategory: canonical\.directoryCategory/);
-  assert.match(domain, /normalizePartnerProfilePatch\(canonical\.entityType, input\.patch, canonical\.values, Boolean\(mediaAssetId\), canonical\.directoryCategory\)/);
+  assert.match(domain, /normalizePartnerProfilePatch\(canonical\.entityType, input\.patch, canonical\.values, Boolean\(mediaAssetId \|\| galleryMediaIds\.length\), canonical\.directoryCategory\)/);
   assert.match(domain, /requirePartnerPermission\(input\.accountId, input\.resourceId, "PROFILE_SUBMIT_CHANGE", db\)/);
   assert.match(domain, /currentRevision/);
   assert.match(domain, /INSERT INTO moderation_submissions/);
-  assert.match(admin, /normalizePartnerProfilePatch\(row\.resourceType,stored,base,Boolean\(row\.mediaAssetId\),row\.directoryCategory\)/);
+  assert.match(admin, /normalizePartnerProfilePatch\(row\.resourceType,stored,base,Boolean\(row\.mediaAssetId\|\|galleryMediaIds\.length\),row\.directoryCategory\)/);
   assert.match(admin, /buildDirectoryApplyStatement/);
+});
+
+test("partners can propose opening hours, galleries and secondary categories, never SEO or registration number", async () => {
+  const { normalizePartnerProfilePatch } = await importTs("lib/partner-profile-changes.ts");
+  const current = {
+    name: "Test", excerpt: "Opis testovacieho profilu, ktorý je dostatočne dlhý.",
+    description: "", city: "Nitra", district: "Nitra", region: "Nitriansky kraj",
+    openingHours: "", galleryUrls: [], additionalCategories: [],
+  };
+  assert.deepEqual(normalizePartnerProfilePatch("DIRECTORY_PROFILE", {
+    openingHours: "Po–Pi 8:00–17:00",
+    galleryUrls: ["/media/directory/gallery.webp"],
+    additionalCategories: ["fyzioterapia"],
+  }, current, false, "veterinari"), {
+    openingHours: "Po–Pi 8:00–17:00",
+    galleryUrls: ["/media/directory/gallery.webp"],
+    additionalCategories: ["fyzioterapia"],
+  });
+  assert.throws(() => normalizePartnerProfilePatch("DIRECTORY_PROFILE",
+    { galleryUrls: ["javascript:alert(1)"] }, current, false, "veterinari"), /Neplatná adresa/);
+  assert.throws(() => normalizePartnerProfilePatch("DIRECTORY_PROFILE",
+    { galleryUrls: Array(7).fill("/media/directory/same.webp") }, current, false, "veterinari"), /najviac 6/);
+  assert.throws(() => normalizePartnerProfilePatch("HELP_ORGANIZATION",
+    { registrationNumber: "12345678" }, { name: "OZ", type: "OTHER" }), /nie je možné upravovať/);
+  assert.throws(() => normalizePartnerProfilePatch("DIRECTORY_PROFILE",
+    { seoJson: "{}" }, current, false, "veterinari"), /nie je možné upravovať/);
+});
+
+test("gallery upload submission keeps media private until moderated approval", () => {
+  const media = readFileSync("lib/partner-profile-gallery-media.ts", "utf8");
+  const form = readFileSync("components/partner-gallery-field.tsx", "utf8");
+  const domain = readFileSync("lib/partner-profile-changes.ts", "utf8");
+  const admin = readFileSync("lib/partner-profile-changes-admin.ts", "utf8");
+  assert.match(media, /state='PENDING'/);
+  assert.match(media, /owner_id=\?/);
+  assert.match(media, /state='ATTACHED'/);
+  assert.match(form, /PARTNER_PROFILE_UPDATE/);
+  assert.match(form, /onChangeMediaIds/);
+  assert.match(domain, /galleryPendingInsertGuard\(galleryMediaIds\)/);
+  assert.match(admin, /terminalPartnerGalleryMediaStatements/);
+  assert.match(admin, /publishPartnerGalleryMedia/);
 });
