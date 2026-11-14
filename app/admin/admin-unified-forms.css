@@ -35,7 +35,7 @@
 [data-admin-workspace] [data-admin-form-system="v4"] .admin-field > :is(label, span:first-child),
 [data-admin-workspace] [data-admin-form-system="v4"] label.admin-field > span:first-child {
   color: var(--unified-field-label);
-  font-size: 0.84rem;
+  font-size: var(--admin-ui-type-label, 0.82rem);
   font-weight: 750;
   line-height: 1.4;
 }
