@@ -106,7 +106,7 @@ export function EventListingResults({
     <PublicFilterLayout className={styles.listingLayout} data-events-listing-layout>
       <PublicFilterPanel
         title="Filtrovať podujatia"
-        resetHref="/podujatia"
+        resetHref={pathname}
         className={styles.filterSidebar}
         aria-label="Filtre podujatí"
       >
@@ -122,7 +122,7 @@ export function EventListingResults({
             <PublicHeading role="section" as="h2">
               Filtrovať podujatia
             </PublicHeading>
-            <Link href="/podujatia">Vymazať filtre</Link>
+            <Link href={pathname}>Vymazať filtre</Link>
           </div>
           <form method="get" action={`${pathname}#events-list`} data-event-filters>
             {/* A changed month/date/location invalidates the previously selected calendar day.
@@ -242,7 +242,7 @@ export function EventListingResults({
                 <span aria-hidden="true">×</span>
               </PublicFilterTag>
             ))}
-            <Link href="/podujatia" data-public-filter-reset>
+            <Link href={pathname} data-public-filter-reset>
               Vymazať všetko
             </Link>
           </PublicActiveFilters>
@@ -307,7 +307,7 @@ export function EventListingResults({
           <PublicEmptyState variant="context" className={styles.emptyState}>
             <h3>Nenašli sme zhodu</h3>
             <p>Upravte vyhľadávanie alebo filtre.</p>
-            <Link href="/podujatia">Vymazať filtre</Link>
+            <Link href={pathname}>Vymazať filtre</Link>
           </PublicEmptyState>
         )}
       </section>
