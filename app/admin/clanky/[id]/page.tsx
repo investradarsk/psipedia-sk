@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { AdminArticleEditor } from "@/components/admin-article-editor";
+import { AdminRecordViewStats } from "@/components/admin-record-view-stats";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getManagedArticleById } from "@/lib/article-store";
@@ -40,6 +42,9 @@ export default async function EditArticlePage({ params, searchParams }: Props) {
       title={`Upraviť ${isNews ? "novinku" : "článok"}`}
       description="Zmeny ulož ako koncept alebo ich rovno publikuj na verejnom webe."
     >
+      <Suspense fallback={null}>
+        <AdminRecordViewStats entityType="ARTICLE" entityId={numericId} />
+      </Suspense>
       <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} topicOptions={topicOptions} promoUtcDay={articlePromoUtcDay()} returnToCalendar={returnToCalendar} />
     </AdminShell>
   );
