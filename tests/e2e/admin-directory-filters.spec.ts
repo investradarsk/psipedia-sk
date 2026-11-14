@@ -525,8 +525,10 @@ test.describe("admin directory v2", () => {
     await waitForDirectoryTableLayout(page);
 
     const first = page.getByLabel("Vybrať profil E2E Veterina 059");
-    // The selection hook must hydrate and enable the checkbox without a
-    // forced reload. Vite must ignore generated Playwright reports/traces.
+    // At 390px this row is below the fold. Scroll to the actual control
+    // before asserting its hydrated state (the real mobile interaction).
+    // Waiting on a distant SSR checkbox can outpace selective hydration.
+    await first.scrollIntoViewIfNeeded();
     await expect(first).toBeEnabled({ timeout: 15_000 });
     await first.focus();
     await page.keyboard.press("Space");

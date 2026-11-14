@@ -5,6 +5,7 @@ import {
   parseDirectoryFacetValues,
 } from "@/lib/directory-read-facets";
 import { cache } from "react";
+import { directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
 import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery, readDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card";
@@ -88,6 +89,8 @@ export type ManagedDirectoryProfileInput = {
   slug?: string;
   name?: string;
   category?: string;
+  /** Secondary category listings only. The primary category stays canonical. */
+  additionalCategories?: DirectoryCategorySlug[];
   status?: string;
   excerpt?: string;
   description?: string;
@@ -668,6 +671,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     slug: row.slug,
     name: row.name,
     category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
+    additionalCategories: readAdditionalDirectoryCategories(safeImportData(row.source_data_json, true), row.category),
     excerpt: row.excerpt,
     description: row.description,
     services: safePublicList(row.services_json),
@@ -1064,7 +1068,10 @@ export function normalizeManagedDirectoryProfileInput(
     qualityCheckedAt ?? undefined,
     { refreshCheckedAt: Boolean(qualityCheckedAt) },
   );
-  const sourceData = mergeDirectoryBreederGallery(qualitySourceData, category, payload.galleryUrls);
+  const sourceData = mergeAdditionalDirectoryCategories(
+    mergeDirectoryBreederGallery(qualitySourceData, category, payload.galleryUrls),
+    payload.additionalCategories, category,
+  );
   if (category === "treneri" && typeof payload.trainerServicesText === "string") {
     sourceData[TRAINER_SERVICES_TEXT_METADATA_KEY] = payload.trainerServicesText;
   }
@@ -1247,9 +1254,9 @@ export async function getPublishedDirectoryProfiles(category?: DirectoryCategory
   const result = category
     ? await database
         .prepare(
-          `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, name ASC LIMIT ?`,
+          `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND ${directoryCategoryMembershipSql()} ORDER BY featured DESC, name ASC LIMIT ?`,
         )
-        .bind(category, safeLimit)
+        .bind(category, category, safeLimit)
         .all<DirectoryProfileRow>()
     : await database
         .prepare(
@@ -1281,7 +1288,7 @@ export async function getHomepageDirectoryProfilesWithImages(
           ROW_NUMBER() OVER (PARTITION BY featured ORDER BY name ASC, id ASC) - 1 AS rotation_index,
           COUNT(*) OVER (PARTITION BY featured) AS rotation_count
         FROM directory_profiles
-        WHERE status = 'published' AND category = ? AND ${HOMEPAGE_REAL_IMAGE_SQL}
+        WHERE status = 'published' AND ${directoryCategoryMembershipSql()} AND ${HOMEPAGE_REAL_IMAGE_SQL}
       )
       SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
         fallback_district
@@ -1290,7 +1297,7 @@ export async function getHomepageDirectoryProfilesWithImages(
         ((rotation_index - (? % rotation_count) + rotation_count) % rotation_count) ASC
       LIMIT ?`,
     )
-    .bind(category, rotationOffset, safeLimit)
+    .bind(category, category, rotationOffset, safeLimit)
     .all<HomepageDirectoryRow>();
   return result.results.map(
     (row): HomepageDirectoryCard => ({
@@ -1379,8 +1386,8 @@ export async function listPublishedDirectoryProfiles(options: {
   const baseClauses = ["status = 'published'"];
   const baseBindings: unknown[] = [];
   if (category) {
-    baseClauses.push("category = ?");
-    baseBindings.push(category);
+    baseClauses.push(directoryCategoryMembershipSql());
+    baseBindings.push(category, category);
   }
   if (options.filters.query) {
     const needle = `%${normalizeDirectorySearchText(options.filters.query)}%`;
@@ -1437,8 +1444,8 @@ export async function listPublishedDirectoryProfiles(options: {
     options.filters.region,
     options.filters.district,
   );
-  const facetWhere = category ? "status = 'published' AND category = ?" : "status = 'published'";
-  const facetBindings = category ? [category] : [];
+  const facetWhere = category ? `status = 'published' AND ${directoryCategoryMembershipSql()}` : "status = 'published'";
+  const facetBindings = category ? [category, category] : [];
   const sourceStatement = directorySourceFacetStatement(database, facetWhere, facetBindings, {
     breeds: DIRECTORY_SOURCE_FACETS.breed,
     fciGroups: DIRECTORY_SOURCE_FACETS.fciGroup,
@@ -1472,11 +1479,11 @@ export async function listPublishedDirectoryProfiles(options: {
       JOIN directory_profiles AS profile ON profile.id=choice.profile_id
       LEFT JOIN service_catalog_admin_options AS opt ON opt.id=choice.option_id
       ${builtinJoin}
-      WHERE profile.status='published' AND profile.category=? AND choice.choice='yes'
+      WHERE profile.status='published' AND ${directoryCategoryMembershipSql("profile")} AND choice.choice='yes'
       ORDER BY choice.option_id
     `,
       )
-      .bind(category)
+      .bind(category, category)
       .all<CanonicalPublicServiceRow>();
     return canonicalPublicServiceOptions(category, canonicalRows.results);
   };
@@ -1610,7 +1617,13 @@ export async function getDirectoryCategoryCounts() {
   if (!database) return {} as Partial<Record<DirectoryCategorySlug, number>>;
   const result = await database
     .prepare(
-      "SELECT category, COUNT(*) AS total FROM directory_profiles WHERE status = 'published' GROUP BY category",
+      `SELECT category, COUNT(DISTINCT id) AS total FROM (
+        SELECT id, category FROM directory_profiles WHERE status = 'published'
+        UNION ALL
+        SELECT profile.id, extra.value AS category FROM directory_profiles AS profile,
+          json_each(${directoryAdditionalCategoryJsonSql("profile")}) AS extra
+        WHERE profile.status = 'published' AND extra.value <> profile.category
+      ) GROUP BY category`,
     )
     .all<{ category: string; total: number }>();
   const counts = Object.fromEntries(
@@ -1632,12 +1645,12 @@ export async function getDirectoryCategoryPreviews(limit = 3) {
         `
     SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
     FROM directory_profiles
-    WHERE status = 'published' AND category = ?
+    WHERE status = 'published' AND ${directoryCategoryMembershipSql()}
     ORDER BY featured DESC, name ASC, id ASC
     LIMIT ?
   `,
       )
-      .bind(category.slug, safeLimit),
+      .bind(category.slug, category.slug, safeLimit),
   );
   const results = await database.batch(statements);
   const previews = Object.fromEntries(
@@ -1714,7 +1727,7 @@ export async function listManagedDirectoryProfileSummaries(
   const pageSize = Math.max(1, Math.min(100, Math.trunc(options.pageSize ?? 50)));
   const category =
     options.category && isDirectoryCategory(options.category) ? options.category : null;
-  const where = category ? "WHERE category = ?" : "";
+  const where = category ? `WHERE ${directoryCategoryMembershipSql()}` : "";
   const listStatement = database
     .prepare(
       `
@@ -1727,7 +1740,7 @@ export async function listManagedDirectoryProfileSummaries(
     )
     .bind(
       ...(category
-        ? [category, pageSize, (page - 1) * pageSize]
+        ? [category, category, pageSize, (page - 1) * pageSize]
         : [pageSize, (page - 1) * pageSize]),
     );
   const countStatement = database
@@ -1742,7 +1755,7 @@ export async function listManagedDirectoryProfileSummaries(
     ${where}
   `,
     )
-    .bind(...(category ? [category] : []));
+    .bind(...(category ? [category, category] : []));
   const [listResult, countResult] = await database.batch([listStatement, countStatement]);
   const rows = (listResult.results ?? []) as unknown as DirectoryProfileSummaryRow[];
   const reviewedAtById = new Map<number, string>();

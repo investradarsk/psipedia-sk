@@ -201,6 +201,8 @@ export type PublicDirectoryProfile = {
   slug: string;
   name: string;
   category: DirectoryCategorySlug;
+  /** Additional listing memberships; never change the canonical category/URL. */
+  additionalCategories?: DirectoryCategorySlug[];
   excerpt: string;
   description: string;
   services: string[];

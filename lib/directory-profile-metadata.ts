@@ -85,7 +85,7 @@ export function directoryQualityCheckedAtSourceKey(field: DirectoryQualityField)
 export function isDirectoryInternalMetadataKey(key: string) {
   return key.startsWith(qualityKeyPrefix) || key.startsWith(profileReviewKeyPrefix) || (key === DIRECTORY_BREEDER_GALLERY_KEY || key === BREEDER_CLUB_IDS_METADATA_KEY ||
     key === TRAINER_SERVICES_TEXT_METADATA_KEY || key === TRAINER_BREED_IDS_METADATA_KEY ||
-    key === TRAINER_CLUB_IDS_METADATA_KEY);
+    key === TRAINER_CLUB_IDS_METADATA_KEY || key === "_psipedia_additional_categories");
 }
 
 function isResolutionStatus(value: unknown): value is DirectoryQualityResolutionStatus {
