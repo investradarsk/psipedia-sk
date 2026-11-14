@@ -222,3 +222,84 @@
   .toplineActions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .toplineActions :global([data-editor-status]) { font-size: 0.72rem; }
 }
+
+/* ADMIN CONTENT STEP 10: service profile editor uses the same compact
+   article/breed spacing, but retains its existing section switch and form. */
+.editor {
+  --directory-editor-gap: var(--admin-ui-space-sm, 0.55rem);
+}
+.editorTopline {
+  position: relative;
+  top: auto;
+  z-index: auto;
+  align-items: center;
+  padding: var(--admin-ui-space-xs, 0.35rem) 0;
+  background: transparent;
+  gap: var(--directory-editor-gap);
+  border-bottom: 1px solid var(--admin-ui-border, #dce5de);
+}
+.toplineLabel {
+  min-width: 0;
+  color: var(--admin-ui-muted, #607568);
+  font-size: var(--admin-ui-type-caption, 0.83rem);
+  font-weight: 750;
+  padding: 0;
+}
+.toplineActions { gap: var(--directory-editor-gap); }
+.secondaryTools { position: relative; min-width: 0; }
+.secondaryTools > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--admin-ui-border, #cbdad0);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  background: #f5f8f5;
+  color: var(--admin-ui-text, #173b2d);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.secondaryTools > summary:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.secondaryToolsContent {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--directory-editor-gap);
+  width: min(340px, 100%);
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 0.45rem;
+  padding: 0.65rem;
+  border: 1px solid var(--admin-ui-border, #dce5de);
+  border-radius: var(--admin-ui-radius, 12px);
+  background: #fff;
+}
+.secondaryToolsContent :global(button) {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.editorWorkspace { gap: var(--directory-editor-gap); }
+.editor :global(.admin-card-heading) { margin-bottom: var(--admin-ui-space-sm, 0.55rem); }
+.editor :global(.admin-form-card) {
+  scroll-margin-top: calc(var(--admin-sticky-stack, 96px) + 16px);
+}
+.editor :global(.admin-editor-actions) { gap: var(--admin-ui-space-sm, 0.55rem); }
+@media (max-width: 820px) {
+  .editorTopline { padding: 0.2rem 0 0.35rem; }
+  .toplineActions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .secondaryTools > summary { width: 100%; box-sizing: border-box; }
+  .secondaryToolsContent { width: 100%; padding: 0.55rem; }
+  .editorWorkspaceContent :global(.admin-form-card) {
+    scroll-margin-top: calc(var(--admin-sticky-stack, 96px) + 12px);
+  }
+}
+@media (max-width: 420px) {
+  .toplineActions { grid-template-columns: minmax(0, 1fr); }
+}
