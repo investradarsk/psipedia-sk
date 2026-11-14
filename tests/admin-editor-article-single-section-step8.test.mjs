@@ -71,7 +71,8 @@ test("EDITOR-8: live preview, Lexical, SEO, media, FB and QA remain functional i
   assert.match(src, /<AdminLexicalTextField/);
   assert.match(src, /<RichTextInput/);
   assert.match(src, /<AdminSingleImageUpload/);
-  assert.match(src, /onClick=\{unpublish\}/);
+  assert.match(src, /<AdminRecordLifecycleActions/);
+  assert.match(src, /onUnpublished=\{/);
   assert.match(src, /setFbDateTime\(/);
   assert.match(src, /noindex/);
   assert.match(src, /setSeoTitle\(/);
@@ -97,7 +98,8 @@ test("ARTICLE-VISUAL-3: the right rail reuses existing status, schedule, SEO and
   assert.match(src, /onClick=\{\(\) => chooseArticleSection\("article-publish"\)\}/);
   assert.match(src, /onClick=\{\(\) => void save\("scheduled"\)\}/);
   assert.match(src, /onClick=\{\(\) => void save\("published"\)\}/);
-  assert.match(src, /onClick=\{unpublish\}/);
+  assert.match(src, /<AdminRecordLifecycleActions/);
+  assert.match(src, /onUnpublished=\{/);
   assert.match(src, /fullscreenPreviewOpen \&\&/);
   assert.match(src, /<AdminArticleBlockEditor/);
   assert.match(css, /\.rightRail/);
