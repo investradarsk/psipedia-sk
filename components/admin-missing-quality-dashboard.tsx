@@ -330,24 +330,39 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
               <div className={styles.itemContent}>
                 <div className={styles.profile}>{p.profile_label} <a className={styles.profileLink} href={adminProfileHref(p)} target="_blank" rel="noopener noreferrer">Otvoriť profil ↗</a></div>
                 <div className={styles.field}>{p.field_label}</div>
-                {editingProposalId===p.id?
-                  <div className={styles.inlineCorrection}>
-                    <label htmlFor={"quality-correction-"+p.id}>Upravená verejná hodnota</label>
-                    <input id={"quality-correction-"+p.id} type={p.field_group==="email"?"email":p.field_group==="phone"?"tel":"url"}
-                      value={correctedValue} maxLength={2048} disabled={busy!==null||bulkBusy||manualBusy}
-                      onChange={event=>setCorrectedValue(event.target.value)} />
-                    <small>Uloženie zároveň schváli nález a doplní údaj do profilu. Pôvodný nález: {p.value}</small>
-                  </div>:
-                p.field_group==="image"?
-                  <QualityCandidateImage
-                    url={p.value.startsWith("quality-missing-candidate:")
-                      ? "/api/admin/data-quality/missing/"+p.id+"/image" : p.value}
-                    label={p.profile_label} onPreview={setPreview}
-                    onBroken={()=>setBrokenImages(prev=>prev.includes(p.id)?prev:[...prev,p.id])} />:
-                  ["web","social","registration"].includes(p.field_group)?
-                    <a href={p.value} target="_blank" rel="noopener noreferrer" className={styles.value}>{p.value} ↗</a>:
-                    <div className={styles.value}>{p.value}</div>
-                }
+                <div className={styles.comparison}>
+                  <div className={styles.comparisonValue}>
+                    <span>Aktuálny údaj</span>
+                    {p.field_group==="image"&&p.current_value&&
+                      (p.current_value.startsWith("/")||p.current_value.startsWith("https://")||p.current_value.startsWith("http://"))?
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.current_value} className={styles.preview} alt={"Aktuálny obrázok profilu "+p.profile_label} loading="lazy"/>:
+                      <div className={p.current_value===null?styles.emptyValue:styles.value}>
+                        {p.current_value===undefined?"Nedostupný":p.current_value??"Prázdny"}
+                      </div>}
+                  </div>
+                  <div className={styles.comparisonValue}>
+                    <span>Nájdený údaj</span>
+                    {editingProposalId===p.id?
+                      <div className={styles.inlineCorrection}>
+                        <label htmlFor={"quality-correction-"+p.id}>Upravená verejná hodnota</label>
+                        <input id={"quality-correction-"+p.id} type={p.field_group==="email"?"email":p.field_group==="phone"?"tel":"url"}
+                          value={correctedValue} maxLength={2048} disabled={busy!==null||bulkBusy||manualBusy}
+                          onChange={event=>setCorrectedValue(event.target.value)} />
+                        <small>Uloženie zároveň schváli nález a doplní údaj do profilu. Pôvodný nález: {p.value}</small>
+                      </div>:
+                    p.field_group==="image"?
+                      <QualityCandidateImage
+                        url={p.value.startsWith("quality-missing-candidate:")
+                          ? "/api/admin/data-quality/missing/"+p.id+"/image" : p.value}
+                        label={p.profile_label} onPreview={setPreview}
+                        onBroken={()=>setBrokenImages(prev=>prev.includes(p.id)?prev:[...prev,p.id])} />:
+                      ["web","social","registration"].includes(p.field_group)?
+                        <a href={p.value} target="_blank" rel="noopener noreferrer" className={styles.value}>{p.value} ↗</a>:
+                        <div className={styles.value}>{p.value}</div>
+                    }
+                  </div>
+                </div>
                 {p.field_group==="image"&&p.value.startsWith("quality-missing-candidate:")?
                   <span className={styles.source}>Overený obrázok uložený v Psipedia na schválenie.</span>:null}
                 {p.field_group==="image"&&brokenImages.includes(p.id)?
