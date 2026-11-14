@@ -771,10 +771,11 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const rail = page.locator("[data-article-editor-rail]");
     await expect(rail).toBeVisible();
     await expect(rail.getByRole("region", { name: "Stav článku" })).toBeVisible();
-    const sidebarDate = rail.locator("#article-rail-published-at");
-    await sidebarDate.fill("2026-12-10T18:00");
-    await showArticleSection(page, "article-publish");
-    await expect(page.locator("#article-published-at")).toHaveValue("2026-12-10T18:00");
+    await expect(rail.locator("#article-rail-published-at")).toHaveCount(0);
+    await rail.getByRole("button", { name: "Otvoriť nastavenia publikovania" }).click();
+    await expect(page.locator("#article-publish")).toBeVisible();
+    await page.locator("#article-published-at").fill("2026-12-10T18:00");
+    await expect(rail.locator("[data-article-publication-summary]")).toContainText("10T18:00");
     await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
     const seo = rail.locator("[data-article-rail-seo]");
     await seo.locator("summary").click();
@@ -806,7 +807,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       await page.locator("[data-editor-navigation]").getByRole("button", { name: "Náhľad", exact: true }).click();
       const rail = page.locator("[data-article-editor-rail]");
       await expect(rail).toBeVisible();
-      await expect(rail.locator("#article-rail-published-at")).toBeVisible();
+      await expect(rail.locator("[data-article-publication-summary]")).toBeVisible();
       await expect(rail.locator("[data-article-compact-preview]")).toBeVisible();
       await expect.poll(() => page.evaluate(() =>
         document.documentElement.scrollWidth - document.documentElement.clientWidth,
