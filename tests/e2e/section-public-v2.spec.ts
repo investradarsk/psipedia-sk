@@ -44,6 +44,12 @@ test("SECTION-PUBLIC landings group at most five real articles under each topic 
       await expect(group.locator("h3 a")).toBeVisible();
       const articleCount = await group.locator("[data-article-list-item]").count();
       expect(articleCount).toBeLessThanOrEqual(5);
+      if (articleCount > 0) {
+        const firstLink = group.locator("a[data-article-list-item]").first();
+        await expect(firstLink).toHaveAttribute("href", /^\\//);
+        await expect(firstLink).not.toHaveAttribute("role", "listitem");
+        await expect(firstLink.locator("xpath=..")).toHaveAttribute("role", "listitem");
+      }
       await expect(group.getByRole("link", { name: "Všetky články z oblasti" }))
         .toHaveCount(articleCount > 0 ? 1 : 0);
       // Empty areas remain in navigation, but cannot promise a non-existent list.
