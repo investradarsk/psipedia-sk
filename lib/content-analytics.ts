@@ -32,8 +32,8 @@ export function contentAnalyticsWindowStart(
 
 /**
  * Common, read-only metric for articles and directory profiles.
- * ARTICLE continues to read the original article_read_hourly data without
- * changing its writer or copying historical counts.
+ * ARTICLE continues to read the original article_read_hourly data directly
+ * (also before migration 0167), without changing its writer or copying history.
  *
  * null means that analytics storage is unavailable, not "zero views".
  */
@@ -56,18 +56,23 @@ export async function getQualifiedContentViewCount(input: {
   const startBucket = contentAnalyticsWindowStart(input.window, now);
 
   try {
+    // Read each source directly. Articles must remain readable before the
+    // separately approved directory-profile migration (0167) is installed.
+    const isArticle = input.entityType === "ARTICLE";
+    const source = isArticle ? "article_read_hourly" : "directory_profile_view_hourly";
+    const metric = isArticle ? "qualified_reads" : "qualified_views";
+    const idColumn = isArticle ? "article_id" : "profile_id";
     const statement = startBucket === null
       ? database.prepare(`
-        SELECT COALESCE(SUM(qualified_views), 0) AS view_count
-        FROM content_qualified_views_hourly
-        WHERE entity_type = ? AND entity_id = ? AND bucket_hour <= ?
-      `).bind(input.entityType, input.entityId, currentBucket)
+        SELECT COALESCE(SUM(${metric}), 0) AS view_count
+        FROM ${source}
+        WHERE ${idColumn} = ? AND bucket_hour <= ?
+      `).bind(input.entityId, currentBucket)
       : database.prepare(`
-        SELECT COALESCE(SUM(qualified_views), 0) AS view_count
-        FROM content_qualified_views_hourly
-        WHERE entity_type = ? AND entity_id = ?
-          AND bucket_hour >= ? AND bucket_hour <= ?
-      `).bind(input.entityType, input.entityId, startBucket, currentBucket);
+        SELECT COALESCE(SUM(${metric}), 0) AS view_count
+        FROM ${source}
+        WHERE ${idColumn} = ? AND bucket_hour >= ? AND bucket_hour <= ?
+      `).bind(input.entityId, startBucket, currentBucket);
 
     const row = await statement.first<{ view_count: number }>();
     return row ? Number(row.view_count) : 0;
