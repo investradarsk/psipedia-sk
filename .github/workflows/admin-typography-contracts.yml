@@ -6,6 +6,7 @@ on:
     paths:
       - "app/admin/admin-editorial-foundation.css"
       - "app/admin/admin-list-foundation.css"
+      - "app/admin/admin-community-step13.css"
       - "app/admin/layout.tsx"
       - "app/admin/admin-workspace.css"
       - "app/admin/admin-unified-forms.css"
@@ -86,6 +87,9 @@ on:
       - "components/admin-profile-review-inline-approval.module.css"
       - "components/admin-article-feedback-dashboard.tsx"
       - "components/admin-article-feedback-dashboard.module.css"
+      - "components/admin-news-tip-dashboard.tsx"
+      - "components/admin-inquiry-dashboard.tsx"
+      - "components/admin-directory-change-requests.tsx"
       - "app/admin/recenzie-profilov/[id]/page.tsx"
       - "lib/admin-profile-review-labels.ts"
       - "components/admin-record-table.module.css"
