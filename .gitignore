@@ -60,3 +60,6 @@ next-env.d.ts
 # Local open-source graph reports
 /reactgraph.json
 /component-dependencies.json
+
+# Read-only unused-code audit outputs (GitHub Actions uploads these as artifacts)
+/reports/knip/
