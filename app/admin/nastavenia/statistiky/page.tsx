@@ -3,6 +3,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { AdminTrafficDashboard } from "@/components/admin-traffic-dashboard";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { loadAdminTrafficReport, parseTrafficWindow } from "@/lib/admin-traffic-analytics";
+import { loadSiteTrafficReport } from "@/lib/site-analytics-report";
 
 export const dynamic = "force-dynamic";
 
@@ -16,17 +17,20 @@ export default async function AdminTrafficStatisticsPage({
   // Authentication must happen before any aggregated traffic query.
   const user = await requireAdminPageUser("/admin/nastavenia/statistiky");
   const selected = parseTrafficWindow((await searchParams).obdobie);
-  const report = await loadAdminTrafficReport({ window: selected });
+  const [report, siteReport] = await Promise.all([
+    loadAdminTrafficReport({ window: selected }),
+    loadSiteTrafficReport({ window: selected }),
+  ]);
 
   return (
     <AdminShell
       user={user}
       eyebrow="Nastavenia / Štatistiky"
       title="Štatistiky návštevnosti"
-      description="Čítanosť článkov a návštevy profilov na jednom mieste. Bez duplicitnej analytiky alebo platených volaní."
+      description="Vlastné meranie návštevnosti celého webu, zdrojov, zariadení a čítanosti obsahu. Bez Google Analytics."
       actions={<Link href="/admin/nastavenia">Späť na nastavenia</Link>}
     >
-      <AdminTrafficDashboard report={report} />
+      <AdminTrafficDashboard report={report} siteReport={siteReport} />
     </AdminShell>
   );
 }
