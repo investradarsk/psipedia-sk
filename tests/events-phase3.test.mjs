@@ -91,12 +91,16 @@ test("event filters keep canonical page type, regions, date status, search and r
   assert.doesNotMatch(calendar, /eventTypeFilters\.map|const eventTypes\s*=/);
 });
 
-test("event categories link from search shortcuts and calendar legend without duplicate overview cards", () => {
-  assert.match(eventsPage, /eventTypes\s*\.filter/);
-  assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
+test("event categories have one canonical navigator and a non-link calendar legend", () => {
+  assert.match(eventsPage, /shortcuts=\{\[\]\}/);
+  assert.doesNotMatch(eventsPage, /const searchShortcuts/);
+  assert.match(eventsPage, /data-event-category-navigation/);
+  assert.match(eventsPage, /Všetky podujatia/);
   assert.match(calendar, /eventTypePortalHref\(type\)/);
   assert.match(eventsPage, /<PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
+  assert.match(calendar, /role="list" aria-label="Typy podujatí v kalendári"/);
+  assert.doesNotMatch(calendar, /<nav className=\{styles\.calendarLegend\}/);
   assert.match(listing, /className=\{`\$\{styles\.cardGrid\}\s+\$\{directoryStyles\.listRows\}`\}\s+data-event-list/);
   assert.doesNotMatch(
     calendar,
@@ -232,4 +236,15 @@ test("event routes restore search and secondary filters from the URL", () => {
     contentPage,
     /initialMonth=\{eventMonthFilterFromParam\(rawSearchParams\.mesiac\)\}/,
   );
+});
+
+test("category reset stays on the type route and the desktop day is scroll-aligned", () => {
+  assert.match(listing, /resetHref=\{pathname\}/);
+  assert.match(listing, /<Link href=\{pathname\} data-public-filter-reset>/);
+  assert.equal((listing.match(/<Link href=\{pathname\}>Vymazať filtre<\/Link>/g) ?? []).length, 2);
+  assert.match(calendar, /target\.scrollIntoView\(\{ behavior: motion, block: "start" \}\)/);
+  assert.doesNotMatch(calendar, /isDesktopCalendar \|\| pending \|\| pendingDay/);
+  assert.match(eventsCss, /--psipedia-sticky-header-height/);
+  assert.match(eventsPage, /href="\/podujatia" variant="tertiary"/);
+  assert.match(eventsLib, /title: "Ostatné podujatia"/);
 });
