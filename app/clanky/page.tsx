@@ -65,6 +65,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
       <main id="obsah">
         <UnifiedSectionHeroShell id={HERO_ARTICLES_ANCHOR}>
           <UnifiedSectionHero
+            contentSource="route"
             breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Všetky články</span></Breadcrumbs>}
             eyebrow="Psipedia"
             title="Všetky články"
