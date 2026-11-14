@@ -48,27 +48,20 @@ export default function CookiesPage() {
       </p>
       <PrivacyControls />
       <PublicHeading role="section" as="h2">
-        Vlastné štatistiky návštevnosti Psipedie
+        Vlastné počítadlo zobrazení Psipedie
       </PublicHeading>
       <p>
-        Bez analytického súhlasu zbierame iba súhrnné zobrazenia verejných stránok
-        s cestou bez parametrov, kategóriou zdroja návštevy a typom zariadenia.
-        Nevytvárame pri tom žiadne analytické cookies, miestne ID ani históriu
-        jednotlivých návštevníkov. Po povolení analytiky môžeme navyše merať
-        približný počet rôznych prehliadačov a 30-minútové relácie. Po 10 sekundách
-        viditeľnosti zaznamenávame kvalifikovanú čítanosť článku alebo profilu,
-        s obmedzením opakovaného započítania na šesť hodín.
-        Vlastné štatistiky sú nezávislé od Google Analytics.
+        Zaznamenávame iba počet otvorení verejných stránok. Každé otvorenie
+        zvýši hodinový súčet webu a súčet konkrétnej stránky.
+        Neukladáme identifikátory návštevníkov, IP adresy, relácie,
+        cookies, miestne ID, zdroje návštevnosti ani údaje o zariadení.
+        Odkaz stránky sa ukladá bez parametrov.
       </p>
       <p>
-        Iba po povolení analytiky vytvárame náhodný lokálny identifikátor prehliadača
-        najviac na 30 dní a identifikátor relácie s 30-minútovou prestávkou.
-        Na serveri ich uchovávame len ako HMAC hodnoty s približne 35-dňovým
-        čistením. Neukladáme plné referenčné URL ani parametre navštívených stránok.
-        Pre ochranu pred zneužitím môžeme používať krátkodobé jednosmerne odvodené
-        identifikátory IP adresy v bezpečnostnom limite. Po odvolaní súhlasu
-        zmažeme lokálne identifikátory a ďalej meriame iba anonymné súhrnné zobrazenia,
-        nie relácie, unikátne prehliadače ani kvalifikovanú čítanosť.
+        Počítadlo funguje aj bez voľby v cookies oznámení. Neurčuje,
+        koľko rôznych ľudí stránku navštívilo, a opakované otvorenia
+        započítava opakovane. Samostatné meranie kvalifikovanej
+        čítanosti článkov a profilov je viazané na súhlas s analytikou.
       </p>
       <PublicHeading role="section" as="h2">
         Google Analytics 4
