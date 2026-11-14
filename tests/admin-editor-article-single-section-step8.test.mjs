@@ -78,7 +78,7 @@ test("EDITOR-8: live preview, Lexical, SEO, media, FB and QA remain functional i
   assert.match(src, /setSeoTitle\(/);
   assert.match(src, /setTopicIds\(/);
   assert.match(src, /<AdminFormFeedback/);
-  assert.match(src, /dirtyRef\.current/);
+  assert.match(src, /setEditorDirty\(true\)/);
   assert.doesNotMatch(read("components/admin-editor-section-visibility.tsx"), /fetch\s*\(|DATABASE_URL/);
 });
 
