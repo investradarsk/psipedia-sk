@@ -76,9 +76,10 @@ test("step 11: new event editor has one heading and no redundant toolbar", async
 test("step 11: existing event has Notion and lifecycle actions in compact disclosure", async ({ page }) => {
   const res = await page.goto("/admin/podujatia", { waitUntil: "domcontentloaded" });
   expect(res?.status()).toBe(200);
-  const first = page.locator('a[href^="/admin/podujatia/"]').filter({ hasText: /\S/ }).first();
-  test.skip(!(await first.count()), "No event fixture available");
-  await first.click();
+  const firstHref = await page.locator('a[href^="/admin/podujatia/"]').evaluateAll((links) =>
+    links.map(link => link.getAttribute("href")).find(href => /^\/admin\/podujatia\/\d+(?:\?|$)/.test(href ?? "")) ?? null);
+  test.skip(!firstHref, "No event fixture available");
+  await page.goto(firstHref!, { waitUntil: "domcontentloaded" });
   const editor = page.locator("[data-event-editor-v3]");
   await expect(editor).toBeVisible();
   const more = editor.locator("[data-admin-event-more-actions]");
