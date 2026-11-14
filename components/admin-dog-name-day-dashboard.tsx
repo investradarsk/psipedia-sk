@@ -206,10 +206,10 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
       </section>
 
       <details className={styles.importPanel} aria-labelledby="name-day-import-title">
-        <summary id="name-day-import-title">Hromadný import mien (JSON)</summary><div className={styles.importBody}><p>Import vytvára koncepty bez automatického publikovania. Povolené polia: <code>month</code>, <code>day</code>, <code>name</code>, <code>source</code>, voliteľne <code>note</code>. Import vždy vytvorí nové položky ako koncept.</p>
+        <summary id="name-day-import-title">Hromadný import mien (JSON)</summary><div className={styles.importBody}><p>Import vytvára iba koncepty. Povolené polia: <code>month</code>, <code>day</code>, <code>name</code>, <code>source</code>, voliteľne <code>note</code>. Každé nové meno zostane nepublikované až do schválenia.</p>
         <textarea value={importText} onChange={(event) => { setImportText(event.target.value); setImportPlan(null); }} spellCheck={false} aria-label="JSON dáta na import" />
-        {importPlan && <div className={styles.importSummary} aria-live="polite"><strong>INSERT {importPlan.summary.INSERT}</strong><strong>UPDATE {importPlan.summary.UPDATE}</strong><strong>SKIP {importPlan.summary.SKIP}</strong><strong>ERROR {importPlan.summary.ERROR}</strong>{importPlan.actions.filter((action) => action.action === "ERROR").slice(0, 5).map((action) => <p key={action.index}>Riadok {action.index + 1}: {action.message}</p>)}</div>}
-        <div className={styles.importActions}><AdminActionButton variant="secondary" disabled={importPending} onClick={() => runImport(false)}>Preview</AdminActionButton><AdminActionButton variant="primary" disabled={importPending || !importPlan || importPlan.summary.ERROR > 0} onClick={() => runImport(true)}>Aplikovať bezpečný import</AdminActionButton></div>
+        {importPlan && <div className={styles.importSummary} aria-live="polite"><strong>Nové: {importPlan.summary.INSERT}</strong><strong>Aktualizácie: {importPlan.summary.UPDATE}</strong><strong>Preskočené: {importPlan.summary.SKIP}</strong><strong>Chyby: {importPlan.summary.ERROR}</strong>{importPlan.actions.filter((action) => action.action === "ERROR").slice(0, 5).map((action) => <p key={action.index}>Riadok {action.index + 1}: {action.message}</p>)}</div>}
+        <div className={styles.importActions}><AdminActionButton variant="secondary" disabled={importPending} onClick={() => runImport(false)}>Skontrolovať import</AdminActionButton><AdminActionButton variant="primary" disabled={importPending || !importPlan || importPlan.summary.ERROR > 0} onClick={() => runImport(true)}>Aplikovať bezpečný import</AdminActionButton></div>
       </div>
       </details>
 
