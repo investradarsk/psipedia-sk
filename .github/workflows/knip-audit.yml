@@ -1,0 +1,46 @@
+name: PSIPEDIA — Knip unused-code audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "knip.json"
+      - ".github/workflows/knip-audit.yml"
+      - "package.json"
+      - "docs/audits/knip-step1.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knip-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Read-only Knip report
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out the exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install existing locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Generate read-only JSON and Markdown Knip reports
+        run: npm run audit:knip:report
+      - name: Upload reports even if analysis fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psipedia-knip-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/knip/
+          retention-days: 14
+          if-no-files-found: warn
