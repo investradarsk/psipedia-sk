@@ -85,3 +85,32 @@ test("Step 8: table toolbar cannot widen document and card/table switching remai
   assert.match(css, /\.workspace\[data-mobile-focus="true"\] \.scroll \{ overflow: visible; \}/);
   assert.match(css, /\.workspace\[data-sticky-actions="true"\]/);
 });
+
+
+test("Step 8: Help, adoption, lost-found, organizations and attention reuse the same list surface", () => {
+  const help = read("components/admin-help-dashboard.tsx");
+  const adoption = read("components/admin-adoption-dashboard.tsx");
+  const lostFound = read("components/admin-lost-found-dashboard.tsx");
+  const org = read("components/admin-organization-publication-dashboard.tsx");
+  const attention = read("components/admin-attention-queue.tsx");
+  for (const [name, src] of Object.entries({ help, adoption, lostFound, org, attention })) {
+    assert.match(src, /data-admin-list-filters/, name);
+    assert.match(src, /role="search"/, name);
+  }
+  assert.match(help, /data-admin-list-pagination/);
+  assert.match(help, /aria-disabled="true"/);
+  assert.match(help, /data-admin-list-results/);
+  assert.match(adoption, /data-admin-list-advanced/);
+  assert.match(adoption, /<AdminNumberedPagination/);
+  assert.match(lostFound, /<AdminNumberedPagination/);
+  assert.match(org, /<AdminPagination pagination=\{data\.pagination\}/);
+  assert.match(org, /data-admin-list-results/);
+  assert.match(attention, /data-admin-list-pagination/);
+  assert.match(attention, /page\.pagination\.nextCursor/);
+  assert.match(attention, /data-admin-list-results/);
+  // The source pages retain their existing GET URLs rather than switching to
+  // a new client fetcher or dropping search/membership filter parameters.
+  assert.match(help, /action="\/admin\/pomoc"/);
+  assert.match(org, /action="\/admin\/organizacie" method="get"/);
+  assert.match(attention, /action="\/admin\/operations"/);
+});
