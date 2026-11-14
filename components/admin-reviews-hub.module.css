@@ -248,3 +248,49 @@
   .card { padding: 18px; }
   .actions a { width: 100%; justify-content: center; }
 }
+
+
+/* Work audit: this is a navigation workspace, not a landing page with large
+   promotional cards. Retain every canonical destination and number. */
+.workspace { gap: var(--admin-ui-section-gap, 10px); }
+.overview { padding: 12px 14px; border-radius: 12px; }
+.heading { gap: 0.6rem; margin-bottom: 9px; align-items: center; }
+.heading h2 { font-family: inherit; font-size: 1.12rem; font-weight: 800; }
+.heading > p { font-size: 0.75rem; }
+.metrics { gap: 7px; }
+.metrics article { padding: 9px 11px; border-radius: 10px; }
+.metrics strong { font-family: inherit; font-size: 1.15rem; margin: 3px 0; }
+.cardGrid { gap: 9px; }
+.card { padding: 12px 13px; gap: 7px; border-radius: 12px; box-shadow: none; }
+.cardTop { gap: 6px; }
+.icon { width: 30px; height: 30px; border-radius: 8px; font-size: 0.95rem; }
+.card h3 { font-family: inherit; font-size: 0.98rem; }
+.card > p { margin: 0; font-size: 0.76rem; line-height: 1.4; }
+.actions { gap: 6px; padding-top: 3px; }
+.actions a { min-height: 44px; padding: 0.45rem 0.7rem; }
+.eshopDetails { min-width: 0; color: #53685d; font-size: 0.76rem; }
+.eshopDetails > summary { min-height: 30px; cursor: pointer; font-weight: 750; }
+.eshopDetails > summary:focus-visible { outline: 3px solid #b38330; outline-offset: 2px; }
+.eshopRules { margin-top: 5px; gap: 5px; }
+.eshopRules span { padding: 4px 6px; }
+.rules { padding: 0; border-radius: 11px; background: #f4f8f4; border: 1px solid #dce5de; color: #214b36; }
+.rules > summary {
+  min-height: 44px; display: flex; align-items: center;
+  padding: 9px 12px; font-size: 0.85rem; font-weight: 800; cursor: pointer;
+}
+.rules > summary:focus-visible { outline: 3px solid #b38330; outline-offset: 2px; }
+.ruleGrid { margin: 0; padding: 0 10px 10px; gap: 8px; }
+.ruleGrid article { padding: 9px 11px; border: 1px solid #d9e5db; background: #fff; color: #224936; }
+.ruleGrid strong { margin-bottom: 3px; }
+.ruleGrid p { color: #647569; }
+@media (max-width: 900px) {
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .overview, .card { padding: 10px; }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cardGrid { grid-template-columns: minmax(0, 1fr); }
+  .heading { flex-direction: row; align-items: flex-start; flex-wrap: wrap; }
+  .actions a { width: auto; max-width: 100%; }
+}
