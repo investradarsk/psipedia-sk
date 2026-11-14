@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ConsentChoice } from "@/lib/monetization";
 import { clearQualifiedAnalyticsStorage } from "@/lib/qualified-analytics-consent";
+import { clearSiteAnalyticsSessionStorage } from "@/lib/site-analytics-client";
 import { classifyAiReferralReferrer } from "@/lib/ai-referral";
 import {
   INTERNAL_TRAFFIC_EVENT,
@@ -176,6 +177,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     const choice: ConsentChoice | null = stored === "analytics" || stored === "necessary" || stored === "advertising" ? stored : null;
     if (choice !== "analytics" && choice !== "advertising") {
       clearQualifiedAnalyticsStorage(window.localStorage);
+      clearSiteAnalyticsSessionStorage(window.sessionStorage);
     }
     let mounted = true;
     queueMicrotask(() => {
@@ -207,6 +209,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     if (choice === "necessary") {
       disableAnalytics();
       clearQualifiedAnalyticsStorage(window.localStorage);
+      clearSiteAnalyticsSessionStorage(window.sessionStorage);
     }
     if (revokingAdvertising) window.location.reload();
   }
