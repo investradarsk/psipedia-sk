@@ -193,6 +193,7 @@ export function AdminSectionEditor({
     <EditorWorkspace
       mode="page"
       title="Editor sekcií a podsekcií"
+      hidePageTitle
       description="Verejné názvy, hierarchia, texty, poradie a SEO zostávajú v pôvodnom editore."
       status={<EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} />}
       sections={visibleSections.map((section) => ({ id: `portal-section-${section.slug}`, label: section.label }))}
@@ -204,7 +205,7 @@ export function AdminSectionEditor({
         primary={<AdminActionButton variant="primary" disabled={saving || !dirty} onClick={() => void save()}>{saving ? "Ukladám…" : "Uložiť sekcie"}</AdminActionButton>}
       />}
     >
-    <section className={styles.workspace} data-testid="admin-section-management" data-admin-section-hydrated={hydrated ? "true" : "false"}>
+    <section className={styles.workspace} data-admin-content-module="sections" data-testid="admin-section-management" data-admin-section-hydrated={hydrated ? "true" : "false"}>
       <div className={styles.toolbar}>
         <label className={styles.search}>
           <span>Hľadať sekciu alebo podsekciu</span>
