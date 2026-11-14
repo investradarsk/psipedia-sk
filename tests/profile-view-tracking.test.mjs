@@ -264,8 +264,10 @@ test("missing security secret fails closed without counting", async () => {
 test("expiry cleanup is bounded, indexed and cannot delete unrelated security keys", async () => {
   const { sqlite, db } = setup();
   try {
-    assert.equal(shouldPruneProfileViewRateKeys("550e8400-e29b-41d4-a716-446655440011"), true);
-    assert.equal(shouldPruneProfileViewRateKeys(tokenA), false);
+    // Keep the random UUID shape but make the sampled byte deterministic:
+    // 0x11 is selected (17 mod 32), while 0x00 is not.
+    assert.equal(shouldPruneProfileViewRateKeys(tokenA.slice(0, -2) + "11"), true);
+    assert.equal(shouldPruneProfileViewRateKeys(tokenA.slice(0, -2) + "00"), false);
     const rows = [
       ["public-profile-view-event:expired", "2026-11-12T00:00:00.000Z"],
       ["public-profile-view-ip:expired", "2026-11-12T00:00:00.000Z"],
