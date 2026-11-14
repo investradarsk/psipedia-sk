@@ -112,8 +112,9 @@ export async function DirectoryPage({
   return (
     <main id="obsah" className={styles.page}>
       <PublicFoundation className={styles.foundation}>
-        <UnifiedSectionHeroShell>
+        <UnifiedSectionHeroShell className={!active ? styles.compactDesktopHero : undefined}>
           <UnifiedSectionHero
+            contentSource="route"
             breadcrumbs={
               <Breadcrumbs>
                 <Link href="/">Domov</Link>
@@ -133,7 +134,7 @@ export async function DirectoryPage({
             title={active?.heroTitle ?? "Služby pre psov"}
             intro={
               active?.intro ??
-              "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."
+              "Vyhľadaj veterinára, trénera, salón, opatrovanie či inú službu pre psa. Výsledky spresni podľa lokality a zamerania a z profilu môžeš poslať dopyt cez Psipediu."
             }
             visual={seoHeroVisual}
             portalSearchSlot={
