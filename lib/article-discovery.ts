@@ -3,7 +3,7 @@ import {
   type ArticlePopularityWindow,
   type PopularArticleSummary,
 } from "@/lib/article-popularity";
-import { getPopularDirectoryProfiles, type PopularDirectoryProfileSummary } from "@/lib/directory-popularity";
+import { getPopularDirectoryProfilesBothWindows, type PopularDirectoryProfileSummary } from "@/lib/directory-popularity";
 import { directoryCategoryLabel, directoryProfileHref } from "@/lib/directory";
 import { articlePromoUtcDay } from "@/lib/article-promo";
 import {
@@ -122,16 +122,15 @@ export async function getArticleDiscoveryData(
   article: ContextualArticlePromoInput,
   now = new Date(),
 ): Promise<ArticleDiscoveryData> {
-  const [popular24h, popular7d, profiles24h, profiles7d] = await Promise.all([
+  const [popular24h, popular7d, profiles] = await Promise.all([
     readPopularityWindow(article.slug, "24h", now),
     readPopularityWindow(article.slug, "7d", now),
-    getPopularDirectoryProfiles({ window: "24h", now, limit: 5 }),
-    getPopularDirectoryProfiles({ window: "7d", now, limit: 5 }),
+    getPopularDirectoryProfilesBothWindows({ now, limit: 5 }),
   ]);
 
   const popularity = {
-    "24h": mergePopularContent(popular24h.slice(0, 5).map(toPopularItem), profiles24h.map(toPopularProfile)),
-    "7d": mergePopularContent(popular7d.slice(0, 5).map(toPopularItem), profiles7d.map(toPopularProfile)),
+    "24h": mergePopularContent(popular24h.slice(0, 5).map(toPopularItem), profiles["24h"].map(toPopularProfile)),
+    "7d": mergePopularContent(popular7d.slice(0, 5).map(toPopularItem), profiles["7d"].map(toPopularProfile)),
   };
 
   const utcDay = articlePromoUtcDay(now);
