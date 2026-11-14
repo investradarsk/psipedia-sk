@@ -1,0 +1,42 @@
+name: Admin typography contracts (read-only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/admin-editorial-foundation.css"
+      - "app/admin/admin-workspace.css"
+      - "app/admin/admin-unified-forms.css"
+      - "app/admin/admin-legacy-scoped.css"
+      - "app/admin/admin-root-extracted.css"
+      - "components/admin-editor-workspace.module.css"
+      - "components/admin-workspace-dashboard.module.css"
+      - "lib/admin-navigation.ts"
+      - "docs/audits/admin-ui-unification-inventory.json"
+      - "tests/admin-typography-step3.test.mjs"
+      - "tests/admin-ui-unification-inventory.test.mjs"
+      - ".github/workflows/admin-typography-contracts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-typography-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact PR source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Check admin typography and 28-route inventory
+        run: node --test tests/admin-typography-step3.test.mjs tests/admin-ui-unification-inventory.test.mjs
