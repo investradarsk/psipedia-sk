@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { articleReadHourBucket } from "@/lib/article-popularity";
 import { contentAnalyticsWindowStart, type ContentAnalyticsWindow } from "@/lib/content-analytics";
-import { directoryProfileHref, isDirectoryCategory } from "@/lib/directory";
+import { directoryCategoryLabel, directoryProfileHref, isDirectoryCategory } from "@/lib/directory";
 import { articleHref, isArticlePortalSection, portalSectionLabel } from "@/lib/portal";
 
 export type TrafficWindow = ContentAnalyticsWindow;
@@ -193,7 +193,7 @@ async function readSource(input: {
     return [{
       id,
       title: row.title,
-      description: row.section,
+      description: directoryCategoryLabel(row.section),
       href: directoryProfileHref({ slug: row.slug, category: row.section }),
       views,
     }];
