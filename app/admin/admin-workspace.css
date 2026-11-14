@@ -472,6 +472,7 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-column: 1 / -1;
+  grid-row: 2;
   gap: var(--admin-ui-space-sm, 0.55rem);
   min-width: 0;
   align-items: end;
@@ -491,6 +492,7 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
   justify-content: center;
   align-items: center;
   grid-column: 2;
+  grid-row: 1;
   min-height: var(--admin-ui-control-height, 44px);
   border: 1px solid var(--admin-v3-green, #174b38);
   border-radius: var(--admin-ui-field-radius, 9px);
@@ -510,12 +512,17 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
 }
 [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > a {
   grid-column: 3;
+  grid-row: 1;
   align-self: center;
   min-width: 0;
 }
 @media (max-width: 760px) {
   [data-admin-workspace] form.admin-toolbar[data-admin-article-filters][role="search"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > :is(button[type="submit"], a),
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > [id="admin-article-advanced-filters"] {
+    grid-row: auto;
   }
   [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > .admin-search,
   [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > button[type="button"],
