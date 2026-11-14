@@ -115,7 +115,7 @@ test("GA4 and AI referral measurement retain existing consent and dedupe contrac
   assert.match(consent, /isStoredInternalTraffic\(/);
   assert.match(consent, /"ai_referral_visit"/);
   assert.match(consent, /analyticsWindow\.psipediaGa4LastPageView = pageKey/);
-  assert.match(consent, /if \(choice === "necessary"\) disableAnalytics\(\)/);
+  assert.match(consent, /if \(choice === "necessary"\) \{\s*disableAnalytics\(\);\s*clearQualifiedAnalyticsStorage\(window\.localStorage\);\s*\}/);
   assert.match(consent, /if \(revokingAdvertising\) window\.location\.reload\(\)/);
   assert.match(tracker, /analyticsConsentGranted\(\)/);
   assert.match(tracker, /eventKeys = new Map/);
