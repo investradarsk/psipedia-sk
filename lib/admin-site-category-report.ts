@@ -5,6 +5,7 @@ import { breedProfileHref, canonicalBreedIdsSql } from "@/lib/breed-canonical";
 import { allDirectoryCategories, directoryProfileHref, type DirectoryCategorySlug } from "@/lib/directory";
 import { eventTypes, eventTypePortalHref, type EventType } from "@/lib/events";
 import { allHelpCategories } from "@/lib/help";
+import { newsCategories } from "@/lib/news";
 import { articleHref, articlePortalSectionOptions, type ArticlePortalSection } from "@/lib/portal";
 
 export type SiteCategoryMetric = {
@@ -28,13 +29,14 @@ export type SiteCategoryReport = {
   directory: SiteCategoryMetric[];
   events: SiteCategoryMetric[];
   help: SiteCategoryMetric[];
+  news: SiteCategoryMetric[];
   profileTop: SiteProfileMetric[];
   breeds: SiteBreedMetric[];
   breedAtlasViews: number;
 };
 
 type PageRow = { path: string; views: number };
-type ArticleRow = { slug: string; title: string; portal_section: string };
+type ArticleRow = { slug: string; title: string; portal_section: string; news_category?: string | null };
 type ProfileRow = { slug: string; name: string; category: string };
 type EventRow = { slug: string; title: string; event_type: string };
 type BreedRow = { slug: string; name: string; fci_group: number };
@@ -59,6 +61,9 @@ const eventKeys = eventTypes.map((type) => ({
 const helpKeys = allHelpCategories.map((item) => ({
   key: item.slug, label: item.label, href: "/pomoc-psom/" + item.slug,
 }));
+const newsKeys = newsCategories.map((item) => ({
+  key: item.slug, label: item.label, href: "/novinky/" + item.slug,
+}));
 
 function emptyMetricRows(keys: Array<{ key: string; label: string; href: string }>) {
   return keys.map((item) => ({ ...item, views: 0, landingViews: 0 }));
@@ -67,7 +72,7 @@ export function emptySiteCategoryReport(window: ContentAnalyticsWindow): SiteCat
   return {
     available: false, window,
     totalProfiles: null, totalArticles: null, totalEvents: null, totalHelp: null, totalBreeds: null,
-    articles: [], directory: [], events: [], help: [], profileTop: [], breeds: [], breedAtlasViews: 0,
+    articles: [], directory: [], events: [], help: [], news: [], profileTop: [], breeds: [], breedAtlasViews: 0,
   };
 }
 
@@ -83,6 +88,7 @@ export function summarizeSiteCategoryPageviews(input: {
   profiles: ProfileRow[];
   events: EventRow[];
   breeds: BreedRow[];
+  helpPaths: string[];
 }): SiteCategoryReport {
   const viewsByPath = new Map<string, number>();
   for (const row of input.pages) {
@@ -94,14 +100,18 @@ export function summarizeSiteCategoryPageviews(input: {
   const directory = emptyMetricRows(profileKeys);
   const events = emptyMetricRows(eventKeys);
   const help = emptyMetricRows(helpKeys);
+  const news = emptyMetricRows(newsKeys);
   const articleMetrics = new Map(articles.map((x) => [x.key, x]));
   const directoryMetrics = new Map(directory.map((x) => [x.key, x]));
   const eventMetrics = new Map(events.map((x) => [x.key, x]));
   const helpMetrics = new Map(help.map((x) => [x.key, x]));
+  const newsMetrics = new Map(news.map((x) => [x.key, x]));
+  const validHelpPaths = new Set(input.helpPaths);
   for (const row of articles) row.landingViews = views(row.href);
   for (const row of directory) row.landingViews = views(row.href);
   for (const row of events) row.landingViews = views(row.href);
   for (const row of help) row.landingViews = views(row.href);
+  for (const row of news) row.landingViews = views(row.href);
 
   const visited = new Set<string>();
   const profileTop: SiteProfileMetric[] = [];
@@ -143,17 +153,26 @@ export function summarizeSiteCategoryPageviews(input: {
     });
     if (visited.has(href) || href === metric.href) continue;
     visited.add(href);
-    metric.views += views(href);
+    const value = views(href);
+    metric.views += value;
+    if (article.portal_section === "novinky" && article.news_category) {
+      const newsMetric = newsMetrics.get(article.news_category);
+      if (newsMetric) newsMetric.views += value;
+    }
   }
 
   // Public help cases/adoptions use /pomoc-psom/{category}/{slug}.
   // Help organizations use /organizacie/{slug}.
   for (const [path, value] of viewsByPath) {
-    if (visited.has(path)) continue;
+    if (visited.has(path) || !validHelpPaths.has(path)) continue;
     const parts = path.split("/").filter(Boolean);
     if (parts[0] === "pomoc-psom" && parts.length === 3) {
       const metric = helpMetrics.get(parts[1]);
       if (metric) metric.views += value;
+    } else if (parts[0] === "pomoc-psom" && parts.length === 3 &&
+      ["stratene-psy", "najdene-psy"].includes(parts[1])) {
+      const lost = helpMetrics.get("stratene-a-najdene");
+      if (lost) lost.views += value;
     } else if (parts[0] === "organizacie" && parts.length === 2) {
       const shelters = helpMetrics.get("utulky");
       if (shelters) shelters.views += value;
@@ -167,7 +186,7 @@ export function summarizeSiteCategoryPageviews(input: {
     totalProfiles: total(directory), totalArticles: total(articles),
     totalEvents: total(events), totalHelp: total(help),
     totalBreeds: breeds.reduce((sum, row) => sum + row.views, 0),
-    articles, directory, events, help,
+    articles, directory, events, help, news,
     profileTop: profileTop.sort(byViewsThenName).slice(0, 10),
     breeds, breedAtlasViews: views("/plemena"),
   };
@@ -205,10 +224,10 @@ export async function loadSiteCategoryReport(input: {
       "'/aktivity','/adresar','/podujatia','/pomoc-psom','/plemena','/recenzie'))",
       "GROUP BY path",
     ].join(" ");
-    const [pageResult, articleResult, profileResult, eventResult, breedResult] = await Promise.all([
+    const [pageResult, articleResult, profileResult, eventResult, breedResult, helpCaseResult, adoptionResult, lostFoundResult, organizationResult] = await Promise.all([
       database.prepare(sql).bind(...bindings).all<PageRow>(),
       database.prepare(
-        "SELECT slug, title, portal_section FROM managed_articles " +
+        "SELECT slug, title, portal_section, news_category FROM managed_articles " +
         "WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)",
       ).bind(now.toISOString()).all<ArticleRow>(),
       database.prepare(
@@ -221,6 +240,25 @@ export async function loadSiteCategoryReport(input: {
         "SELECT slug, name, fci_group FROM managed_breeds WHERE id IN (" +
         canonicalBreedIdsSql + ") ORDER BY name COLLATE NOCASE",
       ).all<BreedRow>(),
+      database.prepare(
+        "SELECT '/pomoc-psom/' || category || '/' || slug AS path FROM help_cases " +
+        "WHERE status = 'published' AND category NOT IN ('utulky', 'adopcia')",
+      ).all<{ path: string }>(),
+      database.prepare(
+        "SELECT '/pomoc-psom/adopcia/' || slug AS path FROM adoption_dogs " +
+        "WHERE status IN ('ACTIVE', 'RESERVED') AND published_at IS NOT NULL",
+      ).all<{ path: string }>(),
+      database.prepare(
+        "SELECT CASE WHEN type = 'LOST' THEN '/pomoc-psom/stratene-psy/' || slug " +
+        "ELSE '/pomoc-psom/najdene-psy/' || slug END AS path " +
+        "FROM lost_found_dog_reports WHERE type IN ('LOST', 'FOUND') " +
+        "AND status IN ('ACTIVE','RESOLVED','EXPIRED','ARCHIVED') " +
+        "AND published_at IS NOT NULL AND duplicate_of_id IS NULL",
+      ).all<{ path: string }>(),
+      database.prepare(
+        "SELECT '/organizacie/' || slug AS path FROM help_organizations " +
+        "WHERE status = 'PUBLISHED' AND published_at IS NOT NULL AND archived_at IS NULL",
+      ).all<{ path: string }>(),
     ]);
     return summarizeSiteCategoryPageviews({
       window: input.window,
@@ -229,6 +267,8 @@ export async function loadSiteCategoryReport(input: {
       profiles: profileResult.results ?? [],
       events: eventResult.results ?? [],
       breeds: breedResult.results ?? [],
+      helpPaths: [helpCaseResult, adoptionResult, lostFoundResult, organizationResult]
+        .flatMap((result) => result.results ?? []).map((row) => row.path),
     });
   } catch (error) {
     console.error("Admin category pageview breakdown unavailable", {
