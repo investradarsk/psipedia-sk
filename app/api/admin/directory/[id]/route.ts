@@ -16,7 +16,7 @@ import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-te
 import { normalizeAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
 import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
-import { preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
+import { directoryContactValueMismatches, preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -371,6 +371,29 @@ export async function PUT(request: Request, { params }: Props) {
         contactClearWarnings.push("Vymazanie nepovinného kontaktu sa nepotvrdilo. Ostatné zmeny zostali uložené.");
       }
     }
+    // Do not let a successful Facebook save silently remove an unrelated
+    // contact, and never export a corrupt D1 snapshot to Notion.
+    const expectedContactValues = {
+      websiteUrl: typeof payload.websiteUrl === "string" ? payload.websiteUrl : "",
+      publicPhone: payload.publicPhone ?? "",
+      publicEmail: payload.publicEmail ?? "",
+      facebookUrl: payload.facebookUrl ?? "",
+      instagramUrl: payload.instagramUrl ?? "",
+    };
+    const postD1Contacts = readDirectoryPublicContacts(profile.importData, profile.websiteUrl ?? "");
+    const contactLossBeforeNotion = directoryContactValueMismatches(expectedContactValues, {
+      websiteUrl: postD1Contacts.website, publicPhone: postD1Contacts.phone,
+      publicEmail: postD1Contacts.email, facebookUrl: postD1Contacts.facebook,
+      instagramUrl: postD1Contacts.instagram,
+    });
+    if (contactLossBeforeNotion.length) {
+      console.error("DIRECTORY_CONTACT_PRESERVATION_FAILED_BEFORE_NOTION", id, contactLossBeforeNotion);
+      return Response.json({
+        error: "Kontaktné údaje sa po uložení v D1 nezhodujú (" +
+          contactLossBeforeNotion.join(", ") +
+          "). Synchronizácia do Notionu bola zastavená. Obnov profil a skontroluj údaje.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
     const changedTrainerTrustFields = serviceFilterCategories.includes(before.category as ServiceFilterCategory)
       ? changedTrainerTrustAdminFields(before, profile).filter(field => trainerTrustEditedPaths.includes(field))
       : [];
@@ -612,6 +635,20 @@ export async function PUT(request: Request, { params }: Props) {
     // intermediate projection must never be reported as the final lifecycle.
     const saved = await getManagedDirectoryProfileById(id, db);
     if (!saved) return Response.json({ error: "Záznam po uložení neexistuje." }, { status: 409 });
+    const finalContacts = readDirectoryPublicContacts(saved.importData, saved.websiteUrl ?? "");
+    const contactLossAfterNotion = directoryContactValueMismatches(expectedContactValues, {
+      websiteUrl: finalContacts.website, publicPhone: finalContacts.phone,
+      publicEmail: finalContacts.email, facebookUrl: finalContacts.facebook,
+      instagramUrl: finalContacts.instagram,
+    });
+    if (contactLossAfterNotion.length) {
+      console.error("DIRECTORY_CONTACT_PRESERVATION_FAILED_AFTER_NOTION", id, contactLossAfterNotion);
+      return Response.json({
+        error: "Po uložení boli niektoré kontakty nečakane zmenené (" +
+          contactLossAfterNotion.join(", ") +
+          "). Obnov profil; údaje nie sú bezpečne potvrdené.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
     // Validate the actual D1 result, never a successful HTTP call or a stale
     // form echo. In particular, an unpersisted Perex must never say "Uložené".
     const cleanText = (value: unknown) => typeof value === "string"
