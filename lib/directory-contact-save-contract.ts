@@ -66,3 +66,24 @@ export function scopeAdminContactSave(input: {
   }
   return { editedPaths, explicitClears, conflicts, incompatible };
 }
+
+/**
+ * The full-form Directory PUT still normalizes a complete source_data_json.
+ * Before that normalization, pin every UNTOUCHED contact to the fresh D1
+ * value, even if the submitted form carried an obsolete empty input.
+ *
+ * Only a field with a validated explicit edit receipt may change. This is
+ * independent of whether a contact is formatted as a URL, phone or e-mail.
+ */
+export function preserveUntouchedDirectoryContacts<T extends Record<string, unknown>>(
+  submitted: T,
+  live: Record<DirectoryContactSaveField, string>,
+  editedPaths: readonly string[],
+): T {
+  const edited = new Set(editedPaths.filter(isContact));
+  const next: Record<string, unknown> = { ...submitted };
+  for (const field of DIRECTORY_CONTACT_SAVE_FIELDS) {
+    if (!edited.has(field)) next[field] = live[field];
+  }
+  return next as T;
+}
