@@ -218,7 +218,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
     </section>
 
     <section className="admin-panel">
-      <form className={styles.filters} action="/admin/organizacie" method="get" role="search">
+      <form className={styles.filters} action="/admin/organizacie" method="get" role="search" data-admin-list-filters>
         <label className={"admin-search " + styles.search}>
           <SearchIcon size={19} /><span>Hľadať</span>
           <input name="q" defaultValue={filters.q} maxLength={120} placeholder="Názov, slug, mesto, okres, e-mail…" />
@@ -235,7 +235,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
 
       {message && <p className={styles.message} role="status">{message}</p>}
       {error && <p className={styles.message + " " + styles.error} role="alert">{error}</p>}
-      <p className="admin-help-results">Nájdené: <strong>{data.resultCount}</strong> · Strana {data.pagination.page} z {data.pagination.totalPages}</p>
+      <p className="admin-help-results" role="status" data-admin-list-results>Nájdené: <strong>{data.resultCount}</strong> · Strana {data.pagination.page} z {data.pagination.totalPages}</p>
 
       {!!data.items.length && <p className={styles.bulkSelect}>
         {bulkSelection.currentPageSelected} z {data.items.length} označených na tejto strane
