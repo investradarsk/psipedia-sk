@@ -77,5 +77,5 @@ test("first party analytics storage and withdrawal are explained on public legal
   assert.match(cookies, /Vlastné štatistiky návštevnosti Psipedie/);
   assert.match(cookies, /Po odvolaní súhlasu/);
   assert.match(privacy, /Vlastná analytika návštevnosti Psipedie/);
-  assert.match(privacy, /Po udelení súhlasu s analytikou/);
+  assert.match(privacy, /Základnú anonymnú návštevnosť meriame aj bez analytického súhlasu/);
 });
