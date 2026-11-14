@@ -46,7 +46,7 @@ function makeDatabase() {
     short_description TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', public_email TEXT, public_phone TEXT,
     website_url TEXT, facebook_url TEXT, instagram_url TEXT, address TEXT NOT NULL DEFAULT '', city TEXT NOT NULL DEFAULT '',
     district TEXT NOT NULL DEFAULT '', region TEXT NOT NULL DEFAULT '', country_code TEXT NOT NULL DEFAULT 'SK', image_url TEXT,
-    directory_profile_id INTEGER, source_url TEXT, published_at TEXT, last_verified_at TEXT, archived_at TEXT,
+    directory_profile_id INTEGER, source_data_json TEXT, source_url TEXT, published_at TEXT, last_verified_at TEXT, archived_at TEXT,
     thumbnail_display_json TEXT, detail_display_json TEXT,
     updated_at TEXT NOT NULL DEFAULT '2026-09-18T06:00:00.000Z'
   );`);
