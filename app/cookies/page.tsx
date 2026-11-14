@@ -34,12 +34,10 @@ export default function CookiesPage() {
         Voľba analytiky
       </PublicHeading>
       <p>
-        Tvoj výber si uložíme v prehliadači, aby sme sa naň nemuseli pýtať pri každej návšteve.
-        Základné anonymné súčty zobrazení verejných stránok meriame bez cookies a bez
-        vytvárania identifikátora návštevníka, aj bez tvojej voľby v ozname.
-        Existujúca voľba „Prijať analytiku“ platí pre doplnkové identifikované
-        relácie a čítanosť aj pre Google Analytics. Ďalšie okno nepridávame.
-        Súhlas môžeš kedykoľvek zmeniť.
+        Vlastné počítadlo zobrazení stránok funguje nezávisle od tejto voľby
+        a neukladá informácie o návštevníkoch. Súhlas sa týka Google Analytics
+        a samostatnej kvalifikovanej čítanosti obsahu. Voľbu si prehliadač
+        zapamätá a kedykoľvek ju môžeš zmeniť.
       </p>
       <PublicHeading role="section" as="h2">
         Obľúbené články
