@@ -610,6 +610,12 @@
   background: #fff;
 }
 
+/* Desktop: remove the rectangular white rail behind individually rounded widgets.
+   Keep the established smaller-screen surface untouched. */
+@media (min-width: 901px) {
+  .sidebarSticky { background: transparent; }
+}
+
 .sidebarPromo {
   margin-top: 14px;
 }
