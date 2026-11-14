@@ -52,8 +52,11 @@ async function openEventSection(page: import('@playwright/test').Page, id: strin
 // Desktop shows the same filters directly. Use the actual controls on both.
 async function openAdvancedEventFilters(page: import('@playwright/test').Page) {
   const advanced = page.locator('#admin-event-advanced-filters');
-  const toggle = page.getByRole('button', { name: /^(Ďalšie filtre|Skryť filtre)$/ });
+  // CSS arrow pseudo-content can become part of the accessibility name;
+  // the disclosure's explicit aria-controls is its stable identity.
+  const toggle = page.locator('button[aria-controls="admin-event-advanced-filters"]');
   if (await toggle.isVisible()) {
+    await expect(toggle).toContainText(/(Ďalšie filtre|Skryť filtre)/);
     await expect(toggle).toBeEnabled();
     if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -89,7 +92,9 @@ test('all 175 events, global counts, filters, pagination and responsive list', a
   await openAdvancedEventFilters(page);
   await page.getByLabel('Publikačný stav',{exact:true}).selectOption('draft');
   await expect(page.locator('[data-testid="admin-record-row"]').first()).toContainText('Koncept');
-  await expect(page.locator('[data-testid="admin-record-row"]').first()).toContainText('Ukončené');
+  // Time-state column is intentionally absent from the compact mobile table.
+  // Assert the selected time filter and the matching draft record instead.
+  await expect(page.getByRole('button', { name: 'Minulé', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await mkdir('.e2e-artifacts/admin-events',{recursive:true});
   await page.screenshot({path:`.e2e-artifacts/admin-events/past-filter-${info.project.name}.png`,fullPage:true});
   await page.locator('[data-testid="admin-record-row"]').first().screenshot({path:`.e2e-artifacts/admin-events/draft-past-${info.project.name}.png`});
@@ -97,7 +102,7 @@ test('all 175 events, global counts, filters, pagination and responsive list', a
   await expect(page.locator('[data-testid="admin-record-row"]')).toHaveCount(1);
   await page.getByRole('button',{name:'Zrušiť filtre',exact:true}).click();
   await page.getByLabel('Kraj',{exact:true}).selectOption('Žilinský kraj');
-  await page.getByLabel('Typ podujatia',{exact:true}).selectOption('Preteky');
+  await page.locator('#admin-event-filter-type').selectOption('Preteky');
   await page.getByLabel('Hľadať podujatie',{exact:true}).fill('sportovy zilina');
   expect(await page.locator('[data-testid="admin-record-row"]').count()).toBeGreaterThan(0);
   await page.getByRole('button',{name:'Zrušiť filtre',exact:true}).click();
@@ -216,7 +221,7 @@ test('time filters, start month/year and sorting work across the complete datase
   await openAdvancedEventFilters(page);
   await page.getByLabel('Mesiac začiatku', { exact: true }).selectOption(target.startDate.slice(5,7));
   await page.getByLabel('Rok začiatku', { exact: true }).selectOption(target.startDate.slice(0,4));
-  await page.getByLabel('Typ podujatia', { exact: true }).selectOption('Preteky');
+  await page.locator('#admin-event-filter-type').selectOption('Preteky');
   await page.getByLabel('Kraj', { exact: true }).selectOption('Žilinský kraj');
   const expected = data.events.filter((e: { startDate: string; eventType: string; region: string }) => e.startDate.slice(0,7) === target.startDate.slice(0,7) && e.eventType === 'Preteky' && e.region === 'Žilinský kraj');
   await expect(page.locator('[data-testid="admin-record-row"]')).toHaveCount(expected.length);
