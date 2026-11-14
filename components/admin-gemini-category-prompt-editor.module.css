@@ -31,3 +31,30 @@
   .editor, .categories { padding: 16px; }
   .form textarea { min-height: 300px; }
 }
+
+
+/* ADMIN VISUAL 14/18 – use the article-editor panel and mobile control scale. */
+.layout { min-width: 0; gap: var(--admin-ui-section-gap, .625rem); }
+.editor, .categories {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.categories { top: calc(var(--admin-sticky-stack, 96px) + 12px); }
+.editor, .categories { padding: var(--admin-ui-panel-padding, .75rem); }
+.actions { gap: var(--admin-ui-space-sm, .55rem); }
+.actions button {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+}
+.layout :is(button,input,select,textarea,summary):focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+@media (max-width: 850px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .editor, .categories { padding: .65rem; }
+  .categories { position: static; max-height: none; overflow: visible; }
+  .editor :is(input:not([type="checkbox"]), textarea, select) { font-size: 16px; }
+}
