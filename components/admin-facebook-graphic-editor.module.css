@@ -45,7 +45,7 @@
 .logoThumb{display:flex;align-items:center;gap:5px;background:#fff9ed;border-radius:7px;padding:7px 5px;min-height:42px;overflow:hidden;color:#0c432f}
 .logoThumbDark{background:#174b38;color:#fffdf8}
 .logoThumbMark{display:inline-block;flex:0 0 27px;height:27px;object-fit:contain;border-radius:6px}
-.logoThumbName{font-family:Arial,sans-serif;font-size:.84rem;font-weight:800;white-space:nowrap;letter-spacing:-.025em}
+.logoThumbName{font-family:var(--admin-ui-font-family,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif);font-size:.84rem;font-weight:800;white-space:nowrap;letter-spacing:-.025em}
 .logoThumbName>span{color:#c93624}
 .logoThumbDark .logoThumbName>span{color:#f8a38f}
 
