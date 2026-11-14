@@ -196,7 +196,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
     </section>
 
     <section ref={panelRef} className="admin-panel">
-      <div className={styles.filters} aria-label="Filtre plemien" data-admin-list-filters>
+      <div className={styles.filters} role="search" aria-label="Filtre plemien" data-admin-list-filters>
         <label className="admin-search">
           <span>Hľadať</span>
           <div><SearchIcon size={18}/><input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, slug, pôvod, FCI…" title="Vyhľadáva aj podľa presného Admin ID, napr. 1842"/></div>
