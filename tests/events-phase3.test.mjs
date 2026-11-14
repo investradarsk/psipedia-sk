@@ -96,7 +96,7 @@ test("event categories have one canonical navigator and a non-link calendar lege
   assert.doesNotMatch(eventsPage, /const searchShortcuts/);
   assert.match(eventsPage, /data-event-category-navigation/);
   assert.match(eventsPage, /Všetky podujatia/);
-  assert.match(calendar, /eventTypePortalHref\(type\)/);
+  assert.match(calendar, /eventTypePortalHref\(view\.type\)/);
   assert.match(eventsPage, /<PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
   assert.match(calendar, /role="list" aria-label="Typy podujatí v kalendári"/);
