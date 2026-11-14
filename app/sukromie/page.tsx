@@ -161,17 +161,22 @@ export default async function PrivacyPage() {
       </div>
 
       <PublicHeading role="section" as="h2">
-        Vlastné meranie prečítaní a návštev profilov
+        Vlastná analytika návštevnosti Psipedie
       </PublicHeading>
       <p>
-        Po udelení súhlasu s analytikou meriame kvalifikované prečítania článkov a zobrazenia
-        profilov po 10 sekundách viditeľnosti. Počítadlá obsahu sa uchovávajú ako súhrnné
-        hodinové hodnoty, nie ako zoznam jednotlivých návštevníkov. Zobrazenia toho istého
-        obsahu v prehliadači obmedzujeme na šesťhodinový interval.
+        Po udelení súhlasu s analytikou meriame zobrazenia verejných stránok, návštevy,
+        rôzne prehliadače v zvolenom období, zdroje návštevnosti a kategórie zariadení
+        priamo v Psipedii, bez potreby Google Analytics. Zároveň meriame kvalifikované
+        prečítania článkov a zobrazenia profilov po 10 sekundách viditeľnosti.
+        Súhrnné počítadlá uchovávame v hodinových agregátoch; na odlíšenie návštev
+        používame krátkodobé pseudonymizované identifikátory, nie meno ani e-mail.
       </p>
       <p>
         Pri prevencii proti automatizovaným požiadavkám môžeme krátkodobo používať
         pseudonymizované HMAC identifikátory, ktoré neobsahujú pôvodnú IP adresu.
+        Náhodný lokálny identifikátor prehliadača má životnosť najviac 30 dní,
+        identifikátor návštevy vyprší po približne 30 minútach nečinnosti.
+        Ich serverové HMAC identifikátory mažeme približne po 35 dňoch.
         Súhlas možno odvolať v nastaveniach cookies, čím sa zastaví nové počítanie
         a odstráni lokálny stav analytických počítadiel. Podrobnosti sú na stránke{" "}
         <Link href="/cookies">Cookies a lokálne úložisko</Link>.
