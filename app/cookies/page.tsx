@@ -46,17 +46,24 @@ export default function CookiesPage() {
       </p>
       <PrivacyControls />
       <PublicHeading role="section" as="h2">
-        Prečítania článkov a návštevy profilov
+        Vlastné štatistiky návštevnosti Psipedie
       </PublicHeading>
       <p>
-        Ak povolíš analytiku, na Psipedii môžeme započítať prečítanie článku alebo návštevu
-        profilu po aspoň 10 sekundách jeho viditeľného zobrazenia. Opakované zobrazenia
-        toho istého obsahu v jednom prehliadači obmedzujeme na interval šiestich hodín.
-        Táto vlastná štatistika je oddelená od Google Analytics 4.
+        Ak povolíš analytiku, Psipedia si sama zaznamená zobrazenia verejných stránok, návštevy,
+        približný počet rôznych prehliadačov, typ zariadenia a kategóriu zdroja návštevy
+        (napríklad vyhľadávač, sociálna sieť alebo priamy prístup). Zároveň môžeme
+        započítať prečítanie článku alebo návštevu profilu po aspoň 10 sekundách
+        jeho viditeľného zobrazenia. Opakované zobrazenia toho istého obsahu v jednom
+        prehliadači obmedzujeme na šesť hodín. Tieto štatistiky sú nezávislé od Google Analytics.
       </p>
       <p>
-        Na obmedzenie opakovaného počítania používame lokálne úložisko; pri profile
-        aj krátkodobý náhodný token. Na serveri môžeme na ochranu pred zneužitím
+        Na počítanie rôznych prehliadačov používame lokálne vytvorený náhodný
+        identifikátor najviac na 30 dní a identifikátor návštevy s 30-minútovým
+        intervalom nečinnosti. Server ukladá iba ich odvodené HMAC hodnoty,
+        ktoré automaticky premazávame najneskôr približne po 35 dňoch.
+        Neukladáme celé referenčné URL ani parametre navštívených stránok.
+        Na obmedzenie opakovaného počítania obsahu používame lokálne úložisko
+        a pri profile aj krátkodobý náhodný token. Na ochranu pred zneužitím môžeme
         použiť jednosmerne odvodený identifikátor z IP adresy, nie jej pôvodnú hodnotu.
         Do samotných súhrnných počtov neukladáme meno ani e-mail návštevníka.
         Po odvolaní súhlasu ďalšie zobrazenia nepočítame a miestne záznamy
