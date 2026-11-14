@@ -155,6 +155,16 @@ test("same-origin, exact referrer slug and browser bot filters reject bad traffi
   assert.equal(isLikelyCrawlerRequest(request(validPayload, {
     headers: { "user-agent": "Mozilla/5.0 HeadlessChrome/120" },
   })), true);
+  const cloudflareBot = request(validPayload);
+  Object.defineProperty(cloudflareBot, "cf", {
+    value: { botManagement: { verifiedBot: true, score: 90 } },
+  });
+  assert.equal(isLikelyCrawlerRequest(cloudflareBot), true);
+  const lowScoreBot = request(validPayload);
+  Object.defineProperty(lowScoreBot, "cf", {
+    value: { botManagement: { verifiedBot: false, score: 4 } },
+  });
+  assert.equal(isLikelyCrawlerRequest(lowScoreBot), true);
 });
 
 test("public endpoint counts a published profile and dedupes repeated posts on the server", async () => {
