@@ -253,7 +253,7 @@ export function AdminDashboard({
             </Link>
           ))}
         </nav>
-        <form ref={filterFormRef} className="admin-toolbar" method="get" action={routePath} role="search">
+        <form ref={filterFormRef} className="admin-toolbar" method="get" action={routePath} role="search" data-admin-article-filters>
           <label className="admin-search">
             <SearchIcon size={19} />
             <span className="sr-only">Hľadať článok</span>
@@ -300,18 +300,20 @@ export function AdminDashboard({
               )}
             </label>
           )}
-          <label className="admin-select-filter">
-            <span>Zoradiť</span>
-            <select name="sort" defaultValue={filters.sort}>
-              {articleAdminSorts.map((value) => <option key={value} value={value}>{sortLabels[value]}</option>)}
-            </select>
-          </label>
-          <label className="admin-select-filter">
-            <span>Smer</span>
-            <select name="direction" defaultValue={filters.direction}>
-              {articleAdminDirections.map((value) => <option key={value} value={value}>{directionLabels[value]}</option>)}
-            </select>
-          </label>
+          <div className={styles.sortDirectionGroup} data-admin-sort-direction>
+            <label className="admin-select-filter">
+              <span>Zoradiť</span>
+              <select name="sort" defaultValue={filters.sort}>
+                {articleAdminSorts.map((value) => <option key={value} value={value}>{sortLabels[value]}</option>)}
+              </select>
+            </label>
+            <label className="admin-select-filter">
+              <span>Smer</span>
+              <select name="direction" defaultValue={filters.direction}>
+                {articleAdminDirections.map((value) => <option key={value} value={value}>{directionLabels[value]}</option>)}
+              </select>
+            </label>
+          </div>
           </div>
           <button type="submit">Filtrovať</button>
           {(filters.query || filters.status !== "all" || filters.portalSection !== "all" || filters.topicId || filters.sort !== "updated" || filters.direction !== "desc")
