@@ -175,7 +175,6 @@ export function DirectoryProfileDetail({
   locationDiscoveryLinks?: InternalDiscoveryLink[];
   management?: ReactNode;
 }) {
-  const category = getDirectoryCategory(presentation.category);
   const mapItem = publicMap?.items[0];
   // Exactly the same GEO gate as PublicLocationMap: no directions for approximate points.
   const navigationHref =
