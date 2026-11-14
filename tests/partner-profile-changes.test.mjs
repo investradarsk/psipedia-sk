@@ -149,6 +149,26 @@ test("mass assignment, XSS and oversized arrays are rejected; directory contacts
   );
 });
 
+test("Directory contact form accepts raw text, independent of public links", async () => {
+  const { getPartnerEditableFields } = await importTs("lib/partner-profile-changes.ts");
+  const contactKeys = ["websiteUrl", "publicPhone", "publicEmail", "facebookUrl", "instagramUrl"];
+  const fields = getPartnerEditableFields("DIRECTORY_PROFILE");
+  for (const key of contactKeys) {
+    assert.equal(fields.find((field) => field.key === key)?.kind, "text", key);
+  }
+  const form = await read("components/partner-new-profile-form.tsx");
+  const directorySection = form.slice(
+    form.indexOf('<fieldset className="partner-contact-group partner-field--wide" aria-describedby="partner-directory-contact-help">'),
+    form.indexOf('      ) : (', form.indexOf('<fieldset className="partner-contact-group partner-field--wide" aria-describedby="partner-directory-contact-help">')),
+  );
+  assert.ok(directorySection.includes('type="text"'));
+  assert.doesNotMatch(directorySection, /type="(?:url|email)"/);
+  const directoryValidation = form.slice(form.indexOf('    if (resourceType === "DIRECTORY_PROFILE") {', form.indexOf("function validate()")),
+    form.indexOf('    } else {', form.indexOf('    if (resourceType === "DIRECTORY_PROFILE") {', form.indexOf("function validate()"))));
+  assert.doesNotMatch(directoryValidation, /validateUrl|validateEmail|validatePhone/);
+  assert.match(form.slice(form.indexOf('    } else {', form.indexOf("function validate()"))), /validateEmail\(organization\.publicEmail\)/);
+});
+
 test("submission is field-level, deduped, rate-limited and never writes canonical data", () => {
   const submit = domain.slice(domain.indexOf("export async function submitPartnerProfileChange"), domain.indexOf("function profileChangeStatusLabel"));
   assert.match(submit, /baseRevision/);
