@@ -4,6 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import type { PartnerProfileChangeResourceType, PartnerProfileEditableValue, PartnerProfileFieldDefinition } from "@/lib/partner-profile-changes";
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { PartnerGalleryField } from "@/components/partner-gallery-field";
+import { directoryCategories } from "@/lib/directory";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 import { DirectoryCategoryFilterFields } from "@/components/directory-category-filter-fields";
 import { buildDirectoryCategoryFilterPatch } from "@/lib/directory-category-filter-editor";
@@ -51,6 +52,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
   const [mediaAssetId, setMediaAssetId] = useState<string|null>(null);
   const [galleryUrls, setGalleryUrls] = useState<string[]>(Array.isArray(values.galleryUrls) ? values.galleryUrls : []);
   const [galleryMediaIds, setGalleryMediaIds] = useState<string[]>([]);
+  const [additionalCategories, setAdditionalCategories] = useState<string[]>(Array.isArray(values.additionalCategories) ? values.additionalCategories : []);
   const useSlovakLocation = resourceType === "DIRECTORY_PROFILE"
     || (resourceType === "HELP_ORGANIZATION" && String(draft.countryCode ?? "").trim().toUpperCase() === "SK");
 
@@ -58,13 +60,16 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
     event.preventDefault();
     const patch: Record<string, unknown> = {};
     for (const field of fields) {
-      if (field.key === "galleryUrls") continue;
+      if (field.key === "galleryUrls" || field.key === "additionalCategories") continue;
       const before = apiValue(field, initial[field.key]);
       const after = apiValue(field, draft[field.key]);
       if (JSON.stringify(before) !== JSON.stringify(after)) patch[field.key] = after;
     }
     if (JSON.stringify(galleryUrls) !== JSON.stringify(Array.isArray(values.galleryUrls) ? values.galleryUrls : [])) {
       patch.galleryUrls = galleryUrls;
+    }
+    if (directoryCategory && JSON.stringify(additionalCategories) !== JSON.stringify(Array.isArray(values.additionalCategories) ? values.additionalCategories : [])) {
+      patch.additionalCategories = additionalCategories;
     }
     if (filterCategory) {
       // Existing values and invalid/unresolved originals remain untouched unless explicitly changed.
@@ -98,7 +103,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
     <form className="partner-profile-edit-form" data-partner-edit-ready={hydrated} onSubmit={submit}>
       <div className="partner-profile-edit-grid">
         {fields.map((field) => {
-          if (field.key === "galleryUrls") return null;
+          if (field.key === "galleryUrls" || field.key === "additionalCategories") return null;
           const value = draft[field.key] ?? "";
           if ((field.key === "district" || field.key === "region") && useSlovakLocation) return null;
           if (field.key === "city" && useSlovakLocation) {
@@ -174,6 +179,23 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
           );
         })}
       </div>
+      {resourceType === "DIRECTORY_PROFILE" && directoryCategory ? (
+        <fieldset className="partner-media-field partner-field--wide" disabled={state==="sending" || state==="success"}>
+          <legend><strong>Ďalšie kategórie profilu</strong></legend>
+          <p>Hlavná kategória zostáva nezmenená. Môžete navrhnúť ďalšie kategórie, v ktorých sa bude váš profil zobrazovať.</p>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:12 }}>
+            {directoryCategories.filter((item)=>item.slug!==directoryCategory).map((item)=>(
+              <label key={item.slug} className="partner-profile-check">
+                <input type="checkbox" checked={additionalCategories.includes(item.slug)}
+                  onChange={(event)=>setAdditionalCategories((previous)=>event.target.checked
+                    ? directoryCategories.filter((option)=>option.slug===item.slug || previous.includes(option.slug)).map((option)=>option.slug)
+                    : previous.filter((slug)=>slug!==item.slug))} />
+                <span>{item.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
       {filterCategory ? (
         <DirectoryCategoryFilterFields
           category={filterCategory}
