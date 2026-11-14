@@ -15,6 +15,14 @@
   padding-block: var(--ps-list-section-top) 54px;
 }
 
+/* Keep category discovery close to the first article on desktop. */
+@media (min-width: 901px) {
+  .headerShell { padding-top: 12px; }
+  .archive { padding-top: 10px; }
+  .categoryNavigation { margin-bottom: 10px; }
+  .categoryNavigation :global([data-public-subcategory-track]) { gap: 7px; }
+}
+
 /* Use the same category components as Šteniatka, Zdravie and Výcvik. */
 .visuallyHidden {
   position: absolute;
@@ -47,6 +55,28 @@
   background: #fff;
 }
 
+.guidance summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: var(--forest-dark);
+  list-style-position: inside;
+}
+.guidance summary:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+}
+.guidanceContent {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+@media (min-width: 901px) {
+  .guidance {
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    border-radius: 11px;
+  }
+}
 .guidance h3,
 .trust h2 {
   margin: 0;
