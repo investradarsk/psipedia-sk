@@ -73,6 +73,19 @@ on:
       - "components/admin-reviews-hub.tsx"
       - "components/admin-editor-workspace.tsx"
       - "app/admin/recenzie-profilov/page.tsx"
+      - "app/admin/recenzie-profilov/reviews.css"
+      - "app/admin/partners/partners.css"
+      - "app/admin/partners/page.tsx"
+      - "app/admin/partners/claims/page.tsx"
+      - "app/admin/partners/claims/[id]/page.tsx"
+      - "app/admin/partners/submissions/page.tsx"
+      - "app/admin/partners/submissions/[id]/page.tsx"
+      - "app/admin/partners/changes/page.tsx"
+      - "app/admin/partners/verifications/page.tsx"
+      - "lib/admin-partner-labels.ts"
+      - "components/admin-profile-review-inline-approval.module.css"
+      - "components/admin-article-feedback-dashboard.tsx"
+      - "components/admin-article-feedback-dashboard.module.css"
       - "app/admin/recenzie-profilov/[id]/page.tsx"
       - "lib/admin-profile-review-labels.ts"
       - "components/admin-record-table.module.css"
@@ -106,6 +119,8 @@ on:
       - "tests/admin-directory-visual-step10.test.mjs"
       - "tests/admin-events-visual-step11.test.mjs"
       - "tests/admin-help-modules-step12.test.mjs"
+      - "tests/admin-community-step13.test.mjs"
+      - "tests/e2e/admin-community-step13.spec.ts"
       - "tests/e2e/admin-help-modules-step12.spec.ts"
       - "tests/e2e/admin-events-visual-step11.spec.ts"
       - "tests/e2e/admin-directory-visual-step10.spec.ts"
@@ -140,5 +155,5 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.18.0
-      - name: Check admin typography, content modules, lists, mobile and 28-route inventory
-        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/admin-events-visual-step11.test.mjs tests/admin-help-modules-step12.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
+      - name: Check admin typography, community queues, content modules, mobile and 28-route inventory
+        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/admin-events-visual-step11.test.mjs tests/admin-help-modules-step12.test.mjs tests/admin-community-step13.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
