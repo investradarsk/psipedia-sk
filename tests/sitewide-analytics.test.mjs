@@ -12,7 +12,7 @@ import {
   pruneSiteAnalyticsIdentityRows,
 } from "../lib/site-analytics.ts";
 import { loadSiteTrafficReport } from "../lib/site-analytics-report.ts";
-import { reserveSiteAnalyticsVisit } from "../lib/site-analytics-client.ts";
+import { anonymousSitePageview, reserveSiteAnalyticsVisit } from "../lib/site-analytics-client.ts";
 
 const migration = await readFile(new URL("../drizzle/0168_sitewide_first_party_analytics.sql", import.meta.url), "utf8");
 const hashKey = Buffer.alloc(32, 7).toString("base64url");
@@ -132,6 +132,55 @@ test("client tracking requires consent and starts new visits after 30 minutes", 
   assert.equal(reserveSiteAnalyticsVisit({ ...props, path: "/admin", nowMs: 1_900_001 }), null);
 });
 
+test("cookieless pageviews work with no consent, no visitor token and no session hash", async () => {
+  const { db, database, statements } = fixture();
+  try {
+    const aggregate = anonymousSitePageview("/", "https://www.google.sk/search?q=dog", "https://psipedia.sk");
+    assert.deepEqual(aggregate, { path: "/", source: "google" });
+    const result = await recordSitePageView({
+      ...aggregate,
+      userAgent: mobileAgent,
+      database,
+      now,
+    });
+    assert.deepEqual(result, { recorded: true, startedSession: false });
+    assert.equal(db.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 1);
+    assert.equal(db.prepare("SELECT sessions FROM site_analytics_hourly").get().sessions, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_sessions").get().n, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_visitors_daily").get().n, 0);
+    assert.deepEqual(
+      db.prepare("SELECT source, device, pageviews, sessions FROM site_analytics_sources_hourly").get(),
+      { source: "google", device: "mobile", pageviews: 1, sessions: 0 },
+    );
+    assert.ok(statements.every((sql) => !sql.includes("INSERT OR IGNORE INTO site_analytics_sessions")
+      && !sql.includes("INSERT INTO site_analytics_visitors_daily")));
+  } finally {
+    db.close();
+  }
+});
+
+test("anonymous plus consented events produce exact pageviews and source counts without double counting", async () => {
+  const { db, database } = fixture();
+  try {
+    await recordSitePageView({
+      path: "/", source: "direct", userAgent: mobileAgent, database, now,
+    });
+    await view(database, { path: "/plemena/labrador", source: "facebook" });
+    assert.equal(db.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 2);
+    assert.equal(db.prepare("SELECT sessions FROM site_analytics_hourly").get().sessions, 1);
+    assert.equal(db.prepare("SELECT SUM(pageviews) AS n FROM site_analytics_sources_hourly").get().n, 2);
+    assert.equal(db.prepare("SELECT SUM(sessions) AS n FROM site_analytics_sources_hourly").get().n, 1);
+    const report = await loadSiteTrafficReport({ window: "24h", now, database });
+    assert.equal(report.pageviews, 2);
+    assert.equal(report.sessions, 1);
+    assert.equal(report.uniqueVisitors, 1);
+    assert.equal(report.sources.find((x) => x.label === "direct").pageviews, 1);
+    assert.equal(report.sources.find((x) => x.label === "facebook").pageviews, 1);
+  } finally {
+    db.close();
+  }
+});
+
 test("pageviews count every navigation while visits and visitor identities are deduplicated", async () => {
   const { db, database } = fixture();
   try {
@@ -162,10 +211,10 @@ test("dashboard reads real traffic, source/device mixes, top pages, 30-day visit
     assert.equal(report.sessions, 2);
     assert.equal(report.uniqueVisitors, 2);
     assert.equal(report.activeSessions5m, 2);
-    assert.equal(report.sources.find((source) => source.label === "google").sessions, 1);
-    assert.equal(report.sources.find((source) => source.label === "facebook").sessions, 1);
-    assert.equal(report.devices.find((device) => device.label === "mobile").sessions, 1);
-    assert.equal(report.devices.find((device) => device.label === "desktop").sessions, 1);
+    assert.equal(report.sources.find((source) => source.label === "google").pageviews, 1);
+    assert.equal(report.sources.find((source) => source.label === "facebook").pageviews, 1);
+    assert.equal(report.devices.find((device) => device.label === "mobile").pageviews, 1);
+    assert.equal(report.devices.find((device) => device.label === "desktop").pageviews, 1);
     assert.equal(report.points.reduce((sum, row) => sum + row.pageviews, 0), 2);
     assert.equal(report.topPages.length, 2);
     const lifetime = await loadSiteTrafficReport({ window: "all", now, database });
