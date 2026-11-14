@@ -51,5 +51,7 @@ test("reviews admin hub requires no database migration or duplicate review store
   const hub = read("components/admin-reviews-hub.tsx");
   const page = read("app/admin/recenzie/page.tsx");
   assert.doesNotMatch(hub + page, /CREATE TABLE|ALTER TABLE|INSERT INTO/);
-  assert.match(hub, /Každá karta vedie do existujúceho canonical modulu/);
+  assert.match(hub, /Rýchle pracovné odkazy/);
+  assert.doesNotMatch(hub, /canonical modul|review workflow/);
+  assert.match(hub, /<details className=\{styles\.rules\}/);
 });
