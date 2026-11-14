@@ -329,27 +329,27 @@
 }
 
 /* ADMIN-V3-COMPACT-01: dashboard density without removing status or actions. */
-.workspace { gap: 13px; padding-bottom: 6px; }
+.workspace { gap: var(--admin-ui-section-gap, 10px); padding-bottom: var(--admin-ui-space-xs, 6px); }
 .sectionHeading { margin-bottom: 7px; gap: 8px; }
 .sectionHeading h2, .panelHeading h2 { font-family: inherit; font-weight: 800; font-size: clamp(1.05rem, 1.6vw, 1.24rem); }
-.priorityGrid, .splitGrid { gap: 9px; }
-.metricCard { min-height: 142px; gap: 8px; padding: 13px 14px; border-radius: 13px; box-shadow: 0 3px 12px rgba(23, 53, 43, .045); }
+.priorityGrid, .splitGrid { gap: var(--admin-ui-space-sm, 9px); }
+.metricCard { min-height: 132px; gap: var(--admin-ui-editor-field-gap, 8px); padding: var(--admin-ui-panel-padding, 12px); border-radius: var(--admin-ui-radius, 12px); box-shadow: 0 3px 12px rgba(23, 53, 43, .045); }
 .metricValue { gap: 7px; flex-wrap: wrap; }
 .metricValue strong { font-family: inherit; font-size: var(--admin-ui-type-stat, clamp(1.6rem, 2.5vw, 2.1rem)); font-weight: 800; line-height: 1.05; }
 .metricCard p { line-height: 1.4; }
 .metricCard b { margin-top: 2px; }
-.queueGrid { gap: 7px; }
-.queueLink { min-height: 60px; padding: 9px 12px; gap: 8px; border-radius: 11px; box-shadow: 0 3px 12px rgba(23, 53, 43, .04); }
+.queueGrid { gap: var(--admin-ui-editor-field-gap, 8px); }
+.queueLink { min-height: 56px; padding: 8px 10px; gap: var(--admin-ui-editor-field-gap, 8px); border-radius: var(--admin-ui-radius, 12px); box-shadow: 0 3px 12px rgba(23, 53, 43, .04); }
 .queueLink b { font-family: inherit; font-size: 1.3rem; font-weight: 800; }
-.panel { padding: 13px 14px; border-radius: 13px; box-shadow: 0 3px 12px rgba(23, 53, 43, .04); }
-.inlineMetric { margin-top: 9px; padding: 10px 12px; }
+.panel { padding: var(--admin-ui-panel-padding, 12px); border-radius: var(--admin-ui-radius, 12px); box-shadow: 0 3px 12px rgba(23, 53, 43, .04); }
+.inlineMetric { margin-top: var(--admin-ui-space-sm, 9px); padding: var(--admin-ui-panel-padding, 12px); }
 .inlineMetric strong { font-family: inherit; font-size: 1.35rem; font-weight: 800; }
-.actionRow, .quickLinks { margin-top: 10px; }
+.actionRow, .quickLinks { margin-top: var(--admin-ui-section-gap, 10px); }
 .actionRow a, .quickLinks a { min-height: 44px; }
 .reliabilityNotice { padding: 11px 12px; gap: 8px; }
 @media (max-width: 760px) {
-  .workspace { gap: 10px; }
-  .metricCard { min-height: 0; padding: 12px; }
+  .workspace { gap: var(--admin-ui-section-gap, 10px); }
+  .metricCard { min-height: 0; padding: var(--admin-ui-panel-padding, 10px); }
   .metricValue strong { font-size: 1.75rem; }
   .queueLink { min-height: 54px; }
 }
