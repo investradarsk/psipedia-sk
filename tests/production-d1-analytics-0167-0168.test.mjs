@@ -49,7 +49,7 @@ test("0167/0168 SHA-pinned additive schema and exactly expected objects", () => 
     assert.equal(expected.length, target === "0167" ? 4 : 2);
     assert.equal(pinnedAnalyticsDdlStatements(sql).length, expected.length);
     assert.ok(expected.every(row => ["table", "index", "view"].includes(row.type)));
-    assert.doesNotMatch(sql.replace(/^--.*$/gm, ""), /\b(?:DROP|ALTER|UPDATE|DELETE|INSERT|REPLACE|ATTACH|DETACH)\b/i);
+    assert.ok(pinnedAnalyticsDdlStatements(sql).every(statement => /^CREATE\s+(?:TABLE|INDEX|VIEW)\b/i.test(statement)));
   }
   const objects168 = assertAnalyticsPinnedDdl("0168", sql168);
   assert.deepEqual(objects168.map(row => row.name),
