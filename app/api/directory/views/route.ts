@@ -8,6 +8,7 @@ import {
   PROFILE_VISIT_TOKEN,
 } from "@/lib/profile-view-security";
 import { createD1RateLimitStore, deriveRateLimitKey, enforceRateLimit } from "@/lib/rate-limit";
+import { pruneExpiredProfileViewRateKeys, shouldPruneProfileViewRateKeys } from "@/lib/profile-view-retention";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +129,14 @@ export async function POST(request: Request) {
         result.reason === "profile_unavailable" ? "Profil nie je dostupný." : "Štatistiky nie sú momentálne dostupné.",
         result.reason === "profile_unavailable" ? 404 : 503,
       );
+    }
+    if (shouldPruneProfileViewRateKeys(visitToken)) {
+      try {
+        await pruneExpiredProfileViewRateKeys(bindings.DB);
+      } catch {
+        // Cleanup is best-effort; successful visitor counts must not be lost.
+        console.warn("Profile view expiry maintenance deferred");
+      }
     }
     return new Response(null, { status: 204, headers: NO_STORE });
   } catch (cause) {
