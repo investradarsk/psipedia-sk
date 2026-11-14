@@ -7,6 +7,9 @@ export function isSafeSiteAnalyticsPath(path: unknown): path is string {
     return false;
   }
   if (/\/%2f|\/%5c/i.test(path)) return false;
+  // Test-only E2E fixtures are not real public content. Do not collect them
+  // even if a production smoke test deliberately visits a 404 route.
+  if (path.split("/").some((segment) => /(?:^e2e$|-e2e$)/i.test(segment))) return false;
   const first = path.split("/")[1]?.toLowerCase() ?? "";
   return !["admin", "partner", "api", "_next", "recenzia", "favicon.ico"].includes(first);
 }
