@@ -2,270 +2,212 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import {
-  classifySiteTrafficSource,
-  classifySiteTrafficDevice,
-  isSafeSiteAnalyticsPath,
-} from "../lib/site-analytics-public.ts";
-import {
-  recordSitePageView,
-  pruneSiteAnalyticsIdentityRows,
-} from "../lib/site-analytics.ts";
+import { isSafeSiteAnalyticsPath } from "../lib/site-analytics-public.ts";
+import { recordSitePageView } from "../lib/site-analytics.ts";
 import { loadSiteTrafficReport } from "../lib/site-analytics-report.ts";
-import { anonymousSitePageview, reserveSiteAnalyticsVisit } from "../lib/site-analytics-client.ts";
 
-const migration = await readFile(new URL("../drizzle/0168_sitewide_first_party_analytics.sql", import.meta.url), "utf8");
-const hashKey = Buffer.alloc(32, 7).toString("base64url");
+const migration = await readFile(
+  new URL("../drizzle/0168_sitewide_first_party_analytics.sql", import.meta.url),
+  "utf8",
+);
 const now = new Date("2026-11-14T20:37:41.000Z");
-const visitorA = "550e8400-e29b-41d4-a716-446655440000";
-const visitorB = "550e8400-e29b-41d4-a716-446655440001";
-const sessionA = "550e8400-e29b-41d4-a716-446655440002";
-const sessionB = "550e8400-e29b-41d4-a716-446655440003";
-const mobileAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) Mobile/15E148 Safari/604.1";
 
 function fixture() {
-  const db = new DatabaseSync(":memory:");
-  db.exec(`
-    PRAGMA foreign_keys = ON;
-    CREATE TABLE security_rate_limits(
-      bucket_key TEXT PRIMARY KEY NOT NULL,
-      window_started_at TEXT NOT NULL,
-      count INTEGER NOT NULL,
-      expires_at TEXT NOT NULL
-    );
-  `);
-  db.exec(migration);
-  const statements = [];
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(migration);
+  const queries = [];
   const database = {
     prepare(sql) {
-      statements.push(sql);
+      queries.push(sql);
       let args = [];
       return {
         bind(...values) { args = values; return this; },
-        async first() { return db.prepare(sql).get(...args) ?? null; },
-        async all() { return { results: db.prepare(sql).all(...args) }; },
-        async run() {
-          const result = db.prepare(sql).run(...args);
-          return { meta: { changes: result.changes }, success: true };
-        },
-        _run() { return db.prepare(sql).run(...args); },
+        async first() { return sqlite.prepare(sql).get(...args) ?? null; },
+        async all() { return { results: sqlite.prepare(sql).all(...args) }; },
+        runSync() { return sqlite.prepare(sql).run(...args); },
       };
     },
-    async batch(queries) {
-      db.exec("BEGIN");
+    async batch(statements) {
+      sqlite.exec("BEGIN");
       try {
-        const results = queries.map((query) => ({ meta: { changes: query._run().changes } }));
-        db.exec("COMMIT");
+        const results = statements.map((statement) => ({
+          meta: { changes: statement.runSync().changes },
+        }));
+        sqlite.exec("COMMIT");
         return results;
       } catch (error) {
-        db.exec("ROLLBACK");
+        sqlite.exec("ROLLBACK");
         throw error;
       }
     },
   };
-  return { db, database, statements };
+  return { sqlite, database, queries };
 }
 
-function consentStorage(initial = {}) {
-  const data = new Map(Object.entries(initial));
-  return {
-    getItem: (key) => data.get(key) ?? null,
-    setItem(key, value) { data.set(key, String(value)); },
-    removeItem(key) { data.delete(key); },
-    key(index) { return [...data.keys()][index] ?? null; },
-    get length() { return data.size; },
-  };
-}
+test("0168 creates exactly two aggregate-only tables with no visitor metadata", () => {
+  const { sqlite } = fixture();
+  try {
+    const tables = sqlite.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
+    ).all().map((row) => row.name);
+    assert.deepEqual(tables, [
+      "site_analytics_hourly",
+      "site_analytics_pages_hourly",
+    ]);
+    const schema = sqlite.prepare(
+      "SELECT sql FROM sqlite_master WHERE type='table'",
+    ).all().map((row) => row.sql).join("\n");
+    assert.doesNotMatch(schema, /visitor|session|source|device|referrer|user.agent|\bip\b|hash|cookie/i);
+  } finally {
+    sqlite.close();
+  }
+});
 
-async function view(database, input = {}) {
-  return recordSitePageView({
-    path: input.path ?? "/starostlivost/preco-pes-zerie-travu",
-    visitorToken: input.visitorToken ?? visitorA,
-    sessionToken: input.sessionToken ?? sessionA,
-    source: input.source ?? "google",
-    userAgent: input.userAgent ?? mobileAgent,
-    database,
-    hashKey,
-    now: input.now ?? now,
-  });
-}
-
-test("site path classifier excludes internal and sensitive routes, never sends query strings", () => {
+test("only eligible public page paths are counted, never a query or private route", () => {
   assert.equal(isSafeSiteAnalyticsPath("/"), true);
   assert.equal(isSafeSiteAnalyticsPath("/plemena/labradorsky-retriever"), true);
-  for (const invalid of [
-    "/admin", "/admin/clanky/1", "/api/articles/read", "/partner/login",
-    "/_next/static/chunk.js", "/recenzia/odoslat", "/foo?utm_source=google",
-    "/foo#bar", "//other-host/evil", "/x/../admin", "https://other.test/",
-  ]) assert.equal(isSafeSiteAnalyticsPath(invalid), false, invalid);
+  assert.equal(isSafeSiteAnalyticsPath("/podujatia/psi-den-2026"), true);
+  for (const unsafe of [
+    "/admin", "/admin/clanky/1", "/partner/login", "/api/analytics/pageview",
+    "/recenzia/prihlasenie", "/_next/static/chunk.js", "/?email=abc",
+    "/foo#bar", "//other.example/", "/foo/../bar",
+    "/adresar/foo/%40personal-email", "https://other.example/",
+  ]) assert.equal(isSafeSiteAnalyticsPath(unsafe), false, unsafe);
 });
 
-test("source and device classification uses finite categories, not full URL or fingerprint", () => {
-  assert.equal(classifySiteTrafficSource("https://www.google.sk/search?q=dogs"), "google");
-  assert.equal(classifySiteTrafficSource("https://l.facebook.com/l.php?u=x"), "facebook");
-  assert.equal(classifySiteTrafficSource("https://www.instagram.com/p/example"), "instagram");
-  assert.equal(classifySiteTrafficSource("https://psipedia.sk/plemena"), "direct");
-  assert.equal(classifySiteTrafficSource("https://other.test/secret?x=1"), "referral");
-  assert.equal(classifySiteTrafficDevice(mobileAgent), "mobile");
-  assert.equal(classifySiteTrafficDevice("Mozilla/5.0 iPad Tablet"), "tablet");
-  assert.equal(classifySiteTrafficDevice("Mozilla/5.0 Windows NT 10.0"), "desktop");
-});
-
-test("client tracking requires consent and starts new visits after 30 minutes", () => {
-  const localStorage = consentStorage();
-  const sessionStorage = consentStorage();
-  const tokens = [visitorA, sessionA, sessionB, visitorB];
-  const props = { localStorage, sessionStorage, path: "/", referrer: "https://www.google.sk", origin: "https://psipedia.sk", randomUUID: () => tokens.shift() };
-  assert.equal(reserveSiteAnalyticsVisit({ ...props, nowMs: 1_000 }), null);
-  localStorage.setItem("psipedia-cookie-consent", "analytics");
-  const first = reserveSiteAnalyticsVisit({ ...props, nowMs: 1_000 });
-  assert.equal(first.visitorToken, visitorA);
-  assert.equal(first.sessionToken, sessionA);
-  assert.equal(first.source, "google");
-  const second = reserveSiteAnalyticsVisit({ ...props, path: "/plemena", nowMs: 5_000 });
-  assert.equal(second.visitorToken, visitorA);
-  assert.equal(second.sessionToken, sessionA);
-  const newSession = reserveSiteAnalyticsVisit({ ...props, nowMs: 1_900_000 });
-  assert.equal(newSession.visitorToken, visitorA);
-  assert.equal(newSession.sessionToken, sessionB);
-  assert.equal(newSession.source, "google");
-  assert.equal(reserveSiteAnalyticsVisit({ ...props, path: "/admin", nowMs: 1_900_001 }), null);
-});
-
-test("cookieless pageviews work with no consent, no visitor token and no session hash", async () => {
-  const { db, database, statements } = fixture();
+test("single view increases two hourly counters, with zero individual events", async () => {
+  const { sqlite, database, queries } = fixture();
   try {
-    const aggregate = anonymousSitePageview("/", "https://www.google.sk/search?q=dog", "https://psipedia.sk");
-    assert.deepEqual(aggregate, { path: "/", source: "google" });
-    const result = await recordSitePageView({
-      ...aggregate,
-      userAgent: mobileAgent,
-      database,
-      now,
+    const first = await recordSitePageView({
+      path: "/", now, database,
     });
-    assert.deepEqual(result, { recorded: true, startedSession: false });
-    assert.equal(db.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 1);
-    assert.equal(db.prepare("SELECT sessions FROM site_analytics_hourly").get().sessions, 0);
-    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_sessions").get().n, 0);
-    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_visitors_daily").get().n, 0);
+    assert.deepEqual(first, { recorded: true });
+    assert.equal(queries.length, 2);
+    assert.ok(queries.every((sql) => /site_analytics_(?:pages_)?hourly/.test(sql)));
+    assert.equal(sqlite.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 1);
     assert.deepEqual(
-      db.prepare("SELECT source, device, pageviews, sessions FROM site_analytics_sources_hourly").get(),
-      { source: "google", device: "mobile", pageviews: 1, sessions: 0 },
+      sqlite.prepare("SELECT path, pageviews FROM site_analytics_pages_hourly").get(),
+      { path: "/", pageviews: 1 },
     );
-    assert.ok(statements.every((sql) => !sql.includes("INSERT OR IGNORE INTO site_analytics_sessions")
-      && !sql.includes("INSERT INTO site_analytics_visitors_daily")));
+    await recordSitePageView({ path: "/", now, database });
+    await recordSitePageView({
+      path: "/plemena/labradorsky-retriever", now, database,
+    });
+    assert.equal(sqlite.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 3);
+    assert.deepEqual(
+      sqlite.prepare("SELECT path, pageviews FROM site_analytics_pages_hourly ORDER BY path").all(),
+      [
+        { path: "/", pageviews: 2 },
+        { path: "/plemena/labradorsky-retriever", pageviews: 1 },
+      ],
+    );
   } finally {
-    db.close();
+    sqlite.close();
   }
 });
 
-test("anonymous plus consented events produce exact pageviews and source counts without double counting", async () => {
-  const { db, database } = fixture();
+test("hourly and page rollups remain consistent across midnight UTC", async () => {
+  const { sqlite, database } = fixture();
   try {
     await recordSitePageView({
-      path: "/", source: "direct", userAgent: mobileAgent, database, now,
+      path: "/clanky/jeden", database,
+      now: new Date("2026-11-13T23:30:00Z"),
     });
-    await view(database, { path: "/plemena/labrador", source: "facebook" });
-    assert.equal(db.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 2);
-    assert.equal(db.prepare("SELECT sessions FROM site_analytics_hourly").get().sessions, 1);
-    assert.equal(db.prepare("SELECT SUM(pageviews) AS n FROM site_analytics_sources_hourly").get().n, 2);
-    assert.equal(db.prepare("SELECT SUM(sessions) AS n FROM site_analytics_sources_hourly").get().n, 1);
-    const report = await loadSiteTrafficReport({ window: "24h", now, database });
-    assert.equal(report.pageviews, 2);
-    assert.equal(report.sessions, 1);
-    assert.equal(report.uniqueVisitors, 1);
-    assert.equal(report.sources.find((x) => x.label === "direct").pageviews, 1);
-    assert.equal(report.sources.find((x) => x.label === "facebook").pageviews, 1);
+    await recordSitePageView({
+      path: "/clanky/dva", database,
+      now: new Date("2026-11-14T00:30:00Z"),
+    });
+    const total = sqlite.prepare(
+      "SELECT SUM(pageviews) AS n FROM site_analytics_hourly",
+    ).get().n;
+    const pages = sqlite.prepare(
+      "SELECT SUM(pageviews) AS n FROM site_analytics_pages_hourly",
+    ).get().n;
+    assert.equal(total, 2);
+    assert.equal(pages, 2);
+    assert.equal(sqlite.prepare(
+      "SELECT COUNT(*) AS n FROM site_analytics_hourly",
+    ).get().n, 2);
   } finally {
-    db.close();
+    sqlite.close();
   }
 });
 
-test("pageviews count every navigation while visits and visitor identities are deduplicated", async () => {
-  const { db, database } = fixture();
+test("admin report returns only total, time-series and top public pages", async () => {
+  const { sqlite, database } = fixture();
   try {
-    assert.deepEqual(await view(database), { recorded: true, startedSession: true });
-    assert.deepEqual(await view(database, { path: "/plemena/labrador" }), { recorded: true, startedSession: false });
-    assert.deepEqual(await view(database, { sessionToken: sessionB, source: "facebook", path: "/" }), { recorded: true, startedSession: true });
-    assert.equal(db.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 3);
-    assert.equal(db.prepare("SELECT sessions FROM site_analytics_hourly").get().sessions, 2);
-    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_sessions").get().n, 2);
-    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_visitors_daily").get().n, 1);
-    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_pages_hourly").get().n, 3);
-    assert.equal(db.prepare("SELECT SUM(sessions) AS n FROM site_analytics_sources_hourly").get().n, 2);
-    assert.equal(db.prepare("SELECT visitor_hash FROM site_analytics_sessions LIMIT 1").get().visitor_hash.startsWith("site-visitor:"), true);
-    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_sessions WHERE visitor_hash=?").get(visitorA).n, 0);
-  } finally {
-    db.close();
-  }
-});
-
-test("dashboard reads real traffic, source/device mixes, top pages, 30-day visitors and active sessions", async () => {
-  const { db, database } = fixture();
-  try {
-    await view(database);
-    await view(database, { path: "/", sessionToken: sessionB, visitorToken: visitorB, source: "facebook", userAgent: "Mozilla/5.0 Windows NT 10.0" });
-    const report = await loadSiteTrafficReport({ window: "24h", now, database });
+    for (const path of ["/", "/", "/plemena/labrador"]) {
+      assert.deepEqual(
+        await recordSitePageView({ path, now, database }),
+        { recorded: true },
+      );
+    }
+    const report = await loadSiteTrafficReport({
+      window: "24h", now, database,
+    });
     assert.equal(report.available, true);
-    assert.equal(report.pageviews, 2);
-    assert.equal(report.sessions, 2);
-    assert.equal(report.uniqueVisitors, 2);
-    assert.equal(report.activeSessions5m, 2);
-    assert.equal(report.sources.find((source) => source.label === "google").pageviews, 1);
-    assert.equal(report.sources.find((source) => source.label === "facebook").pageviews, 1);
-    assert.equal(report.devices.find((device) => device.label === "mobile").pageviews, 1);
-    assert.equal(report.devices.find((device) => device.label === "desktop").pageviews, 1);
-    assert.equal(report.points.reduce((sum, row) => sum + row.pageviews, 0), 2);
-    assert.equal(report.topPages.length, 2);
-    const lifetime = await loadSiteTrafficReport({ window: "all", now, database });
-    assert.equal(lifetime.pageviews, 2);
-    assert.equal(lifetime.uniqueVisitors, null, "do not fabricate lifetime uniques after deletion of identifiers");
-    assert.equal(lifetime.points.length, 12);
+    assert.equal(report.pageviews, 3);
+    assert.equal(report.points.reduce((sum, point) => sum + point.pageviews, 0), 3);
+    assert.deepEqual(report.topPages, [
+      { path: "/", pageviews: 2 },
+      { path: "/plemena/labrador", pageviews: 1 },
+    ]);
+    for (const banned of [
+      "uniqueVisitors", "sessions", "activeSessions5m",
+      "sources", "devices", "referrers", "ipAddresses",
+    ]) assert.equal(banned in report, false, banned);
+    const all = await loadSiteTrafficReport({
+      window: "all", now, database,
+    });
+    assert.equal(all.pageviews, 3);
+    assert.equal(all.points.length, 12);
   } finally {
-    db.close();
+    sqlite.close();
   }
 });
 
-test("unavailable staging migration is distinct from a genuine zero", async () => {
-  const unavailable = await loadSiteTrafficReport({ window: "7d", now, database: null });
+test("unavailable data is distinct from a genuine zero count", async () => {
+  const unavailable = await loadSiteTrafficReport({
+    window: "30d", now, database: null,
+  });
   assert.equal(unavailable.available, false);
   assert.equal(unavailable.pageviews, null);
-  const { db, database } = fixture();
+  const { sqlite, database } = fixture();
   try {
-    const blank = await loadSiteTrafficReport({ window: "7d", now, database });
-    assert.equal(blank.available, true);
-    assert.equal(blank.pageviews, 0);
-    assert.equal(blank.sessions, 0);
-    assert.equal(blank.uniqueVisitors, 0);
+    const empty = await loadSiteTrafficReport({
+      window: "30d", now, database,
+    });
+    assert.equal(empty.available, true);
+    assert.equal(empty.pageviews, 0);
+    assert.deepEqual(empty.topPages, []);
   } finally {
-    db.close();
+    sqlite.close();
   }
 });
 
-test("old HMAC visitor identifiers are pruned without losing all-time aggregate counters", async () => {
-  const { db, database } = fixture();
-  try {
-    await view(database);
-    db.prepare("UPDATE site_analytics_sessions SET expires_at='2026-11-01T00:00:00.000Z'").run();
-    db.prepare("UPDATE site_analytics_visitors_daily SET expires_at='2026-11-01T00:00:00.000Z'").run();
-    await pruneSiteAnalyticsIdentityRows(database, now);
-    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_sessions").get().n, 0);
-    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM site_analytics_visitors_daily").get().n, 0);
-    assert.equal(db.prepare("SELECT pageviews FROM site_analytics_hourly").get().pageviews, 1);
-  } finally {
-    db.close();
-  }
+test("global view tracker sends only a pathname and never touches browser identifiers", async () => {
+  const tracker = await readFile(
+    new URL("../components/site-analytics-tracker.tsx", import.meta.url),
+    "utf8",
+  );
+  const schema = await readFile(
+    new URL("../drizzle/0168_sitewide_first_party_analytics.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(tracker, /JSON\.stringify\(\{ path: pathname \}\)/);
+  assert.match(tracker, /credentials: "omit"/);
+  assert.match(tracker, /visibilityState !== "visible"/);
+  assert.doesNotMatch(tracker, /localStorage|sessionStorage|document\.cookie|document\.referrer|consent|gtag|randomUUID/);
+  assert.doesNotMatch(schema, /HMAC|visitor|session|source|device|ip:|security_rate_limits|personal/i);
 });
 
-test("sitewide UI is mounted once and new reporting has no GA4 API dependencies", async () => {
-  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
-  const route = await readFile(new URL("../app/admin/nastavenia/statistiky/page.tsx", import.meta.url), "utf8");
-  const panel = await readFile(new URL("../components/admin-site-traffic-panel.tsx", import.meta.url), "utf8");
-  assert.equal((layout.match(/<SiteAnalyticsTracker\b/g) ?? []).length, 1);
-  assert.match(route, /loadSiteTrafficReport/);
-  assert.match(route, /requireAdminPageUser/);
-  assert.match(panel, /Návštevnosť celého webu/);
-  assert.match(panel, /Unikátni návštevníci/);
-  assert.match(panel, /Najnavštevovanejšie stránky/);
-  assert.doesNotMatch(panel, /gtag\(|GA4 API|googleAnalyticsData/);
+test("admin UI exposes a count, time-series and top pages only", async () => {
+  const ui = await readFile(
+    new URL("../components/admin-site-traffic-panel.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(ui, /Zobrazenia stránok/);
+  assert.match(ui, /Vývoj zobrazení/);
+  assert.match(ui, /Najnavštevovanejšie stránky/);
+  assert.doesNotMatch(ui, /Unikátni návštevníci|Aktívne relácie|Odkiaľ návštevníci|Zariadenia/);
 });
