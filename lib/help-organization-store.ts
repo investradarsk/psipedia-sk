@@ -1,5 +1,5 @@
 import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
-import { readProfileGallery } from "./partner-profile-gallery";
+import { readProfileGallery } from "./partner-profile-gallery.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import { cleanPublicOrganizationCopy } from "./public-integrity.ts";
 import {
