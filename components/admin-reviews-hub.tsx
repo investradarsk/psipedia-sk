@@ -109,7 +109,7 @@ export function AdminReviewsHub({
           <article className={styles.card}>
             <div className={styles.cardTop}>
               <span className={styles.icon} aria-hidden="true">🛒</span>
-              <span className={styles.status} data-tone="live">Aktívne</span>
+              <span className={styles.status} data-tone="live">{eshopCounts.published === null ? "Správa" : `${eshopCounts.published} publikovaných`}</span>
             </div>
             <h3>E-shopy</h3>
             <p>Profily e-shopov a ich používateľské hodnotenia.</p>
