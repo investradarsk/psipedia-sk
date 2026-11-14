@@ -64,8 +64,8 @@ test("article and profile trackers never send without prior consent and react to
   const banner = await readFile(new URL("../components/cookie-consent.tsx", import.meta.url), "utf8");
   assert.match(banner, /clearQualifiedAnalyticsStorage\(window\.localStorage\)/);
   assert.match(banner, /window\.dispatchEvent\(new Event\(CONSENT_EVENT\)\)/);
-  assert.match(banner, /Anonymné súhrnné zobrazenia stránok/);
-  assert.match(banner, /Druhé okno na súhlas nepridávame/);
+  assert.match(banner, /anonymné zobrazenia stránok/);
+  assert.match(banner, /Google Analytics a samostatná kvalifikovaná čítanosť/);
   assert.equal((banner.match(/onClick=\{\(\) => saveChoice\("analytics"\)\}/g) ?? []).length, 1,
     "Only the existing analytics opt-in control should be present");
   assert.equal(QUALIFIED_ANALYTICS_CONSENT_EVENT, "psipedia:consent-changed");
@@ -74,8 +74,8 @@ test("article and profile trackers never send without prior consent and react to
 test("first party analytics storage and withdrawal are explained on public legal pages", async () => {
   const cookies = await readFile(new URL("../app/cookies/page.tsx", import.meta.url), "utf8");
   const privacy = await readFile(new URL("../app/sukromie/page.tsx", import.meta.url), "utf8");
-  assert.match(cookies, /Vlastné štatistiky návštevnosti Psipedie/);
-  assert.match(cookies, /Po odvolaní súhlasu/);
-  assert.match(privacy, /Vlastná analytika návštevnosti Psipedie/);
-  assert.match(privacy, /Základnú anonymnú návštevnosť meriame aj bez analytického súhlasu/);
+  assert.match(cookies, /Vlastné počítadlo zobrazení Psipedie/);
+  assert.match(cookies, /Zaznamenávame iba počet otvorení verejných stránok/);
+  assert.match(privacy, /Vlastné počítadlo zobrazení Psipedie/);
+  assert.match(privacy, /Nevytvára ani neuchováva ID návštevníka/);
 });
