@@ -65,3 +65,34 @@
 .noPreview { border: 1px dashed #dce8e1; padding: .7rem; border-radius: 8px; color: #5b7066; }
 .loadMore { justify-self: center; border: 1px solid #bacdc1; border-radius: 9px; padding: .65rem 1rem; background: white; color: #193b31; font-weight: 700; cursor: pointer; }
 .loadMore:focus-visible { outline: 2px solid #b54937; outline-offset: 2px; }
+
+/* ADMIN VISUAL 16/18 — optional source registry, not component previews. */
+.root { min-width: 0; max-width: 100%; gap: var(--admin-ui-section-gap, 0.625rem); font-family: inherit; }
+.stats { gap: var(--admin-ui-space-sm, 0.55rem); }
+.stats > div {
+  min-width: 0;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.stats strong { font-size: var(--admin-ui-type-stat, 1.6rem); }
+.filters {
+  grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr));
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  min-width: 0;
+}
+.filters label { min-width: 0; }
+.filters :is(input, select) { min-height: var(--admin-ui-control-height, 44px); }
+.item, .item summary, .title, .meta { min-width: 0; max-width: 100%; }
+.item summary { padding: var(--admin-ui-panel-padding, 0.75rem); gap: var(--admin-ui-space-sm, 0.55rem); }
+.meta { white-space: normal; }
+.detail, .technical { overflow-wrap: anywhere; }
+.loadMore { min-height: var(--admin-ui-control-height, 44px); }
+@media (max-width: 1100px) {
+  .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filters { grid-template-columns: minmax(0, 1fr); }
+  .item summary { align-items: flex-start; flex-wrap: wrap; }
+  .filters :is(input, select) { font-size: 16px; }
+}
