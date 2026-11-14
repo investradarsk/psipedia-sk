@@ -480,8 +480,11 @@ export function AdminDirectoryEditor({
       // Saving from the Contacts section also repairs contacts already in D1
       // but missing in Notion; a repeated click must not be treated as no-op.
       // Other sections keep the normal per-field dirty-path contract.
+      // Re-confirm all five only when the user saves an unchanged Contacts tab.
+      // When Facebook/another contact was edited, sync ONLY that edited field:
+      // broad confirmation could overwrite unrelated Notion contacts.
       const confirmContactSync = Boolean(profile && category === profile.category &&
-        currentDirectorySection === "directory-contacts");
+        currentDirectorySection === "directory-contacts" && editedContactsRef.current.size === 0);
       const breederBaseline = breederSaveBaselineRef.current;
       const contactOriginal = readDirectoryPublicContacts(
         breederBaseline?.importData, breederBaseline?.websiteUrl ?? "",
@@ -593,7 +596,9 @@ export function AdminDirectoryEditor({
           numberlessLocalityConfirmed: numberlessLocalityConfirmed || undefined,
           confirmServiceAddress: false,
           priceNote,
-          websiteUrl: websiteUrl || null,
+          // Contacts are raw text; keep a literal blank string so an explicit
+          // Web clear has the same edit receipt semantics as the other four.
+          websiteUrl,
           publicPhone, publicEmail, facebookUrl, instagramUrl,
           imageUrl: imageReplacement?.imageUrl ?? imageUrl ?? null,
           imageKey: imageReplacement?.imageKey ?? imageKey ?? null,

@@ -3,6 +3,11 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 
 const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
+import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
+import { breederPreserveUneditedFields } from "../lib/notion-breeder-field-events.ts";
+
 
 test("directory website save uses canonical persisted D1 column, not stale legacy Web alias", () => {
   const editor = source("components/admin-directory-editor.tsx");
@@ -45,4 +50,56 @@ test("explicit contact clears survive form baselines and remove old D1 aliases",
   assert.match(route, /AND updated_at = \?/);
   assert.match(route, /EXPLICIT_CONTACT_CLEAR_NOT_PERSISTED/);
   assert.match(route, /contactClearWarnings/);
+});
+
+test("legacy Web and Telefon survive a Facebook-only full form save", () => {
+  // Reproduce a migrated profile: the visible Web lives in source_data_json
+  // while the website_url column is NULL. Both the editor and server must
+  // take the same effective contact value.
+  const src = source("lib/notion-directory-sync.ts");
+  const start = src.indexOf("function profileSnapshot(");
+  const end = src.indexOf("function notionSnapshot(", start);
+  assert.ok(start > 0 && end > start);
+  const js = ts.transpileModule(src.slice(start, end) +
+    "\nexports.profileSnapshot = profileSnapshot;", {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const values = {};
+  runInNewContext(js, {
+    exports: values,
+    readDirectoryPublicContacts,
+    clean: x => String(x ?? "").trim(),
+    readTrainerServicesText: () => "",
+    normalizeAdditionalDirectoryCategories: () => [],
+    directoryQualityFields: [],
+    directoryQualityCheckedAtSummary: () => "",
+    externalSourceImageUrl: () => "",
+    absoluteAsset: x => String(x ?? ""),
+  });
+  const profile = {
+    category: "veterinari", name: "Veterina", status: "published",
+    slug: "veterina", excerpt: "Perex", description: "Popis", services: [],
+    qualifications: [], region: "", district: "", city: "", address: "",
+    postalCode: "", street: "", houseNumber: "", addressFormat: "",
+    priceNote: "", websiteUrl: null, internalEmail: null, imageUrl: null,
+    importData: {
+      Web: "www.veterina.sk", Telefon: "+421 905 123 456",
+      "E-mail": "info@veterina.sk", Facebook: "starý Facebook",
+      Instagram: "@veterina",
+    },
+    qualityMetadata: {}, verified: false, featured: false, seo: {},
+  };
+  const live = values.profileSnapshot(profile);
+  assert.equal(live.websiteUrl, "www.veterina.sk");
+  assert.equal(live.publicPhone, "+421 905 123 456");
+  const submitted = {
+    ...live, websiteUrl: "", publicPhone: "", publicEmail: "",
+    facebookUrl: "nový Facebook", instagramUrl: "",
+  };
+  const preserved = breederPreserveUneditedFields(submitted, live, ["facebookUrl"]);
+  assert.equal(preserved.websiteUrl, "www.veterina.sk");
+  assert.equal(preserved.publicPhone, "+421 905 123 456");
+  assert.equal(preserved.publicEmail, "info@veterina.sk");
+  assert.equal(preserved.instagramUrl, "@veterina");
+  assert.equal(preserved.facebookUrl, "nový Facebook");
 });
