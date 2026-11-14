@@ -77,7 +77,7 @@
   grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)) auto;
   align-items: end;
 }
-.admin-partner-search label { grid-column: 1; width: auto; min-width: 0; }
+.admin-partner-search label { grid-column: auto; display:grid; gap:.35rem; width:auto; min-width:0; }
 .admin-commercial-filters {
   grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.15fr) auto;
 }
@@ -184,7 +184,7 @@
 .admin-profile-diff-list pre { padding: .65rem; border-radius: 9px; }
 @media (max-width: 1100px) {
   .admin-partner-search { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .admin-partner-search label { grid-column: 1 / -1; }
+  .admin-partner-search label:first-child { grid-column: 1 / -1; }
   .admin-commercial-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-commercial-list article { grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr)); }
   .admin-commercial-list article > p { grid-column: 1 / -1; }
@@ -195,7 +195,7 @@
   .admin-partner-stats article { padding: .55rem .65rem; }
   .admin-partner-stats strong { font-size: 1.3rem; }
   .admin-partner-search, .admin-commercial-filters { grid-template-columns: minmax(0, 1fr); }
-  .admin-partner-search label { grid-column: auto; }
+  .admin-partner-search label:first-child { grid-column: auto; }
   .admin-partner-search :is(input, select),
   .admin-commercial-filters :is(input, select) { width: 100%; font-size: 16px; }
   .admin-partner-search button, .admin-commercial-filters button { width: 100%; }
