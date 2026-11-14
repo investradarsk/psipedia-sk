@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { getPopularDirectoryProfiles } from "../lib/directory-popularity.ts";
+import { getPopularDirectoryProfiles, getPopularDirectoryProfilesBothWindows } from "../lib/directory-popularity.ts";
 import { mergePopularContent } from "../lib/article-discovery.ts";
 
 const profileMigration = await readFile(
@@ -117,6 +117,47 @@ test("profile popularity reads only published canonical profiles and actual qual
       ["vet-help", 5],
     ]);
   } finally {
+    sqlite.close();
+  }
+});
+
+test("both public tabs use only one D1 read and preserve exact period ordering", async () => {
+  const { sqlite, database } = fixture();
+  let statementCount = 0;
+  const measured = {
+    prepare(sql) {
+      statementCount += 1;
+      return database.prepare(sql);
+    },
+  };
+  try {
+    const rankings = await getPopularDirectoryProfilesBothWindows({
+      now, limit: 5, database: measured,
+    });
+    assert.equal(statementCount, 1);
+    assert.deepEqual(rankings["24h"].map((item) => [item.slug, item.qualifiedViews]), [
+      ["sirius", 12],
+      ["vet-help", 5],
+    ]);
+    assert.deepEqual(rankings["7d"].map((item) => [item.slug, item.qualifiedViews]), [
+      ["sirius", 15],
+      ["vet-help", 5],
+    ]);
+  } finally {
+    sqlite.close();
+  }
+});
+
+test("one-query public profile popularity fails softly before approved migration 0167", async () => {
+  const { sqlite, database } = fixture(false);
+  const oldError = console.error;
+  console.error = () => {};
+  try {
+    assert.deepEqual(await getPopularDirectoryProfilesBothWindows({
+      now, database,
+    }), { "24h": [], "7d": [] });
+  } finally {
+    console.error = oldError;
     sqlite.close();
   }
 });
