@@ -100,7 +100,7 @@ test("central field registry excludes system, ranking, media and source fields",
   ]);
 });
 
-test("mass assignment, malformed URL, XSS and oversized arrays are rejected server-side", async () => {
+test("mass assignment, XSS and oversized arrays are rejected; directory contacts remain raw text", async () => {
   const { normalizePartnerProfilePatch } = await importTs("lib/partner-profile-changes.ts");
   const current = {
     name: "Test profil",
@@ -117,9 +117,17 @@ test("mass assignment, malformed URL, XSS and oversized arrays are rejected serv
       /nie je možné upravovať/,
     );
   }
-  await assert.rejects(
-    async () => normalizePartnerProfilePatch("DIRECTORY_PROFILE", { websiteUrl: "javascript:alert(1)" }, current),
-    /http alebo https/,
+  assert.deepEqual(
+    normalizePartnerProfilePatch("DIRECTORY_PROFILE", {
+      websiteUrl: "neúplný-web", publicPhone: "kontakt po dohode",
+      publicEmail: "email zatiaľ bez @", facebookUrl: "Facebook profil",
+      instagramUrl: "Instagram profil",
+    }, current),
+    {
+      websiteUrl: "neúplný-web", publicPhone: "kontakt po dohode",
+      publicEmail: "email zatiaľ bez @", facebookUrl: "Facebook profil",
+      instagramUrl: "Instagram profil",
+    },
   );
   await assert.rejects(
     async () => normalizePartnerProfilePatch("DIRECTORY_PROFILE", { description: "<script>alert(1)</script>" }, current),
@@ -139,6 +147,26 @@ test("mass assignment, malformed URL, XSS and oversized arrays are rejected serv
     () => normalizePartnerProfilePatch("DIRECTORY_PROFILE", { city: "Zlaté Moravce" }, current),
     /platnú obec\/mesto, okres a kraj/,
   );
+});
+
+test("Directory contact form accepts raw text, independent of public links", async () => {
+  const { getPartnerEditableFields } = await importTs("lib/partner-profile-changes.ts");
+  const contactKeys = ["websiteUrl", "publicPhone", "publicEmail", "facebookUrl", "instagramUrl"];
+  const fields = getPartnerEditableFields("DIRECTORY_PROFILE");
+  for (const key of contactKeys) {
+    assert.equal(fields.find((field) => field.key === key)?.kind, "text", key);
+  }
+  const form = await read("components/partner-new-profile-form.tsx");
+  const directorySection = form.slice(
+    form.indexOf('<fieldset className="partner-contact-group partner-field--wide" aria-describedby="partner-directory-contact-help">'),
+    form.indexOf('      ) : (', form.indexOf('<fieldset className="partner-contact-group partner-field--wide" aria-describedby="partner-directory-contact-help">')),
+  );
+  assert.ok(directorySection.includes('type="text"'));
+  assert.doesNotMatch(directorySection, /type="(?:url|email)"/);
+  const directoryValidation = form.slice(form.indexOf('    if (resourceType === "DIRECTORY_PROFILE") {', form.indexOf("function validate()")),
+    form.indexOf('    } else {', form.indexOf('    if (resourceType === "DIRECTORY_PROFILE") {', form.indexOf("function validate()"))));
+  assert.doesNotMatch(directoryValidation, /validateUrl|validateEmail|validatePhone/);
+  assert.match(form.slice(form.indexOf('    } else {', form.indexOf("function validate()"))), /validateEmail\(organization\.publicEmail\)/);
 });
 
 test("submission is field-level, deduped, rate-limited and never writes canonical data", () => {
