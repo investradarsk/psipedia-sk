@@ -708,7 +708,7 @@ test("production D1 targets account for every canonical migration, including una
     .filter((name) => /^\d{4}_.+\.sql$/.test(name) && Number(name.slice(0, 4)) >= 62)
     .sort();
   assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS, ...UNACTIVATED_PRODUCTION_TARGETS].sort(), canonicalTargets);
-  // 0158–0166 are reviewed proposals only; production APPLY remains disabled.
+  // 0158–0167 are reviewed proposals only; production APPLY remains disabled.
   assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, [
     "0158_admin_directory_list_indexes.sql",
     "0159_breed_notion_workcopy_links.sql",
@@ -719,6 +719,7 @@ test("production D1 targets account for every canonical migration, including una
     "0164_admin_record_lifecycle.sql",
     "0165_lost_found_public_contacts.sql",
     "0166_facebook_weekly_template.sql",
+    "0167_content_analytics_profile_views.sql",
   ]);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0157_facebook_weekly_plan_marks.sql");
   for (const target of UNACTIVATED_PRODUCTION_TARGETS) {
