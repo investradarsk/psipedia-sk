@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scopeAdminContactSave, DIRECTORY_CONTACT_SAVE_FIELDS } from "../lib/directory-contact-save-contract.ts";
+import { scopeAdminContactSave, preserveUntouchedDirectoryContacts, DIRECTORY_CONTACT_SAVE_FIELDS } from "../lib/directory-contact-save-contract.ts";
 
 const original = {
   websiteUrl: "darcyx", publicPhone: "darcyx", publicEmail: "darcyx",
@@ -85,4 +85,47 @@ test("idempotent retry accepts value already committed to D1", () => {
   });
   assert.deepEqual(result.conflicts, []);
   assert.deepEqual(result.editedPaths, ["publicEmail"]);
+});
+
+test("Facebook-only edit pins the other four contacts to live D1 values", () => {
+  const live = {
+    websiteUrl: "www.zachovany-web.sk", publicPhone: "+421 905 123 456",
+    publicEmail: "info@zachovany.sk", facebookUrl: "pôvodný FB",
+    instagramUrl: "pôvodný Instagram",
+  };
+  const submitted = {
+    websiteUrl: "", publicPhone: "", publicEmail: "",
+    facebookUrl: "nový Facebook bez https", instagramUrl: "",
+  };
+  const scope = scopeAdminContactSave({
+    editedPaths: [],
+    interactedFields: ["facebookUrl"],
+    originalValues: { ...live },
+    currentValues: { ...live },
+    submitted,
+  });
+  assert.deepEqual(scope.editedPaths, ["facebookUrl"]);
+  const safe = preserveUntouchedDirectoryContacts(submitted, live, scope.editedPaths);
+  assert.deepEqual(safe, { ...live, facebookUrl: submitted.facebookUrl });
+  assert.deepEqual(submitted, {
+    websiteUrl: "", publicPhone: "", publicEmail: "",
+    facebookUrl: "nový Facebook bez https", instagramUrl: "",
+  }, "the guard must not change the original request object");
+});
+
+test("explicit Web clear does not erase phone, email, Facebook or Instagram", () => {
+  const live = { ...original, websiteUrl: "old web" };
+  const safe = preserveUntouchedDirectoryContacts({
+    websiteUrl: "", publicPhone: "", publicEmail: "",
+    facebookUrl: "", instagramUrl: "",
+  }, live, ["websiteUrl"]);
+  assert.deepEqual(safe, { ...live, websiteUrl: "" });
+});
+
+test("missing dirty paths have no authority to remove ANY contact", () => {
+  const safe = preserveUntouchedDirectoryContacts({
+    websiteUrl: "", publicPhone: "", publicEmail: "",
+    facebookUrl: "", instagramUrl: "",
+  }, original, []);
+  assert.deepEqual(safe, original);
 });
