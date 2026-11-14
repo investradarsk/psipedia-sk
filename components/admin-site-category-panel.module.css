@@ -1,0 +1,79 @@
+.root {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--admin-v3-ink, #17352b);
+  font-family: inherit;
+}
+.heading { display: grid; gap: 4px; min-width: 0; }
+.heading h2, .heading h3 { margin: 0; font-size: 1rem; line-height: 1.35; }
+.heading p, .helper { margin: 0; color: #597365; font-size: .78rem; line-height: 1.48; }
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+  min-width: 0;
+}
+.metrics > div {
+  background: #fff;
+  border: 1px solid #dce7df;
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.metrics span { color: #486454; font-size: .76rem; font-weight: 700; }
+.metrics strong { color: #174b38; font-size: 1.45rem; font-variant-numeric: tabular-nums; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 10px; min-width: 0; }
+.panel { border: 1px solid #dce7df; border-radius: 12px; padding: 12px; background: #fff; min-width: 0; display: grid; gap: 10px; }
+.tableWrap, .breedTableWrap { max-width: 100%; overflow-x: auto; }
+.breedTableWrap { max-height: min(480px, 65vh); overflow-y: auto; border: 1px solid #e7eee9; border-radius: 8px; }
+.table { width: 100%; border-collapse: collapse; text-align: left; font-size: .8rem; }
+.table th, .table td { padding: 8px 7px; border-bottom: 1px solid #ecf1ed; }
+.table th { color: #526d5e; font-weight: 750; font-size: .74rem; }
+.table th:not(:first-child), .table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.table td:first-child { overflow-wrap: anywhere; }
+.table a, .topList a { color: #1b5b3c; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.table a:hover, .topList a:hover { color: #a64f3b; }
+.table a:focus-visible, .topList a:focus-visible, .breedControls :is(input,select):focus-visible {
+  outline: 3px solid #b78439;
+  outline-offset: 2px;
+}
+.number { font-weight: 750; white-space: nowrap; }
+.topList { margin: 0; padding: 0; list-style: none; }
+.topList li { display: flex; align-items: start; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid #ecf1ed; font-size: .83rem; }
+.topList li > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.topList strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.breedSection { display: grid; gap: 8px; min-width: 0; }
+.breedControls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.breedControls label { min-width: 0; display: grid; flex: 1 1 190px; gap: 4px; font-size: .75rem; font-weight: 750; color: #476253; }
+.breedControls :is(input,select) {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #cfdcd2;
+  border-radius: 8px;
+  background: white;
+  color: #17352b;
+  font: inherit;
+  font-size: .86rem;
+}
+.empty { font-size: .8rem; color: #5e7565; margin: 0; padding: 8px; }
+.breedTableWrap .table thead { position: sticky; top: 0; background: #fff; z-index: 1; }
+@media (max-width: 980px) {
+  .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .metrics > div { padding: 10px; }
+  .metrics strong { font-size: 1.3rem; }
+  .panel { padding: 10px; }
+  .table { font-size: .76rem; }
+  .table th, .table td { padding: 8px 5px; }
+}

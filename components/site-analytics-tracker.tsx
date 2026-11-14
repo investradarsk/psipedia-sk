@@ -17,6 +17,9 @@ export function SiteAnalyticsTracker({ enabled = false }: { enabled?: boolean })
     if (!enabled || !isSafeSiteAnalyticsPath(pathname)) return;
 
     const countVisiblePage = () => {
+      // E2E browsers and rendered not-found pages are not readership.
+      // The 404 marker is emitted by the shared public not-found component.
+      if (navigator.webdriver === true || document.querySelector("[data-psipedia-not-found]")) return;
       if (document.visibilityState !== "visible" || lastRecordedPath.current === pathname) {
         return;
       }

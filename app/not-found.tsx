@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function NotFound() {
   return (
-    <main id="obsah" className="not-found">
+    <main id="obsah" className="not-found" data-psipedia-not-found="">
       <div>
         <span><PawMark size={70} /></span>
         <h1>Táto stopa nikam nevedie</h1>
