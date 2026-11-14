@@ -39,7 +39,8 @@ test("step 11: editor has one page title and keeps saving, Notion, lifecycle and
   assert.match(src, /eventChangedAdminFields\(/);
   assert.match(src, /<AdminEventMarkdownEditor/);
   assert.match(src, /<AdminProfileGoogleMaps/);
-  assert.match(src, /<AdminEditorSectionVisibility/);
+  assert.match(src, /sectionMode="switch"/);
+  assert.match(src, /onSectionChange=\{chooseEventSection\}/);
   assert.match(src, /preview=\{liveSummary\}/);
   assert.match(page, /title="Upraviť podujatie"/);
   assert.match(newPage, /title="Pridaj termín do kalendára"/);
