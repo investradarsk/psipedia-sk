@@ -409,10 +409,10 @@
   background: transparent;
 }
 .workspaceRoot :global([data-editor-layout="article"] [data-editor-header] h1) {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.8rem, 2.5vw, 2.5rem);
-  font-weight: 700;
-  letter-spacing: -0.035em;
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: var(--admin-ui-type-heading, clamp(1.2rem, 1.7vw, 1.5rem));
+  font-weight: 800;
+  letter-spacing: -0.015em;
   color: #133c2f;
 }
 .articleSummary {
@@ -439,8 +439,8 @@
 .articleSummary h2 {
   margin: 0;
   color: #163b2f;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.12rem, 1.6vw, 1.55rem);
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: var(--admin-ui-type-section, 1.05rem);
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
@@ -528,10 +528,17 @@
   background: #fffdfa;
   box-shadow: 0 4px 16px rgb(30 53 39 / 3%);
 }
-.workspaceRoot :global([data-editor-layout="article"] [data-editor-preview] h2),
-.workspaceRoot :global([data-editor-layout="article"] [data-admin-editor-section] h2) {
+/* The preview reproduces published article typography, while editor controls
+   and section headings follow the canonical admin family. */
+.workspaceRoot :global([data-editor-layout="article"] [data-editor-preview] h2) {
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 700;
+  color: #133c2f;
+}
+.workspaceRoot :global([data-editor-layout="article"] [data-admin-editor-section] h2) {
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-weight: 800;
+  font-size: var(--admin-ui-type-section, 1.05rem);
   color: #133c2f;
 }
 .workspaceRoot :global([data-editor-layout="article"] [data-editor-content] [data-admin-editor-section]) {
@@ -631,9 +638,9 @@
   min-height: 36px;
 }
 .workspaceRoot :global([data-editor-layout="article"] [data-editor-content]) .articleForm :global(.admin-card-heading h2) {
-  font-family: Georgia, "Times New Roman", serif;
-  font-weight: 700;
-  font-size: clamp(1.1rem, 1.55vw, 1.35rem);
+  font-family: var(--admin-ui-font-family, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-weight: 800;
+  font-size: var(--admin-ui-type-section, 1.05rem);
   line-height: 1.24;
 }
 .workspaceRoot :global([data-editor-layout="article"] [data-editor-content]) .articleForm :global(.admin-card-heading p) {
