@@ -1804,16 +1804,6 @@
   height: 10px;
 }
 
-.calendarLegend > span:hover,
-.calendarLegend > span[aria-current="page"] {
-  background: var(--sage-light);
-}
-
-.calendarLegend > span:focus-visible {
-  outline: 3px solid var(--forest);
-  outline-offset: 2px;
-}
-
 .calendarOrganizer {
   margin: 16px 0;
 }
