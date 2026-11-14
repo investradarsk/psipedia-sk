@@ -100,7 +100,7 @@ test("central field registry excludes system, ranking, media and source fields",
   ]);
 });
 
-test("mass assignment, malformed URL, XSS and oversized arrays are rejected server-side", async () => {
+test("mass assignment, XSS and oversized arrays are rejected; directory contacts remain raw text", async () => {
   const { normalizePartnerProfilePatch } = await importTs("lib/partner-profile-changes.ts");
   const current = {
     name: "Test profil",
@@ -117,9 +117,17 @@ test("mass assignment, malformed URL, XSS and oversized arrays are rejected serv
       /nie je možné upravovať/,
     );
   }
-  await assert.rejects(
-    async () => normalizePartnerProfilePatch("DIRECTORY_PROFILE", { websiteUrl: "javascript:alert(1)" }, current),
-    /http alebo https/,
+  assert.deepEqual(
+    normalizePartnerProfilePatch("DIRECTORY_PROFILE", {
+      websiteUrl: "neúplný-web", publicPhone: "kontakt po dohode",
+      publicEmail: "email zatiaľ bez @", facebookUrl: "Facebook profil",
+      instagramUrl: "Instagram profil",
+    }, current),
+    {
+      websiteUrl: "neúplný-web", publicPhone: "kontakt po dohode",
+      publicEmail: "email zatiaľ bez @", facebookUrl: "Facebook profil",
+      instagramUrl: "Instagram profil",
+    },
   );
   await assert.rejects(
     async () => normalizePartnerProfilePatch("DIRECTORY_PROFILE", { description: "<script>alert(1)</script>" }, current),
