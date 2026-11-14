@@ -21,7 +21,7 @@ export function AdminReviewsHub({
   eshopCounts: { total: Metric; published: Metric };
 }) {
   return (
-    <div className={styles.workspace}>
+    <div className={styles.workspace} data-admin-content-module="reviews">
       <section className={styles.overview} aria-labelledby="reviews-admin-overview">
         <div className={styles.heading}>
           <div>
