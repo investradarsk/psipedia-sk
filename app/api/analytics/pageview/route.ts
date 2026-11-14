@@ -7,7 +7,7 @@ import { isSafeSiteAnalyticsPath, validSiteTrafficSource } from "@/lib/site-anal
 
 export const dynamic = "force-dynamic";
 
-type Bindings = { DB?: D1Database; PII_HASH_KEY?: string };
+type Bindings = { DB?: D1Database; PII_HASH_KEY?: string; SITE_ANALYTICS_ENABLED?: string };
 const MAX_BYTES = 700;
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -17,6 +17,12 @@ function fail(error: string, status: number) {
 
 /** No GET endpoint. Anonymous aggregate pageviews need no cookie consent; identity tracking still does. */
 export async function POST(request: Request) {
+  // Before the owner activates migration 0168, this route must not touch D1
+  // or allocate per-IP limiter records for public traffic.
+  if ((env as unknown as Bindings).SITE_ANALYTICS_ENABLED !== "true") {
+    return new Response(null, { status: 204, headers: NO_STORE });
+  }
+
   if (isInternalTrafficRequest(request) || isLikelyCrawlerRequest(request)) {
     return new Response(null, { status: 204, headers: NO_STORE });
   }
