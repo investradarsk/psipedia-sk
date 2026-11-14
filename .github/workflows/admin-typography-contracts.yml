@@ -19,6 +19,17 @@ on:
       - "components/admin-navigation.module.css"
       - "components/admin-quick-navigation.module.css"
       - "components/admin-tour-button.module.css"
+      - "components/admin-article-dashboard.module.css"
+      - "components/admin-record-table.module.css"
+      - "components/admin-tiptap-article-editor.module.css"
+      - "components/admin-dashboard.tsx"
+      - "components/admin-record-table.tsx"
+      - "components/admin-tiptap-article-editor.tsx"
+      - "components/admin-article-editor.tsx"
+      - "components/admin-workspace-dashboard.tsx"
+      - "components/admin-workspace-dashboard.module.css"
+      - "components/admin-workspace-activity.tsx"
+      - "tests/e2e/article-admin-editor.spec.ts"
       - "components/admin-shell.tsx"
       - "components/admin-navigation.tsx"
       - "tests/e2e/admin-ia-2.spec.ts"
@@ -31,6 +42,10 @@ on:
       - "tests/admin-density-step4.test.mjs"
       - "tests/admin-controls-step5.test.mjs"
       - "tests/admin-shell-step6.test.mjs"
+      - "tests/admin-work-audit-step7.test.mjs"
+      - "tests/admin-workspace-overview-performance.test.mjs"
+      - "tests/admin-workspace-notifications-v2.test.mjs"
+      - "tests/admin-editor-article-single-section-step8.test.mjs"
       - "tests/admin-ui-unification-inventory.test.mjs"
       - ".github/workflows/admin-typography-contracts.yml"
   workflow_dispatch:
@@ -56,4 +71,4 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Check typography, density, controls, shell and 28-route inventory
-        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
+        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
