@@ -31,8 +31,14 @@ export function reserveSiteAnalyticsVisit(input: {
   try {
     const read = (raw: string | null) => {
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as ClientIdentity;
-      return UUID_V4.test(parsed.token) && Number.isFinite(parsed.at) ? parsed : null;
+      try {
+        const parsed = JSON.parse(raw) as ClientIdentity;
+        return typeof parsed?.token === "string"
+          && UUID_V4.test(parsed.token) && Number.isFinite(parsed.at)
+          ? parsed : null;
+      } catch {
+        return null;
+      }
     };
 
     const previous = read(input.localStorage.getItem(VISITOR_STORAGE_KEY));
