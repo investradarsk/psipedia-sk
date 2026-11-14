@@ -1,0 +1,110 @@
+name: Production D1 Analytics 0167 / 0168 (manual)
+
+# Explicit owner-only audit/apply; never runs on PR, push, deploy or cron.
+# Each dispatch operates on ONE pinned SQL migration only; no sequential migration.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Select one isolated analytics schema migration
+        type: choice
+        required: true
+        options:
+          - "0167"
+          - "0168"
+      mode:
+        description: Audit is read-only; Apply requires a separate explicit approval
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: Enter AUDIT-0167-psipedia-sk-db or APPLY-0168-psipedia-sk-db (match target/mode)
+        type: string
+        required: true
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  analytics-schema:
+    name: Protected D1 analytics schema audit / single-target apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    env:
+      ANALYTICS_D1_MODE: ${{ inputs.mode }}
+      ANALYTICS_D1_TARGET: ${{ inputs.target }}
+      ANALYTICS_D1_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require manual dispatch from main, protected credentials and exact owner confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          case "$ANALYTICS_D1_TARGET" in
+            0167|0168) ;;
+            *) echo 'Invalid analytics target' >&2; exit 1 ;;
+          esac
+          case "$ANALYTICS_D1_MODE" in
+            audit) expected="AUDIT-$ANALYTICS_D1_TARGET-psipedia-sk-db" ;;
+            apply) expected="APPLY-$ANALYTICS_D1_TARGET-psipedia-sk-db" ;;
+            *) echo 'Invalid analytics mode' >&2; exit 1 ;;
+          esac
+          test "$ANALYTICS_D1_CONFIRMATION" = "$expected"
+
+      - name: Checkout exact dispatched main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Refuse stale main before touching the database
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Check migration safety and pinned analytics D1 contracts
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-d1-analytics-0167-0168.test.mjs
+
+      - name: Bind exact canonical Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Audit or apply exactly one pinned SQL file, then verify
+        run: node scripts/production-d1-analytics-0167-0168.mjs "$ANALYTICS_D1_MODE" "$ANALYTICS_D1_TARGET"
+
+      - name: Save schema-only receipt and pre-apply D1 Time Travel bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-analytics-${{ inputs.target }}-${{ github.run_id }}
+          path: .production-d1-analytics-0167-0168/report.json
+          if-no-files-found: ignore
+          retention-days: 30
