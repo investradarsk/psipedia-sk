@@ -42,7 +42,7 @@ export function ArticlePopularitySidebar({
       data-popularity-hydrated="false"
     >
       <div className={styles.header}>
-        <h2 id={`${id}-heading`}>Najčítanejšie články</h2>
+        <h2 id={`${id}-heading`}>Najčítanejšie články a profily</h2>
         <div className={styles.tabs} role="tablist" aria-label="Obdobie rebríčka">
           {windows.map((window) => {
             const selected = activeWindow === window.key;
@@ -83,15 +83,19 @@ export function ArticlePopularitySidebar({
         {items.length > 0 ? (
           <ol className={styles.list}>
             {items.map((item, index) => (
-              <li key={item.slug}>
+              <li key={item.href} data-popularity-type={item.contentType === "profile" ? "profile" : "article"}>
                 <span className={styles.rank} aria-hidden="true">
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <a href={item.href}>
                   <span className={styles.thumbnail}>{item.image ? <img src={item.image} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback />}</span>
                   <span className={styles.itemText}><strong>{item.title}</strong>
-                  <small>{item.label}</small>
-                  {typeof item.qualifiedReads === "number" ? (
+                  <small>{item.contentType === "profile" ? `Profil · ${item.label}` : item.label}</small>
+                  {item.contentType === "profile" && typeof item.qualifiedViews === "number" ? (
+                    <small className={styles.readCount}>
+                      Zobrazenia profilu: {new Intl.NumberFormat("sk-SK").format(item.qualifiedViews)}
+                    </small>
+                  ) : typeof item.qualifiedReads === "number" ? (
                     <small className={styles.readCount}>
                       Počet prečítaní: {new Intl.NumberFormat("sk-SK").format(item.qualifiedReads)}
                     </small>
