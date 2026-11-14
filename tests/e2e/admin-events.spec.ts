@@ -48,6 +48,19 @@ async function openEventSection(page: import('@playwright/test').Page, id: strin
   await expect(page.locator('#'+id)).toBeVisible();
 }
 
+// Compact mobile lists keep secondary filters behind an accessible disclosure.
+// Desktop shows the same filters directly. Use the actual controls on both.
+async function openAdvancedEventFilters(page: import('@playwright/test').Page) {
+  const advanced = page.locator('#admin-event-advanced-filters');
+  const toggle = page.getByRole('button', { name: /^(Ďalšie filtre|Skryť filtre)$/ });
+  if (await toggle.isVisible()) {
+    await expect(toggle).toBeEnabled();
+    if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  }
+  await expect(advanced.getByLabel('Publikačný stav', { exact: true })).toBeVisible();
+}
+
 test('all 175 events, global counts, filters, pagination and responsive list', async ({ page }, info) => {
   let releaseModule!: () => void;
   const moduleGate = new Promise<void>(resolve => { releaseModule = resolve; });
@@ -73,6 +86,7 @@ test('all 175 events, global counts, filters, pagination and responsive list', a
   await expect(page.locator('[data-count="all"] strong')).toHaveText('175');
   await page.getByRole('button',{name:'Zrušiť filtre',exact:true}).click();
   await page.getByRole('button',{name:'Minulé',exact:true}).click();
+  await openAdvancedEventFilters(page);
   await page.getByLabel('Publikačný stav',{exact:true}).selectOption('draft');
   await expect(page.locator('[data-testid="admin-record-row"]').first()).toContainText('Koncept');
   await expect(page.locator('[data-testid="admin-record-row"]').first()).toContainText('Ukončené');
@@ -83,7 +97,7 @@ test('all 175 events, global counts, filters, pagination and responsive list', a
   await expect(page.locator('[data-testid="admin-record-row"]')).toHaveCount(1);
   await page.getByRole('button',{name:'Zrušiť filtre',exact:true}).click();
   await page.getByLabel('Kraj',{exact:true}).selectOption('Žilinský kraj');
-  await page.getByRole('group',{name:'Vyhľadávanie a filtre podujatí'}).getByLabel('Typ podujatia',{exact:true}).selectOption('Preteky');
+  await page.getByLabel('Typ podujatia',{exact:true}).selectOption('Preteky');
   await page.getByLabel('Hľadať podujatie',{exact:true}).fill('sportovy zilina');
   expect(await page.locator('[data-testid="admin-record-row"]').count()).toBeGreaterThan(0);
   await page.getByRole('button',{name:'Zrušiť filtre',exact:true}).click();
@@ -96,6 +110,7 @@ test('all 175 events, global counts, filters, pagination and responsive list', a
 
 test('bulk publish uses Foundation confirmation and sends exact reviewed selection', async ({ page }) => {
   await page.goto('/admin/podujatia');
+  await openAdvancedEventFilters(page);
   await page.getByLabel('Publikačný stav',{exact:true}).selectOption('draft');
   await page.getByLabel('Hľadať podujatie',{exact:true}).fill('e2e-admin-event-175');
   await expect(page.locator('[data-testid="admin-record-row"]')).toHaveCount(1);
@@ -185,7 +200,9 @@ test('time filters, start month/year and sorting work across the complete datase
   await page.getByRole('button', { name: 'Prebiehajúce', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Prebiehajúce', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('[data-testid="admin-record-row"]')).toHaveCount(1);
-  await expect(page.locator('[data-testid="admin-record-row"]')).toContainText('Prebieha');
+  // The mobile-focused table hides its time-status column. Check the row's
+  // identity along with the selected time filter and the current-count badge.
+  await expect(page.locator('[data-testid="admin-record-row"]')).toContainText('Klubová výstava retrieverov 1');
   await expect(page.locator('[data-count="current"] strong')).toHaveText('1');
   await page.getByRole('button', { name: 'Nadchádzajúce', exact: true }).click();
   await expect(page.locator('[data-testid="admin-record-row"]').first()).toContainText('Agility pohár 2');
@@ -196,9 +213,10 @@ test('time filters, start month/year and sorting work across the complete datase
   await expect(page.locator('[data-count="past"] strong')).toHaveText('15');
   await page.getByRole('button', { name: 'Zrušiť filtre', exact: true }).click();
   const target = data.events.find((e: { id: number }) => e.id === 2);
+  await openAdvancedEventFilters(page);
   await page.getByLabel('Mesiac začiatku', { exact: true }).selectOption(target.startDate.slice(5,7));
   await page.getByLabel('Rok začiatku', { exact: true }).selectOption(target.startDate.slice(0,4));
-  await page.getByRole('group',{name:'Vyhľadávanie a filtre podujatí'}).getByLabel('Typ podujatia', { exact: true }).selectOption('Preteky');
+  await page.getByLabel('Typ podujatia', { exact: true }).selectOption('Preteky');
   await page.getByLabel('Kraj', { exact: true }).selectOption('Žilinský kraj');
   const expected = data.events.filter((e: { startDate: string; eventType: string; region: string }) => e.startDate.slice(0,7) === target.startDate.slice(0,7) && e.eventType === 'Preteky' && e.region === 'Žilinský kraj');
   await expect(page.locator('[data-testid="admin-record-row"]')).toHaveCount(expected.length);
@@ -223,6 +241,7 @@ test('select page and unpublish confirmation use only selected IDs with no produ
   await expect(page.getByText('Vybrané: 50', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Zrušiť výber', exact: true }).click();
   await expect(page.getByText('Vybrané: 0', { exact: true })).toBeVisible();
+  await openAdvancedEventFilters(page);
   await page.getByLabel('Publikačný stav', { exact: true }).selectOption('published');
   await page.getByLabel('Hľadať podujatie', { exact: true }).fill('e2e-admin-event-4');
   await page.getByRole('checkbox', { name: 'Vybrať Tréningový deň 4', exact: true }).check();
