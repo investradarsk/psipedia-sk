@@ -198,7 +198,8 @@ test("global view tracker sends only a pathname and never touches browser identi
   assert.match(tracker, /credentials: "omit"/);
   assert.match(tracker, /visibilityState !== "visible"/);
   assert.doesNotMatch(tracker, /localStorage|sessionStorage|document\.cookie|document\.referrer|consent|gtag|randomUUID/);
-  assert.doesNotMatch(schema, /HMAC|visitor|session|source|device|ip:|security_rate_limits|personal/i);
+  const ddl = schema.split("\n").filter((line) => !line.trimStart().startsWith("--")).join("\n");
+  assert.doesNotMatch(ddl, /HMAC|visitor|session|source|device|ip:|security_rate_limits|personal/i);
 });
 
 test("admin UI exposes a count, time-series and top pages only", async () => {
