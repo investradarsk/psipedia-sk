@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { POST } from "../app/api/analytics/pageview/route.ts";
+import { env } from "cloudflare:workers";
 
+// The production flag defaults OFF; this isolated suite deliberately turns it on.
+env.SITE_ANALYTICS_ENABLED = "true";
 const url = "https://psipedia.sk/api/analytics/pageview";
 const payload = {
   path: "/",
@@ -25,6 +28,16 @@ function request(value = payload, headers = {}) {
     body: JSON.stringify(value),
   });
 }
+
+test("disabled feature flag does not invoke the database or count a visit", async () => {
+  env.SITE_ANALYTICS_ENABLED = "false";
+  try {
+    const response = await POST(request({ path: "/", source: "direct" }));
+    assert.equal(response.status, 204);
+  } finally {
+    env.SITE_ANALYTICS_ENABLED = "true";
+  }
+});
 
 test("sitewide write endpoint is POST-only and rejects a different origin", async () => {
   const response = await POST(request(payload, { origin: "https://evil.example" }));
