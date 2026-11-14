@@ -5,6 +5,12 @@ export const PROFILE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const PROFILE_VISIT_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function isLikelyCrawlerRequest(request: Request) {
+  const cloudflare = (request as Request & {
+    cf?: { botManagement?: { verifiedBot?: boolean; score?: number } };
+  }).cf?.botManagement;
+  if (cloudflare?.verifiedBot === true) return true;
+  if (typeof cloudflare?.score === "number" && cloudflare.score < 10) return true;
+
   const agent = request.headers.get("user-agent")?.trim() ?? "";
   return !agent || !agent.startsWith("Mozilla/") || CRAWLER_USER_AGENT.test(agent);
 }
