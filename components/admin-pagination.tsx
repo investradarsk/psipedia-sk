@@ -23,11 +23,11 @@ export function AdminPagination({ pagination, basePath }: {
   const next = pagination.page + 1;
 
   return (
-    <nav className="admin-pagination" aria-label="Stránkovanie zoznamu">
+    <nav className="admin-pagination" aria-label="Stránkovanie zoznamu" data-admin-list-pagination>
       {pagination.page > 1
         ? <Link prefetch={false} href={pageHref(basePath, previous)}>← Predchádzajúca</Link>
         : <span aria-disabled="true">← Predchádzajúca</span>}
-      <strong>Strana {pagination.page} z {pagination.totalPages}</strong>
+      <strong aria-current="page" aria-live="polite" aria-atomic="true">Strana {pagination.page} z {pagination.totalPages}</strong>
       {pagination.page < pagination.totalPages
         ? <Link prefetch={false} href={pageHref(basePath, next)}>Ďalšia →</Link>
         : <span aria-disabled="true">Ďalšia →</span>}
@@ -55,7 +55,7 @@ export function AdminNumberedPagination({
 }) {
   if (totalPages <= 1) return null;
   return (
-    <nav className={className ?? "admin-pagination"} aria-label={ariaLabel}>
+    <nav className={className ?? "admin-pagination"} aria-label={ariaLabel} data-admin-list-pagination>
       {page > 1 && <Link prefetch={false} href={hrefForPage(page - 1)} aria-label="Predchádzajúca strana">←</Link>}
       {adminNumberedPageWindow(page, totalPages).map((current) => current === page
         ? <span key={current} aria-current="page">{current}</span>
