@@ -358,18 +358,21 @@ test("CREATE required contract enforces directory address, full Slovak location 
       }),
     /aspoň jeden verejný kontakt/,
   );
-  assert.throws(
-    () => normalizePartnerNewProfile("DIRECTORY_PROFILE", { ...base, publicEmail: "zly-email" }),
-    /platný formát/,
-  );
-  assert.throws(
-    () => normalizePartnerNewProfile("DIRECTORY_PROFILE", { ...base, publicPhone: "CALL-ME" }),
-    /platný formát/,
-  );
-  assert.throws(
-    () => normalizePartnerNewProfile("DIRECTORY_PROFILE", { ...base, websiteUrl: "example.sk" }),
-    /platná URL/,
-  );
+  // The directory stores contact details as raw editorial text. Their
+  // eventual clickability is validated by the public renderer, not CREATE.
+  for (const [key, value] of [
+    ["publicEmail", "zly-email"],
+    ["publicPhone", "CALL-ME"],
+    ["websiteUrl", "example.sk"],
+    ["facebookUrl", "FB profil"],
+    ["instagramUrl", "IG profil"],
+  ]) {
+    assert.equal(
+      normalizePartnerNewProfile("DIRECTORY_PROFILE", { ...base, [key]: value }).values[key],
+      value,
+      key + " must round-trip as raw text",
+    );
+  }
 });
 
 test("CREATE required contract enforces help organization SK fields and preserves non-SK fallback", async () => {
