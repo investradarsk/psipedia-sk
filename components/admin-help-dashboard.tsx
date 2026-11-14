@@ -156,7 +156,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
     </section>
 
     <section className="admin-panel">
-      <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať Help záznamy">
+      <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať Help záznamy" data-admin-list-filters>
         <label className={styles.searchField}><span>Hľadať</span><input name="q" defaultValue={filters.q} placeholder="Názov, Admin ID, pes, mesto alebo organizácia" maxLength={120} /></label>
         <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="all">Všetky kategórie ({totals.total})</option>{HELP_ADMIN_CATEGORIES.map((slug) => <option value={slug} key={slug}>{slug === "utulky" ? "Útulky" : getHelpCategory(slug)?.label ?? slug} ({categoryCounts[slug] ?? 0})</option>)}</select></label>
         <label><span>Publikácia</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
@@ -182,7 +182,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         onFinished={() => { setSelected(new Set()); router.refresh(); }}
       />}
       {message && <p className="admin-flash" role="status">{message}</p>}
-      <p className="admin-help-results">Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
+      <p className="admin-help-results" role="status" data-admin-list-results>Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
       {items.length ? <AdminRecordTable
         rows={items}
         label="Prípady Pomoci psom"
@@ -221,7 +221,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
           </div> },
         ]}
       />  : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
-      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov">{page > 1 ? <Link prefetch={false} href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link prefetch={false} href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link> : <span>Ďalšia →</span>}</nav>
+      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov" data-admin-list-pagination>{page > 1 ? <Link prefetch={false} href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link>  : <span aria-disabled="true">← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link prefetch={false} href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link>  : <span aria-disabled="true">Ďalšia →</span>}</nav>
     </section>
 
     <AdminModalDialog
