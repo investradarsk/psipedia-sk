@@ -449,3 +449,22 @@ test.describe("final events acceptance", () => {
     await expect(page.locator("[data-selected-day]")).toContainText("Finalaudit Výstava 0");
   });
 });
+
+test("category reset retains the active type and all-events link returns to the overview", async ({ page }) => {
+  await page.goto("/podujatia/vystavy?q=phase3+zilinska&termin=vsetky");
+  await expect(page.getByRole("link", { name: "Všetky podujatia", exact: true })).toHaveAttribute("href", "/podujatia");
+  await page.locator("[data-public-filter-reset]").click();
+  await expect(page).toHaveURL(/\/podujatia\/vystavy$/);
+});
+
+test("selected desktop day scrolls into view below the sticky header", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(target);
+  await page.locator('[data-calendar-date="2026-10-15"]').click();
+  await expect(page.locator("#vybrany-den")).toBeVisible();
+  await expect.poll(() => page.locator("#vybrany-den").evaluate((element) => {
+    const y = element.getBoundingClientRect().top;
+    const margin = parseFloat(getComputedStyle(element).scrollMarginTop);
+    return y >= margin - 12 && y <= margin + 35;
+  })).toBe(true);
+});
