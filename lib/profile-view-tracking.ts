@@ -30,15 +30,19 @@ export function reserveQualifiedProfileView(
     const key = profileViewStorageKey(profileId);
     const saved = storage.getItem(key);
     if (saved) {
-      const prior = JSON.parse(saved) as { at?: unknown; token?: unknown };
-      if (
-        typeof prior.at === "number"
-        && Number.isFinite(prior.at)
-        && typeof prior.token === "string"
-        && UUID_V4.test(prior.token)
-        && nowMs >= prior.at
-        && nowMs - prior.at < PROFILE_VIEW_COOLDOWN_MS
-      ) return null;
+      try {
+        const prior = JSON.parse(saved) as { at?: unknown; token?: unknown };
+        if (
+          typeof prior.at === "number"
+          && Number.isFinite(prior.at)
+          && typeof prior.token === "string"
+          && UUID_V4.test(prior.token)
+          && nowMs >= prior.at
+          && nowMs - prior.at < PROFILE_VIEW_COOLDOWN_MS
+        ) return null;
+      } catch {
+        // An old or corrupt browser value must not disable analytics forever.
+      }
     }
     const token = randomUUID();
     if (!UUID_V4.test(token)) return null;
