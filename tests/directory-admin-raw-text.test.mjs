@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { normalizeManagedDirectoryProfileInput } from "../lib/directory-store.ts";
 import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
 import { DIRECTORY_CONTACT_EDITORIAL_PATHS } from "../lib/notion-breeder-field-events.ts";
+import { preserveUntouchedDirectoryContacts } from "../lib/directory-contact-save-contract.ts";
 
 const categories = [
   "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
@@ -160,4 +161,46 @@ test("saving Contacts re-confirms all five D1 text values in Notion, including a
   assert.match(notion, /acknowledgedBatchContacts\.has\(path\)/);
   assert.match(notion, /if \(confirmed\(page, path\)\) continue/);
   assert.match(notion, /DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH/);
+});
+
+test("saving only Facebook leaves all four other live D1 contacts intact in every category", () => {
+  const liveSource = {
+    Web: "www.old-dog-site.sk",
+    Telefon: "+421 900 333 444",
+    email: "redakcia@example.sk",
+    Facebook: "starý Facebook",
+    Instagram: "psia.skola",
+    "Zdroje": "historický obsah zostáva",
+  };
+  const live = readDirectoryPublicContacts(liveSource, "");
+  const contactValues = {
+    websiteUrl: live.website,
+    publicPhone: live.phone,
+    publicEmail: live.email,
+    facebookUrl: live.facebook,
+    instagramUrl: live.instagram,
+  };
+  const safe = preserveUntouchedDirectoryContacts({
+    websiteUrl: "", publicPhone: "", publicEmail: "",
+    facebookUrl: "nový profil na Facebooku", instagramUrl: "",
+  }, contactValues, ["facebookUrl"]);
+  for (const category of categories) {
+    const saved = normalizeManagedDirectoryProfileInput({
+      ...safe,
+      name: "Kontaktný profil",
+      slug: "kontaktne-test",
+      category,
+      status: "draft",
+      excerpt: "Perex nezmenený",
+      description: "Popis nezmenený",
+    }, liveSource);
+    assert.deepEqual(readDirectoryPublicContacts(saved.sourceData, saved.websiteUrl), {
+      phone: contactValues.publicPhone,
+      email: contactValues.publicEmail,
+      website: contactValues.websiteUrl,
+      facebook: "nový profil na Facebooku",
+      instagram: contactValues.instagramUrl,
+    }, category);
+    assert.equal(saved.sourceData["Zdroje"], liveSource["Zdroje"], category);
+  }
 });

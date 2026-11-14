@@ -357,7 +357,9 @@ function profileSnapshot(profile: ManagedDirectoryProfile, sourceImageUrl = ""):
       : "",
     confirmedServiceLocation: profile.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION",
     priceNote: clean(profile.priceNote),
-    websiteUrl: clean(profile.websiteUrl),
+    // The editor reads legacy Web aliases as well as website_url. A different
+    // field save must use that same effective value, never a blank column.
+    websiteUrl: clean(contacts.website),
     publicPhone: clean(contacts.phone),
     publicEmail: clean(contacts.email),
     facebookUrl: clean(contacts.facebook),
