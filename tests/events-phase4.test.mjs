@@ -220,8 +220,9 @@ test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable compact category links"
   );
   assert.match(page, /eventTypePortalHref\(\s*type\s*\)/);
   assert.match(calendar, /eventTypePortalHref\(\s*view\.type\s*\)/);
-  // Active state follows client-side calendar selection, not initial SSR props.
-  assert.match(calendar, /aria-current=\{\s*view\s*\.type\s*===\s*type/);
+  // Public category links use the selected server-side category; calendar interactions stay in place.
+  assert.match(page, /current:\s*initialType\s*===\s*type/);
+  assert.match(calendar, /view\.type\s*===\s*"Všetky"/);
   assert.match(calendar, /data-events-legend/);
   assert.match(page, /PublicContextBanner/);
   assert.match(page, /ctaHref="\/podujatia\/pridat-podujatie"/);
