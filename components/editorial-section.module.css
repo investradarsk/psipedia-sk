@@ -1236,10 +1236,10 @@
     align-items: start;
     gap: 20px;
   }
-  /* A single article uses the compact horizontal row over the full width,
-     rather than a tall half-width cover card. */
-  .singleArticleList > :only-child {
-    max-width: none;
+  /* A single article fills its topic row with the compact horizontal card.
+     Shared responsive rules below 901px remain unchanged. */
+  .singleArticleList {
+    grid-template-columns: minmax(0, 1fr);
   }
   .topicStageGrid .topicGroupFooter {
     border-top: 0;
