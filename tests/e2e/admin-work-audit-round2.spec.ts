@@ -14,6 +14,7 @@ test("Work round 2: article toolbar appears only on editable text tabs and stays
     await page.setViewportSize({ width, height: 900 });
     const response = await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
+    await expect(page.locator('#article-intro[data-editor-ready="true"]')).toHaveCount(1);
     await selectArticleTab(page, "article-settings", "Nastavenia");
     await expect(page.locator("[data-admin-tiptap-toolbar]")).toHaveCount(0);
     await selectArticleTab(page, "article-blocks", "Bloky článku");
