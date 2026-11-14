@@ -203,13 +203,13 @@ export function AdminTrafficDashboard({ report, siteReport, categoryReport }: { 
       <div>
         <h2 style={{ margin: "12px 0 5px", fontSize: "1rem" }}>Čítanosť článkov a profilov</h2>
         <p style={{ margin: "0 0 8px", color: "#567063", fontSize: ".79rem" }}>
-          Podrobné zobrazenia obsahu sú samostatná metrika od návštevnosti celého webu.
+          Staršia prísnejšia metrika: minimálne 10 sekúnd viditeľnosti a príslušný súhlas. Bežné otvorenia sú vyššie.
         </p>
       </div>
       <div className={styles.metrics} aria-label="Súhrn zobrazení">
         <Metric label="Kvalifikované zobrazenia spolu" value={report.combined} description="Články aj profily" />
         <Metric label="Prečítania článkov" value={report.articles.total} description="Viditeľné aspoň 10 sekúnd" />
-        <Metric label="Návštevy profilov" value={report.profiles.total} description="Viditeľné aspoň 10 sekúnd" />
+        <Metric label="Kvalifikované zobrazenia profilov" value={report.profiles.total} description="Viditeľné aspoň 10 sekúnd" />
       </div>
 
       {!report.profiles.available && (
@@ -223,7 +223,7 @@ export function AdminTrafficDashboard({ report, siteReport, categoryReport }: { 
 
       <div className={styles.rankingGrid}>
         <Ranking id="traffic-articles-title" title="Najčítanejšie články" source={report.articles} />
-        <Ranking id="traffic-profiles-title" title="Najnavštevovanejšie profily" source={report.profiles} />
+        <Ranking id="traffic-profiles-title" title="Profily – kvalifikované zobrazenia" source={report.profiles} />
       </div>
 
       <p className={styles.footnote}>
