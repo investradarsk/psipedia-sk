@@ -137,14 +137,14 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
 
   return (
     <>
-      <section className="admin-stats" aria-label="Stav adresára">
+      <section className="admin-stats" aria-label="Stav adresára" data-admin-directory-overview>
         <div><span>Všetky profily</span><strong>{counts.total}</strong></div>
         <div><span>Publikované</span><strong>{counts.published}</strong></div>
         <div><span>Koncepty</span><strong>{counts.draft}</strong></div>
         <div><span>Archivované</span><strong>{counts.archived}</strong></div>
       </section>
 
-      <section className="admin-panel">
+      <section className="admin-panel" data-admin-directory-list>
         <form className={`admin-directory-category-filter ${styles.filters}`} action={basePath} method="get" role="search" data-admin-list-filters>
           <label className={`admin-search ${styles.search}`}>
             <SearchIcon size={19} />
@@ -173,7 +173,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
         </form>
 
         {message && <p className="admin-flash" role="status">{message}</p>}
-        <p className="admin-help-results">V tabuľke môžeš priamo upraviť názov a krátky popis profilu. Ostatné údaje zostávajú v editore.</p>
+        <p className="admin-help-results">Názov a krátky popis upravíš priamo v tabuľke. Ostatné údaje otvoríš cez Detail.</p>
         <p className="admin-help-results admin-directory-results" role="status" data-admin-list-results>Nájdené: <strong>{resultCount}</strong> · Strana {pagination.page} z {pagination.totalPages}</p>
 
         {profiles.length ? (
