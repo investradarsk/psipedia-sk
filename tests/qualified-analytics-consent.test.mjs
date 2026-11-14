@@ -70,8 +70,8 @@ test("article and profile trackers never send without prior consent and react to
 test("first party analytics storage and withdrawal are explained on public legal pages", async () => {
   const cookies = await readFile(new URL("../app/cookies/page.tsx", import.meta.url), "utf8");
   const privacy = await readFile(new URL("../app/sukromie/page.tsx", import.meta.url), "utf8");
-  assert.match(cookies, /Prečítania článkov a návštevy profilov/);
+  assert.match(cookies, /Vlastné štatistiky návštevnosti Psipedie/);
   assert.match(cookies, /Po odvolaní súhlasu/);
-  assert.match(privacy, /Vlastné meranie prečítaní a návštev profilov/);
+  assert.match(privacy, /Vlastná analytika návštevnosti Psipedie/);
   assert.match(privacy, /Po udelení súhlasu s analytikou/);
 });
