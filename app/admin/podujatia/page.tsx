@@ -31,10 +31,13 @@ export default async function AdminEventsPage() {
   return (
     <AdminShell
       user={user}
-      eyebrow="Kalendár podujatí"
-      title="Termíny pod kontrolou"
-      description="Pridávaj výstavy, preteky, semináre a tréningy. Zverejnené podujatia sa okamžite ukážu v kalendári."
-      actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/podujatia/nove">+ Nové podujatie</Link>}
+      eyebrow="Správa kalendára"
+      title="Podujatia"
+      description="Spravuj výstavy, semináre, tréningy a ich publikovanie. Verejný kalendár si môžeš otvoriť na kontrolu."
+      actions={<>
+        <Link className="admin-secondary-action" href="/podujatia" target="_blank" rel="noreferrer">Verejný kalendár</Link>
+        <Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/podujatia/nove">+ Nové podujatie</Link>
+      </>}
     >
       <AdminDirectoryModuleNav active="events" />
       <Suspense fallback={<AdminDataLoading label="Podujatia" />}>
