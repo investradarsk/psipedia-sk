@@ -5,7 +5,6 @@ export const QUALIFIED_ANALYTICS_CONSENT_EVENT = "psipedia:consent-changed";
 const FIRST_PARTY_TRACKING_PREFIXES = [
   "psipedia-article-read:v1:",
   "psipedia-profile-view:v1:",
-  "psipedia-site-visitor:v1",
 ] as const;
 
 /**
