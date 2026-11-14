@@ -87,3 +87,16 @@
   .tools button, .activeLabel { flex-shrink: 0; }
   .linkBar input { min-width: 110px; }
 }
+
+/* Compact contextual toolbar: one horizontally scrollable row, never three.
+   Color/link popovers remain siblings of the scrolling tools and can expand. */
+.toolbar { padding: 0.35rem 0.5rem; margin-bottom: 0.45rem; }
+.tools { min-width: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.tools > :is(button, span) { flex: 0 0 auto; }
+.tools button { min-height: 40px; }
+.activeLabel { min-width: 0; max-width: 10rem; white-space: nowrap; }
+@media (max-width: 760px) {
+  .toolbar { padding: 0.3rem; }
+  .tools button { min-height: 44px; }
+  .activeLabel { max-width: 7rem; }
+}
