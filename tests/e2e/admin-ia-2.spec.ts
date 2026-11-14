@@ -32,6 +32,12 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   await expect(page.locator('a[href="/admin/operations?source=PARTNER_CLAIM_REVIEW"]')).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
   await expect(page.getByRole("link", { name: "Kvalita údajov →", exact: true })).toHaveCount(0);
   await expect(page.locator('a[href="/admin/kvalita"][class*="metricCard"]')).toHaveAttribute("href", "/admin/kvalita");
+  const completedQueues = page.locator("[data-admin-completed-queues]");
+  if (await completedQueues.count()) {
+    await expect(completedQueues.locator("summary")).toBeVisible();
+    await completedQueues.locator("summary").click();
+    await expect(completedQueues.locator('a[href^="/admin/operations?source="]').first()).toBeVisible();
+  }
 
   const breadcrumb = page.getByRole("navigation", { name: "Drobečková navigácia" });
   await expect(breadcrumb.getByText("Pracovný prehľad", { exact: true })).toHaveAttribute("aria-current", "page");
