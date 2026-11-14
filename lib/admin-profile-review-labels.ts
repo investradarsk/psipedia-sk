@@ -62,3 +62,22 @@ export function profileReviewActorLabel(value: string): string {
   };
   return labels[value] ?? "Zaznamenaná akcia";
 }
+
+export function profileReviewAccountStatusLabel(value: string): string {
+  const labels: Record<string, string> = {
+    ACTIVE: "Aktívny účet",
+    PENDING: "Čaká na overenie",
+    VERIFIED: "Overený účet",
+    SUSPENDED: "Pozastavený účet",
+    BLOCKED: "Zablokovaný účet",
+    DISABLED: "Deaktivovaný účet",
+    DELETED: "Odstránený účet",
+  };
+  return labels[value] ?? value.replace(/[_-]/g, " ").toLocaleLowerCase("sk");
+}
+
+export function profileReviewRiskLabel(value: string): string {
+  if (value === "EXCESSIVE_URLS") return "Príliš veľa odkazov";
+  if (value === "REPEATED_CHARACTERS") return "Opakujúce sa znaky";
+  return "Ďalší rizikový signál";
+}
