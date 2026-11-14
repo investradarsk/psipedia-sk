@@ -1,14 +1,23 @@
 import type { ArticleListingCard } from "./content";
 import { getNewsCategory } from "./news.ts";
 import { articleHref, articlePortalSection, portalSectionLabel } from "./portal.ts";
+
+/** Editorial section is canonical for public badges; a broad topic is only fallback. */
+const editorialSectionHrefs = {
+  steniatka: "/steniatka",
+  starostlivost: "/starostlivost",
+  aktivity: "/aktivity",
+  recenzie: "/recenzie",
+} as const;
 import { articleCategoryHref } from "./article-category-routes.ts";
 
 export function articleTopicLabel(
   article: Pick<ArticleListingCard, "category" | "portalSection" | "newsCategory">,
 ) {
-  return articlePortalSection(article) === "novinky"
-    ? (getNewsCategory(article.newsCategory)?.shortLabel ?? "Zo sveta psov")
-    : article.category;
+  const section = articlePortalSection(article);
+  if (section === "novinky") return getNewsCategory(article.newsCategory)?.shortLabel ?? "Zo sveta psov";
+  if (section in editorialSectionHrefs) return portalSectionLabel(section);
+  return article.category;
 }
 
 export function articleCardPresentation(article: ArticleListingCard) {
@@ -18,7 +27,10 @@ export function articleCardPresentation(article: ArticleListingCard) {
   return {
     href: articleHref(article),
     topic,
-    topicHref: news ? `/novinky/${news.slug}` : articleCategoryHref(article.category),
+    topicHref: news ? `/novinky/${news.slug}`
+      : section in editorialSectionHrefs
+        ? editorialSectionHrefs[section as keyof typeof editorialSectionHrefs]
+        : articleCategoryHref(article.category),
     sectionTopic: section === "novinky" ? `${portalSectionLabel(section)} · ${topic}` : topic,
     actionLabel: section === "novinky" ? "Čítať novinku" : "Čítať článok",
     date: article.date?.trim() || undefined,
