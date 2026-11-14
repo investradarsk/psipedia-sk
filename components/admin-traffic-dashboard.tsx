@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { AdminTrafficReport, TrafficPoint, TrafficRank, TrafficSeries } from "@/lib/admin-traffic-analytics";
 import type { SiteTrafficReport } from "@/lib/site-analytics-report";
 import { AdminSiteTrafficPanel } from "@/components/admin-site-traffic-panel";
+import { AdminSiteCategoryPanel } from "@/components/admin-site-category-panel";
+import type { SiteCategoryReport } from "@/lib/admin-site-category-report";
 import styles from "./admin-traffic-dashboard.module.css";
 
 const windows = [
@@ -178,7 +180,7 @@ function Ranking({
   );
 }
 
-export function AdminTrafficDashboard({ report, siteReport }: { report: AdminTrafficReport; siteReport: SiteTrafficReport }) {
+export function AdminTrafficDashboard({ report, siteReport, categoryReport }: { report: AdminTrafficReport; siteReport: SiteTrafficReport; categoryReport: SiteCategoryReport }) {
   return (
     <div className={styles.root} data-admin-traffic-statistics>
       <nav className={styles.filters} aria-label="Obdobie návštevnosti">
@@ -196,6 +198,7 @@ export function AdminTrafficDashboard({ report, siteReport }: { report: AdminTra
       </nav>
 
       <AdminSiteTrafficPanel report={siteReport} />
+      <AdminSiteCategoryPanel report={categoryReport} />
 
       <div>
         <h2 style={{ margin: "12px 0 5px", fontSize: "1rem" }}>Čítanosť článkov a profilov</h2>
