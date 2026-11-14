@@ -524,6 +524,8 @@ export async function runManualQualitySearch(
 export type MissingQualityProposal = {
   id:number;area:QualityArea;entity_type:Kind;entity_id:number;profile_label:string;
   field_key:string;field_label:string;field_group:string;value:string;source_url:string|null;found_at:string;
+  // Loaded from the canonical profile, never copied from a finding's historical snapshot.
+  current_value?:string|null;
 };
 export type MissingQualityDashboard = {
   pending: MissingQualityProposal[];
@@ -536,6 +538,53 @@ export type MissingQualityDashboard = {
   truncated: boolean;
   schemaReady: boolean;
 };
+// One canonical read per bounded group of profiles (not one read per suggestion).
+// This includes legacy OPEN findings whose fields may have changed since discovery.
+async function attachCurrentQualityValues(db:Database, proposals:MissingQualityProposal[]):Promise<void> {
+  const grouped=new Map<Kind,Map<number,MissingQualityProposal[]>>();
+  for(const p of proposals) {
+    if(!SPECS[p.entity_type]) continue;
+    let byId=grouped.get(p.entity_type);
+    if(!byId) { byId=new Map(); grouped.set(p.entity_type,byId); }
+    const matches=byId.get(p.entity_id)??[];
+    matches.push(p);
+    byId.set(p.entity_id,matches);
+  }
+
+  await Promise.all([...grouped].map(async ([kind,byId])=>{
+    const spec=SPECS[kind];
+    const fields=new Map(spec.fields.map(f=>[f.key,f]));
+    const columns=new Set<string>(["id"]);
+    for(const proposalsForProfile of byId.values()) {
+      for(const proposal of proposalsForProfile) {
+        const f=fields.get(proposal.field_key);
+        if(!f) continue;
+        if(f.column) columns.add(f.column);
+        if(kind==="DIRECTORY"&&(f.contact||f.key==="websiteUrl")) {
+          columns.add("source_data_json");
+          columns.add("website_url");
+        }
+      }
+    }
+    const ids=[...byId.keys()];
+    for(let offset=0;offset<ids.length;offset+=75) {
+      const batch=ids.slice(offset,offset+75);
+      const sql="SELECT "+[...columns].join(",")+" FROM "+spec.table+
+        " WHERE id IN ("+batch.map(()=>"?").join(",")+")";
+      const rows=await db.prepare(sql).bind(...batch).all<Row>();
+      for(const row of rows.results) {
+        const proposalsForProfile=byId.get(Number(row.id))??[];
+        for(const proposal of proposalsForProfile) {
+          const f=fields.get(proposal.field_key);
+          if(!f) continue;
+          const value=fieldValue(kind,row,f);
+          proposal.current_value=missing(value)?null:String(value);
+        }
+      }
+    }
+  }));
+}
+
 export async function loadMissingQualityDashboard(db: Database): Promise<MissingQualityDashboard> {
   const monthly = { services: 0, events: 0, help: 0 };
   const outcomes: Record<QualityArea, QualityScanCount> = {
@@ -573,6 +622,8 @@ export async function loadMissingQualityDashboard(db: Database): Promise<Missing
     if (QUALITY_AREAS.includes(row.area)) last[row.area] = { status: row.status, errorCode: row.error_code };
   }
   const total = Number(counts?.n ?? 0);
+  // Resolve current values on every dashboard load, after fetching open proposals.
+  await attachCurrentQualityValues(db,rows.results);
   return { pending: rows.results, manualHistory, manualReady, total, monthly, outcomes, last,
     truncated: total > rows.results.length, schemaReady: true };
 }
