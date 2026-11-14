@@ -3,6 +3,7 @@
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import skLocale from "@fullcalendar/core/locales/sk";
+import { formatSlovakCount } from "@/lib/slovak-count";
 import { useEffect, useRef } from "react";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
 import type { EventType } from "@/lib/events";
@@ -56,7 +57,7 @@ export function DesktopEventFullCalendar({
       }
       anchor.classList.add(styles.fullCalendarDayLink);
       anchor.setAttribute("aria-label", (selectedDay === day ? "Vybraný deň " : "") + label +
-        (count ? ", " + count + " podujatí, " + types.map(type => eventTypePresentation[type].label).join(", ") : ", bez podujatí"));
+        (count ? ", " + formatSlovakCount(count, { one: "podujatie", few: "podujatia", many: "podujatí" }) + ", " + types.map(type => eventTypePresentation[type].label).join(", ") : ", bez podujatí"));
     }
   };
   useEffect(() => {
@@ -107,7 +108,7 @@ export function DesktopEventFullCalendar({
           data-today={todayFlag ? "true" : undefined}
           data-count={count}
           aria-current={todayFlag ? "date" : undefined}
-          aria-label={day + (count ? ", "+count+" podujatí" : ", bez podujatí")}
+          aria-label={day + (count ? ", " + formatSlovakCount(count, { one: "podujatie", few: "podujatia", many: "podujatí" }) : ", bez podujatí")}
           className={styles.fullCalendarDayContent}
         >
           <span className={styles.fullCalendarDayHeading} data-event-day-heading>

@@ -1,4 +1,4 @@
-import { directoryProfileHref, getDirectoryCategory, type PublicDirectoryProfile } from "@/lib/directory";
+import { directoryProfileCategoryLabels, directoryProfileHref, type PublicDirectoryProfile } from "@/lib/directory";
 import { ImageDisplay } from "@/components/image-display";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { PublicMediaFallback } from "@/components/public-visual-system";
@@ -7,7 +7,7 @@ import { publicLocationValue } from "@/lib/public-location";
 import styles from "./directory-public.module.css";
 
 export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) {
-  const category = getDirectoryCategory(profile.category);
+  const categoryLabels = directoryProfileCategoryLabels(profile);
   const city = publicLocationValue(profile.city, "city");
   const breederBreeds = profile.category === "chovatelske-stanice"
     ? profile.breedSummary?.trim()
@@ -17,7 +17,7 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
     <PublicListingRowCard
       kind="directory"
       href={directoryProfileHref(profile)}
-      typeLabel={category?.singular ?? "Služba pre psov"}
+      typeLabel={categoryLabels.join(" · ")}
       title={profile.name}
       location={city}
       meta={breederBreeds ? <span className={styles.breederBreedSummary} title={breederBreeds}>{breederBreeds}</span> : undefined}

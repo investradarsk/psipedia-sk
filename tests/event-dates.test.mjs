@@ -65,7 +65,7 @@ test("every event type links to a dedicated crawlable calendar category", () => 
   });
   assert.deepEqual(eventPortalCategory("Iné"), {
     href: "/podujatia/dalsie",
-    label: "Ďalšie podujatia",
+    label: "Ostatné podujatia",
   });
 });
 
@@ -98,9 +98,10 @@ test("event type navigation and time filters stay crawlable with the intended tr
   assert.match(eventsPage, /items=\{eventTypes\.map\(\(type\) => \(\{/);
   assert.match(eventsPage, /href: eventTypePortalHref\(type\) \?\? "\/podujatia"/);
   assert.match(eventsPage, /current: initialType === type/);
-  assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
+  assert.match(eventsPage, /shortcuts=\{\[\]\}/);
   assert.match(eventsPage, /eventTypePortalHref\(type\)/);
   assert.match(calendar, /data-events-legend/);
+  assert.match(calendar, /role="list" aria-label="Typy podujatí v kalendári"/);
   // Period links are now rendered through the shared compact navigator.
   // It still emits crawlable anchors and delegates ordinary clicks to the
   // in-place calendar navigation (preserving browser back/forward).

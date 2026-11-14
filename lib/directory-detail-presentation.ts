@@ -20,6 +20,7 @@ export type DirectoryDetailPresentation = {
   slug: string;
   name: string;
   category: DirectoryCategorySlug;
+  additionalCategories?: DirectoryCategorySlug[];
   excerpt: string;
   services: string[];
   qualifications: string[];
@@ -303,6 +304,7 @@ export function getDirectoryDetailPresentation(
     slug: profile.slug,
     name: profile.name,
     category: profile.category,
+    additionalCategories: profile.additionalCategories ?? [],
     excerpt: profile.excerpt,
     services: profile.services,
     ...directoryQualificationSections(profile.qualifications),

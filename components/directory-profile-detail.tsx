@@ -26,7 +26,7 @@ import {
   PublicDetailLayout,
   PublicDetailFlow,
 } from "@/components/detail-primitives/detail-primitives";
-import { getDirectoryCategory } from "@/lib/directory";
+import { directoryProfileCategoryLabels, getDirectoryCategory } from "@/lib/directory";
 import {
   formatDirectoryUpdatedAt,
   type DirectoryDetailPresentation,
@@ -41,13 +41,13 @@ type DetailRow = { label: string; value: ReactNode };
 
 function DirectoryProfileHero({
   presentation,
-  categoryLabel,
+  categoryLabels,
   commercial,
   navigationHref,
   showExcerpt,
 }: {
   presentation: DirectoryDetailPresentation;
-  categoryLabel: string;
+  categoryLabels: string[];
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
   navigationHref: string | null;
   showExcerpt: boolean;
@@ -95,7 +95,9 @@ function DirectoryProfileHero({
       copy={
         <>
           <div className={styles.badges}>
-            <span className={styles.categoryBadge}>{categoryLabel}</span>
+            {categoryLabels.map((label) => (
+              <span className={styles.categoryBadge} key={label}>{label}</span>
+            ))}
             {presentation.featured ? (
               <span className={styles.featuredBadge}>Odporúčame</span>
             ) : null}
@@ -174,7 +176,6 @@ export function DirectoryProfileDetail({
   locationDiscoveryLinks?: InternalDiscoveryLink[];
   management?: ReactNode;
 }) {
-  const category = getDirectoryCategory(presentation.category);
   const mapItem = publicMap?.items[0];
   // Exactly the same GEO gate as PublicLocationMap: no directions for approximate points.
   const navigationHref =
@@ -492,7 +493,7 @@ export function DirectoryProfileDetail({
       <PublicFoundation data-public-service-detail-template="shared-event-service">
       <DirectoryProfileHero
         presentation={presentation}
-        categoryLabel={category?.singular ?? "Profil služby"}
+        categoryLabels={directoryProfileCategoryLabels(presentation)}
         commercial={commercial}
         navigationHref={navigationHref}
         showExcerpt={!isDuplicatedDirectoryDescription(presentation.excerpt, presentation.description)}
