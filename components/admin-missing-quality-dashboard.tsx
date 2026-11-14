@@ -333,7 +333,8 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                 <div className={styles.comparison}>
                   <div className={styles.comparisonValue}>
                     <span>Aktuálny údaj</span>
-                    {p.field_group==="image"&&p.current_value&&/^(https?:\\/\\/|\\/)/.test(p.current_value)?
+                    {p.field_group==="image"&&p.current_value&&
+                      (p.current_value.startsWith("/")||p.current_value.startsWith("https://")||p.current_value.startsWith("http://"))?
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.current_value} className={styles.preview} alt={"Aktuálny obrázok profilu "+p.profile_label} loading="lazy"/>:
                       <div className={p.current_value===null?styles.emptyValue:styles.value}>
