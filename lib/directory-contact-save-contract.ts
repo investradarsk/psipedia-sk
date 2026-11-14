@@ -81,7 +81,7 @@ export function preserveUntouchedDirectoryContacts<T extends object>(
   editedPaths: readonly string[],
 ): T {
   const edited = new Set(editedPaths.filter(isContact));
-  const next: Record<string, unknown> = { ...submitted };
+  const next = { ...submitted } as Record<string, unknown>;
   for (const field of DIRECTORY_CONTACT_SAVE_FIELDS) {
     if (!edited.has(field)) next[field] = live[field];
   }
