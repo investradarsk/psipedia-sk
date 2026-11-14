@@ -66,11 +66,11 @@ test("step 14: Facebook planner keeps existing month/week, sync and consent gate
   assert.match(src, /data-admin-social-list/);
   assert.match(src, /data-admin-list-pagination/);
   assert.match(src, /<AdminFacebookWeeklyPlanner refresh=\{refresh\}/);
-  assert.match(src, /onClick=\{\(\) => setCalendarView\("week"\)\}/);
-  assert.match(src, /onClick=\{\(\) => setCalendarView\("month"\)\}/);
-  assert.match(src, /onClick=\{\(\) => void syncNotion\(\)\}/);
+  assert.match(src, /onClick=\{\(\)\s*=>\s*setCalendarView\("week"\)\}/);
+  assert.match(src, /onClick=\{\(\)\s*=>\s*setCalendarView\("month"\)\}/);
+  assert.match(src, /onClick=\{\(\)\s*=>\s*void syncNotion\(\)\}/);
   assert.match(src, /onChange=\{e=>void setAutomatic\(e\.target\.checked\)\}/);
-  assert.match(src, /onClick=\{\(\) => void setApproval\(/);
+  assert.match(src, /onClick=\{\(\)\s*=>\s*void setApproval\(/);
   assert.match(src, /<AdminInlineRowActions/);
   assert.match(src, /<AdminModalDialog/);
   assert.match(css, /ADMIN VISUAL 14\/18/);
