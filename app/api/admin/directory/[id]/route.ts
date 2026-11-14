@@ -16,7 +16,7 @@ import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-te
 import { normalizeAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
 import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
-import { scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
+import { preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -226,7 +226,21 @@ export async function PUT(request: Request, { params }: Props) {
     // Directory editorial contact values are raw text. Never validate, delete
     // or normalize an entered email, phone, website or social link in this save.
     // Public renderers decide separately whether a value is a clickable link.
-    const safeOptionalFields = { ...fieldPreserved };
+    // Every other contact MUST come from the live D1 snapshot, not the form
+    // or a legacy column-only projection. An edit to Facebook, for instance,
+    // has no authority to clear phone, email, website or Instagram.
+    const liveContactValues = readDirectoryPublicContacts(before.importData, before.websiteUrl ?? "");
+    const safeOptionalFields = preserveUntouchedDirectoryContacts(
+      { ...fieldPreserved },
+      {
+        websiteUrl: liveContactValues.website,
+        publicPhone: liveContactValues.phone,
+        publicEmail: liveContactValues.email,
+        facebookUrl: liveContactValues.facebook,
+        instagramUrl: liveContactValues.instagram,
+      },
+      editedPaths ?? [],
+    );
     // Preserve explicit clears even if a stale whole-form baseline carried
     // old contact aliases. This is a narrow authenticated field-level override.
     for (const field of explicitlyClearedContacts) {
