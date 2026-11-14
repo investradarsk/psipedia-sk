@@ -41,7 +41,7 @@ export default async function FacebookImagesPage() {
       user={user}
       eyebrow="Admin · Automatizácie"
       title="Facebook obrázky"
-      description="Prehľad príspevkov, kalendár a synchronizácia s Notionom a Facebookom."
+      description="Spravuj príspevky, grafiky a termíny publikovania na jednom mieste."
     >
       <Suspense fallback={<AdminDataLoading label="Facebook obrázky" />}>
         <FacebookContent promise={dataPromise} month={month} />
