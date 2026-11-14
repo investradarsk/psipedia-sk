@@ -54,7 +54,7 @@ test("EDITOR-8: submit validation reveals hidden required fields, publication de
   assert.match(src, /expectedUpdatedAt: lastSavedUpdatedAtRef\.current/);
   assert.match(src, /<EditorActionBar/);
   assert.match(src, /<ArticleEditorCalendar/);
-  assert.match(src, /<AdminDestructiveConfirmDialog/);
+  assert.match(src, /<AdminRecordLifecycleActions/);
   assert.match(src, /<ImageDisplayEditor/);
   assert.match(src, /<AdminArticleBlockEditor/);
   assert.match(src, /<AdminEditorialAuthorField/);
@@ -64,9 +64,9 @@ test("EDITOR-8: submit validation reveals hidden required fields, publication de
 test("EDITOR-8: live preview, Lexical, SEO, media, FB and QA remain functional in their existing components", () => {
   const src = read("components/admin-article-editor.tsx");
   assert.match(src, /previewOpen, setPreviewOpen\] = useState\(true\)/);
-  assert.match(src, /navigatePreview\(targetId/);
-  assert.match(src, /target\.closest<HTMLElement>\("\[data-admin-editor-section\]"\)/);
-  assert.match(src, /chooseArticleSection\(targetId\)/);
+  assert.match(src, /<AdminArticleFullscreenPreview/);
+  assert.match(src, /setActiveArticleSection\(visibleId\)/);
+  assert.match(src, /chooseArticleSection\("article-publish"\)/);
   assert.match(src, /firstBlocker\?\.blockId \? "article-blocks"/);
   assert.match(src, /<AdminLexicalTextField/);
   assert.match(src, /<RichTextInput/);
@@ -98,8 +98,8 @@ test("ARTICLE-VISUAL-3: the right rail reuses existing status, schedule, SEO and
   assert.match(src, /onClick=\{\(\) => void save\("scheduled"\)\}/);
   assert.match(src, /onClick=\{\(\) => void save\("published"\)\}/);
   assert.match(src, /onClick=\{unpublish\}/);
-  assert.match(src, /previewDetailedOpen \&\&/);
-  assert.match(src, /<ArticleBlocks blocks=\{blocks\} preview/);
+  assert.match(src, /fullscreenPreviewOpen \&\&/);
+  assert.match(src, /<AdminArticleBlockEditor/);
   assert.match(css, /\.rightRail/);
   assert.match(css, /\.railCard/);
   assert.match(css, /\.railPreviewCard/);
