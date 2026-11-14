@@ -4,6 +4,7 @@ import { ArticlePromo } from "@/components/article-promo";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { notFound, permanentRedirect } from "next/navigation";
 import { BreedPhoto } from "@/components/breed-photo";
+import { BreedMeasurementFact } from "@/components/breed-measurement-fact";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
 import { DetailHero, DetailFactsCard } from "@/components/detail-primitives/detail-primitives";
@@ -261,11 +262,11 @@ export default async function BreedDetailPage({ params }: Props) {
     { label: "Veľkosť", value: displayFacts.size },
     { label: "Typ srsti", value: displayFacts.coatTypes },
     { label: "Výška", value: displayFacts.height },
-    { label: "Hmotnosť", value: displayFacts.weight },
-    { label: "Dĺžka života", value: displayFacts.lifespan },
+    { label: "Hmotnosť", value: displayFacts.weight ? <BreedMeasurementFact kind="weight" value={displayFacts.weight} /> : "" },
+    { label: "Dĺžka života", value: displayFacts.lifespan ? <BreedMeasurementFact kind="lifespan" value={displayFacts.lifespan} /> : "" },
     { label: "Využitie", value: displayFacts.useTypes },
     { label: "FCI skupina", value: displayFacts.fciGroup },
-  ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+  ];
   // One care section owns this description; no duplicate "Srsť" card under the hero.
   const coatParagraphs = textParagraphs(editorial.coatCare);
   const coatContent = coatParagraphs.length ? coatParagraphs : textParagraphs(breed.coat);
