@@ -38,9 +38,9 @@ export default async function AdminHelpPage({ searchParams }: { searchParams: Pr
   return <AdminShell
     user={user}
     eyebrow="Pomoc psom"
-    title="Help prípady a výzvy"
-    description="Spravuj dočasnú opateru, zbierky, dobrovoľnícke výzvy a existujúce urgentné Help záznamy. Adopcie, stratené a nájdené psy aj organizácie majú vlastné canonical moduly."
-    actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/pomoc/novy">+ Nový Help záznam</Link>}
+    title="Prípady a výzvy"
+    description="Spravuj dočasnú opateru, zbierky a dobrovoľnícke výzvy. Adopcie, stratené a nájdené psy aj organizácie nájdeš v samostatných sekciách."
+    actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/pomoc/novy">+ Nová výzva</Link>}
   >
     <AdminDirectoryModuleNav active="help" />
     <Suspense fallback={<AdminDataLoading label="Pomoc psom" />}>
