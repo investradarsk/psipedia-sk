@@ -328,13 +328,13 @@ export function AdminFacebookGraphicEditor({
     finally { setBusy(false); }
   }
 
-  return <section className={styles.editor} aria-label="Grafický editor Facebook obrázkov">
+  return <section className={styles.editor} aria-label="Grafický editor Facebook obrázkov" data-admin-content-module="facebook-graphic-editor">
     <div className={styles.top}>
       <div><h3>Grafické šablóny Psipedia</h3><p>Šesť šablón vrátane predstavenia profilu s hlavným obrázkom. Grafika sa na Facebook neodošle automaticky.</p></div>
       <button type="button" onClick={onCancel} disabled={busy}>Späť k príspevku</button>
     </div>
-    <div className={styles.layout}>
-      <div className={styles.controls}>
+    <div className={styles.layout} data-admin-graphic-layout>
+      <div className={styles.controls} data-admin-graphic-controls>
         <fieldset disabled={busy}>
           <legend>1. Vyber šablónu</legend>
           <div className={styles.templateGrid}>{TEMPLATES.map(item =>
@@ -532,7 +532,7 @@ export function AdminFacebookGraphicEditor({
           <p className={styles.hint}>Logo ostáva v bezpečných okrajoch. Môžeš ho tiež úplne vypnúť v nastaveniach nadpisu.</p>
         </fieldset>}
       </div>
-      <div className={[styles.previewSide,selectedTemplate==="profile"?styles.profilePreviewSide:"",
+      <div data-admin-graphic-preview className={[styles.previewSide,selectedTemplate==="profile"?styles.profilePreviewSide:"",
         fullPreview?styles.previewFullscreen:""].filter(Boolean).join(" ")}>
         {selectedTemplate==="profile"&&<div className={styles.previewToolbar}>
           <strong>Živý náhľad grafiky</strong>
