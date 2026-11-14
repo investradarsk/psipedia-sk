@@ -356,3 +356,64 @@
 @media (min-width: 521px) and (max-width: 760px) {
   .priorityGrid, .queueGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+
+/* ADMIN-WORK-AUDIT: render only actionable/unknown queues as large cards;
+   empty known queues remain one expandable, fully navigable group. */
+.communityQueues { display: grid; gap: var(--admin-ui-space-sm, 0.55rem); min-width: 0; }
+.communityPending {
+  margin: 0;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border: 1px solid var(--admin-v3-line, #dce5de);
+  border-radius: var(--admin-ui-radius, 12px);
+  color: var(--admin-v3-muted, #607568);
+  background: #fff;
+  font-size: var(--admin-ui-type-caption, 0.83rem);
+}
+.completedQueues {
+  min-width: 0;
+  border: 1px solid var(--admin-v3-line, #dce5de);
+  border-radius: var(--admin-ui-radius, 12px);
+  background: #f8fbf8;
+}
+.completedQueues > summary {
+  display: flex;
+  min-height: 44px;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  font-weight: 750;
+  color: #315246;
+  overflow-wrap: anywhere;
+}
+.completedQueues > summary small { color: var(--admin-v3-muted, #64766e); font-weight: 600; }
+.completedQueues > summary:focus-visible { outline: 3px solid var(--admin-ui-focus, #a26a1b); outline-offset: 2px; }
+.completedQueueLinks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding: 0 0.75rem 0.75rem;
+}
+.completedQueueLinks a {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid #e1e9e3;
+  border-radius: 9px;
+  padding: 0.45rem 0.6rem;
+  color: #315246;
+  background: #fff;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.completedQueueLinks a:focus-visible { outline: 3px solid var(--admin-ui-focus, #a26a1b); outline-offset: 2px; }
+.completedQueueLinks a span { flex: none; color: #607568; }
+@media (max-width: 760px) {
+  .completedQueues > summary { align-items: flex-start; flex-wrap: wrap; }
+  .completedQueueLinks { grid-template-columns: minmax(0, 1fr); }
+}
