@@ -196,7 +196,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
     </section>
 
     <section ref={panelRef} className="admin-panel">
-      <div className={styles.filters} aria-label="Filtre plemien">
+      <div className={styles.filters} aria-label="Filtre plemien" data-admin-list-filters>
         <label className="admin-search">
           <span>Hľadať</span>
           <div><SearchIcon size={18}/><input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, slug, pôvod, FCI…" title="Vyhľadáva aj podľa presného Admin ID, napr. 1842"/></div>
@@ -205,7 +205,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
            aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
            {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
          </button>
-         <div id="admin-breed-advanced-filters" className={styles.advancedFilters} data-expanded={advancedFiltersOpen}>
+         <div id="admin-breed-advanced-filters" className={styles.advancedFilters} data-admin-list-advanced data-expanded={advancedFiltersOpen}>
          <label><span>FCI skupina</span><select value={filters.fciGroup} onChange={(event) => changeFilter("fciGroup", event.target.value)}><option value="all">Všetky skupiny</option>{fciGroups.map(([number, label]) => <option value={number} key={number}>FCI {number} · {label}</option>)}</select></label>
         <label><span>FCI sekcia</span><select value={filters.fciSection} onChange={(event) => changeFilter("fciSection", event.target.value)}><option value="all">Všetky sekcie</option>{sections.map((section) => <option value={section} key={section}>{section}</option>)}</select></label>
         <label><span>Pôvod</span><select value={filters.origin} onChange={(event) => changeFilter("origin", event.target.value)}><option value="all">Všetky krajiny</option>{origins.map((origin) => <option value={origin} key={origin}>{origin}</option>)}</select></label>
@@ -215,7 +215,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
          <div className={styles.filterActions}><AdminActionButton variant="link" onClick={() => { setFilters(defaultAdminBreedFilters); setSelected(new Set()); setRequestedPage(1); }}>Zrušiť filtre</AdminActionButton></div>
       </div>
 
-      <div className={styles.resultBar}>
+      <div className={styles.resultBar} data-admin-list-results>
         <strong role="status">Nájdené: {visible.length} z {breeds.length} · Zobrazené {pageData.from}–{pageData.to}</strong>
         <span>Výber platí pre záznamy na aktuálnej strane. Označené spolu: {selected.size}</span>
       </div>
@@ -314,12 +314,12 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
         /> : <div className={styles.empty}>Žiadne plemeno nezodpovedá zvoleným filtrom.</div>}
       </div>
       {pageData.totalPages > 1 && (
-        <nav className={styles.pagination} aria-label="Stránkovanie plemien">
+        <nav className={styles.pagination} aria-label="Stránkovanie plemien" data-admin-list-pagination>
           <button type="button" disabled={busy || pageData.page === 1}
             onClick={() => changePage(1)}>Prvá</button>
           <button type="button" disabled={busy || pageData.page === 1}
             onClick={() => changePage(pageData.page - 1)}>Predchádzajúca</button>
-          <span aria-live="polite">Strana {pageData.page} z {pageData.totalPages}</span>
+          <span aria-live="polite" aria-atomic="true">Strana {pageData.page} z {pageData.totalPages}</span>
           <button type="button" disabled={busy || pageData.page === pageData.totalPages}
             onClick={() => changePage(pageData.page + 1)}>Nasledujúca</button>
           <button type="button" disabled={busy || pageData.page === pageData.totalPages}
