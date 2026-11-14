@@ -115,7 +115,9 @@ test("missing hero config falls back to route copy and static canonical defaults
   assert.match(sectionStore, /if \(!db\) return defaultManagedSections\(\)/);
 });
 test("directory hero uses the canonical UnifiedSectionHeroShell gutter", () => {
-  assert.match(directoryPage, /<UnifiedSectionHeroShell>/);
+  assert.match(directoryPage, /<UnifiedSectionHeroShell(?:\\s+[^>]*)?>/);
+  assert.match(directoryPage, /className=\\{!active \\? styles\\.compactDesktopHero : undefined\\}/);
+  assert.match(directoryPage, /<UnifiedSectionHero\\s+contentSource="route"/);
   assert.doesNotMatch(directoryPage, /<PageContainer className=\{styles\.headerShell\} data-directory-public-header>/);
   assert.equal(directoryPage.includes("className={`shell ${styles.headerShell}`} data-directory-public-header"), false);
 });
