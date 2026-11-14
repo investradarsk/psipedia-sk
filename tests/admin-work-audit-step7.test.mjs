@@ -12,7 +12,7 @@ test("Work P2: article toolbar height participates in section scrolling", () => 
   assert.match(tiptap, /--admin-tiptap-toolbar-height/);
   assert.match(tiptap, /new ResizeObserver\(update\)/);
   assert.match(tiptap, /observer\.disconnect\(\)/);
-  assert.match(editor, /scroll-margin-top: calc\(\s*var\(--admin-sticky-stack, 96px\) \+ var\(--admin-tiptap-toolbar-height, 76px\) \+ 16px/s);
+  assert.match(editor, /scroll-margin-top: calc\(\s*var\(--admin-sticky-stack, 96px\) \+ var\(--admin-tiptap-toolbar-height, 0px\) \+ 16px/s);
   assert.match(shared, /target\.scrollIntoView\(/);
 });
 
