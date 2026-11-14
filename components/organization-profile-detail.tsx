@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
+import { PublicPhotoGallery } from "@/components/public-visual-system";
 import { ProfileReviewSection } from "@/components/profile-review-section";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
@@ -182,6 +183,13 @@ export function OrganizationProfileDetail({
           {presentation.description ? (
             <DetailSection compactHeading eyebrow="O organizácii" title="Kto sú a čo robia">
               <DetailParagraphs value={presentation.description} />
+            </DetailSection>
+          ) : null}
+
+          {presentation.galleryUrls.length > 0 ? (
+            <DetailSection compactHeading eyebrow="Fotografie" title="Galéria">
+              <PublicPhotoGallery label={`Fotografie organizácie ${organization.name}`}
+                images={presentation.galleryUrls.map((src, index) => ({ src, alt: `${organization.name} – fotografia ${index + 1}` }))} />
             </DetailSection>
           ) : null}
 
