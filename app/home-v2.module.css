@@ -2405,6 +2405,20 @@
   }
 }
 
+/* One editorial rhythm: compact divider rows, never cards plus a second border. */
+@media (min-width: 901px) {
+  .homeV2 :global(.home-magazine-main .home-latest-item > [data-article-list-item]) {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    padding-inline: 2px;
+  }
+  .homeV2 :global(.home-magazine-main .home-latest-item > [data-article-list-item]:hover) {
+    box-shadow: none;
+    background: var(--sage-light);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .homeV2 :global(.home-profile-categories .home-service-carousel) {
     scroll-behavior: auto;
@@ -2659,6 +2673,12 @@
   font-weight: 800;
   font-size: clamp(0.83rem, 1.15vw, 0.91rem);
   line-height: 1.3;
+}
+@media (min-width: 901px) {
+  /* Provider names can use a third line without enlarging the panel. */
+  .homeV2 :global(.home-magazine-side .home-side-unified-copy strong) {
+    -webkit-line-clamp: 3;
+  }
 }
 .homeV2 :global(.home-magazine-side .home-side-unified-copy small) {
   display: -webkit-box;

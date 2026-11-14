@@ -1236,27 +1236,18 @@
     align-items: start;
     gap: 20px;
   }
-  .contentList > :only-child {
-    max-width: 580px;
+  /* A single article fills its topic row with the compact horizontal card.
+     Shared responsive rules below 901px remain unchanged. */
+  .singleArticleList {
+    grid-template-columns: minmax(0, 1fr);
   }
   .topicStageGrid .topicGroupFooter {
     border-top: 0;
     margin-top: 8px;
     padding-top: 0;
   }
-  .topicStageGrid .topicGroup:has(.topicGroupEmpty) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    column-gap: 20px;
-  }
   .topicStageGrid .topicGroup:has(.topicGroupEmpty) .topicGroupTitle {
     margin-bottom: 4px;
-  }
-  .topicStageGrid .topicGroup:has(.topicGroupEmpty) .topicGroupFooter {
-    grid-column: 2;
-    grid-row: 1 / 3;
-    align-self: center;
-    margin: 0;
   }
 }
 

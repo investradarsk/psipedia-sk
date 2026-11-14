@@ -64,22 +64,26 @@ test("events hero has the approved copy and a single event-only GET search", asy
   );
 });
 
-test("quick categories use existing routes and category copy stays relevant", async ({ page }) => {
+test("one event category navigation uses canonical routes and category copy stays relevant", async ({ page }) => {
   await page.goto("/podujatia");
-  const shortcuts = page.locator(".home-search-shortcuts");
+  const categories = page.locator("[data-event-category-navigation] nav");
+  await expect(categories.getByRole("link")).toHaveCount(6);
+  await expect(page.locator(".home-search-shortcuts").getByRole("link")).toHaveCount(0);
+  await expect(page.locator("[data-events-legend]").getByRole("link")).toHaveCount(0);
   for (const [label, slug] of [
     ["Výstavy", "vystavy"],
     ["Preteky", "preteky"],
     ["Semináre", "seminare"],
     ["Tréningy", "treningy"],
     ["Stretnutia", "stretnutia"],
+    ["Ostatné podujatia", "dalsie"],
   ]) {
-    await expect(shortcuts.getByRole("link", { name: label, exact: true })).toHaveAttribute(
+    await expect(categories.getByRole("link", { name: label, exact: true })).toHaveAttribute(
       "href",
       `/podujatia/${slug}`,
     );
   }
-  await shortcuts.getByRole("link", { name: "Výstavy", exact: true }).click();
+  await categories.getByRole("link", { name: "Výstavy", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Výstavy");
   await expect(page.locator("[data-section-hero-intro]")).not.toHaveText(intro);
   await expect(page.locator('[data-public-search-form="events"]')).toHaveAttribute(

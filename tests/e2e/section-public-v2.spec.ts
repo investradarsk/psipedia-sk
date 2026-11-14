@@ -41,24 +41,34 @@ test("SECTION-PUBLIC landings group at most five real articles under each topic 
     await expect(page.locator("[data-section-topic-groups]")).toHaveCount(1);
     await expect(page.locator("[data-section-public-topic-body]")).toHaveCount(0);
     for (const group of await groups.all()) {
-      await expect(group.locator("h2 a")).toBeVisible();
-      expect(await group.locator("[data-article-list-item]").count()).toBeLessThanOrEqual(5);
-      await expect(group.getByRole("link", { name: "Všetky články z oblasti" })).toBeVisible();
-      // Read in this order on all three landings: area title, articles, then CTA.
+      await expect(group.locator("h3 a")).toBeVisible();
+      const articleCount = await group.locator("[data-article-list-item]").count();
+      expect(articleCount).toBeLessThanOrEqual(5);
+      if (articleCount > 0) {
+        const firstLink = group.locator("a[data-article-list-item]").first();
+        await expect(firstLink).toHaveAttribute("href", /.+/);
+        await expect(firstLink).not.toHaveAttribute("role", "listitem");
+        await expect(firstLink.locator("xpath=..")).toHaveAttribute("role", "listitem");
+      }
+      await expect(group.getByRole("link", { name: "Všetky články z oblasti" }))
+        .toHaveCount(articleCount > 0 ? 1 : 0);
+      // Empty areas remain in navigation, but cannot promise a non-existent list.
       const order = await group.evaluate((element) => [...element.children].map((child) => {
-        if (child.matches("h2")) return "heading";
+        if (child.matches("h3")) return "heading";
         if (child.matches("[data-section-content-list]")) return "articles";
         if (child.querySelector("a")?.textContent?.includes("Všetky články z oblasti")) return "more";
         return "unexpected";
       }));
-      expect(order, `${path}: heading → article rows → all-articles link`).toEqual(["heading", "articles", "more"]);
+      expect(order, `${path}: topic → articles → optional CTA`)
+        .toEqual(articleCount > 0 ? ["heading", "articles", "more"] : ["heading", "articles"]);
     }
     await expectNoHorizontalOverflow(page, `${path} editorial groups at 390px`);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/aktivity");
-  const desktopGroup = page.locator("[data-section-article-group]").first();
-  await expect(desktopGroup.locator("h2 + [data-section-content-list] + div").getByRole("link", { name: "Všetky články z oblasti" })).toBeVisible();
+  const desktopGroup = page.locator("[data-section-article-group]")
+    .filter({ has: page.locator("[data-article-list-item]") }).first();
+  await expect(desktopGroup.getByRole("link", { name: "Všetky články z oblasti" })).toBeVisible();
   await expectNoHorizontalOverflow(page, "Activity editorial groups at 1440px");
   await page.goto("/starostlivost");
   const urgent = page.locator("[data-section-public-callout]");

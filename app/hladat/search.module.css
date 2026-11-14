@@ -248,6 +248,32 @@
   overflow-wrap: anywhere;
 }
 
+/* Results first: no second full-height homepage hero after a query on desktop. */
+@media (min-width: 821px) {
+  .compactResults :global([data-unified-section-hero][data-hero-variant="homepage-style"] [data-unified-section-hero-visual]),
+  .compactResults :global([data-unified-section-hero][data-hero-variant="homepage-style"] [data-unified-section-hero-copy]) {
+    min-height: 220px;
+  }
+  .compactResults :global([data-unified-section-hero-copy]) {
+    padding-block: 25px 28px;
+  }
+  .compactResults :global([data-unified-hero-portal-search] .home-search-panel) {
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  .compactResults .discovery {
+    margin-top: 12px;
+    padding: 13px 16px;
+    gap: 10px;
+  }
+  .compactResults .discoveryIntro h2 {
+    font-size: 1rem;
+  }
+  .compactResults :global(.portal-search-results) {
+    padding-top: 16px;
+  }
+}
+
 @media (max-width: 760px) {
   .discovery {
     margin-top: 18px;

@@ -135,8 +135,8 @@ export function PublicArticleCard(props: PublicArticleCardProps) {
   } = props;
   const Heading = `h${headingLevel}` as "h2" | "h3" | "h4";
   const media = <ArticleMedia {...props} variant={variant} />;
-  if (variant === "row")
-    return (
+  if (variant === "row") {
+    const rowLink = (
       <Link
         id={anchorId}
         href={href}
@@ -150,7 +150,6 @@ export function PublicArticleCard(props: PublicArticleCardProps) {
         ]
           .filter(Boolean)
           .join(" ")}
-        role={listItem ? "listitem" : undefined}
         data-article-list-item
         data-public-card="article"
         data-article-variant="row"
@@ -166,6 +165,10 @@ export function PublicArticleCard(props: PublicArticleCardProps) {
         </span>
       </Link>
     );
+    // The list item is a non-interactive container; the anchor keeps its
+    // native link role and remains the only keyboard focus target.
+    return listItem ? <div role="listitem" className={cardStyles.rowListItem}>{rowLink}</div> : rowLink;
+  }
   return (
     <article
       id={anchorId}

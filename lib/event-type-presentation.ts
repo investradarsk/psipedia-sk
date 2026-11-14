@@ -7,7 +7,7 @@ export const eventTypePresentation: Record<EventType, { label: string; color: st
   Seminár: { label: "Semináre", color: "#AA7835", fallbackImage: "/images/events/defaults/seminare.webp" },
   Tréning: { label: "Tréningy", color: "#287FCA", fallbackImage: "/images/events/defaults/treningy.webp" },
   Stretnutie: { label: "Stretnutia", color: "#8954C5", fallbackImage: "/images/events/defaults/stretnutia.webp" },
-  Iné: { label: "Ostatné", color: "#78838B", fallbackImage: "/images/events/defaults/ostatne.webp" },
+  Iné: { label: "Ostatné podujatia", color: "#78838B", fallbackImage: "/images/events/defaults/ostatne.webp" },
 };
 
 /** Display-only artwork; never write this URL to event data or SEO. */

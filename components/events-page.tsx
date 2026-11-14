@@ -1,4 +1,4 @@
-import { eventListingParams, type EventListingFilters } from "@/lib/event-listing";
+import type { EventListingFilters } from "@/lib/event-listing";
 import Link from "next/link";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import homeStyles from "@/app/home-v2.module.css";
@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContextBanner,
   PublicContentShell,
+  PublicActionLink,
   PublicSubcategoryNavigator,
   PublicFoundation,
   UnifiedSectionHero,
@@ -131,24 +132,6 @@ export async function EventsPage({
       zoradenie: filters?.sort,
     }).map(([name, value]) => ({ name, value: value ?? "" })),
   ].filter((field) => Boolean(field.value));
-  const searchShortcuts = eventTypes
-    .filter((type) => type !== "Iné")
-    .flatMap((type) => {
-      const href = eventTypePortalHref(type);
-      const params = filters ? eventListingParams(filters) : new URLSearchParams();
-      if (selectedDay) params.set("den", selectedDay);
-      if (visibleMonth !== (initialMonth || today.slice(0, 7)))
-        params.set("kalendar", visibleMonth);
-      return href
-        ? [
-            {
-              href: href + (params.size ? "?" + params.toString() : ""),
-              label: eventTypePresentation[type].label,
-            },
-          ]
-        : [];
-    });
-
   return (
     <main id="obsah">
       <RememberEventsListing key={listingIdentity} />
@@ -192,7 +175,7 @@ export async function EventsPage({
                   defaultValue={initialQuery}
                   allowEmpty
                   hidden={searchHidden}
-                  shortcuts={searchShortcuts}
+                  shortcuts={[]}
                   searchScope="events"
                 />
               }
@@ -203,6 +186,13 @@ export async function EventsPage({
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">
             <div className={styles.eventCategoryNavigator} data-event-category-navigation>
+              {!isMainListing ? (
+                <div className={styles.eventAllLink}>
+                  <PublicActionLink href="/podujatia" variant="tertiary">
+                    Všetky podujatia
+                  </PublicActionLink>
+                </div>
+              ) : null}
               <PublicSubcategoryNavigator
                 mode="compact"
                 mobileLayout="grid"

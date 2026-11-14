@@ -18,6 +18,8 @@ export type ArticleDiscoveryPopularItem = {
   href: string;
   label: string;
   image?: string;
+  /** Actual qualified reads in the selected 24h/7d window; never estimated. */
+  qualifiedReads?: number;
 };
 
 export type ArticleDiscoveryData = {
@@ -46,6 +48,7 @@ function toPopularItem(article: PopularArticleSummary): ArticleDiscoveryPopularI
     href: articleHref(article),
     label: popularityLabel(article),
     image: article.image,
+    qualifiedReads: article.qualifiedReads,
   };
 }
 

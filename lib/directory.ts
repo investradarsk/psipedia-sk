@@ -369,3 +369,14 @@ export function directoryCategoryHref(
 export function directoryCategoryLabel(slug: DirectoryCategorySlug) {
   return getDirectoryCategory(slug)?.label ?? "Služby pre psov";
 }
+
+/** The same canonical-first category names on every public card and detail. */
+export function directoryProfileCategoryLabels(
+  profile: Pick<PublicDirectoryProfile, "category" | "additionalCategories">,
+): string[] {
+  const categories = [profile.category, ...(profile.additionalCategories ?? [])];
+  const labels = [...new Set(categories)]
+    .filter(isDirectoryCategory)
+    .map((slug) => getDirectoryCategory(slug)?.singular ?? "Služba pre psov");
+  return labels.length ? labels : ["Služba pre psov"];
+}

@@ -17,8 +17,19 @@ for (const path of ["/steniatka", "/starostlivost", "/aktivity"]) {
         await expect(page.locator(".portal-section-tabs select")).toBeVisible();
         const serviceImages = page.locator("[data-section-next-card] img");
         for (const image of await serviceImages.all()) await expect(image).toBeHidden();
-        expect(title!.y).toBeGreaterThanOrEqual(media!.y + media!.height);
-        expect(media!.width).toBeGreaterThan(260);
+        const compact = await card.evaluate((element) => {
+          const list = element.closest('[role="list"]');
+          return Boolean(element.querySelector("[data-public-media-fallback]"))
+            || list?.querySelectorAll("[data-article-list-item]").length === 1;
+        });
+        if (compact) {
+          // One article or no photo: use the compact horizontal card.
+          expect(title!.x).toBeGreaterThanOrEqual(media!.x + media!.width - 1);
+          expect(media!.width).toBeLessThanOrEqual(180);
+        } else {
+          expect(title!.y).toBeGreaterThanOrEqual(media!.y + media!.height);
+          expect(media!.width).toBeGreaterThan(260);
+        }
         const first = await groups.first().boundingBox();
         const second = await groups.nth(1).boundingBox();
         expect(second!.y).toBeGreaterThanOrEqual(first!.y + first!.height);

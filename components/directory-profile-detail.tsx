@@ -26,7 +26,7 @@ import {
   PublicDetailLayout,
   PublicDetailFlow,
 } from "@/components/detail-primitives/detail-primitives";
-import { getDirectoryCategory } from "@/lib/directory";
+import { directoryProfileCategoryLabels, getDirectoryCategory } from "@/lib/directory";
 import {
   formatDirectoryUpdatedAt,
   type DirectoryDetailPresentation,
@@ -35,18 +35,19 @@ import type { PublicProfileReviewData } from "@/lib/profile-review-read";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 import type { InternalDiscoveryLink } from "@/lib/internal-discovery";
 import styles from "./directory-profile-detail.module.css";
+import { isDuplicatedDirectoryDescription } from "@/lib/directory-description-dedupe";
 
 type DetailRow = { label: string; value: ReactNode };
 
 function DirectoryProfileHero({
   presentation,
-  categoryLabel,
+  categoryLabels,
   commercial,
   navigationHref,
   showExcerpt,
 }: {
   presentation: DirectoryDetailPresentation;
-  categoryLabel: string;
+  categoryLabels: string[];
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
   navigationHref: string | null;
   showExcerpt: boolean;
@@ -94,7 +95,9 @@ function DirectoryProfileHero({
       copy={
         <>
           <div className={styles.badges}>
-            <span className={styles.categoryBadge}>{categoryLabel}</span>
+            {categoryLabels.map((label) => (
+              <span className={styles.categoryBadge} key={label}>{label}</span>
+            ))}
             {presentation.featured ? (
               <span className={styles.featuredBadge}>Odporúčame</span>
             ) : null}
@@ -173,7 +176,6 @@ export function DirectoryProfileDetail({
   locationDiscoveryLinks?: InternalDiscoveryLink[];
   management?: ReactNode;
 }) {
-  const category = getDirectoryCategory(presentation.category);
   const mapItem = publicMap?.items[0];
   // Exactly the same GEO gate as PublicLocationMap: no directions for approximate points.
   const navigationHref =
@@ -290,8 +292,8 @@ export function DirectoryProfileDetail({
     expertFacts.length > 0 || breederLinkFacts.length > 0 ||
     visibleQualifications.length > 0 ||
     Boolean(!isPhysiotherapy && presentation.priceNote);
-  // Short and long descriptions are independent editorial fields.
-  // Both remain visible whenever explicitly populated, even if the text matches.
+  // Keep editorial fields independent; hide the hero excerpt when it exactly
+  // duplicates the long description in the “O službe” section.
   const hasExtendedDescription = Boolean(presentation.description?.trim());
 
   const breederGallery = presentation.category === "chovatelske-stanice"
@@ -491,10 +493,10 @@ export function DirectoryProfileDetail({
       <PublicFoundation data-public-service-detail-template="shared-event-service">
       <DirectoryProfileHero
         presentation={presentation}
-        categoryLabel={category?.singular ?? "Profil služby"}
+        categoryLabels={directoryProfileCategoryLabels(presentation)}
         commercial={commercial}
         navigationHref={navigationHref}
-        showExcerpt={true}
+        showExcerpt={!isDuplicatedDirectoryDescription(presentation.excerpt, presentation.description)}
       />
       <PublicDetailFlow blocks={blocks} className={styles.layout} />
 

@@ -8,7 +8,7 @@ const types = [
   ["Seminár", "Semináre", "seminare", "rgb(170, 120, 53)"],
   ["Tréning", "Tréningy", "treningy", "rgb(40, 127, 202)"],
   ["Stretnutie", "Stretnutia", "stretnutia", "rgb(137, 84, 197)"],
-  ["Iné", "Ostatné", "dalsie", "rgb(120, 131, 139)"],
+  ["Iné", "Ostatné podujatia", "dalsie", "rgb(120, 131, 139)"],
 ];
 
 test.beforeEach(async ({ page }) => {
@@ -16,26 +16,27 @@ test.beforeEach(async ({ page }) => {
   await page.goto(target);
 });
 
-test("compact calendar uses six canonical legend links and real unique day indicators", async ({
+test("calendar has six static legend entries, one canonical category navigation and unique day indicators", async ({
   page,
 }) => {
   const legend = page.locator("[data-events-legend]");
-  await expect(legend.getByRole("link")).toHaveCount(6);
+  const categories = page.locator("[data-event-category-navigation] nav");
+  await expect(legend.getByRole("listitem")).toHaveCount(6);
+  await expect(legend.getByRole("link")).toHaveCount(0);
+  await expect(categories.getByRole("link")).toHaveCount(6);
   const day = page.locator('[data-calendar-date="2026-10-15"]');
   await expect(day).toHaveAttribute("data-count", "7");
   await expect(day.locator("[data-event-type]")).toHaveCount(4);
   await expect(day).toContainText("+2");
   for (const [type, label, slug, color] of types) {
-    const link = legend.getByRole("link", { name: label, exact: true });
-    const href = await link.getAttribute("href");
-    const url = new URL(href!, "https://psipedia.sk");
-    expect(url.pathname).toBe(`/podujatia/${slug}`);
-    expect(url.searchParams.get("q")).toBe("Calendar phase2");
-    expect(url.searchParams.get("region")).toBe("Nitriansky kraj");
-    expect(url.searchParams.get("mesiac")).toBe("2026-10");
-    expect(url.searchParams.get("termin")).toBe("vsetky");
+    const categoryLink = categories.getByRole("link", { name: label, exact: true });
+    await expect(categoryLink).toHaveAttribute("href", `/podujatia/${slug}`);
+    // The category navigation starts a canonical view; it does not reuse
+    // unrelated search, month and region filters from the previous category.
+    const legendItem = legend.getByRole("listitem").filter({ hasText: label });
+    await expect(legendItem).toHaveCount(1);
     await expect(day).toHaveAttribute("aria-label", new RegExp(label));
-    const dot = link.locator("[data-event-type]");
+    const dot = legendItem.locator(`[data-event-type="${type}"]`);
     expect(await dot.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(color);
     const dayDot = day.locator(`[data-event-type="${type}"]`);
     if (await dayDot.count())
@@ -203,7 +204,7 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
   ).toEqual([]);
 });
 
-test("month, day, period and legend change without reloading the document", async ({ page }) => {
+test("month, day, period and category navigation change without reloading the document", async ({ page }) => {
   // The framework marker is set when hydrateRoot starts, before this island
   // necessarily attaches handlers. Wait for this calendar to commit hydration.
   await expect(page.locator("[data-public-calendar]")).toHaveAttribute(
@@ -232,7 +233,8 @@ test("month, day, period and legend change without reloading the document", asyn
   await expect(page.locator('[data-selected-day="2026-10-15"] li')).toHaveCount(7);
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();
   await expect(page).toHaveURL((url) => url.searchParams.get("termin") === "ukoncene");
-  await page.locator("[data-events-legend]").getByRole("link", { name: "Preteky" }).click();
+  await page.locator("[data-event-category-navigation] nav")
+    .getByRole("link", { name: "Preteky", exact: true }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/podujatia/preteky");
   expect(
     await page.evaluate(
@@ -264,7 +266,7 @@ test("month, date and event type update in place without reloading the public do
   await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
 
   await page
-    .locator("[data-events-legend]")
+    .locator("[data-event-category-navigation] nav")
     .getByRole("link", { name: "Preteky", exact: true })
     .click();
   await expect(page).toHaveURL(/\/podujatia\/preteky/);

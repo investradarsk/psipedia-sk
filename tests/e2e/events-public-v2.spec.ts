@@ -91,15 +91,20 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event type pages keep canonical navigation and on
   await page.goto("/podujatia/vystavy");
   await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
 
-  const compact = page.locator("[data-events-legend]");
-  await expect(compact).toHaveCount(1);
-  await expect(compact.getByRole("link")).toHaveCount(6);
-  await expect(compact.getByRole("link", { name: "Výstavy", exact: true })).toHaveAttribute("aria-current", "page");
+  const legend = page.locator("[data-events-legend]");
+  const categories = page.locator("[data-event-category-navigation] nav");
+  await expect(legend).toHaveCount(1);
+  await expect(legend.getByRole("listitem")).toHaveCount(6);
+  await expect(legend.getByRole("link")).toHaveCount(0);
+  await expect(categories.getByRole("link")).toHaveCount(6);
+  await expect(categories.getByRole("link", { name: "Výstavy", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(categories.getByRole("link", { name: "Všetky podujatia", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Všetky podujatia", exact: true })).toHaveAttribute("href", "/podujatia");
   await expect(page.locator("[data-public-subcategory-mode=landing]")).toHaveCount(0);
   await expect(page.locator('[data-public-search-form="events"]')).toHaveCount(1);
   await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toHaveCount(1);
 
-  const seminars = compact.getByRole("link", { name: "Semináre", exact: true });
+  const seminars = categories.getByRole("link", { name: "Semináre", exact: true });
   await expect(seminars).toHaveAttribute("href", /\/podujatia\/seminare(?:\?|$)/);
   await seminars.click();
   try {

@@ -268,7 +268,7 @@ export default async function SearchPage({ searchParams }: Props) {
   const hasActiveDiscoveryFilter = Boolean(activeTypeLabel || activeLocationLabel);
 
   return (
-    <main id="obsah" className="portal-search-page">
+    <main id="obsah" className={`portal-search-page ${query.length >= 2 ? styles.compactResults : ""}`}>
       <UniversalPageHero
         eyebrow="Celá Psipedia na jednom mieste"
         title="Čo hľadáš?"
@@ -305,7 +305,7 @@ export default async function SearchPage({ searchParams }: Props) {
               <h2 id="search-interpretation-title">
                 {activeTypeLabel || activeLocationLabel
                   ? [activeTypeLabel, activeLocationLabel].filter(Boolean).join(" · ")
-                  : "Bez rozpoznaného typu alebo lokality"}
+                  : "Všetky typy a lokality"}
               </h2>
             </div>
             <div className={styles.discoveryActions}>
