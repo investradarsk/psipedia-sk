@@ -450,3 +450,90 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
   [data-admin-workspace] .admin-cta-editor { min-width: 0; gap: 10px; }
   [data-admin-workspace] .admin-cta-editor > * { min-width: 0; max-width: 100%; }
 }
+
+
+/* ADMIN-WORK-AUDIT: article/puppy filters own an explicit compact grid.
+   The search remains useful, advanced fields stay aligned, and submit is a
+   real primary action. Do not change filter submission or field values. */
+[data-admin-workspace] form.admin-toolbar[data-admin-article-filters][role="search"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  align-items: end;
+  min-width: 0;
+}
+[data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > .admin-search {
+  grid-column: 1;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+[data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > [id="admin-article-advanced-filters"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-column: 1 / -1;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  min-width: 0;
+  align-items: end;
+}
+[data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > [id="admin-article-advanced-filters"] > :is(label, div) {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+[data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > [id="admin-article-advanced-filters"] :is(select, input) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+[data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > button[type="submit"] {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  grid-column: 2;
+  min-height: var(--admin-ui-control-height, 44px);
+  border: 1px solid var(--admin-v3-green, #174b38);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  padding: var(--admin-ui-control-padding-block, 0.55rem) var(--admin-ui-control-padding-inline, 0.75rem);
+  background: var(--admin-v3-green, #174b38);
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+[data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > button[type="submit"]:hover:not(:disabled) {
+  background: var(--admin-v3-green-hover, #0f3425);
+}
+[data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > button[type="submit"]:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+[data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > a {
+  grid-column: 3;
+  align-self: center;
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters][role="search"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > .admin-search,
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > button[type="button"],
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > button[type="submit"],
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > a {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > [id="admin-article-advanced-filters"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: none;
+  }
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > [id="admin-article-advanced-filters"][data-expanded="true"] {
+    display: grid;
+  }
+}
+@media (max-width: 360px) {
+  [data-admin-workspace] form.admin-toolbar[data-admin-article-filters] > [id="admin-article-advanced-filters"][data-expanded="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
