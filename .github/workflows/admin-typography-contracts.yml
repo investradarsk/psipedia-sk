@@ -25,6 +25,9 @@ on:
       - "components/admin-breed-dashboard.module.css"
       - "components/admin-breed-dashboard.tsx"
       - "components/admin-event-dashboard.tsx"
+      - "components/admin-event-editor.tsx"
+      - "components/admin-event-editor.module.css"
+      - "app/admin/podujatia/page.tsx"
       - "components/admin-event-dashboard.module.css"
       - "components/admin-directory-dashboard.tsx"
       - "components/admin-help-dashboard.tsx"
@@ -89,6 +92,8 @@ on:
       - "tests/admin-list-foundation-step8.test.mjs"
       - "tests/admin-content-step9.test.mjs"
       - "tests/admin-directory-visual-step10.test.mjs"
+      - "tests/admin-events-visual-step11.test.mjs"
+      - "tests/e2e/admin-events-visual-step11.spec.ts"
       - "tests/e2e/admin-directory-visual-step10.spec.ts"
       - "tests/e2e/admin-content-step9.spec.ts"
       - "tests/e2e/admin-list-foundation-step8.spec.ts"
@@ -122,4 +127,4 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Check admin typography, content modules, lists, mobile and 28-route inventory
-        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
+        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/admin-events-visual-step11.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
