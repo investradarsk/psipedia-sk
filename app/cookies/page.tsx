@@ -46,6 +46,23 @@ export default function CookiesPage() {
       </p>
       <PrivacyControls />
       <PublicHeading role="section" as="h2">
+        Prečítania článkov a návštevy profilov
+      </PublicHeading>
+      <p>
+        Ak povolíš analytiku, na Psipedii môžeme započítať prečítanie článku alebo návštevu
+        profilu po aspoň 10 sekundách jeho viditeľného zobrazenia. Opakované zobrazenia
+        toho istého obsahu v jednom prehliadači obmedzujeme na interval šiestich hodín.
+        Táto vlastná štatistika je oddelená od Google Analytics 4.
+      </p>
+      <p>
+        Na obmedzenie opakovaného počítania používame lokálne úložisko; pri profile
+        aj krátkodobý náhodný token. Na serveri môžeme na ochranu pred zneužitím
+        použiť jednosmerne odvodený identifikátor z IP adresy, nie jej pôvodnú hodnotu.
+        Do samotných súhrnných počtov neukladáme meno ani e-mail návštevníka.
+        Po odvolaní súhlasu ďalšie zobrazenia nepočítame a miestne záznamy
+        použité pre toto meranie odstránime.
+      </p>
+      <PublicHeading role="section" as="h2">
         Google Analytics 4
       </PublicHeading>
       <p>
