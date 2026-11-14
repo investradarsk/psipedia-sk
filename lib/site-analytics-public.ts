@@ -1,6 +1,6 @@
 /** Only the public pathname is admissible in anonymous sitewide view counts. */
 export function isSafeSiteAnalyticsPath(path: unknown): path is string {
-  if (typeof path !== "string" || path.length > 220 || !/^\/[A-Za-z0-9%._~/-]*$/.test(path)) {
+  if (typeof path !== "string" || path.length > 220 || !/^\/[A-Za-z0-9._~/-]*$/.test(path)) {
     return false;
   }
   if (path.includes("//") || path.split("/").some((part) => part === ".." || part === ".")) {
