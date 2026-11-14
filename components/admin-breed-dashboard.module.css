@@ -182,3 +182,25 @@
   .advancedFilters[data-expanded="true"] { display: grid; gap: 0.55rem; }
   .advancedFilters > label { min-width: 0; }
 }
+
+
+/* One field-label layout for search and select controls. Shared Admin inputs
+   retain their focus outlines; visually disabled actions are distinct. */
+.filters label:first-child { min-width: 0; display: flex; flex-direction: column; gap: 0; }
+.filters label:first-child > span { display: block; margin-bottom: 4px; }
+.filters label:first-child > div { min-height: 44px; box-sizing: border-box; }
+.filters :is(button, a):focus-visible { outline: 3px solid var(--admin-v3-focus, #c38b31); outline-offset: 2px; }
+.filterActions :global(button) {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0.5rem 0.75rem;
+  border: 1px solid #cbdad0; border-radius: 9px;
+  background: #f5f8f5; color: #214b36;
+  font-size: 0.82rem; font-weight: 750;
+  text-decoration: none;
+}
+.filterActions :global(button:disabled) { opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 760px) {
+  .filters label:first-child { width: 100%; }
+  .filterActions { min-width: 0; }
+  .filterActions :global(button) { width: 100%; }
+}
