@@ -12,6 +12,7 @@ import {
   isLikelyCrawlerRequest,
 } from "../lib/profile-view-security.ts";
 import { deriveRateLimitKey } from "../lib/rate-limit.ts";
+import { pruneExpiredProfileViewRateKeys, shouldPruneProfileViewRateKeys } from "../lib/profile-view-retention.ts";
 import { POST as postProfileView } from "../app/api/directory/views/route.ts";
 
 const tokenA = "550e8400-e29b-41d4-a716-446655440000";
@@ -76,6 +77,9 @@ function setup() {
           return {
             async first() {
               return sqlite.prepare(sql).get(...values) ?? null;
+            },
+            async run() {
+              return sqlite.prepare(sql).run(...values);
             },
           };
         },
@@ -241,6 +245,32 @@ test("missing security secret fails closed without counting", async () => {
     delete runtime.PII_HASH_KEY;
     assert.equal((await postProfileView(request(validPayload))).status, 503);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profile_view_hourly").get().n, 0);
+  } finally {
+    sqlite.close();
+  }
+});
+
+test("expiry cleanup is bounded, indexed and cannot delete unrelated security keys", async () => {
+  const { sqlite, db } = setup();
+  try {
+    assert.equal(shouldPruneProfileViewRateKeys("550e8400-e29b-41d4-a716-446655440011"), true);
+    assert.equal(shouldPruneProfileViewRateKeys(tokenA), false);
+    const rows = [
+      ["public-profile-view-event:expired", "2026-11-12T00:00:00.000Z"],
+      ["public-profile-view-ip:expired", "2026-11-12T00:00:00.000Z"],
+      ["public-profile-view-event:active", "2026-11-16T00:00:00.000Z"],
+      ["partner-auth:expired", "2026-11-12T00:00:00.000Z"],
+    ];
+    for (const [key, expiresAt] of rows) {
+      sqlite.prepare(`
+        INSERT INTO security_rate_limits(bucket_key, window_started_at, count, expires_at)
+        VALUES (?, ?, 1, ?)
+      `).run(key, "2026-11-11T00:00:00.000Z", expiresAt);
+    }
+    await pruneExpiredProfileViewRateKeys(db, new Date("2026-11-14T00:00:00.000Z"));
+    const remaining = sqlite.prepare("SELECT bucket_key FROM security_rate_limits ORDER BY bucket_key")
+      .all().map((row) => row.bucket_key);
+    assert.deepEqual(remaining, ["partner-auth:expired", "public-profile-view-event:active"]);
   } finally {
     sqlite.close();
   }
