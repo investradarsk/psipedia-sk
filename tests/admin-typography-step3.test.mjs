@@ -50,6 +50,17 @@ test("Legacy serif typography is removed from controls, not published-article pr
   assert.match(legacy, /\.admin-preview-paper section p,[^}]*font-family:\s*Georgia/s);
 });
 
+test("Article-editor headings use admin type tokens; published preview keeps its typography", () => {
+  const article = read("components/admin-content-editor-v3.module.css");
+  const facebook = read("components/admin-facebook-graphic-editor.module.css");
+  const articleChrome = article.match(/font-family:\s*var\(--admin-ui-font-family/g) ?? [];
+  assert.ok(articleChrome.length >= 4, "Article headings and section labels use the admin family");
+  const previewSerifs = article.match(/font-family:\s*Georgia, "Times New Roman", serif;/g) ?? [];
+  assert.equal(previewSerifs.length, 1, "Only article preview h2 retains serif");
+  assert.match(article, /\[data-editor-preview\] h2\)[\s\S]*?font-family:\s*Georgia/);
+  assert.match(facebook, /\.logoThumbName\{font-family:var\(--admin-ui-font-family/);
+});
+
 test("Mobile text inputs keep 16px to avoid iOS focus zoom", () => {
   const admin = read("app/admin/admin-editorial-foundation.css");
   const v4 = read("app/admin/admin-unified-forms.css");
