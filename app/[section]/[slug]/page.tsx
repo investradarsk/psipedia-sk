@@ -10,6 +10,7 @@ import { PortalTopic } from "@/components/portal-topic";
 import { getAllPublishedArticleSummaries, getPublishedArticle, getPublishedArticleAuthorProfile, getPublishedArticleSummaries } from "@/lib/article-store";
 import { getArticleMagazineData } from "@/lib/article-magazine";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
+import { getQualifiedContentViewCount } from "@/lib/content-analytics";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { sanitizePublicArticleContent } from "@/lib/article-content-remediation";
 import { getPublishedEvent, getUpcomingEventCards } from "@/lib/event-store";
@@ -210,7 +211,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   const canonical = articleHref(article);
   if (canonical !== `/${section}/${slug}`) redirect(canonical);
 
-  const [magazine, discovery, authorProfile, relatedBreeds] = await Promise.all([
+  const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads] = await Promise.all([
     getArticleMagazineData(article),
     getArticleDiscoveryData(storedArticle),
     getPublishedArticleAuthorProfile(article),
@@ -221,6 +222,13 @@ export default async function PortalContentPage({ params, searchParams }: Props)
       });
       return [];
     }),
+    "id" in storedArticle && typeof storedArticle.id === "number"
+      ? getQualifiedContentViewCount({
+          entityType: "ARTICLE",
+          entityId: storedArticle.id,
+          window: "all",
+        })
+      : Promise.resolve(null),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={managedSection} />;
+  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} qualifiedReads={qualifiedReads} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={managedSection} />;
 }

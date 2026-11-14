@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { env } from "cloudflare:workers";
 import { cookies } from "next/headers";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { NativeHistoryNavigation } from "@/components/native-history-navigation";
 import { CookieConsent } from "@/components/cookie-consent";
+import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker";
 import { ProgrammaticAdLoader } from "@/components/programmatic-ad-loader";
 import { StructuredData } from "@/components/structured-data";
 import { LazyBackToTop } from "@/components/lazy-back-to-top";
@@ -87,6 +89,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const programmaticClientId = process.env.GOOGLE_ADSENSE_CLIENT_ID ?? "";
   const programmaticEnabled = process.env.PROGRAMMATIC_ADS_ENABLED === "true";
   const advertisingConsentEnabled = programmaticEnabled && isValidGooglePublisherClientId(programmaticClientId);
+  const siteAnalyticsEnabled = (env as unknown as { SITE_ANALYTICS_ENABLED?: string }).SITE_ANALYTICS_ENABLED === "true";
 
   return (
     <html lang="sk">
@@ -97,6 +100,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         {children}
         <SiteFooter />
         <LazyBackToTop />
+        <SiteAnalyticsTracker enabled={siteAnalyticsEnabled} />
         <CookieConsent advertisingEnabled={advertisingConsentEnabled} />
         <ProgrammaticAdLoader enabled={advertisingConsentEnabled} clientId={programmaticClientId} />
       </body>

@@ -264,11 +264,11 @@ export async function DirectoryPage({
                   </PublicActionLink>
                 </section>
 
-                <div className={styles.popularityCard} data-directory-popular-articles>
+                <div className={styles.popularityCard} data-directory-popular-articles data-directory-popular-content>
                   {hasPopularity ? (
                     <ArticlePopularitySidebar
                       popularity={discovery.popularity}
-                      initialWindow="24h"
+                      initialWindow={discovery.initialWindow}
                     />
                   ) : (
                     <section className={styles.sidebarCard}>

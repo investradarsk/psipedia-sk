@@ -133,6 +133,16 @@
   color: var(--brand-accent-strong, var(--coral-dark, #b94732));
 }
 
+.articleMeta [data-article-qualified-reads] {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.articleMeta [data-article-qualified-reads] strong {
+  color: var(--forest-dark, #17352b);
+  font-weight: 750;
+}
+
 .utilityActions {
   display: flex;
   gap: 8px;

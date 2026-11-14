@@ -3,6 +3,8 @@ import {
   type ArticlePopularityWindow,
   type PopularArticleSummary,
 } from "@/lib/article-popularity";
+import { getPopularDirectoryProfilesBothWindows, type PopularDirectoryProfileSummary } from "@/lib/directory-popularity";
+import { directoryCategoryLabel, directoryProfileHref } from "@/lib/directory";
 import { articlePromoUtcDay } from "@/lib/article-promo";
 import {
   resolveContextualArticlePromo,
@@ -20,6 +22,9 @@ export type ArticleDiscoveryPopularItem = {
   image?: string;
   /** Actual qualified reads in the selected 24h/7d window; never estimated. */
   qualifiedReads?: number;
+  /** Profiles use independent qualified-view counts, not article reads. */
+  qualifiedViews?: number;
+  contentType?: "article" | "profile";
 };
 
 export type ArticleDiscoveryData = {
@@ -50,6 +55,36 @@ function toPopularItem(article: PopularArticleSummary): ArticleDiscoveryPopularI
     image: article.image,
     qualifiedReads: article.qualifiedReads,
   };
+}
+
+function toPopularProfile(profile: PopularDirectoryProfileSummary): ArticleDiscoveryPopularItem {
+  return {
+    slug: profile.slug,
+    title: profile.name,
+    href: directoryProfileHref(profile),
+    label: directoryCategoryLabel(profile.category),
+    image: profile.imageUrl,
+    qualifiedViews: profile.qualifiedViews,
+    contentType: "profile",
+  };
+}
+
+/**
+ * One five-item ranking for actual qualified reads/views, regardless of type.
+ * Ties use a stable href for predictable SSR and client hydration. Never add
+ * unmeasured "newest" content as a fallback.
+ */
+export function mergePopularContent(
+  articles: readonly ArticleDiscoveryPopularItem[],
+  profiles: readonly ArticleDiscoveryPopularItem[],
+  limit = 5,
+): ArticleDiscoveryPopularItem[] {
+  const count = (item: ArticleDiscoveryPopularItem) =>
+    item.contentType === "profile" ? item.qualifiedViews ?? 0 : item.qualifiedReads ?? 0;
+  return [...articles, ...profiles]
+    .filter((item) => Number.isFinite(count(item)) && count(item) > 0)
+    .sort((a, b) => count(b) - count(a) || a.href.localeCompare(b.href))
+    .slice(0, Math.max(1, Math.min(20, Math.trunc(limit))));
 }
 
 export function selectInitialPopularityWindow(
@@ -87,14 +122,15 @@ export async function getArticleDiscoveryData(
   article: ContextualArticlePromoInput,
   now = new Date(),
 ): Promise<ArticleDiscoveryData> {
-  const [popular24h, popular7d] = await Promise.all([
+  const [popular24h, popular7d, profiles] = await Promise.all([
     readPopularityWindow(article.slug, "24h", now),
     readPopularityWindow(article.slug, "7d", now),
+    getPopularDirectoryProfilesBothWindows({ now, limit: 5 }),
   ]);
 
   const popularity = {
-    "24h": popular24h.slice(0, 5).map(toPopularItem),
-    "7d": popular7d.slice(0, 5).map(toPopularItem),
+    "24h": mergePopularContent(popular24h.slice(0, 5).map(toPopularItem), profiles["24h"].map(toPopularProfile)),
+    "7d": mergePopularContent(popular7d.slice(0, 5).map(toPopularItem), profiles["7d"].map(toPopularProfile)),
   };
 
   const utcDay = articlePromoUtcDay(now);

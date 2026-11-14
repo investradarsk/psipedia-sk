@@ -188,6 +188,10 @@
       "coverage": "page-composite"
     },
     {
+      "path": "components/directory-profile-view-tracker.tsx",
+      "coverage": "nonvisual"
+    },
+    {
       "path": "components/directory-results.tsx",
       "coverage": "page-composite"
     },
@@ -202,6 +206,10 @@
     {
       "path": "components/dog-name-day-calendar.tsx",
       "coverage": "needs-preview"
+    },
+    {
+      "path": "components/dognet-test-banner.tsx",
+      "coverage": "nonvisual"
     },
     {
       "path": "components/editorial-rich-text.tsx",
@@ -686,6 +694,10 @@
     {
       "path": "components/share-button.tsx",
       "coverage": "live-preview"
+    },
+    {
+      "path": "components/site-analytics-tracker.tsx",
+      "coverage": "nonvisual"
     },
     {
       "path": "components/site-footer.tsx",

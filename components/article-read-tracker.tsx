@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { hasQualifiedAnalyticsConsent, QUALIFIED_ANALYTICS_CONSENT_EVENT } from "@/lib/qualified-analytics-consent";
 import {
   ARTICLE_READ_QUALIFY_MS,
   articleReadIsCoolingDown,
@@ -28,6 +29,9 @@ export function ArticleReadTracker({ articleSlug }: { articleSlug: string }) {
 
     const qualify = () => {
       if (disposed || finished || !clock.qualified) return;
+      // Consent can arrive after 10 seconds; the existing clock stays
+      // qualified, but no analytics state is written until consent is granted.
+      if (!hasQualifiedAnalyticsConsent(window.localStorage)) return;
       finished = true;
       clearTimer();
 
@@ -69,6 +73,7 @@ export function ArticleReadTracker({ articleSlug }: { articleSlug: string }) {
 
     document.addEventListener("visibilitychange", syncVisibility);
     window.addEventListener("pagehide", pageHide);
+    window.addEventListener(QUALIFIED_ANALYTICS_CONSENT_EVENT, qualify);
     schedule();
 
     return () => {
@@ -76,6 +81,7 @@ export function ArticleReadTracker({ articleSlug }: { articleSlug: string }) {
       clearTimer();
       document.removeEventListener("visibilitychange", syncVisibility);
       window.removeEventListener("pagehide", pageHide);
+      window.removeEventListener(QUALIFIED_ANALYTICS_CONSENT_EVENT, qualify);
     };
   }, [articleSlug]);
 

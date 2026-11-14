@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ConsentChoice } from "@/lib/monetization";
+import { clearQualifiedAnalyticsStorage } from "@/lib/qualified-analytics-consent";
 import { classifyAiReferralReferrer } from "@/lib/ai-referral";
 import {
   INTERNAL_TRAFFIC_EVENT,
@@ -173,6 +174,9 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
 
     const stored = window.localStorage.getItem(CONSENT_KEY);
     const choice: ConsentChoice | null = stored === "analytics" || stored === "necessary" || stored === "advertising" ? stored : null;
+    if (choice !== "analytics" && choice !== "advertising") {
+      clearQualifiedAnalyticsStorage(window.localStorage);
+    }
     let mounted = true;
     queueMicrotask(() => {
       if (!mounted) return;
@@ -200,7 +204,10 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     window.dispatchEvent(new Event(CONSENT_EVENT));
     setSavedChoice(choice);
     setIsOpen(false);
-    if (choice === "necessary") disableAnalytics();
+    if (choice === "necessary") {
+      disableAnalytics();
+      clearQualifiedAnalyticsStorage(window.localStorage);
+    }
     if (revokingAdvertising) window.location.reload();
   }
 
@@ -213,7 +220,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
       <div>
         <strong id="cookie-consent-title">Tvoje súkromie na Psipedii</strong>
         <p>
-          Nevyhnutné údaje používame na fungovanie a bezpečnosť webu. Google Analytics zapneme iba s tvojím súhlasom, aby sme vedeli, ktoré témy sú pre návštevníkov užitočné.{advertisingEnabled ? " Reklamné technológie tretích strán zapneme iba po samostatnej voľbe nižšie." : ""} <Link href="/cookies">Viac informácií</Link>
+          Nevyhnutné údaje používame na fungovanie a bezpečnosť webu. Psipedia počíta iba anonymné zobrazenia stránok bez identifikovania návštevníkov. Google Analytics a samostatná kvalifikovaná čítanosť obsahu sa zapínajú len so súhlasom.{advertisingEnabled ? " Reklamné technológie tretích strán zapneme iba po samostatnej voľbe nižšie." : ""} <Link href="/cookies">Viac informácií</Link>
         </p>
         {savedChoice && <small>Aktuálna voľba: {savedChoice === "advertising" ? "analytika a reklamné cookies" : savedChoice === "analytics" ? "povolená analytika" : "iba nevyhnutné údaje"}.</small>}
       </div>

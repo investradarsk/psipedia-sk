@@ -4,6 +4,7 @@ import { ArticleDetail } from "@/components/article-detail";
 import { getPublishedArticle, getPublishedArticleAuthorProfile } from "@/lib/article-store";
 import { getArticleMagazineData } from "@/lib/article-magazine";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
+import { getQualifiedContentViewCount } from "@/lib/content-analytics";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { sanitizePublicArticleContent } from "@/lib/article-content-remediation";
 import { articles as seedArticles } from "@/lib/content";
@@ -38,7 +39,7 @@ export default async function LegacyArticlePage({ params }: Props) {
   const canonical = articleHref(article);
   if (canonical !== `/clanky/${slug}`) redirect(canonical);
 
-  const [magazine, discovery, authorProfile, relatedBreeds] = await Promise.all([
+  const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads] = await Promise.all([
     getArticleMagazineData(article),
     getArticleDiscoveryData(storedArticle),
     getPublishedArticleAuthorProfile(article),
@@ -49,6 +50,13 @@ export default async function LegacyArticlePage({ params }: Props) {
       });
       return [];
     }),
+    "id" in storedArticle && typeof storedArticle.id === "number"
+      ? getQualifiedContentViewCount({
+          entityType: "ARTICLE",
+          entityId: storedArticle.id,
+          window: "all",
+        })
+      : Promise.resolve(null),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} authorProfile={authorProfile} relatedBreeds={relatedBreeds} />;
+  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} qualifiedReads={qualifiedReads} authorProfile={authorProfile} relatedBreeds={relatedBreeds} />;
 }
