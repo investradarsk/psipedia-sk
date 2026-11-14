@@ -98,7 +98,6 @@ const DIRECTORY_DEFAULTS: PartnerProfilePatch = {
 const HELP_DEFAULTS: PartnerProfilePatch = {
   name: "",
   legalName: "",
-  registrationNumber: "",
   type: "OTHER",
   shortDescription: "",
   description: "",
