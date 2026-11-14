@@ -455,8 +455,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     <div className={styles.dashboard}>
       <header className={styles.heading}>
         <div>
-          <h2>Spoločný kalendár Facebooku</h2>
-          <p>Obrázky aj články v jednom plánovači · časové pásmo Bratislava</p>
+          <h2>Plánovanie Facebook príspevkov</h2>
+          <p>Obrázky a články · časové pásmo Bratislava</p>
         </div>
         <AdminActionButton data-facebook-create-post type="button" variant="primary" disabled={loading||!!error||!ready} onClick={()=>edit(null)}>Vytvoriť príspevok</AdminActionButton>
       </header>
@@ -470,7 +470,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       </section>
       <section className={styles.upcomingPanel} aria-label="Naplánované príspevky v mesiaci">
         <div className={styles.sectionHead}>
-          <div><h2>Naplánované v mesiaci</h2><p>Najbližšie termíny zo zobrazeného mesiaca</p></div>
+          <div><h2>Naplánované v mesiaci</h2><p>Najbližšie termíny v zobrazenom mesiaci</p></div>
           <span className={styles.monthLabel}>{calendarMonthLabel(month)}</span>
         </div>
         {scheduledInMonth.length? <div className={styles.upcomingList}>{scheduledInMonth.map(post=>
