@@ -11,6 +11,7 @@ import "./admin-legacy-scoped.css";
 import "./admin-workspace.css";
 import "./admin-unified-forms.css";
 import "./admin-editorial-foundation.css";
+import "./admin-list-foundation.css";
 
 export const viewport: Viewport = { themeColor: "#174b38" };
 
