@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { hasQualifiedAnalyticsConsent, QUALIFIED_ANALYTICS_CONSENT_EVENT } from "@/lib/qualified-analytics-consent";
 import {
   ARTICLE_READ_QUALIFY_MS,
   createArticleReadClock,
@@ -36,6 +37,9 @@ export function DirectoryProfileViewTracker({
 
     const qualify = () => {
       if (disposed || finished || !clock.qualified) return;
+      // Do not create a localStorage token or make a POST before consent.
+      // A later opt-in event can qualify this already visible page.
+      if (!hasQualifiedAnalyticsConsent(window.localStorage)) return;
       finished = true;
       clearTimer();
 
@@ -75,6 +79,7 @@ export function DirectoryProfileViewTracker({
 
     document.addEventListener("visibilitychange", syncVisibility);
     window.addEventListener("pagehide", onPageHide);
+    window.addEventListener(QUALIFIED_ANALYTICS_CONSENT_EVENT, qualify);
     schedule();
 
     return () => {
@@ -82,6 +87,7 @@ export function DirectoryProfileViewTracker({
       clearTimer();
       document.removeEventListener("visibilitychange", syncVisibility);
       window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener(QUALIFIED_ANALYTICS_CONSENT_EVENT, qualify);
     };
   }, [profileId, profileSlug]);
 
