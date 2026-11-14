@@ -2,6 +2,21 @@
 
 This PR is a **draft-only, code-ready proposal**. It must **not** be merged or deployed before the checks below have been completed and the separate production migration has been approved.
 
+
+## First-party sitewide statistics (new extension)
+
+This PR also adds **genuine sitewide first-party analytics**, NOT a GA4 report.
+- The single global `SiteAnalyticsTracker` records consented route views on all eligible public pages, including the homepage, article listing/details, dog breeds, events and help pages.
+- D1 migration `0168_sitewide_first_party_analytics.sql` adds hourly total pageviews/sessions, hourly page breakdowns, hourly source/device breakdowns, and short-lived HMAC identity tables.
+- Visit = new random session after 30 minutes of inactivity; unique visitors = distinct pseudonymous consenting browsers over 24 h / 7 d / 30 d, not identified people. Live counter = sessions with a pageview in the past five minutes, not a heartbeat/true active-tab count.
+- Only the pathname is sent. Search parameters, full incoming referrer, raw IP, and browser User-Agent are **not stored**. Search/social categories and device class are finite labels. Origin, bot, internal cookie and HMAC IP-rate guards apply.
+- Visitor local UUID rotates after 30 days, server HMAC identities expire ~35 days and are deleted by sampled bounded SQL cleanup. `all` leaves the unique visitor count unavailable rather than storing a perpetual visitor identifier.
+- Pageviews are aggregated in D1 and retained for historical totals. **Historical sitewide visits cannot be reconstructed**: collection starts only after approved migration and deployment.
+- This first-party feature uses the existing consent choices, but does not query or need Google Analytics.
+- Run `npm run test:analytics` including sitewide SQL/route/session/report/consent tests, then isolated staging D1 and responsive screenshots.
+
+**Protected rollout order**: keep 0167 and 0168 unactivated in normal CI/deploy. With owner approval, stage and verify 0167/0168 using the protected migration workflow, then deploy the Worker code with `PII_HASH_KEY` already configured. Confirm D1 write/read quotas and estimated cost before production rollout. Merging the code alone cannot create the tables, and deploying before the migrations will show an explicit unavailable state rather than fabricated zeros.
+
 ## Scope
 
 - Reuses historical `article_read_hourly` counts and the existing article-read writer.
@@ -14,7 +29,7 @@ This PR is a **draft-only, code-ready proposal**. It must **not** be merged or d
 
 1. Confirm actual production and staging migration journal states with the existing read-only migration tooling.
 2. Verify `managed_articles`, `directory_profiles`, `article_read_hourly` (0105), and `security_rate_limits` exist. Verify no unreviewed pending partial migration.
-3. Review `drizzle/0167_content_analytics_profile_views.sql`. It is **UNACTIVATED** in `scripts/production-d1-migrate.mjs`; merge/deploy must not run it automatically.
+3. Review `drizzle/0167_content_analytics_profile_views.sql` and `drizzle/0168_sitewide_first_party_analytics.sql`. Both are **UNACTIVATED** in `scripts/production-d1-migrate.mjs`; merge/deploy must not run it automatically.
 4. After backup/recovery plan approval, apply only with the repository's protected, owner-authorized migration process, first to staging, then to production after a successful preflight. Do not replace or truncate `article_read_hourly`.
 5. Verify `PII_HASH_KEY` is configured (32 random bytes, base64url). Never add the actual secret to a PR or logs.
 6. No backfill of profile history: profile counts start at zero when tracking is first enabled. Articles retain their existing historical totals.
