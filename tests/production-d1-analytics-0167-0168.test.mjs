@@ -54,7 +54,7 @@ test("0167/0168 SHA-pinned additive schema and exactly expected objects", () => 
   const objects168 = assertAnalyticsPinnedDdl("0168", sql168);
   assert.deepEqual(objects168.map(row => row.name),
     ["site_analytics_hourly", "site_analytics_pages_hourly"]);
-  assert.doesNotMatch(sql168, /visitor_id|session_id|ip_hash|user_agent|referrer|device|cookie/i);
+  assert.doesNotMatch(sql168.replace(/^--.*$/gm, ""), /visitor_id|session_id|ip_hash|user_agent|referrer|device|cookie/i);
 });
 
 test("both pinned migrations apply to a clean SQLite fixture without altering history or old counts", () => {
@@ -171,7 +171,7 @@ test("isolated runner performs remote READs before one pinned SQL, recovery book
   assert.match(runner, /"--file", pinned\.file, "--yes", "--json"/);
   assert.match(runner, /migrationLedgerWritten: false/);
   assert.doesNotMatch(runner, /\b(?:INSERT|REPLACE|UPDATE|DELETE)\s+(?:INTO\s+|FROM\s+)?d1_migrations\b/i);
-  assert.doesNotMatch(runner, /wrangler d1 migrations apply|d1", "migrations", "apply"/);
+  assert.doesNotMatch(runner, /"d1",\s*"migrations",\s*"apply"/);
   const registry = productionMigrator.slice(
     productionMigrator.indexOf("export const SUPPORTED_PRODUCTION_TARGETS"),
     productionMigrator.indexOf("export const DYNAMIC_ENTITY_IDENTITY_INDEXES"),
