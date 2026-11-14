@@ -50,10 +50,10 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  min-height: 44px;
-  padding: 9px 12px;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: var(--admin-ui-control-padding-block, 0.55rem) var(--admin-ui-control-padding-inline, 0.75rem);
   border: 1px solid var(--unified-field-border);
-  border-radius: 9px;
+  border-radius: var(--admin-ui-field-radius, 9px);
   color: var(--unified-field-ink);
   background: var(--unified-field-bg);
   font: inherit;
@@ -195,10 +195,10 @@
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
-  min-height: 44px;
-  padding: 9px 12px;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: var(--admin-ui-control-padding-block, 0.55rem) var(--admin-ui-control-padding-inline, 0.75rem);
   border: 1px solid var(--unified-field-border);
-  border-radius: 9px;
+  border-radius: var(--admin-ui-field-radius, 9px);
   color: var(--unified-field-ink);
   background: var(--unified-field-bg);
   font: inherit;
