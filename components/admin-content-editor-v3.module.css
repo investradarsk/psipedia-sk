@@ -1301,7 +1301,7 @@
   [data-editor-content] [data-admin-editor-section][data-editor-section-active="true"]
 ) {
   scroll-margin-top: calc(
-    var(--admin-sticky-stack, 96px) + var(--admin-tiptap-toolbar-height, 76px) + 16px
+    var(--admin-sticky-stack, 96px) + var(--admin-tiptap-toolbar-height, 0px) + 16px
   );
 }
 .workspaceRoot :global(
@@ -1309,6 +1309,6 @@
   [data-editor-content] [data-admin-editor-section][data-editor-section-active="true"] :is(input, textarea, [contenteditable])
 ) {
   scroll-margin-top: calc(
-    var(--admin-sticky-stack, 96px) + var(--admin-tiptap-toolbar-height, 76px) + 16px
+    var(--admin-sticky-stack, 96px) + var(--admin-tiptap-toolbar-height, 0px) + 16px
   );
 }
