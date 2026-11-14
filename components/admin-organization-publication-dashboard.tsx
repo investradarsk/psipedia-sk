@@ -210,14 +210,14 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
   }
 
   return <>
-    <section className="admin-stats" aria-label="Stav organizácií">
+    <section className="admin-stats" aria-label="Stav organizácií" data-admin-content-module="organizations-list">
       <div><span>Všetky</span><strong>{data.counts.total}</strong></div>
       <div><span>Koncepty</span><strong>{data.counts.draft}</strong></div>
       <div><span>Publikované</span><strong>{data.counts.published}</strong></div>
       <div><span>Archivované</span><strong>{data.counts.archived}</strong></div>
     </section>
 
-    <section className="admin-panel">
+    <section className="admin-panel" data-admin-organization-list>
       <form className={styles.filters} action="/admin/organizacie" method="get" role="search" data-admin-list-filters>
         <label className={"admin-search " + styles.search}>
           <SearchIcon size={19} /><span>Hľadať</span>
@@ -263,6 +263,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
       />}
 
       {data.items.length ? <AdminRecordTable
+        stickyActions
         rows={data.items}
         label="Organizácie"
         rowDataAttribute="data-admin-organization-row"
