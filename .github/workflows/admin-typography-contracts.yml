@@ -20,6 +20,16 @@ on:
       - "components/admin-quick-navigation.module.css"
       - "components/admin-tour-button.module.css"
       - "components/admin-article-dashboard.module.css"
+      - "components/admin-breed-dashboard.module.css"
+      - "components/admin-breed-editor.module.css"
+      - "components/admin-reviews-hub.module.css"
+      - "components/admin-breed-editor.tsx"
+      - "components/admin-breed-dashboard.tsx"
+      - "components/admin-reviews-hub.tsx"
+      - "components/admin-editor-workspace.tsx"
+      - "app/admin/recenzie-profilov/page.tsx"
+      - "app/admin/recenzie-profilov/[id]/page.tsx"
+      - "lib/admin-profile-review-labels.ts"
       - "components/admin-record-table.module.css"
       - "components/admin-tiptap-article-editor.module.css"
       - "components/admin-dashboard.tsx"
@@ -43,6 +53,9 @@ on:
       - "tests/admin-controls-step5.test.mjs"
       - "tests/admin-shell-step6.test.mjs"
       - "tests/admin-work-audit-step7.test.mjs"
+      - "tests/admin-work-audit-round2.test.mjs"
+      - "tests/reviews-admin-hub.test.mjs"
+      - "tests/admin-editor-breed-single-section-step7.test.mjs"
       - "tests/admin-workspace-overview-performance.test.mjs"
       - "tests/admin-workspace-notifications-v2.test.mjs"
       - "tests/admin-editor-article-single-section-step8.test.mjs"
@@ -71,4 +84,4 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Check typography, density, controls, shell and 28-route inventory
-        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
+        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
