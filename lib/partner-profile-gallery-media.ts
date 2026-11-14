@@ -111,7 +111,9 @@ export function terminalPartnerGalleryMediaStatements(input: {
       published_at=CASE WHEN ?1='APPROVED' THEN ?2 ELSE published_at END
     WHERE id=?4 AND state='ATTACHED'
       AND EXISTS(SELECT 1 FROM moderation_submissions
-        WHERE id=?5 AND status=?6 AND updated_at=?2 AND reviewed_by=?7)
+        WHERE id=?5 AND status=?6 AND updated_at=?2
+          AND ${input.state === "ORPHANED" ? "submitter_ref=?" : "reviewed_by=?"})
   `).bind(input.state, input.nowIso, input.publicKeys?.get(id) ?? null, id,
-    input.submissionId, input.state === "ORPHANED" ? "WITHDRAWN" : input.state, input.actorRef));
+    input.submissionId, input.state === "ORPHANED" ? "WITHDRAWN" : input.state,
+    input.state === "ORPHANED" ? input.actorRef.replace(/^partner:/, "") : input.actorRef));
 }
