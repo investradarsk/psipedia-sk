@@ -114,16 +114,18 @@ export function NewsHub({
           </div>
 
           {guidance ? (
-            <section className={styles.guidance} aria-labelledby="news-guidance-title">
-              <span className="eyebrow">Čo tu nájdeš</span>
-              <h3 id="news-guidance-title">{guidance.title}</h3>
-              <p>{guidance.text}</p>
-              <ul>
-                {guidance.items.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </section>
+            <details className={styles.guidance} data-news-category-guidance>
+              <summary>Čo tu nájdeš</summary>
+              <div className={styles.guidanceContent}>
+                <h3>{guidance.title}</h3>
+                <p>{guidance.text}</p>
+                <ul>
+                  {guidance.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            </details>
           ) : null}
 
           {newsArticles.length ? (
