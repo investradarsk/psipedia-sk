@@ -55,6 +55,11 @@ async function AuditResults() {
             <p style={{ margin: "8px 0 0" }}>
               Zhody: {candidate.signals.length ? candidate.signals.join(", ") : "iba názov, lokalita chýba"}.
             </p>
+            <p style={{ margin: "10px 0 0" }}>
+              <Link href={`/admin/adresar/migracia/${candidate.a.id}/${candidate.b.id}`}>
+                Porovnať údaje a preveriť závislosti oboch profilov
+              </Link>
+            </p>
           </article>
         ))}
       </div>
