@@ -180,8 +180,9 @@ export default async function PrivacyPage() {
         Náhodný lokálny identifikátor prehliadača má životnosť najviac 30 dní,
         identifikátor návštevy vyprší po približne 30 minútach nečinnosti.
         Ich serverové HMAC identifikátory mažeme približne po 35 dňoch.
-        Súhlas možno odvolať v nastaveniach cookies, čím sa zastaví nové počítanie
-        a odstráni lokálny stav analytických počítadiel. Podrobnosti sú na stránke{" "}
+        Súhlas možno odvolať v nastaveniach cookies; potom sa zastaví počítanie
+        relácií a kvalifikovanej čítanosti a odstránia sa ich lokálne identifikátory.
+        Anonymné súhrnné zobrazenia stránok naďalej pokračujú. Podrobnosti sú na stránke{" "}
         <Link href="/cookies">Cookies a lokálne úložisko</Link>.
       </p>
 
