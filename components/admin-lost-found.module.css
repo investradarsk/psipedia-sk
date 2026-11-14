@@ -532,3 +532,51 @@
   .adoptionTabs { padding-bottom: 0.35rem; }
   .adoptionTabs a { padding: 0.5rem 0.65rem; }
 }
+
+
+/* ADMIN CONTENT STEP 12 – consistent adoption/lost-found cards and controls. */
+.filters {
+  box-sizing:border-box;
+  min-width:0;
+  max-width:100%;
+  padding:var(--admin-ui-panel-padding,.75rem);
+  gap:var(--admin-ui-space-sm,.55rem);
+  margin-bottom:var(--admin-ui-section-gap,.625rem);
+  border-radius:var(--admin-ui-radius,12px);
+  grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr)) auto;
+}
+.filters :is(input,select,button) {
+  box-sizing:border-box;
+  min-width:0;
+  min-height:var(--admin-ui-control-height,44px);
+}
+.filters button { font:inherit; font-weight:750; cursor:pointer; }
+.filters :is(input,select,button):focus-visible,
+.tabs a:focus-visible,.adoptionCardActions a:focus-visible,
+.gridRowActions :is(a,button):focus-visible {
+  outline:3px solid var(--admin-ui-focus,#a26a1b); outline-offset:2px;
+}
+.tabs a { min-height:44px; box-sizing:border-box; }
+.gridRowActions { gap:.35rem; }
+.gridRowActions :is(a,button) { min-height:44px; display:inline-flex; align-items:center; justify-content:center; white-space:normal; }
+.gridSelection button { min-height:44px; }
+.pagination :is(a,span) { min-height:44px; height:auto; }
+.card { padding:var(--admin-ui-panel-padding,.75rem); border-radius:var(--admin-ui-radius,12px); }
+.card h2 { font-family:inherit; font-size:1rem; margin:0 0 .55rem; }
+.field { gap:.35rem; margin-bottom:.55rem; }
+.fieldGrid { gap:.55rem; }
+.field :is(input,select,textarea) { box-sizing:border-box; max-width:100%; min-width:0; }
+.sections { gap:var(--admin-ui-section-gap,.625rem); }
+.editorLayout { gap:var(--admin-ui-space-sm,.55rem); }
+.editorBody .preview { padding:.75rem; border-radius:12px; }
+.sectionPager { padding:.55rem 0; }
+@media(max-width:760px){
+  .filters { grid-template-columns:minmax(0,1fr); padding:.65rem; }
+  .filters :is(input,select) { font-size:16px; }
+  .tabs { display:flex; flex-wrap:nowrap; overflow-x:auto; max-width:100%; overscroll-behavior-inline:contain; padding-bottom:.3rem; }
+  .tabs a { white-space:nowrap; flex:0 0 auto; }
+  .adoptionCard { padding:.65rem; gap:.5rem; }
+  .adoptionCardFacts { gap:.35rem; }
+  .editorBody .card { padding:.65rem; }
+  .editorBody :is(input:not([type="checkbox"]):not([type="file"]),select,textarea) { font-size:16px; }
+}
