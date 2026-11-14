@@ -107,7 +107,6 @@
   max-width: 100%;
   min-height: 0;
   max-height: 100%;
-  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid rgba(255,255,255,.14);
@@ -228,6 +227,8 @@
 }
 
 .mobilePublic a {
+  min-width: 0;
+  overflow-wrap: anywhere;
   min-height: 44px;
   display: inline-flex;
   flex: 1;
