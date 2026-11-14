@@ -6,7 +6,7 @@ import { SITE_SOURCES } from "@/lib/site-analytics-public";
 
 export type SiteTrafficWindow = ContentAnalyticsWindow;
 export type SiteTrafficChartPoint = { key: string; label: string; pageviews: number; sessions: number };
-export type SiteTrafficDimension = { label: string; sessions: number };
+export type SiteTrafficDimension = { label: string; pageviews: number };
 export type SiteTrafficPage = { path: string; pageviews: number };
 export type SiteTrafficReport = {
   window: SiteTrafficWindow;
@@ -25,7 +25,7 @@ type Bindings = { DB?: D1Database };
 type TotalRow = { pageviews: number | null; sessions: number | null };
 type NumberRow = { total: number };
 type PointRow = { slot: number | string; pageviews: number; sessions: number };
-type DimensionRow = { source: string; device: string; sessions: number };
+type DimensionRow = { source: string; device: string; pageviews: number };
 type PageRow = { path: string; pageviews: number };
 
 function monthStart(now: Date) {
@@ -48,7 +48,8 @@ function emptyReport(window: SiteTrafficWindow): SiteTrafficReport {
 }
 
 /**
- * Sitewide analytics is independent of GA4. Query only compact, server-owned
+ * Sitewide aggregate pageviews are tracked without analytics consent. Session and visitor counts
+ * remain consented-only estimates. Independent of GA4. Query compact, server-owned
  * hourly rollups and recent pseudonymous visitor/session identity rows.
  * An all-time unique visitor count is deliberately not claimed: identity
  * hashes expire after 35 days.
@@ -99,7 +100,7 @@ export async function loadSiteTrafficReport(input: {
         GROUP BY slot ORDER BY slot
       `).bind(...graphParams).all<PointRow>(),
       database.prepare(`
-        SELECT source, device, SUM(sessions) AS sessions
+        SELECT source, device, SUM(pageviews) AS pageviews
         FROM site_analytics_sources_hourly WHERE ${period}
         GROUP BY source, device
       `).bind(...params).all<DimensionRow>(),
@@ -132,10 +133,10 @@ export async function loadSiteTrafficReport(input: {
       const summary = new Map<string, number>();
       for (const row of categories.results ?? []) {
         const label = row[key];
-        summary.set(label, (summary.get(label) ?? 0) + Number(row.sessions));
+        summary.set(label, (summary.get(label) ?? 0) + Number(row.pageviews));
       }
-      return [...summary].map(([label, sessions]) => ({ label, sessions }))
-        .sort((a, b) => b.sessions - a.sessions || a.label.localeCompare(b.label));
+      return [...summary].map(([label, pageviews]) => ({ label, pageviews }))
+        .sort((a, b) => b.pageviews - a.pageviews || a.label.localeCompare(b.label));
     };
 
     return {
