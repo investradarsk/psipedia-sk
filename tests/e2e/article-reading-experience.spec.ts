@@ -377,7 +377,7 @@ for (const articleCase of cases) {
     await expect(page.locator(".article-aside")).toHaveCount(0);
     const desktopSidebar = page.locator("[data-article-discovery-sidebar]");
     await expect(desktopSidebar).toBeVisible();
-    await expect(desktopSidebar.getByRole("heading", { name: "Najčítanejšie články" })).toBeVisible();
+    await expect(desktopSidebar.getByRole("heading", { name: "Najčítanejšie" })).toBeVisible();
     const tab24h = desktopSidebar.getByRole("tab", { name: "24 hodín" });
     const tab7d = desktopSidebar.getByRole("tab", { name: "7 dní" });
     await expect(tab24h).toHaveAttribute("aria-selected", "true");
