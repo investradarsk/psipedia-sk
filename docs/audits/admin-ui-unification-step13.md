@@ -35,6 +35,18 @@ Partneri (účty, prevzatie profilov, nové profily, úpravy profilov a overenia
 - `/admin/hodnotenia`: prehľadnejšie a kompaktnejšie karty, reakcie čitateľov, texty a hlavné pracovné odkazy. CSS opt-in cez `data-admin-content-module="reader-feedback"`, akcie min. 44px, dobre viditeľné focus stavy.
 - `AdminInlineRowActions`, `AdminInlineCellSelect`, stavy `new/reviewing/resolved/dismissed`, API a `busyId` ochrana sa nemenia.
 
+### Ďalšie komunitné agendy: tipy, dopyty a návrhy úprav
+
+- `/admin/tipy` (tipy pre redakciu), `/admin/dopyty` (prijaté dopyty od návštevníkov) a `/admin/adresar/navrhy` (návrhy na opravu profilu) používajú spoločné opt-in označenia `data-admin-community-metrics`, `data-admin-content-module`, `data-admin-community-list` a `data-admin-community-card`.
+- `app/admin/admin-community-step13.css` je načítaný **iba v admin layoute** a štýluje tieto moduly pod `[data-admin-workspace]`: kompaktnejšie metriky a karty, 44px filtrovacie tlačidlá, lokálne posúvateľné stavy na mobile, 16px vstupy a bezpečný vnútorný scroll pri porovnaní navrhovaných údajov.
+- Pôvodné spracovanie stavov, `AdminInlineRowActions`, interné poznámky, osobné kontakty, `AdminDestructiveConfirmDialog` a schvaľovanie návrhov zostávajú bez zmeny.
+- Zdrojové a E2E testy kroku 13 boli rozšírené aj o tieto tri agendy. Na ich zobrazenie nie sú potrebné žiadne produkčné API mutácie.
+
+### Súbežná zmena na main
+
+- Počas práce na dlhom PR pribudla na `main` navigačná položka **Štatistiky** (`/admin/nastavenia/statistiky`). Inventár krok 2 ju teraz explicitne eviduje pre krok 16. Read-only zdrojový test toleruje jej neprítomnosť pri samostatnom checkoute staršej vetvy, ale vyžaduje ju v porovnaní, keď je prítomná v aktuálnom `main`.
+- Nezavádzali sme novú položku do navigácie ani nemenili analytiku; ide iba o zosúladenie inventára a CI so súbežnou zmenou.
+
 ## Testovanie
 
 - `tests/admin-community-step13.test.mjs`: šesť read-only zdrojových kontraktov pre preklady a zachovanie enums, klientské filtre, moderáciu, chránené schvaľovanie, feedback a responzívne CSS.
