@@ -167,12 +167,10 @@ export function summarizeSiteCategoryPageviews(input: {
     if (visited.has(path) || !validHelpPaths.has(path)) continue;
     const parts = path.split("/").filter(Boolean);
     if (parts[0] === "pomoc-psom" && parts.length === 3) {
-      const metric = helpMetrics.get(parts[1]);
+      const category = ["stratene-psy", "najdene-psy"].includes(parts[1])
+        ? "stratene-a-najdene" : parts[1];
+      const metric = helpMetrics.get(category);
       if (metric) metric.views += value;
-    } else if (parts[0] === "pomoc-psom" && parts.length === 3 &&
-      ["stratene-psy", "najdene-psy"].includes(parts[1])) {
-      const lost = helpMetrics.get("stratene-a-najdene");
-      if (lost) lost.views += value;
     } else if (parts[0] === "organizacie" && parts.length === 2) {
       const shelters = helpMetrics.get("utulky");
       if (shelters) shelters.views += value;
