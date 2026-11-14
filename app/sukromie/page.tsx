@@ -161,28 +161,20 @@ export default async function PrivacyPage() {
       </div>
 
       <PublicHeading role="section" as="h2">
-        Vlastná analytika návštevnosti Psipedie
+        Vlastné počítadlo zobrazení Psipedie
       </PublicHeading>
       <p>
-        Základnú anonymnú návštevnosť meriame aj bez analytického súhlasu.
-        Uchovávame iba súhrnné počty zobrazení verejných stránok podľa
-        cesty bez parametrov, časového obdobia, zdroja a kategórie zariadenia.
-        Na tento základný súčet nevytvárame cookies, identifikátor prehliadača
-        ani záznam návštevy. Pri povolenej analytike navyše používame krátkodobé
-        pseudonymizované identifikátory na približné počty relácií a prehliadačov.
-        Kvalifikovanú čítanosť článkov a profilov meriame len po súhlase a
-        po 10 sekundách viditeľnosti. Údaje sa ukladajú do vlastnej databázy D1,
-        nie do Google Analytics.
+        Vlastné počítadlo eviduje iba súhrnné počty otvorení
+        verejných stránok podľa hodiny a cesty bez parametrov.
+        Nevytvára ani neuchováva ID návštevníka, IP adresu,
+        históriu relácií, zdroj návštevy alebo informácie o zariadení.
+        Na toto počítanie nepoužíva cookies ani lokálne úložisko.
       </p>
       <p>
-        Pri prevencii proti automatizovaným požiadavkám môžeme krátkodobo používať
-        pseudonymizované HMAC identifikátory, ktoré neobsahujú pôvodnú IP adresu.
-        Náhodný lokálny identifikátor prehliadača má životnosť najviac 30 dní,
-        identifikátor návštevy vyprší po približne 30 minútach nečinnosti.
-        Ich serverové HMAC identifikátory mažeme približne po 35 dňoch.
-        Súhlas možno odvolať v nastaveniach cookies; potom sa zastaví počítanie
-        relácií a kvalifikovanej čítanosti a odstránia sa ich lokálne identifikátory.
-        Anonymné súhrnné zobrazenia stránok naďalej pokračujú. Podrobnosti sú na stránke{" "}
+        Ide o počty zobrazení, nie o unikátne osoby. Funguje nezávisle
+        od Google Analytics a od voľby analytiky v cookies oznámení.
+        Samostatná kvalifikovaná čítanosť článkov a profilov je
+        viazaná na udelenie súhlasu. Podrobnosti sú na stránke{" "}
         <Link href="/cookies">Cookies a lokálne úložisko</Link>.
       </p>
 
