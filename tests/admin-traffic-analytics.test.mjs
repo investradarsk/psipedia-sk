@@ -145,6 +145,22 @@ test("stats aggregate only published content and keep article/profile IDs indepe
   }
 });
 
+test("7d and 30d rolling views use bounded intervals and do not include old history", async () => {
+  const { sqlite, database } = fixture();
+  try {
+    for (const period of ["7d", "30d"]) {
+      const report = await loadAdminTrafficReport({ window: period, now, database });
+      assert.equal(report.articles.total, 16);
+      assert.equal(report.profiles.total, 6);
+      assert.equal(report.articles.points.length, period === "7d" ? 7 : 30);
+      assert.equal(report.articles.points.reduce((sum, row) => sum + row.views, 0), 16);
+      assert.equal(report.profiles.points.reduce((sum, row) => sum + row.views, 0), 6);
+    }
+  } finally {
+    sqlite.close();
+  }
+});
+
 test("all-time totals preserve historical article counts while showing only 12 recent months in chart", async () => {
   const { sqlite, database } = fixture();
   try {
