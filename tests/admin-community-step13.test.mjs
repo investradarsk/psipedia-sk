@@ -106,3 +106,37 @@ test("step 13: partner grids are compact with minimum 44px actions and locally s
   assert.match(css, /\.admin-partner-search :is\(input, select\),/);
   assert.doesNotMatch(css.slice(css.indexOf("ADMIN COMMUNITY STEP 13")), /overflow-x:\s*hidden/);
 });
+
+
+test("step 13: tips, inquiries and profile change suggestions reuse compact community cards", () => {
+  const layout = read("app/admin/layout.tsx");
+  const css = read("app/admin/admin-community-step13.css");
+  assert.match(layout, /import "\.\/admin-list-foundation\.css";\s*import "\.\/admin-community-step13\.css";/);
+  for (const [path, module] of [
+    ["components/admin-news-tip-dashboard.tsx", "community-tips"],
+    ["components/admin-inquiry-dashboard.tsx", "community-inquiries"],
+    ["components/admin-directory-change-requests.tsx", "community-profile-suggestions"],
+  ]) {
+    const src = read(path);
+    assert.ok(src.includes('data-admin-content-module="' + module + '"'), path);
+    assert.match(src, /data-admin-community-metrics/, path);
+    assert.match(src, /data-admin-community-list/, path);
+    assert.match(src, /data-admin-community-card/, path);
+    assert.match(src, /role="status"/, path);
+  }
+  const tips = read("components/admin-news-tip-dashboard.tsx");
+  const inquiries = read("components/admin-inquiry-dashboard.tsx");
+  const change = read("components/admin-directory-change-requests.tsx");
+  assert.match(tips, /<AdminInlineRowActions/);
+  assert.match(tips, /removeTip\(/);
+  assert.match(inquiries, /<AdminInlineRowActions/);
+  assert.match(inquiries, /removeInquiry\(/);
+  assert.match(change, /<AdminDestructiveConfirmDialog/);
+  assert.match(change, /setPendingReview\(/);
+  assert.match(change, /<section className="admin-change-diff"/);
+  assert.match(css, /\[data-admin-content-module\^="community-"\]/);
+  assert.match(css, /min-height: var\(--admin-ui-control-height, 44px\)/);
+  assert.match(css, /@media \(max-width: 760px\)/);
+  assert.match(css, /\.admin-status-filter\s*\{[\s\S]*?overflow-x: auto;/);
+  assert.doesNotMatch(css, /(?:html|body)\s*\{[^}]*overflow-x:\s*hidden/);
+});
