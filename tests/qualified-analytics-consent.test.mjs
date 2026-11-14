@@ -64,8 +64,8 @@ test("article and profile trackers never send without prior consent and react to
   const banner = await readFile(new URL("../components/cookie-consent.tsx", import.meta.url), "utf8");
   assert.match(banner, /clearQualifiedAnalyticsStorage\(window\.localStorage\)/);
   assert.match(banner, /window\.dispatchEvent\(new Event\(CONSENT_EVENT\)\)/);
-  assert.match(banner, /Jedna voľba „Prijať analytiku“/);
-  assert.match(banner, /Žiadny ďalší súhlas/);
+  assert.match(banner, /Anonymné súhrnné zobrazenia stránok/);
+  assert.match(banner, /Druhé okno na súhlas nepridávame/);
   assert.equal((banner.match(/onClick=\{\(\) => saveChoice\("analytics"\)\}/g) ?? []).length, 1,
     "Only the existing analytics opt-in control should be present");
   assert.equal(QUALIFIED_ANALYTICS_CONSENT_EVENT, "psipedia:consent-changed");
