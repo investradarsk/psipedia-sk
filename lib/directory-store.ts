@@ -8,6 +8,7 @@ import { cache } from "react";
 import { directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
 import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery, readDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
+import { readProfileGallery } from "./partner-profile-gallery";
 import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import {
@@ -697,9 +698,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     websiteUrl: row.website_url,
     imageUrl: row.image_url,
     ...(breedSummary ? { breedSummary } : {}),
-    ...(row.category === "chovatelske-stanice"
-      ? { galleryUrls: readDirectoryBreederGallery(safeImportData(row.source_data_json, true)) }
-      : {}),
+    galleryUrls: readProfileGallery(safeImportData(row.source_data_json, true), row.category),
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     verified: Boolean(row.verified),
