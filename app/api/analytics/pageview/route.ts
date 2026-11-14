@@ -1,41 +1,40 @@
 import { env } from "cloudflare:workers";
-import { isInternalTrafficRequest } from "@/lib/internal-traffic";
-import { PROFILE_VISIT_TOKEN, isLikelyCrawlerRequest } from "@/lib/profile-view-security";
-import { createD1RateLimitStore, deriveRateLimitKey, enforceRateLimit } from "@/lib/rate-limit";
-import { pruneSiteAnalyticsIdentityRows, recordSitePageView } from "@/lib/site-analytics";
-import { isSafeSiteAnalyticsPath, validSiteTrafficSource } from "@/lib/site-analytics-public";
+import { isLikelyCrawlerRequest } from "@/lib/profile-view-security";
+import { recordSitePageView } from "@/lib/site-analytics";
+import { isSafeSiteAnalyticsPath } from "@/lib/site-analytics-public";
 
 export const dynamic = "force-dynamic";
 
-type Bindings = { DB?: D1Database; PII_HASH_KEY?: string; SITE_ANALYTICS_ENABLED?: string };
-const MAX_BYTES = 700;
+type Bindings = { DB?: D1Database; SITE_ANALYTICS_ENABLED?: string };
 const NO_STORE = { "Cache-Control": "private, no-store" };
+const MAX_BYTES = 256;
 
 function fail(error: string, status: number) {
   return Response.json({ error }, { status, headers: NO_STORE });
 }
 
-/** No GET endpoint. Anonymous aggregate pageviews need no cookie consent; identity tracking still does. */
+/**
+ * Aggregate-only public counter: accepts exactly {"path":"/public-route"}.
+ * No IP address, visitor token, cookie, referrer, source or device is read
+ * into analytics storage; no individual visitor records exist.
+ */
 export async function POST(request: Request) {
-  // Before the owner activates migration 0168, this route must not touch D1
-  // or allocate per-IP limiter records for public traffic.
-  if ((env as unknown as Bindings).SITE_ANALYTICS_ENABLED !== "true") {
+  const bindings = env as unknown as Bindings;
+  if (bindings.SITE_ANALYTICS_ENABLED !== "true") {
+    return new Response(null, { status: 204, headers: NO_STORE });
+  }
+  if (isLikelyCrawlerRequest(request)) {
     return new Response(null, { status: 204, headers: NO_STORE });
   }
 
-  if (isInternalTrafficRequest(request) || isLikelyCrawlerRequest(request)) {
-    return new Response(null, { status: 204, headers: NO_STORE });
-  }
-
-  const target = new URL(request.url);
+  const origin = new URL(request.url).origin;
   if (
-    request.headers.get("origin") !== target.origin
+    request.headers.get("origin") !== origin
     || (request.headers.get("sec-fetch-site")
       && request.headers.get("sec-fetch-site") !== "same-origin")
   ) {
     return fail("Cudzia požiadavka bola zablokovaná.", 403);
   }
-
   if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) {
     return fail("Neplatný formát požiadavky.", 415);
   }
@@ -43,67 +42,29 @@ export async function POST(request: Request) {
     return fail("Príliš veľká požiadavka.", 413);
   }
 
-  let body: Record<string, unknown>;
+  let path: unknown;
   try {
     const raw = await request.text();
-    if (new TextEncoder().encode(raw).byteLength > MAX_BYTES) return fail("Príliš veľká požiadavka.", 413);
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
-    body = parsed as Record<string, unknown>;
+    if (new TextEncoder().encode(raw).byteLength > MAX_BYTES) {
+      return fail("Príliš veľká požiadavka.", 413);
+    }
+    const body: unknown = JSON.parse(raw);
+    if (!body || typeof body !== "object" || Array.isArray(body)
+      || Object.keys(body).length !== 1 || !Object.hasOwn(body, "path")) {
+      return fail("Očakáva sa iba cesta stránky.", 400);
+    }
+    path = (body as { path: unknown }).path;
   } catch {
     return fail("Neplatné údaje.", 400);
   }
-
-  const hasVisitor = body.visitorToken !== undefined;
-  const hasSession = body.sessionToken !== undefined;
-  if (
-    !isSafeSiteAnalyticsPath(body.path)
-    || !validSiteTrafficSource(body.source)
-    || hasVisitor !== hasSession
-    || (hasVisitor && (typeof body.visitorToken !== "string"
-      || !PROFILE_VISIT_TOKEN.test(body.visitorToken)))
-    || (hasSession && (typeof body.sessionToken !== "string"
-      || !PROFILE_VISIT_TOKEN.test(body.sessionToken)))
-  ) {
-    return fail("Neplatné údaje návštevy.", 400);
+  if (!isSafeSiteAnalyticsPath(path)) {
+    return fail("Neplatná cesta stránky.", 400);
   }
-
-  const database = (env as unknown as Bindings).DB;
-  const hashKey = (env as unknown as Bindings).PII_HASH_KEY;
-  if (!database || typeof database.prepare !== "function" || !hashKey) {
+  if (!bindings.DB || typeof bindings.DB.batch !== "function") {
     return fail("Štatistiky nie sú momentálne dostupné.", 503);
   }
 
-  const ip = request.headers.get("cf-connecting-ip")?.trim();
-  if (!ip) return fail("Požiadavku nie je možné overiť.", 403);
-
-  try {
-    const ipKey = await deriveRateLimitKey("site-traffic-ip", ip, hashKey);
-    const limit = await enforceRateLimit(createD1RateLimitStore(database), ipKey, 120, 60);
-    if (!limit.allowed) return fail("Príliš veľa požiadaviek.", 429);
-
-    const result = await recordSitePageView({
-      path: body.path,
-      visitorToken: hasVisitor ? body.visitorToken as string : undefined,
-      sessionToken: hasSession ? body.sessionToken as string : undefined,
-      source: body.source,
-      userAgent: request.headers.get("user-agent") ?? "",
-      database,
-      hashKey,
-    });
-    if (!result.recorded) return fail("Štatistiky nie sú momentálne dostupné.", 503);
-
-    // Stateless sampled maintenance: works for aggregate-only browser visits
-    // without creating a visitor token, cookie or localStorage identifier.
-    if (Math.random() < 1 / 64) {
-      try { await pruneSiteAnalyticsIdentityRows(database); }
-      catch { console.warn("Site analytics expiry maintenance deferred"); }
-    }
-    return new Response(null, { status: 204, headers: NO_STORE });
-  } catch (cause) {
-    console.error("Site analytics request failed", {
-      error: cause instanceof Error ? cause.message : String(cause),
-    });
-    return fail("Štatistiky nie sú momentálne dostupné.", 503);
-  }
+  const result = await recordSitePageView({ path, database: bindings.DB });
+  if (!result.recorded) return fail("Štatistiky nie sú momentálne dostupné.", 503);
+  return new Response(null, { status: 204, headers: NO_STORE });
 }
