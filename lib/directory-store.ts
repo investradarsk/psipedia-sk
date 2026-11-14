@@ -573,7 +573,11 @@ const DIRECTORY_CARD_COLUMNS = `
       NULLIF(TRIM(CAST(json_extract(source_data_json, '$."Plemeno"') AS TEXT)), ''),
       '')
     ELSE '' END AS breeder_breed_source,
-  '{}' AS source_data_json, search_text, verified, featured, '{}' AS seo_json,
+  -- Listing cards need only category membership, not the entire editorial/source payload.
+  -- Preserve a minimal, valid JSON shape for rowToPublicProfile on both paged
+  -- results and category previews (and never expose private source metadata).
+  json_object('_psipedia_additional_categories', ${directoryAdditionalCategoryJsonSql()}) AS source_data_json,
+  search_text, verified, featured, '{}' AS seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
