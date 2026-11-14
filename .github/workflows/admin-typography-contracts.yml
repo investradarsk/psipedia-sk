@@ -109,6 +109,18 @@ on:
       - "components/admin-form-feedback.tsx"
       - "components/admin-content-editor-v3.module.css"
       - "components/admin-facebook-graphic-editor.module.css"
+      - "components/admin-facebook-graphic-editor.tsx"
+      - "components/admin-facebook-images.tsx"
+      - "components/admin-facebook-images.module.css"
+      - "components/admin-facebook-weekly-planner.module.css"
+      - "app/admin/facebook-obrazky/page.tsx"
+      - "app/admin/automatizacie-gemini/page.tsx"
+      - "components/admin-gemini-automation-settings.tsx"
+      - "components/admin-gemini-automation.module.css"
+      - "components/admin-gemini-all-concepts.tsx"
+      - "components/admin-gemini-all-concepts.module.css"
+      - "components/admin-gemini-quick-settings.module.css"
+      - "components/admin-gemini-category-prompt-editor.module.css"
       - "lib/admin-navigation.ts"
       - "docs/audits/admin-ui-unification-inventory.json"
       - "tests/admin-typography-step3.test.mjs"
@@ -124,6 +136,8 @@ on:
       - "tests/admin-events-visual-step11.test.mjs"
       - "tests/admin-help-modules-step12.test.mjs"
       - "tests/admin-community-step13.test.mjs"
+      - "tests/admin-social-visual-step14.test.mjs"
+      - "tests/e2e/admin-social-visual-step14.spec.ts"
       - "tests/e2e/admin-community-step13.spec.ts"
       - "tests/e2e/admin-help-modules-step12.spec.ts"
       - "tests/e2e/admin-events-visual-step11.spec.ts"
@@ -160,4 +174,4 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Check admin typography, community queues, content modules, mobile and 28-route inventory
-        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/admin-events-visual-step11.test.mjs tests/admin-help-modules-step12.test.mjs tests/admin-community-step13.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
+        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/admin-events-visual-step11.test.mjs tests/admin-help-modules-step12.test.mjs tests/admin-community-step13.test.mjs tests/admin-social-visual-step14.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
