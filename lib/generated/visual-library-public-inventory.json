@@ -184,6 +184,10 @@
       "coverage": "page-composite"
     },
     {
+      "path": "components/directory-profile-view-tracker.tsx",
+      "coverage": "nonvisual"
+    },
+    {
       "path": "components/directory-results.tsx",
       "coverage": "page-composite"
     },
@@ -678,6 +682,10 @@
     {
       "path": "components/share-button.tsx",
       "coverage": "live-preview"
+    },
+    {
+      "path": "components/site-analytics-tracker.tsx",
+      "coverage": "nonvisual"
     },
     {
       "path": "components/site-footer.tsx",
