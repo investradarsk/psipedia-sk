@@ -99,3 +99,31 @@ test("step 13: article feedback cards retain actions and compact mobile layout",
     // Only check the actions are visible and reachable; never click status transitions.
   }
 });
+
+
+for (const { path, module } of [
+  { path: "/admin/tipy", module: "community-tips" },
+  { path: "/admin/dopyty", module: "community-inquiries" },
+  { path: "/admin/adresar/navrhy", module: "community-profile-suggestions" },
+]) {
+  test(`step 13: ${module} community queue fits all viewports without changing records`, async ({ page }) => {
+    const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const root = page.locator('[data-admin-content-module="' + module + '"]');
+    await expect(root).toBeVisible();
+    await expect(page.locator("[data-admin-community-metrics]")).toBeVisible();
+    const filter = root.locator(".admin-status-filter");
+    await expect(filter).toBeVisible();
+    const cards = root.locator("[data-admin-community-card]");
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expect(filter).toBeVisible();
+      await expectNoDocumentOverflow(page, width);
+      const firstButton = filter.getByRole("button").first();
+      if (await firstButton.count())
+        expect(await firstButton.evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    }
+    if (await cards.count()) await expect(cards.first()).toBeVisible();
+    // Do not click review, save, reject, remove or any other mutation.
+  });
+}
