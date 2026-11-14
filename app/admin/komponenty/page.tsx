@@ -21,12 +21,14 @@ export default async function AdminComponentsPage() {
       title="Vizuálna knižnica"
       description="Prehliadaj skutočné grafické náhľady, varianty spoločných komponentov a doložené miesta ich použitia. Technický register je voliteľný."
     >
+      <div data-admin-content-module="visual-library">
       <AdminVisualLibrary articleUsage={articleUsage} examples={examples} registry={registry as unknown as Parameters<typeof AdminVisualLibrary>[0]["registry"]} />
-      <details style={{marginTop: 20, border: "1px solid #dce8df", borderRadius: 12, padding: 16, background: "#fff"}}>
-        <summary style={{cursor:"pointer", fontWeight:700}}>Technický register (pre programátora)</summary>
-        <p style={{fontSize:".83rem", color:"#617266"}}>Podrobná mapa súborov a importov zostáva zachovaná. Pre bežné používanie stačí vizuálna knižnica vyššie.</p>
+      <details className="admin-components-technical-register">
+        <summary>Technický register (pre programátora)</summary>
+        <p>Podrobná mapa súborov a importov zostáva zachovaná. Pre bežné používanie stačí vizuálna knižnica vyššie.</p>
         <AdminComponentRegistry registry={registry as unknown as Parameters<typeof AdminComponentRegistry>[0]["registry"]} />
       </details>
+      </div>
     </AdminShell>
   );
 }
