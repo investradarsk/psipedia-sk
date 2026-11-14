@@ -113,7 +113,7 @@ function SectionContentList({
       {articles.slice(0, limit).map((article) => (
         <ArticleListItem
           article={article}
-          desktopLayout={articles.length === 1 ? undefined : "stacked"}
+          desktopLayout={articles.length > 1 && article.image ? "stacked" : undefined}
           key={article.slug}
         />
       ))}
