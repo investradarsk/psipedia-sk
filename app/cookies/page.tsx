@@ -63,17 +63,14 @@ export default function CookiesPage() {
         Vlastné štatistiky sú nezávislé od Google Analytics.
       </p>
       <p>
-        Na počítanie rôznych prehliadačov používame lokálne vytvorený náhodný
-        identifikátor najviac na 30 dní a identifikátor návštevy s 30-minútovým
-        intervalom nečinnosti. Server ukladá iba ich odvodené HMAC hodnoty,
-        ktoré automaticky premazávame najneskôr približne po 35 dňoch.
-        Neukladáme celé referenčné URL ani parametre navštívených stránok.
-        Na obmedzenie opakovaného počítania obsahu používame lokálne úložisko
-        a pri profile aj krátkodobý náhodný token. Na ochranu pred zneužitím môžeme
-        použiť jednosmerne odvodený identifikátor z IP adresy, nie jej pôvodnú hodnotu.
-        Do samotných súhrnných počtov neukladáme meno ani e-mail návštevníka.
-        Po odvolaní súhlasu ďalšie zobrazenia nepočítame a miestne záznamy
-        použité pre toto meranie odstránime.
+        Iba po povolení analytiky vytvárame náhodný lokálny identifikátor prehliadača
+        najviac na 30 dní a identifikátor relácie s 30-minútovou prestávkou.
+        Na serveri ich uchovávame len ako HMAC hodnoty s približne 35-dňovým
+        čistením. Neukladáme plné referenčné URL ani parametre navštívených stránok.
+        Pre ochranu pred zneužitím môžeme používať krátkodobé jednosmerne odvodené
+        identifikátory IP adresy v bezpečnostnom limite. Po odvolaní súhlasu
+        zmažeme lokálne identifikátory a ďalej meriame iba anonymné súhrnné zobrazenia,
+        nie relácie, unikátne prehliadače ani kvalifikovanú čítanosť.
       </p>
       <PublicHeading role="section" as="h2">
         Google Analytics 4
