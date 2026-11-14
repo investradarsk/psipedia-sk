@@ -1,4 +1,4 @@
-name: Admin visual foundation and controls contracts (read-only)
+name: Admin visual foundation, controls and shell contracts (read-only)
 
 on:
   pull_request:
@@ -16,6 +16,12 @@ on:
       - "components/admin-form-feedback.module.css"
       - "components/admin-shadcn-editor.module.css"
       - "components/admin-interaction-system.tsx"
+      - "components/admin-navigation.module.css"
+      - "components/admin-quick-navigation.module.css"
+      - "components/admin-tour-button.module.css"
+      - "components/admin-shell.tsx"
+      - "components/admin-navigation.tsx"
+      - "tests/e2e/admin-ia-2.spec.ts"
       - "components/admin-form-feedback.tsx"
       - "components/admin-content-editor-v3.module.css"
       - "components/admin-facebook-graphic-editor.module.css"
@@ -24,6 +30,7 @@ on:
       - "tests/admin-typography-step3.test.mjs"
       - "tests/admin-density-step4.test.mjs"
       - "tests/admin-controls-step5.test.mjs"
+      - "tests/admin-shell-step6.test.mjs"
       - "tests/admin-ui-unification-inventory.test.mjs"
       - ".github/workflows/admin-typography-contracts.yml"
   workflow_dispatch:
@@ -48,5 +55,5 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.18.0
-      - name: Check typography, compact spacing, controls and 28-route inventory
-        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
+      - name: Check typography, density, controls, shell and 28-route inventory
+        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
