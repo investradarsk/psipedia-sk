@@ -87,3 +87,13 @@ export function preserveUntouchedDirectoryContacts<T extends Record<string, unkn
   }
   return next as T;
 }
+
+/** Detect any lost contact, including a value not included in this save's dirty paths. */
+export function directoryContactValueMismatches(
+  expected: Record<DirectoryContactSaveField, string>,
+  actual: Record<DirectoryContactSaveField, string>,
+): DirectoryContactSaveField[] {
+  return DIRECTORY_CONTACT_SAVE_FIELDS.filter(
+    field => (expected[field] ?? "").trim() !== (actual[field] ?? "").trim(),
+  );
+}
