@@ -384,11 +384,12 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await newDirectoryMunicipality.press("Enter");
     await expect(newDirectoryMunicipality).toHaveValue("Žilina");
     await page.getByLabel("Adresa").fill("Unikátna 123");
-    await page.getByLabel("Web").fill("partner-new-e2e.example");
-    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
-    await expect(page.getByText("Web musí byť platná adresa začínajúca http:// alebo https://.", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("Web")).toBeFocused();
-    await page.getByLabel("Web").fill("https://partner-new-e2e.example");
+    // Directory web is free-form editorial text. Clickability is evaluated
+    // on the public profile, never as a blocking Partner form constraint.
+    const newDirectoryWeb = page.getByLabel("Web");
+    await expect(newDirectoryWeb).toHaveAttribute("type", "text");
+    await newDirectoryWeb.fill("partner-new-e2e.example");
+    await expect(newDirectoryWeb).toHaveValue("partner-new-e2e.example");
     await expectNoHorizontalOverflow(page);
     const newDirectoryAccessibility = await new AxeBuilder({ page }).analyze();
     expect(newDirectoryAccessibility.violations).toEqual([]);
