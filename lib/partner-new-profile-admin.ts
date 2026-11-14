@@ -434,7 +434,7 @@ export async function createPartnerNewProfileAdmin(input:{
     const values=normalized.values;
     slug=await uniqueOrganizationSlug(database,normalized.displayName);
     const organizationInput=parseOrganizationAdminInput({
-      name:String(values.name),slug,legalName:String(values.legalName),registrationNumber:String(values.registrationNumber)||null,
+      name:String(values.name),slug,legalName:String(values.legalName),registrationNumber:String(values.registrationNumber??"")||null,
       type:String(values.type),shortDescription:String(values.shortDescription),description:String(values.description),
       publicEmail:String(values.publicEmail)||null,publicPhone:String(values.publicPhone)||null,
       websiteUrl:String(values.websiteUrl)||null,facebookUrl:String(values.facebookUrl)||null,instagramUrl:String(values.instagramUrl)||null,

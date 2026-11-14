@@ -28,7 +28,7 @@ const emptyDirectory = {
   websiteUrl: "", publicPhone: "", publicEmail: "", facebookUrl: "", instagramUrl: "",
 };
 const emptyOrganization = {
-  name: "", legalName: "", registrationNumber: "", type: "OTHER", shortDescription: "", description: "",
+  name: "", legalName: "", type: "OTHER", shortDescription: "", description: "",
   publicEmail: "", publicPhone: "", websiteUrl: "", facebookUrl: "", instagramUrl: "",
   address: "", city: "", district: "", region: "", countryCode: "SK",
 };
@@ -152,7 +152,6 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
       max("name", organization.name, 180, "Názov");
       required("type", organization.type, "Vyberte typ organizácie.");
       max("legalName", organization.legalName, 240, "Právny názov");
-      max("registrationNumber", organization.registrationNumber, 100, "Registračné číslo");
       max("shortDescription", organization.shortDescription, 700, "Krátky popis");
       max("description", organization.description, 20_000, "Popis");
       required("countryCode", organization.countryCode, "Kód krajiny je povinný.");
@@ -338,7 +337,6 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
           {(() => { const p=errorProps("name"); return <label className="partner-field"><span>Názov<RequiredMark /></span><input {...p.input} required maxLength={180} value={organization.name} onChange={(e)=>setOrganization({...organization,name:e.target.value})}/>{p.error?<small className="partner-field-error" id={p.errorId}>{p.error}</small>:null}</label>; })()}
           {(() => { const p=errorProps("type"); return <label className="partner-field"><span>Typ organizácie<RequiredMark /></span><select {...p.input} required value={organization.type} onChange={(e)=>setOrganization({...organization,type:e.target.value})}>{partnerOrganizationTypeOptions.map(([v,l])=><option value={v} key={v}>{l}</option>)}</select>{p.error?<small className="partner-field-error" id={p.errorId}>{p.error}</small>:null}</label>; })()}
           {(() => { const p=errorProps("legalName"); return <label className="partner-field"><span>Právny názov</span><input {...p.input} maxLength={240} value={organization.legalName} onChange={(e)=>setOrganization({...organization,legalName:e.target.value})}/>{p.error?<small className="partner-field-error" id={p.errorId}>{p.error}</small>:null}</label>; })()}
-          {(() => { const p=errorProps("registrationNumber"); return <label className="partner-field"><span>Registračné číslo</span><input {...p.input} maxLength={100} value={organization.registrationNumber} onChange={(e)=>setOrganization({...organization,registrationNumber:e.target.value})}/>{p.error?<small className="partner-field-error" id={p.errorId}>{p.error}</small>:null}</label>; })()}
           {(() => { const p=errorProps("shortDescription","partner-organization-short-help"); return <label className="partner-field partner-field--wide"><span>Krátky popis</span><textarea {...p.input} maxLength={700} rows={3} value={organization.shortDescription} onChange={(e)=>setOrganization({...organization,shortDescription:e.target.value})}/><span className="partner-character-meta" id="partner-organization-short-help"><small>Max. 700 znakov</small><small className="partner-character-counter" aria-live="polite">{organization.shortDescription.length} / 700</small></span>{p.error?<small className="partner-field-error" id={p.errorId}>{p.error}</small>:null}</label>; })()}
           {(() => { const p=errorProps("description","partner-organization-description-help"); return <label className="partner-field partner-field--wide"><span>Popis</span><textarea {...p.input} maxLength={20_000} rows={7} value={organization.description} onChange={(e)=>setOrganization({...organization,description:e.target.value})}/><span className="partner-character-meta" id="partner-organization-description-help"><small>Max. 20 000 znakov</small><small className="partner-character-counter" aria-live="polite">{organization.description.length.toLocaleString("sk-SK")} / 20 000</small></span>{p.error?<small className="partner-field-error" id={p.errorId}>{p.error}</small>:null}</label>; })()}
           {(() => { const p=errorProps("countryCode"); return <label className="partner-field"><span>Kód krajiny<RequiredMark /></span><input {...p.input} required maxLength={2} value={organization.countryCode} onChange={(e)=>setOrganization((current)=>{const countryCode=e.target.value.toUpperCase();return {...current,countryCode,...(countryCode==="SK"&&current.countryCode!=="SK"?{city:"",district:"",region:""}:{})};})}/>{p.error?<small className="partner-field-error" id={p.errorId}>{p.error}</small>:null}</label>; })()}

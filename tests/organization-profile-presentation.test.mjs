@@ -55,7 +55,6 @@ test("published public fields map into identity, contacts and one shared action"
   assert.deepEqual(presentation.facts, [
     { label: "Typ organizácie", value: "Občianske združenie" },
     { label: "Právny názov", value: "Psia nádej, o.z." },
-    { label: "Registračné číslo", value: "12345678" },
     { label: "Aktualizované", value: "11. 9. 2026" },
   ]);
   assert.deepEqual(presentation.locations, [{

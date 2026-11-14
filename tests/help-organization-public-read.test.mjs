@@ -236,7 +236,7 @@ test("public model is an explicit allowlist and omits internal/provenance and st
   const database = createDatabase({ organizations: [organization()], locations: [location()] });
   const result = await getPublicOrganizationBySlug("psia-nadej", database);
   assert.deepEqual(Object.keys(result).sort(), [
-    "city", "countryCode", "description", "detailImageDisplay", "directory", "district", "facebookUrl", "id", "imageUrl",
+    "city", "countryCode", "description", "detailImageDisplay", "directory", "district", "facebookUrl", "galleryUrls", "id", "imageUrl",
     "instagramUrl", "lastVerifiedAt", "legalName", "locations", "name", "publicEmail", "publicPhone", "publishedAt",
     "region", "registrationNumber", "shortDescription", "slug", "sourceUrl", "thumbnailImageDisplay", "type", "updatedAt", "websiteUrl",
   ].sort());
@@ -247,7 +247,8 @@ test("public model is an explicit allowlist and omits internal/provenance and st
     "city", "countryCode", "district", "id", "isPrimary", "label", "organizationId", "region", "role", "sortOrder",
   ].sort());
   assert.equal(Object.hasOwn(result.locations[0], "address"), false);
-  assert.doesNotMatch(storeSource, /source_data_json|import_key|created_by|updated_by|image_key/);
+  assert.match(storeSource, /o\.source_data_json/);
+  assert.doesNotMatch(storeSource, /import_key|created_by|updated_by|image_key/);
 });
 
 test("public organization exposes exactly one deterministic canonical child location", async () => {

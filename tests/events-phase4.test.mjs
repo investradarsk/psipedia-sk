@@ -121,7 +121,7 @@ test("every public event type has a reversible crawlable listing route", () => {
   }
 });
 
-test("internal discovery controls remain crawlable while directory pagination stays link-based", () => {
+test("internal category navigation remains crawlable while directory pagination stays link-based", () => {
   const calendar = readFileSync(
     new URL("../components/event-calendar.tsx", import.meta.url),
     "utf8",
@@ -153,14 +153,14 @@ test("internal discovery controls remain crawlable while directory pagination st
   assert.match(calendar, /<PublicSubcategoryNavigator/);
   assert.match(calendar, /clickNavigate\(event,\s*timeHref\(value\)/);
   assert.match(readFileSync(new URL("../components/public-visual-system/public-subcategory-navigator.tsx", import.meta.url), "utf8"), /<Link[\s\S]*?href=\{item\.href\}/);
-  assert.match(eventsPage, /shortcuts=\{\s*searchShortcuts\s*\}/);
+  assert.match(eventsPage, /shortcuts=\{\[\]\}/);
   assert.match(
     eventsPage,
-    /eventTypes\s*\.filter\(\s*\(\s*type\s*\)\s*=>\s*type\s*!==\s*"Iné"\s*\)\s*\.flatMap/,
+    /items=\{eventTypes\.map\(\(type\)\s*=>\s*\(\{/,
   );
   assert.match(eventsPage, /eventTypePortalHref\(\s*type\s*\)/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(calendar, /eventTypePortalHref\(\s*type\s*\)/);
+  assert.match(calendar, /eventTypePortalHref\(\s*view\.type\s*\)/);
   assert.doesNotMatch(
     calendar,
     /eventTypeFilters|selectType|className=\{\s*styles\s*\.typeBar\s*\}/,
@@ -200,7 +200,7 @@ test("internal discovery controls remain crawlable while directory pagination st
   );
 });
 
-test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable type shortcuts and compact category links", () => {
+test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable compact category links", () => {
   const page = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
   const calendar = readFileSync(
     new URL("../components/event-calendar.tsx", import.meta.url),
@@ -213,15 +213,16 @@ test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable type shortcuts and comp
 
   assert.match(page, /<PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(page, /shortcuts=\{\s*searchShortcuts\s*\}/);
+  assert.match(page, /shortcuts=\{\[\]\}/);
   assert.match(
     page,
-    /eventTypes\s*\.filter\(\s*\(\s*type\s*\)\s*=>\s*type\s*!==\s*"Iné"\s*\)\s*\.flatMap/,
+    /items=\{eventTypes\.map\(\(type\)\s*=>\s*\(\{/,
   );
   assert.match(page, /eventTypePortalHref\(\s*type\s*\)/);
-  assert.match(calendar, /eventTypePortalHref\(\s*type\s*\)/);
-  // Active state follows client-side calendar selection, not initial SSR props.
-  assert.match(calendar, /aria-current=\{\s*view\s*\.type\s*===\s*type/);
+  assert.match(calendar, /eventTypePortalHref\(\s*view\.type\s*\)/);
+  // Public category links use the selected server-side category; calendar interactions stay in place.
+  assert.match(page, /current:\s*initialType\s*===\s*type/);
+  assert.match(calendar, /view\.type\s*===\s*"Všetky"/);
   assert.match(calendar, /data-events-legend/);
   assert.match(page, /PublicContextBanner/);
   assert.match(page, /ctaHref="\/podujatia\/pridat-podujatie"/);

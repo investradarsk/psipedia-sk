@@ -44,6 +44,7 @@ export type OrganizationProfilePresentation = {
   location: string | null;
   locations: OrganizationProfileLocation[];
   imageUrl: string | null;
+  galleryUrls: string[];
   detailImageDisplay?: ImageDisplayConfig | null;
   facts: OrganizationProfileFact[];
   contacts: OrganizationProfileContact[];
@@ -222,9 +223,6 @@ export function buildOrganizationProfilePresentation(
     text(organization.legalName) && text(organization.legalName) !== text(organization.name)
       ? { label: "Právny názov", value: text(organization.legalName)! }
       : null,
-    text(organization.registrationNumber)
-      ? { label: "Registračné číslo", value: text(organization.registrationNumber)! }
-      : null,
     updatedAt ? { label: "Aktualizované", value: updatedAt } : null,
   ].filter((fact): fact is OrganizationProfileFact => Boolean(fact));
 
@@ -246,6 +244,7 @@ export function buildOrganizationProfilePresentation(
     location: singleLocationParts.length ? singleLocationParts.join(" · ") : null,
     locations,
     imageUrl: mediaUrl(organization.imageUrl),
+    galleryUrls: (organization.galleryUrls ?? []).filter((url) => url !== organization.imageUrl),
     detailImageDisplay: organization.detailImageDisplay,
     facts,
     contacts,

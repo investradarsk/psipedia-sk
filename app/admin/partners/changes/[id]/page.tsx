@@ -54,6 +54,21 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </div>
       </section>:null}
 
+      {change.galleryMedia.length ? (
+        <section className="admin-form-card admin-partner-media-review">
+          <h2>Nové fotografie galérie ({change.galleryMedia.length})</h2>
+          <p>Fotografie budú zverejnené iba po schválení celého návrhu.</p>
+          <div className="admin-partner-media-compare" style={{flexWrap:"wrap"}}>
+            {change.galleryMedia.map((media, index) => (
+              <div key={media.id}>
+                <span>Fotografia {index + 1}</span>
+                <img src={media.previewUrl} alt={`Nová fotografia galérie ${index + 1}`} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="admin-form-card admin-profile-diff">
         <div className="admin-profile-diff-heading">
           <div><span className="eyebrow">Moderation diff</span><h2>OLD → NEW</h2></div>
