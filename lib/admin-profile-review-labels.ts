@@ -81,3 +81,19 @@ export function profileReviewRiskLabel(value: string): string {
   if (value === "REPEATED_CHARACTERS") return "Opakujúce sa znaky";
   return "Ďalší rizikový signál";
 }
+
+/** Preserve the reason's meaning in audit history without exposing raw codes. */
+export function profileReviewReasonLabel(value: string): string {
+  const labels: Record<string, string> = {
+    SPAM: "Nevyžiadaný obsah",
+    OFF_TOPIC: "Nesúvisí s profilom",
+    INAPPROPRIATE: "Nevhodný obsah",
+    ABUSIVE: "Urážlivý obsah",
+    DUPLICATE: "Duplicitná recenzia",
+    FRAUD: "Podozrenie na nepravdivé hodnotenie",
+    USER_REQUEST: "Žiadosť používateľa",
+    POLICY_VIOLATION: "Porušenie pravidiel",
+  };
+  const readable = value.replace(/[_-]+/g, " ").toLocaleLowerCase("sk").trim();
+  return labels[value] ?? (readable ? readable.charAt(0).toLocaleUpperCase("sk") + readable.slice(1) : "Nešpecifikovaný dôvod");
+}
