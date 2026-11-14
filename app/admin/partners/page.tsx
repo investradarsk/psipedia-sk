@@ -36,16 +36,23 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
     <section className="admin-form-card" data-admin-partner-attention>
       <h2>Vyžaduje pozornosť</h2>
       <p>{pending.total===0?"Žiadne partnerské žiadosti momentálne nečakajú na spracovanie.":`${pending.total} položiek čaká na spracovanie.`}</p>
-      <div className="admin-partner-pending"><Link href="/admin/partners/claims?status=PENDING">Prevzatie profilov {pending.claims} →</Link> · <Link href="/admin/partners/changes?status=active">Úpravy {pending.profileChanges} →</Link> · <Link href="/admin/partners/submissions?status=active">Nové profily {pending.newProfiles} →</Link> · <Link href="/admin/partners/events?status=active">Podujatia {pending.events} →</Link> · <Link href="/admin/partners/verifications?status=PENDING_VERIFICATION">Overenia {pending.verifications} →</Link> · <Link href="/admin/partners/commercial?status=NEW">Komerčné leady {pending.commercial} →</Link> · <Link href="/admin/partners/commercial">Komerčné dohody {pending.agreements} →</Link></div>
+      <div className="admin-partner-pending"><Link href="/admin/partners/claims?status=PENDING">Prevzatie profilov {pending.claims} →</Link><Link href="/admin/partners/changes?status=active">Úpravy {pending.profileChanges} →</Link><Link href="/admin/partners/submissions?status=active">Nové profily {pending.newProfiles} →</Link><Link href="/admin/partners/events?status=active">Podujatia {pending.events} →</Link><Link href="/admin/partners/verifications?status=PENDING_VERIFICATION">Overenia {pending.verifications} →</Link><Link href="/admin/partners/commercial?status=NEW">Komerčné leady {pending.commercial} →</Link><Link href="/admin/partners/commercial">Komerčné dohody {pending.agreements} →</Link></div>
     </section>
     <section className="admin-form-card" data-admin-partner-accounts>
       <form className="admin-partner-search" role="search" aria-label="Filtrovať partnerské účty" data-admin-list-filters>
-        <label htmlFor="partner-q">Hľadať účet podľa e-mailu alebo ID</label>
-        <input id="partner-q" name="q" defaultValue={filters.q} maxLength={120}/>
-        <select name="status" aria-label="Stav účtu" defaultValue={filters.status}><option value="">Všetky stavy</option><option value="PENDING_VERIFICATION">Neoverené účty</option><option value="ACTIVE">Aktívne</option><option value="SUSPENDED">Suspendované</option><option value="DEACTIVATED">Deaktivované</option></select>
-        <select name="verified" aria-label="Overenie e-mailu" defaultValue={filters.verified}><option value="">Každé overenie</option><option value="VERIFIED">Overené e-maily</option><option value="UNVERIFIED">Neoverené e-maily</option></select>
-        <select name="pageSize" aria-label="Počet účtov na strane" defaultValue={String(accounts.pageSize)}><option value="25">25 na strane</option><option value="50">50 na strane</option><option value="100">100 na strane</option></select>
-        <button>Hľadať</button>
+        <label htmlFor="partner-q">Hľadať účet
+          <input id="partner-q" name="q" defaultValue={filters.q} maxLength={120} placeholder="E-mail alebo ID" />
+        </label>
+        <label htmlFor="partner-status">Stav účtu
+          <select id="partner-status" name="status" defaultValue={filters.status}><option value="">Všetky stavy</option><option value="PENDING_VERIFICATION">Neoverené účty</option><option value="ACTIVE">Aktívne</option><option value="SUSPENDED">Suspendované</option><option value="DEACTIVATED">Deaktivované</option></select>
+        </label>
+        <label htmlFor="partner-verified">Overenie e-mailu
+          <select id="partner-verified" name="verified" defaultValue={filters.verified}><option value="">Každé overenie</option><option value="VERIFIED">Overené e-maily</option><option value="UNVERIFIED">Neoverené e-maily</option></select>
+        </label>
+        <label htmlFor="partner-page-size">Počet na strane
+          <select id="partner-page-size" name="pageSize" defaultValue={String(accounts.pageSize)}><option value="25">25 na strane</option><option value="50">50 na strane</option><option value="100">100 na strane</option></select>
+        </label>
+        <button type="submit">Hľadať</button>
       </form>
       <p role="status" data-admin-list-results>Výsledky: {accounts.total} · Strana {accounts.page} z {accounts.totalPages}</p>
       <div className="admin-partner-table" role="list" aria-label="Partnerské účty">
