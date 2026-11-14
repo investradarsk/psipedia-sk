@@ -13,7 +13,7 @@ function formatTime(raw: string) {
  * The workspace is a navigation hub, not another inbox. The notification bell
  * and canonical queues own item-level activity and acknowledgement.
  */
-export function AdminWorkspaceActivity({ initial, qualityPending }: { initial: WorkspaceOverview; qualityPending: number | null }) {
+export function AdminWorkspaceActivity({ initial }: { initial: WorkspaceOverview }) {
   return (
     <section className={styles.root} aria-label="Prejsť do pracovných sekcií">
       <div className={styles.titleRow}>
@@ -28,11 +28,6 @@ export function AdminWorkspaceActivity({ initial, qualityPending }: { initial: W
           <strong>Podnety a upozornenia</strong>
           <span>Čakajúce schválenia a žiadosti</span>
           <b>Otvoriť upozornenia →</b>
-        </Link>
-        <Link href="/admin/kvalita" className={styles.linkCard}>
-          <strong>Chýbajúce údaje</strong>
-          <span>{qualityPending !== null ? `${qualityPending} návrhov na schválenie` : "Počet momentálne nie je dostupný"}</span>
-          <b>Otvoriť kvalitu údajov →</b>
         </Link>
         <Link href="/admin/mapy" className={styles.linkCard}>
           <strong>Adresy a polohy na overenie</strong>
