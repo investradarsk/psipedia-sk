@@ -54,7 +54,8 @@ test("server-side update path is the moderation transition source of truth", asy
 
   const editor = await readFile(new URL("../components/admin-lost-found-editor.tsx", import.meta.url), "utf8");
   assert.match(editor, /allowedLostFoundTransitions\(state\.status\)/);
-  assert.match(editor, /Nové hlásenie sa vždy vytvorí ako koncept \(DRAFT\)/);
+  assert.match(editor, /Nové hlásenie sa vždy vytvorí ako koncept\./);
+  assert.match(editor, /status:report\?status:"DRAFT"/, "New reports must be submitted as DRAFT regardless of the user-facing label");
   assert.doesNotMatch(editor, /<select value=\{state\.status\}/);
 });
 
