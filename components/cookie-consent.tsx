@@ -207,7 +207,6 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     if (choice === "necessary") {
       disableAnalytics();
       clearQualifiedAnalyticsStorage(window.localStorage);
-      clearSiteAnalyticsSessionStorage(window.sessionStorage);
     }
     if (revokingAdvertising) window.location.reload();
   }
