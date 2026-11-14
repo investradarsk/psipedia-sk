@@ -393,7 +393,7 @@ export function EventCalendar({
   }
 
   useEffect(() => {
-    if (isDesktopCalendar || pending || pendingDay || !selectedDay || loadError) return;
+    if (pending || pendingDay || !selectedDay || loadError) return;
     const target = document.getElementById("vybrany-den");
     if (!target) return;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -403,7 +403,7 @@ export function EventCalendar({
       target.scrollIntoView({ behavior: motion, block: "start" }),
     );
     return () => window.cancelAnimationFrame(id);
-  }, [selectedDay, pending, pendingDay, loadError, isDesktopCalendar]);
+  }, [selectedDay, pending, pendingDay, loadError]);
 
   const windowSafeQuery = (state: View) => {
     const params = eventListingParams({
@@ -761,21 +761,11 @@ export function EventCalendar({
               )}
             </div>
           </div>
-          <nav className={styles.calendarLegend} aria-label="Kategórie podujatí" data-events-legend>
+          <div className={styles.calendarLegend} role="list" aria-label="Typy podujatí v kalendári" data-events-legend>
             {eventTypes.map((type) => {
               const presentation = eventTypePresentation[type];
-              const href = eventTypePortalHref(type);
-              if (!href) return null;
               return (
-                <a
-                  key={type}
-                  href={href + timeHref(view.time).slice(typePathname.length)}
-                  onClick={(event) => {
-                    const target = href + timeHref(view.time).slice(typePathname.length);
-                    clickNavigate(event, target, { ...view, type });
-                  }}
-                  aria-current={view.type === type ? "page" : undefined}
-                >
+                <span key={type} role="listitem">
                   <span
                     className={styles.typeDot}
                     aria-hidden="true"
@@ -783,10 +773,10 @@ export function EventCalendar({
                     style={{ "--event-type-color": presentation.color } as CSSProperties}
                   />
                   {presentation.label}
-                </a>
+                </span>
               );
             })}
-          </nav>
+          </div>
         </section>
       </div>
       {pending ? (
