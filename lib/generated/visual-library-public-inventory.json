@@ -96,6 +96,10 @@
       "coverage": "live-preview"
     },
     {
+      "path": "components/breed-measurement-fact.tsx",
+      "coverage": "nonvisual"
+    },
+    {
       "path": "components/breed-photo.tsx",
       "coverage": "live-preview"
     },
@@ -437,6 +441,10 @@
     },
     {
       "path": "components/partner-forgot-password-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-gallery-field.tsx",
       "coverage": "needs-preview"
     },
     {

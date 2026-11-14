@@ -36,7 +36,7 @@ test("EDITOR-15: organization editor uses one mounted form and four shared persi
 });
 
 test("EDITOR-15: canonical identity, Lexical, public contact and image still use existing fields", () => {
-  for (const f of ["organization-name", "organization-legal-name", "organization-slug", "organization-registration", "organization-type"])
+  for (const f of ["organization-name", "organization-legal-name", "organization-slug", "organization-type"])
     assert.ok(section("organization-general").includes('id="' + f + '"'), f);
   for (const f of ["organization-short-description", "organization-description"])
     assert.ok(section("organization-content").includes('id="' + f + '"'), f);

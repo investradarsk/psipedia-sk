@@ -322,8 +322,8 @@ export function getDirectoryDetailPresentation(
     openingHours: usefulDirectoryDetailValue(
       importedValue(
         profile,
-        "Ordinačné hodiny",
         "Otváracie hodiny",
+        "Ordinačné hodiny",
         "Otváracia doba",
         "Ordinačná doba",
         "Pracovná doba",
@@ -331,7 +331,7 @@ export function getDirectoryDetailPresentation(
     ),
     imageUrl: profile.imageUrl,
     imageAlt: usefulDirectoryDetailValue(importedValue(profile, "Alt text obrázka")),
-    galleryUrls: profile.category === "chovatelske-stanice" ? (profile.galleryUrls ?? []) : [],
+    galleryUrls: profile.galleryUrls ?? [],
     detailImageDisplay: profile.detailImageDisplay,
     verified: profile.verified,
     featured: profile.featured,

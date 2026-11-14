@@ -1,4 +1,5 @@
 import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
+import { readProfileGallery } from "./partner-profile-gallery.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import { cleanPublicOrganizationCopy } from "./public-integrity.ts";
 import {
@@ -60,6 +61,7 @@ export type PublicHelpOrganization = {
   countryCode: string;
   locations: PublicOrganizationLocation[];
   imageUrl: string | null;
+  galleryUrls?: string[];
   thumbnailImageDisplay?: ImageDisplayConfig | null;
   detailImageDisplay?: ImageDisplayConfig | null;
   sourceUrl: string | null;
@@ -130,6 +132,7 @@ type PublicOrganizationRow = {
   image_url: string | null;
   thumbnail_display_json?: string | null;
   detail_display_json?: string | null;
+  source_data_json: string;
   source_url: string | null;
   published_at: string;
   last_verified_at: string | null;
@@ -186,7 +189,7 @@ export const PUBLIC_ORGANIZATION_PREDICATE =
 
 const PUBLIC_ORGANIZATION_SELECT = `o.id, o.name, o.slug, o.legal_name, o.registration_number, o.type, o.status,
   o.short_description, o.description, o.public_email, o.public_phone, o.website_url, o.facebook_url,
-  o.instagram_url, o.city, o.district, o.region, o.country_code, o.image_url, o.thumbnail_display_json, o.detail_display_json, o.source_url,
+  o.instagram_url, o.city, o.district, o.region, o.country_code, o.image_url, o.thumbnail_display_json, o.detail_display_json, o.source_data_json, o.source_url,
   o.published_at, o.last_verified_at, o.updated_at, o.directory_profile_id`;
 
 export function buildPublicOrganizationBySlugQuery(slug: string) {
@@ -389,6 +392,7 @@ function toPublicOrganization(
     countryCode: primaryLocation?.countryCode ?? row.country_code,
     locations,
     imageUrl: row.image_url,
+    galleryUrls: readProfileGallery((() => { try { return JSON.parse(row.source_data_json) as Record<string, unknown>; } catch { return {}; } })()),
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     sourceUrl: row.source_url,

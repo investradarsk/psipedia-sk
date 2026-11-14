@@ -208,7 +208,7 @@ test("Partner and admin UI expose preview replace remove, current-vs-proposed an
   assert.match(mediaField,/Odstrániť/);
   assert.match(mediaField,/aria-live="polite"/);
   assert.match(newProfileForm,/Logo alebo hlavná fotografia/);
-  assert.match(profileEditForm,/Navrhnúť zmenu obrázka/);
+  assert.match(profileEditForm,/Zmeniť hlavnú \/ profilovú fotografiu/);
   assert.match(eventForm,/Hlavný obrázok podujatia/);
   assert.match(partnerCss, /@media\s*\(max-width:\s*760px\)/);
   assert.match(partnerCss, /\.partner-contact-grid\s*\{\s*grid-template-columns:\s*1fr/);

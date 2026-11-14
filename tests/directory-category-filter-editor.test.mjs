@@ -115,7 +115,7 @@ test("shared UI is accessible, callback-only, responsive and mounted in both edi
   assert.match(admin, /setFilterChanges\(\{\}\)/);
   assert.match(admin, /action: "set-category-filters"/);
   assert.match(partner, /Object\.assign\(patch, filterPatch\.updates\)/);
-  assert.match(partner, /if \(!Object\.keys\(patch\)\.length && !mediaAssetId\)/);
+  assert.match(partner, /if \(!Object\.keys\(patch\)\.length && !mediaAssetId && !galleryMediaIds\.length\)/);
   assert.match(source("app/partner/profily/[resourceId]/upravit/page.tsx"), /directoryCategory=\{editor\.resource\.directoryCategory\}/);
   const api = source("app/api/admin/directory/[id]/route.ts");
   assert.match(api, /getAdminApiUser\(\)/);

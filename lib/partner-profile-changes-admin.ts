@@ -1,4 +1,6 @@
 import { env } from "cloudflare:workers";
+import { PROFILE_GALLERY_LIMIT } from "@/lib/partner-profile-gallery";
+import { PARTNER_GALLERY_MEDIA_KEY, partnerGalleryMediaIdsFromStoredPatch, publishPartnerGalleryMedia, terminalPartnerGalleryMediaStatements } from "@/lib/partner-profile-gallery-media";
 import { directoryFilterRegistry } from "@/lib/directory-filter-contract";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { decryptPii } from "@/lib/pii-crypto";
@@ -75,6 +77,7 @@ function safePatch(value:string,resourceType?:PartnerProfileChangeResourceType){
   if(!parsed||typeof parsed!=="object"||Array.isArray(parsed))return {};
   const patch={...(parsed as Record<string,PartnerProfileEditableValue>)};
   if(resourceType==="DIRECTORY_PROFILE")delete patch.online;
+  delete patch[PARTNER_GALLERY_MEDIA_KEY];
   return patch as PartnerProfilePatch;
 }
 function safeBasePatch(value:string,resourceType:PartnerProfileChangeResourceType){
@@ -111,17 +114,20 @@ const BASE_SELECT=`
 
 async function hydrate(row:AdminRow,key:string){
   const patch=safePatch(row.proposedPatchJson,row.resourceType);
+  const galleryMediaIds=partnerGalleryMediaIdsFromStoredPatch(row.proposedPatchJson);
   const risks=safeRiskFlags(row.riskFlagsJson);
   if(isActive(row.status)&&row.currentUpdatedAt!==row.baseUpdatedAt&&!risks.includes("STALE_BASE"))risks.push("STALE_BASE");
   return {
     ...row,
     email:await decryptPii(row.emailCiphertext,key),
     proposedPatch:patch,
+    galleryMediaIds,
+    galleryMedia:galleryMediaIds.map(id=>({id,previewUrl:`/api/admin/partners/media/${id}`})),
     media:row.mediaAssetId?{
       id:row.mediaAssetId,originalMime:row.mediaMime,sizeBytes:row.mediaSizeBytes,width:row.mediaWidth,height:row.mediaHeight,
       previewUrl:`/api/admin/partners/media/${row.mediaAssetId}`,
     }:null,
-    changedFields:[...Object.keys(patch),...(row.mediaAssetId?["image"]:[])],
+    changedFields:[...new Set([...Object.keys(patch),...(galleryMediaIds.length?["galleryUrls"]:[]),...(row.mediaAssetId?["image"]:[])])],
     riskFlags:risks,
     statusLabel:statusLabel(row.status),
     active:isActive(row.status),
@@ -173,7 +179,7 @@ export async function getPartnerProfileChangeAdmin(id:string,input:{database?:D1
   const item=await hydrate(row,encryptionKey(input.encryptionKey));
   const canonical=await loadPartnerCanonicalForResource(row.resourceId,database);
   const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
-  const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base,Boolean(row.mediaAssetId),row.directoryCategory);
+  const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base,Boolean(row.mediaAssetId||item.galleryMediaIds.length),row.directoryCategory);
   const stale=item.active&&partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values,row.resourceType);
   const risks=[...new Set([...partnerProfileChangeRiskFlags(proposed),...item.riskFlags,...(stale?["STALE_BASE"]:[])])];
   const labels=new Map([
@@ -291,18 +297,30 @@ export async function approvePartnerProfileChangeAdmin(input:{
   }
   const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
   const stored=safePatch(row.proposedPatchJson,row.resourceType);
-  const patch=normalizePartnerProfilePatch(row.resourceType,stored,base,Boolean(row.mediaAssetId),row.directoryCategory);
+  const galleryMediaIds=partnerGalleryMediaIdsFromStoredPatch(row.proposedPatchJson);
+  const patch=normalizePartnerProfilePatch(row.resourceType,stored,base,Boolean(row.mediaAssetId||galleryMediaIds.length),row.directoryCategory);
+  const gallery=await publishPartnerGalleryMedia({
+    database,ids:galleryMediaIds,accountId:row.accountId,
+    folder:row.resourceType==="HELP_ORGANIZATION"?"help":"directory",
+  });
+  const existingGallery=Array.isArray(patch.galleryUrls)?patch.galleryUrls:canonical.values.galleryUrls;
+  if(!Array.isArray(existingGallery)||existingGallery.length+gallery.length>PROFILE_GALLERY_LIMIT){
+    throw new PartnerProfileChangeError("Počet fotografií v galérii prekračuje limit.",409);
+  }
+  const effectivePatch:PartnerProfilePatch=gallery.length?{
+    ...patch,galleryUrls:[...existingGallery,...gallery.map(item=>item.imageUrl)],
+  }:patch;
   const media=await publishPartnerSubmissionMedia({
     submissionId:input.id,database,publicFolder:row.resourceType==="HELP_ORGANIZATION"?"help":"directory",
   });
-  const changedFields=[...Object.keys(patch),...(media?["image"]:[])];
+  const changedFields=[...new Set([...Object.keys(effectivePatch),...(media?["image"]:[])])];
   const now=input.now??new Date();
   const nowIso=now.toISOString();
 
-  const canonicalStatements:D1PreparedStatement[]=Object.keys(patch).length
+  const canonicalStatements:D1PreparedStatement[]=Object.keys(effectivePatch).length
     ? row.resourceType==="DIRECTORY_PROFILE"
-      ? [buildDirectoryApplyStatement(database,canonical,patch,actorRef,nowIso,input.id)]
-      : buildHelpApplyStatements(database,canonical,patch,actorRef,nowIso,input.id)
+      ? [buildDirectoryApplyStatement(database,canonical,effectivePatch,actorRef,nowIso,input.id)]
+      : buildHelpApplyStatements(database,canonical,effectivePatch,actorRef,nowIso,input.id)
     : [];
   if(media)canonicalStatements.push(imageApplyStatement(database,{
     resourceType:row.resourceType,canonicalId:canonical.canonicalId,submissionId:input.id,
@@ -345,6 +363,7 @@ export async function approvePartnerProfileChangeAdmin(input:{
     extraStatements:[
       ...canonicalStatements,
       terminalPartnerMediaStatement({database,submissionId:input.id,state:"APPROVED",nowIso,actorRef,publicKey:media?.imageKey??null}),
+      ...terminalPartnerGalleryMediaStatements({database,submissionId:input.id,ids:galleryMediaIds,state:"APPROVED",nowIso,actorRef,publicKeys:new Map(gallery.map(item=>[item.id,item.imageKey]))}),
       terminalMetadataStatement(database,input.id,"APPROVED",nowIso,actorRef),
       auditStatement(database,{
         id:input.id,accountId:row.accountId,action:"PROFILE_CHANGE_APPROVED",nowIso,actorRef,
@@ -399,7 +418,8 @@ export async function rejectPartnerProfileChangeAdmin(input:{
   row=await rawAdminRow(input.id,database);
   if(!row||row.status!=="PENDING_REVIEW")throw new PartnerProfileChangeError("Stav návrhu sa medzičasom zmenil.",409);
   const patch=safePatch(row.proposedPatchJson,row.resourceType);
-  const changedFields=[...Object.keys(patch),...(row.mediaAssetId?["image"]:[])];
+  const galleryMediaIds=partnerGalleryMediaIdsFromStoredPatch(row.proposedPatchJson);
+  const changedFields=[...new Set([...Object.keys(patch),...(galleryMediaIds.length?["galleryUrls"]:[]),...(row.mediaAssetId?["image"]:[])])];
   const now=input.now??new Date();
   const nowIso=now.toISOString();
 
@@ -416,6 +436,7 @@ export async function rejectPartnerProfileChangeAdmin(input:{
     now:nowIso,
     extraStatements:[
       terminalPartnerMediaStatement({database,submissionId:input.id,state:"REJECTED",nowIso,actorRef}),
+      ...terminalPartnerGalleryMediaStatements({database,submissionId:input.id,ids:galleryMediaIds,state:"REJECTED",nowIso,actorRef}),
       terminalMetadataStatement(database,input.id,"REJECTED",nowIso,actorRef),
       auditStatement(database,{
         id:input.id,accountId:row.accountId,action:"PROFILE_CHANGE_REJECTED",nowIso,actorRef,
