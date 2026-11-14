@@ -90,8 +90,16 @@ export function clearSiteAnalyticsSessionStorage(storage: Pick<Storage, "removeI
   catch { /* Storage can be disabled. */ }
 }
 
+/** Aggregate-only pageview does not require consent or identity storage. */
+export function anonymousSitePageview(path: string, referrer: string, origin: string) {
+  return {
+    path,
+    source: classifySiteTrafficSource(referrer, origin),
+  };
+}
+
 export async function sendSiteAnalyticsPageview(
-  payload: NonNullable<ReturnType<typeof reserveSiteAnalyticsVisit>>,
+  payload: NonNullable<ReturnType<typeof reserveSiteAnalyticsVisit>> | ReturnType<typeof anonymousSitePageview>,
   fetchImpl: typeof fetch = fetch,
 ) {
   try {
