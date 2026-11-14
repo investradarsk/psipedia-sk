@@ -647,9 +647,9 @@ export function AdminGeminiAutomationSettings({
   }
 
   return (
-    <div className={styles.dashboard}>
+    <div className={styles.dashboard} data-admin-content-module="gemini-automation">
       {refreshError && <p role="status" className={styles.warning}>{refreshError}</p>}
-      <section className={styles.panel} aria-labelledby="gemini-main-stop-title">
+      <section className={styles.panel} aria-labelledby="gemini-main-stop-title" data-admin-gemini-global-stop>
         <div className={styles.panelHeader}>
           <h2 id="gemini-main-stop-title">Hlavný STOP Gemini</h2>
           <strong role="status">{!liveControl ? "Stav nedostupný — spúšťanie blokované"
@@ -671,7 +671,7 @@ export function AdminGeminiAutomationSettings({
         </button>
         {controlError && <p role="alert" className={styles.warning}>{controlError}</p>}
       </section>
-      <div className={styles.metrics} aria-label="Súhrn Gemini automatizácií">
+      <div className={styles.metrics} aria-label="Súhrn Gemini automatizácií" data-admin-automation-metrics>
         <div className={styles.metric}>
           <small>Plánovač Gemini</small>
           <strong>{!globalRunning ? "Hlavný STOP aktívny" : scheduledEnabled ? "Plánovač povolený" : "Plánovač vypnutý"}</strong>
@@ -708,7 +708,7 @@ export function AdminGeminiAutomationSettings({
         <span className={styles.allConceptsCtaAction} aria-hidden="true">Otvoriť všetky →</span>
       </Link>
 
-      <div className={styles.workGrid}>
+      <div className={styles.workGrid} data-admin-automation-workspace>
         <div className={styles.column}>
           <section className={styles.panel} aria-labelledby="gemini-category-title">
             <div className={styles.panelHeader}>
