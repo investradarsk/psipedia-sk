@@ -335,7 +335,7 @@
 .priorityGrid, .splitGrid { gap: 9px; }
 .metricCard { min-height: 142px; gap: 8px; padding: 13px 14px; border-radius: 13px; box-shadow: 0 3px 12px rgba(23, 53, 43, .045); }
 .metricValue { gap: 7px; flex-wrap: wrap; }
-.metricValue strong { font-family: inherit; font-size: clamp(1.6rem, 2.5vw, 2.1rem); font-weight: 800; line-height: 1.05; }
+.metricValue strong { font-family: inherit; font-size: var(--admin-ui-type-stat, clamp(1.6rem, 2.5vw, 2.1rem)); font-weight: 800; line-height: 1.05; }
 .metricCard p { line-height: 1.4; }
 .metricCard b { margin-top: 2px; }
 .queueGrid { gap: 7px; }
