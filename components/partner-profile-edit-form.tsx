@@ -3,6 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import type { PartnerProfileChangeResourceType, PartnerProfileEditableValue, PartnerProfileFieldDefinition } from "@/lib/partner-profile-changes";
 import { PartnerMediaField } from "@/components/partner-media-field";
+import { PartnerGalleryField } from "@/components/partner-gallery-field";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 import { DirectoryCategoryFilterFields } from "@/components/directory-category-filter-fields";
 import { buildDirectoryCategoryFilterPatch } from "@/lib/directory-category-filter-editor";
@@ -48,6 +49,8 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
   const [state, setState] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [mediaAssetId, setMediaAssetId] = useState<string|null>(null);
+  const [galleryUrls, setGalleryUrls] = useState<string[]>(Array.isArray(values.galleryUrls) ? values.galleryUrls : []);
+  const [galleryMediaIds, setGalleryMediaIds] = useState<string[]>([]);
   const useSlovakLocation = resourceType === "DIRECTORY_PROFILE"
     || (resourceType === "HELP_ORGANIZATION" && String(draft.countryCode ?? "").trim().toUpperCase() === "SK");
 
@@ -55,16 +58,20 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
     event.preventDefault();
     const patch: Record<string, unknown> = {};
     for (const field of fields) {
+      if (field.key === "galleryUrls") continue;
       const before = apiValue(field, initial[field.key]);
       const after = apiValue(field, draft[field.key]);
       if (JSON.stringify(before) !== JSON.stringify(after)) patch[field.key] = after;
+    }
+    if (JSON.stringify(galleryUrls) !== JSON.stringify(Array.isArray(values.galleryUrls) ? values.galleryUrls : [])) {
+      patch.galleryUrls = galleryUrls;
     }
     if (filterCategory) {
       // Existing values and invalid/unresolved originals remain untouched unless explicitly changed.
       const filterPatch = buildDirectoryCategoryFilterPatch(filterCategory, values, filterChanges);
       Object.assign(patch, filterPatch.updates);
     }
-    if (!Object.keys(patch).length && !mediaAssetId) {
+    if (!Object.keys(patch).length && !mediaAssetId && !galleryMediaIds.length) {
       setState("error");
       setMessage("Nezmenili ste žiadny údaj.");
       return;
@@ -75,7 +82,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
       const response = await fetch("/api/partner/profile-changes", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ resourceId, baseRevision, patch, mediaAssetId }),
+        body: JSON.stringify({ resourceId, baseRevision, patch, mediaAssetId, galleryMediaIds }),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Návrh sa nepodarilo odoslať.");
@@ -91,6 +98,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
     <form className="partner-profile-edit-form" data-partner-edit-ready={hydrated} onSubmit={submit}>
       <div className="partner-profile-edit-grid">
         {fields.map((field) => {
+          if (field.key === "galleryUrls") return null;
           const value = draft[field.key] ?? "";
           if ((field.key === "district" || field.key === "region") && useSlovakLocation) return null;
           if (field.key === "city" && useSlovakLocation) {
@@ -176,7 +184,10 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
           idPrefix="partner-directory"
         />
       ) : null}
-      <PartnerMediaField label="Navrhnúť zmenu obrázka" intent="PARTNER_PROFILE_UPDATE" currentImageUrl={currentImageUrl} onChange={setMediaAssetId} disabled={state==="success"}/>
+      <PartnerMediaField label="Zmeniť hlavnú / profilovú fotografiu" intent="PARTNER_PROFILE_UPDATE" currentImageUrl={currentImageUrl} onChange={setMediaAssetId} disabled={state==="success"}/>
+      <PartnerGalleryField initialUrls={Array.isArray(values.galleryUrls) ? values.galleryUrls : []}
+        onChangeUrls={setGalleryUrls} onChangeMediaIds={setGalleryMediaIds}
+        disabled={state==="success" || state==="sending"} />
       <div className="partner-profile-edit-submit">
         <div>
           <strong>Žiadna zmena sa nezverejní okamžite.</strong>
