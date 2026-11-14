@@ -8,6 +8,7 @@ import { listBuiltinCatalogOverrides } from "@/lib/service-catalog-builtin-overr
 import { catalogEditorItems, eligibleProfileServiceItems } from "@/lib/service-catalog-admin-editor-view";
 import { serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
+import { AdminRecordViewStats } from "@/components/admin-record-view-stats";
 import { AdminDirectoryNotionSyncStatus } from "@/components/admin-directory-notion-sync-status";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
@@ -94,6 +95,9 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
     </>}>
     <AdminGeminiOriginBadge agenda="directory" entityId={profile.id} />
     <Suspense fallback={null}><DirectoryDuplicateWarning id={profile.id} /></Suspense>
+    <Suspense fallback={null}>
+      <AdminRecordViewStats entityType="DIRECTORY_PROFILE" entityId={profile.id} />
+    </Suspense>
     <AdminDirectoryEditor profile={profile} />
     <Suspense fallback={null}><AdminDirectoryNotionSyncStatus profileId={profile.id} /></Suspense>
     {isServiceCategory && <Suspense fallback={<p role="status">Načítavam hodnoty služieb…</p>}>
