@@ -106,9 +106,16 @@ function SectionContentList({
     );
   }
   return (
-    <PublicContentList label={label} className={styles.contentList}>
+    <PublicContentList
+      label={label}
+      className={articles.length === 1 ? `${styles.contentList} ${styles.singleArticleList}` : styles.contentList}
+    >
       {articles.slice(0, limit).map((article) => (
-        <ArticleListItem article={article} desktopLayout="stacked" key={article.slug} />
+        <ArticleListItem
+          article={article}
+          desktopLayout={articles.length === 1 ? undefined : "stacked"}
+          key={article.slug}
+        />
       ))}
     </PublicContentList>
   );
@@ -533,11 +540,13 @@ export async function EditorialSectionHub({
                               </p>
                             )}
                           </div>
-                          <div className={styles.topicGroupFooter}>
-                            <PublicActionLink href={href} variant="tertiary" icon={<ArrowIcon />}>
-                              Všetky články z oblasti
-                            </PublicActionLink>
-                          </div>
+                          {related.length > 0 ? (
+                            <div className={styles.topicGroupFooter}>
+                              <PublicActionLink href={href} variant="tertiary" icon={<ArrowIcon />}>
+                                Všetky články z oblasti
+                              </PublicActionLink>
+                            </div>
+                          ) : null}
                         </section>
                       );
                     })}
