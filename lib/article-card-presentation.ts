@@ -1,6 +1,7 @@
 import type { ArticleListingCard } from "./content";
 import { getNewsCategory } from "./news.ts";
 import { articleHref, articlePortalSection, portalSectionLabel } from "./portal.ts";
+import { articleCategoryHref } from "./article-category-routes.ts";
 
 /** Editorial section is canonical for public badges; a broad topic is only fallback. */
 const editorialSectionHrefs = {
@@ -9,7 +10,6 @@ const editorialSectionHrefs = {
   aktivity: "/aktivity",
   recenzie: "/recenzie",
 } as const;
-import { articleCategoryHref } from "./article-category-routes.ts";
 
 export function articleTopicLabel(
   article: Pick<ArticleListingCard, "category" | "portalSection" | "newsCategory">,
