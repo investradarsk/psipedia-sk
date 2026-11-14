@@ -25,6 +25,14 @@
   --admin-ui-section-gap: 0.625rem;
   --admin-ui-editor-field-gap: 0.5rem;
   --admin-ui-panel-padding: 0.75rem;
+  /* Shared control and feedback geometry; behavior remains component-owned. */
+  --admin-ui-control-padding-block: 0.55rem;
+  --admin-ui-control-padding-inline: 0.75rem;
+  --admin-ui-control-height: 44px;
+  --admin-ui-feedback-space: var(--admin-ui-space-sm);
+  --admin-ui-error-text: #842f35;
+  --admin-ui-error-border: #e9b5b2;
+  --admin-ui-error-background: #fff3f2;
   --admin-ui-text: var(--admin-v3-ink, #142c21);
   --admin-ui-muted: var(--admin-v3-muted, #607568);
   --admin-ui-border: var(--admin-v3-line, #e3eae5);
