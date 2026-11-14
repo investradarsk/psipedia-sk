@@ -296,9 +296,7 @@ export function DirectoryProfileDetail({
   // duplicates the long description in the “O službe” section.
   const hasExtendedDescription = Boolean(presentation.description?.trim());
 
-  const breederGallery = presentation.category === "chovatelske-stanice"
-    ? (presentation.galleryUrls ?? []).filter((url) => url && url !== presentation.imageUrl)
-    : [];
+  const profileGallery = (presentation.galleryUrls ?? []).filter((url) => url && url !== presentation.imageUrl);
 
   const blocks = [
     {
@@ -436,13 +434,13 @@ export function DirectoryProfileDetail({
       ) : null,
     },
     {
-      key: "breeder-gallery",
+      key: "profile-gallery",
       column: "main" as const,
-      content: breederGallery.length ? (
+      content: profileGallery.length ? (
         <DetailSection compactHeading eyebrow="Fotografie" title="Galéria">
           <PublicPhotoGallery
-            label={`Fotografie chovateľskej stanice ${presentation.name}`}
-            images={breederGallery.map((src, index) => ({
+            label={`Fotografie profilu ${presentation.name}`}
+            images={profileGallery.map((src, index) => ({
               src,
               alt: `${presentation.name} – fotografia ${index + 1}`,
             }))}
