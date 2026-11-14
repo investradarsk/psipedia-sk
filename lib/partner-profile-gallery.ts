@@ -2,7 +2,7 @@ import {
   DIRECTORY_BREEDER_GALLERY_KEY,
   DIRECTORY_BREEDER_GALLERY_LIMIT,
   readDirectoryBreederGallery,
-} from "./directory-breeder-gallery";
+} from "./directory-breeder-gallery.ts";
 
 export const PROFILE_GALLERY_KEY = "_psipedia_profile_gallery_urls";
 export const PROFILE_GALLERY_LIMIT = DIRECTORY_BREEDER_GALLERY_LIMIT;
