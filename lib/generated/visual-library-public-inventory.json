@@ -208,6 +208,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/dognet-test-banner.tsx",
+      "coverage": "nonvisual"
+    },
+    {
       "path": "components/editorial-rich-text.tsx",
       "coverage": "needs-preview"
     },
