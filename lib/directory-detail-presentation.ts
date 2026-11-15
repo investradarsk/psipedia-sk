@@ -130,6 +130,42 @@ const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
   ],
 };
 
+/** All public legacy detail fields that can be edited without touching canonically
+ * linked breeds/clubs or the separate Services V3 choices. */
+const DIRECTORY_LEGACY_EXTRA_KEYS = [
+  "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie",
+  "Otváracie hodiny", "Ordinačné hodiny", "Otváracia doba",
+  "Ordinačná doba", "Pracovná doba",
+] as const;
+const DIRECTORY_LEGACY_FACT_ALREADY_EDITED = new Set([
+  "Organizácia", "Zastrešujúca organizácia", "Zameranie",
+]);
+
+export const DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: readonly string[] = [
+  ...new Set([
+    ...Object.values(detailFields).flat(),
+    ...relationFields,
+    ...DIRECTORY_LEGACY_EXTRA_KEYS,
+  ]),
+].filter(key => !DIRECTORY_LEGACY_FACT_ALREADY_EDITED.has(key));
+
+/** Current category inputs plus any populated out-of-category public legacy fact.
+ * Never offer arbitrary source_data_json keys as public-editor fields. */
+export function directoryLegacyEditableFactKeys(
+  profile: Pick<PublicDirectoryProfile, "category" | "importData">,
+): string[] {
+  const base = detailFields[profile.category] ?? [];
+  const populated = DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.filter(
+    key => Object.hasOwn(profile.importData ?? {}, key),
+  );
+  const relationBasics = ["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)
+    ? ["Plemeno", "Plemená", "FCI skupina"] : [];
+  return [...new Set([...base, ...relationBasics, ...populated])]
+    .filter(key =>
+      DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.includes(key) &&
+      !DIRECTORY_LEGACY_EXTRA_KEYS.slice(3).includes(key as typeof DIRECTORY_LEGACY_EXTRA_KEYS[number]));
+}
+
 function importedValue(profile: Pick<PublicDirectoryProfile, "importData">, ...keys: string[]) {
   for (const key of keys) {
     const value = profile.importData?.[key];
@@ -160,8 +196,6 @@ export function publicDirectoryDetailUrl(value: string | null | undefined) {
   }
 }
 
-/** Exact legacy D1 fields that can surface as public Directory facts.
- * Reused by the public renderer and the Admin provenance preview: no second mapping. */
 /** The exact first legacy opening-hours field read by the public detail.
  * A different field in Admin may be blank even while public hours are visible. */
 export function directoryLegacyOpeningHoursSource(
@@ -179,6 +213,8 @@ export function directoryLegacyOpeningHoursSource(
   return null;
 }
 
+/** Exact legacy D1 fields that can surface as public Directory facts.
+ * Reused by the public renderer and Admin provenance preview. */
 export function directoryLegacyPublicFactSources(
   profile: Pick<PublicDirectoryProfile, "category" | "importData">,
 ): Array<DirectoryDetailFact & { sourceKey: string }> {
