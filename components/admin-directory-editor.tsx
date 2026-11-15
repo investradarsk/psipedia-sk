@@ -624,7 +624,8 @@ export function AdminDirectoryEditor({
           ...(Object.keys(pilotMetadataFields).length
             ? { pilotMetadataFields, pilotMetadataOriginalValues } : {}),
           name, slug, category,
-          ...(additionalCategoriesTouched || !profile ? { additionalCategories } : {}),
+          // The full form includes unchanged secondary-category selections too.
+          additionalCategories,
           status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription,
           services: profile && isDirectoryEventPilotCategory(profile.category)
             ? profile.services : listFromText(services),
