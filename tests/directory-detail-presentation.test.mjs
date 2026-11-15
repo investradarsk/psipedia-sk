@@ -5,6 +5,7 @@ import {
   formatDirectoryUpdatedAt,
   getDirectoryDetailPresentation,
   directoryLegacyPublicFactSources,
+  directoryLegacyOpeningHoursSource,
   getDirectoryQuickFacts,
   publicDirectoryDetailUrl,
   usefulDirectoryDetailValue,
@@ -566,4 +567,19 @@ test("Admin provenance uses the exact same legacy facts as the public detail", (
   ]);
   assert.equal(sources.some(fact => fact.label === "Aktívny chov"), false);
   assert.equal(sources.some(fact => fact.label === "Údaj mimo verejného detailu"), false);
+});
+
+test("Admin exposes the exact public opening-hours source, including old aliases", () => {
+  const source = profile({
+    importData: {
+      "Otváracia doba": "Pondelok: 8:00–16:00",
+      "Pracovná doba": "Utorok: 9:00–17:00",
+    },
+  });
+  assert.deepEqual(directoryLegacyOpeningHoursSource(source), {
+    sourceKey: "Otváracia doba",
+    value: "Pondelok: 8:00–16:00",
+  });
+  assert.equal(getDirectoryDetailPresentation(source).openingHours, "Pondelok: 8:00–16:00");
+  assert.equal(directoryLegacyOpeningHoursSource(profile()), null);
 });
