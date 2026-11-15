@@ -18,7 +18,7 @@ import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-ver
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
 import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "@/lib/directory-public-facts";
 import { directoryLegacyEditableFactKeys } from "@/lib/directory-detail-presentation";
-import { directoryContactValueMismatches, preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
+import { directoryContactValueMismatches, nonemptyDirectoryContactsForReconfirmation, preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -197,7 +197,12 @@ export async function PUT(request: Request, { params }: Props) {
     // An explicit owner save from the Contacts tab may re-confirm contact values
     // already present in D1 but missing in Notion. This never expands the
     // full-form D1 write or resynchronizes unrelated fields.
+    // Treat client confirmation as a request, not permission to overwrite all
+    // Notion contacts. Old browser bundles may still send it during a Facebook
+    // edit. Only a truly unchanged form may request reconciliation.
     const confirmContactSync = rawConfirmContactSync === true && editedPaths !== null &&
+      editedPaths.length === 0 && Array.isArray(rawContactEditedFields) &&
+      rawContactEditedFields.length === 0 &&
       submittedBody.category === before.category && before.status !== "archived";
     // An explicit empty contact field is a deletion, not an omitted field in
     // an old editor. Only whitelisted, expressly edited contacts qualify.
@@ -550,7 +555,11 @@ export async function PUT(request: Request, { params }: Props) {
             breederAdminFields: isDirectoryFieldEventCategory(before.category)
               ? [...new Set<BreederEditorialField>([
                   ...(editedPaths ?? breederEditedFields(before, profile)),
-                  ...(confirmContactSync ? DIRECTORY_CONTACT_EDITORIAL_PATHS : []),
+                  // An absent D1 contact must never be pushed as an implicit
+                  // Notion deletion. Explicit edits/clears use editedPaths.
+                  ...nonemptyDirectoryContactsForReconfirmation(
+                    expectedContactValues, confirmContactSync, editedPaths ?? [],
+                  ),
                 ])] : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
