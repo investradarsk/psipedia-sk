@@ -1287,6 +1287,15 @@ const breederContactJsonNames: Partial<Record<BreederEditorialField, string>> = 
   publicPhone: "Telefón", publicEmail: "E-mail",
   websiteUrl: "Web", facebookUrl: "Facebook", instagramUrl: "Instagram",
 };
+// Historical import spellings are read for compatibility, but an explicit
+// field edit must retire every competing spelling of THAT contact only.
+const breederContactAliases: Partial<Record<BreederEditorialField, readonly string[]>> = {
+  publicPhone: ["Telefón", "Telefon", "phone"],
+  publicEmail: ["E-mail", "Email", "email"],
+  websiteUrl: ["Web", "Webstránka"],
+  facebookUrl: ["Facebook"],
+  instagramUrl: ["Instagram"],
+};
 const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
   "seo.title": "title", "seo.description": "description",
   "seo.focusKeyword": "focusKeyword", "seo.canonicalUrl": "canonicalUrl",
@@ -1378,10 +1387,20 @@ async function saveBreederEditorialValue(
     assignments.push("address_format = ?");
     params.push(value);
   } else if (contact) {
-    // source_data_json also carries unrelated original import metadata.
-    // JSON_SET mutates only the named contact and preserves all other keys.
-    assignments.push("source_data_json = json_set(COALESCE(source_data_json, '{}'), ?, ?)");
-    params.push('$."' + contact + '"', value);
+    // A signed edit is authoritative for only this contact. Removing its
+    // historical aliases prevents a stale "Telefon"/"Email"/"Webstránka"
+    // from reappearing when the new value is cleared. Preserve every other
+    // source_data_json key, including relations and category metadata.
+    const aliases = breederContactAliases[path];
+    if (!aliases?.length) throw new Error("DIRECTORY_CONTACT_ALIAS_MAPPING_MISSING");
+    const removed = "json_remove(COALESCE(source_data_json, '{}'), " +
+      aliases.map(alias => "'$.\"" + alias + "\"'").join(", ") + ")";
+    if (value) {
+      assignments.push("source_data_json = json_set(" + removed + ", ?, ?)");
+      params.push('$."' + contact + '"', value);
+    } else {
+      assignments.push("source_data_json = " + removed);
+    }
     if (path === "websiteUrl") {
       assignments.push("website_url = ?");
       params.push(value);
