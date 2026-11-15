@@ -14,6 +14,7 @@ import { DIRECTORY_CONTACT_SAVE_FIELDS, type DirectoryContactSaveField } from "@
 import { changedTrainerTrustAdminFields } from "@/lib/notion-trainer-trust-fields";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
+import { directoryPublicEditorFieldLabels, readDirectoryPublicMetadataValue } from "@/lib/directory-public-facts";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
@@ -219,12 +220,21 @@ export function AdminDirectoryEditor({
     const value = profile?.importData?.[key];
     return typeof value === "string" ? value : "";
   };
-  const [pilotOpeningHours, setPilotOpeningHours] = useState(pilotMetadataText("Ordinačné hodiny"));
+  const [pilotOpeningHours, setPilotOpeningHours] = useState(readDirectoryPublicMetadataValue(profile?.importData, "Ordinačné hodiny"));
   const [pilotDataSources, setPilotDataSources] = useState(pilotMetadataText("Zdroj dát"));
   const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
   const [pilotImageAlt, setPilotImageAlt] = useState(pilotMetadataText("Alt text obrázka"));
-  const [publicOrganization, setPublicOrganization] = useState(Object.hasOwn(profile?.importData ?? {}, "Organizácia") ? pilotMetadataText("Organizácia") : pilotMetadataText("Zastrešujúca organizácia"));
+  const [publicOrganization, setPublicOrganization] = useState(readDirectoryPublicMetadataValue(profile?.importData, "Organizácia"));
   const [publicFocus, setPublicFocus] = useState(pilotMetadataText("Zameranie"));
+  // The public fact registry is shared with the public profile renderer.
+  // A previously imported fact must never be visible only outside Admin.
+  const [publicFacts, setPublicFacts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      directoryPublicEditorFieldLabels(category).map(field => [
+        field, readDirectoryPublicMetadataValue(profile?.importData, field),
+      ]),
+    ),
+  );
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
   // An explicit remove action must survive a stale full-form save; null alone
   // could merely be the old value of a never-edited image field.
@@ -544,11 +554,10 @@ export function AdminDirectoryEditor({
           ["Alt text obrázka", pilotImageAlt],
           ["Organizácia", publicOrganization],
           ["Zameranie", publicFocus],
+          ...Object.entries(publicFacts).filter(([key]) =>
+            directoryPublicEditorFieldLabels(category).includes(key)),
         ]) {
-          const canonicalValue = breederBaseline?.importData?.[key];
-          const value = key === "Organizácia" && !Object.hasOwn(breederBaseline?.importData ?? {}, key)
-            ? breederBaseline?.importData?.["Zastrešujúca organizácia"] : canonicalValue;
-          const baseline = typeof value === "string" ? value : "";
+          const baseline = readDirectoryPublicMetadataValue(breederBaseline?.importData, key);
           if (current.trim() !== baseline.trim())
             pilotMetadataFields[key] = current.trim();
         }
@@ -757,11 +766,16 @@ export function AdminDirectoryEditor({
             const value = savedProfile.importData?.[key];
             return typeof value === "string" ? value : "";
           };
-          setPilotOpeningHours(storedText("Ordinačné hodiny"));
+          setPilotOpeningHours(readDirectoryPublicMetadataValue(savedProfile.importData, "Ordinačné hodiny"));
           setPilotDataSources(storedText("Zdroj dát"));
           setPilotImageSource(storedText("Zdroj obrázka"));
           setPilotImageAlt(storedText("Alt text obrázka"));
-          setPublicOrganization(Object.hasOwn(savedProfile.importData ?? {}, "Organizácia") ? storedText("Organizácia") : storedText("Zastrešujúca organizácia"));
+          setPublicOrganization(readDirectoryPublicMetadataValue(savedProfile.importData, "Organizácia"));
+          setPublicFacts(Object.fromEntries(
+            directoryPublicEditorFieldLabels(savedProfile.category).map(field => [
+              field, readDirectoryPublicMetadataValue(savedProfile.importData, field),
+            ]),
+          ));
           setPublicFocus(storedText("Zameranie"));
         }
         }
@@ -1103,6 +1117,28 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
             <div className="admin-field"><label htmlFor="directory-public-organization">Organizácia <small>nepovinné</small></label><input id="directory-public-organization" value={publicOrganization} onChange={(event) => { setPublicOrganization(event.target.value); setFormDirty(true); }} placeholder="Napríklad: ZŠK SR" /><small>Verejný údaj z pôvodného profilu; ostatné importované informácie zostávajú zachované.</small></div>
             <div className="admin-field"><label htmlFor="directory-public-focus">Zameranie <small>nepovinné</small></label><input id="directory-public-focus" value={publicFocus} onChange={(event) => { setPublicFocus(event.target.value); setFormDirty(true); }} placeholder="Napríklad: športová kynológia, výcvik a skúšky" /></div>
+            {profile && !notionDraft ? (
+              <details className="admin-form-card" data-directory-public-facts>
+                <summary>Ďalšie verejné informácie ({directoryPublicEditorFieldLabels(category).length} polí)</summary>
+                <p>Údaje, ktoré verejný profil skutočne zobrazuje. Úprava jedného poľa nemení ostatné údaje ani prepojené služby V3.</p>
+                <div className="admin-field-grid">
+                  {directoryPublicEditorFieldLabels(category).map(field => (
+                    <div className="admin-field" key={field}>
+                      <label htmlFor={`directory-public-fact-${field}`}>{field}</label>
+                      <input
+                        id={`directory-public-fact-${field}`}
+                        type="text"
+                        value={publicFacts[field] ?? readDirectoryPublicMetadataValue(profile.importData, field)}
+                        onChange={event => {
+                          setPublicFacts(previous => ({ ...previous, [field]: event.target.value }));
+                          setFormDirty(true);
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
             <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={9} value={description} onChange={(event) => { setDescription(event.target.value); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} /><AdminLexicalAppendButton onAppend={text=>{ setDescription(current => appendLexicalPlainText(current,text)); setFormDirty(true); }}/></div>
             <AdminHelpText term="Formát">Perex a Popis sa ukladajú ako obyčajný text, rovnako ako pri Podujatiach. Prázdne riadky zostávajú zachované.</AdminHelpText>
             <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
