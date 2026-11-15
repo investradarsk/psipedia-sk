@@ -2,6 +2,7 @@ import { directoryQualificationSections } from "./directory-public-copy.ts";
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { detailFields, relationFields, readDirectoryPublicMetadataValue } from "./directory-public-facts";
 import { publicLocationValue } from "./public-location.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
@@ -62,80 +63,8 @@ export type DirectoryQuickFact = {
 };
 
 const unavailableValue = /^(?:neoveren[eé]|nezisten[eé]|neuveden[eé]|n\/a|nie je uveden[eé])$/i;
-const relationFields = [
-  "Plemeno",
-  "Plemená",
-  "FCI skupina",
-  "Organizácia",
-  "Zastrešujúca organizácia",
-] as const;
-
-const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
-  veterinari: ["Špecializácie", "Pohotovosť", "Hospitalizácia", "RTG", "USG", "Laboratórium"],
-  treneri: [
-    "Individuálny výcvik",
-    "Skupinový výcvik",
-    "Výcvik šteniat",
-    "Behaviorálne poradenstvo",
-  ],
-  "kynologicke-kluby": [
-    "Typ klubu",
-    "Zameranie",
-    "Organizácia",
-    "Výcvik šteniat",
-    "Individuálny výcvik",
-    "Skupinový výcvik",
-    "Športová kynológia",
-    "Obrany",
-    "Stopy",
-    "Agility",
-    "Rally obedience",
-    "Retriever / poľovnícka kynológia",
-  ],
-  "chovatelske-kluby": [
-    "Plemeno",
-    "Plemená",
-    "FCI skupina",
-    "Organizácia",
-    "Zastrešujúca organizácia",
-  ],
-  "chovatelske-stanice": [
-    "Plemeno",
-    "Plemená",
-    "FCI skupina",
-    "Chovateľ",
-    "Klub",
-    "Aktívny chov",
-    "Aktuálne vrhy",
-    "Plánované vrhy",
-  ],
-  "hotely-a-opatrovanie": ["Hotel", "Opatrovanie", "Denná starostlivosť", "Vyzdvihnutie psa"],
-  vencenie: [
-    "Individuálne venčenie",
-    "Skupinové venčenie",
-    "Venčenie s tréningom",
-    "Šteňatá",
-    "Veľké psy",
-    "Seniori / špeciálne potreby",
-    "Vyzdvihnutie psa",
-    "GPS / foto report",
-    "Typ poskytovateľa",
-  ],
-  "dalsie-sluzby": [
-    "Typ služby",
-    "Pokrytie",
-    "Výjazd ku klientovi",
-    "Celoslovenská dostupnosť",
-    "Orientačná cena",
-  ],
-};
-
-function importedValue(profile: PublicDirectoryProfile, ...keys: string[]) {
-  for (const key of keys) {
-    const value = profile.importData?.[key];
-    if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
-  }
-  return null;
+function importedValue(profile: PublicDirectoryProfile, field: string) {
+  return readDirectoryPublicMetadataValue(profile.importData, field) || null;
 }
 
 export function usefulDirectoryDetailValue(value: string | null | undefined) {
@@ -273,11 +202,7 @@ export function getDirectoryDetailPresentation(
       return value ? [{ label, value }] : [];
     }),
     ...(["Organizácia", "Zameranie"] as const).flatMap(label => {
-      const value = usefulDirectoryDetailValue(label === "Organizácia"
-        ? Object.hasOwn(profile.importData ?? {}, "Organizácia")
-          ? importedValue(profile, "Organizácia")
-          : importedValue(profile, "Zastrešujúca organizácia")
-        : importedValue(profile, label));
+      const value = usefulDirectoryDetailValue(importedValue(profile, label));
       return value ? [{ label, value }] : [];
     }),
   ];
@@ -294,7 +219,7 @@ export function getDirectoryDetailPresentation(
       }
     : null;
   const coverage = usefulDirectoryDetailValue(
-    importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"),
+    importedValue(profile, "Pokrytie"),
   );
   // Do not turn a short-only profile into a duplicate long description.
   const description = profile.description?.trim() || null;
@@ -320,14 +245,7 @@ export function getDirectoryDetailPresentation(
     address: publicAddress,
     priceNote: profile.priceNote,
     openingHours: usefulDirectoryDetailValue(
-      importedValue(
-        profile,
-        "Otváracie hodiny",
-        "Ordinačné hodiny",
-        "Otváracia doba",
-        "Ordinačná doba",
-        "Pracovná doba",
-      ),
+      importedValue(profile, "Ordinačné hodiny"),
     ),
     imageUrl: profile.imageUrl,
     imageAlt: usefulDirectoryDetailValue(importedValue(profile, "Alt text obrázka")),
