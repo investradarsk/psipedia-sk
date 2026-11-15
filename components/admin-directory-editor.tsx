@@ -756,6 +756,12 @@ export function AdminDirectoryEditor({
         }
         if (formEditRevisionRef.current === submittedRevision) setBreederRelationsDirty(false);
       }
+      // Keep the separate Services V3 preview consistent with the committed
+      // legacy service list in this same mounted Admin page. This is UI only:
+      // V3 choices and Notion relations remain independent.
+      window.dispatchEvent(new CustomEvent("psipedia:directory-services-saved", {
+        detail: { profileId: savedProfile.id, services: savedProfile.services },
+      }));
       // Like Events, treat the API's persisted D1 response as the save receipt.
       // The Directory PUT already reloads D1 and rejects unconfirmed edited fields.
       // A second client-side text comparison can report false errors if the
