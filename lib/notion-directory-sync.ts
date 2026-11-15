@@ -1,6 +1,7 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
+import { DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS } from "./directory-detail-presentation";
 import { directoryCategories } from "./directory";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
@@ -1502,13 +1503,17 @@ export async function savePilotDirectoryMetadataField(input: {
   if (currentValue === trimmed &&
       Object.hasOwn(current.importData ?? {}, input.field)) return current;
   const now = new Date().toISOString();
+  const path = '$."' + input.field + '"';
+  const previousRaw = String(current.importData?.[input.field] ?? "");
   const saved = await input.database.prepare(
     "UPDATE directory_profiles SET source_data_json = json_set(" +
       "COALESCE(source_data_json, '{}'), ?, ?), updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND category = ? AND status <> 'archived' " +
-      "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) RETURNING id"
-  ).bind('$."' + input.field + '"', trimmed, now, SYSTEM_ACTOR,
-    input.profileId, input.category, current.updatedAt).first<{ id: number }>();
+      "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) " +
+      "AND COALESCE(CAST(json_extract(source_data_json, ?) AS TEXT), '') = ? RETURNING id"
+  ).bind(path, trimmed, now, SYSTEM_ACTOR,
+    input.profileId, input.category, current.updatedAt, path, previousRaw)
+    .first<{ id: number }>();
   if (!saved) throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
   const next = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!next) throw new Error("DIRECTORY_PILOT_METADATA_RELOAD_FAILED");
