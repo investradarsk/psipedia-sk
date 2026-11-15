@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scopeAdminContactSave, preserveUntouchedDirectoryContacts, directoryContactValueMismatches, DIRECTORY_CONTACT_SAVE_FIELDS } from "../lib/directory-contact-save-contract.ts";
+import { scopeAdminContactSave, preserveUntouchedDirectoryContacts, directoryContactValueMismatches, nonemptyDirectoryContactsForReconfirmation, DIRECTORY_CONTACT_SAVE_FIELDS } from "../lib/directory-contact-save-contract.ts";
 
 const original = {
   websiteUrl: "darcyx", publicPhone: "darcyx", publicEmail: "darcyx",
@@ -135,4 +135,17 @@ test("the post-save receipt fails on ANY unexpectedly lost contact", () => {
   assert.deepEqual(directoryContactValueMismatches(live, { ...live, publicPhone: "" }), ["publicPhone"]);
   assert.deepEqual(directoryContactValueMismatches(live, { ...live, websiteUrl: "" }), ["websiteUrl"]);
   assert.deepEqual(directoryContactValueMismatches(live, live), []);
+});
+
+test("blank D1 contacts cannot be reconfirmed as Notion deletions", () => {
+  const values = {
+    websiteUrl: "", publicPhone: "", publicEmail: "",
+    facebookUrl: "facebook edited earlier", instagramUrl: "",
+  };
+  assert.deepEqual(nonemptyDirectoryContactsForReconfirmation(values, true, []), ["facebookUrl"]);
+  assert.deepEqual(nonemptyDirectoryContactsForReconfirmation(values, true, ["facebookUrl"]), []);
+  assert.deepEqual(nonemptyDirectoryContactsForReconfirmation(values, false, []), []);
+  assert.deepEqual(nonemptyDirectoryContactsForReconfirmation(
+    { ...values, publicPhone: "0900 000 000", websiteUrl: "web.sk" }, true, [],
+  ), ["websiteUrl", "publicPhone", "facebookUrl"]);
 });
