@@ -24,6 +24,8 @@ async function openDirectoryEditorSection(page: Page, label: string) {
 // Keep E2E in sync with the actual compact editor, not a permanently
 // visible button from the retired layout.
 async function openDirectoryAdvancedSettings(page: Page) {
+  // The drawer button is a React action; native details may open before hydration.
+  await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
   const tools = page.locator("[data-admin-directory-secondary-tools]");
   const summary = tools.locator("summary");
   await expect(summary).toBeVisible();
