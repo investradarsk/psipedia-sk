@@ -14,7 +14,7 @@ import { DIRECTORY_CONTACT_SAVE_FIELDS, type DirectoryContactSaveField } from "@
 import { changedTrainerTrustAdminFields } from "@/lib/notion-trainer-trust-fields";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
-import { directoryLegacyPublicFactSources } from "@/lib/directory-detail-presentation";
+import { directoryLegacyPublicFactSources, directoryLegacyOpeningHoursSource } from "@/lib/directory-detail-presentation";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
@@ -211,6 +211,8 @@ export function AdminDirectoryEditor({
   const [numberlessLocalityConfirmed, setNumberlessLocalityConfirmed] = useState(false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? notionDraft?.priceNote ?? "");
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
+  const legacyPublicFacts = profile ? directoryLegacyPublicFactSources(profile) : [];
+  const legacyPublicHours = profile ? directoryLegacyOpeningHoursSource(profile) : null;
   const [websiteUrl, setWebsiteUrl] = useState(profile ? contacts.website : notionDraft?.website ?? "");
   const [publicPhone, setPublicPhone] = useState(profile ? contacts.phone : notionDraft?.phone ?? "");
   const [publicEmail, setPublicEmail] = useState(profile ? contacts.email : notionDraft?.email ?? "");
@@ -1120,12 +1122,12 @@ export function AdminDirectoryEditor({
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
 
-            {profile && directoryLegacyPublicFactSources(profile).length > 0 ? (
+            {profile && (legacyPublicFacts.length > 0 || legacyPublicHours) ? (
               <details className="admin-field" data-directory-public-legacy-facts>
-                <summary><strong>Údaje na verejnom webe z pôvodného importu ({directoryLegacyPublicFactSources(profile).length})</strong></summary>
+                <summary><strong>Údaje na verejnom webe z pôvodného importu ({legacyPublicFacts.length})</strong></summary>
                 <p>Nasledujúce údaje sa na webe zobrazujú aj bez vyplneného samostatného prepojenia. Ide o uložené hodnoty z D1, nie o údaje odvodené z textu „O chovateľovi“. Zobrazenie je iba na kontrolu; nič tu automaticky neprepisujeme.</p>
                 <dl style={{ display: "grid", gap: 8, margin: "12px 0" }}>
-                  {directoryLegacyPublicFactSources(profile).map(({ label, value, sourceKey }) => (
+                  {legacyPublicFacts.map(({ label, value, sourceKey }) => (
                     <div key={label + ":" + sourceKey} style={{ padding: "8px 10px", border: "1px solid var(--admin-border, #d7ddd9)", borderRadius: 8, minWidth: 0 }}>
                       <dt><strong>{label}</strong> <small style={{ display: "block" }}>Pôvodné pole: {sourceKey}</small></dt>
                       <dd style={{ margin: 0, overflowWrap: "anywhere" }}>{value}</dd>
@@ -1137,6 +1139,15 @@ export function AdminDirectoryEditor({
                     </div>
                   ))}
                 </dl>
+                {legacyPublicHours ? (
+                  <p>
+                    <strong>Ordinačné / otváracie hodiny: </strong>{legacyPublicHours.value}
+                    <small style={{ display: "block" }}>Skutočný zdroj na verejnom webe: {legacyPublicHours.sourceKey}</small>
+                    {legacyPublicHours.sourceKey !== "Ordinačné hodiny" ? (
+                      <small>Upozornenie: editor hodín používa pole „Ordinačné hodiny“, ale verejný web číta toto staršie pole. Zmenu hodín treba najprv zosúladiť, aby sa neprepísal nesprávny zdroj.</small>
+                    ) : null}
+                  </p>
+                ) : null}
                 {["chovatelske-stanice", "treneri"].includes(category) ? (
                   <button type="button" onClick={() => setActiveDirectorySection("directory-breeder-links")}>
                     Otvoriť výber plemien a klubov
