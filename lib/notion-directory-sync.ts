@@ -1455,6 +1455,8 @@ export async function savePilotDirectoryMetadataField(input: {
   category: string;
   field: PilotDirectoryMetadataField;
   value: string;
+  /** Admin's original single-field value. Missing for signed Notion events. */
+  expectedValue?: string;
 }): Promise<ManagedDirectoryProfile> {
   if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
       !PILOT_DIRECTORY_METADATA_FIELDS.includes(input.field))
@@ -1465,15 +1467,20 @@ export async function savePilotDirectoryMetadataField(input: {
   const current = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!current || current.category !== input.category || current.status === "archived")
     throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
-  if (String(current.importData?.[input.field] ?? "").trim() === trimmed) return current;
+  const storedValue = String(current.importData?.[input.field] ?? "");
+  if (input.expectedValue !== undefined && storedValue.trim() !== input.expectedValue.trim())
+    throw new Error("DIRECTORY_PILOT_METADATA_STALE_FIELD");
+  if (storedValue.trim() === trimmed) return current;
   const now = new Date().toISOString();
+  const path = '$."' + input.field + '"';
   const saved = await input.database.prepare(
     "UPDATE directory_profiles SET source_data_json = json_set(" +
       "COALESCE(source_data_json, '{}'), ?, ?), updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND category = ? AND status <> 'archived' " +
-      "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) RETURNING id"
-  ).bind('$."' + input.field + '"', trimmed, now, SYSTEM_ACTOR,
-    input.profileId, input.category, current.updatedAt).first<{ id: number }>();
+      "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) " +
+      "AND COALESCE(CAST(json_extract(source_data_json, ?) AS TEXT), '') = ? RETURNING id"
+  ).bind(path, trimmed, now, SYSTEM_ACTOR,
+    input.profileId, input.category, current.updatedAt, path, storedValue).first<{ id: number }>();
   if (!saved) throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
   const next = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!next) throw new Error("DIRECTORY_PILOT_METADATA_RELOAD_FAILED");
