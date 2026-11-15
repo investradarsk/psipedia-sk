@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {AdminActionButton} from "@/components/admin-interaction-system";
 import {EditorActionBar,EditorStatus,EditorUnsavedChangesGuard} from "@/components/admin-editor-workspace";
 import {useAdminEditorNavigationGuard} from "@/components/admin-editor-navigation-guard";
@@ -22,6 +22,15 @@ export function AdminServiceProfileValues({profileId,category,entries,initialCho
   const [saved,setSaved]=useState<Record<string,StoredChoice>>(()=>Object.fromEntries(initialChoices.map(c=>[c.optionId,c])));
   const [draft,setDraft]=useState<Record<string,InputChoice>>({});
   const [query,setQuery]=useState("");
+  const [currentLegacyServices,setCurrentLegacyServices]=useState<readonly string[]>(legacyServices);
+  useEffect(()=>{
+    const update=(event:Event)=>{
+      const detail=(event as CustomEvent<{profileId:number;services:string[]}>).detail;
+      if(detail?.profileId===profileId&&Array.isArray(detail.services))setCurrentLegacyServices(detail.services);
+    };
+    window.addEventListener("psipedia:directory-services-saved",update);
+    return ()=>window.removeEventListener("psipedia:directory-services-saved",update);
+  },[profileId]);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [feedback,setFeedback]=useState<ServiceChoiceSyncFeedback|null>(null);
@@ -34,13 +43,13 @@ export function AdminServiceProfileValues({profileId,category,entries,initialCho
   // Draft choices affect only this preview until the separate V3 save succeeds.
   const publicPreview=useMemo(()=>{
     if(error||!publicProjectionEnabled||!resolvedServices.length)
-      return {services:[...legacyServices],visible:legacyServices.map(label=>({label,source:"legacy" as const})),suppressed:[]};
-    const selected=new Map(Object.entries(saved).map(([id,value])=>[id,value.choice as InputChoice]));
+      return {services:[...currentLegacyServices],visible:currentLegacyServices.map(label=>({label,source:"legacy" as const})),suppressed:[]};
+    const selected=new Map<string,InputChoice>(Object.entries(saved).map(([id,value]):[string,InputChoice]=>[id,value.choice]));
     for(const [id,value] of Object.entries(draft))selected.set(id,value);
     const choices=[...selected.entries()].filter(([,choice])=>choice==="yes"||choice==="no")
       .map(([option_id,choice])=>({option_id,choice}));
-    return projectPublicProfileServices(legacyServices,category,choices,resolvedServices);
-  },[legacyServices,category,resolvedServices,publicProjectionEnabled,error,saved,draft]);
+    return projectPublicProfileServices(currentLegacyServices,category,choices,resolvedServices);
+  },[currentLegacyServices,category,resolvedServices,publicProjectionEnabled,error,saved,draft]);
   const navigation=useAdminEditorNavigationGuard({dirty:changed.length>0});
   async function save(){
     if(!writeEnabled||busy||changed.length===0)return;
@@ -92,7 +101,7 @@ export function AdminServiceProfileValues({profileId,category,entries,initialCho
       {error&&<p className={styles.notice}>Kanonický zoznam sa nepodarilo načítať. Nižšie je iba historický text; nejde o potvrdený verejný výsledok.</p>}
       <ul className={styles.attributeList}>
         {publicPreview.visible.map((item,index)=>(
-          <li key={item.source+":"+(item.source==="catalog"?"optionId" in item?item.optionId:"":item.label)+":"+index}
+          <li key={item.source+":"+item.label+":"+index}
               data-service-provenance={item.source}>
             <strong>{item.label}</strong>
             {" "}
