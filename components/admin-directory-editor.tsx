@@ -599,6 +599,13 @@ export function AdminDirectoryEditor({
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          // One click = re-save the complete visible Admin snapshot, even without
+          // a dirty field. The server refuses a stale snapshot rather than
+          // overwriting changes made in D1 while this editor was open.
+          ...(profile ? {
+            fullProfileSave: true,
+            expectedUpdatedAt: breederBaseline?.updatedAt ?? profile.updatedAt,
+          } : {}),
           ...(breederChangedPaths ? {
             breederEditedPaths: breederChangedPaths,
             // Only these two Lexical text fields have an original value
