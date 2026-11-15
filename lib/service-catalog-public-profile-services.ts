@@ -1,54 +1,96 @@
-/**
- * Read-only public detail projection of canonical Services V3 choices.
- * Keep unrelated legacy editorial labels, but never display a stale
- * canonical label when an explicit D1 YES/NO says otherwise.
- */
+/** Shared, read-only public projection of the two intentionally separate
+ * service channels: historical editorial text and explicit Services V3 IDs.
+ * Both the public detail and the Admin explanation consume this resolver. */
 import {normalizeCatalogLabel} from "./service-catalog-contract.ts";
 import type {ResolvedServiceDefinition} from "./service-catalog-resolved.ts";
 
 export type PublicServiceChoice=Readonly<{option_id:string;choice:string}>;
+export type PublicServiceVisibleItem=Readonly<{
+  label:string;
+  source:"catalog"|"legacy";
+  optionId?:string;
+}>;
+export type PublicServiceSuppressedItem=Readonly<{
+  label:string;
+  reason:"explicit_no"|"catalog_yes"|"different_category"|"duplicate";
+  canonicalName?:string;
+}>;
+export type PublicServiceProjection=Readonly<{
+  services:string[];
+  visible:PublicServiceVisibleItem[];
+  suppressed:PublicServiceSuppressedItem[];
+}>;
 
-/** Only uniquely resolved aliases may be replaced/removed. Ambiguous prose
- * is kept intact instead of guessed as belonging to a different service. */
+/** Never infer an ID or YES/NO from historical prose. Only a uniquely matched
+ * alias and a confirmed V3 choice can override the corresponding old label. */
+export function projectPublicProfileServices(
+  legacy:readonly string[],category:string,
+  choices:readonly PublicServiceChoice[],
+  catalog:readonly ResolvedServiceDefinition[],
+):PublicServiceProjection {
+  const current=new Map(catalog.map(option=>[option.id,option]));
+  const selection=new Map(choices.map(choice=>[choice.option_id,choice.choice]));
+  const aliases=new Map<string,string|null>();
+  for(const option of catalog){
+    for(const name of [option.label,...option.aliases]){
+      const key=normalizeCatalogLabel(name);
+      if(!key)continue;
+      const previous=aliases.get(key);
+      aliases.set(key,previous===undefined?option.id:previous===option.id?option.id:null);
+    }
+  }
+
+  const visible:PublicServiceVisibleItem[]=[];
+  const suppressed:PublicServiceSuppressedItem[]=[];
+  const shownCatalog=new Set<string>(),shownLegacy=new Set<string>();
+  for(const original of legacy){
+    const label=original.trim();
+    if(!label)continue;
+    const normalized=normalizeCatalogLabel(label);
+    const id=aliases.get(normalized);
+    const choice=id?selection.get(id):undefined;
+    const option=id?current.get(id):undefined;
+    if(!id||!option||!["yes","no"].includes(choice??"")){
+      // Ambiguous / unmatched labels stay as editorial prose; a missing choice
+      // is UNKNOWN, not NO. Deduplicate the public display, not stored text.
+      if(shownLegacy.has(normalized)){
+        suppressed.push({label,reason:"duplicate"});
+      } else {
+        visible.push({label,source:"legacy"});
+        shownLegacy.add(normalized);
+      }
+      continue;
+    }
+    if(choice==="no"){
+      suppressed.push({label,reason:"explicit_no",canonicalName:option.label});
+      continue;
+    }
+    if(!option.categories.includes(category)){
+      suppressed.push({label,reason:"different_category",canonicalName:option.label});
+      continue;
+    }
+    if(!shownCatalog.has(id)){
+      visible.push({label:option.label,source:"catalog",optionId:id});
+      shownCatalog.add(id);
+    }
+    suppressed.push({label,reason:"catalog_yes",canonicalName:option.label});
+  }
+  // A confirmed YES must appear even if the old Notion text is missing.
+  for(const {option_id:id,choice} of choices){
+    if(choice!=="yes"||shownCatalog.has(id))continue;
+    const option=current.get(id);
+    if(option?.categories.includes(category)){
+      visible.push({label:option.label,source:"catalog",optionId:id});
+      shownCatalog.add(id);
+    }
+  }
+  return {services:visible.map(item=>item.label),visible,suppressed};
+}
+
 export function canonicalPublicProfileServices(
   legacy:readonly string[],category:string,
   choices:readonly PublicServiceChoice[],
   catalog:readonly ResolvedServiceDefinition[],
 ):string[]{
-  const current=new Map(catalog.map(x=>[x.id,x]));
-  const selection=new Map(choices.map(x=>[x.option_id,x.choice]));
-  const names=new Map<string,string|null>();
-  for(const option of catalog){
-    for(const value of [option.label,...option.aliases]){
-      const key=normalizeCatalogLabel(value);
-      if(!key)continue;
-      const previous=names.get(key);
-      names.set(key,previous===undefined?option.id:previous===option.id?option.id:null);
-    }
-  }
-  const shown=new Set<string>();
-  const result:string[]=[];
-  for(const name of legacy){
-    const id=names.get(normalizeCatalogLabel(name));
-    const state=id?selection.get(id):undefined;
-    if(!id||!state||!["yes","no"].includes(state)){
-      // Notion's historical free text is not proof of a canonical choice.
-      result.push(name);
-      continue;
-    }
-    const option=current.get(id);
-    if(state==="no"||!option?.categories.includes(category))continue;
-    if(!shown.has(id)){result.push(option.label);shown.add(id);}
-  }
-  // An explicit Admin YES must be visible even if the legacy text projection
-  // is pending due to a Notion or D1 compare-and-swap error.
-  for(const {option_id:id,choice} of choices){
-    if(choice!=="yes"||shown.has(id))continue;
-    const option=current.get(id);
-    if(option?.categories.includes(category)){
-      result.push(option.label);
-      shown.add(id);
-    }
-  }
-  return result;
+  return projectPublicProfileServices(legacy,category,choices,catalog).services;
 }
