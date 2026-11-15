@@ -14,6 +14,7 @@ import {
   fciSexMeasurementGroups,
   inspectBreedMeasurement,
   publicBreedMeasurement,
+  publicBreedMeasurementWithSource,
   publicFciDate,
   publicFciSectionName,
 } from "../lib/breed-fci.ts";
@@ -1083,4 +1084,21 @@ test("FCI standard only combines verified identical male/female height AND weigh
     ["Pes"],
   );
   assert.deepEqual(fciSexMeasurementGroups([], []), []);
+});
+
+test("FCI measurement source receipt respects historical values and invalid fallbacks", () => {
+  const fci=["55–60", "53–58"];
+  const historic=publicBreedMeasurementWithSource("57–63 cm","height",fci);
+  assert.deepEqual(historic,{
+    value:"57–63 cm",source:"legacy",legacy:"57–63 cm",fci:"53–60 cm",
+  });
+  const missing=publicBreedMeasurementWithSource("454 cm","height",fci);
+  assert.equal(missing.value,"53–60 cm");
+  assert.equal(missing.source,"fci");
+  const empty=publicBreedMeasurementWithSource("454 cm","height",[]);
+  assert.equal(empty.value,"");
+  assert.equal(empty.source,"none");
+  const weight=publicBreedMeasurementWithSource("","weight",["22–25","24–28"]);
+  assert.equal(weight.value,"22–28 kg");
+  assert.equal(weight.source,"fci");
 });
