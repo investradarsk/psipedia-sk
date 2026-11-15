@@ -14,6 +14,7 @@ import { DIRECTORY_CONTACT_SAVE_FIELDS, type DirectoryContactSaveField } from "@
 import { changedTrainerTrustAdminFields } from "@/lib/notion-trainer-trust-fields";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
+import { directoryLegacyPublicFactSources } from "@/lib/directory-detail-presentation";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
@@ -1118,6 +1119,32 @@ export function AdminDirectoryEditor({
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : category === "fyzioterapia" ? "Odbornosť a skúsenosti" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
+
+            {profile && directoryLegacyPublicFactSources(profile).length > 0 ? (
+              <details className="admin-field" data-directory-public-legacy-facts>
+                <summary><strong>Údaje na verejnom webe z pôvodného importu ({directoryLegacyPublicFactSources(profile).length})</strong></summary>
+                <p>Nasledujúce údaje sa na webe zobrazujú aj bez vyplneného samostatného prepojenia. Ide o uložené hodnoty z D1, nie o údaje odvodené z textu „O chovateľovi“. Zobrazenie je iba na kontrolu; nič tu automaticky neprepisujeme.</p>
+                <dl style={{ display: "grid", gap: 8, margin: "12px 0" }}>
+                  {directoryLegacyPublicFactSources(profile).map(({ label, value, sourceKey }) => (
+                    <div key={label + ":" + sourceKey} style={{ padding: "8px 10px", border: "1px solid var(--admin-border, #d7ddd9)", borderRadius: 8, minWidth: 0 }}>
+                      <dt><strong>{label}</strong> <small style={{ display: "block" }}>Pôvodné pole: {sourceKey}</small></dt>
+                      <dd style={{ margin: 0, overflowWrap: "anywhere" }}>{value}</dd>
+                      {["chovatelske-stanice", "treneri"].includes(category) && (label === "Plemeno" || label === "Plemená" || label === "Klub") ? (
+                        <small>{(label === "Klub" ? breederSelection.clubIds.length : breederSelection.breedIds.length) > 0
+                          ? "Na webe sa prednostne použije uložené prepojenie."
+                          : "Nie je vybrané prepojenie. Verejný profil môže použiť tento pôvodný text."}</small>
+                      ) : null}
+                    </div>
+                  ))}
+                </dl>
+                {["chovatelske-stanice", "treneri"].includes(category) ? (
+                  <button type="button" onClick={() => setActiveDirectorySection("directory-breeder-links")}>
+                    Otvoriť výber plemien a klubov
+                  </button>
+                ) : null}
+              </details>
+            ) : null}
+
             {profile ? (
               <>
                 <div className="admin-field">
