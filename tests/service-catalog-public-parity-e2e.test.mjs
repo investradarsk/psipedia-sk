@@ -9,7 +9,7 @@ import {
 import {
   canonicalPublicServiceWhere,canonicalPublicServiceOptions,
 } from "../lib/service-catalog-public-service-filter.ts";
-import {canonicalPublicProfileServices} from "../lib/service-catalog-public-profile-services.ts";
+import {canonicalPublicProfileServices,projectPublicProfileServices} from "../lib/service-catalog-public-profile-services.ts";
 import {
   saveAdminServiceChoice,resetAdminServiceChoice,
 } from "../lib/service-catalog-admin-store.ts";
@@ -208,4 +208,50 @@ test("the two Notion service properties have isolated write paths",()=>{
  assert.doesNotMatch(relation,/reflectPublicServiceText|ensureCanonicalServiceChoicesInLegacy|projectServiceChoiceToDirectoryNotion/);
  assert.doesNotMatch(route,/projectServiceChoiceToDirectoryNotion|notionProjection/);
  assert.doesNotMatch(bridge,/UPDATE directory_profiles|services_json\s*=|projectServiceChoiceToDirectoryNotion/);
+});
+
+
+test("public and Admin share one provenance-aware Services V3 projection",async()=>{
+  const f=fixture();
+  try {
+    await saveAdminServiceChoice(f.db,{profileId:1,optionId:builtin,choice:"yes",expectedVersion:0},actor);
+    const resolved=await loadResolvedServiceDefinitions(f.db);
+    const historical=["Očkovanie","Historický text","Očkovanie"];
+    const projection=projectPublicProfileServices(historical,"veterinari",chosen(f.sqlite),resolved);
+    assert.deepEqual(projection.services,["Očkovanie","Historický text"]);
+    assert.deepEqual(projection.services,
+      canonicalPublicProfileServices(historical,"veterinari",chosen(f.sqlite),resolved));
+    assert.deepEqual(projection.visible.map(entry=>entry.source),["catalog","legacy"]);
+    assert.ok(projection.suppressed.some(entry=>entry.reason==="catalog_yes"));
+    // Prose stays in D1 after display de-duplication.
+    assert.deepEqual(legacy(f.sqlite),["Očkovanie","Historický text"]);
+
+    const version=chosen(f.sqlite).find(entry=>entry.option_id===builtin);
+    const changed=await saveAdminServiceChoice(f.db,
+      {profileId:1,optionId:builtin,choice:"no",expectedVersion:version.version??1},actor);
+    assert.equal(changed.choice,"no");
+    const hidden=projectPublicProfileServices(historical,"veterinari",chosen(f.sqlite),resolved);
+    assert.deepEqual(hidden.services,["Historický text"]);
+    assert.ok(hidden.suppressed.some(entry=>entry.reason==="explicit_no"));
+    assert.deepEqual(projectPublicProfileServices(historical,"veterinari",[],resolved).services,
+      ["Očkovanie","Historický text"],"unknown is not an implicit NO");
+  }finally{f.close();}
+});
+
+test("Services V3 provenance UI previews public rules without writing through legacy text",()=>{
+  const server=read("app/admin/adresar/[id]/page.tsx");
+  const client=read("components/admin-service-profile-values.tsx");
+  const editor=read("components/admin-directory-editor.tsx");
+  const projection=read("lib/service-catalog-public-profile-services.ts");
+  assert.match(server,/loadResolvedServiceDefinitions\(database\)/);
+  assert.match(server,/legacyServices=\{profile\.services\}/);
+  assert.match(client,/projectPublicProfileServices\(currentLegacyServices,category,choices,resolvedServices\)/);
+  assert.match(client,/data-service-provenance=\{item\.source\}/);
+  assert.match(client,/data-services-v3-public-preview/);
+  assert.match(client,/psipedia:directory-services-saved/);
+  assert.match(editor,/psipedia:directory-services-saved/);
+  assert.match(editor,/Historický text služieb \(nie katalóg V3\)/);
+  assert.match(editor,/href="#directory-services-v3"/);
+  assert.match(projection,/reason:"explicit_no"/);
+  assert.doesNotMatch(client,/UPDATE directory_profiles|services_json =/);
 });
