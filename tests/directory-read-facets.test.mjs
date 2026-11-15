@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { readNonemptyD1Page } from "../lib/perf-d1-page-read.ts";
+import { DIRECTORY_PUBLIC_SOURCE_FACETS, directoryEffectiveDistrictSql } from "../lib/directory-public-source-contract.ts";
 import test from "node:test";
 import {
   directoryLocationFacetStatement,
@@ -10,17 +11,14 @@ import {
 } from "../lib/directory-read-facets.ts";
 
 const store = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
-const districtSql =
-  "COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '')";
+const districtSql = directoryEffectiveDistrictSql();
+// Old DISTINCT and optimized grouped SELECTs are performance variants;
+// they MUST use the same centralized public source precedence contract.
 const source = {
-  breeds:
-    "COALESCE(NULLIF(json_extract(source_data_json, '$.\"Plemeno\"'), ''), NULLIF(json_extract(source_data_json, '$.\"Plemená\"'), ''), '')",
-  fciGroups:
-    "COALESCE(NULLIF(json_extract(source_data_json, '$.\"FCI skupina\"'), ''), NULLIF(json_extract(source_data_json, '$.\"FCI\"'), ''), '')",
-  organizations:
-    "COALESCE(NULLIF(json_extract(source_data_json, '$.\"Organizácia\"'), ''), NULLIF(json_extract(source_data_json, '$.\"Zastrešujúca organizácia\"'), ''), '')",
-  profileTypes:
-    "COALESCE(NULLIF(json_extract(source_data_json, '$.\"Typ služby\"'), ''), NULLIF(json_extract(source_data_json, '$.\"Typ poskytovateľa\"'), ''), NULLIF(json_extract(source_data_json, '$.\"Typ klubu\"'), ''), '')",
+  breeds: DIRECTORY_PUBLIC_SOURCE_FACETS.breed,
+  fciGroups: DIRECTORY_PUBLIC_SOURCE_FACETS.fciGroup,
+  organizations: DIRECTORY_PUBLIC_SOURCE_FACETS.organization,
+  profileTypes: DIRECTORY_PUBLIC_SOURCE_FACETS.profileType,
 };
 const categories = [
   "veterinari",
@@ -337,7 +335,7 @@ const cases = [
   { category: "hotely-a-opatrovanie", sort: "name-desc" },
 ];
 
-test("public facet rollups preserve eight legacy options, count, sort, page and IDs", async () => {
+test("public facet rollups preserve eight canonical-first options, count, sort, page and IDs", async () => {
   const { database, getCalls, close } = fixture();
   try {
     for (const [index, filters] of cases.entries()) {

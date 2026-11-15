@@ -4,12 +4,19 @@ import {
   directorySourceFacetStatement,
   parseDirectoryFacetValues,
 } from "@/lib/directory-read-facets";
+import {
+  DIRECTORY_PUBLIC_SOURCE_FACETS,
+  directoryEffectiveDistrictSql,
+  directoryEffectiveDistrictValue,
+  directoryLegacyDistrictSql,
+} from "./directory-public-source-contract";
 import { cache } from "react";
 import { directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
 import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
 import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card";
+import { canonicalBreedIdsSql } from "./breed-canonical";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import {
   parsePublicDirectoryFacets,
@@ -582,12 +589,21 @@ const DIRECTORY_CARD_COLUMNS = `
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
+// A confirmed published breed relation supersedes imported prose in the public
+// directory. Preserve the shared legacy JSON read rules for unlinked profiles.
+const DIRECTORY_LEGACY_BREED = DIRECTORY_PUBLIC_SOURCE_FACETS.breed;
+const DIRECTORY_HAS_CANONICAL_BREEDS = `EXISTS (
+  SELECT 1 FROM breed_directory_relations linked
+  JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
+  WHERE linked.profile_id = directory_profiles.id
+    AND linked_breed.id IN (${canonicalBreedIdsSql})
+)`;
 const DIRECTORY_SOURCE_FACETS = {
-  breed: `COALESCE(NULLIF(json_extract(source_data_json, '$."Plemeno"'), ''), NULLIF(json_extract(source_data_json, '$."Plemená"'), ''), '')`,
-  fciGroup: `COALESCE(NULLIF(json_extract(source_data_json, '$."FCI skupina"'), ''), NULLIF(json_extract(source_data_json, '$."FCI"'), ''), '')`,
-  organization: `COALESCE(NULLIF(json_extract(source_data_json, '$."Organizácia"'), ''), NULLIF(json_extract(source_data_json, '$."Zastrešujúca organizácia"'), ''), '')`,
-  profileType: `COALESCE(NULLIF(json_extract(source_data_json, '$."Typ služby"'), ''), NULLIF(json_extract(source_data_json, '$."Typ poskytovateľa"'), ''), NULLIF(json_extract(source_data_json, '$."Typ klubu"'), ''), '')`,
-} as const;
+  ...DIRECTORY_PUBLIC_SOURCE_FACETS,
+  breed: `CASE WHEN directory_profiles.category='chovatelske-stanice'
+    AND ${DIRECTORY_HAS_CANONICAL_BREEDS} THEN ''
+    ELSE ${DIRECTORY_LEGACY_BREED} END`,
+};
 
 export function sqlNormalizedExpression(columnExpression: string) {
   const replacements: Array<[string, string]> = [
@@ -636,7 +652,7 @@ const LEGACY_DIRECTORY_SEARCH = sqlNormalizedExpression(`
   coalesce(name, '') || ' ' || coalesce(excerpt, '') || ' ' || coalesce(description, '') || ' ' ||
   coalesce(city, '') || ' ' || coalesce(district, '') || ' ' || coalesce(region, '') || ' ' ||
   coalesce(address, '') || ' ' || coalesce(services_json, '') || ' ' || coalesce(qualifications_json, '') || ' ' ||
-  coalesce(json_extract(source_data_json, '$."Okres"'), '')
+  ${directoryEffectiveDistrictSql()}
 `);
 
 const DIRECTORY_PUBLIC_FACET_SEARCH = sqlNormalizedExpression(`
@@ -682,9 +698,10 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     services: safePublicList(row.services_json),
     ...directoryQualificationSections(safeList(row.qualifications_json)),
     city,
-    district:
-      district ||
-      runtimeDirectoryLocationText(String(safeImportData(row.source_data_json)?.["Okres"] ?? "")),
+    district: directoryEffectiveDistrictValue(
+      district,
+      safeImportData(row.source_data_json)?.["Okres"],
+    ),
     region: normalizeDirectoryRegion(region) ?? region,
     address: row.address,
     postalCode: row.postal_code ?? "",
@@ -1284,10 +1301,7 @@ export async function getHomepageDirectoryProfilesWithImages(
       `WITH candidates AS (
         SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
           featured,
-          CASE WHEN json_valid(source_data_json)
-            AND json_type(source_data_json, '$."Okres"') IN ('text', 'integer', 'real')
-            THEN CAST(json_extract(source_data_json, '$."Okres"') AS TEXT)
-            ELSE NULL END AS fallback_district,
+          ${directoryLegacyDistrictSql()} AS fallback_district,
           ROW_NUMBER() OVER (PARTITION BY featured ORDER BY name ASC, id ASC) - 1 AS rotation_index,
           COUNT(*) OVER (PARTITION BY featured) AS rotation_count
         FROM directory_profiles
@@ -1310,8 +1324,7 @@ export async function getHomepageDirectoryProfilesWithImages(
       category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
       city: runtimeDirectoryLocationText(row.city),
       district:
-        runtimeDirectoryLocationText(row.district) ||
-        runtimeDirectoryLocationText(row.fallback_district),
+        directoryEffectiveDistrictValue(row.district, row.fallback_district),
       imageUrl: row.image_url,
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     }),
@@ -1352,8 +1365,7 @@ export async function getHomepageDirectoryProfilesByCategoriesWithImages(
       category: row.category,
       city: runtimeDirectoryLocationText(row.city),
       district:
-        runtimeDirectoryLocationText(row.district) ||
-        runtimeDirectoryLocationText(row.fallback_district),
+        directoryEffectiveDistrictValue(row.district, row.fallback_district),
       imageUrl: row.image_url,
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     });
@@ -1410,7 +1422,24 @@ export async function listPublishedDirectoryProfiles(options: {
     baseClauses.push(`${expression} = ?`);
     baseBindings.push(value);
   };
-  addSourceFacet(options.filters.breed, DIRECTORY_SOURCE_FACETS.breed);
+  if (options.filters.breed) {
+    // One canonical breed may belong to many stations, and one station may
+    // have many canonical breeds. Filter by existence, not a comma-joined
+    // text value; fall back to import text only with no public canonical links.
+    baseClauses.push(`(
+      (directory_profiles.category='chovatelske-stanice' AND EXISTS (
+        SELECT 1 FROM breed_directory_relations linked
+        JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
+        WHERE linked.profile_id = directory_profiles.id
+          AND linked_breed.id IN (${canonicalBreedIdsSql})
+          AND linked_breed.name = ?
+      )) OR (
+        (directory_profiles.category<>'chovatelske-stanice' OR NOT ${DIRECTORY_HAS_CANONICAL_BREEDS})
+        AND ${DIRECTORY_LEGACY_BREED} = ?
+      )
+    )`);
+    baseBindings.push(options.filters.breed, options.filters.breed);
+  }
   addSourceFacet(options.filters.fciGroup, DIRECTORY_SOURCE_FACETS.fciGroup);
   addSourceFacet(options.filters.organization, DIRECTORY_SOURCE_FACETS.organization);
   addSourceFacet(options.filters.profileType, DIRECTORY_SOURCE_FACETS.profileType);
@@ -1463,6 +1492,23 @@ export async function listPublishedDirectoryProfiles(options: {
     canonicalPublicEnabled &&
     Boolean(category) &&
     (serviceFilterCategories as readonly string[]).includes(category ?? "");
+  const loadCanonicalBreedOptions = async (): Promise<string[]> => {
+    // A category can also contain a breeder through additional membership.
+    // Match the same category membership rule as the public result list.
+    const categoryWhere = category
+      ? `AND ${directoryCategoryMembershipSql("linked_profile")}` : "";
+    const rows = await database.prepare(`
+      SELECT DISTINCT linked_breed.name AS name
+      FROM breed_directory_relations linked
+      JOIN managed_breeds linked_breed ON linked_breed.id=linked.breed_id
+      JOIN directory_profiles linked_profile ON linked_profile.id=linked.profile_id
+      WHERE linked_profile.status='published' AND linked_profile.category='chovatelske-stanice'
+        AND linked_breed.id IN (${canonicalBreedIdsSql})
+        ${categoryWhere}
+      ORDER BY linked_breed.name COLLATE NOCASE LIMIT 500
+    `).bind(...(category ? [category, category] : [])).all<{ name: string }>();
+    return (rows.results ?? []).map(row => row.name.trim()).filter(Boolean);
+  };
   const loadCanonicalServices = async (): Promise<CanonicalPublicServiceOption[]> => {
     if (!canonicalServicesEnabled || !category) return [];
     const builtinFields = builtinOverridesReady
@@ -1504,9 +1550,10 @@ export async function listPublishedDirectoryProfiles(options: {
         .bind(...baseBindings)
         .first<{ total: number }>()
     : Promise.resolve(null);
-  const [optionResults, canonicalServices, preloadedCount] = await Promise.all([
+  const [optionResults, canonicalServices, canonicalBreedOptions, preloadedCount] = await Promise.all([
     database.batch([locationStatement, sourceStatement]),
     loadCanonicalServices(),
+    loadCanonicalBreedOptions(),
     earlyCount,
   ]);
   const locationFacets = (
@@ -1553,7 +1600,7 @@ export async function listPublishedDirectoryProfiles(options: {
   }
   if (district) {
     clauses.push(
-      `COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') = ?`,
+      directoryEffectiveDistrictSql() + " = ?",
     );
     bindings.push(district);
   }
@@ -1581,7 +1628,7 @@ export async function listPublishedDirectoryProfiles(options: {
   const listStatement = database
     .prepare(
       `
-    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
+    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, " + directoryEffectiveDistrictSql() + " AS district, region")}
     FROM directory_profiles WHERE ${where}
     ORDER BY ${orderBy} LIMIT ? OFFSET ?
   `,
@@ -1607,7 +1654,10 @@ export async function listPublishedDirectoryProfiles(options: {
       cities,
       services: [],
       canonicalServices,
-      breeds: parseDirectoryFacetValues(sourceFacets?.breeds),
+      breeds: [...new Set([
+        ...parseDirectoryFacetValues(sourceFacets?.breeds),
+        ...canonicalBreedOptions,
+      ])].sort((a, b) => a.localeCompare(b, "sk")),
       fciGroups: parseDirectoryFacetValues(sourceFacets?.fciGroups),
       organizations: parseDirectoryFacetValues(sourceFacets?.organizations),
       profileTypes: [],
@@ -1646,7 +1696,7 @@ export async function getDirectoryCategoryPreviews(limit = 3) {
     database
       .prepare(
         `
-    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
+    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, " + directoryEffectiveDistrictSql() + " AS district, region")}
     FROM directory_profiles
     WHERE status = 'published' AND ${directoryCategoryMembershipSql()}
     ORDER BY featured DESC, name ASC, id ASC

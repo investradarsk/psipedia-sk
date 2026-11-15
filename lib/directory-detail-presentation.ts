@@ -2,6 +2,7 @@ import { directoryQualificationSections } from "./directory-public-copy.ts";
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { detailFields, relationFields, directoryPublicEditorFieldLabels, isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
 import { publicLocationValue } from "./public-location.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
@@ -62,80 +63,24 @@ export type DirectoryQuickFact = {
 };
 
 const unavailableValue = /^(?:neoveren[eé]|nezisten[eé]|neuveden[eé]|n\/a|nie je uveden[eé])$/i;
-const relationFields = [
-  "Plemeno",
-  "Plemená",
-  "FCI skupina",
-  "Organizácia",
-  "Zastrešujúca organizácia",
-] as const;
+/** One editable public-fact registry: canonical D1 keys only, never retired alias keys.
+ * Notion may mirror a key only when its property is an existing rich_text field.
+ */
+export const DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: readonly string[] = [
+  ...new Set([...Object.values(detailFields).flat(), ...relationFields,
+    "Ordinačné hodiny", "Pokrytie"]),
+].filter(isDirectoryPublicMetadataField);
 
-const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
-  veterinari: ["Špecializácie", "Pohotovosť", "Hospitalizácia", "RTG", "USG", "Laboratórium"],
-  treneri: [
-    "Individuálny výcvik",
-    "Skupinový výcvik",
-    "Výcvik šteniat",
-    "Behaviorálne poradenstvo",
-  ],
-  "kynologicke-kluby": [
-    "Typ klubu",
-    "Zameranie",
-    "Organizácia",
-    "Výcvik šteniat",
-    "Individuálny výcvik",
-    "Skupinový výcvik",
-    "Športová kynológia",
-    "Obrany",
-    "Stopy",
-    "Agility",
-    "Rally obedience",
-    "Retriever / poľovnícka kynológia",
-  ],
-  "chovatelske-kluby": [
-    "Plemeno",
-    "Plemená",
-    "FCI skupina",
-    "Organizácia",
-    "Zastrešujúca organizácia",
-  ],
-  "chovatelske-stanice": [
-    "Plemeno",
-    "Plemená",
-    "FCI skupina",
-    "Chovateľ",
-    "Klub",
-    "Aktívny chov",
-    "Aktuálne vrhy",
-    "Plánované vrhy",
-  ],
-  "hotely-a-opatrovanie": ["Hotel", "Opatrovanie", "Denná starostlivosť", "Vyzdvihnutie psa"],
-  vencenie: [
-    "Individuálne venčenie",
-    "Skupinové venčenie",
-    "Venčenie s tréningom",
-    "Šteňatá",
-    "Veľké psy",
-    "Seniori / špeciálne potreby",
-    "Vyzdvihnutie psa",
-    "GPS / foto report",
-    "Typ poskytovateľa",
-  ],
-  "dalsie-sluzby": [
-    "Typ služby",
-    "Pokrytie",
-    "Výjazd ku klientovi",
-    "Celoslovenská dostupnosť",
-    "Orientačná cena",
-  ],
-};
+export function directoryLegacyEditableFactKeys(
+  profile: Pick<PublicDirectoryProfile, "category" | "importData">,
+): string[] {
+  return directoryPublicEditorFieldLabels(profile.category).filter(
+    key => DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.includes(key),
+  );
+}
 
-function importedValue(profile: PublicDirectoryProfile, ...keys: string[]) {
-  for (const key of keys) {
-    const value = profile.importData?.[key];
-    if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
-  }
-  return null;
+function importedValue(profile: Pick<PublicDirectoryProfile, "importData">, field: string) {
+  return readDirectoryPublicMetadataValue(profile.importData, field) || null;
 }
 
 export function usefulDirectoryDetailValue(value: string | null | undefined) {
@@ -158,6 +103,53 @@ export function publicDirectoryDetailUrl(value: string | null | undefined) {
   } catch {
     return null;
   }
+}
+
+/** The exact first legacy opening-hours field read by the public detail.
+ * A different field in Admin may be blank even while public hours are visible. */
+export function directoryLegacyOpeningHoursSource(
+  profile: Pick<PublicDirectoryProfile, "importData">,
+): { sourceKey: string; value: string } | null {
+  const source = profile.importData ?? {};
+  // A present canonical key is authoritative, even if explicitly cleared.
+  if (Object.hasOwn(source, "Ordinačné hodiny")) {
+    const value = usefulDirectoryDetailValue(readDirectoryPublicMetadataValue(source, "Ordinačné hodiny"));
+    return value ? { sourceKey: "Ordinačné hodiny", value } : null;
+  }
+  for (const sourceKey of ["Otváracie hodiny", "Otváracia doba", "Ordinačná doba", "Pracovná doba"]) {
+    const value = usefulDirectoryDetailValue(String(source[sourceKey] ?? ""));
+    if (value) return { sourceKey, value };
+  }
+  return null;
+}
+
+/** Exact legacy D1 fields that can surface as public Directory facts.
+ * Reused by the public renderer and Admin provenance preview. */
+export function directoryLegacyPublicFactSources(
+  profile: Pick<PublicDirectoryProfile, "category" | "importData">,
+): Array<DirectoryDetailFact & { sourceKey: string }> {
+  const legacyFactLabels = profile.category === "fyzioterapia"
+    ? []
+    : [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
+  const factLabels = legacyFactLabels.filter(label =>
+    !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
+  const facts = factLabels.flatMap(label => {
+    const value = usefulDirectoryDetailValue(importedValue(profile, label));
+    const source = profile.importData ?? {};
+    const legacySourceKey = label === "Pokrytie"
+      ? ["Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"]
+        .find(key => Object.hasOwn(source, key))
+      : label;
+    return value ? [{ label, value, sourceKey: legacySourceKey ?? label }] : [];
+  });
+  for (const label of ["Organizácia", "Zameranie"] as const) {
+    const sourceKey = label === "Organizácia"
+      && !Object.hasOwn(profile.importData ?? {}, "Organizácia")
+      ? "Zastrešujúca organizácia" : label;
+    const value = usefulDirectoryDetailValue(importedValue(profile, sourceKey));
+    if (value) facts.push({ label, value, sourceKey });
+  }
+  return facts;
 }
 
 export function formatDirectoryUpdatedAt(value: string | null | undefined) {
@@ -259,28 +251,9 @@ export function getDirectoryDetailPresentation(
   // Navigáciu poskytuje PublicLocationMap iba vtedy, keď existuje aktuálny
   // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
   const navigationUrl = null;
-  // Physiotherapy therapy/patient flags are retired in favor of Services V3 and prose.
-  const legacyFactLabels = profile.category === "fyzioterapia"
-    ? []
-    : [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
-  // Show both Admin-managed public facts consistently in every directory category.
-  // "Zastrešujúca organizácia" is a legacy alias, not a second public fact.
-  const factLabels = legacyFactLabels.filter(label =>
-    !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
-  const facts = [
-    ...factLabels.flatMap((label) => {
-      const value = usefulDirectoryDetailValue(importedValue(profile, label));
-      return value ? [{ label, value }] : [];
-    }),
-    ...(["Organizácia", "Zameranie"] as const).flatMap(label => {
-      const value = usefulDirectoryDetailValue(label === "Organizácia"
-        ? Object.hasOwn(profile.importData ?? {}, "Organizácia")
-          ? importedValue(profile, "Organizácia")
-          : importedValue(profile, "Zastrešujúca organizácia")
-        : importedValue(profile, label));
-      return value ? [{ label, value }] : [];
-    }),
-  ];
+  // Public detail and Admin provenance use the same canonical-first resolver.
+  // Explicitly cleared values must not reactivate historical imported aliases.
+  const facts = directoryLegacyPublicFactSources(profile).map(({ label, value }) => ({ label, value }));
   // Public organization/focus fields must not turn a veterinary profile into
   // a false "equipment and care" panel when no veterinary facts are present.
   const veterinaryFacts = facts.filter(fact =>
@@ -294,7 +267,7 @@ export function getDirectoryDetailPresentation(
       }
     : null;
   const coverage = usefulDirectoryDetailValue(
-    importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"),
+    importedValue(profile, "Pokrytie"),
   );
   // Do not turn a short-only profile into a duplicate long description.
   const description = profile.description?.trim() || null;
@@ -319,16 +292,7 @@ export function getDirectoryDetailPresentation(
     region: publicLocationValue(profile.region, "region"),
     address: publicAddress,
     priceNote: profile.priceNote,
-    openingHours: usefulDirectoryDetailValue(
-      importedValue(
-        profile,
-        "Otváracie hodiny",
-        "Ordinačné hodiny",
-        "Otváracia doba",
-        "Ordinačná doba",
-        "Pracovná doba",
-      ),
-    ),
+    openingHours: directoryLegacyOpeningHoursSource(profile)?.value ?? null,
     imageUrl: profile.imageUrl,
     imageAlt: usefulDirectoryDetailValue(importedValue(profile, "Alt text obrázka")),
     galleryUrls: profile.galleryUrls ?? [],

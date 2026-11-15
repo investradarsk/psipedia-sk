@@ -164,7 +164,6 @@ export async function POST(request: Request) {
       if (!sourcePlan) throw new Error("Profil neprešiel validáciou importných filtrov.");
       const rawSourceData = sourcePlan.mergedSourceJson;
       const searchText = normalizeDirectorySearchText([name, excerpt, description, services.join(" "), qualifications.join(" "), city, district, region, address].join(" "));
-      const conflictTarget = importKey ? "import_key" : "category, slug";
       directoryProfilesToReconcile.push({ importKey, category, slug });
       profileStatementIndexes.push(statements.length);
       statements.push(database.prepare(`
@@ -173,32 +172,10 @@ export async function POST(request: Request) {
           city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
           import_key, source_data_json, search_text, verified, featured, created_at, updated_at, published_at, created_by, updated_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(${conflictTarget}) DO UPDATE SET
-          slug=excluded.slug, name=excluded.name, category=excluded.category,
-          status=directory_profiles.status,
-          excerpt=COALESCE(NULLIF(excluded.excerpt, ''), directory_profiles.excerpt),
-          description=COALESCE(NULLIF(excluded.description, ''), directory_profiles.description),
-          services_json=CASE WHEN excluded.services_json = '[]' THEN directory_profiles.services_json ELSE excluded.services_json END,
-          qualifications_json=CASE WHEN excluded.qualifications_json = '[]' THEN directory_profiles.qualifications_json ELSE excluded.qualifications_json END,
-          city=COALESCE(NULLIF(excluded.city, ''), directory_profiles.city),
-          district=COALESCE(NULLIF(excluded.district, ''), directory_profiles.district),
-          region=excluded.region,
-          address=COALESCE(NULLIF(excluded.address, ''), directory_profiles.address),
-          online=directory_profiles.online,
-          price_note=COALESCE(NULLIF(excluded.price_note, ''), directory_profiles.price_note),
-          website_url=COALESCE(excluded.website_url, directory_profiles.website_url),
-          internal_email=COALESCE(excluded.internal_email, directory_profiles.internal_email),
-          image_url=COALESCE(excluded.image_url, directory_profiles.image_url),
-          import_key=COALESCE(excluded.import_key, directory_profiles.import_key),
-          source_data_json=excluded.source_data_json, search_text=excluded.search_text,
-          verified=CASE WHEN excluded.verified = 1 THEN 1 ELSE directory_profiles.verified END,
-          featured=CASE WHEN excluded.featured = 1 THEN 1 ELSE directory_profiles.featured END,
-          updated_at=excluded.updated_at, updated_by=excluded.updated_by
-        WHERE directory_profiles.status <> 'published'
-          AND directory_profiles.category = excluded.category
-          AND directory_profiles.slug = excluded.slug
-          AND directory_profiles.source_data_json = ?
-          AND directory_profiles.updated_at = ?
+        -- The generic historical import is INSERT-ONLY. A conflicting
+        -- import_key OR category+slug is an existing Admin-owned profile:
+        -- never resurrect source JSON or overwrite a saved draft.
+        ON CONFLICT DO NOTHING
       `).bind(
         slug, name, category, status, excerpt, description, JSON.stringify(services), JSON.stringify(qualifications),
         city, district, region, address, 0, importedText(row, ["priceNote", "Cena"]), websiteUrl,
@@ -206,7 +183,6 @@ export async function POST(request: Request) {
         bool(valueFrom(row, "verified", "Overené")) || importedText(row, ["Stav"]) === "Overené",
         bool(row.featured), createdAt, updatedAt, publishedAt,
         text(row.createdBy, user.email), text(row.updatedBy, `import:${category}`),
-        sourcePlan.existingSourceJson, sourcePlan.existingUpdatedAt,
       ));
     }
 
@@ -324,7 +300,7 @@ export async function POST(request: Request) {
         }, database);
       }
     }
-    if (profiles.length > 0) await ensureReviewableResourceAnchors(database);
+    if (plan.preview.domains.profiles.inserted > 0) await ensureReviewableResourceAnchors(database);
     for (const target of directoryProfilesToReconcile) {
       const row = target.importKey
         ? await database.prepare("SELECT id FROM directory_profiles WHERE import_key = ? LIMIT 1").bind(target.importKey).first<{ id: number }>()
@@ -339,7 +315,7 @@ export async function POST(request: Request) {
     }
     return Response.json({
       success: true,
-      imported: { articles: articles.length, profiles: profiles.length, events: events.length, help: helpItems.length, inquiries: inquiries.length, legal: legal ? 1 : 0 },
+      imported: { articles: articles.length, profiles: plan.preview.domains.profiles.inserted, events: events.length, help: helpItems.length, inquiries: inquiries.length, legal: legal ? 1 : 0 },
       summary: plan.preview,
     });
   } catch (error) {

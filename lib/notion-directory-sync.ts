@@ -1,5 +1,7 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
+import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
+import { DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS } from "./directory-detail-presentation";
 import { directoryCategories } from "./directory";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
@@ -1287,6 +1289,15 @@ const breederContactJsonNames: Partial<Record<BreederEditorialField, string>> = 
   publicPhone: "Telefón", publicEmail: "E-mail",
   websiteUrl: "Web", facebookUrl: "Facebook", instagramUrl: "Instagram",
 };
+// Historical import spellings are read for compatibility, but an explicit
+// field edit must retire every competing spelling of THAT contact only.
+const breederContactAliases: Partial<Record<BreederEditorialField, readonly string[]>> = {
+  publicPhone: ["Telefón", "Telefon", "phone"],
+  publicEmail: ["E-mail", "Email", "email"],
+  websiteUrl: ["Web", "Webstránka"],
+  facebookUrl: ["Facebook"],
+  instagramUrl: ["Instagram"],
+};
 const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
   "seo.title": "title", "seo.description": "description",
   "seo.focusKeyword": "focusKeyword", "seo.canonicalUrl": "canonicalUrl",
@@ -1378,10 +1389,20 @@ async function saveBreederEditorialValue(
     assignments.push("address_format = ?");
     params.push(value);
   } else if (contact) {
-    // source_data_json also carries unrelated original import metadata.
-    // JSON_SET mutates only the named contact and preserves all other keys.
-    assignments.push("source_data_json = json_set(COALESCE(source_data_json, '{}'), ?, ?)");
-    params.push('$."' + contact + '"', value);
+    // A signed edit is authoritative for only this contact. Removing its
+    // historical aliases prevents a stale "Telefon"/"Email"/"Webstránka"
+    // from reappearing when the new value is cleared. Preserve every other
+    // source_data_json key, including relations and category metadata.
+    const aliases = breederContactAliases[path];
+    if (!aliases?.length) throw new Error("DIRECTORY_CONTACT_ALIAS_MAPPING_MISSING");
+    const removed = "json_remove(COALESCE(source_data_json, '{}'), " +
+      aliases.map(alias => "'$.\"" + alias + "\"'").join(", ") + ")";
+    if (value) {
+      assignments.push("source_data_json = json_set(" + removed + ", ?, ?)");
+      params.push('$."' + contact + '"', value);
+    } else {
+      assignments.push("source_data_json = " + removed);
+    }
     if (path === "websiteUrl") {
       assignments.push("website_url = ?");
       params.push(value);
@@ -1425,12 +1446,16 @@ async function saveBreederEditorialValue(
 }
 
 /**
- * Extra operational text for the field-event pilot categories. This is not part of
- * the legacy whole-profile snapshot/hash, nor of canonical Services V3/GEO.
+ * Exact-field D1/Notion editing of operational and public legacy facts.
+ * The public-fact allowlist comes from the SAME renderer contract as Admin;
+ * never infer Services V3 choices or breeder relations from free text.
  */
 export const PILOT_DIRECTORY_METADATA_FIELDS = [
-  "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
-  "Organizácia", "Zameranie",
+  ...new Set([
+    "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
+    "Organizácia", "Zameranie",
+    ...DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS,
+  ]),
 ] as const;
 export const PUBLIC_DIRECTORY_FACT_FIELDS = ["Organizácia", "Zameranie"] as const;
 export type PilotDirectoryMetadataField = (typeof PILOT_DIRECTORY_METADATA_FIELDS)[number];
@@ -1440,7 +1465,14 @@ function pilotChangedNotionMetadataFields(
 ): PilotDirectoryMetadataField[] {
   const changed = new Set(changedIds);
   return PILOT_DIRECTORY_METADATA_FIELDS.filter(name => {
-    const item = page.properties?.[name] as { id?: unknown } | undefined;
+    const item = page.properties?.[name] as
+      | { id?: unknown; type?: unknown; rich_text?: unknown } | undefined;
+    const isNewLegacy = DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.includes(name) &&
+      !["Ordinačné hodiny"].includes(name);
+    // Legacy public facts may share a Notion name with canonical service/filter
+    // selects. Only a real rich-text Notion column may edit legacy prose.
+    if (isNewLegacy && item?.type !== "rich_text" && !Array.isArray(item?.rich_text))
+      return false;
     return changed.has(name) || (typeof item?.id === "string" && changed.has(item.id));
   });
 }
@@ -1450,11 +1482,12 @@ export async function savePilotDirectoryMetadataField(input: {
   database: D1Database;
   profileId: number;
   category: string;
-  field: PilotDirectoryMetadataField;
+  field: string;
   value: string;
+  expectedValue?: string;
 }): Promise<ManagedDirectoryProfile> {
   if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
-      !PILOT_DIRECTORY_METADATA_FIELDS.includes(input.field))
+      !isDirectoryPublicMetadataField(input.field))
     throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
   const trimmed = input.value.trim();
   // A blank value is an explicit Admin edit and must clear only this field.
@@ -1462,15 +1495,25 @@ export async function savePilotDirectoryMetadataField(input: {
   const current = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!current || current.category !== input.category || current.status === "archived")
     throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
-  if (String(current.importData?.[input.field] ?? "").trim() === trimmed) return current;
+  const currentValue = readDirectoryPublicMetadataValue(current.importData, input.field);
+  if (input.expectedValue !== undefined &&
+      currentValue !== input.expectedValue.trim() && currentValue !== trimmed) {
+    throw new Error("DIRECTORY_PUBLIC_METADATA_STALE_VALUE");
+  }
+  if (currentValue === trimmed &&
+      Object.hasOwn(current.importData ?? {}, input.field)) return current;
   const now = new Date().toISOString();
+  const path = '$."' + input.field + '"';
+  const previousRaw = String(current.importData?.[input.field] ?? "");
   const saved = await input.database.prepare(
     "UPDATE directory_profiles SET source_data_json = json_set(" +
       "COALESCE(source_data_json, '{}'), ?, ?), updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND category = ? AND status <> 'archived' " +
-      "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) RETURNING id"
-  ).bind('$."' + input.field + '"', trimmed, now, SYSTEM_ACTOR,
-    input.profileId, input.category, current.updatedAt).first<{ id: number }>();
+      "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) " +
+      "AND COALESCE(CAST(json_extract(source_data_json, ?) AS TEXT), '') = ? RETURNING id"
+  ).bind(path, trimmed, now, SYSTEM_ACTOR,
+    input.profileId, input.category, current.updatedAt, path, previousRaw)
+    .first<{ id: number }>();
   if (!saved) throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
   const next = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!next) throw new Error("DIRECTORY_PILOT_METADATA_RELOAD_FAILED");
@@ -1503,11 +1546,16 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
     const value = input.changed[field]!.trim();
     if (propertyText(page, field) === value) continue;
     if (!Object.hasOwn(page.properties ?? {}, field)) {
-      // Public fact fields predate the optional Notion schema rollout.
-      // Keep their value in Admin without blocking other field updates.
+      // Existing optional Organization/Focus schema remains backwards compatible.
       if ((PUBLIC_DIRECTORY_FACT_FIELDS as readonly string[]).includes(field)) continue;
       throw new Error("DIRECTORY_PILOT_METADATA_NOTION_FIELD_MISSING: " + field);
     }
+    const notionField = page.properties?.[field] as
+      | { type?: unknown; rich_text?: unknown } | undefined;
+    if (DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.includes(field) &&
+        field !== "Ordinačné hodiny" &&
+        notionField?.type !== "rich_text" && !Array.isArray(notionField?.rich_text))
+      throw new Error("DIRECTORY_PILOT_METADATA_NOTION_FIELD_NOT_RICH_TEXT: " + field);
     patch[field] = richText(value);
   }
   if (!Object.keys(patch).length) return false;

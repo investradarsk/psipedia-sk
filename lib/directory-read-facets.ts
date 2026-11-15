@@ -1,3 +1,4 @@
+import { directoryEffectiveDistrictSql } from "./directory-public-source-contract";
 /**
  * Read-only, request-scoped D1 facet rollups for public directory listings.
  * The option scopes intentionally differ: locations follow the active search
@@ -12,7 +13,7 @@ export type DirectorySourceFacetExpressions = {
   profileTypes?: string;
 };
 
-const districtExpression = `COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '')`;
+const districtExpression = directoryEffectiveDistrictSql();
 
 /**
  * A single scan replaces three DISTINCT scans with different location scopes.

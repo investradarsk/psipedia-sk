@@ -36,6 +36,7 @@ import type { PublicRelatedBreed } from "@/lib/content-relations";
 import type { InternalDiscoveryLink } from "@/lib/internal-discovery";
 import styles from "./directory-profile-detail.module.css";
 import { isDuplicatedDirectoryDescription } from "@/lib/directory-description-dedupe";
+import { suppressLinkedBreederFact, suppressLinkedBreederQualification } from "@/lib/breeder-relation-text";
 
 type DetailRow = { label: string; value: ReactNode };
 
@@ -255,15 +256,14 @@ export function DirectoryProfileDetail({
   const isBreeder = presentation.category === "chovatelske-stanice";
   const isPhysiotherapy = presentation.category === "fyzioterapia";
   const hasNamedLinks = isBreeder || presentation.category === "treneri";
+  const linkedBreedNames = hasNamedLinks ? relatedBreeds.map(breed => breed.name) : [];
+  const linkedClubNames = hasNamedLinks ? relatedClubs.map(club => club.name) : [];
   // Older imported records split prose at semicolons. Join only clear
   // lowercase continuations; do not render half a sentence as its own tag.
   const visibleQualifications = presentation.qualifications.reduce<string[]>((items, raw) => {
     const qualification = raw.trim();
     if (!qualification || factValues.has(qualification.toLocaleLowerCase("sk"))) return items;
-    if (hasNamedLinks && relatedBreeds.length && /^plemen[oa]:/i.test(qualification)) return items;
-    if (hasNamedLinks && relatedClubs.length && /^(klub|chovateľský klub):/i.test(qualification)) return items;
-    if (hasNamedLinks && relatedClubs.some(club =>
-      club.name.trim().toLocaleLowerCase("sk") === qualification.toLocaleLowerCase("sk"))) return items;
+    if (suppressLinkedBreederQualification(qualification, linkedBreedNames, linkedClubNames)) return items;
     if (items.length && /^\p{Ll}/u.test(qualification)) {
       items[items.length - 1] += "; " + qualification;
     } else if (!items.some(item => item.toLocaleLowerCase("sk") === qualification.toLocaleLowerCase("sk"))) {
@@ -272,8 +272,7 @@ export function DirectoryProfileDetail({
     return items;
   }, []);
   const expertFacts = presentation.facts.filter(fact =>
-    !(hasNamedLinks && relatedBreeds.length > 0 && (fact.label === "Plemeno" || fact.label === "Plemená")) &&
-    !(hasNamedLinks && relatedClubs.length > 0 && fact.label === "Klub"));
+    !(hasNamedLinks && suppressLinkedBreederFact(fact.label, relatedBreeds.length, relatedClubs.length)));
   const breederLinkFacts: Array<{ label: string; value: ReactNode }> = hasNamedLinks ? [
     ...(relatedBreeds.length ? [{
       label: relatedBreeds.length > 1 ? "Plemená" : "Plemeno",

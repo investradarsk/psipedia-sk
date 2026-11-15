@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {AdminActionButton} from "@/components/admin-interaction-system";
 import {EditorActionBar,EditorStatus,EditorUnsavedChangesGuard} from "@/components/admin-editor-workspace";
 import {useAdminEditorNavigationGuard} from "@/components/admin-editor-navigation-guard";
@@ -8,16 +8,29 @@ import type {CatalogEditorItem} from "@/lib/service-catalog-admin-editor-view";
 import type {AdminServiceChoiceWriteResult} from "@/lib/service-catalog-admin-api-contract";
 import {selectionForEditor} from "@/lib/service-catalog-admin-api-contract";
 import {summarizeServiceChoiceSync,type ServiceChoiceSyncFeedback,type ServiceChoiceSyncOutcome} from "@/lib/service-catalog-sync-feedback";
+import {projectPublicProfileServices} from "@/lib/service-catalog-public-profile-services";
+import type {ResolvedServiceDefinition} from "@/lib/service-catalog-resolved";
 import styles from "./admin-service-catalog.module.css";
 
 type StoredChoice={optionId:string;choice:"yes"|"no";version:number};
 type InputChoice="yes"|"no"|"unknown";
-export function AdminServiceProfileValues({profileId,entries,initialChoices,writeEnabled,error}:{
-  profileId:number;entries:readonly CatalogEditorItem[];initialChoices:readonly StoredChoice[];writeEnabled:boolean;error:string|null;
+export function AdminServiceProfileValues({profileId,category,entries,initialChoices,resolvedServices,legacyServices,publicProjectionEnabled,writeEnabled,error}:{
+  profileId:number;category:string;entries:readonly CatalogEditorItem[];initialChoices:readonly StoredChoice[];
+  resolvedServices:readonly ResolvedServiceDefinition[];legacyServices:readonly string[];
+  publicProjectionEnabled:boolean;writeEnabled:boolean;error:string|null;
 }){
   const [saved,setSaved]=useState<Record<string,StoredChoice>>(()=>Object.fromEntries(initialChoices.map(c=>[c.optionId,c])));
   const [draft,setDraft]=useState<Record<string,InputChoice>>({});
   const [query,setQuery]=useState("");
+  const [currentLegacyServices,setCurrentLegacyServices]=useState<readonly string[]>(legacyServices);
+  useEffect(()=>{
+    const update=(event:Event)=>{
+      const detail=(event as CustomEvent<{profileId:number;services:string[]}>).detail;
+      if(detail?.profileId===profileId&&Array.isArray(detail.services))setCurrentLegacyServices(detail.services);
+    };
+    window.addEventListener("psipedia:directory-services-saved",update);
+    return ()=>window.removeEventListener("psipedia:directory-services-saved",update);
+  },[profileId]);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [feedback,setFeedback]=useState<ServiceChoiceSyncFeedback|null>(null);
@@ -26,6 +39,21 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
   const attributes=entries.filter(x=>x.kind==="attribute"&&x.valueKind==="tri_state");
   const structuredAttributes=entries.filter(x=>x.kind==="attribute"&&x.valueKind!=="tri_state");
   const changed=entries.filter(x=>(x.kind==="service"||(x.kind==="attribute"&&x.valueKind==="tri_state"))&&draft[x.id]!==undefined&&draft[x.id]!==selectionForEditor(saved[x.id]));
+  // Preview the actual public projection using the same resolver as the detail.
+  // Draft choices affect only this preview until the separate V3 save succeeds.
+  const publicPreview=useMemo(()=>{
+    if(error||!publicProjectionEnabled||!resolvedServices.length)
+      return {services:[...currentLegacyServices],visible:currentLegacyServices.map(label=>({label,source:"legacy" as const})),suppressed:[]};
+    const selected=new Map<string,InputChoice>(Object.entries(saved).map(([id,value]):[string,InputChoice]=>[id,value.choice]));
+    for(const [id,value] of Object.entries(draft))selected.set(id,value);
+    const choices=[...selected.entries()].filter(([,choice])=>choice==="yes"||choice==="no")
+      .map(([option_id,choice])=>({option_id,choice}));
+    // The public loader deliberately skips optional V3 projection when the
+    // profile has no confirmed choice row; the preview must do the same.
+    if(!choices.length)return {services:[...currentLegacyServices],
+      visible:currentLegacyServices.map(label=>({label,source:"legacy" as const})),suppressed:[]};
+    return projectPublicProfileServices(currentLegacyServices,category,choices,resolvedServices);
+  },[currentLegacyServices,category,resolvedServices,publicProjectionEnabled,error,saved,draft]);
   const navigation=useAdminEditorNavigationGuard({dirty:changed.length>0});
   async function save(){
     if(!writeEnabled||busy||changed.length===0)return;
@@ -61,7 +89,7 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
       setMessage(`${summary.message} Ďalšiu hodnotu sa nepodarilo potvrdiť: ${e instanceof Error?e.message:"Chyba ukladania."} Pri konflikte obnov údaje pred opakovaním.`);
     }finally{setBusy(false);}
   }
-  return <section className={styles.profileCard} aria-label="Services V3 — služby a vlastnosti na profile">
+  return <section id="directory-services-v3" className={styles.profileCard} aria-label="Services V3 — služby a vlastnosti na profile">
     <div className={styles.profileHeading}><div><h2>Služby profilu</h2><p>Zaškrtni služby, ktoré profil poskytuje, a ulož.</p><div className={styles.profileBadges}><EditorStatus label={writeEnabled ? "Úpravy povolené" : "Iba na čítanie"} tone={writeEnabled ? "success" : "warning"}/>{changed.length > 0 && <EditorStatus label={"Neuložené: " + changed.length} tone="warning" />}
     {writeFailed&&<EditorStatus label="Zápis: čiastočne dokončený" tone="danger" />}
     {feedback&&feedback.savedCount>0&&<EditorStatus
@@ -69,6 +97,37 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
       tone={feedback.needsAttention?"warning":"success"} />}</div></div><Link href="/admin/sluzby-pre-psov/katalog">Správa katalógu →</Link></div>
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {!writeEnabled&&<p className={styles.notice}>Kanonické zápisy sú vypnuté. Aktuálne hodnoty môžeš čítať, ale nie meniť.</p>}
+    <section className={styles.profileSection} aria-label="Skutočné verejné služby" data-services-v3-public-preview>
+      <h3>Čo sa zobrazí na verejnom profile</h3>
+      {changed.length>0?<p className={styles.muted}>Náhľad zahŕňa neuložené výbery z katalógu. Verejný web sa zmení až po uložení.</p>
+        :<p className={styles.muted}>Zoznam podľa uloženého textu a potvrdených výberov z katalógu.</p>}
+      {!publicProjectionEnabled&&<p className={styles.notice}>Verejná projekcia Services V3 je vypnutá – web momentálne používa len historické textové služby.</p>}
+      {error&&<p className={styles.notice}>Kanonický zoznam sa nepodarilo načítať. Nižšie je iba historický text; nejde o potvrdený verejný výsledok.</p>}
+      <ul className={styles.attributeList}>
+        {publicPreview.visible.map((item,index)=>(
+          <li key={item.source+":"+item.label+":"+index}
+              data-service-provenance={item.source}>
+            <strong>{item.label}</strong>
+            {" "}
+            <small>{item.source==="catalog"?"Katalóg V3 · Áno":"Historický text (bez potvrdenej V3 voľby)"}</small>
+          </li>
+        ))}
+      </ul>
+      {!publicPreview.visible.length&&<p className={styles.muted}>Na verejnom profile sa momentálne nezobrazí žiadna služba.</p>}
+      {publicPreview.suppressed.length>0&&<details className={styles.technicalNotes}>
+        <summary>Staré položky, ktoré sa nezobrazia ({publicPreview.suppressed.length})</summary>
+        <ul className={styles.attributeList}>{publicPreview.suppressed.map((item,index)=><li key={index}>
+          {item.label} — {item.reason==="explicit_no"?"katalóg V3: Nie":
+            item.reason==="different_category"?"služba už nepatrí do tejto kategórie":
+            item.reason==="duplicate"?"duplicitný historický názov":
+            "nahradené aktuálnym názvom z katalógu"}
+        </li>)}</ul>
+      </details>}
+      <p className={styles.muted}>
+        <Link href="#directory-content">Historické textové služby sa spravujú v sekcii Obsah profilu.</Link>
+        {" "}Kanonické služby Áno/Nie/Neznáme upravíš nižšie. Výbery z katalógu nemenia pôvodný text v D1 ani Notione.
+      </p>
+    </section>
     <section className={styles.profileSection} aria-label="Služby profilu"><label className={styles.profileSearch}>Hľadať službu<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Názov služby"/></label>
     <div className={styles.profileList}>{services.map(item=>{
       const savedValue=saved[item.id];

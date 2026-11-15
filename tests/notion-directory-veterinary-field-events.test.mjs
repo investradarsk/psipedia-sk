@@ -94,7 +94,7 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
     } }; } };
     const exports = {};
     runInNewContext(js, {
-      exports, SYSTEM_ACTOR: "sync", directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
+      exports, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [], directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
       breederReadPath: (data, path) => path.split(".").reduce((v, k) => v?.[k], data),
       normalizeDirectorySearchText: str => str,
       getManagedDirectoryProfileById: async () => profile,
@@ -175,7 +175,7 @@ test("hours, sources, alt text, organization and focus are independently synced 
   assert.doesNotMatch(source, /if \(!value\) continue;/); // Explicit Notion clears must reach D1.
   assert.match(source, /WHERE id = \? AND category = \? AND status <> 'archived'/);
   assert.match(source, /DIRECTORY_PILOT_METADATA_TARGET_INVALID/);
-  assert.match(admin, /changedPilotMetadata\[field\] = value/);
+  assert.match(admin, /changedPilotMetadata\[field as PilotDirectoryMetadataField\] = value/);
   assert.match(admin, /mirrorPilotDirectoryMetadataFieldsToNotion/);
   assert.match(editor, /pilotOpeningHours/);
   assert.match(editor, /pilotDataSources/);
@@ -221,7 +221,10 @@ test("explicit blank Admin and Notion edits clear a single JSON field without to
   const exports = {};
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory,
+    DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [],
     serviceFilterCategories: ["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby", "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie", "vencenie", "fyzioterapia", "dalsie-sluzby"],
+    isDirectoryPublicMetadataField: field => ["Ordinačné hodiny", "Organizácia", "Zameranie"].includes(field),
+    readDirectoryPublicMetadataValue: (data, key) => String(data?.[key] ?? ""),
     getManagedDirectoryProfileById: async () => profile,
     Date,
   });

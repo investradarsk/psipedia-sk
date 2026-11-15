@@ -95,3 +95,116 @@ test("legacy free-text service writes never reach V3 and pilot categories reject
    }
  }
 });
+
+
+test("explicit Notion contact edit removes only competing legacy aliases", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const cases = [
+    {
+      field: "websiteUrl", value: "https://new.example.sk",
+      aliases: ["Web", "Webstránka"], expectedKey: "Web",
+    },
+    {
+      field: "publicPhone", value: "0911 555 123",
+      aliases: ["Telefón", "Telefon", "phone"], expectedKey: "Telefón",
+    },
+    {
+      field: "publicEmail", value: "novy@example.sk",
+      aliases: ["E-mail", "Email", "email"], expectedKey: "E-mail",
+    },
+    {
+      field: "facebookUrl", value: "https://facebook.com/new",
+      aliases: ["Facebook"], expectedKey: "Facebook",
+    },
+    {
+      field: "instagramUrl", value: "@novyprofil",
+      aliases: ["Instagram"], expectedKey: "Instagram",
+    },
+  ];
+  for (const change of cases) {
+    const ctx = setup("veterinari");
+    await ctx.save(ctx.db, ctx.record, { ...desired(), [change.field]: change.value }, change.field);
+    assert.equal(ctx.writes.length, 1, change.field);
+    const { sql, args } = ctx.writes[0];
+    assert.match(sql, /source_data_json = json_set\(json_remove\(/, change.field);
+    assert.match(sql, /AND updated_at = \?/, change.field);
+    const sqlite = new DatabaseSync(":memory:");
+    try {
+      sqlite.exec(`CREATE TABLE directory_profiles (
+        id INTEGER PRIMARY KEY, category TEXT, status TEXT, updated_at TEXT,
+        updated_by TEXT, website_url TEXT, source_data_json TEXT
+      )`);
+      const before = {
+        "Web": "https://old.example.sk",
+        "Webstránka": "https://hidden-old.example.sk",
+        "Telefón": "0900 111 111",
+        "Telefon": "0900 222 222",
+        phone: "0900 333 333",
+        "E-mail": "old@example.sk", Email: "hidden@example.sk",
+        email: "third@example.sk", Facebook: "old-facebook", Instagram: "old-instagram",
+        "Organizácia": "Zachovať údaj",
+        "_psipedia_breeder_gallery_urls": ["https://image.example.sk/photo.jpg"],
+      };
+      sqlite.prepare(`INSERT INTO directory_profiles
+        (id,category,status,updated_at,website_url,source_data_json)
+        VALUES (?,?,?,?,?,?)`).run(
+        ctx.record.id, ctx.record.category, ctx.record.status,
+        ctx.record.updatedAt, "https://old.example.sk", JSON.stringify(before),
+      );
+      const updated = sqlite.prepare(sql).get(...args);
+      assert.equal(updated.id, ctx.record.id, change.field);
+      const row = sqlite.prepare("SELECT source_data_json,website_url FROM directory_profiles WHERE id=?")
+        .get(ctx.record.id);
+      const after = JSON.parse(row.source_data_json);
+      assert.equal(after[change.expectedKey], change.value, change.field);
+      for (const alias of change.aliases.filter(key => key !== change.expectedKey)) {
+        assert.equal(Object.hasOwn(after, alias), false, change.field + ": " + alias);
+      }
+      if (change.field === "websiteUrl") assert.equal(row.website_url, change.value);
+      else assert.equal(row.website_url, "https://old.example.sk");
+      assert.equal(after.Organizácia, before.Organizácia, change.field);
+      assert.deepEqual(after._psipedia_breeder_gallery_urls, before._psipedia_breeder_gallery_urls);
+      for (const key of ["Web", "Telefón", "E-mail", "Facebook", "Instagram"]) {
+        if (key !== change.expectedKey) assert.equal(after[key], before[key], change.field + ": " + key);
+      }
+    } finally {
+      sqlite.close();
+    }
+  }
+});
+
+test("explicit Notion contact deletion cannot resurrect a historical alias", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const ctx = setup("veterinari");
+  await ctx.save(ctx.db, ctx.record, { ...desired(), websiteUrl: "" }, "websiteUrl");
+  const { sql, args } = ctx.writes[0];
+  assert.match(sql, /source_data_json = json_remove\(/);
+  assert.doesNotMatch(sql, /source_data_json = json_set\(/);
+  assert.equal(args[0], "", "website_url is explicitly cleared");
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    sqlite.exec(`CREATE TABLE directory_profiles (
+      id INTEGER PRIMARY KEY, category TEXT, status TEXT, updated_at TEXT,
+      updated_by TEXT, website_url TEXT, source_data_json TEXT
+    )`);
+    sqlite.prepare(`INSERT INTO directory_profiles
+      (id,category,status,updated_at,website_url,source_data_json) VALUES (?,?,?,?,?,?)`)
+      .run(ctx.record.id, ctx.record.category, ctx.record.status, ctx.record.updatedAt,
+        "https://old.example.sk", JSON.stringify({
+          Web: "https://old.example.sk", "Webstránka": "https://ghost.example.sk",
+          Telefón: "0900 555 555", _psipedia_some_future_metadata: "preserve",
+        }));
+    const updated = sqlite.prepare(sql).get(...args);
+    assert.equal(updated.id, ctx.record.id);
+    const row = sqlite.prepare("SELECT website_url,source_data_json FROM directory_profiles WHERE id=?")
+      .get(ctx.record.id);
+    const after = JSON.parse(row.source_data_json);
+    assert.equal(row.website_url, "");
+    assert.equal(Object.hasOwn(after, "Web"), false);
+    assert.equal(Object.hasOwn(after, "Webstránka"), false);
+    assert.equal(after.Telefón, "0900 555 555");
+    assert.equal(after._psipedia_some_future_metadata, "preserve");
+  } finally {
+    sqlite.close();
+  }
+});

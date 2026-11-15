@@ -120,6 +120,27 @@ export function combinedFciMeasurement(values: Array<string | undefined>, unit: 
   return `${format(minimum)}${minimum === maximum ? "" : `–${format(maximum)}`} ${unit}`;
 }
 
+/** Exact public height/weight fallback with a source receipt for Admin.
+ * The website and editor use this function; it never changes canonical data. */
+export function publicBreedMeasurementWithSource(
+  legacy: string | null | undefined,
+  kind: "height" | "weight",
+  fciSexValues: Array<string | undefined>,
+): { value: string; source: "legacy" | "fci" | "none"; legacy: string; fci: string } {
+  // A sex-specific FCI text must be individually validated before combining.
+  const unit = kind === "height" ? "cm" : "kg";
+  const fci = combinedFciMeasurement(
+    fciSexValues.map(value => publicBreedMeasurement(value, kind)), unit);
+  const legacyValue = publicBreedMeasurement(legacy, kind);
+  const value = publicBreedMeasurement(legacy, kind, fci);
+  return {
+    value,
+    source: legacyValue ? "legacy" : value ? "fci" : "none",
+    legacy: legacyValue,
+    fci: publicBreedMeasurement(fci, kind),
+  };
+}
+
 export type BreedMeasurementKind = "height" | "weight" | "lifespan";
 export type BreedMeasurementIssue = {
   code: "missing-number" | "out-of-range" | "reversed-range" | "glued-number" | "repeated-number" | "missing-unit";

@@ -60,3 +60,31 @@ test("shared detail template places expertise under contact and gallery before r
   assert.match(editor, /breederRelationsDirty/);
   assert.match(editor, /\/breeder-relations/);
 });
+
+test("directory breed filters use published canonical relations ahead of legacy labels", async () => {
+  const store = await readFile(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
+  const breeder = await readFile(new URL("../lib/directory-breeder-card.ts", import.meta.url), "utf8");
+  const detail = await readFile(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
+  assert.match(store, /DIRECTORY_HAS_CANONICAL_BREEDS/);
+  assert.match(store, /linked_breed\.id IN \(\$\{canonicalBreedIdsSql\}\)/);
+  assert.match(store, /linked_breed\.name = \?/);
+  assert.match(store, /NOT \$\{DIRECTORY_HAS_CANONICAL_BREEDS\}/);
+  assert.match(store, /canonicalBreedOptions/);
+  assert.match(store, /loadCanonicalBreedOptions\(\)/);
+  assert.match(breeder, /breedSummary: names\.join\(", "\)/);
+  assert.match(detail, /suppressLinkedBreederFact/);
+  assert.match(detail, /suppressLinkedBreederQualification/);
+});
+
+test("Admin proposes explicit canonical links from legacy labels without rewriting old text", async () => {
+  const editor = await readFile(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
+  const options = await readFile(new URL("../lib/breeder-profile-relations.ts", import.meta.url), "utf8");
+  assert.match(editor, /suggestBreederRelationIds\(legacyText, group\.options\)/);
+  assert.match(editor, /data-breeder-legacy-relation-proposal/);
+  assert.match(editor, /Použiť existujúce prepojenie/);
+  assert.match(editor, /isCanonicalRelationText\(field\)/);
+  assert.match(editor, /!isCanonicalRelationText\(key\)/);
+  assert.match(editor, /setBreederRelationsDirty\(true\)/);
+  assert.match(options, /SELECT id,name,slug,city,status FROM directory_profiles/);
+  assert.match(options, /SELECT id,name,slug,status FROM managed_breeds/);
+});

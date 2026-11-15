@@ -14,6 +14,9 @@ import { DIRECTORY_CONTACT_SAVE_FIELDS, type DirectoryContactSaveField } from "@
 import { changedTrainerTrustAdminFields } from "@/lib/notion-trainer-trust-fields";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
+import { directoryLegacyPublicFactSources, directoryLegacyOpeningHoursSource } from "@/lib/directory-detail-presentation";
+import { suggestBreederRelationIds } from "@/lib/breeder-relation-text";
+import { directoryPublicEditorFieldLabels, readDirectoryPublicMetadataValue } from "@/lib/directory-public-facts";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
@@ -209,6 +212,12 @@ export function AdminDirectoryEditor({
   const [addressProviderResultId, setAddressProviderResultId] = useState("");
   const [numberlessLocalityConfirmed, setNumberlessLocalityConfirmed] = useState(false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? notionDraft?.priceNote ?? "");
+  // One public resolver provides current values and their actual D1 origin.
+  const legacySourceProfile = profile
+    ? { category: profile.category, importData: filterSourceData as ManagedDirectoryProfile["importData"] }
+    : null;
+  const legacyPublicFacts = legacySourceProfile ? directoryLegacyPublicFactSources(legacySourceProfile) : [];
+  const publicHoursSource = legacySourceProfile ? directoryLegacyOpeningHoursSource(legacySourceProfile) : null;
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(profile ? contacts.website : notionDraft?.website ?? "");
   const [publicPhone, setPublicPhone] = useState(profile ? contacts.phone : notionDraft?.phone ?? "");
@@ -219,12 +228,21 @@ export function AdminDirectoryEditor({
     const value = profile?.importData?.[key];
     return typeof value === "string" ? value : "";
   };
-  const [pilotOpeningHours, setPilotOpeningHours] = useState(pilotMetadataText("Ordinačné hodiny"));
+  const [pilotOpeningHours, setPilotOpeningHours] = useState(readDirectoryPublicMetadataValue(profile?.importData, "Ordinačné hodiny"));
   const [pilotDataSources, setPilotDataSources] = useState(pilotMetadataText("Zdroj dát"));
   const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
   const [pilotImageAlt, setPilotImageAlt] = useState(pilotMetadataText("Alt text obrázka"));
-  const [publicOrganization, setPublicOrganization] = useState(Object.hasOwn(profile?.importData ?? {}, "Organizácia") ? pilotMetadataText("Organizácia") : pilotMetadataText("Zastrešujúca organizácia"));
+  const [publicOrganization, setPublicOrganization] = useState(readDirectoryPublicMetadataValue(profile?.importData, "Organizácia"));
   const [publicFocus, setPublicFocus] = useState(pilotMetadataText("Zameranie"));
+  // The public fact registry is shared with the public profile renderer.
+  // A previously imported fact must never be visible only outside Admin.
+  const [publicFacts, setPublicFacts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      directoryPublicEditorFieldLabels(category).map(field => [
+        field, readDirectoryPublicMetadataValue(profile?.importData, field),
+      ]),
+    ),
+  );
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
   // An explicit remove action must survive a stale full-form save; null alone
   // could merely be the old value of a never-edited image field.
@@ -240,6 +258,15 @@ export function AdminDirectoryEditor({
   const [breederSelection, setBreederSelection] = useState<BreederRelationSelection>({ breedIds: [], clubIds: [] });
   const [breederRelationSearch, setBreederRelationSearch] = useState({ breeds: "", clubs: "" });
   const [breederRelationsDirty, setBreederRelationsDirty] = useState(false);
+  const hasPublishedSelectedLink = (field: "breedIds" | "clubIds") => {
+    const choices = field === "breedIds" ? breederRelationOptions.breeds : breederRelationOptions.clubs;
+    return breederSelection[field].some(id =>
+      choices.some(option => option.id === id && option.status === "published"));
+  };
+  const isCanonicalRelationText = (field: string) =>
+    ["chovatelske-stanice", "treneri"].includes(category) &&
+    ((["Plemeno", "Plemená"].includes(field) && hasPublishedSelectedLink("breedIds")) ||
+     (["Klub", "Chovateľský klub"].includes(field) && hasPublishedSelectedLink("clubIds")));
   const [breederRelationsError, setBreederRelationsError] = useState("");
   const [breederRelationsLoading, setBreederRelationsLoading] = useState(Boolean(profile && ["chovatelske-stanice", "treneri"].includes(profile.category)));
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
@@ -544,15 +571,22 @@ export function AdminDirectoryEditor({
           ["Alt text obrázka", pilotImageAlt],
           ["Organizácia", publicOrganization],
           ["Zameranie", publicFocus],
+          ...Object.entries(publicFacts).filter(([key]) =>
+            directoryPublicEditorFieldLabels(category).includes(key) &&
+            !isCanonicalRelationText(key)),
         ]) {
-          const canonicalValue = breederBaseline?.importData?.[key];
-          const value = key === "Organizácia" && !Object.hasOwn(breederBaseline?.importData ?? {}, key)
-            ? breederBaseline?.importData?.["Zastrešujúca organizácia"] : canonicalValue;
-          const baseline = typeof value === "string" ? value : "";
+          const baseline = readDirectoryPublicMetadataValue(breederBaseline?.importData, key);
           if (current.trim() !== baseline.trim())
             pilotMetadataFields[key] = current.trim();
         }
       }
+      // Field-level baseline protects against a newer Notion update while
+      // the editor was open; compare each changed value with live D1.
+      const pilotMetadataOriginalValues = Object.fromEntries(
+        Object.keys(pilotMetadataFields).map(key => [
+          key, readDirectoryPublicMetadataValue(breederBaseline?.importData, key),
+        ]),
+      );
       // Trainers use independent free-text Notion prose; pilot categories
       // retain their separate Services V3-only editing contract.
       const trainerServicesEdited = profile && profile.category === "treneri" && category === profile.category && breederBaseline
@@ -583,7 +617,8 @@ export function AdminDirectoryEditor({
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
           ...(profile ? { mainImageAction } : {}),
-          ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
+          ...(Object.keys(pilotMetadataFields).length
+            ? { pilotMetadataFields, pilotMetadataOriginalValues } : {}),
           name, slug, category,
           ...(additionalCategoriesTouched || !profile ? { additionalCategories } : {}),
           status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription,
@@ -714,6 +749,11 @@ export function AdminDirectoryEditor({
         }
         if (formEditRevisionRef.current === submittedRevision) setBreederRelationsDirty(false);
       }
+      // Refresh the independent V3 public preview from the actual stored text.
+      // This does NOT change V3 choices or historical Notion relations.
+      window.dispatchEvent(new CustomEvent("psipedia:directory-services-saved", {
+        detail: { profileId: savedProfile.id, services: savedProfile.services },
+      }));
       // Like Events, treat the API's persisted D1 response as the save receipt.
       // The Directory PUT already reloads D1 and rejects unconfirmed edited fields.
       // A second client-side text comparison can report false errors if the
@@ -757,11 +797,16 @@ export function AdminDirectoryEditor({
             const value = savedProfile.importData?.[key];
             return typeof value === "string" ? value : "";
           };
-          setPilotOpeningHours(storedText("Ordinačné hodiny"));
+          setPilotOpeningHours(readDirectoryPublicMetadataValue(savedProfile.importData, "Ordinačné hodiny"));
           setPilotDataSources(storedText("Zdroj dát"));
           setPilotImageSource(storedText("Zdroj obrázka"));
           setPilotImageAlt(storedText("Alt text obrázka"));
-          setPublicOrganization(Object.hasOwn(savedProfile.importData ?? {}, "Organizácia") ? storedText("Organizácia") : storedText("Zastrešujúca organizácia"));
+          setPublicOrganization(readDirectoryPublicMetadataValue(savedProfile.importData, "Organizácia"));
+          setPublicFacts(Object.fromEntries(
+            directoryPublicEditorFieldLabels(savedProfile.category).map(field => [
+              field, readDirectoryPublicMetadataValue(savedProfile.importData, field),
+            ]),
+          ));
           setPublicFocus(storedText("Zameranie"));
         }
         }
@@ -1103,6 +1148,46 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
             <div className="admin-field"><label htmlFor="directory-public-organization">Organizácia <small>nepovinné</small></label><input id="directory-public-organization" value={publicOrganization} onChange={(event) => { setPublicOrganization(event.target.value); setFormDirty(true); }} placeholder="Napríklad: ZŠK SR" /><small>Verejný údaj z pôvodného profilu; ostatné importované informácie zostávajú zachované.</small></div>
             <div className="admin-field"><label htmlFor="directory-public-focus">Zameranie <small>nepovinné</small></label><input id="directory-public-focus" value={publicFocus} onChange={(event) => { setPublicFocus(event.target.value); setFormDirty(true); }} placeholder="Napríklad: športová kynológia, výcvik a skúšky" /></div>
+            {profile && !notionDraft ? (
+              <details className="admin-form-card" data-directory-public-facts>
+                <summary>Ďalšie verejné informácie ({directoryPublicEditorFieldLabels(category).length} polí)</summary>
+                <p>Spoločné verejné polia aj ich pôvod v D1. Zapisuje sa iba upravený kľúč; výber plemien a katalóg Služby V3 sa ukladajú oddelene.</p>
+                <div className="admin-field-grid">
+                  {directoryPublicEditorFieldLabels(category).map(field => (
+                    <div className="admin-field" key={field}>
+                      <label htmlFor={`directory-public-fact-${field}`}>{field}</label>
+                      {isCanonicalRelationText(field) ? (
+                        <p data-directory-canonical-link-source>
+                          <strong>Riadi sa výberom v Prepojeniach.</strong>
+                          <small style={{ display: "block" }}>Historický text: {String(filterSourceData[field] ?? "") || "prázdny"}. Na verejnom webe má prednosť potvrdené prepojenie; text sa nemení.</small>
+                        </p>
+                      ) : (
+                        <input
+                          id={`directory-public-fact-${field}`}
+                          type="text"
+                          maxLength={2000}
+                          value={publicFacts[field] ?? readDirectoryPublicMetadataValue(filterSourceData as ManagedDirectoryProfile["importData"], field)}
+                          onChange={event => {
+                            setPublicFacts(previous => ({ ...previous, [field]: event.target.value }));
+                            setFormDirty(true);
+                          }}
+                          placeholder="Zatiaľ nevyplnené"
+                        />
+                      )}
+                      <small>
+                        Zdroj: {legacyPublicFacts.find(fact => fact.label === field)?.sourceKey ?? field}
+                        {legacyPublicFacts.some(fact => fact.label === field)
+                          ? " · hodnota sa používa na verejnom profile"
+                          : " · zatiaľ bez verejnej hodnoty"}
+                        {["Plemeno", "Plemená", "Klub"].includes(field) &&
+                          ["chovatelske-stanice", "treneri"].includes(category)
+                          ? " · Klikateľné prepojenie vytvoríš výberom profilu v Prepojeniach." : ""}
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
             <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={9} value={description} onChange={(event) => { setDescription(event.target.value); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} /><AdminLexicalAppendButton onAppend={text=>{ setDescription(current => appendLexicalPlainText(current,text)); setFormDirty(true); }}/></div>
             <AdminHelpText term="Formát">Perex a Popis sa ukladajú ako obyčajný text, rovnako ako pri Podujatiach. Prázdne riadky zostávajú zachované.</AdminHelpText>
             <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
@@ -1113,15 +1198,27 @@ export function AdminDirectoryEditor({
                     <textarea id="directory-trainer-services-text" rows={7} value={trainerServicesText}
                       onChange={event => { setTrainerServicesText(event.target.value); setFormDirty(true); }}
                       placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} />
-                    <small>Tento opis sa prenáša do poľa Služby v Notione; katalóg Služby V3 sa nemení.</small>
-                    <small>Existujúci katalógový/legacy zoznam: {services || "Bez položiek"}</small>
+                    <small>Voľný text je oddelený od výberu Áno/Nie v katalógu V3.</small>
+                    <small>Historický zoznam profilu: {services || "Bez položiek"}. Finálne zobrazenie sa kontroluje v náhľade Služby V3.</small>
                   </div>
                 ) : (
-                  <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
+                  <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie – historický text (nie katalóg V3)</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jeden riadok na položku. Výber kanonických služieb V3 zostáva nezmenený.</small></div>
                 )
-              ) : null}
+              ) : (
+                <div className="admin-field" data-admin-legacy-services-readonly>
+                  <strong>Historický text služieb (kontrola)</strong>
+                  <p>{services.trim() || "Bez historických služieb."}</p>
+                  <small>Tento zoznam sa neupravuje v katalógu Služby V3 a automaticky sa nekonvertuje na ID.</small>
+                </div>
+              )}
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : category === "fyzioterapia" ? "Odbornosť a skúsenosti" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
+            {profile && !notionDraft ? (
+              <p className="admin-field">
+                <a href="#directory-services-v3">Zobraziť katalóg Služby V3 a náhľad skutočne verejného zoznamu</a>
+                <small>Prednosť majú kanonické výbery; historický nerozpoznaný text sa nemaže.</small>
+              </p>
+            ) : null}
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
             {profile ? (
               <>
@@ -1130,7 +1227,7 @@ export function AdminDirectoryEditor({
                   <textarea id="directory-pilot-hours" rows={6} value={pilotOpeningHours}
                     onChange={event => { setPilotOpeningHours(event.target.value); setFormDirty(true); }}
                     placeholder={"Pondelok: 08:00–16:00\nUtorok: 08:00–16:00\nPodľa dohody"} />
-                  <small>Úpravy sa prenášajú samostatne. Vymazanie celého obsahu v Admine vymaže iba tieto hodiny aj v Notione; prázdne hodnoty z Notionu existujúce údaje neprepisujú.</small>
+                  <small>Verejné hodiny pochádzajú z poľa: {publicHoursSource?.sourceKey ?? "Ordinačné hodiny"}. Úprava sa zapíše do kanonického poľa Ordinačné hodiny; ostatné historické aliasy sa nemenia.</small>
                 </div>
                 <div className="admin-field">
                   <label htmlFor="directory-pilot-sources">Zdroje údajov</label>
@@ -1198,6 +1295,14 @@ export function AdminDirectoryEditor({
                   !search || option.name.toLocaleLowerCase("sk").includes(search));
                 const visible = search ? matches.slice(0, 45) : matches.filter(option =>
                   breederSelection[group.field].includes(option.id)).slice(0, 45);
+                const legacyText = group.key === "breeds"
+                  ? ((publicFacts["Plemená"] ?? "").trim() || (publicFacts["Plemeno"] ?? "").trim() || "")
+                  : String(filterSourceData["Klub"] ?? "").trim();
+                const suggestedIds = !breederRelationsLoading && !breederRelationsError &&
+                  !breederSelection[group.field].length && legacyText
+                  ? suggestBreederRelationIds(legacyText, group.options) : [];
+                const suggestedNames = group.options.filter(option => suggestedIds.includes(option.id))
+                  .map(option => option.name);
                 return (
                   <div className="admin-field" key={group.key}>
                     <label htmlFor={`breeder-relations-${group.key}`}>
@@ -1210,6 +1315,19 @@ export function AdminDirectoryEditor({
                       onChange={event => setBreederRelationSearch(value => ({ ...value, [group.key]: event.target.value }))}
                       placeholder={`Vyhľadať ${group.label.toLocaleLowerCase("sk")}…`}
                     />
+                    {suggestedIds.length > 0 ? (
+                      <div data-breeder-legacy-relation-proposal>
+                        <small>Presná zhoda historického textu „{legacyText}“ s publikovaným profilom: {suggestedNames.join(", ")}.</small>
+                        <button type="button" onClick={() => {
+                          setBreederSelection(current => ({ ...current, [group.field]: suggestedIds }));
+                          setBreederRelationsDirty(true);
+                          setFormDirty(true);
+                        }}>
+                          Použiť existujúce prepojenie
+                        </button>
+                        <small>Prepojenie sa vytvorí až po Uložiť zmeny. Bez automatickej konverzie textu na ID.</small>
+                      </div>
+                    ) : null}
                     <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto", padding: "8px 0" }}>
                       {visible.map(option => (
                         <label key={option.id} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
@@ -1217,7 +1335,7 @@ export function AdminDirectoryEditor({
                             checked={breederSelection[group.field].includes(option.id)}
                             onChange={() => toggleBreederLink(group.field, option.id)}
                           />
-                          <span>{option.name}{option.city ? ` — ${option.city}` : ""}</span>
+                          <span>{option.name}{option.city ? ` — ${option.city}` : ""}{option.status === "draft" ? " (koncept – zatiaľ nie je klikateľný na webe)" : ""}</span>
                         </label>
                       ))}
                       {!visible.length ? <small>{search ? "Nenašli sa žiadne výsledky." : "Napíš názov do vyhľadávania."}</small> : null}

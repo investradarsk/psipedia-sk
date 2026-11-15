@@ -198,11 +198,13 @@ function duplicateAwareAction(
   seen: Set<string>,
   existingStatus: string | undefined,
   rowLabel: string,
+  insertOnly = false,
 ): { action: ImportAction; error?: string } {
   if (seen.has(key)) return { action: "rejected", error: `${rowLabel}: duplicitný importný kľúč vo vstupnom súbore.` };
   seen.add(key);
   if (!existingStatus) return { action: "inserted" };
   if (existingStatus === "published") return { action: "skipped" };
+  if (insertOnly) return { action: "skipped" };
   return { action: "updated" };
 }
 
@@ -298,15 +300,24 @@ export async function buildGeneralImportPlan(database: D1Database, rawPayload: u
       }
       profileSlugs.add(slugKey);
       const existing = existingByImportKey ?? existingBySlug;
-      const mergedSourceJson = prepareGeneralDirectorySourceImport(row, identity.category, existing?.source_data_json ?? null);
-      profileSources.push({
-        existingSourceJson: existing?.source_data_json ?? null,
-        existingUpdatedAt: existing?.updated_at ?? null,
-        mergedSourceJson,
-      });
-      const result = duplicateAwareAction(key, profileKeys, existing?.status, `Profil riadok ${index + 1}`);
+      // Historical JSON imports create NEW profiles only. A draft that was
+      // edited in Admin or Notion is already canonical and cannot be seeded
+      // again from an old file, even when it remains unpublished.
+      const result = duplicateAwareAction(
+        key, profileKeys, existing?.status, `Profil riadok ${index + 1}`, true,
+      );
       actions.profiles.push(result.action);
       applyAction(domains.profiles, result.action, result.error);
+      if (result.action !== "inserted") {
+        profileSources.push(null);
+        return;
+      }
+      const mergedSourceJson = prepareGeneralDirectorySourceImport(row, identity.category, null);
+      profileSources.push({
+        existingSourceJson: null,
+        existingUpdatedAt: null,
+        mergedSourceJson,
+      });
     } catch (error) {
       profileSources.push(null);
       actions.profiles.push("rejected");

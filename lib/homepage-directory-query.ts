@@ -1,3 +1,4 @@
+import { directoryLegacyDistrictSql } from "./directory-public-source-contract";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "./homepage-media.ts";
 
 /**
@@ -35,10 +36,7 @@ export function homepageDirectoryGroupedSql(categoryCount: number): string {
   SELECT selected.id, profile.slug, profile.name, selected.category,
     profile.city, profile.district, profile.image_url,
     profile.thumbnail_display_json,
-    CASE WHEN json_valid(profile.source_data_json)
-      AND json_type(profile.source_data_json, '$."Okres"') IN ('text', 'integer', 'real')
-      THEN CAST(json_extract(profile.source_data_json, '$."Okres"') AS TEXT)
-      ELSE NULL END AS fallback_district
+    ${directoryLegacyDistrictSql("profile")} AS fallback_district
   FROM selected
   INNER JOIN directory_profiles AS profile ON profile.id = selected.id
   ORDER BY selected.category ASC, selected.card_rank ASC`;

@@ -16,6 +16,8 @@ import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-te
 import { normalizeAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
 import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "@/lib/directory-public-facts";
+import { directoryLegacyEditableFactKeys } from "@/lib/directory-detail-presentation";
 import { directoryContactValueMismatches, preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -80,6 +82,7 @@ export async function PUT(request: Request, { params }: Props) {
       clearMainImage?: unknown;
       mainImageAction?: unknown;
       pilotMetadataFields?: unknown;
+      pilotMetadataOriginalValues?: unknown;
       explicitlyClearedContacts?: unknown;
       contactEditedFields?: unknown;
       contactOriginalValues?: unknown;
@@ -94,6 +97,7 @@ export async function PUT(request: Request, { params }: Props) {
       clearMainImage: rawClearMainImage,
       mainImageAction: rawMainImageAction,
       pilotMetadataFields: rawPilotMetadataFields,
+      pilotMetadataOriginalValues: rawPilotMetadataOriginalValues,
       explicitlyClearedContacts: rawExplicitlyClearedContacts,
       contactEditedFields: rawContactEditedFields,
       contactOriginalValues: rawContactOriginalValues,
@@ -101,6 +105,46 @@ export async function PUT(request: Request, { params }: Props) {
       confirmContactSync: rawConfirmContactSync,
       ...submittedBody
     } = rawBody;
+    const metadataOriginalValues =
+      rawPilotMetadataOriginalValues && typeof rawPilotMetadataOriginalValues === "object" &&
+      !Array.isArray(rawPilotMetadataOriginalValues)
+        ? rawPilotMetadataOriginalValues as Record<string, unknown> : null;
+    if (rawPilotMetadataFields !== undefined) {
+      if (!rawPilotMetadataFields || typeof rawPilotMetadataFields !== "object" ||
+          Array.isArray(rawPilotMetadataFields)) {
+        return Response.json({ error: "Neplatné verejné metadáta profilu." }, { status: 400 });
+      }
+      const edits = rawPilotMetadataFields as Record<string, unknown>;
+      const keys = Object.keys(edits);
+      // The same public registry drives the editor and the public renderer.
+      // A legacy field outside this category is not a safe free-text edit.
+      const editable = new Set([
+        "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
+        "Organizácia", "Zameranie",
+        ...directoryLegacyEditableFactKeys(before),
+      ]);
+      if (keys.length > 50 || keys.some(key => !editable.has(key) ||
+          !isDirectoryPublicMetadataField(key) ||
+          typeof edits[key] !== "string" || (edits[key] as string).length > 2000)) {
+        return Response.json({ error: "Nepodporované alebo príliš dlhé verejné pole profilu." }, { status: 400 });
+      }
+      // A stale form must present a per-field D1 baseline before any mutation.
+      if (!metadataOriginalValues || keys.some(key =>
+          typeof metadataOriginalValues[key] !== "string")) {
+        return Response.json({
+          error: "Chýba pôvodná hodnota upravovaného poľa. Obnov profil a zopakuj úpravu.",
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+      if (keys.some(key => {
+        const latest = readDirectoryPublicMetadataValue(before.importData, key);
+        const original = (metadataOriginalValues[key] as string).trim();
+        return latest !== original && latest !== (edits[key] as string).trim();
+      })) {
+        return Response.json({
+          error: "Verejný údaj sa medzičasom zmenil v D1. Obnov profil, aby sa novšia hodnota neprepísala.",
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+    }
     // A stale full-form payload must never silently undo a newer Notion edit
     // to a field the editor did not touch.
     let editedPaths: BreederEditorialField[] | null =
@@ -437,8 +481,9 @@ export async function PUT(request: Request, { params }: Props) {
     if ((isDirectoryEventPilotCategory(profile.category) || serviceFilterCategories.includes(profile.category as ServiceFilterCategory)) && rawPilotMetadataFields &&
         typeof rawPilotMetadataFields === "object" && !Array.isArray(rawPilotMetadataFields)) {
       const submitted = rawPilotMetadataFields as Record<string, unknown>;
-      for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
-        if (!Object.hasOwn(submitted, field) || typeof submitted[field] !== "string") continue;
+      for (const field of Object.keys(submitted)) {
+        if (!isDirectoryPublicMetadataField(field) ||
+            typeof submitted[field] !== "string") continue;
 
         // The field key being present is an explicit Admin edit. An empty string
         // clears this one metadata field, not the rest of the profile.
@@ -446,8 +491,15 @@ export async function PUT(request: Request, { params }: Props) {
         try {
           profile = await savePilotDirectoryMetadataField({
             database: db, profileId: id, category: profile.category, field, value,
+            expectedValue: typeof metadataOriginalValues?.[field] === "string"
+              ? (metadataOriginalValues[field] as string).trim() : undefined,
           });
-          changedPilotMetadata[field] = value;
+          // The original six pilot properties have Notion mappings.
+          // Other public facts remain Admin/D1-owned until explicit schema
+          // parity is established; do not invent missing Notion properties.
+          if ((PILOT_DIRECTORY_METADATA_FIELDS as readonly string[]).includes(field)) {
+            changedPilotMetadata[field as PilotDirectoryMetadataField] = value;
+          }
         } catch (error) {
           console.error("DIRECTORY_PILOT_METADATA_ADMIN_SAVE_FAILED", id, field, error);
           metadataWarnings.push(field + ": zmena nebola uložená");
@@ -635,6 +687,21 @@ export async function PUT(request: Request, { params }: Props) {
     // intermediate projection must never be reported as the final lifecycle.
     const saved = await getManagedDirectoryProfileById(id, db);
     if (!saved) return Response.json({ error: "Záznam po uložení neexistuje." }, { status: 409 });
+    // Metadata warning is not a save receipt. Verify every explicitly edited
+    // public fact against the persisted D1 snapshot after Notion side-effects.
+    const unconfirmedPublicFacts = rawPilotMetadataFields && typeof rawPilotMetadataFields === "object" &&
+      !Array.isArray(rawPilotMetadataFields)
+      ? Object.entries(rawPilotMetadataFields as Record<string, string>)
+        .filter(([field, expected]) =>
+          readDirectoryPublicMetadataValue(saved.importData, field) !== expected.trim())
+        .map(([field]) => field)
+      : [];
+    if (unconfirmedPublicFacts.length) {
+      return Response.json({
+        error: "V D1 sa nepotvrdili verejné údaje (" + unconfirmedPublicFacts.join(", ") +
+          "). Iné časti profilu už môžu byť uložené; obnov profil a skontroluj ich.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
     const finalContacts = readDirectoryPublicContacts(saved.importData, saved.websiteUrl ?? "");
     const contactLossAfterNotion = directoryContactValueMismatches(expectedContactValues, {
       websiteUrl: finalContacts.website, publicPhone: finalContacts.phone,
