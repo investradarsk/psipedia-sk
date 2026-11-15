@@ -58,11 +58,68 @@ function normalizedLabel(value: string) {
     .trim();
 }
 
+/** Legacy text is still the storage source. Expose every parsed token with
+ * its precise occurrence so Admin can edit it in place without inventing a
+ * second data store or silently changing another field. */
+export type HelpLabelledSourceField = {
+  label: string;
+  rawValue: string;
+  occurrence: number;
+};
+function helpLabelledMatches(value: string) {
+  return [...value.matchAll(labelledValuePattern)];
+}
+export function getHelpLabelledSourceFields(
+  value: string | null | undefined,
+): HelpLabelledSourceField[] {
+  const text = value ?? "";
+  const matches = helpLabelledMatches(text);
+  return matches.map((match, occurrence) => {
+    const start = (match.index ?? 0) + match[0].length;
+    const end = occurrence + 1 < matches.length
+      ? (matches[occurrence + 1].index ?? text.length) : text.length;
+    return { label: match[1].trim(), rawValue: text.slice(start, end).trim()
+      .replace(/[|;·]+$/, "").trim(), occurrence };
+  });
+}
+
+/** Replace one labelled legacy value only, leaving every other source span
+ * byte-for-byte intact. Empty edits keep the label visible until explicitly
+ * removed by the separate delete action. */
+export function replaceHelpLabelledSourceValue(
+  text: string,
+  occurrence: number,
+  replacement: string,
+): string {
+  const matches = helpLabelledMatches(text);
+  const match = matches[occurrence];
+  if (!match || !Number.isSafeInteger(occurrence) || occurrence < 0) return text;
+  const start = (match.index ?? 0) + match[0].length;
+  const end = occurrence + 1 < matches.length
+    ? (matches[occurrence + 1].index ?? text.length) : text.length;
+  const existing = text.slice(start, end);
+  // Preserve whitespace and separators around an import token; only its value
+  // changes. The next token's label and surrounding prose are untouched.
+  const prefix = existing.match(/^\s*/u)?.[0] ?? "";
+  const suffix = existing.match(/\s*$/u)?.[0] ?? "";
+  return text.slice(0, start) + prefix + replacement + suffix + text.slice(end);
+}
+
+export function removeHelpLabelledSourceField(text: string, occurrence: number): string {
+  const matches = helpLabelledMatches(text);
+  const match = matches[occurrence];
+  if (!match || !Number.isSafeInteger(occurrence) || occurrence < 0) return text;
+  const start = match.index ?? 0;
+  const end = occurrence + 1 < matches.length
+    ? (matches[occurrence + 1].index ?? text.length) : text.length;
+  return (text.slice(0, start) + text.slice(end)).trim();
+}
+
 export function parseHelpLabelledText(value: string | null | undefined) {
   const text = value?.trim() ?? "";
   if (!text) return { fields: [] as HelpPresentationField[], remainder: "" };
 
-  const matches = [...text.matchAll(labelledValuePattern)];
+  const matches = helpLabelledMatches(text);
   if (!matches.length) return { fields: [] as HelpPresentationField[], remainder: text };
 
   const fields: HelpPresentationField[] = [];
@@ -160,7 +217,7 @@ function unlabelledContacts(value: string | null) {
   return { contacts, note: notes.length ? notes.join("\n") : null };
 }
 
-export function getHelpPresentation(item: HelpCase) {
+export function getHelpPresentation(item: Pick<HelpCase, "description" | "contactNote">) {
   const description = parseHelpLabelledText(item.description);
   const contact = parseHelpLabelledText(item.contactNote);
   const fields = [...description.fields, ...contact.fields];
