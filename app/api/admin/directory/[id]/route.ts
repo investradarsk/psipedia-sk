@@ -17,6 +17,7 @@ import { normalizeAdditionalDirectoryCategories } from "@/lib/directory-multi-ca
 import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
 import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "@/lib/directory-public-facts";
+import { directoryLegacyEditableFactKeys } from "@/lib/directory-detail-presentation";
 import { directoryContactValueMismatches, preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -108,19 +109,40 @@ export async function PUT(request: Request, { params }: Props) {
       rawPilotMetadataOriginalValues && typeof rawPilotMetadataOriginalValues === "object" &&
       !Array.isArray(rawPilotMetadataOriginalValues)
         ? rawPilotMetadataOriginalValues as Record<string, unknown> : null;
-    if (rawPilotMetadataFields && typeof rawPilotMetadataFields === "object" &&
-        !Array.isArray(rawPilotMetadataFields)) {
-      for (const [field, submitted] of Object.entries(rawPilotMetadataFields)) {
-        if (!isDirectoryPublicMetadataField(field) || typeof submitted !== "string") continue;
-        const original = metadataOriginalValues?.[field];
-        if (typeof original !== "string") continue; // Deployed older forms lack receipts.
-        const latest = readDirectoryPublicMetadataValue(before.importData, field);
-        if (latest !== original.trim() && latest !== submitted.trim()) {
-          return Response.json({
-            error: "Pole „" + field +
-              "“ sa medzitým zmenilo. Obnov profil a rozhodni, ktorú hodnotu ponechať.",
-          }, { status: 409 });
-        }
+    if (rawPilotMetadataFields !== undefined) {
+      if (!rawPilotMetadataFields || typeof rawPilotMetadataFields !== "object" ||
+          Array.isArray(rawPilotMetadataFields)) {
+        return Response.json({ error: "Neplatné verejné metadáta profilu." }, { status: 400 });
+      }
+      const edits = rawPilotMetadataFields as Record<string, unknown>;
+      const keys = Object.keys(edits);
+      // The same public registry drives the editor and the public renderer.
+      // A legacy field outside this category is not a safe free-text edit.
+      const editable = new Set([
+        "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
+        "Organizácia", "Zameranie",
+        ...directoryLegacyEditableFactKeys(before),
+      ]);
+      if (keys.length > 50 || keys.some(key => !editable.has(key) ||
+          !isDirectoryPublicMetadataField(key) ||
+          typeof edits[key] !== "string" || (edits[key] as string).length > 2000)) {
+        return Response.json({ error: "Nepodporované alebo príliš dlhé verejné pole profilu." }, { status: 400 });
+      }
+      // A stale form must present a per-field D1 baseline before any mutation.
+      if (!metadataOriginalValues || keys.some(key =>
+          typeof metadataOriginalValues[key] !== "string")) {
+        return Response.json({
+          error: "Chýba pôvodná hodnota upravovaného poľa. Obnov profil a zopakuj úpravu.",
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+      if (keys.some(key => {
+        const latest = readDirectoryPublicMetadataValue(before.importData, key);
+        const original = (metadataOriginalValues[key] as string).trim();
+        return latest !== original && latest !== (edits[key] as string).trim();
+      })) {
+        return Response.json({
+          error: "Verejný údaj sa medzičasom zmenil v D1. Obnov profil, aby sa novšia hodnota neprepísala.",
+        }, { status: 409, headers: { "cache-control": "no-store" } });
       }
     }
     // A stale full-form payload must never silently undo a newer Notion edit
@@ -665,6 +687,21 @@ export async function PUT(request: Request, { params }: Props) {
     // intermediate projection must never be reported as the final lifecycle.
     const saved = await getManagedDirectoryProfileById(id, db);
     if (!saved) return Response.json({ error: "Záznam po uložení neexistuje." }, { status: 409 });
+    // Metadata warning is not a save receipt. Verify every explicitly edited
+    // public fact against the persisted D1 snapshot after Notion side-effects.
+    const unconfirmedPublicFacts = rawPilotMetadataFields && typeof rawPilotMetadataFields === "object" &&
+      !Array.isArray(rawPilotMetadataFields)
+      ? Object.entries(rawPilotMetadataFields as Record<string, string>)
+        .filter(([field, expected]) =>
+          readDirectoryPublicMetadataValue(saved.importData, field) !== expected.trim())
+        .map(([field]) => field)
+      : [];
+    if (unconfirmedPublicFacts.length) {
+      return Response.json({
+        error: "V D1 sa nepotvrdili verejné údaje (" + unconfirmedPublicFacts.join(", ") +
+          "). Iné časti profilu už môžu byť uložené; obnov profil a skontroluj ich.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
     const finalContacts = readDirectoryPublicContacts(saved.importData, saved.websiteUrl ?? "");
     const contactLossAfterNotion = directoryContactValueMismatches(expectedContactValues, {
       websiteUrl: finalContacts.website, publicPhone: finalContacts.phone,
