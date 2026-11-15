@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   formatDirectoryUpdatedAt,
   getDirectoryDetailPresentation,
+  directoryLegacyPublicFactSources,
   getDirectoryQuickFacts,
   publicDirectoryDetailUrl,
   usefulDirectoryDetailValue,
@@ -539,4 +540,30 @@ test("organization and focus are public facts in all service categories without 
   }));
   assert.equal(cleared.facts.some(fact => fact.label === "Organizácia"), false,
     "An explicit clear must not restore stale imported values");
+});
+
+
+test("Admin provenance uses the exact same legacy facts as the public detail", () => {
+  const source = profile({
+    category: "chovatelske-stanice",
+    importData: {
+      Plemeno: "Cane Corso",
+      Klub: "Klub Cane Corso a Dogo Canario",
+      "FCI skupina": 2,
+      "Zastrešujúca organizácia": "Klubová asociácia",
+      Zameranie: "Chov psov",
+      "Aktívny chov": "Neoverené",
+      "Údaj mimo verejného detailu": "Nikdy nezobrazovať",
+    },
+  });
+  const sources = directoryLegacyPublicFactSources(source);
+  const { facts } = getDirectoryDetailPresentation(source);
+  assert.deepEqual(sources.map(({ label, value }) => ({ label, value })), facts);
+  assert.deepEqual(sources.filter(fact => ["Plemeno", "Klub", "Organizácia"].includes(fact.label)), [
+    { label: "Plemeno", value: "Cane Corso", sourceKey: "Plemeno" },
+    { label: "Klub", value: "Klub Cane Corso a Dogo Canario", sourceKey: "Klub" },
+    { label: "Organizácia", value: "Klubová asociácia", sourceKey: "Zastrešujúca organizácia" },
+  ]);
+  assert.equal(sources.some(fact => fact.label === "Aktívny chov"), false);
+  assert.equal(sources.some(fact => fact.label === "Údaj mimo verejného detailu"), false);
 });
