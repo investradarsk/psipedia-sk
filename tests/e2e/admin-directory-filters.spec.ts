@@ -16,6 +16,19 @@ async function openDirectoryEditorSection(page: Page, label: string) {
   }
 }
 
+// Advanced SEO settings live inside the compact "Ďalšie nástroje" disclosure.
+// Open the real UI control instead of assuming its button is always visible.
+async function openDirectoryAdvancedTools(page: Page) {
+  const tools = page.locator("[data-admin-directory-secondary-tools]");
+  await expect(tools).toBeVisible();
+  if ((await tools.getAttribute("open")) === null) {
+    await tools.locator("summary").click();
+  }
+  const advanced = tools.getByRole("button", { name: "Pokročilé a SEO" });
+  await expect(advanced).toBeVisible();
+  return advanced;
+}
+
 // On narrow screens the table's server HTML starts in desktop mode and React
 // switches it to compact cards during hydration. Interacting with pagination
 // before that transition finishes clicks stale coordinates after the reflow.
@@ -269,7 +282,7 @@ test.describe("admin directory v2", () => {
     await expect(page.getByText("Trust stav: redakcia preverila základné údaje. Nie je to publication state.")).toBeVisible();
     await expect(page.getByText("Neznamená platené ani sponzorované umiestnenie.")).toBeVisible();
 
-    const advanced = page.getByRole("button", { name: "Pokročilé a SEO" });
+    const advanced = await openDirectoryAdvancedTools(page);
     await advanced.click();
     const drawer = page.getByRole("dialog", { name: "Pokročilé nastavenia" });
     await expect(drawer).toBeVisible();
@@ -582,10 +595,11 @@ test.describe("admin directory v2", () => {
       }
     }
     expect(openedEditor).toBe(true);
-    await expect(page.getByRole("button", { name: "Pokročilé a SEO" })).toBeVisible();
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
+    const advanced = await openDirectoryAdvancedTools(page);
     const editorOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(editorOverflow).toBeLessThanOrEqual(1);
-    await page.getByRole("button", { name: "Pokročilé a SEO" }).click();
+    await advanced.click();
     const drawerScan = await new AxeBuilder({ page }).include("dialog").analyze();
     expect(drawerScan.violations).toEqual([]);
   });
