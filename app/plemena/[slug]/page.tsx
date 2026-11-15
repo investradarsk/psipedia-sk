@@ -20,8 +20,9 @@ import {
 import { breedAtlasHref } from "@/lib/breed-atlas";
 import { breedCategorySlug, breedProfileHref, breedFciStandardHref } from "@/lib/breed-canonical";
 import {
-  combinedFciMeasurement,
   publicBreedMeasurement,
+  publicBreedMeasurementWithSource,
+  publicFciSectionName,
   type FciStandard,
 } from "@/lib/breed-fci";
 import { normalizeBreedSports, textParagraphs } from "@/lib/breed-profile";
@@ -234,20 +235,10 @@ export default async function BreedDetailPage({ params }: Props) {
     ],
   };
 
-  const fciDogHeight = publicBreedMeasurement(fci.vyska_pes_cm, "height");
-  const fciBitchHeight = publicBreedMeasurement(fci.vyska_suka_cm, "height");
-  const fciDogWeight = publicBreedMeasurement(fci.hmotnost_pes_kg, "weight");
-  const fciBitchWeight = publicBreedMeasurement(fci.hmotnost_suka_kg, "weight");
-  const height = publicBreedMeasurement(
-    breed.height,
-    "height",
-    combinedFciMeasurement([fciDogHeight, fciBitchHeight], "cm"),
-  );
-  const weight = publicBreedMeasurement(
-    breed.weight,
-    "weight",
-    combinedFciMeasurement([fciDogWeight, fciBitchWeight], "kg"),
-  );
+  const height = publicBreedMeasurementWithSource(breed.height, "height",
+    [fci.vyska_pes_cm, fci.vyska_suka_cm]).value;
+  const weight = publicBreedMeasurementWithSource(breed.weight, "weight",
+    [fci.hmotnost_pes_kg, fci.hmotnost_suka_kg]).value;
   const lifespan = publicBreedMeasurement(breed.lifespan, "lifespan");
 
   // New Admin values take precedence only when present and valid; old prose
@@ -350,7 +341,13 @@ export default async function BreedDetailPage({ params }: Props) {
       value: fciGroupName ? `${displayFciGroup}. ${fciGroupName}` : String(displayFciGroup),
       href: fciGroupHref,
     },
-    { label: "FCI sekcia", value: breed.fciSection?.trim() || displayFacts.fciSection || sectionNumber, href: fciSectionHref },
+    { label: "FCI sekcia",
+      // A new FCI section selection owns the display; the old translated
+      // label must not silently override a newer Admin choice.
+      value: sectionNumber
+        ? publicFciSectionName(displayFciGroup, sectionNumber, breed.fciSection)
+        : (breed.fciSection?.trim() || displayFacts.fciSection),
+      href: fciSectionHref },
   ].filter((item) => Boolean(item.value));
   const hasFciReference = Boolean(
     managedBreed?.fciNumber ||
