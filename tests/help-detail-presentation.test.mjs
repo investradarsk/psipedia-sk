@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getHelpPresentation,
+  getHelpLabelledSourceFields,
   parseHelpLabelledText,
+  replaceHelpLabelledSourceValue,
+  removeHelpLabelledSourceField,
   usefulHelpValue,
 } from "../lib/help-detail-presentation.ts";
 
@@ -128,4 +131,51 @@ test("contact notes survive alongside extracted tokens and duplicate phones are 
   assert.equal(presentation.contacts.length, 2);
   assert.equal(presentation.contactNote, "Volajte iba večer.");
   assert.equal(presentation.contacts[0].value, "+421 900 123 456");
+});
+
+test("Admin updates exactly one labelled legacy value without creating a second source", () => {
+  const input = "Popis: Pomôžte s venčením. Dobrovoľníctvo: prechádzky Materiálna pomoc: deky";
+  const fields = getHelpLabelledSourceFields(input);
+  assert.deepEqual(fields.map(field => ({ label: field.label, value: field.rawValue })), [
+    { label: "Popis", value: "Pomôžte s venčením." },
+    { label: "Dobrovoľníctvo", value: "prechádzky" },
+    { label: "Materiálna pomoc", value: "deky" },
+  ]);
+  const changed = replaceHelpLabelledSourceValue(input, 1, "venčenie aj čistenie kotercov");
+  assert.ok(changed.includes("Popis: Pomôžte s venčením."));
+  assert.ok(changed.includes("Dobrovoľníctvo: venčenie aj čistenie kotercov"));
+  assert.ok(changed.includes("Materiálna pomoc: deky"));
+  assert.equal(getHelpPresentation(helpCase({ description: changed })).helpOptions[0]?.value,
+    "venčenie aj čistenie kotercov");
+  assert.equal(replaceHelpLabelledSourceValue(input, 50, "neplatné"), input);
+});
+
+test("removing a targeted legacy label cannot delete unrelated prose, contacts or next tokens", () => {
+  const original = "Organizácia pomáha psom. Dobrovoľníctvo: prechádzky Materiálna pomoc: deky";
+  const changed = removeHelpLabelledSourceField(original, 0);
+  assert.equal(changed, "Organizácia pomáha psom. Materiálna pomoc: deky");
+  const projection = getHelpPresentation(helpCase({ description: changed }));
+  assert.deepEqual(projection.helpOptions, [{ label: "Materiálna pomoc", value: "deky" }]);
+  assert.equal(removeHelpLabelledSourceField(original, -1), original);
+});
+
+test("contact source values match public extraction from the very same two texts", () => {
+  const original = "Telefón: +421 900 123 456 E-mail: pomoc@example.org";
+  const fields = getHelpLabelledSourceFields(original);
+  assert.deepEqual(fields.map(x => x.label), ["Telefón", "E-mail"]);
+  const modified = replaceHelpLabelledSourceValue(original, 0, "+421 908 111 222");
+  assert.equal(getHelpPresentation(helpCase({ contactNote: modified })).contacts
+    .find(x => x.label === "Telefón")?.href, "tel:+421908111222");
+  assert.ok(modified.includes("E-mail: pomoc@example.org"));
+  const bare = getHelpPresentation(helpCase({ contactNote: "pomoc@example.org; +421 900 123 456" }));
+  assert.equal(bare.contacts.length, 2, "standalone contacts keep their existing public parsing");
+});
+
+test("empty labelled value remains visible in Admin until an explicit remove", () => {
+  const original = "Dobrovoľníctvo: prechádzky Materiálna pomoc: deky";
+  const emptied = replaceHelpLabelledSourceValue(original, 0, "");
+  assert.deepEqual(getHelpLabelledSourceFields(emptied).map(x=>x.label),
+    ["Dobrovoľníctvo","Materiálna pomoc"]);
+  assert.deepEqual(getHelpPresentation(helpCase({description:emptied})).helpOptions,
+    [{label:"Materiálna pomoc",value:"deky"}]);
 });
