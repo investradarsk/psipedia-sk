@@ -16,7 +16,8 @@ import { breedAdminDirtyPaths } from "@/lib/breed-admin-dirty-patch.mjs";
 import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminFieldFeedback, AdminFormFeedback } from "@/components/admin-form-feedback";
-import { inspectBreedMeasurement, type BreedMeasurementKind, type FciStandard, type FciStandardTextKey } from "@/lib/breed-fci";
+import { inspectBreedMeasurement, publicBreedMeasurement, publicBreedMeasurementWithSource, publicBreedSize, publicFciSectionName, type BreedMeasurementKind, type FciStandard, type FciStandardTextKey } from "@/lib/breed-fci";
+import { resolvePublicBreedFactsWithSources } from "@/lib/breed-public-facts.mjs";
 import {
   FCI_GROUP_OPTIONS, BREED_SIZE_OPTIONS, BREED_ORIGIN_COUNTRIES,
   isBreedNumericDraft,
@@ -345,6 +346,47 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     ]},
   ];
 
+  // Admin preview has the same controlled > legacy > FCI precedence as the
+  // public profile, using the same pure resolvers. This preview is read-only
+  // and never sends historical FCI values to the Notion workcopy.
+  const heightReceipt=publicBreedMeasurementWithSource(form.height,"height",
+    [form.fciStandard.vyska_pes_cm,form.fciStandard.vyska_suka_cm]);
+  const weightReceipt=publicBreedMeasurementWithSource(form.weight,"weight",
+    [form.fciStandard.hmotnost_pes_kg,form.fciStandard.hmotnost_suka_kg]);
+  const publicReceipt=resolvePublicBreedFactsWithSources({
+    origin:form.origin.trim(),
+    size:publicBreedSize(form.size),
+    height:heightReceipt.value,
+    weight:weightReceipt.value,
+    lifespan:publicBreedMeasurement(form.lifespan,"lifespan"),
+    fciGroup:form.fciGroup,
+    fciSection:publicFciSectionName(form.fciGroup,form.fciSectionNumber,form.fciSection),
+  },controlled,{
+    height:heightReceipt.source,
+    weight:weightReceipt.source,
+  });
+  const publicSourceName=(key:string)=>{
+    const value=publicReceipt.sources[key] as string;
+    return value==="controlled"?"Nové pole · Admin / Notion"
+      :value==="fci"?"FCI štandard · záložná hodnota"
+      :value==="legacy"?"Pôvodné pole profilu"
+      :"Nevyplnené";
+  };
+  const publicFactNames=[
+    ["origin","Pôvod"],["size","Veľkosť"],["coatTypes","Typ srsti"],
+    ["height","Výška"],["weight","Hmotnosť"],["lifespan","Dĺžka života"],
+    ["useTypes","Využitie"],["fciGroup","FCI skupina"],
+  ] as const;
+  const incompleteNewMeasurements=[
+    ["heightMinCm","heightMaxCm","Výška"],
+    ["weightMinKg","weightMaxKg","Hmotnosť"],
+    ["lifespanMinYears","lifespanMaxYears","Dĺžka života"],
+  ] as const;
+  const incompleteNewFields=incompleteNewMeasurements
+    .filter(([min,max])=>(controlled[min]!==null&&controlled[min]!==undefined)!==
+      (controlled[max]!==null&&controlled[max]!==undefined))
+    .map(([, , label])=>label);
+
   const renderControlled=(key:string)=>{
     const field=BREED_CONTROLLED_FIELDS.find(item=>item.key===key);
     if(!field || !breed || controlledRevision===null)return null;
@@ -485,11 +527,37 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           {controlledPendingKeys.length>0 && <p role="status" className={styles.validation}>
             Čaká na potvrdenie v Notione: {controlledPendingKeys.length} polí.
           </p>}
-          <details className={styles.legacyInfo}><summary>Historické opisy – iba na čítanie</summary>
-            <p>Pôvodné texty zachovávame pre verejný web až do bezpečného prechodu. Nie sú druhým editorom tých istých údajov.</p>
-            <dl>{([["Pôvod",form.origin],["Veľkosť",form.size],["Výška",form.height],
-              ["Hmotnosť",form.weight],["Dĺžka života",form.lifespan]] as const)
-              .filter(([,value])=>Boolean(value.trim())).map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+          <details className={styles.legacyInfo} data-breed-public-provenance>
+            <summary>Verejné údaje a ich skutočný zdroj</summary>
+            {controlledError ? <p role="alert">Kontrolované polia sa nenačítali; zdroj verejnej hodnoty teraz nie je možné spoľahlivo určiť.</p>
+              : controlledRevision===null ? <p>Načítavam aktuálne údaje používané verejným webom…</p>
+              : <>
+                <p>Toto sú hodnoty, ktoré verejná stránka skladá z nových polí, historického profilu a FCI štandardu. Nič sa tu samo neprepisuje. Zmeny v náhľade pred uložením ešte nie sú publikované.</p>
+                <dl>{publicFactNames.map(([key,label])=><div key={key}>
+                  <dt>{label}</dt>
+                  <dd><strong>{publicReceipt.facts[key] || "Nevyplnené"}</strong>
+                    <small style={{display:"block"}}>Zdroj: {publicSourceName(key)}</small>
+                  </dd>
+                </div>)}
+                <div><dt>FCI sekcia</dt><dd>
+                  {publicFciSectionName(Number(publicReceipt.facts.fciGroup)||form.fciGroup,
+                    typeof controlled.fciSectionSelect==="string"&&controlled.fciSectionSelect
+                      ? controlled.fciSectionSelect : form.fciSectionNumber,form.fciSection)}
+                  <small style={{display:"block"}}>Zdroj: {publicReceipt.sources.fciSection==="controlled"
+                    ? "Nové pole · Admin / Notion" : "FCI zaradenie · pôvodný profil"}</small>
+                </dd></div></dl>
+                {incompleteNewFields.length>0 ? <p role="status">
+                  Nové číselné polia nie sú úplné: {incompleteNewFields.join(", ")}.
+                  Kým nevyplníš obidve hranice rozsahu, web použije historický alebo FCI údaj.
+                </p> : null}
+                {publicReceipt.facts.fciGroup && String(publicReceipt.facts.fciGroup)!==String(form.fciGroup)
+                  ? <p role="status">Pozor: nová FCI skupina sa líši od historickej.
+                    Kanonická adresa plemena zatiaľ používa historické zaradenie.
+                    Skontroluj obe hodnoty pred publikovaním.</p> : null}
+                <p>Historické hodnoty zostali v databáze nezmenené:
+                  výška {form.height||"—"}, hmotnosť {form.weight||"—"},
+                  dĺžka života {form.lifespan||"—"}.</p>
+              </>}
           </details>
         </> : <div className={styles.basicBottom}>
           <label className="admin-field"><span>Výška v kohútiku</span><input inputMode="decimal"
