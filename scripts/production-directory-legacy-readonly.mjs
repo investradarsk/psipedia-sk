@@ -45,9 +45,9 @@ export function unwrapD1Results(text, label) {
 export function safeDirectoryD1ErrorHint(stderr = "", stdout = "") {
   const message = String(stderr) + "\n" + String(stdout);
   const patterns = [
-    /no such column:\\s*[A-Za-z_][A-Za-z_0-9]*/i,
-    /no such table:\\s*[A-Za-z_][A-Za-z_0-9]*/i,
-    /no such function:\\s*[A-Za-z_][A-Za-z_0-9]*/i,
+    /no such column:\s*[A-Za-z_][A-Za-z_0-9]*/i,
+    /no such table:\s*[A-Za-z_][A-Za-z_0-9]*/i,
+    /no such function:\s*[A-Za-z_][A-Za-z_0-9]*/i,
     /too many terms in compound SELECT/i,
     /expression tree is too large/i,
     /malformed JSON/i,
@@ -56,7 +56,7 @@ export function safeDirectoryD1ErrorHint(stderr = "", stdout = "") {
     /query timed out/i,
     /SQLITE_[A-Z_]+/i,
     /D1_ERROR/i,
-    /code:\\s*(?:400|401|403|404|409|413|422|429|500|502|503|504)\\b/i,
+    /code:\s*(?:400|401|403|404|409|413|422|429|500|502|503|504)\b/i,
   ];
   const hints = [...new Set(patterns.map(pattern => message.match(pattern)?.[0]).filter(Boolean))];
   return hints.length ? hints.join(" | ").slice(0, 240) : "NO_SAFE_DIAGNOSTIC";
