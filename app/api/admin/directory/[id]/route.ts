@@ -128,8 +128,16 @@ export async function PUT(request: Request, { params }: Props) {
         typeof fields[key] !== "string" || (fields[key] as string).length > 2000)) {
         return Response.json({ error: "Nepodporované alebo príliš dlhé verejné pole profilu." }, { status: 400 });
       }
-      if (previous && Object.keys(fields).some(key =>
-        typeof previous[key] !== "string" ||
+      // A caller must prove which exact D1 value it saw before editing.
+      // Without this baseline the per-field CAS can be bypassed by simply
+      // omitting pilotMetadataOriginals from a stale full-editor request.
+      if (!previous || Object.keys(fields).some(key =>
+        !Object.hasOwn(previous, key) || typeof previous[key] !== "string")) {
+        return Response.json({
+          error: "Chýba pôvodná hodnota niektorého upravovaného verejného poľa. Obnov profil pred uložením.",
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+      if (Object.keys(fields).some(key =>
         previous[key] !== String(before.importData?.[key] ?? "").trim())) {
         return Response.json({
           error: "Niektorý verejný údaj sa medzičasom zmenil v databáze. Obnov profil a skontroluj hodnoty; novšie údaje neboli prepísané.",
