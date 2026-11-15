@@ -1,3 +1,4 @@
+import { suspiciousDirectoryContactClearBatch, type DirectoryContactSaveField } from "./directory-contact-save-contract";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
@@ -1664,6 +1665,27 @@ async function syncBreederEvent(input: {
     if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length)
       return "unchanged";
     const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
+    // Emergency safety: a bot/echo that marks several contacts as changed
+    // must not erase multiple previously nonempty D1 values in one sweep.
+    // Explicit single-field Notion edits still work. Admin-origin intentional
+    // clears already reached D1 before the Notion echo, so cannot match.
+    const liveSnapshot = profileSnapshot(input.profile) as unknown as Record<string, unknown>;
+    const contactText = (source: Record<string, unknown>, key: DirectoryContactSaveField) =>
+      typeof source[key] === "string" ? source[key] as string : "";
+    const suspectContactClears = suspiciousDirectoryContactClearBatch({
+      current: Object.fromEntries(DIRECTORY_CONTACT_EDITORIAL_PATHS.map(key =>
+        [key, contactText(liveSnapshot, key)])) as Record<DirectoryContactSaveField, string>,
+      incoming: Object.fromEntries(DIRECTORY_CONTACT_EDITORIAL_PATHS.map(key =>
+        [key, contactText(fromNotion, key)])) as Record<DirectoryContactSaveField, string>,
+      changed: paths,
+    });
+    if (suspectContactClears.length) {
+      // Log only the affected FIELD NAMES; never leak contact values.
+      console.error("DIRECTORY_NOTION_BULK_CONTACT_CLEAR_BLOCKED",
+        input.profile.id, suspectContactClears);
+      throw new Error("DIRECTORY_NOTION_BULK_CONTACT_CLEAR_REQUIRES_REVIEW: " +
+        suspectContactClears.join(","));
+    }
     let current = input.profile;
     let updated = false;
     const failures: string[] = [];
