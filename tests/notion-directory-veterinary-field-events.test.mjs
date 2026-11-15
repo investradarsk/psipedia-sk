@@ -221,6 +221,7 @@ test("explicit blank Admin and Notion edits clear a single JSON field without to
   const exports = {};
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory,
+    DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: ["Plemeno", "Klub", "FCI skupina"],
     serviceFilterCategories: ["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby", "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie", "vencenie", "fyzioterapia", "dalsie-sluzby"],
     getManagedDirectoryProfileById: async () => profile,
     Date,
@@ -232,6 +233,7 @@ test("explicit blank Admin and Notion edits clear a single JSON field without to
   assert.equal(logs.length, 1);
   assert.match(logs[0].sql, /source_data_json = json_set/);
   assert.ok(logs[0].args.includes('$."Ordinačné hodiny"'));
+  assert.ok(logs[0].sql.includes("json_extract(source_data_json"), "CAS guards the same JSON property");
   assert.ok(logs[0].args.includes(""), "empty edit is persisted as empty, not silently skipped");
   assert.equal(logs[0].args.includes('$."Zdroj dát"'), false, "unrelated sources are untouched");
   assert.ok(source.includes("Only fields explicitly reported as changed by the Notion webhook are written."));
@@ -246,4 +248,19 @@ test("municipality search does not clear a committed city before a dropdown sele
   assert.match(untilCommit, /setEditingQuery\(true\)/);
   assert.match(source, /resetMunicipalityQuery\(\);/);
   assert.match(source, /onChange\(\{ region: selectedRegion, district: selectedDistrict, city \}\);/);
+});
+
+test("public fact editor and Notion field events share exact-key D1 changes", async () => {
+  const sync = await get("../lib/notion-directory-sync.ts");
+  const editor = await get("../components/admin-directory-editor.tsx");
+  const route = await get("../app/api/admin/directory/[id]/route.ts");
+  assert.match(sync, /\.\.\.DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS/);
+  assert.match(editor, /directoryLegacyEditableFactKeys/);
+  assert.match(editor, /legacyFactInputs\[key\]/);
+  assert.match(editor, /pilotMetadataOriginals\[key\] = original/);
+  assert.match(route, /DIRECTORY_PILOT_METADATA_SCOPE_INVALID|PILOT_DIRECTORY_METADATA_FIELDS/);
+  assert.match(route, /rawPilotMetadataOriginals/);
+  assert.match(route, /directoryLegacyEditableFactKeys\(before\)/);
+  assert.match(sync, /DIRECTORY_PILOT_METADATA_STALE_FIELD/);
+  assert.doesNotMatch(editor, /JSON\.stringify\(profile\.importData\)/, "editor never posts the complete old JSON payload");
 });
