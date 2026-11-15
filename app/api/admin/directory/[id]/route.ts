@@ -16,6 +16,7 @@ import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-te
 import { normalizeAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
 import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "@/lib/directory-public-facts";
 import { directoryContactValueMismatches, preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -80,6 +81,7 @@ export async function PUT(request: Request, { params }: Props) {
       clearMainImage?: unknown;
       mainImageAction?: unknown;
       pilotMetadataFields?: unknown;
+      pilotMetadataOriginalValues?: unknown;
       explicitlyClearedContacts?: unknown;
       contactEditedFields?: unknown;
       contactOriginalValues?: unknown;
@@ -94,6 +96,7 @@ export async function PUT(request: Request, { params }: Props) {
       clearMainImage: rawClearMainImage,
       mainImageAction: rawMainImageAction,
       pilotMetadataFields: rawPilotMetadataFields,
+      pilotMetadataOriginalValues: rawPilotMetadataOriginalValues,
       explicitlyClearedContacts: rawExplicitlyClearedContacts,
       contactEditedFields: rawContactEditedFields,
       contactOriginalValues: rawContactOriginalValues,
@@ -101,6 +104,25 @@ export async function PUT(request: Request, { params }: Props) {
       confirmContactSync: rawConfirmContactSync,
       ...submittedBody
     } = rawBody;
+    const metadataOriginalValues =
+      rawPilotMetadataOriginalValues && typeof rawPilotMetadataOriginalValues === "object" &&
+      !Array.isArray(rawPilotMetadataOriginalValues)
+        ? rawPilotMetadataOriginalValues as Record<string, unknown> : null;
+    if (rawPilotMetadataFields && typeof rawPilotMetadataFields === "object" &&
+        !Array.isArray(rawPilotMetadataFields)) {
+      for (const [field, submitted] of Object.entries(rawPilotMetadataFields)) {
+        if (!isDirectoryPublicMetadataField(field) || typeof submitted !== "string") continue;
+        const original = metadataOriginalValues?.[field];
+        if (typeof original !== "string") continue; // Deployed older forms lack receipts.
+        const latest = readDirectoryPublicMetadataValue(before.importData, field);
+        if (latest !== original.trim() && latest !== submitted.trim()) {
+          return Response.json({
+            error: "Pole „" + field +
+              "“ sa medzitým zmenilo. Obnov profil a rozhodni, ktorú hodnotu ponechať.",
+          }, { status: 409 });
+        }
+      }
+    }
     // A stale full-form payload must never silently undo a newer Notion edit
     // to a field the editor did not touch.
     let editedPaths: BreederEditorialField[] | null =
@@ -437,8 +459,9 @@ export async function PUT(request: Request, { params }: Props) {
     if ((isDirectoryEventPilotCategory(profile.category) || serviceFilterCategories.includes(profile.category as ServiceFilterCategory)) && rawPilotMetadataFields &&
         typeof rawPilotMetadataFields === "object" && !Array.isArray(rawPilotMetadataFields)) {
       const submitted = rawPilotMetadataFields as Record<string, unknown>;
-      for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
-        if (!Object.hasOwn(submitted, field) || typeof submitted[field] !== "string") continue;
+      for (const field of Object.keys(submitted)) {
+        if (!isDirectoryPublicMetadataField(field) ||
+            typeof submitted[field] !== "string") continue;
 
         // The field key being present is an explicit Admin edit. An empty string
         // clears this one metadata field, not the rest of the profile.
@@ -446,8 +469,15 @@ export async function PUT(request: Request, { params }: Props) {
         try {
           profile = await savePilotDirectoryMetadataField({
             database: db, profileId: id, category: profile.category, field, value,
+            expectedValue: typeof metadataOriginalValues?.[field] === "string"
+              ? (metadataOriginalValues[field] as string).trim() : undefined,
           });
-          changedPilotMetadata[field] = value;
+          // The original six pilot properties have Notion mappings.
+          // Other public facts remain Admin/D1-owned until explicit schema
+          // parity is established; do not invent missing Notion properties.
+          if ((PILOT_DIRECTORY_METADATA_FIELDS as readonly string[]).includes(field)) {
+            changedPilotMetadata[field as PilotDirectoryMetadataField] = value;
+          }
         } catch (error) {
           console.error("DIRECTORY_PILOT_METADATA_ADMIN_SAVE_FAILED", id, field, error);
           metadataWarnings.push(field + ": zmena nebola uložená");
