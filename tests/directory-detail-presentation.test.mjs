@@ -598,11 +598,12 @@ test("visible legacy public fact fields are directly editable in their own categ
   assert.ok(!breederFields.includes("Zameranie"), "focus has its own field");
   const vet = profile({
     category: "veterinari",
-    importData: { Pohotovosť: "Áno", "Kontakt interný": "not public", Klub: "Klub" },
+    importData: { Pohotovosť: "Áno", "Kontakt interný": "not public", Plemeno: "Labrador", Klub: "Klub" },
   });
   const vetFields = directoryLegacyEditableFactKeys(vet);
   assert.ok(vetFields.includes("Pohotovosť"));
-  assert.ok(vetFields.includes("Klub"), "historical out-of-category public facts remain editable");
+  assert.ok(vetFields.includes("Plemeno"), "global public relation facts stay editable");
+  assert.ok(!vetFields.includes("Klub"), "a breeder-only legacy value must not clutter veterinary editing");
   assert.ok(!vetFields.includes("Kontakt interný"));
   assert.ok(!vetFields.includes("Telefón"), "contacts are edited in their dedicated tab");
 });
