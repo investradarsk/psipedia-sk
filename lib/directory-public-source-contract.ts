@@ -22,7 +22,7 @@ const sourceFacetAliases = {
 type SourceFacet = keyof typeof sourceFacetAliases;
 
 /** Accepted aliases are fixed to the actual public query shapes. */
-type SourceAlias = "" | "profile";
+type SourceAlias = "" | "profile" | "p";
 
 function sqlColumn(alias: SourceAlias, column: "source_data_json" | "district") {
   return alias ? alias + "." + column : column;
