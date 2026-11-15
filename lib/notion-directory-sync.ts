@@ -1,6 +1,6 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
-import { isDirectoryPublicMetadataField } from "./directory-public-facts";
+import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
 import { directoryCategories } from "./directory";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
@@ -1453,6 +1453,7 @@ export async function savePilotDirectoryMetadataField(input: {
   category: string;
   field: string;
   value: string;
+  expectedValue?: string;
 }): Promise<ManagedDirectoryProfile> {
   if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
       !isDirectoryPublicMetadataField(input.field))
@@ -1463,7 +1464,13 @@ export async function savePilotDirectoryMetadataField(input: {
   const current = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!current || current.category !== input.category || current.status === "archived")
     throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
-  if (String(current.importData?.[input.field] ?? "").trim() === trimmed) return current;
+  const currentValue = readDirectoryPublicMetadataValue(current.importData, input.field);
+  if (input.expectedValue !== undefined &&
+      currentValue !== input.expectedValue.trim() && currentValue !== trimmed) {
+    throw new Error("DIRECTORY_PUBLIC_METADATA_STALE_VALUE");
+  }
+  if (currentValue === trimmed &&
+      Object.hasOwn(current.importData ?? {}, input.field)) return current;
   const now = new Date().toISOString();
   const saved = await input.database.prepare(
     "UPDATE directory_profiles SET source_data_json = json_set(" +
