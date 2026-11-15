@@ -92,12 +92,10 @@ test("directory profile importer keeps columns, placeholders and binds aligned",
     "2026-08-28T00:00:00.000Z",
     "test@psipedia.sk",
     "import:veterinari",
-    null,
-    null,
   ];
 
-  assert.equal(placeholders.length, 29);
-  assert.equal(binds.length, 29);
+  assert.equal(placeholders.length, 27);
+  assert.equal(binds.length, 27);
   database.prepare(sql).run(...binds);
 
   const row = database.prepare(`
@@ -145,6 +143,9 @@ test("ADMIN-CORE generic import protects publication state and reports determini
   assert.match(route, /text\(row\.eventType\), "draft"/);
   assert.match(route, /required\(row\.category, "kategória pomoci"\),\s*"draft"/);
   assert.match(route, /plan\.actions\.profiles\[index\] === "skipped"/);
+  assert.match(route, /ON CONFLICT DO NOTHING/);
+  assert.match(plan, /if \(insertOnly\) return \{ action: "skipped" \}/);
+  assert.match(plan, /identity\.category, null\)/);
   assert.match(component, /INSERTED/);
   assert.match(component, /UPDATED/);
   assert.match(component, /SKIPPED/);
