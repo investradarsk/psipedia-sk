@@ -25,6 +25,48 @@ export function parseBreederRelationText(value: string): string[] {
   return [...new Set(value.split(/\r?\n|;/g).map(name => name.trim()).filter(Boolean))];
 }
 
+/** One authority for visible breeder/trainer relations. A linked canonical ID
+ * wins over legacy prose; unmatched older values stay visible until reconciled. */
+export function suppressLinkedBreederFact(
+  label: string,
+  linkedBreedCount: number,
+  linkedClubCount: number,
+): boolean {
+  return (linkedBreedCount > 0 && (label === "Plemeno" || label === "Plemená")) ||
+    (linkedClubCount > 0 && (label === "Klub" || label === "Chovateľský klub"));
+}
+
+/** Suppress legacy relation declarations in the separate qualifications list
+ * only when a matching canonical link is already rendered. Free prose stays. */
+export function suppressLinkedBreederQualification(
+  qualification: string,
+  breeds: readonly string[],
+  clubs: readonly string[],
+): boolean {
+  const value = qualification.trim();
+  const normalized = normalizedBreederRelationName(value);
+  if (breeds.length && (
+    /^(?:plemeno|plemená)\s*[:：-]\s*/iu.test(value) ||
+    breeds.some(breed => normalized === normalizedBreederRelationName(breed))
+  )) return true;
+  if (clubs.length && (
+    /^(?:klub|chovateľský klub)\s*[:：-]\s*/iu.test(value) ||
+    clubs.some(club => normalized === normalizedBreederRelationName(club))
+  )) return true;
+  return false;
+}
+
+/** A legacy display string may suggest a relation but never create one. Only
+ * exact, unique matches against published options are safe to propose. */
+export function suggestBreederRelationIds(
+  legacyText: string,
+  options: readonly (BreederNameOption & { status?: string })[],
+): number[] {
+  const available = options.filter(option => option.status === undefined || option.status === "published");
+  const result = resolveBreederRelationText(legacyText, available);
+  return result.status === "resolved" ? result.ids : [];
+}
+
 export function breederRelationChangedFields(
   properties: Record<string, unknown> | undefined,
   changedPropertyIds: readonly string[],
