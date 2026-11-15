@@ -162,6 +162,23 @@ export function publicDirectoryDetailUrl(value: string | null | undefined) {
 
 /** Exact legacy D1 fields that can surface as public Directory facts.
  * Reused by the public renderer and the Admin provenance preview: no second mapping. */
+/** The exact first legacy opening-hours field read by the public detail.
+ * A different field in Admin may be blank even while public hours are visible. */
+export function directoryLegacyOpeningHoursSource(
+  profile: Pick<PublicDirectoryProfile, "importData">,
+): { sourceKey: string; value: string } | null {
+  for (const sourceKey of [
+    "Otváracie hodiny", "Ordinačné hodiny", "Otváracia doba",
+    "Ordinačná doba", "Pracovná doba",
+  ]) {
+    const raw = importedValue(profile, sourceKey);
+    if (!raw) continue;
+    const value = usefulDirectoryDetailValue(raw);
+    return value ? { sourceKey, value } : null;
+  }
+  return null;
+}
+
 export function directoryLegacyPublicFactSources(
   profile: Pick<PublicDirectoryProfile, "category" | "importData">,
 ): Array<DirectoryDetailFact & { sourceKey: string }> {
@@ -323,16 +340,7 @@ export function getDirectoryDetailPresentation(
     region: publicLocationValue(profile.region, "region"),
     address: publicAddress,
     priceNote: profile.priceNote,
-    openingHours: usefulDirectoryDetailValue(
-      importedValue(
-        profile,
-        "Otváracie hodiny",
-        "Ordinačné hodiny",
-        "Otváracia doba",
-        "Ordinačná doba",
-        "Pracovná doba",
-      ),
-    ),
+    openingHours: directoryLegacyOpeningHoursSource(profile)?.value ?? null,
     imageUrl: profile.imageUrl,
     imageAlt: usefulDirectoryDetailValue(importedValue(profile, "Alt text obrázka")),
     galleryUrls: profile.galleryUrls ?? [],
