@@ -16,6 +16,7 @@ import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
 import { directoryLegacyPublicFactSources, directoryLegacyOpeningHoursSource, directoryLegacyEditableFactKeys } from "@/lib/directory-detail-presentation";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
+import { suggestBreederRelationIds } from "@/lib/breeder-relation-text";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -256,6 +257,10 @@ export function AdminDirectoryEditor({
   const [breederSelection, setBreederSelection] = useState<BreederRelationSelection>({ breedIds: [], clubIds: [] });
   const [breederRelationSearch, setBreederRelationSearch] = useState({ breeds: "", clubs: "" });
   const [breederRelationsDirty, setBreederRelationsDirty] = useState(false);
+  const isCanonicalRelationText = (field: string) =>
+    ["chovatelske-stanice", "treneri"].includes(category) &&
+    ((["Plemeno", "Plemená"].includes(field) && breederSelection.breedIds.length > 0) ||
+      (["Klub", "Chovateľský klub"].includes(field) && breederSelection.clubIds.length > 0));
   const [breederRelationsError, setBreederRelationsError] = useState("");
   const [breederRelationsLoading, setBreederRelationsLoading] = useState(Boolean(profile && ["chovatelske-stanice", "treneri"].includes(profile.category)));
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
@@ -574,6 +579,9 @@ export function AdminDirectoryEditor({
         // Only edited public legacy fact fields may change. An old JSON payload
         // does not gain authority over other fields simply because it exists.
         for (const key of legacyEditableFactKeys) {
+          // Canonical profile IDs own these names once linked. A stale legacy
+          // input must never override that selection on an unrelated save.
+          if (isCanonicalRelationText(key)) continue;
           const original = String(breederBaseline?.importData?.[key] ?? "").trim();
           const current = (legacyFactInputs[key] ?? "").trim();
           if (current !== original) {
@@ -1166,22 +1174,33 @@ export function AdminDirectoryEditor({
                   {legacyEditableFactKeys.map(sourceKey => (
                     <div className="admin-field" key={sourceKey}>
                       <label htmlFor={`directory-legacy-fact-${sourceKey}`}>{sourceKey}</label>
-                      <input
-                        id={`directory-legacy-fact-${sourceKey}`}
-                        type="text"
-                        value={legacyFactInputs[sourceKey] ?? ""}
-                        onChange={event => {
-                          setLegacyFactInputs(current => ({ ...current, [sourceKey]: event.target.value }));
-                          setFormDirty(true);
-                        }}
-                        maxLength={2000}
-                        placeholder="Zatiaľ nevyplnené"
-                      />
+                      {isCanonicalRelationText(sourceKey) ? (
+                        <p data-directory-canonical-link-source>
+                          <strong>Riadi sa výberom v Prepojeniach.</strong>
+                          {legacyFactInputs[sourceKey]?.trim() ? (
+                            <small style={{ display: "block" }}>Starý text v D1: {legacyFactInputs[sourceKey]}. Na webe má prednosť vybraný profil; starý text zostáva zachovaný iba ako historický údaj.</small>
+                          ) : null}
+                        </p>
+                      ) : (
+                        <input
+                          id={`directory-legacy-fact-${sourceKey}`}
+                          type="text"
+                          value={legacyFactInputs[sourceKey] ?? ""}
+                          onChange={event => {
+                            setLegacyFactInputs(current => ({ ...current, [sourceKey]: event.target.value }));
+                            setFormDirty(true);
+                          }}
+                          maxLength={2000}
+                          placeholder="Zatiaľ nevyplnené"
+                        />
+                      )}
                       <small>
                         Zdroj: {sourceKey}
-                        {legacyPublicFacts.some(fact => fact.sourceKey === sourceKey)
-                          ? " · historický údaj sa používa vo verejnom detaile"
-                          : " · zatiaľ bez verejnej hodnoty"}
+                        {isCanonicalRelationText(sourceKey)
+                          ? " · kanonické prepojenie má prednosť"
+                          : legacyPublicFacts.some(fact => fact.sourceKey === sourceKey)
+                            ? " · historický údaj sa používa vo verejnom detaile"
+                            : " · zatiaľ bez verejnej hodnoty"}
                       </small>
                       {["Plemeno", "Plemená", "Klub"].includes(sourceKey) &&
                         ["chovatelske-stanice", "treneri"].includes(category) ? (
@@ -1276,6 +1295,14 @@ export function AdminDirectoryEditor({
                   !search || option.name.toLocaleLowerCase("sk").includes(search));
                 const visible = search ? matches.slice(0, 45) : matches.filter(option =>
                   breederSelection[group.field].includes(option.id)).slice(0, 45);
+                const legacyText = group.key === "breeds"
+                  ? (legacyFactInputs["Plemená"]?.trim() || legacyFactInputs["Plemeno"]?.trim() || "")
+                  : (legacyFactInputs["Klub"]?.trim() || "");
+                const proposedIds = !breederRelationsLoading && !breederRelationsError &&
+                  !breederSelection[group.field].length && legacyText
+                  ? suggestBreederRelationIds(legacyText, group.options) : [];
+                const proposedNames = group.options.filter(option => proposedIds.includes(option.id))
+                  .map(option => option.name);
                 return (
                   <div className="admin-field" key={group.key}>
                     <label htmlFor={`breeder-relations-${group.key}`}>
@@ -1288,6 +1315,19 @@ export function AdminDirectoryEditor({
                       onChange={event => setBreederRelationSearch(value => ({ ...value, [group.key]: event.target.value }))}
                       placeholder={`Vyhľadať ${group.label.toLocaleLowerCase("sk")}…`}
                     />
+                    {proposedIds.length > 0 ? (
+                      <div data-breeder-legacy-relation-proposal>
+                        <small>Presná zhoda pôvodného textu „{legacyText}“ s publikovaným profilom: {proposedNames.join(", ")}.</small>
+                        <button type="button" onClick={() => {
+                          setBreederSelection(current => ({ ...current, [group.field]: proposedIds }));
+                          setBreederRelationsDirty(true);
+                          setFormDirty(true);
+                        }}>
+                          Použiť existujúce prepojenie
+                        </button>
+                        <small>Prepojenie sa vytvorí až po kliknutí na Uložiť zmeny. Žiadna automatická zmena sa nevykonáva.</small>
+                      </div>
+                    ) : null}
                     <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto", padding: "8px 0" }}>
                       {visible.map(option => (
                         <label key={option.id} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
@@ -1295,7 +1335,7 @@ export function AdminDirectoryEditor({
                             checked={breederSelection[group.field].includes(option.id)}
                             onChange={() => toggleBreederLink(group.field, option.id)}
                           />
-                          <span>{option.name}{option.city ? ` — ${option.city}` : ""}</span>
+                          <span>{option.name}{option.city ? ` — ${option.city}` : ""}{option.status === "draft" ? " (koncept – zatiaľ nie je klikateľný na webe)" : ""}</span>
                         </label>
                       ))}
                       {!visible.length ? <small>{search ? "Nenašli sa žiadne výsledky." : "Napíš názov do vyhľadávania."}</small> : null}
