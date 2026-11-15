@@ -40,6 +40,28 @@ export function unwrapD1Results(text, label) {
   return batches.flatMap(batch => batch.results);
 }
 
+/** Extract only fixed SQL error classes from Wrangler output; never log raw SQL,
+ * query results, account identifiers, URLs or a Cloudflare token. */
+export function safeDirectoryD1ErrorHint(stderr = "", stdout = "") {
+  const message = String(stderr) + "\n" + String(stdout);
+  const patterns = [
+    /no such column:\\s*[A-Za-z_][A-Za-z_0-9]*/i,
+    /no such table:\\s*[A-Za-z_][A-Za-z_0-9]*/i,
+    /no such function:\\s*[A-Za-z_][A-Za-z_0-9]*/i,
+    /too many terms in compound SELECT/i,
+    /expression tree is too large/i,
+    /malformed JSON/i,
+    /JSON path error/i,
+    /database is locked/i,
+    /query timed out/i,
+    /SQLITE_[A-Z_]+/i,
+    /D1_ERROR/i,
+    /code:\\s*(?:400|401|403|404|409|413|422|429|500|502|503|504)\\b/i,
+  ];
+  const hints = [...new Set(patterns.map(pattern => message.match(pattern)?.[0]).filter(Boolean))];
+  return hints.length ? hints.join(" | ").slice(0, 240) : "NO_SAFE_DIAGNOSTIC";
+}
+
 function wranglerRead(sql, configPath, label) {
   assertDirectoryAuditSelect(sql);
   const npx = process.platform === "win32" ? "npx.cmd" : "npx";
@@ -50,7 +72,8 @@ function wranglerRead(sql, configPath, label) {
   });
   if (run.error || run.status !== 0)
     throw new Error("DIRECTORY_LEGACY_AUDIT_D1_QUERY_FAILED_" + label +
-      ": " + (run.error?.message ?? "exit " + run.status));
+      ": " + (run.error ? "SPAWN_FAILED" : "exit " + run.status) +
+      " [" + safeDirectoryD1ErrorHint(run.stderr, run.stdout) + "]");
   return unwrapD1Results(run.stdout, label);
 }
 

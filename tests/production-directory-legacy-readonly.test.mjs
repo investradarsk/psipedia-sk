@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  assertDirectoryAuditSelect, unwrapD1Results, summarizeDirectoryLegacyAudit,
+  assertDirectoryAuditSelect, unwrapD1Results, summarizeDirectoryLegacyAudit, safeDirectoryD1ErrorHint,
 } from "../scripts/production-directory-legacy-readonly.mjs";
 import { buildDirectoryLegacyCutoverReadinessSql } from "../scripts/directory-legacy-cutover-readiness.mjs";
 import { buildDirectoryLegacyCutoverCandidatesSql } from "../scripts/directory-legacy-cutover-candidates.mjs";
@@ -34,6 +34,16 @@ test("Wrangler results are accepted only for successful complete queries", () =>
   assert.throws(() => unwrapD1Results("{}", "S"), /UNSUCCESSFUL_QUERY/);
   assert.throws(() => unwrapD1Results("not JSON", "S"), /INVALID_JSON/);
   assert.throws(() => unwrapD1Results('[{"success":false,"results":[]}]', "S"), /UNSUCCESSFUL_QUERY/);
+});
+
+
+test("production failure hint identifies SQLite problems without exposing raw Wrangler output", () => {
+  const raw = "token=supersecret; address=private@example.org; SQLITE_ERROR: no such column: id";
+  const hint = safeDirectoryD1ErrorHint(raw, "not relevant");
+  assert.match(hint, /no such column: id/);
+  assert.match(hint, /SQLITE_ERROR/);
+  assert.doesNotMatch(hint, /supersecret|private@example/);
+  assert.equal(safeDirectoryD1ErrorHint("token=supersecret", ""), "NO_SAFE_DIAGNOSTIC");
 });
 
 test("summary includes all aggregate fields and rejects a malformed candidate record", () => {
