@@ -214,7 +214,7 @@ test("the two Notion service properties have isolated write paths",()=>{
 test("public and Admin share one provenance-aware Services V3 projection",async()=>{
   const f=fixture();
   try {
-    await saveAdminServiceChoice(f.db,{profileId:1,optionId:builtin,choice:"yes",expectedVersion:0},actor);
+    const saved=await saveAdminServiceChoice(f.db,{profileId:1,optionId:builtin,choice:"yes",expectedVersion:0},actor);
     const resolved=await loadResolvedServiceDefinitions(f.db);
     const historical=["Očkovanie","Historický text","Očkovanie"];
     const projection=projectPublicProfileServices(historical,"veterinari",chosen(f.sqlite),resolved);
@@ -226,9 +226,8 @@ test("public and Admin share one provenance-aware Services V3 projection",async(
     // Prose stays in D1 after display de-duplication.
     assert.deepEqual(legacy(f.sqlite),["Očkovanie","Historický text"]);
 
-    const version=chosen(f.sqlite).find(entry=>entry.option_id===builtin);
     const changed=await saveAdminServiceChoice(f.db,
-      {profileId:1,optionId:builtin,choice:"no",expectedVersion:version.version??1},actor);
+      {profileId:1,optionId:builtin,choice:"no",expectedVersion:saved.version},actor);
     assert.equal(changed.choice,"no");
     const hidden=projectPublicProfileServices(historical,"veterinari",chosen(f.sqlite),resolved);
     assert.deepEqual(hidden.services,["Historický text"]);
