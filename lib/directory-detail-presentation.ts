@@ -2,7 +2,7 @@ import { directoryQualificationSections } from "./directory-public-copy.ts";
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
-import { detailFields, relationFields, directoryPublicEditorFieldLabels, isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
+import { detailFields, relationFields, directoryPublicEditorFieldLabels, isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue, readDirectoryPublicMetadataSource } from "./directory-public-facts";
 import { publicLocationValue } from "./public-location.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
@@ -110,17 +110,10 @@ export function publicDirectoryDetailUrl(value: string | null | undefined) {
 export function directoryLegacyOpeningHoursSource(
   profile: Pick<PublicDirectoryProfile, "importData">,
 ): { sourceKey: string; value: string } | null {
-  const source = profile.importData ?? {};
-  // A present canonical key is authoritative, even if explicitly cleared.
-  if (Object.hasOwn(source, "Ordinačné hodiny")) {
-    const value = usefulDirectoryDetailValue(readDirectoryPublicMetadataValue(source, "Ordinačné hodiny"));
-    return value ? { sourceKey: "Ordinačné hodiny", value } : null;
-  }
-  for (const sourceKey of ["Otváracie hodiny", "Otváracia doba", "Ordinačná doba", "Pracovná doba"]) {
-    const value = usefulDirectoryDetailValue(String(source[sourceKey] ?? ""));
-    if (value) return { sourceKey, value };
-  }
-  return null;
+  // The shared resolver owns precedence AND the old alias names.
+  const fact = readDirectoryPublicMetadataSource(profile.importData, "Ordinačné hodiny");
+  const value = usefulDirectoryDetailValue(fact?.value);
+  return value && fact ? { sourceKey: fact.sourceKey, value } : null;
 }
 
 /** Exact legacy D1 fields that can surface as public Directory facts.
@@ -134,20 +127,14 @@ export function directoryLegacyPublicFactSources(
   const factLabels = legacyFactLabels.filter(label =>
     !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
   const facts = factLabels.flatMap(label => {
-    const value = usefulDirectoryDetailValue(importedValue(profile, label));
-    const source = profile.importData ?? {};
-    const legacySourceKey = label === "Pokrytie"
-      ? ["Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"]
-        .find(key => Object.hasOwn(source, key))
-      : label;
-    return value ? [{ label, value, sourceKey: legacySourceKey ?? label }] : [];
+    const resolved = readDirectoryPublicMetadataSource(profile.importData, label);
+    const value = usefulDirectoryDetailValue(resolved?.value);
+    return value && resolved ? [{ label, value, sourceKey: resolved.sourceKey }] : [];
   });
   for (const label of ["Organizácia", "Zameranie"] as const) {
-    const sourceKey = label === "Organizácia"
-      && !Object.hasOwn(profile.importData ?? {}, "Organizácia")
-      ? "Zastrešujúca organizácia" : label;
-    const value = usefulDirectoryDetailValue(importedValue(profile, sourceKey));
-    if (value) facts.push({ label, value, sourceKey });
+    const resolved = readDirectoryPublicMetadataSource(profile.importData, label);
+    const value = usefulDirectoryDetailValue(resolved?.value);
+    if (value && resolved) facts.push({ label, value, sourceKey: resolved.sourceKey });
   }
   return facts;
 }
