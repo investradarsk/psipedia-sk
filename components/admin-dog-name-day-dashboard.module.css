@@ -35,3 +35,155 @@
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
 .full { grid-column: 1 / -1; }
 @media (max-width: 800px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .toolbar { grid-template-columns: 1fr; } .toolbar button { width: 100%; } .formGrid { grid-template-columns: 1fr; } .full { grid-column: auto; } }
+
+/* CONTENT UNIFICATION 9/18 — align the name-day workspace with the article
+   editor, retaining every status, source, archive and controlled import. */
+.root {
+  min-width: 0;
+  gap: var(--admin-ui-section-gap, 0.625rem);
+}
+.summary { gap: var(--admin-ui-space-sm, 0.55rem); }
+.summary > div {
+  min-width: 0;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.summary strong {
+  font-family: inherit;
+  font-size: var(--admin-ui-type-stat, 1.6rem);
+}
+.summary span {
+  font-size: var(--admin-ui-type-caption, 0.83rem);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.toolbar {
+  min-width: 0;
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)) auto;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.toolbar label,
+.formGrid label {
+  min-width: 0;
+  gap: var(--admin-ui-space-xs, 0.35rem);
+  font-size: var(--admin-ui-type-label, 0.82rem);
+}
+.toolbar input,
+.toolbar select,
+.formGrid input,
+.formGrid select,
+.formGrid textarea {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.results {
+  margin: 0;
+  color: var(--admin-ui-muted, #607568);
+  font-size: var(--admin-ui-type-caption, 0.83rem);
+  font-variant-numeric: tabular-nums;
+}
+.tableWrap {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.tableWrap:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.table th, .table td { padding: 0.65rem 0.75rem; }
+.rowActions { gap: var(--admin-ui-space-xs, 0.35rem); }
+.rowActions :is(button, a) { min-height: 44px; }
+.importPanel {
+  min-width: 0;
+  gap: 0;
+  padding: 0;
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.importPanel > summary {
+  min-height: 44px;
+  padding: 0.65rem 0.75rem;
+  color: var(--admin-ui-heading, #173f2d);
+  font-weight: 800;
+  cursor: pointer;
+}
+.importPanel > summary:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.importBody {
+  display: grid;
+  min-width: 0;
+  gap: 0.65rem;
+  padding: 0 0.75rem 0.75rem;
+}
+.importBody textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+.importActions > * { min-height: 44px; }
+@media (max-width: 800px) {
+  .root { gap: 0.55rem; }
+  .summary > div { padding: 0.6rem; }
+  .toolbar { gap: 0.55rem; padding: 0.65rem; }
+  .toolbar :is(input, select), .formGrid :is(input, select, textarea) {
+    font-size: 16px;
+  }
+  .importBody textarea { font-size: 16px; }
+}
+@media (max-width: 700px) {
+  /* Same compact card presentation as the shared TanStack list mode.
+     The full data and source remain visible and usable with no horizontal
+     page scrolling; desktop retains the proper table layout. */
+  .tableWrap { overflow: visible; border: 0; background: transparent; }
+  .table { display: block; width: 100%; min-width: 0; }
+  .table thead {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .table tbody { display: grid; gap: 0.5rem; }
+  .table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem 0.6rem;
+    min-width: 0;
+    padding: 0.7rem;
+    border: 1px solid var(--admin-ui-border, #dce5de);
+    border-radius: var(--admin-ui-radius, 12px);
+    background: #fff;
+  }
+  .table td {
+    display: block;
+    box-sizing: border-box;
+    grid-column: 1 / -1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .table td[data-label="Dátum"],
+  .table td[data-label="Stav"] { grid-column: 1; }
+  .table td[data-label="Meno"],
+  .table td[data-label="Upravené"] { grid-column: 2; }
+  .table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.1rem;
+    color: var(--admin-ui-muted, #607568);
+    font-size: 0.73rem;
+    font-weight: 750;
+  }
+  .table td[data-label="Akcie"] {
+    padding-top: 0.45rem;
+    border-top: 1px solid #e5ebe7;
+  }
+  .table td[colspan] { grid-column: 1 / -1; }
+  .rowActions { align-items: stretch; }
+  .rowActions :is(button, a) { flex: 1 1 8rem; }
+}

@@ -37,11 +37,20 @@ test("real AdminDrawer in new breed editor traps focus, skips disabled/hidden an
   await expect(page.locator('.admin-breed-editor[data-admin-breed-editor-ready="true"]')).toBeVisible();
   const name = page.getByLabel("Názov plemena");
   await name.fill("E2E unsaved breed");
-  const opener = page.getByRole("button", { name: "Nastavenia, FCI a SEO" });
+  // The breed editor now uses switchable sections; its real AdminDrawer
+  // edits sports from the media section rather than obsolete FCI settings.
+  const navigation = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+  await expect(navigation).toHaveAttribute("data-admin-editor-nav-ready", "true");
+  if (page.viewportSize()!.width <= 760) {
+    await navigation.getByRole("combobox", { name: "Sekcia editora" }).selectOption("breed-media");
+  } else {
+    await navigation.getByRole("button", { name: "Fotografie, športy, zdroje" }).click();
+  }
+  const opener = page.getByRole("button", { name: "+ Pridať šport", exact: true });
   await opener.click();
-  const drawer = page.getByRole("dialog", { name: "Nastavenia plemena" });
+  const drawer = page.getByRole("dialog", { name: "Pridať šport" });
   await expect(drawer).toBeVisible();
-  await expect(drawer.getByLabel("FCI PDF URL")).toBeVisible();
+  await expect(drawer.getByLabel("Krátka poznámka")).toBeVisible();
   await expectWrappedFocus(page, drawer);
   await drawer.evaluate((root) => {
     const disabled = document.createElement("button");
@@ -56,15 +65,26 @@ test("real AdminDrawer in new breed editor traps focus, skips disabled/hidden an
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
   await expect(opener).toBeFocused();
+  // Switching panels never discards unsaved form data.
+  if (page.viewportSize()!.width <= 760) {
+    await navigation.getByRole("combobox", { name: "Sekcia editora" }).selectOption("breed-overview");
+  } else {
+    await navigation.getByRole("button", { name: "O plemene" }).click();
+  }
   await expect(name).toHaveValue("E2E unsaved breed");
 });
 
 test("real AdminModalDialog in breeds bulk publishing traps focus and restores opener without publishing", async ({ page }) => {
   await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Plemená", exact: true })).toBeVisible();
-  await page.getByLabel("Publikovanie").selectOption("draft");
-  const row = page.getByRole("article").filter({ has: page.locator('input[type="checkbox"][aria-label^="Vybrať "]') }).first();
-  await row.getByRole("checkbox").check();
+  // Scope the filter to the actual advanced-filter control; the table now
+  // also has a publication checkbox, sortable header and resize handle.
+  await page.locator("#admin-breed-advanced-filters label")
+    .filter({ has: page.getByText("Publikovanie", { exact: true }) })
+    .locator("select").selectOption("draft");
+  const row = page.getByTestId("admin-record-row")
+    .filter({ has: page.locator('input[type="checkbox"][aria-label^="Vybrať "]') }).first();
+  await row.getByRole("checkbox", { name: /^Vybrať / }).check();
   const opener = page.getByRole("button", { name: "Publikovať", exact: true }).first();
   await opener.click();
   const modal = page.getByRole("dialog", { name: "Publikovať vybrané plemená" });

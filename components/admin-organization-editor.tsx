@@ -258,7 +258,7 @@ export function AdminOrganizationEditor({
     } finally { mutationPending.current = false; setSaving(false); }
   }
 
-  return <form noValidate className={`admin-event-editor ${styles.editor}`} data-admin-form-system="v4" data-admin-organization-editor="true" onSubmit={save}>
+  return <form noValidate className={`admin-event-editor ${styles.editor}`} data-admin-form-system="v4" data-admin-organization-editor="true" data-admin-content-module="organizations-editor" onSubmit={save}>
     <EditorUnsavedChangesGuard active={dirty} open={navigation.confirmOpen}
       onStay={navigation.stay} onDiscard={navigation.discard}
       allowNativeExitRef={navigation.allowNativeExitRef} />
@@ -275,18 +275,18 @@ export function AdminOrganizationEditor({
       {archived && <p className="admin-message admin-message--error">Archivovaná organizácia je iba na čítanie. Obnov ju zo zoznamu organizácií do konceptu, ak ju potrebuješ upraviť.</p>}
 
       <AdminEditorSection id="organization-general" className="admin-form-card">
-        <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Canonical identita organizácie. Lifecycle stav sa mení samostatne, nie týmto formulárom.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Základné údaje organizácie. Publikovanie a archivácia sa spravujú samostatne.</p></div></div></div>
         <div className="admin-field-grid">
           <div className="admin-field"><label htmlFor="organization-name">Názov *</label><input id="organization-name" value={draft.name} required disabled={editingDisabled} onChange={(event) => patch({ name: event.target.value })} /></div>
           <div className="admin-field"><label htmlFor="organization-legal-name">Právny názov</label><input id="organization-legal-name" value={draft.legalName} disabled={editingDisabled} onChange={(event) => patch({ legalName: event.target.value })} /></div>
           <div className="admin-field"><label htmlFor="organization-slug">Slug *</label><input id="organization-slug" value={draft.slug} required disabled={editingDisabled} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" onChange={(event) => patch({ slug: event.target.value.toLowerCase() })} /><small>Iba malé písmená bez diakritiky, čísla a pomlčky.</small></div>
           <div className="admin-field"><label htmlFor="organization-type">Typ *</label><select id="organization-type" value={draft.type} disabled={editingDisabled} onChange={(event) => patch({ type: event.target.value })}>{organizationPublicationTypes.map((type) => <option key={type} value={type}>{typeLabels[type] ?? type}</option>)}</select></div>
-          {organization && <div className="admin-field"><label htmlFor="organization-status">Publication stav</label><input id="organization-status" value={organization.status} readOnly aria-readonly="true" /><small>Verification a publication sú oddelené semantics.</small></div>}
+          {organization && <div className="admin-field"><label htmlFor="organization-status">Stav publikovania</label><input id="organization-status" value={organization.status} readOnly aria-readonly="true" /><small>Overenie údajov a publikovanie sú dva nezávislé stavy.</small></div>}
         </div>
       </AdminEditorSection>
 
       <AdminEditorSection id="organization-content" className="admin-form-card">
-        <div className="admin-card-heading"><div><span>02</span><div><h2>Verejný obsah</h2><p>Spoločný Lexical editor; popisy zostávajú v existujúcom dátovom formáte.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>02</span><div><h2>Verejný obsah</h2><p>Krátky a podrobný popis pre návštevníkov stránky.</p></div></div></div>
         <div className="admin-field"><label htmlFor="organization-short-description">Krátky popis</label><AdminLexicalTextField id="organization-short-description" rows={3} value={draft.shortDescription} disabled={editingDisabled} onChange={(next) => patch({ shortDescription: next })} ariaLabel="Krátky popis" /></div>
         <div className="admin-field"><label htmlFor="organization-description">Verejný popis</label><AdminLexicalTextField id="organization-description" rows={10} value={draft.description} disabled={editingDisabled} onChange={(next) => patch({ description: next })} ariaLabel="Verejný popis" /><AdminLexicalAppendButton disabled={editingDisabled} onAppend={text=>patch({description:appendLexicalPlainText(draft.description,text)})}/></div>
         <AdminHelpText term="Storage contract">Lexical rešpektuje pôvodné textové polia a obojsmernú synchronizáciu.</AdminHelpText>
@@ -313,7 +313,7 @@ export function AdminOrganizationEditor({
       </AdminEditorSection>
 
       <AdminEditorSection id="organization-contacts" className="admin-form-card">
-        <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Iba public organization fields; súkromné PII sem nepatrí.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Verejné kontaktné údaje organizácie.</p></div></div></div>
 <AdminEditorToolFrame kind="contacts">
         <div className="admin-field-grid">
           <div className="admin-field"><label htmlFor="organization-email">Verejný e-mail</label><input id="organization-email" type="email" value={text(draft.publicEmail)} disabled={editingDisabled} onChange={(event) => patch({ publicEmail: event.target.value || null })} /></div>
@@ -326,7 +326,7 @@ export function AdminOrganizationEditor({
       </AdminEditorSection>
 
       <AdminEditorSection id="organization-media" className="admin-form-card">
-        <div className="admin-card-heading"><div><span>05</span><div><h2>Obrázok a zdroj</h2><p>Re-use existujúceho admin image upload backendu; nevzniká nový media systém.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>05</span><div><h2>Obrázok a zdroj</h2><p>Titulný obrázok a zdroj informácií o organizácii.</p></div></div></div>
         <div className="admin-upload-row">
           <div className="admin-upload-preview admin-upload-preview--forest">{draft.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={draft.thumbnailImageDisplay} src={draft.imageUrl} alt="Náhľad obrázka organizácie" /> : <span aria-hidden="true">🐾</span>}</div>
           <div className="admin-upload-actions">

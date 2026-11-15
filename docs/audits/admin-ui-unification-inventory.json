@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "baseline": "main",
+  "reference": "components/admin-article-editor.tsx + components/admin-editor-workspace.tsx",
+  "scope": "visible primary admin navigation; deep links and utilities audited separately",
+  "entries": [
+    {
+      "group": "Prehľad",
+      "label": "Pracovný prehľad",
+      "href": "/admin",
+      "step": 4,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Prehľad",
+      "label": "Upozornenia",
+      "href": "/admin/operations",
+      "step": 4,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Obsah",
+      "label": "Články",
+      "href": "/admin/clanky",
+      "step": 9,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Obsah",
+      "label": "Recenzie a testy",
+      "href": "/admin/recenzie",
+      "step": 9,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Obsah",
+      "label": "Šteniatka",
+      "href": "/admin/steniatka",
+      "step": 9,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Obsah",
+      "label": "Plemená",
+      "href": "/admin/plemena",
+      "step": 9,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Obsah",
+      "label": "Sekcie",
+      "href": "/admin/sekcie",
+      "step": 9,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Obsah",
+      "label": "Psie meniny",
+      "href": "/admin/meniny",
+      "step": 9,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Adresár",
+      "label": "Podujatia",
+      "href": "/admin/podujatia",
+      "step": 11,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Adresár",
+      "label": "Služby pre psov",
+      "href": "/admin/sluzby-pre-psov",
+      "step": 10,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Adresár",
+      "label": "Pomoc psom",
+      "href": "/admin/pomoc-psom",
+      "step": 12,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Komunita",
+      "label": "Profilové recenzie",
+      "href": "/admin/recenzie-profilov",
+      "step": 13,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Komunita",
+      "label": "Tipy",
+      "href": "/admin/tipy",
+      "step": 13,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Komunita",
+      "label": "Hodnotenia",
+      "href": "/admin/hodnotenia",
+      "step": 13,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Komunita",
+      "label": "Dopyty",
+      "href": "/admin/dopyty",
+      "step": 13,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Komunita",
+      "label": "Návrhy úprav",
+      "href": "/admin/adresar/navrhy",
+      "step": 13,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Komunita",
+      "label": "Partneri",
+      "href": "/admin/partners",
+      "step": 13,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Automatizácie",
+      "label": "Automatizácie",
+      "href": "/admin/automatizacie-gemini",
+      "step": 14,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Automatizácie",
+      "label": "Facebook obrázky",
+      "href": "/admin/facebook-obrazky",
+      "step": 14,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Kvalita dát",
+      "label": "Kvalita údajov",
+      "href": "/admin/kvalita",
+      "step": 15,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Kvalita dát",
+      "label": "Nefunkčné odkazy",
+      "href": "/admin/kontrola-odkazov",
+      "step": 15,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Kvalita dát",
+      "label": "Mapy",
+      "href": "/admin/mapy",
+      "step": 15,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Kvalita dát",
+      "label": "Nástroje",
+      "href": "/admin/nastroje",
+      "step": 15,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Nastavenia",
+      "label": "Aplikácia",
+      "href": "/admin/nastavenia",
+      "step": 16,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Nastavenia",
+      "label": "Štatistiky",
+      "href": "/admin/nastavenia/statistiky",
+      "step": 16,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Nastavenia",
+      "label": "Komponenty a šablóny",
+      "href": "/admin/komponenty",
+      "step": 16,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Nastavenia",
+      "label": "Navigácia",
+      "href": "/admin/navigacia",
+      "step": 16,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Nastavenia",
+      "label": "Monetizácia",
+      "href": "/admin/monetizacia",
+      "step": 16,
+      "verification": "source_inventory_only"
+    },
+    {
+      "group": "Nastavenia",
+      "label": "Právne",
+      "href": "/admin/pravne",
+      "step": 16,
+      "verification": "source_inventory_only"
+    }
+  ]
+}

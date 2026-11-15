@@ -8,7 +8,9 @@ export default async function NotionFieldSettingsPage(){
   return <AdminShell user={user} eyebrow="Nastavenia / Integrácie"
     title="Notion – prepojenia a priority polí"
     description="Vyber oblasť, kategóriu a konkrétne pole. Identita, publikovanie, služby V3 a potvrdené údaje Google Maps ostávajú chránené.">
-    <AdminNotionFieldSettings/>
-    <AdminNotionManualTransfer/>
+    <div data-admin-content-module="notion-settings">
+      <AdminNotionFieldSettings/>
+      <AdminNotionManualTransfer/>
+    </div>
   </AdminShell>;
 }

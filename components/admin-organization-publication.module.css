@@ -339,3 +339,37 @@
 .gridActions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .gridActions :is(a,button) { font-size: .76rem; }
 .gridActions :is(a,button):focus-visible { outline: 2px solid #266d4c; outline-offset: 2px; }
+
+
+/* ADMIN CONTENT STEP 12 – organization list follows shared editorial rhythm. */
+.filters { gap:var(--admin-ui-space-sm,.55rem); }
+.filters :is(input,select) {
+  min-height:var(--admin-ui-control-height,44px);
+  border-radius:var(--admin-ui-field-radius,9px);
+}
+.clearFilters {
+  justify-content:center;
+  border:1px solid var(--admin-ui-border,#cbdad0);
+  border-radius:var(--admin-ui-field-radius,9px);
+  background:#f6faf7;
+  text-decoration:none;
+}
+.clearFilters:hover { background:#eaf2eb; }
+.clearFilters:focus-visible,
+.gridActions :is(a,button):focus-visible {
+  outline:3px solid var(--admin-ui-focus,#a26a1b);outline-offset:2px;
+}
+.gridActions { gap:.35rem; min-width:0; }
+.gridActions :is(a,button) {
+  min-height:44px; box-sizing:border-box; display:inline-flex;
+  align-items:center;justify-content:center;
+  padding:.45rem .65rem; border-radius:9px;
+  white-space:normal; overflow-wrap:anywhere;
+}
+.gridIdentity strong, .gridIdentity small { white-space:normal; overflow-wrap:anywhere; }
+@media(max-width:720px){
+  .filters { gap:.55rem; }
+  .filters :is(input,select) { font-size:16px; }
+  .gridActions { align-items:stretch; }
+  .gridActions :is(a,button) { flex:1 1 8rem; }
+}

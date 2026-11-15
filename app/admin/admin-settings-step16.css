@@ -1,0 +1,439 @@
+/* ADMIN VISUAL 16/18 — settings, templates, monetization, legal, navigation.
+   Opt-in admin presentation only. Save handlers, previews, requests and data
+   contracts stay in their existing owner components. */
+
+[data-admin-workspace] :is(
+  [data-admin-content-module="application-settings"],
+  [data-admin-content-module="visual-library"],
+  [data-admin-content-module="navigation-settings"],
+  [data-admin-content-module="monetization-settings"],
+  [data-admin-content-module="legal-settings"],
+  [data-admin-content-module="notion-settings"]
+) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  font-family: inherit;
+  font-size: var(--admin-ui-type-body, 0.91rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="application-settings"] {
+  display: grid;
+  gap: var(--admin-ui-section-gap, 0.625rem);
+}
+
+[data-admin-workspace] .admin-settings-integration-card,
+[data-admin-workspace] .admin-components-technical-register {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border: 1px solid var(--admin-ui-border, #e3eae5);
+  border-radius: var(--admin-ui-radius, 12px);
+  background: var(--admin-ui-surface, #fff);
+}
+
+[data-admin-workspace] .admin-settings-integration-card h2 {
+  margin: 0 0 var(--admin-ui-space-xs, 0.35rem);
+  font-family: inherit;
+  font-size: var(--admin-ui-type-section, 1.05rem);
+}
+
+[data-admin-workspace] .admin-settings-integration-card p {
+  margin: 0 0 var(--admin-ui-space-xs, 0.35rem);
+  color: var(--admin-ui-muted, #607568);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] .admin-settings-integration-card a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--admin-ui-control-height, 44px);
+  color: var(--admin-v3-green, #0c3d2b);
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="application-settings"] [data-testid="admin-pwa-settings"] {
+  min-width: 0;
+  gap: var(--admin-ui-section-gap, 0.625rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="application-settings"] [data-testid="admin-pwa-settings"] > .admin-panel {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+
+[data-admin-workspace] [data-admin-content-module="application-settings"] [data-testid="admin-pwa-settings"] h2 {
+  margin: 0 0 var(--admin-ui-space-sm, 0.55rem);
+  font-family: inherit;
+  font-size: var(--admin-ui-type-section, 1.05rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="application-settings"] [data-testid="admin-pwa-settings"] :is(p, dd, dt, li) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="application-settings"] [data-testid="admin-pwa-settings"] .admin-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="application-settings"] [data-testid="admin-pwa-settings"] .admin-form-actions button {
+  min-height: var(--admin-ui-control-height, 44px);
+  max-width: 100%;
+  white-space: normal;
+}
+
+[data-admin-workspace] [data-admin-content-module="notion-settings"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--admin-ui-section-gap, 0.625rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="notion-settings"] > * {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-admin-workspace] [data-admin-content-module="visual-library"] {
+  display: grid;
+  gap: var(--admin-ui-section-gap, 0.625rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="visual-library"] .admin-components-technical-register {
+  margin-top: 0;
+}
+
+[data-admin-workspace] [data-admin-content-module="visual-library"] .admin-components-technical-register > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--admin-ui-control-height, 44px);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--admin-ui-type-label, 0.82rem);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="visual-library"] .admin-components-technical-register > p {
+  margin: var(--admin-ui-space-sm, 0.55rem) 0;
+  color: var(--admin-ui-muted, #607568);
+  font-size: var(--admin-ui-type-caption, 0.83rem);
+  line-height: 1.45;
+}
+
+/* Do not style the rendered public-banner preview or component-demo canvases. */
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-editor,
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-list,
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-fields,
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-row {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-editor {
+  border-radius: var(--admin-ui-radius, 12px);
+  box-shadow: 0 4px 16px rgba(21, 50, 35, 0.035);
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] :is(.admin-navigation-toolbar, .admin-navigation-savebar) {
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-list {
+  padding: var(--admin-ui-space-sm, 0.55rem) var(--admin-ui-panel-padding, 0.75rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-row {
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding-block: var(--admin-ui-space-sm, 0.55rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-fields {
+  gap: var(--admin-ui-editor-field-gap, 0.5rem);
+  grid-template-columns: 1.15fr 1fr 1fr;
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-fields > label {
+  min-width: 0;
+  font-size: var(--admin-ui-type-label, 0.82rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-fields :is(input, select) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--admin-ui-control-height, 44px);
+  font-family: inherit;
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-actions {
+  min-width: 0;
+  gap: var(--admin-ui-space-xs, 0.35rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] :is(.admin-navigation-actions, .admin-navigation-savebar, .admin-navigation-toolbar) button {
+  min-height: var(--admin-ui-control-height, 44px);
+  white-space: normal;
+}
+
+[data-admin-workspace] [data-admin-content-module="navigation-settings"] :is(.admin-navigation-preview, .admin-navigation-savebar) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Monetization uses legacy generic classes; scope to its own routed module. */
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] > .admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--admin-ui-section-gap, 0.625rem);
+  min-width: 0;
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-card {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border: 1px solid var(--admin-ui-border, #e3eae5);
+  border-radius: var(--admin-ui-radius, 12px);
+  background: var(--admin-ui-surface, #fff);
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-card h2 {
+  margin: 0 0 var(--admin-ui-space-xs, 0.35rem);
+  font-family: inherit;
+  font-size: var(--admin-ui-type-section, 1.05rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] :is(.admin-card, .admin-list-card, .admin-notice) {
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-list-card {
+  min-width: 0;
+  margin-block: var(--admin-ui-space-sm, 0.55rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border: 1px solid var(--admin-ui-border, #e3eae5);
+  border-radius: var(--admin-ui-radius, 12px);
+  background: var(--admin-v3-surface-muted, #f7faf8);
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-list-card img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--admin-ui-editor-field-gap, 0.5rem);
+  min-width: 0;
+  margin-top: var(--admin-ui-space-sm, 0.55rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-form-grid > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-form-grid > label:not(:has(input[type="checkbox"])) {
+  display: grid;
+  align-content: start;
+  gap: var(--admin-ui-space-xs, 0.35rem);
+  color: var(--admin-v3-label, #314f44);
+  font-size: var(--admin-ui-type-label, 0.82rem);
+  font-weight: 750;
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-form-grid > :is(fieldset, label:has(textarea)) {
+  grid-column: 1 / -1;
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-form-grid :is(input:not([type="checkbox"]), select, textarea) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: var(--admin-ui-control-padding-block, 0.55rem) var(--admin-ui-control-padding-inline, 0.75rem);
+  border: 1px solid var(--admin-v3-control-border, #b9c8be);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  font-family: inherit;
+  background: #fff;
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-form-grid fieldset {
+  min-width: 0;
+  border: 1px solid var(--admin-ui-border, #e3eae5);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-form-grid fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--admin-ui-space-xs, 0.35rem);
+  min-height: 44px;
+  margin-right: var(--admin-ui-space-sm, 0.55rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  min-width: 0;
+}
+
+[data-admin-workspace] [data-admin-content-module="monetization-settings"] :is(.admin-actions, .admin-form-grid) button {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--admin-ui-field-radius, 9px);
+  font-family: inherit;
+  white-space: normal;
+}
+
+/* Legal readiness stays visible and its help/registration links remain intact. */
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal,
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-grid,
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-grid > *,
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-aside {
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal,
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-grid,
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-grid > * {
+  gap: var(--admin-ui-section-gap, 0.625rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-readiness {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: var(--admin-ui-space-md, 0.75rem);
+  min-width: 0;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-readiness h2 {
+  font-family: inherit;
+  font-size: var(--admin-ui-type-section, 1.05rem);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-grid {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr);
+}
+
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-form-card {
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-aside .admin-form-card > h2 {
+  margin: var(--admin-ui-space-sm, 0.55rem) 0;
+  font-family: inherit;
+  font-size: var(--admin-ui-type-section, 1.05rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-note {
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-field-grid {
+  min-width: 0;
+}
+
+[data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-field :is(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  font-family: inherit;
+}
+
+@media (max-width: 1050px) {
+  [data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-grid,
+  [data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-readiness {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-admin-workspace] [data-admin-content-module="legal-settings"] .admin-legal-aside {
+    position: static;
+  }
+}
+
+@media (max-width: 980px) {
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-actions {
+    grid-column: 2;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-toolbar,
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-savebar {
+    flex-wrap: wrap;
+  }
+
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-row.is-child {
+    margin-left: 0.5rem;
+    padding-left: var(--admin-ui-space-sm, 0.55rem);
+  }
+
+  [data-admin-workspace] [data-admin-content-module="monetization-settings"] .admin-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-admin-workspace] [data-admin-content-module="application-settings"] [data-testid="admin-pwa-settings"] .admin-form-actions > button {
+    flex: 1 1 min(100%, 180px);
+  }
+}
+
+@media (max-width: 430px) {
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-handle {
+    display: none;
+  }
+
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-actions {
+    grid-column: 1;
+    justify-content: flex-start;
+  }
+
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-actions button {
+    flex: 1 1 min(100%, 120px);
+  }
+
+  [data-admin-workspace] [data-admin-content-module="navigation-settings"] .admin-navigation-fields :is(input, select),
+  [data-admin-workspace] [data-admin-content-module="monetization-settings"] :is(input, select, textarea),
+  [data-admin-workspace] [data-admin-content-module="legal-settings"] :is(input, select, textarea),
+  [data-admin-workspace] [data-admin-content-module="notion-settings"] :is(input, select, textarea) {
+    font-size: 16px;
+  }
+}

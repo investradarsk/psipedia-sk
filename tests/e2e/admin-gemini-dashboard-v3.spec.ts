@@ -20,12 +20,12 @@ async function verifyCompactLayout(page: Page, width: number) {
   expect(computed.family).not.toMatch(/Georgia|Times New Roman/i);
   expect(await heading.evaluate(element => getComputedStyle(element).paddingBottom))
     .toBe(mobile ? "8px" : "12px");
-  // ADMIN-V3-COMPACT-01 intentionally reduces the Gemini grid to 9px on
-  // desktop and mobile, with 11px / 10px panel padding respectively.
-  // Assert real computed styles rather than removing the density regression.
-  expect(await metrics.evaluate(element => getComputedStyle(element).gap)).toBe("9px");
-  expect(await history.evaluate(element => getComputedStyle(element).paddingTop))
-    .toBe(mobile ? "10px" : "11px");
+  // ADMIN VISUAL 14/18 uses the shared 0.55rem spacing token on desktop
+  // and the 0.45rem compact override on mobile. Check actual pixel density.
+  const metricGap = Number.parseFloat(await metrics.evaluate(element => getComputedStyle(element).gap));
+  expect(metricGap).toBeCloseTo(mobile ? 7.2 : 8.8, 1);
+  const panelPadding = Number.parseFloat(await history.evaluate(element => getComputedStyle(element).paddingTop));
+  expect(panelPadding).toBeCloseTo(mobile ? 10.4 : 12, 1);
   await expect(page.getByRole("link", { name: /Prompty kategórií/ })).toBeVisible();
   if (mobile) {
     const controlHeight = await category.evaluate(element => element.getBoundingClientRect().height);

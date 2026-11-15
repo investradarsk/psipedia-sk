@@ -217,3 +217,62 @@
   .filterActions { flex-direction: row; flex-wrap: wrap; gap: 0.4rem; }
   .filterActions > * { flex: 1 1 auto; }
 }
+
+/* ADMIN CONTENT STEP 10: compact service list controls with the same
+   shared spacing and 44px touch contract as articles and breeds. */
+.filters {
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  min-width: 0;
+  max-width: 100%;
+}
+.filterActions { gap: var(--admin-ui-space-sm, 0.55rem); }
+.clearFilters {
+  border: 1px solid var(--admin-ui-border, #cbdad0);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  background: #f5f8f5;
+  text-decoration: none;
+}
+.clearFilters:hover { background: #eaf2eb; }
+.clearFilters:focus-visible,
+.tableActions :is(a, button):focus-visible,
+.reviewToggle:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.reviewToggle { min-height: var(--admin-ui-control-height, 44px); }
+.tableActions { gap: 0.4rem; }
+.tableActions :is(a, button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--admin-ui-border, #d5dfd7);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  background: #f7faf7;
+  font-size: 0.78rem;
+  font-weight: 750;
+  color: #264f3d;
+  text-decoration: none;
+  white-space: normal;
+}
+.tableActions > button {
+  border-color: #eed6d1;
+  background: #fff5f2;
+  color: #8d392b;
+  text-decoration: none;
+}
+.tableActions :is(a, button):hover:not(:disabled) { background: #eaf2eb; }
+.tableActions > button:hover:not(:disabled) { background: #ffeae5; }
+.tableActions button:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 720px) {
+  .filters { padding: var(--admin-ui-panel-padding, 0.65rem); }
+  .filterActions :is(button, a) {
+    min-height: var(--admin-ui-control-height, 44px);
+    justify-content: center;
+  }
+  .tableActions { align-items: stretch; }
+  .tableActions :is(a, button) { flex: 1 1 auto; }
+}

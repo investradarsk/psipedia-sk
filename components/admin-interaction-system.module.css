@@ -1,14 +1,14 @@
 .action {
-  min-height: 44px;
+  min-height: var(--admin-ui-control-height, 44px);
   min-width: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  padding: 0.65rem 0.9rem;
-  border-radius: 0.7rem;
+  gap: var(--admin-ui-editor-field-gap, 0.5rem);
+  padding: var(--admin-ui-control-padding-block, 0.55rem) var(--admin-ui-control-padding-inline, 0.75rem);
+  border-radius: var(--admin-ui-field-radius, 9px);
   font: inherit;
-  font-size: 0.86rem;
+  font-size: var(--admin-ui-type-body, 0.91rem);
   font-weight: 800;
   line-height: 1.2;
   text-align: center;
@@ -350,7 +350,7 @@
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--admin-v3-control-border, #b9c8be);
-  border-radius: 0.65rem;
+  border-radius: var(--admin-ui-field-radius, 9px);
   background: var(--admin-v3-surface, #fff);
   color: var(--admin-v3-ink, #17352b);
   font: inherit;
@@ -375,10 +375,11 @@
 
 .validation {
   margin: 0;
-  padding: 0.75rem 0.85rem;
-  border-radius: 0.7rem;
-  background: #fff0ec;
-  color: #7b2f23;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border: 1px solid var(--admin-ui-error-border, #e9b5b2);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  background: var(--admin-ui-error-background, #fff3f2);
+  color: var(--admin-ui-error-text, #842f35);
   font-weight: 700;
 }
 

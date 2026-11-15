@@ -98,3 +98,140 @@ a.value {color:#145ca5;}
 .inlineCorrection input:focus-visible,.desktopEdit:focus-visible {outline:3px solid #7db493;outline-offset:2px}
 .actions .desktopEdit {min-height:44px;border:1px solid #9bc6a9;background:#f3faf5;color:#1b5638;border-radius:9px;padding:9px 12px;font-weight:750}
 @media(max-width:899px){.desktopEdit{display:none!important}}
+
+/* ADMIN VISUAL 15/18 — quality review. Presentation only:
+   original approval, rejection, Tavily and route handlers are unchanged. */
+.root {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  font-family: inherit;
+}
+
+.root > * {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.top,
+.results,
+.manualPanel {
+  min-width: 0;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+
+.top {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.55fr);
+}
+
+.total {
+  font-size: 1.8rem;
+}
+
+.heading h2,
+.month h2 {
+  font-family: inherit;
+  font-size: var(--admin-ui-type-subheading, 1rem);
+  line-height: 1.3;
+}
+
+.areas,
+.monthGrid,
+.list,
+.manualControls {
+  min-width: 0;
+}
+
+.area {
+  min-width: 0;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: 8px 10px;
+  border-radius: var(--admin-ui-radius, 12px);
+  font-family: inherit;
+  font-size: var(--admin-ui-type-label, 0.82rem);
+}
+
+.areaSymbol {
+  font-size: 1rem;
+}
+
+.filters {
+  gap: var(--admin-ui-space-xs, 0.4rem);
+  padding-block: var(--admin-ui-space-sm, 0.55rem);
+}
+
+.filters button {
+  font-family: inherit;
+  font-size: var(--admin-ui-type-label, 0.82rem);
+}
+
+.comparisonValue,
+.value,
+.source,
+.profile,
+.manualResult,
+.historyItems {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.actions :is(button, a),
+.manualActions button {
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 800px) {
+  .top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .root {
+    width: 100%;
+  }
+
+  .manualControls :is(input, select),
+  .profileSearch input,
+  .inlineCorrection input {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 650px) {
+  .item {
+    padding: 9px 10px;
+  }
+
+  .monthGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .comparison {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions :is(button, a) {
+    flex: 1 1 min(100%, 128px);
+  }
+
+  .profileSearch {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profileSearch input {
+    width: 100%;
+  }
+}

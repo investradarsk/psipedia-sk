@@ -152,17 +152,17 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,buil
     finally{setBusy(false);}
   }
   const openEditor=creating||Boolean(editing);
-  return <section className={styles.stack} aria-label="Katalóg služieb a vlastností">
+  return <section className={styles.stack} aria-label="Katalóg služieb a vlastností" data-admin-directory-catalog>
     {loadError&&<p role="alert" className={styles.error}>{loadError}</p>}
     {!builtinOverridesEnabled&&!loadError&&
       <p className={styles.notice}>Pôvodné služby sa budú dať upravovať po bezpečnom použití migrácie 0149. Nové služby zostávajú upraviteľné.</p>}
-    <div className={styles.filterBar}>
+    <div className={styles.filterBar} role="search" aria-label="Filtrovať katalóg služieb" data-admin-list-filters>
       <label className={styles.searchField}>Vyhľadávanie
         <input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Hľadať službu"/>
       </label>
       <button type="button" className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls="services-v3-simple-filters"
         onClick={()=>setFiltersOpen(old=>!old)}>Filtre {activeFilterCount?("("+activeFilterCount+")"):""} <span aria-hidden="true">{filtersOpen?"−":"+"}</span></button>
-      <div id="services-v3-simple-filters" className={styles.advancedFilters} data-expanded={filtersOpen}>
+      <div id="services-v3-simple-filters" className={styles.advancedFilters} data-admin-list-advanced data-expanded={filtersOpen}>
         <label>Typ<select value={kind} onChange={e=>setKind(e.target.value)}>
           <option value="all">Služby a vlastnosti</option><option value="service">Služby</option><option value="attribute">Vlastnosti</option>
         </select></label>
@@ -173,7 +173,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,buil
       <AdminActionButton variant="primary" disabled={!writeEnabled||Boolean(loadError)}
         onClick={()=>{setDraft(empty());setEditing(null);setCreating(true);setMessage("");}}>+ Nová služba</AdminActionButton>
     </div>
-    <p role="status" className={styles.count}>Nájdených možností: {visible.length}</p>
+    <p role="status" className={styles.count} data-admin-list-results>Nájdených možností: {visible.length}</p>
     <div className={styles.layout}>
       <div className={styles.list} ref={listRef} tabIndex={0} role="region" aria-label="Možnosti katalógu">
         {rows.length?(

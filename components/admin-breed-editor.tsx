@@ -377,7 +377,8 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     <EditorWorkspace
       mode="page"
       title={breed ? `Upraviť plemeno: ${form.name || breed.name}` : "Nové plemeno"}
-      description="Deväť sekcií v poradí verejného profilu. Zmeny uložíš jedným krokom."
+      hidePageTitle
+      description="Údaje upravuješ v deviatich sekciách. V spodnej lište ich uložíš bez opakovaných akcií."
       status={<><EditorStatus label={form.status === "published" ? "Publikované" : "Koncept"} tone={form.status === "published" ? "success" : "neutral"} /><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /></>}
       sections={editorNavigation}
       sectionMode="switch"
@@ -389,16 +390,34 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       closeLabel="Späť na plemená"
       actions={<EditorActionBar
         message={<span role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
-        secondary={<>
-          {breed && <AdminRecordLifecycleActions kind="breeds" recordId={breed.id} status={form.status} disabled={saving || uploading} returnHref="/admin/plemena"
-            onUnpublished={(_next,updatedAt) => { setCanonicalForm(current=>({...current,status:"draft"})); if(updatedAt)setExpectedUpdatedAt(updatedAt); }} />}
-          {breed && <AdminNotionProfileImportButton scope="breeds" profileId={breed.id}
-            dirty={dirty} disabled={saving || uploading} />}
-          <AdminActionButton variant="neutral" onClick={()=>chooseBreedSection("breed-fci")}>FCI štandard</AdminActionButton>
-        </>}
+        secondary={
+          <details className={styles.moreActions} data-breed-more-actions>
+            <summary>Ďalšie akcie</summary>
+            <div className={styles.moreActionsPanel}>
+              <AdminActionButton variant="neutral" onClick={()=>chooseBreedSection("breed-fci")}>Prejsť na FCI štandard</AdminActionButton>
+              {breed && <>
+                <AdminNotionProfileImportButton scope="breeds" profileId={breed.id}
+                  dirty={dirty} disabled={saving || uploading} />
+                <small>Načítanie z Notionu nahradí údaje v editore. Neuložené zmeny by sa stratili.</small>
+                <AdminRecordLifecycleActions kind="breeds" recordId={breed.id} status={form.status} disabled={saving || uploading} returnHref="/admin/plemena"
+                  onUnpublished={(_next,updatedAt) => { setCanonicalForm(current=>({...current,status:"draft"})); if(updatedAt)setExpectedUpdatedAt(updatedAt); }} />
+              </>}
+            </div>
+          </details>
+        }
         primary={<>
-          <AdminActionButton variant="secondary" type="submit" form="breed-canonical-editor-form" disabled={saving||uploading}>{saving?"Ukladám…":form.status==="published"?"Uložiť zmeny":"Uložiť koncept"}</AdminActionButton>
-          <AdminActionButton variant="primary" disabled={saving||uploading} onClick={()=>void save("published")}>{saving?"Ukladám…":form.status==="published"?"Uložiť a aktualizovať":"Publikovať"}</AdminActionButton>
+          {form.status === "published" ? (
+            <AdminActionButton variant="primary" type="submit" form="breed-canonical-editor-form" disabled={saving||uploading}>
+              {saving?"Ukladám…":"Uložiť zmeny"}
+            </AdminActionButton>
+          ) : <>
+            <AdminActionButton variant="secondary" type="submit" form="breed-canonical-editor-form" disabled={saving||uploading}>
+              {saving?"Ukladám…":"Uložiť koncept"}
+            </AdminActionButton>
+            <AdminActionButton variant="primary" disabled={saving||uploading} onClick={()=>void save("published")}>
+              {saving?"Ukladám…":"Publikovať profil"}
+            </AdminActionButton>
+          </>}
         </>}
       />}
     >
@@ -625,7 +644,9 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         </div>
         <label className="admin-field"><span>SEO title</span><input value={form.seo.title??""} onChange={e=>change("seo",{...form.seo,title:e.target.value})}/></label>
         <label className="admin-field"><span>Meta description</span><textarea rows={3} value={form.seo.description??""} onChange={e=>change("seo",{...form.seo,description:e.target.value})}/></label>
-        <AdminHelpText>Stav publikovania sa mení tlačidlami Uložiť koncept / Publikovať. Technické prepojenie Notion zostáva nezmenené.</AdminHelpText>
+        <AdminHelpText>{form.status === "published"
+          ? "Tlačidlo Uložiť zmeny uloží upravené údaje publikovaného profilu. Import z Notionu a stiahnutie z publikovania nájdeš v ponuke Ďalšie akcie."
+          : "Uložiť koncept ponechá profil nezverejnený. Publikovať profil uloží zmeny a nastaví jeho verejný stav. Import z Notionu je v ponuke Ďalšie akcie."}</AdminHelpText>
       </div>
     </AdminEditorSection>
 

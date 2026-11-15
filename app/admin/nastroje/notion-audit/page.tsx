@@ -14,7 +14,7 @@ export default async function NotionDataQualityAuditPage() {
       title="Kontrola údajov v Notione"
       description="Jednotný read-only prehľad synchronizácie všetkých oblastí a kontrola kvality údajov. Nezapisuje do Notionu ani do produkčnej databázy."
     >
-      <div style={{ display: "grid", gap: 20 }}>
+      <div data-admin-content-module="notion-audit">
         <AdminNotionSyncOverview />
         <AdminNotionDataQualityAudit />
       </div>

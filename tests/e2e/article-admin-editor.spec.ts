@@ -771,10 +771,11 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const rail = page.locator("[data-article-editor-rail]");
     await expect(rail).toBeVisible();
     await expect(rail.getByRole("region", { name: "Stav článku" })).toBeVisible();
-    const sidebarDate = rail.locator("#article-rail-published-at");
-    await sidebarDate.fill("2026-12-10T18:00");
-    await showArticleSection(page, "article-publish");
-    await expect(page.locator("#article-published-at")).toHaveValue("2026-12-10T18:00");
+    await expect(rail.locator("#article-rail-published-at")).toHaveCount(0);
+    await rail.getByRole("button", { name: "Otvoriť nastavenia publikovania" }).click();
+    await expect(page.locator("#article-publish")).toBeVisible();
+    await page.locator("#article-published-at").fill("2026-12-10T18:00");
+    await expect(rail.locator("[data-article-publication-summary]")).toContainText("10T18:00");
     await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
     const seo = rail.locator("[data-article-rail-seo]");
     await seo.locator("summary").click();
@@ -806,7 +807,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       await page.locator("[data-editor-navigation]").getByRole("button", { name: "Náhľad", exact: true }).click();
       const rail = page.locator("[data-article-editor-rail]");
       await expect(rail).toBeVisible();
-      await expect(rail.locator("#article-rail-published-at")).toBeVisible();
+      await expect(rail.locator("[data-article-publication-summary]")).toBeVisible();
       await expect(rail.locator("[data-article-compact-preview]")).toBeVisible();
       await expect.poll(() => page.evaluate(() =>
         document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -842,6 +843,78 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       await expect(pills.getByRole("link")).toHaveCount(4);
       await expect(toolbar.getByRole("button", { name: "Filtrovať" })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test("WORK-P2: choosing Úvod a obsah clears the measured sticky format toolbar", async ({ page }, info) => {
+    const widths = info.project.name === "mobile-chromium" ? [320, 390] : [768, 1440];
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+      await waitForEditor(page);
+      await showArticleSection(page, "article-publish");
+      const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+      const picker = nav.getByLabel("Sekcia editora");
+      if (await picker.isVisible()) {
+        await picker.selectOption("article-basics");
+      } else {
+        await nav.getByRole("button", { name: "Úvod a obsah", exact: true }).click();
+      }
+      await expect(page.locator("#article-basics")).toBeVisible();
+      const toolbar = page.locator("[data-admin-tiptap-toolbar]");
+      await expect(toolbar).toBeVisible();
+      await expect.poll(async () => toolbar.evaluate(element => {
+        const root = element.closest('[data-editor-layout="article"]') as HTMLElement | null;
+        return root?.style.getPropertyValue("--admin-tiptap-toolbar-height") ?? "";
+      })).toMatch(/^\d+px$/);
+      await expect.poll(async () => page.evaluate(() => {
+        const label = document.querySelector('label[for="article-title"]');
+        const toolbar = document.querySelector("[data-admin-tiptap-toolbar]");
+        return Boolean(label && toolbar &&
+          label.getBoundingClientRect().top >= toolbar.getBoundingClientRect().bottom + 4);
+      }), { message: "Article title must be below the sticky toolbar at " + width }).toBe(true);
+      expect(await page.evaluate(() =>
+        document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    }
+  });
+
+  test("WORK-P2: sort and direction stay together, and article actions remain pinned", async ({ page }, info) => {
+    const widths = info.project.name === "mobile-chromium" ? [390] : [1440];
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: 900 });
+      const response = await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
+      expect(response?.status()).toBe(200);
+      const filters = page.locator("form[data-admin-article-filters]");
+      const search = filters.locator('input[name="query"]');
+      await expect(search).toBeVisible();
+      const group = filters.locator("[data-admin-sort-direction]");
+      const sort = group.locator('select[name="sort"]');
+      const direction = group.locator('select[name="direction"]');
+      await expect(sort).toBeVisible();
+      await expect(direction).toBeVisible();
+      const sortBox = await sort.boundingBox();
+      const directionBox = await direction.boundingBox();
+      expect(sortBox && directionBox).toBeTruthy();
+      expect(Math.abs((sortBox?.y ?? 0) - (directionBox?.y ?? 0))).toBeLessThan(4);
+      const submit = filters.getByRole("button", { name: "Filtrovať" });
+      await expect(submit).toBeVisible();
+      const buttonBackground = await submit.evaluate(el => getComputedStyle(el).backgroundColor);
+      expect(buttonBackground).not.toBe("rgba(0, 0, 0, 0)");
+      if (width === 1440) {
+        const grid = page.locator('[data-sticky-actions="true"]');
+        if (await grid.count()) {
+          const actions = grid.locator('th[data-column-id="actions"]');
+          await expect(actions).toHaveCSS("position", "sticky");
+          const wrapper = grid.getByRole("region", { name: "Články – tabuľka" });
+          const viewport = await wrapper.boundingBox();
+          const pinned = await actions.boundingBox();
+          expect(viewport && pinned).toBeTruthy();
+          expect((pinned?.x ?? 0) + (pinned?.width ?? 0))
+            .toBeLessThanOrEqual((viewport?.x ?? 0) + (viewport?.width ?? 0) + 2);
+        }
+      }
+      expect(await page.evaluate(() =>
+        document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
     }
   });
 

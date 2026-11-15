@@ -190,7 +190,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       Kvalita údajov čaká na databázovú migráciu 0142. Vyhľadávanie je do jej vykonania bezpečne pozastavené.
     </div>
   );
-  return <div className={styles.root}>
+  return <div className={styles.root} data-admin-content-module="quality-review">
     <div className={styles.overviewShortcut}>
       <a href="/admin/kvalita/prehlad" target="_blank" rel="noopener noreferrer" className={styles.overviewLink}>
         Prehľad chýbajúcich údajov ↗

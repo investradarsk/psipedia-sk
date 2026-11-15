@@ -30,7 +30,7 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   await page.goto("/admin/meniny");
-  await expect(page.getByRole("heading", { name: "Canonical psie meniny" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Psie meniny", exact: true, level: 1 })).toBeVisible();
   await expectAxeClean(page);
 
   await page.getByRole("button", { name: "+ Nové meno" }).click();

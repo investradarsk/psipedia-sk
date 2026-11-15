@@ -12,3 +12,104 @@
 .tools > div { display: grid; gap: 2px; flex: 1 1 220px; }
 .tools strong { font-size: .83rem; color: #264a37; }
 .tools a { color: #933a28; background: #fff8f1; text-decoration: none; border: 1px solid #edddcd; border-radius: 8px; padding: 8px 11px; font-size: .81rem; font-weight: 700; }
+
+/* ADMIN CONTENT STEP 10: directory category navigation is a compact
+   editor-style workspace. All original category URLs remain available. */
+.modules {
+  min-width: 0;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  margin-bottom: var(--admin-ui-section-gap, 0.625rem);
+}
+.modules a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.modules :is(a):focus-visible,
+.categories:focus-visible,
+.categories a:focus-visible,
+.tools summary:focus-visible,
+.toolsContent a:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.categoryWorkspace {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  margin-bottom: var(--admin-ui-section-gap, 0.625rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.categoryHeader {
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  margin-bottom: var(--admin-ui-space-sm, 0.55rem);
+}
+.categoryHeader h2 {
+  font-family: inherit;
+  font-size: 0.96rem;
+}
+.categories { min-width: 0; max-width: 100%; gap: 0.4rem; }
+.categories a {
+  min-height: var(--admin-ui-control-height, 44px);
+  max-width: 100%;
+  padding: 0.45rem 0.65rem;
+  overflow-wrap: anywhere;
+}
+.tools {
+  display: block;
+  min-width: 0;
+  margin-top: var(--admin-ui-space-sm, 0.55rem);
+  padding: 0;
+  border-top: 1px solid #e3e9e1;
+}
+.tools > summary {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  min-height: var(--admin-ui-control-height, 44px);
+  color: #264a37;
+  font-weight: 750;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.5rem 0.3rem;
+}
+.toolsContent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0 0 0.65rem;
+}
+.toolsContent p {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  color: #607568;
+}
+.toolsContent a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .modules { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; }
+  .modules a { flex: 0 0 auto; }
+  .categoryWorkspace { padding: 0.65rem; }
+  .categories {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding: 0.1rem 0.1rem 0.35rem;
+    scroll-padding-inline: 0.5rem;
+    scrollbar-width: thin;
+  }
+  .categories a { flex: 0 0 auto; white-space: nowrap; }
+  .toolsContent { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .toolsContent a { justify-content: center; }
+}

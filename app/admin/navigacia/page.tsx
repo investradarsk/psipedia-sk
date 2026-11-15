@@ -36,7 +36,9 @@ export default async function AdminNavigationPage() {
       title="Hlavné menu bez úpravy kódu"
       description="Premenuj, usporiadaj alebo skry položky a vytvor jednoduché podmenu. Po uložení sa zmena zobrazí na celom webe."
     >
-      <AdminNavigationEditor initialItems={items} automaticChildren={getAutomaticChildren()} />
+      <div data-admin-content-module="navigation-settings">
+        <AdminNavigationEditor initialItems={items} automaticChildren={getAutomaticChildren()} />
+      </div>
     </AdminShell>
   );
 }
