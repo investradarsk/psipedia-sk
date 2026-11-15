@@ -249,7 +249,7 @@ test("Services V3 provenance UI previews public rules without writing through le
   assert.match(client,/data-services-v3-public-preview/);
   assert.match(client,/psipedia:directory-services-saved/);
   assert.match(editor,/psipedia:directory-services-saved/);
-  assert.match(editor,/Historický text služieb \(nie katalóg V3\)/);
+  assert.match(editor,/historický text \(nie katalóg V3\)/);
   assert.match(editor,/href="#directory-services-v3"/);
   assert.match(projection,/reason:"explicit_no"/);
   assert.doesNotMatch(client,/UPDATE directory_profiles|services_json =/);
