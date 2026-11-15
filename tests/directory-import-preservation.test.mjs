@@ -89,62 +89,101 @@ function createDatabase() {
   )`);
   return db;
 }
-function params(source, expectedSource = null, expectedTimestamp = null, extras = {}) {
+function params(source, extras = {}) {
   return [
-    extras.slug ?? "vet-1", "Vet", "veterinari", "draft", extras.excerpt ?? "",
-    extras.description ?? "", extras.services ?? "[]", "[]", "Nitra", "",
-    "Nitriansky kraj", "", 0, "", null, null, null, extras.importKey ?? "vet-key",
-    source, "vet nitra", 0, 0, "2026-10-01", "2026-10-13", null, "importer", "importer",
-    expectedSource, expectedTimestamp,
+    extras.slug ?? "vet-1", "Vet", "veterinari", "draft",
+    extras.excerpt ?? "", extras.description ?? "",
+    extras.services ?? "[]", "[]", "Nitra", "",
+    "Nitriansky kraj", "", 0, "", extras.websiteUrl ?? null,
+    null, null, extras.importKey ?? "vet-key",
+    source, "vet nitra", 0, 0, "2026-10-01", "2026-10-13",
+    null, "importer", "importer",
   ];
 }
 
-test("SQL inserts new Draft and updates Draft atomically with preserved JSON/curated fields", () => {
+test("SQL inserts a new draft without updating an existing edited draft", () => {
   const db = createDatabase();
-  const original = JSON.stringify({
-    [emergency.d1.key]: "no", "_psipedia_quality_phone_status": "NOT_FOUND", "Legacy": "preserve",
-  });
-  const statement = db.prepare(sql);
-  assert.equal(statement.run(...params(original, null, null, { excerpt: "Dôležitý opis", services: '["Chirurgia"]' })).changes, 1);
-  db.prepare(`UPDATE directory_profiles SET featured=1, verified=1, status='draft' WHERE import_key='vet-key'`).run();
-  const merged = prepareGeneralDirectorySourceImport({ "Nové pole": "hodnota" }, "veterinari", original);
-  assert.equal(statement.run(...params(merged, original, "2026-10-13")).changes, 1);
-  const updated = db.prepare("SELECT * FROM directory_profiles WHERE import_key='vet-key'").get();
-  assert.equal(updated.source_data_json, merged);
-  assert.equal(JSON.parse(updated.source_data_json)[emergency.d1.key], "no");
-  assert.equal(updated.status, "draft");
-  assert.equal(updated.featured, "1");
-  assert.equal(updated.verified, "1");
-  assert.equal(updated.excerpt, "Dôležitý opis");
-  assert.equal(updated.services_json, '["Chirurgia"]');
+  try {
+    const imported = JSON.stringify({
+      [emergency.d1.key]: "no", "Legacy": "importný stav", Web: "https://old.sk",
+    });
+    const statement = db.prepare(sql);
+    assert.equal(statement.run(...params(imported, {
+      excerpt: "Pôvodný perex", websiteUrl: "https://old.sk",
+    })).changes, 1);
+
+    // Mimic an editor save that happened AFTER the original historical import.
+    const live = JSON.stringify({
+      [emergency.d1.key]: "yes",
+      "Legacy": "aktuálna ručná úprava",
+      Web: "https://admin.sk",
+      "_psipedia_breeder_gallery_urls": ["https://media.psipedia.sk/photo.jpg"],
+    });
+    db.prepare(`UPDATE directory_profiles SET
+      description=?, excerpt=?, website_url=?, source_data_json=?, updated_at=?, updated_by=?
+      WHERE import_key=?`).run(
+      "Najnovší popis v Admine", "Nový perex", "https://admin.sk", live,
+      "2026-11-15T08:00:00Z", "admin@example.sk", "vet-key",
+    );
+    const before = db.prepare("SELECT * FROM directory_profiles WHERE import_key=?").get("vet-key");
+
+    // Re-uploading that same historic JSON must NOT restore older values,
+    // even when a draft is still unpublished and the preview was refreshed.
+    const reimport = prepareGeneralDirectorySourceImport({
+      "Nové pole": "starý import", Web: "https://old.sk",
+    }, "veterinari", null);
+    assert.equal(statement.run(...params(reimport, {
+      excerpt: "Zastaraný perex", description: "Starý popis",
+      websiteUrl: "https://old.sk", services: '["Stará služba"]',
+    })).changes, 0);
+    const after = db.prepare("SELECT * FROM directory_profiles WHERE import_key=?").get("vet-key");
+    assert.deepEqual(after, before);
+    assert.equal(after.source_data_json, live);
+    assert.equal(after.updated_by, "admin@example.sk");
+  } finally {
+    db.close();
+  }
 });
 
-test("SQL rejects stale preview, concurrently published profiles and unexpected identity reuse", () => {
+test("SQL refuses every existing identity, whether draft or published", () => {
   const db = createDatabase();
-  const original = JSON.stringify({ [emergency.d1.key]: "yes" });
-  const statement = db.prepare(sql);
-  assert.equal(statement.run(...params(original)).changes, 1);
-  const merged = prepareGeneralDirectorySourceImport({ "Nové pole": "x" }, "veterinari", original);
-  db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE import_key='vet-key'")
-    .run(JSON.stringify({ [emergency.d1.key]: "no" }));
-  assert.equal(statement.run(...params(merged, original, "2026-10-13")).changes, 0);
-  db.prepare("UPDATE directory_profiles SET status='published', source_data_json=? WHERE import_key='vet-key'").run(original);
-  assert.equal(statement.run(...params(merged, original, "2026-10-13")).changes, 0);
-  db.prepare("UPDATE directory_profiles SET status='draft' WHERE import_key='vet-key'").run();
-  assert.equal(statement.run(...params(merged, original, "2026-10-13", { slug: "different" })).changes, 0);
-  assert.equal(db.prepare("SELECT source_data_json FROM directory_profiles WHERE import_key='vet-key'").get().source_data_json, original);
+  try {
+    const statement = db.prepare(sql);
+    const initial = JSON.stringify({ "Organizácia": "Potvrdená" });
+    assert.equal(statement.run(...params(initial)).changes, 1);
+    // A changed importKey must not bypass the other unique identity.
+    assert.equal(statement.run(...params('{"Organizácia":"Stará"}', {
+      importKey: "another-key",
+    })).changes, 0);
+    // Changing slug but keeping the original key also must not rewrite identity.
+    assert.equal(statement.run(...params("{}", {
+      slug: "other-slug",
+    })).changes, 0);
+    db.prepare("UPDATE directory_profiles SET status='published' WHERE import_key='vet-key'").run();
+    assert.equal(statement.run(...params("{}")).changes, 0);
+    const final = db.prepare("SELECT * FROM directory_profiles WHERE import_key='vet-key'").get();
+    assert.equal(final.source_data_json, initial);
+    assert.equal(final.slug, "vet-1");
+    assert.equal(final.status, "published");
+    assert.equal(db.prepare("SELECT count(*) AS total FROM directory_profiles").get().total, 1);
+  } finally {
+    db.close();
+  }
 });
 
-test("read-only plan rejects bad filters before writes and confirmed route checks zero-change guards", () => {
+test("import plan and SQL are both insert-only; Preview may not claim an update", () => {
   const plan = readFileSync("lib/admin-import-plan.ts", "utf8");
   const route = readFileSync("app/api/admin/import/route.ts", "utf8");
-  assert.match(plan, /prepareGeneralDirectorySourceImport\(row, identity.category/);
-  assert.match(plan, /source_data_json,updated_at FROM directory_profiles/);
-  assert.match(plan, /profileSources\.push\(null\)/);
+  assert.match(plan, /if \(insertOnly\) return \{ action: "skipped" \}/);
+  assert.match(plan, /key, profileKeys, existing\?\.status,[\s\S]*?true,/);
+  assert.match(plan, /result\.action !== "inserted"/);
+  assert.match(plan, /prepareGeneralDirectorySourceImport\(row, identity\.category, null\)/);
   assert.match(plan, /importKey patrí inému category\+slug/);
   assert.match(route, /plan\.preview\.totals\.rejected > 0/);
   assert.match(route, /payload\.confirmed !== true/);
-  assert.match(route, /directory_profiles\.source_data_json = \?/);
-  assert.match(route, /directory_profiles\.updated_at = \?/);
+  assert.match(route, /plan\.actions\.profiles\[index\] === "skipped"/);
+  assert.match(route, /ON CONFLICT DO NOTHING/);
+  assert.doesNotMatch(sql, /DO UPDATE SET/);
   assert.match(route, /results\[statementIndex\]\?\.meta\?\.changes !== 1/);
+  assert.match(route, /profiles: plan\.preview\.domains\.profiles\.inserted/);
 });
