@@ -286,7 +286,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
       </section>
 
       <section className="admin-panel" data-admin-event-list>
-        <fieldset className="admin-event-controls" data-admin-list-filters role="search" aria-label="Filtrovať podujatia" disabled={!hydrated || busy}>
+        <fieldset className="admin-event-controls" data-admin-list-filters aria-label="Filtrovať podujatia" disabled={!hydrated || busy}>
           <legend className="sr-only">Vyhľadávanie a filtre podujatí</legend>
           <label className="admin-search">
             <span className="sr-only">Hľadať podujatie</span>
