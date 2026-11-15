@@ -537,6 +537,14 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
                   <dt>{label}</dt>
                   <dd><strong>{publicReceipt.facts[key] || "Nevyplnené"}</strong>
                     <small style={{display:"block"}}>Zdroj: {publicSourceName(key)}</small>
+                    {publicReceipt.sources[key]==="legacy" ? <small style={{display:"block"}}>
+                      Ak chceš tento údaj zmeniť na webe, vyplň jeho nové pole vyššie.
+                      Historická hodnota sa automaticky neprepíše.
+                    </small> : null}
+                    {publicReceipt.sources[key]==="fci" ? <button type="button"
+                      onClick={()=>chooseBreedSection("breed-fci")}>
+                      Otvoriť zdrojový FCI štandard
+                    </button> : null}
                   </dd>
                 </div>)}
                 <div><dt>FCI sekcia</dt><dd>
