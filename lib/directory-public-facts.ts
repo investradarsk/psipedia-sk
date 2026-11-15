@@ -98,22 +98,34 @@ export function isDirectoryPublicMetadataField(field: string): boolean {
  * That prevents the public page from resurrecting an old import alias after
  * an Admin/Notion deletion. Legacy aliases are read only when canonical is absent.
  */
+/**
+ * Return the *actual* D1 JSON key providing a public fact. A present
+ * canonical key remains authoritative even if deliberately cleared.
+ * Read-only: never promotes a legacy alias or mutates source_data_json.
+ */
+export function readDirectoryPublicMetadataSource(
+  source: Record<string, string | number | null> | null | undefined,
+  field: string,
+): { sourceKey: string; value: string } | null {
+  if (!source) return null;
+  if (Object.hasOwn(source, field)) {
+    const raw = source[field];
+    return { sourceKey: field, value: raw == null ? "" : String(raw).trim() };
+  }
+  for (const sourceKey of publicMetadataAliases[field] ?? []) {
+    const raw = source[sourceKey];
+    if (raw != null && String(raw).trim()) {
+      return { sourceKey, value: String(raw).trim() };
+    }
+  }
+  return null;
+}
+
 export function readDirectoryPublicMetadataValue(
   source: Record<string, string | number | null> | null | undefined,
   field: string,
 ): string {
-  if (!source) return "";
-  if (Object.hasOwn(source, field)) {
-    const value = source[field];
-    return value === null || value === undefined ? "" : String(value).trim();
-  }
-  for (const key of publicMetadataAliases[field] ?? []) {
-    const value = source[key];
-    if (value !== null && value !== undefined && String(value).trim()) {
-      return String(value).trim();
-    }
-  }
-  return "";
+  return readDirectoryPublicMetadataSource(source, field)?.value ?? "";
 }
 
 /** All public free-text facts relevant to the selected profile category. */

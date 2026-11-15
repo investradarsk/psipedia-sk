@@ -6,6 +6,7 @@ import {
   directoryPublicEditorFieldLabels,
   isDirectoryPublicMetadataField,
   readDirectoryPublicMetadataValue,
+  readDirectoryPublicMetadataSource,
 } from "../lib/directory-public-facts.ts";
 
 const source = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -72,4 +73,34 @@ test("public presentation, editor and guarded Admin save share the same public f
   assert.match(notion, /isDirectoryPublicMetadataField\(input\.field\)/);
   assert.match(notion, /DIRECTORY_PUBLIC_METADATA_STALE_VALUE/);
   assert.match(notion, /AND updated_at = \?/);
+});
+
+test("public metadata origin is the same as its displayed value (including deliberate clears)", () => {
+  const source = {
+    "Organizácia": "", "Zastrešujúca organizácia": "Starý klub",
+    "Ordinačné hodiny": "", "Otváracia doba": "Pôvodné hodiny",
+    "Pokrytie": null, "Oblasť pôsobenia": "Pôvodný okres",
+  };
+  for (const field of ["Organizácia", "Ordinačné hodiny", "Pokrytie"]) {
+    const origin = readDirectoryPublicMetadataSource(source, field);
+    assert.equal(origin?.sourceKey, field);
+    assert.equal(origin?.value, "");
+    assert.equal(readDirectoryPublicMetadataValue(source, field), "");
+  }
+  const legacy = {
+    "Zastrešujúca organizácia": "ZŠK SR",
+    "Otváracie hodiny": "",
+    "Ordinačná doba": "Po–Pi 08:00",
+    "Lokalita / pokrytie": "Nitra",
+  };
+  assert.deepEqual(readDirectoryPublicMetadataSource(legacy, "Organizácia"),
+    {sourceKey:"Zastrešujúca organizácia",value:"ZŠK SR"});
+  assert.deepEqual(readDirectoryPublicMetadataSource(legacy, "Ordinačné hodiny"),
+    {sourceKey:"Ordinačná doba",value:"Po–Pi 08:00"});
+  assert.deepEqual(readDirectoryPublicMetadataSource(legacy, "Pokrytie"),
+    {sourceKey:"Lokalita / pokrytie",value:"Nitra"});
+  assert.equal(readDirectoryPublicMetadataSource({}, "Pokrytie"), null);
+  assert.equal(readDirectoryPublicMetadataSource(null, "Pokrytie"), null);
+  assert.equal(readDirectoryPublicMetadataValue(legacy, "Organizácia"),
+    readDirectoryPublicMetadataSource(legacy, "Organizácia")?.value);
 });
