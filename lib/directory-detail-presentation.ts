@@ -160,6 +160,30 @@ export function publicDirectoryDetailUrl(value: string | null | undefined) {
   }
 }
 
+/** Exact legacy D1 fields that can surface as public Directory facts.
+ * Reused by the public renderer and the Admin provenance preview: no second mapping. */
+export function directoryLegacyPublicFactSources(
+  profile: Pick<PublicDirectoryProfile, "category" | "importData">,
+): Array<DirectoryDetailFact & { sourceKey: string }> {
+  const legacyFactLabels = profile.category === "fyzioterapia"
+    ? []
+    : [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
+  const factLabels = legacyFactLabels.filter(label =>
+    !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
+  const facts = factLabels.flatMap(label => {
+    const value = usefulDirectoryDetailValue(importedValue(profile, label));
+    return value ? [{ label, value, sourceKey: label }] : [];
+  });
+  for (const label of ["Organizácia", "Zameranie"] as const) {
+    const sourceKey = label === "Organizácia"
+      && !Object.hasOwn(profile.importData ?? {}, "Organizácia")
+      ? "Zastrešujúca organizácia" : label;
+    const value = usefulDirectoryDetailValue(importedValue(profile, sourceKey));
+    if (value) facts.push({ label, value, sourceKey });
+  }
+  return facts;
+}
+
 export function formatDirectoryUpdatedAt(value: string | null | undefined) {
   const timestamp = value?.trim() ?? "";
   if (!timestamp) return null;
@@ -260,27 +284,7 @@ export function getDirectoryDetailPresentation(
   // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
   const navigationUrl = null;
   // Physiotherapy therapy/patient flags are retired in favor of Services V3 and prose.
-  const legacyFactLabels = profile.category === "fyzioterapia"
-    ? []
-    : [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
-  // Show both Admin-managed public facts consistently in every directory category.
-  // "Zastrešujúca organizácia" is a legacy alias, not a second public fact.
-  const factLabels = legacyFactLabels.filter(label =>
-    !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
-  const facts = [
-    ...factLabels.flatMap((label) => {
-      const value = usefulDirectoryDetailValue(importedValue(profile, label));
-      return value ? [{ label, value }] : [];
-    }),
-    ...(["Organizácia", "Zameranie"] as const).flatMap(label => {
-      const value = usefulDirectoryDetailValue(label === "Organizácia"
-        ? Object.hasOwn(profile.importData ?? {}, "Organizácia")
-          ? importedValue(profile, "Organizácia")
-          : importedValue(profile, "Zastrešujúca organizácia")
-        : importedValue(profile, label));
-      return value ? [{ label, value }] : [];
-    }),
-  ];
+  const facts = directoryLegacyPublicFactSources(profile).map(({ label, value }) => ({ label, value }));
   // Public organization/focus fields must not turn a veterinary profile into
   // a false "equipment and care" panel when no veterinary facts are present.
   const veterinaryFacts = facts.filter(fact =>
