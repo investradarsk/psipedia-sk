@@ -260,6 +260,8 @@ test("public fact editor and Notion field events share exact-key D1 changes", as
   assert.match(editor, /pilotMetadataOriginals\[key\] = original/);
   assert.match(route, /DIRECTORY_PILOT_METADATA_SCOPE_INVALID|PILOT_DIRECTORY_METADATA_FIELDS/);
   assert.match(route, /rawPilotMetadataOriginals/);
+  assert.match(route, /unconfirmedPublicFacts/);
+  assert.match(route, /String\(saved\.importData\?\.\[key\]/);
   assert.match(route, /directoryLegacyEditableFactKeys\(before\)/);
   assert.match(sync, /DIRECTORY_PILOT_METADATA_STALE_FIELD/);
   assert.doesNotMatch(editor, /JSON\.stringify\(profile\.importData\)/, "editor never posts the complete old JSON payload");
