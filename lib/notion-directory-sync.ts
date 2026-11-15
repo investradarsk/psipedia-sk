@@ -1,6 +1,7 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { directoryCategories } from "./directory";
+import { DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS } from "./directory-detail-presentation";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
 import { directoryFilterRegistry, getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
@@ -1425,12 +1426,14 @@ async function saveBreederEditorialValue(
 }
 
 /**
- * Extra operational text for the field-event pilot categories. This is not part of
- * the legacy whole-profile snapshot/hash, nor of canonical Services V3/GEO.
+ * Exact-field D1/Notion editing of operational and public legacy facts.
+ * The public-fact allowlist comes from the SAME renderer contract as Admin;
+ * never infer Services V3 choices or breeder relations from free text.
  */
 export const PILOT_DIRECTORY_METADATA_FIELDS = [
   "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
   "Organizácia", "Zameranie",
+  ...DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS,
 ] as const;
 export const PUBLIC_DIRECTORY_FACT_FIELDS = ["Organizácia", "Zameranie"] as const;
 export type PilotDirectoryMetadataField = (typeof PILOT_DIRECTORY_METADATA_FIELDS)[number];
