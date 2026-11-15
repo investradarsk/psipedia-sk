@@ -589,8 +589,21 @@ const DIRECTORY_CARD_COLUMNS = `
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
-// One public-read source contract powers category facets and legacy search.
-const DIRECTORY_SOURCE_FACETS = DIRECTORY_PUBLIC_SOURCE_FACETS;
+// A confirmed published breed relation supersedes imported prose in the public
+// directory. Preserve the shared legacy JSON read rules for unlinked profiles.
+const DIRECTORY_LEGACY_BREED = DIRECTORY_PUBLIC_SOURCE_FACETS.breed;
+const DIRECTORY_HAS_CANONICAL_BREEDS = `EXISTS (
+  SELECT 1 FROM breed_directory_relations linked
+  JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
+  WHERE linked.profile_id = directory_profiles.id
+    AND linked_breed.id IN (${canonicalBreedIdsSql})
+)`;
+const DIRECTORY_SOURCE_FACETS = {
+  ...DIRECTORY_PUBLIC_SOURCE_FACETS,
+  breed: `CASE WHEN directory_profiles.category='chovatelske-stanice'
+    AND ${DIRECTORY_HAS_CANONICAL_BREEDS} THEN ''
+    ELSE ${DIRECTORY_LEGACY_BREED} END`,
+};
 
 export function sqlNormalizedExpression(columnExpression: string) {
   const replacements: Array<[string, string]> = [
