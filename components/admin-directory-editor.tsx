@@ -1151,20 +1151,38 @@ export function AdminDirectoryEditor({
             {profile && !notionDraft ? (
               <details className="admin-form-card" data-directory-public-facts>
                 <summary>Ďalšie verejné informácie ({directoryPublicEditorFieldLabels(category).length} polí)</summary>
-                <p>Údaje, ktoré verejný profil skutočne zobrazuje. Úprava jedného poľa nemení ostatné údaje ani prepojené služby V3.</p>
+                <p>Spoločné verejné polia aj ich pôvod v D1. Zapisuje sa iba upravený kľúč; výber plemien a katalóg Služby V3 sa ukladajú oddelene.</p>
                 <div className="admin-field-grid">
                   {directoryPublicEditorFieldLabels(category).map(field => (
                     <div className="admin-field" key={field}>
                       <label htmlFor={`directory-public-fact-${field}`}>{field}</label>
-                      <input
-                        id={`directory-public-fact-${field}`}
-                        type="text"
-                        value={publicFacts[field] ?? readDirectoryPublicMetadataValue(profile.importData, field)}
-                        onChange={event => {
-                          setPublicFacts(previous => ({ ...previous, [field]: event.target.value }));
-                          setFormDirty(true);
-                        }}
-                      />
+                      {isCanonicalRelationText(field) ? (
+                        <p data-directory-canonical-link-source>
+                          <strong>Riadi sa výberom v Prepojeniach.</strong>
+                          <small style={{ display: "block" }}>Historický text: {String(filterSourceData[field] ?? "") || "prázdny"}. Na verejnom webe má prednosť potvrdené prepojenie; text sa nemení.</small>
+                        </p>
+                      ) : (
+                        <input
+                          id={`directory-public-fact-${field}`}
+                          type="text"
+                          maxLength={2000}
+                          value={publicFacts[field] ?? readDirectoryPublicMetadataValue(filterSourceData as ManagedDirectoryProfile["importData"], field)}
+                          onChange={event => {
+                            setPublicFacts(previous => ({ ...previous, [field]: event.target.value }));
+                            setFormDirty(true);
+                          }}
+                          placeholder="Zatiaľ nevyplnené"
+                        />
+                      )}
+                      <small>
+                        Zdroj: {legacyPublicFacts.find(fact => fact.label === field)?.sourceKey ?? field}
+                        {legacyPublicFacts.some(fact => fact.label === field)
+                          ? " · hodnota sa používa na verejnom profile"
+                          : " · zatiaľ bez verejnej hodnoty"}
+                        {["Plemeno", "Plemená", "Klub"].includes(field) &&
+                          ["chovatelske-stanice", "treneri"].includes(category)
+                          ? " · Klikateľné prepojenie vytvoríš výberom profilu v Prepojeniach." : ""}
+                      </small>
                     </div>
                   ))}
                 </div>
@@ -1180,15 +1198,27 @@ export function AdminDirectoryEditor({
                     <textarea id="directory-trainer-services-text" rows={7} value={trainerServicesText}
                       onChange={event => { setTrainerServicesText(event.target.value); setFormDirty(true); }}
                       placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} />
-                    <small>Tento opis sa prenáša do poľa Služby v Notione; katalóg Služby V3 sa nemení.</small>
-                    <small>Existujúci katalógový/legacy zoznam: {services || "Bez položiek"}</small>
+                    <small>Voľný text je oddelený od výberu Áno/Nie v katalógu V3.</small>
+                    <small>Historický zoznam profilu: {services || "Bez položiek"}. Finálne zobrazenie sa kontroluje v náhľade Služby V3.</small>
                   </div>
                 ) : (
-                  <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
+                  <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie – historický text (nie katalóg V3)</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jeden riadok na položku. Výber kanonických služieb V3 zostáva nezmenený.</small></div>
                 )
-              ) : null}
+              ) : (
+                <div className="admin-field" data-admin-legacy-services-readonly>
+                  <strong>Historický text služieb (kontrola)</strong>
+                  <p>{services.trim() || "Bez historických služieb."}</p>
+                  <small>Tento zoznam sa neupravuje v katalógu Služby V3 a automaticky sa nekonvertuje na ID.</small>
+                </div>
+              )}
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : category === "fyzioterapia" ? "Odbornosť a skúsenosti" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
+            {profile && !notionDraft ? (
+              <p className="admin-field">
+                <a href="#directory-services-v3">Zobraziť katalóg Služby V3 a náhľad skutočne verejného zoznamu</a>
+                <small>Prednosť majú kanonické výbery; historický nerozpoznaný text sa nemaže.</small>
+              </p>
+            ) : null}
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
             {profile ? (
               <>
@@ -1197,7 +1227,7 @@ export function AdminDirectoryEditor({
                   <textarea id="directory-pilot-hours" rows={6} value={pilotOpeningHours}
                     onChange={event => { setPilotOpeningHours(event.target.value); setFormDirty(true); }}
                     placeholder={"Pondelok: 08:00–16:00\nUtorok: 08:00–16:00\nPodľa dohody"} />
-                  <small>Úpravy sa prenášajú samostatne. Vymazanie celého obsahu v Admine vymaže iba tieto hodiny aj v Notione; prázdne hodnoty z Notionu existujúce údaje neprepisujú.</small>
+                  <small>Verejné hodiny pochádzajú z poľa: {publicHoursSource?.sourceKey ?? "Ordinačné hodiny"}. Úprava sa zapíše do kanonického poľa Ordinačné hodiny; ostatné historické aliasy sa nemenia.</small>
                 </div>
                 <div className="admin-field">
                   <label htmlFor="directory-pilot-sources">Zdroje údajov</label>
