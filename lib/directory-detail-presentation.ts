@@ -89,6 +89,47 @@ export function publicDirectoryDetailUrl(value: string | null | undefined) {
   }
 }
 
+/** The exact first legacy opening-hours field read by the public detail.
+ * A different field in Admin may be blank even while public hours are visible. */
+export function directoryLegacyOpeningHoursSource(
+  profile: Pick<PublicDirectoryProfile, "importData">,
+): { sourceKey: string; value: string } | null {
+  for (const sourceKey of [
+    "Otváracie hodiny", "Ordinačné hodiny", "Otváracia doba",
+    "Ordinačná doba", "Pracovná doba",
+  ]) {
+    const raw = importedValue(profile, sourceKey);
+    if (!raw) continue;
+    const value = usefulDirectoryDetailValue(raw);
+    return value ? { sourceKey, value } : null;
+  }
+  return null;
+}
+
+/** Exact legacy D1 fields that can surface as public Directory facts.
+ * Reused by the public renderer and Admin provenance preview. */
+export function directoryLegacyPublicFactSources(
+  profile: Pick<PublicDirectoryProfile, "category" | "importData">,
+): Array<DirectoryDetailFact & { sourceKey: string }> {
+  const legacyFactLabels = profile.category === "fyzioterapia"
+    ? []
+    : [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
+  const factLabels = legacyFactLabels.filter(label =>
+    !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
+  const facts = factLabels.flatMap(label => {
+    const value = usefulDirectoryDetailValue(importedValue(profile, label));
+    return value ? [{ label, value, sourceKey: label }] : [];
+  });
+  for (const label of ["Organizácia", "Zameranie"] as const) {
+    const sourceKey = label === "Organizácia"
+      && !Object.hasOwn(profile.importData ?? {}, "Organizácia")
+      ? "Zastrešujúca organizácia" : label;
+    const value = usefulDirectoryDetailValue(importedValue(profile, sourceKey));
+    if (value) facts.push({ label, value, sourceKey });
+  }
+  return facts;
+}
+
 export function formatDirectoryUpdatedAt(value: string | null | undefined) {
   const timestamp = value?.trim() ?? "";
   if (!timestamp) return null;
