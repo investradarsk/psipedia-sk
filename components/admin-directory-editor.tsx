@@ -562,6 +562,13 @@ export function AdminDirectoryEditor({
             pilotMetadataFields[key] = current.trim();
         }
       }
+      // Field-level baseline protects against a newer Notion update while
+      // the editor was open; compare each changed value with live D1.
+      const pilotMetadataOriginalValues = Object.fromEntries(
+        Object.keys(pilotMetadataFields).map(key => [
+          key, readDirectoryPublicMetadataValue(breederBaseline?.importData, key),
+        ]),
+      );
       // Trainers use independent free-text Notion prose; pilot categories
       // retain their separate Services V3-only editing contract.
       const trainerServicesEdited = profile && profile.category === "treneri" && category === profile.category && breederBaseline
@@ -592,7 +599,8 @@ export function AdminDirectoryEditor({
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
           ...(profile ? { mainImageAction } : {}),
-          ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
+          ...(Object.keys(pilotMetadataFields).length
+            ? { pilotMetadataFields, pilotMetadataOriginalValues } : {}),
           name, slug, category,
           ...(additionalCategoriesTouched || !profile ? { additionalCategories } : {}),
           status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription,
