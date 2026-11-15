@@ -16,6 +16,7 @@ import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
 import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card";
+import { canonicalBreedIdsSql } from "./breed-canonical";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import {
   parsePublicDirectoryFacets,
@@ -1408,7 +1409,24 @@ export async function listPublishedDirectoryProfiles(options: {
     baseClauses.push(`${expression} = ?`);
     baseBindings.push(value);
   };
-  addSourceFacet(options.filters.breed, DIRECTORY_SOURCE_FACETS.breed);
+  if (options.filters.breed) {
+    // One canonical breed may belong to many stations, and one station may
+    // have many canonical breeds. Filter by existence, not a comma-joined
+    // text value; fall back to import text only with no public canonical links.
+    baseClauses.push(`(
+      (directory_profiles.category='chovatelske-stanice' AND EXISTS (
+        SELECT 1 FROM breed_directory_relations linked
+        JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
+        WHERE linked.profile_id = directory_profiles.id
+          AND linked_breed.id IN (${canonicalBreedIdsSql})
+          AND linked_breed.name = ?
+      )) OR (
+        (directory_profiles.category<>'chovatelske-stanice' OR NOT ${DIRECTORY_HAS_CANONICAL_BREEDS})
+        AND ${DIRECTORY_LEGACY_BREED} = ?
+      )
+    )`);
+    baseBindings.push(options.filters.breed, options.filters.breed);
+  }
   addSourceFacet(options.filters.fciGroup, DIRECTORY_SOURCE_FACETS.fciGroup);
   addSourceFacet(options.filters.organization, DIRECTORY_SOURCE_FACETS.organization);
   addSourceFacet(options.filters.profileType, DIRECTORY_SOURCE_FACETS.profileType);
@@ -1461,6 +1479,23 @@ export async function listPublishedDirectoryProfiles(options: {
     canonicalPublicEnabled &&
     Boolean(category) &&
     (serviceFilterCategories as readonly string[]).includes(category ?? "");
+  const loadCanonicalBreedOptions = async (): Promise<string[]> => {
+    // A category can also contain a breeder through additional membership.
+    // Match the same category membership rule as the public result list.
+    const categoryWhere = category
+      ? `AND ${directoryCategoryMembershipSql("linked_profile")}` : "";
+    const rows = await database.prepare(`
+      SELECT DISTINCT linked_breed.name AS name
+      FROM breed_directory_relations linked
+      JOIN managed_breeds linked_breed ON linked_breed.id=linked.breed_id
+      JOIN directory_profiles linked_profile ON linked_profile.id=linked.profile_id
+      WHERE linked_profile.status='published' AND linked_profile.category='chovatelske-stanice'
+        AND linked_breed.id IN (${canonicalBreedIdsSql})
+        ${categoryWhere}
+      ORDER BY linked_breed.name COLLATE NOCASE LIMIT 500
+    `).bind(...(category ? [category, category] : [])).all<{ name: string }>();
+    return (rows.results ?? []).map(row => row.name.trim()).filter(Boolean);
+  };
   const loadCanonicalServices = async (): Promise<CanonicalPublicServiceOption[]> => {
     if (!canonicalServicesEnabled || !category) return [];
     const builtinFields = builtinOverridesReady
@@ -1502,9 +1537,10 @@ export async function listPublishedDirectoryProfiles(options: {
         .bind(...baseBindings)
         .first<{ total: number }>()
     : Promise.resolve(null);
-  const [optionResults, canonicalServices, preloadedCount] = await Promise.all([
+  const [optionResults, canonicalServices, canonicalBreedOptions, preloadedCount] = await Promise.all([
     database.batch([locationStatement, sourceStatement]),
     loadCanonicalServices(),
+    loadCanonicalBreedOptions(),
     earlyCount,
   ]);
   const locationFacets = (
@@ -1605,7 +1641,10 @@ export async function listPublishedDirectoryProfiles(options: {
       cities,
       services: [],
       canonicalServices,
-      breeds: parseDirectoryFacetValues(sourceFacets?.breeds),
+      breeds: [...new Set([
+        ...parseDirectoryFacetValues(sourceFacets?.breeds),
+        ...canonicalBreedOptions,
+      ])].sort((a, b) => a.localeCompare(b, "sk")),
       fciGroups: parseDirectoryFacetValues(sourceFacets?.fciGroups),
       organizations: parseDirectoryFacetValues(sourceFacets?.organizations),
       profileTypes: [],
