@@ -5,6 +5,9 @@ import {
   BREEDER_NOTION_RELATION_FIELDS,
   breederRelationChangedFields,
   resolveBreederRelationText,
+  suppressLinkedBreederFact,
+  suppressLinkedBreederQualification,
+  suggestBreederRelationIds,
   formatBreederRelationText,
   sameBreederRelationIds,
 } from "../lib/breeder-relation-text.ts";
@@ -78,4 +81,31 @@ test("relationship synchronization stays independent from Notion editorial field
   assert.match(detail, /Odbornosť a skúsenosti/);
   assert.match(detail, /visibleQualifications\.slice\(0, 4\)/);
   assert.match(css, /\.moreQualifications summary/);
+});
+
+test("canonical links suppress only duplicate imported breed/club facts and labelled qualifications", () => {
+  assert.equal(suppressLinkedBreederFact("Plemeno", 1, 0), true);
+  assert.equal(suppressLinkedBreederFact("Plemená", 1, 0), true);
+  assert.equal(suppressLinkedBreederFact("Klub", 0, 1), true);
+  assert.equal(suppressLinkedBreederFact("Klub", 0, 0), false);
+  assert.equal(suppressLinkedBreederFact("FCI skupina", 1, 1), false);
+  assert.equal(suppressLinkedBreederQualification("Plemeno: Cane Corso", ["Cane Corso"], []), true);
+  assert.equal(suppressLinkedBreederQualification("Chovateľský klub: Starý klub", [], ["Klub Cane Corso"]), true);
+  assert.equal(suppressLinkedBreederQualification("KLUB Cane Corso", [], ["Klub Cane Corso"]), true);
+  assert.equal(suppressLinkedBreederQualification("FCI 77/15 – klubový zoznam", [], ["Klub Cane Corso"]), false);
+  assert.equal(suppressLinkedBreederQualification("Klub: Starý názov", [], []), false);
+});
+
+test("legacy text suggests only unique exact published entity matches, without mutating links", () => {
+  const candidates = [
+    { id: 10, name: "Klub Cane Corso a Dogo Canario", status: "published" },
+    { id: 11, name: "Klub Labradorov", status: "draft" },
+    { id: 12, name: "Klub dvojica", status: "published" },
+    { id: 13, name: "Klub dvojica", status: "published" },
+  ];
+  assert.deepEqual(suggestBreederRelationIds("Klub Cane Corso a Dogo Canario", candidates), [10]);
+  assert.deepEqual(suggestBreederRelationIds("Klub Labradorov", candidates), []);
+  assert.deepEqual(suggestBreederRelationIds("Klub dvojica", candidates), []);
+  assert.deepEqual(suggestBreederRelationIds("Úplne iný klub", candidates), []);
+  assert.deepEqual(suggestBreederRelationIds("Klub Cane Corso a Dogo Canario; Neexistuje", candidates), []);
 });
