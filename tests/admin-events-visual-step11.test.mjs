@@ -7,7 +7,9 @@ test("step 11: events dashboard retains query cache, server sorting, pagination 
   const src = read("components/admin-event-dashboard.tsx");
   assert.match(src, /data-admin-content-module="events-list"/);
   assert.match(src, /data-admin-event-list/);
-  assert.match(src, /role="search" aria-label="Filtrovať podujatia"/);
+  assert.match(src, /<fieldset className="admin-event-controls"[^>]*aria-label="Filtrovať podujatia"/);
+  // A fieldset provides its own grouped form semantics; role="search" is invalid here.
+  assert.doesNotMatch(src, /<fieldset[^>]*role="search"/);
   assert.match(src, /data-admin-list-filters/);
   assert.match(src, /data-admin-list-advanced/);
   assert.match(src, /data-admin-list-results/);
