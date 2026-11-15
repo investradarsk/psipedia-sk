@@ -73,7 +73,7 @@ test("Across ten categories, all five full-form contacts replace only their own 
       ...form(category),
       websiteUrl: "", publicPhone: "", publicEmail: "", facebookUrl: "", instagramUrl: "",
     }, source);
-    assert.deepEqual(readDirectoryPublicContacts(empty.sourceData, empty.websiteUrl), {
+    assert.deepEqual(readDirectoryPublicContacts(empty.sourceData, empty.websiteUrl ?? ""), {
       phone: "", email: "", website: "", facebook: "", instagram: "",
     }, category);
     assert.equal(empty.sourceData["Organizácia"], "Zachovať");
