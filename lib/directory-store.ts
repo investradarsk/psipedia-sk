@@ -4,6 +4,12 @@ import {
   directorySourceFacetStatement,
   parseDirectoryFacetValues,
 } from "@/lib/directory-read-facets";
+import {
+  DIRECTORY_PUBLIC_SOURCE_FACETS,
+  directoryEffectiveDistrictSql,
+  directoryEffectiveDistrictValue,
+  directoryLegacyDistrictSql,
+} from "./directory-public-source-contract";
 import { cache } from "react";
 import { directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
 import { directoryCatalogFilters } from "./directory-query.ts";
@@ -582,12 +588,8 @@ const DIRECTORY_CARD_COLUMNS = `
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
-const DIRECTORY_SOURCE_FACETS = {
-  breed: `COALESCE(NULLIF(json_extract(source_data_json, '$."Plemeno"'), ''), NULLIF(json_extract(source_data_json, '$."Plemená"'), ''), '')`,
-  fciGroup: `COALESCE(NULLIF(json_extract(source_data_json, '$."FCI skupina"'), ''), NULLIF(json_extract(source_data_json, '$."FCI"'), ''), '')`,
-  organization: `COALESCE(NULLIF(json_extract(source_data_json, '$."Organizácia"'), ''), NULLIF(json_extract(source_data_json, '$."Zastrešujúca organizácia"'), ''), '')`,
-  profileType: `COALESCE(NULLIF(json_extract(source_data_json, '$."Typ služby"'), ''), NULLIF(json_extract(source_data_json, '$."Typ poskytovateľa"'), ''), NULLIF(json_extract(source_data_json, '$."Typ klubu"'), ''), '')`,
-} as const;
+// One public-read source contract powers category facets and legacy search.
+const DIRECTORY_SOURCE_FACETS = DIRECTORY_PUBLIC_SOURCE_FACETS;
 
 export function sqlNormalizedExpression(columnExpression: string) {
   const replacements: Array<[string, string]> = [
@@ -636,7 +638,7 @@ const LEGACY_DIRECTORY_SEARCH = sqlNormalizedExpression(`
   coalesce(name, '') || ' ' || coalesce(excerpt, '') || ' ' || coalesce(description, '') || ' ' ||
   coalesce(city, '') || ' ' || coalesce(district, '') || ' ' || coalesce(region, '') || ' ' ||
   coalesce(address, '') || ' ' || coalesce(services_json, '') || ' ' || coalesce(qualifications_json, '') || ' ' ||
-  coalesce(json_extract(source_data_json, '$."Okres"'), '')
+  ${directoryEffectiveDistrictSql()}
 `);
 
 const DIRECTORY_PUBLIC_FACET_SEARCH = sqlNormalizedExpression(`
@@ -682,9 +684,10 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     services: safePublicList(row.services_json),
     ...directoryQualificationSections(safeList(row.qualifications_json)),
     city,
-    district:
-      district ||
-      runtimeDirectoryLocationText(String(safeImportData(row.source_data_json)?.["Okres"] ?? "")),
+    district: directoryEffectiveDistrictValue(
+      district,
+      safeImportData(row.source_data_json)?.["Okres"],
+    ),
     region: normalizeDirectoryRegion(region) ?? region,
     address: row.address,
     postalCode: row.postal_code ?? "",
@@ -1284,10 +1287,7 @@ export async function getHomepageDirectoryProfilesWithImages(
       `WITH candidates AS (
         SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
           featured,
-          CASE WHEN json_valid(source_data_json)
-            AND json_type(source_data_json, '$."Okres"') IN ('text', 'integer', 'real')
-            THEN CAST(json_extract(source_data_json, '$."Okres"') AS TEXT)
-            ELSE NULL END AS fallback_district,
+          ${directoryLegacyDistrictSql()} AS fallback_district,
           ROW_NUMBER() OVER (PARTITION BY featured ORDER BY name ASC, id ASC) - 1 AS rotation_index,
           COUNT(*) OVER (PARTITION BY featured) AS rotation_count
         FROM directory_profiles
@@ -1310,8 +1310,7 @@ export async function getHomepageDirectoryProfilesWithImages(
       category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
       city: runtimeDirectoryLocationText(row.city),
       district:
-        runtimeDirectoryLocationText(row.district) ||
-        runtimeDirectoryLocationText(row.fallback_district),
+        directoryEffectiveDistrictValue(row.district, row.fallback_district),
       imageUrl: row.image_url,
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     }),
@@ -1352,8 +1351,7 @@ export async function getHomepageDirectoryProfilesByCategoriesWithImages(
       category: row.category,
       city: runtimeDirectoryLocationText(row.city),
       district:
-        runtimeDirectoryLocationText(row.district) ||
-        runtimeDirectoryLocationText(row.fallback_district),
+        directoryEffectiveDistrictValue(row.district, row.fallback_district),
       imageUrl: row.image_url,
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     });
@@ -1553,7 +1551,7 @@ export async function listPublishedDirectoryProfiles(options: {
   }
   if (district) {
     clauses.push(
-      `COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') = ?`,
+      directoryEffectiveDistrictSql() + " = ?",
     );
     bindings.push(district);
   }
@@ -1581,7 +1579,7 @@ export async function listPublishedDirectoryProfiles(options: {
   const listStatement = database
     .prepare(
       `
-    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
+    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, " + directoryEffectiveDistrictSql() + " AS district, region")}
     FROM directory_profiles WHERE ${where}
     ORDER BY ${orderBy} LIMIT ? OFFSET ?
   `,
@@ -1646,7 +1644,7 @@ export async function getDirectoryCategoryPreviews(limit = 3) {
     database
       .prepare(
         `
-    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
+    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, " + directoryEffectiveDistrictSql() + " AS district, region")}
     FROM directory_profiles
     WHERE status = 'published' AND ${directoryCategoryMembershipSql()}
     ORDER BY featured DESC, name ASC, id ASC
