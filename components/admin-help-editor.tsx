@@ -36,6 +36,12 @@ import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import { helpSeoFallback } from "@/lib/content-seo";
 import { HELP_ADMIN_CREATE_CATEGORIES } from "@/lib/help-admin-query";
+import {
+  getHelpLabelledSourceFields,
+  getHelpPresentation,
+  removeHelpLabelledSourceField,
+  replaceHelpLabelledSourceValue,
+} from "@/lib/help-detail-presentation";
 import styles from "./admin-help-bulk.module.css";
 
 const HELP_SECTIONS = [
@@ -49,6 +55,41 @@ const HELP_SECTIONS = [
 
 function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
+}
+
+/** These are NOT additional fields. Every control edits its exact originating
+ * text span in the existing Help description/contactNote that Notion syncs. */
+function AdminHelpLabelledSourceEditor({
+  text, sourceName, onChange,
+}: { text: string; sourceName: string; onChange: (value: string) => void }) {
+  const fields = getHelpLabelledSourceFields(text);
+  if (!fields.length) return null;
+  return (
+    <details className="admin-field" data-help-labelled-source={sourceName}>
+      <summary><strong>Samostatné údaje čítané z textu ({fields.length})</strong></summary>
+      <p>
+        Verejný web tieto označené hodnoty vyberá priamo z poľa „{sourceName}“.
+        Tu ich môžeš upraviť; zmení sa iba pôvodný text v tom istom poli.
+        Nič sa automaticky nepresúva ani nevytvára v ďalšej databáze.
+      </p>
+      <div className="admin-field-grid">
+        {fields.map(({ label, rawValue, occurrence }) => (
+          <div className="admin-field" key={sourceName + ":" + occurrence}>
+            <label htmlFor={`help-extracted-${sourceName}-${occurrence}`}>{label}</label>
+            <textarea id={`help-extracted-${sourceName}-${occurrence}`} rows={2}
+              value={rawValue}
+              onChange={event => onChange(replaceHelpLabelledSourceValue(text, occurrence, event.target.value))}
+            />
+            <small>Zdroj: {sourceName} · pôvodný text s označením „{label}:“</small>
+            <button type="button" onClick={() => {
+              onChange(removeHelpLabelledSourceField(text, occurrence));
+            }}>Odstrániť túto označenú položku z textu</button>
+          </div>
+        ))}
+      </div>
+      <small>Prázdnu hodnotu systém na webe nezobrazí. Odstránenie položky sa uskutoční až pri uložení celého profilu.</small>
+    </details>
+  );
 }
 
 export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: HelpCase; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
@@ -189,6 +230,13 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
     finally { mutationPending.current = false; setSaving(false); }
   }
 
+  const publicHelp = getHelpPresentation({ description, contactNote });
+  const descriptionParsed = getHelpLabelledSourceFields(description);
+  const contactParsed = getHelpLabelledSourceFields(contactNote);
+  const contactSource = (value: string) => descriptionParsed.some(field =>
+    field.rawValue.includes(value)) ? "Podrobný popis"
+      : contactParsed.some(field => field.rawValue.includes(value)) || contactNote.includes(value)
+        ? "Poznámka pred kontaktovaním" : "Zdrojový text";
   const categoryInfo = getHelpCategory(category);
   const categoryOptions = HELP_ADMIN_CREATE_CATEGORIES.map((slug) => getHelpCategory(slug)).filter((entry): entry is NonNullable<ReturnType<typeof getHelpCategory>> => Boolean(entry));
   if (item?.category === "urgentne-pripady") { const legacy = getHelpCategory("urgentne-pripady"); if (legacy) categoryOptions.push(legacy); }
@@ -202,8 +250,44 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
     <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
     <AdminEditorSection id="help-basics" className="admin-form-card admin-form-card--intro"><div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Názov a krátke vysvetlenie, aká pomoc je potrebná.</p></div></div></div><div className="admin-field admin-field--title"><label htmlFor="help-title">Názov prípadu alebo výzvy</label><input ref={titleInputRef} id="help-title" value={title} onChange={(event) => changeTitle(event.target.value)} placeholder="Napríklad: Ben hľadá pokojný domov" required /></div><div className="admin-field"><label htmlFor="help-excerpt">Krátky popis</label><AdminLexicalTextField id="help-excerpt" rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); navigation.markDirty(); }} placeholder="Čo sa deje a aká pomoc je potrebná?" required ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div></AdminEditorSection>
     <AdminEditorSection id="help-place" className="admin-form-card"><div className="admin-card-heading"><div><span>02</span><div><h2>Zaradenie a lokalita</h2><p>Kategória, organizácia a miesto prípadu.</p></div></div></div><div className="admin-field-grid"><div className="admin-field"><label htmlFor="help-category">Kategória</label><select id="help-category" value={category} onChange={(event) => changeCategory(event.target.value as HelpCategorySlug)}>{categoryOptions.map((entry) => <option value={entry.slug} key={entry.slug}>{entry.label}</option>)}</select></div><div className="admin-field"><label htmlFor="help-organization">Zodpovedná organizácia alebo osoba</label><input id="help-organization" value={organization} onChange={(event) => setOrganization(event.target.value)} placeholder="Názov útulku alebo overenej osoby" required /></div><div className="admin-field"><label htmlFor="help-region">Kraj</label><select id="help-region" value={region} onChange={(event) => setRegion(event.target.value as SlovakRegion)}>{slovakRegions.filter((entry) => entry !== "Online").map((entry) => <option key={entry}>{entry}</option>)}</select></div><div className="admin-field"><label htmlFor="help-city">Mesto</label><input id="help-city" value={city} onChange={(event) => setCity(event.target.value)} placeholder="Zlaté Moravce" required /></div></div><div className="admin-field"><label htmlFor="help-location">Spresnenie lokality <small>nepovinné</small></label><input id="help-location" value={locationNote} onChange={(event) => setLocationNote(event.target.value)} placeholder="Mestská časť, ulica alebo približné miesto" /></div></AdminEditorSection>
-    <AdminEditorSection id="help-story" className="admin-form-card"><div className="admin-card-heading"><div><span>03</span><div><h2>Prípad a pes</h2><p>Príbeh, pes a dôležité termíny.</p></div></div></div><div className="admin-field"><label htmlFor="help-description">Podrobný popis</label><AdminLexicalTextField id="help-description" rows={9} value={description} onChange={(next) => { setDescription(next); navigation.markDirty(); }} placeholder={"Vysvetli situáciu, čo už bolo urobené a aká konkrétna pomoc je potrebná.\n\nNový odsek začni po prázdnom riadku."} required ariaLabel="Podrobný popis" /><AdminLexicalAppendButton disabled={saving} onAppend={text=>{ navigation.markDirty(); setDescription(appendLexicalPlainText(description,text)); }}/></div><div className="admin-field-grid"><div className="admin-field"><label htmlFor="help-dog-name">Meno psa <small>nepovinné</small></label><input id="help-dog-name" value={dogName} onChange={(event) => setDogName(event.target.value)} placeholder="Ben" /></div><div className="admin-field"><label htmlFor="help-breed">Plemeno alebo typ <small>nepovinné</small></label><input id="help-breed" value={breed} onChange={(event) => setBreed(event.target.value)} placeholder="Kríženec, labrador…" /></div><div className="admin-field"><label htmlFor="help-age">Vek <small>nepovinné</small></label><input id="help-age" value={ageNote} onChange={(event) => setAgeNote(event.target.value)} placeholder="asi 3 roky" /></div><div className="admin-field"><label htmlFor="help-reported">Dátum prípadu <small>nepovinné</small></label><input id="help-reported" type="date" value={reportedDate} onChange={(event) => setReportedDate(event.target.value)} /></div><div className="admin-field"><label htmlFor="help-deadline">Termín pomoci <small>nepovinné</small></label><input id="help-deadline" type="date" value={deadlineDate} onChange={(event) => setDeadlineDate(event.target.value)} /></div></div></AdminEditorSection>
-    <AdminEditorSection id="help-action" className="admin-form-card"><div className="admin-card-heading"><div><span>04</span><div><h2>Výzva a zbierka</h2><p>Oficiálny odkaz, cieľ zbierky a informácie pre záujemcov.</p></div></div></div><div className="admin-field-grid"><div className="admin-field"><label htmlFor="help-action-label">Text hlavného tlačidla</label><input id="help-action-label" value={actionLabel} onChange={(event) => setActionLabel(event.target.value)} placeholder={defaultHelpActionLabel(category)} /></div><div className="admin-field"><label htmlFor="help-action-url">Oficiálny odkaz <small>nepovinné</small></label><input id="help-action-url" type="url" value={actionUrl} onChange={(event) => setActionUrl(event.target.value)} placeholder="https://…" /></div><div className="admin-field"><label htmlFor="help-goal">Cieľ zbierky v € <small>iba zbierky</small></label><input id="help-goal" type="number" min="0" step="1" value={goalAmount} onChange={(event) => setGoalAmount(event.target.value)} placeholder="3000" /></div><div className="admin-field"><label htmlFor="help-raised">Doteraz vyzbierané v €</label><input id="help-raised" type="number" min="0" step="1" value={raisedAmount} onChange={(event) => setRaisedAmount(event.target.value)} placeholder="1250" /></div></div><div className="admin-field"><label htmlFor="help-contact-note">Poznámka pred kontaktovaním <small>nepovinné</small></label><textarea id="help-contact-note" rows={3} value={contactNote} onChange={(event) => setContactNote(event.target.value)} placeholder="Čo má záujemca uviesť alebo vedieť pred kontaktovaním?" /></div></AdminEditorSection>
+    <AdminEditorSection id="help-story" className="admin-form-card"><div className="admin-card-heading"><div><span>03</span><div><h2>Prípad a pes</h2><p>Príbeh, pes a dôležité termíny.</p></div></div></div><div className="admin-field"><label htmlFor="help-description">Podrobný popis</label><AdminLexicalTextField id="help-description" rows={9} value={description} onChange={(next) => { setDescription(next); navigation.markDirty(); }} placeholder={"Vysvetli situáciu, čo už bolo urobené a aká konkrétna pomoc je potrebná.\n\nNový odsek začni po prázdnom riadku."} required ariaLabel="Podrobný popis" /><AdminLexicalAppendButton disabled={saving} onAppend={text=>{ navigation.markDirty(); setDescription(appendLexicalPlainText(description,text)); }}/></div>
+    <AdminHelpLabelledSourceEditor text={description} sourceName="Podrobný popis" onChange={next=>{
+      navigation.markDirty(); setDescription(next);
+    }}/>
+    {publicHelp.helpOptions.length>0 ? (
+      <div className="admin-field" data-help-derived-options-preview>
+        <strong>Čo návštevník uvidí v časti Možnosti pomoci</strong>
+        <dl>{publicHelp.helpOptions.map(option=><div key={option.label}>
+          <dt>{option.label}</dt><dd>{option.value}</dd>
+        </div>)}</dl>
+        <small>Tieto položky pochádzajú z označených riadkov v Podrobnom popise alebo Poznámke pred kontaktovaním. Nie sú uložené v ďalších skrytých poliach.</small>
+      </div>
+    ) : null}
+    <div className="admin-field-grid"><div className="admin-field"><label htmlFor="help-dog-name">Meno psa <small>nepovinné</small></label><input id="help-dog-name" value={dogName} onChange={(event) => setDogName(event.target.value)} placeholder="Ben" /></div><div className="admin-field"><label htmlFor="help-breed">Plemeno alebo typ <small>nepovinné</small></label><input id="help-breed" value={breed} onChange={(event) => setBreed(event.target.value)} placeholder="Kríženec, labrador…" /></div><div className="admin-field"><label htmlFor="help-age">Vek <small>nepovinné</small></label><input id="help-age" value={ageNote} onChange={(event) => setAgeNote(event.target.value)} placeholder="asi 3 roky" /></div><div className="admin-field"><label htmlFor="help-reported">Dátum prípadu <small>nepovinné</small></label><input id="help-reported" type="date" value={reportedDate} onChange={(event) => setReportedDate(event.target.value)} /></div><div className="admin-field"><label htmlFor="help-deadline">Termín pomoci <small>nepovinné</small></label><input id="help-deadline" type="date" value={deadlineDate} onChange={(event) => setDeadlineDate(event.target.value)} /></div></div></AdminEditorSection>
+    <AdminEditorSection id="help-action" className="admin-form-card"><div className="admin-card-heading"><div><span>04</span><div><h2>Výzva a zbierka</h2><p>Oficiálny odkaz, cieľ zbierky a informácie pre záujemcov.</p></div></div></div><div className="admin-field-grid"><div className="admin-field"><label htmlFor="help-action-label">Text hlavného tlačidla</label><input id="help-action-label" value={actionLabel} onChange={(event) => setActionLabel(event.target.value)} placeholder={defaultHelpActionLabel(category)} /></div><div className="admin-field"><label htmlFor="help-action-url">Oficiálny odkaz <small>nepovinné</small></label><input id="help-action-url" type="url" value={actionUrl} onChange={(event) => setActionUrl(event.target.value)} placeholder="https://…" /></div><div className="admin-field"><label htmlFor="help-goal">Cieľ zbierky v € <small>iba zbierky</small></label><input id="help-goal" type="number" min="0" step="1" value={goalAmount} onChange={(event) => setGoalAmount(event.target.value)} placeholder="3000" /></div><div className="admin-field"><label htmlFor="help-raised">Doteraz vyzbierané v €</label><input id="help-raised" type="number" min="0" step="1" value={raisedAmount} onChange={(event) => setRaisedAmount(event.target.value)} placeholder="1250" /></div></div><div className="admin-field"><label htmlFor="help-contact-note">Poznámka pred kontaktovaním <small>nepovinné</small></label><textarea id="help-contact-note" rows={3} value={contactNote} onChange={(event) => setContactNote(event.target.value)} placeholder="Čo má záujemca uviesť alebo vedieť pred kontaktovaním?" />
+      <small>Z tohto textu môže verejný web rozpoznať telefón, e-mail, web aj ďalšie označené informácie. Ich pôvod a výsledok sú uvedené nižšie.</small>
+    </div>
+    <AdminHelpLabelledSourceEditor text={contactNote} sourceName="Poznámka pred kontaktovaním" onChange={next=>{
+      navigation.markDirty(); setContactNote(next);
+    }}/>
+    {(publicHelp.contacts.length>0||publicHelp.sources.length>0||publicHelp.lastChecked) ? (
+      <div className="admin-field" data-help-derived-contact-preview>
+        <strong>Kontakty a zdroje na verejnom profile</strong>
+        <dl>
+          {publicHelp.contacts.map((contact,index)=><div key={contact.label+":"+contact.value+":"+index}>
+            <dt>{contact.label}</dt><dd>{contact.value}</dd>
+            <small>Zdroj: {contactSource(contact.value)}</small>
+          </div>)}
+          {publicHelp.sources.map((source,index)=><div key={source.label+":"+index}>
+            <dt>{source.label}</dt><dd>{source.value}</dd>
+            <small>Zdroj: {contactSource(source.value)}</small>
+          </div>)}
+          {publicHelp.lastChecked ? <div><dt>Posledná kontrola</dt><dd>{publicHelp.lastChecked}</dd></div> : null}
+        </dl>
+        <small>Rovnako ako verejný web ide o výpočet z aktuálnych dvoch textov. Samostatné kontakty bez označenia uprav v pôvodnej poznámke.</small>
+      </div>
+    ) : null}
+    </AdminEditorSection>
     <AdminEditorSection id="help-media" className="admin-form-card">
       <div className="admin-card-heading"><div><span>05</span><div><h2>Fotografia a stav prípadu</h2><p>Adresa profilu, titulný obrázok, overenie a aktuálny stav.</p></div></div></div><div className="admin-field"><label htmlFor="help-slug">Adresa prípadu</label><div className="admin-slug-input"><span>psipedia.sk/pomoc-psom/{category}/</span><input id="help-slug" value={slug} onChange={(event) => { setSlugEdited(true); setSlug(slugify(event.target.value)); }} placeholder="nazov-pripadu" required /></div></div><div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--coral">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad fotografie prípadu" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <button type="button" onClick={() => { navigation.markDirty(); setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); }}>Odstrániť fotku</button>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small>{imageUrl && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}</div></div><div className="admin-help-flags"><label className="admin-event-cancelled"><input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} /><span><strong>Overený prípad</strong><small>Redakcia preverila organizáciu a základné údaje.</small></span></label><label className="admin-event-cancelled"><input type="checkbox" checked={urgent} onChange={(event) => setUrgent(event.target.checked)} /><span><strong>Urgentné</strong><small>Zobrazí sa medzi prvými a s výrazným označením.</small></span></label><label className="admin-event-cancelled"><input type="checkbox" checked={resolved} onChange={(event) => setResolved(event.target.checked)} /><span><strong>Vybavené</strong><small>Prípad zostane dohľadateľný, ale nebude žiadať ďalšiu pomoc.</small></span></label></div>
     {item && <AdminShareToFacebook title={title} imageUrl={imageUrl} publicPath={"/pomoc-psom/" + item.category + "/" + item.slug} />}
