@@ -48,6 +48,10 @@ export function AdminServiceProfileValues({profileId,category,entries,initialCho
     for(const [id,value] of Object.entries(draft))selected.set(id,value);
     const choices=[...selected.entries()].filter(([,choice])=>choice==="yes"||choice==="no")
       .map(([option_id,choice])=>({option_id,choice}));
+    // The public loader deliberately skips optional V3 projection when the
+    // profile has no confirmed choice row; the preview must do the same.
+    if(!choices.length)return {services:[...currentLegacyServices],
+      visible:currentLegacyServices.map(label=>({label,source:"legacy" as const})),suppressed:[]};
     return projectPublicProfileServices(currentLegacyServices,category,choices,resolvedServices);
   },[currentLegacyServices,category,resolvedServices,publicProjectionEnabled,error,saved,draft]);
   const navigation=useAdminEditorNavigationGuard({dirty:changed.length>0});
