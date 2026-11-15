@@ -1,5 +1,6 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
+import { isDirectoryPublicMetadataField } from "./directory-public-facts";
 import { directoryCategories } from "./directory";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
@@ -1450,11 +1451,11 @@ export async function savePilotDirectoryMetadataField(input: {
   database: D1Database;
   profileId: number;
   category: string;
-  field: PilotDirectoryMetadataField;
+  field: string;
   value: string;
 }): Promise<ManagedDirectoryProfile> {
   if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
-      !PILOT_DIRECTORY_METADATA_FIELDS.includes(input.field))
+      !isDirectoryPublicMetadataField(input.field))
     throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
   const trimmed = input.value.trim();
   // A blank value is an explicit Admin edit and must clear only this field.
