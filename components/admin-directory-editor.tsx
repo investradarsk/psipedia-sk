@@ -1153,34 +1153,43 @@ export function AdminDirectoryEditor({
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
 
-            {profile && (legacyPublicFacts.length > 0 || legacyPublicHours) ? (
+            {profile && (legacyEditableFactKeys.length > 0 || legacyPublicFacts.length > 0) ? (
               <details className="admin-field" data-directory-public-legacy-facts>
-                <summary><strong>Údaje na verejnom webe z pôvodného importu ({legacyPublicFacts.length})</strong></summary>
-                <p>Nasledujúce údaje sa na webe zobrazujú aj bez vyplneného samostatného prepojenia. Ide o uložené hodnoty z D1, nie o údaje odvodené z textu „O chovateľovi“. Zobrazenie je iba na kontrolu; nič tu automaticky neprepisujeme.</p>
-                <dl style={{ display: "grid", gap: 8, margin: "12px 0" }}>
-                  {legacyPublicFacts.map(({ label, value, sourceKey }) => (
-                    <div key={label + ":" + sourceKey} style={{ padding: "8px 10px", border: "1px solid var(--admin-border, #d7ddd9)", borderRadius: 8, minWidth: 0 }}>
-                      <dt><strong>{label}</strong> <small style={{ display: "block" }}>Pôvodné pole: {sourceKey}</small></dt>
-                      <dd style={{ margin: 0, overflowWrap: "anywhere" }}>{value}</dd>
-                      {["chovatelske-stanice", "treneri"].includes(category) && (label === "Plemeno" || label === "Plemená" || label === "Klub") ? (
-                        <small>{(label === "Klub" ? breederSelection.clubIds.length : breederSelection.breedIds.length) > 0
-                          ? "Na webe sa prednostne použije uložené prepojenie."
-                          : "Nie je vybrané prepojenie. Verejný profil môže použiť tento pôvodný text."}</small>
-                      ) : null}
+                <summary><strong>Verejné odborné údaje – upraviť ({legacyEditableFactKeys.length})</strong></summary>
+                <p>Každý riadok upravuje presne to pole, z ktorého sa na verejnom webe číta hodnota. Zmeny sa uložia spoločným tlačidlom Uložiť zmeny. Ostatné historické údaje ostávajú nedotknuté.</p>
+                <div className="admin-field-grid">
+                  {legacyEditableFactKeys.map(sourceKey => (
+                    <div className="admin-field" key={sourceKey}>
+                      <label htmlFor={`directory-legacy-fact-${sourceKey}`}>{sourceKey}</label>
+                      <input
+                        id={`directory-legacy-fact-${sourceKey}`}
+                        type="text"
+                        value={legacyFactInputs[sourceKey] ?? ""}
+                        onChange={event => {
+                          setLegacyFactInputs(current => ({ ...current, [sourceKey]: event.target.value }));
+                          setFormDirty(true);
+                        }}
+                        maxLength={2000}
+                        placeholder="Zatiaľ nevyplnené"
+                      />
+                      <small>
+                        Zdroj: {sourceKey}
+                        {legacyPublicFacts.some(fact => fact.sourceKey === sourceKey)
+                          ? " · historický údaj sa používa vo verejnom detaile"
+                          : " · zatiaľ bez verejnej hodnoty"}
+                      </small>
+                      {["Plemeno", "Plemená", "Klub"].includes(sourceKey) &&
+                        ["chovatelske-stanice", "treneri"].includes(category) ? (
+                          <small>Samotný text nevytvorí klikateľné prepojenie. To vyber v sekcii Prepojenia.</small>
+                        ) : null}
                     </div>
                   ))}
-                </dl>
-                {legacyPublicHours ? (
-                  <p>
-                    <strong>Ordinačné / otváracie hodiny: </strong>{legacyPublicHours.value}
-                    <small style={{ display: "block" }}>Skutočný zdroj na verejnom webe: {legacyPublicHours.sourceKey}</small>
-                    {legacyPublicHours.sourceKey !== "Ordinačné hodiny" ? (
-                      <small>Upozornenie: editor hodín používa pole „Ordinačné hodiny“, ale verejný web číta toto staršie pole. Zmenu hodín treba najprv zosúladiť, aby sa neprepísal nesprávny zdroj.</small>
-                    ) : null}
-                  </p>
+                </div>
+                {legacyPublicFacts.some(fact => ["Organizácia", "Zameranie"].includes(fact.label)) ? (
+                  <p>Údaje Organizácia a Zameranie upravíš v samostatných poliach vyššie.</p>
                 ) : null}
                 {["chovatelske-stanice", "treneri"].includes(category) ? (
-                  <button type="button" onClick={() => setActiveDirectorySection("directory-breeder-links")}>
+                  <button type="button" onClick={() => chooseDirectorySection("directory-breeder-links")}>
                     Otvoriť výber plemien a klubov
                   </button>
                 ) : null}
@@ -1194,7 +1203,7 @@ export function AdminDirectoryEditor({
                   <textarea id="directory-pilot-hours" rows={6} value={pilotOpeningHours}
                     onChange={event => { setPilotOpeningHours(event.target.value); setFormDirty(true); }}
                     placeholder={"Pondelok: 08:00–16:00\nUtorok: 08:00–16:00\nPodľa dohody"} />
-                  <small>Úpravy sa prenášajú samostatne. Vymazanie celého obsahu v Admine vymaže iba tieto hodiny aj v Notione; prázdne hodnoty z Notionu existujúce údaje neprepisujú.</small>
+                  <small>Zdroj verejne zobrazených hodín: {pilotHoursKey}. Pri uložení sa upraví iba toto pole. Ostatné historické aliasy ostávajú nedotknuté.</small>
                 </div>
                 <div className="admin-field">
                   <label htmlFor="directory-pilot-sources">Zdroje údajov</label>
