@@ -155,9 +155,10 @@ export function directoryLegacyEditableFactKeys(
   profile: Pick<PublicDirectoryProfile, "category" | "importData">,
 ): string[] {
   const base = detailFields[profile.category] ?? [];
-  const populated = DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.filter(
-    key => Object.hasOwn(profile.importData ?? {}, key),
-  );
+  // Only global public facts (relations/coverage) supplement category-specific
+  // fields. An imported veterinary flag in a breeder profile is not public.
+  const globalFacts = [...relationFields, ...DIRECTORY_LEGACY_EXTRA_KEYS.slice(0, 3)];
+  const populated = globalFacts.filter(key => Object.hasOwn(profile.importData ?? {}, key));
   const relationBasics = ["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)
     ? ["Plemeno", "Plemená", "FCI skupina"] : [];
   return [...new Set([...base, ...relationBasics, ...populated])]
