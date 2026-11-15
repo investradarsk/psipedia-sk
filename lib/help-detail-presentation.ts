@@ -101,8 +101,12 @@ export function replaceHelpLabelledSourceValue(
   // Preserve whitespace and separators around an import token; only its value
   // changes. The next token's label and surrounding prose are untouched.
   const prefix = existing.match(/^\s*/u)?.[0] ?? "";
-  const suffix = existing.match(/\s*$/u)?.[0] ?? "";
-  return text.slice(0, start) + prefix + replacement + suffix + text.slice(end);
+  const suffix = existing.match(/[|;·]+\s*$/u)?.[0] ?? existing.match(/\s*$/u)?.[0] ?? "";
+  // An empty value needs a non-letter token as a boundary: otherwise the
+  // original legacy regex could consume the next label's leading whitespace.
+  // The public parser ignores this separator, so no empty fact is published.
+  const nextValue = replacement.trim() ? replacement : /[|;·]/u.test(suffix) ? "" : ";";
+  return text.slice(0, start) + prefix + nextValue + suffix + text.slice(end);
 }
 
 export function removeHelpLabelledSourceField(text: string, occurrence: number): string {
