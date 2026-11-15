@@ -504,12 +504,9 @@ export function AdminDirectoryEditor({
       const filterPatch = filterCategory
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
-      // Saving from the Contacts section also repairs contacts already in D1
-      // but missing in Notion; a repeated click must not be treated as no-op.
-      // Other sections keep the normal per-field dirty-path contract.
-      // Re-confirm all five only when the user saves an unchanged Contacts tab.
-      // When Facebook/another contact was edited, sync ONLY that edited field:
-      // broad confirmation could overwrite unrelated Notion contacts.
+      // For legacy clients, a Contacts-tab save may explicitly reconfirm contacts.
+      // Every canonical Admin save independently sends fullProfileSave and all
+      // currently displayed values; the server reconfirms all five contacts.
       const confirmContactSync = Boolean(profile && category === profile.category &&
         currentDirectorySection === "directory-contacts" && editedContactsRef.current.size === 0);
       const breederBaseline = breederSaveBaselineRef.current;
@@ -599,6 +596,13 @@ export function AdminDirectoryEditor({
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          // One click = re-save the complete visible Admin snapshot, even without
+          // a dirty field. The server refuses a stale snapshot rather than
+          // overwriting changes made in D1 while this editor was open.
+          ...(profile ? {
+            fullProfileSave: true,
+            expectedUpdatedAt: breederBaseline?.updatedAt ?? profile.updatedAt,
+          } : {}),
           ...(breederChangedPaths ? {
             breederEditedPaths: breederChangedPaths,
             // Only these two Lexical text fields have an original value
@@ -620,7 +624,8 @@ export function AdminDirectoryEditor({
           ...(Object.keys(pilotMetadataFields).length
             ? { pilotMetadataFields, pilotMetadataOriginalValues } : {}),
           name, slug, category,
-          ...(additionalCategoriesTouched || !profile ? { additionalCategories } : {}),
+          // The full form includes unchanged secondary-category selections too.
+          additionalCategories,
           status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription,
           services: profile && isDirectoryEventPilotCategory(profile.category)
             ? profile.services : listFromText(services),
@@ -706,7 +711,7 @@ export function AdminDirectoryEditor({
       const unconfirmedWebsite = Boolean(breederChangedPaths?.includes("websiteUrl") &&
         (data.profile.websiteUrl ?? "").trim() !== websiteUrl.trim());
       const pendingNotionFields = Boolean(
-        ((breederChangedPaths?.length || confirmContactSync || (profile && mainImageAction !== "keep")) &&
+        ((profile || breederChangedPaths?.length || confirmContactSync) &&
           ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? "")) ||
         (recoveredPublicationNotionState &&
           ["pending", "disabled", "unlinked"].includes(recoveredPublicationNotionState))
