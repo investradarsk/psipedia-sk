@@ -116,7 +116,9 @@ export function removeHelpLabelledSourceField(text: string, occurrence: number):
   const start = match.index ?? 0;
   const end = occurrence + 1 < matches.length
     ? (matches[occurrence + 1].index ?? text.length) : text.length;
-  return (text.slice(0, start) + text.slice(end)).trim();
+  // Remove only the selected span. Leading/trailing prose whitespace belongs
+  // to the original field and must not be normalized by this targeted edit.
+  return text.slice(0, start) + text.slice(end);
 }
 
 export function parseHelpLabelledText(value: string | null | undefined) {
