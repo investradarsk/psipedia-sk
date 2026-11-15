@@ -5,6 +5,7 @@ import {
   formatDirectoryUpdatedAt,
   getDirectoryDetailPresentation,
   directoryLegacyPublicFactSources,
+  directoryLegacyEditableFactKeys,
   directoryLegacyOpeningHoursSource,
   getDirectoryQuickFacts,
   publicDirectoryDetailUrl,
@@ -582,4 +583,26 @@ test("Admin exposes the exact public opening-hours source, including old aliases
   });
   assert.equal(getDirectoryDetailPresentation(source).openingHours, "Pondelok: 8:00–16:00");
   assert.equal(directoryLegacyOpeningHoursSource(profile()), null);
+});
+
+test("visible legacy public fact fields are directly editable in their own category", () => {
+  const breeder = profile({
+    category: "chovatelske-stanice",
+    importData: { Klub: "Klub Cane Corso", Plemeno: "Cane Corso", "Otváracia doba": "Po–Pi" },
+  });
+  const breederFields = directoryLegacyEditableFactKeys(breeder);
+  for (const field of ["Klub", "Plemeno", "Plemená", "FCI skupina", "Chovateľ"])
+    assert.ok(breederFields.includes(field), field);
+  assert.ok(!breederFields.includes("Otváracia doba"), "hours have their own editor");
+  assert.ok(!breederFields.includes("Organizácia"), "organization has its own field");
+  assert.ok(!breederFields.includes("Zameranie"), "focus has its own field");
+  const vet = profile({
+    category: "veterinari",
+    importData: { Pohotovosť: "Áno", "Kontakt interný": "not public", Klub: "Klub" },
+  });
+  const vetFields = directoryLegacyEditableFactKeys(vet);
+  assert.ok(vetFields.includes("Pohotovosť"));
+  assert.ok(vetFields.includes("Klub"), "historical out-of-category public facts remain editable");
+  assert.ok(!vetFields.includes("Kontakt interný"));
+  assert.ok(!vetFields.includes("Telefón"), "contacts are edited in their dedicated tab");
 });
