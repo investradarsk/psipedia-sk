@@ -481,6 +481,10 @@ export async function PUT(request: Request, { params }: Props) {
         try {
           profile = await savePilotDirectoryMetadataField({
             database: db, profileId: id, category: profile.category, field, value,
+            expectedValue: rawPilotMetadataOriginals && typeof rawPilotMetadataOriginals === "object" &&
+              !Array.isArray(rawPilotMetadataOriginals) &&
+              typeof (rawPilotMetadataOriginals as Record<string, unknown>)[field] === "string"
+                ? (rawPilotMetadataOriginals as Record<string, string>)[field] : undefined,
           });
           changedPilotMetadata[field] = value;
         } catch (error) {
