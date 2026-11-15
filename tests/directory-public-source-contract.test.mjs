@@ -113,6 +113,7 @@ test("public listing, homepage and location option queries share one SQL distric
   const store = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
   const facets = readFileSync(new URL("../lib/directory-read-facets.ts", import.meta.url), "utf8");
   const homepage = readFileSync(new URL("../lib/homepage-directory-query.ts", import.meta.url), "utf8");
+  const portal = readFileSync(new URL("../lib/portal-search.ts", import.meta.url), "utf8");
   assert.match(store, /const DIRECTORY_SOURCE_FACETS = DIRECTORY_PUBLIC_SOURCE_FACETS/);
   assert.match(store, /directoryEffectiveDistrictSql\(\) \+ " = \?"/);
   assert.match(store, /district: directoryEffectiveDistrictValue\(/);
@@ -122,4 +123,7 @@ test("public listing, homepage and location option queries share one SQL distric
   assert.doesNotMatch(facets, /json_extract\(source_data_json, '\$\."Okres"'\)/);
   assert.doesNotMatch(homepage, /json_extract\(profile.source_data_json, '\$\."Okres"'\)/);
   assert.doesNotMatch(store, /json_extract\(source_data_json, '\$\."Okres"'\)/);
+  assert.match(portal, /district: directoryEffectiveDistrictSql\("p"\)/);
+  assert.match(portal, /\$\{directoryEffectiveDistrictSql\("p"\)\} AS district/);
+  assert.doesNotMatch(portal, /json_extract\(p\.source_data_json, '\$\."Okres"'\)/);
 });
