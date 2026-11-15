@@ -63,13 +63,13 @@ export const DIRECTORY_PUBLIC_SOURCE_FACETS = {
 export function directoryLegacyDistrictSql(alias: SourceAlias = ""): string {
   const json = safeSourceJson(alias);
   return "CASE WHEN json_type(" + json + ", '$.\"" + districtLegacyKey +
-    "\"') IN ('text','integer','real') THEN CAST(json_extract(" + json +
-    ", '$.\"" + districtLegacyKey + "\"') AS TEXT) ELSE NULL END";
+    "\"') IN ('text','integer','real') THEN NULLIF(TRIM(CAST(json_extract(" + json +
+    ", '$.\"" + districtLegacyKey + "\"') AS TEXT)), '') ELSE NULL END";
 }
 
 /** Shared across public cards, filters, facet rollups and legacy search. */
 export function directoryEffectiveDistrictSql(alias: SourceAlias = ""): string {
-  return "COALESCE(NULLIF(" + sqlColumn(alias, "district") + ", ''), " +
+  return "COALESCE(NULLIF(TRIM(" + sqlColumn(alias, "district") + "), ''), " +
     directoryLegacyDistrictSql(alias) + ", '')";
 }
 
