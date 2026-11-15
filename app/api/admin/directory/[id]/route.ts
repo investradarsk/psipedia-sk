@@ -19,7 +19,7 @@ import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-ver
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
 import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "@/lib/directory-public-facts";
 import { directoryLegacyEditableFactKeys } from "@/lib/directory-detail-presentation";
-import { directoryContactValueMismatches, preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
+import { directoryContactValueMismatches, preserveUntouchedDirectoryContacts, scopeAdminContactSave, unacknowledgedDirectoryContactClears } from "@/lib/directory-contact-save-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -219,6 +219,36 @@ export async function PUT(request: Request, { params }: Props) {
     // full-form D1 write or resynchronizes unrelated fields.
     const confirmContactSync = (fullProfileSave || rawConfirmContactSync === true) && editedPaths !== null &&
       submittedBody.category === before.category && before.status !== "archived";
+    // One-click full save includes ALL visible values. If a non-interacted
+    // input unexpectedly arrives blank while D1 has a value, this is not
+    // reliable evidence of an explicit deletion. Fail BEFORE any D1/Notion
+    // write instead of erasing unrelated contacts.
+    if (fullProfileSave) {
+      const live = readDirectoryPublicContacts(before.importData, before.websiteUrl ?? "");
+      const suspect = unacknowledgedDirectoryContactClears({
+        current: {
+          websiteUrl: live.website, publicPhone: live.phone,
+          publicEmail: live.email, facebookUrl: live.facebook,
+          instagramUrl: live.instagram,
+        },
+        submitted: {
+          websiteUrl: submittedBody.websiteUrl ?? "",
+          publicPhone: submittedBody.publicPhone ?? "",
+          publicEmail: submittedBody.publicEmail ?? "",
+          facebookUrl: submittedBody.facebookUrl ?? "",
+          instagramUrl: submittedBody.instagramUrl ?? "",
+        },
+        interactedFields: rawContactEditedFields,
+      });
+      if (suspect.length) {
+        console.error("DIRECTORY_FULL_SAVE_UNACKNOWLEDGED_CONTACT_CLEAR", id, suspect);
+        return Response.json({
+          error: "Uloženie bolo bezpečne zastavené: niektoré vyplnené kontakty (" +
+            suspect.join(", ") + ") sa odoslali ako prázdne bez úpravy v ich poli. " +
+            "Nič sa nezapísalo. Obnov profil a skontroluj zobrazené hodnoty.",
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+    }
     // An explicit empty contact field is a deletion, not an omitted field in
     // an old editor. Only whitelisted, expressly edited contacts qualify.
     const contactAliases = {
