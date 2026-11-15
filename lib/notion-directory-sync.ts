@@ -1431,9 +1431,11 @@ async function saveBreederEditorialValue(
  * never infer Services V3 choices or breeder relations from free text.
  */
 export const PILOT_DIRECTORY_METADATA_FIELDS = [
-  "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
-  "Organizácia", "Zameranie",
-  ...DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS,
+  ...new Set([
+    "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
+    "Organizácia", "Zameranie",
+    ...DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS,
+  ]),
 ] as const;
 export const PUBLIC_DIRECTORY_FACT_FIELDS = ["Organizácia", "Zameranie"] as const;
 export type PilotDirectoryMetadataField = (typeof PILOT_DIRECTORY_METADATA_FIELDS)[number];
@@ -1443,7 +1445,14 @@ function pilotChangedNotionMetadataFields(
 ): PilotDirectoryMetadataField[] {
   const changed = new Set(changedIds);
   return PILOT_DIRECTORY_METADATA_FIELDS.filter(name => {
-    const item = page.properties?.[name] as { id?: unknown } | undefined;
+    const item = page.properties?.[name] as
+      | { id?: unknown; type?: unknown; rich_text?: unknown } | undefined;
+    const isNewLegacy = DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.includes(name) &&
+      !["Ordinačné hodiny"].includes(name);
+    // Legacy public facts may share a Notion name with canonical service/filter
+    // selects. Only a real rich-text Notion column may edit legacy prose.
+    if (isNewLegacy && item?.type !== "rich_text" && !Array.isArray(item?.rich_text))
+      return false;
     return changed.has(name) || (typeof item?.id === "string" && changed.has(item.id));
   });
 }
@@ -1513,11 +1522,16 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
     const value = input.changed[field]!.trim();
     if (propertyText(page, field) === value) continue;
     if (!Object.hasOwn(page.properties ?? {}, field)) {
-      // Public fact fields predate the optional Notion schema rollout.
-      // Keep their value in Admin without blocking other field updates.
+      // Existing optional Organization/Focus schema remains backwards compatible.
       if ((PUBLIC_DIRECTORY_FACT_FIELDS as readonly string[]).includes(field)) continue;
       throw new Error("DIRECTORY_PILOT_METADATA_NOTION_FIELD_MISSING: " + field);
     }
+    const notionField = page.properties?.[field] as
+      | { type?: unknown; rich_text?: unknown } | undefined;
+    if (DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS.includes(field) &&
+        field !== "Ordinačné hodiny" &&
+        notionField?.type !== "rich_text" && !Array.isArray(notionField?.rich_text))
+      throw new Error("DIRECTORY_PILOT_METADATA_NOTION_FIELD_NOT_RICH_TEXT: " + field);
     patch[field] = richText(value);
   }
   if (!Object.keys(patch).length) return false;
