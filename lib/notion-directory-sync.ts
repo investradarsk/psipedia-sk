@@ -1,5 +1,6 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
+import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
 import { directoryCategories } from "./directory";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
@@ -1287,6 +1288,15 @@ const breederContactJsonNames: Partial<Record<BreederEditorialField, string>> = 
   publicPhone: "Telefón", publicEmail: "E-mail",
   websiteUrl: "Web", facebookUrl: "Facebook", instagramUrl: "Instagram",
 };
+// Historical import spellings are read for compatibility, but an explicit
+// field edit must retire every competing spelling of THAT contact only.
+const breederContactAliases: Partial<Record<BreederEditorialField, readonly string[]>> = {
+  publicPhone: ["Telefón", "Telefon", "phone"],
+  publicEmail: ["E-mail", "Email", "email"],
+  websiteUrl: ["Web", "Webstránka"],
+  facebookUrl: ["Facebook"],
+  instagramUrl: ["Instagram"],
+};
 const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
   "seo.title": "title", "seo.description": "description",
   "seo.focusKeyword": "focusKeyword", "seo.canonicalUrl": "canonicalUrl",
@@ -1378,10 +1388,20 @@ async function saveBreederEditorialValue(
     assignments.push("address_format = ?");
     params.push(value);
   } else if (contact) {
-    // source_data_json also carries unrelated original import metadata.
-    // JSON_SET mutates only the named contact and preserves all other keys.
-    assignments.push("source_data_json = json_set(COALESCE(source_data_json, '{}'), ?, ?)");
-    params.push('$."' + contact + '"', value);
+    // A signed edit is authoritative for only this contact. Removing its
+    // historical aliases prevents a stale "Telefon"/"Email"/"Webstránka"
+    // from reappearing when the new value is cleared. Preserve every other
+    // source_data_json key, including relations and category metadata.
+    const aliases = breederContactAliases[path];
+    if (!aliases?.length) throw new Error("DIRECTORY_CONTACT_ALIAS_MAPPING_MISSING");
+    const removed = "json_remove(COALESCE(source_data_json, '{}'), " +
+      aliases.map(alias => "'$.\"" + alias + "\"'").join(", ") + ")";
+    if (value) {
+      assignments.push("source_data_json = json_set(" + removed + ", ?, ?)");
+      params.push('$."' + contact + '"', value);
+    } else {
+      assignments.push("source_data_json = " + removed);
+    }
     if (path === "websiteUrl") {
       assignments.push("website_url = ?");
       params.push(value);
@@ -1450,11 +1470,12 @@ export async function savePilotDirectoryMetadataField(input: {
   database: D1Database;
   profileId: number;
   category: string;
-  field: PilotDirectoryMetadataField;
+  field: string;
   value: string;
+  expectedValue?: string;
 }): Promise<ManagedDirectoryProfile> {
   if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
-      !PILOT_DIRECTORY_METADATA_FIELDS.includes(input.field))
+      !isDirectoryPublicMetadataField(input.field))
     throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
   const trimmed = input.value.trim();
   // A blank value is an explicit Admin edit and must clear only this field.
@@ -1462,7 +1483,13 @@ export async function savePilotDirectoryMetadataField(input: {
   const current = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!current || current.category !== input.category || current.status === "archived")
     throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
-  if (String(current.importData?.[input.field] ?? "").trim() === trimmed) return current;
+  const currentValue = readDirectoryPublicMetadataValue(current.importData, input.field);
+  if (input.expectedValue !== undefined &&
+      currentValue !== input.expectedValue.trim() && currentValue !== trimmed) {
+    throw new Error("DIRECTORY_PUBLIC_METADATA_STALE_VALUE");
+  }
+  if (currentValue === trimmed &&
+      Object.hasOwn(current.importData ?? {}, input.field)) return current;
   const now = new Date().toISOString();
   const saved = await input.database.prepare(
     "UPDATE directory_profiles SET source_data_json = json_set(" +
