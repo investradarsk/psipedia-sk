@@ -179,3 +179,25 @@ test("Help category pages expose one primary homepage-style search and preserve 
   assert.match(browser, /<input type="hidden" name="q"/);
   assert.match(browser, /Zobraziť celý zoznam/);
 });
+
+test("Help Admin exposes the actual public text-derived fields without shadow data stores", () => {
+  const publicPresentation = read("lib/help-detail-presentation.ts");
+  assert.match(adminEditor, /getHelpPresentation\(\{ description, contactNote \}\)/);
+  assert.match(adminEditor, /getHelpLabelledSourceFields\(description\)/);
+  assert.match(adminEditor, /getHelpLabelledSourceFields\(contactNote\)/);
+  assert.match(adminEditor, /data-help-labelled-source/);
+  assert.match(adminEditor, /data-help-derived-options-preview/);
+  assert.match(adminEditor, /data-help-derived-contact-preview/);
+  assert.match(adminEditor, /replaceHelpLabelledSourceValue\(text, occurrence, event\.target\.value\)/);
+  assert.match(adminEditor, /removeHelpLabelledSourceField\(text, occurrence\)/);
+  assert.match(adminEditor, /navigation\.markDirty\(\); setDescription\(next\)/);
+  assert.match(adminEditor, /navigation\.markDirty\(\); setContactNote\(next\)/);
+  assert.match(publicPresentation, /parseHelpLabelledText\(item\.description\)/);
+  assert.match(publicPresentation, /parseHelpLabelledText\(item\.contactNote\)/);
+  assert.match(publicPresentation, /helpLabelledMatches\(text\)/);
+  // The existing payload still owns just the two text sources, not a new
+  // derived DB column that could silently override or diverge from them.
+  assert.match(adminEditor, /description, organization/);
+  assert.match(adminEditor, /actionUrl: actionUrl \|\| null, contactNote, goalAmount/);
+  assert.doesNotMatch(adminEditor, /public_fields_json|derived_fields_json/);
+});
