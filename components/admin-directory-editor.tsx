@@ -211,9 +211,14 @@ export function AdminDirectoryEditor({
   const [numberlessLocalityConfirmed, setNumberlessLocalityConfirmed] = useState(false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? notionDraft?.priceNote ?? "");
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
-  const legacyPublicFacts = profile ? directoryLegacyPublicFactSources(profile) : [];
-  const legacyPublicHours = profile ? directoryLegacyOpeningHoursSource(profile) : null;
-  const legacyEditableFactKeys = profile ? directoryLegacyEditableFactKeys(profile) : [];
+  // Read the last confirmed D1 snapshot, not the original server prop, after
+  // saving a fact in the same mounted editor.
+  const legacySourceProfile = profile
+    ? { category: profile.category, importData: filterSourceData as ManagedDirectoryProfile["importData"] }
+    : null;
+  const legacyPublicFacts = legacySourceProfile ? directoryLegacyPublicFactSources(legacySourceProfile) : [];
+  const legacyPublicHours = legacySourceProfile ? directoryLegacyOpeningHoursSource(legacySourceProfile) : null;
+  const legacyEditableFactKeys = legacySourceProfile ? directoryLegacyEditableFactKeys(legacySourceProfile) : [];
   const [legacyFactInputs, setLegacyFactInputs] = useState<Record<string, string>>(
     () => Object.fromEntries(legacyEditableFactKeys.map(key => [
       key, String(profile?.importData?.[key] ?? ""),
@@ -784,7 +789,7 @@ export function AdminDirectoryEditor({
           const publicHours = directoryLegacyOpeningHoursSource(savedProfile);
           setPilotHoursKey(publicHours?.sourceKey ?? "Ordinačné hodiny");
           setPilotOpeningHours(publicHours?.value ?? "");
-          setLegacyFactInputs(Object.fromEntries(legacyEditableFactKeys.map(key => [
+          setLegacyFactInputs(Object.fromEntries(directoryLegacyEditableFactKeys(savedProfile).map(key => [
             key, String(savedProfile.importData?.[key] ?? ""),
           ])));
           setPilotDataSources(storedText("Zdroj dát"));
