@@ -79,7 +79,7 @@ export function directoryLegacyEditableFactKeys(
   );
 }
 
-function importedValue(profile: PublicDirectoryProfile, field: string) {
+function importedValue(profile: Pick<PublicDirectoryProfile, "importData">, field: string) {
   return readDirectoryPublicMetadataValue(profile.importData, field) || null;
 }
 
@@ -135,7 +135,12 @@ export function directoryLegacyPublicFactSources(
     !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
   const facts = factLabels.flatMap(label => {
     const value = usefulDirectoryDetailValue(importedValue(profile, label));
-    return value ? [{ label, value, sourceKey: label }] : [];
+    const source = profile.importData ?? {};
+    const legacySourceKey = label === "Pokrytie"
+      ? ["Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"]
+        .find(key => Object.hasOwn(source, key))
+      : label;
+    return value ? [{ label, value, sourceKey: legacySourceKey ?? label }] : [];
   });
   for (const label of ["Organizácia", "Zameranie"] as const) {
     const sourceKey = label === "Organizácia"
