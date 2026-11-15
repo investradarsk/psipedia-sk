@@ -1156,19 +1156,31 @@ export function AdminDirectoryEditor({
               {!isDirectoryEventPilotCategory(category) ? (
                 category === "treneri" && !notionDraft ? (
                   <div className="admin-field">
-                    <label htmlFor="directory-trainer-services-text">Služby – voľný text (Notion)</label>
+                    <label htmlFor="directory-trainer-services-text">Historický text služieb – tréner (Notion)</label>
                     <textarea id="directory-trainer-services-text" rows={7} value={trainerServicesText}
                       onChange={event => { setTrainerServicesText(event.target.value); setFormDirty(true); }}
                       placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} />
-                    <small>Tento opis sa prenáša do poľa Služby v Notione; katalóg Služby V3 sa nemení.</small>
-                    <small>Existujúci katalógový/legacy zoznam: {services || "Bez položiek"}</small>
+                    <small>Tento voľný text je nezávislý od výberov Služby V3. Katalógové Áno/Nie sa upravuje nižšie.</small>
+                    <small>Historický verejný zoznam uložený v profile: {services || "Bez položiek"}. Môže sa líšiť od textu v Notione; finálne zobrazenie ukazuje náhľad Services V3.</small>
                   </div>
                 ) : (
-                  <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
+                  <div className="admin-field"><label htmlFor="directory-services">Historický text služieb (nie katalóg V3)</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok. Toto pole nemení výber služieb V3 ani Notion relácie.</small></div>
                 )
-              ) : null}
+              ) : (
+                <div className="admin-field" data-admin-legacy-services-readonly>
+                  <strong>Historický text služieb (len na kontrolu)</strong>
+                  <p>{services.trim() || "Žiadne historické textové služby."}</p>
+                  <small>Pre túto kategóriu je editácia starého zoznamu oddelená od kanonických výberov. Tu sa nič automaticky nemení.</small>
+                </div>
+              )}
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : category === "fyzioterapia" ? "Odbornosť a skúsenosti" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
+            {profile && !notionDraft ? (
+              <p className="admin-field">
+                <a href="#directory-services-v3">Otvoriť katalóg Služby V3 a náhľad skutočného verejného zoznamu</a>
+                <small>Výber Áno/Nie z katalógu má prednosť pred rozpoznaným historickým názvom. Nerozpoznaný text sa nezmaže.</small>
+              </p>
+            ) : null}
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
 
             {profile && (legacyEditableFactKeys.length > 0 || legacyPublicFacts.length > 0) ? (
