@@ -674,6 +674,22 @@ export async function PUT(request: Request, { params }: Props) {
     // intermediate projection must never be reported as the final lifecycle.
     const saved = await getManagedDirectoryProfileById(id, db);
     if (!saved) return Response.json({ error: "Záznam po uložení neexistuje." }, { status: 409 });
+    // Metadata warnings cannot mean "saved" for an explicitly edited public
+    // fact. The acknowledgement must match D1 after the whole save/sync flow.
+    const unconfirmedPublicFacts = rawPilotMetadataFields && typeof rawPilotMetadataFields === "object" &&
+      !Array.isArray(rawPilotMetadataFields)
+      ? Object.entries(rawPilotMetadataFields as Record<string, string>)
+        .filter(([key, value]) =>
+          String(saved.importData?.[key] ?? "").trim() !== value.trim())
+        .map(([key]) => key)
+      : [];
+    if (unconfirmedPublicFacts.length) {
+      return Response.json({
+        error: "Niektoré upravené verejné údaje sa v D1 neuložili (" +
+          unconfirmedPublicFacts.join(", ") +
+          "). Ostatné časti profilu už môžu byť uložené; obnov profil a skontroluj zmeny.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
     const finalContacts = readDirectoryPublicContacts(saved.importData, saved.websiteUrl ?? "");
     const contactLossAfterNotion = directoryContactValueMismatches(expectedContactValues, {
       websiteUrl: finalContacts.website, publicPhone: finalContacts.phone,
