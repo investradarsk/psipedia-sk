@@ -82,8 +82,8 @@ test("Admin proposes explicit canonical links from legacy labels without rewriti
   assert.match(editor, /suggestBreederRelationIds\(legacyText, group\.options\)/);
   assert.match(editor, /data-breeder-legacy-relation-proposal/);
   assert.match(editor, /Použiť existujúce prepojenie/);
-  assert.match(editor, /isCanonicalRelationText\(sourceKey\)/);
-  assert.match(editor, /if \(isCanonicalRelationText\(key\)\) continue/);
+  assert.match(editor, /isCanonicalRelationText\(field\)/);
+  assert.match(editor, /!isCanonicalRelationText\(key\)/);
   assert.match(editor, /setBreederRelationsDirty\(true\)/);
   assert.match(options, /SELECT id,name,slug,city,status FROM directory_profiles/);
   assert.match(options, /SELECT id,name,slug,status FROM managed_breeds/);
