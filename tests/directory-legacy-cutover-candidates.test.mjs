@@ -7,6 +7,8 @@ test("candidate queue is only SELECT, with bounded IDs and no public/private val
   const sql = buildDirectoryLegacyCutoverCandidatesSql();
   assert.match(sql, /^SELECT psipedia_id, category, status, field, canonical_key, issue/);
   assert.match(sql, /ORDER BY priority, category, psipedia_id, field, issue LIMIT 500/);
+  assert.doesNotMatch(sql, /UNION(?:\\s+ALL)?/i, "D1 query must not use a compound SELECT");
+  assert.match(sql, /CROSS JOIN json_each/);
   assert.doesNotMatch(sql, /\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|ATTACH|PRAGMA|REPLACE)\b/i);
   assert.doesNotMatch(sql, /SELECT\s+\*|AS\s+(?:email|phone|website|name|source_data_json)\b/i);
 });
@@ -45,6 +47,26 @@ test("review queue distinguishes legacy-only, explicit clears and actual conflic
       "canonical_key,category,field,issue,psipedia_id,status"));
     assert.doesNotMatch(JSON.stringify(rows), /private@example.sk|Historická|Papillon|Západ|ZŠK SR/);
     assert.ok(rows.every(row => Number.isInteger(row.psipedia_id)));
+  } finally {
+    db.close();
+  }
+});
+
+
+test("bounded candidate queue handles many records and risk-first ordering without compound SELECT", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, status TEXT, district TEXT, source_data_json TEXT)");
+    const insert = db.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?, ?)");
+    for (let id = 1; id <= 600; id++) {
+      insert.run(id, "veterinari", "published", "", JSON.stringify({Okres: "Nitra"}));
+    }
+    insert.run(601, "veterinari", "published", "", "{broken");
+    const rows = db.prepare(buildDirectoryLegacyCutoverCandidatesSql()).all();
+    assert.equal(rows.length, 500);
+    assert.deepEqual([rows[0].psipedia_id, rows[0].field, rows[0].issue], [601, "invalid_json", "invalid_json"]);
+    assert.deepEqual([rows[1].psipedia_id, rows[1].field], [1, "district"]);
+    assert.deepEqual([rows.at(-1).psipedia_id, rows.at(-1).field], [499, "district"]);
   } finally {
     db.close();
   }
