@@ -97,3 +97,45 @@ export function directoryContactValueMismatches(
     field => (expected[field] ?? "").trim() !== (actual[field] ?? "").trim(),
   );
 }
+
+/**
+ * A complete Admin snapshot may legitimately contain empty contacts, but a
+ * filled D1 contact must not become blank unless the user actually interacted
+ * with that specific input. This catches partially hydrated/obsolete forms
+ * without changing the one-click full-profile save contract.
+ *
+ * Logs/receipts must contain field NAMES only, never private contact values.
+ */
+export function unacknowledgedDirectoryContactClears(input: {
+  current: Record<DirectoryContactSaveField, string>;
+  submitted: Record<DirectoryContactSaveField, string>;
+  interactedFields: unknown;
+}): DirectoryContactSaveField[] {
+  const touched = new Set(Array.isArray(input.interactedFields)
+    ? input.interactedFields.filter((x): x is DirectoryContactSaveField =>
+        typeof x === "string" && isContact(x))
+    : []);
+  return DIRECTORY_CONTACT_SAVE_FIELDS.filter(field =>
+    Boolean(input.current[field]?.trim()) &&
+    !input.submitted[field]?.trim() &&
+    !touched.has(field));
+}
+
+/**
+ * Emergency fail-closed guard for an apparent Notion echo that would delete
+ * two or more existing independent contacts at once. Such a batch is held for
+ * operator review; single explicitly edited Notion fields keep syncing.
+ * An Admin full-save that intentionally cleared them already changed D1, so
+ * it will not match this guard.
+ */
+export function suspiciousDirectoryContactClearBatch(input: {
+  current: Record<DirectoryContactSaveField, string>;
+  incoming: Record<DirectoryContactSaveField, string>;
+  changed: readonly string[];
+}): DirectoryContactSaveField[] {
+  const changed = new Set(input.changed);
+  const clears = DIRECTORY_CONTACT_SAVE_FIELDS.filter(field =>
+    changed.has(field) && Boolean(input.current[field]?.trim()) &&
+    !input.incoming[field]?.trim());
+  return clears.length >= 2 ? clears : [];
+}
