@@ -1295,6 +1295,14 @@ export function AdminDirectoryEditor({
                   !search || option.name.toLocaleLowerCase("sk").includes(search));
                 const visible = search ? matches.slice(0, 45) : matches.filter(option =>
                   breederSelection[group.field].includes(option.id)).slice(0, 45);
+                const legacyText = group.key === "breeds"
+                  ? ((publicFacts["Plemená"] ?? "").trim() || (publicFacts["Plemeno"] ?? "").trim() || "")
+                  : String(filterSourceData["Klub"] ?? "").trim();
+                const suggestedIds = !breederRelationsLoading && !breederRelationsError &&
+                  !breederSelection[group.field].length && legacyText
+                  ? suggestBreederRelationIds(legacyText, group.options) : [];
+                const suggestedNames = group.options.filter(option => suggestedIds.includes(option.id))
+                  .map(option => option.name);
                 return (
                   <div className="admin-field" key={group.key}>
                     <label htmlFor={`breeder-relations-${group.key}`}>
@@ -1307,6 +1315,19 @@ export function AdminDirectoryEditor({
                       onChange={event => setBreederRelationSearch(value => ({ ...value, [group.key]: event.target.value }))}
                       placeholder={`Vyhľadať ${group.label.toLocaleLowerCase("sk")}…`}
                     />
+                    {suggestedIds.length > 0 ? (
+                      <div data-breeder-legacy-relation-proposal>
+                        <small>Presná zhoda historického textu „{legacyText}“ s publikovaným profilom: {suggestedNames.join(", ")}.</small>
+                        <button type="button" onClick={() => {
+                          setBreederSelection(current => ({ ...current, [group.field]: suggestedIds }));
+                          setBreederRelationsDirty(true);
+                          setFormDirty(true);
+                        }}>
+                          Použiť existujúce prepojenie
+                        </button>
+                        <small>Prepojenie sa vytvorí až po Uložiť zmeny. Bez automatickej konverzie textu na ID.</small>
+                      </div>
+                    ) : null}
                     <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto", padding: "8px 0" }}>
                       {visible.map(option => (
                         <label key={option.id} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
@@ -1314,7 +1335,7 @@ export function AdminDirectoryEditor({
                             checked={breederSelection[group.field].includes(option.id)}
                             onChange={() => toggleBreederLink(group.field, option.id)}
                           />
-                          <span>{option.name}{option.city ? ` — ${option.city}` : ""}</span>
+                          <span>{option.name}{option.city ? ` — ${option.city}` : ""}{option.status === "draft" ? " (koncept – zatiaľ nie je klikateľný na webe)" : ""}</span>
                         </label>
                       ))}
                       {!visible.length ? <small>{search ? "Nenašli sa žiadne výsledky." : "Napíš názov do vyhľadávania."}</small> : null}
