@@ -257,10 +257,15 @@ export function AdminDirectoryEditor({
   const [breederSelection, setBreederSelection] = useState<BreederRelationSelection>({ breedIds: [], clubIds: [] });
   const [breederRelationSearch, setBreederRelationSearch] = useState({ breeds: "", clubs: "" });
   const [breederRelationsDirty, setBreederRelationsDirty] = useState(false);
+  const hasPublishedSelectedLink = (field: "breedIds" | "clubIds") => {
+    const options = field === "breedIds" ? breederRelationOptions.breeds : breederRelationOptions.clubs;
+    return breederSelection[field].some(id =>
+      options.some(option => option.id === id && option.status === "published"));
+  };
   const isCanonicalRelationText = (field: string) =>
     ["chovatelske-stanice", "treneri"].includes(category) &&
-    ((["Plemeno", "Plemená"].includes(field) && breederSelection.breedIds.length > 0) ||
-      (["Klub", "Chovateľský klub"].includes(field) && breederSelection.clubIds.length > 0));
+    ((["Plemeno", "Plemená"].includes(field) && hasPublishedSelectedLink("breedIds")) ||
+      (["Klub", "Chovateľský klub"].includes(field) && hasPublishedSelectedLink("clubIds")));
   const [breederRelationsError, setBreederRelationsError] = useState("");
   const [breederRelationsLoading, setBreederRelationsLoading] = useState(Boolean(profile && ["chovatelske-stanice", "treneri"].includes(profile.category)));
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
