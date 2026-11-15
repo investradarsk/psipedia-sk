@@ -14,7 +14,7 @@ import { DIRECTORY_CONTACT_SAVE_FIELDS, type DirectoryContactSaveField } from "@
 import { changedTrainerTrustAdminFields } from "@/lib/notion-trainer-trust-fields";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
-import { directoryLegacyPublicFactSources, directoryLegacyOpeningHoursSource } from "@/lib/directory-detail-presentation";
+import { directoryLegacyPublicFactSources, directoryLegacyOpeningHoursSource, directoryLegacyEditableFactKeys } from "@/lib/directory-detail-presentation";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
@@ -213,6 +213,12 @@ export function AdminDirectoryEditor({
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
   const legacyPublicFacts = profile ? directoryLegacyPublicFactSources(profile) : [];
   const legacyPublicHours = profile ? directoryLegacyOpeningHoursSource(profile) : null;
+  const legacyEditableFactKeys = profile ? directoryLegacyEditableFactKeys(profile) : [];
+  const [legacyFactInputs, setLegacyFactInputs] = useState<Record<string, string>>(
+    () => Object.fromEntries(legacyEditableFactKeys.map(key => [
+      key, String(profile?.importData?.[key] ?? ""),
+    ])),
+  );
   const [websiteUrl, setWebsiteUrl] = useState(profile ? contacts.website : notionDraft?.website ?? "");
   const [publicPhone, setPublicPhone] = useState(profile ? contacts.phone : notionDraft?.phone ?? "");
   const [publicEmail, setPublicEmail] = useState(profile ? contacts.email : notionDraft?.email ?? "");
@@ -222,7 +228,9 @@ export function AdminDirectoryEditor({
     const value = profile?.importData?.[key];
     return typeof value === "string" ? value : "";
   };
-  const [pilotOpeningHours, setPilotOpeningHours] = useState(pilotMetadataText("Ordinačné hodiny"));
+  // The edit control must own the same legacy alias as the public renderer.
+  const [pilotHoursKey, setPilotHoursKey] = useState(legacyPublicHours?.sourceKey ?? "Ordinačné hodiny");
+  const [pilotOpeningHours, setPilotOpeningHours] = useState(legacyPublicHours?.value ?? "");
   const [pilotDataSources, setPilotDataSources] = useState(pilotMetadataText("Zdroj dát"));
   const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
   const [pilotImageAlt, setPilotImageAlt] = useState(pilotMetadataText("Alt text obrázka"));
@@ -539,9 +547,10 @@ export function AdminDirectoryEditor({
         return false;
       });
       const pilotMetadataFields: Record<string, string> = {};
+      const pilotMetadataOriginals: Record<string, string> = {};
       if (profile) {
         for (const [key, current] of [
-          ["Ordinačné hodiny", pilotOpeningHours],
+          [pilotHoursKey, pilotOpeningHours],
           ["Zdroj dát", pilotDataSources],
           ["Zdroj obrázka", pilotImageSource],
           ["Alt text obrázka", pilotImageAlt],
@@ -552,8 +561,20 @@ export function AdminDirectoryEditor({
           const value = key === "Organizácia" && !Object.hasOwn(breederBaseline?.importData ?? {}, key)
             ? breederBaseline?.importData?.["Zastrešujúca organizácia"] : canonicalValue;
           const baseline = typeof value === "string" ? value : "";
-          if (current.trim() !== baseline.trim())
+          if (current.trim() !== baseline.trim()) {
             pilotMetadataFields[key] = current.trim();
+            pilotMetadataOriginals[key] = String(canonicalValue ?? "").trim();
+          }
+        }
+        // Only edited public legacy fact fields may change. An old JSON payload
+        // does not gain authority over other fields simply because it exists.
+        for (const key of legacyEditableFactKeys) {
+          const original = String(breederBaseline?.importData?.[key] ?? "").trim();
+          const current = (legacyFactInputs[key] ?? "").trim();
+          if (current !== original) {
+            pilotMetadataFields[key] = current;
+            pilotMetadataOriginals[key] = original;
+          }
         }
       }
       // Trainers use independent free-text Notion prose; pilot categories
@@ -586,7 +607,7 @@ export function AdminDirectoryEditor({
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
           ...(profile ? { mainImageAction } : {}),
-          ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
+          ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields, pilotMetadataOriginals } : {}),
           name, slug, category,
           ...(additionalCategoriesTouched || !profile ? { additionalCategories } : {}),
           status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription,
@@ -760,7 +781,12 @@ export function AdminDirectoryEditor({
             const value = savedProfile.importData?.[key];
             return typeof value === "string" ? value : "";
           };
-          setPilotOpeningHours(storedText("Ordinačné hodiny"));
+          const publicHours = directoryLegacyOpeningHoursSource(savedProfile);
+          setPilotHoursKey(publicHours?.sourceKey ?? "Ordinačné hodiny");
+          setPilotOpeningHours(publicHours?.value ?? "");
+          setLegacyFactInputs(Object.fromEntries(legacyEditableFactKeys.map(key => [
+            key, String(savedProfile.importData?.[key] ?? ""),
+          ])));
           setPilotDataSources(storedText("Zdroj dát"));
           setPilotImageSource(storedText("Zdroj obrázka"));
           setPilotImageAlt(storedText("Alt text obrázka"));
