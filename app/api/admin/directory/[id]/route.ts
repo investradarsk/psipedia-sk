@@ -1,6 +1,7 @@
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
+import { validateDirectoryFullProfileSave } from "@/lib/directory-full-profile-save";
 import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, unconfirmedDirectoryCategoryFilters, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
@@ -88,6 +89,8 @@ export async function PUT(request: Request, { params }: Props) {
       contactOriginalValues?: unknown;
       breederOriginalText?: unknown;
       confirmContactSync?: unknown;
+      fullProfileSave?: unknown;
+      expectedUpdatedAt?: unknown;
     };
     const {
       numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
@@ -103,8 +106,25 @@ export async function PUT(request: Request, { params }: Props) {
       contactOriginalValues: rawContactOriginalValues,
       breederOriginalText: rawBreederOriginalText,
       confirmContactSync: rawConfirmContactSync,
+      fullProfileSave: rawFullProfileSave,
+      expectedUpdatedAt: rawExpectedUpdatedAt,
       ...submittedBody
     } = rawBody;
+    const fullProfileSave = rawFullProfileSave === true;
+    // Full visible form is authoritative, but never overwrite a newer D1 revision.
+    // Missing fields from an old/partially hydrated editor are NOT clears.
+    if (fullProfileSave) {
+      const validation = validateDirectoryFullProfileSave({
+        expectedUpdatedAt: rawExpectedUpdatedAt,
+        currentUpdatedAt: before.updatedAt,
+        submitted: submittedBody as Record<string, unknown>,
+      });
+      if (validation !== "valid") return Response.json({
+        error: validation === "stale"
+          ? "Profil sa od otvorenia zmenil. Obnov stránku a potom ulož svoj aktuálny formulár."
+          : "Formulár neobsahuje všetky polia. Obnov stránku; nič sa neuložilo.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
     const metadataOriginalValues =
       rawPilotMetadataOriginalValues && typeof rawPilotMetadataOriginalValues === "object" &&
       !Array.isArray(rawPilotMetadataOriginalValues)
@@ -173,7 +193,7 @@ export async function PUT(request: Request, { params }: Props) {
       }
       editedPaths = recovered.editedPaths as BreederEditorialField[];
       const liveContacts = readDirectoryPublicContacts(before.importData, before.websiteUrl ?? "");
-      const contactScope = scopeAdminContactSave({
+      const contactScope = fullProfileSave ? null : scopeAdminContactSave({
         editedPaths,
         interactedFields: rawContactEditedFields,
         originalValues: rawContactOriginalValues,
@@ -184,20 +204,20 @@ export async function PUT(request: Request, { params }: Props) {
           instagramUrl: liveContacts.instagram,
         },
       });
-      if (contactScope.incompatible) return Response.json({
+      if (contactScope?.incompatible) return Response.json({
         error: "Editor kontaktov je zastaraný. Obnov stránku pred ďalším uložením; nedotknuté kontakty zostali zachované.",
       }, { status: 409, headers: { "cache-control": "no-store" } });
-      if (contactScope.conflicts.length) return Response.json({
+      if (contactScope?.conflicts.length) return Response.json({
         error: "Kontakty sa medzičasom zmenili v databáze (" +
           contactScope.conflicts.join(", ") +
           "). Obnov profil a skontroluj hodnoty. Nič sa neprepísalo.",
       }, { status: 409, headers: { "cache-control": "no-store" } });
-      editedPaths = contactScope.editedPaths as BreederEditorialField[];
+      if (contactScope) editedPaths = contactScope.editedPaths as BreederEditorialField[];
     }
     // An explicit owner save from the Contacts tab may re-confirm contact values
     // already present in D1 but missing in Notion. This never expands the
     // full-form D1 write or resynchronizes unrelated fields.
-    const confirmContactSync = rawConfirmContactSync === true && editedPaths !== null &&
+    const confirmContactSync = (fullProfileSave || rawConfirmContactSync === true) && editedPaths !== null &&
       submittedBody.category === before.category && before.status !== "archived";
     // An explicit empty contact field is a deletion, not an omitted field in
     // an old editor. Only whitelisted, expressly edited contacts qualify.
@@ -232,7 +252,7 @@ export async function PUT(request: Request, { params }: Props) {
             (field): field is TrainerTrustField =>
               typeof field === "string" && TRAINER_TRUST_FIELDS.includes(field as TrainerTrustField),
           ) : [];
-    const trust = serviceFilterCategories.includes(before.category as ServiceFilterCategory)
+    const trust = fullProfileSave ? {} : serviceFilterCategories.includes(before.category as ServiceFilterCategory)
       ? preserveUneditedTrainerTrust(before, submittedBody, trainerTrustEditedPaths) : {};
     // The retired internal e-mail is no longer editable. Keep historical D1
     // data until the archival migration, regardless of a stale client payload.
@@ -264,7 +284,7 @@ export async function PUT(request: Request, { params }: Props) {
       ...(requestedMedia?.imageUrl === null
         ? { thumbnailImageDisplay: null, detailImageDisplay: null } : {}),
     };
-    const fieldPreserved = editedPaths
+    const fieldPreserved = !fullProfileSave && editedPaths
       ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
       : safeSubmittedBody;
     // Directory editorial contact values are raw text. Never validate, delete
@@ -274,7 +294,9 @@ export async function PUT(request: Request, { params }: Props) {
     // or a legacy column-only projection. An edit to Facebook, for instance,
     // has no authority to clear phone, email, website or Instagram.
     const liveContactValues = readDirectoryPublicContacts(before.importData, before.websiteUrl ?? "");
-    const safeOptionalFields = preserveUntouchedDirectoryContacts(
+    const safeOptionalFields = fullProfileSave
+      ? { ...fieldPreserved }
+      : preserveUntouchedDirectoryContacts(
       { ...fieldPreserved },
       {
         websiteUrl: liveContactValues.website,
@@ -285,6 +307,8 @@ export async function PUT(request: Request, { params }: Props) {
       },
       editedPaths ?? [],
     );
+    // In full-profile mode, the five visible contacts are authoritative:
+    // normalizing the D1 record removes old aliases, including explicit blanks.
     // Preserve explicit clears even if a stale whole-form baseline carried
     // old contact aliases. This is a narrow authenticated field-level override.
     for (const field of explicitlyClearedContacts) {
@@ -302,7 +326,7 @@ export async function PUT(request: Request, { params }: Props) {
     }
     const body: ManagedDirectoryProfileInput = before.category === "treneri"
       ? { ...safeOptionalFields, services: before.services,
-          trainerServicesText: rawTrainerServicesEdited === true
+          trainerServicesText: fullProfileSave || rawTrainerServicesEdited === true
             ? submittedBody.trainerServicesText : undefined }
       : isDirectoryEventPilotCategory(before.category)
         ? { ...safeOptionalFields, services: before.services }
@@ -721,7 +745,7 @@ export async function PUT(request: Request, { params }: Props) {
     const cleanText = (value: unknown) => typeof value === "string"
       ? value.replace(/\r\n?/g, "\n").trim() : "";
     const mismatchedText = (["excerpt", "description"] as const).filter(field =>
-      editedPaths?.includes(field) &&
+      (fullProfileSave || editedPaths?.includes(field)) &&
       cleanText(saved[field]) !== cleanText(submittedBody[field]),
     );
     if (mismatchedText.length) {
@@ -744,9 +768,11 @@ export async function PUT(request: Request, { params }: Props) {
         excerpt: submittedBody.excerpt,
         description: submittedBody.description,
       },
-      persisted: saved, editedPaths: editedPaths ?? [],
+      persisted: saved, editedPaths: fullProfileSave
+        ? (Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS) as BreederEditorialField[])
+        : editedPaths ?? [],
     });
-    const unconfirmedTrust = trainerTrustEditedPaths.filter(field =>
+    const unconfirmedTrust = (fullProfileSave ? [...TRAINER_TRUST_FIELDS] : trainerTrustEditedPaths).filter(field =>
       Boolean(saved[field]) !== Boolean(payload[field]),
     );
     if (unconfirmedEditorial.length || unconfirmedTrust.length) {
