@@ -1,4 +1,5 @@
 import { breedProfileHref } from "@/lib/breed-canonical";
+import { directoryEffectiveDistrictSql } from "@/lib/directory-public-source-contract";
 import { env } from "cloudflare:workers";
 import { getDirectoryCategory } from "@/lib/directory";
 import { getHelpCategory } from "@/lib/help";
@@ -199,7 +200,7 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
   }
   addLocationWhere(clauses, bindings, parsed, {
     city: "p.city",
-    district: `COALESCE(NULLIF(p.district, ''), json_extract(p.source_data_json, '$."Okres"'), '')`,
+    district: directoryEffectiveDistrictSql("p"),
     region: "p.region",
   });
   const tokens = parsed.directoryCategory ? parsed.residualTokens : parsed.contentTokens;
@@ -213,7 +214,7 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
   const exactOrder = exactTitleOrder("p.name", parsed, bindings);
   const localityOrder = locationOrder(parsed, bindings, {
     city: "p.city",
-    district: `COALESCE(NULLIF(p.district, ''), json_extract(p.source_data_json, '$."Okres"'), '')`,
+    district: directoryEffectiveDistrictSql("p"),
     region: "p.region",
   });
   const prefixOrder = titlePrefixOrder("p.name", parsed, bindings);
@@ -224,9 +225,9 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
          WHEN p.category = 'treneri' THEN 'Psí tréner'
          ELSE 'Služba pre psov' END AS type,
     p.excerpt AS description,
-    p.category || ' ' || p.services_json || ' ' || p.city || ' ' || p.district || ' ' || p.region AS keywords,
+    p.category || ' ' || p.services_json || ' ' || p.city || ' ' || ${directoryEffectiveDistrictSql("p")} || ' ' || p.region AS keywords,
     'directory' AS kind, p.category AS category, p.city AS city,
-    COALESCE(NULLIF(p.district, ''), json_extract(p.source_data_json, '$."Okres"'), '') AS district,
+    ${directoryEffectiveDistrictSql("p")} AS district,
     p.region AS region, p.services_json AS services`;
   return {
     sql: selectWithWindow(columns, "directory_profiles p", clauses, `${exactOrder}, ${localityOrder}, ${prefixOrder}, ${serviceOrder}, p.name COLLATE NOCASE ASC, p.category ASC, p.slug ASC`, limit),
