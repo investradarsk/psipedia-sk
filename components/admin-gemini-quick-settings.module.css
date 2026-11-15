@@ -22,3 +22,20 @@
 .stopNotice, .success, .error { margin: 0; font-size: .8rem; line-height: 1.5; }
 .stopNotice { color: #77571f; } .success { color: #1d6c43; } .error { color: #ad2c2c; }
 @media (max-width: 899px) { .desktopOnly { display: none; } }
+
+
+/* ADMIN VISUAL 14/18 – aligned desktop quick settings and accessible controls. */
+.desktopOnly { min-width: 0; }
+.scroll { box-sizing: border-box; overscroll-behavior-inline: contain; }
+.table th, .table td { padding: .55rem .7rem; }
+.table :is(button,input,select), .actions button {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+}
+.table :is(input,select) { max-width: 100%; }
+.actions { gap: var(--admin-ui-space-sm, .55rem); }
+.table :is(button,input,select):focus-visible,
+.actions button:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}

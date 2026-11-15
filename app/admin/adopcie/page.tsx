@@ -55,7 +55,7 @@ export default async function AdoptionAdminPage({ searchParams }: { searchParams
     user={user}
     eyebrow="Pomoc psom"
     title="Adopcie"
-    description="Read-only prehľad adopčných profilov, lifecycle stavov a potreby opätovného overenia."
+    description="Prehľad psov na adopciu, ich aktuálneho stavu a údajov, ktoré treba znova overiť."
     actions={<Link className="admin-primary-action" href="/admin/adopcie/novy">+ Pridať psa</Link>}
   >
     <Suspense fallback={<AdminDataLoading label="Adopcie" />}>

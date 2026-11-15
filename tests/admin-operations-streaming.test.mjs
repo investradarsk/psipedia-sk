@@ -45,10 +45,12 @@ test("homepage activity links to canonical agendas without duplicating the notif
   assert.match(page, /loadAdminWorkspaceOverview/);
   assert.match(feed, /export async function loadAdminWorkspaceOverview/);
   assert.match(source, /Otvoriť pracovnú sekciu/);
-  for (const path of ["/admin/operations", "/admin/kvalita", "/admin/mapy", "/admin/automatizacie-gemini", "/admin/facebook-obrazky"]) {
+  for (const path of ["/admin/operations", "/admin/mapy", "/admin/automatizacie-gemini", "/admin/facebook-obrazky"]) {
     assert.ok(source.includes(`href="${path}"`), path);
   }
   assert.doesNotMatch(source, /hiddenIds|refreshPending|shown\.map|Prečítané/);
+  assert.doesNotMatch(source, /href="\/admin\/kvalita"/);
+  assert.match(read("components/admin-workspace-dashboard.tsx"), /href="\/admin\/kvalita"/);
 });
 
 

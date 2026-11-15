@@ -58,9 +58,9 @@ test.describe.serial("REVIEWS-3 admin moderation", () => {
     test.skip(testInfo.project.name !== "desktop-chromium", "desktop moderation flow");
 
     await page.goto(`${ADMIN_LIST}/${APPROVE_REVIEW}`, { waitUntil: "domcontentloaded" });
-    await expect(page.locator(".admin-heading")).toContainText("PENDING_REVIEW");
+    await expect(page.locator(".admin-heading")).toContainText("Čaká na kontrolu");
     await runAction(page, "Schváliť");
-    await expect(page.locator(".admin-heading")).toContainText("VISIBLE");
+    await expect(page.locator(".admin-heading")).toContainText("Zverejnená");
 
     await page.goto(`${PUBLIC_PROFILE}?reviews3=approved#recenzie`, { waitUntil: "domcontentloaded" });
     const reviews = page.locator("#recenzie");
@@ -76,7 +76,7 @@ test.describe.serial("REVIEWS-3 admin moderation", () => {
     await page.goto(`${ADMIN_LIST}/${APPROVE_REVIEW}`, { waitUntil: "domcontentloaded" });
     await page.getByLabel("Dôvod pre zamietnutie, skrytie alebo odstránenie").selectOption("PRIVACY");
     await runAction(page, "Skryť");
-    await expect(page.locator(".admin-heading")).toContainText("HIDDEN");
+    await expect(page.locator(".admin-heading")).toContainText("Skrytá");
 
     await page.goto(`${PUBLIC_PROFILE}?reviews3=hidden#recenzie`, { waitUntil: "domcontentloaded" });
     let reviews = page.locator("#recenzie");
@@ -86,7 +86,7 @@ test.describe.serial("REVIEWS-3 admin moderation", () => {
 
     await page.goto(`${ADMIN_LIST}/${APPROVE_REVIEW}`, { waitUntil: "domcontentloaded" });
     await runAction(page, "Obnoviť");
-    await expect(page.locator(".admin-heading")).toContainText("VISIBLE");
+    await expect(page.locator(".admin-heading")).toContainText("Zverejnená");
 
     await page.goto(`${PUBLIC_PROFILE}?reviews3=restored#recenzie`, { waitUntil: "domcontentloaded" });
     reviews = page.locator("#recenzie");
@@ -99,7 +99,7 @@ test.describe.serial("REVIEWS-3 admin moderation", () => {
     test.skip(testInfo.project.name !== "desktop-chromium", "desktop moderation flow");
 
     await page.goto(`${ADMIN_LIST}/${REJECT_REVIEW}`, { waitUntil: "domcontentloaded" });
-    await expect(page.getByText("Nadmerný počet URL", { exact: true })).toBeVisible();
+    await expect(page.getByText("Príliš veľa odkazov", { exact: true })).toBeVisible();
     await expect(page.getByText("1", { exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: "Zamietnuť", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("Vyber dôvod moderácie.");
@@ -107,7 +107,7 @@ test.describe.serial("REVIEWS-3 admin moderation", () => {
     await page.getByLabel("Dôvod pre zamietnutie, skrytie alebo odstránenie").selectOption("SPAM");
     await page.getByLabel("Interná poznámka moderátora (voliteľná)").fill("E2E interná moderation poznámka.");
     await runAction(page, "Zamietnuť");
-    await expect(page.locator(".admin-heading")).toContainText("REJECTED");
+    await expect(page.locator(".admin-heading")).toContainText("Zamietnutá");
     await expect(page.getByText("E2E interná moderation poznámka.", { exact: false })).toBeVisible();
 
     await page.goto(`${PUBLIC_PROFILE}?reviews3=rejected#recenzie`, { waitUntil: "domcontentloaded" });

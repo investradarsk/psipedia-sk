@@ -218,10 +218,11 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   );
 
   return (
-    <div className={styles.eventPilot} data-event-editor-v3>
+    <div className={styles.eventPilot} data-event-editor-v3 data-admin-content-module="events-editor">
       <EditorWorkspace
         mode="page"
         title={event ? `Upraviť: ${event.title}` : "Nové podujatie"}
+        hidePageTitle
         description="Uprav termín, miesto, organizátora, program a zverejnenie v samostatných sekciách."
         status={<EditorStatus label={cancelled ? "Zrušené podujatie" : status === "published" ? "Publikované" : "Koncept"} tone={cancelled ? "warning" : status === "published" ? "success" : "neutral"} />}
         sections={EVENT_SECTIONS}
@@ -238,10 +239,16 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         actions={
           <EditorActionBar
             message={dirty ? "Neuložené zmeny" : undefined}
-            destructive={event ? <AdminRecordLifecycleActions kind="events" recordId={event.id} status={status} disabled={saving || uploading} returnHref="/admin/podujatia" onUnpublished={(next) => setStatus(next as EventStatus)} /> : undefined}
             secondary={<>
-              {event && <AdminNotionProfileImportButton scope="events" profileId={event.id}
-                dirty={dirty} disabled={saving || uploading} />}
+              {event && <details className={styles.moreActions} data-admin-event-more-actions>
+                <summary>Ďalšie akcie</summary>
+                <div className={styles.moreActionsPanel}>
+                  <AdminNotionProfileImportButton scope="events" profileId={event.id}
+                    dirty={dirty} disabled={saving || uploading} />
+                  <AdminRecordLifecycleActions kind="events" recordId={event.id} status={status} disabled={saving || uploading}
+                    returnHref="/admin/podujatia" onUnpublished={(next) => setStatus(next as EventStatus)} />
+                </div>
+              </details>}
               {status === "draft" && <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>}
             </>}
             primary={status === "published"

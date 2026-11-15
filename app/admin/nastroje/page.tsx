@@ -13,7 +13,7 @@ export default async function AdminTechnicalToolsPage() {
       title="Nástroje"
       description="Technické a operator utility pre údržbu systému. Upozornenia, Automatizácie a Mapy zostávajú samostatné produktové sekcie."
     >
-      <section className={styles.hubGrid} aria-label="Nástroje">
+      <section className={styles.hubGrid} data-admin-content-module="technical-tools" aria-label="Nástroje">
         <Link className={styles.hubCard} href="/admin/import">
           <span className={styles.hubKicker}>Dáta</span>
           <h2>Import dát</h2>

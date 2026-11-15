@@ -337,3 +337,63 @@
 @media (max-width: 360px) {
   .advancedFilters[data-expanded="true"] { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ADMIN CONTENT STEP 11: compact list, explicit controls and accessible
+   table actions; existing React Query filters and client paging are intact. */
+.workspace { min-width: 0; max-width: 100%; }
+.workspace :global(.admin-event-controls) { min-width: 0; gap: var(--admin-ui-space-sm, 0.55rem); }
+.workspace :global(.admin-event-controls) :is(input, select) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--admin-ui-control-height, 44px);
+}
+.timeFilters { min-width: 0; gap: 0.35rem; }
+.timeFilters :global(button) {
+  min-height: var(--admin-ui-control-height, 44px);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  font-weight: 750;
+}
+.timeFilters :global(button:focus-visible) {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.advancedFilters { min-width: 0; gap: var(--admin-ui-space-sm, 0.55rem); }
+.advancedFilters > div { min-width: 0; }
+.advancedFilters :global(select) { min-height: var(--admin-ui-control-height, 44px); }
+.tableActions { gap: 0.35rem; align-items: center; min-width: 0; }
+.tableActions a {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--admin-ui-border, #dce5de);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  background: #f6faf7;
+  color: #26513d;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+.tableActions :is(a, button) { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.tableActions a:hover { background: #eaf3ec; }
+.tableActions :is(a, button):focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.tableActions :is(button:disabled) { opacity: 0.5; cursor: not-allowed; }
+.quickForm { min-width: 0; gap: var(--admin-ui-space-sm, 0.55rem); }
+.quickForm :global(select) { min-height: 44px; min-width: 0; max-width: 100%; }
+@media (max-width: 760px) {
+  .workspace :global(.admin-event-controls) { gap: 0.5rem; }
+  .workspace :global(.admin-event-controls) :is(input, select) { font-size: 16px; }
+  .timeFilters { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; }
+  .tableActions { align-items: stretch; }
+  .tableActions :is(a, button) { min-height: 44px; }
+}
+@media (max-width: 390px) {
+  .tableActions a { flex: 1 1 auto; }
+  .advancedFilters[data-expanded="true"] { gap: 0.45rem; }
+}

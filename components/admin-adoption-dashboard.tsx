@@ -97,14 +97,14 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
 
   return <>
     <nav className={`${styles.tabs} ${styles.adoptionTabs}`} aria-label="Globálne počty adopcií">{stats.map((stat)=><Link key={stat.key} data-active={stat.active} href={stat.href}>{stat.label} <strong>{stat.count}</strong></Link>)}</nav>
-    <form className={styles.filters} method="get" aria-label="Filtrovať adopcie">
+    <form className={styles.filters} method="get" role="search" aria-label="Filtrovať adopcie" data-admin-list-filters data-admin-content-module="adoptions-list">
       <input name="q" defaultValue={filters.q} aria-label="Vyhľadávanie" placeholder="Meno, organizácia, mesto…" />
       <button type="button" className={styles.advancedToggle} aria-controls="admin-adoption-advanced-filters"
         aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen(open => !open)}>
         {advancedFiltersOpen ? "Skryť filtre" : "Ďalšie filtre"}
       </button>
-      <div id="admin-adoption-advanced-filters" className={styles.advancedFilters} data-expanded={advancedFiltersOpen}>
-      <select name="status" defaultValue={filters.status ?? ""} aria-label="Lifecycle stav"><option value="">Všetky stavy</option>{adoptionStatuses.map((status)=><option key={status} value={status}>{adoptionStatusLabels[status]}</option>)}</select>
+      <div id="admin-adoption-advanced-filters" className={styles.advancedFilters} data-admin-list-advanced data-expanded={advancedFiltersOpen}>
+      <select name="status" defaultValue={filters.status ?? ""} aria-label="Stav adopcie"><option value="">Všetky stavy</option>{adoptionStatuses.map((status)=><option key={status} value={status}>{adoptionStatusLabels[status]}</option>)}</select>
       <select name="freshness" defaultValue={filters.freshness ?? "all"} aria-label="Overenie"><option value="all">Všetky overenia</option><option value="stale">Treba overiť</option><option value="fresh">Čerstvo overené</option></select>
       <input name="breed" defaultValue={filters.breed} aria-label="Plemeno" placeholder="Plemeno" />
       <select name="region" defaultValue={filters.region ?? ""} aria-label="Kraj"><option value="">Všetky kraje</option>{adoptionRegions.map((region)=><option key={region} value={region}>{region}</option>)}</select>
@@ -126,6 +126,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
     <div className={styles.adoptionTableRegion}>
       <AdminDataTableRegion className={styles.tableWrap} label="Zoznam adopcií – tabuľka">
         {result.items.length ? <AdminRecordTable
+          stickyActions
           rows={result.items}
           label="Adopcie"
           rowDataAttribute="data-admin-adoption-row"

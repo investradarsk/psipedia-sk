@@ -162,3 +162,28 @@
   line-height: 1.35;
 }
 .gridTitle a { color: #183f2d; overflow-wrap: anywhere; }
+
+
+/* ADMIN-WORK-AUDIT: keep sorting direction adjacent even when filter fields wrap.
+   Only visual grouping changes; native form names and query semantics remain. */
+.sortDirectionGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  grid-column: span 2;
+  min-width: 0;
+  align-items: end;
+}
+.sortDirectionGroup :global(.admin-select-filter) {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.sortDirectionGroup :global(select) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width: 760px) {
+  .sortDirectionGroup { grid-column: 1 / -1; }
+}

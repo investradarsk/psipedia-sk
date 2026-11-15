@@ -297,3 +297,82 @@
   .dashboard .metric, .dashboard .panel { padding: 10px; }
   .allConceptsCta { padding: 12px; }
 }
+
+
+/* ADMIN VISUAL 14/18 – compact Gemini controls while preserving STOP
+   visibility and the original queue/schedule interaction semantics. */
+.dashboard {
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--admin-ui-section-gap, .625rem);
+}
+.dashboard .panel {
+  min-width: 0;
+  gap: var(--admin-ui-space-sm, .55rem);
+  padding: var(--admin-ui-panel-padding, .75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.dashboard .panelHeader {
+  gap: .4rem .6rem;
+  align-items: center;
+}
+.dashboard .panelHeader h2 {
+  font-family: inherit;
+  font-size: .96rem;
+  line-height: 1.35;
+}
+.dashboard .metrics {
+  gap: var(--admin-ui-space-sm, .55rem);
+}
+.dashboard .metric {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--admin-ui-panel-padding, .75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+  box-shadow: none;
+}
+.dashboard .workGrid { gap: var(--admin-ui-space-sm, .55rem); }
+.dashboard .card { gap: var(--admin-ui-space-sm, .55rem); }
+.dashboard .fields { gap: var(--admin-ui-space-sm, .55rem); }
+.dashboard .fields :is(input,select) {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  height: auto;
+}
+.dashboard :is(button, a) { overflow-wrap: anywhere; }
+.dashboard .cardBottom :is(a,button),
+.dashboard .runButton,
+.dashboard .panel > button,
+.dashboard [data-admin-gemini-global-stop] > button {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+}
+.dashboard .runItem, .dashboard .queueList li {
+  padding: .55rem .7rem;
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.dashboard :is(select,input,button,a,summary):focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+[data-admin-gemini-global-stop] {
+  border-left: 4px solid #a35d2e;
+}
+[data-admin-gemini-global-stop] p {
+  font-size: .81rem;
+  line-height: 1.5;
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .dashboard .workGrid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .dashboard .panel, .dashboard .metric { padding: .65rem; }
+  .dashboard .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
+  .dashboard .fields :is(input, select) { font-size: 16px; }
+  .dashboard .cardBottom { flex-wrap: wrap; }
+  .dashboard .cardBottom > * { min-height: 44px; }
+}
+@media (max-width: 390px) {
+  .dashboard .metrics { grid-template-columns: minmax(0, 1fr); }
+}

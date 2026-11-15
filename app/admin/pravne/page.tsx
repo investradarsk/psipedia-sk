@@ -14,7 +14,9 @@ export default async function AdminLegalPage() {
       title="Povinné údaje a registrácie"
       description="Doplň údaje prevádzkovateľa a sleduj kroky, ktoré sa vybavujú mimo webu. Uložené údaje sa zobrazia na verejnej stránke Právne informácie."
     >
-      <AdminLegalSettings initialSettings={await getLegalSettings()} />
+      <div data-admin-content-module="legal-settings">
+        <AdminLegalSettings initialSettings={await getLegalSettings()} />
+      </div>
     </AdminShell>
   );
 }

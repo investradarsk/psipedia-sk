@@ -191,3 +191,26 @@
   .addSlot { width:100%; }
 }
 @media(max-width:360px) { .editorDays button { font-size:.64rem; } }
+
+
+/* ADMIN VISUAL 14/18 – compact weekly planner with reliable touch targets. */
+.editorRows { gap: var(--admin-ui-space-sm, .55rem); }
+.editorRow { gap: var(--admin-ui-space-sm, .55rem); }
+.editorRow :is(input,select), .editorRow .deleteSlot {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.editorRow :is(button,input,select):focus-visible,
+.editorDays button:focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+@media (max-width: 700px) {
+  .editorDays button {
+    min-height: var(--admin-ui-control-height, 44px);
+  }
+  .editorRow { grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); }
+  .editorRow :is(input,select) { font-size: 16px; }
+  .editorRow .deleteSlot { grid-column: 1 / -1; }
+}

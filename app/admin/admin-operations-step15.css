@@ -1,0 +1,169 @@
+/* ADMIN VISUAL 15/18 — Geo inbox and technical utilities.
+   Scoped to the admin shell; no map API, cost, mutation or sync changes. */
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  min-width: 0;
+  max-width: 100%;
+  font-family: inherit;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] > *,
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-form-card {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-form-card {
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-section-heading {
+  min-width: 0;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-section-heading > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-section-heading :is(h2, h3) {
+  margin-block: 0 var(--admin-ui-space-xs, 0.35rem);
+  font-family: inherit;
+  font-size: var(--admin-ui-type-subheading, 1rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-field-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  min-width: 0;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-field-grid > *,
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-field {
+  min-width: 0;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-status-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--admin-ui-space-xs, 0.4rem);
+  min-width: 0;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-status-filter button,
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-editor-actions :is(button, a) {
+  min-height: var(--admin-ui-control-height, 44px);
+  font-family: inherit;
+  white-space: normal;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] [data-google-bulk-cost-notice] {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] [data-google-bulk-cost-notice] > summary {
+  min-height: var(--admin-ui-control-height, 44px);
+  padding-block: 10px;
+  cursor: pointer;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] [data-google-bulk-summary] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  min-width: 0;
+  font-size: var(--admin-ui-type-caption, 0.83rem);
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] [data-google-bulk-summary] > * {
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-geo-operator-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  min-width: 0;
+}
+
+[data-admin-workspace] [data-admin-content-module="geo-operator"] [data-admin-map-item] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="notion-audit"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--admin-ui-section-gap, 0.75rem);
+  min-width: 0;
+  max-width: 100%;
+  font-family: inherit;
+}
+
+[data-admin-workspace] [data-admin-content-module="notion-audit"] > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-admin-workspace] [data-admin-content-module="technical-tools"] {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  min-width: 0;
+}
+
+[data-admin-workspace] [data-admin-content-module="technical-tools"] > a {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 96px;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+
+[data-admin-workspace] [data-admin-content-module="technical-tools"] > a h2 {
+  font-family: inherit;
+  font-size: var(--admin-ui-type-subheading, 1rem);
+  overflow-wrap: anywhere;
+}
+
+[data-admin-workspace] [data-admin-content-module="technical-tools"] > a :is(p, span) {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  [data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-admin-workspace] [data-admin-content-module="geo-operator"] :is(input, select, textarea) {
+    max-width: 100%;
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  [data-admin-workspace] [data-admin-content-module="geo-operator"] [data-admin-map-item] .admin-section-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  [data-admin-workspace] [data-admin-content-module="geo-operator"] .admin-editor-actions {
+    flex-wrap: wrap;
+  }
+
+  [data-admin-workspace] [data-admin-content-module="geo-operator"] [data-admin-map-item] .admin-editor-actions > :is(a, button) {
+    flex: 1 1 min(100%, 140px);
+  }
+
+  [data-admin-workspace] [data-admin-content-module="technical-tools"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

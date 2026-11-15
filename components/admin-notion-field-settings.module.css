@@ -26,3 +26,41 @@
 .bulkRow button{border:0;background:#1c6245;color:white;padding:.65rem .85rem;border-radius:8px;cursor:pointer;font:inherit;font-size:.85rem}
 .bulkRow button:disabled{opacity:.5;cursor:not-allowed}
 .bulkControls p{font-size:.78rem;color:#526d5f}
+
+/* ADMIN VISUAL 16/18 — integration settings; field authority unchanged. */
+.root {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--admin-ui-section-gap, 0.625rem);
+  font-family: inherit;
+}
+.explainer,
+.navigation,
+.details {
+  min-width: 0;
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.columns { min-width: 0; gap: var(--admin-ui-space-sm, 0.55rem); }
+.details header { padding: var(--admin-ui-space-sm, 0.55rem); }
+.details h2, .explainer h2 { font-family: inherit; font-size: var(--admin-ui-type-section, 1.05rem); }
+.tableWrap { min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.table th, .table td { padding: var(--admin-ui-space-sm, 0.55rem); }
+.table select, .diagnosticControls :is(input, select) {
+  min-height: var(--admin-ui-control-height, 44px);
+  font-family: inherit;
+}
+.navButton, .selected, .diagnosticControls button, .diagnosticResult button, .connectionTop button {
+  min-height: var(--admin-ui-control-height, 44px);
+  font-family: inherit;
+}
+@media (max-width: 800px) {
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .navigation { max-height: 220px; }
+}
+@media (max-width: 640px) {
+  .diagnosticControls :is(input, select),
+  .table select { font-size: 16px; }
+  .diagnosticControls > label { min-width: 0; max-width: 100%; }
+}

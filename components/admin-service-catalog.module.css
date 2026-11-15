@@ -168,3 +168,37 @@
   .profileRow { grid-template-columns: minmax(0, 1fr) 105px !important; }
   .profileRow select { width: 100%; }
 }
+
+/* ADMIN CONTENT STEP 10: align the Services V3 catalog with the shared
+   admin list/editor surface, without changing the virtualizer or D1 writes. */
+.stack { gap: var(--admin-ui-section-gap, 0.625rem); }
+.filterBar {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  gap: var(--admin-ui-space-sm, 0.55rem);
+  padding: var(--admin-ui-panel-padding, 0.75rem);
+  border-radius: var(--admin-ui-radius, 12px);
+}
+.filterBar label { font-size: var(--admin-ui-type-label, 0.82rem); }
+.filterBar :is(input, select) {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  border-radius: var(--admin-ui-field-radius, 9px);
+}
+.layout { gap: var(--admin-ui-space-sm, 0.55rem); }
+.list, .detail, .profileCard { border-radius: var(--admin-ui-radius, 12px); }
+.listItem { min-height: 44px; padding: 0.55rem 0.75rem; }
+.detail { padding: var(--admin-ui-panel-padding, 0.75rem); }
+.detailGrid { gap: 0.5rem; padding-top: 0.65rem; }
+.actions { gap: 0.5rem; margin-top: 0.65rem; }
+.actions :is(a, button) { min-height: var(--admin-ui-control-height, 44px); }
+.profileCard { gap: var(--admin-ui-space-sm, 0.55rem); }
+@media (max-width: 800px) {
+  .filterBar { padding: 0.65rem; }
+  .filterBar :is(input, select, textarea), .profileRow :is(input, select) {
+    font-size: 16px;
+  }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .detail, .profileCard { padding: 0.65rem; }
+}

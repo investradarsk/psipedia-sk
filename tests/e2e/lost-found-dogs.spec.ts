@@ -107,7 +107,16 @@ test("admin lost-found dashboard is protected by the existing admin layer, pagin
   await expect(page.getByRole("link", { name: /Expirované/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Zamietnuté/ })).toBeVisible();
   await expect(page.getByRole("region", { name: "Zoznam hlásení" })).toHaveAttribute("tabindex", "0");
-  await expect(page.getByRole("columnheader", { name: "Akcie" })).toBeVisible();
+  await expect(page.getByRole("table")).toBeVisible();
+  await expect(page.getByText("Žiadne hlásenia pre zvolené filtre.")).toBeVisible();
+  // The shared record table intentionally omits <thead> in compact mobile
+  // mode; desktop retains the accessible actions column header.
+  const actionsHeading = page.getByRole("columnheader", { name: "Akcie" });
+  if (page.viewportSize()!.width <= 760) {
+    await expect(actionsHeading).toHaveCount(0);
+  } else {
+    await expect(actionsHeading).toBeVisible();
+  }
   await expectNoHorizontalOverflow(page);
   await expectNoAxeViolations(page);
 });

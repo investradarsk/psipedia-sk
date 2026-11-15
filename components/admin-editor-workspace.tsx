@@ -42,19 +42,21 @@ export function EditorHeader({
   status,
   onClose,
   closeLabel,
+  hideTitle = false,
 }: {
   title?: string;
   description?: string;
   status?: ReactNode;
   onClose?: () => void;
   closeLabel?: string;
+  hideTitle?: boolean;
 }) {
   const headingId = useId();
   if (!title && !description && !status && !onClose) return null;
   return (
-    <header className={styles.header} data-editor-header aria-labelledby={title ? headingId : undefined}>
+    <header className={styles.header} data-editor-header aria-labelledby={title && !hideTitle ? headingId : undefined}>
       <div className={styles.headerText}>
-        {title && <h1 id={headingId}>{title}</h1>}
+        {title && !hideTitle && <h1 id={headingId}>{title}</h1>}
         {description && <p>{description}</p>}
         {status && <div className={styles.statusLine}>{status}</div>}
       </div>
@@ -222,6 +224,7 @@ export function EditorWorkspace({
   onClose,
   allowNativeExitRef,
   closeLabel,
+  hidePageTitle = false,
   children,
   sectionMode = "scroll",
   articleLayout = false,
@@ -254,6 +257,8 @@ export function EditorWorkspace({
   /** Allow a confirmed create/save redirect without a second dirty prompt. */
   allowNativeExitRef?: RefObject<boolean>;
   closeLabel?: string;
+  /** Opt out of duplicate page H1 when AdminShell already supplies it. */
+  hidePageTitle?: boolean;
   children: ReactNode;
 }) {
   const [activeSection, setActiveSection] = useState(sections[0]?.id ?? "");
@@ -389,7 +394,7 @@ export function EditorWorkspace({
         </AdminModalDialog>
       ) : (
         <section className={styles.pageWorkspace} aria-label={title} data-editor-page data-admin-form-system="v4" data-editor-section-mode={sectionMode} data-editor-layout={articleLayout ? "article" : undefined}>
-          <EditorHeader title={title} description={description} status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
+          <EditorHeader title={title} description={description} status={status} hideTitle={hidePageTitle} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
           {summary}
           {body}
           {resolvedActions && <div className={styles.pageActions}>{resolvedActions}</div>}

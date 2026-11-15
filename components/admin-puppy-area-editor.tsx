@@ -76,6 +76,7 @@ export function AdminPuppyAreaEditor({ initialSections }: { initialSections: Man
   return <EditorWorkspace
     mode="page"
     title="Obsah oblastí Šteniatok"
+    hidePageTitle
     description="Úprava oblastí, fotografií a poradia v jednotnom Admin V3 pracovisku."
     status={<><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /><EditorStatus label={uploading ? "Nahrávanie obrázka" : "Pripravené"} tone={uploading ? "warning" : "neutral"} /></>}
     sections={areas.map((area, index) => ({ id: `puppy-area-${index}`, label: area.label }))}
@@ -87,8 +88,8 @@ export function AdminPuppyAreaEditor({ initialSections }: { initialSections: Man
       primary={<AdminActionButton variant="primary" disabled={saving || Boolean(uploading) || !dirty} onClick={() => void save()}>{saving ? "Ukladám…" : "Uložiť všetky oblasti"}</AdminActionButton>}
     />}
   >
-  <section className="admin-form-card admin-puppy-content-card" data-admin-content-editor>
-    <div className="admin-puppy-areas-heading"><div><h2>Obsah oblastí Šteniatok</h2><p>Tu upravíš stránku oblasti. Články sa pridávajú samostatne pod ňu.</p></div></div>
+  <section className="admin-form-card admin-puppy-content-card" data-admin-content-editor data-admin-content-module="puppy-areas">
+    <div className="admin-puppy-areas-heading"><div><h2>Oblasti na úpravu</h2><p>Tu upravíš stránku oblasti. Články sa pridávajú samostatne pod ňu.</p></div></div>
     <div className="admin-puppy-content-list">{areas.map((area, index) => <details key={area.slug} id={`puppy-area-${index}`} data-admin-editor-section tabIndex={-1} className="admin-puppy-content-item" open={index === 0} onFocus={(event) => { if (event.target === event.currentTarget) event.currentTarget.open = true; }}>
       <summary><span>{String(index + 1).padStart(2, "0")}</span><strong>{area.label}</strong><small>Upraviť obsah</small></summary>
       <div className="admin-puppy-content-fields">

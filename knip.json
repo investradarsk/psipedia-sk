@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "app/**/{page,layout,route,template,default,error,global-error,loading,not-found,robots,sitemap,manifest,opengraph-image,twitter-image}.{ts,tsx,js,jsx}",
+    "scripts/**/*.{js,mjs,cjs,ts,mts}",
+    "tests/**/*.{js,mjs,cjs,ts,tsx,mts}",
+    "workers/**/*.{js,mjs,cjs,ts,tsx}",
+    "*.config.{js,mjs,cjs,ts,mts}",
+    "middleware.{js,ts}",
+    "instrumentation.{js,ts}"
+  ],
+  "project": [
+    "**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}",
+    "!**/*.d.ts",
+    "!node_modules/**",
+    "!.next/**",
+    "!dist/**",
+    "!.wrangler/**",
+    "!.e2e-artifacts/**",
+    "!coverage/**",
+    "!test-results/**",
+    "!playwright-report/**",
+    "!out/**"
+  ]
+}
