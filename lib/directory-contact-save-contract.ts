@@ -97,3 +97,17 @@ export function directoryContactValueMismatches(
     field => (expected[field] ?? "").trim() !== (actual[field] ?? "").trim(),
   );
 }
+
+/**
+ * A save with NO changed fields may explicitly re-confirm existing contacts
+ * from D1 to Notion. Never treat an empty D1 value as permission to clear a
+ * populated Notion field; only an explicit edited contact may clear it.
+ */
+export function nonemptyDirectoryContactsForReconfirmation(
+  values: Record<DirectoryContactSaveField, string>,
+  requested: boolean,
+  editedPaths: readonly string[],
+): DirectoryContactSaveField[] {
+  if (!requested || editedPaths.length > 0) return [];
+  return DIRECTORY_CONTACT_SAVE_FIELDS.filter(field => Boolean(values[field]?.trim()));
+}
