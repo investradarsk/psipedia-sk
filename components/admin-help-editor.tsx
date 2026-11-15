@@ -65,6 +65,7 @@ function AdminHelpLabelledSourceEditor({
 }: { text: string; sourceName: string; priorText?: string; onChange: (value: string) => void }) {
   const fields = getHelpLabelledSourceFields(text);
   const priorFields = getHelpLabelledSourceFields(priorText);
+  const sourceId = sourceName === "Podrobný popis" ? "description" : "contact";
   const normalized = (label: string) =>
     label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("sk").trim();
   if (!fields.length) return null;
@@ -83,8 +84,8 @@ function AdminHelpLabelledSourceEditor({
           const earlier = fields.slice(0, occurrence).some(same) || priorFields.some(same);
           return (
           <div className="admin-field" key={sourceName + ":" + occurrence}>
-            <label htmlFor={`help-extracted-${sourceName}-${occurrence}`}>{label}</label>
-            <textarea id={`help-extracted-${sourceName}-${occurrence}`} rows={2}
+            <label htmlFor={`help-extracted-${sourceId}-${occurrence}`}>{label}</label>
+            <textarea id={`help-extracted-${sourceId}-${occurrence}`} rows={2}
               value={rawValue}
               onChange={event => onChange(replaceHelpLabelledSourceValue(text, occurrence, event.target.value))}
             />
