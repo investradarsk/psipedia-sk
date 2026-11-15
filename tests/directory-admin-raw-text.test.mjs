@@ -153,8 +153,11 @@ test("saving Contacts re-confirms all five D1 text values in Notion, including a
   assert.match(editor, /confirmContactSync \? \{ confirmContactSync: true \} : \{\}/);
   assert.match(editor, /breederChangedPaths\?\.length \|\| confirmContactSync/);
   assert.match(route, /rawConfirmContactSync === true && editedPaths !== null/);
+  assert.ok(route.includes("editedPaths.length === 0 && Array.isArray(rawContactEditedFields)"));
+  assert.ok(editor.includes("breederChangedPaths?.length === 0"));
   assert.match(route, /submittedBody\.category === before\.category/);
-  assert.match(route, /\.\.\.\(confirmContactSync \? DIRECTORY_CONTACT_EDITORIAL_PATHS : \[\]\)/);
+  assert.ok(route.includes("nonemptyDirectoryContactsForReconfirmation("));
+  assert.ok(!route.includes("...(confirmContactSync ? DIRECTORY_CONTACT_EDITORIAL_PATHS : [])"));
   assert.match(route, /metadataWarnings\.push\("Kontakty sú uložené v Admine, ale prenos do Notionu nie je potvrdený\."/);
   assert.match(notion, /const batchContacts = fields\.filter\(path => contactPaths\.has\(path\)\)/);
   assert.match(notion, /const echoed = await patchNotionPage\(bindings, page\.id, patch\)/);
