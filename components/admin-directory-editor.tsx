@@ -14,6 +14,8 @@ import { DIRECTORY_CONTACT_SAVE_FIELDS, type DirectoryContactSaveField } from "@
 import { changedTrainerTrustAdminFields } from "@/lib/notion-trainer-trust-fields";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
+import { directoryLegacyPublicFactSources, directoryLegacyOpeningHoursSource } from "@/lib/directory-detail-presentation";
+import { suggestBreederRelationIds } from "@/lib/breeder-relation-text";
 import { directoryPublicEditorFieldLabels, readDirectoryPublicMetadataValue } from "@/lib/directory-public-facts";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
@@ -210,6 +212,12 @@ export function AdminDirectoryEditor({
   const [addressProviderResultId, setAddressProviderResultId] = useState("");
   const [numberlessLocalityConfirmed, setNumberlessLocalityConfirmed] = useState(false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? notionDraft?.priceNote ?? "");
+  // One public resolver provides current values and their actual D1 origin.
+  const legacySourceProfile = profile
+    ? { category: profile.category, importData: filterSourceData as ManagedDirectoryProfile["importData"] }
+    : null;
+  const legacyPublicFacts = legacySourceProfile ? directoryLegacyPublicFactSources(legacySourceProfile) : [];
+  const publicHoursSource = legacySourceProfile ? directoryLegacyOpeningHoursSource(legacySourceProfile) : null;
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(profile ? contacts.website : notionDraft?.website ?? "");
   const [publicPhone, setPublicPhone] = useState(profile ? contacts.phone : notionDraft?.phone ?? "");
@@ -250,6 +258,15 @@ export function AdminDirectoryEditor({
   const [breederSelection, setBreederSelection] = useState<BreederRelationSelection>({ breedIds: [], clubIds: [] });
   const [breederRelationSearch, setBreederRelationSearch] = useState({ breeds: "", clubs: "" });
   const [breederRelationsDirty, setBreederRelationsDirty] = useState(false);
+  const hasPublishedSelectedLink = (field: "breedIds" | "clubIds") => {
+    const choices = field === "breedIds" ? breederRelationOptions.breeds : breederRelationOptions.clubs;
+    return breederSelection[field].some(id =>
+      choices.some(option => option.id === id && option.status === "published"));
+  };
+  const isCanonicalRelationText = (field: string) =>
+    ["chovatelske-stanice", "treneri"].includes(category) &&
+    ((["Plemeno", "Plemená"].includes(field) && hasPublishedSelectedLink("breedIds")) ||
+     (["Klub", "Chovateľský klub"].includes(field) && hasPublishedSelectedLink("clubIds")));
   const [breederRelationsError, setBreederRelationsError] = useState("");
   const [breederRelationsLoading, setBreederRelationsLoading] = useState(Boolean(profile && ["chovatelske-stanice", "treneri"].includes(profile.category)));
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
@@ -555,7 +572,8 @@ export function AdminDirectoryEditor({
           ["Organizácia", publicOrganization],
           ["Zameranie", publicFocus],
           ...Object.entries(publicFacts).filter(([key]) =>
-            directoryPublicEditorFieldLabels(category).includes(key)),
+            directoryPublicEditorFieldLabels(category).includes(key) &&
+            !isCanonicalRelationText(key)),
         ]) {
           const baseline = readDirectoryPublicMetadataValue(breederBaseline?.importData, key);
           if (current.trim() !== baseline.trim())
@@ -731,6 +749,11 @@ export function AdminDirectoryEditor({
         }
         if (formEditRevisionRef.current === submittedRevision) setBreederRelationsDirty(false);
       }
+      // Refresh the independent V3 public preview from the actual stored text.
+      // This does NOT change V3 choices or historical Notion relations.
+      window.dispatchEvent(new CustomEvent("psipedia:directory-services-saved", {
+        detail: { profileId: savedProfile.id, services: savedProfile.services },
+      }));
       // Like Events, treat the API's persisted D1 response as the save receipt.
       // The Directory PUT already reloads D1 and rejects unconfirmed edited fields.
       // A second client-side text comparison can report false errors if the
