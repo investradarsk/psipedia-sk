@@ -41,6 +41,7 @@ import {
   getHelpPresentation,
   removeHelpLabelledSourceField,
   replaceHelpLabelledSourceValue,
+  usefulHelpValue,
 } from "@/lib/help-detail-presentation";
 import styles from "./admin-help-bulk.module.css";
 
@@ -60,9 +61,12 @@ function slugify(value: string) {
 /** These are NOT additional fields. Every control edits its exact originating
  * text span in the existing Help description/contactNote that Notion syncs. */
 function AdminHelpLabelledSourceEditor({
-  text, sourceName, onChange,
-}: { text: string; sourceName: string; onChange: (value: string) => void }) {
+  text, sourceName, priorText = "", onChange,
+}: { text: string; sourceName: string; priorText?: string; onChange: (value: string) => void }) {
   const fields = getHelpLabelledSourceFields(text);
+  const priorFields = getHelpLabelledSourceFields(priorText);
+  const normalized = (label: string) =>
+    label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("sk").trim();
   if (!fields.length) return null;
   return (
     <details className="admin-field" data-help-labelled-source={sourceName}>
@@ -73,7 +77,11 @@ function AdminHelpLabelledSourceEditor({
         Nič sa automaticky nepresúva ani nevytvára v ďalšej databáze.
       </p>
       <div className="admin-field-grid">
-        {fields.map(({ label, rawValue, occurrence }) => (
+        {fields.map(({ label, rawValue, occurrence }) => {
+          const same = (other: { label: string; rawValue: string }) =>
+            normalized(other.label) === normalized(label) && Boolean(usefulHelpValue(other.rawValue));
+          const earlier = fields.slice(0, occurrence).some(same) || priorFields.some(same);
+          return (
           <div className="admin-field" key={sourceName + ":" + occurrence}>
             <label htmlFor={`help-extracted-${sourceName}-${occurrence}`}>{label}</label>
             <textarea id={`help-extracted-${sourceName}-${occurrence}`} rows={2}
@@ -81,11 +89,14 @@ function AdminHelpLabelledSourceEditor({
               onChange={event => onChange(replaceHelpLabelledSourceValue(text, occurrence, event.target.value))}
             />
             <small>Zdroj: {sourceName} · pôvodný text s označením „{label}:“</small>
+            {earlier ? (
+              <small role="status">Pozor: rovnaké označenie už je uvedené vyššie alebo v Podrobnom popise. Verejný web môže uprednostniť prvú hodnotu. Oprav zdroj, ktorý má prednosť.</small>
+            ) : null}
             <button type="button" onClick={() => {
               onChange(removeHelpLabelledSourceField(text, occurrence));
             }}>Odstrániť túto označenú položku z textu</button>
           </div>
-        ))}
+        );})}
       </div>
       <small>Prázdnu hodnotu systém na webe nezobrazí. Odstránenie položky sa uskutoční až pri uložení celého profilu.</small>
     </details>
@@ -267,7 +278,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
     <AdminEditorSection id="help-action" className="admin-form-card"><div className="admin-card-heading"><div><span>04</span><div><h2>Výzva a zbierka</h2><p>Oficiálny odkaz, cieľ zbierky a informácie pre záujemcov.</p></div></div></div><div className="admin-field-grid"><div className="admin-field"><label htmlFor="help-action-label">Text hlavného tlačidla</label><input id="help-action-label" value={actionLabel} onChange={(event) => setActionLabel(event.target.value)} placeholder={defaultHelpActionLabel(category)} /></div><div className="admin-field"><label htmlFor="help-action-url">Oficiálny odkaz <small>nepovinné</small></label><input id="help-action-url" type="url" value={actionUrl} onChange={(event) => setActionUrl(event.target.value)} placeholder="https://…" /></div><div className="admin-field"><label htmlFor="help-goal">Cieľ zbierky v € <small>iba zbierky</small></label><input id="help-goal" type="number" min="0" step="1" value={goalAmount} onChange={(event) => setGoalAmount(event.target.value)} placeholder="3000" /></div><div className="admin-field"><label htmlFor="help-raised">Doteraz vyzbierané v €</label><input id="help-raised" type="number" min="0" step="1" value={raisedAmount} onChange={(event) => setRaisedAmount(event.target.value)} placeholder="1250" /></div></div><div className="admin-field"><label htmlFor="help-contact-note">Poznámka pred kontaktovaním <small>nepovinné</small></label><textarea id="help-contact-note" rows={3} value={contactNote} onChange={(event) => setContactNote(event.target.value)} placeholder="Čo má záujemca uviesť alebo vedieť pred kontaktovaním?" />
       <small>Z tohto textu môže verejný web rozpoznať telefón, e-mail, web aj ďalšie označené informácie. Ich pôvod a výsledok sú uvedené nižšie.</small>
     </div>
-    <AdminHelpLabelledSourceEditor text={contactNote} sourceName="Poznámka pred kontaktovaním" onChange={next=>{
+    <AdminHelpLabelledSourceEditor text={contactNote} sourceName="Poznámka pred kontaktovaním" priorText={description} onChange={next=>{
       navigation.markDirty(); setContactNote(next);
     }}/>
     {(publicHelp.contacts.length>0||publicHelp.sources.length>0||publicHelp.lastChecked) ? (
