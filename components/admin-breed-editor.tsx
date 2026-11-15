@@ -365,7 +365,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     height:heightReceipt.source,
     weight:weightReceipt.source,
   });
-  const publicSourceName=(key:string)=>{
+  const publicSourceName=(key:keyof typeof publicReceipt.sources)=>{
     const value=publicReceipt.sources[key] as string;
     return value==="controlled"?"Nové pole · Admin / Notion"
       :value==="fci"?"FCI štandard · záložná hodnota"
