@@ -510,8 +510,6 @@ export function AdminDirectoryEditor({
       // Re-confirm all five only when the user saves an unchanged Contacts tab.
       // When Facebook/another contact was edited, sync ONLY that edited field:
       // broad confirmation could overwrite unrelated Notion contacts.
-      const confirmContactSync = Boolean(profile && category === profile.category &&
-        currentDirectorySection === "directory-contacts" && editedContactsRef.current.size === 0);
       const breederBaseline = breederSaveBaselineRef.current;
       const contactOriginal = readDirectoryPublicContacts(
         breederBaseline?.importData, breederBaseline?.websiteUrl ?? "",
@@ -550,6 +548,11 @@ export function AdminDirectoryEditor({
               editedContactsRef.current.has(path as DirectoryContactSaveField)),
           )
         : undefined;
+      // Never reconfirm the whole Contacts card if ANY form field changed:
+      // a stale or missing D1 contact must not be exported as a Notion clear.
+      const confirmContactSync = Boolean(profile && category === profile.category &&
+        currentDirectorySection === "directory-contacts" &&
+        editedContactsRef.current.size === 0 && breederChangedPaths?.length === 0);
       // The server must distinguish an explicit clear from an untouched
       // blank field in a long-open form. Only dirty contact paths are sent.
       const explicitlyClearedContacts = (breederChangedPaths ?? []).filter(path => {
