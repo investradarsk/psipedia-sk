@@ -16,6 +16,7 @@ import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-te
 import { normalizeAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
 import { directoryEditedFieldMismatches } from "@/lib/directory-editor-field-verification";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import { directoryLegacyEditableFactKeys, directoryLegacyOpeningHoursSource } from "@/lib/directory-detail-presentation";
 import { directoryContactValueMismatches, preserveUntouchedDirectoryContacts, scopeAdminContactSave } from "@/lib/directory-contact-save-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -80,6 +81,7 @@ export async function PUT(request: Request, { params }: Props) {
       clearMainImage?: unknown;
       mainImageAction?: unknown;
       pilotMetadataFields?: unknown;
+      pilotMetadataOriginals?: unknown;
       explicitlyClearedContacts?: unknown;
       contactEditedFields?: unknown;
       contactOriginalValues?: unknown;
@@ -94,6 +96,7 @@ export async function PUT(request: Request, { params }: Props) {
       clearMainImage: rawClearMainImage,
       mainImageAction: rawMainImageAction,
       pilotMetadataFields: rawPilotMetadataFields,
+      pilotMetadataOriginals: rawPilotMetadataOriginals,
       explicitlyClearedContacts: rawExplicitlyClearedContacts,
       contactEditedFields: rawContactEditedFields,
       contactOriginalValues: rawContactOriginalValues,
@@ -101,6 +104,38 @@ export async function PUT(request: Request, { params }: Props) {
       confirmContactSync: rawConfirmContactSync,
       ...submittedBody
     } = rawBody;
+    // Before writing *any* profile columns, validate each explicitly edited
+    // legacy public field against the current D1 value. A long-open editor must
+    // not silently overwrite a newer Notion/owner change or invent new JSON keys.
+    if (rawPilotMetadataFields !== undefined) {
+      if (!rawPilotMetadataFields || typeof rawPilotMetadataFields !== "object" ||
+          Array.isArray(rawPilotMetadataFields)) {
+        return Response.json({ error: "Neplatné verejné metadáta profilu." }, { status: 400 });
+      }
+      const fields = rawPilotMetadataFields as Record<string, unknown>;
+      const previous = rawPilotMetadataOriginals && typeof rawPilotMetadataOriginals === "object" &&
+        !Array.isArray(rawPilotMetadataOriginals)
+        ? rawPilotMetadataOriginals as Record<string, unknown> : null;
+      const activeHours = directoryLegacyOpeningHoursSource(before)?.sourceKey ?? "Ordinačné hodiny";
+      const editable = new Set([
+        "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
+        "Organizácia", "Zameranie", activeHours,
+        ...directoryLegacyEditableFactKeys(before),
+      ]);
+      if (Object.keys(fields).length > 50 || Object.keys(fields).some(key =>
+        !editable.has(key) ||
+        !(PILOT_DIRECTORY_METADATA_FIELDS as readonly string[]).includes(key) ||
+        typeof fields[key] !== "string" || (fields[key] as string).length > 2000)) {
+        return Response.json({ error: "Nepodporované alebo príliš dlhé verejné pole profilu." }, { status: 400 });
+      }
+      if (previous && Object.keys(fields).some(key =>
+        typeof previous[key] !== "string" ||
+        previous[key] !== String(before.importData?.[key] ?? "").trim())) {
+        return Response.json({
+          error: "Niektorý verejný údaj sa medzičasom zmenil v databáze. Obnov profil a skontroluj hodnoty; novšie údaje neboli prepísané.",
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+    }
     // A stale full-form payload must never silently undo a newer Notion edit
     // to a field the editor did not touch.
     let editedPaths: BreederEditorialField[] | null =
