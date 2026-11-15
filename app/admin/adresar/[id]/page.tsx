@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { notFound } from "next/navigation";
 import { AdminServiceProfileValues } from "@/components/admin-service-profile-values";
 import { listAdminCatalogOptions, ServiceCatalogSchemaError } from "@/lib/service-catalog-admin-store";
+import { loadResolvedServiceDefinitions, type ResolvedServiceDefinition } from "@/lib/service-catalog-resolved";
 import { listBuiltinCatalogOverrides } from "@/lib/service-catalog-builtin-overrides";
 import { catalogEditorItems, eligibleProfileServiceItems } from "@/lib/service-catalog-admin-editor-view";
 import { serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
@@ -29,11 +30,12 @@ async function DirectoryDuplicateWarning({ id }: { id: number }) {
 }
 
 async function DirectoryServiceValues({
-  profileId, category, archived,
+  profileId, category, archived, legacyServices,
 }: {
   profileId: number;
   category: ServiceFilterCategory;
   archived: boolean;
+  legacyServices: readonly string[];
 }) {
   // The Services V3 catalog is independent of the profile's base fields.
   // Stream it after the editor instead of blocking the first editable paint.
@@ -41,18 +43,20 @@ async function DirectoryServiceValues({
     DB?: D1Database;
     SERVICE_CATALOG_ADMIN_WRITES_ENABLED?: string;
     SERVICE_CATALOG_NOTION_MIRROR_READY?: string;
+    SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?: string;
   };
   const database = bindings.DB;
   const writeEnabled = bindings.SERVICE_CATALOG_ADMIN_WRITES_ENABLED === "true";
   let serviceEntries: ReturnType<typeof eligibleProfileServiceItems> = [];
   let serviceChoices: Array<{ optionId: string; choice: "yes" | "no"; version: number }> = [];
+  let resolvedServices: ResolvedServiceDefinition[] = [];
   let serviceError: string | null = null;
 
   if (!database) {
     serviceError = "D1 nie je dostupná. Hodnoty Services V3 sa nenačítali.";
   } else {
     try {
-      const [dynamic, overrides, stored] = await Promise.all([
+      const [dynamic, overrides, stored, resolved] = await Promise.all([
         listAdminCatalogOptions(database),
         listBuiltinCatalogOverrides(database).catch((cause) => {
           if (cause instanceof ServiceCatalogSchemaError) return [];
@@ -60,16 +64,20 @@ async function DirectoryServiceValues({
         }),
         database.prepare("SELECT option_id AS optionId,choice,version FROM service_profile_option_choices WHERE profile_id=?1")
           .bind(profileId).all<{ optionId: string; choice: "yes" | "no"; version: number }>(),
+        loadResolvedServiceDefinitions(database),
       ]);
       serviceEntries = eligibleProfileServiceItems(catalogEditorItems(dynamic, overrides), category);
       serviceChoices = stored.results;
+      resolvedServices = resolved;
     } catch {
       serviceError = "Kanonické hodnoty Services V3 sa nepodarilo načítať. Nič sa automaticky nenastavilo na Nie.";
     }
   }
 
-  return <AdminServiceProfileValues key={profileId} profileId={profileId} entries={serviceEntries}
-    initialChoices={serviceChoices} writeEnabled={writeEnabled && !archived} error={serviceError} />;
+  return <AdminServiceProfileValues key={profileId} profileId={profileId} category={category}
+    entries={serviceEntries} initialChoices={serviceChoices} resolvedServices={resolvedServices}
+    legacyServices={legacyServices} publicProjectionEnabled={bindings.SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED === "true"}
+    writeEnabled={writeEnabled && !archived} error={serviceError} />;
 }
 
 export default async function EditDirectoryProfilePage({ params }: Props) {
@@ -102,7 +110,7 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
     <Suspense fallback={null}><AdminDirectoryNotionSyncStatus profileId={profile.id} /></Suspense>
     {isServiceCategory && <Suspense fallback={<p role="status">Načítavam hodnoty služieb…</p>}>
       <DirectoryServiceValues profileId={profile.id} category={profile.category as ServiceFilterCategory}
-        archived={profile.status === "archived"} />
+        archived={profile.status === "archived"} legacyServices={profile.services} />
     </Suspense>}
     <AdminGeoLocation targetType="DIRECTORY_PROFILE" targetId={profile.id} />
     {profile.status === "draft" && <AdminCanonicalDraftDelete entityType="DIRECTORY" canonicalEntityId={profile.id} returnHref="/admin/adresar" />}
