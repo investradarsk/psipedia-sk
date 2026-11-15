@@ -245,8 +245,9 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
   const descriptionParsed = getHelpLabelledSourceFields(description);
   const contactParsed = getHelpLabelledSourceFields(contactNote);
   const contactSource = (value: string) => descriptionParsed.some(field =>
-    field.rawValue.includes(value)) ? "Podrobný popis"
-      : contactParsed.some(field => field.rawValue.includes(value)) || contactNote.includes(value)
+    field.rawValue === value) ? "Podrobný popis"
+      : contactParsed.some(field => field.rawValue === value) ||
+        contactNote.split(/[;\n]+/u).some(part => part.trim() === value)
         ? "Poznámka pred kontaktovaním" : "Zdrojový text";
   const categoryInfo = getHelpCategory(category);
   const categoryOptions = HELP_ADMIN_CREATE_CATEGORIES.map((slug) => getHelpCategory(slug)).filter((entry): entry is NonNullable<ReturnType<typeof getHelpCategory>> => Boolean(entry));
