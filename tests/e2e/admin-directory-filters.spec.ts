@@ -20,6 +20,24 @@ async function openDirectoryEditorSection(page: Page, label: string) {
 // switches it to compact cards during hydration. Interacting with pagination
 // before that transition finishes clicks stale coordinates after the reflow.
 // Wait for the actual responsive state, not a fixed timeout.
+// The advanced drawer trigger lives inside a native <details> element.
+// Keep E2E in sync with the actual compact editor, not a permanently
+// visible button from the retired layout.
+async function openDirectoryAdvancedSettings(page: Page) {
+  const tools = page.locator("[data-admin-directory-secondary-tools]");
+  const summary = tools.locator("summary");
+  await expect(summary).toBeVisible();
+  if (!(await tools.evaluate((element: HTMLDetailsElement) => element.open))) {
+    await summary.click();
+  }
+  await expect(tools).toHaveAttribute("open", "");
+  const advanced = tools.getByRole("button", { name: "Pokročilé a SEO" });
+  await expect(advanced).toBeVisible();
+  await advanced.click();
+  await expect(page.getByRole("dialog", { name: "Pokročilé nastavenia" })).toBeVisible();
+  return advanced;
+}
+
 async function waitForDirectoryTableLayout(page: Page) {
   const table = page.locator("[data-mobile-focus]").first();
   await expect(table).toBeVisible();
@@ -269,8 +287,7 @@ test.describe("admin directory v2", () => {
     await expect(page.getByText("Trust stav: redakcia preverila základné údaje. Nie je to publication state.")).toBeVisible();
     await expect(page.getByText("Neznamená platené ani sponzorované umiestnenie.")).toBeVisible();
 
-    const advanced = page.getByRole("button", { name: "Pokročilé a SEO" });
-    await advanced.click();
+    const advanced = await openDirectoryAdvancedSettings(page);
     const drawer = page.getByRole("dialog", { name: "Pokročilé nastavenia" });
     await expect(drawer).toBeVisible();
     await expect(drawer.getByLabel("Adresa profilu")).toHaveValue("directory-admin-editor-fixture");
@@ -582,10 +599,9 @@ test.describe("admin directory v2", () => {
       }
     }
     expect(openedEditor).toBe(true);
-    await expect(page.getByRole("button", { name: "Pokročilé a SEO" })).toBeVisible();
     const editorOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(editorOverflow).toBeLessThanOrEqual(1);
-    await page.getByRole("button", { name: "Pokročilé a SEO" }).click();
+    await openDirectoryAdvancedSettings(page);
     const drawerScan = await new AxeBuilder({ page }).include("dialog").analyze();
     expect(drawerScan.violations).toEqual([]);
   });
