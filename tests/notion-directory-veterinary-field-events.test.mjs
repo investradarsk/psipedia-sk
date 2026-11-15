@@ -223,6 +223,7 @@ test("explicit blank Admin and Notion edits clear a single JSON field without to
     exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory,
     serviceFilterCategories: ["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby", "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie", "vencenie", "fyzioterapia", "dalsie-sluzby"],
     isDirectoryPublicMetadataField: field => ["Ordinačné hodiny", "Organizácia", "Zameranie"].includes(field),
+    readDirectoryPublicMetadataValue: (data, key) => String(data?.[key] ?? ""),
     getManagedDirectoryProfileById: async () => profile,
     Date,
   });
