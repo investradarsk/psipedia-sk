@@ -13,7 +13,7 @@ export type BreederRelationSelection = {
   breedIds: number[];
   clubIds: number[];
 };
-export type BreederRelationOption = { id: number; name: string; slug?: string; city?: string };
+export type BreederRelationOption = { id: number; name: string; slug?: string; city?: string; status?: string };
 export type BreederPublicLink = { id: number; name: string; href: string };
 
 function ids(value: unknown): number[] {
@@ -69,10 +69,10 @@ export async function getBreederRelationSelection(
 export async function listBreederRelationOptions(database: Database) {
   const [breeds, clubs] = await database.batch([
     database.prepare(
-      `SELECT id,name,slug FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY name COLLATE NOCASE LIMIT 500`,
+      `SELECT id,name,slug,status FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY name COLLATE NOCASE LIMIT 500`,
     ),
     database.prepare(
-      "SELECT id,name,slug,city FROM directory_profiles WHERE category='chovatelske-kluby' AND status IN ('draft','published') ORDER BY name COLLATE NOCASE LIMIT 1000",
+      "SELECT id,name,slug,city,status FROM directory_profiles WHERE category='chovatelske-kluby' AND status IN ('draft','published') ORDER BY name COLLATE NOCASE LIMIT 1000",
     ),
   ]);
   return {
