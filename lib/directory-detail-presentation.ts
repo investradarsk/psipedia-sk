@@ -130,7 +130,7 @@ const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
   ],
 };
 
-function importedValue(profile: PublicDirectoryProfile, ...keys: string[]) {
+function importedValue(profile: Pick<PublicDirectoryProfile, "importData">, ...keys: string[]) {
   for (const key of keys) {
     const value = profile.importData?.[key];
     if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
