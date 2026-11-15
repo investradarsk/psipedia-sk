@@ -1162,7 +1162,7 @@ export function AdminDirectoryEditor({
               {!isDirectoryEventPilotCategory(category) ? (
                 category === "treneri" && !notionDraft ? (
                   <div className="admin-field">
-                    <label htmlFor="directory-trainer-services-text">Historický text služieb – tréner (Notion)</label>
+                    <label htmlFor="directory-trainer-services-text">Služby – voľný text (Notion)</label>
                     <textarea id="directory-trainer-services-text" rows={7} value={trainerServicesText}
                       onChange={event => { setTrainerServicesText(event.target.value); setFormDirty(true); }}
                       placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} />
@@ -1170,7 +1170,7 @@ export function AdminDirectoryEditor({
                     <small>Historický verejný zoznam uložený v profile: {services || "Bez položiek"}. Môže sa líšiť od textu v Notione; finálne zobrazenie ukazuje náhľad Services V3.</small>
                   </div>
                 ) : (
-                  <div className="admin-field"><label htmlFor="directory-services">Historický text služieb (nie katalóg V3)</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok. Toto pole nemení výber služieb V3 ani Notion relácie.</small></div>
+                  <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie – historický text (nie katalóg V3)</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok. Toto pole nemení výber služieb V3 ani Notion relácie.</small></div>
                 )
               ) : (
                 <div className="admin-field" data-admin-legacy-services-readonly>
