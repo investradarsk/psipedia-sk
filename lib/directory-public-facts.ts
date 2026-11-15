@@ -103,10 +103,15 @@ export function readDirectoryPublicMetadataValue(
   field: string,
 ): string {
   if (!source) return "";
-  for (const key of [field, ...(publicMetadataAliases[field] ?? [])]) {
-    if (!Object.hasOwn(source, key)) continue;
-    const value = source[key];
+  if (Object.hasOwn(source, field)) {
+    const value = source[field];
     return value === null || value === undefined ? "" : String(value).trim();
+  }
+  for (const key of publicMetadataAliases[field] ?? []) {
+    const value = source[key];
+    if (value !== null && value !== undefined && String(value).trim()) {
+      return String(value).trim();
+    }
   }
   return "";
 }
