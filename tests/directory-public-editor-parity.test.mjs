@@ -62,8 +62,8 @@ test("public presentation, editor and guarded Admin save share the same public f
   const route = source("app/api/admin/directory/[id]/route.ts");
   const notion = source("lib/notion-directory-sync.ts");
 
-  assert.match(presentation, /import \{ detailFields, relationFields, readDirectoryPublicMetadataValue \} from/);
-  assert.match(presentation, /importedValue\(profile, "Ordinačné hodiny"\)/);
+  assert.match(presentation, /readDirectoryPublicMetadataValue/);
+  assert.match(presentation, /directoryLegacyOpeningHoursSource\(profile\)/);
   assert.match(presentation, /importedValue\(profile, "Pokrytie"\)/);
   assert.match(editor, /directoryPublicEditorFieldLabels\(category\)\.map\(field => \(/);
   assert.match(editor, /pilotMetadataOriginalValues/);
