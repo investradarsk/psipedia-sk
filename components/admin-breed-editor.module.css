@@ -392,3 +392,8 @@
     overscroll-behavior: contain;
   }
 }
+
+/* Desktop audit: SEO controls have the same width and vertical alignment. */
+.seoFields { display: grid; grid-template-columns: minmax(0, 1fr); gap: .65rem; width: 100%; min-width: 0; }
+.seoFields > :global(.admin-field) { display: grid; align-content: start; gap: .35rem; min-width: 0; width: 100%; }
+.seoFields :global(input), .seoFields :global(textarea) { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; }
