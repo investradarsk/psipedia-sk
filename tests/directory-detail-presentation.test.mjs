@@ -652,10 +652,11 @@ test("Admin provenance uses the exact same legacy facts as the public detail", (
   const { facts } = getDirectoryDetailPresentation(source);
   assert.deepEqual(sources.map(({ label, value }) => ({ label, value })), facts);
   assert.deepEqual(sources.filter(fact => ["Plemeno", "Klub", "Organizácia"].includes(fact.label)), [
-    { label: "Plemeno", value: "Cane Corso", sourceKey: "Plemeno" },
     { label: "Klub", value: "Klub Cane Corso a Dogo Canario", sourceKey: "Klub" },
     { label: "Organizácia", value: "Klubová asociácia", sourceKey: "Zastrešujúca organizácia" },
   ]);
+  assert.equal(sources.some(fact => fact.label === "Plemeno" || fact.label === "Plemená"), false,
+    "Breeder breed is displayed only via canonical linked breed ID");
   assert.equal(sources.some(fact => fact.label === "Aktívny chov"), false);
   assert.equal(sources.some(fact => fact.label === "Údaj mimo verejného detailu"), false);
 });
@@ -681,8 +682,11 @@ test("visible legacy public fact fields are directly editable in their own categ
     importData: { Klub: "Klub Cane Corso", Plemeno: "Cane Corso", "Otváracia doba": "Po–Pi" },
   });
   const breederFields = directoryLegacyEditableFactKeys(breeder);
-  for (const field of ["Klub", "Plemeno", "Plemená", "FCI skupina", "Chovateľ"])
+  for (const field of ["Klub", "FCI skupina", "Chovateľ", "Aktívny chov", "Aktuálne vrhy", "Plánované vrhy"])
     assert.ok(breederFields.includes(field), field);
+  for (const field of ["Plemeno", "Plemená"]) {
+    assert.ok(!breederFields.includes(field), "Breeder uses a canonical relation, not free text: " + field);
+  }
   assert.ok(!breederFields.includes("Otváracia doba"), "hours have their own editor");
   assert.ok(!breederFields.includes("Organizácia"), "organization has its own field");
   assert.ok(!breederFields.includes("Zameranie"), "focus has its own field");
