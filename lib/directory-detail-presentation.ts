@@ -180,16 +180,24 @@ export function getDirectoryQuickFacts(
   addText("Zameranie / kvalifikácie", presentation.qualifications.join(", "));
   if (presentation.websiteUrl)
     addLinks("Web", [{ label: "Oficiálny web", href: presentation.websiteUrl }]);
+  else addText("Web", presentation.websiteText);
   if (presentation.facebookUrl)
     addLinks("Facebook", [{ label: "Facebook", href: presentation.facebookUrl }]);
+  else addText("Facebook", presentation.facebookText);
   if (presentation.instagramUrl)
     addLinks("Instagram", [{ label: "Instagram", href: presentation.instagramUrl }]);
+  else addText("Instagram", presentation.instagramText);
   if (presentation.phone?.href)
     addLinks("Telefón", [{ label: presentation.phone.value, href: presentation.phone.href }]);
-  addLinks(
+  else addText("Telefón", presentation.phone?.value);
+  // Quick facts support either linked or plain text. Mixed/invalid email
+  // lists must be visible instead of silently losing their raw values.
+  if (presentation.emails.some(email => !email.href))
+    addText("E-mail", presentation.emails.map(email => email.value).join("; "));
+  else addLinks(
     "E-mail",
     presentation.emails.filter((email): email is DirectoryDetailEmail & { href: string } => Boolean(email.href))
-    .map((email) => ({ label: email.value, href: email.href })),
+      .map(email => ({ label: email.value, href: email.href })),
   );
   const updatedLabel = formatDirectoryUpdatedAt(presentation.updatedAt);
   if (updatedLabel)
@@ -220,20 +228,19 @@ export function getDirectoryDetailPresentation(
   const publicContacts = readDirectoryPublicContacts(profile.importData, profile.websiteUrl ?? "");
   const phoneValue = usefulDirectoryDetailValue(publicContacts.phone);
   const rawEmail = usefulDirectoryDetailValue(publicContacts.email);
-  // Preserve arbitrary editorial strings on public profiles. Only genuinely
-  // usable values become mailto/tel/web links; invalid text is never lost.
-  const breederText = profile.category === "chovatelske-stanice";
+  // Public profiles show every nonempty editorial contact as ordinary text.
+  // Only valid URLs/emails become clickable; this rule is shared by all ten
+  // directory categories, not only breeder profiles.
   const emails = (rawEmail
     ?.split(/[;,\n]|\s+\/\s+/)
     .map((item) => item.trim())
-    .filter(Boolean) ?? [])
-    .filter((value) => breederText || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
+    .filter(Boolean) ?? []);
   const websiteUrl = publicDirectoryDetailUrl(publicContacts.website);
   const facebookUrl = publicDirectoryDetailUrl(publicContacts.facebook);
   const instagramUrl = publicDirectoryDetailUrl(publicContacts.instagram);
-  const websiteText = breederText ? usefulDirectoryDetailValue(publicContacts.website) : websiteUrl;
-  const facebookText = breederText ? usefulDirectoryDetailValue(publicContacts.facebook) : facebookUrl;
-  const instagramText = breederText ? usefulDirectoryDetailValue(publicContacts.instagram) : instagramUrl;
+  const websiteText = usefulDirectoryDetailValue(publicContacts.website);
+  const facebookText = usefulDirectoryDetailValue(publicContacts.facebook);
+  const instagramText = usefulDirectoryDetailValue(publicContacts.instagram);
   // Textová/redakčná adresa sama osebe nie je dôkazom exact GEO polohy.
   // Navigáciu poskytuje PublicLocationMap iba vtedy, keď existuje aktuálny
   // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
