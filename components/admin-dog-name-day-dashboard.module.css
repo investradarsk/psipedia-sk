@@ -187,3 +187,9 @@
   .rowActions { align-items: stretch; }
   .rowActions :is(button, a) { flex: 1 1 8rem; }
 }
+
+.pagination { display:flex; justify-content:flex-end; align-items:center; gap:.75rem; flex-wrap:wrap; color:var(--admin-ui-muted, #607568); font-size:var(--admin-ui-type-caption, .83rem); }
+.sourceDetails { min-width:0; max-width:100%; }
+.sourceDetails summary { cursor:pointer; overflow-wrap:anywhere; }
+.sourceDetails > div { padding-top:.45rem; white-space:pre-wrap; overflow-wrap:anywhere; }
+.sourceDetails summary:focus-visible { outline:3px solid var(--admin-ui-focus, #a26a1b); outline-offset:2px; }
