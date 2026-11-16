@@ -67,7 +67,10 @@ test("Notion echo for exact previously acknowledged Admin revision never reimpor
 
 test("Only one D1 writer for full form: no implicit field diff and no second clear SQL", () => {
   const admin = readFileSync("app/api/admin/directory/[id]/route.ts", "utf8");
+  const editor = readFileSync("components/admin-directory-editor.tsx", "utf8");
   const notion = readFileSync("lib/notion-directory-sync.ts", "utf8");
+  assert.match(editor, /querySelector<HTMLInputElement>/);
+  assert.match(editor, /\.\.\.submittedContacts,/);
   assert.match(admin, /fullProfileSave && isDirectoryFieldEventCategory\(before\.category\)/);
   assert.match(admin, /if \(editedPaths && !fullProfileSave\)/);
   assert.match(admin, /!fullProfileSave && Array\.isArray\(rawExplicitlyClearedContacts\)/);
