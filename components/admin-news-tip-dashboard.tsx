@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { AdminCommunityPagination, COMMUNITY_PAGE_SIZE } from "@/components/admin-community-pagination";
 import { SearchIcon } from "@/components/icons";
 import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
 import rowStyles from "./admin-inline-card-actions.module.css";
@@ -27,6 +28,7 @@ const statusLabels: Record<NewsTipStatus, string> = { new: "Nový", reviewing: "
 
 export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] }) {
   const [tips, setTips] = useState(initialTips);
+  const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [notes, setNotes] = useState<Record<number, string>>(() => Object.fromEntries(initialTips.map((tip) => [tip.id, tip.internalNote])));
@@ -99,16 +101,16 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
       </section>
       <section className="admin-panel" data-admin-content-module="community-tips">
         <div className="admin-toolbar">
-          <label className="admin-search"><SearchIcon size={19} /><span className="sr-only">Hľadať tip</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Názov, téma, miesto alebo kontakt" /></label>
+          <label className="admin-search"><SearchIcon size={19} /><span className="sr-only">Hľadať tip</span><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Názov, téma, miesto alebo kontakt" /></label>
           <div className="admin-status-filter" aria-label="Filtrovať podľa stavu">
-            <button type="button" className={status === "all" ? "is-active" : ""} onClick={() => setStatus("all")}>Všetky</button>
-            {newsTipStatusOptions.map((option) => <button type="button" className={status === option.value ? "is-active" : ""} onClick={() => setStatus(option.value)} key={option.value}>{option.label}</button>)}
+            <button type="button" className={status === "all" ? "is-active" : ""} onClick={() => { setStatus("all"); setPage(1); }}>Všetky</button>
+            {newsTipStatusOptions.map((option) => <button type="button" className={status === option.value ? "is-active" : ""} onClick={() => { setStatus(option.value); setPage(1); }} key={option.value}>{option.label}</button>)}
           </div>
         </div>
         {message && <p className="admin-flash" role="status">{message}</p>}
         {visible.length ? (
           <div className="admin-tip-list" data-admin-community-list>
-            {visible.map((tip) => (
+            {visible.slice((Math.min(page, Math.max(1, Math.ceil(visible.length / COMMUNITY_PAGE_SIZE))) - 1) * COMMUNITY_PAGE_SIZE, Math.min(page, Math.max(1, Math.ceil(visible.length / COMMUNITY_PAGE_SIZE))) * COMMUNITY_PAGE_SIZE).map((tip) => (
               <article id={`tip-${tip.id}`} className={`admin-tip-card is-${tip.status}`} key={tip.id} data-admin-community-card>
                 <header>
                   <span className="admin-tip-icon" aria-hidden="true">{newsTipTopicIcon(tip.topic)}</span>
@@ -150,7 +152,8 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
               </article>
             ))}
           </div>
-        ) : <div className="admin-empty"><span>💡</span><h2>Žiadne tipy</h2><p>Nové námety od čitateľov sa zobrazia práve tu.</p></div>}
+        ) : <div className="admin-empty"><span>💡</span><h2>{tips.length ? "Žiadne výsledky" : "Zatiaľ bez tipov"}</h2><p>{tips.length ? "Zruš filtre alebo uprav hľadaný výraz." : "Nové námety od čitateľov sa zobrazia práve tu."}</p>{tips.length && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setPage(1); }}>Zrušiť filtre</button>}</div>}
+        <AdminCommunityPagination total={visible.length} page={page} onPageChange={setPage} />
       </section>
     </>
   );
