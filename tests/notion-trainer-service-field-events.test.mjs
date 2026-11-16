@@ -71,7 +71,7 @@ test("trainer free text is separate from Services V3 and persisted without touch
   assert.match(store, /sourceData\[TRAINER_SERVICES_TEXT_METADATA_KEY\] = payload\.trainerServicesText/);
   assert.match(editor, /Služby – voľný text \(Notion\)/);
   assert.match(route, /services: before\.services/);
-  assert.match(route, /trainerServicesText: rawTrainerServicesEdited === true/);
+  assert.match(route, /trainerServicesText: fullProfileSave \|\| rawTrainerServicesEdited === true/);
 });
 
 test("trainer relations use independent storage and can load both name-selected links", async () => {
