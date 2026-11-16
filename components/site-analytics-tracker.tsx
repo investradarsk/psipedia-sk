@@ -6,7 +6,9 @@ import { isSafeSiteAnalyticsPath } from "@/lib/site-analytics-public";
 
 /**
  * The entire first-party sitewide payload is one public pathname.
- * No visitor IDs, cookies, local/session storage, referrers or device metadata.
+ * No visitor IDs, local/session storage, referrers or device metadata are read.
+ * Same-origin browser cookies are sent only so the server can ignore a browser
+ * marked as internal traffic; no cookie values enter analytics storage.
  * Consent choice does not affect this anonymous page counter.
  */
 export function SiteAnalyticsTracker({ enabled = false }: { enabled?: boolean }) {
@@ -26,7 +28,7 @@ export function SiteAnalyticsTracker({ enabled = false }: { enabled?: boolean })
       lastRecordedPath.current = pathname;
       void fetch("/api/analytics/pageview", {
         method: "POST",
-        credentials: "omit",
+        credentials: "same-origin",
         cache: "no-store",
         keepalive: true,
         headers: { "content-type": "application/json" },

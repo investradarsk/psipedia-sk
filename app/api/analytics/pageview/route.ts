@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { isLikelyCrawlerRequest } from "@/lib/profile-view-security";
+import { isInternalTrafficRequest } from "@/lib/internal-traffic";
 import { recordSitePageView } from "@/lib/site-analytics";
 import { isSafeSiteAnalyticsPath } from "@/lib/site-analytics-public";
 
@@ -15,15 +16,16 @@ function fail(error: string, status: number) {
 
 /**
  * Aggregate-only public counter: accepts exactly {"path":"/public-route"}.
- * No IP address, visitor token, cookie, referrer, source or device is read
- * into analytics storage; no individual visitor records exist.
+ * The internal-traffic cookie is inspected only as an exclusion switch.
+ * No IP address, visitor token, cookie value, referrer, source or device is
+ * written to analytics storage; no individual visitor records exist.
  */
 export async function POST(request: Request) {
   const bindings = env as unknown as Bindings;
   if (bindings.SITE_ANALYTICS_ENABLED !== "true") {
     return new Response(null, { status: 204, headers: NO_STORE });
   }
-  if (isLikelyCrawlerRequest(request)) {
+  if (isInternalTrafficRequest(request) || isLikelyCrawlerRequest(request)) {
     return new Response(null, { status: 204, headers: NO_STORE });
   }
 

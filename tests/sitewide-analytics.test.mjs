@@ -195,7 +195,7 @@ test("global view tracker sends only a pathname and never touches browser identi
     "utf8",
   );
   assert.match(tracker, /JSON\.stringify\(\{ path: pathname \}\)/);
-  assert.match(tracker, /credentials: "omit"/);
+  assert.match(tracker, /credentials: "same-origin"/);
   assert.match(tracker, /visibilityState !== "visible"/);
   assert.doesNotMatch(tracker, /localStorage|sessionStorage|document\.cookie|document\.referrer|consent|gtag|randomUUID/);
   const ddl = schema.split("\n").filter((line) => !line.trimStart().startsWith("--")).join("\n");

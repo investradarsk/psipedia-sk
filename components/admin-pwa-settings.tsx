@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./admin-pwa.module.css";
+import { INTERNAL_TRAFFIC_EVENT, INTERNAL_TRAFFIC_STORAGE_KEY } from "@/lib/internal-traffic";
 
 type PushUiState =
   | "loading"
@@ -90,6 +91,13 @@ export function AdminPwaSettings() {
       if (!analyticsResponse.ok) throw new Error("Stav analytiky tohto zariadenia sa nepodarilo načítať.");
       const analyticsState = await analyticsResponse.json() as { excluded?: boolean };
       setAnalyticsExcluded(analyticsState.excluded === true);
+      if (analyticsState.excluded === true) {
+        try {
+          window.localStorage.setItem(INTERNAL_TRAFFIC_STORAGE_KEY, "1");
+        } catch {
+          // The HttpOnly exclusion cookie still protects server-side counts.
+        }
+      }
     } catch (error) {
       setAnalyticsExcluded(null);
       setMessage(error instanceof Error ? error.message : "Stav analytiky tohto zariadenia sa nepodarilo zistiť.");
@@ -181,6 +189,13 @@ export function AdminPwaSettings() {
         throw new Error(body.error ?? "Nastavenie analytiky sa nepodarilo uložiť.");
       }
       setAnalyticsExcluded(excluded);
+      try {
+        if (excluded) window.localStorage.setItem(INTERNAL_TRAFFIC_STORAGE_KEY, "1");
+        else window.localStorage.removeItem(INTERNAL_TRAFFIC_STORAGE_KEY);
+        window.dispatchEvent(new Event(INTERNAL_TRAFFIC_EVENT));
+      } catch {
+        // Server-side D1 exclusion does not depend on localStorage access.
+      }
       window.location.reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Nastavenie analytiky sa nepodarilo uložiť.");
@@ -368,9 +383,10 @@ export function AdminPwaSettings() {
       <section className="admin-panel">
         <h2>Návštevnosť tohto zariadenia</h2>
         <p>
-          Toto nastavenie označí iba tento prehliadač ako interný. Cloudflare Web Analytics ho potom
-          podľa pravidla s cookie <code>{ANALYTICS_EXCLUSION_COOKIE}=1</code> nebude započítavať do
-          návštev, zobrazení stránok ani RUM metrík.
+          Tento prehliadač sa nebude započítavať do vlastných štatistík Psipedia
+          (zobrazenia stránok, článkov a profilov) ani do Google Analytics.
+          Cloudflare Web Analytics môže použiť cookie <code>{ANALYTICS_EXCLUSION_COOKIE}=1</code>
+          na vylúčenie, ak je v Cloudflare nastavené príslušné pravidlo.
         </p>
         <dl className={styles.statusList}>
           <div>
@@ -394,7 +410,8 @@ export function AdminPwaSettings() {
         </div>
         <p className={styles.infoNote}>
           Platí iba pre tento prehliadač. Po vymazaní cookies treba nastavenie zapnúť znova.
-          Po zmene sa stránka automaticky obnoví, aby sa nové pravidlo uplatnilo hneď.
+          Po zmene sa stránka automaticky obnoví. Predchádzajúce zobrazenia nemožno
+          spätne odpočítať, pretože sa neukladá identita jednotlivých návštevníkov.
         </p>
       </section>
 
