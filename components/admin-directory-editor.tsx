@@ -592,6 +592,18 @@ export function AdminDirectoryEditor({
       const trainerTrustEditedPaths = profile && category === profile.category && breederBaseline
         ? changedTrainerTrustAdminFields(breederBaseline, { verified, featured })
         : [];
+      // Read the actual displayed input values at the click, not a possibly
+      // delayed React state snapshot. All five inputs stay mounted when their
+      // section is hidden; the fallback covers isolated editor fixtures.
+      const contactInput = (id: string, fallback: string) =>
+        formRef.current?.querySelector<HTMLInputElement>(`#${id}`)?.value ?? fallback;
+      const submittedContacts = {
+        publicPhone: contactInput("directory-phone", publicPhone),
+        publicEmail: contactInput("directory-public-email", publicEmail),
+        websiteUrl: contactInput("directory-website", websiteUrl),
+        facebookUrl: contactInput("directory-facebook", facebookUrl),
+        instagramUrl: contactInput("directory-instagram", instagramUrl),
+      };
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
@@ -638,8 +650,9 @@ export function AdminDirectoryEditor({
           priceNote,
           // Contacts are raw text; keep a literal blank string so an explicit
           // Web clear has the same edit receipt semantics as the other four.
-          websiteUrl,
-          publicPhone, publicEmail, facebookUrl, instagramUrl,
+          // Exactly the five contact values that are visible on screen now,
+          // including unchanged text and intentional empty strings.
+          ...submittedContacts,
           imageUrl: imageReplacement?.imageUrl ?? imageUrl ?? null,
           imageKey: imageReplacement?.imageKey ?? imageKey ?? null,
           ...(category === "chovatelske-stanice" ? { galleryUrls } : {}),
