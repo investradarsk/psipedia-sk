@@ -569,6 +569,9 @@ export async function PUT(request: Request, { params }: Props) {
             database: notionEnv.DB,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
+            // A native Save mirrors the COMPLETE committed D1 editorial snapshot;
+            // partial editors keep their event-based Notion writeback behavior.
+            fullAdminProfileSave: fullProfileSave,
             // The Admin editor sends its explicit dirty field IDs. Use those
             // rather than re-inferring a change from legacy contact aliases:
             // the canonical D1 value was already committed above.
