@@ -1124,10 +1124,11 @@ export function AdminDirectoryEditor({
             />
             <div className="admin-field-grid" aria-label="Adresa prevádzky">
                 <div className="admin-field">
-                  <label htmlFor="directory-street">Ulica / lokalita</label>
+                  <label htmlFor="directory-street">Uložená ulica / lokalita adresy</label>
                   <input id="directory-street" type="text" value={street}
                     onChange={(event) => { setStreet(event.target.value); setAddressProviderResultId(""); }}
-                    placeholder="Ulica, areál alebo iná lokalita" />
+                    placeholder="Výsledná ulica, areál alebo lokalita" />
+                   <small>Toto je výsledná uložená hodnota adresy. Vyhľadávanie ulice vyššie slúži len na výber návrhu; výsledok môžeš skontrolovať a upraviť tu.</small>
                 </div>
                 <div className="admin-field">
                   <label htmlFor="directory-house-number">Číslo domu <small>nepovinné pri miestach bez prideleného čísla</small></label>
