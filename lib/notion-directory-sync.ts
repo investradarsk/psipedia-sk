@@ -1,4 +1,5 @@
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
+import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
@@ -1847,25 +1848,13 @@ async function syncBreederEvent(input: {
   const allProperties = notionProfileProperties(input.profile, geo, "", now, sourceImageUrl);
   const canonical = profileSnapshot(input.profile, sourceImageUrl) as unknown as Record<string, unknown>;
 
-  const equivalent = (a: string, b: string) => {
-    if (a === b) return true;
-    try {
-      const left = new URL(a); const right = new URL(b);
-      return ["http:", "https:"].includes(left.protocol) && left.href === right.href;
-    } catch { return false; }
-  };
-  const confirmed = (candidate: NotionPage, path: BreederEditorialField): boolean => {
-    const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
-    // An absent remote property is never evidence of an intentional blank.
-    if (candidate.id !== page.id || !Object.hasOwn(candidate.properties ?? {}, key))
-      return false;
-    const raw = breederReadPath(canonical, path);
-    if (path === "seo.noindex")
-      return typeof raw === "boolean" && property(candidate, key)?.checkbox === raw;
-    const expected = Array.isArray(raw) ? raw.join("\n") : typeof raw === "string" ? raw.trim() : "";
-    return equivalent(propertyText(candidate, key), expected);
-  };
-  const mismatches = (candidate: NotionPage) => fields.filter(path => !confirmed(candidate, path));
+  const mismatches = (candidate: NotionPage) =>
+    candidate.id !== page.id ? fields : directoryNotionFullMirrorMismatches({
+      expected: canonical,
+      actual: notionSnapshot(candidate) as unknown as Record<string, unknown>,
+      presentNotionProperties: Object.keys(candidate.properties ?? {}),
+      paths: fields,
+    });
   const ensureUnchangedD1 = async () => {
     const current = await getManagedDirectoryProfileById(input.profile.id, database);
     if (!current || current.updatedAt !== input.profile.updatedAt)
