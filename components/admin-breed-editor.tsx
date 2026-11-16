@@ -413,6 +413,11 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
                 Array.from(event.currentTarget.selectedOptions).map(option=>option.value))}>
               {(field.options??[]).map(option=><option key={option} value={option}>{option}</option>)}
             </select>}
+      {field.type !== "number" && field.type !== "select" && (
+        <small data-breed-multiselect-values>
+          Vybrané hodnoty: {Array.isArray(value) && value.length ? value.join(", ") : "Žiadne"}
+        </small>
+      )}
     </label>;
   };
   return <>
@@ -742,7 +747,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     <AdminDrawer
       open={sportDraft!==null}
       title={sportDraft?.index===null?"Pridať šport":"Upraviť šport"}
-      description="Úprava používa existujúci BreedSport contract: key, label, rating a note."
+      description="Vyber šport a ohodnoť vhodnosť od 1 (málo vhodný) po 5 (veľmi vhodný). Prípadne pridaj poznámku."
       onClose={()=>{setSportDraft(null);setSportError("");}}
       footer={<div className={styles.drawerFooter}><AdminActionButton variant="neutral" onClick={()=>{setSportDraft(null);setSportError("");}}>Zrušiť</AdminActionButton><AdminActionButton variant="primary" data-admin-autofocus="true" onClick={saveSport}>Uložiť šport</AdminActionButton></div>}
     >
