@@ -195,13 +195,13 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
           <div className="admin-event-editor-grid"><div className="admin-event-fields">
       <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
       <AdminEditorSection id="adoption-basics" className="admin-form-card admin-form-card--intro">
-        <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Meno, adresa profilu a lifecycle stav.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Meno, adresa profilu a stav adopcie.</p></div></div></div>
         <div className="admin-field-grid">
           <div className="admin-field"><label htmlFor="adoption-name">Meno *</label><input id="adoption-name" value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => changeName(event.target.value)} required/></div>
           <div className="admin-field"><label htmlFor="adoption-slug">Slug *</label><input id="adoption-slug" value={slug} onChange={(event: ChangeEvent<HTMLInputElement>) => { setSlugEdited(true); setSlug(slugifyAdoptionSlug(event.target.value)); }} required/></div>
-          <div className="admin-field"><label htmlFor="adoption-status">Lifecycle stav *</label><select id="adoption-status" value={status} onChange={(event: ChangeEvent<HTMLSelectElement>) => setStatus(event.target.value as AdoptionStatus)}>{lifecycleOptions.map((value) => <option key={value} value={value}>{adoptionStatusLabels[value]}</option>)}</select></div>
+          <div className="admin-field"><label htmlFor="adoption-status">Stav adopcie *</label><select id="adoption-status" value={status} onChange={(event: ChangeEvent<HTMLSelectElement>) => setStatus(event.target.value as AdoptionStatus)}>{lifecycleOptions.map((value) => <option key={value} value={value}>{adoptionStatusLabels[value]}</option>)}</select></div>
         </div>
-        {publishing && <p className="admin-help">Chýbajúce údaje neblokujú publikovanie; technická identita profilu a validita vyplnených údajov zostávajú kontrolované.</p>}
+        <p className="admin-help">{publishing ? "Profil sa po uložení zobrazí verejne. Pred uložením over aktuálnosť adopcie, kontakty a fotografiu; server skontroluje vyplnené údaje." : "Profil je v tomto stave neverejný. Na verejnom webe sa zobrazí až po výbere verejného stavu adopcie a úspešnom uložení."}</p>
       </AdminEditorSection>
       <AdminAdoptionEditorProfile item={item} breeds={breeds} publishing={publishing} onProgrammaticChange={navigation.markDirty}/>
       <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading || saving} gallery={gallery} onGalleryChange={nextGallery => { navigation.markDirty(); setGallery(nextGallery); }} onGalleryBusyChange={setGalleryUploading} onMainImageChange={replaceMainImage} onUpload={uploadImage} onEditDisplay={() => setImageEditorOpen(true)} onContentChange={navigation.markDirty}/>
