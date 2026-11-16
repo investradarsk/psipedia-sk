@@ -1,3 +1,4 @@
+import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
@@ -1924,13 +1925,24 @@ async function syncBreederEvent(input: {
   const canClearError = directoryEditorialEventMayClearError(
     propertyText(latestMetadata, "Sync chyba"), fields,
   );
-  await patchNotionPage(bindings, page.id, canClearError ? {
+  const confirmedEcho = await patchNotionPage(bindings, page.id, canClearError ? {
     "Sync stav": select("Synchronizované"),
     "Sync chyba": richText(""),
     "Posledný sync": date(now),
   } : {
     "Posledný sync": date(now),
   });
+  // Record the revision of OUR outbound Notion write. Its webhook is an
+  // acknowledgement, not a new user edit; importing it back would create an
+  // Admin -> Notion -> D1 cycle. Later Notion edits have a new revision.
+  if (confirmedEcho.id !== page.id || !confirmedEcho.last_edited_time)
+    throw new Error("DIRECTORY_ADMIN_NOTION_ECHO_REVISION_MISSING");
+  await database.prepare(
+    "UPDATE directory_notion_sync SET notion_last_edited_time = ? " +
+    "WHERE directory_profile_id = ? AND notion_page_id = ? " +
+    "AND (notion_last_edited_time IS NULL OR notion_last_edited_time <= ?)"
+  ).bind(confirmedEcho.last_edited_time, input.profile.id, page.id,
+    confirmedEcho.last_edited_time).run();
   return "pushed";
 }
 
@@ -2320,6 +2332,10 @@ async function syncMappedPage(input: {
     if (propertyText(page, "Psipedia ID") !== String(profile.id)) {
       throw new NotionDirectoryUnsafeTargetError("BREEDER_IDENTITY_MISMATCH");
     }
+    if (isDirectoryAdminWritebackEcho(
+      page.last_edited_time, input.mapping.notion_last_edited_time,
+      input.breederWebhookPropertyIds !== undefined,
+    )) return "unchanged";
     return syncBreederEvent({
       database: input.database, bindings: input.bindings, page, profile,
       changedPropertyIds: input.breederWebhookPropertyIds,

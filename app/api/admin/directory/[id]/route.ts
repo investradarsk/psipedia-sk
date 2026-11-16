@@ -165,17 +165,22 @@ export async function PUT(request: Request, { params }: Props) {
         }, { status: 409, headers: { "cache-control": "no-store" } });
       }
     }
-    // A stale full-form payload must never silently undo a newer Notion edit
-    // to a field the editor did not touch.
+    // One canonical Admin Save is the current, complete form. Dirty-path
+    // hints belong ONLY to backwards-compatible partial editors, not this
+    // full-form action. All ordinary editorial fields are included when
+    // mirroring the confirmed D1 result to Notion.
     let editedPaths: BreederEditorialField[] | null =
-      isDirectoryFieldEventCategory(before.category) && Array.isArray(rawBreederEditedPaths)
+      fullProfileSave && isDirectoryFieldEventCategory(before.category)
+        ? (Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS) as BreederEditorialField[])
+            .filter(path => path !== "services" || !isDirectoryEventPilotCategory(before.category))
+        : isDirectoryFieldEventCategory(before.category) && Array.isArray(rawBreederEditedPaths)
         ? rawBreederEditedPaths.filter(
             (path): path is BreederEditorialField =>
               typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
               !(path === "services" && isDirectoryEventPilotCategory(before.category)),
           )
         : null;
-    if (editedPaths) {
+    if (editedPaths && !fullProfileSave) {
       const recovered = reconcileDirectorySubmittedTextFields({
         current: { excerpt: before.excerpt, description: before.description },
         submitted: submittedBody,
@@ -232,7 +237,7 @@ export async function PUT(request: Request, { params }: Props) {
     // The editor's dirty diff alone is never permission to clear D1. A
     // deletion additionally requires a real input-interaction receipt.
     const explicitlyClearedContacts: ClearableContact[] =
-      Array.isArray(rawExplicitlyClearedContacts) && editedPaths
+      !fullProfileSave && Array.isArray(rawExplicitlyClearedContacts) && editedPaths
         ? [...new Set(rawExplicitlyClearedContacts.filter(
             (field): field is ClearableContact => {
               if (typeof field !== "string" || !Object.hasOwn(contactAliases, field) ||
@@ -287,12 +292,9 @@ export async function PUT(request: Request, { params }: Props) {
     const fieldPreserved = !fullProfileSave && editedPaths
       ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
       : safeSubmittedBody;
-    // Directory editorial contact values are raw text. Never validate, delete
-    // or normalize an entered email, phone, website or social link in this save.
-    // Public renderers decide separately whether a value is a clickable link.
-    // Every other contact MUST come from the live D1 snapshot, not the form
-    // or a legacy column-only projection. An edit to Facebook, for instance,
-    // has no authority to clear phone, email, website or Instagram.
+    // The current full-form text is authoritative, including empty strings.
+    // Only backwards-compatible partial requests borrow untouched contacts
+    // from D1. Public renderers decide whether a saved text is a valid link.
     const liveContactValues = readDirectoryPublicContacts(before.importData, before.websiteUrl ?? "");
     const safeOptionalFields = fullProfileSave
       ? { ...fieldPreserved }
@@ -307,10 +309,9 @@ export async function PUT(request: Request, { params }: Props) {
       },
       editedPaths ?? [],
     );
-    // In full-profile mode, the five visible contacts are authoritative:
-    // normalizing the D1 record removes old aliases, including explicit blanks.
-    // Preserve explicit clears even if a stale whole-form baseline carried
-    // old contact aliases. This is a narrow authenticated field-level override.
+    // Full saves normalize all five contacts in the same D1 UPDATE, including
+    // intentional empty values. Only legacy partial requests need the
+    // separate explicit-clear recovery SQL below.
     for (const field of explicitlyClearedContacts) {
       if (field === "websiteUrl") safeOptionalFields.websiteUrl = null;
       else (safeOptionalFields as Record<string, unknown>)[field] = "";
