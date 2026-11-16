@@ -16,7 +16,8 @@ export const specializedChangeRequestFields: Partial<Record<DirectoryCategorySlu
     "Neurologickí pacienti", "Športové / pracovné psy", "Odborník / certifikácia",
   ],
   "chovatelske-stanice": [
-    "Plemeno", "Plemená", "FCI skupina", "Chovateľ", "Klub", "Aktívny chov", "Aktuálne vrhy",
+    // Canonical breed links are selected by ID, not duplicated in request text.
+    "FCI skupina", "Chovateľ", "Klub", "Aktívny chov", "Aktuálne vrhy",
   ],
   "dalsie-sluzby": [
     "Typ služby", "Pokrytie", "Celoslovenská dostupnosť", "Výjazd ku klientovi", "Hlavné služby",
