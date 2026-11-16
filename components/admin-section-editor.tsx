@@ -222,6 +222,8 @@ export function AdminSectionEditor({
       </div>
 
       {!query.trim() && (
+        <details className={styles.orderDetails}>
+          <summary>Zmeniť poradie hlavných sekcií</summary>
         <AdminSortableOrderPreview
           title="Hlavné sekcie – pracovné poradie"
           description="Potiahni kartu na nové miesto. Rovnaké poradie sa zobrazí na verejnom webe až po kliknutí na Uložiť sekcie."
@@ -235,6 +237,7 @@ export function AdminSectionEditor({
           onReorder={reorderSections}
           disabled={saving}
         />
+        </details>
       )}
 
       <div className={styles.list}>
@@ -246,7 +249,7 @@ export function AdminSectionEditor({
             : articleCounts.available
               ? `${counts?.total ?? 0} spolu · ${counts?.published ?? 0} publikovaných · ${counts?.draft ?? 0} konceptov · ${counts?.scheduled ?? 0} naplánovaných`
               : "Počty článkov nedostupné";
-          const directAdminHref = section.slug === "steniatka" ? "/admin/steniatka" : "/admin";
+          const directAdminHref = section.slug === "steniatka" ? "/admin/steniatka" : `/admin/clanky?section=${encodeURIComponent(section.slug)}`;
 
           return (
             <article className={styles.sectionCard} key={section.slug} id={`portal-section-${section.slug}`} data-admin-editor-section tabIndex={-1} onFocus={(event) => { if (event.target === event.currentTarget) setOpen(section.slug); }}>
