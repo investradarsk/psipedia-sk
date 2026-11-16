@@ -2338,7 +2338,7 @@ export async function listDirectoryInquiries() {
       sender_name, sender_email, sender_phone, dog_info, message, status, consent, created_at, updated_at
     FROM directory_inquiries
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, created_at DESC
-    LIMIT 200
+    -- Admin searches the entire mailbox before client pagination.
   `,
     )
     .all<DirectoryInquiryRow>();
