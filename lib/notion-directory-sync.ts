@@ -1647,6 +1647,8 @@ async function syncBreederEvent(input: {
   profile: ManagedDirectoryProfile;
   changedPropertyIds?: readonly string[];
   adminChangedFields?: readonly BreederEditorialField[];
+  /** Full native Admin save: mirror and verify the complete D1 editorial snapshot. */
+  fullAdminProfileSave?: boolean;
 }): Promise<"pulled" | "pushed" | "unchanged"> {
   const { database, bindings, page } = input;
   const now = new Date().toISOString();
@@ -1866,6 +1868,70 @@ async function syncBreederEvent(input: {
     return equivalent(propertyText(candidate, key), expected);
   };
   const failedFields: BreederEditorialField[] = [];
+  if (input.fullAdminProfileSave) {
+    // Full Admin Save is a single canonical D1 snapshot, not a set of inferred
+    // dirty paths. Notion's page state MUST exactly reflect every mapped field
+    // (including explicitly empty text) before we report "Synchronizované".
+    const unavailable = fields.filter(path =>
+      !Object.hasOwn(page.properties ?? {}, BREEDER_NOTION_EDITORIAL_FIELDS[path]) ||
+      !Object.hasOwn(allProperties, BREEDER_NOTION_EDITORIAL_FIELDS[path]));
+    if (unavailable.length) throw new Error(
+      "DIRECTORY_ADMIN_FULL_NOTION_FIELDS_MISSING: " + unavailable.join(","));
+    const desired: Record<string, unknown> = {};
+    for (const path of fields) {
+      const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+      desired[key] = allProperties[key];
+    }
+    try {
+      // All mapped editable fields travel together; this prevents a phone-only
+      // save from implicitly removing the other four contacts in Notion.
+      await patchNotionPage(bindings, page.id,
+        adaptDirectoryNotionTextProperties(desired, page.properties ?? {}));
+      const persisted = await fetchNotionPage(bindings, page.id);
+      const mismatch = fields.filter(path => !confirmed(persisted, path));
+      if (mismatch.length) throw new Error(
+        "DIRECTORY_ADMIN_FULL_NOTION_MISMATCH: " + mismatch.join(","));
+      const canClearError = directoryEditorialEventMayClearError(
+        propertyText(persisted, "Sync chyba"), fields);
+      // Only a verified full snapshot may advertise successful synchronization.
+      await patchNotionPage(bindings, page.id, canClearError ? {
+        "Sync stav": select("Synchronizované"),
+        "Sync chyba": richText(""),
+        "Posledný sync": date(now),
+      } : {
+        "Posledný sync": date(now),
+      });
+      const finalPage = await fetchNotionPage(bindings, page.id);
+      const finalMismatch = fields.filter(path => !confirmed(finalPage, path));
+      if (finalMismatch.length) throw new Error(
+        "DIRECTORY_ADMIN_FULL_NOTION_POST_STATUS_MISMATCH: " + finalMismatch.join(","));
+      if (finalPage.id !== page.id || !finalPage.last_edited_time)
+        throw new Error("DIRECTORY_ADMIN_FULL_NOTION_REVISION_MISSING");
+      // Preserve existing mapping identity and monotonic Notion revision.
+      await database.prepare(
+        "UPDATE directory_notion_sync SET notion_last_edited_time = ? " +
+        "WHERE directory_profile_id = ? AND notion_page_id = ? " +
+        "AND (notion_last_edited_time IS NULL OR notion_last_edited_time <= ?)"
+      ).bind(finalPage.last_edited_time, input.profile.id, page.id,
+        finalPage.last_edited_time).run();
+      return "pushed";
+    } catch (error) {
+      // A previous green Sync stav may be stale after a failed write. Never
+      // leave that as the current outcome when the full D1 mirror is unverified.
+      try {
+        const message = error instanceof Error ? error.message : "UNVERIFIED";
+        await patchNotionPage(bindings, page.id, {
+          "Sync stav": select("Chyba"),
+          "Sync chyba": richText("DIRECTORY_ADMIN_FULL_WRITE_PENDING: " + message.slice(0, 350)),
+          "Posledný sync": date(now),
+        });
+      } catch {
+        console.error("DIRECTORY_ADMIN_FULL_NOTION_ERROR_MARKER_FAILED", input.profile.id);
+      }
+      throw error;
+    }
+  }
+  // Backwards-compatible partial editor: only its explicitly changed paths.
   // A Contacts-tab save can request all five editorial contacts at once.
   // A single Notion PATCH avoids bursts of five writes and the associated
   // throttling risk. Verify every field's echo; retry individually on failure.
@@ -2224,6 +2290,7 @@ async function syncMappedPage(input: {
   manualDirection?: ManualFieldDirection;
   breederWebhookPropertyIds?: readonly string[];
   breederAdminFields?: readonly BreederEditorialField[];
+  fullAdminProfileSave?: boolean;
 }) {
   if (await notionPageMustSkipInboundSync(input.database,input.mapping.notion_page_id)) return "unchanged" as const;
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
@@ -2335,11 +2402,24 @@ async function syncMappedPage(input: {
     if (isDirectoryAdminWritebackEcho(
       page.last_edited_time, input.mapping.notion_last_edited_time,
       input.breederWebhookPropertyIds !== undefined,
-    )) return "unchanged";
+    )) {
+      // Notion may reuse a timestamp for rapid consecutive changes. An equal
+      // timestamp is NOT proof of our own echo if signed edited values differ
+      // from D1. Process that genuine edit instead of requiring a second try.
+      const paths = breederNotionChangedFields(
+        page.properties, input.breederWebhookPropertyIds ?? []);
+      const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
+      const fromD1 = profileSnapshot(profile) as unknown as Record<string, unknown>;
+      if (paths.length && paths.every(path =>
+        JSON.stringify(breederReadPath(fromNotion, path)) ===
+        JSON.stringify(breederReadPath(fromD1, path))))
+        return "unchanged";
+    }
     return syncBreederEvent({
       database: input.database, bindings: input.bindings, page, profile,
       changedPropertyIds: input.breederWebhookPropertyIds,
       adminChangedFields: input.breederAdminFields,
+      fullAdminProfileSave: input.fullAdminProfileSave,
     });
   }
 
@@ -2862,6 +2942,8 @@ export async function runNotionDirectorySyncSweep(input: {
   changedPropertyIds?: readonly string[];
   /** Actual Admin fields changed in this explicit save action. */
   breederAdminFields?: readonly BreederEditorialField[];
+  /** Native Admin Save mirrors the complete committed D1 profile to Notion. */
+  fullAdminProfileSave?: boolean;
   /** Confirmed one-off direction for an already linked profile. */
   manualDirection?: ManualFieldDirection;
   /** Explicit Services V3 choice save only: also reconcile its Notion relation. */
@@ -2935,6 +3017,7 @@ export async function runNotionDirectorySyncSweep(input: {
         database: input.database, bindings: input.bindings, dataSourceId, mapping,
         manualDirection:input.manualDirection,
         breederAdminFields: input.breederAdminFields,
+        fullAdminProfileSave: input.fullAdminProfileSave,
       });
       if (action === "pulled") summary.pulledFromNotion++;
       else if (action === "pushed") summary.pushedToNotion++;
