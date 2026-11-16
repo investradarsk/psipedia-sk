@@ -48,8 +48,11 @@ test("breeder Admin exposes its own fields without redundant Plemeno/Plemená or
     assert.equal(isDirectoryPublicMetadataField(field), true);
   }
   const editor = source("components/admin-directory-editor.tsx");
+  const detail = source("components/directory-profile-detail.tsx");
   assert.match(editor, /directoryPublicEditorFieldLabels\(category\)\.map\(field => \(/);
   assert.match(editor, /Prepojené plemená a chovateľské kluby/);
+  assert.match(detail, /O chovateľskej stanici/);
+  assert.match(detail, /Chov, odchovy a prepojenia/);
 });
 
 test("a canonical field explicitly cleared in Admin must never revive a legacy import alias", () => {
