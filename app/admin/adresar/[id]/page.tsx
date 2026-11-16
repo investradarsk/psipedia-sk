@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { adminReturnHref } from "@/lib/admin-return-navigation";
 import { Suspense } from "react";
 import { env } from "cloudflare:workers";
 import { notFound } from "next/navigation";
@@ -22,7 +23,7 @@ import { getManagedDirectoryProfileById } from "@/lib/directory-store";
 import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 
 export const dynamic = "force-dynamic";
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string | string[] }> };
 
 async function DirectoryDuplicateWarning({ id }: { id: number }) {
   const warning = await getCanonicalDraftDuplicateWarning("DIRECTORY", id).catch(() => null);
@@ -80,7 +81,8 @@ async function DirectoryServiceValues({
     writeEnabled={writeEnabled && !archived} error={serviceError} />;
 }
 
-export default async function EditDirectoryProfilePage({ params }: Props) {
+export default async function EditDirectoryProfilePage({ params, searchParams }: Props) {
+  const returnHref = adminReturnHref((await searchParams).returnTo, "/admin/adresar");
   const { id: rawId } = await params;
   const id = Number.parseInt(rawId, 10);
   if (!Number.isSafeInteger(id) || id < 1) notFound();
@@ -98,7 +100,7 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
       ? "Archivovaný profil je mimo verejného webu. Obnov ho do konceptu, ak ho chceš znovu upravovať."
       : "Zmeny ulož ako koncept alebo ich rovno publikuj v adresári."}
     actions={<>
-      <Link href="/admin/adresar">← Späť na adresár</Link>
+      <Link href={returnHref}>← Späť na adresár</Link>
       {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
     </>}>
     <AdminGeminiOriginBadge agenda="directory" entityId={profile.id} />
@@ -106,13 +108,13 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
     <Suspense fallback={null}>
       <AdminRecordViewStats entityType="DIRECTORY_PROFILE" entityId={profile.id} />
     </Suspense>
-    <AdminDirectoryEditor profile={profile} />
+    <AdminDirectoryEditor profile={profile} returnHref={returnHref} />
     <Suspense fallback={null}><AdminDirectoryNotionSyncStatus profileId={profile.id} /></Suspense>
     {isServiceCategory && <Suspense fallback={<p role="status">Načítavam hodnoty služieb…</p>}>
       <DirectoryServiceValues profileId={profile.id} category={profile.category as ServiceFilterCategory}
         archived={profile.status === "archived"} legacyServices={profile.services} />
     </Suspense>}
     <AdminGeoLocation targetType="DIRECTORY_PROFILE" targetId={profile.id} />
-    {profile.status === "draft" && <AdminCanonicalDraftDelete entityType="DIRECTORY" canonicalEntityId={profile.id} returnHref="/admin/adresar" />}
+    {profile.status === "draft" && <AdminCanonicalDraftDelete entityType="DIRECTORY" canonicalEntityId={profile.id} returnHref={returnHref} />}
   </AdminShell>;
 }
