@@ -235,7 +235,7 @@
   margin: 0 0 18px;
   color: var(--ps-reading-color);
   font-family: var(--ps-reading-font);
-  font-size: calc(var(--ps-reading-size) * 1.05);
+  font-size: var(--ps-reading-lead-size);
   font-weight: 500;
   line-height: var(--ps-reading-leading);
   overflow-wrap: anywhere;
@@ -753,7 +753,7 @@
 
   .readingShell .standfirst {
     margin-bottom: 14px;
-    font-size: calc(var(--ps-reading-size) * 1.05);
+    font-size: var(--ps-reading-lead-size);
     line-height: var(--ps-reading-leading);
   }
 
