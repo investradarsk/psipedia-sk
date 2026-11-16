@@ -12,6 +12,7 @@ import {
 import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
 import { AdminPagination } from "@/components/admin-pagination";
 import { AdminDirectoryEditorLink } from "@/components/admin-directory-editor-link";
+import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { SearchIcon } from "@/components/icons";
@@ -51,6 +52,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
   const [inline, setInline] = useState<{ id: number; key: string; updatedAt: string; name: string; excerpt: string } | null>(null);
   const [inlineBusy, setInlineBusy] = useState(false);
   const { profiles, counts, resultCount, pagination, options } = data;
+  const listReturnHref = directoryAdminHref(filters).replace("/admin/adresar", basePath);
   const membershipFilter = directoryAdminMembershipFilters(filters);
   const membershipFingerprint = directoryAdminMembershipFingerprint(membershipFilter);
   const pageIds = profiles.map((profile) => profile.id);
@@ -230,7 +232,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                   cell: (profile) => activeInline?.id === profile.id
                     ? <AdminInlineCellInput label={"Názov profilu " + profile.name} value={activeInline.name} maxLength={180}
                         required disabled={inlineBusy} onChange={name => setInline(current => current ? { ...current, name } : null)} />
-                    : <AdminDirectoryEditorLink profileId={profile.id}><strong>{profile.name}</strong></AdminDirectoryEditorLink> },
+                    : <AdminDirectoryEditorLink returnHref={listReturnHref} profileId={profile.id}><strong>{profile.name}</strong></AdminDirectoryEditorLink> },
                 { id: "excerpt", label: "Krátky popis", width: 230, sortValue: (profile) => profile.excerpt || "",
                   cell: (profile) => activeInline?.id === profile.id
                     ? <AdminInlineCellInput label={"Krátky popis " + profile.name} value={activeInline.excerpt} maxLength={700}
@@ -259,7 +261,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                     onSave={() => void saveInline()}
                     onCancel={() => { if (!inlineBusy) setInline(null); }}
                   />}
-                  <AdminDirectoryEditorLink className="admin-row-edit" profileId={profile.id}>Detail</AdminDirectoryEditorLink>
+                  <AdminDirectoryEditorLink className="admin-row-edit" returnHref={listReturnHref} profileId={profile.id}>Detail</AdminDirectoryEditorLink>
                   {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Web ↗</Link>}
                   {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
                 </div> },
