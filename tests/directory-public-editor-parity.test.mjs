@@ -25,7 +25,7 @@ test("all rendered category-specific directory facts are offered by the Admin ed
       assert.ok(fields.includes(field), category + ": missing " + field);
       assert.equal(isDirectoryPublicMetadataField(field), true, category + ": " + field);
     }
-    assert.ok(fields.includes("Pokrytie"), category);
+    assert.equal(fields.includes("Pokrytie"), category !== "chovatelske-stanice", category);
   }
   for (const field of ["Ordinačné hodiny", "Organizácia", "Zameranie", "Alt text obrázka"]) {
     assert.equal(isDirectoryPublicMetadataField(field), true, field);
@@ -33,6 +33,23 @@ test("all rendered category-specific directory facts are offered by the Admin ed
   for (const field of ["source_data_json", "__proto__", "Kvalita skontrolované", "Slug"]) {
     assert.equal(isDirectoryPublicMetadataField(field), false, field);
   }
+});
+
+test("breeder Admin exposes its own fields without redundant Plemeno/Plemená or service coverage", () => {
+  const fields = directoryPublicEditorFieldLabels("chovatelske-stanice");
+  for (const field of ["Plemeno", "Plemená", "Pokrytie"]) {
+    assert.equal(fields.includes(field), false, field);
+  }
+  for (const field of [
+    "FCI skupina", "Chovateľ", "Klub", "Aktívny chov",
+    "Aktuálne vrhy", "Plánované vrhy",
+  ]) {
+    assert.ok(fields.includes(field), "Missing breeder field " + field);
+    assert.equal(isDirectoryPublicMetadataField(field), true);
+  }
+  const editor = source("components/admin-directory-editor.tsx");
+  assert.match(editor, /directoryPublicEditorFieldLabels\(category\)\.map\(field => \(/);
+  assert.match(editor, /Prepojené plemená a chovateľské kluby/);
 });
 
 test("a canonical field explicitly cleared in Admin must never revive a legacy import alias", () => {
