@@ -2453,7 +2453,7 @@ export async function listDirectoryProfileChangeRequests() {
     SELECT ${DIRECTORY_CHANGE_REQUEST_COLUMNS}
     FROM directory_profile_change_requests
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, created_at DESC
-    LIMIT 200
+    -- Admin filters every submitted request before client pagination.
   `,
     )
     .all<DirectoryProfileChangeRequestRow>();
