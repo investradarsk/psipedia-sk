@@ -159,12 +159,13 @@ function QualityResolutionField({
 }
 
 export function AdminDirectoryEditor({
-  profile, notionDraft, onNotionSaved, automationSuggestions = [],
+  profile, notionDraft, onNotionSaved, automationSuggestions = [], returnHref = "/admin/adresar",
 }: {
   profile?: ManagedDirectoryProfile;
   notionDraft?: GeminiDirectoryDraft;
   onNotionSaved?: (keepEditorOpen?: boolean) => void;
   automationSuggestions?: CanonicalUpdateSuggestion[];
+  returnHref?: string;
 }) {
   // Last saved D1 projection; supports one-field saves from a long-open editor.
   const breederSaveBaselineRef = useRef(profile);
@@ -916,7 +917,7 @@ export function AdminDirectoryEditor({
           {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
         </label>
         <AdminFormFeedback message={message} error={error} pending={saving} pendingLabel="Obnovujem…" className="admin-flash" errorClassName="admin-flash--error" />
-        <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status="archived" disabled={saving || uploading || galleryBusy} returnHref="/admin/adresar" />
+        <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status="archived" disabled={saving || uploading || galleryBusy} returnHref={returnHref} />
         <AdminActionButton variant="primary" disabled={saving} onClick={() => void restoreArchivedProfile()}>
           {saving ? "Obnovujem…" : "Obnoviť do konceptu"}
         </AdminActionButton>
@@ -1430,7 +1431,7 @@ export function AdminDirectoryEditor({
       </AdminEditorSectionVisibility.Provider>
       <AdminEditorFooter dirty={formDirty} pending={saving}>
       <div className="admin-editor-actions">
-        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar">← Späť na adresár</Link>}</div>
+        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href={returnHref}>← Späť na adresár</Link>}</div>
         {notionDraft && !notionDraft.psipediaId && !canonicalEditorUrl && (
           <div>
             {!reviewConfirm ? <AdminActionButton variant="secondary" disabled={saving} onClick={() => {
