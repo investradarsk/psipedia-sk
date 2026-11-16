@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { isDirectoryAdminWritebackEcho } from "../lib/directory-notion-echo.ts";
-import { normalizeManagedDirectoryProfileInput } from "../lib/directory-store.ts";
+import { normalizeManagedDirectoryProfileInput, buildManagedDirectoryProfileUpdateStatement } from "../lib/directory-store.ts";
 import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
 
 const categories = [
@@ -79,4 +80,57 @@ test("Only one D1 writer for full form: no implicit field diff and no second cle
   assert.match(admin, /directoryContactValueMismatches\(expectedContactValues/);
   assert.match(notion, /isDirectoryAdminWritebackEcho\(/);
   assert.match(notion, /UPDATE directory_notion_sync SET notion_last_edited_time = \?/);
+});
+
+test("Real SQLite canonical UPDATE: Save all Test, change Facebook only, retain other four, then clear email", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(`CREATE TABLE directory_profiles (
+      id INTEGER PRIMARY KEY, slug TEXT, name TEXT, category TEXT, status TEXT,
+      excerpt TEXT, description TEXT, services_json TEXT, qualifications_json TEXT,
+      city TEXT, district TEXT, region TEXT, address TEXT, postal_code TEXT,
+      street TEXT, house_number TEXT, address_format TEXT,
+      service_address_confirmation TEXT, online INTEGER, price_note TEXT,
+      website_url TEXT, internal_email TEXT, image_url TEXT, image_key TEXT,
+      thumbnail_display_json TEXT, detail_display_json TEXT, source_data_json TEXT,
+      verified INTEGER, featured INTEGER, seo_json TEXT, search_text TEXT,
+      updated_at TEXT, published_at TEXT, archived_at TEXT, updated_by TEXT
+    )`);
+    const d1 = { prepare(sql) {
+      return { bind(...args) { return { async first() { return db.prepare(sql).get(...args) ?? null; } }; } };
+    } };
+    const originalRevision = "2026-11-16T06:00:00.000Z";
+    db.prepare(`INSERT INTO directory_profiles
+      (id,slug,name,category,status,updated_at,source_data_json,website_url,description,service_address_confirmation)
+      VALUES (1817,'chvostikovo','Chvostikovo','hotely-a-opatrovanie','published',?,?,?,?,?)`
+    ).run(originalRevision, JSON.stringify(historical), "stary-web", base.description, "LEGACY_UNCONFIRMED");
+    const read = () => db.prepare("SELECT * FROM directory_profiles WHERE id=1817").get();
+    let row = read();
+    const update = async (form, revision) => {
+      const current = {
+        id: 1817, status: "published", updatedAt: row.updated_at,
+        publishedAt: row.published_at, serviceAddressConfirmation: "LEGACY_UNCONFIRMED",
+        address: row.address || "", imageUrl: row.image_url, imageKey: row.image_key,
+        importData: JSON.parse(row.source_data_json), seo: {},
+      };
+      const saved = await buildManagedDirectoryProfileUpdateStatement(
+        d1, 1817, { ...form, category: "hotely-a-opatrovanie" },
+        "admin@example.invalid", current, revision, { expectedUpdatedAt: row.updated_at },
+      ).first();
+      assert.ok(saved, "D1 update must succeed with matching revision");
+      row = read();
+      return readDirectoryPublicContacts(JSON.parse(row.source_data_json), row.website_url ?? "");
+    };
+
+    let contacts = await update(base, "2026-11-16T06:01:00.000Z");
+    assert.deepEqual(contacts, {phone:"Test",email:"Test",website:"Test",facebook:"Test",instagram:"Test"});
+    contacts = await update({...base, facebookUrl:"Testtesty"}, "2026-11-16T06:02:00.000Z");
+    assert.deepEqual(contacts, {phone:"Test",email:"Test",website:"Test",facebook:"Testtesty",instagram:"Test"});
+    assert.equal(row.description, base.description);
+    assert.equal(JSON.parse(row.source_data_json)["Organizácia"], historical["Organizácia"]);
+    contacts = await update({...base, facebookUrl:"Testtesty", publicEmail:""}, "2026-11-16T06:03:00.000Z");
+    assert.deepEqual(contacts, {phone:"Test",email:"",website:"Test",facebook:"Testtesty",instagram:"Test"});
+  } finally {
+    db.close();
+  }
 });
