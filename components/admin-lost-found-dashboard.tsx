@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
@@ -114,7 +115,7 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
                 ? <AdminInlineCellInput label={"Meno psa v hlásení " + report.id}
                     value={activeInline.dogName} maxLength={120} disabled={busy}
                     onChange={dogName => setInlineDraft(prev => prev ? { ...prev, dogName } : null)} />
-                : <strong><Link href={`/admin/stratene-najdene/${report.id}`}>{report.dogName || report.breed || `Hlásenie #${report.id}`}</Link></strong>}
+                : <strong><Link href={adminDetailHref(`/admin/stratene-najdene/${report.id}`, href(filters, result.page))}>{report.dogName || report.breed || `Hlásenie #${report.id}`}</Link></strong>}
               <small>/{report.slug}</small>
               {report.duplicateOfId && <small>Duplicita hlásenia #{report.duplicateOfId}</small>}
             </div> },
