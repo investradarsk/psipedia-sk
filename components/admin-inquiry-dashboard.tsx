@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { AdminCommunityPagination, COMMUNITY_PAGE_SIZE } from "@/components/admin-community-pagination";
 import { SearchIcon } from "@/components/icons";
 import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
 import rowStyles from "./admin-inline-card-actions.module.css";
@@ -19,6 +20,7 @@ const statusLabels: Record<DirectoryInquiryStatus, string> = { new: "Nový", rea
 export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: DirectoryInquiry[] }) {
   const router = useRouter();
   const [inquiries, setInquiries] = useState(initialInquiries);
+  const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -77,9 +79,9 @@ export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: 
     <>
       <section className="admin-stats" aria-label="Stav dopytov" data-admin-community-metrics><div><span>Všetky dopyty</span><strong>{inquiries.length}</strong></div><div><span>Nové</span><strong>{newCount}</strong></div><div><span>Vybavené</span><strong>{inquiries.filter((item) => item.status === "resolved").length}</strong></div></section>
       <section className="admin-panel" data-admin-content-module="community-inquiries">
-        <div className="admin-toolbar"><label className="admin-search"><SearchIcon size={19} /><span className="sr-only">Hľadať dopyt</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Meno, e-mail, profil alebo správa" /></label><div className="admin-status-filter" aria-label="Filtrovať podľa stavu">{([ ["all", "Všetky"], ["new", "Nové"], ["read", "Prečítané"], ["resolved", "Vybavené"] ] as const).map(([value, label]) => <button type="button" className={status === value ? "is-active" : ""} onClick={() => setStatus(value)} key={value}>{label}</button>)}</div></div>
+        <div className="admin-toolbar"><label className="admin-search"><SearchIcon size={19} /><span className="sr-only">Hľadať dopyt</span><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Meno, e-mail, profil alebo správa" /></label><div className="admin-status-filter" aria-label="Filtrovať podľa stavu">{([ ["all", "Všetky"], ["new", "Nové"], ["read", "Prečítané"], ["resolved", "Vybavené"] ] as const).map(([value, label]) => <button type="button" className={status === value ? "is-active" : ""} onClick={() => { setStatus(value); setPage(1); }} key={value}>{label}</button>)}</div></div>
         {message && <p className="admin-flash" role="status">{message}</p>}
-        {visible.length ? <div className="admin-inquiry-list" data-admin-community-list>{visible.map((inquiry) => <article id={`dopyt-${inquiry.id}`} className={`admin-inquiry-card is-${inquiry.status}`} key={inquiry.id} data-admin-community-card>
+        {visible.length ? <div className="admin-inquiry-list" data-admin-community-list>{visible.slice((Math.min(page, Math.max(1, Math.ceil(visible.length / COMMUNITY_PAGE_SIZE))) - 1) * COMMUNITY_PAGE_SIZE, Math.min(page, Math.max(1, Math.ceil(visible.length / COMMUNITY_PAGE_SIZE))) * COMMUNITY_PAGE_SIZE).map((inquiry) => <article id={`dopyt-${inquiry.id}`} className={`admin-inquiry-card is-${inquiry.status}`} key={inquiry.id} data-admin-community-card>
           <header><div><span className={`admin-inquiry-status is-${inquiry.status}`}>{statusLabels[inquiry.status]}</span><span>{formatDate(inquiry.createdAt)}</span></div><strong>{inquiry.senderName}</strong><p>Dopyt pre <Link href={`/adresar/${inquiry.profileCategory}/${inquiry.profileSlug}`} target="_blank">{inquiry.profileName} ↗</Link> · {directoryCategoryLabel(inquiry.profileCategory)}</p></header>
           <div className="admin-inquiry-body"><div><h3>Správa</h3><p>{inquiry.message}</p>{inquiry.dogInfo && <p className="admin-inquiry-dog"><strong>Pes:</strong> {inquiry.dogInfo}</p>}</div><aside><h3>Kontakt na záujemcu</h3><a href={`mailto:${inquiry.senderEmail}`}>{inquiry.senderEmail}</a>{inquiry.senderPhone && <a href={`tel:${inquiry.senderPhone}`}>{inquiry.senderPhone}</a>}{inquiry.recipientEmail && <><h3 className="admin-inquiry-recipient-heading">Interný kontakt profilu</h3><a href={`mailto:${inquiry.recipientEmail}`}>{inquiry.recipientEmail}</a></>}<small>Potvrdenie informovania: {inquiry.consent ? "áno" : "nie"}</small></aside></div>
           <footer>
@@ -104,7 +106,8 @@ export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: 
             </span>
             <button className="is-danger" type="button" disabled={busyId !== null || Boolean(rowDraft && rowDraft.id === inquiry.id)} onClick={() => void removeInquiry(inquiry)}>Vymazať</button>
           </footer>
-        </article>)}</div> : <div className="admin-empty"><span>✉️</span><h2>Žiadne dopyty</h2><p>Nové správy z profilov sa zobrazia práve tu.</p></div>}
+        </article>)}</div> : <div className="admin-empty"><span>✉️</span><h2>{inquiries.length ? "Žiadne výsledky" : "Zatiaľ bez dopytov"}</h2><p>{inquiries.length ? "Zruš filtre alebo uprav hľadaný výraz." : "Nové správy z profilov sa zobrazia práve tu."}</p>{inquiries.length && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setPage(1); }}>Zrušiť filtre</button>}</div>}
+        <AdminCommunityPagination total={visible.length} page={page} onPageChange={setPage} />
       </section>
     </>
   );
