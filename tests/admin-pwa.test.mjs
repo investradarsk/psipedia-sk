@@ -63,8 +63,8 @@ test("admin settings exclude the current browser from first-party and third-part
   assert.match(settings, /Znovu započítavať toto zariadenie/);
   assert.match(settings, /window\.location\.reload\(\)/);
   assert.match(settings, /INTERNAL_TRAFFIC_STORAGE_KEY/);
-  assert.match(settings, /localStorage\\.setItem\\(INTERNAL_TRAFFIC_STORAGE_KEY, "1"\\)/);
-  assert.match(settings, /localStorage\\.removeItem\\(INTERNAL_TRAFFIC_STORAGE_KEY\\)/);
+  assert.match(settings, /localStorage\.setItem\(INTERNAL_TRAFFIC_STORAGE_KEY, "1"\)/);
+  assert.match(settings, /localStorage\.removeItem\(INTERNAL_TRAFFIC_STORAGE_KEY\)/);
   assert.match(settings, /Predchádzajúce zobrazenia nemožno/);
   assert.match(route, /getAdminApiUser/);
   assert.match(route, /requireAdminMutation/);
