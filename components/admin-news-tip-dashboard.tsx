@@ -152,7 +152,7 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
               </article>
             ))}
           </div>
-        ) : <div className="admin-empty"><span>💡</span><h2>{tips.length ? "Žiadne výsledky" : "Zatiaľ bez tipov"}</h2><p>{tips.length ? "Zruš filtre alebo uprav hľadaný výraz." : "Nové námety od čitateľov sa zobrazia práve tu."}</p>{tips.length && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setPage(1); }}>Zrušiť filtre</button>}</div>}
+        ) : <div className="admin-empty"><span>💡</span><h2>{tips.length ? "Žiadne výsledky" : "Zatiaľ bez tipov"}</h2><p>{tips.length ? "Zruš filtre alebo uprav hľadaný výraz." : "Nové námety od čitateľov sa zobrazia práve tu."}</p>{tips.length > 0 && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setPage(1); }}>Zrušiť filtre</button>}</div>}
         <AdminCommunityPagination total={visible.length} page={page} onPageChange={setPage} />
       </section>
     </>
