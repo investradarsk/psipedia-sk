@@ -106,7 +106,7 @@ export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: 
             </span>
             <button className="is-danger" type="button" disabled={busyId !== null || Boolean(rowDraft && rowDraft.id === inquiry.id)} onClick={() => void removeInquiry(inquiry)}>Vymazať</button>
           </footer>
-        </article>)}</div> : <div className="admin-empty"><span>✉️</span><h2>{inquiries.length ? "Žiadne výsledky" : "Zatiaľ bez dopytov"}</h2><p>{inquiries.length ? "Zruš filtre alebo uprav hľadaný výraz." : "Nové správy z profilov sa zobrazia práve tu."}</p>{inquiries.length && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setPage(1); }}>Zrušiť filtre</button>}</div>}
+        </article>)}</div> : <div className="admin-empty"><span>✉️</span><h2>{inquiries.length ? "Žiadne výsledky" : "Zatiaľ bez dopytov"}</h2><p>{inquiries.length ? "Zruš filtre alebo uprav hľadaný výraz." : "Nové správy z profilov sa zobrazia práve tu."}</p>{inquiries.length > 0 && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setPage(1); }}>Zrušiť filtre</button>}</div>}
         <AdminCommunityPagination total={visible.length} page={page} onPageChange={setPage} />
       </section>
     </>
