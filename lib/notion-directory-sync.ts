@@ -1875,14 +1875,14 @@ async function syncBreederEvent(input: {
     const unavailable = fields.filter(path =>
       !Object.hasOwn(page.properties ?? {}, BREEDER_NOTION_EDITORIAL_FIELDS[path]) ||
       !Object.hasOwn(allProperties, BREEDER_NOTION_EDITORIAL_FIELDS[path]));
-    if (unavailable.length) throw new Error(
-      "DIRECTORY_ADMIN_FULL_NOTION_FIELDS_MISSING: " + unavailable.join(","));
     const desired: Record<string, unknown> = {};
     for (const path of fields) {
       const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
       desired[key] = allProperties[key];
     }
     try {
+      if (unavailable.length) throw new Error(
+        "DIRECTORY_ADMIN_FULL_NOTION_FIELDS_MISSING: " + unavailable.join(","));
       // All mapped editable fields travel together; this prevents a phone-only
       // save from implicitly removing the other four contacts in Notion.
       await patchNotionPage(bindings, page.id,
@@ -2410,7 +2410,18 @@ async function syncMappedPage(input: {
         page.properties, input.breederWebhookPropertyIds ?? []);
       const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
       const fromD1 = profileSnapshot(profile) as unknown as Record<string, unknown>;
-      if (paths.length && paths.every(path =>
+      const editableIds = new Set<string>();
+      for (const path of Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS) as BreederEditorialField[]) {
+        const name = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+        editableIds.add(name);
+        const record = page.properties?.[name] as { id?: unknown } | undefined;
+        if (typeof record?.id === "string") editableIds.add(record.id);
+      }
+      // Non-editorial signed edits (filters, trust, relations) must NEVER be
+      // swallowed merely because an unrelated editorial value is unchanged.
+      const editorialOnly = (input.breederWebhookPropertyIds ?? [])
+        .every(id => editableIds.has(id));
+      if (editorialOnly && paths.length && paths.every(path =>
         JSON.stringify(breederReadPath(fromNotion, path)) ===
         JSON.stringify(breederReadPath(fromD1, path))))
         return "unchanged";
