@@ -107,7 +107,15 @@ test("admin lost-found dashboard is protected by the existing admin layer, pagin
   await expect(page.getByRole("link", { name: /Expirované/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Zamietnuté/ })).toBeVisible();
   await expect(page.getByRole("region", { name: "Zoznam hlásení" })).toHaveAttribute("tabindex", "0");
-  await expect(page.getByRole("table")).toBeVisible();
+  const table = page.getByRole("table", { includeHidden: true });
+  await expect(table).toHaveCount(1);
+  // Empty responsive tables have no visible rows or header on mobile.
+  // Their accessible empty state is rendered independently of the table.
+  if (page.viewportSize()!.width <= 700) {
+    await expect(table).toBeHidden();
+  } else {
+    await expect(table).toBeVisible();
+  }
   await expect(page.getByText("Žiadne hlásenia pre zvolené filtre.")).toBeVisible();
   // The shared record table intentionally omits <thead> in compact mobile
   // mode; desktop retains the accessible actions column header.

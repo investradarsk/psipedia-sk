@@ -1206,10 +1206,11 @@ export function AdminDirectoryEditor({
                 </div>
               </details>
             ) : null}
-            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={9} value={description} onChange={(event) => { setDescription(event.target.value); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} /><AdminLexicalAppendButton onAppend={text=>{ setDescription(current => appendLexicalPlainText(current,text)); setFormDirty(true); }}/></div>
+            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={9} value={description} onChange={(event) => { setDescription(event.target.value); setFormDirty(true); }} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľskú stanicu, jej odchovy a spôsob chovu.\n\nNový odsek začni po prázdnom riadku." : "Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} /><AdminLexicalAppendButton onAppend={text=>{ setDescription(current => appendLexicalPlainText(current,text)); setFormDirty(true); }}/></div>
             <AdminHelpText term="Formát">Perex a Popis sa ukladajú ako obyčajný text, rovnako ako pri Podujatiach. Prázdne riadky zostávajú zachované.</AdminHelpText>
             <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
               {!isDirectoryEventPilotCategory(category) ? (
+                category === "chovatelske-stanice" && !services.trim() ? null :
                 category === "treneri" && !notionDraft ? (
                   <div className="admin-field">
                     <label htmlFor="directory-trainer-services-text">Služby – voľný text (Notion)</label>
@@ -1231,15 +1232,18 @@ export function AdminDirectoryEditor({
               )}
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : category === "fyzioterapia" ? "Odbornosť a skúsenosti" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
-            {profile && !notionDraft ? (
+            {profile && !notionDraft && (category !== "chovatelske-stanice" || services.trim()) ? (
               <p className="admin-field">
                 <a href="#directory-services-v3">Zobraziť katalóg Služby V3 a náhľad skutočne verejného zoznamu</a>
                 <small>Prednosť majú kanonické výbery; historický nerozpoznaný text sa nemaže.</small>
               </p>
             ) : null}
-            <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
+            {(category !== "chovatelske-stanice" || priceNote.trim()) ? (
+              <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
+            ) : null}
             {profile ? (
               <>
+                {(category !== "chovatelske-stanice" || pilotOpeningHours.trim()) ? (
                 <div className="admin-field">
                   <label htmlFor="directory-pilot-hours">Ordinačné / otváracie hodiny</label>
                   <textarea id="directory-pilot-hours" rows={6} value={pilotOpeningHours}
@@ -1247,6 +1251,7 @@ export function AdminDirectoryEditor({
                     placeholder={"Pondelok: 08:00–16:00\nUtorok: 08:00–16:00\nPodľa dohody"} />
                   <small>Verejné hodiny pochádzajú z poľa: {publicHoursSource?.sourceKey ?? "Ordinačné hodiny"}. Úprava sa zapíše do kanonického poľa Ordinačné hodiny; ostatné historické aliasy sa nemenia.</small>
                 </div>
+                ) : null}
                 <div className="admin-field">
                   <label htmlFor="directory-pilot-sources">Zdroje údajov</label>
                   <textarea id="directory-pilot-sources" rows={3} value={pilotDataSources}
