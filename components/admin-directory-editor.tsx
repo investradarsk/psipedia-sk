@@ -147,6 +147,9 @@ function QualityResolutionField({
           <option value={option.value} key={option.value}>{option.label}</option>
         ))}
       </select>
+      {value && <small data-quality-status-full style={{ display: "block", whiteSpace: "normal", overflowWrap: "anywhere" }}>
+        Vybraný stav: {qualityResolutionOptions.find(option => option.value === value)?.label ?? value}
+      </small>}
       <small>
         {value
           ? checkedLabel
