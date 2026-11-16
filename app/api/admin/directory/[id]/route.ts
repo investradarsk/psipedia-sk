@@ -9,6 +9,7 @@ import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelect
 import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, mirrorDirectoryMainImageToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, mirrorDirectoryAdditionalCategoriesToNotion, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
 import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_TRUST_FIELDS, type TrainerTrustField } from "@/lib/notion-trainer-trust-fields";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
+import { syncDirectoryReviewedWithNotion, type DirectoryReviewSyncResult } from "@/lib/directory-notion-reviewed-sync";
 import { parseDirectoryMainImageAction, directoryMainImageMatches } from "@/lib/directory-main-image-action";
 import { cleanupUnreferencedNotionUpload } from "@/lib/notion-sync-shared";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, DIRECTORY_CONTACT_EDITORIAL_PATHS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
@@ -1041,7 +1042,29 @@ export async function PATCH(request: Request, { params }: Props) {
         return Response.json({ error: "Stav kontroly musí byť true alebo false." }, { status: 400 });
       }
       const profile = await setManagedDirectoryProfileReviewed(id, body.reviewed, user.email);
-      return profile ? Response.json({ profile }) : Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+      if (!profile) {
+        return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+      }
+
+      // The D1 edit is canonical and remains committed even if Notion is
+      // temporarily unavailable. The review checkbox does not yet lock sync.
+      let notionReviewSync: DirectoryReviewSyncResult | "pending" = "disabled";
+      const database = (env as unknown as { DB?: D1Database }).DB;
+      if (database) {
+        try {
+          notionReviewSync = await syncDirectoryReviewedWithNotion({
+            database, bindings: env as Parameters<typeof syncDirectoryReviewedWithNotion>[0]["bindings"],
+            profileId: id,
+          });
+        } catch (error) {
+          notionReviewSync = "pending";
+          console.warn("DIRECTORY_REVIEW_NOTION_WRITEBACK_PENDING", id,
+            error instanceof Error ? error.message : String(error));
+        }
+      } else {
+        notionReviewSync = "pending";
+      }
+      return Response.json({ profile, notionReviewSync });
     }
     if (body.action !== "restore") return Response.json({ error: "Nepodporovaná lifecycle akcia." }, { status: 400 });
     const profile = await restoreManagedDirectoryProfile(id, user.email);
