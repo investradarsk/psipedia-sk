@@ -12,6 +12,7 @@ import {
   usefulDirectoryDetailValue,
 } from "../lib/directory-detail-presentation.ts";
 import { buildDirectoryProfileJsonLd } from "../lib/directory-profile-schema.ts";
+import { DIRECTORY_FIELD_EVENT_CATEGORIES } from "../lib/notion-directory-field-event-scope.ts";
 
 function profile(overrides = {}) {
   return {
@@ -55,12 +56,76 @@ test("legacy contact aliases are normalized into presentation-only contacts", ()
   assert.deepEqual(presentation.phone, { value: "+421 900 123 456", href: "tel:+421900123456" });
   assert.deepEqual(presentation.emails, [
     { value: "prvy@example.org", href: "mailto:prvy@example.org" },
+    { value: "neplatny", href: null },
     { value: "druhy@example.org", href: "mailto:druhy@example.org" },
   ]);
   assert.equal(presentation.websiteUrl, "https://example.org/");
   assert.equal(presentation.facebookUrl, null);
   assert.equal(presentation.instagramUrl, "https://instagram.com/example");
   assert.equal(presentation.verified, true);
+});
+
+test("public directory shows all five plain-text contacts in every one of ten categories", () => {
+  assert.equal(DIRECTORY_FIELD_EVENT_CATEGORIES.length, 10);
+  for (const category of DIRECTORY_FIELD_EVENT_CATEGORIES) {
+    const presentation = getDirectoryDetailPresentation(profile({
+      category,
+      websiteUrl: "Test",
+      importData: {
+        "Telefón": "Test",
+        "E-mail": "Test",
+        Web: "Test",
+        Facebook: "Test",
+        Instagram: "Test",
+      },
+    }));
+    assert.deepEqual(presentation.phone, { value: "Test", href: null }, category);
+    assert.deepEqual(presentation.emails, [{ value: "Test", href: null }], category);
+    assert.equal(presentation.websiteText, "Test", category);
+    assert.equal(presentation.facebookText, "Test", category);
+    assert.equal(presentation.instagramText, "Test", category);
+    assert.equal(presentation.websiteUrl, null, category);
+    assert.equal(presentation.facebookUrl, null, category);
+    assert.equal(presentation.instagramUrl, null, category);
+
+    const quickFacts = getDirectoryQuickFacts(presentation, "Testovací profil");
+    const byLabel = Object.fromEntries(quickFacts.map(item => [item.label, item]));
+    for (const label of ["Telefón", "E-mail", "Web", "Facebook", "Instagram"]) {
+      assert.equal(byLabel[label]?.value, "Test", category + ": " + label);
+      assert.equal(byLabel[label]?.links, undefined, category + ": " + label);
+    }
+  }
+  // The detail component must use plain text rather than an anchor for
+  // unrecognized values. React text content is escaped by the renderer.
+  const component = fs.readFileSync(
+    new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
+  for (const name of ["websiteText", "facebookText", "instagramText"])
+    assert.ok(component.includes(`: presentation.${name}`), name);
+});
+
+test("valid public contacts remain clickable; mixed e-mails are still all shown", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    importData: {
+      "Telefón": "+421 900 123 456",
+      "E-mail": "info@example.org; iba-text",
+      Web: "example.org",
+      Facebook: "https://facebook.com/example",
+      Instagram: "https://instagram.com/example",
+    },
+  }));
+  assert.equal(presentation.phone.href, "tel:+421900123456");
+  assert.deepEqual(presentation.emails, [
+    { value: "info@example.org", href: "mailto:info@example.org" },
+    { value: "iba-text", href: null },
+  ]);
+  assert.equal(presentation.websiteUrl, "https://example.org/");
+  assert.equal(presentation.facebookUrl, "https://facebook.com/example");
+  assert.equal(presentation.instagramUrl, "https://instagram.com/example");
+  const quickFacts = getDirectoryQuickFacts(presentation, "Testovací profil");
+  assert.equal(quickFacts.find(fact => fact.label === "E-mail").value,
+    "info@example.org; iba-text");
+  assert.equal(quickFacts.find(fact => fact.label === "Web").links[0].href,
+    "https://example.org/");
 });
 
 test("free-form breeder contacts survive public rendering but never create unsafe links", () => {
