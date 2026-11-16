@@ -2,7 +2,7 @@ import { directoryQualificationSections } from "./directory-public-copy.ts";
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
-import { detailFields, relationFields, directoryPublicEditorFieldLabels, directoryPublicFactLabels, isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue, readDirectoryPublicMetadataSource } from "./directory-public-facts";
+import { detailFields, relationFields, directoryPublicEditorFieldLabels, directoryPublicFactLabels, isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue, readDirectoryPublicMetadataSource } from "./directory-public-facts.ts";
 import { publicLocationValue } from "./public-location.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
