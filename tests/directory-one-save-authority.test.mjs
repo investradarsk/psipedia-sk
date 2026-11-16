@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { isDirectoryAdminWritebackEcho } from "../lib/directory-notion-echo.ts";
+import { BREEDER_NOTION_EDITORIAL_FIELDS, breederApplyNotionChanges, breederNotionChangedFields } from "../lib/notion-breeder-field-events.ts";
 import { normalizeManagedDirectoryProfileInput, buildManagedDirectoryProfileUpdateStatement } from "../lib/directory-store.ts";
 import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
 
@@ -133,4 +134,60 @@ test("Real SQLite canonical UPDATE: Save all Test, change Facebook only, retain 
   } finally {
     db.close();
   }
+});
+
+test("Native full Admin save mirrors ALL mapped editorial D1 fields to Notion with final read-back", () => {
+  const admin = readFileSync("app/api/admin/directory/[id]/route.ts", "utf8");
+  const sync = readFileSync("lib/notion-directory-sync.ts", "utf8");
+  assert.match(admin, /fullAdminProfileSave: fullProfileSave/);
+  assert.match(sync, /fullAdminProfileSave: input\.fullAdminProfileSave/);
+  assert.match(sync, /if \(input\.fullAdminProfileSave\) \{/);
+  const start = sync.indexOf("if (input.fullAdminProfileSave) {");
+  const end = sync.indexOf("// Backwards-compatible partial editor:", start);
+  const mirror = sync.slice(start, end);
+  assert.ok(start > 0 && end > start, "full Admin snapshot branch exists");
+  for (const name of ["Web", "Telefón", "E-mail", "Facebook", "Instagram"]) {
+    assert.ok(Object.values(BREEDER_NOTION_EDITORIAL_FIELDS).includes(name), name);
+  }
+  assert.match(mirror, /desired\[key\] = allProperties\[key\]/);
+  assert.match(mirror, /adaptDirectoryNotionTextProperties\(desired, page\.properties \?\? \{\}\)/);
+  assert.match(mirror, /await fetchNotionPage\(bindings, page\.id\)/);
+  assert.match(mirror, /fields\.filter\(path => !confirmed\(persisted, path\)\)/);
+  assert.match(mirror, /fields\.filter\(path => !confirmed\(finalPage, path\)\)/);
+  assert.match(mirror, /"Sync stav": select\("Chyba"\)/);
+  assert.match(mirror, /"Sync stav": select\("Synchronizované"\)/);
+  assert.match(mirror, /throw error/);
+  assert.match(mirror, /return "pushed"/);
+});
+
+test("One explicit Notion field edit changes ONLY that D1 value, never other contacts", () => {
+  const existing = {
+    name: "Pazúrikovo", description: "Original", websiteUrl: "Test",
+    publicPhone: "Test", publicEmail: "Test",
+    facebookUrl: "Test", instagramUrl: "Test",
+    seo: { title: "Nadpis" },
+  };
+  const notion = {
+    ...existing, publicPhone: "Test123", websiteUrl: "",
+    publicEmail: "", facebookUrl: "", instagramUrl: "",
+    description: "", seo: { title: "" },
+  };
+  const props = {
+    "Telefón": { id: "phone-property" },
+    "E-mail": { id: "email-property" },
+    "Web": { id: "web-property" },
+  };
+  const paths = breederNotionChangedFields(props, ["phone-property"]);
+  assert.deepEqual(paths, ["publicPhone"]);
+  const updated = breederApplyNotionChanges(existing, notion, paths);
+  assert.deepEqual(updated, { ...existing, publicPhone: "Test123" });
+});
+
+test("A real Notion value change must be processed even if an echo timestamp is reused", () => {
+  const sync = readFileSync("lib/notion-directory-sync.ts", "utf8");
+  assert.match(sync, /const fromNotion = notionSnapshot\(page\)/);
+  assert.match(sync, /const fromD1 = profileSnapshot\(profile\)/);
+  assert.match(sync, /const editorialOnly =/);
+  assert.match(sync, /if \(editorialOnly && paths\.length && paths\.every\(path =>/);
+  assert.match(sync, /JSON\.stringify\(breederReadPath\(fromNotion, path\)\) ===/);
 });
