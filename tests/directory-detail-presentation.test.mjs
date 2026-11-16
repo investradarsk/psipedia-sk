@@ -264,6 +264,31 @@ test("description and URL fallback preserve behavior while text-only address doe
   assert.equal(publicDirectoryDetailUrl("example.sk/kontakt"), "https://example.sk/kontakt");
 });
 
+test("breeder public facts keep real breeder metadata but never duplicate canonical breed links", () => {
+  const p = getDirectoryDetailPresentation(profile({
+    category: "chovatelske-stanice",
+    importData: {
+      Plemeno: "Starý text plemena", "Plemená": "Ďalší text plemena",
+      "FCI skupina": "10 – Chrty",
+      Chovateľ: "Peter Mikle",
+      Klub: "Klub chovateľov chrtov",
+      "Aktívny chov": "Vrh 2026 doložený",
+      "Aktuálne vrhy": "Vrh E – dostupnosť nepotvrdená",
+      "Plánované vrhy": "Nie je potvrdené",
+      Pokrytie: "Nitra a okolie",
+    },
+  }));
+  const factMap = Object.fromEntries(p.facts.map(fact => [fact.label, fact.value]));
+  assert.equal(factMap.Chovateľ, "Peter Mikle");
+  assert.equal(factMap["FCI skupina"], "10 – Chrty");
+  assert.equal(factMap.Klub, "Klub chovateľov chrtov");
+  assert.equal(factMap["Aktívny chov"], "Vrh 2026 doložený");
+  assert.equal(factMap["Aktuálne vrhy"], "Vrh E – dostupnosť nepotvrdená");
+  assert.equal(factMap["Plánované vrhy"], "Nie je potvrdené");
+  for (const field of ["Plemeno", "Plemená"])
+    assert.equal(factMap[field], undefined, "Only clickable breed relation should show");
+});
+
 test("existing breed and organization relations are exposed without synthetic values", () => {
   const presentation = getDirectoryDetailPresentation(
     profile({
