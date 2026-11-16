@@ -103,6 +103,11 @@ export function DirectoryCategoryFilterFields({
                   </option>
                 ))}
               </PublicSelect>
+              {category === "veterinari" && field.id === "veterinari.emergency" && (
+                <small data-emergency-filter-authority>
+                  Tento údaj rozhoduje o verejnom kategóriovom filtri Pohotovosť. Ukladá sa do samostatného kľúča D1; nemení historický text detailu ani vlastnosť Služby V3. Áno neznamená automaticky 24/7.
+                </small>
+              )}
               <small
                 className={
                   field.status === "invalid" || field.status === "conflict"
