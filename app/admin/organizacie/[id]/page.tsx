@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { adminReturnHref } from "@/lib/admin-return-navigation";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { AdminOrganizationEditor } from "@/components/admin-organization-editor";
@@ -21,7 +22,7 @@ import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 import { listCanonicalAutomationUpdateSuggestions } from "@/lib/data-automation-update-review";
 
 export const dynamic = "force-dynamic";
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string | string[] }> };
 
 /** A failed review lookup must not mark a record as unchecked. */
 async function OrganizationReviewAction({ organizationId }: { organizationId: number }) {
@@ -58,7 +59,8 @@ function organizationSuggestions(organizationId: number): Promise<OrganizationSu
     .catch(() => ({ suggestions: [], failed: true }));
 }
 
-export default async function OrganizationAdminDetailPage({ params }: Props) {
+export default async function OrganizationAdminDetailPage({ params, searchParams }: Props) {
+  const returnHref = adminReturnHref((await searchParams).returnTo, "/admin/organizacie");
   const { id } = await params;
   // Reject hexadecimal, decimals and accidental numeric coercions.
   // An invalid/missing Admin ID is a real 404, never a SQL crash.
@@ -94,17 +96,17 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
         <OrganizationReviewAction organizationId={organization.id} />
       </Suspense>
       {organization.status === "PUBLISHED" && organization.slug && <Link href={"/organizacie/" + organization.slug} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
-      <Link href="/admin/organizacie">← Späť na organizácie</Link>
+      <Link href={returnHref}>← Späť na organizácie</Link>
     </>}>
     <AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} />
     <Suspense fallback={null}><OrganizationDuplicateWarning organizationId={organization.id} /></Suspense>
     <AdminOrganizationEditor organization={organization} initialLocations={locations}
-      automationSuggestionsPromise={suggestionsPromise} />
+      automationSuggestionsPromise={suggestionsPromise} returnHref={returnHref} />
     <div id="fundraising">
       <Suspense fallback={<p role="status" className="admin-panel">Načítavam fundraising…</p>}>
         <OrganizationFundraisingPanel organization={organization} />
       </Suspense>
     </div>
-    {organization.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ORGANIZATION" canonicalEntityId={organization.id} returnHref="/admin/organizacie" />}
+    {organization.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ORGANIZATION" canonicalEntityId={organization.id} returnHref={returnHref} />}
   </AdminShell>;
 }
