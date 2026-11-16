@@ -2,7 +2,7 @@ import { directoryQualificationSections } from "./directory-public-copy.ts";
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
-import { detailFields, relationFields, directoryPublicEditorFieldLabels, isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue, readDirectoryPublicMetadataSource } from "./directory-public-facts";
+import { detailFields, relationFields, directoryPublicEditorFieldLabels, directoryPublicFactLabels, isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue, readDirectoryPublicMetadataSource } from "./directory-public-facts";
 import { publicLocationValue } from "./public-location.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
@@ -123,7 +123,7 @@ export function directoryLegacyPublicFactSources(
 ): Array<DirectoryDetailFact & { sourceKey: string }> {
   const legacyFactLabels = profile.category === "fyzioterapia"
     ? []
-    : [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
+    : directoryPublicFactLabels(profile.category);
   const factLabels = legacyFactLabels.filter(label =>
     !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
   const facts = factLabels.flatMap(label => {
