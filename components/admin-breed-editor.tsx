@@ -723,8 +723,10 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           <label className="admin-field"><span>URL profil / slug</span><input readOnly={Boolean(breed)} value={form.slug} onChange={e=>change("slug",slugify(e.target.value))}/></label>
           <div className="admin-field"><span>Psipedia ID</span><div className={styles.readonlyValue}>{breed?.id??"Pridelí sa po uložení"}</div></div>
         </div>
-        <label className="admin-field"><span>SEO title</span><input value={form.seo.title??""} onChange={e=>change("seo",{...form.seo,title:e.target.value})}/></label>
-        <label className="admin-field"><span>Meta description</span><textarea rows={3} value={form.seo.description??""} onChange={e=>change("seo",{...form.seo,description:e.target.value})}/></label>
+        <div className={styles.seoFields}>
+          <label className="admin-field"><span>SEO titulok</span><input value={form.seo.title??""} onChange={e=>change("seo",{...form.seo,title:e.target.value})}/></label>
+          <label className="admin-field"><span>Meta popis</span><textarea rows={3} value={form.seo.description??""} onChange={e=>change("seo",{...form.seo,description:e.target.value})}/></label>
+        </div>
         <AdminHelpText>{form.status === "published"
           ? "Tlačidlo Uložiť zmeny uloží upravené údaje publikovaného profilu. Import z Notionu a stiahnutie z publikovania nájdeš v ponuke Ďalšie akcie."
           : "Uložiť koncept ponechá profil nezverejnený. Publikovať profil uloží zmeny a nastaví jeho verejný stav. Import z Notionu je v ponuke Ďalšie akcie."}</AdminHelpText>
