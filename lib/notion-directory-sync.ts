@@ -1,4 +1,5 @@
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
+import { syncDirectoryReviewedWithNotion } from "./directory-notion-reviewed-sync";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
@@ -542,6 +543,8 @@ function notionProfileProperties(
     "Kvalita · Obrázok": select(qualityStatusToNotion(snapshot.qualityResolutions.image)),
     "Kvalita · Adresa": select(qualityStatusToNotion(snapshot.qualityResolutions.address)),
     "Kvalita skontrolované": date(snapshot.qualityCheckedAt),
+    // On CREATE only; existing-page review edits use the isolated CAS mirror.
+    "Odkontrolované": checkbox(Boolean(profile.reviewed)),
     "Overené": checkbox(snapshot.verified),
     "Odporúčané": checkbox(snapshot.featured),
     "SEO title": richText(snapshot.seo.title),
@@ -730,7 +733,11 @@ async function writeProfileToNotion(input: {
   const hash = await snapshotHash(profileSnapshot(input.profile, sourceImageUrl));
   const geo = await loadGeoMirror(input.database, input.profile.id);
   const properties = notionProfileProperties(input.profile, geo ?? null, hash, syncedAt, sourceImageUrl);
-  if (input.pageId) delete (properties as Partial<typeof properties>)["Vytvoril"];
+  if (input.pageId) {
+    delete (properties as Partial<typeof properties>)["Vytvoril"];
+    // Never overwrite a Notion review edit as a side effect of saving prose.
+    delete (properties as Partial<typeof properties>)["Odkontrolované"];
+  }
   let page: NotionPage;
   if (input.pageId) {
     const current = await fetchNotionPage(input.bindings, input.pageId);
@@ -2954,6 +2961,19 @@ export async function runNotionDirectorySyncSweep(input: {
     const mapping = await loadMappingByProfile(input.database, input.targetProfileId);
     if (!mapping) return summary;
     try {
+      const reviewed = await syncDirectoryReviewedWithNotion({
+        database: input.database, bindings: input.bindings,
+        profileId: input.targetProfileId,
+      });
+      if (reviewed === "pulled") summary.pulledFromNotion++;
+      if (reviewed === "pushed") summary.pushedToNotion++;
+    } catch (error) {
+      // The new checkbox must never prevent unrelated editorial sync.
+      summary.failed++;
+      console.warn("DIRECTORY_REVIEW_NOTION_TARGET_SYNC_FAILED", input.targetProfileId,
+        error instanceof Error ? error.message : String(error));
+    }
+    try {
       const action = await syncMappedPage({
         database: input.database, bindings: input.bindings, dataSourceId, mapping,
         manualDirection:input.manualDirection,
@@ -3055,6 +3075,18 @@ export async function runNotionDirectorySyncSweep(input: {
       const mapped = await loadMappingByPage(input.database, candidate.id);
       if (mapped && propertyText(candidate, "Psipedia ID") === String(mapped.directory_profile_id)) {
         try {
+          try {
+            const reviewed = await syncDirectoryReviewedWithNotion({
+              database: input.database, bindings: input.bindings,
+              profileId: mapped.directory_profile_id, page: candidate,
+            });
+            if (reviewed === "pulled") summary.pulledFromNotion++;
+            if (reviewed === "pushed") summary.pushedToNotion++;
+          } catch (error) {
+            summary.failed++;
+            console.warn("DIRECTORY_REVIEW_NOTION_EVENT_SYNC_FAILED", mapped.directory_profile_id,
+              error instanceof Error ? error.message : String(error));
+          }
           const current=await getManagedDirectoryProfileById(mapped.directory_profile_id,input.database);
           if(current&&await recoverEqualLegacyDirectoryBaseline({
             database:input.database,bindings:input.bindings,dataSourceId,
@@ -3225,11 +3257,37 @@ export async function runNotionDirectorySyncSweep(input: {
       }
 
       if (!mapping) continue;
+      if (propertyText(page, "Psipedia ID") === String(mapping.directory_profile_id)) {
+        try {
+          const reviewed = await syncDirectoryReviewedWithNotion({
+            database: input.database, bindings: input.bindings,
+            profileId: mapping.directory_profile_id, page,
+          });
+          if (reviewed === "pulled") summary.pulledFromNotion++;
+          if (reviewed === "pushed") summary.pushedToNotion++;
+        } catch (error) {
+          // Do not block other per-field events when review needs retry.
+          summary.failed++;
+          console.warn("DIRECTORY_REVIEW_NOTION_PAGE_SYNC_FAILED", mapping.directory_profile_id,
+            error instanceof Error ? error.message : String(error));
+        }
+      }
       // Trust booleans and Services V3 relations are independent field events
       // for ALL directory categories. A change to either must not trigger a
       // legacy whole-profile merge, which can overwrite unrelated Admin data.
       const relationProp = page.properties?.["Služby z katalógu"] as { id?: unknown } | undefined;
       const changedIds = input.changedPropertyIds ?? [];
+      const reviewProperty = property(page, "Odkontrolované");
+      const onlyReviewed = changedIds.length > 0 && changedIds.every((id) =>
+        id === "Odkontrolované" || id === reviewProperty?.id ||
+        ["Sync stav", "Sync chyba", "Posledný sync", "Sync hash"].some((key) =>
+          id === key || id === property(page, key)?.id));
+      if (onlyReviewed) {
+        // Signed review-only webhook: do not trigger the older whole-record
+        // field or hash synchronizer, which could touch unrelated content.
+        summary.unchanged++;
+        continue;
+      }
       const additionalChanged = additionalCategoriesEvent(page, changedIds);
       let categorySaved = false;
       if (additionalChanged) {
