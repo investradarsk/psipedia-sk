@@ -61,6 +61,16 @@ test("Missing Notion property never counts as confirmed empty string", () => {
     present.filter(name => name !== "E-mail")), ["publicEmail"]);
 });
 
+test("Outbound verification preserves raw list text even when inbound parsing would split it", () => {
+  const d1 = snapshot();
+  d1.qualifications = ["Odborná prax, výcvik"];
+  const notion = structuredClone(d1);
+  notion.qualifications = "Odborná prax, výcvik";
+  assert.deepEqual(mismatch(d1, notion), []);
+  notion.qualifications = "Odborná prax";
+  assert.deepEqual(mismatch(d1, notion), ["qualifications"]);
+});
+
 test("One Notion field failing does not suppress independently valid values", () => {
   const d1 = snapshot();
   const notion = { ...snapshot(), facebookUrl: "Old" };
@@ -86,6 +96,8 @@ test("Full D1 -> Notion transfer always uses one PATCH plus full fresh GET verif
   assert.match(sync, /adaptDirectoryNotionTextProperties\(desired, page\.properties \?\? \{\}\)/);
   assert.match(sync, /let fresh = await fetchNotionPage\(bindings, page\.id\)/);
   assert.match(sync, /directoryNotionFullMirrorMismatches\(/);
+  assert.match(sync, /const actual: Record<string, unknown> = \{ seo: \{\} \}/);
+  assert.doesNotMatch(sync, /actual: notionSnapshot\(candidate\)/);
   assert.match(sync, /const finalPage = await fetchNotionPage\(bindings, page\.id\)/);
   assert.match(sync, /DIRECTORY_ADMIN_TO_NOTION_FULL_PARITY_FAILED/);
   assert.match(sync, /DIRECTORY_ADMIN_TO_NOTION_POST_STATUS_PARITY_FAILED/);
