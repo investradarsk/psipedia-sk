@@ -260,9 +260,9 @@ export function getDirectoryDetailPresentation(
         facts: veterinaryFacts,
       }
     : null;
-  const coverage = usefulDirectoryDetailValue(
-    importedValue(profile, "Pokrytie"),
-  );
+  const coverage = profile.category === "chovatelske-stanice"
+    ? null // Local breeder homes do not advertise a service coverage area.
+    : usefulDirectoryDetailValue(importedValue(profile, "Pokrytie"));
   // Do not turn a short-only profile into a duplicate long description.
   const description = profile.description?.trim() || null;
 
