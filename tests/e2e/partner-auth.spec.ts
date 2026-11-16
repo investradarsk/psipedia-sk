@@ -738,7 +738,7 @@ test("ownership-sensitive self-approval is blocked by the backend for direct adm
   expect(claimJson.error).toContain("Vlastnú žiadosť s pridelením oprávnenia na správu musí schváliť iný administrátor.");
 
   await page.goto("/admin/partners/claims/partner-e2e-self-claim");
-  await expect(page.getByText(/PENDING · DIRECTORY_PROFILE/)).toBeVisible();
+  await expect(page.getByText("Čaká na posúdenie · Profil služby", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Schváliť" })).toBeVisible();
   await expect(page.getByText("CLAIM_APPROVED", { exact: true })).toHaveCount(0);
 
