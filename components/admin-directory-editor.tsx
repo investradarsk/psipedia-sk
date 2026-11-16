@@ -722,7 +722,7 @@ export function AdminDirectoryEditor({
       // the persisted public URL. A stale source_data_json alias can otherwise
       // produce a false failure even while the public profile shows the new URL.
       const unconfirmedWebsite = Boolean(breederChangedPaths?.includes("websiteUrl") &&
-        (data.profile.websiteUrl ?? "").trim() !== websiteUrl.trim());
+        (data.profile.websiteUrl ?? "").trim() !== submittedContacts.websiteUrl.trim());
       const pendingNotionFields = Boolean(
         ((profile || breederChangedPaths?.length || confirmContactSync) &&
           ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? "")) ||
