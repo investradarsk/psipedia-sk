@@ -54,7 +54,7 @@ test("service worker registration is admin-only and admin remains usable without
   assert.match(registration, /neukladajú do fronty/);
 });
 
-test("admin settings can exclude the current browser from Cloudflare Web Analytics", () => {
+test("admin settings exclude the current browser from first-party and third-party analytics", () => {
   const settings = read("../components/admin-pwa-settings.tsx");
   const route = read("../app/api/admin/analytics-device/route.ts");
   assert.match(settings, /ANALYTICS_EXCLUSION_COOKIE = "psipedia_internal"/);
@@ -62,6 +62,10 @@ test("admin settings can exclude the current browser from Cloudflare Web Analyti
   assert.match(settings, /Nezapočítavať toto zariadenie do návštevnosti/);
   assert.match(settings, /Znovu započítavať toto zariadenie/);
   assert.match(settings, /window\.location\.reload\(\)/);
+  assert.match(settings, /INTERNAL_TRAFFIC_STORAGE_KEY/);
+  assert.match(settings, /localStorage\\.setItem\\(INTERNAL_TRAFFIC_STORAGE_KEY, "1"\\)/);
+  assert.match(settings, /localStorage\\.removeItem\\(INTERNAL_TRAFFIC_STORAGE_KEY\\)/);
+  assert.match(settings, /Predchádzajúce zobrazenia nemožno/);
   assert.match(route, /getAdminApiUser/);
   assert.match(route, /requireAdminMutation/);
   assert.match(route, /INTERNAL_TRAFFIC_COOKIE_NAME/);
