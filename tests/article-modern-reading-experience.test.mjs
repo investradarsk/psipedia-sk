@@ -697,6 +697,6 @@ test("PUBLIC-MOBILE-GUTTER-1 keeps titles and prose aligned with the homepage mo
     mobile,
     /\.article-blocks h2\)\s*\{[^}]*margin-top:\s*0\.38em;[^}]*margin-bottom:\s*0;/s,
   );
-  assert.match(styles, /color:\s*#343b37;/);
+  assert.match(styles, /color:\s*var\(--ps-reading-color\);/);
   assert.doesNotMatch(mobile, /margin-inline:\s*-8px;/);
 });
