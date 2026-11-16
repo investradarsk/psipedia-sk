@@ -205,6 +205,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
             <AdminRecordTable
               rows={profiles}
               label="Profily služieb"
+              stickyActions
               busy={inlineBusy}
               serverSorted
               serverSorting={{
