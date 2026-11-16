@@ -53,6 +53,20 @@ test("cross-origin requests and crawlers are rejected without storing visitor da
   assert.equal((await POST(request({ path: "/" }, { "user-agent": "Googlebot/2.1" }))).status, 204);
 });
 
+test("internal traffic cookie prevents first-party pageview writes", async () => {
+  env.SITE_ANALYTICS_ENABLED = "true";
+  for (const cookie of [
+    "psipedia_internal=1",
+    "other=ok; psipedia_internal=1; another=2",
+  ]) {
+    const response = await POST(request({ path: "/novinky" }, { cookie }));
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+  }
+  // An unset or disabled exclusion still reaches the writer (no test D1 configured).
+  assert.equal((await POST(request({ path: "/novinky" }, { cookie: "psipedia_internal=0" }))).status, 503);
+});
+
 test("valid pathname reaches aggregate writer; missing D1 returns an unavailable state", async () => {
   env.SITE_ANALYTICS_ENABLED = "true";
   assert.equal((await POST(request({ path: "/" }))).status, 503);
