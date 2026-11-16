@@ -1,3 +1,4 @@
+import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import {
   mergeDirectoryProfileReviewMetadata,
   readDirectoryProfileReviewMetadata,
@@ -145,6 +146,9 @@ export async function syncDirectoryReviewedWithNotion(input: {
     "SELECT notion_page_id FROM directory_notion_sync WHERE directory_profile_id=? LIMIT 1",
   ).bind(input.profileId).first<{ notion_page_id: string }>();
   if (!mapping) return "unmapped";
+  if (await notionPageMustSkipInboundSync(input.database, mapping.notion_page_id)) {
+    return "skipped";
+  }
 
   const row = await loadSourceRow(input.database, input.profileId);
   if (!row) return "skipped";
