@@ -993,8 +993,7 @@ export function AdminArticleEditor({
           <div className="admin-card-heading">
             <div><span>08</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
           </div>
-          <p className="admin-block-news-note"><strong>Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných.</strong> Ak ich chceš uviesť, pridaj blok Zdroj.</p>
-          <p className="admin-block-news-note">Pre viac zdrojov pridaj viac blokov <strong>Zdroj</strong>. Na verejnom článku sa spoja do jedného prehľadného zoznamu.</p>
+          <details className="admin-block-news-note" data-article-source-help><summary>Ako uvádzať odborné zdroje?</summary><p>Odborné zdroje sú nepovinné aj pri zdravotných článkoch. Ak ich chceš uviesť, pridaj blok Zdroj. Viac blokov Zdroj sa na verejnom článku spojí do jedného zoznamu.</p></details>
           <AdminArticleBlockEditor
             blocks={blocks}
             onChange={(nextBlocks) => { setBlocks(nextBlocks); setEditorDirty(true); }}
