@@ -121,25 +121,27 @@ test("Directory property events missing changed IDs must retry rather than false
   assert.match(webhook, /status: 503/);
 });
 
-test("Admin field writeback confirms each selected field and leaves failed fields pending",async()=>{
- const [sync,admin] = await Promise.all([
-  repoFile("lib/notion-directory-sync.ts"),
-  repoFile("app/api/admin/directory/[id]/route.ts"),
- ]);
- const from=sync.indexOf("async function syncBreederEvent(");
- const to=sync.indexOf("export async function mirrorBreederCategoryFiltersToNotion(",from);
- const source=sync.slice(from,to);
- assert.match(source,/for \(const path of fields\) \{/);
- assert.match(source,/const echoed = await patchNotionPage\(bindings, page\.id, patch\)/);
- assert.match(source,/Object\.hasOwn\(candidate\.properties \?\? \{\}, key\)/,
-  "an absent property must not confirm an empty deletion");
- assert.match(source,/const fresh = await fetchNotionPage\(bindings, page\.id\)/);
- assert.match(source,/failedFields\.push\(path\)/);
- assert.match(source,/DIRECTORY_ADMIN_TO_NOTION_FIELDS_PENDING/);
- assert.match(source,/directoryEditorialEventMayClearError/);
- assert.match(admin,/breederAdminFields: isDirectoryFieldEventCategory\(before\.category\)/);
- assert.match(admin,/breederAdminFields: breederBefore && isDirectoryFieldEventCategory\(breederBefore\.category\)/);
- assert.match(admin,/isDirectoryFieldEventCategory\(profile\.category\)/);
+test("Admin full-profile writeback verifies every mapped D1 field before synchronized",async()=>{
+  const [sync,admin,contract] = await Promise.all([
+    repoFile("lib/notion-directory-sync.ts"),
+    repoFile("app/api/admin/directory/[id]/route.ts"),
+    repoFile("lib/directory-notion-full-mirror.ts"),
+  ]);
+  const from=sync.indexOf("async function syncBreederEvent(");
+  const to=sync.indexOf("export async function mirrorBreederCategoryFiltersToNotion(",from);
+  const source=sync.slice(from,to);
+  assert.match(source,/for \(const path of fields\)/);
+  assert.match(source,/adaptDirectoryNotionTextProperties\(desired, page\.properties \?\? \{\}\)/);
+  assert.match(source,/let fresh = await fetchNotionPage\(bindings, page\.id\)/);
+  assert.match(source,/directoryNotionFullMirrorMismatches/);
+  assert.match(contract,/!present\.has\(name\)/, "missing Notion property must not confirm a blank");
+  assert.match(source,/let failedFields = mismatches\(fresh\)/);
+  assert.match(source,/DIRECTORY_ADMIN_TO_NOTION_FIELDS_PENDING/);
+  assert.match(source,/directoryEditorialEventMayClearError/);
+  assert.match(source,/const finalPage = await fetchNotionPage\(bindings, page\.id\)/);
+  assert.match(admin,/breederAdminFields: isDirectoryFieldEventCategory\(before\.category\)/);
+  assert.match(admin,/breederAdminFields: breederBefore && isDirectoryFieldEventCategory\(breederBefore\.category\)/);
+  assert.match(admin,/isDirectoryFieldEventCategory\(profile\.category\)/);
 });
 
 test("category select fields use one registry for all ten categories and explicit blanks",async()=>{
