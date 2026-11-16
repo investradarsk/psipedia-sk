@@ -2,7 +2,7 @@ import {
   BREEDER_NOTION_EDITORIAL_FIELDS,
   breederReadPath,
   type BreederEditorialField,
-} from "./notion-breeder-field-events";
+} from "./notion-breeder-field-events.ts";
 
 /**
  * Compare every requested editable property from the canonical saved D1
