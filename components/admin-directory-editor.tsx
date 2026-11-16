@@ -1193,6 +1193,11 @@ export function AdminDirectoryEditor({
                           placeholder="Zatiaľ nevyplnené"
                         />
                       )}
+                      {category === "veterinari" && field === "Pohotovosť" && (
+                        <small data-emergency-public-authority>
+                          Verejný detail číta tento historický údaj z D1. Verejný filter Pohotovosť však číta samostatnú kategóriovú hodnotu nižšie a Služby V3 uchovávajú ďalšiu nezávislú vlastnosť. Uloženie tohto textu ostatné hodnoty nezmení.
+                        </small>
+                      )}
                       <small>
                         Zdroj: {legacyPublicFacts.find(fact => fact.label === field)?.sourceKey ?? field}
                         {legacyPublicFacts.some(fact => fact.label === field)
