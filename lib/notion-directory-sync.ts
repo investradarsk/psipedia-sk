@@ -2336,7 +2336,29 @@ async function syncMappedPage(input: {
     if (isDirectoryAdminWritebackEcho(
       page.last_edited_time, input.mapping.notion_last_edited_time,
       input.breederWebhookPropertyIds !== undefined,
-    )) return "unchanged";
+    )) {
+      // Identical Notion timestamps do not prove a webhook is our own echo.
+      // A genuine edit can happen immediately after Admin write-back.
+      // Compare the signed editorial values to the current persisted D1 values.
+      const changedIds = input.breederWebhookPropertyIds ?? [];
+      const paths = breederNotionChangedFields(page.properties, changedIds);
+      const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
+      const fromD1 = profileSnapshot(profile) as unknown as Record<string, unknown>;
+      const editorialIds = new Set<string>();
+      for (const path of Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS) as BreederEditorialField[]) {
+        const name = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+        editorialIds.add(name);
+        const record = page.properties?.[name] as { id?: unknown } | undefined;
+        if (typeof record?.id === "string") editorialIds.add(record.id);
+      }
+      // Do not discard signed filter, trainer-trust or relation events just
+      // because a separate editorial field still matches D1.
+      const editorialOnly = changedIds.every(id => editorialIds.has(id));
+      const unchangedSignedValues = paths.length > 0 && paths.every(path =>
+        JSON.stringify(breederReadPath(fromNotion, path)) ===
+        JSON.stringify(breederReadPath(fromD1, path)));
+      if (editorialOnly && unchangedSignedValues) return "unchanged";
+    }
     return syncBreederEvent({
       database: input.database, bindings: input.bindings, page, profile,
       changedPropertyIds: input.breederWebhookPropertyIds,
