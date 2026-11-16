@@ -97,8 +97,8 @@ test("one field failure must be diagnosed without marking an unrelated service r
   assert.match(sync, /BREEDER_FIELD_SAVE_FAILED/);
   assert.match(sync, /directoryServiceSuccessCanClear\(propertyText\(page,"Sync chyba"\)\)/);
   assert.match(dispatch, /NOTION_TARGETED_RECONCILIATION_FAILED/);
-  assert.match(inbox, /"REVIEW"/);
-  assert.match(inbox, /"PENDING"/);
+  assert.match(inbox, /status=\x27REVIEW\x27/);
+  assert.match(inbox, /status=\x27PENDING\x27/);
 });
 
 test("Directory property events missing changed IDs must retry rather than falsely confirming a no-op", async () => {
