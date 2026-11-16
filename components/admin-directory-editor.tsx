@@ -1449,7 +1449,7 @@ export function AdminDirectoryEditor({
           : "Publikovať bude možné až po overenom importe v natívnom D1 editore."}</p>}
         {canonicalEditorUrl && <a href={canonicalEditorUrl}>Otvoriť overený D1 editor →</a>}
         <div>
-          {profile && !notionDraft && <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status={status} disabled={saving || uploading || galleryBusy} returnHref="/admin/adresar" onUnpublished={(next) => setStatus(next as DirectoryProfileStatus)} />}
+          {profile && !notionDraft && <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status={status} disabled={saving || uploading || galleryBusy} returnHref={returnHref} onUnpublished={(next) => setStatus(next as DirectoryProfileStatus)} />}
           {(notionDraft || status !== "published") && <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || galleryBusy || notionReadOnly}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>}
           {!notionDraft && <AdminActionButton variant="primary" disabled={saving || uploading || galleryBusy || Boolean(reviewConfirm)}
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
