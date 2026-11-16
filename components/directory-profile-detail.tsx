@@ -302,7 +302,7 @@ export function DirectoryProfileDetail({
       key: "intro",
       column: "main" as const,
       content: hasExtendedDescription ? (
-        <DetailSection compactHeading eyebrow="Predstavenie" title="O službe">
+        <DetailSection compactHeading eyebrow="Predstavenie" title={isBreeder ? "O chovateľskej stanici" : "O službe"}>
           <DetailParagraphs value={presentation.description} />
         </DetailSection>
       ) : null,
@@ -337,8 +337,8 @@ export function DirectoryProfileDetail({
       content: hasExpertise ? (
         <DetailSection
           compactHeading
-          eyebrow={isPhysiotherapy ? "Odborný profil" : "Zameranie"}
-          title={isPhysiotherapy ? "Odbornosť a skúsenosti" : presentation.health?.title ?? "Odborné informácie"}
+          eyebrow={isPhysiotherapy ? "Odborný profil" : isBreeder ? "Chovateľská stanica" : "Zameranie"}
+          title={isPhysiotherapy ? "Odbornosť a skúsenosti" : isBreeder ? "Chov, odchovy a prepojenia" : presentation.health?.title ?? "Odborné informácie"}
         >
           {expertFacts.length || breederLinkFacts.length
             ? <DetailOptionGrid options={[...expertFacts, ...breederLinkFacts]} /> : null}
@@ -347,7 +347,7 @@ export function DirectoryProfileDetail({
               <DetailParagraphs value={visibleQualifications.join("\n")} />
             ) : (
               <div className={styles.qualifications}>
-                <h3>Odbornosť a skúsenosti</h3>
+                <h3>{isBreeder ? "O chovateľovi" : "Odbornosť a skúsenosti"}</h3>
                 <ul className={styles.qualificationsList}>
                   {visibleQualifications.slice(0, 4).map((qualification) => (
                     <li key={qualification}>{qualification}</li>

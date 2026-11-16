@@ -43,8 +43,7 @@ export const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
     "Zastrešujúca organizácia",
   ],
   "chovatelske-stanice": [
-    "Plemeno",
-    "Plemená",
+    // Canonical breed IDs are selected in Prepojenia; no parallel text inputs.
     "FCI skupina",
     "Chovateľ",
     "Klub",
@@ -128,11 +127,19 @@ export function readDirectoryPublicMetadataValue(
   return readDirectoryPublicMetadataSource(source, field)?.value ?? "";
 }
 
-/** All public free-text facts relevant to the selected profile category. */
+/** Public details and Admin share one category-scoped registry. Breeder breed
+ * names come only from canonical linked breed IDs, not legacy text facts. */
+export function directoryPublicFactLabels(category: DirectoryCategorySlug): string[] {
+  return [...new Set([...(detailFields[category] ?? []), ...relationFields])]
+    .filter(field => category !== "chovatelske-stanice" ||
+      (field !== "Plemeno" && field !== "Plemená"));
+}
+
+/** All editable public text facts relevant to the selected category. */
 export function directoryPublicEditorFieldLabels(category: DirectoryCategorySlug): string[] {
   return [...new Set([
-    ...(detailFields[category] ?? []),
-    ...relationFields,
-    "Pokrytie",
+    ...directoryPublicFactLabels(category),
+    // Geographical coverage is a service field, not a breeder-station fact.
+    ...(category === "chovatelske-stanice" ? [] : ["Pokrytie"]),
   ])].filter(key => !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(key));
 }
