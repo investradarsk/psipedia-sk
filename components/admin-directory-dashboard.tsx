@@ -12,7 +12,6 @@ import {
 import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
 import { AdminPagination } from "@/components/admin-pagination";
 import { AdminDirectoryEditorLink } from "@/components/admin-directory-editor-link";
-import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { SearchIcon } from "@/components/icons";
