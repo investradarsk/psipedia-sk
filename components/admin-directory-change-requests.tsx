@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { AdminCommunityPagination, COMMUNITY_PAGE_SIZE } from "@/components/admin-community-pagination";
 import { AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
 import { directoryCategoryLabel, type DirectoryProfileChangeRequest, type DirectoryProfileEditableData } from "@/lib/directory";
 
@@ -33,6 +34,7 @@ function formatDate(value: string) {
 
 export function AdminDirectoryChangeRequests({ initialRequests }: { initialRequests: DirectoryProfileChangeRequest[] }) {
   const [requests, setRequests] = useState(initialRequests);
+  const [page, setPage] = useState(1);
   const [status, setStatus] = useState<"all" | DirectoryProfileChangeRequest["status"]>("all");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -57,9 +59,9 @@ export function AdminDirectoryChangeRequests({ initialRequests }: { initialReque
 
   return <>
     <section className="admin-stats" aria-label="Stav návrhov" data-admin-community-metrics><div><span>Všetky návrhy</span><strong>{requests.length}</strong></div><div><span>Nové</span><strong>{requests.filter((item) => item.status === "new").length}</strong></div><div><span>Schválené</span><strong>{requests.filter((item) => item.status === "approved").length}</strong></div><div><span>Zamietnuté</span><strong>{requests.filter((item) => item.status === "rejected").length}</strong></div></section>
-    <section className="admin-panel" data-admin-content-module="community-profile-suggestions"><div className="admin-toolbar"><div className="admin-status-filter" aria-label="Filtrovať návrhy podľa stavu">{([['all','Všetky'],['new','Nové'],['approved','Schválené'],['rejected','Zamietnuté']] as const).map(([value,label]) => <button type="button" className={status === value ? "is-active" : ""} onClick={() => setStatus(value)} key={value}>{label}</button>)}</div></div>
+    <section className="admin-panel" data-admin-content-module="community-profile-suggestions"><div className="admin-toolbar"><div className="admin-status-filter" aria-label="Filtrovať návrhy podľa stavu">{([['all','Všetky'],['new','Nové'],['approved','Schválené'],['rejected','Zamietnuté']] as const).map(([value,label]) => <button type="button" className={status === value ? "is-active" : ""} onClick={() => { setStatus(value); setPage(1); }} key={value}>{label}</button>)}</div></div>
       {message && <p className="admin-flash" role="status">{message}</p>}
-      {visible.length ? <div className="admin-change-list" data-admin-community-list>{visible.map((item) => {
+      {visible.length ? <div className="admin-change-list" data-admin-community-list>{visible.slice((Math.min(page, Math.max(1, Math.ceil(visible.length / COMMUNITY_PAGE_SIZE))) - 1) * COMMUNITY_PAGE_SIZE, Math.min(page, Math.max(1, Math.ceil(visible.length / COMMUNITY_PAGE_SIZE))) * COMMUNITY_PAGE_SIZE).map((item) => {
         const current = fields(item.currentData);
         const proposed = fields(item.proposedData);
         const currentByKey = new Map(current.map((field) => [field.key, field.value]));
@@ -70,8 +72,9 @@ export function AdminDirectoryChangeRequests({ initialRequests }: { initialReque
           <div className="admin-change-snapshots"><details><summary>Aktuálne údaje profilu</summary>{item.currentData ? <dl>{current.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl> : <p>Profil už nie je dostupný.</p>}</details><details><summary>Všetky navrhované údaje</summary><dl>{proposed.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></details></div>
           <footer><Link className="admin-change-edit-link" href={`/admin/adresar/${item.profileId}`}>Otvoriť profil v editore</Link>{item.status === "new" && <><button type="button" disabled={busyId === item.id} onClick={() => setPendingReview({ item, nextStatus: "rejected" })}>Zamietnuť</button><button className="is-primary" type="button" disabled={busyId === item.id} onClick={() => setPendingReview({ item, nextStatus: "approved" })}>Schváliť návrh</button></>}{item.reviewedAt && <small>Posúdené {formatDate(item.reviewedAt)}{item.reviewedBy ? ` · ${item.reviewedBy}` : ""}</small>}</footer>
         </article>;
-      })}</div> : <p className="admin-empty">V tomto stave nie sú žiadne návrhy úprav.</p>}
+      })}</div> : <div className="admin-empty"><p>{requests.length ? "Žiadne návrhy pre zvolený stav." : "Zatiaľ neprišiel žiadny návrh úpravy."}</p>{requests.length && <button type="button" onClick={() => { setStatus("all"); setPage(1); }}>Zrušiť filtre</button>}</div>}
     </section>
+    <AdminCommunityPagination total={visible.length} page={page} onPageChange={setPage} />
     <AdminDestructiveConfirmDialog
       open={pendingReview !== null}
       title={pendingReview?.nextStatus === "approved" ? "Schváliť návrh úprav?" : "Zamietnuť návrh úprav?"}
