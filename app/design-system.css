@@ -7,16 +7,6 @@
   --ps-control-min-height: 44px;
   --ps-card-padding: 26px;
   --ps-heading-section: clamp(2.2rem, 4vw, 3.75rem);
-  /* Public long-form copy: articles, breeds and shared detail profiles.
-     Deliberately opt-in so navigation, cards, forms and admin stay compact. */
-  --ps-reading-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --ps-reading-size: clamp(1.0625rem, calc(0.92rem + 0.35vw), 1.125rem);
-  --ps-reading-lead-size: clamp(1.125rem, calc(0.98rem + 0.35vw), 1.1875rem);
-  --ps-reading-leading: 1.72;
-  --ps-reading-color: var(--ink-2);
-  --ps-reading-heading-color: var(--forest-dark);
-  --ps-reading-measure: 70ch;
-  --ps-reading-paragraph-gap: 1.25em;
   --ps-border-soft: rgba(23, 53, 43, 0.1);
   --ps-border-strong: rgba(23, 75, 56, 0.18);
   --ps-surface: var(--paper);
@@ -1265,6 +1255,19 @@
 }
 .comparison-value details a {
   color: var(--forest);
+}
+
+/* Opt-in reading tokens live after the immutable DS-1A foundation.
+   Keep navigation, cards, controls and admin on their own type scales. */
+:root {
+  --ps-reading-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ps-reading-size: clamp(1.0625rem, calc(0.92rem + 0.35vw), 1.125rem);
+  --ps-reading-lead-size: clamp(1.125rem, calc(0.98rem + 0.35vw), 1.1875rem);
+  --ps-reading-leading: 1.72;
+  --ps-reading-color: var(--ink-2);
+  --ps-reading-heading-color: var(--forest-dark);
+  --ps-reading-measure: 70ch;
+  --ps-reading-paragraph-gap: 1.25em;
 }
 
 /* Informational and legal prose follows the same public reading scale,
