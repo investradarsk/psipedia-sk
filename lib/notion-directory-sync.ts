@@ -2939,10 +2939,23 @@ export async function runNotionDirectorySyncSweep(input: {
         if (relation === "skipped") summary.failed++;
       }
     } catch (error) {
-      // D1 remains committed, but the Notion field is still pending. Make the
-      // actual cause diagnosable rather than silently reporting only "failed".
+      // D1 remains committed. A failed full-profile parity check must also
+      // invalidate Notion's former "Synchronizované" badge, never report a
+      // successful mirror when some values are missing.
       console.error("DIRECTORY_TARGETED_NOTION_SYNC_FAILED", input.targetProfileId,
         error instanceof Error ? error.message : "UNKNOWN");
+      if (error instanceof Error && error.message.startsWith("DIRECTORY_ADMIN_TO_NOTION_")) {
+        try {
+          const failedPage = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+          if (failedPage.id === mapping.notion_page_id &&
+              notionDirectoryPageBelongsToSource(failedPage, dataSourceId) &&
+              propertyText(failedPage, "Psipedia ID") === String(input.targetProfileId))
+            await markPageError(input.bindings, failedPage.id, error, failedPage);
+        } catch (markError) {
+          console.warn("DIRECTORY_ADMIN_TO_NOTION_ERROR_STATUS_PENDING", input.targetProfileId,
+            markError instanceof Error ? markError.name : "UNKNOWN");
+        }
+      }
       summary.failed++;
     }
     return summary;
