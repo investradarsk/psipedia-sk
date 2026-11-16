@@ -82,7 +82,7 @@ async function DirectoryServiceValues({
 }
 
 export default async function EditDirectoryProfilePage({ params, searchParams }: Props) {
-  const returnHref = adminReturnHref((await searchParams).returnTo, "/admin/adresar");
+  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/adresar", "/admin/sluzby-pre-psov"]);
   const { id: rawId } = await params;
   const id = Number.parseInt(rawId, 10);
   if (!Number.isSafeInteger(id) || id < 1) notFound();
