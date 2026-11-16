@@ -1848,13 +1848,27 @@ async function syncBreederEvent(input: {
   const allProperties = notionProfileProperties(input.profile, geo, "", now, sourceImageUrl);
   const canonical = profileSnapshot(input.profile, sourceImageUrl) as unknown as Record<string, unknown>;
 
-  const mismatches = (candidate: NotionPage) =>
-    candidate.id !== page.id ? fields : directoryNotionFullMirrorMismatches({
+  const mismatches = (candidate: NotionPage) => {
+    if (candidate.id !== page.id) return fields;
+    // Compare RAW Notion field text against the saved D1 fields. The inbound
+    // notionSnapshot parser splits certain lists (e.g. qualifications), which
+    // is suitable for Notion -> Admin but would falsely fail outbound parity.
+    const actual: Record<string, unknown> = { seo: {} };
+    for (const path of fields) {
+      const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+      const value = path === "seo.noindex"
+        ? property(candidate, key)?.checkbox : propertyText(candidate, key);
+      if (path.startsWith("seo."))
+        (actual.seo as Record<string, unknown>)[path.slice(4)] = value;
+      else actual[path] = value;
+    }
+    return directoryNotionFullMirrorMismatches({
       expected: canonical,
-      actual: notionSnapshot(candidate) as unknown as Record<string, unknown>,
+      actual,
       presentNotionProperties: Object.keys(candidate.properties ?? {}),
       paths: fields,
     });
+  };
   const ensureUnchangedD1 = async () => {
     const current = await getManagedDirectoryProfileById(input.profile.id, database);
     if (!current || current.updatedAt !== input.profile.updatedAt)
