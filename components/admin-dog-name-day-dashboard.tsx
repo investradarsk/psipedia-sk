@@ -9,6 +9,8 @@ import {
 import { normalizeDogNameDayName, type DogNameDayRecord, type DogNameDayStatus } from "@/lib/dog-name-days";
 import styles from "./admin-dog-name-day-dashboard.module.css";
 
+const PAGE_SIZE = 30;
+
 const MONTHS = [
   "Január", "Február", "Marec", "Apríl", "Máj", "Jún",
   "Júl", "August", "September", "Október", "November", "December",
@@ -50,6 +52,7 @@ function statusLabel(status: DogNameDayStatus) {
 export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: DogNameDayRecord[] }) {
   const [records, setRecords] = useState(initialRecords);
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [month, setMonth] = useState("");
   const [status, setStatus] = useState<DogNameDayStatus | "all">("all");
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -69,6 +72,10 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
       return matchesQuery && (!month || record.month === Number(month)) && (status === "all" || record.status === status);
     });
   }, [records, query, month, status]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const activePage = Math.min(page, totalPages);
+  const pageRecords = filtered.slice((activePage - 1) * PAGE_SIZE, activePage * PAGE_SIZE);
 
   const counts = useMemo(() => records.reduce((result, record) => {
     result[record.status] += 1;
@@ -176,13 +183,13 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
       </section>
 
       <section className={styles.toolbar} role="search" aria-label="Filtre kalendára" data-admin-content-filters>
-        <label>Hľadať podľa mena alebo zdroja<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Meno alebo zdroj" /></label>
-        <label>Mesiac<select value={month} onChange={(event) => setMonth(event.target.value)}><option value="">Všetky mesiace</option>{MONTHS.map((label, index) => <option value={index + 1} key={label}>{label}</option>)}</select></label>
-        <label>Stav<select value={status} onChange={(event) => setStatus(event.target.value as DogNameDayStatus | "all")}><option value="all">Všetky stavy</option><option value="draft">Koncept</option><option value="published">Publikované</option><option value="archived">Archivované</option></select></label>
+        <label>Hľadať podľa mena alebo zdroja<input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Meno alebo zdroj" /></label>
+        <label>Mesiac<select value={month} onChange={(event) => { setMonth(event.target.value); setPage(1); }}><option value="">Všetky mesiace</option>{MONTHS.map((label, index) => <option value={index + 1} key={label}>{label}</option>)}</select></label>
+        <label>Stav<select value={status} onChange={(event) => { setStatus(event.target.value as DogNameDayStatus | "all"); setPage(1); }}><option value="all">Všetky stavy</option><option value="draft">Koncept</option><option value="published">Publikované</option><option value="archived">Archivované</option></select></label>
         <AdminActionButton variant="primary" onClick={openCreate}>+ Nové meno</AdminActionButton>
       </section>
 
-      <p className={styles.results} role="status">Zobrazené: {filtered.length} z {records.length} mien</p>
+      <p className={styles.results} role="status">Nájdené: {filtered.length} z {records.length} mien · Strana {activePage} z {totalPages}</p>
       {message && <p className={styles.message} role="status">{message}</p>}
       {error && !editorOpen && <p className={styles.error} role="alert">{error}</p>}
 
@@ -190,12 +197,12 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
         <table className={styles.table}>
           <thead><tr><th>Dátum</th><th>Meno</th><th>Stav</th><th>Zdroj / proveniencia</th><th>Upravené</th><th>Akcie</th></tr></thead>
           <tbody>
-            {filtered.map((record) => (
+            {pageRecords.map((record) => (
               <tr key={record.id}>
                 <td data-label="Dátum"><strong>{record.day}. {MONTHS[record.month - 1]}</strong></td>
                 <td data-label="Meno"><strong>{record.name}</strong><small>{record.normalizedName}</small></td>
                 <td data-label="Stav"><span className={`${styles.status} ${styles[record.status]}`}>{statusLabel(record.status)}</span></td>
-                <td data-label="Zdroj" className={styles.source}>{record.source}{record.note ? <small>{record.note}</small> : null}</td>
+                <td data-label="Zdroj" className={styles.source}><details className={styles.sourceDetails}><summary>{record.source.length > 90 ? `${record.source.slice(0, 90)}…` : record.source}</summary><div>{record.source}</div>{record.note ? <small>{record.note}</small> : null}</details></td>
                 <td data-label="Upravené"><time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleDateString("sk-SK")}</time></td>
                 <td data-label="Akcie"><div className={styles.rowActions}><AdminActionButton variant="secondary" onClick={() => openEdit(record)}>Upraviť</AdminActionButton>{record.status !== "archived" && <AdminActionButton variant="destructive" onClick={() => setArchiveTarget(record)}>Archivovať</AdminActionButton>}</div></td>
               </tr>
@@ -204,6 +211,12 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
           </tbody>
         </table>
       </section>
+
+      <nav className={styles.pagination} aria-label="Stránkovanie psích menín">
+        <AdminActionButton variant="secondary" disabled={activePage <= 1} onClick={() => setPage(activePage - 1)}>Predchádzajúca</AdminActionButton>
+        <span>Strana {activePage} z {totalPages}</span>
+        <AdminActionButton variant="secondary" disabled={activePage >= totalPages} onClick={() => setPage(activePage + 1)}>Nasledujúca</AdminActionButton>
+      </nav>
 
       <details className={styles.importPanel} aria-labelledby="name-day-import-title">
         <summary id="name-day-import-title">Hromadný import mien (JSON)</summary><div className={styles.importBody}><p>Import vytvára iba koncepty. Povolené polia: <code>month</code>, <code>day</code>, <code>name</code>, <code>source</code>, voliteľne <code>note</code>. Každé nové meno zostane nepublikované až do schválenia.</p>
