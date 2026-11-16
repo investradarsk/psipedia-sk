@@ -221,22 +221,23 @@
 
 .readingShell :global(.article-prose) {
   width: 100%;
-  max-width: var(--article-reading-width);
+  max-width: var(--ps-reading-measure);
   min-width: 0;
   margin: 0;
-  color: #242424;
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  font-size: 16px;
-  line-height: 1.55;
+  color: var(--ps-reading-color);
+  font-family: var(--ps-reading-font);
+  font-size: var(--ps-reading-size);
+  font-weight: 400;
+  line-height: var(--ps-reading-leading);
 }
 
 .readingShell .standfirst {
   margin: 0 0 18px;
-  color: #34483e;
-  font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
-  font-size: 1.1rem;
-  font-weight: 550;
-  line-height: 1.55;
+  color: var(--ps-reading-color);
+  font-family: var(--ps-reading-font);
+  font-size: var(--ps-reading-lead-size);
+  font-weight: 500;
+  line-height: var(--ps-reading-leading);
   overflow-wrap: anywhere;
 }
 
@@ -245,7 +246,7 @@
   margin-bottom: 20px;
   color: inherit;
   font-size: 1em;
-  line-height: 1.55;
+  line-height: var(--ps-reading-leading);
 }
 
 .readingShell :global(.article-intro p),
@@ -283,8 +284,9 @@
 .readingShell :global(.article-block-text > ol),
 .readingShell :global(.article-blocks > ul),
 .readingShell :global(.article-blocks > ol) {
-  color: #343b37;
-  font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+  color: var(--ps-reading-color);
+  font-family: var(--ps-reading-font);
+  line-height: var(--ps-reading-leading);
 }
 
 .readingShell :global(.takeaway-box) {
@@ -410,9 +412,9 @@
 
 .readingShell :global(.article-blocks h2),
 .readingShell :global(.article-blocks h3) {
-  color: #242424;
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  font-weight: 750;
+  color: var(--ps-reading-heading-color);
+  font-family: var(--ps-reading-font);
+  font-weight: 700;
   letter-spacing: -0.015em;
 }
 
@@ -751,8 +753,8 @@
 
   .readingShell .standfirst {
     margin-bottom: 14px;
-    font-size: 1rem;
-    line-height: 1.48;
+    font-size: var(--ps-reading-lead-size);
+    line-height: var(--ps-reading-leading);
   }
 
   .metaActions {
@@ -817,16 +819,16 @@
   }
 
   .readingShell :global(.article-prose) {
-    max-width: none;
-    font-size: 16px;
-    line-height: 1.55;
+    max-width: var(--ps-reading-measure);
+    font-size: var(--ps-reading-size);
+    line-height: var(--ps-reading-leading);
   }
 
   .readingShell :global(.article-prose .article-intro) {
     gap: 7px;
     margin-bottom: 14px;
     font-size: 1em;
-    line-height: 1.55;
+    line-height: var(--ps-reading-leading);
   }
 
   .readingShell :global(.article-blocks) {
@@ -888,7 +890,7 @@
     margin-top: 0.38em;
     margin-bottom: 0;
     scroll-margin-top: calc(var(--psipedia-sticky-header-height, 120px) + 16px);
-    font-size: 1.43rem;
+    font-size: clamp(1.5rem, 5.8vw, 1.65rem);
     line-height: 1.3;
   }
 

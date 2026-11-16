@@ -247,13 +247,13 @@ for (const articleCase of cases) {
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
     }
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 24 + 1);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(16.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
     expect(metrics.canvasColor).toBe("rgb(248, 244, 235)");
-    expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
-    expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
-    expect(metrics.readingFontFamily).toMatch(/Avenir Next|Avenir/);
-    expect(metrics.readingColor).toBe("rgb(52, 59, 55)");
+    expect(metrics.bodyColor).toBe("rgb(41, 72, 62)");
+    expect(metrics.proseFontFamily).toMatch(/system-ui/);
+    expect(metrics.readingFontFamily).toMatch(/system-ui/);
+    expect(metrics.readingColor).toBe("rgb(41, 72, 62)");
     expect(metrics.readingMargin).toBe(0);
     expect(Math.abs(metrics.readingExtraWidth ?? 100)).toBeLessThanOrEqual(1);
     expect(metrics.titleLeft).toBeGreaterThanOrEqual(11);
@@ -266,8 +266,8 @@ for (const articleCase of cases) {
     expect(metrics.introHyphens).toBe("none");
     if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
     if (metrics.bodyHyphens !== null) expect(metrics.bodyHyphens).toBe("none");
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.52);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.58);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.69);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.75);
     expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
 
     if (articleCase.id === "bikejoring") {
@@ -464,10 +464,10 @@ for (const articleCase of cases) {
     }
     expect(metrics.proseWidth).toBeGreaterThanOrEqual(790);
     expect(metrics.proseWidth).toBeLessThanOrEqual(805);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.52);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.58);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(16.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.69);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.75);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
     // Natural photos may be narrower than the article column to preserve their full aspect ratio.
     if (articleCase.hasImage) {
@@ -479,8 +479,8 @@ for (const articleCase of cases) {
     expect(metrics.sidebarTop, "Desktop sidebar should start in the title/meta zone").toBeLessThanOrEqual(metrics.headingTop);
     expect(metrics.sidebarRightOfHero, "Desktop sidebar should occupy the right rail beside the article").toBe(true);
     expect(metrics.canvasColor).toBe("rgb(248, 244, 235)");
-    expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
-    expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
+    expect(metrics.bodyColor).toBe("rgb(41, 72, 62)");
+    expect(metrics.proseFontFamily).toMatch(/system-ui/);
     expect(metrics.introTextAlign).toBe("left");
     expect(metrics.headingTextAlign).not.toBe("justify");
     expect(metrics.disclaimerTextAlign).not.toBe("justify");

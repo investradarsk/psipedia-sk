@@ -1257,6 +1257,30 @@
   color: var(--forest);
 }
 
+/* Opt-in reading tokens live after the immutable DS-1A foundation.
+   Keep navigation, cards, controls and admin on their own type scales. */
+:root {
+  --ps-reading-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ps-reading-size: clamp(1.0625rem, calc(0.92rem + 0.35vw), 1.125rem);
+  --ps-reading-lead-size: clamp(1.125rem, calc(0.98rem + 0.35vw), 1.1875rem);
+  --ps-reading-leading: 1.72;
+  --ps-reading-color: var(--ink-2);
+  --ps-reading-heading-color: var(--forest-dark);
+  --ps-reading-measure: 70ch;
+  --ps-reading-paragraph-gap: 1.25em;
+}
+
+/* Informational and legal prose follows the same public reading scale,
+   without changing compact notes, metadata, actions or admin workspaces. */
+.prose-page:is(.legal-page, .info-page) > :is(p, ul, ol),
+.prose-page:is(.legal-page, .info-page) > :is(p, ul, ol) li {
+  max-width: var(--ps-reading-measure);
+  color: var(--ps-reading-color);
+  font-family: var(--ps-reading-font);
+  font-size: var(--ps-reading-size);
+  line-height: var(--ps-reading-leading);
+}
+
 /* PUBLIC-CANVAS-1: The homepage's cream canvas is canonical across every
  * public route, independent of older route-level background gradients.
  * Cards, interactive surfaces, photos and status panels keep their own fills.

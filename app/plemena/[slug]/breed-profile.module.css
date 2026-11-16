@@ -191,15 +191,18 @@
   letter-spacing: -0.025em;
 }
 .prose {
-  color: var(--ink-2);
-  font-size: 1rem;
-  line-height: 1.72;
+  max-width: var(--ps-reading-measure);
+  color: var(--ps-reading-color);
+  font-family: var(--ps-reading-font);
+  font-size: var(--ps-reading-size);
+  font-weight: 400;
+  line-height: var(--ps-reading-leading);
 }
 .prose p {
   margin: 0;
 }
 .prose p + p {
-  margin-top: 1.35em;
+  margin-top: var(--ps-reading-paragraph-gap);
 }
 .readingSection .prose {
   margin-top: 18px;
@@ -732,8 +735,8 @@
     font-size: var(--ps-detail-heading-size);
   }
   .prose {
-    font-size: 0.98rem;
-    line-height: 1.76;
+    font-size: var(--ps-reading-size);
+    line-height: var(--ps-reading-leading);
   }
   .fitSection {
     padding: 40px 0 44px;
@@ -1086,9 +1089,10 @@
   margin-bottom: 0;
 }
 .page .lead {
-  color: var(--detail-muted, #455e66);
-  font-size: 0.96rem;
-  line-height: 1.55;
+  color: var(--ps-reading-color);
+  font-family: var(--ps-reading-font);
+  font-size: var(--ps-reading-size);
+  line-height: var(--ps-reading-leading);
 }
 .page .quickFacts {
   margin-top: 12px;
@@ -1227,11 +1231,11 @@
   margin-top: 8px;
 }
 .page .prose {
-  font-size: 1rem;
-  line-height: 1.65;
+  font-size: var(--ps-reading-size);
+  line-height: var(--ps-reading-leading);
 }
 .page .prose p + p {
-  margin-top: 0.9em;
+  margin-top: var(--ps-reading-paragraph-gap);
 }
 .page .sectionIntro {
   margin-bottom: 14px;
