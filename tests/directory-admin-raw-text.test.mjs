@@ -125,7 +125,7 @@ test("all five Notion contact properties use the same plain rich-text serializer
   const converterEnd = notion.indexOf("async function createNotionPage(", converterStart);
   const converter = notion.slice(converterStart, converterEnd);
   assert.match(converter, /Array\.isArray\(previous\?\.rich_text\)\) continue/);
-  assert.match(notion, /adaptDirectoryNotionTextProperties\(\s*\{ \[key\]: allProperties\[key\] \}, page\.properties \?\? \{\}/);
+  assert.match(notion, /adaptDirectoryNotionTextProperties\(desired, page\.properties \?\? \{\}\)/);
 });
 
 test("literal xxx survives D1 contact encoding for every directory category", () => {
@@ -156,11 +156,12 @@ test("saving Contacts re-confirms all five D1 text values in Notion, including a
   assert.match(route, /submittedBody\.category === before\.category/);
   assert.match(route, /\.\.\.\(confirmContactSync \? DIRECTORY_CONTACT_EDITORIAL_PATHS : \[\]\)/);
   assert.match(route, /metadataWarnings\.push\("Kontakty sú uložené v Admine, ale prenos do Notionu nie je potvrdený\."/);
-  assert.match(notion, /const batchContacts = fields\.filter\(path => contactPaths\.has\(path\)\)/);
-  assert.match(notion, /const echoed = await patchNotionPage\(bindings, page\.id, patch\)/);
-  assert.match(notion, /acknowledgedBatchContacts\.has\(path\)/);
-  assert.match(notion, /if \(confirmed\(page, path\)\) continue/);
-  assert.match(notion, /DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH/);
+  assert.match(notion, /for \(const path of fields\)/);
+  assert.match(notion, /adaptDirectoryNotionTextProperties\(desired, page\.properties \?\? \{\}\)/);
+  assert.match(notion, /directoryNotionFullMirrorMismatches/);
+  assert.match(notion, /let fresh = await fetchNotionPage\(bindings, page\.id\)/);
+  assert.match(notion, /const finalPage = await fetchNotionPage\(bindings, page\.id\)/);
+  assert.match(notion, /DIRECTORY_ADMIN_TO_NOTION_FULL_PARITY_FAILED/);
 });
 
 test("saving only Facebook leaves all four other live D1 contacts intact in every category", () => {

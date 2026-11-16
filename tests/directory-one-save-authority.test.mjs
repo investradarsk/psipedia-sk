@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { isDirectoryAdminWritebackEcho } from "../lib/directory-notion-echo.ts";
+import {
+  BREEDER_NOTION_EDITORIAL_FIELDS, breederApplyNotionChanges,
+  breederNotionChangedFields, breederReadPath,
+} from "../lib/notion-breeder-field-events.ts";
 import { normalizeManagedDirectoryProfileInput, buildManagedDirectoryProfileUpdateStatement } from "../lib/directory-store.ts";
 import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
 
@@ -133,4 +137,49 @@ test("Real SQLite canonical UPDATE: Save all Test, change Facebook only, retain 
   } finally {
     db.close();
   }
+});
+
+test("A signed Notion phone-only change preserves the other four saved D1 contacts", () => {
+  const current = {
+    name: "Pazúrikovo", description: "Keep existing description",
+    websiteUrl: "Test", publicPhone: "Test", publicEmail: "Test",
+    facebookUrl: "Test", instagramUrl: "Test",
+    seo: { title: "Keep title" },
+  };
+  const fromNotion = {
+    ...current, publicPhone: "Test123", websiteUrl: "",
+    publicEmail: "", facebookUrl: "", instagramUrl: "",
+    description: "", seo: { title: "" },
+  };
+  const properties = {
+    "Telefón": { id: "phone-field" },
+    "E-mail": { id: "email-field" },
+  };
+  const signed = breederNotionChangedFields(properties, ["phone-field"]);
+  assert.deepEqual(signed, ["publicPhone"]);
+  assert.deepEqual(breederApplyNotionChanges(current, fromNotion, signed),
+    { ...current, publicPhone: "Test123" });
+});
+
+test("Acknowledged Admin timestamp must NOT hide a genuine signed Notion edit", () => {
+  const source = readFileSync("lib/notion-directory-sync.ts", "utf8");
+  assert.match(source, /isDirectoryAdminWritebackEcho\(/);
+  assert.match(source, /const changedIds = input\.breederWebhookPropertyIds \?\? \[\]/);
+  assert.match(source, /const paths = breederNotionChangedFields\(page\.properties, changedIds\)/);
+  assert.match(source, /const fromNotion = notionSnapshot\(page\)/);
+  assert.match(source, /const fromD1 = profileSnapshot\(profile\)/);
+  assert.match(source, /const editorialOnly = changedIds\.every\(id => editorialIds\.has\(id\)\)/);
+  assert.match(source, /if \(editorialOnly && unchangedSignedValues\) return "unchanged"/);
+  assert.match(source, /return syncBreederEvent\(\{/);
+
+  const d1 = { publicPhone: "Test", facebookUrl: "Test" };
+  const notionSame = { publicPhone: "Test", facebookUrl: "Test" };
+  const notionChanged = { publicPhone: "Test123", facebookUrl: "Test" };
+  const signedPhone = ["publicPhone"];
+  const unchanged = (notion) => signedPhone.every(path =>
+    JSON.stringify(breederReadPath(notion, path)) ===
+    JSON.stringify(breederReadPath(d1, path)));
+  assert.equal(unchanged(notionSame), true, "our own echo can be ignored");
+  assert.equal(unchanged(notionChanged), false, "same-revision new value cannot be ignored");
+  assert.equal(Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS).includes("publicPhone"), true);
 });

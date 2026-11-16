@@ -1,4 +1,5 @@
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
+import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
@@ -1832,7 +1833,10 @@ async function syncBreederEvent(input: {
       ? "pulled" : "unchanged";
   }
 
-  const fields = (input.adminChangedFields ?? []).filter(
+  // One Admin Save mirrors the COMPLETE current D1 editorial snapshot.
+  // Never take blank fallbacks from an earlier Notion page or dirty-field hints.
+  // Services V3 and structural relations are managed by their own endpoints.
+  const fields = [...new Set(input.adminChangedFields ?? [])].filter(
     (path): path is BreederEditorialField =>
       Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
       (path !== "services" || !isDirectoryEventPilotCategory(input.profile.category)),
@@ -1843,87 +1847,70 @@ async function syncBreederEvent(input: {
   const sourceImageUrl = monitor?.sourceImageUrl || externalSourceImageUrl(input.profile.imageUrl);
   const allProperties = notionProfileProperties(input.profile, geo, "", now, sourceImageUrl);
   const canonical = profileSnapshot(input.profile, sourceImageUrl) as unknown as Record<string, unknown>;
-  // Each Notion field is a separate acknowledged write. One rejected URL/SEO
-  // field must not block independently valid prose or contact edits.
-  // A blank value is an explicit deletion and is verified like any value.
-  const equivalent = (a: string, b: string) => {
-    if (a === b) return true;
-    try {
-      const left = new URL(a); const right = new URL(b);
-      return ["http:", "https:"].includes(left.protocol) && left.href === right.href;
-    } catch { return false; }
-  };
-  const confirmed = (candidate: NotionPage, path: BreederEditorialField): boolean => {
-    const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
-    // A missing Notion property is NOT evidence that a requested empty value
-    // was deleted: only an explicit existing property may acknowledge a clear.
-    if (candidate.id !== page.id || !Object.hasOwn(candidate.properties ?? {}, key))
-      return false;
-    const raw = breederReadPath(canonical, path);
-    if (path === "seo.noindex")
-      return typeof raw === "boolean" && property(candidate, key)?.checkbox === raw;
-    const expected = Array.isArray(raw) ? raw.join("\n") : typeof raw === "string" ? raw.trim() : "";
-    return equivalent(propertyText(candidate, key), expected);
-  };
-  const failedFields: BreederEditorialField[] = [];
-  // A Contacts-tab save can request all five editorial contacts at once.
-  // A single Notion PATCH avoids bursts of five writes and the associated
-  // throttling risk. Verify every field's echo; retry individually on failure.
-  const contactPaths = new Set<BreederEditorialField>(DIRECTORY_CONTACT_EDITORIAL_PATHS);
-  const batchContacts = fields.filter(path => contactPaths.has(path));
-  const acknowledgedBatchContacts = new Set<BreederEditorialField>();
-  if (batchContacts.length > 1) {
-    const needed = batchContacts.filter(path => !confirmed(page, path));
-    if (needed.length) {
-      const desired: Record<string, unknown> = {};
-      for (const path of needed) {
-        const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
-        desired[key] = allProperties[key];
-      }
-      try {
-        const patch = adaptDirectoryNotionTextProperties(desired, page.properties ?? {});
-        const echoed = await patchNotionPage(bindings, page.id, patch);
-        const verified = needed.every(path => confirmed(echoed, path))
-          ? echoed : await fetchNotionPage(bindings, page.id);
-        for (const path of needed)
-          if (confirmed(verified, path)) acknowledgedBatchContacts.add(path);
-      } catch (error) {
-        console.warn("DIRECTORY_CONTACT_BATCH_WRITE_RETRY", input.profile.id,
-          error instanceof Error ? error.message : "UNKNOWN");
-        // Individual field writes below remain the fallback.
-      }
+
+  const mismatches = (candidate: NotionPage) => {
+    if (candidate.id !== page.id) return fields;
+    // Compare RAW Notion field text against the saved D1 fields. The inbound
+    // notionSnapshot parser splits certain lists (e.g. qualifications), which
+    // is suitable for Notion -> Admin but would falsely fail outbound parity.
+    const actual: Record<string, unknown> = { seo: {} };
+    for (const path of fields) {
+      const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+      const value = path === "seo.noindex"
+        ? property(candidate, key)?.checkbox : propertyText(candidate, key);
+      if (path.startsWith("seo."))
+        (actual.seo as Record<string, unknown>)[path.slice(4)] = value;
+      else actual[path] = value;
     }
-  }
-  for (const path of fields) {
-    if (acknowledgedBatchContacts.has(path)) continue;
-    const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
-    if (confirmed(page, path)) continue; // Verified equality, no duplicate PATCH.
-    const patch = adaptDirectoryNotionTextProperties(
-      { [key]: allProperties[key] }, page.properties ?? {},
-    );
+    return directoryNotionFullMirrorMismatches({
+      expected: canonical,
+      actual,
+      presentNotionProperties: Object.keys(candidate.properties ?? {}),
+      paths: fields,
+    });
+  };
+  const ensureUnchangedD1 = async () => {
+    const current = await getManagedDirectoryProfileById(input.profile.id, database);
+    if (!current || current.updatedAt !== input.profile.updatedAt)
+      throw new Error("DIRECTORY_ADMIN_TO_NOTION_D1_REVISION_CHANGED");
+  };
+  await ensureUnchangedD1();
+  const desired: Record<string, unknown> = {};
+  for (const path of fields)
+    desired[BREEDER_NOTION_EDITORIAL_FIELDS[path]] = allProperties[BREEDER_NOTION_EDITORIAL_FIELDS[path]];
+
+  // One PATCH for every mapped editable field, including unchanged and
+  // intentionally empty values. We do not mark Notion synchronized yet.
+  await patchNotionPage(bindings, page.id,
+    adaptDirectoryNotionTextProperties(desired, page.properties ?? {}));
+  let fresh = await fetchNotionPage(bindings, page.id);
+  let failedFields = mismatches(fresh);
+  if (failedFields.length) {
+    // Notion may omit or reject an individual field. One retry only for those
+    // fields avoids requiring the owner to manually save twice.
+    const retry: Record<string, unknown> = {};
+    for (const path of failedFields)
+      retry[BREEDER_NOTION_EDITORIAL_FIELDS[path]] = allProperties[BREEDER_NOTION_EDITORIAL_FIELDS[path]];
     try {
-      const echoed = await patchNotionPage(bindings, page.id, patch);
-      if (!confirmed(echoed, path)) {
-        // Notion may omit an unchanged property in the PATCH response. A
-        // targeted GET, not a successful HTTP status, confirms persistence.
-        const fresh = await fetchNotionPage(bindings, page.id);
-        if (!confirmed(fresh, path))
-          throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH");
-      }
+      await patchNotionPage(bindings, page.id,
+        adaptDirectoryNotionTextProperties(retry, fresh.properties ?? {}));
+      fresh = await fetchNotionPage(bindings, page.id);
+      failedFields = mismatches(fresh);
     } catch (error) {
-      console.error("DIRECTORY_ADMIN_TO_NOTION_FIELD_PENDING", input.profile.id, path,
-        error instanceof Error && /^[A-Z][A-Z0-9_]+$/.test(error.message)
-          ? error.message : "WRITE_NOT_CONFIRMED");
-      failedFields.push(path);
+      console.warn("DIRECTORY_ADMIN_TO_NOTION_RETRY_FAILED", input.profile.id, failedFields,
+        error instanceof Error ? error.name : "UNKNOWN");
     }
   }
-  if (failedFields.length)
+  if (failedFields.length) {
+    console.error("DIRECTORY_ADMIN_TO_NOTION_FULL_PARITY_FAILED", input.profile.id, failedFields);
     throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELDS_PENDING: " + failedFields.join(","));
-  // Every requested field was confirmed. Preserve any unrelated historical
-  // conflict and only retire errors for the fields just acknowledged.
-  const latestMetadata = await fetchNotionPage(bindings, page.id);
+  }
+  await ensureUnchangedD1();
+
+  // The status update is a SECOND, distinct operation: only a fresh Notion
+  // GET which agrees with every D1 field permits "Synchronizované".
   const canClearError = directoryEditorialEventMayClearError(
-    propertyText(latestMetadata, "Sync chyba"), fields,
+    propertyText(fresh, "Sync chyba"), fields,
   );
   const confirmedEcho = await patchNotionPage(bindings, page.id, canClearError ? {
     "Sync stav": select("Synchronizované"),
@@ -1932,17 +1919,31 @@ async function syncBreederEvent(input: {
   } : {
     "Posledný sync": date(now),
   });
-  // Record the revision of OUR outbound Notion write. Its webhook is an
-  // acknowledgement, not a new user edit; importing it back would create an
-  // Admin -> Notion -> D1 cycle. Later Notion edits have a new revision.
-  if (confirmedEcho.id !== page.id || !confirmedEcho.last_edited_time)
-    throw new Error("DIRECTORY_ADMIN_NOTION_ECHO_REVISION_MISSING");
+
+  const finalPage = await fetchNotionPage(bindings, page.id);
+  const finalFailed = mismatches(finalPage);
+  if (finalFailed.length) {
+    console.error("DIRECTORY_ADMIN_TO_NOTION_POST_STATUS_PARITY_FAILED", input.profile.id, finalFailed);
+    throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELDS_PENDING: " + finalFailed.join(","));
+  }
+  await ensureUnchangedD1();
+  if (confirmedEcho.id !== page.id || finalPage.id !== page.id ||
+      !finalPage.last_edited_time ||
+      (canClearError && propertyText(finalPage, "Sync stav") !== "Synchronizované"))
+    throw new Error("DIRECTORY_ADMIN_TO_NOTION_FINAL_ACK_MISSING");
+  // A separate pending error (Services V3, relations, etc.) must not be
+  // misreported as complete success just because editorial fields match.
+  if (!canClearError && propertyText(finalPage, "Sync stav") !== "Synchronizované")
+    throw new Error("DIRECTORY_ADMIN_TO_NOTION_OTHER_ERROR_PENDING");
+
+  // The revision belongs to our confirmed outbound Notion write. Its signed
+  // webhook is an echo, not permission to overwrite the saved D1 form.
   await database.prepare(
     "UPDATE directory_notion_sync SET notion_last_edited_time = ? " +
     "WHERE directory_profile_id = ? AND notion_page_id = ? " +
     "AND (notion_last_edited_time IS NULL OR notion_last_edited_time <= ?)"
-  ).bind(confirmedEcho.last_edited_time, input.profile.id, page.id,
-    confirmedEcho.last_edited_time).run();
+  ).bind(finalPage.last_edited_time, input.profile.id, page.id,
+    finalPage.last_edited_time).run();
   return "pushed";
 }
 
@@ -2335,7 +2336,29 @@ async function syncMappedPage(input: {
     if (isDirectoryAdminWritebackEcho(
       page.last_edited_time, input.mapping.notion_last_edited_time,
       input.breederWebhookPropertyIds !== undefined,
-    )) return "unchanged";
+    )) {
+      // Identical Notion timestamps do not prove a webhook is our own echo.
+      // A genuine edit can happen immediately after Admin write-back.
+      // Compare the signed editorial values to the current persisted D1 values.
+      const changedIds = input.breederWebhookPropertyIds ?? [];
+      const paths = breederNotionChangedFields(page.properties, changedIds);
+      const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
+      const fromD1 = profileSnapshot(profile) as unknown as Record<string, unknown>;
+      const editorialIds = new Set<string>();
+      for (const path of Object.keys(BREEDER_NOTION_EDITORIAL_FIELDS) as BreederEditorialField[]) {
+        const name = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+        editorialIds.add(name);
+        const record = page.properties?.[name] as { id?: unknown } | undefined;
+        if (typeof record?.id === "string") editorialIds.add(record.id);
+      }
+      // Do not discard signed filter, trainer-trust or relation events just
+      // because a separate editorial field still matches D1.
+      const editorialOnly = changedIds.every(id => editorialIds.has(id));
+      const unchangedSignedValues = paths.length > 0 && paths.every(path =>
+        JSON.stringify(breederReadPath(fromNotion, path)) ===
+        JSON.stringify(breederReadPath(fromD1, path)));
+      if (editorialOnly && unchangedSignedValues) return "unchanged";
+    }
     return syncBreederEvent({
       database: input.database, bindings: input.bindings, page, profile,
       changedPropertyIds: input.breederWebhookPropertyIds,
@@ -2952,10 +2975,23 @@ export async function runNotionDirectorySyncSweep(input: {
         if (relation === "skipped") summary.failed++;
       }
     } catch (error) {
-      // D1 remains committed, but the Notion field is still pending. Make the
-      // actual cause diagnosable rather than silently reporting only "failed".
+      // D1 remains committed. A failed full-profile parity check must also
+      // invalidate Notion's former "Synchronizované" badge, never report a
+      // successful mirror when some values are missing.
       console.error("DIRECTORY_TARGETED_NOTION_SYNC_FAILED", input.targetProfileId,
         error instanceof Error ? error.message : "UNKNOWN");
+      if (error instanceof Error && error.message.startsWith("DIRECTORY_ADMIN_TO_NOTION_")) {
+        try {
+          const failedPage = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+          if (failedPage.id === mapping.notion_page_id &&
+              notionDirectoryPageBelongsToSource(failedPage, dataSourceId) &&
+              propertyText(failedPage, "Psipedia ID") === String(input.targetProfileId))
+            await markPageError(input.bindings, failedPage.id, error, failedPage);
+        } catch (markError) {
+          console.warn("DIRECTORY_ADMIN_TO_NOTION_ERROR_STATUS_PENDING", input.targetProfileId,
+            markError instanceof Error ? markError.name : "UNKNOWN");
+        }
+      }
       summary.failed++;
     }
     return summary;
