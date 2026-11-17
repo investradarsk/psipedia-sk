@@ -22,15 +22,15 @@ export type ProposedSqlPlacement = Readonly<{
 }>;
 
 const existing = (column: string): ProposedSqlPlacement =>
-  {state:"existing",table:"directory_profiles",column};
+  ({state:"existing",table:"directory_profiles",column});
 const added = (column: string): ProposedSqlPlacement =>
-  {state:"proposed",table:"directory_profiles",column};
+  ({state:"proposed",table:"directory_profiles",column});
 const relation = (table: string): ProposedSqlPlacement =>
-  {state:"relation",table,column:null};
+  ({state:"relation",table,column:null});
 const structured = (column: string): ProposedSqlPlacement =>
-  {state:"structured",table:"directory_profiles",column};
+  ({state:"structured",table:"directory_profiles",column});
 const review = (reason: string): ProposedSqlPlacement =>
-  {state:"review",table:null,column:null,reason};
+  ({state:"review",table:null,column:null,reason});
 
 /** Keys match the Notion property names, not mutable UI labels. */
 export const DIRECTORY_NOTION_COMMON_SQL_SLOTS: Readonly<Record<string, ProposedSqlPlacement>> = {
