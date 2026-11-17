@@ -60,6 +60,7 @@ export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([
   "0166_facebook_weekly_template.sql",
   "0167_content_analytics_profile_views.sql",
   "0168_sitewide_first_party_analytics.sql",
+  "0169_directory_breeder_club_relations.sql",
 ]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {
