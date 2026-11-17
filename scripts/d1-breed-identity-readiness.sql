@@ -24,8 +24,10 @@ SELECT
    WHERE TRIM(COALESCE(slug,''))='' OR slug GLOB '*[^a-z0-9-]*') AS invalid_slugs,
   (SELECT COUNT(*) FROM published WHERE import_key='') AS missing_import_keys,
   (SELECT COUNT(*) FROM published WHERE NOT json_valid(seo_json)) AS invalid_seo_json,
-  (SELECT COUNT(*) FROM published WHERE json_valid(seo_json)
-     AND COALESCE(json_extract(seo_json,'$.noindex'),0)<>0) AS noindex_published,
+  (SELECT COUNT(*) FROM published WHERE
+     CASE WHEN json_valid(seo_json)
+       THEN COALESCE(json_extract(seo_json,'$.noindex'),0)<>0
+       ELSE 0 END) AS noindex_published,
   (SELECT COUNT(*) FROM directory_profiles p
    WHERE p.status='published' AND p.category='chovatelske-stanice'
      AND (
