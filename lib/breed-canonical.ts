@@ -136,7 +136,7 @@ export async function readCanonicalBreedIds(database: Pick<D1Database, "prepare"
   const result = await database.prepare(`
     SELECT b.id, b.fci_number, b.slug, TRIM(b.import_key) AS normalized_import_key
     FROM managed_breeds b
-    WHERE \${canonicalBreedEligibilitySql("b")}
+    WHERE ${canonicalBreedEligibilitySql("b")}
   `).all<EligibleCanonicalBreedIdentity>();
   return canonicalBreedIdsFromEligibleRows(result.results ?? []);
 }
