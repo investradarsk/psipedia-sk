@@ -6,7 +6,9 @@ on:
       - "scripts/production-editorial-storage-readonly.mjs"
       - "tests/production-editorial-storage-readonly.test.mjs"
       - "tests/directory-sql-unification-phase2.test.mjs"
-      - "tests/directory-sql-cutover-parity-phase3.test.mjs"
+      - "tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs"
+      - "tests/directory-sql-cutover-write-phase3.test.mjs"
+      - "lib/directory-sql-cutover-write.ts"
       - "lib/directory-sql-cutover-parity.ts"
       - "app/api/admin/directory/[id]/route.ts"
       - "lib/directory-sql-cutover-contract.ts"
@@ -29,7 +31,7 @@ concurrency:
 
 jobs:
   offline-sql-fixtures:
-    name: Verify inventory, phase-2 schema and phase-3 SQL parity
+    name: Verify inventory, phase-2 SQL, phase-3 read/write contracts
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
