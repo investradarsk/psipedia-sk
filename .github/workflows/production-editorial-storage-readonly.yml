@@ -5,6 +5,9 @@ on:
     paths:
       - "scripts/production-editorial-storage-readonly.mjs"
       - "tests/production-editorial-storage-readonly.test.mjs"
+      - "tests/directory-sql-unification-phase2.test.mjs"
+      - "lib/directory-sql-cutover-contract.ts"
+      - "docs/proposals/DIRECTORY-HELP-EVENTS-SQL-UNIFICATION-PHASE-2-DRAFT.sql"
       - ".github/workflows/production-editorial-storage-readonly.yml"
   workflow_dispatch:
     inputs:
@@ -23,7 +26,7 @@ concurrency:
 
 jobs:
   offline-sql-fixtures:
-    name: Verify bounded SELECT-only inventory
+    name: Verify SELECT-only inventory and phase-2 SQL proposal
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -32,7 +35,7 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Run SQLite fixture and safety tests (no secrets or D1)
-        run: node --test tests/production-editorial-storage-readonly.test.mjs
+        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs
 
   production-readonly:
     name: Count D1 sources and Notion mappings (no writes)
