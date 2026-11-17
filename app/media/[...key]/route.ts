@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: RouteProps) {
   const video=/\.(?:mp4|mov)$/i.test(key)&&segments[0]==="facebook-images";
   const requestedRange=video?request.headers.get("range"):null;
   // Safari/iOS video controls and seeking need HTTP byte ranges.
-  const rangeHeaders=requestedRange&&/^bytes=\d*-\\d*$/.test(requestedRange)
+  const rangeHeaders=requestedRange&&/^bytes=\d*-\d*$/.test(requestedRange)
     ?new Headers({range:requestedRange}):null;
   let object = await bucket.get(key,rangeHeaders?{range:rangeHeaders}:undefined);
   if (!object) return new Response("Not found", { status: 404 });
@@ -80,4 +80,25 @@ export async function GET(request: Request, { params }: RouteProps) {
     }
   }
   return new Response(object.body, { headers });
+}
+
+/** Meta's video ingestion can inspect headers before fetching the media. */
+export async function HEAD(_request:Request,{params}:RouteProps){
+  const {key:segments}=await params;
+  if(!segments?.length||segments[0]!=="facebook-images"||
+    segments.some(segment=>!segment||segment==="."||segment===".."))
+    return new Response(null,{status:404});
+  const key=segments.join("/");
+  if(!/\\.(?:mp4|mov)$/i.test(key))return new Response(null,{status:404});
+  const bucket=(env as unknown as MediaBindings).BUCKET;
+  const object=await bucket?.head(key);
+  if(!object)return new Response(null,{status:404});
+  const headers=new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("content-length",String(object.size));
+  headers.set("accept-ranges","bytes");
+  headers.set("etag",object.httpEtag);
+  headers.set("cache-control",MEDIA_CACHE_CONTROL);
+  headers.set("x-content-type-options","nosniff");
+  return new Response(null,{status:200,headers});
 }
