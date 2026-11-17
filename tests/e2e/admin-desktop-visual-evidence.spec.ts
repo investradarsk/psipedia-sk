@@ -23,7 +23,7 @@ test("desktop admin sections and puppies at 1280 and 1440 px", async ({ page }, 
       const response = await page.goto(path, { waitUntil: "domcontentloaded" });
       expect(response?.status(), `${path}: HTTP status`).toBeLessThan(400);
       await expect(page.locator(marker).first()).toBeVisible();
-      await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(async () => { await document.fonts.ready; });
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
         `${name}: unexpected horizontal overflow at ${width}px`,
