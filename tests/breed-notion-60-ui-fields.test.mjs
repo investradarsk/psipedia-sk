@@ -26,6 +26,8 @@ const aliases = {
   "Galéria JSON": "Ďalšie fotografie",
   "Športy JSON": "Športy a aktivity",
   "Editorial complete": "form.editorialComplete",
+  "SEO title": "SEO titulok",
+  "Meta description": "Meta popis",
 };
 
 test("breed editor exposes all 60 editorial fields from the approved Notion model", () => {
