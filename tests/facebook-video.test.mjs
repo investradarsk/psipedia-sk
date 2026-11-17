@@ -6,7 +6,7 @@ import {isFacebookVideoKey,isFacebookPhotoKey,facebookVideoMime} from "../lib/fa
 import {normalizeFacebookImageInput} from "../lib/facebook-image-post.ts";
 import {saveFacebookImagePost} from "../lib/facebook-image-store.ts";
 import {POST as uploadVideo} from "../app/api/admin/facebook-images/video-upload/route.ts";
-import {publishVideoToMeta,videoPublisherConfigured,setPublisherEnabled,runFacebookImagePublishSweep} from "../lib/facebook-image-publisher.ts";
+import {publishVideoToMeta,publisherConfigured,setPublisherEnabled,runFacebookImagePublishSweep} from "../lib/facebook-image-publisher.ts";
 import {shouldExportAdminImage} from "../lib/notion-facebook-images-admin-export.ts";
 
 const key="facebook-images/2030/aaaaaaaa-1234-4567-890a-abcdefabcdef.mp4";
@@ -51,11 +51,11 @@ test("video upload is authenticated, checks content signature, and stores R2 und
 });
 
 test("video Meta publisher is separately opt-in and posts to the Page video edge",async()=>{
- assert.equal(videoPublisherConfigured(bindings),false);
- await assert.rejects(publishVideoToMeta({imageKey:key,caption:"Video"},bindings,async()=>{throw Error("called");}),/FACEBOOK_VIDEO_NOT_CONFIGURED/);
+ assert.equal(publisherConfigured(bindings),true);
+ await assert.rejects(publishVideoToMeta({imageKey:key,caption:"Video"},{},async()=>{throw Error("called");}),/FACEBOOK_NOT_CONFIGURED/);
  const calls=[];
  const fetcher=async(url,opts)=>{calls.push({url,opts});return Response.json({id:"99887766554433"});};
- const enabled={...bindings,FACEBOOK_VIDEO_PUBLISH_ENABLED:"true"};
+ const enabled={...bindings};
  const id=await publishVideoToMeta({imageKey:key,caption:"Nové video"},enabled,fetcher);
  assert.equal(id,"99887766554433");
  assert.equal(calls.length,1);
@@ -65,7 +65,7 @@ test("video Meta publisher is separately opt-in and posts to the Page video edge
  assert.equal(calls[0].url.includes(bindings.FB_PAGE_ACCESS_TOKEN),false);
 });
 
-test("a scheduled video is never claimed when video publishing is OFF",async t=>{
+test("a scheduled video publishes once under the existing approval gates",async t=>{
  const {sqlite,db}=fixture(t);
  const now="2030-01-10T00:00:00.000Z";
  const id="00000000-0000-4000-8000-000000000789";
@@ -76,14 +76,10 @@ test("a scheduled video is never claimed when video publishing is OFF",async t=>
  const fetcher=async(url,opts)=>{calls.push(url);return Response.json({id:"99887766554433"});};
  const head=async()=>({httpMetadata:{contentType:"video/mp4"}});
  const videoBindings={...bindings,BUCKET:{head},FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED:"true"};
- const blocked=await runFacebookImagePublishSweep({db,bindings:videoBindings,now:new Date(now),fetcher});
- assert.equal(blocked.claimed,0);
- assert.equal(calls.length,0);
- assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM facebook_image_publish_attempts").get().total,0);
- const sent=await runFacebookImagePublishSweep({db,bindings:{...videoBindings,FACEBOOK_VIDEO_PUBLISH_ENABLED:"true"},now:new Date(now),fetcher});
+ const sent=await runFacebookImagePublishSweep({db,bindings:videoBindings,now:new Date(now),fetcher});
  assert.equal(sent.published,1);
  assert.equal(calls.length,1);
  assert.equal(calls[0],"https://graph-video.facebook.com/v26.0/123456789012345/videos");
  assert.equal(sqlite.prepare("SELECT status FROM facebook_image_posts WHERE id=?").get(id).status,"published");
- assert.equal((await runFacebookImagePublishSweep({db,bindings:{...videoBindings,FACEBOOK_VIDEO_PUBLISH_ENABLED:"true"},now:new Date(now),fetcher})).claimed,0);
+ assert.equal((await runFacebookImagePublishSweep({db,bindings:videoBindings,now:new Date(now),fetcher})).claimed,0);
 });
