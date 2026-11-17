@@ -73,7 +73,7 @@ export async function GET(request: Request, { params }: RouteProps) {
   if(video){
     headers.set("accept-ranges","bytes");
     const range=object.range;
-    if(rangeHeaders&&typeof range?.offset==="number"&&typeof range?.length==="number"){
+    if(rangeHeaders&&range&&"offset" in range&&"length" in range&&typeof range.offset==="number"&&typeof range.length==="number"){
       headers.set("content-range",`bytes ${range.offset}-${range.offset+range.length-1}/${object.size}`);
       headers.set("content-length",String(range.length));
       return new Response(object.body,{status:206,headers});
