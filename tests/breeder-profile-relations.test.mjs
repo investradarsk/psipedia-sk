@@ -53,8 +53,11 @@ test("shared detail template places expertise under contact and gallery before r
   assert.ok(contact > 0 && expertise > contact && services > expertise);
   assert.ok(gallery > services && reviews > gallery);
   assert.match(source, /key: "expertise",\s*column: "aside"/);
-  assert.match(source, /relatedClubs\.map\(club => <Link/);
-  assert.match(source, /relatedBreeds\.map\(breed => <Link/);
+  // The shared expertise grid renders canonical links with stable IDs;
+  // an earlier assertion expected an obsolete unkeyed inline link shape.
+  assert.match(source, /relatedClubs\.map\(\s*\(?club\)?\s*=>\s*\(?\s*<Link key=\{club\.id\} href=\{club\.href\}>/);
+  assert.match(source, /relatedBreeds\.map\(\s*\(?breed\)?\s*=>\s*\(?\s*<Link key=\{breed\.id\} href=\{breed\.href\}>/);
+  assert.match(source, /<DetailOptionGrid options=\{\[\.\.\.expertFacts, \.\.\.breederLinkFacts\]\}\s*\/>/);
   const editor = await readFile(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
   assert.match(editor, /Prepojené plemená a chovateľské kluby/);
   assert.match(editor, /breederRelationsDirty/);

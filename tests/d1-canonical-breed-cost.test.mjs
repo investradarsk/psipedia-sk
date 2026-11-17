@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { canonicalBreedIdsSql, canonicalBreedWinnerSql } from "../lib/breed-canonical.ts";
+import { canonicalBreedIdsSql, canonicalBreedWinnerSql, readCanonicalBreedIds } from "../lib/breed-canonical.ts";
 
-test("canonical breed IDs preserve eligibility and all three duplicate identities without correlated scans", () => {
+test("canonical breed IDs preserve eligibility and all three duplicate identities without correlated scans", async () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(`CREATE TABLE managed_breeds (
@@ -38,6 +38,26 @@ test("canonical breed IDs preserve eligibility and all three duplicate identitie
     const newIds = db.prepare(`${canonicalBreedIdsSql} ORDER BY id`).all().map((row) => row.id);
     assert.deepEqual(oldIds, [1, 6, 8, 12, 20]);
     assert.deepEqual(newIds, oldIds);
+
+    // Public directory projections must be equivalent to the authoritative
+    // SQL windows, even when a non-winning row blocks a later identity.
+    let projectedSql = "";
+    const readDatabase = {
+      prepare(sql) {
+        projectedSql = sql;
+        return { async all() { return { results: db.prepare(sql).all() }; } };
+      },
+    };
+    assert.deepEqual(await readCanonicalBreedIds(readDatabase), newIds);
+    assert.match(projectedSql, /WHERE b\.status='published'/);
+    assert.doesNotMatch(projectedSql, /OVER\s*\(/, "projection must not sort every eligible breed through three SQL windows");
+
+    // No cross-request cache: moderation or SEO changes are immediately seen.
+    db.prepare("UPDATE managed_breeds SET seo_json=? WHERE id=1").run('{"noindex":true}');
+    const after = db.prepare(`${canonicalBreedIdsSql} ORDER BY id`).all().map((row) => row.id);
+    assert.deepEqual(await readCanonicalBreedIds(readDatabase), after);
+    // Restore the original fixture for the remaining legacy nested-SQL assertions.
+    db.prepare("UPDATE managed_breeds SET seo_json=? WHERE id=1").run("{}");
 
     const nested = db.prepare(`SELECT id FROM managed_breeds
       WHERE id IN (${canonicalBreedIdsSql}) ORDER BY id`).all().map((row) => row.id);

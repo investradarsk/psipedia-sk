@@ -1,4 +1,4 @@
-import { canonicalBreedIdsSql } from "@/lib/breed-canonical";
+import { readCanonicalBreedIds } from "@/lib/breed-canonical";
 import type { PublicDirectoryProfile } from "@/lib/directory";
 
 const BREEDER_CATEGORY = "chovatelske-stanice";
@@ -33,6 +33,7 @@ export function breederBreedSourceLabel(value: unknown): string {
 export async function attachBreederCardBreeds(
   database: D1Database,
   profiles: PublicDirectoryProfile[],
+  preloadedCanonicalBreedIds?: readonly number[],
 ): Promise<PublicDirectoryProfile[]> {
   const breederIds = [...new Set(profiles
     .filter((profile) => profile.category === BREEDER_CATEGORY)
@@ -40,14 +41,16 @@ export async function attachBreederCardBreeds(
   if (!breederIds.length) return profiles;
 
   try {
+    const canonicalBreedIds = preloadedCanonicalBreedIds ?? await readCanonicalBreedIds(database);
+    if (!canonicalBreedIds.length) return profiles;
     const result = await database.prepare(`
       SELECT DISTINCT r.profile_id AS profileId, b.name AS breedName
       FROM breed_directory_relations r
       JOIN managed_breeds b ON b.id = r.breed_id
       WHERE r.profile_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
-        AND b.id IN (${canonicalBreedIdsSql})
+        AND b.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
       ORDER BY r.profile_id, b.name COLLATE NOCASE
-    `).bind(JSON.stringify(breederIds)).all<{ profileId: number; breedName: string }>();
+    `).bind(JSON.stringify(breederIds), JSON.stringify(canonicalBreedIds)).all<{ profileId: number; breedName: string }>();
 
     const breedsByProfile = new Map<number, string[]>();
     for (const row of result.results ?? []) {

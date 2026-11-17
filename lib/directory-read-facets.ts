@@ -6,6 +6,22 @@ import { directoryEffectiveDistrictSql } from "./directory-public-source-contrac
  * No cross-request cache: public HTML already has a short edge TTL, and D1
  * publication / import mutations must become visible after that TTL.
  */
+/**
+ * Canonical breeder relations are already resolved into a tiny list of
+ * published winner IDs. Treat it as one bound JSON parameter instead of
+ * embedding the expensive breed-identity window subquery in every profile's
+ * source facet evaluation. The legacy field remains the fallback when there
+ * are no canonical relations.
+ */
+export function directoryCanonicalBreedFacetSql(legacyBreedSql: string): string {
+  return `CASE WHEN directory_profiles.category='chovatelske-stanice'
+    AND EXISTS (
+      SELECT 1 FROM breed_directory_relations linked
+      WHERE linked.profile_id = directory_profiles.id
+        AND linked.breed_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+    ) THEN '' ELSE ${legacyBreedSql} END`;
+}
+
 export type DirectorySourceFacetExpressions = {
   breeds: string;
   fciGroups: string;
@@ -51,6 +67,7 @@ export function directorySourceFacetStatement(
   categoryWhere: string,
   categoryBindings: unknown[],
   expressions: DirectorySourceFacetExpressions,
+  selectBindings: unknown[] = [],
 ) {
   const columns = (
     Object.entries(expressions) as Array<[keyof DirectorySourceFacetExpressions, string]>
@@ -60,7 +77,7 @@ export function directorySourceFacetStatement(
   );
   return database
     .prepare(`SELECT ${columns.join(", ")} FROM directory_profiles WHERE ${categoryWhere}`)
-    .bind(...categoryBindings);
+    .bind(...selectBindings, ...categoryBindings);
 }
 
 /**
