@@ -72,8 +72,8 @@ test("step 7: primary breed and profile photos remain eager while lower gallerie
   assert.match(hero, /fetchPriority="high"/);
   assert.match(profile, /srcSet=\{responsiveMediaSrcSet\(imageUrl, \[320, 480, 640, 768, 960, 1280\]\)\}/);
   assert.match(profile, /loading="eager"[\s\S]*?fetchPriority="high"/);
-  assert.match(breed, /renderImage=\{\(image\) => <BreedPhoto[^>]*loading="lazy"[^>]*decoding="async"/);
-  assert.match(breed, /<BreedPhoto src=\{item\.image\}[^>]*sizes="[^"]*180px"[^>]*loading="lazy"/);
+  assert.match(breed, /renderImage=\{\(image\)\s*=>\s*\(\s*<BreedPhoto[\s\S]{0,300}?loading="lazy"[\s\S]{0,100}?decoding="async"/);
+  assert.match(breed, /<BreedPhoto\s+src=\{item\.image\}[\s\S]{0,220}?sizes="[^"]*180px"[\s\S]{0,100}?loading="lazy"/);
   assert.match(atlas, /<BreedPhoto[^>]*sizes="[^"]*300px"[^>]*loading="lazy"/);
   assert.match(comparison, /sizes="\(max-width: 760px\) 45vw, 320px"/);
 });
