@@ -80,7 +80,7 @@ test("station and kennel club share SQL breeds; trainer has no linked breeds", a
   } finally { sqlite.close(); }
 });
 
-test("manual SQL backfill preserves historical station-club pairs without duplicates", () => {
+test("new station-club table starts blank; legacy relation JSON is never imported", () => {
   const { sqlite } = fixture();
   try {
     const preflight = readFileSync("scripts/d1-breeder-club-links-preflight.sql","utf8");
@@ -89,14 +89,33 @@ test("manual SQL backfill preserves historical station-club pairs without duplic
     assert.equal(before.invalid_club_array,0);
     assert.equal(before.invalid_club_targets,0);
     assert.equal(before.legacy_pairs,1);
-    const backfill = readFileSync("scripts/d1-breeder-club-links-backfill.sql","utf8");
-    sqlite.exec(backfill);
-    sqlite.exec(backfill);
+    // The old JSON link is deliberately ignored. The canonical SQL stays empty.
     const postflight = readFileSync("scripts/d1-breeder-club-links-postflight.sql","utf8");
     const after = sqlite.prepare(postflight).get();
-    assert.equal(after.legacy_pairs_missing,0);
-    assert.equal(after.canonical_station_club_links,1);
-    assert.equal(after.invalid_new_links,0);
+    assert.equal(after.station_club_table_exists,1);
+    assert.equal(after.station_club_links,0);
+    assert.equal(after.station_breed_links,0);
+    assert.equal(after.club_breed_links,0);
+  } finally { sqlite.close(); }
+});
+
+test("scoped one-shot reset clears breeder/club breed links but never trainer or other links", () => {
+  const { sqlite } = fixture();
+  try {
+    sqlite.exec(`
+      INSERT INTO breed_directory_relations VALUES
+        (100,10,'breeding-station','fixture','now','test'),
+        (101,20,'breed-club','fixture','now','test'),
+        (100,30,'trainer','fixture','now','test');
+    `);
+    sqlite.exec(readFileSync("scripts/d1-breeder-club-links-reset.sql","utf8"));
+    const rows = sqlite.prepare("SELECT profile_id FROM breed_directory_relations ORDER BY profile_id").all();
+    assert.deepEqual(rows.map(row=>row.profile_id),[30]);
+    const after = sqlite.prepare(readFileSync("scripts/d1-breeder-club-links-postflight.sql","utf8")).get();
+    assert.equal(after.station_club_links,0);
+    assert.equal(after.station_breed_links,0);
+    assert.equal(after.club_breed_links,0);
+    assert.equal(after.unaffected_other_links,1);
   } finally { sqlite.close(); }
 });
 
