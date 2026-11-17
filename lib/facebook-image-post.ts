@@ -1,4 +1,4 @@
-import {isFacebookMediaKey} from "@/lib/facebook-video";
+import {isFacebookMediaKey} from "./facebook-video.ts";
 /** Scheduling is data only. This module has no publishing or provider integration. */
 export const FACEBOOK_IMAGE_TIME_ZONE = "Europe/Bratislava";
 export type FacebookImageStatus = "draft" | "scheduled" | "published";
