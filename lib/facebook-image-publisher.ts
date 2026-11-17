@@ -11,7 +11,7 @@ export type FacebookPublisherBindings = {
   BUCKET?:Pick<R2Bucket,"head">;
 };
 export type PublisherDatabase = Pick<D1Database, "prepare">;
-export type PublisherConfig = { enabled: boolean; connected: boolean; technicallyEnabled: boolean; videoPublishingEnabled:boolean };
+export type PublisherConfig = { enabled: boolean; connected: boolean; technicallyEnabled: boolean };
 type Candidate = {
   id: string; image_key: string; caption: string; version: number;
   scheduled_at: string; approval_status: string; retry_count?:number; superseded?:number;
