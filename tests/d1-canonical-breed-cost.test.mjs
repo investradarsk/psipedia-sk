@@ -49,8 +49,8 @@ test("canonical breed IDs preserve eligibility and all three duplicate identitie
       },
     };
     assert.deepEqual(await readCanonicalBreedIds(readDatabase), newIds);
-    assert.match(projectedSql, /WHERE b\\.status='published'/);
-    assert.doesNotMatch(projectedSql, /OVER\\s*\\(/, "projection must not sort every eligible breed through three SQL windows");
+    assert.match(projectedSql, /WHERE b\.status='published'/);
+    assert.doesNotMatch(projectedSql, /OVER\s*\(/, "projection must not sort every eligible breed through three SQL windows");
 
     // No cross-request cache: moderation or SEO changes are immediately seen.
     db.prepare("UPDATE managed_breeds SET seo_json=? WHERE id=1").run('{"noindex":true}');
