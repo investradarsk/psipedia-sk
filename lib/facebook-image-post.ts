@@ -1,3 +1,4 @@
+import {isFacebookMediaKey} from "@/lib/facebook-video";
 /** Scheduling is data only. This module has no publishing or provider integration. */
 export const FACEBOOK_IMAGE_TIME_ZONE = "Europe/Bratislava";
 export type FacebookImageStatus = "draft" | "scheduled" | "published";
@@ -49,11 +50,11 @@ export function normalizeFacebookImageInput(input: unknown): FacebookImageInput 
   // A title is useful internally but never a publishing prerequisite.
   const normalizedTitle=title||"Facebook obrázok";
   if (row.status !== "draft" && row.status !== "scheduled") throw new Error("Povoľujeme iba koncept alebo naplánovanie.");
-  if ((imageKey || imageUrl) && (!/^facebook-images\/\d{4}\/[a-f0-9-]+\.(?:jpg|png|webp)$/.test(imageKey) || imageUrl !== `/media/${imageKey}`)) throw new Error("Použi obrázok nahratý v tomto module.");
+  if ((imageKey || imageUrl) && (!isFacebookMediaKey(imageKey) || imageUrl !== `/media/${imageKey}`)) throw new Error("Použi obrázok alebo video nahraté v tomto module.");
   const date = text("date",10), time = text("time",5);
   if (!date && time) throw new Error("Doplň dátum alebo vymaž čas.");
   const scheduledAt = date ? facebookScheduleInstant(date,time,text("repeatedHour",7)) : null;
-  if (row.status === "scheduled" && (!scheduledAt || !imageKey)) throw new Error("Naplánovanie vyžaduje obrázok, dátum a čas.");
+  if (row.status === "scheduled" && (!scheduledAt || !imageKey)) throw new Error("Naplánovanie vyžaduje obrázok alebo video, dátum a čas.");
   return {title:normalizedTitle,imageUrl,imageKey,caption,scheduledAt,status:row.status};
 }
 export function facebookPostsForDay(items: FacebookImagePost[], date: string) {
