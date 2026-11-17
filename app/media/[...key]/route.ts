@@ -29,7 +29,12 @@ export async function GET(request: Request, { params }: RouteProps) {
   if (!bucket) return new Response("Not found", { status: 404 });
 
   const key = segments.join("/");
-  let object = await bucket.get(key);
+  const video=/\\.(?:mp4|mov)$/i.test(key)&&segments[0]==="facebook-images";
+  const requestedRange=video?request.headers.get("range"):null;
+  // Safari/iOS video controls and seeking need HTTP byte ranges.
+  const rangeHeaders=requestedRange&&/^bytes=\\d*-\\d*$/.test(requestedRange)
+    ?new Headers({range:requestedRange}):null;
+  let object = await bucket.get(key,rangeHeaders?{range:rangeHeaders}:undefined);
   if (!object) return new Response("Not found", { status: 404 });
 
   // Only known finite widths and raster images can opt into transformations.
@@ -65,5 +70,14 @@ export async function GET(request: Request, { params }: RouteProps) {
   headers.set("etag", object.httpEtag);
   headers.set("cache-control", MEDIA_CACHE_CONTROL);
   headers.set("x-content-type-options", "nosniff");
+  if(video){
+    headers.set("accept-ranges","bytes");
+    const range=object.range;
+    if(rangeHeaders&&typeof range?.offset==="number"&&typeof range?.length==="number"){
+      headers.set("content-range",`bytes ${range.offset}-${range.offset+range.length-1}/${object.size}`);
+      headers.set("content-length",String(range.length));
+      return new Response(object.body,{status:206,headers});
+    }
+  }
   return new Response(object.body, { headers });
 }
