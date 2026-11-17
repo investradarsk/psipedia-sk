@@ -1,4 +1,4 @@
-import {facebookVideoMime,isFacebookVideoKey} from "@/lib/facebook-video";
+import {facebookVideoMime,isFacebookVideoKey} from "./facebook-video.ts";
 /** Facebook Page photo publishing, single-attempt fail-closed semantics.
  * Only explicit provider-rejected throttling may be retried. A transport error
  * may mean Meta published the photo, so ambiguous results remain fail-closed.
