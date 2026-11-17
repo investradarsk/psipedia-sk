@@ -8,6 +8,8 @@ on:
       - "tests/directory-sql-unification-phase2.test.mjs"
       - "tests/directory-sql-cutover-parity-phase3.test.mjs"
       - "tests/directory-sql-cutover-write-phase3.test.mjs"
+      - "tests/editorial-cleanup-readiness-phase4.test.mjs"
+      - "scripts/production-editorial-cleanup-readiness.mjs"
       - "lib/directory-sql-cutover-write.ts"
       - "lib/directory-sql-cutover-parity.ts"
       - "app/api/admin/directory/[id]/route.ts"
@@ -40,7 +42,7 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Run SQLite fixture and safety tests (no secrets or D1)
-        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs
+        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs tests/editorial-cleanup-readiness-phase4.test.mjs
 
   production-readonly:
     name: Count D1 sources and Notion mappings (no writes)
@@ -92,11 +94,16 @@ jobs:
       - name: Run count-only inventory (never migrate)
         run: node scripts/production-editorial-storage-readonly.mjs
 
-      - name: Upload category/mapping summary
+      - name: Generate fail-closed cleanup assessment (no D1 calls)
+        run: node scripts/production-editorial-cleanup-readiness.mjs
+
+      - name: Upload category/mapping summary and cleanup blockers
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: editorial-storage-readonly-${{ github.run_id }}
-          path: .production-editorial-storage-readonly/report.json
+          path: |
+            .production-editorial-storage-readonly/report.json
+            .production-editorial-storage-readonly/cleanup-readiness.json
           if-no-files-found: error
           retention-days: 14
