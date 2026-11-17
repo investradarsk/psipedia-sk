@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {env} from "cloudflare:workers";
 import {fixture} from "./facebook-image-test-fixture.mjs";
 import {isFacebookVideoKey,isFacebookPhotoKey,facebookVideoMime} from "../lib/facebook-video.ts";
 import {normalizeFacebookImageInput} from "../lib/facebook-image-post.ts";
