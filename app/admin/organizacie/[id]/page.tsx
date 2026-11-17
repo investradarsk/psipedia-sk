@@ -60,7 +60,7 @@ function organizationSuggestions(organizationId: number): Promise<OrganizationSu
 }
 
 export default async function OrganizationAdminDetailPage({ params, searchParams }: Props) {
-  const returnHref = adminReturnHref((await searchParams).returnTo, "/admin/organizacie");
+  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/organizacie", "/admin/pomoc-psom"]);
   const { id } = await params;
   // Reject hexadecimal, decimals and accidental numeric coercions.
   // An invalid/missing Admin ID is a real 404, never a SQL crash.
