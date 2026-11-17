@@ -89,7 +89,7 @@ export async function HEAD(_request:Request,{params}:RouteProps){
     segments.some(segment=>!segment||segment==="."||segment===".."))
     return new Response(null,{status:404});
   const key=segments.join("/");
-  if(!/\\.(?:mp4|mov)$/i.test(key))return new Response(null,{status:404});
+  if(!/\.(?:mp4|mov)$/i.test(key))return new Response(null,{status:404});
   const bucket=(env as unknown as MediaBindings).BUCKET;
   const object=await bucket?.head(key);
   if(!object)return new Response(null,{status:404});
