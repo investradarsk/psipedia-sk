@@ -69,7 +69,7 @@ test("preflight flags malformed legacy trainer IDs instead of silently dropping 
   } finally { db.close(); }
 });
 
-test("one relational breed reader and writer is used for both trainer and breeder", () => {
+test("single relation reader and writer now serves stations and clubs, not trainers", () => {
   const get = runtime.slice(runtime.indexOf("export async function getBreederRelationSelection("),
     runtime.indexOf("export async function listBreederRelationOptions("));
   const save = runtime.slice(runtime.indexOf("export async function saveBreederRelationSelection("),
@@ -78,7 +78,9 @@ test("one relational breed reader and writer is used for both trainer and breede
   assert.match(get, /SELECT breed_id AS id FROM breed_directory_relations/);
   assert.match(publicRead, /FROM breed_directory_relations r/);
   assert.match(save, /INSERT INTO breed_directory_relations/);
-  assert.match(save, /source_data_json=\? RETURNING id/);
+  assert.match(save, /INSERT INTO directory_breeder_club_relations/);
+  assert.match(get, /"chovatelske-stanice", "chovatelske-kluby"/);
+  assert.doesNotMatch(save, /category===?"treneri"/);
   assert.doesNotMatch(runtime, /TRAINER_BREED_IDS_METADATA_KEY/);
   assert.match(runtime, /database\.batch\(statements\)/);
 });
