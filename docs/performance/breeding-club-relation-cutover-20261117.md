@@ -24,9 +24,12 @@ Nevkladať falošné zápisy do `d1_migrations`, neobchádzať ochrany.
 
 ## Overený postup
 1. Vytvoriť a overiť obnoviteľnú zálohu produkčnej D1. Bez zálohy STOP.
-2. Cez read-only audit potvrdiť migračnú históriu a fyzický stav schém 0163–0168.
-   Chýbajúce migrácie nasadzovať iba cez existujúci chránený, postupný owner-authorized
-   migračný proces. Ak nie je možné zaručiť sekvenčný prechod, STOP.
+2. V Cloudflare D1 Console spustiť **iba read-only** `scripts/d1-0163-0169-schema-readonly-audit.sql`. Výstup po jednom riadku pre 0163–0169 ukáže `history_recorded`, `present_objects`, `missing_objects` a `status`. SQL je jeden SELECT/CTE bez komentárov pred úvodným WITH, aby ho Cloudflare Console nevyhodnotil ako komentár. Počíta tabuľky, indexy, triggery, pohľad aj stĺpce bez akéhokoľvek zápisu.
+   `NOT_APPLIED` znamená chýbajúcu migráciu, `SCHEMA_PRESENT_WITHOUT_HISTORY` alebo
+   `PARTIAL_OR_INCONSISTENT_STOP` znamená drift, pri ktorom sa nesmie bez
+   analýzy nič aplikovať. Chýbajúce migrácie nasadzovať iba cez existujúci
+   chránený, postupný owner-authorized migračný proces. Nevytvárať migrácie
+   iba pomocou zápisu do `d1_migrations`. Ak je fyzická schéma v nezhode, STOP.
 3. Po schválenom prechode cez 0168 vykonať migráciu
    `drizzle/0169_directory_breeder_club_relations.sql` cez chránený proces.
    Nová `directory_breeder_club_relations` musí byť **prázdna**.
