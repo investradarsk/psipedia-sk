@@ -8,7 +8,6 @@ export type FacebookPublisherBindings = {
   FB_PAGE_ID?: string; FB_PAGE_ACCESS_TOKEN?: string;
   FACEBOOK_IMAGE_PUBLISH_ENABLED?: string;
   FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?: string;
-  FACEBOOK_VIDEO_PUBLISH_ENABLED?: string;
   BUCKET?:Pick<R2Bucket,"head">;
 };
 export type PublisherDatabase = Pick<D1Database, "prepare">;
@@ -25,10 +24,6 @@ export function facebookSafeRetryEnabled(bindings:FacebookPublisherBindings) {
 }
 type PhotoResult = { id?: string; post_id?: string };
 const clock = (when: Date) => when.toISOString();
-export function videoPublisherConfigured(bindings:FacebookPublisherBindings){
-  return publisherConfigured(bindings)
-    && ["true","1"].includes((bindings.FACEBOOK_VIDEO_PUBLISH_ENABLED??"").toLowerCase());
-}
 export function publisherConfigured(bindings: FacebookPublisherBindings) {
   return Boolean(/^\d{5,30}$/.test(bindings.FB_PAGE_ID ?? "")
     && (bindings.FB_PAGE_ACCESS_TOKEN ?? "").length > 20
@@ -56,7 +51,7 @@ export async function publisherConfig(db: PublisherDatabase, bindings: FacebookP
   await requirePublisherSchema(db);
   const setting = await db.prepare("SELECT enabled FROM facebook_image_publisher_settings WHERE id=1").first<{enabled:number}>();
   return {enabled:setting?.enabled===1,connected:Boolean(bindings.FB_PAGE_ID && bindings.FB_PAGE_ACCESS_TOKEN),
-    technicallyEnabled:publisherConfigured(bindings),videoPublishingEnabled:videoPublisherConfigured(bindings)};
+    technicallyEnabled:publisherConfigured(bindings)};
 }
 export async function setPublisherEnabled(db: PublisherDatabase, enabled: boolean, actor: string) {
   await requirePublisherSchema(db);
@@ -145,7 +140,7 @@ export async function publishPhotoToMeta(photo: { imageKey:string; caption:strin
  */
 export async function publishVideoToMeta(video:{imageKey:string;caption:string},
   bindings:FacebookPublisherBindings,fetcher:typeof fetch=fetch):Promise<string>{
-  if(!videoPublisherConfigured(bindings))throw new Error("FACEBOOK_VIDEO_NOT_CONFIGURED");
+  if(!publisherConfigured(bindings))throw new Error("FACEBOOK_NOT_CONFIGURED");
   if(!isFacebookVideoKey(video.imageKey))throw new Error("VIDEO_KEY_INVALID");
   const body=new URLSearchParams({
     file_url:"https://psipedia.sk/media/"+video.imageKey,
@@ -241,11 +236,6 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
   const articleColumns=await db.prepare("PRAGMA table_info('facebook_image_posts')").all<{name:string}>();
   const hasArticleLink=articleColumns.results.some(column=>column.name==="article_id");
   for(const item of [...retryCandidates.results,...candidates.results]){
-    // Video publishing is an independent opt-in; do not claim an attempt
-    // that cannot be sent, even if the photo publisher is globally enabled.
-    if(isFacebookVideoKey(item.image_key)&&!videoPublisherConfigured(bindings)){
-      summary.preflightSkipped++;continue;
-    }
     if(hasArticleLink){
       const linked=await db.prepare("SELECT article_id FROM facebook_image_posts WHERE id=?")
         .bind(item.id).first<{article_id:number|null}>();
@@ -344,7 +334,7 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
       const message=error instanceof Error ? error.message : "";
       // Never persist arbitrary exception text: runtimes/providers may echo tokens.
       const code=/^META_HTTP_[0-9]{3}$/.test(message)?message:
-        ["META_AMBIGUOUS_RESPONSE","IMAGE_KEY_INVALID","VIDEO_KEY_INVALID","FACEBOOK_NOT_CONFIGURED","FACEBOOK_VIDEO_NOT_CONFIGURED"].includes(message)?message:"TRANSPORT_OR_UNKNOWN";
+        ["META_AMBIGUOUS_RESPONSE","IMAGE_KEY_INVALID","VIDEO_KEY_INVALID","FACEBOOK_NOT_CONFIGURED"].includes(message)?message:"TRANSPORT_OR_UNKNOWN";
       if(safeRetry&&error instanceof ExplicitMetaRateLimitRejection){
         const count=(item.retry_count??0)+(isRetry?1:0);
         const delayMs=Math.min(30*60000,60000*Math.pow(2,count));
