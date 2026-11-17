@@ -1,24 +1,15 @@
--- READ ONLY; run AFTER additive backfill before any application deploy.
-WITH stations AS (
- SELECT id AS station_id,
-   CASE WHEN json_valid(source_data_json)
-    THEN json_extract(source_data_json, '$."_psipedia_breeder_club_profile_ids"')
-    ELSE NULL END AS raw
- FROM directory_profiles WHERE category='chovatelske-stanice'
-), pairs AS (
- SELECT DISTINCT station_id, j.value AS club_id
- FROM stations s JOIN json_each(
-   CASE WHEN json_valid(raw) AND json_type(raw)='array' THEN raw ELSE '[]' END
- ) j WHERE j.type='integer' AND j.value>0
-)
+-- READ ONLY: run AFTER owner-authorised zero-start reset, BEFORE deployment.
+-- All previous station/club/breed links must be blank for manual fresh entry.
 SELECT
- (SELECT COUNT(*) FROM pairs WHERE NOT EXISTS (
-   SELECT 1 FROM directory_breeder_club_relations r
-   WHERE r.station_profile_id=pairs.station_id AND r.club_profile_id=pairs.club_id
- )) AS legacy_pairs_missing,
- (SELECT COUNT(*) FROM directory_breeder_club_relations) AS canonical_station_club_links,
- (SELECT COUNT(*) FROM directory_breeder_club_relations r
-  LEFT JOIN directory_profiles station ON station.id=r.station_profile_id
-  LEFT JOIN directory_profiles club ON club.id=r.club_profile_id
-  WHERE station.id IS NULL OR station.category<>'chovatelske-stanice'
-     OR club.id IS NULL OR club.category<>'chovatelske-kluby') AS invalid_new_links;
+  (SELECT COUNT(*) FROM sqlite_schema
+    WHERE type='table' AND name='directory_breeder_club_relations') AS station_club_table_exists,
+  (SELECT COUNT(*) FROM directory_breeder_club_relations) AS station_club_links,
+  (SELECT COUNT(*) FROM breed_directory_relations r
+   JOIN directory_profiles p ON p.id=r.profile_id
+   WHERE p.category='chovatelske-stanice') AS station_breed_links,
+  (SELECT COUNT(*) FROM breed_directory_relations r
+   JOIN directory_profiles p ON p.id=r.profile_id
+   WHERE p.category='chovatelske-kluby') AS club_breed_links,
+  (SELECT COUNT(*) FROM breed_directory_relations r
+   JOIN directory_profiles p ON p.id=r.profile_id
+   WHERE p.category NOT IN ('chovatelske-stanice','chovatelske-kluby')) AS unaffected_other_links;
