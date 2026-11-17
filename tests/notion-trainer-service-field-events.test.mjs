@@ -110,7 +110,8 @@ test("trainer relations use independent storage and can load both name-selected 
     readFile(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(relations, /WHERE id=\? AND category='treneri' AND status<>'archived'\s+AND source_data_json=\? RETURNING id/);
-  assert.match(relations, /TRAINER_BREED_IDS_METADATA_KEY/);
+  assert.doesNotMatch(relations, /TRAINER_BREED_IDS_METADATA_KEY/);
+  assert.match(relations, /SELECT breed_id AS id FROM breed_directory_relations/);
   assert.match(relations, /TRAINER_CLUB_IDS_METADATA_KEY/);
   assert.match(sync, /const relationFields = \["chovatelske-stanice", "treneri"\]/);
   assert.match(sync, /mirrorBreederRelationNamesToNotion/);
