@@ -27,14 +27,16 @@ function fixture() {
 }
 function d1(db) {
   return {
-    prepare(sql) {return {bind(...args) {return {sql,args};}};},
+    prepare(sql) {return {bind(...args) {return {
+      sql,args,first:async()=>db.prepare(sql).get(...args)??null,
+    };}};},
     async batch(statements) {
       const responses=[];
       db.exec("BEGIN");
       try {
         for (const statement of statements) {
           const prepared=db.prepare(statement.sql);
-          if (/\bRETURNING\b/i.test(statement.sql)) {
+          if (/\bRETURNING\b/i.test(statement.sql) || /^SELECT\s/i.test(statement.sql)) {
             const rows=prepared.all(...statement.args);
             responses.push({results:rows,meta:{changes:rows.length}});
           } else {
@@ -91,6 +93,25 @@ test("stale versions never touch contacts, categories, facts or filters",async()
       "directory_profile_filter_values",
     ]) assert.equal(db.prepare("SELECT COUNT(*) AS n FROM "+table).get().n,0,table);
   } finally {db.close();}
+});
+test("a concurrent revision collision between preflight and CAS fails the entire batch",async()=>{
+  const db=fixture();
+  try {
+    const adapter=d1(db);
+    const batch=adapter.batch.bind(adapter);
+    adapter.batch=async statements=>{
+      // Simulate another writer committing the proposed timestamp after the
+      // preflight. The optimistic UPDATE affects 0 rows, while the relation
+      // guard alone would accidentally match the coincident revision.
+      db.prepare("UPDATE directory_profiles SET updated_at=? WHERE id=1").run(after);
+      return batch(statements);
+    };
+    await assert.rejects(()=>applyDirectorySqlCutoverPatch(adapter,patch({
+      contacts:{publicPhone:"wrong"},additionalCategories:["treneri"],
+    })),/malformed JSON/);
+    assert.equal(db.prepare("SELECT public_phone FROM directory_profiles").get().public_phone,null);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_additional_categories").get().n,0);
+  }finally{db.close();}
 });
 test("one-field update does not delete other rows or silently clear unrelated contacts",async()=>{
   const db=fixture();
