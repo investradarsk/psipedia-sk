@@ -130,8 +130,14 @@ export function readDirectoryPublicMetadataValue(
  * names come only from canonical linked breed IDs, not legacy text facts. */
 export function directoryPublicFactLabels(category: DirectoryCategorySlug): string[] {
   return [...new Set([...(detailFields[category] ?? []), ...relationFields])]
-    .filter(field => category !== "chovatelske-stanice" ||
-      (field !== "Plemeno" && field !== "Plemená"));
+    .filter(field => {
+      // Breeds of stations and kennel clubs are real ID links, not legacy text.
+      if (["chovatelske-stanice", "chovatelske-kluby", "treneri"].includes(category) &&
+          ["Plemeno", "Plemená"].includes(field)) return false;
+      // Dog trainers have no breed/FCI association with kennel clubs.
+      if (category === "treneri" && ["FCI skupina", "FCI"].includes(field)) return false;
+      return true;
+    });
 }
 
 /** All editable public text facts relevant to the selected category. */
