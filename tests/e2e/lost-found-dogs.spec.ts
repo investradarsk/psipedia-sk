@@ -400,7 +400,15 @@ async function adminReportHref(page: Page, name: string) {
   const row = page.locator("tr").filter({ hasText: name }).first();
   await expect(row).toBeVisible();
   const href = await row.locator('a[href^="/admin/stratene-najdene/"]').first().getAttribute("href");
-  expect(href).toMatch(/^\/admin\/stratene-najdene\/\d+$/);
+  expect(href).toBeTruthy();
+  const detailUrl = new URL(href as string, "http://localhost:5173");
+  expect(detailUrl.pathname).toMatch(/^\/admin\/stratene-najdene\/\d+$/);
+  // The editor preserves the filtered Admin list on return, not a bare URL.
+  const returnTo = detailUrl.searchParams.get("returnTo");
+  expect(returnTo).toBeTruthy();
+  const listingUrl = new URL(returnTo as string, "http://localhost:5173");
+  expect(listingUrl.pathname).toBe("/admin/stratene-najdene");
+  expect(listingUrl.searchParams.get("q")).toBe(name);
   return href as string;
 }
 
