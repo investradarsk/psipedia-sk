@@ -53,7 +53,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const[data,setData]=useState(initial),[month,setMonth]=useState(initialMonth),[status,setStatus]=useState("all"),[source,setSource]=useState("all"),[page,setPage]=useState(1);
   const[calendarView,setCalendarView]=useState<"week"|"month">("month");
   const[opening,setOpening]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[day,setDay]=useState<string|null>(null),[refresh,setRefresh]=useState(0);
-  const[publisher,setPublisher]=useState<{enabled:boolean;connected:boolean;technicallyEnabled:boolean;videoPublishingEnabled?:boolean}|null>(null);
+  const[publisher,setPublisher]=useState<{enabled:boolean;connected:boolean;technicallyEnabled:boolean}|null>(null);
   const[publisherError,setPublisherError]=useState(""),[publisherBusy,setPublisherBusy]=useState(false);
   const[notionBusy,setNotionBusy]=useState(false);
   const[editor,setEditor]=useState<{post:FacebookImagePost|null}|null>(null),[form,setForm]=useState<Form>(blank()),[baseline,setBaseline]=useState(""),[editorError,setEditorError]=useState(""),[busy,setBusy]=useState(false);
@@ -714,7 +714,6 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <label>Názov<input autoFocus required maxLength={200} value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label>
           <label>Obrázok (JPG, PNG, WebP, max. 8 MB) alebo video (MP4/MOV, max. 50 MB)<input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,.mov,.mp4" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.target.value="";}}/></label>
           {form.imageUrl&&(editingVideo?<video className={styles.preview} src={form.imageUrl} controls playsInline preload="metadata" aria-label="Náhľad Facebook videa"/>:<img className={styles.preview} src={form.imageUrl} alt="Náhľad Facebook obrázka" decoding="async"/>)}
-          {editingVideo&&!publisher?.videoPublishingEnabled&&<p role="status">Video sa môže uložiť a naplánovať, automatické odoslanie však vyžaduje samostatne zapnutú konfiguráciu FACEBOOK_VIDEO_PUBLISH_ENABLED. Dovtedy ho publikuj ručne.</p>}
           <label htmlFor="facebook-caption">Popis na Facebook</label><textarea id="facebook-caption" rows={6} maxLength={15000} value={form.caption} onChange={e=>setForm({...form,caption:e.target.value})}/>
           <div className={styles.dateFields}><label>Dátum<input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value,time:e.target.value?(form.time||"09:00"):"",repeatedHour:""})}/></label><label>Čas (Bratislava)<input type="time" value={form.time} onChange={e=>setForm({...form,time:e.target.value,repeatedHour:""})}/></label></div>
           <label>Ak sa hodina pri zmene zimného času opakuje<select value={form.repeatedHour} onChange={e=>setForm({...form,repeatedHour:e.target.value})}><option value="">Vybrať pri opakovanej hodine</option><option value="earlier">Prvý výskyt (letný čas)</option><option value="later">Druhý výskyt (zimný čas)</option></select></label>
