@@ -60,7 +60,10 @@ test("atlas SQL scalar FCI projections preserve measurement fallbacks, reject ma
   const store = readFileSync("lib/breed-store.ts", "utf8");
   const start = store.indexOf("export async function listPublishedCanonicalBreedAtlasCards");
   const part = store.slice(start, store.indexOf("export type BreedSitemapIndexItem", start));
-  const raw = part.match(/const result\s*=\s*await database\s*\.prepare\(\s*`([\s\S]*?)`\s*,?\s*\)\s*\.all<BreedAtlasCardRow>\(\)/)?.[1];
+  // The read may be wrapped in a bounded transient-D1 retry; assert the SQL
+  // independently of that execution wrapper so this remains a data contract.
+  assert.match(part, /retryTransientPublicRead\(\(\) => database\s*\.prepare\(/);
+  const raw = part.match(/\.prepare\(\s*`([\s\S]*?)`\s*,?\s*\)\s*\.all<BreedAtlasCardRow>\(\)/)?.[1];
   assert.ok(raw, "dedicated SQL projection exists");
   const sql = raw.replace("$" + "{canonicalBreedIdsSql}", "SELECT id FROM managed_breeds WHERE status = 'published'");
   const db = new DatabaseSync(":memory:");
