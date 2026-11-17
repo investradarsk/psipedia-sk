@@ -1,19 +1,26 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { build } from 'esbuild';
-import { chromium } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
-import { mkdtemp, readFile, mkdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join, extname } from 'node:path';
+import test from "node:test";
+import assert from "node:assert/strict";
+import { build } from "esbuild";
+import { chromium } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { mkdtemp, readFile, mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, extname } from "node:path";
 
 // Real components, CSS and public snapshots. Only platform boundaries are mocked;
 // no D1, Google API or production writes. Synthetic variants are named explicitly.
-test('unified public details: responsive layout, honest media/data, actions and accessibility', { timeout: 240000 }, async () => {
- const dir = await mkdtemp(join(tmpdir(), 'public-details-v2-'));
- let browser;
- try {
- await build({ stdin: { loader: 'tsx', resolveDir: process.cwd(), contents: `
+test(
+  "unified public details: responsive layout, honest media/data, actions and accessibility",
+  { timeout: 240000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), "public-details-v2-"));
+    let browser;
+    try {
+      await build({
+        stdin: {
+          loader: "tsx",
+          resolveDir: process.cwd(),
+          contents: `
  import React from 'react'; import {createRoot} from 'react-dom/client';
  import fixtures from './tests/fixtures/unified-public-details-v2.json';
  import {DirectoryProfileDetail} from './components/directory-profile-detail';
@@ -32,7 +39,7 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const map = {...fixtures.maps.directory,...runtime};
  let view;
  if(name.startsWith('directory')) view=<DirectoryProfileDetail presentation={{...fixtures.directory,...(minimal?{imageUrl:null,phone:null,emails:[],websites:[],services:[],openingHours:'',address:'',health:null}:{}),...(name.includes('blur')?{detailImageDisplay:{mode:'blur',x:50,y:50,zoom:1}}:{}),...(name.includes('crop')?{detailImageDisplay:{mode:'crop',x:30,y:40,zoom:1.2}}:{}),...(name.includes('long')?{name:'Test dlhého názvu služby a nepretržitého kontaktu '.repeat(4)}:{})}} reviews={fixtures.review} publicMap={minimal?undefined:map}/>;
- else if(name.startsWith('event')) view=<EventDetail event={buildPublicEventPresentation({...fixtures.event,...(minimal?{imageUrl:null,organizer:'',websiteUrl:'',registrationUrl:''}:{}),...(name.includes('cancelled')?{cancelled:true}:{}),...(name.includes('long')?{title:'Test dlhého názvu kynologického podujatia a organizačných údajov '.repeat(3)}:{})})} publicMap={minimal?undefined:{...fixtures.maps.event,...runtime}}/>;
+ else if(name.startsWith('event')) view=<EventDetail event={buildPublicEventPresentation({...fixtures.event,...(minimal?{imageUrl:null,organizer:'',websiteUrl:'',registrationUrl:''}:{}),...(name==='event-two-actions'?{contactPhone:'+421 900 123 456'}:{}),...(name.includes('cancelled')?{cancelled:true}:{}),...(name.includes('long')?{title:'Test dlhého názvu kynologického podujatia a organizačných údajov '.repeat(3)}:{})})} publicMap={minimal?undefined:{...fixtures.maps.event,...runtime}}/>;
  else if(name.startsWith('adoption')) view=<AdoptionDetail dog={{...fixtures.adoption,...(minimal?{mainImage:null,contactPhone:'',contactEmail:''}:{}),...(name.includes('reserved')?{status:'RESERVED'}:{}),...(name.includes('breed-duplicate')?{breedMix:true,breedName:'kríženec'}:{})}} organization={fixtures.organizationLink}/>;
  else if(name.startsWith('help')) {
  const category=name.split('-').slice(1).join('-');
@@ -46,126 +53,429 @@ test('unified public details: responsive layout, honest media/data, actions and 
  view=await LostFoundDogDetail({type:name==='found'?'FOUND':'LOST',slug:'test'});
  }
  createRoot(document.getElementById('root')).render(<><SiteHeader navigationItems={defaultNavigationItems.map(item => ({...item,children:[]}))} partnerAuthenticated={false}/>{view}</>);
- ` }, bundle:true, format:'esm', conditions:['style'], outfile:join(dir,'app.js'), jsx:'automatic', define:{'process.env.NODE_ENV':'"production"'}, plugins:[{name:'platform-fixtures',setup(b){
- b.onResolve({filter:/^(next\/(link|navigation)|cloudflare:workers)$/},a=>({path:a.path,namespace:'fixture'}));
- b.onResolve({filter:/^@\/lib\/lost-found-dog-store$/},()=>({path:'store',namespace:'fixture'}));
- b.onLoad({filter:/.*/,namespace:'fixture'},a=>({resolveDir:process.cwd(),contents:a.path==='next/link'?`import React from 'react'; export default function Link({prefetch,replace,scroll,...props}){return React.createElement('a',props)}`:a.path==='next/navigation'?`export const usePathname=()=>location.pathname;export const useSearchParams=()=>new URLSearchParams(location.search); export const useRouter=()=>({push:()=>{},prefetch:()=>{}});export const notFound=()=>{throw Error('not found')}`:a.path==='store'?`export const getPublicDogReport=async()=>globalThis.fixtureReport;`:`export const env={PROFILE_REVIEW_SUBMISSIONS_ENABLED:'1'};`}));
- }}] });
- const js=await readFile(join(dir,'app.js'),'utf8'),css=await readFile(join(dir,'app.css'),'utf8');
- browser=await chromium.launch({headless:true,...(process.env.DETAIL_TEST_CHROMIUM?{executablePath:process.env.DETAIL_TEST_CHROMIUM,args:['--no-sandbox','--disable-dev-shm-usage']}: {})});
- const shots=process.env.DETAIL_TEST_SCREENSHOTS;
- if(shots) await mkdir(shots,{recursive:true});
- const sources=JSON.parse(await readFile('tests/fixtures/unified-public-details-v2.json','utf8'));
- for(const name of ['directory','event','adoption','directory-minimal','directory-blur','directory-crop','directory-long','event-minimal','event-cancelled','event-long','adoption-minimal','adoption-reserved','adoption-breed-duplicate','help-docasna-opatera','help-zbierky','help-dobrovolnictvo','help-urgentne-pripady','organization','lost','lost-resolved','found']) {
- for(const width of ([ 'directory','event','adoption'].includes(name)?[1440,768,430,390,375,320]:[1440,320])) {
- const context=await browser.newContext({viewport:{width,height:960}}); const page=await context.newPage(); const writes=[]; let rejectInquiry=true; const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.route('**/*',async route=>{
- const url=new URL(route.request().url());
- if(url.hostname==='fixture.test'&&url.pathname==='/') return route.fulfill({contentType:'text/html',body:`<!doctype html><html lang="sk"><head><title>Public details fixture</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div id="root"></div><script type="module">${js}</script></body></html>`});
- if(url.pathname==='/api/directory/inquiries') { writes.push(route.request().postDataJSON()); return route.fulfill({status:rejectInquiry?503:200,json:rejectInquiry?{error:'Test nedostupnosti API'}:{success:true}}); }
- if(url.pathname.includes('/api/name-days/today')) return route.fulfill({json:{names:[]}});
- if(url.pathname===sources.directory.imageUrl) return route.fulfill({contentType:'image/webp',body:await readFile('tests/fixtures/public-details-media/directory.webp')});
- if(url.pathname===sources.adoption.mainImage) return route.fulfill({contentType:'image/avif',body:await readFile('tests/fixtures/public-details-media/adoption.avif')});
- if(url.hostname==='fixture.test'&&!url.pathname.startsWith('/api/')) {try {const file=await readFile(join(process.cwd(),'public',url.pathname));return route.fulfill({contentType:extname(url.pathname)==='.svg'?'image/svg+xml':'image/webp',body:file});}catch{}}
- // External CACT source currently returns 403: exercise the real image-error fallback.
- return route.fulfill({status:404,body:''});
- });
- await page.goto('https://fixture.test/?case='+name);
- await page.locator('main h1').waitFor(); await page.evaluate(()=>document.fonts.ready);
- await page.locator('main img').evaluateAll(imgs=>Promise.all(imgs.map(i=>i.complete?null:new Promise(r=>{i.onload=r;i.onerror=r}))));
- assert.deepEqual(errors,[],name+' console');
- const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);assert.ok(overflow<=1,`${name} ${width} overflow ${overflow}`);
- const hero=page.locator('[data-public-detail-hero]'); assert.equal(await hero.count(),1);
- assert.equal(await page.locator('main h1').count(),1);
- // STEP-16: service and event details use exactly one shared hero action template.
- // Minimal events may have no external actions, but services always expose inquiry.
- if(name.startsWith('directory') || name==='event') {
-   const actions=hero.locator('[data-public-detail-actions]');
-   assert.equal(await actions.count(),1,name+' must have the shared hero action row');
-   assert.equal(await actions.getAttribute('aria-label'),name==='event'?'Odkazy podujatia':'Akcie profilu');
-   if(name.startsWith('directory')) {
-     assert.equal(await page.locator('[data-public-service-detail-template="shared-event-service"]').count(),1);
-     assert.equal(await actions.locator('a[href="#kontakt"]').count(),1);
-   } else {
-     assert.ok((await actions.locator('a').count())>=1,'event retains registration or official-site action');
-   }
- }
- const image=hero.locator('[data-public-profile-media]');
- if(await image.count()) {
-  // The captured event photo is an external source that this offline fixture
-  // intentionally blocks. EventImage retries original and same-origin proxy
-  // before showing its category illustration. Wait for the *decoded final*
-  // illustration rather than inspecting the DOM between React replacements.
-  // This keeps the real nonzero-media assertion and fails if fallback breaks.
-  if(name.startsWith('event')&&!name.includes('minimal')) {
-   const finalImage=image.locator('img[data-event-image-source="fallback"]');
-   await finalImage.waitFor({state:'visible',timeout:15000});
-   await finalImage.evaluate(async img=>{await img.decode();});
-   const natural=await finalImage.evaluate(img=>({w:img.naturalWidth,h:img.naturalHeight}));
-   assert.ok(natural.w>0&&natural.h>0,`${name} ${width} fallback illustration must decode`);
-  }
-  const fallback=image.locator('[data-public-media-fallback]');
-  const visual=await fallback.count()?fallback:image.locator('img:not([aria-hidden="true"])').last();
-  await visual.waitFor({state:'visible',timeout:10000});
-  const visualBox=await visual.boundingBox();
-  assert.ok(visualBox&&visualBox.width>0&&visualBox.height>0,`${name} ${width} visible media or fallback must have nonzero dimensions`);
-  const m=await image.boundingBox(),h=await hero.locator('h1').boundingBox();
-  if(width>800)assert.ok(m.x>h.x,`${name} desktop media right`);
-  else assert.ok(m.y<h.y,`${name} mobile media first`);
- }
- if(name==='organization') { const body=await page.locator('[data-public-profile-body]').boundingBox(); const aside=await page.locator('[data-public-profile-sidebar]').boundingBox(); if(width<=800) assert.ok(body.y+body.height<=aside.y+2,'organization content precedes sidebar on mobile'); else assert.ok(aside.x>body.x,'organization desktop sidebar on right'); }
- if(name.startsWith('adoption')) assert.ok(!/\b0 kg\b/.test(await page.locator('main').innerText()),'unknown weight hidden');
- if(name==='adoption-breed-duplicate') assert.doesNotMatch(await page.locator('main').innerText(),/Kríženec\s*·\s*kríženec/i,'breed mix must not duplicate name');
- if(name.includes('long')) assert.equal(await hero.locator('h1[data-long-title]').count(),1,'long titles use compact typography');
- if(name==='event-cancelled') assert.equal(await hero.locator('[data-detail-state="cancelled"]').count(),1,'cancelled state distinct from type');
- if(name==='directory' || name==='adoption') { const img=image.locator('img').last(); const size=await img.evaluate(i=>({w:i.naturalWidth,h:i.naturalHeight,cw:i.getBoundingClientRect().width,ch:i.getBoundingClientRect().height})); assert.ok(size.w>0);
- // Compact service heroes intentionally bound the image element to a square frame;
- // object-fit: contain preserves the decoded photograph's proportions without cropping.
- const fit = await img.evaluate(i=>getComputedStyle(i).objectFit);
- assert.ok(Math.abs(size.cw/size.ch-size.w/size.h)<.02 || fit==='contain',
-   'natural photograph retains its aspect ratio or renders uncropped with contain fit'); }
- if(name==='directory-minimal') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'missing directory photo uses the common visual');
- if(name==='adoption-minimal') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'missing adoption photo uses the common visual');
- if(name==='organization') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'organization without photo uses the common visual');
- if(name==='event-minimal') assert.equal(await image.locator('[data-event-image-source="fallback"]').count(),1,'existing event illustration retained');
- if(name==='help-zbierky') assert.equal(await hero.locator('a[href="https://example.test/support"]').count(),0,'unverified fundraising gate preserved');
- const axe=await new AxeBuilder({page}).include('main#obsah').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
- assert.deepEqual(axe.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],`${name} ${width} accessibility`);
- // Capture before keyboard-focus actions: focusing the hero CTA scrolls the
- // page and can expose the offscreen skip-link during a sticky-header frame.
- // Baseline and PR snapshots execute this exact same fixture. Never mask
- // the header or loosen pixel-difference thresholds to get a green check.
- if(shots&&(width === 1440 || width === 320)) {
-  await page.evaluate(async () => {
-   window.scrollTo({top:0,left:0,behavior:'instant'});
-   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-  });
-  await page.screenshot({path:join(shots,`${name}-${width}.png`),fullPage:true,animations:'disabled'});
- }
- const action=hero.locator('a').last();await action.focus();assert.equal(await action.evaluate(n=>document.activeElement===n),true,'keyboard focus');
- await action.blur();
- if(name==='directory'&&width===390) {
- assert.equal(writes.length,0,'view is read only');
- const primary=hero.locator('[data-profile-primary-action]'); await primary.focus();await page.keyboard.press('Enter');
- assert.ok(page.url().endsWith('#kontakt'),'primary scroll target preserved');
- await page.getByLabel('Meno a priezvisko',{exact:true}).fill('Testovací používateľ');
- await page.getByLabel('E-mail',{exact:true}).fill('fixture@example.test');
- await page.getByLabel(/^Správa/).fill('Testovací dopyt bez produkčného zápisu.');
- await page.locator('.directory-contact-consent input').check();
- await page.getByRole('button',{name:'Odoslať dopyt cez Psipediu',exact:true}).click();
- await page.getByRole('status').filter({hasText:'Test nedostupnosti API'}).waitFor();
- assert.equal(await page.getByLabel('Meno a priezvisko',{exact:true}).inputValue(),'Testovací používateľ','failed submission retains input');
- rejectInquiry=false;
- await page.getByRole('button',{name:'Odoslať dopyt cez Psipediu',exact:true}).click();
- await page.getByRole('status').filter({hasText:'sme prijali'}).waitFor();
- assert.equal(writes.length,2);assert.equal(writes[0].profileId,425);assert.equal(writes[0].submissionKey,writes[1].submissionKey,'idempotent retry unchanged');
- assert.equal(await page.getByLabel('Meno a priezvisko',{exact:true}).inputValue(),'');
- await page.getByTestId('detail-map-consent-gate').getByRole('button').click();
- await page.getByTestId('detail-map-consent-gate').waitFor({state:'hidden'});
- assert.equal(writes.length,2,'map consent never submits inquiries');
- }
- await context.close();
- }
- }
- } finally {await browser?.close();await rm(dir,{recursive:true,force:true});}
-});
+ `,
+        },
+        bundle: true,
+        format: "esm",
+        conditions: ["style"],
+        outfile: join(dir, "app.js"),
+        jsx: "automatic",
+        define: { "process.env.NODE_ENV": '"production"' },
+        plugins: [
+          {
+            name: "platform-fixtures",
+            setup(b) {
+              b.onResolve({ filter: /^(next\/(link|navigation)|cloudflare:workers)$/ }, (a) => ({
+                path: a.path,
+                namespace: "fixture",
+              }));
+              b.onResolve({ filter: /^@\/lib\/lost-found-dog-store$/ }, () => ({
+                path: "store",
+                namespace: "fixture",
+              }));
+              b.onLoad({ filter: /.*/, namespace: "fixture" }, (a) => ({
+                resolveDir: process.cwd(),
+                contents:
+                  a.path === "next/link"
+                    ? `import React from 'react'; export default function Link({prefetch,replace,scroll,...props}){return React.createElement('a',props)}`
+                    : a.path === "next/navigation"
+                      ? `export const usePathname=()=>location.pathname;export const useSearchParams=()=>new URLSearchParams(location.search); export const useRouter=()=>({push:()=>{},prefetch:()=>{}});export const notFound=()=>{throw Error('not found')}`
+                      : a.path === "store"
+                        ? `export const getPublicDogReport=async()=>globalThis.fixtureReport;`
+                        : `export const env={PROFILE_REVIEW_SUBMISSIONS_ENABLED:'1'};`,
+              }));
+            },
+          },
+        ],
+      });
+      const js = await readFile(join(dir, "app.js"), "utf8"),
+        css = await readFile(join(dir, "app.css"), "utf8");
+      browser = await chromium.launch({
+        headless: true,
+        ...(process.env.DETAIL_TEST_CHROMIUM
+          ? {
+              executablePath: process.env.DETAIL_TEST_CHROMIUM,
+              args: ["--no-sandbox", "--disable-dev-shm-usage"],
+            }
+          : {}),
+      });
+      const shots = process.env.DETAIL_TEST_SCREENSHOTS;
+      if (shots) await mkdir(shots, { recursive: true });
+      const sources = JSON.parse(
+        await readFile("tests/fixtures/unified-public-details-v2.json", "utf8"),
+      );
+      for (const name of [
+        "directory",
+        "event",
+        "adoption",
+        "directory-minimal",
+        "directory-blur",
+        "directory-crop",
+        "directory-long",
+        "event-minimal",
+        "event-two-actions",
+        "event-cancelled",
+        "event-long",
+        "adoption-minimal",
+        "adoption-reserved",
+        "adoption-breed-duplicate",
+        "help-docasna-opatera",
+        "help-zbierky",
+        "help-dobrovolnictvo",
+        "help-urgentne-pripady",
+        "organization",
+        "lost",
+        "lost-resolved",
+        "found",
+      ]) {
+        for (const width of ["directory", "event", "adoption"].includes(name)
+          ? [1440, 768, 430, 390, 375, 320]
+          : [1440, 320]) {
+          const context = await browser.newContext({ viewport: { width, height: 960 } });
+          const page = await context.newPage();
+          const writes = [];
+          let rejectInquiry = true;
+          const errors = [];
+          page.on("pageerror", (e) => errors.push(e.message));
+          await page.route("**/*", async (route) => {
+            const url = new URL(route.request().url());
+            if (url.hostname === "fixture.test" && url.pathname === "/")
+              return route.fulfill({
+                contentType: "text/html",
+                body: `<!doctype html><html lang="sk"><head><title>Public details fixture</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div id="root"></div><script type="module">${js}</script></body></html>`,
+              });
+            if (url.pathname === "/api/directory/inquiries") {
+              writes.push(route.request().postDataJSON());
+              return route.fulfill({
+                status: rejectInquiry ? 503 : 200,
+                json: rejectInquiry ? { error: "Test nedostupnosti API" } : { success: true },
+              });
+            }
+            if (url.pathname.includes("/api/name-days/today"))
+              return route.fulfill({ json: { names: [] } });
+            if (url.pathname === sources.directory.imageUrl)
+              return route.fulfill({
+                contentType: "image/webp",
+                body: await readFile("tests/fixtures/public-details-media/directory.webp"),
+              });
+            if (url.pathname === sources.adoption.mainImage)
+              return route.fulfill({
+                contentType: "image/avif",
+                body: await readFile("tests/fixtures/public-details-media/adoption.avif"),
+              });
+            if (url.hostname === "fixture.test" && !url.pathname.startsWith("/api/")) {
+              try {
+                const file = await readFile(join(process.cwd(), "public", url.pathname));
+                return route.fulfill({
+                  contentType: extname(url.pathname) === ".svg" ? "image/svg+xml" : "image/webp",
+                  body: file,
+                });
+              } catch {}
+            }
+            // External CACT source currently returns 403: exercise the real image-error fallback.
+            return route.fulfill({ status: 404, body: "" });
+          });
+          await page.goto("https://fixture.test/?case=" + name);
+          await page.locator("main h1").waitFor();
+          await page.evaluate(() => document.fonts.ready);
+          await page.locator("main img").evaluateAll((imgs) =>
+            Promise.all(
+              imgs.map((i) =>
+                i.complete
+                  ? null
+                  : new Promise((r) => {
+                      i.onload = r;
+                      i.onerror = r;
+                    }),
+              ),
+            ),
+          );
+          assert.deepEqual(errors, [], name + " console");
+          const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - innerWidth,
+          );
+          assert.ok(overflow <= 1, `${name} ${width} overflow ${overflow}`);
+          if (name.startsWith("directory") && width <= 800) {
+            const flow = await page.locator("[data-public-detail-flow]").boundingBox();
+            const contact = await page.locator("[data-public-contact-panel]").boundingBox();
+            assert.ok(flow && contact, `${name} ${width} contact visible`);
+            assert.ok(
+              Math.abs(contact.width - flow.width) <= 1,
+              `${name} ${width} contact fills mobile column: ${contact.width}/${flow.width}`,
+            );
+          }
+          const contactSizes = await page
+            .locator("[data-public-contact-panel] dd")
+            .evaluateAll((values) =>
+              values.map((value) => parseFloat(getComputedStyle(value).fontSize)),
+            );
+          assert.ok(
+            contactSizes.every((size) => size >= 16),
+            `${name} ${width} readable contact values`,
+          );
+          const hero = page.locator("[data-public-detail-hero]");
+          assert.equal(await hero.count(), 1);
+          assert.equal(await page.locator("main h1").count(), 1);
+          // STEP-16: service and event details use exactly one shared hero action template.
+          // Minimal events may have no external actions, but services always expose inquiry.
+          if (name.startsWith("directory") || name === "event") {
+            const actions = hero.locator("[data-public-detail-actions]");
+            assert.equal(await actions.count(), 1, name + " must have the shared hero action row");
+            assert.equal(
+              await actions.getAttribute("aria-label"),
+              name === "event" ? "Odkazy podujatia" : "Akcie profilu",
+            );
+            if (name.startsWith("directory")) {
+              assert.equal(
+                await page
+                  .locator('[data-public-service-detail-template="shared-event-service"]')
+                  .count(),
+                1,
+              );
+              assert.equal(await actions.locator('a[href="#kontakt"]').count(), 1);
+            } else {
+              assert.ok(
+                (await actions.locator("a").count()) >= 1,
+                "event retains registration or official-site action",
+              );
+            }
+          }
+          if (width <= 800) {
+            const actionLinks = hero.locator("nav[data-public-detail-actions] > a");
+            const count = await actionLinks.count();
+            if (name === "event-two-actions") assert.equal(count, 2, "two-action event fixture");
+            if (count === 1 || count === 2) {
+              const row = await hero.locator("nav[data-public-detail-actions]").boundingBox();
+              const first = await actionLinks.first().boundingBox();
+              const last = await actionLinks.last().boundingBox();
+              assert.ok(row && first && last, `${name} mobile actions visible`);
+              assert.ok(Math.abs(first.x - row.x) <= 1, `${name} actions start at row edge`);
+              assert.ok(
+                Math.abs(last.x + last.width - row.x - row.width) <= 1,
+                `${name} ${width} ${count} actions fill row without empty columns`,
+              );
+              if (count === 2) {
+                assert.ok(Math.abs(first.y - last.y) <= 1, `${name} actions share row`);
+                assert.ok(Math.abs(first.width - last.width) <= 1, `${name} equal action widths`);
+              }
+            }
+          }
+          const image = hero.locator("[data-public-profile-media]");
+          if (await image.count()) {
+            // The captured event photo is an external source that this offline fixture
+            // intentionally blocks. EventImage retries original and same-origin proxy
+            // before showing its category illustration. Wait for the *decoded final*
+            // illustration rather than inspecting the DOM between React replacements.
+            // This keeps the real nonzero-media assertion and fails if fallback breaks.
+            if (name.startsWith("event") && !name.includes("minimal")) {
+              const finalImage = image.locator('img[data-event-image-source="fallback"]');
+              await finalImage.waitFor({ state: "visible", timeout: 15000 });
+              await finalImage.evaluate(async (img) => {
+                await img.decode();
+              });
+              const natural = await finalImage.evaluate((img) => ({
+                w: img.naturalWidth,
+                h: img.naturalHeight,
+              }));
+              assert.ok(
+                natural.w > 0 && natural.h > 0,
+                `${name} ${width} fallback illustration must decode`,
+              );
+            }
+            const fallback = image.locator("[data-public-media-fallback]");
+            const visual = (await fallback.count())
+              ? fallback
+              : image.locator('img:not([aria-hidden="true"])').last();
+            await visual.waitFor({ state: "visible", timeout: 10000 });
+            const visualBox = await visual.boundingBox();
+            assert.ok(
+              visualBox && visualBox.width > 0 && visualBox.height > 0,
+              `${name} ${width} visible media or fallback must have nonzero dimensions`,
+            );
+            const m = await image.boundingBox(),
+              h = await hero.locator("h1").boundingBox();
+            if (width > 800) assert.ok(m.x > h.x, `${name} desktop media right`);
+            else assert.ok(m.y < h.y, `${name} mobile media first`);
+          }
+          if (name === "lost") {
+            const notice = await hero
+              .getByText("Naposledy videný:", { exact: true })
+              .locator("..")
+              .boundingBox();
+            const contact = await hero
+              .getByRole("link", { name: "Kontaktovať cez Psipediu" })
+              .boundingBox();
+            assert.ok(notice && contact, "lost report notice and contact visible");
+            assert.ok(
+              contact.y - notice.y - notice.height >= 11.5,
+              `lost ${width} contact must be separated from last-seen notice`,
+            );
+          }
+          if (name === "organization") {
+            const body = await page.locator("[data-public-profile-body]").boundingBox();
+            const aside = await page.locator("[data-public-profile-sidebar]").boundingBox();
+            if (width <= 800)
+              assert.ok(
+                body.y + body.height <= aside.y + 2,
+                "organization content precedes sidebar on mobile",
+              );
+            else assert.ok(aside.x > body.x, "organization desktop sidebar on right");
+          }
+          if (name.startsWith("adoption"))
+            assert.ok(
+              !/\b0 kg\b/.test(await page.locator("main").innerText()),
+              "unknown weight hidden",
+            );
+          if (name === "adoption-breed-duplicate")
+            assert.doesNotMatch(
+              await page.locator("main").innerText(),
+              /Kríženec\s*·\s*kríženec/i,
+              "breed mix must not duplicate name",
+            );
+          if (name.includes("long"))
+            assert.equal(
+              await hero.locator("h1[data-long-title]").count(),
+              1,
+              "long titles use compact typography",
+            );
+          if (name === "event-cancelled")
+            assert.equal(
+              await hero.locator('[data-detail-state="cancelled"]').count(),
+              1,
+              "cancelled state distinct from type",
+            );
+          if (name === "directory" || name === "adoption") {
+            const img = image.locator("img").last();
+            const size = await img.evaluate((i) => ({
+              w: i.naturalWidth,
+              h: i.naturalHeight,
+              cw: i.getBoundingClientRect().width,
+              ch: i.getBoundingClientRect().height,
+            }));
+            assert.ok(size.w > 0);
+            // Compact service heroes intentionally bound the image element to a square frame;
+            // object-fit: contain preserves the decoded photograph's proportions without cropping.
+            const fit = await img.evaluate((i) => getComputedStyle(i).objectFit);
+            assert.ok(
+              Math.abs(size.cw / size.ch - size.w / size.h) < 0.02 || fit === "contain",
+              "natural photograph retains its aspect ratio or renders uncropped with contain fit",
+            );
+          }
+          if (name === "directory-minimal")
+            assert.equal(
+              await image.locator("[data-public-media-fallback]").count(),
+              1,
+              "missing directory photo uses the common visual",
+            );
+          if (name === "adoption-minimal")
+            assert.equal(
+              await image.locator("[data-public-media-fallback]").count(),
+              1,
+              "missing adoption photo uses the common visual",
+            );
+          if (name === "organization")
+            assert.equal(
+              await image.locator("[data-public-media-fallback]").count(),
+              1,
+              "organization without photo uses the common visual",
+            );
+          if (name === "event-minimal")
+            assert.equal(
+              await image.locator('[data-event-image-source="fallback"]').count(),
+              1,
+              "existing event illustration retained",
+            );
+          if (name === "help-zbierky")
+            assert.equal(
+              await hero.locator('a[href="https://example.test/support"]').count(),
+              0,
+              "unverified fundraising gate preserved",
+            );
+          const axe = await new AxeBuilder({ page })
+            .include("main#obsah")
+            .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+            .analyze();
+          assert.deepEqual(
+            axe.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })),
+            [],
+            `${name} ${width} accessibility`,
+          );
+          // Capture before keyboard-focus actions: focusing the hero CTA scrolls the
+          // page and can expose the offscreen skip-link during a sticky-header frame.
+          // Baseline and PR snapshots execute this exact same fixture. Never mask
+          // the header or loosen pixel-difference thresholds to get a green check.
+          if (shots && (width === 1440 || width === 320)) {
+            await page.evaluate(async () => {
+              window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+              await new Promise((resolve) =>
+                requestAnimationFrame(() => requestAnimationFrame(resolve)),
+              );
+            });
+            // New scenarios have no ancestor image. Keep their evidence outside
+            // paired comparisons; do not relax missing-screenshot checks.
+            const screenshotDir = name === "event-two-actions" ? `${shots}-supplemental` : shots;
+            await mkdir(screenshotDir, { recursive: true });
+            await page.screenshot({
+              path: join(screenshotDir, `${name}-${width}.png`),
+              fullPage: true,
+              animations: "disabled",
+            });
+          }
+          const action = hero.locator("a").last();
+          await action.focus();
+          assert.equal(
+            await action.evaluate((n) => document.activeElement === n),
+            true,
+            "keyboard focus",
+          );
+          await action.blur();
+          if (name === "directory" && width === 390) {
+            assert.equal(writes.length, 0, "view is read only");
+            const primary = hero.locator("[data-profile-primary-action]");
+            await primary.focus();
+            await page.keyboard.press("Enter");
+            assert.ok(page.url().endsWith("#kontakt"), "primary scroll target preserved");
+            await page
+              .getByLabel("Meno a priezvisko", { exact: true })
+              .fill("Testovací používateľ");
+            await page.getByLabel("E-mail", { exact: true }).fill("fixture@example.test");
+            await page.getByLabel(/^Správa/).fill("Testovací dopyt bez produkčného zápisu.");
+            await page.locator(".directory-contact-consent input").check();
+            await page
+              .getByRole("button", { name: "Odoslať dopyt cez Psipediu", exact: true })
+              .click();
+            await page.getByRole("status").filter({ hasText: "Test nedostupnosti API" }).waitFor();
+            assert.equal(
+              await page.getByLabel("Meno a priezvisko", { exact: true }).inputValue(),
+              "Testovací používateľ",
+              "failed submission retains input",
+            );
+            rejectInquiry = false;
+            await page
+              .getByRole("button", { name: "Odoslať dopyt cez Psipediu", exact: true })
+              .click();
+            await page.getByRole("status").filter({ hasText: "sme prijali" }).waitFor();
+            assert.equal(writes.length, 2);
+            assert.equal(writes[0].profileId, 425);
+            assert.equal(
+              writes[0].submissionKey,
+              writes[1].submissionKey,
+              "idempotent retry unchanged",
+            );
+            assert.equal(
+              await page.getByLabel("Meno a priezvisko", { exact: true }).inputValue(),
+              "",
+            );
+            await page.getByTestId("detail-map-consent-gate").getByRole("button").click();
+            await page.getByTestId("detail-map-consent-gate").waitFor({ state: "hidden" });
+            assert.equal(writes.length, 2, "map consent never submits inquiries");
+          }
+          await context.close();
+        }
+      }
+    } finally {
+      await browser?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

@@ -354,6 +354,7 @@
 }
 .lastSeen,
 .foundAt {
+  margin-bottom: 12px;
   display: grid;
   gap: 3px;
   padding: 13px 14px;
@@ -802,11 +803,19 @@
 }
 
 /* S-24/S-25: same category navigation, filters and cards across Help family. */
-.categoryNavShell { margin-bottom: 15px; }
-.filterToggle { display: none; }
-.filterDisclosure { min-width: 0; }
+.categoryNavShell {
+  margin-bottom: 15px;
+}
+.filterToggle {
+  display: none;
+}
+.filterDisclosure {
+  min-width: 0;
+}
 @media (max-width: 650px) {
-  .categoryNavShell { margin-bottom: 12px; }
+  .categoryNavShell {
+    margin-bottom: 12px;
+  }
   .filterToggle {
     display: flex;
     min-height: 48px;
@@ -823,66 +832,156 @@
     font: inherit;
     font-weight: 800;
   }
-  .filterDisclosure { display: none; }
-  .filterDisclosureOpen { display: block; }
-  .filters { gap: 11px; padding: 14px; }
+  .filterDisclosure {
+    display: none;
+  }
+  .filterDisclosureOpen {
+    display: block;
+  }
+  .filters {
+    gap: 11px;
+    padding: 14px;
+  }
   .card {
     display: grid;
-    grid-template-columns: 112px minmax(0,1fr);
+    grid-template-columns: 112px minmax(0, 1fr);
     align-items: stretch;
     min-height: 154px;
   }
-  .visual { width: 112px; height: 100%; aspect-ratio: auto; min-height: 0; }
-  .visual img { width: 100%; height: 100%; object-fit: cover; }
-  .cardBody { gap: 7px; padding: 12px; min-width: 0; }
-  .card h3 { font-size: 1.08rem; line-height: 1.25; }
-  .card p, .meta { font-size: .77rem; line-height: 1.4; }
-  .grid { gap: 10px; }
+  .visual {
+    width: 112px;
+    height: 100%;
+    aspect-ratio: auto;
+    min-height: 0;
+  }
+  .visual img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .cardBody {
+    gap: 7px;
+    padding: 12px;
+    min-width: 0;
+  }
+  .card h3 {
+    font-size: 1.08rem;
+    line-height: 1.25;
+  }
+  .card p,
+  .meta {
+    font-size: 0.77rem;
+    line-height: 1.4;
+  }
+  .grid {
+    gap: 10px;
+  }
 }
 @media (max-width: 360px) {
-  .card { grid-template-columns: 96px minmax(0,1fr); }
-  .visual { width: 96px; }
-  .cardBody { padding: 10px; }
+  .card {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+  .visual {
+    width: 96px;
+  }
+  .cardBody {
+    padding: 10px;
+  }
 }
-
 
 /* Compact public lost/found detail only; retain all private-contact rules. */
-.detail { padding-bottom: 24px; }
-.detailCopy, .detailAside { gap: 12px; }
-.detailCopy .panel, .detailAside .panel { padding: clamp(14px, 1.7vw, 18px); }
+.detail {
+  padding-bottom: 24px;
+}
+.detailCopy,
+.detailAside {
+  gap: 12px;
+}
+.detailCopy .panel,
+.detailAside .panel {
+  padding: clamp(14px, 1.7vw, 18px);
+}
 .detailCopy .panel h2 {
   margin-bottom: 10px;
-  font: 500 clamp(1.3rem, 2vw, 1.55rem) / 1.2 Georgia, serif;
+  font:
+    500 clamp(1.3rem, 2vw, 1.55rem) / 1.2 Georgia,
+    serif;
   color: var(--detail-ink, #17352b);
 }
-.detailCopy .panel h3 { margin: 12px 0 5px; }
-.detailCopy .panel p { line-height: 1.52; }
-.detailAside .panel h2 { margin-bottom: 9px; }
+.detailCopy .panel h3 {
+  margin: 12px 0 5px;
+}
+.detailCopy .panel p {
+  line-height: 1.52;
+}
+.detailAside .panel h2 {
+  margin-bottom: 9px;
+}
 .contactPanel {
   border-left: 3px solid var(--forest, #174b38);
   background: #fbfdf9;
 }
-.contactPanel p:first-of-type { color: #264735; line-height: 1.5; }
-.privacy { margin-top: 8px !important; }
-.safetyPanel { padding: 13px 15px; }
-.safetyPanel h2 { margin-bottom: 4px; }
-.safetyPanel p { line-height: 1.45; }
-.mapNote { padding: 9px 10px; margin-top: 8px; }
-.trustPanel { padding: 13px 15px; background: #f8faf7; }
-.trustPanel h2 { margin-bottom: 8px; }
-.reportGallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-.reportGallery img { aspect-ratio: 4 / 3; object-fit: contain; }
+.contactPanel p:first-of-type {
+  color: #264735;
+  line-height: 1.5;
+}
+.privacy {
+  margin-top: 8px !important;
+}
+.safetyPanel {
+  padding: 13px 15px;
+}
+.safetyPanel h2 {
+  margin-bottom: 4px;
+}
+.safetyPanel p {
+  line-height: 1.45;
+}
+.mapNote {
+  padding: 9px 10px;
+  margin-top: 8px;
+}
+.trustPanel {
+  padding: 13px 15px;
+  background: #f8faf7;
+}
+.trustPanel h2 {
+  margin-bottom: 8px;
+}
+.reportGallery {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+.reportGallery img {
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+}
 @media (max-width: 650px) {
-  .detailCopy, .detailAside { gap: 10px; }
-  .detailCopy .panel, .detailAside .panel { padding: 14px; }
+  .detailCopy,
+  .detailAside {
+    gap: 10px;
+  }
+  .detailCopy .panel,
+  .detailAside .panel {
+    padding: 14px;
+  }
 }
 
 /* Shared DetailContactsCard supplies visual geometry. Only multiline contact-note formatting is local. */
-.publicContactNote { display:block; margin-bottom:9px; white-space:pre-line; color:var(--detail-ink,#17352b); font-weight:650; overflow-wrap:anywhere; }
+.publicContactNote {
+  display: block;
+  margin-bottom: 9px;
+  white-space: pre-line;
+  color: var(--detail-ink, #17352b);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
 
 /* Lost/found reports use the same roomy two-column desktop cards as foster care. */
 @media (min-width: 961px) {
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 /* Match the compact sans-serif headline of the other Help detail templates. */
 .detail .reportTitle {
