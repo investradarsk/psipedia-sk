@@ -121,10 +121,11 @@ export function compareDirectorySqlShadow(
   for (const category of newSet)
     if (!oldSet.has(category)) issues.push({group:"category",field:category,kind:"sql_only_value"});
 
-  const validCategory=(["veterinari","treneri","kynologicke-kluby","chovatelske-kluby",
+  const validCategory = new Set<string>([
+    "veterinari","treneri","kynologicke-kluby","chovatelske-kluby",
     "chovatelske-stanice","salony-a-sluzby","hotely-a-opatrovanie",
-    "vencenie","fyzioterapia","dalsie-sluzby"] as const)
-    .includes(row.category as ServiceFilterCategory);
+    "vencenie","fyzioterapia","dalsie-sluzby",
+  ]).has(row.category);
 
   if (validCategory) {
     const category=row.category as ServiceFilterCategory;
