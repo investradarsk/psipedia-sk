@@ -14,12 +14,13 @@ Aplikácia číta novú tabuľku pri detailoch staníc/klubov a v editore. **Zl�
 1. Záloha produkčnej `psipedia-sk-db`, potvrdiť, že je obnoviteľná.
 2. V D1 Console spustiť iba `scripts/d1-breeder-club-links-preflight.sql`; zaznamenať čísla. Ak `invalid_json`, `invalid_club_array`, `bad_ids` alebo `invalid_club_targets` nie je 0, STOP.
 3. Vyhradiť krátke okno bez súbežných úprav vzťahov staníc/klubov (Admin/Notion). Notion sa inak nezastavuje.
-4. Manuálne aplikovať presne `drizzle/0169_directory_breeder_club_relations.sql` na produkčnú D1 cez owner-autorizovaný proces. Zápis je ADDITIVE, neobsahuje backfill ani mazanie.
-5. Manuálne spustiť `scripts/d1-breeder-club-links-backfill.sql`. Backfill sa vykonáva iba pred nasadením novej verzie, nikdy po ňom.
-6. Spustiť `scripts/d1-breeder-club-links-postflight.sql`: `legacy_pairs_missing=0`, `invalid_new_links=0`. Overiť reprezentatívne klub/stanica ID v oboch smeroch.
-7. V PR spustiť CI testy vrátane Playwright, Notion regresií a parity. Až potom povoliť Merge/deploy a preveriť Admin ↔ D1 ↔ verejný web.
-8. Neskôr vykonať samostatný read-only audit historických `source_data_json` hodnôt a už nepoužívaných trainer ID. Cleanup iba po schválení a s preukázanou nulovou aktívnou závislosťou.
-9. V Notione musí pre klub existovať `Prepojené plemená`, pre stanicu `Prepojené plemená` a `Prepojené kluby`; chýbajúce polia treba vytvoriť/overiť. Bez týchto polí môže byť D1 prepojenie funkčné, ale Notion mirror nevykoná zápis.
+4. **Najprv overiť produkčnú migračnú históriu** cez chránený read-only audit. Migrácia 0169 nadväzuje na 0168, pričom 0158–0168 sú v repozitári označené ako `UNACTIVATED`. Ak ľubovoľný predchodca nie je aplikovaný alebo históriu nemožno overiť, **STOP**: neaplikovať 0169 ručne, neobchádzať ledger ani nenasadzovať aplikáciu. Vyžiadať schválený sekvenčný rollout migračného backlogu.
+5. Iba pri overenej úplnej histórii a cez owner-autorizovaný chránený proces aplikovať presne `drizzle/0169_directory_breeder_club_relations.sql`. Zápis je ADDITIVE, neobsahuje backfill ani mazanie.
+6. Manuálne spustiť `scripts/d1-breeder-club-links-backfill.sql`. Backfill sa vykonáva iba pred nasadením novej verzie, nikdy po ňom.
+7. Spustiť `scripts/d1-breeder-club-links-postflight.sql`: `legacy_pairs_missing=0`, `invalid_new_links=0`. Overiť reprezentatívne klub/stanica ID v oboch smeroch.
+8. V PR spustiť CI testy vrátane Playwright, Notion regresií a parity. Až potom povoliť Merge/deploy a preveriť Admin ↔ D1 ↔ verejný web.
+9. Neskôr vykonať samostatný read-only audit historických `source_data_json` hodnôt a už nepoužívaných trainer ID. Cleanup iba po schválení a s preukázanou nulovou aktívnou závislosťou.
+10. V Notione musí pre klub existovať `Prepojené plemená`, pre stanicu `Prepojené plemená` a `Prepojené kluby`; chýbajúce polia treba vytvoriť/overiť. Bez týchto polí môže byť D1 prepojenie funkčné, ale Notion mirror nevykoná zápis.
 
 ## Rozsah
 Tento PR nemení tabuľku plemien, FCI identity, kanonické URL, články, adopcie ani databázový model Services V3. Nepremieňa automaticky voľný text na ID. Na verejnom detaile klubu sa zobrazia klikateľné plemená a prepojené stanice; na detaile stanice klikateľné plemená a kluby. Trainer prepojenia sa už neponúkajú.
