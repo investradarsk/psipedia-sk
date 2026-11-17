@@ -14,46 +14,51 @@ Tieto čísla sú iba inventúra, nie povinné dáta na prenos.
 - Tréneri: mimo prepojení na plemená a chovateľské kluby, služby zachovať.
 - Pri prvej aktivácii **začať bez starých väzieb**. Žiadny automatický import starých názvov alebo JSON ID.
 
-## Kritický krok: migračná história
-**PR NEZLUČOVAŤ**, kým neexistuje správna nová tabuľka. Aplikácia ju načítava priamo
-a predčasný deploy môže spôsobiť HTTP 500.
-Produkčná `d1_migrations` podľa výpisu vlastníka končí na 0162;
-0163–0168 sú teda zatiaľ nepotvrdené. Migračná konfigurácia ich označuje ako
-neaktivované. Neaplikovať 0169 mimo schválenej sekvenčnej migration chain.
-Nevkladať falošné zápisy do `d1_migrations`, neobchádzať ochrany.
+## Kritický krok: samostatné migrácie a nezmenený ledger
+**PR NEZLUČOVAŤ**, kým nie je overená a vytvorená nová SQL tabuľka. Aplikácia
+ju načítava priamo a pri predčasnom deployi hrozí HTTP 500.
+
+Podľa výpisu vlastníka produkčná `d1_migrations` končí na 0162.
+**To nie je dôkaz, že migrácie 0163–0168 neboli fyzicky nasadené.**
+Projekt má samostatné, owner-dispatched rollout nástroje pre 0163, 0164,
+0165, 0166, 0167 a 0168; niektoré z nich zámerne neaktualizujú
+`d1_migrations`. Ich reálny stav sa overuje na fyzickej schéme.
+
+**Neaplikovať naslepo 0163–0168 a nezapisovať falošné ledger riadky.**
+Novú 0169 možno pripraviť analogicky ako samostatnú owner-dispatched,
+pinned schema-only operáciu. Podmienkou je nový nezávislý audit/guard,
+schválený proces a overenie cieľovej databázy. Nie je potrebné aktivovať
+nesúvisiace analytické, kontaktné ani ďalšie migrácie iba kvôli klubom.
 
 ## Overený postup
-1. Vytvoriť a overiť obnoviteľnú zálohu produkčnej D1. Bez zálohy STOP.
-2. V Cloudflare D1 Console spustiť **iba read-only** `scripts/d1-0163-0169-schema-readonly-audit.sql`. Výstup po jednom riadku pre 0163–0169 ukáže `history_recorded`, `present_objects`, `missing_objects` a `status`. SQL je jeden SELECT/CTE bez komentárov pred úvodným WITH, aby ho Cloudflare Console nevyhodnotil ako komentár. Počíta tabuľky, indexy, triggery, pohľad aj stĺpce bez akéhokoľvek zápisu.
-   `NOT_APPLIED` znamená chýbajúcu migráciu, `SCHEMA_PRESENT_WITHOUT_HISTORY` alebo
-   `PARTIAL_OR_INCONSISTENT_STOP` znamená drift, pri ktorom sa nesmie bez
-   analýzy nič aplikovať. Chýbajúce migrácie nasadzovať iba cez existujúci
-   chránený, postupný owner-authorized migračný proces. Nevytvárať migrácie
-   iba pomocou zápisu do `d1_migrations`. Ak je fyzická schéma v nezhode, STOP.
-3. Po schválenom prechode cez 0168 vykonať migráciu
-   `drizzle/0169_directory_breeder_club_relations.sql` cez chránený proces.
-   Nová `directory_breeder_club_relations` musí byť **prázdna**.
-4. **Staré väzby sa NEIMPORTUJÚ**. Pred vytváraním nových väzieb vykonať presne
-   raz manuálny SQL reset `scripts/d1-breeder-club-links-reset.sql` po výslovnom
-   schválení resetu a po zálohe. Reset sa týka iba
-   `breed_directory_relations` záznamov, kde profil je
-   `chovatelske-stanice` alebo `chovatelske-kluby`;
-   žiadne profily, plemená ani ostatné polia sa nemažú.
-5. Spustiť read-only `scripts/d1-breeder-club-links-postflight.sql`:
-   `station_club_table_exists=1` a všetky 3 počty prepojení = 0.
-   Výsledok zafixovať ako cutover baseline.
-6. **Notion anti-replay:** pred znovuzapnutím zrkadlenia vzťahov overiť a
-   zjednotiť `Prepojené plemená` a `Prepojené kluby` v existujúcej
-   Notion databáze Adresár. Staré textové hodnoty môžu pri explicitnom
-   webhook edite obnoviť väzby. Reset Notion vzťahových textov musí byť
-   presne ohraničený (len tieto polia pre stanice/kluby), kontrolovaný
-   a bez zásahu do ostatných profilových údajov. Prázdne texty nepoužívať
-   ako signál hromadného prepísania unrelated polí.
-7. Až po CI, overení D1/Notion a po manuálnych kontrolách zmeniť PR z Draft
-   na Ready for review, zlúčiť a overiť editovanie nových väzieb
-   Admin ↔ D1 ↔ Notion ↔ verejný web.
-8. Následne môže vlastník vyberať konkrétne prepojenia nanovo.
-   Reset skript sa už **nikdy nesmie znovu spustiť**.
+1. Vytvoriť a overiť obnoviteľný D1 Time Travel bookmark / zálohu.
+2. Spustiť **read-only** `scripts/d1-0163-0169-schema-readonly-audit.sql`.
+   `PRESENT_WITHOUT_LEDGER_CHECK_ISOLATED` znamená, že objekty existujú,
+   ale ledger ich nezaznamenal; treba preveriť ich DDL vlastným 0163–0168
+   guardom, nie opakovať migráciu. `PARTIAL_OR_INCONSISTENT_STOP` blokuje
+   nasadenie dotknutej schémy do manuálneho vyriešenia.
+3. Pre 0169 pripraviť a overiť samostatný, chránený owner-dispatched proces:
+   presne pripnuté SQL, kontrola kanonického Cloudflare account/D1 ID,
+   manuálne potvrdenie, zámka production-d1-migration,
+   preflight objektov/indexov, Time Travel bookmark a postflight.
+   **Tento nezávislý 0169 rollout v PR ešte NIE JE implementovaný.**
+4. Až po schválenom nasadení prázdnej
+   `directory_breeder_club_relations` (bez jediného starého klubu)
+   a po overení DDL pokračovať s jednorazovým čistením existujúcich
+   `breed_directory_relations` pre profily chovateľských staníc/klubov.
+   Čistenie je **samostatný manuálny krok** `scripts/d1-breeder-club-links-reset.sql`
+   vyžadujúci výslovný súhlas a zálohu; nevykoná sa merge ani migráciou 0169.
+5. Po resete read-only `scripts/d1-breeder-club-links-postflight.sql`:
+   `station_club_table_exists=1`, `station_club_links=0`,
+   `station_breed_links=0`, `club_breed_links=0`.
+6. **Notion anti-replay:** staré hodnoty `Prepojené plemená` a
+   `Prepojené kluby` môžu pri editácii znovu obnoviť vzťahy. Pred
+   aktiváciou obojsmerného syncu ich kontrolovane zjednotiť alebo
+   vyprázdniť iba pre príslušné profily a polia, nie iné údaje.
+7. Potom CI, Notion a D1 regresie, zmena Draft → Ready for review, Merge,
+   a overenie Admin ↔ D1 ↔ Notion ↔ verejný web.
+8. Vlastník začne vytvárať nové väzby ručne. Jednorazový reset sa
+   po začatí editovania nových vzťahov už nesmie spustiť.
 
 ## Bez zásahov do iných dát
 Žiadne plošné vymazanie `source_data_json`, profilov, plemien, SEO,
