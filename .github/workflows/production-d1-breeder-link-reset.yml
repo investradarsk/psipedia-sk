@@ -1,0 +1,62 @@
+name: Production D1 Breeder Link Reset (audit only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Enter AUDIT-BREEDER-LINKS-psipedia-sk-db
+        type: string
+        required: true
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      BREEDER_RESET_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      NOTION_DIRECTORY_DATA_SOURCE_ID: ${{ vars.NOTION_DIRECTORY_DATA_SOURCE_ID || secrets.NOTION_DIRECTORY_DATA_SOURCE_ID }}
+    steps:
+      - name: Check protected dispatch
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REPOSITORY" = investradarsk/psipedia-sk
+          test "$GITHUB_REF" = refs/heads/main
+          test "$BREEDER_RESET_CONFIRMATION" = AUDIT-BREEDER-LINKS-psipedia-sk-db
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Reject stale main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: |
+          node --check scripts/production-d1-breeder-link-reset.mjs
+          node --test tests/production-d1-breeder-0169.test.mjs
+      - name: Bind canonical account
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Read-only D1 and optional Notion preflight
+        run: node scripts/production-d1-breeder-link-reset.mjs audit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-d1-breeder-link-reset-${{ github.run_id }}
+          path: .production-d1-breeder-link-reset/report.json
+          if-no-files-found: ignore
+          retention-days: 30
