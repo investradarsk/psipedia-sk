@@ -106,7 +106,7 @@ function queryState(sql) {
   const historyNames=select("SELECT name FROM d1_migrations ORDER BY id").map(row=>row.name);
   const hasTable=rows.some(row=>row.name===BREEDER_0169_OBJECTS[0] && row.type==="table");
   const columns=hasTable?
-    select("SELECT name,type,\"notnull\" AS notnull,pk FROM pragma_table_info('directory_breeder_club_relations')"):[];
+    select("SELECT name,type,\"notnull\" AS \"notnull\",pk FROM pragma_table_info('directory_breeder_club_relations')"):[];
   const indexes=hasTable?
     select("SELECT name,\"unique\" AS \"unique\" FROM pragma_index_list('directory_breeder_club_relations')"):[];
   const indexColumns={};
