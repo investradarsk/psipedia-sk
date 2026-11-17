@@ -75,7 +75,7 @@ SELECT g.migration,
   WHEN g.present_objects=g.expected_objects AND EXISTS
    (SELECT 1 FROM d1_migrations d WHERE substr(d.name,1,4)=g.migration)
     THEN 'RECORDED_AND_PHYSICALLY_PRESENT'
-  WHEN g.present_objects=g.expected_objects THEN 'SCHEMA_PRESENT_WITHOUT_HISTORY'
+  WHEN g.present_objects=g.expected_objects THEN 'PRESENT_WITHOUT_LEDGER_CHECK_ISOLATED'
   ELSE 'PARTIAL_OR_INCONSISTENT_STOP'
  END AS status,
  COALESCE(g.missing_names,'') AS missing_names
