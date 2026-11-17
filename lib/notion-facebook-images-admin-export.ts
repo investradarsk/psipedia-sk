@@ -1,3 +1,4 @@
+import {isFacebookVideoKey} from "./facebook-video.ts";
 import {notionFlagEnabled,notionRequest} from "@/lib/notion-sync-shared";
 import {facebookImagePermalink} from "@/lib/notion-facebook-images-model";
 
@@ -34,7 +35,7 @@ export function adminExportLeaseActive(hash:string|null,now:number){
   return Number.isFinite(timestamp)&&timestamp>0&&now-timestamp<LEASE_MS&&now>=timestamp;
 }
 export function shouldExportAdminImage(row:AdminImageRow,now:number){
-  return row.updated_by!==IMPORT_ACTOR
+  return !isFacebookVideoKey(row.image_key) && row.updated_by!==IMPORT_ACTOR
     && row.sync_hash!==adminExportAck(row.version)
     && !adminExportLeaseActive(row.sync_hash,now);
 }
@@ -125,7 +126,7 @@ export async function exportFacebookAdminChanges(args:{
     "approval_status,"+(consent?"direct_publish_consent":"0 AS direct_publish_consent")+
     ",notion_page_id,sync_hash,updated_by,"+
     (trash?"deleted_at":"NULL AS deleted_at")+",facebook_post_id,published_at "+
-    "FROM facebook_image_posts WHERE article_id IS NULL AND "+where+" ORDER BY updated_at DESC,id LIMIT 100")
+    "FROM facebook_image_posts WHERE article_id IS NULL AND image_key NOT LIKE '%.mp4' AND image_key NOT LIKE '%.mov' AND "+where+" ORDER BY updated_at DESC,id LIMIT 100")
     .bind(IMPORT_ACTOR).all<AdminImageRow>();
   for(const row of rows.results){
     if(result.scanned>=LIMIT)break;
