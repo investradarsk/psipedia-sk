@@ -37,7 +37,7 @@ test("a missing migration ledger with physical objects is flagged; no fake histo
     const row=sqlite.prepare(audit).all().find(item=>item.migration==="0163");
     assert.equal(row.history_recorded,0);
     assert.equal(row.present_objects,1);
-    assert.equal(row.status,"SCHEMA_PRESENT_WITHOUT_HISTORY");
+    assert.equal(row.status,"PRESENT_WITHOUT_LEDGER_CHECK_ISOLATED");
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM d1_migrations").get().n,0);
   } finally { sqlite.close(); }
 });
