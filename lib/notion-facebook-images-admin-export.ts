@@ -1,3 +1,4 @@
+import {isFacebookVideoKey} from "@/lib/facebook-video";
 import {notionFlagEnabled,notionRequest} from "@/lib/notion-sync-shared";
 import {facebookImagePermalink} from "@/lib/notion-facebook-images-model";
 
@@ -34,7 +35,7 @@ export function adminExportLeaseActive(hash:string|null,now:number){
   return Number.isFinite(timestamp)&&timestamp>0&&now-timestamp<LEASE_MS&&now>=timestamp;
 }
 export function shouldExportAdminImage(row:AdminImageRow,now:number){
-  return row.updated_by!==IMPORT_ACTOR
+  return !isFacebookVideoKey(row.image_key) && row.updated_by!==IMPORT_ACTOR
     && row.sync_hash!==adminExportAck(row.version)
     && !adminExportLeaseActive(row.sync_hash,now);
 }
