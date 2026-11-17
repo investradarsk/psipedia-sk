@@ -1,3 +1,4 @@
+import {facebookVideoMime} from "./facebook-video.ts";
 import {env} from "cloudflare:workers";
 import {normalizeFacebookImageInput, type FacebookImagePost, type FacebookImageInput} from "@/lib/facebook-image-post";
 import {facebookImageScheduleV2Policy} from "@/lib/facebook-image-schedule-v2";
@@ -170,9 +171,13 @@ export async function listFacebookImagePosts(
 async function verifyImage(input:FacebookImageInput) {
   if (!input.imageKey) return;
   const bucket=(env as unknown as {BUCKET?:R2Bucket}).BUCKET;
-  if (!bucket) throw new Error("Úložisko obrázkov nie je dostupné.");
+  if (!bucket) throw new Error("Úložisko médií nie je dostupné.");
   const object=await bucket.head(input.imageKey);
-  if (!object || !["image/jpeg","image/png","image/webp"].includes(object.httpMetadata?.contentType??"")) throw new Error("Uložený obrázok sa v úložisku nenašiel.");
+  const expectedVideoMime=facebookVideoMime(input.imageKey);
+  const actualMime=object?.httpMetadata?.contentType??"";
+  if (!object||(expectedVideoMime?actualMime!==expectedVideoMime:
+    !["image/jpeg","image/png","image/webp"].includes(actualMime)))
+    throw new Error(expectedVideoMime ? "Uložené video sa v úložisku nenašlo." : "Uložený obrázok sa v úložisku nenašiel.");
 }
 /** Text-only quick edit for manual, unapproved DRAFT image posts.
  * Preserves scheduling, publication state, approvals, image keys and Notion
