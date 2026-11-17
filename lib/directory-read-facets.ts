@@ -51,6 +51,7 @@ export function directorySourceFacetStatement(
   categoryWhere: string,
   categoryBindings: unknown[],
   expressions: DirectorySourceFacetExpressions,
+  selectBindings: unknown[] = [],
 ) {
   const columns = (
     Object.entries(expressions) as Array<[keyof DirectorySourceFacetExpressions, string]>
@@ -60,7 +61,7 @@ export function directorySourceFacetStatement(
   );
   return database
     .prepare(`SELECT ${columns.join(", ")} FROM directory_profiles WHERE ${categoryWhere}`)
-    .bind(...categoryBindings);
+    .bind(...selectBindings, ...categoryBindings);
 }
 
 /**
