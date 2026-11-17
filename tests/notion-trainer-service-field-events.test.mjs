@@ -77,6 +77,12 @@ test("trainer free text is separate from Services V3 and persisted without touch
 test("trainer relations use independent storage and can load both name-selected links", async () => {
   const fakeDb = {
     prepare(query) {
+      if (/FROM breed_directory_relations WHERE profile_id=/.test(query)) {
+        return { bind(id) {
+          assert.equal(id, 543);
+          return { async all() { return { results: [{id:5}, {id:14}] }; } };
+        } };
+      }
       assert.match(query, /FROM directory_profiles WHERE id=/);
       return {
         bind(id) {
