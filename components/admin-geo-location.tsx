@@ -351,14 +351,14 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false, show
                   ) : null}
                   <div className="admin-editor-actions">
                     <button type="button" disabled={busy || !snapshot.provider.configured} onClick={() => void findLocation()}>
-                      {busy ? "Hľadám…" : "Fallback: overiť podľa adresy"}
+                      {busy ? "Hľadám…" : "Overiť podľa adresy"}
                     </button>
                   </div>
                 </>
               ) : (
                 <div className="admin-editor-actions">
                   <button type="button" disabled={busy || !snapshot.provider.configured} onClick={() => void findLocation()}>
-                    {busy ? "Hľadám…" : snapshot.point?.geocodeStatus === "STALE" ? "Nájsť podľa adresy znova" : "Fallback: nájsť podľa adresy"}
+                    {busy ? "Hľadám…" : snapshot.point?.geocodeStatus === "STALE" ? "Nájsť podľa adresy znova" : "Overiť podľa adresy"}
                   </button>
                 </div>
               )}

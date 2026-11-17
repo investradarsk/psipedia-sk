@@ -167,7 +167,7 @@ export async function listNewsTips() {
       contact_email, status, internal_note, consent, created_at, updated_at
     FROM news_tips
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'reviewing' THEN 1 WHEN 'used' THEN 2 ELSE 3 END, created_at DESC
-    LIMIT 200
+    -- Admin searches the entire mailbox before client pagination.
   `).all<NewsTipRow>();
   return result.results.map(rowToNewsTip);
 }

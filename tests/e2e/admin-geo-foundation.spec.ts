@@ -38,8 +38,17 @@ test.describe("MAP-1B admin geo foundation", () => {
     await expect(geoPanel.getByRole("button", { name: "Uložiť manual marker" })).toHaveCount(0);
     await expect(geoPanel.getByRole("button", { name: "Diagnostika Geoapify (bez zápisu)" })).toHaveCount(0);
 
-    await expect(geoPanel.getByRole("button", { name: "Nájsť profil v Google Maps" })).toBeVisible();
-    await expect(geoPanel.getByRole("button", { name: /Fallback: nájsť podľa adresy|Fallback: overiť podľa adresy|Nájsť podľa adresy znova/ })).toBeVisible();
+    // The Google Place picker is intentionally in a compact, closed-by-default panel.
+    // Do not require expensive map actions to be visible before the editor requests them.
+    const googleActions = geoPanel.locator("[data-admin-map-collapsible]");
+    await expect(googleActions.locator("summary")).toHaveText("Overiť alebo upraviť Google miesto");
+    await expect(googleActions).not.toHaveAttribute("open", "");
+    await googleActions.locator("summary").click();
+    await expect(googleActions).toHaveAttribute("open", "");
+    await expect(googleActions.getByRole("button", { name: /^(Nájsť profil v Google Maps|Zmeniť Google miesto)$/ })).toBeVisible();
+
+    // The old 'Fallback' label was removed in favour of plain Slovak copy.
+    await expect(geoPanel.getByRole("button", { name: /^(Overiť podľa adresy|Nájsť podľa adresy znova)$/ })).toBeVisible();
 
     await geoPanel.getByText("Technické informácie").click();
     await expect(geoPanel.getByText("Verejná mapa")).toBeVisible();

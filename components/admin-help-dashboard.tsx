@@ -15,6 +15,7 @@ import {
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { HELP_ADMIN_CATEGORIES, type HelpAdminFilters } from "@/lib/help-admin-query";
 import { adminFilteredListHref } from "@/lib/admin-list-query";
+import { adminDetailHref } from "@/lib/admin-return-navigation";
 import type { ManagedHelpCaseSummary } from "@/lib/help-store";
 import styles from "./admin-help-bulk.module.css";
 
@@ -207,7 +208,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
           onChange: ids => setSelected(new Set(ids)),
         }}
         columns={[
-          { id: "title", label: "Záznam", width: 270, sortValue: (item) => item.title, cell: (item) => <Link prefetch={false} href={"/admin/pomoc/" + item.id}><strong>{item.title}</strong></Link> },
+          { id: "title", label: "Záznam", width: 270, sortValue: (item) => item.title, cell: (item) => <Link prefetch={false} href={adminDetailHref("/admin/pomoc/" + item.id, url(filters))}><strong>{item.title}</strong></Link> },
           { id: "category", label: "Kategória", width: 160, sortValue: (item) => item.category, cell: (item) => item.category === "utulky" ? "Útulok" : getHelpCategory(item.category)?.label ?? item.category },
           { id: "city", label: "Mesto", width: 140, sortValue: (item) => item.city || "", cell: (item) => item.city || "—" },
           { id: "organization", label: "Organizácia", width: 180, sortValue: (item) => item.organization || "", cell: (item) => item.organization || "—" },

@@ -2338,7 +2338,7 @@ export async function listDirectoryInquiries() {
       sender_name, sender_email, sender_phone, dog_info, message, status, consent, created_at, updated_at
     FROM directory_inquiries
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, created_at DESC
-    LIMIT 200
+    -- Admin searches the entire mailbox before client pagination.
   `,
     )
     .all<DirectoryInquiryRow>();
@@ -2453,20 +2453,23 @@ export async function listDirectoryProfileChangeRequests() {
     SELECT ${DIRECTORY_CHANGE_REQUEST_COLUMNS}
     FROM directory_profile_change_requests
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, created_at DESC
-    LIMIT 200
+    -- Admin filters every submitted request before client pagination.
   `,
     )
     .all<DirectoryProfileChangeRequestRow>();
   const rows = result.results;
   const ids = [...new Set(rows.map((row) => row.profile_id))];
   const currentById = new Map<number, DirectoryProfileEditableData>();
-  if (ids.length > 0) {
-    const placeholders = ids.map(() => "?").join(", ");
+  // Chunk the read-only profile lookup; the old 200-row cap masked the
+  // SQLite parameter limit once older submissions became searchable.
+  for (let offset = 0; offset < ids.length; offset += 250) {
+    const batch = ids.slice(offset, offset + 250);
+    const placeholders = batch.map(() => "?").join(", ");
     const profiles = await database
       .prepare(
         `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id IN (${placeholders})`,
       )
-      .bind(...ids)
+      .bind(...batch)
       .all<DirectoryProfileRow>();
     for (const row of profiles.results)
       currentById.set(row.id, editableDirectoryProfileData(rowToPublicProfile(row)));

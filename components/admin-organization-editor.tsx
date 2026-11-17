@@ -78,11 +78,13 @@ export function AdminOrganizationEditor({
   initialLocations = [],
   automationSuggestions = [],
   automationSuggestionsPromise,
+  returnHref = "/admin/organizacie",
 }: {
   organization?: OrganizationPublicationAdminItem | null;
   initialLocations?: OrganizationLocationAdminRecord[];
   automationSuggestions?: CanonicalUpdateSuggestion[];
   automationSuggestionsPromise?: Promise<OrganizationSuggestionsResult>;
+  returnHref?: string;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<OrganizationAdminInput>(() => organization ? organizationAdminInputFromCandidate(organization) : blankInput());
@@ -354,9 +356,9 @@ export function AdminOrganizationEditor({
        thumbnail={draft.thumbnailImageDisplay ?? null} detail={draft.detailImageDisplay ?? null} onCancel={() => setImageEditorOpen(false)}
        onSave={(thumbnail, detail) => { patch({ thumbnailImageDisplay: thumbnail, detailImageDisplay: detail }); setImageEditorOpen(false); }} />}
     <AdminEditorFooter dirty={dirty} pending={saving}>
-      {organization && <AdminRecordLifecycleActions kind="organizations" recordId={organization.id} status={organization.status} disabled={!hydrated || saving || uploading} returnHref="/admin/organizacie" />}
+      {organization && <AdminRecordLifecycleActions kind="organizations" recordId={organization.id} status={organization.status} disabled={!hydrated || saving || uploading} returnHref={returnHref} />}
       <div className="admin-editor-actions">
-      <div><Link href="/admin/organizacie">← Späť na organizácie</Link></div>
+      <div><Link href={returnHref}>← Späť na organizácie</Link></div>
       <div><AdminActionButton variant="primary" type="submit" disabled={editingDisabled || saving || uploading}>{saving ? "Ukladám…" : organization ? "Uložiť organizáciu" : "Vytvoriť koncept"}</AdminActionButton></div>
     </div>
     </AdminEditorFooter>

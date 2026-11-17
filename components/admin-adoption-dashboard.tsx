@@ -11,6 +11,7 @@ import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminNumberedPagination } from "@/components/admin-pagination";
 import { AdminDataTableRegion } from "@/components/admin-data-table-region";
 import { adminFilteredListHref } from "@/lib/admin-list-query";
+import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { adoptionRegions, adoptionStatusLabels, adoptionStatuses } from "@/lib/adoption";
 import {
   type AdoptionAdminListFilters,
@@ -53,6 +54,7 @@ const sortLabels: Record<AdoptionAdminSort, string> = {
 
 export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] | null }) {
   const router = useRouter();
+  const listReturnHref = adminHref(filters);
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const reviewed = reviewedIds === null ? null : new Set(reviewedIds);
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; name: string } | null>(null);
@@ -155,7 +157,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
                   ? <AdminInlineCellInput label={"Meno psa " + item.name} value={activeInline.name}
                       maxLength={180} required disabled={busy}
                       onChange={name => setInlineDraft(previous => previous ? { ...previous, name } : null)} />
-                  : <strong><Link href={`/admin/adopcie/${item.id}`}>{item.name}</Link></strong>}
+                  : <strong><Link href={adminDetailHref(`/admin/adopcie/${item.id}`, listReturnHref)}>{item.name}</Link></strong>}
                 <small>/{item.slug}</small><small>{item.breedName || "Plemeno neuvedené"}</small>
               </div> },
             { id: "status", label: "Stav", width: 145, cell: item => adoptionStatusLabels[item.status] },
@@ -180,7 +182,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
                   onEdit={() => beginInline(item)} onSave={() => void saveInline()}
                   onCancel={() => { if (!busy) setInlineDraft(null); }}
                 /></span>}
-                <Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link>
+                <Link className={styles.edit} href={adminDetailHref(`/admin/adopcie/${item.id}`, listReturnHref)}>Upraviť →</Link>
               </div> },
           ]}
         /> : <p>Žiadne adopcie pre zvolené filtre.</p>}
@@ -204,7 +206,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
           </label>
           <div className={styles.adoptionCardTop}>
             <div className={styles.adoptionCardIdentity}>
-              <h2><Link href={`/admin/adopcie/${item.id}`}>{item.name}</Link></h2>
+              <h2><Link href={adminDetailHref(`/admin/adopcie/${item.id}`, listReturnHref)}>{item.name}</Link></h2>
               <AdminRecordId id={item.id} compact />
               <small>#{item.id} · {item.breedName || "Plemeno neuvedené"}</small>
             </div>
@@ -220,7 +222,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
             {reviewed
               ? <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
               : <span aria-label="Stav redakčnej kontroly nedostupný">—</span>}
-            <Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link>
+            <Link className={styles.edit} href={adminDetailHref(`/admin/adopcie/${item.id}`, listReturnHref)}>Upraviť →</Link>
           </div>
         </article>;
       })}

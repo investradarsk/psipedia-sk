@@ -279,7 +279,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
 
   return (
     <div className={`admin-events-workspace ${styles.workspace}`} data-hydrated={hydrated} data-admin-content-module="events-list">
-      <section className="admin-stats admin-event-stats" aria-label="Stav celého kalendára">
+      <section className={`admin-stats admin-event-stats ${styles.compactStats}`} aria-label="Stav celého kalendára">
         {([["all", "Všetky"], ["upcoming", "Nadchádzajúce"], ["current", "Prebiehajúce"], ["past", "Minulé"], ["published", "Publikované"], ["draft", "Koncepty"]] as const).map(([key, label]) => (
           <div key={key} data-count={key}><span>{label}</span><strong>{counts[key]}</strong></div>
         ))}
@@ -312,7 +312,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
           <button type="button" onClick={() => { setFilters(defaultEventFilters); setPage(1); clearSelection(); setMessage(""); }}>Zrušiť filtre</button>
         </fieldset>
 
-        <div className="admin-event-bulk"><span role="status">Vybrané: {selected.size}</span></div>
+        {!!selected.size && <div className="admin-event-bulk"><span role="status">Vybrané: {selected.size}</span></div>}
 
         {selected.size > 500 && <p role="alert">V jednej dávke vyber najviac 500 podujatí.</p>}
 

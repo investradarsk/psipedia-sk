@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminDirectoryModuleNav } from "@/components/admin-directory-module-nav";
 import { AdminHelpUnifiedTable, type HelpDirectoryRow } from "@/components/admin-help-unified-table";
+import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { AdminSectionHub, type AdminSectionHubItem } from "@/components/admin-section-hub";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -91,10 +92,14 @@ async function HelpTable({ promise, category, q }: {
   q: string;
 }) {
   const table = await promise;
+  const returnQuery = new URLSearchParams({ category });
+  if (q) returnQuery.set("q", q);
+  if (table.page > 1) returnQuery.set("page", String(table.page));
+  const returnHref = "/admin/pomoc-psom?" + returnQuery.toString();
   return <AdminHelpUnifiedTable
     category={category}
     categories={helpCategories.map(item => ({ slug: item.slug, label: item.label, icon: item.icon, href: hrefByCategory[item.slug] }))}
-    rows={table.rows}
+    rows={table.rows.map(row => ({ ...row, href: adminDetailHref(row.href, returnHref) }))}
     query={q}
     page={table.page}
     pages={table.pages}

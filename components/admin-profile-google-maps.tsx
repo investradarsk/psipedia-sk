@@ -160,7 +160,7 @@ export function AdminProfileGoogleMaps({
       data-admin-profile-google-maps
       data-google-maps-target-type={targetType}
       data-google-maps-endpoint={endpoint}
-      style={{ marginTop: "1rem" }}
+      style={{ marginTop: ".5rem" }}
     >
       <div className="admin-card-heading">
         <div>
@@ -180,6 +180,8 @@ export function AdminProfileGoogleMaps({
         </p>
       ) : null}
 
+      <details className="admin-map-workflow" data-admin-map-collapsible>
+        <summary style={{ cursor: "pointer", fontWeight: 750, padding: ".45rem 0" }}>Overiť alebo upraviť Google miesto</summary>
       {systemNotRequired ? (
         <p className="admin-help">Online podujatie nemá fyzický Google Maps target.</p>
       ) : notRequired ? (
@@ -228,6 +230,7 @@ export function AdminProfileGoogleMaps({
           ) : null}
         </>
       )}
+      </details>
 
       {error ? <p className="admin-message admin-message--error" role="alert">{error}</p> : null}
     </section></AdminEditorToolFrame>

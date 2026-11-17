@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { adminReturnHref } from "@/lib/admin-return-navigation";
 import { notFound } from "next/navigation";
 import { AdminHelpEditor } from "@/components/admin-help-editor";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
@@ -14,9 +15,10 @@ import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 import { listCanonicalAutomationUpdateSuggestions } from "@/lib/data-automation-update-review";
 
 export const dynamic = "force-dynamic";
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string | string[] }> };
 
-export default async function EditHelpCasePage({ params }: Props) {
+export default async function EditHelpCasePage({ params, searchParams }: Props) {
+  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/pomoc", "/admin/pomoc-psom"]);
   const { id } = await params; const numericId = Number.parseInt(id, 10);
   if (!Number.isSafeInteger(numericId) || numericId < 1) notFound();
   const user = await requireAdminPageUser(`/admin/pomoc/${id}`);
@@ -35,15 +37,15 @@ export default async function EditHelpCasePage({ params }: Props) {
   return <AdminShell recordId={numericId}
     user={user}
     eyebrow={item.status === "published" ? "Publikovaný Help záznam" : "Rozpracovaný Help koncept"}
-    title="Upraviť Help prípad"
-    description="Uprav iba canonical generic Help záznam. Publikačný stav, urgentnosť a vyriešenie zostávajú vedomé redakčné rozhodnutia."
+    title={item.title}
+    description="Úprava prípadu. Publikácia, urgentnosť a vybavenie sa nastavujú samostatne."
    actions={<>
     <AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />
     {item.status === "published" && <Link href={helpCaseHref(item)} target="_blank" rel="noreferrer">Otvoriť verejný záznam ↗</Link>}
-    <Link href="/admin/pomoc">← Späť na pomoc psom</Link>
+    <Link href={returnHref}>← Späť na pomoc psom</Link>
    </>}>
     <AdminGeminiOriginBadge agenda="help-cases" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} />
-    <AdminHelpEditor item={item} automationSuggestions={automationSuggestions} />
-    {item.status === "draft" && <AdminCanonicalDraftDelete entityType={entityType} canonicalEntityId={item.id} returnHref="/admin/pomoc" />}
+    <AdminHelpEditor item={item} automationSuggestions={automationSuggestions} returnHref={returnHref} />
+    {item.status === "draft" && <AdminCanonicalDraftDelete entityType={entityType} canonicalEntityId={item.id} returnHref={returnHref} />}
   </AdminShell>;
 }

@@ -123,7 +123,7 @@ export async function listArticleFeedback() {
     ORDER BY
       CASE WHEN helpful = 0 AND status IN ('new','reviewing') THEN 0 ELSE 1 END,
       created_at DESC
-    LIMIT 250
+    -- Admin searches every feedback submission before client pagination.
   `).all<ArticleFeedbackRow>();
   return result.results.map(toFeedback);
 }

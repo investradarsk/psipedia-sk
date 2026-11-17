@@ -874,7 +874,10 @@
   align-items: center;
   gap: 0.45rem;
   margin: 0;
-  font: 700 0.99rem/1.3 Georgia, "Times New Roman", serif;
+  font: inherit;
+  font-size: 0.96rem;
+  line-height: 1.35;
+  font-weight: 800;
   color: #173e30;
 }
 .railHeading h3 svg { flex: 0 0 auto; color: #4c705b; }
@@ -998,7 +1001,10 @@
   display: inline-flex;
   gap: 0.45rem;
   align-items: center;
-  font: 700 0.99rem/1.3 Georgia, "Times New Roman", serif;
+  font: inherit;
+  font-size: 0.96rem;
+  line-height: 1.35;
+  font-weight: 800;
 }
 .railSummary > svg { flex: 0 0 auto; color: #59715f; transition: transform 150ms ease; }
 .railCard[open] .railSummary > svg { transform: rotate(180deg); }
@@ -1312,3 +1318,8 @@
     var(--admin-sticky-stack, 96px) + var(--admin-tiptap-toolbar-height, 0px) + 16px
   );
 }
+
+/* Desktop audit: consistent sans-serif hierarchy in article side panels. */
+.rightRail { font-family: inherit; }
+.railNote, .railMeta, .railDetails p { font-size: var(--admin-ui-type-caption, 0.83rem); line-height: 1.5; }
+.railField label { font-size: var(--admin-ui-type-label, 0.82rem); }
