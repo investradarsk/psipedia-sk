@@ -39,7 +39,7 @@ test(
  const map = {...fixtures.maps.directory,...runtime};
  let view;
  if(name.startsWith('directory')) view=<DirectoryProfileDetail presentation={{...fixtures.directory,...(minimal?{imageUrl:null,phone:null,emails:[],websites:[],services:[],openingHours:'',address:'',health:null}:{}),...(name.includes('blur')?{detailImageDisplay:{mode:'blur',x:50,y:50,zoom:1}}:{}),...(name.includes('crop')?{detailImageDisplay:{mode:'crop',x:30,y:40,zoom:1.2}}:{}),...(name.includes('long')?{name:'Test dlhého názvu služby a nepretržitého kontaktu '.repeat(4)}:{})}} reviews={fixtures.review} publicMap={minimal?undefined:map}/>;
- else if(name.startsWith('event')) view=<EventDetail event={buildPublicEventPresentation({...fixtures.event,...(minimal?{imageUrl:null,organizer:'',websiteUrl:'',registrationUrl:''}:{}),...(name.includes('cancelled')?{cancelled:true}:{}),...(name.includes('long')?{title:'Test dlhého názvu kynologického podujatia a organizačných údajov '.repeat(3)}:{})})} publicMap={minimal?undefined:{...fixtures.maps.event,...runtime}}/>;
+ else if(name.startsWith('event')) view=<EventDetail event={buildPublicEventPresentation({...fixtures.event,...(minimal?{imageUrl:null,organizer:'',websiteUrl:'',registrationUrl:''}:{}),...(name==='event-two-actions'?{contactPhone:'+421 900 123 456'}:{}),...(name.includes('cancelled')?{cancelled:true}:{}),...(name.includes('long')?{title:'Test dlhého názvu kynologického podujatia a organizačných údajov '.repeat(3)}:{})})} publicMap={minimal?undefined:{...fixtures.maps.event,...runtime}}/>;
  else if(name.startsWith('adoption')) view=<AdoptionDetail dog={{...fixtures.adoption,...(minimal?{mainImage:null,contactPhone:'',contactEmail:''}:{}),...(name.includes('reserved')?{status:'RESERVED'}:{}),...(name.includes('breed-duplicate')?{breedMix:true,breedName:'kríženec'}:{})}} organization={fixtures.organizationLink}/>;
  else if(name.startsWith('help')) {
  const category=name.split('-').slice(1).join('-');
@@ -113,6 +113,7 @@ test(
         "directory-crop",
         "directory-long",
         "event-minimal",
+        "event-two-actions",
         "event-cancelled",
         "event-long",
         "adoption-minimal",
@@ -228,6 +229,26 @@ test(
                 (await actions.locator("a").count()) >= 1,
                 "event retains registration or official-site action",
               );
+            }
+          }
+          if (width <= 800) {
+            const actionLinks = hero.locator("nav[data-public-detail-actions] > a");
+            const count = await actionLinks.count();
+            if (name === "event-two-actions") assert.equal(count, 2, "two-action event fixture");
+            if (count === 1 || count === 2) {
+              const row = await hero.locator("nav[data-public-detail-actions]").boundingBox();
+              const first = await actionLinks.first().boundingBox();
+              const last = await actionLinks.last().boundingBox();
+              assert.ok(row && first && last, `${name} mobile actions visible`);
+              assert.ok(Math.abs(first.x - row.x) <= 1, `${name} actions start at row edge`);
+              assert.ok(
+                Math.abs(last.x + last.width - row.x - row.width) <= 1,
+                `${name} ${width} ${count} actions fill row without empty columns`,
+              );
+              if (count === 2) {
+                assert.ok(Math.abs(first.y - last.y) <= 1, `${name} actions share row`);
+                assert.ok(Math.abs(first.width - last.width) <= 1, `${name} equal action widths`);
+              }
             }
           }
           const image = hero.locator("[data-public-profile-media]");
