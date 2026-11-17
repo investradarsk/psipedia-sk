@@ -260,7 +260,7 @@ test("Services V3 explicit Unknown profile editor — desktop/mobile screenshots
  const r=await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture",{waitUntil:"domcontentloaded"});
  expect(r?.status()).toBe(200);
  const fixtureLink=page.getByRole("link",{name:"Directory Admin Editor Fixture"});
- await expect(fixtureLink).toHaveAttribute("href", /^\\/admin\\/adresar\\/\\d+\\?returnTo=/);
+ await expect(fixtureLink).toHaveAttribute("href", /^\/admin\/adresar\/\d+\?returnTo=/);
  // This visual/profile-values test needs a deterministic detail page load.
  // Navigate to the exact link target to avoid hydration races in local vinext.
  const profileHref=await fixtureLink.getAttribute("href");
