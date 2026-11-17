@@ -387,7 +387,7 @@ test("canonical service options share the facet request's latency budget; disabl
   assert.match(fn, /if \(!canonicalServicesEnabled \|\| !category\) return \[\]/);
   assert.match(
     fn,
-    /Promise\.all\(\[\s*database\.batch\(\[locationStatement, sourceStatement\]\),\s*loadCanonicalServices\(\),\s*earlyCount,\s*\]\)/,
+    /Promise\.all\(\[\s*database\.batch\(\[locationStatement, sourceStatement\]\),\s*loadCanonicalServices\(\),\s*loadCanonicalBreedOptions\(\),\s*earlyCount,\s*\]\)/,
   );
   assert.match(
     fn,
