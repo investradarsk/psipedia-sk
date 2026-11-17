@@ -36,8 +36,7 @@ export const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
     "Retriever / poľovnícka kynológia",
   ],
   "chovatelske-kluby": [
-    "Plemeno",
-    "Plemená",
+    // Breed IDs are selected in Prepojenia, never a second editable text field.
     "FCI skupina",
     "Organizácia",
     "Zastrešujúca organizácia",
