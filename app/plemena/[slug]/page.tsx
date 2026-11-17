@@ -1,3 +1,4 @@
+import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArticlePromo } from "@/components/article-promo";
@@ -126,7 +127,9 @@ export default async function BreedDetailPage({ params }: Props) {
 
   const managedBreed =
     "id" in breed && typeof breed.id === "number" ? (breed as ManagedBreed) : null;
-  const controlledFacts=managedBreed ? await readPublicBreedControlledValues(managedBreed.id) : null;
+  const controlledFacts = managedBreed
+    ? await readPublicBreedControlledValues(managedBreed.id)
+    : null;
   const editorial: BreedEditorial = managedBreed?.editorial ?? {};
   const fci: FciStandard = managedBreed?.fciStandard ?? {};
   const sports = normalizeBreedSports(managedBreed?.sports ?? []);
@@ -228,33 +231,70 @@ export default async function BreedDetailPage({ params }: Props) {
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Domov", item: SITE_URL },
           { "@type": "ListItem", position: 2, name: "Plemená", item: `${SITE_URL}/plemena` },
-          { "@type": "ListItem", position: 3, name: getFciGroup(breed.fciGroup)?.label ?? "FCI", item: `${SITE_URL}/plemena?fciGroup=${breed.fciGroup}` },
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: getFciGroup(breed.fciGroup)?.label ?? "FCI",
+            item: `${SITE_URL}/plemena?fciGroup=${breed.fciGroup}`,
+          },
           { "@type": "ListItem", position: 4, name: breed.name, item: canonical },
         ],
       },
     ],
   };
 
-  const height = publicBreedMeasurementWithSource(breed.height, "height",
-    [fci.vyska_pes_cm, fci.vyska_suka_cm]).value;
-  const weight = publicBreedMeasurementWithSource(breed.weight, "weight",
-    [fci.hmotnost_pes_kg, fci.hmotnost_suka_kg]).value;
+  const height = publicBreedMeasurementWithSource(breed.height, "height", [
+    fci.vyska_pes_cm,
+    fci.vyska_suka_cm,
+  ]).value;
+  const weight = publicBreedMeasurementWithSource(breed.weight, "weight", [
+    fci.hmotnost_pes_kg,
+    fci.hmotnost_suka_kg,
+  ]).value;
   const lifespan = publicBreedMeasurement(breed.lifespan, "lifespan");
 
   // New Admin values take precedence only when present and valid; old prose
   // remains a safe read-only fallback until the Notion cutover is complete.
-  const displayFacts=resolvePublicBreedFacts({
-    origin:breed.origin?.trim()??"",size:breed.size?.trim()??"",
-    height,weight,lifespan,fciGroup:breed.fciGroup,
-    fciSection:breed.fciSection,
-  },controlledFacts);
+  const displayFacts = resolvePublicBreedFacts(
+    {
+      origin: breed.origin?.trim() ?? "",
+      size: breed.size?.trim() ?? "",
+      height,
+      weight,
+      lifespan,
+      fciGroup: breed.fciGroup,
+      fciSection: breed.fciSection,
+    },
+    controlledFacts,
+  );
   const quickFacts = [
     { label: "Pôvod", value: displayFacts.origin },
     { label: "Veľkosť", value: displayFacts.size },
     { label: "Typ srsti", value: displayFacts.coatTypes },
-    { label: "Výška", value: displayFacts.height },
-    { label: "Hmotnosť", value: displayFacts.weight ? <BreedMeasurementFact kind="weight" value={displayFacts.weight} /> : "" },
-    { label: "Dĺžka života", value: displayFacts.lifespan ? <BreedMeasurementFact kind="lifespan" value={displayFacts.lifespan} /> : "" },
+    {
+      label: "Výška",
+      value: displayFacts.height ? (
+        <BreedMeasurementFact kind="height" value={displayFacts.height} />
+      ) : (
+        ""
+      ),
+    },
+    {
+      label: "Hmotnosť",
+      value: displayFacts.weight ? (
+        <BreedMeasurementFact kind="weight" value={displayFacts.weight} />
+      ) : (
+        ""
+      ),
+    },
+    {
+      label: "Dĺžka života",
+      value: displayFacts.lifespan ? (
+        <BreedMeasurementFact kind="lifespan" value={displayFacts.lifespan} />
+      ) : (
+        ""
+      ),
+    },
     { label: "Využitie", value: displayFacts.useTypes },
     { label: "FCI skupina", value: displayFacts.fciGroup },
   ];
@@ -267,17 +307,26 @@ export default async function BreedDetailPage({ params }: Props) {
   const historyParagraphs = textParagraphs(breed.history);
   const healthParagraphs = textParagraphs(breed.health);
   const needsParagraphs = textParagraphs(breed.needs);
-  const hasCharacteristics=overviewParagraphs.length>0 || characterParagraphs.length>0 || historyParagraphs.length>0;
-  const ratings=[
-    ["Energia",breed.energy],["Trénovateľnosť",breed.trainability],
-    ["Vzťah k deťom",breed.children],["Vzťah k iným psom",breed.otherDogs],
-    ["Vhodnosť do bytu",breed.apartment],["Náročnosť starostlivosti",breed.grooming],
-    ["Pĺznutie",breed.shedding],["Lovecký inštinkt",breed.preyDrive],
-  ].filter((item):item is [string,number]=>typeof item[1]==="number"&&Number.isFinite(item[1])&&item[1]>=1&&item[1]<=5);
+  const hasCharacteristics =
+    overviewParagraphs.length > 0 || characterParagraphs.length > 0 || historyParagraphs.length > 0;
+  const ratings = [
+    ["Energia", breed.energy],
+    ["Trénovateľnosť", breed.trainability],
+    ["Vzťah k deťom", breed.children],
+    ["Vzťah k iným psom", breed.otherDogs],
+    ["Vhodnosť do bytu", breed.apartment],
+    ["Náročnosť starostlivosti", breed.grooming],
+    ["Pĺznutie", breed.shedding],
+    ["Lovecký inštinkt", breed.preyDrive],
+  ].filter(
+    (item): item is [string, number] =>
+      typeof item[1] === "number" && Number.isFinite(item[1]) && item[1] >= 1 && item[1] <= 5,
+  );
   const accordions: AccordionItem[] = [
     {
-      key:"needs",title:"Potreby plemena",
-      paragraphs:needsParagraphs,
+      key: "needs",
+      title: "Potreby plemena",
+      paragraphs: needsParagraphs,
     },
     {
       key: "movement",
@@ -317,7 +366,7 @@ export default async function BreedDetailPage({ params }: Props) {
       Boolean(item.extraSections?.some((section) => section.paragraphs.length > 0)),
   );
 
-  const displayFciGroup=Number(displayFacts.fciGroup)||breed.fciGroup;
+  const displayFciGroup = Number(displayFacts.fciGroup) || breed.fciGroup;
   const fciGroupName = getFciGroup(displayFciGroup)?.label || "";
   const fciGroupHref = breedAtlasHref({
     query: "",
@@ -327,12 +376,18 @@ export default async function BreedDetailPage({ params }: Props) {
   });
   // The section NUMBER remains an internal navigation key for the atlas.
   // It is not a separate input or visible field in the compact Notion editor.
-  const sectionNumber = typeof controlledFacts?.fciSectionSelect === "string" && controlledFacts.fciSectionSelect
-    ? controlledFacts.fciSectionSelect : (managedBreed?.fciSectionNumber?.trim() ?? "");
-  const fciSectionHref = sectionNumber ? breedAtlasHref({
-    query: "", fciGroup: String(displayFciGroup),
-    fciSection: sectionNumber, origin: "",
-  }) : undefined;
+  const sectionNumber =
+    typeof controlledFacts?.fciSectionSelect === "string" && controlledFacts.fciSectionSelect
+      ? controlledFacts.fciSectionSelect
+      : (managedBreed?.fciSectionNumber?.trim() ?? "");
+  const fciSectionHref = sectionNumber
+    ? breedAtlasHref({
+        query: "",
+        fciGroup: String(displayFciGroup),
+        fciSection: sectionNumber,
+        origin: "",
+      })
+    : undefined;
   // Only FCI identity fields present in the 60-column Notion workcopy.
   const fciFacts = [
     { label: "FCI číslo", value: managedBreed?.fciNumber ? String(managedBreed.fciNumber) : "" },
@@ -341,20 +396,24 @@ export default async function BreedDetailPage({ params }: Props) {
       value: fciGroupName ? `${displayFciGroup}. ${fciGroupName}` : String(displayFciGroup),
       href: fciGroupHref,
     },
-    { label: "FCI sekcia",
+    {
+      label: "FCI sekcia",
       // A new FCI section selection owns the display; the old translated
       // label must not silently override a newer Admin choice.
       value: sectionNumber
         ? publicFciSectionName(displayFciGroup, sectionNumber, breed.fciSection)
-        : (breed.fciSection?.trim() || displayFacts.fciSection),
-      href: fciSectionHref },
+        : breed.fciSection?.trim() || displayFacts.fciSection,
+      href: fciSectionHref,
+    },
   ].filter((item) => Boolean(item.value));
   const hasFciReference = Boolean(
     managedBreed?.fciNumber ||
       Object.values(fci).some((value) => typeof value === "string" && value.trim()),
   );
   // Identical fact content, placed in separate desktop/mobile slots; CSS shows only one.
-  const factsCard = quickFacts.length ? <DetailFactsCard title="Plemeno v skratke" facts={quickFacts} /> : null;
+  const factsCard = quickFacts.length ? (
+    <DetailFactsCard title="Plemeno v skratke" facts={quickFacts} />
+  ) : null;
 
   return (
     <main id="obsah" className={styles.page}>
@@ -372,7 +431,14 @@ export default async function BreedDetailPage({ params }: Props) {
                 <span>/</span>
                 <Link href="/plemena">Plemená</Link>
                 <span>/</span>
-                <Link href={breedAtlasHref({ query: "", fciGroup: String(breed.fciGroup), fciSection: "", origin: "" })}>
+                <Link
+                  href={breedAtlasHref({
+                    query: "",
+                    fciGroup: String(breed.fciGroup),
+                    fciSection: "",
+                    origin: "",
+                  })}
+                >
                   {getFciGroup(breed.fciGroup)?.label ?? "FCI skupina"}
                 </Link>
                 <span>/</span>
@@ -387,7 +453,9 @@ export default async function BreedDetailPage({ params }: Props) {
                     {managedBreed?.fciNumber ? <span>FCI č. {managedBreed.fciNumber}</span> : null}
                     {fciGroupName ? <span>Skupina {displayFciGroup}</span> : null}
                   </div>
-                  <h1>{breed.name}</h1>
+                  <PublicHeading role="page" as="h1">
+                    {breed.name}
+                  </PublicHeading>
                   {managedBreed?.officialFciName?.trim() ? (
                     <p className={styles.officialName}>{managedBreed.officialFciName}</p>
                   ) : null}
@@ -430,33 +498,35 @@ export default async function BreedDetailPage({ params }: Props) {
         </div>
         <PublicHelpProfileDetailLayout
           aside={
-          <div
-            id="uzitocne"
-            className={`${styles.utilitySidebar} ${styles.anchorSection}`}
-            aria-label="Užitočné odkazy"
-            data-testid="breed-utility-sidebar"
-          >
-            {factsCard ? <div className={styles.desktopFacts} data-testid="breed-quick-facts">
-              {factsCard}
-            </div> : null}
-            <ArticlePromo promoKey="veterinari" variant="v1" seed={breed.slug} compact />
-            <PublicMagazineBanner
-              compact
-              eyebrow="Adresár Psipedia"
-              title="Užitočné odkazy"
-              description="Kluby, chovatelia a tréneri na jednom mieste."
-              testId="breed-utility"
-              links={[
-                { href: "/adresar/chovatelske-kluby", label: "Chovateľské kluby" },
-                {
-                  href: relations.breedingStationLanding?.href ?? "/adresar/chovatelske-stanice",
-                  label: relations.breedingStationLanding?.label ?? "Chovateľské stanice",
-                },
-                { href: "/adresar/treneri", label: "Psí tréneri" },
-                { href: "/adresar/kynologicke-kluby", label: "Kynologické kluby" },
-              ]}
-            />
-          </div>
+            <div
+              id="uzitocne"
+              className={`${styles.utilitySidebar} ${styles.anchorSection}`}
+              aria-label="Užitočné odkazy"
+              data-testid="breed-utility-sidebar"
+            >
+              {factsCard ? (
+                <div className={styles.desktopFacts} data-testid="breed-quick-facts">
+                  {factsCard}
+                </div>
+              ) : null}
+              <ArticlePromo promoKey="veterinari" variant="v1" seed={breed.slug} compact />
+              <PublicMagazineBanner
+                compact
+                eyebrow="Adresár Psipedia"
+                title="Užitočné odkazy"
+                description="Kluby, chovatelia a tréneri na jednom mieste."
+                testId="breed-utility"
+                links={[
+                  { href: "/adresar/chovatelske-kluby", label: "Chovateľské kluby" },
+                  {
+                    href: relations.breedingStationLanding?.href ?? "/adresar/chovatelske-stanice",
+                    label: relations.breedingStationLanding?.label ?? "Chovateľské stanice",
+                  },
+                  { href: "/adresar/treneri", label: "Psí tréneri" },
+                  { href: "/adresar/kynologicke-kluby", label: "Kynologické kluby" },
+                ]}
+              />
+            </div>
           }
           asideLabel="Základné fakty a užitočné odkazy"
           className={styles.contentLayout}
@@ -464,21 +534,43 @@ export default async function BreedDetailPage({ params }: Props) {
         >
           <article className={styles.mainColumn}>
             {hasCharacteristics ? (
-              <section id="prehlad" className={`${styles.readingSection} ${styles.anchorSection}`} aria-labelledby="breed-about">
-                <h2 id="breed-about">O plemene</h2>
-                {overviewParagraphs.length ? <div className={styles.prose}><ReadingText paragraphs={overviewParagraphs}/></div> : null}
-                {characterParagraphs.length ? <div className={styles.characterBlock}>
-                  <h3>Charakter a temperament</h3>
-                  <div className={styles.prose}><ReadingText paragraphs={characterParagraphs}/></div>
-                </div> : null}
-                {historyParagraphs.length ? <div className={styles.characterBlock}>
-                  <h3>História a pôvod plemena</h3>
-                  <div className={styles.prose}><ReadingText paragraphs={historyParagraphs}/></div>
-                </div> : null}
-                {editorial.curiosities?.trim() ? <div className={styles.characterBlock}>
-                  <h3>Zaujímavosti</h3>
-                  <div className={styles.prose}><ReadingText paragraphs={textParagraphs(editorial.curiosities)}/></div>
-                </div> : null}
+              <section
+                id="prehlad"
+                className={`${styles.readingSection} ${styles.anchorSection}`}
+                aria-labelledby="breed-about"
+              >
+                <PublicHeading role="panel" as="h2" id="breed-about">
+                  O plemene
+                </PublicHeading>
+                {overviewParagraphs.length ? (
+                  <div className={styles.prose}>
+                    <ReadingText paragraphs={overviewParagraphs} />
+                  </div>
+                ) : null}
+                {characterParagraphs.length ? (
+                  <div className={styles.characterBlock}>
+                    <h3>Charakter a temperament</h3>
+                    <div className={styles.prose}>
+                      <ReadingText paragraphs={characterParagraphs} />
+                    </div>
+                  </div>
+                ) : null}
+                {historyParagraphs.length ? (
+                  <div className={styles.characterBlock}>
+                    <h3>História a pôvod plemena</h3>
+                    <div className={styles.prose}>
+                      <ReadingText paragraphs={historyParagraphs} />
+                    </div>
+                  </div>
+                ) : null}
+                {editorial.curiosities?.trim() ? (
+                  <div className={styles.characterBlock}>
+                    <h3>Zaujímavosti</h3>
+                    <div className={styles.prose}>
+                      <ReadingText paragraphs={textParagraphs(editorial.curiosities)} />
+                    </div>
+                  </div>
+                ) : null}
               </section>
             ) : null}
             {factsCard ? (
@@ -487,13 +579,24 @@ export default async function BreedDetailPage({ params }: Props) {
               </div>
             ) : null}
             {ratings.length ? (
-              <section id="hodnotenia" className={`${styles.ratingSection} ${styles.anchorSection}`} aria-labelledby="breed-ratings">
-                <h2 id="breed-ratings">Povaha v číslach</h2>
+              <section
+                id="hodnotenia"
+                className={`${styles.ratingSection} ${styles.anchorSection}`}
+                aria-labelledby="breed-ratings"
+              >
+                <PublicHeading role="panel" as="h2" id="breed-ratings">
+                  Povaha v číslach
+                </PublicHeading>
                 <div className={styles.ratingGrid}>
-                  {ratings.map(([label,value])=><div className={styles.ratingItem} key={label}>
-                    <div><strong>{label}</strong><span>{value}/5</span></div>
-                    <meter min={1} max={5} value={value} aria-label={label} />
-                  </div>)}
+                  {ratings.map(([label, value]) => (
+                    <div className={styles.ratingItem} key={label}>
+                      <div>
+                        <strong>{label}</strong>
+                        <span>{value}/5</span>
+                      </div>
+                      <meter min={1} max={5} value={value} aria-label={label} />
+                    </div>
+                  ))}
                 </div>
               </section>
             ) : null}
@@ -505,7 +608,9 @@ export default async function BreedDetailPage({ params }: Props) {
                 aria-labelledby="breed-practical"
               >
                 <div className={styles.sectionIntro}>
-                <h2 id="breed-practical">Život a starostlivosť</h2>
+                  <PublicHeading role="panel" as="h2" id="breed-practical">
+                    Život a starostlivosť
+                  </PublicHeading>
                 </div>
                 <div className={styles.accordionList}>
                   {accordions.map((item) => (
@@ -547,11 +652,29 @@ export default async function BreedDetailPage({ params }: Props) {
             ) : null}
 
             {healthParagraphs.length || healthRisks.length ? (
-              <section id="zdravie" className={`${styles.readingSection} ${styles.anchorSection}`} aria-labelledby="breed-health-heading">
-                <h2 id="breed-health-heading">Zdravie plemena</h2>
-                {healthParagraphs.length ? <div className={styles.prose}><ReadingText paragraphs={healthParagraphs}/></div> : null}
-                {healthRisks.length ? <div className={styles.riskBlock}><h3>Typické zdravotné riziká</h3>
-                  <ul>{healthRisks.map(risk=><li key={risk}>{risk}</li>)}</ul></div> : null}
+              <section
+                id="zdravie"
+                className={`${styles.readingSection} ${styles.anchorSection}`}
+                aria-labelledby="breed-health-heading"
+              >
+                <PublicHeading role="panel" as="h2" id="breed-health-heading">
+                  Zdravie plemena
+                </PublicHeading>
+                {healthParagraphs.length ? (
+                  <div className={styles.prose}>
+                    <ReadingText paragraphs={healthParagraphs} />
+                  </div>
+                ) : null}
+                {healthRisks.length ? (
+                  <div className={styles.riskBlock}>
+                    <h3>Typické zdravotné riziká</h3>
+                    <ul>
+                      {healthRisks.map((risk) => (
+                        <li key={risk}>{risk}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </section>
             ) : null}
 
@@ -563,7 +686,9 @@ export default async function BreedDetailPage({ params }: Props) {
                 data-testid="breed-fit"
               >
                 <div className={styles.sectionIntro}>
-                <h2 id="breed-fit">Je toto plemeno pre mňa?</h2>
+                  <PublicHeading role="panel" as="h2" id="breed-fit">
+                    Je toto plemeno pre mňa?
+                  </PublicHeading>
                 </div>
                 <div className={styles.fitGrid}>
                   {goodFor.length ? (
@@ -597,7 +722,9 @@ export default async function BreedDetailPage({ params }: Props) {
                 aria-labelledby="breed-fci"
               >
                 <div className={styles.fciHeading}>
-                <h2 id="breed-fci">Oficiálne zaradenie FCI</h2>
+                  <PublicHeading role="panel" as="h2" id="breed-fci">
+                    Oficiálne zaradenie FCI
+                  </PublicHeading>
                   <p>
                     Na hlavnom profile uvádzame iba základné zaradenie. Úplný štandard je dostupný
                     samostatne ako odborná referencia.
@@ -637,7 +764,9 @@ export default async function BreedDetailPage({ params }: Props) {
                 aria-labelledby="breed-sports-heading"
               >
                 <div className={styles.sectionIntro}>
-                <h2 id="breed-sports-heading">Šport a pracovné využitie</h2>
+                  <PublicHeading role="panel" as="h2" id="breed-sports-heading">
+                    Šport a pracovné využitie
+                  </PublicHeading>
                   <p>
                     Odporúčané aktivity sú zoradené priamo v profile, aby ich nebolo potrebné hľadať
                     v rozbalených témach.
@@ -663,7 +792,9 @@ export default async function BreedDetailPage({ params }: Props) {
 
             {sources.length ? (
               <section className={styles.readingSection} aria-labelledby="breed-sources">
-                <h2 id="breed-sources">Odborné zdroje</h2>
+                <PublicHeading role="panel" as="h2" id="breed-sources">
+                  Odborné zdroje
+                </PublicHeading>
                 <ol className="breed-source-list">
                   {sources.map((source) => (
                     <li key={`${source.label}-${source.url}`}>
@@ -682,7 +813,9 @@ export default async function BreedDetailPage({ params }: Props) {
                 id="chov-a-kluby"
               >
                 <header>
-                <h2>Chovateľské stanice pre toto plemeno</h2>
+                  <PublicHeading role="panel" as="h2">
+                    Chovateľské stanice pre toto plemeno
+                  </PublicHeading>
                 </header>
                 <div className={styles.dataCardGrid}>
                   {relations.breedingStations.slice(0, 3).map((profile) => (
@@ -707,7 +840,9 @@ export default async function BreedDetailPage({ params }: Props) {
                 id={relations.breedingStations.length ? undefined : "chov-a-kluby"}
               >
                 <header>
-                <h2>Chovateľské kluby pre toto plemeno</h2>
+                  <PublicHeading role="panel" as="h2">
+                    Chovateľské kluby pre toto plemeno
+                  </PublicHeading>
                 </header>
                 <div className={styles.dataCardGrid}>
                   {relations.breedClubs.slice(0, 3).map((profile) => (
@@ -725,14 +860,17 @@ export default async function BreedDetailPage({ params }: Props) {
                 </div>
               </section>
             ) : null}
-
           </article>
-
         </PublicHelpProfileDetailLayout>
 
         {gallery.length > 0 ? (
-          <section className={`shell ${styles.gallerySection}`} aria-labelledby="breed-gallery-heading">
-            <h2 id="breed-gallery-heading">Fotografie plemena</h2>
+          <section
+            className={`shell ${styles.gallerySection}`}
+            aria-labelledby="breed-gallery-heading"
+          >
+            <PublicHeading role="panel" as="h2" id="breed-gallery-heading">
+              Fotografie plemena
+            </PublicHeading>
             <PublicPhotoGallery
               variant="breed"
               className={styles.galleryGrid}
@@ -750,7 +888,15 @@ export default async function BreedDetailPage({ params }: Props) {
                     </>
                   ) : undefined,
               }))}
-              renderImage={(image) => <BreedPhoto src={image.src} alt={image.alt} loading="lazy" decoding="async" sizes="(max-width: 620px) calc(100vw - 32px), (max-width: 900px) 48vw, (max-width: 1280px) 31vw, 360px" />}
+              renderImage={(image) => (
+                <BreedPhoto
+                  src={image.src}
+                  alt={image.alt}
+                  loading="lazy"
+                  decoding="async"
+                  sizes="(max-width: 620px) calc(100vw - 32px), (max-width: 900px) 48vw, (max-width: 1280px) 31vw, 360px"
+                />
+              )}
             />
           </section>
         ) : null}
@@ -761,7 +907,9 @@ export default async function BreedDetailPage({ params }: Props) {
             id="suvisiaci-obsah"
           >
             <header>
-                <h2>Články o tomto plemene</h2>
+              <PublicHeading role="panel" as="h2">
+                Články o tomto plemene
+              </PublicHeading>
             </header>
             <PublicContentList label="Súvisiace články k plemenu">
               {relatedArticles.map((article) => (
@@ -792,13 +940,21 @@ export default async function BreedDetailPage({ params }: Props) {
             className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}
           >
             <header>
-                <h2>Podobné plemená</h2>
+              <PublicHeading role="panel" as="h2">
+                Podobné plemená
+              </PublicHeading>
             </header>
             <div className="breed-similar-grid">
               {relations.similarBreeds.map((item) => (
                 <Link href={item.href} key={item.id}>
                   {item.image ? (
-                    <BreedPhoto src={item.image} alt="" sizes="(max-width: 620px) 45vw, 180px" loading="lazy" decoding="async" />
+                    <BreedPhoto
+                      src={item.image}
+                      alt=""
+                      sizes="(max-width: 620px) 45vw, 180px"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   ) : (
                     <span aria-hidden="true">
                       <PublicMediaFallback />

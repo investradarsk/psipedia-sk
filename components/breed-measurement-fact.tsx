@@ -1,6 +1,6 @@
 import { breedComparisonValue } from "@/lib/breed-comparison-values";
 
-type BreedMeasurementKind = "weight" | "lifespan";
+type BreedMeasurementKind = "height" | "weight" | "lifespan";
 
 /** Reuse the comparison's human-readable measurement/explanation contract on breed profiles. */
 export function BreedMeasurementFact({
@@ -17,7 +17,15 @@ export function BreedMeasurementFact({
       {display.explanation ? (
         <details>
           <summary>Zobraziť celú poznámku</summary>
-          <span style={{ display: "block", marginTop: 6, fontWeight: 400, overflowWrap: "anywhere", whiteSpace: "normal" }}>
+          <span
+            style={{
+              display: "block",
+              marginTop: 6,
+              fontWeight: 400,
+              overflowWrap: "anywhere",
+              whiteSpace: "normal",
+            }}
+          >
             {display.explanation}
           </span>
         </details>
