@@ -1,0 +1,35 @@
+name: D1 canonical directory reads (read-only regressions)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/breed-canonical.ts"
+      - "lib/directory-store.ts"
+      - "lib/directory-breeder-card.ts"
+      - "lib/directory-read-facets.ts"
+      - "tests/d1-canonical-breed-cost.test.mjs"
+      - "tests/directory-read-facets.test.mjs"
+      - "tests/directory-breeder-preview-step3.test.mjs"
+      - ".github/workflows/d1-directory-canonical-reads.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-directory-canonical-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Exact canonical identity, source facets and secondary-category parity
+        run: node --experimental-strip-types --test tests/d1-canonical-breed-cost.test.mjs tests/directory-read-facets.test.mjs
+      - name: Breeder-card canonical links and safe fallback
+        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-breeder-preview-step3.test.mjs
