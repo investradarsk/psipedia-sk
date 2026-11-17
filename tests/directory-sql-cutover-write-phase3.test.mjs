@@ -21,7 +21,7 @@ function fixture() {
     "id INTEGER PRIMARY KEY,category TEXT NOT NULL,status TEXT NOT NULL,"+
     "updated_at TEXT NOT NULL,updated_by TEXT NOT NULL,source_data_json TEXT NOT NULL)");
   db.exec(proposal);
-  db.prepare("INSERT INTO directory_profiles VALUES (1,'veterinari','published',?,?,'{\"old\":\"keep\"}')")
+  db.prepare("INSERT INTO directory_profiles (id,category,status,updated_at,updated_by,source_data_json) VALUES (1,'veterinari','published',?,?,'{\"old\":\"keep\"}')")
     .run(before,"editor");
   return db;
 }
