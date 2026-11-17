@@ -11,6 +11,10 @@ on:
       - "tests/d1-canonical-breed-cost.test.mjs"
       - "tests/directory-read-facets.test.mjs"
       - "tests/directory-breeder-preview-step3.test.mjs"
+      - "tests/trainer-breed-unification.test.mjs"
+      - "scripts/d1-trainer-breed-links-preflight.sql"
+      - "scripts/d1-trainer-breed-links-backfill.sql"
+      - "lib/breeder-profile-relations.ts"
       - ".github/workflows/d1-directory-canonical-reads.yml"
 
 permissions:
@@ -31,5 +35,7 @@ jobs:
           node-version: "24.18.0"
       - name: Exact canonical identity, source facets and secondary-category parity
         run: node --experimental-strip-types --test tests/d1-canonical-breed-cost.test.mjs tests/directory-read-facets.test.mjs
+      - name: Unified trainer/breeder links and safe backfill parity
+        run: node --experimental-strip-types --test tests/trainer-breed-unification.test.mjs
       - name: Breeder-card canonical links and safe fallback
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-breeder-preview-step3.test.mjs
