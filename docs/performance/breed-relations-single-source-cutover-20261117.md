@@ -30,4 +30,6 @@
 
 ## Ďalší audit pred širším zjednotením plemien
 
-Pred odstránením drahého `canonicalBreedIdsSql` treba read-only overiť duplicity podľa FCI/slug/import_key a kanonické URL na **produkčných** záznamoch. Bez toho by sa mohli zmeniť verejné URL alebo indexovanie.
+Pred odstránením drahého `canonicalBreedIdsSql` najprv spustiť read-only `scripts/d1-breed-identity-readiness.sql`, overiť počty duplicitných FCI/slug/import_key a samostatne skontrolovať kanonické URL na **produkčných** záznamoch. Bez toho by sa mohli zmeniť verejné URL alebo indexovanie.
+
+**Pozor:** backfill sa vykonáva iba **pred** cutover deployom. Po nasadení sa starý JSON kľúč môže líšiť od aktuálnych relačných väzieb a jeho opakovaný import by mohol obnoviť zmazané prepojenia. Po deployi už backfill nespúšťať.
