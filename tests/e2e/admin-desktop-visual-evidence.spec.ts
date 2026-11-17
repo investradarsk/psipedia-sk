@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
  * Screenshots are review material, NOT pixel-diff approval of the design.
  */
 test("desktop admin sections and puppies at 1280 and 1440 px", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "Desktop screenshots run once in the desktop project.");
   const writes: string[] = [];
   page.on("request", request => {
     if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method())) {
@@ -22,6 +23,7 @@ test("desktop admin sections and puppies at 1280 and 1440 px", async ({ page }, 
     ] as const) {
       const response = await page.goto(path, { waitUntil: "domcontentloaded" });
       expect(response?.status(), `${path}: HTTP status`).toBeLessThan(400);
+      expect(new URL(page.url()).pathname, `${path}: unexpected redirect`).toBe(path);
       await expect(page.locator(marker).first()).toBeVisible();
       await page.evaluate(async () => { await document.fonts.ready; });
       expect(
