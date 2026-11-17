@@ -120,7 +120,10 @@ export function planDirectorySqlCutoverPatch(
   // a SQLite error, forcing a transactional D1 batch rollback. This protects
   // against even a coincidental collision on nextUpdatedAt.
   statements.push({
-    sql:"SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', '
+    sql:"SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', '$') END AS cas_ok",
+    bindings:[],
+  });
+  // Independently constrain every subsequent relation operation.
   const guard="EXISTS (SELECT 1 FROM directory_profiles WHERE id=? AND updated_at=? AND category=?)";
   const guardParams=[patch.profileId,patch.nextUpdatedAt,patch.category] as const;
   if (more!==null) {
