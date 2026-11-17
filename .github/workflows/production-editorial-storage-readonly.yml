@@ -6,7 +6,7 @@ on:
       - "scripts/production-editorial-storage-readonly.mjs"
       - "tests/production-editorial-storage-readonly.test.mjs"
       - "tests/directory-sql-unification-phase2.test.mjs"
-      - "tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs"
+      - "tests/directory-sql-cutover-parity-phase3.test.mjs"
       - "tests/directory-sql-cutover-write-phase3.test.mjs"
       - "lib/directory-sql-cutover-write.ts"
       - "lib/directory-sql-cutover-parity.ts"
@@ -40,7 +40,7 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Run SQLite fixture and safety tests (no secrets or D1)
-        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs
+        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs
 
   production-readonly:
     name: Count D1 sources and Notion mappings (no writes)
