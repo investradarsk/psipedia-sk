@@ -77,6 +77,12 @@ test("trainer free text is separate from Services V3 and persisted without touch
 test("trainer relations use independent storage and can load both name-selected links", async () => {
   const fakeDb = {
     prepare(query) {
+      if (/FROM breed_directory_relations WHERE profile_id=/.test(query)) {
+        return { bind(id) {
+          assert.equal(id, 543);
+          return { async all() { return { results: [{id:5}, {id:14}] }; } };
+        } };
+      }
       assert.match(query, /FROM directory_profiles WHERE id=/);
       return {
         bind(id) {
@@ -103,8 +109,9 @@ test("trainer relations use independent storage and can load both name-selected 
     readFile(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(relations, /category='treneri' AND status <> 'archived' AND source_data_json=\?/);
-  assert.match(relations, /TRAINER_BREED_IDS_METADATA_KEY/);
+  assert.match(relations, /WHERE id=\? AND category='treneri' AND status<>'archived'\s+AND source_data_json=\? RETURNING id/);
+  assert.doesNotMatch(relations, /TRAINER_BREED_IDS_METADATA_KEY/);
+  assert.match(relations, /SELECT breed_id AS id FROM breed_directory_relations/);
   assert.match(relations, /TRAINER_CLUB_IDS_METADATA_KEY/);
   assert.match(sync, /const relationFields = \["chovatelske-stanice", "treneri"\]/);
   assert.match(sync, /mirrorBreederRelationNamesToNotion/);

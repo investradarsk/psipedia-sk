@@ -1,0 +1,100 @@
+name: Production D1 Breeder Relations 0169 (manual)
+
+# Owner-only schema bootstrap. This is NEVER invoked by PR, push or deploy.
+# Audit is read-only. Apply creates precisely one empty table and two indexes.
+# No old links are imported, no existing links cleared, no migration ledger edited.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read-only audit first; apply requires explicit owner confirmation
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: Enter AUDIT-0169-psipedia-sk-db or APPLY-0169-psipedia-sk-db
+        type: string
+        required: true
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  relation-schema:
+    name: Pinned 0169 read-only audit or independent additive schema apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      BREEDER_0169_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Enforce owner dispatch from main and exact confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          case "${{ inputs.mode }}" in
+            audit) expected="AUDIT-0169-psipedia-sk-db" ;;
+            apply) expected="APPLY-0169-psipedia-sk-db" ;;
+            *) echo "Invalid 0169 mode" >&2; exit 1 ;;
+          esac
+          test "$BREEDER_0169_CONFIRMATION" = "$expected"
+
+      - name: Checkout dispatched main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Reject stale main before D1 access
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify pinned SQL and standalone migration safety
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-d1-breeder-0169.test.mjs
+
+      - name: Bind canonical Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Execute owner-selected audit or standalone schema-only apply
+        env:
+          BREEDER_0169_CONFIRMATION: ${{ inputs.confirmation }}
+        run: node scripts/production-d1-breeder-0169.mjs "${{ inputs.mode }}"
+
+      - name: Save schema-only receipt and D1 Time Travel bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-breeder-0169-${{ github.run_id }}
+          path: .production-d1-breeder-0169/report.json
+          if-no-files-found: ignore
+          retention-days: 30
