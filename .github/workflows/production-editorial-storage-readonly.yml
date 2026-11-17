@@ -10,6 +10,8 @@ on:
       - "tests/directory-sql-cutover-write-phase3.test.mjs"
       - "tests/editorial-cleanup-readiness-phase4.test.mjs"
       - "scripts/production-editorial-cleanup-readiness.mjs"
+      - "scripts/editorial-legacy-reader-inventory.mjs"
+      - "tests/editorial-legacy-reader-inventory-phase4.test.mjs"
       - "lib/directory-sql-cutover-write.ts"
       - "lib/directory-sql-cutover-parity.ts"
       - "app/api/admin/directory/[id]/route.ts"
@@ -42,7 +44,7 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Run SQLite fixture and safety tests (no secrets or D1)
-        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs tests/editorial-cleanup-readiness-phase4.test.mjs
+        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs tests/editorial-cleanup-readiness-phase4.test.mjs tests/editorial-legacy-reader-inventory-phase4.test.mjs
 
   production-readonly:
     name: Count D1 sources and Notion mappings (no writes)
@@ -91,6 +93,9 @@ jobs:
           test -n "$account"
           echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
 
+      - name: Inventory source-code JSON consumers (read only)
+        run: node scripts/editorial-legacy-reader-inventory.mjs
+
       - name: Run count-only inventory (never migrate)
         run: node scripts/production-editorial-storage-readonly.mjs
 
@@ -105,5 +110,6 @@ jobs:
           path: |
             .production-editorial-storage-readonly/report.json
             .production-editorial-storage-readonly/cleanup-readiness.json
+            .production-editorial-storage-readonly/source-readers.json
           if-no-files-found: error
           retention-days: 14
