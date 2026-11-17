@@ -109,7 +109,7 @@ test("the same Notion name cannot silently create both fact and select authoriti
   assert.equal(proposedDirectorySqlPlacement("chovatelske-stanice","Klub").state,"review");
   assert.equal(proposedDirectorySqlPlacement("vencenie","Pokrytie").table,"directory_profile_public_facts");
   assert.equal(proposedDirectorySqlPlacement("veterinari","Ordinačné hodiny").table,"directory_profile_public_facts");
-  assert.equal(proposedDirectorySqlPlacement("treneri","Typ služby").table,"directory_profile_public_facts");
+  assert.equal(proposedDirectorySqlPlacement("dalsie-sluzby","Typ služby").table,"directory_profile_public_facts");
   assert.equal(proposedDirectorySqlPlacement("treneri","never-provisioned").state,"review");
 });
 
