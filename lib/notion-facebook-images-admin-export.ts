@@ -1,4 +1,4 @@
-import {isFacebookVideoKey} from "@/lib/facebook-video";
+import {isFacebookVideoKey} from "./facebook-video.ts";
 import {notionFlagEnabled,notionRequest} from "@/lib/notion-sync-shared";
 import {facebookImagePermalink} from "@/lib/notion-facebook-images-model";
 
