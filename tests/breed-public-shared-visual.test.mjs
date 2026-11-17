@@ -17,8 +17,14 @@ test("breed profile composes the canonical public detail shell and shared cards"
   assert.match(page, /<article className=\{styles\.mainColumn\}>/);
   assert.match(page, /data-testid="breed-utility-sidebar"/);
   assert.match(page, /<DetailFactsCard title="Plemeno v skratke"/);
-  assert.match(css, /composes: section from "\.\.\/\.\.\/\.\.\/components\/detail-primitives\/detail-primitives\.module\.css"/);
-  assert.match(css, /composes: factTiles from "\.\.\/\.\.\/\.\.\/components\/detail-primitives\/detail-primitives\.module\.css"/);
+  assert.match(
+    css,
+    /composes: section from "\.\.\/\.\.\/\.\.\/components\/detail-primitives\/detail-primitives\.module\.css"/,
+  );
+  assert.match(
+    css,
+    /composes: factTiles from "\.\.\/\.\.\/\.\.\/components\/detail-primitives\/detail-primitives\.module\.css"/,
+  );
   assert.doesNotMatch(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(230px, 280px\)/);
   assert.match(css, /\.page \.readingSection h2/);
   assert.match(css, /\.page \.quickFacts \.factGrid > div/);
@@ -30,22 +36,29 @@ test("breed profile keeps data, image fallback, navigation, full gallery and rel
     'data-testid="breed-hero-photo"',
     'data-image-fallback="breed-photo"',
     'data-testid="breed-quick-facts"',
-    '<PublicHelpProfileDetailLayout',
+    "<PublicHelpProfileDetailLayout",
     'data-testid="breed-fit"',
-    '<BreedProfileAccordion',
+    "<BreedProfileAccordion",
     'data-testid="breed-sports"',
     'data-testid="breed-fci-cta"',
     'data-testid="breed-utility-sidebar"',
-    'maxImages={gallery.length}',
-    'renderImage={(image) => <BreedPhoto',
-    'relations.breedingStations',
-    'relations.breedClubs',
-    'relations.similarBreeds',
-    'relatedArticles',
-  ]) assert.ok(page.includes(part), part);
-  assert.match(page, /<section className=\{`shell \$\{styles\.gallerySection\}\`\} aria-labelledby="breed-gallery-heading">/);
+    "maxImages={gallery.length}",
+    "relations.breedingStations",
+    "relations.breedClubs",
+    "relations.similarBreeds",
+    "relatedArticles",
+  ])
+    assert.ok(page.includes(part), part);
+  assert.match(page, /renderImage=\{\(image\) => \(\s*<BreedPhoto/);
+  assert.match(
+    page,
+    /<section\s+className=\{`shell \$\{styles\.gallerySection\}\`\}\s+aria-labelledby="breed-gallery-heading"\s*>/,
+  );
   assert.match(page, /<PublicPhotoGallery\s+variant="breed"/);
-  assert.match(read("app/plemena/[slug]/breed-profile.module.css"), /\.page \.gallerySection \.galleryGrid img/);
+  assert.match(
+    read("app/plemena/[slug]/breed-profile.module.css"),
+    /\.page \.gallerySection \.galleryGrid img/,
+  );
 });
 
 test("shared public visuals remain limited to breed detail and do not touch sync", () => {

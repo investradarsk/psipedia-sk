@@ -4,7 +4,11 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
-import { PublicFoundation, PublicMediaFallback, PublicPhotoGallery } from "@/components/public-visual-system";
+import {
+  PublicFoundation,
+  PublicMediaFallback,
+  PublicPhotoGallery,
+} from "@/components/public-visual-system";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { DirectoryServicesList } from "@/components/directory-services-list";
 import { DirectoryOpeningHours } from "@/components/directory-opening-hours";
@@ -36,7 +40,10 @@ import type { PublicRelatedBreed } from "@/lib/content-relations";
 import type { InternalDiscoveryLink } from "@/lib/internal-discovery";
 import styles from "./directory-profile-detail.module.css";
 import { isDuplicatedDirectoryDescription } from "@/lib/directory-description-dedupe";
-import { suppressLinkedBreederFact, suppressLinkedBreederQualification } from "@/lib/breeder-relation-text";
+import {
+  suppressLinkedBreederFact,
+  suppressLinkedBreederQualification,
+} from "@/lib/breeder-relation-text";
 
 type DetailRow = { label: string; value: ReactNode };
 
@@ -97,7 +104,9 @@ function DirectoryProfileHero({
         <>
           <div className={styles.badges}>
             {categoryLabels.map((label) => (
-              <span className={styles.categoryBadge} key={label}>{label}</span>
+              <span className={styles.categoryBadge} key={label}>
+                {label}
+              </span>
             ))}
             {presentation.featured ? (
               <span className={styles.featuredBadge}>Odporúčame</span>
@@ -194,9 +203,11 @@ export function DirectoryProfileDetail({
       ? [
           {
             label: "Telefón",
-            value: presentation.phone.href
-              ? <a href={presentation.phone.href}>{presentation.phone.value}</a>
-              : presentation.phone.value,
+            value: presentation.phone.href ? (
+              <a href={presentation.phone.href}>{presentation.phone.value}</a>
+            ) : (
+              presentation.phone.value
+            ),
           },
         ]
       : []),
@@ -206,11 +217,15 @@ export function DirectoryProfileDetail({
             label: "E-mail",
             value: (
               <span className={styles.contactValues}>
-                {presentation.emails.map((email) => (
-                  email.href
-                    ? <a href={email.href} key={email.value}>{email.value}</a>
-                    : <span key={email.value}>{email.value}</span>
-                ))}
+                {presentation.emails.map((email) =>
+                  email.href ? (
+                    <a href={email.href} key={email.value}>
+                      {email.value}
+                    </a>
+                  ) : (
+                    <span key={email.value}>{email.value}</span>
+                  ),
+                )}
               </span>
             ),
           },
@@ -220,9 +235,13 @@ export function DirectoryProfileDetail({
       ? [
           {
             label: "Web",
-            value: presentation.websiteUrl
-              ? <a href={presentation.websiteUrl} target="_blank" rel="noreferrer">Otvoriť web ↗</a>
-              : presentation.websiteText,
+            value: presentation.websiteUrl ? (
+              <a href={presentation.websiteUrl} target="_blank" rel="noreferrer">
+                Otvoriť web ↗
+              </a>
+            ) : (
+              presentation.websiteText
+            ),
           },
         ]
       : []),
@@ -230,9 +249,13 @@ export function DirectoryProfileDetail({
       ? [
           {
             label: "Facebook",
-            value: presentation.facebookUrl
-              ? <a href={presentation.facebookUrl} target="_blank" rel="noreferrer">Facebook ↗</a>
-              : presentation.facebookText,
+            value: presentation.facebookUrl ? (
+              <a href={presentation.facebookUrl} target="_blank" rel="noreferrer">
+                Facebook ↗
+              </a>
+            ) : (
+              presentation.facebookText
+            ),
           },
         ]
       : []),
@@ -240,9 +263,13 @@ export function DirectoryProfileDetail({
       ? [
           {
             label: "Instagram",
-            value: presentation.instagramUrl
-              ? <a href={presentation.instagramUrl} target="_blank" rel="noreferrer">Instagram ↗</a>
-              : presentation.instagramText,
+            value: presentation.instagramUrl ? (
+              <a href={presentation.instagramUrl} target="_blank" rel="noreferrer">
+                Instagram ↗
+              </a>
+            ) : (
+              presentation.instagramText
+            ),
           },
         ]
       : []),
@@ -256,53 +283,90 @@ export function DirectoryProfileDetail({
   const isBreeder = presentation.category === "chovatelske-stanice";
   const isPhysiotherapy = presentation.category === "fyzioterapia";
   const hasNamedLinks = isBreeder || presentation.category === "treneri";
-  const linkedBreedNames = hasNamedLinks ? relatedBreeds.map(breed => breed.name) : [];
-  const linkedClubNames = hasNamedLinks ? relatedClubs.map(club => club.name) : [];
+  const linkedBreedNames = hasNamedLinks ? relatedBreeds.map((breed) => breed.name) : [];
+  const linkedClubNames = hasNamedLinks ? relatedClubs.map((club) => club.name) : [];
   // Older imported records split prose at semicolons. Join only clear
   // lowercase continuations; do not render half a sentence as its own tag.
   const visibleQualifications = presentation.qualifications.reduce<string[]>((items, raw) => {
     const qualification = raw.trim();
     if (!qualification || factValues.has(qualification.toLocaleLowerCase("sk"))) return items;
-    if (suppressLinkedBreederQualification(qualification, linkedBreedNames, linkedClubNames)) return items;
+    if (suppressLinkedBreederQualification(qualification, linkedBreedNames, linkedClubNames))
+      return items;
     if (items.length && /^\p{Ll}/u.test(qualification)) {
       items[items.length - 1] += "; " + qualification;
-    } else if (!items.some(item => item.toLocaleLowerCase("sk") === qualification.toLocaleLowerCase("sk"))) {
+    } else if (
+      !items.some((item) => item.toLocaleLowerCase("sk") === qualification.toLocaleLowerCase("sk"))
+    ) {
       items.push(qualification);
     }
     return items;
   }, []);
-  const expertFacts = presentation.facts.filter(fact =>
-    !(hasNamedLinks && suppressLinkedBreederFact(fact.label, relatedBreeds.length, relatedClubs.length)));
-  const breederLinkFacts: Array<{ label: string; value: ReactNode }> = hasNamedLinks ? [
-    ...(relatedBreeds.length ? [{
-      label: relatedBreeds.length > 1 ? "Plemená" : "Plemeno",
-      value: <span className={styles.expertLinks}>
-        {relatedBreeds.map(breed => <Link key={breed.id} href={breed.href}>{breed.name}</Link>)}
-      </span>,
-    }] : []),
-    ...(relatedClubs.length ? [{
-      label: relatedClubs.length > 1 ? "Chovateľské kluby" : "Chovateľský klub",
-      value: <span className={styles.expertLinks}>
-        {relatedClubs.map(club => <Link key={club.id} href={club.href}>{club.name}</Link>)}
-      </span>,
-    }] : []),
-  ] : [];
+  const expertFacts = presentation.facts.filter(
+    (fact) =>
+      !(
+        hasNamedLinks &&
+        suppressLinkedBreederFact(fact.label, relatedBreeds.length, relatedClubs.length)
+      ),
+  );
+  const breederLinkFacts: Array<{ label: string; value: ReactNode }> = hasNamedLinks
+    ? [
+        ...(relatedBreeds.length
+          ? [
+              {
+                label: relatedBreeds.length > 1 ? "Plemená" : "Plemeno",
+                value: (
+                  <span className={styles.expertLinks}>
+                    {relatedBreeds.map((breed) => (
+                      <Link key={breed.id} href={breed.href}>
+                        {breed.name}
+                      </Link>
+                    ))}
+                  </span>
+                ),
+              },
+            ]
+          : []),
+        ...(relatedClubs.length
+          ? [
+              {
+                label: relatedClubs.length > 1 ? "Chovateľské kluby" : "Chovateľský klub",
+                value: (
+                  <span className={styles.expertLinks}>
+                    {relatedClubs.map((club) => (
+                      <Link key={club.id} href={club.href}>
+                        {club.name}
+                      </Link>
+                    ))}
+                  </span>
+                ),
+              },
+            ]
+          : []),
+      ]
+    : [];
   const hasExpertise =
-    expertFacts.length > 0 || breederLinkFacts.length > 0 ||
+    expertFacts.length > 0 ||
+    breederLinkFacts.length > 0 ||
     visibleQualifications.length > 0 ||
     Boolean(!isPhysiotherapy && presentation.priceNote);
   // Keep editorial fields independent; hide the hero excerpt when it exactly
   // duplicates the long description in the “O službe” section.
   const hasExtendedDescription = Boolean(presentation.description?.trim());
 
-  const profileGallery = (presentation.galleryUrls ?? []).filter((url) => url && url !== presentation.imageUrl);
+  const profileGallery = (presentation.galleryUrls ?? []).filter(
+    (url) => url && url !== presentation.imageUrl,
+  );
 
   const blocks = [
     {
       key: "intro",
       column: "main" as const,
       content: hasExtendedDescription ? (
-        <DetailSection compactHeading eyebrow="Predstavenie" title={isBreeder ? "O chovateľskej stanici" : "O službe"}>
+        <DetailSection
+          compactHeading
+          eyebrow="Predstavenie"
+          title={isBreeder ? "O chovateľskej stanici" : "O službe"}
+        >
           <DetailParagraphs value={presentation.description} />
         </DetailSection>
       ) : null,
@@ -337,17 +401,26 @@ export function DirectoryProfileDetail({
       content: hasExpertise ? (
         <DetailSection
           compactHeading
-          eyebrow={isPhysiotherapy ? "Odborný profil" : isBreeder ? "Chovateľská stanica" : "Zameranie"}
-          title={isPhysiotherapy ? "Odbornosť a skúsenosti" : isBreeder ? "Chov, odchovy a prepojenia" : presentation.health?.title ?? "Odborné informácie"}
+          eyebrow={
+            isPhysiotherapy ? "Odborný profil" : isBreeder ? "Chovateľská stanica" : "Zameranie"
+          }
+          title={
+            isPhysiotherapy
+              ? "Odbornosť a skúsenosti"
+              : isBreeder
+                ? "Chov, odchovy a prepojenia"
+                : (presentation.health?.title ?? "Odborné informácie")
+          }
         >
-          {expertFacts.length || breederLinkFacts.length
-            ? <DetailOptionGrid options={[...expertFacts, ...breederLinkFacts]} /> : null}
+          {expertFacts.length || breederLinkFacts.length ? (
+            <DetailOptionGrid options={[...expertFacts, ...breederLinkFacts]} />
+          ) : null}
           {visibleQualifications.length > 0 ? (
             isPhysiotherapy ? (
               <DetailParagraphs value={visibleQualifications.join("\n")} />
             ) : (
-              <div className={styles.qualifications}>
-                <h3>{isBreeder ? "O chovateľovi" : "Odbornosť a skúsenosti"}</h3>
+              <details className={styles.qualifications} open={isBreeder ? undefined : true}>
+                <summary>{isBreeder ? "Viac o chovateľovi" : "Odbornosť a skúsenosti"}</summary>
                 <ul className={styles.qualificationsList}>
                   {visibleQualifications.slice(0, 4).map((qualification) => (
                     <li key={qualification}>{qualification}</li>
@@ -357,13 +430,13 @@ export function DirectoryProfileDetail({
                   <details className={styles.moreQualifications}>
                     <summary>Ďalšie informácie ({visibleQualifications.length - 4})</summary>
                     <ul className={styles.qualificationsList}>
-                      {visibleQualifications.slice(4).map(qualification => (
+                      {visibleQualifications.slice(4).map((qualification) => (
                         <li key={qualification}>{qualification}</li>
                       ))}
                     </ul>
                   </details>
                 ) : null}
-              </div>
+              </details>
             )
           ) : null}
           {presentation.priceNote && !isPhysiotherapy ? (
@@ -378,11 +451,12 @@ export function DirectoryProfileDetail({
     {
       key: "physio-price",
       column: "aside" as const,
-      content: isPhysiotherapy && presentation.priceNote ? (
-        <DetailSection compactHeading eyebrow="Cenník" title="Orientačná cena">
-          <DetailParagraphs value={presentation.priceNote} />
-        </DetailSection>
-      ) : null,
+      content:
+        isPhysiotherapy && presentation.priceNote ? (
+          <DetailSection compactHeading eyebrow="Cenník" title="Orientačná cena">
+            <DetailParagraphs value={presentation.priceNote} />
+          </DetailSection>
+        ) : null,
     },
     {
       key: "services",
@@ -488,24 +562,26 @@ export function DirectoryProfileDetail({
   return (
     <main id="obsah" className={styles.page}>
       <PublicFoundation data-public-service-detail-template="shared-event-service">
-      <DirectoryProfileHero
-        presentation={presentation}
-        categoryLabels={directoryProfileCategoryLabels(presentation)}
-        commercial={commercial}
-        navigationHref={navigationHref}
-        showExcerpt={!isDuplicatedDirectoryDescription(presentation.excerpt, presentation.description)}
-      />
-      <PublicDetailFlow blocks={blocks} className={styles.layout} />
+        <DirectoryProfileHero
+          presentation={presentation}
+          categoryLabels={directoryProfileCategoryLabels(presentation)}
+          commercial={commercial}
+          navigationHref={navigationHref}
+          showExcerpt={
+            !isDuplicatedDirectoryDescription(presentation.excerpt, presentation.description)
+          }
+        />
+        <PublicDetailFlow blocks={blocks} className={styles.layout} />
 
-      <PublicDetailLayout
-        className={styles.enquiryLayout}
-        aside={management}
-        asideLabel="Správa a oprava profilu"
-      >
-        <section className={styles.enquiry} id="kontakt">
-          <DirectoryContactForm profileId={presentation.id} profileName={presentation.name} />
-        </section>
-      </PublicDetailLayout>
+        <PublicDetailLayout
+          className={styles.enquiryLayout}
+          aside={management}
+          asideLabel="Správa a oprava profilu"
+        >
+          <section className={styles.enquiry} id="kontakt">
+            <DirectoryContactForm profileId={presentation.id} profileName={presentation.name} />
+          </section>
+        </PublicDetailLayout>
       </PublicFoundation>
     </main>
   );

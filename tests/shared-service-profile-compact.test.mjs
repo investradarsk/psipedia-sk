@@ -28,7 +28,10 @@ test("all directory categories and organizations use one shared, explicit compac
 });
 
 test("directory contact, copy, service list and map stay wired to one shared template", () => {
-  assert.match(directory, /showExcerpt=\{!isDuplicatedDirectoryDescription\(presentation\.excerpt, presentation\.description\)\}/);
+  assert.match(
+    directory,
+    /showExcerpt=\{\s*!isDuplicatedDirectoryDescription\(presentation\.excerpt, presentation\.description\)\s*\}/,
+  );
   assert.match(directory, /<DirectoryContactForm profileId=\{presentation\.id\}/);
   assert.match(directory, /<ProfileReviewSection/);
   assert.match(directory, /<RelatedEntityLinks/);
@@ -57,7 +60,10 @@ test("common review, navigation and form are compact without removing actions or
   assert.match(reviewsCss, /\.zeroState \{ padding: 12px 15px; \}/);
   assert.match(reviewsCss, /min-height: 44px/);
   assert.match(linksCss, /min-height: 52px/);
-  assert.match(partnerCss, /\.management,\s*\.correction\s*\{\s*gap:\s*14px;\s*padding:\s*16px 20px;\s*\}/);
+  assert.match(
+    partnerCss,
+    /\.management,\s*\.correction\s*\{\s*gap:\s*14px;\s*padding:\s*16px 20px;\s*\}/,
+  );
   assert.doesNotMatch(form, /✉️/);
   assert.match(form, /rows=\{4\}/);
   assert.match(form, /required/);

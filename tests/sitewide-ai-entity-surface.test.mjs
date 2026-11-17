@@ -20,7 +20,7 @@ test("ARTICLE public surface already exposes canonical editorial identity and da
 
 test("BREED public surface has a canonical breed identity without an invented commercial type", () => {
   const source = read("../app/plemena/[slug]/page.tsx");
-  assert.match(source, /<h1>\{\s*breed\s*\.name\s*\}<\/h1>/);
+  assert.match(source, /<PublicHeading role="page" as="h1">\s*\{breed\.name\}\s*<\/PublicHeading>/);
   // Breed facts now use the shared Help-detail component instead of a local factGrid.
   const primitive = read("../components/detail-primitives/detail-primitives.tsx");
   assert.match(source, /<DetailFactsCard title="Plemeno v skratke" facts=\{quickFacts\}\s*\/>/);

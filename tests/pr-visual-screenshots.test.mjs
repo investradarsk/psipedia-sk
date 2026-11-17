@@ -109,3 +109,28 @@ test("visual preview initializes managed sections after readiness and before scr
   assert.match(bootstrap, /url\.hostname !== "localhost"/);
   assert.match(bootstrap, /materializeReviewSection\(baseUrl\)/);
 });
+
+test("selected breeder route is seeded in both PR and ancestor before screenshots", () => {
+  const workflow = readFileSync(
+    new URL("../.github/workflows/pr-visual-evidence.yml", import.meta.url), "utf8",
+  );
+  const baseline = readFileSync(
+    new URL("../scripts/pr-visual-capture-base.sh", import.meta.url), "utf8",
+  );
+  const fixture = readFileSync(
+    new URL("./fixtures/pr-visual-breeder-e2e.sql", import.meta.url), "utf8",
+  );
+  const seed = workflow.indexOf("- name: Seed breeder visual fixture in isolated D1");
+  const capture = workflow.indexOf("- name: Capture exact PR code screenshots");
+  assert.ok(seed > 0 && capture > seed, "breeder must be present before screenshots");
+  assert.match(workflow.slice(seed, capture), /--local/);
+  assert.match(workflow, /--file tests\/fixtures\/pr-visual-breeder-e2e\.sql/);
+  assert.match(baseline, /\$GITHUB_WORKSPACE\/tests\/fixtures\/pr-visual-breeder-e2e\.sql/);
+  assert.match(baseline, /--local/);
+  assert.match(fixture, /'malkia-garden'/);
+  assert.match(fixture, /'chovatelske-stanice'/);
+  assert.match(fixture, /'published'/);
+  assert.match(fixture, /'\/images\/hero-labrador\.webp'/);
+  assert.match(fixture, /INSERT OR IGNORE INTO breed_directory_relations/);
+  assert.doesNotMatch(fixture, /--remote|https:\/\/psipedia\.sk/);
+});

@@ -68,17 +68,19 @@ test("legacy contact aliases are normalized into presentation-only contacts", ()
 test("public directory shows all five plain-text contacts in every one of ten categories", () => {
   assert.equal(DIRECTORY_FIELD_EVENT_CATEGORIES.length, 10);
   for (const category of DIRECTORY_FIELD_EVENT_CATEGORIES) {
-    const presentation = getDirectoryDetailPresentation(profile({
-      category,
-      websiteUrl: "Test",
-      importData: {
-        "Telefón": "Test",
-        "E-mail": "Test",
-        Web: "Test",
-        Facebook: "Test",
-        Instagram: "Test",
-      },
-    }));
+    const presentation = getDirectoryDetailPresentation(
+      profile({
+        category,
+        websiteUrl: "Test",
+        importData: {
+          Telefón: "Test",
+          "E-mail": "Test",
+          Web: "Test",
+          Facebook: "Test",
+          Instagram: "Test",
+        },
+      }),
+    );
     assert.deepEqual(presentation.phone, { value: "Test", href: null }, category);
     assert.deepEqual(presentation.emails, [{ value: "Test", href: null }], category);
     assert.equal(presentation.websiteText, "Test", category);
@@ -89,7 +91,7 @@ test("public directory shows all five plain-text contacts in every one of ten ca
     assert.equal(presentation.instagramUrl, null, category);
 
     const quickFacts = getDirectoryQuickFacts(presentation, "Testovací profil");
-    const byLabel = Object.fromEntries(quickFacts.map(item => [item.label, item]));
+    const byLabel = Object.fromEntries(quickFacts.map((item) => [item.label, item]));
     for (const label of ["Telefón", "E-mail", "Web", "Facebook", "Instagram"]) {
       assert.equal(byLabel[label]?.value, "Test", category + ": " + label);
       assert.equal(byLabel[label]?.links, undefined, category + ": " + label);
@@ -98,21 +100,25 @@ test("public directory shows all five plain-text contacts in every one of ten ca
   // The detail component must use plain text rather than an anchor for
   // unrecognized values. React text content is escaped by the renderer.
   const component = fs.readFileSync(
-    new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
+    new URL("../components/directory-profile-detail.tsx", import.meta.url),
+    "utf8",
+  );
   for (const name of ["websiteText", "facebookText", "instagramText"])
-    assert.ok(component.includes(`: presentation.${name}`), name);
+    assert.match(component, new RegExp(`:\\s*\\(?\\s*presentation\\.${name}\\s*\\)?`), name);
 });
 
 test("valid public contacts remain clickable; mixed e-mails are still all shown", () => {
-  const presentation = getDirectoryDetailPresentation(profile({
-    importData: {
-      "Telefón": "+421 900 123 456",
-      "E-mail": "info@example.org; iba-text",
-      Web: "example.org",
-      Facebook: "https://facebook.com/example",
-      Instagram: "https://instagram.com/example",
-    },
-  }));
+  const presentation = getDirectoryDetailPresentation(
+    profile({
+      importData: {
+        Telefón: "+421 900 123 456",
+        "E-mail": "info@example.org; iba-text",
+        Web: "example.org",
+        Facebook: "https://facebook.com/example",
+        Instagram: "https://instagram.com/example",
+      },
+    }),
+  );
   assert.equal(presentation.phone.href, "tel:+421900123456");
   assert.deepEqual(presentation.emails, [
     { value: "info@example.org", href: "mailto:info@example.org" },
@@ -122,23 +128,29 @@ test("valid public contacts remain clickable; mixed e-mails are still all shown"
   assert.equal(presentation.facebookUrl, "https://facebook.com/example");
   assert.equal(presentation.instagramUrl, "https://instagram.com/example");
   const quickFacts = getDirectoryQuickFacts(presentation, "Testovací profil");
-  assert.equal(quickFacts.find(fact => fact.label === "E-mail").value,
-    "info@example.org; iba-text");
-  assert.equal(quickFacts.find(fact => fact.label === "Web").links[0].href,
-    "https://example.org/");
+  assert.equal(
+    quickFacts.find((fact) => fact.label === "E-mail").value,
+    "info@example.org; iba-text",
+  );
+  assert.equal(
+    quickFacts.find((fact) => fact.label === "Web").links[0].href,
+    "https://example.org/",
+  );
 });
 
 test("free-form breeder contacts survive public rendering but never create unsafe links", () => {
-  const presentation = getDirectoryDetailPresentation(profile({
-    category: "chovatelske-stanice",
-    importData: {
-      "E-mail": "blaljdljflajsdlfa",
-      "Telefón": "zavolaj neskôr",
-      Web: "javascript:alert(1)",
-      Facebook: "nie je známe",
-      Instagram: "https://instagram.com/example",
-    },
-  }));
+  const presentation = getDirectoryDetailPresentation(
+    profile({
+      category: "chovatelske-stanice",
+      importData: {
+        "E-mail": "blaljdljflajsdlfa",
+        Telefón: "zavolaj neskôr",
+        Web: "javascript:alert(1)",
+        Facebook: "nie je známe",
+        Instagram: "https://instagram.com/example",
+      },
+    }),
+  );
   assert.deepEqual(presentation.emails, [{ value: "blaljdljflajsdlfa", href: null }]);
   assert.deepEqual(presentation.phone, { value: "zavolaj neskôr", href: null });
   assert.equal(presentation.websiteText, "javascript:alert(1)");
@@ -147,7 +159,10 @@ test("free-form breeder contacts survive public rendering but never create unsaf
   assert.equal(presentation.facebookUrl, null);
   assert.equal(presentation.instagramUrl, "https://instagram.com/example");
   const facts = getDirectoryQuickFacts(presentation);
-  assert.equal(facts.some(f => f.links?.some(l => l.href.startsWith("javascript:"))), false);
+  assert.equal(
+    facts.some((f) => f.links?.some((l) => l.href.startsWith("javascript:"))),
+    false,
+  );
 });
 
 test("category-specific legacy facts and coverage aliases are normalized without exposing importData", () => {
@@ -240,14 +255,27 @@ test("physiotherapy uses Services V3 and one qualifications text, never legacy t
 });
 
 test("physiotherapy public profile always shows perex and expertise as plain text", () => {
-  const detail = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
-  const admin = fs.readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
-  assert.ok(detail.includes("showExcerpt={!isDuplicatedDirectoryDescription(presentation.excerpt, presentation.description)}"), "A distinct short description remains visible; identical copy appears only under O službe");
-  assert.ok(detail.includes('title={isPhysiotherapy ? "Odbornosť a skúsenosti"'));
+  const detail = fs.readFileSync(
+    new URL("../components/directory-profile-detail.tsx", import.meta.url),
+    "utf8",
+  );
+  const admin = fs.readFileSync(
+    new URL("../components/admin-directory-editor.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    detail,
+    /showExcerpt=\{\s*!isDuplicatedDirectoryDescription\(presentation\.excerpt, presentation\.description\)\s*\}/,
+    "A distinct short description remains visible; identical copy appears only under O službe",
+  );
+  assert.match(detail, /title=\{\s*isPhysiotherapy\s*\? "Odbornosť a skúsenosti"/);
   assert.ok(detail.includes('<DetailParagraphs value={visibleQualifications.join("\\n")} />'));
   assert.ok(detail.includes('key: "physio-price"'));
   assert.ok(admin.includes('category === "fyzioterapia" ? "Odbornosť a skúsenosti"'));
-  const partner = fs.readFileSync(new URL("../components/partner-profile-edit-form.tsx", import.meta.url), "utf8");
+  const partner = fs.readFileSync(
+    new URL("../components/partner-profile-edit-form.tsx", import.meta.url),
+    "utf8",
+  );
   assert.ok(admin.includes('category !== "fyzioterapia" && (serviceFilterCategories'));
   assert.ok(partner.includes('directoryCategory !== "fyzioterapia"'));
 });
@@ -256,7 +284,11 @@ test("description and URL fallback preserve behavior while text-only address doe
   const presentation = getDirectoryDetailPresentation(
     profile({ description: "", importData: { Web: "N/A" } }),
   );
-  assert.deepEqual(presentation.descriptionParagraphs, [], "An empty long description must not duplicate the short description");
+  assert.deepEqual(
+    presentation.descriptionParagraphs,
+    [],
+    "An empty long description must not duplicate the short description",
+  );
   assert.equal(presentation.excerpt, "Krátky opis služby.");
   assert.equal(presentation.websiteUrl, null);
   assert.equal(presentation.navigationUrl, null);
@@ -265,20 +297,23 @@ test("description and URL fallback preserve behavior while text-only address doe
 });
 
 test("breeder public facts keep real breeder metadata but never duplicate canonical breed links", () => {
-  const p = getDirectoryDetailPresentation(profile({
-    category: "chovatelske-stanice",
-    importData: {
-      Plemeno: "Starý text plemena", "Plemená": "Ďalší text plemena",
-      "FCI skupina": "10 – Chrty",
-      Chovateľ: "Peter Mikle",
-      Klub: "Klub chovateľov chrtov",
-      "Aktívny chov": "Vrh 2026 doložený",
-      "Aktuálne vrhy": "Vrh E – dostupnosť nepotvrdená",
-      "Plánované vrhy": "Nie je potvrdené",
-      Pokrytie: "Nitra a okolie",
-    },
-  }));
-  const factMap = Object.fromEntries(p.facts.map(fact => [fact.label, fact.value]));
+  const p = getDirectoryDetailPresentation(
+    profile({
+      category: "chovatelske-stanice",
+      importData: {
+        Plemeno: "Starý text plemena",
+        Plemená: "Ďalší text plemena",
+        "FCI skupina": "10 – Chrty",
+        Chovateľ: "Peter Mikle",
+        Klub: "Klub chovateľov chrtov",
+        "Aktívny chov": "Vrh 2026 doložený",
+        "Aktuálne vrhy": "Vrh E – dostupnosť nepotvrdená",
+        "Plánované vrhy": "Nie je potvrdené",
+        Pokrytie: "Nitra a okolie",
+      },
+    }),
+  );
+  const factMap = Object.fromEntries(p.facts.map((fact) => [fact.label, fact.value]));
   assert.equal(factMap.Chovateľ, "Peter Mikle");
   assert.equal(factMap["FCI skupina"], "10 – Chrty");
   assert.equal(factMap.Klub, "Klub chovateľov chrtov");
@@ -369,7 +404,7 @@ test("public directory contact metadata is not duplicated or styled as an alert"
     "utf8",
   );
   assert.ok(component.includes('noteTone="neutral"'));
-  assert.ok(component.includes('<time dateTime={presentation.updatedAt}>{updatedAt}</time>'));
+  assert.ok(component.includes("<time dateTime={presentation.updatedAt}>{updatedAt}</time>"));
   assert.ok(!component.includes("Aktualizované <time"));
 });
 
@@ -595,45 +630,65 @@ test("presentation exposes real opening hours only when imported; it never guess
 
 test("organization and focus are public facts in all service categories without duplicated legacy aliases", () => {
   const categories = [
-    "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
-    "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
-    "vencenie", "fyzioterapia", "dalsie-sluzby",
+    "veterinari",
+    "treneri",
+    "kynologicke-kluby",
+    "chovatelske-kluby",
+    "chovatelske-stanice",
+    "salony-a-sluzby",
+    "hotely-a-opatrovanie",
+    "vencenie",
+    "fyzioterapia",
+    "dalsie-sluzby",
   ];
   for (const category of categories) {
-    const detail = getDirectoryDetailPresentation(profile({
-      category,
-      importData: {
-        "Organizácia": "ZŠK SR",
-        "Zameranie": "Športová kynológia",
-        "Zastrešujúca organizácia": "Pôvodný import",
-      },
-    }));
+    const detail = getDirectoryDetailPresentation(
+      profile({
+        category,
+        importData: {
+          Organizácia: "ZŠK SR",
+          Zameranie: "Športová kynológia",
+          "Zastrešujúca organizácia": "Pôvodný import",
+        },
+      }),
+    );
     assert.deepEqual(
-      detail.facts.filter(fact => ["Organizácia", "Zameranie", "Zastrešujúca organizácia"].includes(fact.label)),
+      detail.facts.filter((fact) =>
+        ["Organizácia", "Zameranie", "Zastrešujúca organizácia"].includes(fact.label),
+      ),
       [
         { label: "Organizácia", value: "ZŠK SR" },
         { label: "Zameranie", value: "Športová kynológia" },
       ],
       category,
     );
-    if (category === "veterinari") assert.equal(detail.health, null, "Organization alone is not veterinary equipment");
+    if (category === "veterinari")
+      assert.equal(detail.health, null, "Organization alone is not veterinary equipment");
   }
 
-  const legacy = getDirectoryDetailPresentation(profile({
-    category: "kynologicke-kluby",
-    importData: { "Zastrešujúca organizácia": "ZŠK SR" },
-  }));
-  assert.deepEqual(legacy.facts.filter(fact => fact.label === "Organizácia"),
-    [{ label: "Organizácia", value: "ZŠK SR" }]);
+  const legacy = getDirectoryDetailPresentation(
+    profile({
+      category: "kynologicke-kluby",
+      importData: { "Zastrešujúca organizácia": "ZŠK SR" },
+    }),
+  );
+  assert.deepEqual(
+    legacy.facts.filter((fact) => fact.label === "Organizácia"),
+    [{ label: "Organizácia", value: "ZŠK SR" }],
+  );
 
-  const cleared = getDirectoryDetailPresentation(profile({
-    category: "kynologicke-kluby",
-    importData: { "Organizácia": "", "Zastrešujúca organizácia": "Pôvodný import" },
-  }));
-  assert.equal(cleared.facts.some(fact => fact.label === "Organizácia"), false,
-    "An explicit clear must not restore stale imported values");
+  const cleared = getDirectoryDetailPresentation(
+    profile({
+      category: "kynologicke-kluby",
+      importData: { Organizácia: "", "Zastrešujúca organizácia": "Pôvodný import" },
+    }),
+  );
+  assert.equal(
+    cleared.facts.some((fact) => fact.label === "Organizácia"),
+    false,
+    "An explicit clear must not restore stale imported values",
+  );
 });
-
 
 test("Admin provenance uses the exact same legacy facts as the public detail", () => {
   const source = profile({
@@ -650,15 +705,30 @@ test("Admin provenance uses the exact same legacy facts as the public detail", (
   });
   const sources = directoryLegacyPublicFactSources(source);
   const { facts } = getDirectoryDetailPresentation(source);
-  assert.deepEqual(sources.map(({ label, value }) => ({ label, value })), facts);
-  assert.deepEqual(sources.filter(fact => ["Plemeno", "Klub", "Organizácia"].includes(fact.label)), [
-    { label: "Klub", value: "Klub Cane Corso a Dogo Canario", sourceKey: "Klub" },
-    { label: "Organizácia", value: "Klubová asociácia", sourceKey: "Zastrešujúca organizácia" },
-  ]);
-  assert.equal(sources.some(fact => fact.label === "Plemeno" || fact.label === "Plemená"), false,
-    "Breeder breed is displayed only via canonical linked breed ID");
-  assert.equal(sources.some(fact => fact.label === "Aktívny chov"), false);
-  assert.equal(sources.some(fact => fact.label === "Údaj mimo verejného detailu"), false);
+  assert.deepEqual(
+    sources.map(({ label, value }) => ({ label, value })),
+    facts,
+  );
+  assert.deepEqual(
+    sources.filter((fact) => ["Plemeno", "Klub", "Organizácia"].includes(fact.label)),
+    [
+      { label: "Klub", value: "Klub Cane Corso a Dogo Canario", sourceKey: "Klub" },
+      { label: "Organizácia", value: "Klubová asociácia", sourceKey: "Zastrešujúca organizácia" },
+    ],
+  );
+  assert.equal(
+    sources.some((fact) => fact.label === "Plemeno" || fact.label === "Plemená"),
+    false,
+    "Breeder breed is displayed only via canonical linked breed ID",
+  );
+  assert.equal(
+    sources.some((fact) => fact.label === "Aktívny chov"),
+    false,
+  );
+  assert.equal(
+    sources.some((fact) => fact.label === "Údaj mimo verejného detailu"),
+    false,
+  );
 });
 
 test("Admin exposes the exact public opening-hours source, including old aliases", () => {
@@ -682,22 +752,40 @@ test("visible legacy public fact fields are directly editable in their own categ
     importData: { Klub: "Klub Cane Corso", Plemeno: "Cane Corso", "Otváracia doba": "Po–Pi" },
   });
   const breederFields = directoryLegacyEditableFactKeys(breeder);
-  for (const field of ["Klub", "FCI skupina", "Chovateľ", "Aktívny chov", "Aktuálne vrhy", "Plánované vrhy"])
+  for (const field of [
+    "Klub",
+    "FCI skupina",
+    "Chovateľ",
+    "Aktívny chov",
+    "Aktuálne vrhy",
+    "Plánované vrhy",
+  ])
     assert.ok(breederFields.includes(field), field);
   for (const field of ["Plemeno", "Plemená"]) {
-    assert.ok(!breederFields.includes(field), "Breeder uses a canonical relation, not free text: " + field);
+    assert.ok(
+      !breederFields.includes(field),
+      "Breeder uses a canonical relation, not free text: " + field,
+    );
   }
   assert.ok(!breederFields.includes("Otváracia doba"), "hours have their own editor");
   assert.ok(!breederFields.includes("Organizácia"), "organization has its own field");
   assert.ok(!breederFields.includes("Zameranie"), "focus has its own field");
   const vet = profile({
     category: "veterinari",
-    importData: { Pohotovosť: "Áno", "Kontakt interný": "not public", Plemeno: "Labrador", Klub: "Klub" },
+    importData: {
+      Pohotovosť: "Áno",
+      "Kontakt interný": "not public",
+      Plemeno: "Labrador",
+      Klub: "Klub",
+    },
   });
   const vetFields = directoryLegacyEditableFactKeys(vet);
   assert.ok(vetFields.includes("Pohotovosť"));
   assert.ok(vetFields.includes("Plemeno"), "global public relation facts stay editable");
-  assert.ok(!vetFields.includes("Klub"), "a breeder-only legacy value must not clutter veterinary editing");
+  assert.ok(
+    !vetFields.includes("Klub"),
+    "a breeder-only legacy value must not clutter veterinary editing",
+  );
   assert.ok(!vetFields.includes("Kontakt interný"));
   assert.ok(!vetFields.includes("Telefón"), "contacts are edited in their dedicated tab");
 });
