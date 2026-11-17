@@ -177,7 +177,7 @@ async function verifyImage(input:FacebookImageInput) {
   const actualMime=object?.httpMetadata?.contentType??"";
   if (!object||(expectedVideoMime?actualMime!==expectedVideoMime:
     !["image/jpeg","image/png","image/webp"].includes(actualMime)))
-    throw new Error("Uložený obrázok alebo video sa v úložisku nenašlo.");
+    throw new Error(expectedVideoMime ? "Uložené video sa v úložisku nenašlo." : "Uložený obrázok sa v úložisku nenašiel.");
 }
 /** Text-only quick edit for manual, unapproved DRAFT image posts.
  * Preserves scheduling, publication state, approvals, image keys and Notion
