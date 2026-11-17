@@ -154,7 +154,7 @@ test("homepage streams LCP hero before slower editorial D1 reads, keeping all si
   assert.match(home.slice(belowStart, homeStart), /\] = await contentPromise/);
 
   const homeRenderer = home.slice(homeStart);
-  assert.match(homeRenderer, /const heroPromise = getSectionHeroVisual\("home\.hero"\);[\s\S]*const contentPromise = loadHomepageContent\(\);[\s\S]*const homeHero = await heroPromise/);
+  assert.match(homeRenderer, /const heroPromise = retryTransientPublicRead\(\(\) => getSectionHeroVisual\("home\.hero"\)\);[\s\S]*const contentPromise = loadHomepageContent\(\);[\s\S]*const homeHero = await heroPromise/);
   // The new nonempty fallback reserves the page layout; it must not block
   // the hero or await editorial collections before the first response.
   assert.match(homeRenderer, /<UnifiedSectionHeroShell[\s\S]*visual=\{homeHero\}[\s\S]*<\/UnifiedSectionHeroShell>[\s\S]*<Suspense[\s\S]*data-home-stream-fallback[\s\S]*<HomeBelowHero contentPromise=\{contentPromise\} \/>/);
