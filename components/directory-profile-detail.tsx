@@ -173,6 +173,7 @@ export function DirectoryProfileDetail({
   publicMap,
   relatedBreeds = [],
   relatedClubs = [],
+  relatedStations = [],
   locationDiscoveryLinks = [],
   management,
 }: {
@@ -183,6 +184,7 @@ export function DirectoryProfileDetail({
   publicMap?: PublicEntityMapResult & PublicMapRuntime;
   relatedBreeds?: PublicRelatedBreed[];
   relatedClubs?: BreederPublicLink[];
+  relatedStations?: BreederPublicLink[];
   locationDiscoveryLinks?: InternalDiscoveryLink[];
   management?: ReactNode;
 }) {
@@ -282,7 +284,7 @@ export function DirectoryProfileDetail({
   );
   const isBreeder = presentation.category === "chovatelske-stanice";
   const isPhysiotherapy = presentation.category === "fyzioterapia";
-  const hasNamedLinks = isBreeder || presentation.category === "treneri";
+  const hasNamedLinks = isBreeder || presentation.category === "chovatelske-kluby";
   const linkedBreedNames = hasNamedLinks ? relatedBreeds.map((breed) => breed.name) : [];
   const linkedClubNames = hasNamedLinks ? relatedClubs.map((club) => club.name) : [];
   // Older imported records split prose at semicolons. Join only clear
@@ -335,6 +337,22 @@ export function DirectoryProfileDetail({
                     {relatedClubs.map((club) => (
                       <Link key={club.id} href={club.href}>
                         {club.name}
+                      </Link>
+                    ))}
+                  </span>
+                ),
+              },
+            ]
+          : []),
+        ...(relatedStations.length
+          ? [
+              {
+                label: relatedStations.length > 1 ? "Chovateľské stanice" : "Chovateľská stanica",
+                value: (
+                  <span className={styles.expertLinks}>
+                    {relatedStations.map((station) => (
+                      <Link key={station.id} href={station.href}>
+                        {station.name}
                       </Link>
                     ))}
                   </span>
