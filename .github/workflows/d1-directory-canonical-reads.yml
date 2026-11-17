@@ -8,6 +8,10 @@ on:
       - "lib/directory-store.ts"
       - "lib/directory-breeder-card.ts"
       - "lib/directory-read-facets.ts"
+      - "lib/breeder-profile-relations.ts"
+      - "lib/notion-directory-sync.ts"
+      - "tests/breeder-club-single-source.test.mjs"
+      - "drizzle/0169_directory_breeder_club_relations.sql"
       - "tests/d1-canonical-breed-cost.test.mjs"
       - "tests/directory-read-facets.test.mjs"
       - "tests/directory-breeder-preview-step3.test.mjs"
@@ -34,7 +38,7 @@ jobs:
         with:
           node-version: "24.18.0"
       - name: Exact canonical identity, source facets and secondary-category parity
-        run: node --experimental-strip-types --test tests/d1-canonical-breed-cost.test.mjs tests/directory-read-facets.test.mjs
+        run: node --experimental-strip-types --test tests/d1-canonical-breed-cost.test.mjs tests/directory-read-facets.test.mjs tests/breeder-club-single-source.test.mjs
       - name: Unified trainer/breeder links and safe backfill parity
         run: node --experimental-strip-types --test tests/trainer-breed-unification.test.mjs
       - name: Breeder-card canonical links and safe fallback
