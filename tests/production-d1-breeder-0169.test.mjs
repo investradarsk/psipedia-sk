@@ -82,10 +82,13 @@ test("new D1 relation table is empty and every old breed link/ledger row survive
 test("partial table, missing index and divergent column schema are rejected",()=>{
   const db=fixture();
   try{
-    const parts=assertBreeder0169PinnedDdl(sql);
-    db.exec(parts[0].sql);
+    // Keep original identifier casing: normalized guard fingerprints are not
+    // executable SQL, because SQLite stores object names as they were created.
+    const parts=sql.split("\n").filter(line=>!line.trimStart().startsWith("--"))
+      .join("\n").split(";").map(part=>part.trim()).filter(Boolean);
+    db.exec(parts[0]);
     assert.throws(()=>state(db),/BREEDER_0169_PARTIAL_SCHEMA_STOP/);
-    db.exec(parts[1].sql);
+    db.exec(parts[1]);
     assert.throws(()=>state(db),/BREEDER_0169_PARTIAL_SCHEMA_STOP/);
   } finally {db.close();}
   const other=fixture();
