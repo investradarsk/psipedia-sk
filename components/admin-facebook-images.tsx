@@ -712,7 +712,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
             {pickerError&&<p role="alert" className="admin-message admin-message--error">{pickerError}</p>}
           </section>
           <label>Názov<input autoFocus required maxLength={200} value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label>
-          <label>Fotografia (JPG/PNG/WebP do 8 MB) alebo video (MP4/MOV do 50 MB)<input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,.mov,.mp4" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.target.value="";}}/></label>
+          <label>Obrázok (JPG, PNG, WebP, max. 8 MB) alebo video (MP4/MOV, max. 50 MB)<input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,.mov,.mp4" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.target.value="";}}/></label>
           {form.imageUrl&&(editingVideo?<video className={styles.preview} src={form.imageUrl} controls playsInline preload="metadata" aria-label="Náhľad Facebook videa"/>:<img className={styles.preview} src={form.imageUrl} alt="Náhľad Facebook obrázka" decoding="async"/>)}
           {editingVideo&&!publisher?.videoPublishingEnabled&&<p role="status">Video sa môže uložiť a naplánovať, automatické odoslanie však vyžaduje samostatne zapnutú konfiguráciu FACEBOOK_VIDEO_PUBLISH_ENABLED. Dovtedy ho publikuj ručne.</p>}
           <label htmlFor="facebook-caption">Popis na Facebook</label><textarea id="facebook-caption" rows={6} maxLength={15000} value={form.caption} onChange={e=>setForm({...form,caption:e.target.value})}/>
