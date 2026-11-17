@@ -1048,6 +1048,12 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
   }
+  .page .heroActions:has(> :only-child) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page .heroActions:has(> :nth-child(2):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .page .heroActions a {
     min-width: 0;
     padding: 11px 6px;
@@ -1158,6 +1164,7 @@
   .publicDetailInline > .flowGrid {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 16px;
   }
   .flowColumn {
@@ -1350,4 +1357,14 @@
     .heroMedia:has([data-image-display="natural"]) {
     justify-self: center;
   }
+}
+
+/* Contact details must remain readable across directory, adoption and Help profiles. */
+.card[data-public-contact-panel] .facts dt {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.card[data-public-contact-panel] .facts dd {
+  font-size: 1rem;
+  line-height: 1.6;
 }

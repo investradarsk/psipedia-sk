@@ -19,6 +19,7 @@ import { getHelpPresentation, type HelpContact } from "@/lib/help-detail-present
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 import {
   DetailHero,
+  DetailHeroActions,
   DetailContactsCard,
   DetailFactsCard,
   DetailOptionGrid,
@@ -126,8 +127,8 @@ export function HelpDetailShell({
               )}
             </div>
             {item.excerpt && <p className={styles.excerpt}>{item.excerpt}</p>}
-            <div className={styles.heroActions}>
-              {externalAction(item) && (
+            {externalAction(item) && (
+              <DetailHeroActions label="Odkazy pomoci" className={styles.heroActions}>
                 <a
                   className={styles.primaryAction}
                   href={item.actionUrl ?? undefined}
@@ -136,8 +137,8 @@ export function HelpDetailShell({
                 >
                   {item.actionLabel || "Zistiť viac"} ↗
                 </a>
-              )}
-            </div>
+              </DetailHeroActions>
+            )}
           </>
         }
         media={
@@ -277,7 +278,10 @@ export function HelpProgressCard({ item }: { item: HelpCase }) {
       </PublicHeading>
       <HelpFinancialProgress item={item} />
       {item.raisedAmount !== null ? (
-        <p className={detailStyles.noteNeutral}>Dátum overenia vyzbieranej sumy zatiaľ nie je evidovaný. Dátum aktualizácie profilu nemusí znamenať kontrolu sumy.</p>
+        <p className={detailStyles.noteNeutral}>
+          Dátum overenia vyzbieranej sumy zatiaľ nie je evidovaný. Dátum aktualizácie profilu nemusí
+          znamenať kontrolu sumy.
+        </p>
       ) : null}
     </section>
   );

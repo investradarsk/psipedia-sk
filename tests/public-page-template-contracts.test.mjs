@@ -193,8 +193,8 @@ test("visual fixtures cover actual canonical details in desktop/mobile screensho
     "help-dobrovolnictvo",
     "help-urgentne-pripady",
   ])
-    assert.ok(fixture.includes("'" + name + "'"), "missing fixture " + name);
-  assert.doesNotMatch(fixture, /'help-adopcia'|'help-stratene-a-najdene'/);
-  assert.match(fixture, /const shots=process\.env\.DETAIL_TEST_SCREENSHOTS/);
+    assert.ok(new RegExp(`["']${name}["']`).test(fixture), "missing fixture " + name);
+  assert.doesNotMatch(fixture, /["']help-adopcia["']|["']help-stratene-a-najdene["']/);
+  assert.match(fixture, /const shots\s*=\s*process\.env\.DETAIL_TEST_SCREENSHOTS/);
   assert.match(fixture, /width === 1440 \|\| width === 320/);
 });
