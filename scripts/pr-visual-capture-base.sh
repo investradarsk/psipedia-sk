@@ -74,6 +74,10 @@ fi
 E2E_BASE_URL=http://localhost:5173 node scripts/bootstrap-phase5-e2e.mjs sections-only
 node scripts/bootstrap-breed-e2e.mjs seed
 E2E_BASE_URL=http://localhost:5173 node scripts/bootstrap-phase5-e2e.mjs full
+# The PR revision owns this deterministic layout-only fixture. Seed it in
+# the ancestor too, so comparing the same real route never compares to a 404.
+npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state \
+  --file "$GITHUB_WORKSPACE/tests/fixtures/pr-visual-breeder-e2e.sql"
 
 # The capture script is from the PR revision so before/after uses exactly the
 # same Chromium configuration, selected routes and screenshot naming.
