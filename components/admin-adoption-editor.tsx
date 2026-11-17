@@ -49,7 +49,7 @@ const nullableNumber = (data: FormData, key: string) => { const value = text(dat
 const nullableBoolean = (data: FormData, key: string) => { const value = text(data, key); return value === "true" ? true : value === "false" ? false : null; };
 const checked = (data: FormData, key: string) => data.get(key) === "on";
 
-export function AdminAdoptionEditor({ item, breeds, organizations, automationSuggestions = [] }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; organizations: AdoptionAdminOrganizationOption[]; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
+export function AdminAdoptionEditor({ item, breeds, organizations, automationSuggestions = [], returnHref = "/admin/adopcie" }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; organizations: AdoptionAdminOrganizationOption[]; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
   const [name, setName] = useState(item?.name ?? "");
   const [slug, setSlug] = useState(item?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(item));
@@ -212,15 +212,15 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
         <button type="button" disabled={activeAdoptionIndex >= ADOPTION_SECTIONS.length - 1}
           onClick={() => navigateAdoptionPager(ADOPTION_SECTIONS[activeAdoptionIndex + 1]?.id ?? ADOPTION_SECTIONS[ADOPTION_SECTIONS.length - 1].id)}>Ďalšia</button>
       </nav>
-    </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný profil môže mať nevyplnené údaje." : "Koncept môže zostať neúplný."}</p><Link href="/admin/adopcie">← Späť na adopcie</Link>{item && <AdminShareToFacebook title={name} imageUrl={mainImage} publicPath={"/pomoc-psom/adopcia/" + item.slug} />}</aside></div>
+    </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný profil môže mať nevyplnené údaje." : "Koncept môže zostať neúplný."}</p><Link href={returnHref}>← Späť na adopcie</Link>{item && <AdminShareToFacebook title={name} imageUrl={mainImage} publicPath={"/pomoc-psom/adopcia/" + item.slug} />}</aside></div>
         </div>
       </div>
     </AdminEditorSectionVisibility.Provider>
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
     {navigation.dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
     <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
-      {item && <AdminRecordLifecycleActions kind="adoptions" recordId={item.id} status={persistedStatus} disabled={saving || uploading || galleryUploading} returnHref="/admin/adopcie" onUnpublished={(_next,updatedAt)=>{setStatus("DRAFT");setPersistedStatus("DRAFT");if(updatedAt)setVersion(updatedAt);}} />}
-      <div className="admin-editor-actions"><Link href="/admin/adopcie">Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
+      {item && <AdminRecordLifecycleActions kind="adoptions" recordId={item.id} status={persistedStatus} disabled={saving || uploading || galleryUploading} returnHref={returnHref} onUnpublished={(_next,updatedAt)=>{setStatus("DRAFT");setPersistedStatus("DRAFT");if(updatedAt)setVersion(updatedAt);}} />}
+      <div className="admin-editor-actions"><Link href={returnHref}>Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
     </AdminEditorFooter>
   </form>;
 }
