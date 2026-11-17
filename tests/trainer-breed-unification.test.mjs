@@ -45,7 +45,7 @@ test("migration copies trainer IDs to the existing relation table without editin
     const after = db.prepare(preflightSql).get();
     assert.equal(after.legacy_pairs_missing, 0);
     assert.equal(after.trainer_relation_rows, 3);
-    assert.deepEqual(db.prepare("SELECT breed_id,profile_id FROM breed_directory_relations ORDER BY profile_id,breed_id").all(),[
+    assert.deepEqual(db.prepare("SELECT breed_id,profile_id FROM breed_directory_relations ORDER BY profile_id,breed_id").all().map(row => ({...row})),[
       {breed_id:1,profile_id:10},
       {breed_id:2,profile_id:10},
       {breed_id:1,profile_id:11},
