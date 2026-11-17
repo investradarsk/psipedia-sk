@@ -1,3 +1,4 @@
+import {facebookVideoMime,isFacebookVideoKey} from "@/lib/facebook-video";
 /** Facebook Page photo publishing, single-attempt fail-closed semantics.
  * Only explicit provider-rejected throttling may be retried. A transport error
  * may mean Meta published the photo, so ambiguous results remain fail-closed.
@@ -7,10 +8,11 @@ export type FacebookPublisherBindings = {
   FB_PAGE_ID?: string; FB_PAGE_ACCESS_TOKEN?: string;
   FACEBOOK_IMAGE_PUBLISH_ENABLED?: string;
   FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?: string;
+  FACEBOOK_VIDEO_PUBLISH_ENABLED?: string;
   BUCKET?:Pick<R2Bucket,"head">;
 };
 export type PublisherDatabase = Pick<D1Database, "prepare">;
-export type PublisherConfig = { enabled: boolean; connected: boolean; technicallyEnabled: boolean };
+export type PublisherConfig = { enabled: boolean; connected: boolean; technicallyEnabled: boolean; videoPublishingEnabled:boolean };
 type Candidate = {
   id: string; image_key: string; caption: string; version: number;
   scheduled_at: string; approval_status: string; retry_count?:number; superseded?:number;
@@ -23,6 +25,10 @@ export function facebookSafeRetryEnabled(bindings:FacebookPublisherBindings) {
 }
 type PhotoResult = { id?: string; post_id?: string };
 const clock = (when: Date) => when.toISOString();
+export function videoPublisherConfigured(bindings:FacebookPublisherBindings){
+  return publisherConfigured(bindings)
+    && ["true","1"].includes((bindings.FACEBOOK_VIDEO_PUBLISH_ENABLED??"").toLowerCase());
+}
 export function publisherConfigured(bindings: FacebookPublisherBindings) {
   return Boolean(/^\d{5,30}$/.test(bindings.FB_PAGE_ID ?? "")
     && (bindings.FB_PAGE_ACCESS_TOKEN ?? "").length > 20
@@ -50,7 +56,7 @@ export async function publisherConfig(db: PublisherDatabase, bindings: FacebookP
   await requirePublisherSchema(db);
   const setting = await db.prepare("SELECT enabled FROM facebook_image_publisher_settings WHERE id=1").first<{enabled:number}>();
   return {enabled:setting?.enabled===1,connected:Boolean(bindings.FB_PAGE_ID && bindings.FB_PAGE_ACCESS_TOKEN),
-    technicallyEnabled:publisherConfigured(bindings)};
+    technicallyEnabled:publisherConfigured(bindings),videoPublishingEnabled:videoPublisherConfigured(bindings)};
 }
 export async function setPublisherEnabled(db: PublisherDatabase, enabled: boolean, actor: string) {
   await requirePublisherSchema(db);
@@ -133,6 +139,44 @@ export async function publishPhotoToMeta(photo: { imageKey:string; caption:strin
   if(!json || typeof json.id!=="string" || !/^\d+$/.test(json.id)) throw new Error("META_AMBIGUOUS_RESPONSE");
   return typeof json.post_id==="string" && /^\d+_\d+$/.test(json.post_id)?json.post_id:json.id;
 }
+/** Publish a regular Facebook Page video (not an Instagram/Facebook Reel).
+ * The page fetches the media from public /media. A timeout may be a success:
+ * the caller's immutable attempt ledger must treat it as UNCERTAIN.
+ */
+export async function publishVideoToMeta(video:{imageKey:string;caption:string},
+  bindings:FacebookPublisherBindings,fetcher:typeof fetch=fetch):Promise<string>{
+  if(!videoPublisherConfigured(bindings))throw new Error("FACEBOOK_VIDEO_NOT_CONFIGURED");
+  if(!isFacebookVideoKey(video.imageKey))throw new Error("VIDEO_KEY_INVALID");
+  const body=new URLSearchParams({
+    file_url:"https://psipedia.sk/media/"+video.imageKey,
+    description:video.caption,
+    published:"true",
+  });
+  const response=await fetcher(`https://graph-video.facebook.com/v26.0/${bindings.FB_PAGE_ID}/videos`,{
+    method:"POST",
+    headers:{"authorization":`Bearer ${bindings.FB_PAGE_ACCESS_TOKEN}`,
+      "content-type":"application/x-www-form-urlencoded"},
+    body:body.toString(),
+    signal:AbortSignal.timeout(110000),
+  });
+  // Do not leak provider response or credentials in an error or log.
+  if(!response.ok){
+    if(facebookSafeRetryEnabled(bindings)&&[400,429].includes(response.status)){
+      let code:number|null=null;
+      try{
+        const result=await response.json() as {error?:{code?:unknown}};
+        if(typeof result.error?.code==="number")code=result.error.code;
+      }catch{/* Error payload is intentionally discarded. */}
+      if(code!==null&&[4,17,32,613].includes(code))
+        throw new ExplicitMetaRateLimitRejection();
+    }
+    throw new Error("META_HTTP_"+response.status);
+  }
+  const result=await response.json() as PhotoResult;
+  if(!result||typeof result.id!=="string"||!/^\\d+$/.test(result.id))
+    throw new Error("META_AMBIGUOUS_RESPONSE");
+  return result.id;
+}
 export async function runFacebookImagePublishSweep({
   db,bindings,now=new Date(),fetcher=fetch,
 }: {db:PublisherDatabase;bindings:FacebookPublisherBindings;now?:Date;fetcher?:typeof fetch}):
@@ -197,6 +241,11 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
   const articleColumns=await db.prepare("PRAGMA table_info('facebook_image_posts')").all<{name:string}>();
   const hasArticleLink=articleColumns.results.some(column=>column.name==="article_id");
   for(const item of [...retryCandidates.results,...candidates.results]){
+    // Video publishing is an independent opt-in; do not claim an attempt
+    // that cannot be sent, even if the photo publisher is globally enabled.
+    if(isFacebookVideoKey(item.image_key)&&!videoPublisherConfigured(bindings)){
+      summary.preflightSkipped++;continue;
+    }
     if(hasArticleLink){
       const linked=await db.prepare("SELECT article_id FROM facebook_image_posts WHERE id=?")
         .bind(item.id).first<{article_id:number|null}>();
@@ -214,8 +263,10 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
     if(safeRetry){
       try{
         const media=await bindings.BUCKET!.head(item.image_key);
-        if(!media||!["image/jpeg","image/png","image/webp"].includes(
-          media.httpMetadata?.contentType??"")){summary.preflightSkipped++;continue;}
+        if(!media||(isFacebookVideoKey(item.image_key)
+          ? media.httpMetadata?.contentType!==facebookVideoMime(item.image_key)
+          : !["image/jpeg","image/png","image/webp"].includes(media.httpMetadata?.contentType??""))){
+            summary.preflightSkipped++;continue;}
       }catch{summary.preflightSkipped++;continue;}
     }
     // The claim atomically checks global STOP AND per-item approval and version.
@@ -287,12 +338,13 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
     }
     let remote:string;
     try {
-      remote=await publishPhotoToMeta({imageKey:item.image_key,caption:item.caption},bindings,fetcher);
+      remote=await (isFacebookVideoKey(item.image_key)?publishVideoToMeta:publishPhotoToMeta)(
+        {imageKey:item.image_key,caption:item.caption},bindings,fetcher);
     }catch(error){
       const message=error instanceof Error ? error.message : "";
       // Never persist arbitrary exception text: runtimes/providers may echo tokens.
       const code=/^META_HTTP_[0-9]{3}$/.test(message)?message:
-        ["META_AMBIGUOUS_RESPONSE","IMAGE_KEY_INVALID","FACEBOOK_NOT_CONFIGURED"].includes(message)?message:"TRANSPORT_OR_UNKNOWN";
+        ["META_AMBIGUOUS_RESPONSE","IMAGE_KEY_INVALID","VIDEO_KEY_INVALID","FACEBOOK_NOT_CONFIGURED","FACEBOOK_VIDEO_NOT_CONFIGURED"].includes(message)?message:"TRANSPORT_OR_UNKNOWN";
       if(safeRetry&&error instanceof ExplicitMetaRateLimitRejection){
         const count=(item.retry_count??0)+(isRetry?1:0);
         const delayMs=Math.min(30*60000,60000*Math.pow(2,count));
