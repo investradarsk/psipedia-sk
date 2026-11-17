@@ -41,7 +41,10 @@ nesúvisiace analytické, kontaktné ani ďalšie migrácie iba kvôli klubom.
    presne pripnuté SQL, kontrola kanonického Cloudflare account/D1 ID,
    manuálne potvrdenie, zámka production-d1-migration,
    preflight objektov/indexov, Time Travel bookmark a postflight.
-   **Tento nezávislý 0169 rollout v PR ešte NIE JE implementovaný.**
+   Tento nezávislý rollout je pripravený v samostatnom
+   [PR #1415](https://github.com/investradarsk/psipedia-sk/pull/1415).
+   **Najprv zlúčiť iba #1415**, potom vykonať chránený AUDIT a po schválení
+   osobitný APPLY 0169 cez GitHub Actions na main. #1414 zostáva Draft.
 4. Až po schválenom nasadení prázdnej
    `directory_breeder_club_relations` (bez jediného starého klubu)
    a po overení DDL pokračovať s jednorazovým čistením existujúcich
