@@ -47,8 +47,7 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // 0153 is eligible ONLY for a protected owner-dispatched D1 migration.
 // 0154 and 0157 are additive manual Facebook checklists; each requires the same owner-dispatched protected process.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
-// 0158–0169 are review-only SQL; 0169 is a gated relation schema.
-// None activates via merge/deploy or bypasses earlier migration history.
+// 0158–0169 are review-only SQL. 0169 is owner-dispatched through its own isolated workflow.
 export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([
   "0158_admin_directory_list_indexes.sql",
   "0159_breed_notion_workcopy_links.sql",
