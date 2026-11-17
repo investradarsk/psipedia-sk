@@ -88,11 +88,11 @@ export async function saveBreederRelationSelection(
   database: Database, profileId: number, selection: BreederRelationSelection, actor: string,
 ) {
   const profile = await breeder(database, profileId);
-  if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category) || profile.status === "archived")
-    throw Error("Profil chovateľskej stanice alebo trénera sa nenašiel.");
+  if (!profile || !["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category) || profile.status === "archived")
+    throw Error("Chovateľská stanica alebo klub sa nenašiel.");
   const chosen = validateBreederRelations(selection);
-  // Every selected record must already exist. These checks never look up or
-  // require web/Google/FCI evidence; they only prevent broken profile links.
+  if (profile.category === "chovatelske-kluby" && chosen.clubIds.length)
+    throw Error("Chovateľský klub sa neprepája s ďalšími klubmi.");
   const [breedRows, clubRows] = await database.batch([
     database.prepare(
       "SELECT id FROM managed_breeds WHERE status='published' AND id IN (SELECT value FROM json_each(?))",
@@ -105,48 +105,30 @@ export async function saveBreederRelationSelection(
       (clubRows.results ?? []).length !== chosen.clubIds.length)
     throw Error("Niektoré vybrané plemená alebo kluby neexistujú.");
   const now = new Date().toISOString();
-  if (profile.category === "treneri") {
-    // Preserve the trainer's existing compare-and-swap protection. In one D1
-    // transaction, relation changes are guarded by the ORIGINAL JSON snapshot;
-    // the final UPDATE returns no row on a concurrent edit. No partial save.
-    const unchanged = `EXISTS (
-      SELECT 1 FROM directory_profiles current
-      WHERE current.id=? AND current.category='treneri'
-        AND current.status<>'archived' AND current.source_data_json=?
-    )`;
-    const statements = [
-      database.prepare(
-        `DELETE FROM breed_directory_relations WHERE profile_id=? AND ${unchanged}`,
-      ).bind(profileId, profileId, profile.source_data_json),
-      ...chosen.breedIds.map(id => database.prepare(`
-        INSERT INTO breed_directory_relations
-          (breed_id,profile_id,relation_type,source,created_at,created_by)
-        SELECT ?,?,'trainer','manual',?,? WHERE ${unchanged}
-      `).bind(id, profileId, now, actor, profileId, profile.source_data_json)),
-      database.prepare(`UPDATE directory_profiles
-        SET source_data_json=json_set(source_data_json, ?, ?),
-            updated_at=?,updated_by=?
-        WHERE id=? AND category='treneri' AND status<>'archived'
-          AND source_data_json=? RETURNING id`)
-        .bind("$." + TRAINER_CLUB_IDS_METADATA_KEY, JSON.stringify(chosen.clubIds),
-          now, actor, profileId, profile.source_data_json),
-    ];
-    const outcome = await database.batch(statements);
-    if (!(outcome.at(-1)?.results?.length))
-      throw Error("Prepojenia sa medzičasom zmenili. Načítaj profil a skús znova.");
-    return chosen;
-  }
-  await database.batch([
+  const statements = [
     database.prepare("DELETE FROM breed_directory_relations WHERE profile_id=?").bind(profileId),
     ...chosen.breedIds.map(id => database.prepare(
-      "INSERT INTO breed_directory_relations (breed_id,profile_id,relation_type,source,created_at,created_by) VALUES (?,?,'breeding-station','manual',?,?)",
-    ).bind(id, profileId, now, actor)),
-    database.prepare(
-      "UPDATE directory_profiles SET source_data_json=json_set(source_data_json, ?, ?),updated_at=?,updated_by=? WHERE id=? AND category='chovatelske-stanice'",
-    ).bind('$.' + BREEDER_CLUB_IDS_METADATA_KEY, JSON.stringify(chosen.clubIds), now, actor, profileId),
-  ]);
+      "INSERT INTO breed_directory_relations (breed_id,profile_id,relation_type,source,created_at,created_by) VALUES (?,?,?,?,?,?)",
+    ).bind(id,profileId,profile.category === "chovatelske-kluby" ? "breed-club" : "breeding-station","manual",now,actor)),
+  ];
+  if (profile.category === "chovatelske-stanice") {
+    statements.push(database.prepare(
+      "DELETE FROM directory_breeder_club_relations WHERE station_profile_id=?",
+    ).bind(profileId));
+    for (const clubId of chosen.clubIds)
+      statements.push(database.prepare(
+        "INSERT INTO directory_breeder_club_relations (station_profile_id,club_profile_id,created_at,created_by) VALUES (?,?,?,?)",
+      ).bind(profileId,clubId,now,actor));
+  }
+  statements.push(database.prepare(
+    "UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=? AND status<>'archived' RETURNING id",
+  ).bind(now,actor,profileId));
+  const results = await database.batch(statements);
+  if (!(results.at(-1)?.results ?? []).length)
+    throw Error("Profil sa nepodarilo potvrdiť po uložení vzťahov.");
   return chosen;
 }
+
 export async function listPublicBreederClubLinks(
   database: Database, profileId: number,
 ): Promise<BreederPublicLink[]> {
