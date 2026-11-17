@@ -56,6 +56,8 @@ test("canonical breed IDs preserve eligibility and all three duplicate identitie
     db.prepare("UPDATE managed_breeds SET seo_json=? WHERE id=1").run('{"noindex":true}');
     const after = db.prepare(`${canonicalBreedIdsSql} ORDER BY id`).all().map((row) => row.id);
     assert.deepEqual(await readCanonicalBreedIds(readDatabase), after);
+    // Restore the original fixture for the remaining legacy nested-SQL assertions.
+    db.prepare("UPDATE managed_breeds SET seo_json=? WHERE id=1").run("{}");
 
     const nested = db.prepare(`SELECT id FROM managed_breeds
       WHERE id IN (${canonicalBreedIdsSql}) ORDER BY id`).all().map((row) => row.id);
