@@ -59,6 +59,7 @@ test("0151 is approved only by pinned SHA and protected canonical DB identity", 
     "0166_facebook_weekly_template.sql",
     "0167_content_analytics_profile_views.sql",
     "0168_sitewide_first_party_analytics.sql",
+    "0169_directory_breeder_club_relations.sql",
   ]);
   assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes("0158_admin_directory_list_indexes.sql"));
 });
