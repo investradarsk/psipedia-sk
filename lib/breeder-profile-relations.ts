@@ -2,12 +2,12 @@ import { breedProfileHref, canonicalBreedIdsSql } from "./breed-canonical.ts";
 import type { PublicRelatedBreed } from "./content-relations";
 
 /**
- * Explicit breeder relationships. Breeds reuse the canonical
- * breed_directory_relations table; clubs are stored as a private JSON string
- * alongside the breeder's existing metadata, without an additional D1 migration.
+ * Canonical breed links for breeder and trainer directory profiles live only in
+ * breed_directory_relations. Club selections remain a separate relationship,
+ * stored in existing profile metadata until their own reviewed migration.
  */
 export { BREEDER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
-import { BREEDER_CLUB_IDS_METADATA_KEY, TRAINER_BREED_IDS_METADATA_KEY, TRAINER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
+import { BREEDER_CLUB_IDS_METADATA_KEY, TRAINER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
 
 export type BreederRelationSelection = {
   breedIds: number[];
@@ -57,14 +57,18 @@ export async function getBreederRelationSelection(
 ): Promise<BreederRelationSelection | null> {
   const profile = await breeder(database, profileId);
   if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return null;
-  if (profile.category === "treneri") return {
-    breedIds: parseMetadataIds(profile.source_data_json, TRAINER_BREED_IDS_METADATA_KEY),
-    clubIds: parseMetadataIds(profile.source_data_json, TRAINER_CLUB_IDS_METADATA_KEY),
-  };
+  // One source of truth for ALL directory breed links (trainer and breeder).
+  // Do not silently fall back to _psipedia_trainer_breed_ids: production must
+  // pass the lossless SQL backfill and preflight before this change is deployed.
   const res = await database.prepare(
     "SELECT breed_id AS id FROM breed_directory_relations WHERE profile_id=? ORDER BY breed_id",
   ).bind(profileId).all<{ id: number }>();
-  return { breedIds: (res.results ?? []).map(r => r.id), clubIds: parseBreederClubIds(profile.source_data_json) };
+  return {
+    breedIds: (res.results ?? []).map(r => r.id),
+    clubIds: profile.category === "treneri"
+      ? parseMetadataIds(profile.source_data_json, TRAINER_CLUB_IDS_METADATA_KEY)
+      : parseBreederClubIds(profile.source_data_json),
+  };
 }
 export async function listBreederRelationOptions(database: Database) {
   const [breeds, clubs] = await database.batch([
@@ -102,15 +106,34 @@ export async function saveBreederRelationSelection(
     throw Error("Niektoré vybrané plemená alebo kluby neexistujú.");
   const now = new Date().toISOString();
   if (profile.category === "treneri") {
-    // Trainer links have their own metadata keys. Never reuse the breeder
-    // relation_type or change breed_directory_relations for other profiles.
-    const saved = await database.prepare(`UPDATE directory_profiles
-      SET source_data_json=json_set(source_data_json, ?, ?, ?, ?), updated_at=?,updated_by=?
-      WHERE id=? AND category='treneri' AND status <> 'archived' AND source_data_json=? RETURNING id`)
-      .bind("$." + TRAINER_BREED_IDS_METADATA_KEY, JSON.stringify(chosen.breedIds),
-        "$." + TRAINER_CLUB_IDS_METADATA_KEY, JSON.stringify(chosen.clubIds),
-        now, actor, profileId, profile.source_data_json).first<{ id: number }>();
-    if (!saved) throw Error("Prepojenia sa medzičasom zmenili. Načítaj profil a skús znova.");
+    // Preserve the trainer's existing compare-and-swap protection. In one D1
+    // transaction, relation changes are guarded by the ORIGINAL JSON snapshot;
+    // the final UPDATE returns no row on a concurrent edit. No partial save.
+    const unchanged = `EXISTS (
+      SELECT 1 FROM directory_profiles current
+      WHERE current.id=? AND current.category='treneri'
+        AND current.status<>'archived' AND current.source_data_json=?
+    )`;
+    const statements = [
+      database.prepare(
+        `DELETE FROM breed_directory_relations WHERE profile_id=? AND ${unchanged}`,
+      ).bind(profileId, profileId, profile.source_data_json),
+      ...chosen.breedIds.map(id => database.prepare(`
+        INSERT INTO breed_directory_relations
+          (breed_id,profile_id,relation_type,source,created_at,created_by)
+        SELECT ?,?,'trainer','manual',?,? WHERE ${unchanged}
+      `).bind(id, profileId, now, actor, profileId, profile.source_data_json)),
+      database.prepare(`UPDATE directory_profiles
+        SET source_data_json=json_set(source_data_json, ?, ?),
+            updated_at=?,updated_by=?
+        WHERE id=? AND category='treneri' AND status<>'archived'
+          AND source_data_json=? RETURNING id`)
+        .bind("$." + TRAINER_CLUB_IDS_METADATA_KEY, JSON.stringify(chosen.clubIds),
+          now, actor, profileId, profile.source_data_json),
+    ];
+    const outcome = await database.batch(statements);
+    if (!(outcome.at(-1)?.results?.length))
+      throw Error("Prepojenia sa medzičasom zmenili. Načítaj profil a skús znova.");
     return chosen;
   }
   await database.batch([
@@ -149,21 +172,7 @@ export async function listPublicBreederBreedLinks(
 ): Promise<PublicRelatedBreed[]> {
   const profile = await breeder(database, profileId);
   if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return [];
-  if (profile.category === "treneri") {
-    const breedIds = parseMetadataIds(profile.source_data_json, TRAINER_BREED_IDS_METADATA_KEY);
-    if (!breedIds.length) return [];
-    const rows = await database.prepare(
-      `SELECT id,name,slug,image_url,fci_group FROM managed_breeds
-       WHERE id IN (${canonicalBreedIdsSql}) AND id IN (SELECT value FROM json_each(?))
-       ORDER BY fci_group,name COLLATE NOCASE LIMIT 40`,
-    ).bind(JSON.stringify(breedIds)).all<{
-      id: number; name: string; slug: string; image_url: string | null; fci_group: number;
-    }>();
-    return (rows.results ?? []).map(row => ({
-      id: row.id, name: row.name, slug: row.slug,
-      href: breedProfileHref(row.slug, row.fci_group), imageUrl: row.image_url, fciGroup: row.fci_group,
-    }));
-  }
+  // Both trainer and breeder profiles use the same canonical relation table.
   const rows = await database.prepare(
     `SELECT DISTINCT b.id,b.name,b.slug,b.image_url,b.fci_group
      FROM breed_directory_relations r
