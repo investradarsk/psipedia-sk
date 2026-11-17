@@ -173,7 +173,7 @@ export async function publishVideoToMeta(video:{imageKey:string;caption:string},
     throw new Error("META_HTTP_"+response.status);
   }
   const result=await response.json() as PhotoResult;
-  if(!result||typeof result.id!=="string"||!/^\\d+$/.test(result.id))
+  if(!result||typeof result.id!=="string"||!/^\d+$/.test(result.id))
     throw new Error("META_AMBIGUOUS_RESPONSE");
   return result.id;
 }
