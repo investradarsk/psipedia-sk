@@ -602,7 +602,7 @@ const DIRECTORY_HAS_CANONICAL_BREEDS = `EXISTS (
 )`;
 const DIRECTORY_SOURCE_FACETS = {
   ...DIRECTORY_PUBLIC_SOURCE_FACETS,
-  breed: `CASE WHEN directory_profiles.category='chovatelske-stanice'
+  breed: `CASE WHEN directory_profiles.category IN ('chovatelske-stanice','chovatelske-kluby')
     AND ${DIRECTORY_HAS_CANONICAL_BREEDS} THEN ''
     ELSE ${DIRECTORY_LEGACY_BREED} END`,
 };
@@ -1449,14 +1449,14 @@ export async function listPublishedDirectoryProfiles(options: {
       addSourceFacet(options.filters.breed, DIRECTORY_LEGACY_BREED);
     } else {
       baseClauses.push(`(
-      (directory_profiles.category='chovatelske-stanice' AND EXISTS (
+      (directory_profiles.category IN ('chovatelske-stanice','chovatelske-kluby') AND EXISTS (
         SELECT 1 FROM breed_directory_relations linked
         JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
         WHERE linked.profile_id = directory_profiles.id
           AND linked_breed.id IN (${canonicalBreedIdsSql})
           AND linked_breed.name = ?
       )) OR (
-        (directory_profiles.category<>'chovatelske-stanice' OR NOT ${DIRECTORY_HAS_CANONICAL_BREEDS})
+        (directory_profiles.category NOT IN ('chovatelske-stanice','chovatelske-kluby') OR NOT ${DIRECTORY_HAS_CANONICAL_BREEDS})
         AND ${DIRECTORY_LEGACY_BREED} = ?
       )
     )`);
@@ -1526,7 +1526,7 @@ export async function listPublishedDirectoryProfiles(options: {
       FROM breed_directory_relations linked
       JOIN managed_breeds linked_breed ON linked_breed.id=linked.breed_id
       JOIN directory_profiles linked_profile ON linked_profile.id=linked.profile_id
-      WHERE linked_profile.status='published' AND linked_profile.category='chovatelske-stanice'
+      WHERE linked_profile.status='published' AND linked_profile.category IN ('chovatelske-stanice','chovatelske-kluby')
         AND linked_breed.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
         ${categoryWhere}
       ORDER BY linked_breed.name COLLATE NOCASE LIMIT 500
