@@ -6,8 +6,7 @@ import type { PublicRelatedBreed } from "./content-relations";
  * breed_directory_relations. Station-to-club membership is SQL-only in
  * directory_breeder_club_relations. Trainers have no breeding relations.
  */
-export { BREEDER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
-import { BREEDER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
+
 
 export type BreederRelationSelection = {
   breedIds: number[];
@@ -21,18 +20,6 @@ function ids(value: unknown): number[] {
   return [...new Set(value.filter((id): id is number =>
     Number.isSafeInteger(id) && id > 0))].slice(0, 40);
 }
-function parseMetadataIds(sourceJson: string | null | undefined, key: string): number[] {
-  if (!sourceJson) return [];
-  try {
-    const metadata: unknown = JSON.parse(sourceJson);
-    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return [];
-    const value = (metadata as Record<string, unknown>)[key];
-    return ids(typeof value === "string" ? JSON.parse(value) : value);
-  } catch { return []; }
-}
-export function parseBreederClubIds(sourceJson: string | null | undefined): number[] {
-  return parseMetadataIds(sourceJson, BREEDER_CLUB_IDS_METADATA_KEY);
-}
 export function validateBreederRelations(value: unknown): BreederRelationSelection {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("Neplatné prepojenia.");
   const input = value as Record<string, unknown>;
@@ -45,11 +32,11 @@ export function validateBreederRelations(value: unknown): BreederRelationSelecti
   return { breedIds, clubIds };
 }
 type Database = D1Database;
-type ProfileRow = { id: number; category: string; source_data_json: string; status: string };
+type ProfileRow = { id: number; category: string; status: string };
 async function breeder(database: Database, profileId: number): Promise<ProfileRow | null> {
   if (!Number.isSafeInteger(profileId) || profileId <= 0) return null;
   return database.prepare(
-    "SELECT id,category,source_data_json,status FROM directory_profiles WHERE id=? LIMIT 1",
+    "SELECT id,category,status FROM directory_profiles WHERE id=? LIMIT 1",
   ).bind(profileId).first<ProfileRow>();
 }
 export async function getBreederRelationSelection(
