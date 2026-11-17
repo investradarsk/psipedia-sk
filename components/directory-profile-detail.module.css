@@ -87,7 +87,7 @@
 .qualifications {
   margin-top: 14px;
 }
-.qualifications h3 {
+.qualifications summary {
   margin: 0 0 8px;
   font-size: 0.83rem;
   line-height: 1.4;
@@ -453,4 +453,29 @@
 .expertLinks a:hover,
 .expertLinks a:focus-visible {
   color: var(--brand-accent-strong, #b94732);
+}
+
+/* Readable profile facts without removing any editorial values. */
+.page [data-detail-block="contact"] dd,
+.page [data-detail-block="expertise"] li > span,
+.page .qualificationsList li {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.page [data-detail-block="contact"] dt,
+.page [data-detail-block="expertise"] li > strong {
+  font-size: 0.875rem;
+}
+.page [data-detail-block="expertise"] li > span span {
+  font-size: inherit;
+}
+.qualifications > summary {
+  min-height: 44px;
+  padding-block: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.qualifications > summary:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
 }
