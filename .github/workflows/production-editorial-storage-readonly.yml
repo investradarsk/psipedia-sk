@@ -18,8 +18,8 @@ permissions:
 
 # Shared lock with existing production migration/read-only workflows.
 concurrency:
-  group: production-d1-migration
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('editorial-storage-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   offline-sql-fixtures:
