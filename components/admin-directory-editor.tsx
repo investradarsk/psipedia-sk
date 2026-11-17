@@ -268,11 +268,11 @@ export function AdminDirectoryEditor({
       choices.some(option => option.id === id && option.status === "published"));
   };
   const isCanonicalRelationText = (field: string) =>
-    ["chovatelske-stanice", "treneri"].includes(category) &&
+    ["chovatelske-stanice", "chovatelske-kluby"].includes(category) &&
     ((["Plemeno", "Plemená"].includes(field) && hasPublishedSelectedLink("breedIds")) ||
      (["Klub", "Chovateľský klub"].includes(field) && hasPublishedSelectedLink("clubIds")));
   const [breederRelationsError, setBreederRelationsError] = useState("");
-  const [breederRelationsLoading, setBreederRelationsLoading] = useState(Boolean(profile && ["chovatelske-stanice", "treneri"].includes(profile.category)));
+  const [breederRelationsLoading, setBreederRelationsLoading] = useState(Boolean(profile && ["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)));
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
   const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.detailImageDisplay ?? null);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
@@ -281,7 +281,7 @@ export function AdminDirectoryEditor({
   const [reviewed, setReviewed] = useState(profile?.reviewed ?? false);
   const [reviewedAt, setReviewedAt] = useState(profile?.reviewedAt ?? "");
   useEffect(() => {
-    if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return;
+    if (!profile || !["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)) return;
     let cancelled = false;
     fetch(`/api/admin/directory/${profile.id}/breeder-relations`, { cache: "no-store" })
       .then(async response => {
@@ -316,7 +316,7 @@ export function AdminDirectoryEditor({
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
   const [seo, setSeo] = useState<ArticleSeo>(profile?.seo ?? notionDraft?.seo ?? {});
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const editorSectionsForProfile = profile && ["chovatelske-stanice", "treneri"].includes(category)
+  const editorSectionsForProfile = profile && ["chovatelske-stanice", "chovatelske-kluby"].includes(category)
     ? [...editorSections.slice(0, 4), { id: "directory-breeder-links", label: "Prepojenia" }, ...editorSections.slice(4)]
     : editorSections;
   const [activeDirectorySection, setActiveDirectorySection] = useState(editorSectionsForProfile[0].id);
@@ -758,7 +758,7 @@ export function AdminDirectoryEditor({
         }
         savedProfile = filtered.profile;
       }
-      if (profile && ["chovatelske-stanice", "treneri"].includes(profile.category) && breederRelationsDirty) {
+      if (profile && ["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category) && breederRelationsDirty) {
         const response = await fetch(`/api/admin/directory/${profile.id}/breeder-relations`, {
           method: "PUT",
           headers: { "content-type": "application/json" },
@@ -1208,7 +1208,7 @@ export function AdminDirectoryEditor({
                           ? " · hodnota sa používa na verejnom profile"
                           : " · zatiaľ bez verejnej hodnoty"}
                         {["Plemeno", "Plemená", "Klub"].includes(field) &&
-                          ["chovatelske-stanice", "treneri"].includes(category)
+                          ["chovatelske-stanice", "chovatelske-kluby"].includes(category)
                           ? " · Klikateľné prepojenie vytvoríš výberom profilu v Prepojeniach." : ""}
                       </small>
                     </div>
@@ -1310,10 +1310,10 @@ export function AdminDirectoryEditor({
             <AdminHelpText term="Kvalita údajov">Ak profil web, telefón alebo e-mail naozaj nemá, nie je verejný alebo sa ho nepodarilo dohľadať, označ stav pri prázdnom poli. Taký údaj prestane byť falošným problémom v Kvalite údajov a po 12 mesiacoch sa automaticky znovu skontroluje.</AdminHelpText>
           </AdminEditorSection>
 
-          {profile && ["chovatelske-stanice", "treneri"].includes(category) ? (
+          {profile && ["chovatelske-stanice", "chovatelske-kluby"].includes(category) ? (
             <AdminEditorSection id="directory-breeder-links" className="admin-form-card">
               <div className="admin-card-heading"><div><span>05</span><div>
-                <h2>Prepojené plemená a chovateľské kluby</h2>
+                <h2>{category === "chovatelske-kluby" ? "Prepojené plemená" : "Prepojené plemená a chovateľské kluby"}</h2>
                 <p>Vyber existujúce profily. Prepojenia sa uložia spolu s tlačidlom Uložiť profil.</p>
               </div></div></div>
               {breederRelationsLoading ? <p>Načítavam plemená a kluby…</p> : null}
@@ -1321,7 +1321,7 @@ export function AdminDirectoryEditor({
               {([
                 { key: "breeds" as const, field: "breedIds" as const, label: "Plemená", options: breederRelationOptions.breeds },
                 { key: "clubs" as const, field: "clubIds" as const, label: "Chovateľské kluby", options: breederRelationOptions.clubs },
-              ]).map(group => {
+              ]).filter(group => category !== "chovatelske-kluby" || group.field === "breedIds").map(group => {
                 const search = breederRelationSearch[group.key].trim().toLocaleLowerCase("sk");
                 const matches = group.options.filter(option =>
                   breederSelection[group.field].includes(option.id) ||
@@ -1380,7 +1380,7 @@ export function AdminDirectoryEditor({
           ) : null}
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             {profile && mediaSectionVisited && <AdminShareToFacebook title={name} imageUrl={imageUrl} publicPath={"/adresar/" + profile.category + "/" + profile.slug} />}
-            <div className="admin-card-heading"><div><span>{profile && ["chovatelske-stanice", "treneri"].includes(category) ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
+            <div className="admin-card-heading"><div><span>{profile && ["chovatelske-stanice", "chovatelske-kluby"].includes(category) ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
             <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { replaceMainImageRequestedRef.current = null; removeMainImageRequestedRef.current = true; setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {!notionDraft && category === "chovatelske-stanice" && mediaSectionVisited ? (
