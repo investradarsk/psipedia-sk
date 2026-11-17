@@ -508,7 +508,7 @@ export function SiteHeader({
 
           <div className="header-actions">
             <Link href="/kontakt" className="header-contact-link">Kontakt</Link>
-            <Link href={partnerHref} className="header-contact-link" data-partner-login-entry>{partnerLabel}</Link>
+            <Link href={partnerHref} prefetch={false} className="header-contact-link" data-partner-login-entry>{partnerLabel}</Link>
             <button ref={searchTriggerRef} className="icon-button search-trigger" type="button" onClick={(event) => openSearch(event.currentTarget)} aria-label="Otvoriť vyhľadávanie" data-search-ready="false">
               <SearchIcon />
               <span>Hľadať</span>
@@ -593,7 +593,7 @@ export function SiteHeader({
                 )}
               </div>
             ))}
-            <div className={styles.mobileUtilityLinks}><Link href="/kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link><Link href={partnerHref} className="mobile-contact-link" data-partner-login-entry onClick={() => setMenuOpen(false)}>{partnerLabel}</Link></div>
+            <div className={styles.mobileUtilityLinks}><Link href="/kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link><Link href={partnerHref} prefetch={false} className="mobile-contact-link" data-partner-login-entry onClick={() => setMenuOpen(false)}>{partnerLabel}</Link></div>
             <button type="button" onClick={(event) => openSearch(event.currentTarget)}><SearchIcon /> Hľadať na Psipedii</button>
           </nav>
           <button
