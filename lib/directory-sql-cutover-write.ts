@@ -7,9 +7,9 @@
  *
  * D1 batch statements are designed to be transactional. The first statement
  * uses optimistic locking (updated_at CAS) and all subsequent statements
- * depend on the timestamp/category written by that CAS. If CAS affects zero
- * rows, NO additional statement can change a relation. The caller must check
- * the first statement's RETURNING row and abort on a conflict.
+ * depend on the timestamp/category written by that CAS. A fail-closed
+ * SQLite changes() assertion immediately after the CAS aborts the entire
+ * batch if zero rows were updated. The caller also verifies RETURNING id.
  */
 import {
   normalizeAdditionalDirectoryCategories,
@@ -115,7 +115,69 @@ export function planDirectorySqlCutoverPatch(
     "AND updated_at=? RETURNING id",
     bindings:[...values,patch.nextUpdatedAt,patch.actor,patch.profileId,patch.category,patch.expectedUpdatedAt],
   });
-  // These guards prevent independent relation writes after a failed CAS.
+  // Batch runs on one SQLite connection. changes() describes the preceding
+  // CAS UPDATE. On a conflict the malformed-JSON branch deliberately raises
+  // a SQLite error, forcing a transactional D1 batch rollback. This protects
+  // against even a coincidental collision on nextUpdatedAt.
+  statements.push({
+    sql:"SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', '
+  const guard="EXISTS (SELECT 1 FROM directory_profiles WHERE id=? AND updated_at=? AND category=?)";
+  const guardParams=[patch.profileId,patch.nextUpdatedAt,patch.category] as const;
+  if (more!==null) {
+    statements.push({
+      sql:"DELETE FROM directory_profile_additional_categories WHERE profile_id=? AND "+guard,
+      bindings:[patch.profileId,...guardParams],
+    });
+    for (const category of more) statements.push({
+      sql:"INSERT INTO directory_profile_additional_categories " +
+        "(profile_id,category,updated_at,updated_by) "+
+        "SELECT ?,?,?,? WHERE "+guard,
+      bindings:[patch.profileId,category,patch.nextUpdatedAt,patch.actor,...guardParams],
+    });
+  }
+  for (const [key,value] of Object.entries(facts)) statements.push({
+    sql:"INSERT INTO directory_profile_public_facts "+
+      "(profile_id,field_key,value_text,updated_at,updated_by) "+
+      "SELECT ?,?,?,?,? WHERE "+guard+" "+
+      "ON CONFLICT(profile_id,field_key) DO UPDATE SET "+
+      "value_text=excluded.value_text,updated_at=excluded.updated_at,updated_by=excluded.updated_by",
+    bindings:[patch.profileId,key,value,patch.nextUpdatedAt,patch.actor,...guardParams],
+  });
+  for (const [key,value] of Object.entries(filters)) statements.push({
+    sql:"INSERT INTO directory_profile_filter_values "+
+      "(profile_id,category,filter_id,value_text,updated_at,updated_by) "+
+      "SELECT ?,?,?,?,?,? WHERE "+guard+" "+
+      "ON CONFLICT(profile_id,filter_id) DO UPDATE SET "+
+      "value_text=excluded.value_text,updated_at=excluded.updated_at,updated_by=excluded.updated_by",
+    bindings:[patch.profileId,patch.category,key,value,patch.nextUpdatedAt,patch.actor,...guardParams],
+  });
+  return {
+    statements,profileId:patch.profileId,nextUpdatedAt:patch.nextUpdatedAt,
+    updatedFields:Object.keys(contacts).length+Object.keys(facts).length+
+      Object.keys(filters).length+(more===null?0:1),
+  };
+}
+
+/**
+ * Apply ONLY after the verified migration/backfill and coordinated cutover.
+ * No feature flag or ordinary Admin save calls this staged helper yet.
+ */
+export async function applyDirectorySqlCutoverPatch(
+  database: D1Database,patch:DirectorySqlProfilePatch,
+) {
+  const plan=planDirectorySqlCutoverPatch(patch);
+  const prepared=plan.statements.map(item=>
+    database.prepare(item.sql).bind(...item.bindings));
+  const responses=await database.batch(prepared);
+  const id=(responses[0]?.results?.[0] as {id?:unknown}|undefined)?.id;
+  if (id!==plan.profileId)
+    throw new DirectorySqlCutoverConflict();
+  return {profileId:plan.profileId,updatedAt:plan.nextUpdatedAt,fields:plan.updatedFields};
+}
+) END AS cas_ok",
+    bindings:[],
+  });
+  // These guards preserve the intended profile/category for each child row.
   // Binding is always profile id, new revision, category.
   const guard="EXISTS (SELECT 1 FROM directory_profiles WHERE id=? AND updated_at=? AND category=?)";
   const guardParams=[patch.profileId,patch.nextUpdatedAt,patch.category] as const;
