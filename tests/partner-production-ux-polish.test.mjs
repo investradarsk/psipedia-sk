@@ -74,8 +74,8 @@ test("public header derives Partner auth state on the server", () => {
 });
 
 test("public header never prefetches Partner account RSC routes from article pages", () => {
-  assert.match(header, /<Link href=\\{partnerHref\\} prefetch=\\{false\\} className="header-contact-link" data-partner-login-entry>/);
-  assert.match(header, /<Link href=\\{partnerHref\\} prefetch=\\{false\\} className="mobile-contact-link" data-partner-login-entry/);
+  assert.match(header, /<Link href=\{partnerHref\} prefetch=\{false\} className="header-contact-link" data-partner-login-entry>/);
+  assert.match(header, /<Link href=\{partnerHref\} prefetch=\{false\} className="mobile-contact-link" data-partner-login-entry/);
 });
 
 test("Partner-specific header state cannot enter the shared public HTML cache", () => {
