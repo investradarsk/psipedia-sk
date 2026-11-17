@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { env } from "cloudflare:workers";
 import {
   directoryLocationFacetStatement,
@@ -1734,12 +1735,12 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
 const getPublishedDirectoryProfileUncached = async (category: string, slug: string) => {
   const database = getD1Binding();
   if (!database || !isDirectoryCategory(category)) return null;
-  const row = await database
+  const row = await retryTransientPublicRead(() => database
     .prepare(
       "SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1",
     )
     .bind(category, slug)
-    .first<DirectoryProfileRow>();
+    .first<DirectoryProfileRow>());
   if(!row)return null;
   const profile=rowToPublicProfile(row);
   // The detail page and its JSON-LD must reflect confirmed D1 choices even

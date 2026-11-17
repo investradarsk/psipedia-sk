@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "../lib/public-read-retry.ts";
 import {runRecordLifecycleRetrySweep} from "../lib/admin-record-lifecycle-retry.ts";
 import { recordNotionTransfer } from "../lib/notion-transfer-audit.ts";
 import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
@@ -344,7 +345,7 @@ const worker = {
 
     const breedMatch = url.pathname.match(/^\/plemena\/([a-z0-9-]+)(\/fci-standard)?\/?$/);
     if (breedMatch && env.DB) {
-      const target = await cachedCanonicalBreedRedirect(env.DB, breedMatch[1]);
+      const target = await retryTransientPublicRead(() => cachedCanonicalBreedRedirect(env.DB, breedMatch[1]));
       if (target) {
         url.pathname = target + (breedMatch[2] ?? "");
         return Response.redirect(url, 301);

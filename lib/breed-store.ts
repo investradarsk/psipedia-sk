@@ -15,6 +15,7 @@ import {
 import { articleHref, type ArticlePortalSection } from "./portal";
 import { directoryProfileHref } from "./directory";
 import { ownedBreedImage, withAvailableBreedImages } from "./breed-image";
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { env } from "cloudflare:workers";
 import { bratislavaDateKey } from "@/lib/events";
 import { homepageRotationOffset, homepageRotatingWindow } from "@/lib/homepage-rotation";
@@ -805,7 +806,7 @@ export async function listPublishedCanonicalBreedAtlasCards(): Promise<BreedAtla
       }),
     );
   }
-  const result = await database
+  const result = await retryTransientPublicRead(() => database
     .prepare(
       `
     SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,origin,group_name,
@@ -821,7 +822,7 @@ export async function listPublishedCanonicalBreedAtlasCards(): Promise<BreedAtla
     FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name
   `,
     )
-    .all<BreedAtlasCardRow>();
+    .all<BreedAtlasCardRow>());
   return result.results.map(
     (row): BreedAtlasCard => ({
       slug: row.slug,
@@ -1096,10 +1097,10 @@ export async function getManagedBreed(id: number) {
 const getPublishedBreedUncached = async (slug: string) => {
   const database = db();
   if (!database) return seedBreeds.find((breed) => breed.slug === slug) ?? null;
-  const row = await database
+  const row = await retryTransientPublicRead(() => database
     .prepare(`${select} WHERE slug=? AND ${canonicalBreedWinnerSql("managed_breeds")} LIMIT 1`)
     .bind(slug)
-    .first<Row>();
+    .first<Row>());
   if (!row) return null;
   const breed = fromRow(row, { public: true });
   breed.image = ownedBreedImage(breed.image);
