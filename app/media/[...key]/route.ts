@@ -29,10 +29,10 @@ export async function GET(request: Request, { params }: RouteProps) {
   if (!bucket) return new Response("Not found", { status: 404 });
 
   const key = segments.join("/");
-  const video=/\\.(?:mp4|mov)$/i.test(key)&&segments[0]==="facebook-images";
+  const video=/\.(?:mp4|mov)$/i.test(key)&&segments[0]==="facebook-images";
   const requestedRange=video?request.headers.get("range"):null;
   // Safari/iOS video controls and seeking need HTTP byte ranges.
-  const rangeHeaders=requestedRange&&/^bytes=\\d*-\\d*$/.test(requestedRange)
+  const rangeHeaders=requestedRange&&/^bytes=\d*-\\d*$/.test(requestedRange)
     ?new Headers({range:requestedRange}):null;
   let object = await bucket.get(key,rangeHeaders?{range:rangeHeaders}:undefined);
   if (!object) return new Response("Not found", { status: 404 });
