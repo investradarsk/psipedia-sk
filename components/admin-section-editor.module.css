@@ -546,9 +546,7 @@
 .orderDetails > summary { cursor:pointer; font-weight:750; min-height:44px; display:flex; align-items:center; }
 .orderDetails > summary:focus-visible { outline:3px solid var(--admin-ui-focus, #a26a1b); outline-offset:2px; }
 
-/* All visible management actions remain full-size touch targets at 390 px,
-   even when global compact admin button styles set a smaller fixed height. */
-@media (max-width: 430px) {
-  .workspace button,
-  .workspace a { min-height: 44px; }
-}
+/* All section-management actions remain accessible at desktop and mobile
+   widths, including compact global buttons with a previous 40px minimum. */
+.workspace button,
+.workspace a { min-height: 44px; }
