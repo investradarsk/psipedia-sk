@@ -3,6 +3,7 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { readFile } from "node:fs/promises";
 import { hasHomepageRealImage, HOMEPAGE_REAL_IMAGE_SQL } from "../lib/homepage-media.ts";
+import { directoryLegacyDistrictSql } from "../lib/directory-public-source-contract.ts";
 
 const repoFile = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -147,7 +148,8 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
   assert.match(groupedSql, /SELECT id, category, card_rank FROM ranked WHERE card_rank <= \?/);
   assert.match(groupedSql, /INNER JOIN directory_profiles AS profile ON profile\.id = selected\.id/);
   assert.match(groupedSql, /profile\.thumbnail_display_json/);
-  assert.match(groupedSql, /json_valid\(profile\.source_data_json\)/);
+  // The projection is composed by the canonical source contract, not inlined here.
+  assert.match(groupedSql, /directoryLegacyDistrictSql\("profile"\)/);
   assert.match(groupedSql, /AS fallback_district/);
   // Upcoming events without uploaded photos remain visible; EventImage provides safe category artwork.
   const upcoming = events
@@ -296,8 +298,11 @@ test("homepage directory cards preserve legacy district fallback with validated 
   const source = await repoFile("lib/directory-store.ts");
   const start = source.indexOf("export async function getHomepageDirectoryProfilesWithImages");
   const part = source.slice(start).split("\nexport async function ")[0];
-  assert.match(part, /json_valid\(source_data_json\)/);
-  assert.match(part, /json_type\(source_data_json/);
+  assert.match(part, /directoryLegacyDistrictSql\(\)/);
+  const sourceContract = await repoFile("lib/directory-public-source-contract.ts");
+  assert.match(sourceContract, /function safeSourceJson\(/);
+  assert.match(sourceContract, /json_valid\(/);
+  assert.match(sourceContract, /json_type\(/);
   assert.match(part, /fallback_district/);
   assert.doesNotMatch(part, /rowToPublicProfile|safeImportData|SELECT\s+\*/);
 
@@ -312,8 +317,8 @@ test("homepage directory cards preserve legacy district fallback with validated 
     ]) {
       db.prepare("INSERT INTO d VALUES (?)").run(value);
     }
-    const sql =
-      "SELECT CASE WHEN json_valid(source_data_json) AND json_type(source_data_json, '$.\"Okres\"') IN ('text', 'integer', 'real') THEN CAST(json_extract(source_data_json, '$.\"Okres\"') AS TEXT) ELSE NULL END AS district FROM d";
+    // Execute the real shared SQL expression against valid, malformed and scalar JSON.
+    const sql = `SELECT ${directoryLegacyDistrictSql()} AS district FROM d`;
     assert.deepEqual(
       db
         .prepare(sql)
