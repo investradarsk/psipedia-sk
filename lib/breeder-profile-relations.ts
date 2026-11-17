@@ -2,12 +2,12 @@ import { breedProfileHref, canonicalBreedIdsSql } from "./breed-canonical.ts";
 import type { PublicRelatedBreed } from "./content-relations";
 
 /**
- * Canonical breed links for breeder and trainer directory profiles live only in
- * breed_directory_relations. Club selections remain a separate relationship,
- * stored in existing profile metadata until their own reviewed migration.
+ * Canonical breed links for breeder stations and kennel clubs share
+ * breed_directory_relations. Station-to-club membership is SQL-only in
+ * directory_breeder_club_relations. Trainers have no breeding relations.
  */
 export { BREEDER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
-import { BREEDER_CLUB_IDS_METADATA_KEY, TRAINER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
+import { BREEDER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
 
 export type BreederRelationSelection = {
   breedIds: number[];
