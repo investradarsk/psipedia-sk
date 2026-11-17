@@ -204,6 +204,15 @@ test(
               `${name} ${width} contact fills mobile column: ${contact.width}/${flow.width}`,
             );
           }
+          const contactSizes = await page
+            .locator("[data-public-contact-panel] dd")
+            .evaluateAll((values) =>
+              values.map((value) => parseFloat(getComputedStyle(value).fontSize)),
+            );
+          assert.ok(
+            contactSizes.every((size) => size >= 16),
+            `${name} ${width} readable contact values`,
+          );
           const hero = page.locator("[data-public-detail-hero]");
           assert.equal(await hero.count(), 1);
           assert.equal(await page.locator("main h1").count(), 1);
@@ -287,6 +296,20 @@ test(
               h = await hero.locator("h1").boundingBox();
             if (width > 800) assert.ok(m.x > h.x, `${name} desktop media right`);
             else assert.ok(m.y < h.y, `${name} mobile media first`);
+          }
+          if (name === "lost") {
+            const notice = await hero
+              .getByText("Naposledy videný:", { exact: true })
+              .locator("..")
+              .boundingBox();
+            const contact = await hero
+              .getByRole("link", { name: "Kontaktovať cez Psipediu" })
+              .boundingBox();
+            assert.ok(notice && contact, "lost report notice and contact visible");
+            assert.ok(
+              contact.y - notice.y - notice.height >= 11.5,
+              `lost ${width} contact must be separated from last-seen notice`,
+            );
           }
           if (name === "organization") {
             const body = await page.locator("[data-public-profile-body]").boundingBox();
@@ -388,8 +411,12 @@ test(
                 requestAnimationFrame(() => requestAnimationFrame(resolve)),
               );
             });
+            // New scenarios have no ancestor image. Keep their evidence outside
+            // paired comparisons; do not relax missing-screenshot checks.
+            const screenshotDir = name === "event-two-actions" ? `${shots}-supplemental` : shots;
+            await mkdir(screenshotDir, { recursive: true });
             await page.screenshot({
-              path: join(shots, `${name}-${width}.png`),
+              path: join(screenshotDir, `${name}-${width}.png`),
               fullPage: true,
               animations: "disabled",
             });

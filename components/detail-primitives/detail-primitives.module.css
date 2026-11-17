@@ -1358,3 +1358,13 @@
     justify-self: center;
   }
 }
+
+/* Contact details must remain readable across directory, adoption and Help profiles. */
+.card[data-public-contact-panel] .facts dt {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.card[data-public-contact-panel] .facts dd {
+  font-size: 1rem;
+  line-height: 1.6;
+}
