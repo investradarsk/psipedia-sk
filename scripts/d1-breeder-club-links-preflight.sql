@@ -1,5 +1,5 @@
--- READ-ONLY PRE/POSTFLIGHT. Run on production before any schema/backfill.
--- A 0 in legacy_missing means every valid station-to-club ID is already linked.
+-- READ-ONLY inventory of historical station/club links. No transfer will be done.
+-- Existing relations are only counted; the target system starts from zero.
 WITH stations AS (
   SELECT id AS station_id, source_data_json,
     CASE WHEN json_valid(source_data_json)
