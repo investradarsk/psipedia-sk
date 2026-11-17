@@ -1,4 +1,4 @@
-import {facebookVideoMime} from "@/lib/facebook-video";
+import {facebookVideoMime} from "./facebook-video.ts";
 import {env} from "cloudflare:workers";
 import {normalizeFacebookImageInput, type FacebookImagePost, type FacebookImageInput} from "@/lib/facebook-image-post";
 import {facebookImageScheduleV2Policy} from "@/lib/facebook-image-schedule-v2";
