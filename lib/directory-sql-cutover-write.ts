@@ -166,6 +166,14 @@ export async function applyDirectorySqlCutoverPatch(
   database: D1Database,patch:DirectorySqlProfilePatch,
 ) {
   const plan=planDirectorySqlCutoverPatch(patch);
+  // Preflight yields a clear 409-class conflict for an already stale editor.
+  // The in-batch changes() assertion also catches the race AFTER this read.
+  const current=await database.prepare(
+    "SELECT category,status,updated_at FROM directory_profiles WHERE id=? LIMIT 1",
+  ).bind(plan.profileId).first<{category:string;status:string;updated_at:string}>();
+  if (!current || current.category!==patch.category || current.status==="archived" ||
+      current.updated_at!==patch.expectedUpdatedAt)
+    throw new DirectorySqlCutoverConflict();
   const prepared=plan.statements.map(item=>
     database.prepare(item.sql).bind(...item.bindings));
   const responses=await database.batch(prepared);
