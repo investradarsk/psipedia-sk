@@ -28,9 +28,9 @@ const adminEditor = readFileSync(
 const sitemapSeo = readFileSync(new URL("../lib/sitemap-seo.ts", import.meta.url), "utf8");
 
 test("/podujatia remains the primary full event listing without mutating canonical records", () => {
-  assert.match(portalPage, /slug === "podujatia" \? getPublishedEventListing\(parseEventListing/);
+  assert.match(portalPage, /slug === "podujatia" \? retryTransientPublicRead\(\(\) => getPublishedEventListing\(parseEventListing/);
   assert.match(portalPage, /slug === "podujatia"\) return <EventsPage/);
-  assert.match(portalPage, /slug === "podujatia" \? getPublicEventCalendar/);
+  assert.match(portalPage, /slug === "podujatia" \? retryTransientPublicRead\(\(\) => getPublicEventCalendar/);
   assert.match(
     portalPage,
     /<EventsPage[\s\S]*events=\{eventList\}[\s\S]*calendarSummaries=\{monthEvents\?\.summaries\}/,

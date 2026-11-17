@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { portalSections, type PortalSection, type PortalSubpage, type SectionHeroConfig } from "@/lib/portal";
@@ -215,7 +216,7 @@ export const listManagedPortalSections = cache(async function listManagedPortalS
   if (!db) return defaultManagedSections();
   try {
     // Public GET is strictly read-only; legacy data is normalized in memory by parseSubpages.
-    const rows = await selectSectionRows(db);
+    const rows = await retryTransientPublicRead(() => selectSectionRows(db));
     return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
   } catch (error) {
     if (isMissingSectionSettings(error)) return defaultManagedSections();
@@ -228,7 +229,7 @@ export const listManagedPortalSectionsForSitemap = cache(async function listMana
   if (!db) return defaultManagedSections();
   // Both sitemap and other public routes use the same in-memory legacy normalization.
   try {
-    const rows = await selectSectionRows(db);
+    const rows = await retryTransientPublicRead(() => selectSectionRows(db));
     return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
   } catch (error) {
     if (isMissingSectionSettings(error)) return defaultManagedSections();

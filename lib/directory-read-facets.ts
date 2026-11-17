@@ -1,4 +1,4 @@
-import { directoryEffectiveDistrictSql } from "./directory-public-source-contract";
+import { directoryEffectiveDistrictSql } from "./directory-public-source-contract.ts";
 /**
  * Read-only, request-scoped D1 facet rollups for public directory listings.
  * The option scopes intentionally differ: locations follow the active search

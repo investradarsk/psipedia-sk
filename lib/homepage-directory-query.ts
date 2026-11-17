@@ -1,4 +1,4 @@
-import { directoryLegacyDistrictSql } from "./directory-public-source-contract";
+import { directoryLegacyDistrictSql } from "./directory-public-source-contract.ts";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "./homepage-media.ts";
 
 /**

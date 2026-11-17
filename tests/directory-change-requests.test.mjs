@@ -315,7 +315,11 @@ test("profile-specific forms are prefilled for representative directory categori
     );
   }
   const kennel = await request(worker, d1, "/adresar/chovatelske-stanice/stanica-test/upravit");
-  assert.match(await kennel.text(), /Border kólia/);
+  const kennelHtml = await kennel.text();
+  // Breed links are canonical IDs, not editable duplicate free-text fields.
+  assert.match(kennelHtml, /FCI skupina/);
+  assert.match(kennelHtml, /Chovateľ/);
+  assert.doesNotMatch(kennelHtml, /<span>Plemeno<\/span>/);
   const walking = await request(worker, d1, "/adresar/vencenie/vencenie-test/upravit");
   assert.match(await walking.text(), /GPS \/ foto report/);
   const physio = await request(worker, d1, "/adresar/fyzioterapia/fyzio-test/upravit");
