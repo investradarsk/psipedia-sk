@@ -1,4 +1,4 @@
-import {isFacebookVideoKey} from "@/lib/facebook-video";
+import {isFacebookVideoKey} from "./facebook-video.ts";
 import {exportFacebookAdminChanges} from "@/lib/notion-facebook-images-admin-export";
 import {facebookImageScheduleV2Policy,notionFacebookScheduleV2Decision} from "@/lib/facebook-image-schedule-v2";
 import {facebookSafeRetryEnabled,requireFacebookSafeRetrySchema} from "@/lib/facebook-image-publisher";
