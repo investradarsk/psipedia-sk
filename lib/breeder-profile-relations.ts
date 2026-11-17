@@ -56,18 +56,18 @@ export async function getBreederRelationSelection(
   database: Database, profileId: number,
 ): Promise<BreederRelationSelection | null> {
   const profile = await breeder(database, profileId);
-  if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return null;
-  // One source of truth for ALL directory breed links (trainer and breeder).
-  // Do not silently fall back to _psipedia_trainer_breed_ids: production must
-  // pass the lossless SQL backfill and preflight before this change is deployed.
-  const res = await database.prepare(
+  if (!profile || !["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)) return null;
+  const breeds = await database.prepare(
     "SELECT breed_id AS id FROM breed_directory_relations WHERE profile_id=? ORDER BY breed_id",
   ).bind(profileId).all<{ id: number }>();
+  const clubs = profile.category === "chovatelske-stanice"
+    ? (await database.prepare(
+        "SELECT club_profile_id AS id FROM directory_breeder_club_relations WHERE station_profile_id=? ORDER BY club_profile_id",
+      ).bind(profileId).all<{ id: number }>()).results ?? []
+    : [];
   return {
-    breedIds: (res.results ?? []).map(r => r.id),
-    clubIds: profile.category === "treneri"
-      ? parseMetadataIds(profile.source_data_json, TRAINER_CLUB_IDS_METADATA_KEY)
-      : parseBreederClubIds(profile.source_data_json),
+    breedIds: (breeds.results ?? []).map(row => row.id),
+    clubIds: clubs.map(row => row.id),
   };
 }
 export async function listBreederRelationOptions(database: Database) {
@@ -151,28 +151,42 @@ export async function listPublicBreederClubLinks(
   database: Database, profileId: number,
 ): Promise<BreederPublicLink[]> {
   const profile = await breeder(database, profileId);
-  if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return [];
-  const clubIds = profile.category === "treneri"
-    ? parseMetadataIds(profile.source_data_json, TRAINER_CLUB_IDS_METADATA_KEY)
-    : parseBreederClubIds(profile.source_data_json);
-  if (!clubIds.length) return [];
+  if (!profile || profile.category !== "chovatelske-stanice") return [];
   const result = await database.prepare(
-    "SELECT id,name,slug FROM directory_profiles WHERE category='chovatelske-kluby' " +
-    "AND status='published' AND archived_at IS NULL AND id IN (SELECT value FROM json_each(?)) " +
-    "ORDER BY name COLLATE NOCASE",
-  ).bind(JSON.stringify(clubIds)).all<{ id: number; name: string; slug: string }>();
+    `SELECT d.id,d.name,d.slug FROM directory_breeder_club_relations r
+     JOIN directory_profiles d ON d.id=r.club_profile_id
+     WHERE r.station_profile_id=? AND d.category='chovatelske-kluby'
+       AND d.status='published' AND d.archived_at IS NULL
+     ORDER BY d.name COLLATE NOCASE`,
+  ).bind(profileId).all<{ id: number; name: string; slug: string }>();
   return (result.results ?? []).map(row => ({
     id: row.id, name: row.name, href: "/adresar/chovatelske-kluby/" + row.slug,
   }));
 }
 
+/** Reverse lookup: the same SQL relation, never separate club metadata. */
+export async function listPublicClubStationLinks(
+  database: Database, profileId: number,
+): Promise<BreederPublicLink[]> {
+  const profile = await breeder(database, profileId);
+  if (!profile || profile.category !== "chovatelske-kluby") return [];
+  const result = await database.prepare(
+    `SELECT d.id,d.name,d.slug FROM directory_breeder_club_relations r
+     JOIN directory_profiles d ON d.id=r.station_profile_id
+     WHERE r.club_profile_id=? AND d.category='chovatelske-stanice'
+       AND d.status='published' AND d.archived_at IS NULL
+     ORDER BY d.name COLLATE NOCASE`,
+  ).bind(profileId).all<{ id: number; name: string; slug: string }>();
+  return (result.results ?? []).map(row => ({
+    id: row.id, name: row.name, href: "/adresar/chovatelske-stanice/" + row.slug,
+  }));
+}
 /** Show every selected canonical, published breed, not the generic six-item teaser. */
 export async function listPublicBreederBreedLinks(
   database: Database, profileId: number,
 ): Promise<PublicRelatedBreed[]> {
   const profile = await breeder(database, profileId);
-  if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return [];
-  // Both trainer and breeder profiles use the same canonical relation table.
+  if (!profile || !["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)) return [];
   const rows = await database.prepare(
     `SELECT DISTINCT b.id,b.name,b.slug,b.image_url,b.fci_group
      FROM breed_directory_relations r
