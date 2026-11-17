@@ -147,6 +147,9 @@ function QualityResolutionField({
           <option value={option.value} key={option.value}>{option.label}</option>
         ))}
       </select>
+      {value && <small data-quality-status-full style={{ display: "block", whiteSpace: "normal", overflowWrap: "anywhere" }}>
+        Vybraný stav: {qualityResolutionOptions.find(option => option.value === value)?.label ?? value}
+      </small>}
       <small>
         {value
           ? checkedLabel
@@ -159,12 +162,13 @@ function QualityResolutionField({
 }
 
 export function AdminDirectoryEditor({
-  profile, notionDraft, onNotionSaved, automationSuggestions = [],
+  profile, notionDraft, onNotionSaved, automationSuggestions = [], returnHref = "/admin/adresar",
 }: {
   profile?: ManagedDirectoryProfile;
   notionDraft?: GeminiDirectoryDraft;
   onNotionSaved?: (keepEditorOpen?: boolean) => void;
   automationSuggestions?: CanonicalUpdateSuggestion[];
+  returnHref?: string;
 }) {
   // Last saved D1 projection; supports one-field saves from a long-open editor.
   const breederSaveBaselineRef = useRef(profile);
@@ -916,7 +920,7 @@ export function AdminDirectoryEditor({
           {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
         </label>
         <AdminFormFeedback message={message} error={error} pending={saving} pendingLabel="Obnovujem…" className="admin-flash" errorClassName="admin-flash--error" />
-        <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status="archived" disabled={saving || uploading || galleryBusy} returnHref="/admin/adresar" />
+        <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status="archived" disabled={saving || uploading || galleryBusy} returnHref={returnHref} />
         <AdminActionButton variant="primary" disabled={saving} onClick={() => void restoreArchivedProfile()}>
           {saving ? "Obnovujem…" : "Obnoviť do konceptu"}
         </AdminActionButton>
@@ -1123,10 +1127,11 @@ export function AdminDirectoryEditor({
             />
             <div className="admin-field-grid" aria-label="Adresa prevádzky">
                 <div className="admin-field">
-                  <label htmlFor="directory-street">Ulica / lokalita</label>
+                  <label htmlFor="directory-street">Uložená ulica / lokalita adresy</label>
                   <input id="directory-street" type="text" value={street}
                     onChange={(event) => { setStreet(event.target.value); setAddressProviderResultId(""); }}
-                    placeholder="Ulica, areál alebo iná lokalita" />
+                    placeholder="Výsledná ulica, areál alebo lokalita" />
+                   <small>Toto je výsledná uložená hodnota adresy. Vyhľadávanie ulice vyššie slúži len na výber návrhu; výsledok môžeš skontrolovať a upraviť tu.</small>
                 </div>
                 <div className="admin-field">
                   <label htmlFor="directory-house-number">Číslo domu <small>nepovinné pri miestach bez prideleného čísla</small></label>
@@ -1191,6 +1196,11 @@ export function AdminDirectoryEditor({
                           }}
                           placeholder="Zatiaľ nevyplnené"
                         />
+                      )}
+                      {category === "veterinari" && field === "Pohotovosť" && (
+                        <small data-emergency-public-authority>
+                          Verejný detail číta tento historický údaj z D1. Verejný filter Pohotovosť však číta samostatnú kategóriovú hodnotu nižšie a Služby V3 uchovávajú ďalšiu nezávislú vlastnosť. Uloženie tohto textu ostatné hodnoty nezmení.
+                        </small>
                       )}
                       <small>
                         Zdroj: {legacyPublicFacts.find(fact => fact.label === field)?.sourceKey ?? field}
@@ -1435,7 +1445,7 @@ export function AdminDirectoryEditor({
       </AdminEditorSectionVisibility.Provider>
       <AdminEditorFooter dirty={formDirty} pending={saving}>
       <div className="admin-editor-actions">
-        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar">← Späť na adresár</Link>}</div>
+        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href={returnHref}>← Späť na adresár</Link>}</div>
         {notionDraft && !notionDraft.psipediaId && !canonicalEditorUrl && (
           <div>
             {!reviewConfirm ? <AdminActionButton variant="secondary" disabled={saving} onClick={() => {
@@ -1453,7 +1463,7 @@ export function AdminDirectoryEditor({
           : "Publikovať bude možné až po overenom importe v natívnom D1 editore."}</p>}
         {canonicalEditorUrl && <a href={canonicalEditorUrl}>Otvoriť overený D1 editor →</a>}
         <div>
-          {profile && !notionDraft && <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status={status} disabled={saving || uploading || galleryBusy} returnHref="/admin/adresar" onUnpublished={(next) => setStatus(next as DirectoryProfileStatus)} />}
+          {profile && !notionDraft && <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status={status} disabled={saving || uploading || galleryBusy} returnHref={returnHref} onUnpublished={(next) => setStatus(next as DirectoryProfileStatus)} />}
           {(notionDraft || status !== "published") && <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || galleryBusy || notionReadOnly}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>}
           {!notionDraft && <AdminActionButton variant="primary" disabled={saving || uploading || galleryBusy || Boolean(reviewConfirm)}
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}

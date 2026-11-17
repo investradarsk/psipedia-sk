@@ -1,3 +1,4 @@
+import { isTransientPublicReadError, retryTransientPublicRead } from "@/lib/public-read-retry";
 import { env } from "cloudflare:workers";
 import { createShortLivedAsyncCache } from "@/lib/public-navigation-cache";
 import { defaultNavigationItems, type NavigationItem } from "@/lib/navigation";
@@ -19,6 +20,7 @@ type RuntimeBindings = {
   GOOGLE_MAPS_MAP_ID?: string;
 };
 let navigationSchemaReady: Promise<void> | null = null;
+let lastSuccessfulPublicNavigationRows: { rows: NavigationRow[]; at: number } | null = null;
 // The same anonymous menu is rendered on every public page. Avoid repeating D1
 // reads on each RSC navigation or simultaneous SSR miss; edits invalidate it.
 const publicNavigationRows = createShortLivedAsyncCache<NavigationRow[]>(30_000);
@@ -102,10 +104,21 @@ export async function getNavigationItems() {
   });
   const database = getD1Binding();
   if (!database) return applyPublicMapLaunchGate(canonicalizeLegacyNewsLanding(defaultNavigationItems), enabled);
-  const rows = await publicNavigationRows.get(async () => {
-    const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
-    return result.results;
-  });
+  let rows: NavigationRow[];
+  try {
+    rows = await retryTransientPublicRead(() => publicNavigationRows.get(async () => {
+      const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
+      return result.results;
+    }));
+    lastSuccessfulPublicNavigationRows = { rows, at: Date.now() };
+  } catch (error) {
+    if (!isTransientPublicReadError(error)) throw error;
+    // Global navigation must not take down every public SSR route during a
+    // brief D1 transport outage. Retain a recent managed menu when possible.
+    console.warn("public_navigation_transient_read_fallback");
+    const snapshot = lastSuccessfulPublicNavigationRows;
+    rows = snapshot && Date.now() - snapshot.at < 300_000 ? snapshot.rows : [];
+  }
   const items = rows.length ? rows.map(rowToItem) : defaultNavigationItems;
   return applyPublicMapLaunchGate(canonicalizeLegacyNewsLanding(items), enabled);
 }

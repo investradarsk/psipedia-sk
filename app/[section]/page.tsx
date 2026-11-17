@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { redirect } from 'next/navigation';
 import { parseEventListing, eventTypeSelectionRedirect, eventListingPageHref } from '@/lib/event-listing';
 import { getPublishedEventListing, getPublicEventCalendar } from '@/lib/event-store';
@@ -87,8 +88,8 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     getManagedPortalSection(slug),
     listManagedPortalSections(),
     slug === "podujatia" ? Promise.resolve([]) : getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }),
-    slug === "podujatia" ? getPublishedEventListing(parseEventListing(rawSearchParams)) : Promise.resolve(undefined),
-    slug === "podujatia" ? getPublicEventCalendar(parseEventListing(rawSearchParams), calendarMonth, scalar(rawSearchParams.den) ?? '') : Promise.resolve(undefined),
+    slug === "podujatia" ? retryTransientPublicRead(() => getPublishedEventListing(parseEventListing(rawSearchParams))) : Promise.resolve(undefined),
+    slug === "podujatia" ? retryTransientPublicRead(() => getPublicEventCalendar(parseEventListing(rawSearchParams), calendarMonth, scalar(rawSearchParams.den) ?? '')) : Promise.resolve(undefined),
   ]);
   if (!section?.visible) notFound();
   const eventList = events?.events ?? [];

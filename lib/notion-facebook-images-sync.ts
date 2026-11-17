@@ -1,3 +1,4 @@
+import {isFacebookVideoKey} from "./facebook-video.ts";
 import {exportFacebookAdminChanges} from "@/lib/notion-facebook-images-admin-export";
 import {facebookImageScheduleV2Policy,notionFacebookScheduleV2Decision} from "@/lib/facebook-image-schedule-v2";
 import {facebookSafeRetryEnabled,requireFacebookSafeRetrySchema} from "@/lib/facebook-image-publisher";
@@ -208,6 +209,9 @@ export async function runNotionFacebookImagesSync({
     try {
       if(!/^[a-f0-9-]{36}$/i.test(page.id)){out.invalid++;continue;}
       const current=await linked(db,page.id,consentReady,safeRetry);
+      // Notion's existing "Obrázok" property cannot represent an Admin video.
+      // Never replace an already selected video with an empty Notion image.
+      if(current&&isFacebookVideoKey(current.image_key)){out.unchanged++;continue;}
       // Linked Notion tombstone is preserved: never re-import or write back a trashed post.
       if(current&&trashReady) {
         const deleted=await db.prepare("SELECT deleted_at FROM facebook_image_posts WHERE id=?")

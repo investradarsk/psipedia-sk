@@ -128,7 +128,7 @@ test("ARTICLE-ADMIN save path carries canonical rich text, author profile select
   assert.match(blockEditor, /Podporované sú iba bezpečné HTTPS odkazy na YouTube alebo Vimeo/);
 
   assert.doesNotMatch(store, /Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj/);
-  assert.match(articleEditor, /Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných/);
+  assert.match(articleEditor, /Odborné zdroje sú nepovinné aj pri zdravotných článkoch/);
   assert.match(store, /Video musí byť bezpečný HTTPS odkaz na YouTube alebo Vimeo/);
 });
 

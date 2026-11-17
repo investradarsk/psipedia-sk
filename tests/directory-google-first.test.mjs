@@ -99,7 +99,7 @@ test("GOOGLE-PLACE-DISCOVERY admin is Google-first with address fallback", () =>
   const ui = geoUiSource + "\n" + googlePickerSource;
   assert.match(ui, /Nájsť profil v Google Maps/);
   assert.match(ui, /Použiť toto miesto/);
-  assert.match(geoUiSource, /Fallback: nájsť podľa adresy/);
+  assert.match(geoUiSource, /Overiť podľa adresy/);
   assert.match(geoUiSource, /Google Maps \/ Google Place/);
   assert.doesNotMatch(googlePickerSource, /setManualGeoCoordinates|manual marker/i);
 });

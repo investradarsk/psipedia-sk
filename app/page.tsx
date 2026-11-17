@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { breedProfileHref } from "@/lib/breed-canonical";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { HOME_PROFILE_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
@@ -62,15 +63,15 @@ export const metadata: Metadata = {
 function loadHomepageContent() {
   return Promise.all([
 
-    getPublishedArticleSummaries({ limit: 120 }),
-    getHomepageUpcomingEventsWithImages(8),
-    getHomepageHighlightedHelpCasesWithImages(3),
-    getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8),
+    retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 120 })),
+    retryTransientPublicRead(() => getHomepageUpcomingEventsWithImages(8)),
+    retryTransientPublicRead(() => getHomepageHighlightedHelpCasesWithImages(3)),
+    retryTransientPublicRead(() => getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8)),
     listHomepageFeaturedBreeds(8).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
     }),
-    getPublishedDesktopBannerColorsBatch(["homepage:profil", "help:lost-found"]),
+    retryTransientPublicRead(() => getPublishedDesktopBannerColorsBatch(["homepage:profil", "help:lost-found"])),
   ]);
 }
 
@@ -415,7 +416,7 @@ async function HomeBelowHero({
 
 export default async function Home() {
   // Launch the hero first, but overlap it with the six slower content reads.
-  const heroPromise = getSectionHeroVisual("home.hero");
+  const heroPromise = retryTransientPublicRead(() => getSectionHeroVisual("home.hero"));
   const contentPromise = loadHomepageContent();
   const homeHero = await heroPromise;
 

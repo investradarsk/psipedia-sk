@@ -47,6 +47,16 @@ async function waitForDirectoryTableLayout(page: Page) {
   await expect(table).toHaveAttribute("data-mobile-focus", narrow ? "true" : "false");
 }
 
+// A detail link must preserve the filtered list it came from. Older E2E
+// assertions only accepted bare /admin/adresar/:id and rejected this improvement.
+const fixtureReturnTo = "/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture";
+function expectFilteredDirectoryEditorHref(href: string | null) {
+  expect(href).toBeTruthy();
+  const parsed = new URL(href!, "http://localhost");
+  expect(parsed.pathname).toMatch(/^\/admin\/adresar\/\d+$/);
+  expect(parsed.searchParams.get("returnTo")).toBe(fixtureReturnTo);
+}
+
 test.describe("admin directory v2", () => {
   test("dense list uses the full dataset, accent-insensitive search and combined filters", async ({ page }) => {
     const response = await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
@@ -233,7 +243,7 @@ test.describe("admin directory v2", () => {
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "load" });
     await waitForDirectoryTableLayout(page);
     const editorHref = await page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true }).getAttribute("href");
-    expect(editorHref).toMatch(/^\/admin\/adresar\/\d+$/);
+    expectFilteredDirectoryEditorHref(editorHref);
     const editorResponse = await page.goto(editorHref!, { waitUntil: "load" });
     expect(editorResponse?.status()).toBe(200);
     await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
@@ -254,11 +264,17 @@ test.describe("admin directory v2", () => {
     await confirm.press("Escape");
     await expect(confirm).not.toBeVisible();
     await expect(phone).toHaveValue(previous + " 9");
-    await expect(page).toHaveURL(/\/admin\/adresar\/\d+$/);
+    await expect(page).toHaveURL((url) =>
+      /^\/admin\/adresar\/\d+$/.test(url.pathname) && url.searchParams.get("returnTo") === fixtureReturnTo,
+    );
 
     await back.click();
     await confirm.getByRole("button", { name: "Zahodiť zmeny a zavrieť" }).click();
-    await expect(page).toHaveURL(/\/admin\/adresar$/);
+    await page.waitForURL((url) =>
+      url.pathname === "/admin/adresar"
+      && url.searchParams.get("category") === "treneri"
+      && url.searchParams.get("q") === "Directory Admin Editor Fixture",
+    );
   });
 
   test("editor safely edits contacts/media, preserves relation metadata and keeps trust separate from publication", async ({ page }, testInfo) => {
@@ -272,7 +288,7 @@ test.describe("admin directory v2", () => {
     // contact, media and D1 assertions.
     const editorLink = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
     const editorHref = await editorLink.getAttribute("href");
-    expect(editorHref).toMatch(/^\/admin\/adresar\/\d+$/);
+    expectFilteredDirectoryEditorHref(editorHref);
     await page.goto(editorHref!, { waitUntil: "load" });
     await expect(page.getByRole("heading", { level: 1, name: "Upraviť profil" })).toBeVisible();
     // The server-rendered editor appears before its event handlers are hydrated.
@@ -584,7 +600,7 @@ test.describe("admin directory v2", () => {
     await waitForDirectoryTableLayout(page);
     const profileLink = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
     const editorHref = await profileLink.getAttribute("href");
-    expect(editorHref).toMatch(/^\/admin\/adresar\/\d+$/);
+    expectFilteredDirectoryEditorHref(editorHref);
     // The Vite-backed local E2E server can reload the list while the first
     // mobile click is in flight. Retry the real link click, not the assertion
     // or a direct page.goto(), so a genuinely broken editor link still fails.
@@ -592,7 +608,10 @@ test.describe("admin directory v2", () => {
     for (let attempt = 0; attempt < 3; attempt++) {
       await profileLink.click();
       try {
-        await expect(page).toHaveURL(new RegExp(editorHref + "$"), { timeout: 2_000 });
+        await expect(page).toHaveURL((url) =>
+          /^\/admin\/adresar\/\d+$/.test(url.pathname) && url.searchParams.get("returnTo") === fixtureReturnTo,
+          { timeout: 2_000 },
+        );
         openedEditor = true;
         break;
       } catch (error) {

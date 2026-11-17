@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
@@ -74,7 +75,7 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
   }
   return <>
     <nav className={styles.tabs} aria-label="Stavy hlásení">{tabs.map((tab)=><Link key={tab.key||"all"} data-active={filters.status===tab.key} href={href(filters,1,tab.key)}>{tab.label} <strong>{counts ? tab.count(counts) : "—"}</strong></Link>)}</nav>
-    <form className={styles.filters} method="get" role="search" aria-label="Filtrovať stratené a nájdené psy" data-admin-list-filters data-admin-content-module="lost-found-list"><input name="q" defaultValue={filters.q} aria-label="Fulltext" placeholder="Meno, obec, farba, popis…"/><select name="type" defaultValue={filters.type} aria-label="Typ"><option value="">Všetky hlásenia</option><option value="LOST">Stratené</option><option value="FOUND">Nájdené</option></select><input name="region" defaultValue={filters.region} aria-label="Kraj" placeholder="Kraj"/><input name="locality" defaultValue={filters.locality} aria-label="Okres alebo lokalita" placeholder="Okres / lokalita"/>{filters.status&&<input type="hidden" name="status" value={filters.status}/>}<button type="submit">Filtrovať</button></form>
+    <form className={styles.filters} method="get" role="search" aria-label="Filtrovať stratené a nájdené psy" data-admin-list-filters data-admin-content-module="lost-found-list"><input name="q" defaultValue={filters.q} aria-label="Fulltext" placeholder="Meno, obec, farba, popis…"/><select name="type" defaultValue={filters.type} aria-label="Typ"><option value="">Všetky hlásenia</option><option value="LOST">Stratené</option><option value="FOUND">Nájdené</option></select><input name="region" defaultValue={filters.region} aria-label="Kraj" placeholder="Kraj"/><input name="locality" defaultValue={filters.locality} aria-label="Okres alebo lokalita" placeholder="Okres / lokalita"/>{filters.status&&<input type="hidden" name="status" value={filters.status}/>}<input type="hidden" name="sort" value={filters.sort || "priority"}/><input type="hidden" name="direction" value={filters.direction || "desc"}/><button type="submit">Filtrovať</button></form>
     {message && <p role="status">{message}</p>}
     {selected.size > 0 && <div className={styles.gridSelection}>
       <strong>Označené: {selected.size}</strong>
@@ -114,7 +115,7 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
                 ? <AdminInlineCellInput label={"Meno psa v hlásení " + report.id}
                     value={activeInline.dogName} maxLength={120} disabled={busy}
                     onChange={dogName => setInlineDraft(prev => prev ? { ...prev, dogName } : null)} />
-                : <strong><Link href={`/admin/stratene-najdene/${report.id}`}>{report.dogName || report.breed || `Hlásenie #${report.id}`}</Link></strong>}
+                : <strong><Link href={adminDetailHref(`/admin/stratene-najdene/${report.id}`, href(filters, result.page))}>{report.dogName || report.breed || `Hlásenie #${report.id}`}</Link></strong>}
               <small>/{report.slug}</small>
               {report.duplicateOfId && <small>Duplicita hlásenia #{report.duplicateOfId}</small>}
             </div> },

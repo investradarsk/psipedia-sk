@@ -4,6 +4,8 @@ import {useEffect,useRef,useState,useSyncExternalStore} from "react";
 import {calendarMonthDays,calendarMonthLabel,calendarWeekdays,moveCalendarMonth} from "@/lib/event-calendar-view";
 import {facebookWallTime,facebookPostsForDay,type FacebookImagePost} from "@/lib/facebook-image-post";
 import {uploadAdminImage} from "@/lib/admin-image-upload";
+import {uploadFacebookVideo} from "@/lib/admin-video-upload";
+import {isFacebookVideoKey} from "@/lib/facebook-video";
 import {AdminFacebookGraphicEditor} from "@/components/admin-facebook-graphic-editor";
 import { AdminFacebookWeeklyPlanner } from "@/components/admin-facebook-weekly-planner";
 import {AdminActionButton,AdminModalDialog} from "@/components/admin-interaction-system";
@@ -38,10 +40,10 @@ function visualStatus(post:FacebookImagePost){
   if(post.status==="scheduled")return {label:"Naplánovaný",kind:"scheduled"};
   return {label:"Koncept",kind:"draft"};
 }
-function facebookUrl(id:string|null|undefined){
+function facebookUrl(id:string|null|undefined,mediaKey?:string){
   if(!id)return null;
   if(/^\\d+_\\d+$/.test(id)){const [page,post]=id.split("_");return `https://www.facebook.com/${page}/posts/${post}`;}
-  return /^\\d+$/.test(id)?`https://www.facebook.com/photo.php?fbid=${id}`:null;
+  return /^\\d+$/.test(id)?isFacebookVideoKey(mediaKey??"")?`https://www.facebook.com/watch/?v=${id}`:`https://www.facebook.com/photo.php?fbid=${id}`:null;
 }
 const shownAt=(stamp:string|null|undefined)=>stamp?new Intl.DateTimeFormat("sk-SK",{
   dateStyle:"short",timeStyle:"short",timeZone:"Europe/Bratislava",
@@ -419,7 +421,14 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     fetch(`/api/admin/facebook-images/${post.id}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as {post:FacebookImagePost;error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");if(abort.signal.aborted)return;const next=formFor(body.post);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:body.post});}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setOpening(false);});
   }
   async function upload(file:File):Promise<boolean>{if(lock.current)return false;lock.current=true;setBusy(true);setEditorError("");
-    try{if(!["image/jpeg","image/png","image/webp"].includes(file.type))throw new Error("Použi JPG, PNG alebo WebP.");const image=await uploadAdminImage(file,"facebook-images");setForm(old=>({...old,imageUrl:image.imageUrl,imageKey:image.imageKey}));return true;}
+    try{
+      const isVideo=["video/mp4","video/quicktime"].includes(file.type)||/\\.(mp4|mov)$/i.test(file.name);
+      if(!isVideo&&!["image/jpeg","image/png","image/webp"].includes(file.type))
+        throw new Error("Použi obrázok JPG/PNG/WebP alebo video MP4/MOV.");
+      const media=isVideo?await uploadFacebookVideo(file):await uploadAdminImage(file,"facebook-images");
+      setForm(old=>({...old,imageUrl:media.imageUrl,imageKey:media.imageKey}));
+      return true;
+    }
     catch(e){setEditorError(e instanceof Error?e.message:"Upload zlyhal.");return false;}finally{lock.current=false;setBusy(false);}
   }
   async function save(target:"draft"|"scheduled",cancel=false){if(lock.current||!editor)return;lock.current=true;setBusy(true);setEditorError("");
@@ -447,7 +456,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const attempted=editor?.post?.publicationState
     && !["PENDING","RETRY_PENDING","RETRY_EXHAUSTED"].includes(editor.post.publicationState);
   const locked=Boolean(published||attempted||editor?.post?.deletedAt);
-  const link=facebookUrl(editor?.post?.facebookPostId);
+  const link=facebookUrl(editor?.post?.facebookPostId,editor?.post?.imageKey);
+  const editingVideo=isFacebookVideoKey(form.imageKey);
   const scheduledInMonth=data.calendar.filter(post=>post.status==="scheduled"&&!post.deletedAt&&post.scheduledAt)
     .sort((a,b)=>(a.scheduledAt??"").localeCompare(b.scheduledAt??"")).slice(0,4);
   const publisherReady=Boolean(publisher?.connected&&publisher.technicallyEnabled);
@@ -456,7 +466,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       <header className={styles.heading}>
         <div>
           <h2>Plánovanie Facebook príspevkov</h2>
-          <p>Obrázky a články · časové pásmo Bratislava</p>
+          <p>Fotografie, videá a články · časové pásmo Bratislava</p>
         </div>
         <AdminActionButton data-facebook-create-post type="button" variant="primary" disabled={loading||!!error||!ready} onClick={()=>edit(null)}>Vytvoriť príspevok</AdminActionButton>
       </header>
@@ -476,7 +486,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         {scheduledInMonth.length? <div className={styles.upcomingList}>{scheduledInMonth.map(post=>
           <AdminActionButton key={post.id} type="button" className={styles.upcomingRow} disabled={loading||!ready}
             onClick={()=>edit(post)}>
-            {post.imageUrl?<img src={post.imageUrl} width={48} height={48} alt="" loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(post.imageUrl, [160, 320])} sizes="48px"/>:
+            {isFacebookVideoKey(post.imageKey)?<span className={styles.imageFallback} aria-label="Video">▶ Video</span>:post.imageUrl?<img src={post.imageUrl} width={48} height={48} alt="" loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(post.imageUrl, [160, 320])} sizes="48px"/>:
               <span className={styles.imageFallback} aria-hidden="true">FB</span>}
             <span className={styles.upcomingText}>
               <strong>{post.articleId?"Článok · ":""}{post.title}</strong>
@@ -572,7 +582,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
               {Object.entries(filters).map(([key,label])=><option key={key} value={key}>{label}</option>)}
             </select></label>
             <label>Zdroj <select disabled={loading||!ready} value={source} onChange={e=>{setSource(e.target.value);setPage(1);}}>
-              <option value="all">Všetky zdroje</option><option value="article">Facebook články</option><option value="notion">Notion obrázky</option><option value="manual">Ručne – obrázky</option>
+              <option value="all">Všetky zdroje</option><option value="article">Facebook články</option><option value="notion">Notion obrázky</option><option value="manual">Ručne – obrázky a videá</option>
             </select></label>
           </div>
         </div>
@@ -583,7 +593,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         {!data.items.length&&<p className={styles.emptyNote}>Žiadne príspevky pre zvolený filter.</p>}
         <div className={styles.list} data-admin-social-list>{data.items.map(post=><article key={post.id}
           className={[styles.listItem,styles[visualStatus(post).kind+"Card"]??""].join(" ")}>
-          {post.imageUrl?<img src={post.imageUrl} alt="" width={72} height={72} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(post.imageUrl, [160, 320])} sizes="72px"/>:
+          {isFacebookVideoKey(post.imageKey)?<span className={styles.imageFallback} aria-label="Video">▶ Video</span>:post.imageUrl?<img src={post.imageUrl} alt="" width={72} height={72} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(post.imageUrl, [160, 320])} sizes="72px"/>:
             <span className={styles.imageFallback} aria-hidden="true">FB</span>}
           <div className={styles.listText}>
             <div className={styles.listTitle}>{activeInline?.id===post.id
@@ -597,7 +607,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
                   value={activeInline.caption} disabled={inlineBusy}
                   onChange={e=>setInlineDraft(current=>current?{...current,caption:e.target.value}:null)}/>
               : <p className={styles.inlineDesktop}>{post.caption||"Bez textu"}</p>}
-            <p>{post.source==="article"?"Facebook článok":post.source==="notion"?"Notion obrázok":"Ručne"} · {post.scheduledAt?
+            <p>{post.source==="article"?"Facebook článok":post.source==="notion"?"Notion obrázok":isFacebookVideoKey(post.imageKey)?"Ručne · Video":"Ručne"} · {post.scheduledAt?
               facebookWallTime(post.scheduledAt).date+" "+facebookWallTime(post.scheduledAt).time+" · Bratislava":"Bez dátumu"}
               {post.approvalStatus==="APPROVED"?" · Povolené plánované publikovanie":""}
               {post.directPublishConsent?" · Súhlas majiteľa s priamym publikovaním":""}
@@ -628,7 +638,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       </section>
     </div>
     <dialog ref={dialog} className={[styles.dialog,graphicOpen?styles.graphicDialog:""].join(" ")} onCancel={e=>{e.preventDefault();close();}} onClick={e=>{if(e.target===e.currentTarget){const b=e.currentTarget.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)close();}}} aria-labelledby="facebook-editor-heading">
-      {editor&&<><header className={styles.dialogHeader}><h2 id="facebook-editor-heading">{editor.post?"Upraviť príspevok":"Nový Facebook obrázok"}</h2><AdminActionButton type="button" variant="secondary" disabled={busy} onClick={close}>Zavrieť</AdminActionButton></header>
+      {editor&&<><header className={styles.dialogHeader}><h2 id="facebook-editor-heading">{editor.post?"Upraviť príspevok":"Nový Facebook príspevok"}</h2><AdminActionButton type="button" variant="secondary" disabled={busy} onClick={close}>Zavrieť</AdminActionButton></header>
         <p>ID: {editor.post?.id??"Vytvorí sa pri uložení"}{editor.post?` · verzia ${editor.post.version}`:""}</p>
         {editorError&&<p role="alert" className="admin-message admin-message--error">{editorError}</p>}
         {editor.post&&<div className={styles.editorStatus} aria-live="polite">
@@ -643,8 +653,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
             onUse={async(file,title)=>{const success=await upload(file);if(success){setForm(old=>({...old,title}));setGraphicOpen(false);}return success;}}
             onCancel={()=>setGraphicOpen(false)} />:
           <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked||selectionBusy||pickerMarkerBusy!==null} className={styles.fields}>
-          <div className={styles.graphicIntro}><div><strong>Grafické šablóny Psipedia</strong><p>Použi fotografiu z článku alebo profilu, prípadne nahraj vlastnú. Nadpis môžeš upraviť.</p></div>
-            <AdminActionButton type="button" variant="secondary" onClick={()=>setGraphicOpen(true)}>Otvoriť editor grafiky</AdminActionButton></div>
+          <div className={styles.graphicIntro}><div><strong>Obrázok alebo video</strong><p>Grafický editor používa fotografie. Video MP4 alebo MOV môžeš nahrať nižšie a doplniť popis či termín publikovania.</p></div>
+            <AdminActionButton type="button" variant="secondary" disabled={editingVideo} onClick={()=>setGraphicOpen(true)}>Otvoriť editor grafiky</AdminActionButton></div>
           <section className={styles.contentPicker} aria-label="Výber obsahu z Psipedia">
             <strong>Prevziať obsah z Psipedia.sk</strong>
             <p>Vyber publikovaný článok, službu, plemeno, pomoc psom alebo podujatie. Doplníme odkaz a fotografiu, text môžeš ďalej upraviť.</p>
@@ -702,12 +712,12 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
             {pickerError&&<p role="alert" className="admin-message admin-message--error">{pickerError}</p>}
           </section>
           <label>Názov<input autoFocus required maxLength={200} value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label>
-          <label>Obrázok (JPG, PNG, WebP, max. 8 MB)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.target.value="";}}/></label>
-          {form.imageUrl&&<img className={styles.preview} src={form.imageUrl} alt="Náhľad Facebook obrázka" decoding="async"/>}
+          <label>Obrázok (JPG, PNG, WebP, max. 8 MB) alebo video (MP4/MOV, max. 50 MB)<input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,.mov,.mp4" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.target.value="";}}/></label>
+          {form.imageUrl&&(editingVideo?<video className={styles.preview} src={form.imageUrl} controls playsInline preload="metadata" aria-label="Náhľad Facebook videa"/>:<img className={styles.preview} src={form.imageUrl} alt="Náhľad Facebook obrázka" decoding="async"/>)}
           <label htmlFor="facebook-caption">Popis na Facebook</label><textarea id="facebook-caption" rows={6} maxLength={15000} value={form.caption} onChange={e=>setForm({...form,caption:e.target.value})}/>
           <div className={styles.dateFields}><label>Dátum<input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value,time:e.target.value?(form.time||"09:00"):"",repeatedHour:""})}/></label><label>Čas (Bratislava)<input type="time" value={form.time} onChange={e=>setForm({...form,time:e.target.value,repeatedHour:""})}/></label></div>
           <label>Ak sa hodina pri zmene zimného času opakuje<select value={form.repeatedHour} onChange={e=>setForm({...form,repeatedHour:e.target.value})}><option value="">Vybrať pri opakovanej hodine</option><option value="earlier">Prvý výskyt (letný čas)</option><option value="later">Druhý výskyt (zimný čas)</option></select></label>
-          <p>Stav: {editor.post?labels[editor.post.status]:"Koncept"}. Uloženie naplánovania samo o sebe okamžite nepublikuje obrázok.</p>
+          <p>Stav: {editor.post?labels[editor.post.status]:"Koncept"}. Uloženie naplánovania samo o sebe okamžite nepublikuje príspevok.</p>
           <div className={styles.actions}><AdminActionButton type="submit" variant="secondary">Uložiť koncept</AdminActionButton><AdminActionButton type="button" variant="primary" onClick={()=>void save("scheduled")}>Uložiť naplánovanie</AdminActionButton>{editor.post?.status==="scheduled"&&<AdminActionButton type="button" variant="secondary" onClick={()=>void save("draft",true)}>Zrušiť naplánovanie</AdminActionButton>}</div>
         </fieldset></form>}
         {editor.post&&!locked&&<div className={styles.actions}>

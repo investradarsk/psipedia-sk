@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { DirectoryPage } from "@/components/directory-page";
@@ -37,7 +38,7 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
   const filters = parseDirectoryFilters(rawSearchParams, category.slug);
   const cleanedUrl = directoryEmptyQueryRedirect(`/adresar/${category.slug}`, rawSearchParams, filters);
   if (cleanedUrl) redirect(cleanedUrl);
-  const result = await listPublishedDirectoryProfiles({ category: category.slug, filters });
+  const result = await retryTransientPublicRead(() => listPublishedDirectoryProfiles({ category: category.slug, filters }));
   const policy = resolveListingIndexPolicy(`/adresar/${category.slug}`, rawSearchParams, { indexPagination: true });
   const schema = policy.kind === "query" ? null : buildCollectionPageJsonLd({
     name: category.heroTitle,

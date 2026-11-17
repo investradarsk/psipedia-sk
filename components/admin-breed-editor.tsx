@@ -413,6 +413,11 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
                 Array.from(event.currentTarget.selectedOptions).map(option=>option.value))}>
               {(field.options??[]).map(option=><option key={option} value={option}>{option}</option>)}
             </select>}
+      {field.type !== "number" && field.type !== "select" && (
+        <small data-breed-multiselect-values>
+          Vybrané hodnoty: {Array.isArray(value) && value.length ? value.join(", ") : "Žiadne"}
+        </small>
+      )}
     </label>;
   };
   return <>
@@ -718,8 +723,10 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           <label className="admin-field"><span>URL profil / slug</span><input readOnly={Boolean(breed)} value={form.slug} onChange={e=>change("slug",slugify(e.target.value))}/></label>
           <div className="admin-field"><span>Psipedia ID</span><div className={styles.readonlyValue}>{breed?.id??"Pridelí sa po uložení"}</div></div>
         </div>
-        <label className="admin-field"><span>SEO title</span><input value={form.seo.title??""} onChange={e=>change("seo",{...form.seo,title:e.target.value})}/></label>
-        <label className="admin-field"><span>Meta description</span><textarea rows={3} value={form.seo.description??""} onChange={e=>change("seo",{...form.seo,description:e.target.value})}/></label>
+        <div className={styles.seoFields}>
+          <label className="admin-field"><span>SEO titulok</span><input value={form.seo.title??""} onChange={e=>change("seo",{...form.seo,title:e.target.value})}/></label>
+          <label className="admin-field"><span>Meta popis</span><textarea rows={3} value={form.seo.description??""} onChange={e=>change("seo",{...form.seo,description:e.target.value})}/></label>
+        </div>
         <AdminHelpText>{form.status === "published"
           ? "Tlačidlo Uložiť zmeny uloží upravené údaje publikovaného profilu. Import z Notionu a stiahnutie z publikovania nájdeš v ponuke Ďalšie akcie."
           : "Uložiť koncept ponechá profil nezverejnený. Publikovať profil uloží zmeny a nastaví jeho verejný stav. Import z Notionu je v ponuke Ďalšie akcie."}</AdminHelpText>
@@ -742,7 +749,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     <AdminDrawer
       open={sportDraft!==null}
       title={sportDraft?.index===null?"Pridať šport":"Upraviť šport"}
-      description="Úprava používa existujúci BreedSport contract: key, label, rating a note."
+      description="Vyber šport a ohodnoť vhodnosť od 1 (málo vhodný) po 5 (veľmi vhodný). Prípadne pridaj poznámku."
       onClose={()=>{setSportDraft(null);setSportError("");}}
       footer={<div className={styles.drawerFooter}><AdminActionButton variant="neutral" onClick={()=>{setSportDraft(null);setSportError("");}}>Zrušiť</AdminActionButton><AdminActionButton variant="primary" data-admin-autofocus="true" onClick={saveSport}>Uložiť šport</AdminActionButton></div>}
     >

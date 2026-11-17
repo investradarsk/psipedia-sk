@@ -81,7 +81,7 @@ test("ADMIN V3 content editors reuse workspace without copying canonical data fo
   assert.match(article, /<AdminEditorialAuthorField/);
   assert.match(article, /preservedEditorArticleMetadata/);
   assert.match(breed, /09 · Publikovanie a SEO/);
-  assert.match(breed, /<span>SEO title<\/span>/);
+  assert.match(breed, /<span>SEO titulok<\/span>/);
   assert.doesNotMatch(breed, /<AdminSeoFields|breed-relations/);
   assert.match(breed, /fciStandard/);
   assert.match(breed, /relatedArticleIds/);

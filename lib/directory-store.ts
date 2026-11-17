@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { env } from "cloudflare:workers";
 import {
   directoryLocationFacetStatement,
@@ -657,6 +658,10 @@ const LEGACY_DIRECTORY_SEARCH = sqlNormalizedExpression(`
 
 const DIRECTORY_PUBLIC_FACET_SEARCH = sqlNormalizedExpression(`
   ${DIRECTORY_SOURCE_FACETS.breed} || ' ' || ${DIRECTORY_SOURCE_FACETS.fciGroup} || ' ' ||
+  ${DIRECTORY_SOURCE_FACETS.organization} || ' ' || ${DIRECTORY_SOURCE_FACETS.profileType}
+`);
+const DIRECTORY_LEGACY_PUBLIC_FACET_SEARCH = sqlNormalizedExpression(`
+  ${DIRECTORY_LEGACY_BREED} || ' ' || ${DIRECTORY_SOURCE_FACETS.fciGroup} || ' ' ||
   ${DIRECTORY_SOURCE_FACETS.organization} || ' ' || ${DIRECTORY_SOURCE_FACETS.profileType}
 `);
 
@@ -1398,6 +1403,12 @@ export async function listPublishedDirectoryProfiles(options: {
   const canonicalPublicEnabled =
     (env as unknown as { SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?: string })
       .SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED === "true";
+  // Older D1 snapshots can lack optional breed relation migrations. Guard
+  // every composed public listing query before referencing either table.
+  const breedRelationTables = await database
+    .prepare("SELECT COUNT(*) AS total FROM sqlite_schema WHERE type='table' AND name IN ('breed_directory_relations','managed_breeds')")
+    .first<{ total: number }>();
+  const breedRelationsReady = Number(breedRelationTables?.total ?? 0) === 2;
   const baseClauses = ["status = 'published'"];
   const baseBindings: unknown[] = [];
   if (category) {
@@ -1407,7 +1418,7 @@ export async function listPublishedDirectoryProfiles(options: {
   if (options.filters.query) {
     const needle = `%${normalizeDirectorySearchText(options.filters.query)}%`;
     baseClauses.push(
-      `(search_text LIKE ? OR ${DIRECTORY_PUBLIC_FACET_SEARCH} LIKE ? OR (search_text = '' AND ${LEGACY_DIRECTORY_SEARCH} LIKE ?))`,
+      `(search_text LIKE ? OR ${breedRelationsReady ? DIRECTORY_PUBLIC_FACET_SEARCH : DIRECTORY_LEGACY_PUBLIC_FACET_SEARCH} LIKE ? OR (search_text = '' AND ${LEGACY_DIRECTORY_SEARCH} LIKE ?))`,
     );
     baseBindings.push(needle, needle, needle);
   }
@@ -1426,7 +1437,10 @@ export async function listPublishedDirectoryProfiles(options: {
     // One canonical breed may belong to many stations, and one station may
     // have many canonical breeds. Filter by existence, not a comma-joined
     // text value; fall back to import text only with no public canonical links.
-    baseClauses.push(`(
+    if (!breedRelationsReady) {
+      addSourceFacet(options.filters.breed, DIRECTORY_LEGACY_BREED);
+    } else {
+      baseClauses.push(`(
       (directory_profiles.category='chovatelske-stanice' AND EXISTS (
         SELECT 1 FROM breed_directory_relations linked
         JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
@@ -1438,7 +1452,8 @@ export async function listPublishedDirectoryProfiles(options: {
         AND ${DIRECTORY_LEGACY_BREED} = ?
       )
     )`);
-    baseBindings.push(options.filters.breed, options.filters.breed);
+      baseBindings.push(options.filters.breed, options.filters.breed);
+    }
   }
   addSourceFacet(options.filters.fciGroup, DIRECTORY_SOURCE_FACETS.fciGroup);
   addSourceFacet(options.filters.organization, DIRECTORY_SOURCE_FACETS.organization);
@@ -1479,7 +1494,7 @@ export async function listPublishedDirectoryProfiles(options: {
   const facetWhere = category ? `status = 'published' AND ${directoryCategoryMembershipSql()}` : "status = 'published'";
   const facetBindings = category ? [category, category] : [];
   const sourceStatement = directorySourceFacetStatement(database, facetWhere, facetBindings, {
-    breeds: DIRECTORY_SOURCE_FACETS.breed,
+    breeds: breedRelationsReady ? DIRECTORY_SOURCE_FACETS.breed : DIRECTORY_LEGACY_BREED,
     fciGroups: DIRECTORY_SOURCE_FACETS.fciGroup,
     organizations: DIRECTORY_SOURCE_FACETS.organization,
   });
@@ -1493,6 +1508,7 @@ export async function listPublishedDirectoryProfiles(options: {
     Boolean(category) &&
     (serviceFilterCategories as readonly string[]).includes(category ?? "");
   const loadCanonicalBreedOptions = async (): Promise<string[]> => {
+    if (!breedRelationsReady) return [];
     // A category can also contain a breeder through additional membership.
     // Match the same category membership rule as the public result list.
     const categoryWhere = category
@@ -1734,12 +1750,12 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
 const getPublishedDirectoryProfileUncached = async (category: string, slug: string) => {
   const database = getD1Binding();
   if (!database || !isDirectoryCategory(category)) return null;
-  const row = await database
+  const row = await retryTransientPublicRead(() => database
     .prepare(
       "SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1",
     )
     .bind(category, slug)
-    .first<DirectoryProfileRow>();
+    .first<DirectoryProfileRow>());
   if(!row)return null;
   const profile=rowToPublicProfile(row);
   // The detail page and its JSON-LD must reflect confirmed D1 choices even
@@ -2338,7 +2354,7 @@ export async function listDirectoryInquiries() {
       sender_name, sender_email, sender_phone, dog_info, message, status, consent, created_at, updated_at
     FROM directory_inquiries
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, created_at DESC
-    LIMIT 200
+    -- Admin searches the entire mailbox before client pagination.
   `,
     )
     .all<DirectoryInquiryRow>();
@@ -2453,20 +2469,23 @@ export async function listDirectoryProfileChangeRequests() {
     SELECT ${DIRECTORY_CHANGE_REQUEST_COLUMNS}
     FROM directory_profile_change_requests
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, created_at DESC
-    LIMIT 200
+    -- Admin filters every submitted request before client pagination.
   `,
     )
     .all<DirectoryProfileChangeRequestRow>();
   const rows = result.results;
   const ids = [...new Set(rows.map((row) => row.profile_id))];
   const currentById = new Map<number, DirectoryProfileEditableData>();
-  if (ids.length > 0) {
-    const placeholders = ids.map(() => "?").join(", ");
+  // Chunk the read-only profile lookup; the old 200-row cap masked the
+  // SQLite parameter limit once older submissions became searchable.
+  for (let offset = 0; offset < ids.length; offset += 250) {
+    const batch = ids.slice(offset, offset + 250);
+    const placeholders = batch.map(() => "?").join(", ");
     const profiles = await database
       .prepare(
         `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id IN (${placeholders})`,
       )
-      .bind(...ids)
+      .bind(...batch)
       .all<DirectoryProfileRow>();
     for (const row of profiles.results)
       currentById.set(row.id, editableDirectoryProfileData(rowToPublicProfile(row)));

@@ -46,7 +46,7 @@ test("step 9: name-day editor has mobile card labels and a closed-by-default imp
   assert.doesNotMatch(page, /Canonical psie meniny/);
   assert.match(ui, /data-admin-content-module="name-days"/);
   assert.match(ui, /role="search" aria-label="Filtre kalendára"/);
-  assert.match(ui, /role="status">Zobrazené: \{filtered\.length\} z \{records\.length\}/);
+  assert.match(ui, /role="status">Nájdené: \{filtered\.length\} z \{records\.length\}/);
   for (const column of ["Dátum", "Meno", "Stav", "Zdroj", "Upravené", "Akcie"]) {
     assert.ok(ui.includes('data-label="' + column + '"'), column);
   }

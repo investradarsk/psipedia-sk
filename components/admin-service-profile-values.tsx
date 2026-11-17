@@ -140,6 +140,11 @@ export function AdminServiceProfileValues({profileId,category,entries,initialCho
     })}{services.length===0&&<p>Nenašli sa žiadne vhodné služby.</p>}</div>
     </section>
     <section className={styles.profileSection} aria-label="Vlastnosti profilu"><h3>Vlastnosti — Áno/Nie/Neznáme ({attributes.length})</h3>
+      {category === "veterinari" && attributes.some(item => item.id === "attr.vet.emergency") && (
+        <p className={styles.muted} data-services-emergency-authority>
+          Pohotovosť tu predstavuje samostatnú vlastnosť Služby V3. Jej uloženie mení iba explicitnú verziovanú voľbu V3, nie kategóriový filter Pohotovosť ani historický text verejného detailu. Hodnoty sa automaticky nezlučujú; Pohotovosť neznamená automaticky 24/7.
+        </p>
+      )}
       <details className={styles.technicalNotes}><summary>Čo znamená Neznáme?</summary>
         <p className={styles.muted}>Tieto vlastnosti podporujú explicitnú trojstavovú hodnotu bez odhadovania chýbajúcich údajov.</p>
       </details>

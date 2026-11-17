@@ -53,3 +53,20 @@ test("section management stays inside the 390px viewport", async ({ page }) => {
     if (box) expect(box.height).toBeGreaterThanOrEqual(44);
   }
 });
+
+test("section management stays readable at desktop widths 1280 and 1440", async ({ page }) => {
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/sekcie", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBeLessThan(400);
+    const manager = page.getByTestId("admin-section-management");
+    await expect(manager).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const interactive = manager.locator("button:visible, a:visible");
+    const count = await interactive.count();
+    for (let index = 0; index < Math.min(count, 12); index++) {
+      const box = await interactive.nth(index).boundingBox();
+      if (box) expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+  }
+});

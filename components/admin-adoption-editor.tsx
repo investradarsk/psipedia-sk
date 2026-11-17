@@ -49,7 +49,7 @@ const nullableNumber = (data: FormData, key: string) => { const value = text(dat
 const nullableBoolean = (data: FormData, key: string) => { const value = text(data, key); return value === "true" ? true : value === "false" ? false : null; };
 const checked = (data: FormData, key: string) => data.get(key) === "on";
 
-export function AdminAdoptionEditor({ item, breeds, organizations, automationSuggestions = [] }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; organizations: AdoptionAdminOrganizationOption[]; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
+export function AdminAdoptionEditor({ item, breeds, organizations, automationSuggestions = [], returnHref = "/admin/adopcie" }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; organizations: AdoptionAdminOrganizationOption[]; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
   const [name, setName] = useState(item?.name ?? "");
   const [slug, setSlug] = useState(item?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(item));
@@ -195,13 +195,13 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
           <div className="admin-event-editor-grid"><div className="admin-event-fields">
       <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
       <AdminEditorSection id="adoption-basics" className="admin-form-card admin-form-card--intro">
-        <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Meno, adresa profilu a lifecycle stav.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Meno, adresa profilu a stav adopcie.</p></div></div></div>
         <div className="admin-field-grid">
           <div className="admin-field"><label htmlFor="adoption-name">Meno *</label><input id="adoption-name" value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => changeName(event.target.value)} required/></div>
           <div className="admin-field"><label htmlFor="adoption-slug">Slug *</label><input id="adoption-slug" value={slug} onChange={(event: ChangeEvent<HTMLInputElement>) => { setSlugEdited(true); setSlug(slugifyAdoptionSlug(event.target.value)); }} required/></div>
-          <div className="admin-field"><label htmlFor="adoption-status">Lifecycle stav *</label><select id="adoption-status" value={status} onChange={(event: ChangeEvent<HTMLSelectElement>) => setStatus(event.target.value as AdoptionStatus)}>{lifecycleOptions.map((value) => <option key={value} value={value}>{adoptionStatusLabels[value]}</option>)}</select></div>
+          <div className="admin-field"><label htmlFor="adoption-status">Stav adopcie *</label><select id="adoption-status" value={status} onChange={(event: ChangeEvent<HTMLSelectElement>) => setStatus(event.target.value as AdoptionStatus)}>{lifecycleOptions.map((value) => <option key={value} value={value}>{adoptionStatusLabels[value]}</option>)}</select></div>
         </div>
-        {publishing && <p className="admin-help">Chýbajúce údaje neblokujú publikovanie; technická identita profilu a validita vyplnených údajov zostávajú kontrolované.</p>}
+        <p className="admin-help">{publishing ? "Profil sa po uložení zobrazí verejne. Pred uložením over aktuálnosť adopcie, kontakty a fotografiu; server skontroluje vyplnené údaje." : "Profil je v tomto stave neverejný. Na verejnom webe sa zobrazí až po výbere verejného stavu adopcie a úspešnom uložení."}</p>
       </AdminEditorSection>
       <AdminAdoptionEditorProfile item={item} breeds={breeds} publishing={publishing} onProgrammaticChange={navigation.markDirty}/>
       <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading || saving} gallery={gallery} onGalleryChange={nextGallery => { navigation.markDirty(); setGallery(nextGallery); }} onGalleryBusyChange={setGalleryUploading} onMainImageChange={replaceMainImage} onUpload={uploadImage} onEditDisplay={() => setImageEditorOpen(true)} onContentChange={navigation.markDirty}/>
@@ -212,15 +212,15 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
         <button type="button" disabled={activeAdoptionIndex >= ADOPTION_SECTIONS.length - 1}
           onClick={() => navigateAdoptionPager(ADOPTION_SECTIONS[activeAdoptionIndex + 1]?.id ?? ADOPTION_SECTIONS[ADOPTION_SECTIONS.length - 1].id)}>Ďalšia</button>
       </nav>
-    </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný profil môže mať nevyplnené údaje." : "Koncept môže zostať neúplný."}</p><Link href="/admin/adopcie">← Späť na adopcie</Link>{item && <AdminShareToFacebook title={name} imageUrl={mainImage} publicPath={"/pomoc-psom/adopcia/" + item.slug} />}</aside></div>
+    </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný profil môže mať nevyplnené údaje." : "Koncept môže zostať neúplný."}</p><Link href={returnHref}>← Späť na adopcie</Link>{item && <AdminShareToFacebook title={name} imageUrl={mainImage} publicPath={"/pomoc-psom/adopcia/" + item.slug} />}</aside></div>
         </div>
       </div>
     </AdminEditorSectionVisibility.Provider>
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
     {navigation.dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
     <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
-      {item && <AdminRecordLifecycleActions kind="adoptions" recordId={item.id} status={persistedStatus} disabled={saving || uploading || galleryUploading} returnHref="/admin/adopcie" onUnpublished={(_next,updatedAt)=>{setStatus("DRAFT");setPersistedStatus("DRAFT");if(updatedAt)setVersion(updatedAt);}} />}
-      <div className="admin-editor-actions"><Link href="/admin/adopcie">Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
+      {item && <AdminRecordLifecycleActions kind="adoptions" recordId={item.id} status={persistedStatus} disabled={saving || uploading || galleryUploading} returnHref={returnHref} onUnpublished={(_next,updatedAt)=>{setStatus("DRAFT");setPersistedStatus("DRAFT");if(updatedAt)setVersion(updatedAt);}} />}
+      <div className="admin-editor-actions"><Link href={returnHref}>Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
     </AdminEditorFooter>
   </form>;
 }

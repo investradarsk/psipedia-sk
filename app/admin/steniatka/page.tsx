@@ -17,10 +17,9 @@ export default async function AdminPuppiesPage({ searchParams }: { searchParams:
   const filters = parseArticleAdminListFilters({
     get: (key) => typeof params[key] === "string" ? params[key] as string : null,
   });
-  const [result, sections] = await Promise.all([
-    listManagedArticleSummaries({ ...filters, portalSection: "steniatka" }),
-    listManagedPortalSections(),
-  ]);
+  const activeTab = params.tab === "oblasti" ? "oblasti" : "clanky";
+  const result = activeTab === "clanky" ? await listManagedArticleSummaries({ ...filters, portalSection: "steniatka" }) : null;
+  const sections = activeTab === "oblasti" ? await listManagedPortalSections() : null;
   return (
     <AdminShell
       user={user}
@@ -29,8 +28,12 @@ export default async function AdminPuppiesPage({ searchParams }: { searchParams:
       description="Pridávaj články priamo do konkrétnych oblastí a spravuj celý obsah sekcie Šteniatka."
       actions={<><Link className="admin-primary-action" href="/admin/steniatka/pokrytie">Pokrytie tém</Link><Link className="admin-primary-action" href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link></>}
     >
-      <AdminPuppyAreaEditor initialSections={sections} />
-      <AdminDashboard
+      <nav aria-label="Pracovné záložky Šteniatok" className="admin-form-card" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        <Link href="/admin/steniatka" aria-current={activeTab === "clanky" ? "page" : undefined}>Články</Link>
+        <Link href="/admin/steniatka?tab=oblasti" aria-current={activeTab === "oblasti" ? "page" : undefined}>Nastavenia oblastí</Link>
+      </nav>
+      {sections && <AdminPuppyAreaEditor initialSections={sections} />}
+      {result && <AdminDashboard
         key={JSON.stringify(filters)}
         initialArticles={result.articles}
         initialCounts={result.counts}
@@ -38,7 +41,7 @@ export default async function AdminPuppiesPage({ searchParams }: { searchParams:
         pagination={result.pagination}
         filters={{ ...filters, portalSection: "all" }}
         fixedPortalSection="steniatka"
-      />
+      />}
     </AdminShell>
   );
 }

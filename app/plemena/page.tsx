@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { breedProfileHref } from "@/lib/breed-canonical";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -42,8 +43,8 @@ export default async function BreedsPage({ searchParams }: Props) {
   const [portalSection, breeds, heroVisual, breedClubBannerColors] = await Promise.all([
     getManagedPortalSection("plemena"),
     listPublishedCanonicalBreedAtlasCards(),
-    getSectionHeroVisual("section.plemena"),
-    getPublishedDesktopBannerColors("plemena:kluby"),
+    retryTransientPublicRead(() => getSectionHeroVisual("section.plemena")),
+    retryTransientPublicRead(() => getPublishedDesktopBannerColors("plemena:kluby")),
   ]);
   const rawSearchParams = await searchParams;
   const breedSection = portalSection ?? portalSections.find((section) => section.slug === "plemena") ?? null;

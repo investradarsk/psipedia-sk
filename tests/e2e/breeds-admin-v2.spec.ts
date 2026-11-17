@@ -192,8 +192,8 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(fciSection.getByText("B. Stavba tela a pohyb")).toBeVisible();
     await goToBreedEditorSection(page, "Publikovanie a SEO", "breed-settings");
     const seoSection = page.locator("#breed-settings");
-    await expect(seoSection.getByLabel("SEO title")).toBeVisible();
-    await expect(seoSection.getByLabel("Meta description")).toBeVisible();
+    await expect(seoSection.getByLabel("SEO titulok")).toBeVisible();
+    await expect(seoSection.getByLabel("Meta popis")).toBeVisible();
 
     await goToBreedEditorSection(page, "Fotografie, športy, zdroje", "breed-media");
     const imageSection = page.locator("#breed-media");

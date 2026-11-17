@@ -213,7 +213,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
       <span className="eyebrow">{eventType}{cancelled ? " · Zrušené" : ""}</span>
       <h2>{title || "Názov podujatia"}</h2>
       <p>{excerpt || "Krátky popis podujatia sa zobrazí tu."}</p>
-      <dl className={styles.previewFacts}><div><dt>Termín</dt><dd>{startDate || "Dátum"}{startTime ? ` · ${startTime}` : ""}</dd></div><div><dt>Miesto</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Organizátor</dt><dd>{organizer || "Organizátor"}</dd></div></dl>
+      <dl className={styles.previewFacts}><div><dt>Termín</dt><dd>{startDate || "Dátum"}{startTime ? ` · ${startTime}` : ""}{endDate && (endDate !== startDate || endTime) ? ` – ${endDate}${endTime ? ` · ${endTime}` : ""}` : ""}</dd></div><div><dt>Miesto</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Organizátor</dt><dd>{organizer || "Organizátor"}</dd></div></dl>
     </div>
   );
 
@@ -223,7 +223,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         mode="page"
         title={event ? `Upraviť: ${event.title}` : "Nové podujatie"}
         hidePageTitle
-        description="Uprav termín, miesto, organizátora, program a zverejnenie v samostatných sekciách."
+        description="Uprav termín, miesto a program. Uložiť koncept ponechá záznam neverejný; Uložiť zmeny aktualizuje publikovaný záznam; Publikovať ho sprístupní v kalendári."
         status={<EditorStatus label={cancelled ? "Zrušené podujatie" : status === "published" ? "Publikované" : "Koncept"} tone={cancelled ? "warning" : status === "published" ? "success" : "neutral"} />}
         sections={EVENT_SECTIONS}
         sectionMode="switch"
@@ -291,7 +291,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
                 <AdminProfileGoogleMaps targetType="MANAGED_EVENT" targetId={event.id} />
                 <div className="admin-editor-actions">
                   {!geoFallbackOpened && <button type="button" onClick={() => setGeoFallbackOpened(true)}>
-                    Otvoriť záložné overenie polohy podľa adresy
+                    Overiť podľa adresy
                   </button>}
                 </div>
                 {geoFallbackOpened && <AdminGeoLocation

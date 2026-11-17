@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AdminCommunityPagination, COMMUNITY_PAGE_SIZE } from "@/components/admin-community-pagination";
 import {
   type ArticleFeedback,
   type ArticleFeedbackStatus,
@@ -36,10 +37,16 @@ function statusClass(status: ArticleFeedbackStatus) {
 export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { feedback: ArticleFeedback[] }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState(initialFeedback);
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "helpful" | ArticleFeedbackStatus>("all");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [rowDraft, setRowDraft] = useState<{ id: number; status: ArticleFeedbackStatus; initialStatus: ArticleFeedbackStatus } | null>(null);
 
+  const visible = feedback.filter(item => (statusFilter === "all" || (statusFilter === "helpful" ? item.helpful : !item.helpful && item.status === statusFilter))
+    && (!query.trim() || (item.articleTitle + " " + (item.missingText ?? "")).toLocaleLowerCase("sk").includes(query.trim().toLocaleLowerCase("sk"))));
+  const activePage = Math.min(page, Math.max(1, Math.ceil(visible.length / COMMUNITY_PAGE_SIZE)));
   const helpful = feedback.filter((item) => item.helpful).length;
   const notHelpful = feedback.length - helpful;
   const withComment = feedback.filter((item) => !item.helpful && item.missingText).length;
@@ -95,10 +102,17 @@ export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { f
       </section>
       <section className="admin-panel admin-feedback-panel" data-admin-content-module="reader-feedback">
         <div className="admin-feedback-summary"><strong>👍 {helpful} Áno</strong><strong>👎 {notHelpful} Nie</strong></div>
+        <div className="admin-toolbar" role="search" aria-label="Filtre hodnotení článkov">
+          <label>Hľadať článok alebo podnet<input type="search" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} placeholder="Názov článku alebo text hodnotenia" /></label>
+          <label>Stav<select value={statusFilter} onChange={event => { setStatusFilter(event.target.value as typeof statusFilter); setPage(1); }}>
+            <option value="all">Všetky hodnotenia</option><option value="helpful">Užitočné</option>
+            {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select></label>
+        </div>
         {message && <p className="admin-flash" role="status">{message}</p>}
-        {feedback.length ? (
+        {visible.length ? (
           <div className="admin-feedback-list" data-admin-community-list>
-            {feedback.map((item) => (
+            {visible.slice((activePage - 1) * COMMUNITY_PAGE_SIZE, activePage * COMMUNITY_PAGE_SIZE).map((item) => (
               <article id={`hodnotenie-${item.id}`} className={item.helpful ? "is-helpful" : "is-not-helpful"} key={item.id} data-admin-community-feedback>
                 <header className={styles.header}>
                   <span>{item.helpful ? "👍 Áno" : "👎 Nie"}</span>
@@ -135,7 +149,8 @@ export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { f
               </article>
             ))}
           </div>
-        ) : <div className="admin-empty"><span>👍</span><h2>Zatiaľ bez hodnotení</h2><p>Odpovede čitateľov sa po prvom hodnotení zobrazia tu.</p></div>}
+        ) : <div className="admin-empty"><span>👍</span><h2>{feedback.length ? "Žiadne výsledky" : "Zatiaľ bez hodnotení"}</h2><p>{feedback.length ? "Uprav filtre alebo hľadaný výraz." : "Odpovede čitateľov sa po prvom hodnotení zobrazia tu."}</p>{feedback.length > 0 && <button type="button" onClick={() => { setStatusFilter("all"); setQuery(""); setPage(1); }}>Zrušiť filtre</button>}</div>}
+        <AdminCommunityPagination total={visible.length} page={activePage} onPageChange={setPage} />
       </section>
     </>
   );
