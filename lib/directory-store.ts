@@ -17,7 +17,7 @@ import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
 import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card";
-import { canonicalBreedIdsSql } from "./breed-canonical";
+import { canonicalBreedIdsSql, readCanonicalBreedIds } from "./breed-canonical";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import {
   parsePublicDirectoryFacets,
@@ -605,6 +605,16 @@ const DIRECTORY_SOURCE_FACETS = {
     AND ${DIRECTORY_HAS_CANONICAL_BREEDS} THEN ''
     ELSE ${DIRECTORY_LEGACY_BREED} END`,
 };
+
+// Directory facet options are computed on every public listing. Do not rerun
+// the full canonical window query for every row in directory_profiles: use one
+// small authoritative eligibility projection and pass its winner IDs as JSON.
+const DIRECTORY_CANONICAL_BREED_FACET = `CASE WHEN directory_profiles.category='chovatelske-stanice'
+  AND EXISTS (
+    SELECT 1 FROM breed_directory_relations linked
+    WHERE linked.profile_id = directory_profiles.id
+      AND linked.breed_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+  ) THEN '' ELSE ${DIRECTORY_LEGACY_BREED} END`;
 
 export function sqlNormalizedExpression(columnExpression: string) {
   const replacements: Array<[string, string]> = [
@@ -1409,6 +1419,8 @@ export async function listPublishedDirectoryProfiles(options: {
     .prepare("SELECT COUNT(*) AS total FROM sqlite_schema WHERE type='table' AND name IN ('breed_directory_relations','managed_breeds')")
     .first<{ total: number }>();
   const breedRelationsReady = Number(breedRelationTables?.total ?? 0) === 2;
+  const canonicalBreedIds = breedRelationsReady ? await readCanonicalBreedIds(database) : [];
+  const canonicalBreedIdsJson = JSON.stringify(canonicalBreedIds);
   const baseClauses = ["status = 'published'"];
   const baseBindings: unknown[] = [];
   if (category) {
@@ -1494,10 +1506,10 @@ export async function listPublishedDirectoryProfiles(options: {
   const facetWhere = category ? `status = 'published' AND ${directoryCategoryMembershipSql()}` : "status = 'published'";
   const facetBindings = category ? [category, category] : [];
   const sourceStatement = directorySourceFacetStatement(database, facetWhere, facetBindings, {
-    breeds: breedRelationsReady ? DIRECTORY_SOURCE_FACETS.breed : DIRECTORY_LEGACY_BREED,
+    breeds: breedRelationsReady ? DIRECTORY_CANONICAL_BREED_FACET : DIRECTORY_LEGACY_BREED,
     fciGroups: DIRECTORY_SOURCE_FACETS.fciGroup,
     organizations: DIRECTORY_SOURCE_FACETS.organization,
-  });
+  }, breedRelationsReady ? [canonicalBreedIdsJson] : []);
 
   // Keep the location/source facet reads in one D1 batch; legacy service/type option scans are no longer needed.
   // The canonical service-option lookup is independent: start it in parallel
@@ -1519,10 +1531,10 @@ export async function listPublishedDirectoryProfiles(options: {
       JOIN managed_breeds linked_breed ON linked_breed.id=linked.breed_id
       JOIN directory_profiles linked_profile ON linked_profile.id=linked.profile_id
       WHERE linked_profile.status='published' AND linked_profile.category='chovatelske-stanice'
-        AND linked_breed.id IN (${canonicalBreedIdsSql})
+        AND linked_breed.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
         ${categoryWhere}
       ORDER BY linked_breed.name COLLATE NOCASE LIMIT 500
-    `).bind(...(category ? [category, category] : [])).all<{ name: string }>();
+    `).bind(canonicalBreedIdsJson, ...(category ? [category, category] : [])).all<{ name: string }>();
     return (rows.results ?? []).map(row => row.name.trim()).filter(Boolean);
   };
   const loadCanonicalServices = async (): Promise<CanonicalPublicServiceOption[]> => {
@@ -1659,6 +1671,7 @@ export async function listPublishedDirectoryProfiles(options: {
     profiles: await attachBreederCardBreeds(
       database,
       (listResult.results as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
+      canonicalBreedIds,
     ),
     total,
     page,
