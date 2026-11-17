@@ -27,3 +27,20 @@ test("rejects external, protocol-relative, sibling and malformed return destinat
   assert.equal(adminReturnHref(["/admin/organizacie?page=2"], listing), listing);
   assert.equal(adminReturnHref(undefined, listing), listing);
 });
+
+test("unified Help hub returns to the same filtered category and page", () => {
+  const origins = ["/admin/adopcie", "/admin/pomoc-psom"];
+  const source = "/admin/pomoc-psom?category=adopcia&q=labrador&page=4";
+  const detail = adminDetailHref("/admin/adopcie/127", source);
+  const parsed = new URL(detail, "https://admin.invalid");
+  assert.equal(parsed.pathname, "/admin/adopcie/127");
+  assert.equal(adminReturnHref(parsed.searchParams.get("returnTo") ?? undefined, origins), source);
+  assert.equal(adminReturnHref("/admin/pomoc-psom-evil?category=adopcia", origins), origins[0]);
+});
+
+test("all Help editors can return to the explicitly allowed unified hub", () => {
+  for (const root of ["/admin/organizacie", "/admin/pomoc", "/admin/stratene-najdene"]) {
+    const source = "/admin/pomoc-psom?category=utulky&page=3";
+    assert.equal(adminReturnHref(source, [root, "/admin/pomoc-psom"]), source);
+  }
+});
