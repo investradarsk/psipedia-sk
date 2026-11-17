@@ -26,13 +26,15 @@ test("canonical published breed relations take precedence in a single batch and 
   let calls = 0;
   let sql = "";
   let ids = [];
+  let canonicalIds = [];
   const database = {
     prepare(query) {
       calls++;
       sql = query;
       return {
-        bind(input) {
+        bind(input, canonicalJson) {
           ids = JSON.parse(input);
+          canonicalIds = JSON.parse(canonicalJson);
           return {
             async all() {
               return { results: [
@@ -47,11 +49,12 @@ test("canonical published breed relations take precedence in a single batch and 
     },
   };
   const other = vet(10);
-  const profiles = await attachBreederCardBreeds(database, [station(1), station(2), other]);
+  const profiles = await attachBreederCardBreeds(database, [station(1), station(2), other], [101, 102]);
   assert.equal(calls, 1);
   assert.deepEqual(ids, [1, 2]);
+  assert.deepEqual(canonicalIds, [101, 102]);
   assert.match(sql, /breed_directory_relations/);
-  assert.match(sql, /canonical/);
+  assert.match(sql, /json_each\(\?\)/);
   assert.equal(profiles[0].breedSummary, "Labradorský retríver, Zlatý retríver");
   assert.equal(profiles[1].breedSummary, "Nemecký ovčiak");
   assert.equal(profiles[2], other);

@@ -97,6 +97,51 @@ export const canonicalBreedIdsSql = `SELECT winners.id
     AND winners.id = winners.slug_first_id
     AND winners.id = winners.import_first_id`;
 
+/**
+ * Cheap canonical ID projection for public directory reads.
+ *
+ * The SQL eligibility predicate remains the single source of truth. Only the
+ * three identity keys cross into JS. Every *eligible* duplicate participates
+ * in the minima, including duplicates that themselves lose another key.
+ * Selecting winners first and then de-duplicating would change semantics.
+ *
+ * This deliberately performs no cross-request caching: publication, noindex
+ * and relation edits must be reflected by the next D1 read.
+ */
+type EligibleCanonicalBreedIdentity = {
+  id: number;
+  fci_number: number;
+  slug: string;
+  normalized_import_key: string;
+};
+
+export function canonicalBreedIdsFromEligibleRows(rows: readonly EligibleCanonicalBreedIdentity[]): number[] {
+  const firstFci = new Map<number, number>();
+  const firstSlug = new Map<string, number>();
+  const firstImport = new Map<string, number>();
+  for (const row of rows) {
+    firstFci.set(row.fci_number, Math.min(firstFci.get(row.fci_number) ?? row.id, row.id));
+    firstSlug.set(row.slug, Math.min(firstSlug.get(row.slug) ?? row.id, row.id));
+    firstImport.set(row.normalized_import_key, Math.min(firstImport.get(row.normalized_import_key) ?? row.id, row.id));
+  }
+  return rows
+    .filter((row) => row.id === firstFci.get(row.fci_number)
+      && row.id === firstSlug.get(row.slug)
+      && row.id === firstImport.get(row.normalized_import_key))
+    .map((row) => row.id)
+    .sort((left, right) => left - right);
+}
+
+export async function readCanonicalBreedIds(database: Pick<D1Database, "prepare">): Promise<number[]> {
+  const result = await database.prepare(`
+    SELECT b.id, b.fci_number, b.slug, TRIM(b.import_key) AS normalized_import_key
+    FROM managed_breeds b
+    WHERE ${canonicalBreedEligibilitySql("b")}
+  `).all<EligibleCanonicalBreedIdentity>();
+  return canonicalBreedIdsFromEligibleRows(result.results ?? []);
+}
+
+
 export type CanonicalIdentity = { id:number; slug:string; fci_number:number|null; import_key:string|null; status:string; seo_json:string; fci_group?:number };
 
 /** Audit the raw published rows, before filtering can hide conflicting identities. */

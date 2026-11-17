@@ -4,9 +4,12 @@ import { readFileSync } from "node:fs";
 import { readNonemptyD1Page } from "../lib/perf-d1-page-read.ts";
 import { DIRECTORY_PUBLIC_SOURCE_FACETS, directoryEffectiveDistrictSql } from "../lib/directory-public-source-contract.ts";
 import test from "node:test";
+import { canonicalBreedIdsSql, readCanonicalBreedIds } from "../lib/breed-canonical.ts";
+import { directoryCategoryMembershipSql } from "../lib/directory-multi-category.ts";
 import {
   directoryLocationFacetStatement,
   directorySourceFacetStatement,
+  directoryCanonicalBreedFacetSql,
   parseDirectoryFacetValues,
 } from "../lib/directory-read-facets.ts";
 
@@ -468,5 +471,103 @@ test("reproducible SQLite benchmark: report elapsed times, never assert machine-
     );
   } finally {
     close();
+  }
+});
+
+
+test("production-hot canonical breeder options and source facets preserve SQL results without repeating winner windows", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    sqlite.exec("CREATE TABLE managed_breeds (id INTEGER PRIMARY KEY, status TEXT, fci_number INTEGER, import_key TEXT, slug TEXT, name TEXT, fci_group INTEGER, seo_json TEXT)");
+    sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, status TEXT, category TEXT, source_data_json TEXT)");
+    sqlite.exec("CREATE TABLE breed_directory_relations (profile_id INTEGER, breed_id INTEGER)");
+    const breedInsert = sqlite.prepare("INSERT INTO managed_breeds VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    for (const row of [
+      [1,"published",101,"A","alpha","Alfa",1,"{}"],
+      [2,"published",101,"B","beta","Beta",1,"{}"], // FCI loser
+      [3,"published",102,"C","gamma","Gamma",1,"{}"],
+      [4,"published",103,"D","delta","Noindex",1,'{"noindex":1}'],
+      [5,"published",104,"E","epsilon","Epsilon",1,"{}"],
+      [6,"published",106," C ","zeta","Trimmed key loser",1,"{}"],
+      [7,"published",107,"G","eta","External",1,'{"canonicalUrl":"/plemena/other"}'],
+      [8,"draft",108,"H","theta","Draft",1,"{}"],
+      [9,"published",109,"I","epsilon","Second slug loser",1,"{}"],
+    ]) breedInsert.run(...row);
+    const profileInsert = sqlite.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?)");
+    const extras = (items) => JSON.stringify({"_psipedia_additional_categories": JSON.stringify(items), Plemeno:"Legacy"});
+    for (const row of [
+      [10,"published","chovatelske-stanice",extras([])],
+      [11,"published","chovatelske-stanice",extras([])],
+      [12,"published","chovatelske-stanice",extras(["treneri"])],
+      [13,"draft","chovatelske-stanice",extras([])],
+      [14,"published","veterinari",extras(["chovatelske-stanice"])],
+      [15,"published","chovatelske-stanice",extras([])],
+    ]) profileInsert.run(...row);
+    const link = sqlite.prepare("INSERT INTO breed_directory_relations VALUES (?, ?)");
+    for (const pair of [[10,1],[10,4],[11,2],[11,6],[12,3],[12,5],[13,5],[14,3],[15,7]]) link.run(...pair);
+    const database = {
+      prepare(sql) {
+        return {
+          async all() { return {results: sqlite.prepare(sql).all()}; },
+        };
+      },
+    };
+    const canonicalIds = await readCanonicalBreedIds(database);
+    assert.deepEqual(canonicalIds, sqlite.prepare(canonicalBreedIdsSql).all().map((row) => row.id).sort((a,b) => a-b));
+    assert.deepEqual(canonicalIds,[1,3,5]);
+
+    const oldBreedExpr = "CASE WHEN directory_profiles.category='chovatelske-stanice' AND EXISTS (" +
+      "SELECT 1 FROM breed_directory_relations linked JOIN managed_breeds linked_breed ON linked_breed.id=linked.breed_id " +
+      "WHERE linked.profile_id=directory_profiles.id AND linked_breed.id IN ("+canonicalBreedIdsSql+")) THEN '' ELSE "+
+      DIRECTORY_PUBLIC_SOURCE_FACETS.breed+" END";
+    const newBreedExpr = directoryCanonicalBreedFacetSql(DIRECTORY_PUBLIC_SOURCE_FACETS.breed);
+    const oldRowSql = "SELECT id, " + oldBreedExpr + " AS breed FROM directory_profiles WHERE status='published' ORDER BY id";
+    const newRowSql = "SELECT id, " + newBreedExpr + " AS breed FROM directory_profiles WHERE status='published' ORDER BY id";
+    assert.deepEqual(sqlite.prepare(newRowSql).all(JSON.stringify(canonicalIds)), sqlite.prepare(oldRowSql).all());
+
+    const oldFacetSql = "SELECT json_group_array(DISTINCT trim(CAST(" + oldBreedExpr +
+      " AS TEXT))) AS breeds FROM directory_profiles WHERE status='published'";
+    const optimizedFacet = directorySourceFacetStatement({
+      prepare(sql) {
+        return { bind(...args) { return {
+          async all() { return { results: sqlite.prepare(sql).all(...args) }; },
+        }; } };
+      },
+    }, "status='published' AND category = ?", ["chovatelske-stanice"], {
+      breeds: newBreedExpr,
+      fciGroups: DIRECTORY_PUBLIC_SOURCE_FACETS.fciGroup,
+      organizations: DIRECTORY_PUBLIC_SOURCE_FACETS.organization,
+    }, [JSON.stringify(canonicalIds)]);
+    const optimizedResult = (await optimizedFacet.all()).results[0];
+    const oldCategoryFacet = sqlite.prepare(oldFacetSql + " AND category = ?").get("chovatelske-stanice");
+    assert.deepEqual(
+      parseDirectoryFacetValues(optimizedResult.breeds),
+      parseDirectoryFacetValues(oldCategoryFacet.breeds),
+    );
+
+    const baseOptions = "SELECT DISTINCT linked_breed.name AS name FROM breed_directory_relations linked " +
+      "JOIN managed_breeds linked_breed ON linked_breed.id=linked.breed_id " +
+      "JOIN directory_profiles linked_profile ON linked_profile.id=linked.profile_id " +
+      "WHERE linked_profile.status='published' AND linked_profile.category='chovatelske-stanice' " +
+      "AND linked_breed.id IN (";
+    const afterOptions = ") AND " + directoryCategoryMembershipSql("linked_profile") +
+      " ORDER BY linked_breed.name COLLATE NOCASE LIMIT 500";
+    const oldOptions = sqlite.prepare(baseOptions+canonicalBreedIdsSql+afterOptions)
+      .all("treneri","treneri");
+    const newOptions = sqlite.prepare(baseOptions+"SELECT CAST(value AS INTEGER) FROM json_each(?)"+afterOptions)
+      .all(JSON.stringify(canonicalIds),"treneri","treneri");
+    assert.deepEqual(newOptions,oldOptions,"secondary category must retain canonical breed options");
+    const plan = sqlite.prepare("EXPLAIN QUERY PLAN " + baseOptions +
+      "SELECT CAST(value AS INTEGER) FROM json_each(?)" + afterOptions)
+      .all(JSON.stringify(canonicalIds),"treneri","treneri");
+    assert.ok(!plan.some((row) => /CO-ROUTINE winners|managed_breeds b\b/i.test(String(row.detail))),
+      "optimized linked options must not execute breed-identity windows");
+
+    // No hidden persistent cache when publication or SEO is modified.
+    sqlite.prepare("UPDATE managed_breeds SET seo_json=? WHERE id=1").run('{"noindex":true}');
+    assert.deepEqual(await readCanonicalBreedIds(database),
+      sqlite.prepare(canonicalBreedIdsSql).all().map((row) => row.id).sort((a,b) => a-b));
+  } finally {
+    sqlite.close();
   }
 });
