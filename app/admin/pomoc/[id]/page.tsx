@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string | string[] }> };
 
 export default async function EditHelpCasePage({ params, searchParams }: Props) {
-  const returnHref = adminReturnHref((await searchParams).returnTo, "/admin/pomoc");
+  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/pomoc", "/admin/pomoc-psom"]);
   const { id } = await params; const numericId = Number.parseInt(id, 10);
   if (!Number.isSafeInteger(numericId) || numericId < 1) notFound();
   const user = await requireAdminPageUser(`/admin/pomoc/${id}`);
