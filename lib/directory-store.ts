@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import {
   directoryLocationFacetStatement,
   directorySourceFacetStatement,
+  directoryCanonicalBreedFacetSql,
   parseDirectoryFacetValues,
 } from "@/lib/directory-read-facets";
 import {
@@ -609,12 +610,7 @@ const DIRECTORY_SOURCE_FACETS = {
 // Directory facet options are computed on every public listing. Do not rerun
 // the full canonical window query for every row in directory_profiles: use one
 // small authoritative eligibility projection and pass its winner IDs as JSON.
-const DIRECTORY_CANONICAL_BREED_FACET = `CASE WHEN directory_profiles.category='chovatelske-stanice'
-  AND EXISTS (
-    SELECT 1 FROM breed_directory_relations linked
-    WHERE linked.profile_id = directory_profiles.id
-      AND linked.breed_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
-  ) THEN '' ELSE ${DIRECTORY_LEGACY_BREED} END`;
+const DIRECTORY_CANONICAL_BREED_FACET = directoryCanonicalBreedFacetSql(DIRECTORY_LEGACY_BREED);
 
 export function sqlNormalizedExpression(columnExpression: string) {
   const replacements: Array<[string, string]> = [
