@@ -19,7 +19,7 @@ test("primary admin flow is Google-first and keeps address fallback without coor
   assert.match(component, /Verejná poloha/);
   assert.match(ui, /Nájsť profil v Google Maps/);
   assert.match(ui, /Použiť toto miesto/);
-  assert.match(component, /Fallback: nájsť podľa adresy/);
+  assert.match(component, /Overiť podľa adresy/);
   assert.match(component, /Potvrdiť polohu/);
   assert.match(component, /Hľadať znova/);
   assert.match(component, /Nájdená adresa v Google Maps/);
