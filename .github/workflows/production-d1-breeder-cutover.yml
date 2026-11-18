@@ -1,9 +1,9 @@
-name: Production D1 Breeder Cutover (manual freeze and reset)
+name: Production D1 Breeder Cutover (manual freeze, reset and release)
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Audit, freeze, or guarded reset (separate owner approvals)
+        description: Audit, freeze, reset, or release (separate owner approvals)
         required: true
         type: choice
         default: audit
@@ -11,6 +11,7 @@ on:
           - audit
           - freeze
           - reset
+          - release
       fingerprint:
         description: Exact latest audit snapshot fingerprint (required for freeze and reset)
         type: string
@@ -19,8 +20,12 @@ on:
         description: Reset only - NOTION-RELATION-FIELDS-VERIFIED-EMPTY
         type: string
         required: false
+      release_verification:
+        description: Release only after verified #1414 deployment - NEW-1414-RUNTIME-VERIFIED
+        type: string
+        required: false
       confirmation:
-        description: Enter AUDIT-, FREEZE-, or RESET-BREEDER-CUTOVER-psipedia-sk-db
+        description: Enter AUDIT-, FREEZE-, RESET-, or RELEASE-BREEDER-CUTOVER-psipedia-sk-db
         type: string
         required: true
 concurrency:
@@ -35,6 +40,7 @@ jobs:
     environment: production
     env:
       BREEDER_CUTOVER_CONFIRMATION: ${{ inputs.confirmation }}
+      BREEDER_CUTOVER_RELEASE: ${{ inputs.release_verification }}
       BREEDER_CUTOVER_MODE: ${{ inputs.mode }}
       BREEDER_CUTOVER_FINGERPRINT: ${{ inputs.fingerprint }}
       BREEDER_CUTOVER_NOTION: ${{ inputs.notion_verification }}
@@ -46,7 +52,7 @@ jobs:
           test "$GITHUB_EVENT_NAME" = workflow_dispatch
           test "$GITHUB_REPOSITORY" = investradarsk/psipedia-sk
           test "$GITHUB_REF" = refs/heads/main
-          case "$BREEDER_CUTOVER_MODE" in audit|freeze|reset) ;; *) exit 1 ;; esac
+          case "$BREEDER_CUTOVER_MODE" in audit|freeze|reset|release) ;; *) exit 1 ;; esac
           test "$BREEDER_CUTOVER_CONFIRMATION" = "$(printf %s "$BREEDER_CUTOVER_MODE" | tr '[:lower:]' '[:upper:]')-BREEDER-CUTOVER-psipedia-sk-db"
       - uses: actions/checkout@v4
         with:
