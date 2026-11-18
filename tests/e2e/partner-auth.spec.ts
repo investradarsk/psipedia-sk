@@ -290,7 +290,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toBeVisible();
     await requestManagement.click();
     await expect(page.getByRole("heading",{name:"Požiadať o správu záznamu"})).toBeVisible();
-    await page.getByLabel(/Ako ste spojení/).fill("E2E poverený správca");
+    await page.getByLabel(/Aký je váš vzťah k tomuto záznamu/).fill("E2E poverený správca");
     await page.getByRole("button",{name:"Odoslať žiadosť o prevzatie"}).click();
     await expect(page.getByRole("status")).toContainText("Žiadosť sme prijali a čaká na kontrolu.");
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
@@ -992,7 +992,7 @@ test("internal admin Partner overview and account detail are protected admin pag
       response.ok(),
     );
     await page.getByRole("button",{name:"Schváliť",exact:true}).click();
-    const claimDialog=page.getByRole("dialog",{name:"Schváliť prevzatie profilu?"});
+    const claimDialog=page.getByRole("dialog",{name:"Schváliť správu záznamu?"});
     await expect(claimDialog).toBeVisible();
     await claimDialog.getByRole("button",{name:"Schváliť prevzatie"}).click();
     await claimResponse;
