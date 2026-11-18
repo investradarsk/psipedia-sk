@@ -139,6 +139,10 @@ test("D1 query reads existing per-profile SQL rows and leaves unedited legacy va
 test("SQL-first public single detail and fail-closed Admin editor GET use same resolver",()=>{
   const store=readFileSync(new URL("../lib/directory-store.ts",import.meta.url),"utf8");
   const route=readFileSync(new URL("../app/api/admin/directory/[id]/route.ts",import.meta.url),"utf8");
+  const page=readFileSync(new URL("../app/admin/adresar/[id]/page.tsx",import.meta.url),"utf8");
+  assert.match(page,/const importData=await readDirectory0170EditorialFields\(db/);
+  assert.match(page,/source:canonicalProfile\.importData,audience:"admin"/);
+  assert.match(page,/editorialReadError\s*\?\s*<p role="alert">/);
   assert.match(store,/const importData=await readDirectory0170EditorialFields\(database/);
   assert.match(store,/source:profile\.importData,audience:"public"/);
   assert.match(route,/const importData=await readDirectory0170EditorialFields\(db/);
