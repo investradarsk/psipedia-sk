@@ -1661,8 +1661,9 @@ async function syncBreederEvent(input: {
   if (input.changedPropertyIds !== undefined) {
     const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds)
       .filter(path => path !== "services" || !isDirectoryEventPilotCategory(input.profile.category));
-    const relationFields = ["chovatelske-stanice", "treneri"].includes(input.profile.category)
-      ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
+    const relationFields = ["chovatelske-stanice", "chovatelske-kluby"].includes(input.profile.category)
+      ? breederRelationChangedFields(page.properties, input.changedPropertyIds)
+          .filter(field => input.profile.category !== "chovatelske-kluby" || field === "breedIds") : [];
     const facetFields = isDirectoryFieldEventCategory(input.profile.category)
       ? breederChangedNotionFacets(page, input.changedPropertyIds)
           .filter(id => getDirectoryFilterDefinition(id)?.category === input.profile.category)
@@ -2094,7 +2095,7 @@ export async function mirrorBreederRelationNamesToNotion(input: {
     return false;
   const mapping = await loadMappingByProfile(input.database, input.profileId);
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!mapping || !profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return false;
+  if (!mapping || !profile || !["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)) return false;
   const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
   if (page.id !== mapping.notion_page_id ||
       !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!)) return false;
@@ -2104,6 +2105,7 @@ export async function mirrorBreederRelationNamesToNotion(input: {
   const options = await listBreederRelationOptions(input.database);
   const patch: Record<string, unknown> = {};
   for (const field of input.fields) {
+    if (profile.category === "chovatelske-kluby" && field !== "breedIds") continue;
     const name = BREEDER_NOTION_RELATION_FIELDS[field];
     if (!Object.hasOwn(page.properties ?? {}, name)) continue;
     const names = formatBreederRelationText(selected[field],

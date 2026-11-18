@@ -14,3 +14,6 @@ The production audit #44252717336 reported 223 old breed relations, 0 new statio
 Recovery: before reset, a verified Time Travel bookmark is captured. If results differ, stop; do not retry blindly or restore the whole database without review. Existing profile records are not changed by these operations.
 
 Cloudflare REST query calls use a single SQL statement each; the code does not assume atomicity across REST batch calls. The destructive statement is itself atomic. The workflow is manually dispatched, canonical account and database IDs checked, main-only protected environment, and serialized against existing D1 migration workflows.
+
+## Release workflow (#1414)
+After a verified production deployment of the new runtime, verify empty Notion text fields again and close stale editors before running release. Inputs: mode=release, fingerprint=4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945, notion_verification=NOTION-RELATION-FIELDS-VERIFIED-EMPTY, release_verification=NEW-1414-RUNTIME-VERIFIED, confirmation=RELEASE-BREEDER-CUTOVER-psipedia-sk-db. No writes except the six exact DROP TRIGGER statements. Keep edits paused through RELEASE_POSTFLIGHT. No reset is needed or allowed when links are empty.

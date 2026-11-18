@@ -82,8 +82,16 @@ test("explicit article, breed and directory relations use canonical links and hi
   );
   expect(directoryResponse?.status()).toBe(200);
   const directoryMain = page.locator("main#obsah");
-  await expect(directoryMain.getByRole("heading", { name: "Plemená prepojené s týmto profilom" })).toBeVisible();
-  const directoryBreedLink = directoryMain.getByRole("link", { name: /CONTENT-RELATIONS E2E plemeno/i }).first();
+  // Kennel clubs now render explicit breed links in the shared expert facts,
+  // without the old duplicate standalone related-breeds section.
+  const breedFact = directoryMain.getByRole("listitem").filter({
+    has: page.getByText("Plemeno", { exact: true }),
+  }).filter({ has: page.getByRole("link", { name: /CONTENT-RELATIONS E2E plemeno/i }) });
+  await expect(breedFact).toHaveCount(1);
+  await expect(breedFact).toBeVisible();
+  await expect(directoryMain.getByRole("heading", { name: "Plemená prepojené s týmto profilom" })).toHaveCount(0);
+  const directoryBreedLink = breedFact.getByRole("link", { name: /CONTENT-RELATIONS E2E plemeno/i });
+  await expect(directoryMain.getByRole("link", { name: /CONTENT-RELATIONS E2E plemeno/i })).toHaveCount(1);
   await expect(directoryBreedLink).toHaveAttribute("href", "/plemena/retrievery-sliedice-vodne/content-relations-e2e-plemeno");
   await directoryBreedLink.focus();
   await expect(directoryBreedLink).toBeFocused();
@@ -100,6 +108,7 @@ test("explicit article, breed and directory relations use canonical links and hi
   );
   expect(emptyDirectoryResponse?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Plemená prepojené s týmto profilom" })).toHaveCount(0);
+  await expect(page.locator("main#obsah").getByRole("link", { name: /CONTENT-RELATIONS E2E plemeno/i })).toHaveCount(0);
 });
 
 test("organization relation is explicit, lifecycle-filtered and bounded to six adoption cards", async ({ page }) => {

@@ -282,6 +282,12 @@ export async function deleteCanonicalDraft(input: {
     ));
     statements.push(conditionalDelete(
       database,
+      `DELETE FROM directory_breeder_club_relations
+        WHERE (station_profile_id=? OR club_profile_id=?) AND ${draftExists}`,
+      [id, id, id, config.draftStatus],
+    ));
+    statements.push(conditionalDelete(
+      database,
       `DELETE FROM geo_points
         WHERE directory_profile_id=? AND ${draftExists}`,
       [id, id, config.draftStatus],
