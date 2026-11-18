@@ -109,6 +109,31 @@ test("invalid totals, duplicate category/status groups or malformed support coun
   ]) assert.ok(codes(result).has(code),code);
 });
 
+
+test("valid optional service-catalog attempts from the real D1 inventory do not create a false blocker",()=>{
+  const report=cleanReport();
+  report.supportCounts.push({table:"service_catalog_notion_auto_attempts",records:51});
+  report.supportCounts.find(x=>x.table==="service_profile_property_values").records=0;
+  const assessed=assessEditorialCleanupReadiness(report);
+  assert.equal(codes(assessed).has("INVALID_SUPPORTING_COUNTS"),false);
+  assert.equal(assessed.status,"blocked");
+  assert.equal(assessed.canDeleteLegacyData,false);
+  assert.ok(codes(assessed).has("BACKUP_AND_ROLLBACK_NOT_ATTESTED"));
+});
+
+test("unknown, duplicate and malformed supporting-table aggregates still fail closed",()=>{
+  for(const record of [
+    {table:"unexpected_support_table",records:1},
+    {table:"service_catalog_notion_auto_attempts",records:-1},
+    {table:"service_catalog_notion_auto_attempts",records:"unknown"},
+  ]){
+    const report=cleanReport();report.supportCounts.push(record);
+    assert.ok(codes(assessEditorialCleanupReadiness(report)).has("INVALID_SUPPORTING_COUNTS"));
+  }
+  const report=cleanReport();report.supportCounts.push({...report.supportCounts[0]});
+  assert.ok(codes(assessEditorialCleanupReadiness(report)).has("INVALID_SUPPORTING_COUNTS"));
+});
+
 test("scope boundaries cover all ten Directory categories, five Help agendas, Events and e-shops",()=>{
   assert.deepEqual(REQUIRED_DIRECTORY_CATEGORIES,[
     "veterinari","treneri","kynologicke-kluby","chovatelske-kluby",
