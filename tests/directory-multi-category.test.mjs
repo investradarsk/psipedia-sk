@@ -40,6 +40,11 @@ test("one canonical profile appears in both category listings exactly once", () 
     db.exec(`CREATE TABLE directory_profiles (
       id INTEGER PRIMARY KEY, category TEXT NOT NULL,
       status TEXT NOT NULL, source_data_json TEXT NOT NULL
+    );
+    CREATE TABLE directory_profile_additional_categories (
+      profile_id INTEGER NOT NULL, category TEXT NOT NULL,
+      updated_at TEXT NOT NULL, updated_by TEXT NOT NULL,
+      PRIMARY KEY(profile_id,category)
     )`);
     const insert = db.prepare(
       "INSERT INTO directory_profiles (id, category, status, source_data_json) VALUES (?, ?, ?, ?)",
