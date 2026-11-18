@@ -7,7 +7,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { BreedPhoto } from "@/components/breed-photo";
 import { BreedMeasurementFact } from "@/components/breed-measurement-fact";
 import { PublicMediaFallback } from "@/components/public-visual-system";
-import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
+import { PublicPhotoGallery, PublicPhotoLightboxLink } from "@/components/public-visual-system/public-photo-gallery";
 import { DetailHero, DetailFactsCard } from "@/components/detail-primitives/detail-primitives";
 import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
 import { ArrowIcon, PawMark } from "@/components/icons";
@@ -474,6 +474,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 data-image-fallback="breed-photo"
               >
                 {breed.image ? (
+                  <PublicPhotoLightboxLink src={breed.image} alt={breed.name + " – profilová fotografia plemena"}>
                   <BreedPhoto
                     src={breed.image}
                     alt={breed.name + " – profilová fotografia plemena"}
@@ -484,6 +485,7 @@ export default async function BreedDetailPage({ params }: Props) {
                     decoding="async"
                     data-testid="breed-hero-image"
                   />
+                  </PublicPhotoLightboxLink>
                 ) : (
                   <div className={styles.photoPlaceholder}>
                     <PublicMediaFallback

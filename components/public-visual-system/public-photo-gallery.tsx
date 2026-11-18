@@ -113,3 +113,37 @@ export function PublicPhotoGallery({
   );
   return variant === "linked" ? <PublicPhotoSwipeEnhancer>{gallery}</PublicPhotoSwipeEnhancer> : gallery;
 }
+
+
+/**
+ * Reuse the same lazy PhotoSwipe controller for a single profile hero photo.
+ * The original image remains a normal link if JavaScript is unavailable.
+ * Do not apply gallery grid styles or alter the owner's ImageDisplay crop.
+ */
+export function PublicPhotoLightboxLink({
+  src,
+  alt,
+  children,
+}: {
+  src: string;
+  alt: string;
+  children: ReactNode;
+}) {
+  const href = /^(?:https?:\/\/|\/(?!\/))/i.test(src.trim()) ? src.trim() : null;
+  if (!href) return <Fragment>{children}</Fragment>;
+
+  return (
+    <PublicPhotoSwipeEnhancer>
+      <a
+        href={href}
+        data-profile-photo-lightbox
+        data-pswp-gallery-item
+        data-pswp-width="1280"
+        data-pswp-height="960"
+        aria-label={`Zväčšiť fotografiu: ${alt}`}
+      >
+        {children}
+      </a>
+    </PublicPhotoSwipeEnhancer>
+  );
+}

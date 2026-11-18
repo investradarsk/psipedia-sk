@@ -229,6 +229,7 @@ test("mapped Directory native publication pushes verified D1 status to the same 
         // Production sync now checks the owner-controlled unpublish/tombstone
         // barrier before any writes. This isolated publication fixture has none.
         notionPageMustSkipInboundSync: async () => false,
+        directoryProfileNotionSyncLocked: async () => false,
         gemini22PriorityEnabled: () => false,
         notionDirectoryPageBelongsToSource,
         NotionDirectoryUnsafeTargetError,
