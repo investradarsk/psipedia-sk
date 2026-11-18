@@ -289,7 +289,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(requestManagement).toHaveAttribute("href","/partner/prevziat-profil/DIRECTORY_PROFILE/990001");
     await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toBeVisible();
     await requestManagement.click();
-    await expect(page.getByRole("heading",{name:"Prevziať existujúci profil"})).toBeVisible();
+    await expect(page.getByRole("heading",{name:"Požiadať o správu záznamu"})).toBeVisible();
     await page.getByLabel(/Ako ste spojení/).fill("E2E poverený správca");
     await page.getByRole("button",{name:"Odoslať žiadosť o prevzatie"}).click();
     await expect(page.getByRole("status")).toContainText("Žiadosť sme prijali a čaká na kontrolu.");
@@ -311,6 +311,14 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.locator(".partner-dashboard-stat")).toHaveCount(3);
   await expect(page.getByRole("heading", { name: "Čo spravujete" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+  // Partner claim search is usable for published existing events on both viewports.
+  await page.goto("/partner/prevziat?type=MANAGED_EVENT&q=Partner%20E2E");
+  await expect(page.getByRole("heading", { name: "Požiadať o správu" })).toBeVisible();
+  const eventClaimRow = page.locator(".partner-claim-search-results li").filter({ hasText: "Partner E2E Publikované Podujatie" });
+  await expect(eventClaimRow).toHaveCount(1);
+  await expect(eventClaimRow.getByRole("link", { name: "Požiadať o správu" })).toHaveAttribute("href", "/partner/prevziat-profil/MANAGED_EVENT/990003");
+  await expectNoHorizontalOverflow(page);
+  await page.goto("/partner");
 
   const linkBridgeResponse = await page.goto(
     "/partner/google-navrat?to=" + encodeURIComponent("/partner/prepojit-google"),
