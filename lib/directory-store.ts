@@ -2203,10 +2203,26 @@ export async function setManagedDirectoryProfileReviewed(
     editorEmail,
     now.toISOString(),
   );
+  // The owner reviewed the displayed contact values. On that explicit action,
+  // adopt ONLY still-NULL SQL contact slots; an earlier SQL clear ('') wins.
+  // No bulk backfill or automatic promotion on ordinary Notion/Admin reads.
+  const visibleContacts = readDirectoryPublicContacts(
+    overlayDirectorySqlContacts(safeImportData(row.source_data_json, true), row),
+    row.website_url ?? "",
+  );
   const updated = await database
-    .prepare("UPDATE directory_profiles SET source_data_json = ?, updated_at = ?, updated_by = ? " +
+    .prepare("UPDATE directory_profiles SET source_data_json = ?, updated_at = ?, updated_by = ?, " +
+      "public_phone = CASE WHEN ?=1 THEN COALESCE(public_phone, ?) ELSE public_phone END, " +
+      "public_email = CASE WHEN ?=1 THEN COALESCE(public_email, ?) ELSE public_email END, " +
+      "facebook_url = CASE WHEN ?=1 THEN COALESCE(facebook_url, ?) ELSE facebook_url END, " +
+      "instagram_url = CASE WHEN ?=1 THEN COALESCE(instagram_url, ?) ELSE instagram_url END " +
       "WHERE id = ? AND source_data_json = ? AND updated_at = ? RETURNING *")
-    .bind(JSON.stringify(sourceData), now.toISOString(), editorEmail, id, row.source_data_json, row.updated_at)
+    .bind(JSON.stringify(sourceData), now.toISOString(), editorEmail,
+      reviewed ? 1 : 0, visibleContacts.phone,
+      reviewed ? 1 : 0, visibleContacts.email,
+      reviewed ? 1 : 0, visibleContacts.facebook,
+      reviewed ? 1 : 0, visibleContacts.instagram,
+      id, row.source_data_json, row.updated_at)
     .first<DirectoryProfileRow>();
   // Never lose a concurrent editor/Notion write while setting the lock.
   if (!updated) throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
