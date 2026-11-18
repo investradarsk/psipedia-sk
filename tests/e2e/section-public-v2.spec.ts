@@ -125,6 +125,37 @@ test("SECTION-PUBLIC all topic samples reuse the health banner geometry with top
   }
 });
 
+test("SECTION-PUBLIC single-result topics retain health's four-column cards and banner styling", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const paths = ["/steniatka/vyber-plemena", "/starostlivost/zdravie", "/aktivity/trening"];
+  const bannerColors: string[] = [];
+  for (const path of paths) {
+    const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+    expect(response?.status(), path).toBe(200);
+    const banner = page.locator("[data-section-topic-banner] section");
+    await expect(banner).toBeVisible();
+    bannerColors.push(await banner.evaluate((element) => getComputedStyle(element).backgroundColor));
+
+    const cards = page.locator("[data-section-public-topic-body] [role=list] [data-article-list-item]");
+    const count = await cards.count();
+    const grid = page.locator('[data-section-public-topic-body] [role="list"]').first();
+    if (count > 0) {
+      const computed = await grid.evaluate((element) => ({
+        columns: getComputedStyle(element).gridTemplateColumns.split(" ").length,
+        firstCardColumns: getComputedStyle(element.querySelector("[data-article-list-item]")!).gridTemplateColumns.split(" ").length,
+      }));
+      expect(computed.columns, path + ": four cards per row even with one result").toBe(4);
+      expect(computed.firstCardColumns, path + ": image-above-title card").toBe(1);
+      await expect(cards.first().locator("[data-article-image]")).toBeVisible();
+    }
+    await expectNoHorizontalOverflow(page, path + " desktop");
+  }
+  expect(new Set(bannerColors).size, "topic banners must use one surface").toBe(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/steniatka/vyber-plemena");
+  await expectNoHorizontalOverflow(page, "single-result puppy topic mobile");
+});
+
 test("SECTION-PUBLIC grouped topics keep meaningful thumbnails and mobile static services", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/steniatka");
