@@ -1,6 +1,7 @@
 "use client";
 
 import { PublicSelect } from "@/components/public-visual-system/public-form-controls";
+import { legacyFacetMappings } from "@/lib/service-catalog-contract";
 
 import { useId } from "react";
 import type { ServiceFilterCategory } from "@/lib/directory-filter-contract";
@@ -39,7 +40,13 @@ export function DirectoryCategoryFilterFields({
 }: DirectoryCategoryFilterFieldsProps) {
   const reactId = useId();
   const prefix = idPrefix ?? "directory-category-filter-" + reactId.replace(/:/g, "");
-  const fields = getDirectoryCategoryFilterFields(category, originalValues, reviewStates);
+  // Services V3 is the single editor for catalog-backed services and attributes.
+  // Keep only legacy fields without a V3 editor (currently provider type).
+  const catalogOwned = new Set(legacyFacetMappings
+    .filter((mapping) => mapping.targetKind !== "provider")
+    .map((mapping) => mapping.legacyId));
+  const fields = getDirectoryCategoryFilterFields(category, originalValues, reviewStates)
+    .filter((field) => !catalogOwned.has(field.id));
   const scopedChanges = scopeDirectoryCategoryFilterChanges(category, changes);
 
   function changeField(id: string, selected: string) {
@@ -48,6 +55,8 @@ export function DirectoryCategoryFilterFields({
     else next[id] = selected;
     onChange(next, buildDirectoryCategoryFilterPatch(category, originalValues, next, reviewStates));
   }
+
+  if (!fields.length) return null;
 
   return (
     <section
