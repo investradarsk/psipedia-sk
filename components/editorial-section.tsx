@@ -72,7 +72,7 @@ function articleArea(article: Article, sectionSlug: EditorialSectionSlug) {
   return article.portalSubpage;
 }
 
-function orderedArticles(section: PortalSection, articles: Article[], subpage?: PortalSubpage) {
+function orderedArticles(section: PortalSection, articles: Article[], subpage?: PortalSubpage, newestFirst = false) {
   const sectionSlug = section.slug;
   if (!isEditorialSectionSlug(sectionSlug)) return [];
   const candidates = articles.filter(
@@ -80,6 +80,8 @@ function orderedArticles(section: PortalSection, articles: Article[], subpage?: 
       articlePortalSection(article) === sectionSlug &&
       (!subpage || articleArea(article, sectionSlug) === subpage.slug),
   );
+  // On landings the lead must be the newest published article, not an older pin.
+  if (newestFirst) return [...candidates].sort((a, b) => b.dateIso.localeCompare(a.dateIso));
   const featuredSlugs = subpage
     ? (subpage.featuredArticleSlugs ?? [])
     : section.subpages.flatMap((item) => item.featuredArticleSlugs ?? []);
@@ -644,7 +646,7 @@ export async function EditorialSectionHub({
                   {subpages
                     .filter((subpage) => stage.slugs.includes(subpage.slug))
                     .map((subpage) => {
-                      const related = orderedArticles(section, articles, subpage);
+                      const related = orderedArticles(section, articles, subpage, true);
                       const href = portalSubpageHref(section, subpage);
                       const headingId = `area-${sectionSlug}-${subpage.slug}`;
                       return (
