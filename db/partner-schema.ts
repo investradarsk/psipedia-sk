@@ -119,6 +119,7 @@ export const partnerMemberships = sqliteTable("partner_memberships", {
 }, table=>[
   check("partner_memberships_role_check",sql`${table.role} IN ('OWNER','MANAGER','EDITOR')`),
   uniqueIndex("partner_memberships_active_unique").on(table.accountId,table.resourceId).where(sql`${table.revokedAt} IS NULL`),
+  uniqueIndex("partner_memberships_one_active_resource").on(table.resourceId).where(sql`${table.revokedAt} IS NULL`),
 ]);
 
 export const partnerCommercialInterests = sqliteTable("partner_commercial_interests", {
