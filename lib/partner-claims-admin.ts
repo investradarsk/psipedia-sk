@@ -73,7 +73,7 @@ const CLAIM_BASE = `
   SELECT c.id,c.account_id accountId,a.email_ciphertext emailCiphertext,c.resource_id resourceId,
     r.entity_type entityType,c.status,c.request_message requestMessage,c.created_at createdAt,
     c.updated_at updatedAt,c.reviewed_at reviewedAt,c.reviewed_by reviewedBy,c.decision_note decisionNote,
-    COALESCE(d.id,o.id) canonicalId,COALESCE(d.name,o.name) resourceName,COALESCE(d.slug,o.slug) slug,
+    COALESCE(d.id,o.id,e.id) canonicalId,COALESCE(d.name,o.name,e.title) resourceName,COALESCE(d.slug,o.slug,e.slug) slug,
     d.category directoryCategory,
     CASE WHEN
       EXISTS(
@@ -90,12 +90,13 @@ const CLAIM_BASE = `
   JOIN partner_resources r ON r.id=c.resource_id
   LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
   LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+  LEFT JOIN managed_events e ON e.id=r.managed_event_id
 `;
 
 function publicHref(row: ClaimAdminRow) {
   return row.entityType === "DIRECTORY_PROFILE"
     ? `/adresar/${row.directoryCategory}/${row.slug}`
-    : `/organizacie/${row.slug}`;
+    : row.entityType === "HELP_ORGANIZATION" ? `/organizacie/${row.slug}` : `/podujatia/${row.slug}`;
 }
 async function hydrateClaims(rows: ClaimAdminRow[], encryptionKey: string) {
   return Promise.all(rows.map(async (row) => ({
@@ -116,7 +117,7 @@ export async function listPartnerClaimsAdmin(input: {
   if (input.status && input.status !== "all" && !isPartnerClaimStatus(input.status)) {
     throw new PartnerClaimAdminError("Neplatný filter claim statusu.");
   }
-  if (input.entityType && input.entityType !== "all" && !["DIRECTORY_PROFILE", "HELP_ORGANIZATION"].includes(input.entityType)) {
+  if (input.entityType && input.entityType !== "all" && !["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT"].includes(input.entityType)) {
     throw new PartnerClaimAdminError("Neplatný typ resource.");
   }
   const rows = (await db(input.database).prepare(
@@ -183,7 +184,7 @@ async function claimForDecision(id: string, database: D1Database) {
   }>();
   if (!claim) throw new PartnerClaimAdminError("Claim neexistuje.", 404);
   if (claim.status !== "PENDING") throw new PartnerClaimAdminError("Rozhodnúť možno iba PENDING claim.", 409);
-  if (!["DIRECTORY_PROFILE", "HELP_ORGANIZATION"].includes(claim.entityType)) {
+  if (!["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT"].includes(claim.entityType)) {
     throw new PartnerClaimAdminError("Tento resource nie je claimable v PARTNER-2.", 400);
   }
   const account = await getPartnerAccountById(claim.accountId, database);
