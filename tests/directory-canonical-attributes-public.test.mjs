@@ -35,6 +35,7 @@ test("public directory, admin and partner editor share only the canonical V3 con
   assert.match(publicPage, /catalogAttributes=\{catalogAttributes\}/);
   assert.match(detail, /key: "catalog-attributes"/);
   assert.match(detail, /title="Vlastnosti profilu"/);
+  assert.match(detail, /catalogAttributeLabels\.has\(fact\.label\.toLocaleLowerCase\("sk"\)\)/);
   assert.match(detail, /<DetailOptionGrid options=\{catalogAttributes\.map/);
   assert.match(admin, /service_profile_option_choices|initialChoices/);
   assert.match(read("components/admin-directory-editor.tsx"), /<DirectoryCategoryFilterFields/);
