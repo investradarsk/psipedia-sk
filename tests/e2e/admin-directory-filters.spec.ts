@@ -387,50 +387,25 @@ test.describe("admin directory v2", () => {
     expect(savedProfile.importData["Facebook"]).toBe("môj facebook bez http");
     expect(savedProfile.importData["Instagram"]).toBe("instagram bez https");
 
-    // Both salon category selectors must persist after an Admin save,
-    // independent from the ordinary text fields, then survive refresh.
+    // The two former salon facets are canonical Services V3 service choices now.
+    // They must not reappear as competing selects in the main Directory editor.
     await openDirectoryEditorSection(page, "Obsah");
-    await page.getByRole("combobox", { name: "Strihanie pazúrov" }).selectOption("yes");
-    await page.getByRole("combobox", { name: "Trimovanie" }).selectOption("no");
-    const [facetResponse] = await Promise.all([
-      page.waitForResponse(response =>
-        response.url().endsWith(`/api/admin/directory/${id}`) &&
-        response.request().method() === "PATCH" &&
-        response.request().postData()?.includes('"set-category-filters"') === true,
-      ),
-      page.getByRole("button", { name: "Uložiť koncept" }).click(),
-    ]);
-    expect(facetResponse.status()).toBe(200);
-    const facetReceipt = (await facetResponse.json()).profile;
-    const nailKey = "_psipedia_filter_v1_salony_a_sluzby_nail_trimming";
-    const trimmingKey = "_psipedia_filter_v1_salony_a_sluzby_hand_stripping";
-    expect(facetReceipt.importData[nailKey]).toBe("yes");
-    expect(facetReceipt.importData[trimmingKey]).toBe("no");
-    const facetReadback = await page.request.get(`/api/admin/directory/${id}`);
-    expect(facetReadback.ok()).toBeTruthy();
-    const persistedFacets = (await facetReadback.json()).profile;
-    expect(persistedFacets.importData[nailKey]).toBe("yes");
-    expect(persistedFacets.importData[trimmingKey]).toBe("no");
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
-    await openDirectoryEditorSection(page, "Obsah");
-    await expect(page.getByRole("combobox", { name: "Strihanie pazúrov" })).toHaveValue("yes");
-    await expect(page.getByRole("combobox", { name: "Trimovanie" })).toHaveValue("no");
+    await expect(page.getByRole("combobox", { name: "Strihanie pazúrov" })).toHaveCount(0);
+    await expect(page.getByRole("combobox", { name: "Trimovanie" })).toHaveCount(0);
 
-    // "Neznáme" is an explicit stored choice, NOT an empty/unset facet.
-    await page.getByRole("combobox", { name: "Trimovanie" }).selectOption("unknown");
-    const [unknownResponse] = await Promise.all([
-      page.waitForResponse(response =>
-        response.url().endsWith(`/api/admin/directory/${id}`) &&
-        response.request().method() === "PATCH" &&
-        response.request().postData()?.includes('"set-category-filters"') === true,
-      ),
-      page.getByRole("button", { name: "Uložiť koncept" }).click(),
-    ]);
-    expect(unknownResponse.status()).toBe(200);
-    const unknownReceipt = (await unknownResponse.json()).profile;
-    expect(unknownReceipt.importData[nailKey]).toBe("yes");
-    expect(unknownReceipt.importData[trimmingKey]).toBe("unknown");
+    const catalog = page.getByRole("region", { name: "Services V3 — služby a vlastnosti na profile" });
+    await expect(catalog).toBeVisible();
+    await expect(catalog.getByText("Strihanie pazúrov", { exact: true })).toBeVisible();
+    await expect(catalog.getByText("Trimovanie", { exact: true })).toBeVisible();
+
+    // A new profile has no implicit YES/NO in either the canonical catalog
+    // or the retired JSON keys. The selected catalog values are managed
+    // independently by the dedicated, CAS-protected Services V3 editor.
+    const catalogInitial = await page.request.get(`/api/admin/directory/${id}`);
+    expect(catalogInitial.ok()).toBeTruthy();
+    const catalogProfile = (await catalogInitial.json()).profile;
+    expect(catalogProfile.importData["_psipedia_filter_v1_salony_a_sluzby_nail_trimming"]).toBeUndefined();
+    expect(catalogProfile.importData["_psipedia_filter_v1_salony_a_sluzby_hand_stripping"]).toBeUndefined();
 
     // Regression: existing salon contacts must save literal "xxx", like Popis.
     await openDirectoryEditorSection(page, "Kontakty");

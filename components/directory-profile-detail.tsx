@@ -8,6 +8,7 @@ import {
   PublicFoundation,
   PublicMediaFallback,
   PublicPhotoGallery,
+  PublicPhotoLightboxLink,
 } from "@/components/public-visual-system";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { DirectoryServicesList } from "@/components/directory-services-list";
@@ -15,6 +16,7 @@ import { DirectoryOpeningHours } from "@/components/directory-opening-hours";
 import { ProfileReviewSection } from "@/components/profile-review-section";
 import { RelatedBreedList } from "@/components/related-entity-list";
 import type { BreederPublicLink } from "@/lib/breeder-profile-relations";
+import type { DirectoryPublicCatalogAttribute } from "@/lib/directory-public-catalog-attributes";
 import { RelatedEntityLinks } from "@/components/related-entity-links";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import { buildGoogleMapsDirectionsUrl, isApproximateMapItem } from "@/lib/map-public-ui";
@@ -80,7 +82,8 @@ function DirectoryProfileHero({
       }
       media={
         presentation.imageUrl ? (
-          <ImageDisplay
+          <PublicPhotoLightboxLink src={presentation.imageUrl} alt={presentation.imageAlt || "Fotografia služby " + presentation.name}>
+            <ImageDisplay
             fallbackOnError
             context="detail"
             roleHint="generic"
@@ -93,6 +96,7 @@ function DirectoryProfileHero({
             fetchPriority="high"
             decoding="async"
           />
+          </PublicPhotoLightboxLink>
         ) : (
           <PublicMediaFallback
             size="detail"
@@ -167,6 +171,7 @@ function DirectoryProfileHero({
 
 export function DirectoryProfileDetail({
   presentation,
+  catalogAttributes = [],
   reviews,
   reviewReadError = false,
   commercial,
@@ -178,6 +183,7 @@ export function DirectoryProfileDetail({
   management,
 }: {
   presentation: DirectoryDetailPresentation;
+  catalogAttributes?: DirectoryPublicCatalogAttribute[];
   reviews: PublicProfileReviewData | null;
   reviewReadError?: boolean;
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
@@ -303,8 +309,14 @@ export function DirectoryProfileDetail({
     }
     return items;
   }, []);
+  // A confirmed V3 property replaces the same legacy public fact label.
+  // Never show contradictory values in two sections of the same profile.
+  const catalogAttributeLabels = new Set(
+    catalogAttributes.map((item) => item.label.toLocaleLowerCase("sk")),
+  );
   const expertFacts = presentation.facts.filter(
     (fact) =>
+      !catalogAttributeLabels.has(fact.label.toLocaleLowerCase("sk")) &&
       !(
         hasNamedLinks &&
         suppressLinkedBreederFact(fact.label, relatedBreeds.length, relatedClubs.length)
@@ -463,6 +475,18 @@ export function DirectoryProfileDetail({
               <p>{presentation.priceNote}</p>
             </div>
           ) : null}
+        </DetailSection>
+      ) : null,
+    },
+    {
+      key: "catalog-attributes",
+      column: "aside" as const,
+      content: catalogAttributes.length > 0 ? (
+        <DetailSection compactHeading title="Vlastnosti profilu">
+          <DetailOptionGrid options={catalogAttributes.map((item) => ({
+            label: item.label,
+            value: item.value,
+          }))} />
         </DetailSection>
       ) : null,
     },

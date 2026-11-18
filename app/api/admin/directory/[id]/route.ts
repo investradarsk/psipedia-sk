@@ -2,6 +2,8 @@ import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
 import { readDirectorySqlShadowParity } from "@/lib/directory-sql-cutover-parity";
+import { readDirectory0170EditorialFields } from "@/lib/directory-0170-editorial-read";
+import { planDirectory0170FilterSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
 import { validateDirectoryFullProfileSave } from "@/lib/directory-full-profile-save";
 import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, unconfirmedDirectoryCategoryFilters, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -65,7 +67,24 @@ export async function GET(_request: Request, { params }: Props) {
     }
   }
   const profile = await getManagedDirectoryProfileById(id);
-  return profile ? Response.json({ profile }) : Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+  if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+  const db=(env as unknown as {DB?:D1Database}).DB;
+  if (!db) return Response.json({error:"Databáza nie je dostupná."},{status:503});
+  try {
+    // The owner sees confirmed SQL facts/filters, but every SQL field still
+    // missing on a historical profile comes from its existing JSON.
+    // A failed canonical read must not offer a stale editable form as current.
+    const importData=await readDirectory0170EditorialFields(db,{
+      profileId:id,category:profile.category,
+      source:profile.importData,audience:"admin",
+    });
+    return Response.json({profile:{...profile,importData}},
+      {headers:{"cache-control":"no-store"}});
+  } catch {
+    return Response.json({
+      error:"Kontrola SQL údajov profilu zlyhala. Obnov stránku, údaje zostali nezmenené.",
+    },{status:503,headers:{"cache-control":"no-store"}});
+  }
 }
 
 export async function PUT(request: Request, { params }: Props) {
@@ -978,8 +997,8 @@ export async function PATCH(request: Request, { params }: Props) {
       }
       const db = (env as unknown as { DB?: D1Database }).DB;
       if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
-      const row = await db.prepare("SELECT category,status,source_data_json FROM directory_profiles WHERE id=?1 LIMIT 1")
-        .bind(id).first<{ category: string; status: string; source_data_json: string }>();
+      const row = await db.prepare("SELECT category,status,source_data_json,updated_at FROM directory_profiles WHERE id=?1 LIMIT 1")
+        .bind(id).first<{ category: string; status: string; source_data_json: string; updated_at: string }>();
       if (!row) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
       if (row.status === "archived") return Response.json({ error: "Archivovaný profil nie je možné upravovať." }, { status: 409 });
       if (row.category !== requested.category) {
@@ -989,11 +1008,23 @@ export async function PATCH(request: Request, { params }: Props) {
       // and retains arbitrary legacy metadata. Never write the client's full JSON snapshot.
       const next = mergeDirectoryFilterValues(row.source_data_json, row.category as ServiceFilterCategory, requested.updates as Record<string, unknown>);
       if (Object.keys(requested.updates).length) {
-        const updated = await db.prepare(`UPDATE directory_profiles
+        const now = new Date().toISOString();
+        const canonical = db.prepare(`UPDATE directory_profiles
           SET source_data_json=?1,updated_at=?2,updated_by=?3
-          WHERE id=?4 AND category=?5 AND source_data_json=?6 RETURNING id`)
-          .bind(next, new Date().toISOString(), user.email, id, row.category, row.source_data_json).first<{ id: number }>();
-        if (!updated) return Response.json({ error: "Údaje profilu sa medzičasom zmenili. Obnovte stránku." }, { status: 409 });
+          WHERE id=?4 AND category=?5 AND source_data_json=?6 AND updated_at=?7 RETURNING id`)
+          .bind(next, now, user.email, id, row.category, row.source_data_json, row.updated_at);
+        // Exactly the explicitly selected filter IDs are mirrored to SQL.
+        // Never backfill untouched historical values and never change V3 choices.
+        const mirror = planDirectory0170FilterSqlMirror({
+          profileId: id, category: row.category as ServiceFilterCategory,
+          values: requested.updates as Record<string, string>,
+          updatedAt: now, actor: user.email,
+        });
+        const results = await db.batch([
+          canonical, ...mirror.map(item=>db.prepare(item.sql).bind(...item.bindings)),
+        ]);
+        if (!(results[0]?.results?.[0] as {id?:number}|undefined)?.id)
+          return Response.json({ error: "Údaje profilu sa medzičasom zmenili. Obnovte stránku." }, { status: 409 });
       }
       // Category filters are a separate structured channel from free-text
       // services and the canonical Services V3 catalog.

@@ -1,5 +1,6 @@
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
+import { readDirectory0170EditorialFields } from "./directory-0170-editorial-read";
 import { env } from "cloudflare:workers";
 import {
   directoryLocationFacetStatement,
@@ -14,8 +15,8 @@ import {
   directoryLegacyDistrictSql,
 } from "./directory-public-source-contract";
 import { cache } from "react";
-import { directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
-import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-category-sql";
+import { DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
+import { planDirectorySecondaryCategorySqlMirror, planDirectorySecondaryCategoryCreateSqlMirror } from "./directory-secondary-category-sql";
 import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
@@ -1785,7 +1786,22 @@ const getPublishedDirectoryProfileUncached = async (category: string, slug: stri
     .bind(category, slug)
     .first<DirectoryProfileRow>());
   if(!row)return null;
-  const profile=rowToPublicProfile(row);
+  let profile=rowToPublicProfile(row);
+  try {
+    // A confirmed 0170 SQL fact row wins, including explicit empty values.
+    // For untouched historical fields we keep the same JSON presentation.
+    // Fail-open for a public read: an optional projection outage must not 500.
+    const importData=await readDirectory0170EditorialFields(database,{
+      profileId:profile.id,category:profile.category,
+      source:profile.importData,audience:"public",
+    });
+    profile={...profile,importData};
+  } catch (error) {
+    console.error("Public directory SQL 0170 detail projection unavailable",{
+      profileId:profile.id,
+      error:error instanceof Error?error.name:"UNKNOWN",
+    });
+  }
   // The detail page and its JSON-LD must reflect confirmed D1 choices even
   // when an earlier text/Notion projection failed. Keep old unmatched prose.
   // This optional read only runs for a published profile on a V3-enabled site.
@@ -1922,12 +1938,30 @@ export async function createManagedDirectoryProfile(
   await ensureDirectoryStore(database);
   const input = normalizeManagedDirectoryProfileInput(payload);
   const now = new Date().toISOString();
-  const row = await buildManagedDirectoryProfileCreateStatement(
-    database,
-    input,
-    editorEmail,
-    now,
-  ).first<DirectoryProfileRow>();
+  const secondary = readAdditionalDirectoryCategories(input.sourceData, input.category);
+  // Explicit nonempty selections on newly created profiles belong to SQL
+  // immediately; create and relation writes must either all commit or all fail.
+  // A new profile without secondary categories is already unambiguous (JSON []).
+  const sqlCategoryCreate = secondary.length > 0;
+  if (sqlCategoryCreate)
+    input.sourceData[DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY] = "1";
+  const canonical = buildManagedDirectoryProfileCreateStatement(
+    database, input, editorEmail, now,
+  );
+  let row: DirectoryProfileRow | null;
+  if (sqlCategoryCreate) {
+    const mirror = planDirectorySecondaryCategoryCreateSqlMirror({
+      slug: input.slug, category: input.category,
+      submitted: secondary, createdAt: now, actor: editorEmail,
+    });
+    const responses = await database.batch([
+      canonical,
+      ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+    ]);
+    row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
+  } else {
+    row = await canonical.first<DirectoryProfileRow>();
+  }
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
   await ensureResourceForDirectoryProfile(row.id, database, new Date(now));
   await reconcileGeoAfterSourceMutation(
@@ -1954,6 +1988,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
     automationAddressReview?: { id: number; fingerprint: string };
     restoreArchived?: boolean;
   },
+  sqlCategoriesConfirmed = false,
 ) {
   if (existing.status === "archived" && !guard?.restoreArchived)
     throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
@@ -1961,6 +1996,10 @@ export function buildManagedDirectoryProfileUpdateStatement(
     currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
     legacyAddress: existing.address,
   });
+  // Only callers that atomically mirror categories to SQL may set the marker.
+  // Direct Notion/address/other canonical SQL writers leave it unchanged.
+  if (sqlCategoriesConfirmed)
+    input.sourceData[DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY] = "1";
   const publishedAt =
     input.status === "published" ? (existing.publishedAt ?? now) : existing.publishedAt;
   const updatedAtGuard = guard?.expectedUpdatedAt ? " AND updated_at = ?" : "";
@@ -2059,6 +2098,7 @@ export async function updateManagedDirectoryProfile(
     existing,
     now,
     guard,
+    payload.additionalCategories !== undefined,
   );
   let row: DirectoryProfileRow | null;
   if (payload.additionalCategories !== undefined) {

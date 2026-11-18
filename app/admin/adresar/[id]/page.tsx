@@ -20,6 +20,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { directoryProfileHref } from "@/lib/directory";
 import { getManagedDirectoryProfileById } from "@/lib/directory-store";
+import { readDirectory0170EditorialFields } from "@/lib/directory-0170-editorial-read";
 import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 
 export const dynamic = "force-dynamic";
@@ -88,9 +89,24 @@ export default async function EditDirectoryProfilePage({ params, searchParams }:
   if (!Number.isSafeInteger(id) || id < 1) notFound();
   const user = await requireAdminPageUser(`/admin/adresar/${rawId}`);
 
-  // Only the canonical profile is required to open the primary form.
-  const profile = await getManagedDirectoryProfileById(id);
-  if (!profile) notFound();
+  // Do not open an editable form with stale legacy values if the SQL-first
+  // editorial read fails. Leave the record untouched and show a clear error.
+  const canonicalProfile = await getManagedDirectoryProfileById(id);
+  if (!canonicalProfile) notFound();
+  const db = (env as unknown as { DB?: D1Database }).DB;
+  let editorialReadError = !db;
+  let profile = canonicalProfile;
+  if (db) {
+    try {
+      const importData=await readDirectory0170EditorialFields(db,{
+        profileId:id,category:canonicalProfile.category,
+        source:canonicalProfile.importData,audience:"admin",
+      });
+      profile={...canonicalProfile,importData};
+    } catch {
+      editorialReadError=true;
+    }
+  }
 
   const isServiceCategory = (serviceFilterCategories as readonly string[]).includes(profile.category);
   return <AdminShell recordId={profile.id} user={user}
@@ -108,9 +124,11 @@ export default async function EditDirectoryProfilePage({ params, searchParams }:
     <Suspense fallback={null}>
       <AdminRecordViewStats entityType="DIRECTORY_PROFILE" entityId={profile.id} />
     </Suspense>
-    <AdminDirectoryEditor profile={profile} returnHref={returnHref} />
+    {editorialReadError
+      ? <p role="alert">Kanonické SQL údaje profilu sa nepodarilo načítať. Formulár nie je dostupný; údaje sa nezmenili.</p>
+      : <AdminDirectoryEditor profile={profile} returnHref={returnHref} />}
     <Suspense fallback={null}><AdminDirectoryNotionSyncStatus profileId={profile.id} /></Suspense>
-    {isServiceCategory && <Suspense fallback={<p role="status">Načítavam hodnoty služieb…</p>}>
+    {isServiceCategory && !editorialReadError && <Suspense fallback={<p role="status">Načítavam hodnoty služieb…</p>}>
       <DirectoryServiceValues profileId={profile.id} category={profile.category as ServiceFilterCategory}
         archived={profile.status === "archived"} legacyServices={profile.services} />
     </Suspense>}
