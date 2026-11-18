@@ -1294,6 +1294,10 @@ const breederScalarColumns: Partial<Record<BreederEditorialField, string>> = {
   postalCode: "postal_code", street: "street", houseNumber: "house_number",
   priceNote: "price_note",
 };
+const breederSqlContactColumns: Partial<Record<BreederEditorialField, string>> = {
+  publicPhone: "public_phone", publicEmail: "public_email",
+  facebookUrl: "facebook_url", instagramUrl: "instagram_url",
+};
 const breederContactJsonNames: Partial<Record<BreederEditorialField, string>> = {
   publicPhone: "Telefón", publicEmail: "E-mail",
   websiteUrl: "Web", facebookUrl: "Facebook", instagramUrl: "Instagram",
@@ -1358,7 +1362,7 @@ async function saveBreederEditorialValue(
   desired: Record<string, unknown>,
   path: BreederEditorialField,
 ): Promise<ManagedDirectoryProfile> {
-  if (!isDirectoryFieldEventCategory(current.category) || current.status === "archived")
+  if (!isDirectoryFieldEventCategory(current.category) || current.status === "archived" || current.reviewed)
     throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
   // Pilot categories use the canonical Services V3 catalog. Their retired
   // legacy "Služby" text must not be written by any editorial event.
@@ -1414,6 +1418,12 @@ async function saveBreederEditorialValue(
     }
     if (path === "websiteUrl") {
       assignments.push("website_url = ?");
+      params.push(value);
+    } else {
+      // SQL and the compatibility JSON mirror must change in the SAME D1 UPDATE.
+      const column = breederSqlContactColumns[path];
+      if (!column) throw new Error("DIRECTORY_SQL_CONTACT_COLUMN_MISSING");
+      assignments.push(column + " = ?");
       params.push(value);
     }
   } else if (path === "seo.noindex") {
@@ -1502,7 +1512,7 @@ export async function savePilotDirectoryMetadataField(input: {
   // A blank value is an explicit Admin edit and must clear only this field.
   // Blank Notion webhook values are still ignored in syncBreederEvent.
   const current = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!current || current.category !== input.category || current.status === "archived")
+  if (!current || current.category !== input.category || current.status === "archived" || current.reviewed)
     throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
   const currentValue = readDirectoryPublicMetadataValue(current.importData, input.field);
   if (input.expectedValue !== undefined &&
@@ -1628,7 +1638,7 @@ async function saveTrainerTrustField(
   field: TrainerTrustField,
   value: boolean,
 ): Promise<ManagedDirectoryProfile> {
-  if (!serviceFilterCategories.includes(current.category as ServiceFilterCategory) || current.status === "archived")
+  if (!serviceFilterCategories.includes(current.category as ServiceFilterCategory) || current.status === "archived" || current.reviewed)
     throw new Error("DIRECTORY_TRUST_SCOPE_INVALID");
   if (current[field] === value) return current;
   const column = field === "verified" ? "verified" : "featured";
@@ -2166,7 +2176,7 @@ async function applyNotionAdditionalCategories(input: {
 }): Promise<boolean> {
   const page = await fetchNotionPage(input.bindings, input.page.id);
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
-  if (!profile || profile.status === "archived") throw Error("DIRECTORY_CATEGORIES_PROFILE_UNAVAILABLE");
+  if (!profile || profile.status === "archived" || profile.reviewed) throw Error("DIRECTORY_CATEGORIES_PROFILE_UNAVAILABLE");
   if (page.id !== input.mapping.notion_page_id ||
       !notionDirectoryPageBelongsToSource(page, input.dataSourceId) ||
       propertyText(page, "Psipedia ID") !== String(profile.id) ||
@@ -2200,7 +2210,7 @@ export async function mirrorDirectoryAdditionalCategoriesToNotion(input: {
     throw Error("DIRECTORY_CATEGORIES_NOTION_DISABLED");
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   const mapping = await loadMappingByProfile(input.database, input.profileId);
-  if (!profile || !mapping || profile.status === "archived")
+  if (!profile || !mapping || profile.status === "archived" || profile.reviewed)
     throw Error("DIRECTORY_CATEGORIES_NOTION_MAPPING_MISSING");
   const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
   if (page.id !== mapping.notion_page_id ||
@@ -2237,7 +2247,7 @@ async function syncMappedPage(input: {
 }) {
   if (await notionPageMustSkipInboundSync(input.database,input.mapping.notion_page_id)) return "unchanged" as const;
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
-  if (!profile) return "unchanged" as const;
+  if (!profile || profile.reviewed) return "unchanged" as const;
 
   let page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
   if (page.id !== input.mapping.notion_page_id) {
@@ -2796,7 +2806,7 @@ export async function ensureDirectoryProfileInNotion(input: {
     throw new Error("GEMINI_NOTION_CONFIG_MISSING");
   if (!(await schemaReady(input.database))) throw new Error("GEMINI_NOTION_MAPPING_SCHEMA_MISSING");
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!profile || profile.status !== "draft") throw new Error("GEMINI_NOTION_CANONICAL_DRAFT_MISSING");
+  if (!profile || profile.status !== "draft" || profile.reviewed) throw new Error("GEMINI_NOTION_CANONICAL_DRAFT_MISSING");
   const mapped = await loadMappingByProfile(input.database, profile.id);
   if (mapped) return { notionPageId: mapped.notion_page_id, created: false };
   // This query must complete successfully before a Notion create is permitted.
@@ -2855,7 +2865,7 @@ export async function runNotionDirectoryBootstrapSweep(input: {
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
-      if (!profile || profile.category === "chovatelske-stanice") continue;
+      if (!profile || profile.category === "chovatelske-stanice" || profile.reviewed) continue;
       await writeProfileToNotion({
         database: input.database,
         bindings: input.bindings,
@@ -2947,6 +2957,7 @@ export async function runNotionDirectorySyncSweep(input: {
     if (!await relationSchemaReady) return "skipped" as const;
     const profile = await getManagedDirectoryProfileById(profileId, input.database);
     if (!profile) throw new Error("SERVICES_RELATION_PROFILE_NOT_FOUND");
+    if (profile.reviewed) return "skipped" as const;
     lookupPromise ??= loadNotionCatalogRelationLookup(input.bindings);
     return syncProfileCatalogRelation({
       db: input.database, bindings: input.bindings, pageId, profileId,
