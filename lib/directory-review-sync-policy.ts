@@ -11,6 +11,9 @@ export function planDirectoryReviewSync(input: {
   baseline: boolean | null;
 }): DirectoryReviewPlan {
   const { adminReviewed, notionReviewed, baseline } = input;
+  // Once the owner has reviewed a D1 profile, Notion may not remove the lock.
+  // Owner can still explicitly uncheck in Admin; then D1 pushes that change.
+  if (adminReviewed && !notionReviewed) return "push";
   if (baseline === null) {
     return adminReviewed === notionReviewed ? "acknowledge" : "push";
   }
