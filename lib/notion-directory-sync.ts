@@ -1512,7 +1512,10 @@ export async function savePilotDirectoryMetadataField(input: {
   // A blank value is an explicit Admin edit and must clear only this field.
   // Blank Notion webhook values are still ignored in syncBreederEvent.
   const current = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!current || current.category !== input.category || current.status === "archived" || current.reviewed)
+  // This helper is also used by the authenticated Admin editor. A reviewed
+  // profile may still be corrected there; only Notion-driven calls are gated
+  // at the sync sweep entry points above.
+  if (!current || current.category !== input.category || current.status === "archived")
     throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
   const currentValue = readDirectoryPublicMetadataValue(current.importData, input.field);
   if (input.expectedValue !== undefined &&
