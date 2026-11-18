@@ -115,6 +115,19 @@ export function classifyDirectory0170Row(row) {
   const facts = parseArray(row.sql_facts);
   const filters = parseArray(row.sql_filters);
   if (!categories || !facts || !filters) issue("source","invalid_relation_aggregate");
+  // Facts and select filters may belong to a SECONDARY membership as well.
+  // Use both legacy and SQL membership when auditing; never silently treat
+  // a legitimate second-category value as an unregistered SQL field.
+  const memberships = new Set(validCategory ? [category] : []);
+  if (categories) for (const name of categories) {
+    if (categorySet.has(name)) memberships.add(name);
+  }
+  if (source && typeof source._psipedia_additional_categories === "string") {
+    const oldMemberships = parseArray(source._psipedia_additional_categories);
+    if (oldMemberships) for (const name of oldMemberships) {
+      if (categorySet.has(name)) memberships.add(name);
+    }
+  }
   if (source && categories) {
     const key = "_psipedia_additional_categories";
     let old = [];
@@ -132,7 +145,8 @@ export function classifyDirectory0170Row(row) {
     for (const x of current) if (!old.includes(x)) issue("category","sql_only");
   }
   if (source && facts && validCategory) {
-    const allowed = [...new Set(["Ordinačné hodiny", "Pokrytie", ...(FACT_LABELS[category] || [])])];
+    const allowed = [...new Set([...memberships].flatMap(cat =>
+      ["Ordinačné hodiny", "Pokrytie", ...(FACT_LABELS[cat] || [])]))];
     const sql = new Map(facts.map(x => [x?.field_key, x?.value_text]));
     for (const key of allowed) {
       const old = source[key];
@@ -145,9 +159,10 @@ export function classifyDirectory0170Row(row) {
     for (const fact of facts) if (!allowed.includes(fact?.field_key)) issue("fact","unapproved_sql_key");
   }
   if (source && filters && validCategory) {
-    const definitions = (FILTER_NAMES[category] || []).map(name => ({
-      id: category+"."+name, key: "_psipedia_filter_v1_"+category.replace(/-/g,"_")+"_"+name,
-    }));
+    const definitions = [...memberships].flatMap(cat => (FILTER_NAMES[cat] || []).map(name => ({
+      id: cat+"."+name, category:cat,
+      key: "_psipedia_filter_v1_"+cat.replace(/-/g,"_")+"_"+name,
+    })));
     const sql = new Map(filters.map(x => [x?.filter_id,x]));
     for (const def of definitions) {
       const old = normalizeFilter(def.id, source[def.key]);
@@ -155,7 +170,7 @@ export function classifyDirectory0170Row(row) {
       const newer = found ? normalizeFilter(def.id, found.value_text) : null;
       if (old === "INVALID") issue("filter","invalid_legacy_value");
       if (newer === "INVALID") issue("filter","invalid_sql_value");
-      if (found && found.category !== category) issue("filter","category_mismatch");
+      if (found && found.category !== def.category) issue("filter","category_mismatch");
       if (!found && old && old !== "INVALID") issue("filter","legacy_only_unverified");
       else if (found && old && newer && old !== newer) issue("filter","different");
       else if (found && !old && newer) issue("filter","sql_only");
