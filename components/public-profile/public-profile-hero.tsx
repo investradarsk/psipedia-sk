@@ -91,7 +91,7 @@ export function PublicProfileHero({
         <div>
           {imageUrl ? (
           <PublicPhotoLightboxLink src={imageUrl} alt={imageAlt || title}>
-<ImageDisplay
+            <ImageDisplay
             roleHint="generic"
             fallbackOnError
             context="detail"
