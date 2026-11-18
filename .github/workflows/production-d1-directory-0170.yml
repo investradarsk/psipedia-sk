@@ -1,0 +1,98 @@
+name: Production D1 Directory Canonical 0170 (manual)
+
+# Owner-only, never invoked from push, PR or deploy.
+# Audit reads exact schema/counts. Apply creates four nullable contact columns,
+# three empty tables and three indexes. Never runs generic migration replay.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read-only audit first; apply needs explicit owner confirmation
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: AUDIT-0170-psipedia-sk-db or APPLY-0170-psipedia-sk-db
+        type: string
+        required: true
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  directory-0170:
+    name: Pinned 0170 audit / independent additive schema operation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      DIRECTORY_0170_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Reject automated, wrong-branch or unconfirmed dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          case "${{ inputs.mode }}" in
+            audit) expected="AUDIT-0170-psipedia-sk-db" ;;
+            apply) expected="APPLY-0170-psipedia-sk-db" ;;
+            *) echo "Unexpected 0170 mode" >&2; exit 1 ;;
+          esac
+          test "$DIRECTORY_0170_CONFIRMATION" = "$expected"
+
+      - name: Checkout pinned main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Reject stale main before connecting to production D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Assert pinned schema-only SQL and offline D1 lifecycle guards
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-d1-directory-0170.test.mjs tests/directory-sql-0170-schema.test.mjs
+
+      - name: Bind canonical Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Execute owner-selected schema-only read or apply
+        run: node scripts/production-d1-directory-0170.mjs "${{ inputs.mode }}"
+
+      - name: Archive schema receipt and recovery bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-directory-0170-${{ github.run_id }}
+          path: .production-d1-directory-0170/report.json
+          if-no-files-found: ignore
+          retention-days: 30
