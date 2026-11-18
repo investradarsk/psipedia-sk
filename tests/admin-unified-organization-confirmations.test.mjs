@@ -37,7 +37,7 @@ test("organization bulk lifecycle keeps selection/version contract and safe canc
 test("Partner E2E confirms every moderation action with shared in-page dialogs", () => {
   const e2e = read("tests/e2e/partner-auth.spec.ts");
   const admin = e2e.slice(e2e.indexOf('test("internal admin Partner overview'), e2e.indexOf('for (const token of [', e2e.indexOf('test("internal admin Partner overview')));
-  for (const label of ["Vytvoriť nový profil?", "Prepojiť tento profil?", "Schváliť zmeny profilu?", "Overiť správcu profilu?", "Schváliť prevzatie profilu?"]) {
+  for (const label of ["Vytvoriť nový profil?", "Prepojiť tento profil?", "Schváliť zmeny profilu?", "Overiť správcu profilu?", "Schváliť správu záznamu?"]) {
     assert.ok(admin.includes('getByRole("dialog",{name:"' + label + '"})'), label);
   }
   assert.match(admin, /await createDialog\.getByRole\("button",\{name:"Zrušiť"\}\)\.click\(\)/);
