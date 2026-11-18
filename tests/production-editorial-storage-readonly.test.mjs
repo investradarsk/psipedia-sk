@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import {
   assertReadOnlySelect, buildTableDiscoverySql, buildScopeCountSql,
-  buildOrphanMapSql, planAudit,
+  buildOrphanMapSql, buildOrganizationOrphanDetailsSql, validateOrganizationOrphanDetails, planAudit,
 } from "../scripts/production-editorial-storage-readonly.mjs";
 
 test("all inventory commands are SELECT-only; destructive SQL is refused", () => {
@@ -97,4 +97,42 @@ test("query builder refuses to invent an audit for a missing canonical table", (
   const spec={scope:"events",table:"managed_events",kind:"events",map:"event_notion_sync",fk:"event_id"};
   assert.equal(buildScopeCountSql(spec,new Set(["event_notion_sync"])),null);
   assert.equal(buildOrphanMapSql(spec,new Set(["event_notion_sync"])),null);
+});
+
+test("scoped organization orphan details match aggregate and never include another agenda",()=>{
+  const db=new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE help_organizations (id INTEGER PRIMARY KEY)");
+    db.exec("CREATE TABLE notion_agenda_sync (agenda TEXT,entity_id INTEGER,notion_page_id TEXT,last_synced_at TEXT)");
+    db.exec("INSERT INTO help_organizations VALUES (10)");
+    db.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?,?)")
+      .run("organizations",10,"00000000-0000-4000-8000-000000000010","2026-11-18T08:00:00Z");
+    db.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?,?)")
+      .run("organizations",11,"00000000-0000-4000-8000-000000000011","2026-11-18T08:01:00Z");
+    db.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?,?)")
+      .run("organizations",12,"00000000-0000-4000-8000-000000000012","2026-11-18T08:02:00Z");
+    db.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?,?)")
+      .run("adoptions",999,"00000000-0000-4000-8000-000000000999","2026-11-18T08:03:00Z");
+    const sql=buildOrganizationOrphanDetailsSql();
+    assert.match(sql,/^SELECT /);
+    assert.doesNotMatch(sql,/\\b(?:DELETE|DROP|INSERT|UPDATE|ALTER)\\b/i);
+    const rows=db.prepare(sql).all();
+    const expected=db.prepare(buildOrphanMapSql({
+      table:"help_organizations",map:"notion_agenda_sync",fk:"entity_id",agenda:"organizations",
+    },new Set(["help_organizations","notion_agenda_sync"]))).get().orphans;
+    const results=validateOrganizationOrphanDetails(rows,expected);
+    assert.deepEqual(results.map(x=>x.entityId),[11,12]);
+    assert.equal(results[0].notionPageId,"00000000-0000-4000-8000-000000000011");
+    assert.equal(results.length,expected);
+  } finally {db.close();}
+});
+
+test("organization mapping diagnostics fail on changed count, invalid IDs and duplicate rows",()=>{
+  const valid={entity_id:42,notion_page_id:"00000000-0000-4000-8000-000000000042",last_synced_at:null};
+  assert.throws(()=>validateOrganizationOrphanDetails([valid],0),/AGGREGATE_MISMATCH/);
+  assert.throws(()=>validateOrganizationOrphanDetails([valid],101),/AGGREGATE_MISMATCH/);
+  assert.throws(()=>validateOrganizationOrphanDetails([{...valid,entity_id:-1}],1),/INVALID_MAPPING/);
+  assert.throws(()=>validateOrganizationOrphanDetails([{...valid,notion_page_id:"bad"}],1),/INVALID_MAPPING/);
+  assert.throws(()=>validateOrganizationOrphanDetails([valid,valid],2),/INVALID_MAPPING/);
+  assert.deepEqual(validateOrganizationOrphanDetails([],0),[]);
 });

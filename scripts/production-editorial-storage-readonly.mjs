@@ -163,6 +163,42 @@ function query(sql, configPath) {
   return extractWranglerRows(run.stdout);
 }
 
+export const ORGANIZATION_ORPHAN_LIMIT = 100;
+
+/** Export exact orphan mappings for manual reconciliation, never modify them.
+ * This is a *second* audit: aggregate count must match before the artifact
+ * can be trusted. Page IDs are private audit artifact content, not job logs.
+ */
+export function buildOrganizationOrphanDetailsSql() {
+  return assertReadOnlySelect(
+    "SELECT m.entity_id, m.notion_page_id, m.last_synced_at " +
+    "FROM notion_agenda_sync m WHERE m.agenda='organizations' " +
+    "AND NOT EXISTS (SELECT 1 FROM help_organizations o WHERE o.id=m.entity_id) " +
+    "ORDER BY m.entity_id, m.notion_page_id LIMIT 101;"
+  );
+}
+
+export function validateOrganizationOrphanDetails(rows, expectedCount) {
+  if (!Array.isArray(rows) || !Number.isSafeInteger(expectedCount) ||
+      expectedCount<0 || expectedCount>ORGANIZATION_ORPHAN_LIMIT ||
+      rows.length!==expectedCount) {
+    throw new Error("ORGANIZATION_ORPHANS_AGGREGATE_MISMATCH");
+  }
+  const ids=new Set(), pages=new Set();
+  return rows.map(row=>{
+    const entityId=row?.entity_id, pageId=row?.notion_page_id;
+    if (!Number.isSafeInteger(entityId) || entityId<=0 ||
+        typeof pageId!=="string" ||
+        !/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(pageId) ||
+        (row.last_synced_at!==null && typeof row.last_synced_at!=="string") ||
+        ids.has(entityId) || pages.has(pageId)) {
+      throw new Error("ORGANIZATION_ORPHANS_INVALID_MAPPING");
+    }
+    ids.add(entityId);pages.add(pageId);
+    return {entityId,notionPageId:pageId,lastSyncedAt:row.last_synced_at};
+  });
+}
+
 function naturalCount(value) {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
     ? value : null;
@@ -234,6 +270,22 @@ async function main() {
         throw new Error("EDITORIAL_STORAGE_AUDIT_UNEXPECTED_SUPPORT_COUNT");
       supportCounts.push({table,records:data[0].records});
     }
+    const organizationOrphanCount = orphans.find(row=>row.scope==="organizations")?.count;
+    if (organizationOrphanCount === undefined)
+      throw new Error("ORGANIZATION_ORPHANS_COUNT_MISSING");
+    if (organizationOrphanCount > ORGANIZATION_ORPHAN_LIMIT)
+      throw new Error("ORGANIZATION_ORPHANS_REVIEW_LIMIT_EXCEEDED");
+    const organizationOrphanDetails=validateOrganizationOrphanDetails(
+      query(buildOrganizationOrphanDetailsSql(),wranglerConfig),
+      organizationOrphanCount,
+    );
+    // These stable IDs and sync timestamps stay in a private Actions artifact.
+    // Do not log them or write them back into the canonical D1/Notion source.
+    await mkdir(outputDir,{recursive:true});
+    await writeFile(join(outputDir,"organization-orphans.json"),JSON.stringify({
+      database:DB_NAME,readOnly:true,expectedCount:organizationOrphanCount,
+      records:organizationOrphanDetails,
+    },null,2)+"\n");
     const report = {
       executedAt:new Date().toISOString(),gitRevision:process.env.GITHUB_SHA??null,
       database:DB_NAME,readOnly:true,
