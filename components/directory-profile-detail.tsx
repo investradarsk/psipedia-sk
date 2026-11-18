@@ -82,7 +82,7 @@ function DirectoryProfileHero({
       media={
         presentation.imageUrl ? (
           <PublicPhotoLightboxLink src={presentation.imageUrl} alt={presentation.imageAlt || "Fotografia služby " + presentation.name}>
-<ImageDisplay
+            <ImageDisplay
             fallbackOnError
             context="detail"
             roleHint="generic"
