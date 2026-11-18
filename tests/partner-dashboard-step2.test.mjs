@@ -66,7 +66,7 @@ test("Partner dashboard uses existing authenticated, account-scoped data and rea
   assert.match(home, /listPartnerResources\(identity\.accountId\)/);
   for (const loader of [
     "listPartnerClaims", "listPartnerNewProfiles", "listPartnerEventSubmissions", "listPartnerProfileChanges",
-  ]) assert.match(home, new RegExp(loader + "\\\\(identity\\\\.accountId\\\\)"));
+  ]) assert.ok(home.includes(`${loader}(identity.accountId)`), `Loader is not account-scoped: ${loader}`);
   assert.match(home, /buildPartnerDashboardSummary/);
   assert.match(home, /summary\.pendingRequests/);
   assert.match(home, /summary\.recentRequests/);
