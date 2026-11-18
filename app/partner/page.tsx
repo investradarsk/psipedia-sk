@@ -118,10 +118,9 @@ export default async function PartnerHomePage() {
           </div>
           <div className="partner-dashboard-claim">
             <h3>Profil už na Psipedii existuje?</h3>
-            <p>O správu môžete požiadať z jeho verejnej stránky.</p>
+            <p>Vyhľadajte záznam podľa názvu alebo mesta a požiadajte o jeho správu.</p>
             <div className="partner-dashboard-claim-links">
-              <Link href="/adresar">Vyhľadať službu</Link>
-              <Link href="/organizacie">Vyhľadať organizáciu</Link>
+              <Link href="/partner/prevziat">Vyhľadať a prevziať záznam</Link>
             </div>
           </div>
         </section>
