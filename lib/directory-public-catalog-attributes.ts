@@ -13,7 +13,7 @@ export function presentDirectoryCatalogAttributes(
 ): DirectoryPublicCatalogAttribute[] {
   const choices = new Map(selections.map((selection) => [selection.option_id, selection.choice]));
   return attributeCatalog
-    .filter((definition) => definition.valueKind === "tri_state" && definition.categories.includes(category as never))
+    .filter((definition) => definition.valueKind === "tri_state" && definition.categories.some((item) => item === category))
     .flatMap((definition) => {
       const choice = choices.get(definition.id);
       return choice === "yes" || choice === "no"
