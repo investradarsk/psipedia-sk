@@ -2,6 +2,7 @@ import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
 import { readDirectorySqlShadowParity } from "@/lib/directory-sql-cutover-parity";
+import { readDirectory0170EditorialFields } from "@/lib/directory-0170-editorial-read";
 import { planDirectory0170FilterSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
 import { validateDirectoryFullProfileSave } from "@/lib/directory-full-profile-save";
 import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, unconfirmedDirectoryCategoryFilters, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
@@ -66,7 +67,24 @@ export async function GET(_request: Request, { params }: Props) {
     }
   }
   const profile = await getManagedDirectoryProfileById(id);
-  return profile ? Response.json({ profile }) : Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+  if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+  const db=(env as unknown as {DB?:D1Database}).DB;
+  if (!db) return Response.json({error:"Databáza nie je dostupná."},{status:503});
+  try {
+    // The owner sees confirmed SQL facts/filters, but every SQL field still
+    // missing on a historical profile comes from its existing JSON.
+    // A failed canonical read must not offer a stale editable form as current.
+    const importData=await readDirectory0170EditorialFields(db,{
+      profileId:id,category:profile.category,
+      source:profile.importData,audience:"admin",
+    });
+    return Response.json({profile:{...profile,importData}},
+      {headers:{"cache-control":"no-store"}});
+  } catch {
+    return Response.json({
+      error:"Kontrola SQL údajov profilu zlyhala. Obnov stránku, údaje zostali nezmenené.",
+    },{status:503,headers:{"cache-control":"no-store"}});
+  }
 }
 
 export async function PUT(request: Request, { params }: Props) {
