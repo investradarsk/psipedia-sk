@@ -1,23 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import {
-  BREEDER_CLUB_IDS_METADATA_KEY,
-  parseBreederClubIds,
-  validateBreederRelations,
-} from "../lib/breeder-profile-relations.ts";
-
-test("club relations roundtrip in private metadata, independent of gallery and text fields", () => {
-  const source = {
-    "Chovateľ": "Ivana Zástěrová",
-    "_psipedia_breeder_gallery_urls": JSON.stringify(["/media/a.jpg"]),
-    [BREEDER_CLUB_IDS_METADATA_KEY]: JSON.stringify([17, 23]),
-  };
-  assert.deepEqual(parseBreederClubIds(JSON.stringify(source)), [17, 23]);
-  assert.deepEqual(parseBreederClubIds(JSON.stringify({ ...source, [BREEDER_CLUB_IDS_METADATA_KEY]: "[]" })), []);
-  assert.deepEqual(parseBreederClubIds("{}"), []);
-  assert.deepEqual(parseBreederClubIds("not-json"), []);
-});
+import { validateBreederRelations } from "../lib/breeder-profile-relations.ts";
 
 test("relationship selection only accepts distinct positive canonical IDs", () => {
   assert.deepEqual(validateBreederRelations({ breedIds: [8, 11], clubIds: [5] }), {
@@ -29,15 +13,16 @@ test("relationship selection only accepts distinct positive canonical IDs", () =
   assert.throws(() => validateBreederRelations({ breedIds: [], clubIds: "5" }), /najviac/);
 });
 
-test("canonical breed relation is reused and club selection only affects breeder metadata", async () => {
+test("canonical breed relation is reused and club selection is stored in SQL", async () => {
   const store = await readFile(new URL("../lib/breeder-profile-relations.ts", import.meta.url), "utf8");
   assert.match(store, /breed_directory_relations/);
   assert.match(store, /category='chovatelske-kluby'/);
-  assert.match(store, /json_set\(source_data_json/);
+  assert.doesNotMatch(store, /json_set\(source_data_json/);
+  assert.match(store, /directory_breeder_club_relations/);
   assert.match(store, /canonicalBreedIdsSql/);
   assert.match(store, /category='chovatelske-stanice'/);
   const metadata = await readFile(new URL("../lib/directory-profile-metadata.ts", import.meta.url), "utf8");
-  assert.match(metadata, /BREEDER_CLUB_IDS_METADATA_KEY/);
+  assert.match(metadata, /BREEDER_CLUB_IDS_METADATA_KEY/); // Retained only as historical migration metadata, never as live relations.
   const route = await readFile(new URL("../app/api/admin/directory/[id]/breeder-relations/route.ts", import.meta.url), "utf8");
   assert.match(route, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(route, /saveBreederRelationSelection/);

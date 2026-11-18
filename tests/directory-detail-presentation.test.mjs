@@ -324,7 +324,7 @@ test("breeder public facts keep real breeder metadata but never duplicate canoni
     assert.equal(factMap[field], undefined, "Only clickable breed relation should show");
 });
 
-test("existing breed and organization relations are exposed without synthetic values", () => {
+test("trainers do not expose legacy breed links but retain organization prose", () => {
   const presentation = getDirectoryDetailPresentation(
     profile({
       category: "treneri",
@@ -336,11 +336,7 @@ test("existing breed and organization relations are exposed without synthetic va
     }),
   );
 
-  assert.ok(
-    presentation.facts.some(
-      (fact) => fact.label === "Plemeno" && fact.value === "Labradorský retriever",
-    ),
-  );
+  assert.equal(presentation.facts.some((fact) => fact.label === "Plemeno"), false);
   assert.ok(
     presentation.facts.some(
       (fact) => fact.label === "Organizácia" && fact.value === "Fixture klub",

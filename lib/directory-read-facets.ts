@@ -14,7 +14,7 @@ import { directoryEffectiveDistrictSql } from "./directory-public-source-contrac
  * are no canonical relations.
  */
 export function directoryCanonicalBreedFacetSql(legacyBreedSql: string): string {
-  return `CASE WHEN directory_profiles.category='chovatelske-stanice'
+  return `CASE WHEN directory_profiles.category IN ('chovatelske-stanice','chovatelske-kluby')
     AND EXISTS (
       SELECT 1 FROM breed_directory_relations linked
       WHERE linked.profile_id = directory_profiles.id

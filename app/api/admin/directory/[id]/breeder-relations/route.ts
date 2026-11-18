@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: Props) {
   if (!database) return Response.json({ error: "Databáza nie je pripojená." }, { status: 503 });
   try {
     const selected = await getBreederRelationSelection(database, id);
-    if (!selected) return Response.json({ error: "Chovateľská stanica sa nenašla." }, { status: 404 });
+    if (!selected) return Response.json({ error: "Chovateľská stanica alebo klub sa nenašiel." }, { status: 404 });
     const options = await listBreederRelationOptions(database);
     return Response.json({ selected, ...options }, { headers: { "cache-control": "no-store" } });
   } catch {

@@ -9,7 +9,7 @@ import {
   BREEDER_0169_DEPENDENCIES, assertBreeder0169State, assertBreeder0169PinnedDdl,
 } from "../lib/production-d1-breeder-0169-guard.mjs";
 
-import { FREEZE_TRIGGERS, inspectFreeze, SNAPSHOT, OUTSIDE, GUARDED_RESET_SQL } from "../lib/production-d1-breeder-cutover.mjs";
+import { FREEZE_TRIGGERS, inspectFreeze, SNAPSHOT, OUTSIDE, GUARDED_RESET_SQL, RELEASE_SQL } from "../lib/production-d1-breeder-cutover.mjs";
 const mode = process.argv[2] ?? "";
 const DATABASE = "psipedia-sk-db";
 const ACCOUNT = "5ff902d3d80376478b9213b2b8ae8d6e";
@@ -25,7 +25,7 @@ let state = null;
 let stage = "START";
 
 function authorize() {
-  failUnless(["audit","freeze","reset"].includes(mode), "INVALID_MODE");
+  failUnless(["audit","freeze","reset","release"].includes(mode), "INVALID_MODE");
   failUnless(process.env.GITHUB_EVENT_NAME === "workflow_dispatch", "MANUAL_ONLY");
   failUnless(process.env.GITHUB_REPOSITORY === "investradarsk/psipedia-sk", "REPOSITORY");
   failUnless(process.env.GITHUB_REF === "refs/heads/main", "MAIN_ONLY");
@@ -166,7 +166,7 @@ function recoveryPoint(){
 }
 async function write(sql,params=[]){
   // One fixed statement per request. Never rely on REST multi-statement atomicity.
-  failUnless(FREEZE_TRIGGERS.some(t=>t.sql===sql)||sql===GUARDED_RESET_SQL,"WRITE_NOT_ALLOWLISTED");
+  failUnless(FREEZE_TRIGGERS.some(t=>t.sql===sql)||sql===GUARDED_RESET_SQL||RELEASE_SQL.includes(sql),"WRITE_NOT_ALLOWLISTED");
   const resp=await fetch("https://api.cloudflare.com/client/v4/accounts/"+ACCOUNT+"/d1/database/"+DATABASE_ID+"/query",{
     method:"POST",headers:{Authorization:"Bearer "+process.env.CLOUDFLARE_API_TOKEN,"Content-Type":"application/json"},
     body:JSON.stringify({sql,params}),signal:AbortSignal.timeout(60000),
@@ -201,6 +201,23 @@ function expected(s){
 async function run(){
   authorize();const sql=readPinnedSql();prepare();state=inspect(sql);
   if(mode==="audit"){report("AUDIT",state);return;}
+  if(mode==="release"){
+    failUnless(process.env.BREEDER_CUTOVER_RELEASE==="NEW-1414-RUNTIME-VERIFIED","RELEASE_DEPLOYMENT_VERIFICATION_REQUIRED");
+    failUnless(process.env.BREEDER_CUTOVER_NOTION==="NOTION-RELATION-FIELDS-VERIFIED-EMPTY","NOTION_VERIFICATION_REQUIRED");
+    failUnless(state.schema.oldBreedLinks===0 && state.schema.newStationClubLinks===0 && state.outsideCount===0 &&
+      state.snapshot==="[]" && state.fingerprint===process.env.BREEDER_CUTOVER_FINGERPRINT,"RELEASE_NOT_EMPTY");
+    failUnless(state.profiles.every(p=>Boolean(p.notion_page_id)),"UNMAPPED_PROFILE");
+    failUnless(state.missing.length<FREEZE_TRIGGERS.length,"RELEASE_ALREADY_UNLOCKED");
+    bookmark=recoveryPoint();report("RELEASE_RECOVERY_POINT",state);
+    const fresh=inspect(sql);same(state,fresh);
+    failUnless(JSON.stringify(state.missing)===JSON.stringify(fresh.missing),"RELEASE_TRIGGER_DRIFT");
+    for(const t of FREEZE_TRIGGERS){
+      if(!fresh.missing.some(m=>m.name===t.name))await write("DROP TRIGGER "+t.name);
+    }
+    const after=inspect(sql);same(fresh,after);
+    failUnless(after.missing.length===FREEZE_TRIGGERS.length,"RELEASE_INCOMPLETE");
+    report("RELEASE_POSTFLIGHT",after);return;
+  }
   expected(state);bookmark=recoveryPoint();report("RECOVERY_POINT",state);
   if(mode==="freeze"){
     // Partial application is detectable and safe to resume after inspection.

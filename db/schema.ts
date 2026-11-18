@@ -484,6 +484,21 @@ export const breedDirectoryRelations = sqliteTable(
   ],
 );
 
+/** Station → kennel club is a profile relation, not a breed relation or JSON field. */
+export const directoryBreederClubRelations = sqliteTable(
+  "directory_breeder_club_relations",
+  {
+    stationProfileId: integer("station_profile_id").notNull(),
+    clubProfileId: integer("club_profile_id").notNull(),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    uniqueIndex("directory_breeder_club_relations_unique").on(table.stationProfileId, table.clubProfileId),
+    index("directory_breeder_club_relations_club_idx").on(table.clubProfileId, table.stationProfileId),
+  ],
+);
+
 export const helpCases = sqliteTable(
   "help_cases",
   {
