@@ -3,10 +3,10 @@
  * Scan the actual runtime app, components and shared view helpers only.
  * Keep Admin in scope: it consumes this same root stylesheet. */
 @import "tailwindcss" source(none);
+@import "../components/public-visual-system/public-result-global.css";
 @source "../app";
 @source "../components";
 @source "../lib";
-@import "../components/public-visual-system/public-result-global.css";
 
 :root {
   --ink: #17352b;
@@ -702,24 +702,6 @@
   color: #755817;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @media (max-width: 900px) {
   .care-search {
     margin-left: 0;
@@ -887,9 +869,6 @@
   .portal-more-grid.care-service-grid a {
     min-height: 96px;
   }
-
-
-
 }
 
 /* Breed encyclopedia architecture */
@@ -1163,8 +1142,6 @@
   line-height: 1;
 }
 
-
-
 .admin-breed-sports-editor,
 .admin-relation-grid {
   display: grid;
@@ -1187,7 +1164,6 @@
   font-weight: 800;
 }
 
-
 @media (max-width: 760px) {
   .breed-at-a-glance-grid,
   .breed-fit-guide,
@@ -1200,8 +1176,6 @@
     border-top: 1px solid rgba(23, 53, 43, 0.1);
     border-left: 0;
   }
-
-
 }
 
 @media (max-width: 420px) {
@@ -1335,30 +1309,6 @@
   font-size: 0.94rem;
   overflow-wrap: anywhere;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 * {
   box-sizing: border-box;
@@ -4450,7 +4400,9 @@ h3 {
   padding-top: 32px;
 }
 @media (max-width: 650px) {
-  .prose-page--after-hero { padding-top: 24px; }
+  .prose-page--after-hero {
+    padding-top: 24px;
+  }
 }
 
 .prose-page h1 {
@@ -5351,41 +5303,6 @@ h3 {
   min-height: 50px;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @media (max-width: 720px) {
   .directory-change-hero {
     padding: 30px 0 36px;
@@ -5409,14 +5326,6 @@ h3 {
   .directory-change-submit button {
     min-height: 52px;
   }
-
-
-
-
-
-
-
-
 }
 
 /* Event calendar */
@@ -5856,47 +5765,10 @@ h3 {
   text-decoration-color: rgba(255, 255, 255, 0.4);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @media (max-width: 1020px) {
   .event-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-
 }
 
 @media (max-width: 820px) {
@@ -5938,14 +5810,6 @@ h3 {
     width: 100%;
     margin: 8px 0 0;
   }
-
-
-
-
-
-
-
-
 }
 
 /* Directory layout-specific rules moved to versioned route-owned
@@ -5959,19 +5823,6 @@ h3 {
   gap: 12px;
   margin-top: 16px;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 .admin-inquiry-body {
   display: grid;
@@ -5992,7 +5843,6 @@ h3 {
 .admin-inquiry-body p {
   white-space: pre-wrap;
 }
-
 
 .admin-inquiry-body aside {
   display: flex;
@@ -6017,11 +5867,6 @@ h3 {
 .admin-inquiry-body aside .admin-inquiry-recipient-heading {
   margin-top: 10px;
 }
-
-
-
-
-
 
 @media (max-width: 820px) {
   .admin-inquiry-body {
@@ -6812,10 +6657,6 @@ h3 {
   margin-top: 18px;
 }
 
-
-
-
-
 @media (max-width: 1020px) {
   .home-live-grid,
   .home-starter-grid {
@@ -6838,7 +6679,6 @@ h3 {
     grid-template-columns: minmax(0, 1fr) 330px;
     gap: 42px;
   }
-
 }
 
 @media (max-width: 820px) {
@@ -6991,8 +6831,6 @@ h3 {
     width: 44px;
     height: 44px;
   }
-
-
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -8401,26 +8239,6 @@ h3 {
   font-size: 0.86rem;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @media (max-width: 760px) {
   .breed-origin-filter,
   .breed-origin-filter select {
@@ -8430,7 +8248,6 @@ h3 {
   .breed-fci-basics {
     grid-template-columns: 1fr;
   }
-
 }
 
 .news-tip-contact-box {
@@ -8561,40 +8378,6 @@ h3 {
   text-decoration: underline;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @media (max-width: 1020px) {
   .news-tip-callout {
     align-items: flex-start;
@@ -8607,7 +8390,6 @@ h3 {
     position: static;
   }
 }
-
 
 @media (max-width: 620px) {
   .news-tip-callout {
@@ -8657,11 +8439,6 @@ h3 {
   .news-tip-process {
     padding: 23px;
   }
-
-
-
-
-
 }
 
 /* Whole-portal search */
@@ -9038,23 +8815,6 @@ h3 {
   background: #f1f5f0;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @media (max-width: 1050px) {
   .footer-main {
     grid-template-columns: 1fr;
@@ -9065,8 +8825,6 @@ h3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 34px;
   }
-
-
 }
 
 @media (max-width: 640px) {
@@ -9149,54 +8907,6 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   white-space: nowrap;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 .footer-cookie-button {
   appearance: none;
   width: fit-content;
@@ -9260,70 +8970,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   .cookie-consent__actions .button:nth-child(3):last-child {
     grid-column: 1 / -1;
   }
-
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /* Verejné zobrazenie blokov */
 .article-blocks {
@@ -9726,25 +9373,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   color: #285640;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 @media (max-width: 680px) {
-
-
-
-
-
-
   .article-block-cta {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -9780,18 +9409,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   .article-feedback-form button {
     width: 100%;
   }
-
 }
-
-
-
-
-
-
-
-
-
-
 
 .portal-topic-area-image {
   overflow: hidden;
@@ -9805,16 +9423,6 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   height: 100%;
   object-fit: cover;
 }
-
-
-
-
-
-
-
-
-
-
 
 .article-updated {
   color: #8f513d;
@@ -10146,47 +9754,6 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 .event-markdown {
   overflow-wrap: anywhere;
 }
@@ -10217,39 +9784,6 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /* PUBLIC-POLISH-2 photo contract: photography is square; controls and non-photo UI keep their radii. */
 .article-card,
