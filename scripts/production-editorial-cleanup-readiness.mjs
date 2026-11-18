@@ -28,6 +28,11 @@ export const REQUIRED_SQL_TABLES = Object.freeze([
   "notion_agenda_sync", "service_catalog_admin_options",
   "service_profile_option_choices", "service_profile_property_values",
 ]);
+// Count-only inventory also collects this optional operational support table.
+// Its presence is not an extra migration requirement or a cleanup attestation.
+export const OPTIONAL_AUDIT_SUPPORT_TABLES = Object.freeze([
+  "service_catalog_notion_auto_attempts",
+]);
 const knownScope = new Set(EDITORIAL_SQL_SCOPES);
 const validInt = value => typeof value === "number" &&
   Number.isSafeInteger(value) && value >= 0;
@@ -63,10 +68,14 @@ export function assessEditorialCleanupReadiness(report) {
       "Missing-table diagnostics are malformed."));
   const missingSet=new Set(missing);
   const countedTables=new Set(report.supportCounts.map(v=>v?.table));
+  const allowedSupporting=new Set([
+    ...REQUIRED_SQL_TABLES.slice(7), ...OPTIONAL_AUDIT_SUPPORT_TABLES,
+  ]);
   if (report.supportCounts.some(v=>!v || typeof v.table!=="string" ||
-      !validInt(v.records) || !REQUIRED_SQL_TABLES.includes(v.table))) {
+      !validInt(v.records) || !allowedSupporting.has(v.table)) ||
+      countedTables.size!==report.supportCounts.length) {
     blockers.push(signal("INVALID_SUPPORTING_COUNTS",
-      "Supporting-table counts are incomplete or invalid."));
+      "Supporting-table counts include malformed, duplicate or unknown entries."));
   }
   // Existence for the seven primary tables is represented by grouped data
   // and the missing-table list, not an assumed nonempty sample.
