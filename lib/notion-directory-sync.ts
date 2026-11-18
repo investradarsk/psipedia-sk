@@ -728,6 +728,9 @@ async function writeProfileToNotion(input: {
   pageId?: string | null;
   singleAttemptCreate?: boolean;
 }) {
+  // Direct Notion writebacks must respect the same Admin review lock as sweeps.
+  if (await directoryProfileNotionSyncLocked(input.database,input.profile.id))
+    return null;
   const syncedAt = new Date().toISOString();
   const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", input.profile.id);
   const sourceImageUrl = monitor?.sourceImageUrl || externalSourceImageUrl(input.profile.imageUrl);
@@ -1051,6 +1054,9 @@ async function applyNotionToProfile(input: {
   profile: ManagedDirectoryProfile;
   desiredOverride?: EditableDirectorySnapshot;
 }) {
+  // A direct inbound Notion import must not bypass an Admin review lock.
+  if (await directoryProfileNotionSyncLocked(input.database,input.profile.id))
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
   const desired = input.desiredOverride ?? notionSnapshot(input.page);
   const current = input.profile;
 
@@ -2165,6 +2171,8 @@ async function applyNotionAdditionalCategories(input: {
   database: D1Database; bindings: NotionDirectorySyncBindings;
   dataSourceId: string; page: NotionPage; mapping: DirectoryNotionMapping;
 }): Promise<boolean> {
+  if (await directoryProfileNotionSyncLocked(input.database,input.mapping.directory_profile_id))
+    return false;
   const page = await fetchNotionPage(input.bindings, input.page.id);
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile || profile.status === "archived") throw Error("DIRECTORY_CATEGORIES_PROFILE_UNAVAILABLE");
