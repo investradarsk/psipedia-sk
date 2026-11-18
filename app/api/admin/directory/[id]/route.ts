@@ -13,6 +13,7 @@ import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTraine
 import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_TRUST_FIELDS, type TrainerTrustField } from "@/lib/notion-trainer-trust-fields";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { syncDirectoryReviewedWithNotion, type DirectoryReviewSyncResult } from "@/lib/directory-notion-reviewed-sync";
+import { isDirectoryReviewUnlockPendingSource } from "@/lib/directory-reviewed-sync-lock";
 import { parseDirectoryMainImageAction, directoryMainImageMatches } from "@/lib/directory-main-image-action";
 import { cleanupUnreferencedNotionUpload } from "@/lib/notion-sync-shared";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, DIRECTORY_CONTACT_EDITORIAL_PATHS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
@@ -1129,9 +1130,9 @@ export async function PATCH(request: Request, { params }: Props) {
           const latest = await database.prepare(
             "SELECT source_data_json FROM directory_profiles WHERE id=? LIMIT 1",
           ).bind(id).first<{ source_data_json: string }>();
-          const stillPending = latest?.source_data_json.includes(
-            '"_psipedia_profile_review_unlock_pending":"1"',
-          ) ?? true;
+          const stillPending = latest
+            ? isDirectoryReviewUnlockPendingSource(latest.source_data_json)
+            : true;
           notionReviewSync = status.failed || stillPending ? "pending" : "pushed";
         } else {
           notionReviewSync = await syncDirectoryReviewedWithNotion({
