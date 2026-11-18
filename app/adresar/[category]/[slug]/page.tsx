@@ -6,6 +6,7 @@ import { DirectoryProfileDetail } from "@/components/directory-profile-detail";
 import { DirectoryProfileViewTracker } from "@/components/directory-profile-view-tracker";
 import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
 import { getDirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
+import { getPublicDirectoryCatalogAttributes } from "@/lib/directory-public-catalog-attributes";
 import { getPublishedDirectoryProfile } from "@/lib/directory-store";
 import { StructuredData } from "@/components/structured-data";
 import { buildContentMetadata, directorySeoFallback, resolvedCanonical } from "@/lib/content-seo";
@@ -118,6 +119,15 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       });
       return { data: null, readError: true };
     });
+  const catalogAttributesPromise = getPublicDirectoryCatalogAttributes(database, profile.id, profile.category)
+    .catch((error) => {
+      // Optional catalog read must never turn a public directory profile into HTTP 500.
+      console.error("Public directory attributes unavailable", {
+        profileId: profile.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    });
   const publicMapPromise = getPublicMapItemsForEntity(
     { entityType: "DIRECTORY_PROFILE", entityId: profile.id },
     database,
@@ -156,10 +166,11 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
   const relatedStationsPromise = profile.category === "chovatelske-kluby"
     ? listPublicClubStationLinks((env as unknown as { DB: D1Database }).DB, profile.id).catch(() => [])
     : Promise.resolve([]);
-  const [partnerState, reviewResult, commercial, publicMap, relatedBreeds, locationDiscoveryLinks, relatedClubs, relatedStations] =
+  const [partnerState, reviewResult, catalogAttributes, commercial, publicMap, relatedBreeds, locationDiscoveryLinks, relatedClubs, relatedStations] =
     await Promise.all([
       partnerStatePromise,
       reviewsPromise,
+      catalogAttributesPromise,
       commercialPromise,
       publicMapPromise,
       relatedBreedsPromise,
@@ -176,6 +187,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       <DirectoryProfileViewTracker profileId={profile.id} profileSlug={profile.slug} />
       <DirectoryProfileDetail
         presentation={presentation}
+        catalogAttributes={catalogAttributes}
         reviews={reviewResult.data}
         reviewReadError={reviewResult.readError}
         commercial={commercial}
