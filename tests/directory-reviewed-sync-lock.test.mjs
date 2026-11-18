@@ -148,8 +148,10 @@ test("owner unlock is explicitly D1-first, echo-verified, and remains locked on 
 test("additional Notion writers cannot bypass reviewed profile lock", () => {
   const geo = readFileSync(new URL("../lib/notion-geo-detach-mirror.ts", import.meta.url), "utf8");
   const services = readFileSync(new URL("../lib/service-catalog-notion-relations.ts", import.meta.url), "utf8");
+  const media = readFileSync(new URL("../lib/media-source-monitor.ts", import.meta.url), "utf8");
   assert.match(geo, /directoryProfileNotionSyncLocked\(db, targetId\)/);
   assert.match(services, /directoryProfileNotionSyncLocked\(db, profileId\)/);
+  assert.match(media, /directoryProfileNotionSyncLocked\(input\.database, input\.row\.entityId\)/);
 });
 
 test("Admin review toggle unlocks through canonical targeted rebaseline without releasing pending lock", () => {
