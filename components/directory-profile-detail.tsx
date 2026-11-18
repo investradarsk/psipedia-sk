@@ -8,6 +8,7 @@ import {
   PublicFoundation,
   PublicMediaFallback,
   PublicPhotoGallery,
+  PublicPhotoLightboxLink,
 } from "@/components/public-visual-system";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { DirectoryServicesList } from "@/components/directory-services-list";
@@ -80,7 +81,8 @@ function DirectoryProfileHero({
       }
       media={
         presentation.imageUrl ? (
-          <ImageDisplay
+          <PublicPhotoLightboxLink src={presentation.imageUrl} alt={presentation.imageAlt || "Fotografia služby " + presentation.name}>
+<ImageDisplay
             fallbackOnError
             context="detail"
             roleHint="generic"
@@ -93,6 +95,7 @@ function DirectoryProfileHero({
             fetchPriority="high"
             decoding="async"
           />
+          </PublicPhotoLightboxLink>
         ) : (
           <PublicMediaFallback
             size="detail"
