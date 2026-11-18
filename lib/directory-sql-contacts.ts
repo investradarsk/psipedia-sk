@@ -24,7 +24,8 @@ export function overlayDirectorySqlContacts<T extends Record<string, string | nu
   legacy: T | null,
   sql: DirectorySqlContactColumns,
 ): T | null {
-  if (!legacy && Object.values(sql).every(v => v == null)) return null;
+  if (!legacy && (Object.keys(DIRECTORY_SQL_CONTACT_KEYS) as Array<keyof DirectorySqlContactColumns>)
+      .every(key => sql[key] == null)) return null;
   const result: Record<string, string | number | null> = { ...(legacy ?? {}) };
   for (const [column, aliases] of Object.entries(DIRECTORY_SQL_CONTACT_KEYS)) {
     const current = sql[column as keyof DirectorySqlContactColumns];
