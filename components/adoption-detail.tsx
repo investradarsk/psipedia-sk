@@ -27,7 +27,7 @@ import {
 import type { AdoptionPublicOrganizationLink } from "@/lib/adoption-store";
 import { ImageDisplay } from "@/components/image-display";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
-import { PublicActionLink, PublicMediaFallback, PublicPhotoGallery } from "@/components/public-visual-system";
+import { PublicActionLink, PublicMediaFallback, PublicPhotoGallery, PublicPhotoLightboxLink } from "@/components/public-visual-system";
 import { breedProfileHref } from "@/lib/breed-canonical";
 import dogStyles from "./lost-found-dogs.module.css";
 import styles from "./adoption-detail.module.css";
@@ -101,10 +101,12 @@ export function AdoptionDetail({ dog, organization }: {
         <span>{dog.name}</span>
       </nav>}
       media={dog.mainImage
-        ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={dog.detailImageDisplay}
+        ? <PublicPhotoLightboxLink src={dog.mainImage} alt={`${dog.name} – pes na adopciu`}>
+            <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={dog.detailImageDisplay}
             src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} loading="eager" fetchPriority="high"
             srcSet={responsiveMediaSrcSet(dog.mainImage, [480, 640, 960, 1280, 1600])}
             sizes="(max-width: 760px) 100vw, 50vw" />
+          </PublicPhotoLightboxLink>
         : <PublicMediaFallback size="detail" label={`Fotografia psa ${dog.name} zatiaľ nie je dostupná`} />}
       copy={<>
         <div className={`${dogStyles.statusBanner} ${dog.status === "RESERVED" ? styles.reservedBanner : ""}`}
