@@ -21,6 +21,7 @@ const statuses: Record<string, string> = {
 const resources: Record<string, string> = {
   DIRECTORY_PROFILE: "Profil služby",
   HELP_ORGANIZATION: "Organizácia pomoci psom",
+  MANAGED_EVENT: "Podujatie",
 };
 const risks: Record<string, string> = {
   STALE_BASE: "Zastaralý pôvodný údaj",
@@ -31,6 +32,7 @@ const risks: Record<string, string> = {
 };
 const roles: Record<string, string> = {
   OWNER: "Správca profilu",
+  MANAGER: "Manažér profilu",
   EDITOR: "Editor",
   VIEWER: "Pozorovateľ",
 };
