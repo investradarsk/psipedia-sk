@@ -1,5 +1,6 @@
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
+import { readDirectory0170EditorialFields } from "./directory-0170-editorial-read";
 import { env } from "cloudflare:workers";
 import {
   directoryLocationFacetStatement,
@@ -1785,7 +1786,22 @@ const getPublishedDirectoryProfileUncached = async (category: string, slug: stri
     .bind(category, slug)
     .first<DirectoryProfileRow>());
   if(!row)return null;
-  const profile=rowToPublicProfile(row);
+  let profile=rowToPublicProfile(row);
+  try {
+    // A confirmed 0170 SQL fact row wins, including explicit empty values.
+    // For untouched historical fields we keep the same JSON presentation.
+    // Fail-open for a public read: an optional projection outage must not 500.
+    const importData=await readDirectory0170EditorialFields(database,{
+      profileId:profile.id,category:profile.category,
+      source:profile.importData,audience:"public",
+    });
+    profile={...profile,importData};
+  } catch (error) {
+    console.error("Public directory SQL 0170 detail projection unavailable",{
+      profileId:profile.id,
+      error:error instanceof Error?error.name:"UNKNOWN",
+    });
+  }
   // The detail page and its JSON-LD must reflect confirmed D1 choices even
   // when an earlier text/Notion projection failed. Keep old unmatched prose.
   // This optional read only runs for a published profile on a V3-enabled site.
