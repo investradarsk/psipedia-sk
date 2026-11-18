@@ -59,7 +59,8 @@ test("public listing and map facet predicates read the V3 choice rather than a s
         { "chovatelske-stanice.visits_by_appointment": "yes" }, column);
       assert.equal(where.clauses.length, 1);
       assert.deepEqual(where.bindings, ["attr.kennel.visits_by_appointment", "yes"]);
-      const rows = db.prepare("SELECT d.id FROM directory_profiles d WHERE " + where.clauses[0])
+      const from = column === "d.source_data_json" ? "directory_profiles d" : "directory_profiles";
+      const rows = db.prepare("SELECT id FROM " + from + " WHERE " + where.clauses[0])
         .all(...where.bindings);
       assert.deepEqual(rows.map((row) => row.id), [1]);
     }

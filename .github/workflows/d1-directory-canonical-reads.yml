@@ -21,6 +21,9 @@ on:
       - "tests/directory-0170-manual-contacts.test.mjs"
       - "lib/directory-breeder-card.ts"
       - "lib/directory-read-facets.ts"
+      - "lib/directory-public-filters.ts"
+      - "tests/directory-public-filters.test.mjs"
+      - "tests/directory-canonical-attributes-public.test.mjs"
       - "lib/breeder-profile-relations.ts"
       - "lib/notion-directory-sync.ts"
       - "tests/breeder-club-single-source.test.mjs"
@@ -54,6 +57,10 @@ jobs:
           node-version: "24.18.0"
       - name: Exact canonical identity, source facets and secondary-category parity
         run: node --experimental-strip-types --test tests/directory-0170-manual-contacts.test.mjs tests/directory-0170-secondary-category-dualwrite.test.mjs tests/directory-0170-secondary-sql-authority.test.mjs tests/directory-multi-category.test.mjs tests/directory-0170-editorial-sql-mirror.test.mjs tests/directory-0170-editorial-read.test.mjs tests/d1-canonical-breed-cost.test.mjs tests/directory-read-facets.test.mjs tests/breeder-club-single-source.test.mjs tests/d1-0163-0169-schema-readonly-audit.test.mjs
+      - name: Install dependencies for alias-aware public tests
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Public SQL-first provider facet and Services V3 separation
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-public-filters.test.mjs tests/directory-canonical-attributes-public.test.mjs
       - name: Historical trainer relation migration regression (not a production instruction)
         run: node --experimental-strip-types --test tests/trainer-breed-unification.test.mjs
       - name: Breeder-card canonical links and safe fallback
