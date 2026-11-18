@@ -730,7 +730,7 @@ async function writeProfileToNotion(input: {
 }) {
   // Direct Notion writebacks must respect the same Admin review lock as sweeps.
   if (await directoryProfileNotionSyncLocked(input.database,input.profile.id))
-    return null;
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
   const syncedAt = new Date().toISOString();
   const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", input.profile.id);
   const sourceImageUrl = monitor?.sourceImageUrl || externalSourceImageUrl(input.profile.imageUrl);
