@@ -114,7 +114,7 @@ export function compareDirectorySqlShadow(
 
   const oldCategories=readAdditionalDirectoryCategories(legacy,row.category);
   const newCategories=[...new Set(sqlCategories.map(r=>r.category))].sort();
-  const oldSet=new Set(oldCategories);
+  const oldSet=new Set<string>(oldCategories);
   const newSet=new Set(newCategories);
   for (const category of oldSet)
     if (!newSet.has(category)) issues.push({group:"category",field:category,kind:"not_backfilled"});
