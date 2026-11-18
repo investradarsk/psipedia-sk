@@ -1,5 +1,6 @@
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
 import { syncDirectoryReviewedWithNotion } from "./directory-notion-reviewed-sync";
+import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
@@ -727,6 +728,9 @@ async function writeProfileToNotion(input: {
   pageId?: string | null;
   singleAttemptCreate?: boolean;
 }) {
+  // Direct Notion writebacks must not bypass an Admin-reviewed profile lock.
+  if (await directoryProfileNotionSyncLocked(input.database,input.profile.id))
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
   const syncedAt = new Date().toISOString();
   const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", input.profile.id);
   const sourceImageUrl = monitor?.sourceImageUrl || externalSourceImageUrl(input.profile.imageUrl);
@@ -1050,6 +1054,8 @@ async function applyNotionToProfile(input: {
   profile: ManagedDirectoryProfile;
   desiredOverride?: EditableDirectorySnapshot;
 }) {
+  if (await directoryProfileNotionSyncLocked(input.database,input.profile.id))
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
   const desired = input.desiredOverride ?? notionSnapshot(input.page);
   const current = input.profile;
 
@@ -2177,6 +2183,8 @@ async function applyNotionAdditionalCategories(input: {
   database: D1Database; bindings: NotionDirectorySyncBindings;
   dataSourceId: string; page: NotionPage; mapping: DirectoryNotionMapping;
 }): Promise<boolean> {
+  if (await directoryProfileNotionSyncLocked(input.database,input.mapping.directory_profile_id))
+    return false;
   const page = await fetchNotionPage(input.bindings, input.page.id);
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile || profile.status === "archived" || profile.reviewed) throw Error("DIRECTORY_CATEGORIES_PROFILE_UNAVAILABLE");
@@ -2249,6 +2257,8 @@ async function syncMappedPage(input: {
   breederAdminFields?: readonly BreederEditorialField[];
 }) {
   if (await notionPageMustSkipInboundSync(input.database,input.mapping.notion_page_id)) return "unchanged" as const;
+  if (await directoryProfileNotionSyncLocked(input.database, input.mapping.directory_profile_id))
+    return "unchanged" as const;
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile || profile.reviewed) return "unchanged" as const;
 
@@ -2954,6 +2964,8 @@ export async function runNotionDirectorySyncSweep(input: {
   let lookupPromise: Promise<CatalogRelationLookup> | null = null;
   async function syncRelation(pageId: string, profileId: number, notionExplicitEdit = false,
     adminChoiceSave = false) {
+    if (await directoryProfileNotionSyncLocked(input.database, profileId))
+      return "skipped" as const;
     relationSchemaReady ??= input.database.prepare(
       "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'"
     ).first<{ok:number}>().then(Boolean);
@@ -2988,6 +3000,10 @@ export async function runNotionDirectorySyncSweep(input: {
       summary.failed++;
       console.warn("DIRECTORY_REVIEW_NOTION_TARGET_SYNC_FAILED", input.targetProfileId,
         error instanceof Error ? error.message : String(error));
+    }
+    if (await directoryProfileNotionSyncLocked(input.database, input.targetProfileId)) {
+      summary.unchanged++;
+      return summary;
     }
     // The Admin's explicit Odkontrolované marker is an immediate bidirectional
     // lock. The isolated checkbox mirror above is the only permitted Notion PATCH.
@@ -3108,6 +3124,10 @@ export async function runNotionDirectorySyncSweep(input: {
             summary.failed++;
             console.warn("DIRECTORY_REVIEW_NOTION_EVENT_SYNC_FAILED", mapped.directory_profile_id,
               error instanceof Error ? error.message : String(error));
+          }
+          if (await directoryProfileNotionSyncLocked(input.database,mapped.directory_profile_id)) {
+            summary.unchanged++;
+            continue;
           }
           const current=await getManagedDirectoryProfileById(mapped.directory_profile_id,input.database);
           if (current?.reviewed) { summary.unchanged++; continue; }
@@ -3295,6 +3315,10 @@ export async function runNotionDirectorySyncSweep(input: {
             error instanceof Error ? error.message : String(error));
         }
       }
+      if (await directoryProfileNotionSyncLocked(input.database,mapping.directory_profile_id)) {
+        summary.unchanged++;
+        continue;
+      }
       // After mirror reconciliation, an explicit review freezes this profile
       // before any relation, trust, editorial or sync-status writeback.
       if ((await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database))?.reviewed) {
@@ -3473,6 +3497,7 @@ export async function runNotionDirectorySyncSweep(input: {
     if (attemptedMappedProfileIds.has(profileId)) continue;
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping || await notionPageMustSkipInboundSync(input.database,mapping.notion_page_id)) continue;
+    if (await directoryProfileNotionSyncLocked(input.database,profileId)) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
     if (changedProfile?.reviewed || (changedProfile && isDirectoryFieldEventCategory(changedProfile.category))) continue;
     let page: NotionPage | undefined;
