@@ -15,6 +15,7 @@ import {
 } from "./directory-public-source-contract";
 import { cache } from "react";
 import { directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
+import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-category-sql";
 import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
@@ -2050,7 +2051,7 @@ export async function updateManagedDirectoryProfile(
   const existing = existingProfile ?? (await getManagedDirectoryProfileById(id, database));
   if (!existing) return null;
   const now = new Date().toISOString();
-  const row = await buildManagedDirectoryProfileUpdateStatement(
+  const canonicalStatement = buildManagedDirectoryProfileUpdateStatement(
     database,
     id,
     payload,
@@ -2058,7 +2059,28 @@ export async function updateManagedDirectoryProfile(
     existing,
     now,
     guard,
-  ).first<DirectoryProfileRow>();
+  );
+  let row: DirectoryProfileRow | null;
+  if (payload.additionalCategories !== undefined) {
+    // Owner-submitted category changes mirror JSON and 0170 SQL in the SAME
+    // D1 transaction. An omitted field must never clear SQL membership.
+    // The initial UPDATE is the authority/CAS and the planner fails closed
+    // if it affected no row. This does NOT switch public/Notion reads yet.
+    const mirror = planDirectorySecondaryCategorySqlMirror({
+      profileId: id,
+      primaryCategory: payload.category ?? existing.category,
+      submitted: payload.additionalCategories,
+      updatedAt: now,
+      actor: editorEmail,
+    });
+    const responses = await database.batch([
+      canonicalStatement,
+      ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+    ]);
+    row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
+  } else {
+    row = await canonicalStatement.first<DirectoryProfileRow>();
+  }
   if (!row) return null;
   await reconcileGeoAfterSourceMutation(
     {
