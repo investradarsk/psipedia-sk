@@ -78,8 +78,7 @@ const CLAIM_BASE = `
     CASE WHEN
       EXISTS(
         SELECT 1 FROM partner_memberships om
-        JOIN partner_accounts oa ON oa.id=om.account_id AND oa.status='ACTIVE'
-        WHERE om.resource_id=c.resource_id AND om.revoked_at IS NULL AND om.role='OWNER' AND om.account_id<>c.account_id
+        WHERE om.resource_id=c.resource_id AND om.revoked_at IS NULL AND om.account_id<>c.account_id
       )
       OR EXISTS(
         SELECT 1 FROM partner_claims oc
@@ -359,8 +358,7 @@ const VERIFICATION_BASE = `
     CASE WHEN
       EXISTS(
         SELECT 1 FROM partner_memberships om
-        JOIN partner_accounts oa ON oa.id=om.account_id AND oa.status='ACTIVE'
-        WHERE om.resource_id=v.resource_id AND om.revoked_at IS NULL AND om.role='OWNER' AND om.account_id<>v.account_id
+        WHERE om.resource_id=v.resource_id AND om.revoked_at IS NULL AND om.account_id<>v.account_id
       )
       OR EXISTS(
         SELECT 1 FROM partner_claims pc
