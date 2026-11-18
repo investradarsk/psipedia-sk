@@ -96,11 +96,13 @@ function SectionContentList({
   label,
   limit = 8,
   featuredLead = false,
+  topicGrid = false,
 }: {
   articles: Article[];
   label: string;
   limit?: number;
   featuredLead?: boolean;
+  topicGrid?: boolean;
 }) {
   if (!articles.length) {
     return (
@@ -114,8 +116,9 @@ function SectionContentList({
       label={label}
       className={[
         styles.contentList,
-        articles.length === 1 && styles.singleArticleList,
+        articles.length === 1 && !topicGrid && styles.singleArticleList,
         featuredLead && styles.featuredContentList,
+        topicGrid && styles.topicArticleGrid,
       ].filter(Boolean).join(" ")}
     >
       {articles.slice(0, limit).map((article, index) => (
@@ -123,7 +126,9 @@ function SectionContentList({
           article={article}
           desktopLayout={featuredLead
             ? (index === 0 ? "stacked" : undefined)
-            : (articles.length > 1 && article.image ? "stacked" : undefined)}
+            : (topicGrid || (articles.length > 1 && Boolean(article.image)))
+              ? "stacked"
+              : undefined}
           key={article.slug}
         />
       ))}
@@ -860,6 +865,7 @@ export async function EditorialSectionTopic({
               articles={topicArticles}
               label={`Články v oblasti ${subpage.label}`}
               limit={Math.max(10, topicArticles.length)}
+              topicGrid
             />
             {pagination && (pagination.page > 1 || pagination.hasNext) && (
               <PublicPagination
