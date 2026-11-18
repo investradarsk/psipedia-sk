@@ -53,7 +53,9 @@ const SUPPORT = [
   "service_catalog_notion_auto_attempts",
 ];
 const KNOWN_TABLES = [...new Set([...SCOPES.map(x => x.table), ...SUPPORT])];
-const FORBIDDEN = /\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|VACUUM|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|TRUNCATE)\b/i;
+// SQLite replace(text, from, to) is a read-only scalar function used only
+// to normalize UUID punctuation. The mutating REPLACE INTO statement remains blocked.
+const FORBIDDEN = /\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|VACUUM|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|TRUNCATE)\b|\bREPLACE\b(?!\s*\()/i;
 
 export function assertReadOnlySelect(sql) {
   if (typeof sql !== "string" || !/^SELECT\s/i.test(sql.trim()) ||
