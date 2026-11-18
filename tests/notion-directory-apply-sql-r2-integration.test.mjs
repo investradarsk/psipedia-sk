@@ -214,6 +214,9 @@ function fixture(options = {}) {
     // Lifecycle guard belongs to the external D1 mapping layer; no owner
     // unpublish has occurred in these isolated field-event fixtures.
     notionPageMustSkipInboundSync: async () => { calls.push("lifecycle-guard"); return Boolean(options.unpublished); },
+    // The extracted real worker has no module imports in its VM context.
+    // Inject the production-reviewed lock at this explicit D1 boundary.
+    directoryProfileNotionSyncLocked: async () => Boolean(options.reviewed),
     isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
     Date, Error, Boolean,
   };
