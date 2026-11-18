@@ -126,7 +126,8 @@ function verifyReviewPage(input: {
 /**
  * Reconcile ONLY the review checkbox of one already mapped directory profile.
  * This never touches editorial hashes, unrelated profile values or Sync stav.
- * No historical auto-lock: reviewed is not yet a Notion synchronization gate.
+ * Admin is the sole authority for locking/unlocking; Notion only mirrors it.
+ * A checked Admin value blocks all editorial/categorical Notion sync elsewhere.
  */
 export async function syncDirectoryReviewedWithNotion(input: {
   database: D1Database;
