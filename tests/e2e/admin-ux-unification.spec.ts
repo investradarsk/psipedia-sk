@@ -305,8 +305,12 @@ test("breed FCI and SEO sections remain keyboard accessible while unsaved input 
   await activate("breed-fci", "FCI štandard");
   await expect(page.locator("#breed-fci").getByLabel("FCI štandard PDF")).toBeVisible();
   await activate("breed-settings", "Publikovanie a SEO");
-  await expect(page.locator("#breed-settings").getByLabel("SEO title")).toBeVisible();
-  await expect(page.locator("#breed-settings").getByLabel("Meta description")).toBeVisible();
+  const seoTitle = page.locator("#breed-settings").getByLabel("SEO titulok", { exact: true });
+  const seoDescription = page.locator("#breed-settings").getByLabel("Meta popis", { exact: true });
+  await expect(seoTitle).toBeVisible();
+  await expect(seoTitle).toBeEditable();
+  await expect(seoDescription).toBeVisible();
+  await expect(seoDescription).toBeEditable();
   await noOverflow(page);
   await accessible(page);
   await activate("breed-basic", "Plemeno v skratke");

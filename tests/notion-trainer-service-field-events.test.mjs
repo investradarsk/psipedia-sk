@@ -74,15 +74,9 @@ test("trainer free text is separate from Services V3 and persisted without touch
   assert.match(route, /trainerServicesText: fullProfileSave \|\| rawTrainerServicesEdited === true/);
 });
 
-test("trainer relations use independent storage and can load both name-selected links", async () => {
+test("trainer has no breeding relations; stations and clubs retain one SQL model", async () => {
   const fakeDb = {
     prepare(query) {
-      if (/FROM breed_directory_relations WHERE profile_id=/.test(query)) {
-        return { bind(id) {
-          assert.equal(id, 543);
-          return { async all() { return { results: [{id:5}, {id:14}] }; } };
-        } };
-      }
       assert.match(query, /FROM directory_profiles WHERE id=/);
       return {
         bind(id) {
@@ -99,8 +93,7 @@ test("trainer relations use independent storage and can load both name-selected 
       };
     },
   };
-  assert.deepEqual(await getBreederRelationSelection(fakeDb, 543),
-    { breedIds: [5, 14], clubIds: [18] });
+  assert.equal(await getBreederRelationSelection(fakeDb, 543), null);
 
   const [relations, sync, page, detail, editor] = await Promise.all([
     readFile(new URL("../lib/breeder-profile-relations.ts", import.meta.url), "utf8"),
@@ -109,13 +102,11 @@ test("trainer relations use independent storage and can load both name-selected 
     readFile(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(relations, /WHERE id=\? AND category='treneri' AND status<>'archived'\s+AND source_data_json=\? RETURNING id/);
-  assert.doesNotMatch(relations, /TRAINER_BREED_IDS_METADATA_KEY/);
-  assert.match(relations, /SELECT breed_id AS id FROM breed_directory_relations/);
-  assert.match(relations, /TRAINER_CLUB_IDS_METADATA_KEY/);
-  assert.match(sync, /const relationFields = \["chovatelske-stanice", "treneri"\]/);
+  assert.match(relations, /directory_breeder_club_relations/);
+  assert.doesNotMatch(relations, /TRAINER_BREED_IDS_METADATA_KEY|TRAINER_CLUB_IDS_METADATA_KEY/);
+  assert.match(sync, /const relationFields = \["chovatelske-stanice", "chovatelske-kluby"\]/);
   assert.match(sync, /mirrorBreederRelationNamesToNotion/);
-  assert.match(page, /\["chovatelske-stanice", "treneri"\]\.includes\(profile\.category\)/);
-  assert.match(detail, /const hasNamedLinks = isBreeder \|\| presentation\.category === "treneri"/);
-  assert.match(editor, /\["chovatelske-stanice", "treneri"\]\.includes\(category\)/);
+  assert.match(page, /\["chovatelske-stanice", "chovatelske-kluby"\]\.includes\(profile\.category\)/);
+  assert.match(detail, /const hasNamedLinks = isBreeder \|\| presentation\.category === "chovatelske-kluby"/);
+  assert.match(editor, /\["chovatelske-stanice", "chovatelske-kluby"\]\.includes\(category\)/);
 });

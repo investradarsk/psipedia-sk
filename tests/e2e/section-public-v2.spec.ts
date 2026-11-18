@@ -77,6 +77,54 @@ test("SECTION-PUBLIC landings group at most five real articles under each topic 
   await expect(urgent.getByRole("link", { name: "Nájsť veterinára" })).toHaveAttribute("href", "/adresar/veterinari");
   await expect(page.locator("[data-section-topic-groups]")).toBeVisible();
 });
+test("SECTION-PUBLIC landing groups reuse shared cards: newest lead plus up to four companions", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const path of LANDINGS) {
+    await page.goto(path);
+    await expect(page.locator("[data-section-public-callout]")).toHaveCount(1);
+    const lists = page.locator("[data-section-featured-list]");
+    expect(await lists.count(), path).toBeGreaterThan(0);
+    for (const list of await lists.all()) {
+      const cards = list.locator("[data-article-list-item]");
+      const count = await cards.count();
+      expect(count).toBeLessThanOrEqual(5);
+      if (!count) continue;
+      await expect(cards.first().locator("[data-article-image]")).toBeVisible();
+      const dates = await cards.locator("time[datetime]").evaluateAll((elements) =>
+        elements.map((item) => item.getAttribute("datetime") ?? "")
+      );
+      expect(dates, path + ": newest article leads").toEqual([...dates].sort().reverse());
+    }
+    await expectNoHorizontalOverflow(page, path + " editorial lead at 1440px");
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/steniatka");
+  await expectNoHorizontalOverflow(page, "Puppy editorial lead at 390px");
+});
+
+test("SECTION-PUBLIC all topic samples reuse the health banner geometry with topic-specific copy", async ({ page }) => {
+  const samples = [
+    { path: "/steniatka/prve-dni", heading: "Šteniatko je doma. Čo riešiť ako prvé?" },
+    { path: "/starostlivost/zdravie", heading: "Má pes akútny problém?" },
+    { path: "/starostlivost/vyziva", heading: "Nevieš, či pes dostáva správnu dávku?" },
+    { path: "/aktivity/trening", heading: "Ako dosiahnuť lepší výsledok pri tréningu?" },
+  ];
+  for (const { path, heading } of samples) {
+    await page.goto(path);
+    const banner = page.locator("[data-section-topic-banner]");
+    await expect(banner).toHaveCount(1);
+    await expect(banner.getByRole("heading", { name: heading })).toBeVisible();
+    await expect(page.locator("[data-section-content-list]")).toHaveCount(1);
+    if (path !== "/starostlivost/zdravie") {
+      await expect(banner.getByRole("link", { name: "Čítať články" }))
+        .toHaveAttribute("href", "#topic-related-heading");
+    } else {
+      await expect(banner.getByRole("link", { name: "Nájsť veterinára" }))
+        .toHaveAttribute("href", "/adresar/veterinari");
+    }
+  }
+});
+
 test("SECTION-PUBLIC grouped topics keep meaningful thumbnails and mobile static services", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/steniatka");

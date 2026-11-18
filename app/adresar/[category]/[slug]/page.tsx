@@ -22,7 +22,7 @@ import { getPublicPartnerCommercialFlags } from "@/lib/partner-commercial-agreem
 import { getPublicMapItemsForEntity } from "@/lib/map-query";
 import { getPublicMapRuntime } from "@/lib/public-map-runtime";
 import { listRelatedBreedsForDirectoryProfile } from "@/lib/content-relations";
-import { listPublicBreederBreedLinks, listPublicBreederClubLinks } from "@/lib/breeder-profile-relations";
+import { listPublicBreederBreedLinks, listPublicBreederClubLinks, listPublicClubStationLinks } from "@/lib/breeder-profile-relations";
 import { listIndexableDirectoryProfileLocationLinks } from "@/lib/internal-discovery";
 
 export const dynamic = "force-dynamic";
@@ -137,8 +137,9 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       return [];
     },
   );
-  const relatedBreedsPromise = (["chovatelske-stanice", "treneri"].includes(profile.category)
+  const relatedBreedsPromise = (["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)
     ? listPublicBreederBreedLinks((env as unknown as { DB: D1Database }).DB, profile.id)
+    : profile.category === "treneri" ? Promise.resolve([])
     : listRelatedBreedsForDirectoryProfile(profile.id, { limit: 6 })).catch(
     (error) => {
       console.error("Public directory breed relations read failed", {
@@ -148,11 +149,14 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       return [];
     },
   );
-  const relatedClubsPromise = ["chovatelske-stanice", "treneri"].includes(profile.category)
+  const relatedClubsPromise = profile.category === "chovatelske-stanice"
     ? listPublicBreederClubLinks((env as unknown as { DB: D1Database }).DB, profile.id)
         .catch(() => [])
     : Promise.resolve([]);
-  const [partnerState, reviewResult, commercial, publicMap, relatedBreeds, locationDiscoveryLinks, relatedClubs] =
+  const relatedStationsPromise = profile.category === "chovatelske-kluby"
+    ? listPublicClubStationLinks((env as unknown as { DB: D1Database }).DB, profile.id).catch(() => [])
+    : Promise.resolve([]);
+  const [partnerState, reviewResult, commercial, publicMap, relatedBreeds, locationDiscoveryLinks, relatedClubs, relatedStations] =
     await Promise.all([
       partnerStatePromise,
       reviewsPromise,
@@ -161,6 +165,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       relatedBreedsPromise,
       locationDiscoveryPromise,
       relatedClubsPromise,
+      relatedStationsPromise,
     ]);
   const publicMapPresentation = { ...publicMap, ...getPublicMapRuntime() };
   const schema = buildDirectoryProfileJsonLd({ profile, presentation, canonical, relatedBreeds });
@@ -177,6 +182,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
         publicMap={publicMapPresentation}
         relatedBreeds={relatedBreeds}
         relatedClubs={relatedClubs}
+        relatedStations={relatedStations}
         locationDiscoveryLinks={locationDiscoveryLinks}
         management={
           <PartnerPublicOwnership embedded state={partnerState} correctionHref={correctionHref} />
