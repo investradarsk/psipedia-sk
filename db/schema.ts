@@ -188,6 +188,11 @@ export const directoryProfiles = sqliteTable(
     online: integer("online").notNull().default(0),
     priceNote: text("price_note").notNull().default(""),
     websiteUrl: text("website_url"),
+    // 0170: nullable until the protected JSON/Notion backfill is completed.
+    publicPhone: text("public_phone"),
+    publicEmail: text("public_email"),
+    facebookUrl: text("facebook_url"),
+    instagramUrl: text("instagram_url"),
     internalEmail: text("internal_email"),
     imageUrl: text("image_url"),
     imageKey: text("image_key"),
@@ -213,6 +218,60 @@ export const directoryProfiles = sqliteTable(
     index("directory_profiles_public_name_idx").on(table.status, table.category, table.name),
     index("directory_profiles_updated_idx").on(table.updatedAt),
     index("directory_profiles_admin_updated_idx").on(table.updatedAt, table.id),
+  ],
+);
+
+
+/** Secondary memberships; primary category remains directory_profiles.category. */
+export const directoryProfileAdditionalCategories = sqliteTable(
+  "directory_profile_additional_categories",
+  {
+    profileId: integer("profile_id").notNull().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.profileId, table.category] }),
+    check("directory_profile_additional_categories_category_check", sql`${table.category} IN ('veterinari', 'treneri', 'kynologicke-kluby', 'chovatelske-kluby', 'chovatelske-stanice', 'salony-a-sluzby', 'hotely-a-opatrovanie', 'vencenie', 'fyzioterapia', 'dalsie-sluzby')`),
+    index("directory_profile_additional_categories_category_idx").on(table.category, table.profileId),
+  ],
+);
+
+/** Textual facts only: no duplicate breed, club or Services V3 values. */
+export const directoryProfilePublicFacts = sqliteTable(
+  "directory_profile_public_facts",
+  {
+    profileId: integer("profile_id").notNull().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    fieldKey: text("field_key").notNull(),
+    valueText: text("value_text").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.profileId, table.fieldKey] }),
+    check("directory_profile_public_facts_key_length_check", sql`length(${table.fieldKey}) BETWEEN 1 AND 100`),
+    index("directory_profile_public_facts_key_idx").on(table.fieldKey, table.profileId),
+  ],
+);
+
+/** Select filters are validated against the Directory registry by the app. */
+export const directoryProfileFilterValues = sqliteTable(
+  "directory_profile_filter_values",
+  {
+    profileId: integer("profile_id").notNull().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    filterId: text("filter_id").notNull(),
+    valueText: text("value_text").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.profileId, table.filterId] }),
+    check("directory_profile_filter_values_category_check", sql`${table.category} IN ('veterinari', 'treneri', 'kynologicke-kluby', 'chovatelske-kluby', 'chovatelske-stanice', 'salony-a-sluzby', 'hotely-a-opatrovanie', 'vencenie', 'fyzioterapia', 'dalsie-sluzby')`),
+    check("directory_profile_filter_values_id_length_check", sql`length(${table.filterId}) BETWEEN 1 AND 100`),
+    check("directory_profile_filter_values_value_length_check", sql`length(${table.valueText}) BETWEEN 1 AND 100`),
+    index("directory_profile_filter_values_category_idx").on(table.category, table.filterId, table.valueText, table.profileId),
   ],
 );
 
