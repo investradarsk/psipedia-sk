@@ -132,7 +132,9 @@ test("explicit Notion contact edit removes only competing legacy aliases", async
     try {
       sqlite.exec(`CREATE TABLE directory_profiles (
         id INTEGER PRIMARY KEY, category TEXT, status TEXT, updated_at TEXT,
-        updated_by TEXT, website_url TEXT, source_data_json TEXT
+        updated_by TEXT, website_url TEXT,
+        public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT,
+        source_data_json TEXT
       )`);
       const before = {
         "Web": "https://old.example.sk",
@@ -162,6 +164,15 @@ test("explicit Notion contact edit removes only competing legacy aliases", async
       }
       if (change.field === "websiteUrl") assert.equal(row.website_url, change.value);
       else assert.equal(row.website_url, "https://old.example.sk");
+      const sqlColumn = ({
+        publicPhone:"public_phone", publicEmail:"public_email",
+        facebookUrl:"facebook_url", instagramUrl:"instagram_url",
+      })[change.field];
+      if (sqlColumn) {
+        const stored = sqlite.prepare("SELECT " + sqlColumn + " AS value FROM directory_profiles WHERE id=?")
+          .get(ctx.record.id);
+        assert.equal(stored.value,change.value,change.field + " must also update SQL");
+      }
       assert.equal(after.Organizácia, before.Organizácia, change.field);
       assert.deepEqual(after._psipedia_breeder_gallery_urls, before._psipedia_breeder_gallery_urls);
       for (const key of ["Web", "Telefón", "E-mail", "Facebook", "Instagram"]) {
@@ -185,7 +196,9 @@ test("explicit Notion contact deletion cannot resurrect a historical alias", asy
   try {
     sqlite.exec(`CREATE TABLE directory_profiles (
       id INTEGER PRIMARY KEY, category TEXT, status TEXT, updated_at TEXT,
-      updated_by TEXT, website_url TEXT, source_data_json TEXT
+      updated_by TEXT, website_url TEXT,
+        public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT,
+        source_data_json TEXT
     )`);
     sqlite.prepare(`INSERT INTO directory_profiles
       (id,category,status,updated_at,website_url,source_data_json) VALUES (?,?,?,?,?,?)`)
