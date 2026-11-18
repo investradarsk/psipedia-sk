@@ -9,7 +9,7 @@ export function PartnerClaimForm({
   name,
   publicHref,
 }: {
-  entityType: "DIRECTORY_PROFILE" | "HELP_ORGANIZATION";
+  entityType: "DIRECTORY_PROFILE" | "HELP_ORGANIZATION" | "MANAGED_EVENT";
   canonicalId: number;
   name: string;
   publicHref: string;
@@ -43,19 +43,19 @@ export function PartnerClaimForm({
   return (
     <section className="partner-claim-card">
       <div className="partner-claim-summary">
-        <span>{entityType === "DIRECTORY_PROFILE" ? "Profil v adresári" : "Organizácia Pomoc psom"}</span>
+        <span>{entityType === "DIRECTORY_PROFILE" ? "Služba pre psov" : entityType === "HELP_ORGANIZATION" ? "Organizácia Pomoc psom" : "Podujatie"}</span>
         <h2>{name}</h2>
         <Link href={publicHref} target="_blank">Verejný profil ↗</Link>
       </div>
       <form onSubmit={submit} className="partner-auth-form">
         <label className="partner-field">
-          <span>Ako ste spojení s touto organizáciou/službou? <small>(voliteľné)</small></span>
+          <span>Aký je váš vzťah k tomuto záznamu? <small>(voliteľné)</small></span>
           <textarea
             rows={5}
             maxLength={1000}
             value={requestMessage}
             onChange={(event) => setRequestMessage(event.target.value)}
-            placeholder="Napr. som majiteľ prevádzky, štatutár organizácie alebo poverený správca."
+            placeholder="Napr. som majiteľ prevádzky, organizátor podujatia alebo poverený správca."
           />
         </label>
         {notice ? <p className={"partner-form-message is-" + notice.kind} role="status" aria-live="polite">{notice.text}</p> : null}
