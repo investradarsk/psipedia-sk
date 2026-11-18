@@ -15,6 +15,7 @@ import { DirectoryOpeningHours } from "@/components/directory-opening-hours";
 import { ProfileReviewSection } from "@/components/profile-review-section";
 import { RelatedBreedList } from "@/components/related-entity-list";
 import type { BreederPublicLink } from "@/lib/breeder-profile-relations";
+import type { DirectoryPublicCatalogAttribute } from "@/lib/directory-public-catalog-attributes";
 import { RelatedEntityLinks } from "@/components/related-entity-links";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import { buildGoogleMapsDirectionsUrl, isApproximateMapItem } from "@/lib/map-public-ui";
@@ -167,6 +168,7 @@ function DirectoryProfileHero({
 
 export function DirectoryProfileDetail({
   presentation,
+  catalogAttributes = [],
   reviews,
   reviewReadError = false,
   commercial,
@@ -178,6 +180,7 @@ export function DirectoryProfileDetail({
   management,
 }: {
   presentation: DirectoryDetailPresentation;
+  catalogAttributes?: DirectoryPublicCatalogAttribute[];
   reviews: PublicProfileReviewData | null;
   reviewReadError?: boolean;
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
@@ -463,6 +466,18 @@ export function DirectoryProfileDetail({
               <p>{presentation.priceNote}</p>
             </div>
           ) : null}
+        </DetailSection>
+      ) : null,
+    },
+    {
+      key: "catalog-attributes",
+      column: "aside" as const,
+      content: catalogAttributes.length > 0 ? (
+        <DetailSection compactHeading title="Vlastnosti profilu">
+          <DetailOptionGrid options={catalogAttributes.map((item) => ({
+            label: item.label,
+            value: item.value,
+          }))} />
         </DetailSection>
       ) : null,
     },
