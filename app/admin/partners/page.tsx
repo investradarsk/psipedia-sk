@@ -7,13 +7,13 @@ import "./partners.css";
 import { partnerAdminStatusLabel } from "@/lib/admin-partner-labels";
 
 export const dynamic="force-dynamic";
-type Search={q?:string|string[];status?:string|string[];verified?:string|string[];page?:string|string[];pageSize?:string|string[]};
+type Search={q?:string|string[];status?:string|string[];verified?:string|string[];access?:string|string[];page?:string|string[];pageSize?:string|string[]};
 const single=(value:string|string[]|undefined)=>typeof value==="string"?value:"";
 export default async function Page({searchParams}:{searchParams:Promise<Search>}){
   const user=await requireAdminPageUser("/admin/partners");
   const raw=await searchParams;
   const filters=normalizePartnerAccountAdminFilters({
-    q:single(raw.q),status:single(raw.status),verified:single(raw.verified),
+    q:single(raw.q),status:single(raw.status),verified:single(raw.verified),access:single(raw.access),
     page:Number(single(raw.page)),pageSize:Number(single(raw.pageSize)),
   });
   // Missing page/pageSize use their default values, not Number("") === 0.
@@ -27,12 +27,14 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
     if(filters.q)params.set("q",filters.q);
     if(filters.status)params.set("status",filters.status);
     if(filters.verified)params.set("verified",filters.verified);
+    if(filters.access)params.set("access",filters.access);
     params.set("pageSize",String(accounts.pageSize));
     params.set("page",String(page));
     return "/admin/partners?"+params.toString();
   };
   return <AdminShell user={user} eyebrow="Partner platforma" title="Partneri" description="Spravuj partnerské účty, prístup k profilom a čakajúce žiadosti.">
-    <div className="admin-partner-stats" data-admin-community-metrics>{[["Účty",summary.accounts],["Aktívne",summary.active],["Suspendované",summary.suspended],["Deaktivované",summary.deactivated],["Profily",summary.resources],["Aktívne prístupy",summary.activeMemberships]].map(([l,v])=><article key={String(l)}><span>{l}</span><strong>{v}</strong></article>)}</div>
+    <div className="admin-partner-stats" data-admin-community-metrics>{[["Registrované účty",summary.accounts],["Aktívne účty",summary.active],["S prístupom",summary.activeAccountsWithAccess],["Bez prístupu",summary.activeAccountsWithoutAccess],["Suspendované",summary.suspended],["Deaktivované",summary.deactivated],["Dostupné záznamy",summary.resources],["Pridelené prístupy",summary.activeMemberships]].map(([l,v])=><article key={String(l)}><span>{l}</span><strong>{v}</strong></article>)}</div>
+    <p className="admin-partner-explainer">Registrácia vytvorí účet, nie oprávnenie spravovať profil. „Dostupné záznamy“ sú profily a podujatia v katalógu; „pridelené prístupy“ sú aktívne prepojenia partnerov.</p>
     <section className="admin-form-card" data-admin-partner-attention>
       <h2>Vyžaduje pozornosť</h2>
       <p>{pending.total===0?"Žiadne partnerské žiadosti momentálne nečakajú na spracovanie.":`${pending.total} položiek čaká na spracovanie.`}</p>
@@ -49,6 +51,9 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
         <label htmlFor="partner-verified">Overenie e-mailu
           <select id="partner-verified" name="verified" defaultValue={filters.verified}><option value="">Každé overenie</option><option value="VERIFIED">Overené e-maily</option><option value="UNVERIFIED">Neoverené e-maily</option></select>
         </label>
+        <label htmlFor="partner-access">Prístup k profilu
+          <select id="partner-access" name="access" defaultValue={filters.access}><option value="">Všetky účty</option><option value="LINKED">S prístupom</option><option value="UNLINKED">Bez prístupu</option></select>
+        </label>
         <label htmlFor="partner-page-size">Počet na strane
           <select id="partner-page-size" name="pageSize" defaultValue={String(accounts.pageSize)}><option value="25">25 na strane</option><option value="50">50 na strane</option><option value="100">100 na strane</option></select>
         </label>
@@ -56,7 +61,7 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
       </form>
       <p role="status" data-admin-list-results>Výsledky: {accounts.total} · Strana {accounts.page} z {accounts.totalPages}</p>
       <div className="admin-partner-table" role="list" aria-label="Partnerské účty">
-        {accounts.items.map(a=><article key={a.id} role="listitem"><div><strong>{a.email}</strong><small>{a.id}</small></div><span>{partnerAdminStatusLabel(a.status)}</span><span>{a.emailVerifiedAt?"Overený":"Neoverený"}</span><span>{a.activeMembershipCount} aktívnych prístupov</span><Link href={`/admin/partners/accounts/${a.id}`}>Detail →</Link></article>)}
+        {accounts.items.map(a=><article key={a.id} role="listitem"><div><strong>{a.email}</strong><small>{a.id}</small></div><span>{partnerAdminStatusLabel(a.status)}</span><span>{a.emailVerifiedAt?"Overený":"Neoverený"}</span><span className={a.activeMembershipCount?"admin-partner-has-access":"admin-partner-no-access"}>{a.activeMembershipCount?`${a.activeMembershipCount} aktívnych prístupov`:"Bez prideleného profilu"}</span><Link href={`/admin/partners/accounts/${a.id}`}>Detail →</Link></article>)}
       </div>
       {accounts.items.length===0&&<p>Nenašli sa žiadne účty pre zadané filtre.</p>}
       <nav className="admin-partner-pagination" aria-label="Stránkovanie partnerských účtov" data-admin-list-pagination>
