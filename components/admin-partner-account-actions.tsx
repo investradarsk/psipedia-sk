@@ -47,11 +47,11 @@ export function AdminPartnerAccountActions({accountId,status,memberships}:{accou
     <section className="admin-form-card"><h2>Bezpečnostné akcie</h2><div className="admin-partner-button-row">
       {status==="ACTIVE"&&<button disabled={busy} onClick={()=>lifecycle("SUSPEND")}>Suspendovať</button>}
       {status==="SUSPENDED"&&<button disabled={busy} onClick={()=>lifecycle("REACTIVATE")}>Reaktivovať</button>}
-      <button disabled={busy} onClick={()=>lifecycle("REVOKE_SESSIONS")}>Odvolať všetky sessions</button>
+      <button disabled={busy} onClick={()=>lifecycle("REVOKE_SESSIONS")}>Odhlásiť zo všetkých zariadení</button>
       {status!=="DEACTIVATED"&&<button className="is-danger" disabled={busy} onClick={()=>lifecycle("DEACTIVATE")}>Deaktivovať</button>}
     </div></section>
-    <section className="admin-form-card"><h2>Pridať membership</h2><div className="admin-partner-picker">
-      <label>Hľadať canonical profil alebo podujatie
+    <section className="admin-form-card"><h2>Priradiť profil alebo podujatie</h2><div className="admin-partner-picker">
+      <label>Hľadať podľa názvu profilu alebo podujatia
         <input value={q} onChange={e=>{
           resourceSearch.cancel();
           setQ(e.target.value);
@@ -64,10 +64,10 @@ export function AdminPartnerAccountActions({accountId,status,memberships}:{accou
     </div>
       {searched&&!searchBusy&&!message&&!resources.length&&<p className="admin-partner-empty" role="status">Nenašiel sa žiadny zodpovedajúci profil ani podujatie. Skúste iný názov.</p>}
       {resources.length>0&&<div className="admin-partner-results">{resources.map(r=><button key={`${r.entityType}:${r.id}`} onClick={()=>setSelected(r)} aria-pressed={selected?.id===r.id&&selected.entityType===r.entityType}><strong>{r.name}</strong><small>{r.entityType} · {r.status}</small></button>)}</div>}
-      {selected&&<div className="admin-partner-picker"><label>Rola<select value={role} onChange={e=>setRole(e.target.value)}><option>OWNER</option><option>MANAGER</option><option>EDITOR</option></select></label><button disabled={busy||status!=="ACTIVE"} onClick={add}>Pridať {selected.name}</button></div>}
+      {selected&&<div className="admin-partner-picker"><label>Rola<select value={role} onChange={e=>setRole(e.target.value)}><option value="OWNER">Správca profilu</option><option value="MANAGER">Manažér profilu</option><option value="EDITOR">Editor</option></select></label><button disabled={busy||status!=="ACTIVE"} onClick={add}>Priradiť {selected.name}</button></div>}
       {status!=="ACTIVE"&&<p className="admin-partner-empty">Účet nie je aktívny. Pred priradením profilu ho najprv reaktivujte.</p>}
     </section>
-    <section className="admin-form-card"><h2>Správa pridelených prístupov</h2>{memberships.filter(m=>!m.revokedAt).length===0?<p className="admin-partner-empty">Tento účet zatiaľ nespravuje žiadny profil ani podujatie.</p>:memberships.filter(m=>!m.revokedAt).map(m=><div className="admin-partner-membership" key={m.id}><code>{m.id.slice(0,8)}</code><select aria-label="Partner rola" disabled={busy} defaultValue={m.role} onChange={async e=>{const field=e.currentTarget;const previousRole=m.role;const newRole=field.value;if(!(await request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({role:newRole})})))field.value=previousRole;}}><option>OWNER</option><option>MANAGER</option><option>EDITOR</option></select><button disabled={busy} onClick={()=>confirm("Odvolať prístup k profilu?")&&request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({revoke:true})})}>Odvolať</button></div>)}</section>
+    <section className="admin-form-card"><h2>Správa pridelených prístupov</h2>{memberships.filter(m=>!m.revokedAt).length===0?<p className="admin-partner-empty">Tento účet zatiaľ nespravuje žiadny profil ani podujatie.</p>:memberships.filter(m=>!m.revokedAt).map(m=><div className="admin-partner-membership" key={m.id}><code>{m.id.slice(0,8)}</code><select aria-label="Partner rola" disabled={busy} defaultValue={m.role} onChange={async e=>{const field=e.currentTarget;const previousRole=m.role;const newRole=field.value;if(!(await request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({role:newRole})})))field.value=previousRole;}}><option value="OWNER">Správca profilu</option><option value="MANAGER">Manažér profilu</option><option value="EDITOR">Editor</option></select><button disabled={busy} onClick={()=>confirm("Odvolať prístup k profilu?")&&request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({revoke:true})})}>Odvolať</button></div>)}</section>
     {message&&<p role="status" className="admin-partner-message">{message}</p>}
   </div>;
 }
