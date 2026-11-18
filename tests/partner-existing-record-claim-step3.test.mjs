@@ -8,6 +8,9 @@ const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 const { searchPartnerClaimableRecords } = await import(
   pathToFileURL(new URL("../lib/partner-claim-search.ts", import.meta.url).pathname).href
 );
+const { getClaimablePartnerResourcePreview } = await import(
+  pathToFileURL(new URL("../lib/partner-claims.ts", import.meta.url).pathname).href
+);
 
 function databaseFixture() {
   const db = new DatabaseSync(":memory:");
@@ -20,7 +23,10 @@ function databaseFixture() {
     prepare(sql) {
       return {
         bind(...parameters) {
-          return { all: async () => ({ results: db.prepare(sql).all(...parameters) }) };
+          return {
+            all: async () => ({ results: db.prepare(sql).all(...parameters) }),
+            first: async () => db.prepare(sql).get(...parameters) ?? null,
+          };
         },
       };
     },
@@ -47,6 +53,10 @@ test("claim discovery only returns public canonical records and proper claim des
     const events = await searchPartnerClaimableRecords({ entityType: "MANAGED_EVENT", query: "Alfa", database });
     assert.deepEqual(events.map((item) => item.canonicalId), [5]);
     assert.equal(events[0].publicHref, "/podujatia/alfa-preteky");
+    const eventPreview = await getClaimablePartnerResourcePreview("MANAGED_EVENT", 5, database);
+    assert.equal(eventPreview?.publicHref, "/podujatia/alfa-preteky");
+    assert.equal(await getClaimablePartnerResourcePreview("MANAGED_EVENT", 6, database), null);
+    assert.equal(await getClaimablePartnerResourcePreview("UNSUPPORTED", 5, database), null);
   } finally { db.close(); }
 });
 
