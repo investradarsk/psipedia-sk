@@ -73,7 +73,7 @@ export default async function PartnerHomePage() {
       <section className="partner-dashboard-section" aria-labelledby="partner-managed-heading">
         <div className="partner-dashboard-section-heading">
           <div><span className="eyebrow">Moje záznamy</span><h2 id="partner-managed-heading">Čo spravujete</h2></div>
-          {resources.length > 0 ? <Link href="/partner/profily">Všetky profily</Link> : null}
+          {summary.profiles > 0 ? <Link href="/partner/profily">Všetky profily</Link> : null}
         </div>
         {resources.length ? (
           <div className="partner-dashboard-record-grid">
