@@ -1,5 +1,6 @@
 import { requirePartnerAdminMutation } from "@/lib/partner-admin-api";
 import { approvePartnerClaimAdmin, PartnerClaimAdminError, rejectPartnerClaimAdmin } from "@/lib/partner-claims-admin";
+import { PartnerSingleManagerConflictError, isPartnerSingleManagerConstraintError } from "@/lib/partner-single-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return Response.json({ error: "Neplatná claim akcia." }, { status: 400 });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Zmena zlyhala." }, {
-      status: error instanceof PartnerClaimAdminError ? error.status : 400,
+      status: error instanceof PartnerClaimAdminError || error instanceof PartnerSingleManagerConflictError
+        ? error.status : isPartnerSingleManagerConstraintError(error) ? 409 : 400,
     });
   }
 }
