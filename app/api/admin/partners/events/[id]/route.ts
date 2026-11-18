@@ -1,6 +1,7 @@
 import { requirePartnerAdminMutation } from "@/lib/partner-admin-api";
 import { createPartnerEventAdmin,linkPartnerEventAdmin,approvePartnerEventUpdateAdmin,rejectPartnerEventAdmin } from "@/lib/partner-events-admin";
 import { PartnerEventError } from "@/lib/partner-events";
+import { PartnerSingleManagerConflictError,isPartnerSingleManagerConstraintError } from "@/lib/partner-single-manager";
 export const dynamic="force-dynamic";
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){
  const auth=await requirePartnerAdminMutation(request);if(auth.response)return auth.response;
@@ -12,5 +13,5 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   if(body.action==="APPROVE")return Response.json({submission:await approvePartnerEventUpdateAdmin(common)},{headers:{"Cache-Control":"private, no-store"}});
   if(body.action==="REJECT")return Response.json({submission:await rejectPartnerEventAdmin({id,reasonCode:body.reasonCode,adminEmail:auth.user.email,requestId:request.headers.get("cf-ray")})},{headers:{"Cache-Control":"private, no-store"}});
   throw new PartnerEventError("Neplatná resolution akcia.");
- }catch(error){const status=error instanceof PartnerEventError?error.status:error instanceof Error&&error.name==="ModerationStateConflictError"?409:500;return Response.json({error:status>=500?"Rozhodnutie podujatia sa nepodarilo uložiť.":error instanceof Error?error.message:"Rozhodnutie zlyhalo."},{status,headers:{"Cache-Control":"private, no-store"}});}
+ }catch(error){const status=error instanceof PartnerEventError||error instanceof PartnerSingleManagerConflictError?error.status:error instanceof Error&&(error.name==="ModerationStateConflictError"||isPartnerSingleManagerConstraintError(error))?409:500;return Response.json({error:status>=500?"Rozhodnutie podujatia sa nepodarilo uložiť.":error instanceof Error?error.message:"Rozhodnutie zlyhalo."},{status,headers:{"Cache-Control":"private, no-store"}});}
 }
