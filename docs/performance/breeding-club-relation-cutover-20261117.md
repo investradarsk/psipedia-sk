@@ -69,3 +69,14 @@ galérií alebo Notion záznamov. Nezapínať automatické prepojenia podľa
 historického poľa `Klub`, `Plemeno`, `Plemená`.
 Výber nových vzťahov je explicitný cez Admin a len po tom sa mirrorizuje
 do Notionu.
+
+## Produkčný cutover: skutočný stav 18.11.2026
+- 0169 úspešne fyzicky nasadená: #44194911141.
+- D1 audit #44252717336: 535 staníc, 84 klubov, 223 starých väzieb, 619 mapovaní.
+- Freeze #44255765355: všetkých 6 triggerov aktívnych, stav väzieb nezmenený.
+- Notion: vyčistených 32 textových polí na 25 profiloch; kontrola view všetkých 619 profilov potvrdila 0 vyplnených polí Prepojené plemená/Prepojené kluby. Iné polia sa nemenili.
+- Reset #44256747818: RESET_POSTFLIGHT, 0 starých väzieb, 0 nových station-club, rovnaké počty a mapovania, 6 ochranných triggerov ostáva. Záloha/bod obnovy zaznamenaný vo workflow.
+- Starší text vyššie je historický postup. 0169 ani reset nespúšťať znovu.
+- Po zelenom CI zlúčiť #1414, overiť skutočný produkčný deploy a načítanie Admin/verejných profilov a opätovne overiť Notion textové polia, zatvoriť staré editorové karty.
+- Až po tomto overení manuálny cutover režim release s odtlačkom prázdneho snapshotu, potvrdením NOTION-RELATION-FIELDS-VERIFIED-EMPTY a NEW-1414-RUNTIME-VERIFIED. Odstráni iba šesť konkrétnych dočasných triggerov. Ostatné údaje ostanú nedotknuté. Pri čiastočnom zlyhaní nepovoľovať editácie; audit a kontrolovaný release môže pokračovať iba pokiaľ je rozsah stále prázdny.
+- Až po RELEASE_POSTFLIGHT ručne vytvoriť prvú novú väzbu a overiť jej zrkadlenie a zobrazenie.
