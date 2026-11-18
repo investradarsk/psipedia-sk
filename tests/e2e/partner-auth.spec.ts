@@ -342,7 +342,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByRole("link", { name: "Moje profily" }).click();
   if (project === "desktop-chromium") {
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
-    await expect(page.getByText("Vlastník")).toBeVisible();
+    await expect(page.getByText("Správca profilu")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
@@ -423,7 +423,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expectNoHorizontalOverflow(page);
   } else {
     await expect(page.getByRole("heading", { name: "Partner E2E Organizácia" })).toBeVisible();
-    await expect(page.getByText("Editor")).toBeVisible();
+    await expect(page.getByText("Správca profilu")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
@@ -498,7 +498,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("heading",{name:"Moje podujatia"})).toBeVisible();
   const ownedEventCard=page.locator("article.partner-resource-card").filter({hasText:ownedEventTitle});
   await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Publikované":"Koncept");
-  await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Vlastník":"Editor");
+  await expect(ownedEventCard).toContainText("Správca profilu");
   await expectNoHorizontalOverflow(page);
 
   if (project === "mobile-chromium") {
