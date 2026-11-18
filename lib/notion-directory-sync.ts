@@ -1650,6 +1650,7 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
   profileId: number;
   changed: Partial<Record<PilotDirectoryMetadataField, string>>;
 }): Promise<boolean> {
+  if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || !(serviceFilterCategories as readonly string[]).includes(profile.category))
     throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
@@ -1699,6 +1700,7 @@ export async function mirrorDirectoryMainImageToNotion(input: {
   bindings: NotionDirectorySyncBindings;
   profileId: number;
 }): Promise<void> {
+  if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return;
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || profile.status === "archived")
     throw new Error("DIRECTORY_IMAGE_PROFILE_UNAVAILABLE");
@@ -2091,7 +2093,8 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
   profileId: number;
   fields: readonly string[];
 }): Promise<boolean> {
-  if (!input.fields.length) return false;
+  if (!input.fields.length ||
+      await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
     throw new Error("DIRECTORY_FACET_NOTION_SYNC_DISABLED");
@@ -2177,7 +2180,8 @@ export async function mirrorTrainerTrustFieldsToNotion(input: {
   profileId: number;
   fields: readonly TrainerTrustField[];
 }): Promise<boolean> {
-  if (!input.fields.length) return false;
+  if (!input.fields.length ||
+      await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
     throw new Error("TRAINER_TRUST_NOTION_DISABLED");
@@ -2215,6 +2219,7 @@ export async function mirrorBreederRelationNamesToNotion(input: {
   profileId: number;
   fields: readonly BreederRelationField[];
 }): Promise<boolean> {
+  if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!input.fields.length || !notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
     return false;
@@ -2335,6 +2340,7 @@ async function applyNotionAdditionalCategories(input: {
 export async function mirrorDirectoryAdditionalCategoriesToNotion(input: {
   database: D1Database; bindings: NotionDirectorySyncBindings; profileId: number;
 }): Promise<boolean> {
+  if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
     throw Error("DIRECTORY_CATEGORIES_NOTION_DISABLED");
@@ -2938,7 +2944,9 @@ export async function ensureDirectoryProfileInNotion(input: {
     throw new Error("GEMINI_NOTION_CONFIG_MISSING");
   if (!(await schemaReady(input.database))) throw new Error("GEMINI_NOTION_MAPPING_SCHEMA_MISSING");
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!profile || profile.status !== "draft" || profile.reviewed) throw new Error("GEMINI_NOTION_CANONICAL_DRAFT_MISSING");
+  if (!profile || profile.status !== "draft" || profile.reviewed ||
+      await directoryProfileNotionSyncLocked(input.database, input.profileId))
+    throw new Error("GEMINI_NOTION_CANONICAL_DRAFT_MISSING");
   const mapped = await loadMappingByProfile(input.database, profile.id);
   if (mapped) return { notionPageId: mapped.notion_page_id, created: false };
   // This query must complete successfully before a Notion create is permitted.
