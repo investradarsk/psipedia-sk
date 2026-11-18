@@ -2204,10 +2204,12 @@ export async function setManagedDirectoryProfileReviewed(
     now.toISOString(),
   );
   const updated = await database
-    .prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = ? RETURNING *")
-    .bind(JSON.stringify(sourceData), id)
+    .prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = ? AND source_data_json = ? RETURNING *")
+    .bind(JSON.stringify(sourceData), id, row.source_data_json)
     .first<DirectoryProfileRow>();
-  return updated ? rowToManagedProfile(updated) : null;
+  // Never lose a concurrent editor/Notion write while setting the lock.
+  if (!updated) throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
+  return rowToManagedProfile(updated);
 }
 
 export async function archiveManagedDirectoryProfile(
