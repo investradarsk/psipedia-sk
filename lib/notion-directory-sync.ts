@@ -1,6 +1,7 @@
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
 import { syncDirectoryReviewedWithNotion } from "./directory-notion-reviewed-sync";
 import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
+import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
@@ -1533,16 +1534,33 @@ export async function savePilotDirectoryMetadataField(input: {
   const now = new Date().toISOString();
   const path = '$."' + input.field + '"';
   const previousRaw = String(current.importData?.[input.field] ?? "");
-  const saved = await input.database.prepare(
+  const canonical = input.database.prepare(
     "UPDATE directory_profiles SET source_data_json = json_set(" +
       "COALESCE(source_data_json, '{}'), ?, ?), updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND category = ? AND status <> 'archived' " +
       "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) " +
       "AND COALESCE(CAST(json_extract(source_data_json, ?) AS TEXT), '') = ? RETURNING id"
   ).bind(path, trimmed, now, SYSTEM_ACTOR,
-    input.profileId, input.category, current.updatedAt, path, previousRaw)
-    .first<{ id: number }>();
-  if (!saved) throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
+    input.profileId, input.category, current.updatedAt, path, previousRaw);
+  const approved = approvedDirectoryFactSqlSlot(input.category as ServiceFilterCategory, input.field);
+  if (approved) {
+    // Explicit single-field Admin/Notion edit: compatibility JSON plus its
+    // 0170 SQL fact row in ONE transactional D1 batch, guarded by the CAS.
+    // A deliberately blank fact remains an empty SQL value, never a fallback
+    // to older imported prose.
+    const mirror = planDirectory0170FactSqlMirror({
+      profileId: input.profileId, category: input.category as ServiceFilterCategory,
+      field: input.field, value: trimmed, updatedAt: now, actor: SYSTEM_ACTOR,
+    });
+    const response = await input.database.batch([
+      canonical, ...mirror.map(item=>input.database.prepare(item.sql).bind(...item.bindings)),
+    ]);
+    if (!(response[0]?.results?.[0] as {id?:number}|undefined)?.id)
+      throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
+  } else {
+    const saved = await canonical.first<{ id: number }>();
+    if (!saved) throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
+  }
   const next = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!next) throw new Error("DIRECTORY_PILOT_METADATA_RELOAD_FAILED");
   return next;
@@ -1781,13 +1799,24 @@ async function syncBreederEvent(input: {
             { [id]: normalized!.value },
           );
         }
-        const changed = await database.prepare(`UPDATE directory_profiles
+        const now = new Date().toISOString();
+        const canonical = database.prepare(`UPDATE directory_profiles
           SET source_data_json=?, updated_at=?, updated_by=?
           WHERE id=? AND category=? AND source_data_json=? AND updated_at=? RETURNING id`)
-          .bind(merged, new Date().toISOString(), SYSTEM_ACTOR,
-            current.id, current.category, row.source_data_json, row.updated_at)
-          .first<{ id: number }>();
-        if (!changed) throw new Error("DIRECTORY_FACET_WRITE_CONFLICT");
+          .bind(merged, now, SYSTEM_ACTOR,
+            current.id, current.category, row.source_data_json, row.updated_at);
+        // Signed Notion clear removes ONLY this SQL filter row. The JSON
+        // mutation above remains authoritative until the coordinated read cutover.
+        const mirror = planDirectory0170FilterSqlMirror({
+          profileId: current.id, category: current.category as ServiceFilterCategory,
+          values: { [id]: selected ? normalized!.value : null },
+          updatedAt: now, actor: SYSTEM_ACTOR,
+        });
+        const response = await database.batch([
+          canonical, ...mirror.map(item=>database.prepare(item.sql).bind(...item.bindings)),
+        ]);
+        if (!(response[0]?.results?.[0] as {id?:number}|undefined)?.id)
+          throw new Error("DIRECTORY_FACET_WRITE_CONFLICT");
         current = (await getManagedDirectoryProfileById(current.id, database)) ?? current;
         facetsUpdated = true;
       } catch (error) {
