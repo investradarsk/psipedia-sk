@@ -127,8 +127,10 @@ function state(sql){
   indexColumns,baseCounts,newCounts});
  return {
   ...assessed,baseCounts,legacy,newCounts,
-  ledgerHash:digest(history),existingObjectsHash:digest(
-   objects.filter(x=>DEPENDENCIES_0170.includes(x.name))),
+  ledgerHash:digest(history),// ALTER TABLE legitimately rewrites directory_profiles DDL. Other base DDL
+  // must stay identical through postflight.
+  existingObjectsHash:digest(
+   objects.filter(x=>DEPENDENCIES_0170.includes(x.name)&&x.name!=="directory_profiles")),
  };
 }
 function recoveryBookmark(){
@@ -189,7 +191,8 @@ function main(){
  unchanged(baseline,after);
  must(after.installed,"POSTFLIGHT_NOT_INSTALLED");
  must(TABLES_0170.every(x=>after.newCounts[x]===0),"POSTFLIGHT_NEW_ROWS");
- must(CONTACTS_0170.every(x=>true),"POSTFLIGHT_CONTACTS_VALIDATED");
+ // The guard already validates all four nullable TEXT columns and the
+ // additive SQL has no contact-value UPDATE or JSON backfill.
  report("POSTFLIGHT",after,true);
 }
 try{main()}catch(error){
