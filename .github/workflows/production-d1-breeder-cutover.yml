@@ -1,0 +1,81 @@
+name: Production D1 Breeder Cutover (manual freeze and reset)
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Audit, freeze, or guarded reset (separate owner approvals)
+        required: true
+        type: choice
+        default: audit
+        options:
+          - audit
+          - freeze
+          - reset
+      fingerprint:
+        description: Exact latest audit snapshot fingerprint (required for freeze and reset)
+        type: string
+        required: false
+      notion_verification:
+        description: Reset only - NOTION-RELATION-FIELDS-VERIFIED-EMPTY
+        type: string
+        required: false
+      confirmation:
+        description: Enter AUDIT-, FREEZE-, or RESET-BREEDER-CUTOVER-psipedia-sk-db
+        type: string
+        required: true
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  cutover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      BREEDER_CUTOVER_CONFIRMATION: ${{ inputs.confirmation }}
+      BREEDER_CUTOVER_MODE: ${{ inputs.mode }}
+      BREEDER_CUTOVER_FINGERPRINT: ${{ inputs.fingerprint }}
+      BREEDER_CUTOVER_NOTION: ${{ inputs.notion_verification }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Check protected dispatch
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REPOSITORY" = investradarsk/psipedia-sk
+          test "$GITHUB_REF" = refs/heads/main
+          case "$BREEDER_CUTOVER_MODE" in audit|freeze|reset) ;; *) exit 1 ;; esac
+          test "$BREEDER_CUTOVER_CONFIRMATION" = "$(printf %s "$BREEDER_CUTOVER_MODE" | tr '[:lower:]' '[:upper:]')-BREEDER-CUTOVER-psipedia-sk-db"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Reject stale main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: |
+          node --check scripts/production-d1-breeder-cutover.mjs
+          node --test tests/production-d1-breeder-0169.test.mjs tests/production-d1-breeder-cutover.test.mjs
+      - name: Bind canonical account
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Execute protected cutover phase (Notion verified separately)
+        run: node scripts/production-d1-breeder-cutover.mjs "$BREEDER_CUTOVER_MODE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-d1-breeder-cutover-${{ github.run_id }}
+          path: .production-d1-breeder-cutover/report.json
+          if-no-files-found: ignore
+          retention-days: 30
