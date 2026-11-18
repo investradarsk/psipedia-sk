@@ -1061,8 +1061,8 @@ export async function PATCH(request: Request, { params }: Props) {
         return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
       }
 
-      // The D1 edit is canonical and remains committed even if Notion is
-      // temporarily unavailable. The review checkbox does not yet lock sync.
+      // The D1 edit immediately freezes mapped editorial and relation sync,
+      // even if the isolated Notion checkbox reflection is still pending.
       let notionReviewSync: DirectoryReviewSyncResult | "pending" = "disabled";
       const database = (env as unknown as { DB?: D1Database }).DB;
       if (database) {
