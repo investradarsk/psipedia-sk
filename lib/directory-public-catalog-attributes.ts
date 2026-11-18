@@ -3,8 +3,9 @@
  * Services V3 remains the only writable owner of these tri-state properties.
  */
 import { attributeCatalog } from "./service-catalog-contract.ts";
+import type { ProfileReviewReadDatabase } from "./profile-review-read.ts";
 
-type DB = Pick<D1Database, "prepare">;
+type DB = ProfileReviewReadDatabase;
 export type DirectoryPublicCatalogAttribute = Readonly<{ label: string; value: "Áno" | "Nie" }>;
 
 export function presentDirectoryCatalogAttributes(
