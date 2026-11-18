@@ -1278,3 +1278,53 @@
     font-size: var(--ps-heading-content-section);
   }
 }
+
+/* Editorial landing teasers: the same row card supplies one large lead and
+   up to four compact companions. Category details keep their existing grid. */
+.topicStageGrid .featuredContentList {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.topicStageGrid .featuredContentList > :first-child {
+  min-width: 0;
+}
+.topicStageGrid .featuredContentList > :first-child [data-article-list-item] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 10px;
+}
+.topicStageGrid .featuredContentList > :first-child [data-article-image] {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+.topicStageGrid .featuredContentList > :first-child [data-article-title] {
+  color: var(--forest-dark);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.18rem, 2vw, 1.55rem);
+  line-height: 1.2;
+}
+@media (min-width: 901px) {
+  .topicStageGrid .featuredContentList {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    align-items: start;
+    gap: 4px 20px;
+  }
+  .topicStageGrid .featuredContentList > :first-child {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+  }
+  .topicStageGrid .featuredContentList > :not(:first-child) {
+    grid-column: 2;
+    min-width: 0;
+  }
+  .topicStageGrid .featuredContentList > :not(:first-child) [data-article-list-item] {
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+  .topicStageGrid .featuredContentList.singleArticleList {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 760px;
+  }
+}
