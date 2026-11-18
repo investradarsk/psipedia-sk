@@ -9,12 +9,14 @@ import {
 
 test("all inventory commands are SELECT-only; destructive SQL is refused", () => {
   assert.match(buildTableDiscoverySql(), /^SELECT /);
+  assert.doesNotThrow(()=>assertReadOnlySelect("SELECT replace('a-b','-','');"));
   for (const attempt of [
     "DELETE FROM help_cases;",
     "UPDATE directory_profiles SET status='published';",
     "SELECT 1; DELETE FROM managed_events;",
     "SELECT 1 /* hidden */;",
     "PRAGMA table_info(help_cases);",
+    "SELECT REPLACE INTO help_cases;",
   ]) assert.throws(() => assertReadOnlySelect(attempt), /NON_READONLY/);
 });
 
