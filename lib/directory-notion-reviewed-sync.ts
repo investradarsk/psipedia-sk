@@ -33,6 +33,7 @@ type DirectoryReviewPage = {
 type DirectoryReviewRow = {
   source_data_json: string;
   status: string;
+  updated_at: string;
 };
 
 export type DirectoryReviewSyncResult =
@@ -73,7 +74,7 @@ function storedReviewBaseline(source: Record<string, unknown>): boolean | null {
 
 async function loadSourceRow(database: D1Database, profileId: number) {
   return database.prepare(
-    "SELECT source_data_json, status FROM directory_profiles WHERE id=? LIMIT 1",
+    "SELECT source_data_json, status, updated_at FROM directory_profiles WHERE id=? LIMIT 1",
   ).bind(profileId).first<DirectoryReviewRow>();
 }
 
@@ -95,11 +96,16 @@ async function saveReviewedAndBaseline(input: {
       )
     : { ...input.source };
   next[REVIEW_SYNC_BASELINE_KEY] = input.reviewed ? "1" : "0";
-  const saved = await input.database.prepare(
-    "UPDATE directory_profiles SET source_data_json=? WHERE id=? " +
-    "AND source_data_json=? RETURNING id",
-  ).bind(JSON.stringify(next), input.profileId, input.row.source_data_json)
-    .first<{ id: number }>();
+  const activateLock = input.changedByNotion && input.reviewed;
+  const sql = "UPDATE directory_profiles SET source_data_json=?" +
+    (activateLock ? ", updated_at=?, updated_by=?" : "") +
+    " WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id";
+  const values = activateLock
+    ? [JSON.stringify(next), new Date().toISOString(),
+        "notion-directory-sync@psipedia.sk", input.profileId,
+        input.row.source_data_json, input.row.updated_at]
+    : [JSON.stringify(next), input.profileId, input.row.source_data_json, input.row.updated_at];
+  const saved = await input.database.prepare(sql).bind(...values).first<{ id: number }>();
   if (!saved) throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
 }
 
