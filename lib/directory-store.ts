@@ -1938,12 +1938,30 @@ export async function createManagedDirectoryProfile(
   await ensureDirectoryStore(database);
   const input = normalizeManagedDirectoryProfileInput(payload);
   const now = new Date().toISOString();
-  const row = await buildManagedDirectoryProfileCreateStatement(
-    database,
-    input,
-    editorEmail,
-    now,
-  ).first<DirectoryProfileRow>();
+  const secondary = readAdditionalDirectoryCategories(input.sourceData, input.category);
+  // Explicit nonempty selections on newly created profiles belong to SQL
+  // immediately; create and relation writes must either all commit or all fail.
+  // A new profile without secondary categories is already unambiguous (JSON []).
+  const sqlCategoryCreate = secondary.length > 0;
+  if (sqlCategoryCreate)
+    input.sourceData[DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY] = "1";
+  const canonical = buildManagedDirectoryProfileCreateStatement(
+    database, input, editorEmail, now,
+  );
+  let row: DirectoryProfileRow | null;
+  if (sqlCategoryCreate) {
+    const mirror = planDirectorySecondaryCategoryCreateSqlMirror({
+      slug: input.slug, category: input.category,
+      submitted: secondary, createdAt: now, actor: editorEmail,
+    });
+    const responses = await database.batch([
+      canonical,
+      ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+    ]);
+    row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
+  } else {
+    row = await canonical.first<DirectoryProfileRow>();
+  }
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
   await ensureResourceForDirectoryProfile(row.id, database, new Date(now));
   await reconcileGeoAfterSourceMutation(
