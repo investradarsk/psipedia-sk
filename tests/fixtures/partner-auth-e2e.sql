@@ -46,7 +46,7 @@ VALUES
   ('partner-e2e-entitlement-promoted','partner-e2e-desktop','partner-resource-e2e-directory','partner-e2e-agreement-promoted','PROMOTED_PROFILE','ACTIVE','2026-01-01T00:00:00.000Z','2099-01-01T00:00:00.000Z','partner-e2e-promotion','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','admin:e2e');
 
 
--- PARTNER-3A Help Organization fixture: EDITOR membership, deliberately without VERIFIED trust badge.
+-- PARTNER-3A Help Organization fixture: single manager membership, deliberately without VERIFIED trust badge.
 INSERT INTO help_organizations (
   id,name,slug,legal_name,type,status,short_description,description,public_email,public_phone,
   website_url,address,city,district,region,country_code,published_at,created_at,updated_at,created_by,updated_by
@@ -59,7 +59,7 @@ INSERT INTO help_organizations (
 INSERT INTO partner_resources (id,entity_type,help_organization_id,created_at,updated_at)
 VALUES ('partner-resource-e2e-organization','HELP_ORGANIZATION',990002,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z');
 INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at)
-VALUES ('partner-membership-e2e-editor','partner-e2e-mobile','partner-resource-e2e-organization','EDITOR','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
+VALUES ('partner-membership-e2e-editor','partner-e2e-mobile','partner-resource-e2e-organization','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
 
 INSERT INTO directory_profiles (
   id,slug,name,category,status,excerpt,description,city,region,created_at,updated_at,published_at,created_by,updated_by
@@ -91,7 +91,7 @@ INSERT INTO partner_resource_verifications (
 );
 
 
--- PARTNER-4 event fixtures: one published OWNER event and one draft EDITOR event.
+-- PARTNER-4 event fixtures: one published and one draft manager-owned event.
 INSERT INTO managed_events (
   id,slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,
   organizer,description,practical_info,website_url,registration_url,image_url,image_key,cancelled,seo_json,
@@ -120,7 +120,7 @@ INSERT INTO partner_resources (id,entity_type,managed_event_id,created_at,update
 
 INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at) VALUES
   ('partner-membership-e2e-event-owner','partner-e2e-desktop','partner-resource-e2e-event-desktop','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z'),
-  ('partner-membership-e2e-event-editor','partner-e2e-mobile','partner-resource-e2e-event-mobile','EDITOR','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
+  ('partner-membership-e2e-event-editor','partner-e2e-mobile','partner-resource-e2e-event-mobile','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
 
 -- PARTNER-H5 isolated stale-approval fixtures. These deliberately use separate canonical
 -- resources so stale-rejection tests do not contaminate the normal successful Partner E2E flow.
