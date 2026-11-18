@@ -1,6 +1,10 @@
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
 import { syncDirectoryReviewedWithNotion } from "./directory-notion-reviewed-sync";
-import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
+import {
+  DIRECTORY_REVIEW_UNLOCK_PENDING_KEY,
+  directoryProfileNotionSyncLocked,
+  isDirectoryReviewUnlockPendingSource,
+} from "./directory-reviewed-sync-lock";
 import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
@@ -729,10 +733,23 @@ async function writeProfileToNotion(input: {
   profile: ManagedDirectoryProfile;
   pageId?: string | null;
   singleAttemptCreate?: boolean;
+  /** Only the owner-initiated unlock finalizer may rebaseline while locked. */
+  ownerUnlock?: boolean;
 }) {
-  // Direct Notion writebacks must not bypass an Admin-reviewed profile lock.
-  if (await directoryProfileNotionSyncLocked(input.database,input.profile.id))
-    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
+  // Ordinary writers are never allowed through a reviewed or pending lock.
+  // An owner unlock may write only after its dedicated D1 pending marker exists.
+  async function assertWritePermitted() {
+    const locked = await directoryProfileNotionSyncLocked(input.database, input.profile.id);
+    if (!locked) return;
+    if (!input.ownerUnlock) throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
+    const state = await input.database.prepare(
+      "SELECT source_data_json FROM directory_profiles WHERE id=? LIMIT 1",
+    ).bind(input.profile.id).first<{ source_data_json: string }>();
+    if (!state || !isDirectoryReviewUnlockPendingSource(state.source_data_json)) {
+      throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_UNLOCK_NOT_PENDING");
+    }
+  }
+  await assertWritePermitted();
   const syncedAt = new Date().toISOString();
   const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", input.profile.id);
   const sourceImageUrl = monitor?.sourceImageUrl || externalSourceImageUrl(input.profile.imageUrl);
@@ -751,6 +768,7 @@ async function writeProfileToNotion(input: {
       throw new NotionDirectoryUnsafeTargetError("NOTION_DIRECTORY_TARGET_MOVED");
     const adapted = adaptDirectoryNotionTextProperties(properties, current.properties ?? {});
     const patch = selectiveNotionProperties(current.properties ?? {}, adapted);
+    await assertWritePermitted();
     page = patch ? await patchNotionPage(input.bindings, input.pageId, patch) : current;
   } else {
     page = await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
@@ -794,6 +812,61 @@ async function writeProfileToNotion(input: {
     pageId: page.id, hash, snapshot: profileSnapshot(input.profile, sourceImageUrl), syncedAt,
   });
   return page;
+}
+
+/** A previously reviewed profile remains locked until the CURRENT canonical
+ * D1 snapshot has been acknowledged by its mapped Notion page. Never use
+ * old Notion values or its last-edited timestamp to reopen this profile.
+ */
+async function completeDirectoryReviewedOwnerUnlock(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  dataSourceId: string;
+  profileId: number;
+}): Promise<boolean> {
+  const state = await input.database.prepare(
+    "SELECT source_data_json, updated_at, status FROM directory_profiles WHERE id=? LIMIT 1",
+  ).bind(input.profileId).first<{
+    source_data_json: string;
+    updated_at: string;
+    status: string;
+  }>();
+  if (!state || !isDirectoryReviewUnlockPendingSource(state.source_data_json)) return false;
+  if (state.status === "archived") throw new Error("DIRECTORY_REVIEW_UNLOCK_ARCHIVED");
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  const mapping = await loadMappingByProfile(input.database, input.profileId);
+  if (!profile || profile.reviewed || !mapping) {
+    throw new Error("DIRECTORY_REVIEW_UNLOCK_MAPPING_MISSING");
+  }
+
+  // Mirror the control flag first. Editorial sync must never reopen if Notion
+  // still says reviewed or its independent checkbox write could not be verified.
+  const remote = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+  if (remote.id !== mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(remote, input.dataSourceId) ||
+      propertyText(remote, "Psipedia ID") !== String(input.profileId) ||
+      !Object.hasOwn(remote.properties ?? {}, "Odkontrolované") ||
+      propertyCheckbox(remote, "Odkontrolované")) {
+    throw new Error("DIRECTORY_REVIEW_UNLOCK_CONTROL_NOT_CONFIRMED");
+  }
+
+  // The only owner-authorized exception to the normal editorial freeze.
+  await writeProfileToNotion({
+    database: input.database, bindings: input.bindings,
+    dataSourceId: input.dataSourceId, profile,
+    pageId: mapping.notion_page_id, ownerUnlock: true,
+  });
+  let source: Record<string, unknown>;
+  try { source = JSON.parse(state.source_data_json) as Record<string, unknown>; }
+  catch { throw new Error("DIRECTORY_REVIEW_UNLOCK_SOURCE_INVALID"); }
+  delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY];
+  const saved = await input.database.prepare(
+    "UPDATE directory_profiles SET source_data_json=? " +
+    "WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id",
+  ).bind(JSON.stringify(source), input.profileId, state.source_data_json, state.updated_at)
+    .first<{ id: number }>();
+  if (!saved) throw new Error("DIRECTORY_REVIEW_UNLOCK_CONCURRENT_CHANGE");
+  return true;
 }
 
 function fullProfileInput(
