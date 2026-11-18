@@ -304,6 +304,12 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
   await expect(page.getByRole("heading", { name: "Prehľad" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
+  // Step 2: both desktop and mobile show real self-service destinations.
+  const dashboardActions = page.locator(".partner-dashboard-welcome");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať nový profil" })).toHaveAttribute("href", "/partner/profily/novy");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať podujatie" })).toHaveAttribute("href", "/partner/podujatia/nove");
+  await expect(page.locator(".partner-dashboard-stat")).toHaveCount(3);
+  await expect(page.getByRole("heading", { name: "Čo spravujete" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   const linkBridgeResponse = await page.goto(
