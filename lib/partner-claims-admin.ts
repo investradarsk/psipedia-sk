@@ -256,13 +256,17 @@ export async function approvePartnerClaimAdmin(input: {
     database,
     now,
   });
-  await ensurePendingVerification({
-    accountId: claim.accountId,
-    resourceId: claim.resourceId,
-    adminEmail: input.adminEmail,
-    database,
-    now,
-  });
+  // Event ownership approval is sufficient; the separate public verification
+  // badge workflow applies only to service/organization profiles.
+  if (claim.entityType !== "MANAGED_EVENT") {
+    await ensurePendingVerification({
+      accountId: claim.accountId,
+      resourceId: claim.resourceId,
+      adminEmail: input.adminEmail,
+      database,
+      now,
+    });
+  }
   const iso = now.toISOString();
   await database.prepare(
     "UPDATE partner_claims SET status='APPROVED',reviewed_at=?2,reviewed_by=?3,updated_at=?2 " +
