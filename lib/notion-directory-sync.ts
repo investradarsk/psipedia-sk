@@ -3117,6 +3117,19 @@ export async function runNotionDirectorySyncSweep(input: {
       console.warn("DIRECTORY_REVIEW_NOTION_TARGET_SYNC_FAILED", input.targetProfileId,
         error instanceof Error ? error.message : String(error));
     }
+    try {
+      if (await completeDirectoryReviewedOwnerUnlock({
+        database: input.database, bindings: input.bindings,
+        dataSourceId, profileId: input.targetProfileId,
+      })) {
+        summary.pushedToNotion++;
+        return summary;
+      }
+    } catch (error) {
+      summary.failed++;
+      console.warn("DIRECTORY_REVIEW_OWNER_UNLOCK_PENDING", input.targetProfileId,
+        error instanceof Error ? error.message : String(error));
+    }
     if (await directoryProfileNotionSyncLocked(input.database, input.targetProfileId)) {
       summary.unchanged++;
       return summary;
@@ -3240,6 +3253,13 @@ export async function runNotionDirectorySyncSweep(input: {
             summary.failed++;
             console.warn("DIRECTORY_REVIEW_NOTION_EVENT_SYNC_FAILED", mapped.directory_profile_id,
               error instanceof Error ? error.message : String(error));
+          }
+          if (await completeDirectoryReviewedOwnerUnlock({
+            database: input.database, bindings: input.bindings,
+            dataSourceId, profileId: mapped.directory_profile_id,
+          })) {
+            summary.pushedToNotion++;
+            continue;
           }
           if (await directoryProfileNotionSyncLocked(input.database,mapped.directory_profile_id)) {
             summary.unchanged++;
@@ -3431,6 +3451,13 @@ export async function runNotionDirectorySyncSweep(input: {
             error instanceof Error ? error.message : String(error));
         }
       }
+      if (await completeDirectoryReviewedOwnerUnlock({
+        database: input.database, bindings: input.bindings,
+        dataSourceId, profileId: mapping.directory_profile_id,
+      })) {
+        summary.pushedToNotion++;
+        continue;
+      }
       if (await directoryProfileNotionSyncLocked(input.database,mapping.directory_profile_id)) {
         summary.unchanged++;
         continue;
@@ -3613,6 +3640,19 @@ export async function runNotionDirectorySyncSweep(input: {
     if (attemptedMappedProfileIds.has(profileId)) continue;
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping || await notionPageMustSkipInboundSync(input.database,mapping.notion_page_id)) continue;
+    try {
+      if (await completeDirectoryReviewedOwnerUnlock({
+        database: input.database, bindings: input.bindings,
+        dataSourceId, profileId,
+      })) {
+        summary.pushedToNotion++;
+        continue;
+      }
+    } catch (error) {
+      summary.failed++;
+      console.warn("DIRECTORY_REVIEW_UNLOCK_SWEEP_PENDING", profileId,
+        error instanceof Error ? error.message : String(error));
+    }
     if (await directoryProfileNotionSyncLocked(input.database,profileId)) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
     if (changedProfile?.reviewed || (changedProfile && isDirectoryFieldEventCategory(changedProfile.category))) continue;
