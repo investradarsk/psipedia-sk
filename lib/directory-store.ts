@@ -1,4 +1,5 @@
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
+import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
 import { env } from "cloudflare:workers";
 import {
   directoryLocationFacetStatement,
@@ -218,6 +219,10 @@ type DirectoryProfileRow = {
   online: number;
   price_note: string;
   website_url: string | null;
+  public_phone?: string | null;
+  public_email?: string | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
   internal_email: string | null;
   image_url: string | null;
   image_key: string | null;
@@ -566,7 +571,8 @@ function directorySearchText(input: {
 
 const DIRECTORY_PROFILE_COLUMNS = `
   id, slug, name, category, status, excerpt, description, services_json, qualifications_json,
-  city, district, region, address, online, price_note, website_url, internal_email, image_url,
+  city, district, region, address, online, price_note, website_url,
+  public_phone, public_email, facebook_url, instagram_url, internal_email, image_url,
   image_key, thumbnail_display_json, detail_display_json, import_key, source_data_json, search_text, verified, featured, seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
@@ -574,7 +580,9 @@ const DIRECTORY_PROFILE_COLUMNS = `
 const DIRECTORY_CARD_COLUMNS = `
   id, slug, name, category, status, excerpt, '' AS description, services_json,
   '[]' AS qualifications_json, city, district, region, '' AS address, online,
-  price_note, website_url, NULL AS internal_email, image_url, NULL AS image_key,
+  price_note, website_url,
+  NULL AS public_phone, NULL AS public_email, NULL AS facebook_url, NULL AS instagram_url,
+  NULL AS internal_email, image_url, NULL AS image_key,
   thumbnail_display_json, detail_display_json,
   import_key,
   CASE WHEN category = 'chovatelske-stanice' AND json_valid(source_data_json)
@@ -682,7 +690,8 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED";
   const city = runtimeDirectoryLocationText(row.city);
-  const importData = safeImportData(row.source_data_json);
+  const importData = overlayDirectorySqlContacts(safeImportData(row.source_data_json), row);
+  const internalImportData = overlayDirectorySqlContacts(safeImportData(row.source_data_json, true), row);
   const breedSummary = row.category === "chovatelske-stanice"
     ? breederBreedSourceLabel(row.breeder_breed_source || importData?.["Plemená"] || importData?.["Plemeno"])
     : "";
@@ -703,7 +712,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     slug: row.slug,
     name: row.name,
     category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
-    additionalCategories: readAdditionalDirectoryCategories(safeImportData(row.source_data_json, true), row.category),
+    additionalCategories: readAdditionalDirectoryCategories(internalImportData, row.category),
     excerpt: row.excerpt,
     description: row.description,
     services: safePublicList(row.services_json),
@@ -711,7 +720,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     city,
     district: directoryEffectiveDistrictValue(
       district,
-      safeImportData(row.source_data_json)?.["Okres"],
+      importData?.["Okres"],
     ),
     region: normalizeDirectoryRegion(region) ?? region,
     address: row.address,
@@ -726,7 +735,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     websiteUrl: row.website_url,
     imageUrl: row.image_url,
     ...(breedSummary ? { breedSummary } : {}),
-    galleryUrls: readProfileGallery(safeImportData(row.source_data_json, true), row.category),
+    galleryUrls: readProfileGallery(internalImportData, row.category),
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     verified: Boolean(row.verified),
@@ -761,7 +770,7 @@ function parseSeo(value: string): EditableSeo {
 }
 
 function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile {
-  const importData = safeImportData(row.source_data_json, true);
+  const importData = overlayDirectorySqlContacts(safeImportData(row.source_data_json, true), row);
   const reviewMetadata = readDirectoryProfileReviewMetadata(importData);
   return {
     ...rowToPublicProfile(row),
@@ -1176,7 +1185,8 @@ export function buildManagedDirectoryProfileCreateStatement(
 ) {
   const columns = `slug, name, category, status, excerpt, description, services_json, qualifications_json,
     city, district, region, address, postal_code, street, house_number, address_format, service_address_confirmation,
-    online, price_note, website_url, internal_email, image_url, image_key, thumbnail_display_json, detail_display_json,
+    online, price_note, website_url, public_phone, public_email, facebook_url, instagram_url,
+    internal_email, image_url, image_key, thumbnail_display_json, detail_display_json,
     source_data_json, verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by`;
   const commonValues = [
     input.slug,
@@ -1198,6 +1208,10 @@ export function buildManagedDirectoryProfileCreateStatement(
     0,
     input.priceNote,
     input.websiteUrl,
+    input.publicPhone ?? null,
+    input.publicEmail ?? null,
+    input.facebookUrl ?? null,
+    input.instagramUrl ?? null,
     input.internalEmail,
     input.imageUrl,
     input.imageKey,
@@ -1231,6 +1245,10 @@ export function buildManagedDirectoryProfileCreateStatement(
       0,
       input.priceNote,
       input.websiteUrl,
+      input.publicPhone ?? null,
+      input.publicEmail ?? null,
+      input.facebookUrl ?? null,
+      input.instagramUrl ?? null,
       input.internalEmail,
       input.imageUrl,
       input.imageKey,
@@ -1260,7 +1278,7 @@ export function buildManagedDirectoryProfileCreateStatement(
     "?",
     "?",
     "'draft'",
-    ...Array.from({ length: 28 }, () => "?"),
+    ...Array.from({ length: 32 }, () => "?"),
     "NULL",
     "?",
     "?",
@@ -1969,6 +1987,10 @@ export function buildManagedDirectoryProfileUpdateStatement(
     0,
     input.priceNote,
     input.websiteUrl,
+    payload.publicPhone === undefined ? 0 : 1, input.publicPhone ?? null,
+    payload.publicEmail === undefined ? 0 : 1, input.publicEmail ?? null,
+    payload.facebookUrl === undefined ? 0 : 1, input.facebookUrl ?? null,
+    payload.instagramUrl === undefined ? 0 : 1, input.instagramUrl ?? null,
     input.internalEmail,
     input.imageUrl,
     input.imageKey,
@@ -2004,6 +2026,10 @@ export function buildManagedDirectoryProfileUpdateStatement(
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
       qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = ?, online = ?, price_note = ?, website_url = ?,
+      public_phone = CASE WHEN ?=1 THEN ? ELSE public_phone END,
+      public_email = CASE WHEN ?=1 THEN ? ELSE public_email END,
+      facebook_url = CASE WHEN ?=1 THEN ? ELSE facebook_url END,
+      instagram_url = CASE WHEN ?=1 THEN ? ELSE instagram_url END,
       internal_email = ?, image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, archived_at = CASE WHEN ?=1 THEN NULL ELSE archived_at END, updated_by = ?
     WHERE id = ?${updatedAtGuard}${reviewGuard} RETURNING *
   `,
