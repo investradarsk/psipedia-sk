@@ -17,6 +17,7 @@ import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
+import { assertSingleActivePartnerManager } from "@/lib/partner-single-manager";
 
 type Bindings={DB?:D1Database;PII_ENCRYPTION_KEY?:string;CF_VERSION_METADATA?:{id?:string}};
 type AdminRow={
@@ -218,6 +219,7 @@ export async function linkPartnerEventAdmin(input:{id:string;canonicalId:number;
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);if(row.operation!=="CREATE")throw new PartnerEventError("Prepojenie je iba pre nový návrh.",409);
   const existing=await currentEvent(input.canonicalId,database);if(!existing)throw new PartnerEventError("Existujúce podujatie sa nenašlo.",404);
   const targetResource=await database.prepare("SELECT id FROM partner_resources WHERE managed_event_id=?1 LIMIT 1").bind(input.canonicalId).first<{id:string}>();
+  if(targetResource)await assertSingleActivePartnerManager({database,resourceId:targetResource.id,accountId:row.accountId});
   await assertEventIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,resourceId:targetResource?.id??null,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);await pending(input.id,row.status,actorRef,database,input.requestId);row=await raw(input.id,database);if(!row||row.status!=="PENDING_REVIEW")throw new PartnerEventError("Stav návrhu sa zmenil.",409);
   const stagedMedia=await getPartnerSubmissionMedia(input.id,database);
