@@ -1,36 +1,159 @@
 import Link from "next/link";
 import { PartnerShell } from "@/components/partner-shell";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
-import { listPartnerResources } from "@/lib/partner-platform";
-import { getPartnerCommercialDashboardSummary } from "@/lib/partner-commercial-agreements";
+import { listPartnerResources, type PartnerManagedResource } from "@/lib/partner-platform";
+import { listPartnerClaims } from "@/lib/partner-claims";
+import { listPartnerNewProfiles } from "@/lib/partner-new-profile";
+import { listPartnerEventSubmissions } from "@/lib/partner-events";
+import { listPartnerProfileChanges } from "@/lib/partner-profile-changes";
+import { buildPartnerDashboardSummary } from "@/lib/partner-dashboard";
+import { partnerResourceStatusLabel } from "@/lib/partner-ui-labels";
 
 export const dynamic = "force-dynamic";
 
+function resourceTypeLabel(type: PartnerManagedResource["entityType"]) {
+  if (type === "MANAGED_EVENT") return "Podujatie";
+  if (type === "HELP_ORGANIZATION") return "Organizácia na pomoc psom";
+  return "Služby pre psov";
+}
+
+function resourceEditHref(resource: PartnerManagedResource) {
+  const id = encodeURIComponent(resource.resourceId);
+  return resource.entityType === "MANAGED_EVENT"
+    ? `/partner/podujatia/${id}/upravit`
+    : `/partner/profily/${id}/upravit`;
+}
+
 export default async function PartnerHomePage() {
   const identity = await requirePartnerPageIdentity();
-  const [resources, commercial] = await Promise.all([
+  const [resources, claims, newProfiles, eventSubmissions, profileChanges] = await Promise.all([
     listPartnerResources(identity.accountId),
-    getPartnerCommercialDashboardSummary(identity.accountId),
+    listPartnerClaims(identity.accountId),
+    listPartnerNewProfiles(identity.accountId),
+    listPartnerEventSubmissions(identity.accountId),
+    listPartnerProfileChanges(identity.accountId),
   ]);
+  const summary = buildPartnerDashboardSummary({
+    resources, claims, newProfiles, eventSubmissions, profileChanges,
+  });
 
   return (
-    <PartnerShell title="Prehľad" description="Prehľad profilov a podujatí, ktoré môžete spravovať cez Partner účet.">
-      <section className="partner-hero partner-hero--compact">
-        <h2>{resources.length ? `Spravované profily a podujatia: ${resources.length}` : "Zatiaľ nemáte priradený profil ani podujatie"}</h2>
-        <p>{resources.length ? "Tu nájdete všetky profily a podujatia, ktoré môžete aktuálne spravovať." : "Keď vám bude priradený profil alebo podujatie, zobrazí sa na tomto mieste."}</p>
-        <div className="partner-hero-actions">
-          <Link className="button button--dark" href="/partner/nastavenia">Nastavenia účtu</Link>
-          <Link className="button" href="/partner/propagacia">Propagácia</Link>
+    <PartnerShell title="Prehľad" description="Všetky vaše profily, podujatia a žiadosti na jednom mieste.">
+      <section className="partner-dashboard-welcome" aria-labelledby="partner-welcome-title">
+        <div className="partner-dashboard-welcome-copy">
+          <span className="eyebrow">Váš priestor na Psipedii</span>
+          <h2 id="partner-welcome-title">{resources.length ? "Vaše záznamy máte pod kontrolou." : "Začnite so svojím prvým profilom."}</h2>
+          <p>{resources.length
+            ? "Tu môžete otvoriť a upravovať pridelené záznamy. Nový profil alebo podujatie môžete kedykoľvek navrhnúť."
+            : "Vytvorte nový profil alebo požiadajte o správu už existujúceho. Po schválení sa vám zobrazí v tomto prehľade."}</p>
+          <div className="partner-dashboard-welcome-actions">
+            <Link className="button button--dark" href="/partner/profily/novy">Pridať nový profil</Link>
+            <Link className="button" href="/partner/podujatia/nove">Pridať podujatie</Link>
+          </div>
+        </div>
+        <div className="partner-dashboard-welcome-aside" aria-hidden="true">
+          <span>PSIPEDIA</span>
+          <strong>Partner</strong>
+          <span>Váš profil. Vaša správa.</span>
         </div>
       </section>
-      <section className="partner-foundation-note" aria-label="Komerčný stav">
-        <strong>Komerčné možnosti</strong>
-        <p>Aktívne Premium: {commercial.activePremium} · Aktívne propagácie: {commercial.activePromotions} · Otvorené komerčné žiadosti: {commercial.openRequests}</p>
+
+      <section className="partner-dashboard-stats" aria-label="Stav môjho účtu">
+        <Link href="/partner/profily" className="partner-dashboard-stat">
+          <span>Moje profily</span><strong>{summary.profiles}</strong><small>Spravované profily</small>
+        </Link>
+        <Link href="/partner/podujatia" className="partner-dashboard-stat">
+          <span>Moje podujatia</span><strong>{summary.events}</strong><small>Spravované podujatia</small>
+        </Link>
+        <Link href="/partner/ziadosti" className="partner-dashboard-stat">
+          <span>Čakajúce žiadosti</span><strong>{summary.pendingRequests}</strong><small>Na vybavenie administrátorom</small>
+        </Link>
       </section>
-      <section className="partner-foundation-note" aria-label="Dostupné funkcie">
-        <strong>Aktuálne dostupné</strong>
-        <p>Správa profilov a podujatí, moderované zmeny, komerčné ponuky a bezpečná správa Partner účtu.</p>
+
+      <section className="partner-dashboard-section" aria-labelledby="partner-managed-heading">
+        <div className="partner-dashboard-section-heading">
+          <div><span className="eyebrow">Moje záznamy</span><h2 id="partner-managed-heading">Čo spravujete</h2></div>
+          {resources.length > 0 ? <Link href="/partner/profily">Všetky profily</Link> : null}
+        </div>
+        {resources.length ? (
+          <div className="partner-dashboard-record-grid">
+            {resources.slice(0, 6).map((item) => (
+              <article key={item.resourceId} className="partner-dashboard-record">
+                <span className="partner-dashboard-type">{resourceTypeLabel(item.entityType)}</span>
+                <h3>{item.name}</h3>
+                <p>{partnerResourceStatusLabel(item.status)}</p>
+                <div className="partner-dashboard-record-actions">
+                  <Link className="button button--dark" href={resourceEditHref(item)}>
+                    {item.entityType === "MANAGED_EVENT" ? "Upraviť podujatie" : "Upraviť profil"}
+                  </Link>
+                  {item.publicHref ? <Link href={item.publicHref} target="_blank" rel="noopener noreferrer">Verejný záznam ↗</Link> : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="partner-dashboard-empty">
+            <h3>Zatiaľ nemáte pridelený žiadny záznam</h3>
+            <p>Keď schválime vašu žiadosť, profil alebo podujatie sa zobrazí tu.</p>
+            <Link href="/partner/ziadosti">Skontrolovať moje žiadosti</Link>
+          </div>
+        )}
+        {summary.events > 0 && <Link className="partner-dashboard-more" href="/partner/podujatia">Zobraziť všetky podujatia</Link>}
       </section>
+
+      <div className="partner-dashboard-columns">
+        <section className="partner-dashboard-section" aria-labelledby="partner-add-heading">
+          <div className="partner-dashboard-section-heading">
+            <div><span className="eyebrow">Nový záznam</span><h2 id="partner-add-heading">Čo chcete urobiť?</h2></div>
+          </div>
+          <div className="partner-dashboard-quick-actions">
+            <Link href="/partner/profily/novy">
+              <strong>Vytvoriť profil</strong>
+              <span>Služba pre psov alebo organizácia na pomoc psom</span>
+            </Link>
+            <Link href="/partner/podujatia/nove">
+              <strong>Pridať podujatie</strong>
+              <span>Výstava, preteky, seminár či iné podujatie</span>
+            </Link>
+          </div>
+          <div className="partner-dashboard-claim">
+            <h3>Profil už na Psipedii existuje?</h3>
+            <p>O správu môžete požiadať z jeho verejnej stránky.</p>
+            <div className="partner-dashboard-claim-links">
+              <Link href="/adresar">Vyhľadať službu</Link>
+              <Link href="/organizacie">Vyhľadať organizáciu</Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="partner-dashboard-section" aria-labelledby="partner-requests-heading">
+          <div className="partner-dashboard-section-heading">
+            <div><span className="eyebrow">Stav vybavovania</span><h2 id="partner-requests-heading">Moje žiadosti</h2></div>
+            <Link href="/partner/ziadosti">Zobraziť všetky</Link>
+          </div>
+          {summary.recentRequests.length > 0 ? (
+            <ul className="partner-dashboard-requests">
+              {summary.recentRequests.map((item) => (
+                <li key={`${item.type}:${item.id}`}>
+                  <div>
+                    <span>{item.category}</span>
+                    <strong>{item.title}</strong>
+                  </div>
+                  <span className={item.pending ? "partner-dashboard-request-status is-pending" : "partner-dashboard-request-status"}>{item.statusLabel}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="partner-dashboard-empty partner-dashboard-empty--compact">
+              <h3>Zatiaľ nemáte žiadne žiadosti</h3>
+              <p>Nové žiadosti o správu alebo vytvorenie profilu tu budete vidieť spolu s ich stavom.</p>
+            </div>
+          )}
+        </section>
+      </div>
+      <p className="partner-dashboard-footer-note">
+        Nastavenia účtu a možnosti propagácie nájdete v partnerskej navigácii.
+      </p>
     </PartnerShell>
   );
 }
