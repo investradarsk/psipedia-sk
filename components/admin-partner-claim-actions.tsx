@@ -51,10 +51,10 @@ export function AdminPartnerClaimActions({ claimId }: { claimId: string }) {
       </section>
       <AdminDestructiveConfirmDialog
         open={pendingAction !== null}
-        title={pendingAction === "APPROVE" ? "Schváliť prevzatie profilu?" : "Zamietnuť prevzatie profilu?"}
+        title={pendingAction === "APPROVE" ? "Schváliť správu záznamu?" : "Zamietnuť správu záznamu?"}
         description={pendingAction === "APPROVE"
-          ? "Schváliť claim a prideliť tomuto Partner účtu OWNER membership? Existujúci OWNER nebude odobratý."
-          : "Zamietnuť túto žiadosť o prevzatie profilu?"}
+          ? "Schváliť žiadosť a prideliť správu existujúceho záznamu? Predchádzajúci správca sa nikdy neodoberie automaticky."
+          : "Zamietnuť túto žiadosť o správu záznamu?"}
         affectedCount={1}
         affectedLabel="žiadosť"
         confirmLabel={pendingAction === "APPROVE" ? "Schváliť prevzatie" : "Zamietnuť žiadosť"}
