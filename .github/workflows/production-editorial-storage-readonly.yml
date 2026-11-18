@@ -111,5 +111,6 @@ jobs:
             .production-editorial-storage-readonly/report.json
             .production-editorial-storage-readonly/cleanup-readiness.json
             .production-editorial-storage-readonly/source-readers.json
+            .production-editorial-storage-readonly/organization-orphans.json
           if-no-files-found: error
           retention-days: 14
