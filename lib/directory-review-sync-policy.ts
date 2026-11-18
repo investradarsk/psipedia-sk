@@ -1,7 +1,7 @@
 /**
- * Per-checkbox last-acknowledged comparison. Whole-page Notion timestamps are
- * not evidence of a specific field change. On the first run, D1 wins so legacy
- * test checkmarks cannot be silently imported from a new empty Notion column.
+ * The Admin review checkbox is the owner-controlled synchronization lock.
+ * Notion mirrors that value but can never mark a profile reviewed or unlock it.
+ * Whole-page timestamps are not a proof of intentional review changes.
  */
 export type DirectoryReviewPlan = "unchanged" | "acknowledge" | "push" | "pull";
 
@@ -17,5 +17,6 @@ export function planDirectoryReviewSync(input: {
   if (adminReviewed === notionReviewed) {
     return adminReviewed === baseline ? "unchanged" : "acknowledge";
   }
-  return adminReviewed === baseline ? "pull" : "push";
+  // Only an intentional Admin checkbox edit can lock/unlock a profile.
+  return "push";
 }
