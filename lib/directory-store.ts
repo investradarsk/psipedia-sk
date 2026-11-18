@@ -15,8 +15,8 @@ import {
   directoryLegacyDistrictSql,
 } from "./directory-public-source-contract";
 import { cache } from "react";
-import { directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
-import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-category-sql";
+import { DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
+import { planDirectorySecondaryCategorySqlMirror, planDirectorySecondaryCategoryCreateSqlMirror } from "./directory-secondary-category-sql";
 import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
@@ -1970,6 +1970,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
     automationAddressReview?: { id: number; fingerprint: string };
     restoreArchived?: boolean;
   },
+  sqlCategoriesConfirmed = false,
 ) {
   if (existing.status === "archived" && !guard?.restoreArchived)
     throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
@@ -1977,6 +1978,10 @@ export function buildManagedDirectoryProfileUpdateStatement(
     currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
     legacyAddress: existing.address,
   });
+  // Only callers that atomically mirror categories to SQL may set the marker.
+  // Direct Notion/address/other canonical SQL writers leave it unchanged.
+  if (sqlCategoriesConfirmed)
+    input.sourceData[DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY] = "1";
   const publishedAt =
     input.status === "published" ? (existing.publishedAt ?? now) : existing.publishedAt;
   const updatedAtGuard = guard?.expectedUpdatedAt ? " AND updated_at = ?" : "";
@@ -2075,6 +2080,7 @@ export async function updateManagedDirectoryProfile(
     existing,
     now,
     guard,
+    payload.additionalCategories !== undefined,
   );
   let row: DirectoryProfileRow | null;
   if (payload.additionalCategories !== undefined) {
