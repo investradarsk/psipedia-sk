@@ -13,8 +13,8 @@ function fixture(status = "archived") {
     city TEXT, district TEXT, region TEXT, address TEXT, postal_code TEXT,
     street TEXT, house_number TEXT, address_format TEXT,
     service_address_confirmation TEXT, online INTEGER, price_note TEXT,
-    website_url TEXT, public_phone TEXT, public_email TEXT,
-    facebook_url TEXT, instagram_url TEXT, internal_email TEXT, image_url TEXT, image_key TEXT,
+    website_url TEXT, public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT,
+    internal_email TEXT, image_url TEXT, image_key TEXT,
     thumbnail_display_json TEXT, detail_display_json TEXT, source_data_json TEXT,
     verified INTEGER, featured INTEGER, seo_json TEXT, search_text TEXT,
     updated_at TEXT, published_at TEXT, archived_at TEXT, updated_by TEXT
