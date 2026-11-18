@@ -93,10 +93,12 @@ function SectionContentList({
   articles,
   label,
   limit = 8,
+  featuredLead = false,
 }: {
   articles: Article[];
   label: string;
   limit?: number;
+  featuredLead?: boolean;
 }) {
   if (!articles.length) {
     return (
@@ -108,12 +110,18 @@ function SectionContentList({
   return (
     <PublicContentList
       label={label}
-      className={articles.length === 1 ? `${styles.contentList} ${styles.singleArticleList}` : styles.contentList}
+      className={[
+        styles.contentList,
+        articles.length === 1 && styles.singleArticleList,
+        featuredLead && styles.featuredContentList,
+      ].filter(Boolean).join(" ")}
     >
-      {articles.slice(0, limit).map((article) => (
+      {articles.slice(0, limit).map((article, index) => (
         <ArticleListItem
           article={article}
-          desktopLayout={articles.length > 1 && article.image ? "stacked" : undefined}
+          desktopLayout={featuredLead
+            ? (index === 0 ? "stacked" : undefined)
+            : (articles.length > 1 && article.image ? "stacked" : undefined)}
           key={article.slug}
         />
       ))}
@@ -176,8 +184,120 @@ function SearchBox({
   );
 }
 
-function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
-  const config = {
+/** Editorial copy only: visual, buttons and markup stay in the existing HubCallout. */
+const topicCalloutCopy: Record<EditorialSectionSlug, Record<string, {
+  title: string;
+  description: string;
+  related?: { href: string; label: string };
+}>> = {
+  steniatka: {
+    "pred-kupou-psa": {
+      title: "Rozhoduješ sa pre psa?",
+      description: "Premysli si čas, rozpočet aj každodenný režim skôr, než si vyberieš šteniatko.",
+      related: { href: "/adresar/chovatelske-stanice", label: "Chovateľské stanice" },
+    },
+    "vyber-plemena": {
+      title: "Ktoré plemeno sa hodí do tvojho života?",
+      description: "Porovnávaj povahu, potrebu pohybu a starostlivosť, nie iba vzhľad.",
+      related: { href: "/plemena", label: "Prehľad plemien" },
+    },
+    "vyber-chovatela": {
+      title: "Ako spoznáš zodpovedného chovateľa?",
+      description: "Pýtaj sa na zdravie rodičov, podmienky odchovu aj dokumenty k šteniatku.",
+      related: { href: "/adresar/chovatelske-stanice", label: "Nájsť chovateľa" },
+    },
+    "prve-dni": {
+      title: "Šteniatko je doma. Čo riešiť ako prvé?",
+      description: "Priprav mu bezpečné miesto, pokojný režim a dostatok času na privykanie.",
+    },
+    "hygiena": {
+      title: "Ako začať s hygienickými návykmi?",
+      description: "Krátke pravidelné prestávky vonku a odmeňovanie pomôžu viac než trestanie nehôd.",
+    },
+    "krmenie": {
+      title: "Koľko a čím kŕmiť šteniatko?",
+      description: "Kŕmnu dávku prispôsob veku, veľkosti plemena a kondícii rastúceho psa.",
+    },
+    "ockovanie-a-zdravie": {
+      title: "Čo potrebuje šteniatko pre zdravý štart?",
+      description: "S veterinárom nastav očkovanie, odčervenie a preventívne kontroly podľa veku.",
+      related: { href: "/adresar/veterinari", label: "Nájsť veterinára" },
+    },
+    "rast-a-vyvoj": {
+      title: "Rastie tvoje šteniatko primerane?",
+      description: "Sleduj kondíciu a pohyb, neporovnávaj však iba číslo na váhe.",
+      related: { href: "/adresar/veterinari", label: "Veterinári" },
+    },
+    "socializacia": {
+      title: "Ako bezpečne ukázať šteniatku svet?",
+      description: "Nové zvuky, ľudia a prostredia dávkuj postupne, bez zbytočného tlaku.",
+      related: { href: "/adresar/treneri", label: "Nájsť trénera" },
+    },
+    "vycvik-steniatka": {
+      title: "S ktorými návykmi začať?",
+      description: "Privolanie, pokoj a kontakt s človekom buduj krátkymi pozitívnymi tréningami.",
+      related: { href: "/adresar/treneri", label: "Nájsť trénera" },
+    },
+    "puberta": {
+      title: "Mladý pes zrazu neposlúcha?",
+      description: "V dospievaní pomáhajú jasné pravidlá, trpezlivosť a primerané očakávania.",
+      related: { href: "/adresar/treneri", label: "Tréneri a školy" },
+    },
+  },
+  starostlivost: {
+    vyziva: {
+      title: "Nevieš, či pes dostáva správnu dávku?",
+      description: "Pri kŕmení záleží na kondícii, aktivite, veku aj prípadných zdravotných ťažkostiach.",
+    },
+    "srst-a-hygiena": {
+      title: "Ako často upravovať srsť a pazúry?",
+      description: "Starostlivosť prispôsob typu srsti a potrebám psa; sleduj aj kožu a uši.",
+      related: { href: "/adresar/salony-a-sluzby", label: "Psie salóny" },
+    },
+    vycvik: {
+      title: "Ako si vybudovať každodenné návyky?",
+      description: "Zrozumiteľné pravidlá, odmeny a pravidelný tréning uľahčujú spoločný život.",
+      related: { href: "/adresar/treneri", label: "Tréneri a školy" },
+    },
+    spravanie: {
+      title: "Prečo sa pes správa inak ako zvyčajne?",
+      description: "Pri zmene správania hľadaj príčinu v prostredí, emóciách aj zdravotnom stave.",
+      related: { href: "/adresar/treneri", label: "Nájsť trénera" },
+    },
+    senior: {
+      title: "Čo potrebuje pes vo vyššom veku?",
+      description: "Prispôsob pohyb, odpočinok, výživu a preventívne kontroly jeho kondícii.",
+      related: { href: "/adresar/veterinari", label: "Nájsť veterinára" },
+    },
+  },
+  aktivity: {
+    trening: {
+      title: "Ako dosiahnuť lepší výsledok pri tréningu?",
+      description: "Začni krátkymi zrozumiteľnými úlohami a odmeňuj správanie, ktoré chceš podporiť.",
+      related: { href: "/adresar/treneri", label: "Nájsť trénera" },
+    },
+    "psie-sporty": {
+      title: "Ktorý psí šport sa hodí pre tvojho psa?",
+      description: "Vyberaj podľa veku, zdravotného stavu, motivácie a kondície, nie podľa trendu.",
+      related: { href: "/adresar/kynologicke-kluby", label: "Kynologické kluby" },
+    },
+    "vylety-so-psom": {
+      title: "Čo si pripraviť pred výletom?",
+      description: "Mysli na vodu, počasie, terén, pravidlá lokality a primeranú dĺžku trasy.",
+    },
+    "dog-friendly-miesta": {
+      title: "Kam vyraziť, aby sa dobre cítil aj pes?",
+      description: "Vopred si over pravidlá vstupu, priestor na odpočinok a podmienky pre psy.",
+    },
+    "dovolenka-so-psom": {
+      title: "Ako cestovať so psom bez stresu?",
+      description: "Dopredu over ubytovanie, dopravu, doklady aj možnosti oddychu počas cesty.",
+    },
+  },
+};
+
+function HubCallout({ sectionSlug, subpage }: { sectionSlug: EditorialSectionSlug; subpage?: PortalSubpage }) {
+  const baseConfig = {
     steniatka: {
       icon: <PawMark />,
       eyebrow: "Začni podľa situácie",
@@ -226,6 +346,23 @@ function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
       ],
     },
   }[sectionSlug];
+  const isHealthUrgent = sectionSlug === "starostlivost" && subpage?.slug === "zdravie";
+  const copy = subpage ? topicCalloutCopy[sectionSlug][subpage.slug] : undefined;
+  const config = subpage && !isHealthUrgent
+    ? {
+        icon: baseConfig.icon,
+        eyebrow: "Rada pre túto tému",
+        title: copy?.title ?? subpage.label,
+        description: copy?.description ?? subpage.intro ?? subpage.description,
+        urgent: false,
+        actions: [
+          { href: "#topic-related-heading", label: "Čítať články", variant: "secondary" as const },
+          ...(copy?.related
+            ? [{ ...copy.related, variant: "primary" as const }]
+            : []),
+        ],
+      }
+    : baseConfig;
 
   return (
     <section
@@ -484,11 +621,9 @@ export async function EditorialSectionHub({
           <PortalSectionTabs section={section} />
         </div>
 
-        {sectionSlug === "starostlivost" ? (
-          <PageContainer className={styles.calloutShell} data-section-public-callout>
-            <HubCallout sectionSlug="starostlivost" />
-          </PageContainer>
-        ) : null}
+        <PageContainer className={styles.calloutShell} data-section-public-callout>
+          <HubCallout sectionSlug={sectionSlug} />
+        </PageContainer>
 
         <div className={styles.topicGroups} data-section-subcategories data-section-topic-groups>
           <PageContainer>
@@ -527,12 +662,13 @@ export async function EditorialSectionHub({
                           >
                             <Link href={href}>{subpage.label}</Link>
                           </PublicHeading>
-                          <div data-section-content-list>
+                          <div data-section-content-list data-section-featured-list>
                             {related.length > 0 ? (
                               <SectionContentList
                                 articles={related}
                                 label={`Články z oblasti ${subpage.label}`}
-                                limit={2}
+                                limit={5}
+                                featuredLead
                               />
                             ) : (
                               <p className={styles.topicGroupEmpty}>
@@ -701,11 +837,13 @@ export async function EditorialSectionTopic({
         <PortalSectionTabs section={section} activeSlug={subpage.slug} />
 
         <PageContainer className={styles.topicBody} data-section-public-topic-body>
-          {isHealthLanding ? (
-            <div className={styles.topicEmergency} data-health-urgent>
-              <HubCallout sectionSlug="starostlivost" />
-            </div>
-          ) : null}
+          <div
+            className={styles.topicEmergency}
+            data-section-topic-banner
+            data-health-urgent={isHealthLanding ? "" : undefined}
+          >
+            <HubCallout sectionSlug={sectionSlug} subpage={subpage} />
+          </div>
           <section
             className={styles.relatedSection}
             aria-labelledby="topic-related-heading"
