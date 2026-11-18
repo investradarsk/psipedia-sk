@@ -199,6 +199,69 @@ export function validateOrganizationOrphanDetails(rows, expectedCount) {
   });
 }
 
+
+/** Read-only tombstone/guard evidence for precisely the same orphan cohort. */
+export function buildOrganizationOrphanLifecycleSql() {
+  return assertReadOnlySelect(
+    "SELECT m.entity_id, m.notion_page_id, " +
+    "t.record_id AS tombstone_record_id, t.notion_page_id AS tombstone_page_id, " +
+    "t.record_slug AS tombstone_slug, t.state AS tombstone_state, " +
+    "t.error_code AS tombstone_error, t.completed_at AS tombstone_completed_at, " +
+    "g.remote_state AS publication_guard_state, g.error_code AS publication_guard_error " +
+    "FROM notion_agenda_sync m " +
+    "LEFT JOIN admin_record_tombstones t ON t.kind='organizations' AND " +
+    "(t.record_id=m.entity_id OR (t.notion_page_id IS NOT NULL AND " +
+    "replace(lower(t.notion_page_id),'-','')=replace(lower(m.notion_page_id),'-',''))) " +
+    "LEFT JOIN admin_record_publication_guards g " +
+    "ON g.kind='organizations' AND g.record_id=m.entity_id " +
+    "WHERE m.agenda='organizations' AND NOT EXISTS " +
+    "(SELECT 1 FROM help_organizations o WHERE o.id=m.entity_id) " +
+    "ORDER BY m.entity_id, m.notion_page_id LIMIT 101;"
+  );
+}
+
+export function validateOrganizationOrphanLifecycle(rows, expected) {
+  const uuid=value=>String(value).replaceAll("-","").toLowerCase();
+  const states=new Set(["PENDING_NOTION","ERROR_NOTION","READY_LOCAL","COMPLETE"]);
+  const guardStates=new Set(["PENDING","SYNCED","UNLINKED","NOT_APPLICABLE"]);
+  if (!Array.isArray(rows) || !Array.isArray(expected) ||
+      rows.length!==expected.length || rows.length>ORGANIZATION_ORPHAN_LIMIT)
+    throw Error("ORGANIZATION_ORPHAN_LIFECYCLE_COUNT_DRIFT");
+  return rows.map((r,i)=>{
+    const e=expected[i];
+    if(!r || !e || r.entity_id!==e.entityId ||
+       uuid(r.notion_page_id)!==uuid(e.notionPageId))
+      throw Error("ORGANIZATION_ORPHAN_LIFECYCLE_IDENTITY_DRIFT");
+    const hasTombstone=r.tombstone_record_id!==null;
+    if(hasTombstone && (!Number.isSafeInteger(r.tombstone_record_id) ||
+      r.tombstone_record_id<=0 || !states.has(r.tombstone_state) ||
+      typeof r.tombstone_slug!=="string" || !r.tombstone_slug.trim()))
+      throw Error("ORGANIZATION_ORPHAN_LIFECYCLE_INVALID_TOMBSTONE");
+    if(!hasTombstone && [r.tombstone_page_id,r.tombstone_slug,
+      r.tombstone_state,r.tombstone_error,r.tombstone_completed_at]
+      .some(value=>value!==null))
+      throw Error("ORGANIZATION_ORPHAN_LIFECYCLE_INVALID_TOMBSTONE");
+    if(r.publication_guard_state!==null && !guardStates.has(r.publication_guard_state))
+      throw Error("ORGANIZATION_ORPHAN_LIFECYCLE_INVALID_GUARD");
+    const pageConflict=hasTombstone && r.tombstone_page_id!==null &&
+      uuid(r.tombstone_page_id)!==uuid(r.notion_page_id);
+    return {
+      entityId:e.entityId,notionPageId:e.notionPageId,
+      tombstonePresent:hasTombstone,
+      tombstoneRecordId:r.tombstone_record_id,
+      tombstonePageId:r.tombstone_page_id,
+      tombstoneSlug:r.tombstone_slug,
+      tombstoneState:r.tombstone_state,
+      tombstoneError:r.tombstone_error,
+      tombstoneCompletedAt:r.tombstone_completed_at,
+      publicationGuardState:r.publication_guard_state,
+      publicationGuardError:r.publication_guard_error,
+      tombstoneIdentityConflict:hasTombstone &&
+        (r.tombstone_record_id!==e.entityId || pageConflict),
+    };
+  });
+}
+
 function naturalCount(value) {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
     ? value : null;
@@ -285,6 +348,26 @@ async function main() {
     await writeFile(join(outputDir,"organization-orphans.json"),JSON.stringify({
       database:DB_NAME,readOnly:true,expectedCount:organizationOrphanCount,
       records:organizationOrphanDetails,
+    },null,2)+"\n");
+    // Look up deletion evidence without changing either D1 or Notion.
+    // These tables were installed by the protected 0164 lifecycle migration.
+    const lifecycleTables=query(assertReadOnlySelect(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN " +
+      "('admin_record_tombstones','admin_record_publication_guards') ORDER BY name;"
+    ),wranglerConfig);
+    if (lifecycleTables.length!==2 ||
+        lifecycleTables[0]?.name!=="admin_record_publication_guards" ||
+        lifecycleTables[1]?.name!=="admin_record_tombstones")
+      throw Error("ORGANIZATION_ORPHAN_LIFECYCLE_TABLES_UNAVAILABLE");
+    const orphanLifecycle=validateOrganizationOrphanLifecycle(
+      query(buildOrganizationOrphanLifecycleSql(),wranglerConfig),
+      organizationOrphanDetails,
+    );
+    await writeFile(join(outputDir,"organization-orphan-lifecycle.json"),JSON.stringify({
+      database:DB_NAME,readOnly:true,
+      // A tombstone is historical evidence, not authorization to delete.
+      warning:"Review tombstone state and Notion page before any mutation.",
+      records:orphanLifecycle,
     },null,2)+"\n");
     const report = {
       executedAt:new Date().toISOString(),gitRevision:process.env.GITHUB_SHA??null,
