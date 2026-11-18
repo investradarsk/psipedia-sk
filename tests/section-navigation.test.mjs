@@ -126,10 +126,10 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.match(section, /StructuredData/);
   assert.match(section, /buildCollectionPageJsonLd/);
   assert.doesNotMatch(section, /<SectionHero\b/);
-  // All three editorial hubs share the same compact two-article topic preview.
-  // Individual topic pages retain the complete list instead of truncating at five.
+  // All three editorial hubs use a five-article preview with a featured lead;
+  // individual topic pages still retain their complete article list.
   assert.match(section, /<SectionContentList\s+articles=\{related\}/);
-  assert.match(section, /limit=\{2\}/);
+  assert.match(section, /limit=\{5\}\s+featuredLead/);
   assert.match(section, /articles=\{topicArticles\}/);
   assert.match(section, /limit=\{Math\.max\(10, topicArticles\.length\)\}/);
   assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
