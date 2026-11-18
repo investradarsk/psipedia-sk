@@ -195,9 +195,9 @@ test("signed Notion filter events repair stale SQL, even when legacy JSON alread
 test("signed Notion event compares both stored projections before skipping SQL",()=>{
   const source=readFileSync(new URL("../lib/notion-directory-sync.ts",import.meta.url),"utf8");
   assert.match(source,/AS sql_filter_value/);
-  assert.match(source,/directoryNotionFacetRequiresSqlMirror\\(\\{/);
-  assert.match(source,/sqlValue: row\\.sql_filter_value/);
-  assert.doesNotMatch(source,/if \\(source\\[def\\.d1\\.key\\] === normalized!\\.value\\) continue;/);
+  assert.match(source,/directoryNotionFacetRequiresSqlMirror\(\{/);
+  assert.match(source,/sqlValue: row\.sql_filter_value/);
+  assert.doesNotMatch(source,/if \(source\[def\.d1\.key\] === normalized!\.value\) continue;/);
 });
 
 test("both Admin and Notion writers batch SQL mirror with canonical update",()=>{
