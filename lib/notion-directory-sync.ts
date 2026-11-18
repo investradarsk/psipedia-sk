@@ -824,6 +824,9 @@ async function completeDirectoryReviewedOwnerUnlock(input: {
   dataSourceId: string;
   profileId: number;
 }): Promise<boolean> {
+  if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED)) {
+    return false;
+  }
   const state = await input.database.prepare(
     "SELECT source_data_json, updated_at, status FROM directory_profiles WHERE id=? LIMIT 1",
   ).bind(input.profileId).first<{
