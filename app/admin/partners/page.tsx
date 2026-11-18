@@ -61,7 +61,7 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
       </form>
       <p role="status" data-admin-list-results>Výsledky: {accounts.total} · Strana {accounts.page} z {accounts.totalPages}</p>
       <div className="admin-partner-table" role="list" aria-label="Partnerské účty">
-        {accounts.items.map(a=><article key={a.id} role="listitem"><div><strong>{a.email}</strong><small>{a.id}</small></div><span>{partnerAdminStatusLabel(a.status)}</span><span>{a.emailVerifiedAt?"Overený":"Neoverený"}</span><span className={a.activeMembershipCount?"admin-partner-has-access":"admin-partner-no-access"}>{a.activeMembershipCount?`${a.activeMembershipCount} aktívnych prístupov`:"Bez prideleného profilu"}</span><Link href={`/admin/partners/accounts/${a.id}`}>Detail →</Link></article>)}
+        {accounts.items.map(a=><article key={a.id} role="listitem"><div><strong>{a.email}</strong><small>Registrovaný: {new Date(a.createdAt).toLocaleString("sk-SK")}</small><small>ID: {a.id}</small></div><span>{partnerAdminStatusLabel(a.status)}</span><span>{a.emailVerifiedAt?"Overený":"Neoverený"}</span><span className={a.activeMembershipCount?"admin-partner-has-access":"admin-partner-no-access"}>{a.activeMembershipCount?`${a.activeMembershipCount} aktívnych prístupov`:"Bez prideleného profilu"}</span><Link href={`/admin/partners/accounts/${a.id}`}>Detail →</Link></article>)}
       </div>
       {accounts.items.length===0&&<p>Nenašli sa žiadne účty pre zadané filtre.</p>}
       <nav className="admin-partner-pagination" aria-label="Stránkovanie partnerských účtov" data-admin-list-pagination>
