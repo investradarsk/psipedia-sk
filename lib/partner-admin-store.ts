@@ -5,6 +5,7 @@ import { getPartnerAccountById, getPartnerDatabase, type PartnerAccountStatus } 
 import { ensureCanonicalResource } from "./canonical-resource";
 import { getPartnerContactProfile } from "./partner-contact-profile";
 import { getPartnerAuthMethodSummary } from "./partner-auth-methods";
+import { assertSingleActivePartnerManager } from "./partner-single-manager";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 function db(database?: D1Database) { return getPartnerDatabase(database ?? (env as unknown as Bindings).DB); }
@@ -164,19 +165,18 @@ export async function searchCanonicalPartnerResources(input:{q?:string;type?:Par
   return (await database.prepare(parts.join(" UNION ALL ")+" ORDER BY name COLLATE NOCASE LIMIT 50").bind(...binds).all()).results;
 }
 
-export async function createPartnerMembershipAdmin(input:{accountId:string;entityType:PartnerResourceType;canonicalId:number;role:PartnerRole;adminEmail:string;database?:D1Database;now?:Date}){
-  if(!(partnerResourceTypes as readonly string[]).includes(input.entityType)||!(partnerRoles as readonly string[]).includes(input.role)||!Number.isSafeInteger(input.canonicalId)||input.canonicalId<1)throw new Error("Neplatný Partner resource alebo rola.");
-  const database=db(input.database),account=await getPartnerAccountById(input.accountId,database);if(!account)throw new Error("Partner účet neexistuje.");
-  const nowDate=input.now??new Date();
-  const resource=await ensureCanonicalResource({entityType:input.entityType,canonicalId:input.canonicalId,database,now:nowDate});
-  const now=nowDate.toISOString();
-  const id=crypto.randomUUID();
-  await database.prepare("INSERT INTO partner_memberships(id,account_id,resource_id,role,created_at,created_by,updated_at) VALUES(?,?,?,?,?,?,?)").bind(id,input.accountId,resource.id,input.role,now,auditActor(input.adminEmail),now).run();
-  await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:auditActor(input.adminEmail),action:"MEMBERSHIP_CREATED",targetType:"PARTNER_MEMBERSHIP",targetId:id,metadata:{accountId:input.accountId,resourceId:resource.id,role:input.role},database,now:new Date(now)});return {id,resourceId:resource.id};
+export async function createPartnerMembershipAdmin(input:{accountId:string;entityType:PartnerResourceType;canonicalId:number;role?:PartnerRole;adminEmail:string;database?:D1Database;now?:Date}){
+  if(!(partnerResourceTypes as readonly string[]).includes(input.entityType)||!Number.isSafeInteger(input.canonicalId)||input.canonicalId<1)throw new Error("Neplatný Partner resource.");
+  if(input.role && input.role!=="OWNER")throw new Error("Externý partner má jedinú rolu: Správca profilu.");
+  const database=db(input.database),account=await getPartnerAccountById(input.accountId,database);
+  if(!account||account.status!=="ACTIVE")throw new Error("Partner účet musí byť aktívny.");
+  const now=input.now??new Date();
+  const resource=await ensureCanonicalResource({entityType:input.entityType,canonicalId:input.canonicalId,database,now});
+  return ensurePartnerOwnerMembershipAdmin({accountId:input.accountId,resourceId:resource.id,adminEmail:input.adminEmail,database,now});
 }
 
 export async function changePartnerMembershipAdmin(input:{membershipId:string;role?:PartnerRole;revoke?:boolean;adminEmail:string;database?:D1Database;now?:Date}){
-  if(!validId(input.membershipId))throw new Error("Neplatná membership.");if(input.role&&!(partnerRoles as readonly string[]).includes(input.role))throw new Error("Neplatná Partner rola.");
+  if(!validId(input.membershipId))throw new Error("Neplatná membership.");if(input.role&&input.role!=="OWNER")throw new Error("Externý partner má jedinú rolu: Správca profilu.");
   const database=db(input.database),current=await database.prepare("SELECT id,role,revoked_at revokedAt FROM partner_memberships WHERE id=?").bind(input.membershipId).first<{id:string;role:PartnerRole;revokedAt:string|null}>();
   if(!current)throw new Error("Membership neexistuje.");if(current.revokedAt)throw new Error("Membership už bola odvolaná.");const now=(input.now??new Date()).toISOString(),actor=auditActor(input.adminEmail);
   const action=input.revoke?"MEMBERSHIP_REVOKED":"MEMBERSHIP_ROLE_CHANGED";
@@ -197,6 +197,7 @@ export async function ensurePartnerOwnerMembershipAdmin(input:{
   if(!account||account.status!=="ACTIVE")throw new Error("Partner účet musí byť aktívny.");
   const resource=await database.prepare("SELECT id FROM partner_resources WHERE id=?1 LIMIT 1").bind(input.resourceId).first<{id:string}>();
   if(!resource)throw new Error("Partner resource neexistuje.");
+  await assertSingleActivePartnerManager({database,resourceId:input.resourceId,accountId:input.accountId});
   const current=await database.prepare(
     "SELECT id,role FROM partner_memberships WHERE account_id=?1 AND resource_id=?2 AND revoked_at IS NULL LIMIT 1",
   ).bind(input.accountId,input.resourceId).first<{id:string;role:PartnerRole}>();
