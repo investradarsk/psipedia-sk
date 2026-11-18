@@ -23,6 +23,7 @@ on:
       - "lib/directory-read-facets.ts"
       - "lib/directory-public-filters.ts"
       - "tests/directory-public-filters.test.mjs"
+      - "tests/directory-canonical-attributes-public.test.mjs"
       - "lib/breeder-profile-relations.ts"
       - "lib/notion-directory-sync.ts"
       - "tests/breeder-club-single-source.test.mjs"
