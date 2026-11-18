@@ -55,3 +55,16 @@ test("Admin create/update and Notion field events use 0170 columns in one D1 sta
   assert.match(notion,/publicPhone: "public_phone"/);
   assert.match(notion,/assignments\.push\(column \+ " = \?"\)/);
 });
+
+test("marking Odkontrolované adopts only NULL contacts into SQL and bumps revision",()=>{
+  const store=readFileSync("lib/directory-store.ts","utf8");
+  const start=store.indexOf("export async function setManagedDirectoryProfileReviewed(");
+  const end=store.indexOf("export async function archiveManagedDirectoryProfile(",start);
+  const review=store.slice(start,end);
+  assert.match(review,/public_phone = CASE WHEN \?=1 THEN COALESCE\(public_phone, \?\) ELSE public_phone END/);
+  assert.match(review,/public_email = CASE WHEN \?=1 THEN COALESCE\(public_email, \?\) ELSE public_email END/);
+  assert.match(review,/facebook_url = CASE WHEN \?=1 THEN COALESCE\(facebook_url, \?\) ELSE facebook_url END/);
+  assert.match(review,/instagram_url = CASE WHEN \?=1 THEN COALESCE\(instagram_url, \?\) ELSE instagram_url END/);
+  assert.match(review,/AND updated_at = \? RETURNING \*/);
+  assert.match(review,/reviewed \? 1 : 0/);
+});
