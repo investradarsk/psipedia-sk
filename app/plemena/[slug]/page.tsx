@@ -475,7 +475,7 @@ export default async function BreedDetailPage({ params }: Props) {
               >
                 {breed.image ? (
                   <PublicPhotoLightboxLink src={breed.image} alt={breed.name + " – profilová fotografia plemena"}>
-<BreedPhoto
+                  <BreedPhoto
                     src={breed.image}
                     alt={breed.name + " – profilová fotografia plemena"}
                     className={styles.heroImage}
