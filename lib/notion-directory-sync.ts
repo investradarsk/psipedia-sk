@@ -2986,6 +2986,12 @@ export async function runNotionDirectorySyncSweep(input: {
       console.warn("DIRECTORY_REVIEW_NOTION_TARGET_SYNC_FAILED", input.targetProfileId,
         error instanceof Error ? error.message : String(error));
     }
+    // The Admin's explicit Odkontrolované marker is an immediate bidirectional
+    // lock. The isolated checkbox mirror above is the only permitted Notion PATCH.
+    if ((await getManagedDirectoryProfileById(input.targetProfileId, input.database))?.reviewed) {
+      summary.unchanged++;
+      return summary;
+    }
     try {
       const action = await syncMappedPage({
         database: input.database, bindings: input.bindings, dataSourceId, mapping,
@@ -3101,6 +3107,7 @@ export async function runNotionDirectorySyncSweep(input: {
               error instanceof Error ? error.message : String(error));
           }
           const current=await getManagedDirectoryProfileById(mapped.directory_profile_id,input.database);
+          if (current?.reviewed) { summary.unchanged++; continue; }
           if(current&&await recoverEqualLegacyDirectoryBaseline({
             database:input.database,bindings:input.bindings,dataSourceId,
             page:candidate,mapping:mapped,profile:current,
@@ -3285,6 +3292,12 @@ export async function runNotionDirectorySyncSweep(input: {
             error instanceof Error ? error.message : String(error));
         }
       }
+      // After mirror reconciliation, an explicit review freezes this profile
+      // before any relation, trust, editorial or sync-status writeback.
+      if ((await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database))?.reviewed) {
+        summary.unchanged++;
+        continue;
+      }
       // Trust booleans and Services V3 relations are independent field events
       // for ALL directory categories. A change to either must not trigger a
       // legacy whole-profile merge, which can overwrite unrelated Admin data.
@@ -3458,7 +3471,7 @@ export async function runNotionDirectorySyncSweep(input: {
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping || await notionPageMustSkipInboundSync(input.database,mapping.notion_page_id)) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
-    if (changedProfile && isDirectoryFieldEventCategory(changedProfile.category)) continue;
+    if (changedProfile?.reviewed || (changedProfile && isDirectoryFieldEventCategory(changedProfile.category))) continue;
     let page: NotionPage | undefined;
     try {
       // Load only once. The same snapshot is used for identity validation,
@@ -3493,7 +3506,7 @@ export async function runNotionDirectorySyncSweep(input: {
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
-      if (!profile || ["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category)) continue;
+      if (!profile || profile.reviewed || ["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category)) continue;
       await writeProfileToNotion({
         database: input.database,
         bindings: input.bindings,
