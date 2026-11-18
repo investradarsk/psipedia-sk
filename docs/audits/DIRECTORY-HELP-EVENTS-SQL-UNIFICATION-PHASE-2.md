@@ -62,9 +62,9 @@ pre všetkých veterinárov, trénerov a chovateľov.
 
 ## Blokátory aktivácie
 
-- Otvorené PR #1414 obsahuje návrh migrácie 0169 pre vzťahy
-  chovateľských klubov. Nebudeme paralelne obsadzovať rovnaké číslo.
-  Návrh tejto fázy sa musí zaradiť za skutočne zlúčený migračný reťazec.
+- PR #1414 bolo zlúčené 18. 11. 2026 a migrácia 0169 pre vzťahy
+  chovateľských klubov je už na main. Novú migráciu tejto fázy treba
+  očíslovať podľa aktuálneho reťazca až po schválení produkčného backfillu.
 - Produkčný audit fázy 1/4 zatiaľ nemá potvrdené počty z D1.
   Bez nich nie je známy počet profilov závislých na historických
   filtroch, kategóriách či prázdnych kontaktoch.
