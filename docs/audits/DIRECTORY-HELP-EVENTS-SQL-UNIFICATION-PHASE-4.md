@@ -65,7 +65,7 @@ reťazci migrácií. Zlúčenie tohto PR nevykoná backfill ani čistenie.
 | Podmienka | Stav |
 | --- | --- |
 | Aktuálny report produkčnej D1 pre všetky agendy | Neoverené |
-| Vyriešenie otvoreného PR #1414, ktoré používa migráciu 0169 | Nevyriešené |
+| Zlúčenie PR #1414 a rezervácia migrácie 0169 | Hotové; 0169 je na main |
 | Číslovaná migrácia a idempotentný backfill SQL polí | Neaplikované |
 | Reálna zhoda Admin vs D1 vs verejný web | Neoverené |
 | Notion push/pull + režim Odkontrolované | Neoverené |
