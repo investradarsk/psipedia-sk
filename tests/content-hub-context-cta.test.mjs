@@ -99,7 +99,10 @@ test("editorial topic pages show articles directly while preserving urgent veter
   const css = read("components/content-hub-cta.module.css");
   assert.match(section, /data-section-topic-groups/);
   assert.match(section, /<ArticleListItem\s+article=\{article\}/);
-  // Topic pages use the existing shared HubCallout with the active subpage;\n  // the health topic keeps its urgent branch through isHealthUrgent.\n  assert.match(section, /<HubCallout sectionSlug=\\{sectionSlug\\} subpage=\\{subpage\\} \\/>/);\n  assert.match(section, /const isHealthUrgent = sectionSlug === "starostlivost" && subpage\\?\\.slug === "zdravie"/);
+  // Topic pages use the existing shared HubCallout with the active subpage;
+  // the health topic keeps its urgent branch through isHealthUrgent.
+  assert.match(section, /<HubCallout sectionSlug=\{sectionSlug\} subpage=\{subpage\} \/>/);
+  assert.match(section, /const isHealthUrgent = sectionSlug === "starostlivost" && subpage\?\.slug === "zdravie"/);
   assert.match(section, /data-health-urgent/);
   assert.doesNotMatch(section, /data-content-hub-pillar/);
   assert.match(cta, /data-contextual-hub-cta/);
