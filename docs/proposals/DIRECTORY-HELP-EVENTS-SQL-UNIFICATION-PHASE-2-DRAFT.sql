@@ -1,7 +1,8 @@
 -- PHASE 2 / 4 — SQL DESIGN PROPOSAL ONLY, NOT A PRODUCTION MIGRATION.
 -- Deliberately stored under docs/proposals, outside drizzle/*.sql.
--- The open breeder-club PR #1414 already occupies migration index 0169;
--- re-number/review this after that PR merges. DO NOT execute against D1 yet.
+-- PR #1414 merged on 2026-11-18; migration index 0169 now exists on main.
+-- Allocate a later free index after reviewing main and the real D1 state.
+-- DO NOT execute this proposal against D1 yet.
 --
 -- Existing Help tables (help_cases, help_organizations, adoption_dogs,
 -- lost_found_dog_reports), Events (managed_events), e-shops (managed_eshops)
