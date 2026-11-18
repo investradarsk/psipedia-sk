@@ -63,6 +63,22 @@ test("invalid JSON, unknown category and malformed relations are surfaced",()=>{
   assert(r.issues.includes("source:unknown_primary_category"));
   assert(r.issues.includes("source:invalid_relation_aggregate"));
 });
+test("secondary category filter is recognized rather than marked unknown",()=>{
+  const source = {
+    "_psipedia_additional_categories":JSON.stringify(["fyzioterapia"]),
+    "_psipedia_filter_v1_fyzioterapia_hydrotherapy":"yes",
+  };
+  const r=classifyDirectory0170Row(row({
+    source_data_json:JSON.stringify(source),
+    sql_categories:JSON.stringify(["fyzioterapia"]),
+    sql_filters:JSON.stringify([{
+      category:"fyzioterapia",filter_id:"fyzioterapia.hydrotherapy",value_text:"yes",
+    }]),
+  }));
+  assert(!r.issues.includes("filter:unknown_sql_id"));
+  assert(!r.issues.includes("filter:category_mismatch"));
+  assert(!r.issues.includes("filter:legacy_only_unverified"));
+});
 test("report contains only counts and sample IDs, never raw private field values",()=>{
   const rows=[
     row({id:17,source_data_json:JSON.stringify({"Telefón":"VERY-PRIVATE-001"})}),
