@@ -26,7 +26,7 @@ test("review mirror uses fixed Notion field, strict mapped identity and D1 CAS",
   assert.match(mirror, /DIRECTORY_REVIEW_NOTION_PROPERTY = "Odkontrolované"/);
   assert.match(mirror, /notionDirectoryPageBelongsToSource/);
   assert.match(mirror, /notionRichTextProperty\(input\.page, "Psipedia ID"\)/);
-  assert.match(mirror, /AND source_data_json=\? RETURNING id/);
+  assert.match(mirror, /AND source_data_json=\? AND updated_at=\? RETURNING id/);
   assert.match(mirror, /mergeDirectoryProfileReviewMetadata/);
   assert.doesNotMatch(mirror, /Kontrola AI/);
 });
