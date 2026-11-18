@@ -306,8 +306,14 @@ export function DirectoryProfileDetail({
     }
     return items;
   }, []);
+  // A confirmed V3 property replaces the same legacy public fact label.
+  // Never show contradictory values in two sections of the same profile.
+  const catalogAttributeLabels = new Set(
+    catalogAttributes.map((item) => item.label.toLocaleLowerCase("sk")),
+  );
   const expertFacts = presentation.facts.filter(
     (fact) =>
+      !catalogAttributeLabels.has(fact.label.toLocaleLowerCase("sk")) &&
       !(
         hasNamedLinks &&
         suppressLinkedBreederFact(fact.label, relatedBreeds.length, relatedClubs.length)
