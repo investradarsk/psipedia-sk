@@ -12,6 +12,7 @@ on:
       - "lib/directory-0170-editorial-read.ts"
       - "tests/directory-0170-editorial-read.test.mjs"
       - "app/api/admin/directory/[id]/route.ts"
+      - "app/admin/adresar/[id]/page.tsx"
       - "tests/directory-0170-editorial-sql-mirror.test.mjs"
       - "tests/directory-0170-secondary-category-dualwrite.test.mjs"
       - "tests/directory-0170-manual-contacts.test.mjs"
