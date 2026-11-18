@@ -1747,3 +1747,101 @@
     max-width: 43%;
   }
 }
+
+
+/* Step 3: search and claim an existing published Partner record. */
+.partner-claim-discovery { margin-top: 0; }
+.partner-claim-search-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(0, 1.6fr) auto;
+  align-items: end;
+  gap: 14px;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid rgba(23, 75, 56, 0.14);
+  border-radius: 18px;
+  background: #f7faf7;
+}
+.partner-claim-search-form .partner-field { min-width: 0; }
+.partner-claim-search-form input,
+.partner-claim-search-form select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid #c9d5ce;
+  border-radius: 10px;
+  background: #fff;
+  padding: 9px 12px;
+  color: var(--ink);
+  font: inherit;
+}
+.partner-claim-search-form button { min-height: 44px; }
+.partner-claim-discovery-note {
+  color: var(--muted);
+  font-size: 0.87rem;
+  line-height: 1.6;
+  margin: 16px 0 0;
+}
+.partner-claim-search-results > p {
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin: 18px 0 10px;
+}
+.partner-claim-search-results ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.partner-claim-search-results li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(23, 75, 56, 0.14);
+  border-radius: 14px;
+  background: #fff;
+}
+.partner-claim-search-results li > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+.partner-claim-search-results li strong {
+  color: #174b38;
+  overflow-wrap: anywhere;
+}
+.partner-claim-search-results li span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.partner-claim-search-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+.partner-claim-search-actions > a:not(.button) {
+  color: #1f684b;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+.partner-claim-search-actions .button { min-height: 40px; }
+.partner-claim-search-results a:focus-visible,
+.partner-claim-search-form input:focus-visible,
+.partner-claim-search-form select:focus-visible,
+.partner-claim-search-form button:focus-visible {
+  outline: 3px solid #b74e32;
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .partner-claim-search-form { grid-template-columns: minmax(0, 1fr); }
+  .partner-claim-search-form button { width: 100%; justify-content: center; }
+  .partner-claim-search-results li { align-items: stretch; flex-direction: column; }
+  .partner-claim-search-actions { flex: 0 1 auto; justify-content: flex-start; }
+  .partner-claim-search-actions .button { flex: 1; justify-content: center; }
+}
