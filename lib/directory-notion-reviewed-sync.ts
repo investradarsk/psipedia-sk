@@ -126,7 +126,8 @@ function verifyReviewPage(input: {
 /**
  * Reconcile ONLY the review checkbox of one already mapped directory profile.
  * This never touches editorial hashes, unrelated profile values or Sync stav.
- * No historical auto-lock: reviewed is not yet a Notion synchronization gate.
+ * An explicit D1 reviewed marker locks editorial synchronization; this
+ * isolated checkbox reflection is the ONLY permitted Notion write afterward.
  */
 export async function syncDirectoryReviewedWithNotion(input: {
   database: D1Database;
