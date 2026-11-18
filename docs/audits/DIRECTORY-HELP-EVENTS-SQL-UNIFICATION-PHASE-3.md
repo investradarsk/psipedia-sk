@@ -69,7 +69,8 @@ overiť reálnymi záznamami pred deklarovaním produkčnej parity.
 
 ## Kritériá pred aktiváciou – platia ako blokátory
 
-1. Vyriešiť poradie migrácií (#1414 rezervuje 0169).
+1. Overiť migračnú históriu po merge #1414 (0169 už existuje na main)
+   a pripraviť samostatnú novú číslovanú migráciu až po auditnom preflight-e.
 2. Schváliť a **aplikovať** číslovanú SQL migráciu až po zálohe a dry-run.
 3. Získať reálny read-only report fázy 1; per-field backfill iba
    hodnoty, pri ktorých poznáme platný zdroj a pravidlo vymazania.
