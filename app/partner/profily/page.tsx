@@ -13,7 +13,7 @@ export default async function Page() {
     <PartnerShell title="Moje profily" description="Profily, ktoré môžete spravovať cez Partner účet.">
       <section className="partner-new-profile-cta">
         <div><span className="eyebrow">Chýba váš profil?</span><h2>Pridať nový profil</h2><p>Ak profil už na Psipedii existuje, použite „Spravujete tento profil?“ namiesto vytvárania duplikátu.</p></div>
-        <Link className="button button--dark" href="/partner/profily/novy">Pridať nový profil</Link>
+        <div className="partner-hero-actions"><Link className="button button--dark" href="/partner/profily/novy">Pridať nový profil</Link><Link className="button" href="/partner/prevziat">Požiadať o správu</Link></div>
       </section>
       {items.length ? (
         <div className="partner-resource-grid">
@@ -42,7 +42,7 @@ export default async function Page() {
       ) : (
         <section className="partner-empty">
           <h2>Žiadne priradené profily</h2>
-          <p>Zatiaľ nemáte profil, ktorý môžete spravovať. Profil môžete prevziať cez odkaz „Spravujete tento profil?“ na jeho verejnej stránke.</p>
+          <p>Zatiaľ nemáte profil, ktorý môžete spravovať. <Link href="/partner/prevziat">Vyhľadať existujúci profil</Link>.</p>
         </section>
       )}
     </PartnerShell>
