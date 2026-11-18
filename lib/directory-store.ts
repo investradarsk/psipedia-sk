@@ -2250,6 +2250,7 @@ export async function setManagedDirectoryProfileReviewed(
   editorEmail: string,
   now = new Date(),
   databaseInput?: D1Database,
+  options: { markNotionUnlockPending?: boolean } = {},
 ) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
@@ -2265,6 +2266,13 @@ export async function setManagedDirectoryProfileReviewed(
     editorEmail,
     now.toISOString(),
   );
+  // Unchecking changes the UI state immediately, but never permits an old
+  // Notion snapshot to import until the canonical D1 values were re-exported.
+  if (!reviewed && options.markNotionUnlockPending) {
+    sourceData["_psipedia_profile_review_unlock_pending"] = "1";
+  } else {
+    delete sourceData["_psipedia_profile_review_unlock_pending"];
+  }
   // The owner reviewed the displayed contact values. On that explicit action,
   // adopt ONLY still-NULL SQL contact slots; an earlier SQL clear ('') wins.
   // No bulk backfill or automatic promotion on ordinary Notion/Admin reads.
