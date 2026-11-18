@@ -480,6 +480,7 @@ test("production-hot canonical breeder options and source facets preserve SQL re
   try {
     sqlite.exec("CREATE TABLE managed_breeds (id INTEGER PRIMARY KEY, status TEXT, fci_number INTEGER, import_key TEXT, slug TEXT, name TEXT, fci_group INTEGER, seo_json TEXT)");
     sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, status TEXT, category TEXT, source_data_json TEXT)");
+    sqlite.exec("CREATE TABLE directory_profile_additional_categories (profile_id INTEGER, category TEXT, updated_at TEXT, updated_by TEXT, PRIMARY KEY(profile_id,category))");
     sqlite.exec("CREATE TABLE breed_directory_relations (profile_id INTEGER, breed_id INTEGER)");
     const breedInsert = sqlite.prepare("INSERT INTO managed_breeds VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     for (const row of [

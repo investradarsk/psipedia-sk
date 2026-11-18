@@ -15,6 +15,9 @@ on:
       - "app/admin/adresar/[id]/page.tsx"
       - "tests/directory-0170-editorial-sql-mirror.test.mjs"
       - "tests/directory-0170-secondary-category-dualwrite.test.mjs"
+      - "tests/directory-0170-secondary-sql-authority.test.mjs"
+      - "lib/directory-multi-category.ts"
+      - "tests/directory-multi-category.test.mjs"
       - "tests/directory-0170-manual-contacts.test.mjs"
       - "lib/directory-breeder-card.ts"
       - "lib/directory-read-facets.ts"
@@ -50,7 +53,7 @@ jobs:
         with:
           node-version: "24.18.0"
       - name: Exact canonical identity, source facets and secondary-category parity
-        run: node --experimental-strip-types --test tests/directory-0170-manual-contacts.test.mjs tests/directory-0170-secondary-category-dualwrite.test.mjs tests/directory-0170-editorial-sql-mirror.test.mjs tests/directory-0170-editorial-read.test.mjs tests/d1-canonical-breed-cost.test.mjs tests/directory-read-facets.test.mjs tests/breeder-club-single-source.test.mjs tests/d1-0163-0169-schema-readonly-audit.test.mjs
+        run: node --experimental-strip-types --test tests/directory-0170-manual-contacts.test.mjs tests/directory-0170-secondary-category-dualwrite.test.mjs tests/directory-0170-secondary-sql-authority.test.mjs tests/directory-multi-category.test.mjs tests/directory-0170-editorial-sql-mirror.test.mjs tests/directory-0170-editorial-read.test.mjs tests/d1-canonical-breed-cost.test.mjs tests/directory-read-facets.test.mjs tests/breeder-club-single-source.test.mjs tests/d1-0163-0169-schema-readonly-audit.test.mjs
       - name: Historical trainer relation migration regression (not a production instruction)
         run: node --experimental-strip-types --test tests/trainer-breed-unification.test.mjs
       - name: Breeder-card canonical links and safe fallback
