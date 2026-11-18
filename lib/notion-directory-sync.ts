@@ -1,5 +1,6 @@
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
 import { syncDirectoryReviewedWithNotion } from "./directory-notion-reviewed-sync";
+import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
@@ -2236,6 +2237,10 @@ async function syncMappedPage(input: {
   breederAdminFields?: readonly BreederEditorialField[];
 }) {
   if (await notionPageMustSkipInboundSync(input.database,input.mapping.notion_page_id)) return "unchanged" as const;
+  // One consciously reviewed profile is frozen in both directions. Ordinary
+  // sweeps, manual transfer and signed field events must not bypass the lock.
+  if (await directoryProfileNotionSyncLocked(input.database, input.mapping.directory_profile_id))
+    return "unchanged" as const;
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile) return "unchanged" as const;
 
@@ -2941,6 +2946,8 @@ export async function runNotionDirectorySyncSweep(input: {
   let lookupPromise: Promise<CatalogRelationLookup> | null = null;
   async function syncRelation(pageId: string, profileId: number, notionExplicitEdit = false,
     adminChoiceSave = false) {
+    if (await directoryProfileNotionSyncLocked(input.database, profileId))
+      return "unchanged" as const;
     relationSchemaReady ??= input.database.prepare(
       "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'"
     ).first<{ok:number}>().then(Boolean);
@@ -2970,10 +2977,14 @@ export async function runNotionDirectorySyncSweep(input: {
       if (reviewed === "pulled") summary.pulledFromNotion++;
       if (reviewed === "pushed") summary.pushedToNotion++;
     } catch (error) {
-      // The new checkbox must never prevent unrelated editorial sync.
+      // The review checkbox mirror is independent from editorial data.
       summary.failed++;
       console.warn("DIRECTORY_REVIEW_NOTION_TARGET_SYNC_FAILED", input.targetProfileId,
         error instanceof Error ? error.message : String(error));
+    }
+    if (await directoryProfileNotionSyncLocked(input.database, input.targetProfileId)) {
+      summary.unchanged++;
+      return summary;
     }
     try {
       const action = await syncMappedPage({
@@ -3088,6 +3099,12 @@ export async function runNotionDirectorySyncSweep(input: {
             summary.failed++;
             console.warn("DIRECTORY_REVIEW_NOTION_EVENT_SYNC_FAILED", mapped.directory_profile_id,
               error instanceof Error ? error.message : String(error));
+          }
+          // Once reviewed, only the review checkbox is mirrored. No catalog,
+          // legacy hash recovery or other Notion -> Admin profile write.
+          if (await directoryProfileNotionSyncLocked(input.database,mapped.directory_profile_id)) {
+            summary.unchanged++;
+            continue;
           }
           const current=await getManagedDirectoryProfileById(mapped.directory_profile_id,input.database);
           if(current&&await recoverEqualLegacyDirectoryBaseline({
@@ -3274,6 +3291,12 @@ export async function runNotionDirectorySyncSweep(input: {
             error instanceof Error ? error.message : String(error));
         }
       }
+      // Preserve Admin-reviewed profiles even for explicit field-event writes.
+      // The checkbox mirror above is the only Notion-side action permitted.
+      if (await directoryProfileNotionSyncLocked(input.database,mapping.directory_profile_id)) {
+        summary.unchanged++;
+        continue;
+      }
       // Trust booleans and Services V3 relations are independent field events
       // for ALL directory categories. A change to either must not trigger a
       // legacy whole-profile merge, which can overwrite unrelated Admin data.
@@ -3446,6 +3469,7 @@ export async function runNotionDirectorySyncSweep(input: {
     if (attemptedMappedProfileIds.has(profileId)) continue;
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping || await notionPageMustSkipInboundSync(input.database,mapping.notion_page_id)) continue;
+    if (await directoryProfileNotionSyncLocked(input.database,profileId)) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
     if (changedProfile && isDirectoryFieldEventCategory(changedProfile.category)) continue;
     let page: NotionPage | undefined;
