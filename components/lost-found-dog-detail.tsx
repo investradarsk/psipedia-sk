@@ -1,4 +1,4 @@
-import { PublicActionLink, PublicMediaFallback, PublicPhotoGallery } from "@/components/public-visual-system";
+import { PublicActionLink, PublicMediaFallback, PublicPhotoGallery, PublicPhotoLightboxLink } from "@/components/public-visual-system";
 import { DetailActions, DetailContactsCard, DetailFactsCard, DetailHero, DetailParagraphs, DetailSection, type DetailContact } from "./detail-primitives/detail-primitives";
 import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
 import { ImageDisplay } from "@/components/image-display";
@@ -110,7 +110,9 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
             : active && !publicPhoneHref && !publicEmailHref ? <PublicActionLink href={relayHref}>Kontaktovať cez Psipediu</PublicActionLink> : null}
         </DetailActions>
 </>}
-      media={report.mainImage ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={report.detailImageDisplay} src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)} loading="eager" /> : <PublicMediaFallback size="detail" label="Fotografia psa zatiaľ nie je dostupná" />} />
+      media={report.mainImage ? <PublicPhotoLightboxLink src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)}>
+        <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={report.detailImageDisplay} src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)} loading="eager" />
+      </PublicPhotoLightboxLink> : <PublicMediaFallback size="detail" label="Fotografia psa zatiaľ nie je dostupná" />} />
 
     <PublicHelpProfileDetailLayout>
       <article className={styles.detailCopy}>
