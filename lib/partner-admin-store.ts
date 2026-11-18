@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { decryptPii } from "./pii-crypto";
-import { appendPartnerAuditEvent, partnerResourceTypes, partnerRoles, type PartnerResourceType, type PartnerRole } from "./partner-platform";
+import { appendPartnerAuditEvent, partnerResourceTypes, type PartnerResourceType, type PartnerRole } from "./partner-platform";
 import { getPartnerAccountById, getPartnerDatabase, type PartnerAccountStatus } from "./partner-auth-store";
 import { ensureCanonicalResource } from "./canonical-resource";
 import { getPartnerContactProfile } from "./partner-contact-profile";
