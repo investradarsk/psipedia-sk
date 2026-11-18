@@ -4,7 +4,7 @@ import { DetailHero, PublicDetailLayout } from "@/components/detail-primitives/d
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
-import { PublicMediaFallback } from "@/components/public-visual-system";
+import { PublicMediaFallback, PublicPhotoLightboxLink } from "@/components/public-visual-system";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import styles from "./public-profile.module.css";
 
@@ -90,7 +90,8 @@ export function PublicProfileHero({
       media={
         <div>
           {imageUrl ? (
-          <ImageDisplay
+          <PublicPhotoLightboxLink src={imageUrl} alt={imageAlt || title}>
+<ImageDisplay
             roleHint="generic"
             fallbackOnError
             context="detail"
@@ -103,6 +104,7 @@ export function PublicProfileHero({
             fetchPriority="high"
             decoding="async"
           />
+          </PublicPhotoLightboxLink>
         ) : (
           <PublicMediaFallback
             size="detail"
