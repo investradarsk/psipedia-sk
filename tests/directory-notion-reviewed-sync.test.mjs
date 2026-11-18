@@ -18,7 +18,7 @@ test("later Notion edits pull and later Admin edits push without record-wide tim
   assert.equal(planDirectoryReviewSync({ adminReviewed: true, notionReviewed: false, baseline: false }), "push");
   assert.equal(planDirectoryReviewSync({ adminReviewed: true, notionReviewed: true, baseline: false }), "acknowledge");
   assert.equal(planDirectoryReviewSync({ adminReviewed: false, notionReviewed: false, baseline: false }), "unchanged");
-  assert.equal(planDirectoryReviewSync({ adminReviewed: true, notionReviewed: false, baseline: true }), "pull");
+  assert.equal(planDirectoryReviewSync({ adminReviewed: true, notionReviewed: false, baseline: true }), "push");
   assert.equal(planDirectoryReviewSync({ adminReviewed: false, notionReviewed: true, baseline: true }), "push");
 });
 
@@ -35,4 +35,12 @@ test("Admin checkbox and both Notion sweep paths call the isolated review mirror
   assert.match(route, /syncDirectoryReviewedWithNotion/);
   assert.match(sync, /syncDirectoryReviewedWithNotion/);
   assert.match(sync, /"Odkontrolované": checkbox\(Boolean\(profile\.reviewed\)\)/);
+});
+
+test("reviewed profiles are excluded from targeted, recent-page and changed-D1 Notion sync", () => {
+  assert.match(sync, /if \(!profile \|\| profile\.reviewed\) return "unchanged" as const/);
+  assert.match(sync, /if \(current\?\.reviewed\) \{ summary\.unchanged\+\+; continue; \}/);
+  assert.match(sync, /if \(profile\.reviewed\) return "skipped" as const/);
+  assert.match(sync, /profile\.reviewed \|\| \["chovatelske-stanice"/);
+  assert.match(sync, /changedProfile\?\.reviewed/);
 });
