@@ -1,0 +1,115 @@
+name: Psipedia – D1 canonical inventory (Services, Help, Events)
+
+on:
+  pull_request:
+    paths:
+      - "scripts/production-editorial-storage-readonly.mjs"
+      - "tests/production-editorial-storage-readonly.test.mjs"
+      - "tests/directory-sql-unification-phase2.test.mjs"
+      - "tests/directory-sql-cutover-parity-phase3.test.mjs"
+      - "tests/directory-sql-cutover-write-phase3.test.mjs"
+      - "tests/editorial-cleanup-readiness-phase4.test.mjs"
+      - "scripts/production-editorial-cleanup-readiness.mjs"
+      - "scripts/editorial-legacy-reader-inventory.mjs"
+      - "tests/editorial-legacy-reader-inventory-phase4.test.mjs"
+      - "lib/directory-sql-cutover-write.ts"
+      - "lib/directory-sql-cutover-parity.ts"
+      - "app/api/admin/directory/[id]/route.ts"
+      - "lib/directory-sql-cutover-contract.ts"
+      - "docs/proposals/DIRECTORY-HELP-EVENTS-SQL-UNIFICATION-PHASE-2-DRAFT.sql"
+      - ".github/workflows/production-editorial-storage-readonly.yml"
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type AUDIT-EDITORIAL-STORAGE-psipedia-sk-db (never APPLY)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Shared lock with existing production migration/read-only workflows.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('editorial-storage-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  offline-sql-fixtures:
+    name: Verify inventory, phase-2 SQL, phase-3 read/write contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Run SQLite fixture and safety tests (no secrets or D1)
+        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs tests/editorial-cleanup-readiness-phase4.test.mjs tests/editorial-legacy-reader-inventory-phase4.test.mjs
+
+  production-readonly:
+    name: Count D1 sources and Notion mappings (no writes)
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline-sql-fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Require canonical repository, main and exact read-only confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$CONFIRMATION" = "AUDIT-EDITORIAL-STORAGE-psipedia-sk-db"
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Refuse audit of stale main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install pinned Wrangler
+        run: npm ci
+
+      - name: Validate protected Cloudflare binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id||"")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Inventory source-code JSON consumers (read only)
+        run: node scripts/editorial-legacy-reader-inventory.mjs
+
+      - name: Run count-only inventory (never migrate)
+        run: node scripts/production-editorial-storage-readonly.mjs
+
+      - name: Generate fail-closed cleanup assessment (no D1 calls)
+        run: node scripts/production-editorial-cleanup-readiness.mjs
+
+      - name: Upload category/mapping summary and cleanup blockers
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editorial-storage-readonly-${{ github.run_id }}
+          path: |
+            .production-editorial-storage-readonly/report.json
+            .production-editorial-storage-readonly/cleanup-readiness.json
+            .production-editorial-storage-readonly/source-readers.json
+          if-no-files-found: error
+          retention-days: 14
