@@ -358,9 +358,9 @@ function HubCallout({ sectionSlug, subpage }: { sectionSlug: EditorialSectionSlu
         description: copy?.description ?? subpage.intro ?? subpage.description,
         urgent: false,
         actions: [
-          { href: "#topic-related-heading", label: "Čítať články", variant: "secondary" as const },
+          { href: "#topic-related-heading", label: "Čítať články", variant: "secondary" as const, icon: undefined },
           ...(copy?.related
-            ? [{ ...copy.related, variant: "primary" as const }]
+            ? [{ ...copy.related, variant: "primary" as const, icon: undefined }]
             : []),
         ],
       }
