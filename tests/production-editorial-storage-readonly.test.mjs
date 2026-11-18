@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import {
   assertReadOnlySelect, buildTableDiscoverySql, buildScopeCountSql,
-  buildOrphanMapSql, buildOrganizationOrphanDetailsSql, validateOrganizationOrphanDetails, planAudit,
+  buildOrphanMapSql, buildOrganizationOrphanDetailsSql, validateOrganizationOrphanDetails,
+  buildOrganizationOrphanLifecycleSql, validateOrganizationOrphanLifecycle, planAudit,
 } from "../scripts/production-editorial-storage-readonly.mjs";
 
 test("all inventory commands are SELECT-only; destructive SQL is refused", () => {
@@ -135,4 +136,46 @@ test("organization mapping diagnostics fail on changed count, invalid IDs and du
   assert.throws(()=>validateOrganizationOrphanDetails([{...valid,notion_page_id:"bad"}],1),/INVALID_MAPPING/);
   assert.throws(()=>validateOrganizationOrphanDetails([valid,valid],2),/INVALID_MAPPING/);
   assert.deepEqual(validateOrganizationOrphanDetails([],0),[]);
+});
+
+
+test("organization orphan lifecycle joins the correct kind, retains deletion history and excludes linked organizations",()=>{
+  const db=new DatabaseSync(":memory:");
+  try{
+    db.exec("CREATE TABLE help_organizations (id INTEGER PRIMARY KEY)");
+    db.exec("CREATE TABLE notion_agenda_sync (agenda TEXT,entity_id INTEGER,notion_page_id TEXT)");
+    db.exec("CREATE TABLE admin_record_tombstones (kind TEXT,record_id INTEGER,notion_page_id TEXT,record_slug TEXT,state TEXT,error_code TEXT,completed_at TEXT)");
+    db.exec("CREATE TABLE admin_record_publication_guards (kind TEXT,record_id INTEGER,remote_state TEXT,error_code TEXT)");
+    db.exec("INSERT INTO help_organizations VALUES (10)");
+    db.exec("INSERT INTO notion_agenda_sync VALUES ('organizations',10,'00000000-0000-4000-8000-000000000010')");
+    db.exec("INSERT INTO notion_agenda_sync VALUES ('organizations',11,'00000000-0000-4000-8000-000000000011')");
+    db.exec("INSERT INTO notion_agenda_sync VALUES ('adoptions',12,'00000000-0000-4000-8000-000000000012')");
+    db.exec("INSERT INTO admin_record_tombstones VALUES ('organizations',11,'00000000-0000-4000-8000-000000000011','test-org','COMPLETE',NULL,'2026-11-18T01:00:00Z')");
+    db.exec("INSERT INTO admin_record_tombstones VALUES ('adoptions',11,'00000000-0000-4000-8000-000000000011','other','COMPLETE',NULL,NULL)");
+    db.exec("INSERT INTO admin_record_publication_guards VALUES ('organizations',11,'UNLINKED',NULL)");
+    const sql=buildOrganizationOrphanLifecycleSql();
+    assert.match(sql,/^SELECT /);
+    assert.doesNotMatch(sql,/\b(DELETE|DROP|INSERT|UPDATE|ALTER)\b/i);
+    const rows=db.prepare(sql).all();
+    const result=validateOrganizationOrphanLifecycle(rows,[{
+      entityId:11,notionPageId:"00000000-0000-4000-8000-000000000011",
+    }]);
+    assert.equal(result.length,1);
+    assert.equal(result[0].tombstoneState,"COMPLETE");
+    assert.equal(result[0].publicationGuardState,"UNLINKED");
+    assert.equal(result[0].tombstoneIdentityConflict,false);
+  } finally{db.close()}
+});
+
+test("orphan lifecycle rejects aggregate drift and mismatched identity instead of choosing a deletion",()=>{
+  const mapping={entityId:11,notionPageId:"00000000-0000-4000-8000-000000000011"};
+  const row={entity_id:11,notion_page_id:mapping.notionPageId,
+    tombstone_record_id:null,tombstone_page_id:null,tombstone_slug:null,
+    tombstone_state:null,tombstone_error:null,tombstone_completed_at:null,
+    publication_guard_state:null,publication_guard_error:null};
+  assert.equal(validateOrganizationOrphanLifecycle([row],[mapping])[0].tombstonePresent,false);
+  assert.throws(()=>validateOrganizationOrphanLifecycle([row],[]),/COUNT_DRIFT/);
+  assert.throws(()=>validateOrganizationOrphanLifecycle([row],[{...mapping,entityId:12}]),/IDENTITY_DRIFT/);
+  assert.throws(()=>validateOrganizationOrphanLifecycle([{...row,tombstone_state:"COMPLETE"}],[mapping]),/INVALID_TOMBSTONE/);
+  assert.throws(()=>validateOrganizationOrphanLifecycle([{...row,publication_guard_state:"maybe"}],[mapping]),/INVALID_GUARD/);
 });
