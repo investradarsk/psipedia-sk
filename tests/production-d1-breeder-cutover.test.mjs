@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { FREEZE_TRIGGERS,inspectFreeze,SNAPSHOT,OUTSIDE,GUARDED_RESET_SQL } from "../lib/production-d1-breeder-cutover.mjs";
+import { FREEZE_TRIGGERS,inspectFreeze,SNAPSHOT,OUTSIDE,GUARDED_RESET_SQL,RELEASE_SQL } from "../lib/production-d1-breeder-cutover.mjs";
 function fixture(){
   const db=new DatabaseSync(":memory:");
   db.exec(`
@@ -44,5 +44,19 @@ test("unexpected or modified trigger cannot be accepted",()=>{
   const db=fixture();
   assert.throws(()=>inspectFreeze([...rows(db),{name:"other",tbl_name:"breed_directory_relations",sql:"unexpected"}]),/UNEXPECTED/);
   assert.equal(inspectFreeze([]).length,FREEZE_TRIGGERS.length);
+  db.close();
+});
+
+test("release removes only the temporary guards and permits a fresh canonical link",()=>{
+  const db=fixture(),old=state(db,SNAPSHOT),outside=state(db,OUTSIDE);
+  db.prepare(GUARDED_RESET_SQL).run(old,outside);
+  assert.equal(RELEASE_SQL.length,FREEZE_TRIGGERS.length);
+  for(const sql of RELEASE_SQL)db.exec(sql);
+  assert.equal(inspectFreeze(rows(db)).length,FREEZE_TRIGGERS.length);
+  assert.equal(state(db,SNAPSHOT),"[]");
+  assert.equal(state(db,OUTSIDE),outside);
+  db.exec("INSERT INTO breed_directory_relations VALUES(20,1,'station','manual','date','actor')");
+  db.exec("INSERT INTO directory_breeder_club_relations VALUES(1,2,'date','actor')");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_breeder_club_relations").get().n,1);
   db.close();
 });
