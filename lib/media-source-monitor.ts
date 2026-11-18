@@ -6,6 +6,8 @@ import {
   type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
 
+import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
+
 import {
   claimMediaCandidate, finalizeAcceptedMediaCandidate, finalizeRejectedMediaCandidate,
   releaseMediaCandidateClaim, validateMediaReviewReason,
@@ -691,6 +693,8 @@ async function writeAcceptedSourceBackToNotion(input: {
   sourceImageUrl: string;
 }) {
   if (!input.bindings.NOTION_API_TOKEN?.trim()) return;
+  if (input.row.entityType === "DIRECTORY_PROFILE" &&
+      await directoryProfileNotionSyncLocked(input.database, input.row.entityId)) return;
   const mappingTable = input.row.entityType === "MANAGED_EVENT"
     ? "event_notion_sync"
     : "directory_notion_sync";
@@ -702,6 +706,8 @@ async function writeAcceptedSourceBackToNotion(input: {
       `SELECT notion_page_id FROM ${mappingTable} WHERE ${entityColumn}=? LIMIT 1`,
     ).bind(input.row.entityId).first<{ notion_page_id: string }>();
     if (!mapping?.notion_page_id) return;
+    if (input.row.entityType === "DIRECTORY_PROFILE" &&
+        await directoryProfileNotionSyncLocked(input.database, input.row.entityId)) return;
     await notionRequest(input.bindings, `/pages/${encodeURIComponent(mapping.notion_page_id)}`, {
       method: "PATCH",
       body: JSON.stringify({
