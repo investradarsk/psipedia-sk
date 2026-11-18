@@ -18,8 +18,8 @@ export default async function PartnerClaimPage({ params }: Props) {
 
   return (
     <PartnerShell
-      title="Prevziať existujúci profil"
-      description="Pošlite žiadosť o právo spravovať existujúci profil. Schválenie nie je automatické a pred rozhodnutím nezískate žiadne oprávnenia."
+      title="Požiadať o správu záznamu"
+      description="Požiadajte o správu existujúceho profilu alebo podujatia. Prístup získate až po schválení administrátorom."
     >
       <PartnerClaimForm
         entityType={resource.entityType}
