@@ -4,6 +4,7 @@ import { appendPartnerAuditEvent, type PartnerRole } from "./partner-platform";
 
 export const partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT"] as const;
 export type PartnerClaimableResourceType = (typeof partnerClaimableResourceTypes)[number];
+export type PartnerVerifiableResourceType = Exclude<PartnerClaimableResourceType, "MANAGED_EVENT">;
 export const partnerClaimStatuses = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
 export type PartnerClaimStatus = (typeof partnerClaimStatuses)[number];
 export const partnerVerificationStates = ["UNVERIFIED", "PENDING_VERIFICATION", "VERIFIED", "REJECTED"] as const;
@@ -414,7 +415,7 @@ export async function requestPartnerVerification(input: {
 }
 
 export async function isPublicPartnerResourceVerified(
-  entityType: PartnerClaimableResourceType,
+  entityType: PartnerVerifiableResourceType,
   canonicalIdValue: number,
   database?: D1Database,
 ) {
