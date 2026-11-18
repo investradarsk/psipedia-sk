@@ -57,3 +57,46 @@ export function planDirectorySecondaryCategorySqlMirror(input: {
   }));
   return [assertChanged, clear, ...inserts];
 }
+
+/**
+ * New-profile first insert has an auto-generated ID. Keep the canonical INSERT
+ * and every secondary membership INSERT in the same D1 batch. The exact
+ * category + slug + timestamp + actor identify ONLY the row just inserted;
+ * SQLite's first-step changes() assertion rejects an unsuccessful create.
+ * Unlike last_insert_rowid(), this lookup cannot drift after the first child
+ * row is inserted.
+ */
+export function planDirectorySecondaryCategoryCreateSqlMirror(input: {
+  slug: string;
+  category: string;
+  submitted: readonly string[];
+  createdAt: string;
+  actor: string;
+}): readonly SecondaryCategorySqlStatement[] {
+  if (!input.slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.slug))
+    throw new Error("DIRECTORY_SECONDARY_CREATE_INVALID_SLUG");
+  if (!(serviceFilterCategories as readonly string[]).includes(input.category))
+    throw new Error("DIRECTORY_SECONDARY_CREATE_INVALID_PRIMARY");
+  if (!Array.isArray(input.submitted) || input.submitted.some(x =>
+    typeof x !== "string" || !(serviceFilterCategories as readonly string[]).includes(x)))
+    throw new Error("DIRECTORY_SECONDARY_CREATE_INVALID_CATEGORY");
+  if (!input.actor.trim() || !Number.isFinite(Date.parse(input.createdAt)))
+    throw new Error("DIRECTORY_SECONDARY_CREATE_INVALID_REVISION");
+  const categories = normalizeAdditionalDirectoryCategories(input.submitted, input.category);
+  return [
+    {
+      sql: "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', '$') END AS cas_ok",
+      bindings: [],
+    },
+    ...categories.map(category => ({
+      sql: "INSERT INTO directory_profile_additional_categories " +
+        "(profile_id,category,updated_at,updated_by) " +
+        "SELECT id,?,?,? FROM directory_profiles WHERE slug=? AND category=? " +
+        "AND created_at=? AND updated_by=?",
+      bindings: [
+        category, input.createdAt, input.actor,
+        input.slug, input.category, input.createdAt, input.actor,
+      ],
+    })),
+  ];
+}

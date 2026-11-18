@@ -26,6 +26,7 @@ import {
   serializeMapUiFilters,
 } from "../lib/map-public-ui.ts";
 import { MapQueryValidationError, parseMapQuery } from "../lib/map-contract.ts";
+import { legacyFacetMappings } from "../lib/service-catalog-contract.ts";
 
 const read = (path) => readFileSync(path, "utf8");
 const selectedValue = (definition) => (definition.valueType === "tri_state" ? "yes" : "clinic");
@@ -33,6 +34,10 @@ const sqlite = new DatabaseSync(":memory:");
 sqlite.exec(
   "CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, source_data_json TEXT)",
 );
+sqlite.exec("CREATE TABLE service_profile_option_choices (profile_id INTEGER, option_id TEXT, choice TEXT)");
+const canonicalMapping = new Map(legacyFacetMappings
+  .filter((mapping) => mapping.targetKind !== "provider")
+  .map((mapping) => [mapping.legacyId, mapping.targetId]));
 const insert = sqlite.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?)");
 let nextId = 0;
 
@@ -78,10 +83,18 @@ test("parameterized SQLite queries match explicit values only; missing, unknown 
     insert.run(++nextId, definition.category, JSON.stringify({ "Typ služby": value }));
     const where = directoryPublicFacetSql(definition.category, { [definition.id]: value });
     assert.equal(where.clauses.length, 1);
-    assert.equal(where.bindings.length, 1);
-    assert.ok(where.clauses[0].includes("json_extract("));
-    assert.ok(where.clauses[0].endsWith("= ?"));
-    assert.equal(where.bindings[0], value);
+    const catalogId = canonicalMapping.get(definition.id);
+    if (catalogId) {
+      sqlite.prepare("INSERT INTO service_profile_option_choices VALUES (?, ?, ?)")
+        .run(matching, catalogId, value);
+      assert.match(where.clauses[0], /EXISTS \(SELECT 1 FROM service_profile_option_choices/);
+      assert.deepEqual(where.bindings, [catalogId, value]);
+    } else {
+      assert.equal(where.bindings.length, 1);
+      assert.ok(where.clauses[0].includes("json_extract("));
+      assert.ok(where.clauses[0].endsWith("= ?"));
+      assert.equal(where.bindings[0], value);
+    }
     const ids = sqlite
       .prepare(
         "SELECT id FROM directory_profiles WHERE category = ? AND " +
@@ -110,6 +123,8 @@ test("explicit no differs from absent and unknown; select and tri-state facets c
     "veterinari",
     JSON.stringify({ [defs[0].d1.key]: "clinic", [defs[1].d1.key]: "no", [defs[2].d1.key]: "yes" }),
   );
+  sqlite.prepare("INSERT INTO service_profile_option_choices VALUES (?, ?, ?)")
+    .run(row, "attr.vet.emergency", "no");
   for (const value of ["no", "yes"]) {
     const condition = directoryPublicFacetSql("veterinari", {
       [defs[0].id]: "clinic",
@@ -259,17 +274,17 @@ test("facet predicates exclude malformed JSON instead of failing public COUNT/LI
   try {
     db.exec("CREATE TABLE directory_profiles (category TEXT, source_data_json TEXT)");
     const insert = db.prepare("INSERT INTO directory_profiles VALUES (?, ?)");
-    const key = serviceFiltersForCategory("veterinari").find((d) => d.id === "veterinari.emergency")
+    const key = serviceFiltersForCategory("veterinari").find((d) => d.id === "veterinari.facility_type")
       .d1.key;
     insert.run("veterinari", "{broken");
-    insert.run("veterinari", JSON.stringify({ [key]: "yes" }));
+    insert.run("veterinari", JSON.stringify({ [key]: "clinic" }));
     insert.run("veterinari", "[]");
     insert.run("veterinari", "null");
     insert.run("veterinari", JSON.stringify({ [key]: "unknown" }));
     for (const column of ["source_data_json", "d.source_data_json"]) {
       const where = directoryPublicFacetSql(
         "veterinari",
-        { "veterinari.emergency": "yes" },
+        { "veterinari.facility_type": "clinic" },
         column,
       );
       const sql =
