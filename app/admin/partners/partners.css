@@ -211,3 +211,100 @@
 @media (max-width: 390px) {
   .admin-partner-pending { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* Partner access clarity: compact headings and controls match the admin design system.
+   Scope every rule to this workspace; do not alter the shared Admin components. */
+.admin-partner-explainer {
+  margin: -.1rem 0 .8rem;
+  color: var(--admin-ui-muted, #607568);
+  font-size: .84rem;
+  line-height: 1.5;
+}
+[data-admin-partner-attention] > h2,
+.admin-partner-actions > .admin-form-card > h2 {
+  font-family: inherit;
+  font-size: 1.08rem;
+  line-height: 1.35;
+  font-weight: 800;
+  margin: 0 0 .6rem;
+}
+[data-admin-partner-attention] > p { margin: 0 0 .6rem; font-size: .86rem; line-height: 1.45; }
+.admin-partner-has-access { color: #22583d; font-weight: 700; }
+.admin-partner-no-access { color: #7b5c2f; font-weight: 700; }
+.admin-partner-actions > .admin-form-card { min-width: 0; }
+.admin-partner-actions .admin-partner-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: .65rem;
+}
+.admin-partner-actions .admin-partner-picker label {
+  display: grid;
+  min-width: 0;
+  width: auto;
+  gap: .35rem;
+  color: var(--admin-ui-muted, #607568);
+  font-size: .82rem;
+  font-weight: 750;
+}
+.admin-partner-actions .admin-partner-picker :is(input, select) {
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
+  background: #fff;
+  font: inherit;
+}
+.admin-partner-actions :is(.admin-partner-button-row button, .admin-partner-picker > button, .admin-partner-membership button) {
+  box-sizing: border-box;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: .5rem .75rem;
+  border: 1px solid var(--admin-ui-border, #cbd9d0);
+  border-radius: var(--admin-ui-field-radius, 9px);
+  background: #f5faf6;
+  color: #24533d;
+  font: inherit;
+  font-size: .86rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.admin-partner-actions button:disabled { cursor: not-allowed; opacity: .55; }
+.admin-partner-actions .admin-partner-button-row .is-danger {
+  border-color: #e9c5bd;
+  color: #8b3126;
+  background: #fff7f5;
+}
+.admin-partner-actions :is(button, input, select):focus-visible {
+  outline: 3px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
+.admin-partner-actions .admin-partner-results { grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); }
+.admin-partner-actions .admin-partner-results button {
+  box-sizing: border-box;
+  border: 1px solid var(--admin-ui-border, #dce5df);
+  border-radius: 9px;
+  padding: .6rem .7rem;
+  background: #fff;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.admin-partner-actions .admin-partner-results button[aria-pressed="true"] {
+  border-color: #245d47;
+  background: #edf5ef;
+}
+.admin-partner-actions .admin-partner-membership {
+  grid-template-columns: minmax(0,1fr) minmax(120px,165px) auto;
+}
+.admin-partner-actions .admin-partner-membership select { min-width: 0; width: 100%; }
+.admin-partner-actions .admin-partner-membership code { overflow-wrap: anywhere; }
+.admin-partner-actions .admin-partner-empty { margin: .35rem 0; font-size: .87rem; color: var(--admin-ui-muted, #607568); }
+.admin-partner-detail .admin-form-card p { margin: .25rem 0; line-height: 1.5; overflow-wrap: anywhere; }
+.admin-partner-detail .admin-form-card article { font-size: .9rem; line-height: 1.5; overflow-wrap: anywhere; }
+@media (min-width: 1101px) {
+  .admin-partner-search { grid-template-columns: minmax(0, 1.55fr) repeat(4,minmax(0,1fr)) auto; }
+}
+@media (max-width: 760px) {
+  .admin-partner-actions .admin-partner-picker { grid-template-columns: minmax(0,1fr); }
+  .admin-partner-actions .admin-partner-picker > button { width: 100%; }
+  .admin-partner-actions .admin-partner-membership { grid-template-columns: minmax(0,1fr); }
+}
