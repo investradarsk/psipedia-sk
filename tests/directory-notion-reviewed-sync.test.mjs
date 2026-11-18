@@ -13,12 +13,12 @@ test("first mirror uses canonical Admin review state; never imports old test che
   assert.equal(planDirectoryReviewSync({ adminReviewed: false, notionReviewed: false, baseline: null }), "acknowledge");
 });
 
-test("later Notion edits pull and later Admin edits push without record-wide timestamps", () => {
-  assert.equal(planDirectoryReviewSync({ adminReviewed: false, notionReviewed: true, baseline: false }), "pull");
+test("Admin alone locks and unlocks; Notion checkbox cannot change review state", () => {
+  assert.equal(planDirectoryReviewSync({ adminReviewed: false, notionReviewed: true, baseline: false }), "push");
   assert.equal(planDirectoryReviewSync({ adminReviewed: true, notionReviewed: false, baseline: false }), "push");
   assert.equal(planDirectoryReviewSync({ adminReviewed: true, notionReviewed: true, baseline: false }), "acknowledge");
   assert.equal(planDirectoryReviewSync({ adminReviewed: false, notionReviewed: false, baseline: false }), "unchanged");
-  assert.equal(planDirectoryReviewSync({ adminReviewed: true, notionReviewed: false, baseline: true }), "pull");
+  assert.equal(planDirectoryReviewSync({ adminReviewed: true, notionReviewed: false, baseline: true }), "push");
   assert.equal(planDirectoryReviewSync({ adminReviewed: false, notionReviewed: true, baseline: true }), "push");
 });
 
