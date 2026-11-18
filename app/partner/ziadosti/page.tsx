@@ -56,12 +56,12 @@ export default async function Page() {
         {claims.length ? <div className="partner-request-list">{claims.map((claim) => (
           <article key={claim.id}>
             <div className="partner-request-title">
-              <div><span>{claim.entityType === "DIRECTORY_PROFILE" ? "Adresár" : "Organizácia"}</span><h3>{claim.name}</h3></div>
+              <div><span>{claim.entityType === "DIRECTORY_PROFILE" ? "Služba pre psov" : claim.entityType === "HELP_ORGANIZATION" ? "Organizácia" : "Podujatie"}</span><h3>{claim.name}</h3></div>
               <strong>{claimLabels[claim.status]}</strong>
             </div>
             <dl>
               <div><dt>Odoslané</dt><dd>{new Date(claim.createdAt).toLocaleString("sk-SK")}</dd></div>
-              <div><dt>Overenie správcu</dt><dd>{verificationLabels[claim.verificationState]}</dd></div>
+              {claim.entityType !== "MANAGED_EVENT" ? <div><dt>Overenie správcu</dt><dd>{verificationLabels[claim.verificationState]}</dd></div> : null}
             </dl>
             {claim.requestMessage ? <p>{claim.requestMessage}</p> : null}
             <div className="partner-request-links">
@@ -69,7 +69,7 @@ export default async function Page() {
               {claim.status === "PENDING" ? <PartnerClaimCancelButton claimId={claim.id} /> : null}
             </div>
           </article>
-        ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte žiadne žiadosti o prevzatie</h2><p>Žiadosť môžete začať priamo z verejného profilu cez odkaz „Spravujete tento profil?“.</p></div>}
+        ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte žiadne žiadosti o prevzatie</h2><p><Link href="/partner/prevziat">Vyhľadať existujúci záznam a požiadať o jeho správu</Link>.</p></div>}
       </section>
 
 
