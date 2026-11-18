@@ -1,0 +1,91 @@
+name: Directory 0170 – read-only backfill inventory
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/directory-0170-backfill-readonly.mjs"
+      - "tests/directory-0170-backfill-audit.test.mjs"
+      - ".github/workflows/directory-0170-backfill-readonly.yml"
+      - "docs/audits/DIRECTORY-0170-BACKFILL-READONLY.md"
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Enter AUDIT-0170-BACKFILL-psipedia-sk-db (read only)"
+        type: string
+        required: true
+
+concurrency:
+  group: directory-0170-readonly-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Safe auditor regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: No live D1 or Notion access
+        run: node --test tests/directory-0170-backfill-audit.test.mjs
+
+  production-inventory:
+    if: github.event_name == 'workflow_dispatch'
+    needs: contract
+    name: Production D1 SELECT-only inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    concurrency:
+      group: production-d1-migration
+      cancel-in-progress: false
+    env:
+      DIRECTORY_0170_BACKFILL_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Fail closed on repository, branch and confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$DIRECTORY_0170_BACKFILL_CONFIRMATION" = "AUDIT-0170-BACKFILL-psipedia-sk-db"
+          test -n "$CLOUDFLARE_API_TOKEN"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Reject stale main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Bind configured Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Read-only production audit
+        run: node scripts/directory-0170-backfill-readonly.mjs
+      - name: Upload counts and field-class samples only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: directory-0170-backfill-readonly-${{ github.run_id }}
+          path: .directory-0170-backfill-audit/report.json
+          if-no-files-found: ignore
+          retention-days: 30
