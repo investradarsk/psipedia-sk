@@ -30,6 +30,7 @@ import { transitionModerationSubmission } from "@/lib/moderation-store";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
+import { assertSingleActivePartnerManager } from "@/lib/partner-single-manager";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 type Resolution = "CREATED_NEW" | "LINKED_EXISTING";
@@ -522,6 +523,7 @@ export async function linkPartnerNewProfileAdmin(input:{
   await assertNewProfileIndependentOwnershipApprover({
     adminEmail:input.adminEmail,accountId:row.accountId,resourceId:targetResource?.id??null,database,
   });
+  if(targetResource)await assertSingleActivePartnerManager({database,resourceId:targetResource.id,accountId:row.accountId});
   const existing=await currentMembershipAndVerification({accountId:row.accountId,type:row.resourceType,canonicalId:input.canonicalId,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);
   await ensurePendingReview(input.id,row.status,actorRef,database,input.requestId);
