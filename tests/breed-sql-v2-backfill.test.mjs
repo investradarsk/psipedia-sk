@@ -74,7 +74,7 @@ function report(db){
  ]));
  const query=name=>db.prepare(BREED_V2_PREFLIGHT_SQL[name]).all();
  const report={schema};
- for(const key of ["base","links","extras","controlled","orphanControlled","destination","invalidEdges","duplicateEdges","invalidFieldTypes"])
+ for(const key of ["base","links","extras","controlled","orphanControlled","invalidControlledTypes","missingControlledKeys","destination","invalidEdges","duplicateEdges","invalidFieldTypes"])
    report[key]=key==="extras"?query(key):query(key)[0];
  return report;
 }
