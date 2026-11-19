@@ -17,11 +17,13 @@ type Props = {
 };
 function asInputValue(field: HelpEditorField, value: HelpEditorValue) {
   if(field.kind==="checkbox")return value===true;
+  if(field.kind==="nullableBoolean")return value===null?"UNKNOWN":value===true?"YES":"NO";
   if(field.kind==="number")return typeof value==="number"?String(value):"";
   return typeof value==="string"?value:"";
 }
 function asApiValue(field:HelpEditorField,value:string|boolean){
   if(field.kind==="checkbox")return value === true;
+  if(field.kind==="nullableBoolean")return value==="UNKNOWN"?null:value==="YES";
   if(field.kind==="number")return String(value).trim() === ""?null:Number(value);
   return String(value);
 }
@@ -63,15 +65,20 @@ export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,origin
       setMessage("Zmeny sú uložené. Pred ďalšou úpravou obnovte editor, aby ste pracovali s aktuálnou verziou.");
     }catch(error){setState("error");setMessage(error instanceof Error?error.message:"Uloženie zlyhalo.");}
   }
+  const optionLabel=(value:string)=>({UNKNOWN:"Neviem",MALE:"Pes",FEMALE:"Suka",SMALL:"Malý",MEDIUM:"Stredný",LARGE:"Veľký",GIANT:"Obrovský",YES:"Áno",NO:"Nie",CONDITIONAL:"Podmienečne",LOW:"Nízka",HIGH:"Vysoká",VERY_HIGH:"Veľmi vysoká",NONE:"Žiadne",PARTIAL:"Čiastočné",UP_TO_DATE:"Aktuálne",MUNICIPALITY:"Mesto / obec",NEIGHBORHOOD:"Štvrť",APPROXIMATE:"Približná oblasť","docasna-opatera":"Dočasná opatera",zbierky:"Zbierky",dobrovolnictvo:"Dobrovoľníctvo","urgentne-pripady":"Urgentný prípad"} as Record<string,string>)[value]??value;
   return <form className="partner-profile-edit-form" onSubmit={submit}>
     <div className="partner-profile-edit-grid">
       {fields.map(field=><label className={`partner-field ${field.kind==="textarea"?"partner-field--wide":""}`} key={field.key}>
         <span>{field.label}{field.required?" *":""}</span>
         {field.kind==="checkbox"?<span className="partner-profile-check"><input type="checkbox" checked={values[field.key]===true}
           onChange={e=>{setValues(v=>({...v,[field.key]:e.target.checked}));if(state!=="success")setState("idle");}}/>{field.label}</span>:
+        field.kind==="nullableBoolean"?<select value={String(values[field.key]??"UNKNOWN")}
+          onChange={e=>{setValues(v=>({...v,[field.key]:e.target.value}));if(state!=="success")setState("idle");}}>
+          <option value="UNKNOWN">Neviem</option><option value="YES">Áno</option><option value="NO">Nie</option>
+        </select>:
         field.kind==="select"?<select value={String(values[field.key]??"")} required={field.required}
           onChange={e=>{setValues(v=>({...v,[field.key]:e.target.value}));setState("idle");}}>
-          {(field.options??[]).map(option=><option key={option} value={option}>{option}</option>)}
+          {(field.options??[]).map(option=><option key={option} value={option}>{optionLabel(option)}</option>)}
         </select>:
         field.kind==="textarea"?<textarea rows={5} maxLength={field.max} required={field.required}
           value={String(values[field.key]??"")} onChange={e=>{setValues(v=>({...v,[field.key]:e.target.value}));setState("idle");}}/>:
