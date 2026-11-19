@@ -54,9 +54,11 @@ export async function getPartnerHelpEditor(accountId: string, resourceId: string
     title, values, fields: helpEditorFields[parsed.entityType],
     imageUrl, gallery, baseRevision: String(raw.updated_at ?? ""),
     status: String(raw.status ?? ""),
-    publicHref: parsed.entityType === "ADOPTION_DOG" ? `/pomoc-psom/adopcia/${raw.slug}`
-      : parsed.entityType === "LOST_FOUND_DOG" ? `/pomoc-psom/${raw.type === "FOUND" ? "najdene-psy" : "stratene-psy"}/${raw.slug}`
-      : `/pomoc-psom/${raw.category}/${raw.slug}`,
+    publicHref: parsed.entityType === "ADOPTION_DOG"
+      ? ["ACTIVE","RESERVED"].includes(String(raw.status)) ? `/pomoc-psom/adopcia/${raw.slug}` : null
+      : parsed.entityType === "LOST_FOUND_DOG"
+        ? raw.status === "ACTIVE" && raw.published_at ? `/pomoc-psom/${raw.type === "FOUND" ? "najdene-psy" : "stratene-psy"}/${raw.slug}` : null
+        : raw.status === "published" && Number(raw.resolved)===0 ? `/pomoc-psom/${raw.category}/${raw.slug}` : null,
   };
 }
 
