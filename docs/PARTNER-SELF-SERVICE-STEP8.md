@@ -1,5 +1,27 @@
 # Partner samoobsluha – krok 8/8: záverečný audit a bezpečný rollout
 
+## Aktuálny stav k 19. 11. 2026 (má prednosť pred historickým postupom nižšie)
+
+- **Produkčná Cloudflare D1 už obsahuje migrácie 0171 a 0172. NESPÚŠŤAŤ ich znovu.**
+  Úspešný produkčný postflight audit: GitHub Actions run [44599721437](https://github.com/investradarsk/psipedia-sk/actions/runs/44599721437).
+- Ďalšie migrácie 0173 (Adresár SQL) a 0174 (Plemená SQL) patria paralelným projektom;
+  tento PR ich nenasadzuje ani nevracia.
+- Stav **Odkontrolované** chráni Adresár, Podujatia, Organizácie, Adopcie,
+  Stratené/nájdené a ostatnú Pomoc psom. Aktívny partner uzamyká redakčnú
+  synchronizáciu Notion ↔ D1 aj nezávisle od checkboxu; po odobratí správy
+  musí zostať zapnutý trvalý Admin/D1 review marker.
+- Aj schvaľovanie **nových organizácií a prepojenie existujúcej organizácie**
+  musí v jednej transakcii zapísať `admin_entity_reviews`. Kontrola:
+  `tests/admin-events-help-reviewed-lock.test.mjs`.
+- Notion checkbox je z D1 zrkadlený výlučne po overení konkrétneho cieľového
+  data source, stránky a Psipedia ID. Pri Pomoci psom a Stratených/nájdených
+  pred akýmkoľvek doplnením Notion schémy najprv overiť produkčné
+  `notion_agenda_targets`. Nesprávne alebo neúplné ciele sa nemenia.
+- Historické kroky nižšie opisujú **pôvodný plán pred nasadením 0171/0172**.
+  Ich manuálne spustenie už nie je otvorenou úlohou. Zostávajú CI na aktuálnom
+  HEAD, test reálnych partner operácií a záverečné rozhodnutie o Notion konfliktoch.
+  **Bez samostatného schválenia neslučovať PR ani nenasadzovať aplikáciu.**
+
 ## Stav v PR #1437
 
 **Kód krokov 1–8 je pripravený na audit, nie na okamžitý merge či produkčné nasadenie.**
