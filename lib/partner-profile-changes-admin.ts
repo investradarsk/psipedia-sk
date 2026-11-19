@@ -5,6 +5,7 @@ import { directoryFilterRegistry } from "@/lib/directory-filter-contract";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { decryptPii } from "@/lib/pii-crypto";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
+import { planDirectory0173EditorialSqlMirror } from "@/lib/directory-0173-editorial-sql-mirror";
 import {
   buildDirectoryApplyStatement,
   buildHelpApplyStatements,
@@ -322,6 +323,19 @@ export async function approvePartnerProfileChangeAdmin(input:{
       ? [buildDirectoryApplyStatement(database,canonical,effectivePatch,actorRef,nowIso,input.id)]
       : buildHelpApplyStatements(database,canonical,effectivePatch,actorRef,nowIso,input.id)
     : [];
+  if (row.resourceType === "DIRECTORY_PROFILE" &&
+      Object.hasOwn(effectivePatch, "openingHours")) {
+    // A moderated partner change uses the same 0173 SQL hours owner as the
+    // Admin/Notion editors. The approval transition and profile UPDATE are
+    // atomic; only the explicitly approved hours value can replace this row.
+    const hourMirror = planDirectory0173EditorialSqlMirror({
+      identity: { kind: "id", profileId: canonical.canonicalId,
+        updatedAt: nowIso, actor: actorRef },
+      openingHoursText: String(effectivePatch.openingHours ?? ""),
+    });
+    canonicalStatements.push(...hourMirror.map(item =>
+      database.prepare(item.sql).bind(...item.bindings)));
+  }
   if(media)canonicalStatements.push(imageApplyStatement(database,{
     resourceType:row.resourceType,canonicalId:canonical.canonicalId,submissionId:input.id,
     imageUrl:media.imageUrl,imageKey:media.imageKey,nowIso,actorRef,
