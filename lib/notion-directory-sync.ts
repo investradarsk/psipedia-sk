@@ -1492,7 +1492,7 @@ async function saveBreederEditorialValue(
     const aliases = breederContactAliases[path];
     if (!aliases?.length) throw new Error("DIRECTORY_CONTACT_ALIAS_MAPPING_MISSING");
     const removed = "json_remove(COALESCE(source_data_json, '{}'), " +
-      aliases.map(alias => "'$.\\\"" + alias + "\\\"'").join(", ") + ")";
+      aliases.map(alias => `'$."${alias}"'`).join(", ") + ")";
     assignments.push("source_data_json = " + removed);
     if (path === "websiteUrl") {
       assignments.push("website_url = ?");
