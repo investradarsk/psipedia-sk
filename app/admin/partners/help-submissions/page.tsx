@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listPartnerHelpCreateAdmin } from "@/lib/partner-help-create";
@@ -18,7 +19,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
   const all = await listPartnerHelpCreateAdmin();
   const items = all.filter(item => status === "all" || (status === "active" ? item.canWithdraw : item.status === status));
   return <AdminShell user={user} eyebrow="Partner platforma" title="Nové záznamy Pomoci psom"
-    description="Partnerské návrhy adopcií, stratených/nájdených psov a pomoci. Zatiaľ sa len prijímajú do moderácie; schvaľovanie a vytvorenie kanonického konceptu doplní ďalší krok.">
+    description="Schvaľovanie nových adopcií, stratených a nájdených psov a ostatnej pomoci. Skontrolujte návrh, upravte verejné údaje a vytvorte nezverejnený koncept alebo ho prepojte s existujúcim záznamom.">
     <section className="admin-form-card">
       <form className="admin-commercial-filters" role="search">
         <label>Stav<select name="status" defaultValue={status}>
@@ -30,9 +31,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
       </form>
       <div className="admin-commercial-list" data-admin-community-list aria-label="Nové návrhy Pomoci psom">
         {items.length ? items.map(item=><article key={item.id} className={item.risks.length?"admin-partner-conflict-row":undefined}>
-          <div><strong>{item.title}</strong><small>{types[item.resourceType]} · Partner {item.accountId}</small></div>
+          <div><strong><Link href={`/admin/partners/help-submissions/${item.id}`}>{item.title}</Link></strong><small>{types[item.resourceType]} · Partner {item.accountId}</small></div>
           <span>{item.statusLabel}</span><span>{new Date(item.createdAt).toLocaleString("sk-SK")}</span>
           {item.risks.length ? <p>⚠ Možná duplicita – porovnať s existujúcimi záznamami pred schválením.</p> : null}
+          <p><Link href={`/admin/partners/help-submissions/${item.id}`}>{item.canWithdraw?"Skontrolovať a rozhodnúť →":"Detail rozhodnutia →"}</Link></p>
           <details><summary>Zobraziť navrhované údaje</summary>
             <dl>{Object.entries(item.payload).map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value===null?"—":String(value)}</dd></div>)}</dl>
           </details>
