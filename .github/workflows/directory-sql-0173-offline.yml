@@ -10,6 +10,8 @@ on:
       - "tests/directory-sql-0173-foundation.test.mjs"
       - ".github/workflows/directory-sql-0173-offline.yml"
       - "docs/audits/DIRECTORY-SQL-0173-FOUNDATION.md"
+      - "scripts/production-d1-directory-0173.mjs"
+      - ".github/workflows/production-d1-directory-0173.yml"
 
 concurrency:
   group: directory-0173-offline-${{ github.event.pull_request.number || github.run_id }}
