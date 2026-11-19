@@ -1486,25 +1486,18 @@ async function saveBreederEditorialValue(
     assignments.push("address_format = ?");
     params.push(value);
   } else if (contact) {
-    // A signed edit is authoritative for only this contact. Removing its
-    // historical aliases prevents a stale "Telefon"/"Email"/"Webstránka"
-    // from reappearing when the new value is cleared. Preserve every other
-    // source_data_json key, including relations and category metadata.
+    // One signed Notion contact edit has exactly one SQL value authority.
+    // Remove ONLY the edited field's historical JSON aliases so they cannot
+    // resurrect a cleared value. Never write a second editorial JSON copy.
     const aliases = breederContactAliases[path];
     if (!aliases?.length) throw new Error("DIRECTORY_CONTACT_ALIAS_MAPPING_MISSING");
     const removed = "json_remove(COALESCE(source_data_json, '{}'), " +
-      aliases.map(alias => "'$.\"" + alias + "\"'").join(", ") + ")";
-    if (value) {
-      assignments.push("source_data_json = json_set(" + removed + ", ?, ?)");
-      params.push('$."' + contact + '"', value);
-    } else {
-      assignments.push("source_data_json = " + removed);
-    }
+      aliases.map(alias => "'$.\\\"" + alias + "\\\"'").join(", ") + ")";
+    assignments.push("source_data_json = " + removed);
     if (path === "websiteUrl") {
       assignments.push("website_url = ?");
       params.push(value);
     } else {
-      // SQL and the compatibility JSON mirror must change in the SAME D1 UPDATE.
       const column = breederSqlContactColumns[path];
       if (!column) throw new Error("DIRECTORY_SQL_CONTACT_COLUMN_MISSING");
       assignments.push(column + " = ?");
