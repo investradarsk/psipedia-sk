@@ -138,10 +138,10 @@ export async function listPartnerHelpCreateSubmissions(accountId: string, databa
 }
 export async function listPartnerHelpCreateAdmin(database?: D1Database) {
   const result = await db(database).prepare(`
-    SELECT id,resource_type resourceType,status,proposed_patch_json payload,risk_flags_json riskFlags,
+    SELECT id,resource_type resourceType,status,subject_id subjectId,proposed_patch_json payload,risk_flags_json riskFlags,
       created_at createdAt,rejection_reason_code rejectionReasonCode,submitter_ref accountId
     FROM moderation_submissions
-    WHERE operation='CREATE' AND submitter_type='PARTNER_ACCOUNT'
+    WHERE operation='CREATE' AND submitter_type='PARTNER_ACCOUNT' AND status<>'DRAFT'
       AND resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE')
     ORDER BY CASE WHEN status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN 0 ELSE 1 END,
       created_at DESC,id DESC LIMIT 200
