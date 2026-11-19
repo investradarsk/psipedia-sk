@@ -1,3 +1,4 @@
+import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
 import { env } from "cloudflare:workers";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { slugifyArticleTitle } from "@/lib/article-store";
@@ -205,6 +206,9 @@ export async function createPartnerEventAdmin(input:{id:string;adminEmail:string
     eventInsert(database,{id:input.id,slug,values,actorRef,nowIso,media}),
     resourceInsert(database,resourceId,slug,nowIso),
     ...membershipStatements(database,{resourceId,accountId:row.accountId,actorRef,nowIso}),
+    partnerAdminReviewStatement(database,{type:"EVENT",
+      entitySql:`SELECT id FROM managed_events WHERE slug='${slug.replaceAll("'","''")}' LIMIT 1`,
+      nowIso,actorRef}),
     terminal(database,input.id,"APPROVED",nowIso,actorRef,"CREATED_NEW",`(SELECT id FROM managed_events WHERE slug='${slug.replaceAll("'","''")}' LIMIT 1)`),
     audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_CREATED",nowIso,actorRef,status:"APPROVED",metadata:{resourceId}}),
     notification(database,{id:input.id,accountId:row.accountId,type:"EVENT_CREATED",now,nowIso,actorRef,status:"APPROVED"}),
@@ -246,6 +250,7 @@ export async function linkPartnerEventAdmin(input:{id:string;canonicalId:number;
       .bind(crypto.randomUUID(),actorRef,JSON.stringify({accountId:row.accountId,role:"OWNER"}),nowIso,row.accountId,input.canonicalId),
     database.prepare(`UPDATE partner_memberships SET role='OWNER',updated_at=?1 WHERE account_id=?2 AND revoked_at IS NULL AND role<>'OWNER'
       AND resource_id=(SELECT id FROM partner_resources WHERE managed_event_id=?3 LIMIT 1)`).bind(nowIso,row.accountId,input.canonicalId),
+    partnerAdminReviewStatement(database,{type:"EVENT",entitySql:`SELECT ${input.canonicalId}`,nowIso,actorRef}),
     database.prepare(`UPDATE partner_event_submission_metadata SET dedupe_active=0,resolution_type='LINKED_EXISTING',resolved_event_id=?1,partner_resource_id=(SELECT id FROM partner_resources WHERE managed_event_id=?1 LIMIT 1)
       WHERE submission_id=?2 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?2 AND status='APPROVED' AND updated_at=?3 AND reviewed_by=?4)`).bind(input.canonicalId,input.id,nowIso,actorRef),
     audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_LINKED_EXISTING",nowIso,actorRef,status:"APPROVED",metadata:{eventId:input.canonicalId}}),
