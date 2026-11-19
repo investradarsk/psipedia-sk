@@ -1,3 +1,9 @@
+## Overenie poradia migrácií – 0173 úspešne nasadená (19. 11. 2026)
+
+GitHub Actions owner-only `production-d1-directory-0173.yml` [run #44604743812](https://github.com/investradarsk/psipedia-sk/actions/runs/44604743812) má **success** a v produkčnom logu `{"status":"POSTFLIGHT","mode":"apply","installed":true,"applied":true,"error":null}`. Súbor `drizzle/0173_directory_structured_sql_foundation.sql` je v `main`.
+
+**Dôležitá vetva:** PR #1449 vznikol pred merge 0173 a stále nemá 0173 vo vlastnom `drizzle/` strome (vetva je oproti `main` pozadu). Preto zatiaľ ponechať 0174 v `pending-migrations/`; po synchronizácii PR vetvy s `main` treba presunúť schému 0174 do chronologického `drizzle/` poradovníka, aktualizovať offline testy a vytvoriť izolovaný owner-only audit/apply 0174. **Žiadny generický replay migrácií ani ručné vykonanie 0174 teraz.** Doterajší import 344 kontrolovaných Notion zrkadiel nie je import do tabuliek 0174.
+
 # Psipedia Plemená – 6/6: bezpečný SQL/JSON cutover (PRIPRAVENÉ, NIE ZAPNUTÉ)
 
 **Dátum:** 19. 11. 2026. **PR:** #1449. Kód kroku 6 sa pripravuje v tom istom PR ako kroky 1–5. **Nie je to súhlas na prepnutie produkčných čítačov a zápisov.**
