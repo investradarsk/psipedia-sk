@@ -189,7 +189,7 @@ export function classifyDirectory0170Row(row) {
   };
 }
 export function aggregateDirectory0170Rows(rows) {
-  const out = { scanned:0, byCategory:{}, issues:{}, sampleProfileIds:{} };
+  const out = { scanned:0, byCategory:{}, issues:{}, issuesByCategory:{}, sampleProfileIds:{} };
   for (const row of rows) {
     const id = Number(row.id);
     if (!Number.isSafeInteger(id) || id <= 0) throw Error("DIRECTORY_AUDIT_INVALID_PROFILE_ID");
@@ -202,6 +202,8 @@ export function aggregateDirectory0170Rows(rows) {
     if (item.issues.length) cat.profilesWithIssues++;
     for (const key of item.issues) {
       out.issues[key] = (out.issues[key] ?? 0) + 1;
+      const categoryIssues = out.issuesByCategory[item.category] ??= {};
+      categoryIssues[key] = (categoryIssues[key] ?? 0) + 1;
       const ids = out.sampleProfileIds[key] ??= [];
       if (ids.length < SAMPLE_LIMIT) ids.push(id);
     }
@@ -263,7 +265,7 @@ const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_j
 function run() {
   authorize();
   const before = state();
-  const byCategory={},issues={},sampleProfileIds={};
+  const byCategory={},issues={},issuesByCategory={},sampleProfileIds={};
   let cursor=0,scanned=0;
   while (true) {
     const rows = select(profileSelect(cursor));
@@ -278,6 +280,10 @@ function run() {
     for(const [key,val] of Object.entries(part.byCategory)){
       const current=byCategory[key]??={profiles:0,notionMapped:0,reviewed:0,profilesWithIssues:0};
       for(const k of Object.keys(current)) current[k]+=val[k];
+    }
+    for(const [category,categoryIssues] of Object.entries(part.issuesByCategory)) {
+      const totals=issuesByCategory[category]??={};
+      for(const [key,count] of Object.entries(categoryIssues)) totals[key]=(totals[key]??0)+count;
     }
     for(const [key,val] of Object.entries(part.issues)){
       issues[key]=(issues[key]??0)+val;
@@ -296,7 +302,7 @@ function run() {
     perFieldLastWriteWinnerVerified:false, transferApproved:false,
     snapshot:"best_effort_live_keyset_scan", stableAggregates:stable,
     scanned, baselineProfiles:Number(before.profiles), endProfiles:Number(after.profiles),
-    byCategory,issues,sampleProfileIds,
+    byCategory,issues,issuesByCategory,sampleProfileIds,
     nextStep:"review evidence and timestamps per field; this audit never approves backfill",
   };
   writeFileSync(REPORT,JSON.stringify(report,null,2)+"\n");
