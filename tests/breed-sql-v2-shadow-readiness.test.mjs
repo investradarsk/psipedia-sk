@@ -32,7 +32,7 @@ test("exact 347/344 and six zero-difference cohorts allow guarded activation onl
   assert.equal(result.inspected.linkedNotionD1Mirrors,344);
   assert.equal(result.inspected.relatedEdges,6);
 });
-test("stale Notion revisions, scalar conflicts, or changed JSON hard-block enabling",()=>{
+test("stale Notion revisions or changed JSON still hard-block enabling",()=>{
   const v=clean();
   v.controlled.pending_sync=2;
   v.scalarParity.size_conflicts=1;
@@ -41,7 +41,7 @@ test("stale Notion revisions, scalar conflicts, or changed JSON hard-block enabl
   const result=assessBreedSqlV2ShadowReadiness(v);
   assert.equal(result.ready,false);
   assert(result.blockers.includes("NOTION_PENDING_CHANGES"));
-  assert(result.blockers.includes("CONTROLLED_SCALAR_size_conflicts"));
+  assert(!result.blockers.some(code=>code.startsWith("CONTROLLED_SCALAR_")));
   assert(result.blockers.includes("SQL_PARITY_editorial"));
   assert(result.blockers.includes("SQL_PARITY_extraRelations"));
 });
@@ -54,8 +54,29 @@ test("missing/null/undefined metrics never masquerade as zero",()=>{
   const result=assessBreedSqlV2ShadowReadiness(v);
   assert.equal(result.ready,false);
   for(const code of ["BREED_COUNT","SQL_PARITY_fci",
-    "CONTROLLED_SCALAR_fci_group_conflicts","FOREIGN_KEY_VIOLATIONS"])
+    "INVALID_CONTROLLED_SCALAR_COUNT_fci_group_conflicts","FOREIGN_KEY_VIOLATIONS"])
     assert(result.blockers.includes(code),code);
+});
+test("explicitly accepted three classification differences never overwrite either side",()=>{
+  const v=clean();
+  v.scalarParity.fci_group_conflicts=1;
+  v.scalarParity.fci_section_conflicts=2;
+  v.scalarParity.size_conflicts=247;
+  const result=assessBreedSqlV2ShadowReadiness(v);
+  assert.equal(result.ready,true);
+  assert.equal(result.acceptedClassificationDifferences,true);
+  assert.deepEqual(result.inspected.scalarConflicts,{
+    fci_group_conflicts:1,fci_section_conflicts:2,size_conflicts:247,
+  });
+  assert.equal(result.publicCutover,false);
+  assert.equal(result.legacyJsonDeleted,false);
+});
+test("unbounded/invalid classification counts remain blocked",()=>{
+  for(const wrong of [-1,345,null,undefined,"247",1.2]){
+    const v=clean();v.scalarParity.size_conflicts=wrong;
+    assert(assessBreedSqlV2ShadowReadiness(v).blockers.includes(
+      "INVALID_CONTROLLED_SCALAR_COUNT_size_conflicts"),String(wrong));
+  }
 });
 test("mismatched Notion cohort and orphan controlled sidecar are blockers",()=>{
   const v=clean();
