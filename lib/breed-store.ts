@@ -712,6 +712,11 @@ export async function listManagedBreedSummaries(limit = 500) {
     .bind(safeLimit).all<SummaryRow>();
   return result.results.map(fromSummaryRow);
 }
+const sqlPrimary=breedSqlPrimaryEnabled(env);
+const canonicalBreedIdsForRuntime=sqlPrimary?canonicalBreedIdsSqlV2:canonicalBreedIdsSql;
+const canonicalBreedWinnerForRuntime=sqlPrimary?canonicalBreedWinnerSqlV2:canonicalBreedWinnerSql;
+const readSelect=sqlPrimary?breedSqlPrimaryProjection(select):select;
+const primaryProjection=(sql:string)=>sqlPrimary?breedSqlPrimaryProjection(sql):sql;
 // Article relations need only identifiers and FCI labels, not all the
 // completeness, image, editorial JSON and relation-count fields required by
 // the breed administration dashboard. Keep the same 500-row order/limit.
