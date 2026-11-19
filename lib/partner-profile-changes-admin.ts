@@ -1,12 +1,13 @@
 import { env } from "cloudflare:workers";
 import { PROFILE_GALLERY_LIMIT } from "@/lib/partner-profile-gallery";
 import { PARTNER_GALLERY_MEDIA_KEY, partnerGalleryMediaIdsFromStoredPatch, publishPartnerGalleryMedia, terminalPartnerGalleryMediaStatements } from "@/lib/partner-profile-gallery-media";
-import { directoryFilterRegistry, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import { directoryFilterRegistry, getDirectoryFilterDefinition, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { decryptPii } from "@/lib/pii-crypto";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { planDirectory0173EditorialSqlMirror } from "@/lib/directory-0173-editorial-sql-mirror";
-import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
+import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
+import { planDirectorySecondaryCategorySqlMirror } from "@/lib/directory-secondary-category-sql";
 import {
   buildDirectoryApplyStatement,
   buildHelpApplyStatements,
@@ -324,31 +325,58 @@ export async function approvePartnerProfileChangeAdmin(input:{
       ? [buildDirectoryApplyStatement(database,canonical,effectivePatch,actorRef,nowIso,input.id)]
       : buildHelpApplyStatements(database,canonical,effectivePatch,actorRef,nowIso,input.id)
     : [];
-  if (row.resourceType === "DIRECTORY_PROFILE" &&
-      Object.hasOwn(effectivePatch, "openingHours")) {
-    // A moderated partner change uses the same 0173 SQL hours owner as the
-    // Admin/Notion editors. The approval transition and profile UPDATE are
-    // atomic; only the explicitly approved hours value can replace this row.
-    const hours = String(effectivePatch.openingHours ?? "");
-    // Public readers still consume the 0170 fact during the safe cutover.
-    // Keep it aligned until the SQL-only hours reader is activated.
-    const category = canonical.directoryCategory as ServiceFilterCategory | null;
-    if (category && (serviceFilterCategories as readonly string[]).includes(category) &&
-        approvedDirectoryFactSqlSlot(category, "Ordinačné hodiny")) {
-      const factMirror = planDirectory0170FactSqlMirror({
-        profileId: canonical.canonicalId, category, field: "Ordinačné hodiny",
-        value: hours, updatedAt: nowIso, actor: actorRef,
-      });
-      canonicalStatements.push(...factMirror.map(item =>
-        database.prepare(item.sql).bind(...item.bindings)));
+  if (row.resourceType === "DIRECTORY_PROFILE") {
+    // Admin-approved partner edits must project every touched 0170/0173
+    // relation in the SAME moderation transaction as the canonical PATCH.
+    // Missing fields never reset a category, select, gallery or schedule.
+    const category=canonical.directoryCategory as ServiceFilterCategory;
+    if (!(serviceFilterCategories as readonly string[]).includes(category))
+      throw new PartnerProfileChangeError("Nepodporovaná kategória profilu.",409);
+    const plans: Array<readonly {sql:string;bindings:readonly (string|number)[]}[]>=[];
+    const filters: Record<string,string|null>={};
+    for(const [field,value] of Object.entries(effectivePatch)){
+      const definition=getDirectoryFilterDefinition(field);
+      if(definition && definition.category===category)
+        filters[field]=value===null?null:String(value);
     }
-    const hourMirror = planDirectory0173EditorialSqlMirror({
-      identity: { kind: "id", profileId: canonical.canonicalId,
-        updatedAt: nowIso, actor: actorRef },
-      openingHoursText: hours,
-    });
-    canonicalStatements.push(...hourMirror.map(item =>
-      database.prepare(item.sql).bind(...item.bindings)));
+    if(Object.keys(filters).length)
+      plans.push(planDirectory0170FilterSqlMirror({
+        profileId:canonical.canonicalId,category,values:filters,
+        updatedAt:nowIso,actor:actorRef,
+      }));
+    if(Object.hasOwn(effectivePatch,"additionalCategories"))
+      plans.push(planDirectorySecondaryCategorySqlMirror({
+        profileId:canonical.canonicalId,primaryCategory:category,
+        submitted:effectivePatch.additionalCategories as string[],
+        updatedAt:nowIso,actor:actorRef,
+      }));
+    const hoursEdited=Object.hasOwn(effectivePatch, "openingHours");
+    if(hoursEdited && approvedDirectoryFactSqlSlot(category,"Ordinačné hodiny"))
+      plans.push(planDirectory0170FactSqlMirror({
+        profileId:canonical.canonicalId,category,field:"Ordinačné hodiny",
+        value:String(effectivePatch.openingHours??""),
+        updatedAt:nowIso,actor:actorRef,
+      }));
+    const galleryEdited=Object.hasOwn(effectivePatch,"galleryUrls");
+    const editorialMirror=hoursEdited || galleryEdited
+      ?planDirectory0173EditorialSqlMirror({
+        identity:{kind:"id",profileId:canonical.canonicalId,updatedAt:nowIso,actor:actorRef},
+        ...(hoursEdited?{openingHoursText:String(effectivePatch.openingHours??"")}:{}),
+        ...(galleryEdited?{galleryUrls:effectivePatch.galleryUrls as readonly string[]}:{}),
+      }):[];
+    if(plans.length || editorialMirror.length){
+      // One changes() check immediately after the canonical UPDATE. Repeat
+      // guards between mirrors would read DELETE/INSERT and fail incorrectly.
+      const guard=plans.length?plans[0][0]:{
+        sql:"SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', char(36)) END AS cas_ok",
+        bindings:[] as string[],
+      };
+      canonicalStatements.push(database.prepare(guard.sql).bind(...guard.bindings));
+      for(const plan of plans)for(const item of plan.slice(1))
+        canonicalStatements.push(database.prepare(item.sql).bind(...item.bindings));
+      for(const item of editorialMirror)
+        canonicalStatements.push(database.prepare(item.sql).bind(...item.bindings));
+    }
   }
   if(media)canonicalStatements.push(imageApplyStatement(database,{
     resourceType:row.resourceType,canonicalId:canonical.canonicalId,submissionId:input.id,
