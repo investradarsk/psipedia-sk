@@ -24,11 +24,19 @@ function fixture(){
       (6,'Ukončená zbierka','koniec','zbierky','Nitra','published',1);
   `);
   sql.exec(migration);
-  const adapter={prepare(query){return{bind(...params){return{
-    first:async()=>sql.prepare(query).get(...params)??null,
-    all:async()=>({results:sql.prepare(query).all(...params)}),
-    run:async()=>({meta:{changes:sql.prepare(query).run(...params).changes}}),
-  }};}}};
+  const adapter = {
+    prepare(query) {
+      return {
+        bind(...params) {
+          return {
+            first: async () => sql.prepare(query).get(...params) ?? null,
+            all: async () => ({ results: sql.prepare(query).all(...params) }),
+            run: async () => ({ meta: { changes: sql.prepare(query).run(...params).changes } }),
+          };
+        },
+      };
+    },
+  };
   const claim=(id, account, type, canonicalId, status, when="2026-11-19T08:00:00Z")=>{
     const column={ADOPTION_DOG:"adoption_dog_id",LOST_FOUND_DOG:"lost_found_report_id",HELP_CASE:"help_case_id"}[type];
     return sql.prepare(`INSERT INTO partner_help_claims(id,account_id,entity_type,${column},status,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`)
