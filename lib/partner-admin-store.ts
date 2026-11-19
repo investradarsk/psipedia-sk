@@ -176,7 +176,7 @@ export async function createPartnerMembershipAdmin(input:{accountId:string;entit
 }
 
 export async function changePartnerMembershipAdmin(input:{membershipId:string;role?:PartnerRole;revoke?:boolean;adminEmail:string;database?:D1Database;now?:Date}){
-  if(!validId(input.membershipId))throw new Error("Neplatná membership.");if(input.role&&input.role!=="OWNER")throw new Error("Externý partner má jedinú rolu: Správca profilu.");
+  if(!validId(input.membershipId))throw new Error("Neplatná membership.");if(!input.revoke && input.role!=="OWNER")throw new Error("Externý partner má jedinú rolu: Správca profilu.");
   const database=db(input.database),current=await database.prepare("SELECT id,role,revoked_at revokedAt FROM partner_memberships WHERE id=?").bind(input.membershipId).first<{id:string;role:PartnerRole;revokedAt:string|null}>();
   if(!current)throw new Error("Membership neexistuje.");if(current.revokedAt)throw new Error("Membership už bola odvolaná.");const now=(input.now??new Date()).toISOString(),actor=auditActor(input.adminEmail);
   const action=input.revoke?"MEMBERSHIP_REVOKED":"MEMBERSHIP_ROLE_CHANGED";
