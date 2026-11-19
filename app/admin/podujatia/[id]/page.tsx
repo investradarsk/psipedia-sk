@@ -5,6 +5,7 @@ import { AdminEventEditor } from "@/components/admin-event-editor";
 import { AdminPartnerReviewStatus } from "@/components/admin-partner-review-status";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
+import { AdminPartnerCanonicalDraft } from "@/components/admin-partner-canonical-draft";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -43,7 +44,7 @@ export default async function EditEventPage({ params }: Props) {
       <Suspense fallback={null}><EventReviewAction id={event.id} /></Suspense>
       {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Otvoriť verejné podujatie ↗</Link>}
     </>}>
-    <AdminGeminiOriginBadge agenda="events" entityId={event.id} />
+    <AdminPartnerCanonicalDraft resourceType="MANAGED_EVENT" canonicalId={event.id} /><AdminGeminiOriginBadge agenda="events" entityId={event.id} />
     <Suspense fallback={null}><EventDuplicateWarning id={event.id} /></Suspense>
     <AdminEventEditor event={event} initialInternalNotes={await getManagedEventInternalNotesById(event.id)} />
     {event.status === "draft" && <AdminCanonicalDraftDelete entityType="EVENT" canonicalEntityId={event.id} returnHref="/admin/podujatia" />}
