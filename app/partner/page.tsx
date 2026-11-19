@@ -9,6 +9,7 @@ import { listPartnerHelpCreateSubmissions } from "@/lib/partner-help-create";
 import { listPartnerProfileChanges } from "@/lib/partner-profile-changes";
 import { buildPartnerDashboardSummary } from "@/lib/partner-dashboard";
 import { partnerResourceStatusLabel } from "@/lib/partner-ui-labels";
+import { listPartnerCanonicalDrafts } from "@/lib/partner-canonical-workflow";
 
 export const dynamic = "force-dynamic";
 
@@ -31,13 +32,14 @@ function resourceEditHref(resource: PartnerManagedResource) {
 
 export default async function PartnerHomePage() {
   const identity = await requirePartnerPageIdentity();
-  const [resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions] = await Promise.all([
+  const [resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions, canonicalDrafts] = await Promise.all([
     listPartnerResources(identity.accountId),
     listPartnerClaims(identity.accountId),
     listPartnerNewProfiles(identity.accountId),
     listPartnerEventSubmissions(identity.accountId),
     listPartnerProfileChanges(identity.accountId),
     listPartnerHelpCreateSubmissions(identity.accountId),
+    listPartnerCanonicalDrafts(identity.accountId),
   ]);
   const summary = buildPartnerDashboardSummary({
     resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions,
@@ -53,7 +55,8 @@ export default async function PartnerHomePage() {
             ? "Tu môžete otvoriť a upravovať pridelené záznamy. Nový profil alebo podujatie môžete kedykoľvek navrhnúť."
             : "Vytvorte nový profil alebo požiadajte o správu už existujúceho. Po schválení sa vám zobrazí v tomto prehľade."}</p>
           <div className="partner-dashboard-welcome-actions">
-            <Link className="button button--dark" href="/partner/profily/novy">Pridať nový profil</Link>
+            <Link className="button button--dark" href="/partner/koncepty/novy">+ Vytvoriť nový záznam</Link>
+            <Link href="/partner/profily/novy">Pôvodný formulár profilu</Link>
             <Link className="button" href="/partner/podujatia/nove">Pridať podujatie</Link>
             <Link className="button" href="/partner/pomoc/nova">Pridať pomoc psom</Link>
           </div>
@@ -77,6 +80,24 @@ export default async function PartnerHomePage() {
         </Link>
       </section>
 
+      {canonicalDrafts.length>0&&(
+        <section className="partner-dashboard-section" aria-labelledby="partner-drafts-heading">
+          <div className="partner-dashboard-section-heading">
+            <div><span className="eyebrow">Rozpracované návrhy</span><h2 id="partner-drafts-heading">Moje koncepty a odoslané návrhy</h2></div>
+            <Link href="/partner/koncepty/novy">+ Nový koncept</Link>
+          </div>
+          <div className="partner-dashboard-record-grid">
+            {canonicalDrafts.slice(0,12).map(draft=>(
+              <article className="partner-dashboard-record" key={draft.id}>
+                <span className="partner-dashboard-type">{draft.resourceType.replaceAll("_"," ")}</span>
+                <h3>{draft.title}</h3>
+                <p>{draft.status==="DRAFT"?"Neodoslaný koncept":draft.status==="RETURNED"?"Vrátené na doplnenie":"Čaká na schválenie"}</p>
+                <Link className="button button--dark" href={draft.partnerHref}>Otvoriť a upraviť</Link>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <section className="partner-dashboard-section" aria-labelledby="partner-managed-heading">
         <div className="partner-dashboard-section-heading">
           <div><span className="eyebrow">Moje záznamy</span><h2 id="partner-managed-heading">Čo spravujete</h2></div>
