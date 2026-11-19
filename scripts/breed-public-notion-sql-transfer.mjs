@@ -141,6 +141,14 @@ async function main() {
       ["--command","SELECT id FROM managed_breeds"]);
     const known = new Set(records.map(r=>Number(r.id)));
     must(output.every(r=>known.has(r.breedId)), "BREED_PUBLIC_D1_IDENTITY_MISSING");
+    // Every Notion source page must be the exact 344 identity-mapped workcopy
+    // page, never just a similarly named page with a copied numeric ID.
+    const linked = wrangler(config,dbResource.database_name,
+      ["--command","SELECT breed_id,work_notion_page_id FROM breed_notion_workcopy_links"]);
+    const byBreed = new Map(linked.map(r=>[Number(r.breed_id),normalize(r.work_notion_page_id)]));
+    must(linked.length === 344 &&
+      output.every(r=>byBreed.get(r.breedId)===r.notionPageId),
+      "BREED_PUBLIC_WORKCOPY_PAGE_IDENTITY_MISMATCH");
     const tables = wrangler(config,dbResource.database_name,
       ["--command","SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'breed_public_%'"]);
     must(TABLES.every(t=>tables.some(r=>r.name===t)), "BREED_PUBLIC_MIGRATION_0173_NOT_DEPLOYED");
