@@ -78,12 +78,19 @@ export async function syncSavedNotionRecord(input: {
       return result.pulledFromNotion || result.pushedToNotion || result.unchanged
         ? "synced" : "unlinked";
     }
-    const changedHelpFields = isHelpFieldEventAgenda(agenda) && input.beforeHelpSnapshot
-      ? changedAdminHelpFields(
-          agenda, input.beforeHelpSnapshot,
-          (await currentHelpSnapshot(bindings.DB, agenda, entityId)) ?? input.beforeHelpSnapshot,
-        )
-      : undefined;
+    // Without a verified BEFORE/AFTER canonical snapshot, a targeted Admin
+    // save must not degrade to a whole-record Notion reconciliation. That
+    // could re-import a stale Notion field over a just-committed D1 change.
+    // New/unmapped records remain the existing bootstrap sweep's job.
+    let changedHelpFields: readonly string[] | undefined;
+    if (isHelpFieldEventAgenda(agenda)) {
+      if (!input.beforeHelpSnapshot) return "pending";
+      const afterHelpSnapshot = await currentHelpSnapshot(bindings.DB, agenda, entityId);
+      if (!afterHelpSnapshot) return "pending";
+      changedHelpFields = changedAdminHelpFields(
+        agenda, input.beforeHelpSnapshot, afterHelpSnapshot,
+      );
+    }
     return await syncOneAdminHelpRecord({
       database: bindings.DB, bindings, agenda, entityId,
       changedEventFields: input.changedEventFields,
