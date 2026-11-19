@@ -6,6 +6,8 @@ import { adminAuditActorRef } from "@/lib/audit-identity";
 import { decryptPii } from "@/lib/pii-crypto";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { planDirectory0173EditorialSqlMirror } from "@/lib/directory-0173-editorial-sql-mirror";
+import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
+import { serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import {
   buildDirectoryApplyStatement,
   buildHelpApplyStatements,
@@ -328,10 +330,23 @@ export async function approvePartnerProfileChangeAdmin(input:{
     // A moderated partner change uses the same 0173 SQL hours owner as the
     // Admin/Notion editors. The approval transition and profile UPDATE are
     // atomic; only the explicitly approved hours value can replace this row.
+    const hours = String(effectivePatch.openingHours ?? "");
+    // Public readers still consume the 0170 fact during the safe cutover.
+    // Keep it aligned until the SQL-only hours reader is activated.
+    const category = canonical.directoryCategory as ServiceFilterCategory | null;
+    if (category && (serviceFilterCategories as readonly string[]).includes(category) &&
+        approvedDirectoryFactSqlSlot(category, "Ordinačné hodiny")) {
+      const factMirror = planDirectory0170FactSqlMirror({
+        profileId: canonical.canonicalId, category, field: "Ordinačné hodiny",
+        value: hours, updatedAt: nowIso, actor: actorRef,
+      });
+      canonicalStatements.push(...factMirror.map(item =>
+        database.prepare(item.sql).bind(...item.bindings)));
+    }
     const hourMirror = planDirectory0173EditorialSqlMirror({
       identity: { kind: "id", profileId: canonical.canonicalId,
         updatedAt: nowIso, actor: actorRef },
-      openingHoursText: String(effectivePatch.openingHours ?? ""),
+      openingHoursText: hours,
     });
     canonicalStatements.push(...hourMirror.map(item =>
       database.prepare(item.sql).bind(...item.bindings)));
