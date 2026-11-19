@@ -19,7 +19,7 @@ import { cache } from "react";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
 import { planDirectorySecondaryCategorySqlMirror, planDirectorySecondaryCategoryCreateSqlMirror } from "./directory-secondary-category-sql";
 import { directoryCatalogFilters } from "./directory-query.ts";
-import { mergeDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
+import { mergeDirectoryBreederGallery, readDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
 import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card";
 import { canonicalBreedIdsSql, readCanonicalBreedIds } from "./breed-canonical";
@@ -1958,6 +1958,8 @@ export async function createManagedDirectoryProfile(
       updatedAt: now, actor: editorEmail },
     qualifications: input.qualifications,
     seo: input.seo,
+    ...(payload.galleryUrls !== undefined && input.category === "chovatelske-stanice"
+      ? { galleryUrls: readDirectoryBreederGallery(input.sourceData) } : {}),
   });
   let row: DirectoryProfileRow | null;
   if (sqlCategoryCreate) {
@@ -2127,6 +2129,12 @@ export async function updateManagedDirectoryProfile(
       }).qualifications,
     } : {}),
     ...(payload.seo !== undefined ? { seo: payload.seo } : {}),
+    ...(payload.galleryUrls !== undefined &&
+      (payload.category ?? existing.category) === "chovatelske-stanice"
+      ? { galleryUrls: readDirectoryBreederGallery(
+          mergeDirectoryBreederGallery(existing.importData,
+            "chovatelske-stanice", payload.galleryUrls),
+        ) } : {}),
   });
   let row: DirectoryProfileRow | null;
   if (payload.additionalCategories !== undefined || editorialMirror.length > 0) {
