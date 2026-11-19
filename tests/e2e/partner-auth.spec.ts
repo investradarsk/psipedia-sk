@@ -353,7 +353,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(accountLink).toHaveAttribute("href", "/partner");
   }
 
-  await page.getByRole("link", { name: "Moje profily" }).click();
+  await page.getByRole("navigation", { name: "Partner navigácia" }).getByRole("link", { name: "Moje profily" }).click();
   if (project === "desktop-chromium") {
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
     await expect(page.getByText("Správca profilu")).toBeVisible();
