@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
+import { removeAdminRecordFromList, adminListRemovalMessage } from "@/lib/admin-record-list-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
 import { Suspense, use, useMemo, useRef, useState } from "react";
@@ -200,9 +201,7 @@ export function AdminDashboard({
     setDeletingId(article.id);
     setMessage("");
     try {
-      const response = await fetch(`/api/admin/articles/${article.id}`, { method: "DELETE" });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(data.error || "Článok sa nepodarilo odstrániť.");
+      const result = await removeAdminRecordFromList("articles", article.id, article.title);
       setArticles((current) => current.filter((item) => item.id !== article.id));
       setCounts((current) => ({
         ...current,
@@ -211,7 +210,7 @@ export function AdminDashboard({
       }));
       setResultCount((current) => Math.max(0, current - 1));
       bulkSelection.clear();
-      setMessage("Článok bol odstránený.");
+      setMessage(adminListRemovalMessage(result, "Článok"));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Článok sa nepodarilo odstrániť.");
     } finally {
