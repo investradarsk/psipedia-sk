@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { readProfileGallery, mergeProfileGallery, normalizeProfileGalleryUrls, PROFILE_GALLERY_LIMIT } from "@/lib/partner-profile-gallery";
-import { mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
+import { DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
 import { assertPendingPartnerGalleryMedia, attachPartnerGalleryMediaStatements, galleryPendingInsertGuard, normalizePartnerGalleryMediaIds, partnerGalleryMediaIdsFromStoredPatch, terminalPartnerGalleryMediaStatements, PARTNER_GALLERY_MEDIA_KEY } from "@/lib/partner-profile-gallery-media";
 import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import { omitDirectorySqlContactAliases } from "@/lib/directory-profile-metadata";
@@ -931,6 +931,9 @@ export function buildDirectoryApplyStatement(
     }
     if ("additionalCategories" in patch) {
       source = mergeAdditionalDirectoryCategories(source, patch.additionalCategories, canonical.directoryCategory ?? "");
+      // Both partner approval and direct-owner routes mirror this explicit
+      // selection in the SAME D1 transaction. "1" certifies even an empty [].
+      source[DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY] = "1";
     }
     if ("openingHours" in patch) {
       // Partner moderation and Admin must write the SAME canonical source key.
