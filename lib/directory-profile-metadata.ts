@@ -200,6 +200,21 @@ export function readDirectoryPublicContacts(
  * in source_data_json, even for SQL NULL columns. Canonical storage is SQL;
  * the owner explicitly rejected retaining these old JSON backup values.
  */
+/** Public Directory fields whose SQL columns are canonical. */
+export const DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS = [
+  "Názov", "Perex", "Popis", "Kraj", "Okres", "Mesto", "Adresa",
+  "PSČ", "Ulica", "Číslo domu", "Formát adresy", "Cena / poznámka",
+] as const;
+
+/** Never re-persist the old JSON backups during a normal Admin save. */
+export function omitDirectorySqlNotionScalarAliases(
+  source: DirectoryImportData,
+): DirectoryImportData {
+  const next: DirectoryImportData = {...source};
+  for (const key of DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS) delete next[key];
+  return next;
+}
+
 export function omitDirectorySqlContactAliases(
   source: DirectoryImportData,
   written: {
