@@ -22,7 +22,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       <section className="admin-form-card">
         <form className="admin-commercial-filters" role="search" aria-label="Filtrovať žiadosti o prevzatie" data-admin-list-filters>
           <label>Stav<select name="status" defaultValue={status}><option value="all">Všetky</option>{partnerClaimStatuses.map((item) => <option key={item} value={item}>{partnerAdminStatusLabel(item)}</option>)}</select></label>
-          <label>Typ<select name="type" defaultValue={entityType}><option value="all">Všetky</option><option value="DIRECTORY_PROFILE">Profil služby</option><option value="HELP_ORGANIZATION">Organizácia pomoci psom</option><option value="MANAGED_EVENT">Podujatie</option></select></label>
+          <label>Typ<select name="type" defaultValue={entityType}><option value="all">Všetky</option><option value="DIRECTORY_PROFILE">Profil služby</option><option value="HELP_ORGANIZATION">Organizácia pomoci psom</option><option value="MANAGED_EVENT">Podujatie</option><option value="ADOPTION_DOG">Adopcie</option><option value="LOST_FOUND_DOG">Stratené a nájdené</option><option value="HELP_CASE">Ostatná pomoc psom</option></select></label>
           <label>Hľadať<input name="q" defaultValue={q} /></label>
           <button>Filtrovať</button>
         </form>
