@@ -119,6 +119,12 @@ function createAdminMockDatabase() {
 
   function rowsFor(sql) {
     const normalized = sql.replace(/\s+/g, " ").trim();
+    // SQL 0170 editorial detail always performs one fail-closed facts/filters
+    // projection. This fixture models an applied but empty 0170 sidecar schema.
+    if (/FROM directory_profile_public_facts WHERE profile_id=\?1/i.test(normalized) &&
+        /FROM directory_profile_filter_values WHERE profile_id=\?1/i.test(normalized)) {
+      return [{ facts_json: "[]", filters_json: "[]" }];
+    }
     if (/FROM sqlite_master/i.test(normalized)) {
       // Intentionally omit the newer module tables to verify that the dashboard
       // still renders while production migrations catch up.
@@ -579,11 +585,7 @@ test("uses light admin lists and loads full records only for detail and save", a
 
     const directory = await worker.fetch(adminRequest("/admin/adresar"), bindings, context);
     assert.equal(directory.status, 200);
-    const directoryHtml = await directory.text();
-    assert.match(directoryHtml, /Testovací kynologický klub/,
-      "Directory SSR must include the mocked profile; SQL trace: " +
-      JSON.stringify(database.queries.filter(({sql}) => /FROM directory_profiles/i.test(sql))
-        .map(({sql,operation}) => ({operation, sql:sql.slice(0,450)})).slice(-8)));
+    assert.match(await directory.text(), /Testovací kynologický klub/);
 
     const filteredDirectory = await worker.fetch(adminRequest("/admin/adresar?category=kynologicke-kluby"), bindings, context);
     assert.equal(filteredDirectory.status, 200);
