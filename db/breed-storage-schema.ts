@@ -2,7 +2,7 @@
  * Plemená 0174 (staged schema-only): planned D1 1:1 tables + SQL relations.
  * NOT bound into db/index.ts until production schema 0174 is verified.
  * The existing managed_breeds and its legacy JSON fields stay untouched.
- * SQL-only `seo_*` columns are staged in pending-migrations/0174 and are
+ * SQL-only `seo_*` columns are staged in drizzle/0174 and are
  * deliberately NOT appended to the live managedBreeds Drizzle projection
  * before physical production installation, avoiding SELECT * regressions.
  */
