@@ -15,7 +15,7 @@ PR: #1467 (Draft, neslučovať ani nenasadzovať po samostatnom kroku 3).
   - `partner_claims` – vlastníctvo existujúcich Služieb, Organizácií a Podujatí.
   - `partner_help_claims` – prevzatie Pomoci psom/adopcií/stratených. Vylúčenie syntetických APPROVED ownership záznamov, ktoré automaticky vznikli po schválení nového CREATE; nie sú druhou žiadosťou.
   - `partner_new_profile_metadata` – nové služby/organizácie, `partner_profile_change_metadata` – historické moderované zmeny, `partner_event_submission_metadata` – podujatia, a samotné `moderation_submissions` – nové záznamy Pomoci psom.
-  - `partner_resource_verifications` – overenie správcu; `partner_commercial_interests` – komerčné záujmy; `partner_commercial_agreements` – existujúce dohody, bez vymyslených detailových URL.
+  - `partner_resource_verifications` – overenie správcu; `partner_commercial_interests` – komerčné záujmy; `partner_commercial_agreements` – existujúce dohody; odkazy vedú na už existujúce detailové stránky komerčných leadov a dohôd.
   - Malformované historické Help JSON návrhy nezrušia celý účet: používajú ochranu `json_valid` a ľudský fallback názov.
 - Profily: `partner_memberships` s `revoked_at IS NULL` plus `partner_help_claims` `status='APPROVED'`; výsledky majú názov, agendu, stav a odkaz na kanonický editor. Historické odobraté prístupy nepatria medzi aktívne profily.
 - Účet: pôvodné zobrazenie kontaktu, stavu, session, prihlásenia a všetky `AdminPartnerAccountActions` **bez zmeny oprávnení, auth a servisných API**.
