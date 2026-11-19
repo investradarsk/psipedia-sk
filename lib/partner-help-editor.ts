@@ -105,8 +105,21 @@ export async function updatePartnerHelpPublic(input: {
     throw new PartnerHelpEditorError("Neplatná fotogaléria.");
   }
   const galleryUrls = input.galleryUrls as string[] | undefined;
-  const externalGallery = galleryUrls?.map(url => url.trim());
-  if (externalGallery && (externalGallery.length + galleryMediaIds.length > 6 ||
+  let existingGallery: string[] = [];
+  if (hasGalleryEdit && galleryUrls === undefined) {
+    // Upload-only gallery changes must retain the canonical gallery. Never
+    // convert an omitted list into an explicit request to clear all images.
+    const current = await database.prepare(`SELECT gallery_json FROM ${targets[parsed.entityType].table} WHERE id=?1 LIMIT 1`)
+      .bind(parsed.canonicalId).first<{gallery_json:string|null}>();
+    if (!current) throw new PartnerHelpEditorError("Záznam sa nenašiel.",404);
+    try {
+      const saved:unknown = JSON.parse(current.gallery_json || "[]");
+      if (!Array.isArray(saved) || saved.some(url => typeof url !== "string")) throw new Error("invalid gallery");
+      existingGallery = saved as string[];
+    } catch { throw new PartnerHelpEditorError("Pôvodná galéria má neplatný formát. Zápis je zablokovaný.",409); }
+  }
+  const externalGallery = (galleryUrls?.map(url => url.trim()) ?? existingGallery);
+  if (hasGalleryEdit && (externalGallery.length + galleryMediaIds.length > 6 ||
     new Set(externalGallery).size !== externalGallery.length ||
     externalGallery.some(url => !(url.startsWith("/media/") || url.startsWith("/images/") || /^https?:\/\//i.test(url))))) {
     throw new PartnerHelpEditorError("Fotogaléria musí mať najviac 6 platných fotografií bez duplicít.");
@@ -153,7 +166,7 @@ export async function updatePartnerHelpPublic(input: {
   }
   if (hasGalleryEdit) {
     mediaSet.push("gallery_json=?");
-    mediaValues.push(JSON.stringify([...(externalGallery ?? []),...galleryPublished.map(item => item.url)]));
+    mediaValues.push(JSON.stringify([...externalGallery,...galleryPublished.map(item => item.url)]));
   }
   const nowIso = versionAfter(baseRevision, input.now ?? new Date());
   const actor = `partner:${input.accountId}`;
