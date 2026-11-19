@@ -2,13 +2,12 @@ import { env } from "cloudflare:workers";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
-import { normalizePartnerHelpCreate, PartnerHelpCreateError, type PartnerHelpCreateType } from "@/lib/partner-help-create";
+import { normalizePartnerHelpCreate, type PartnerHelpCreateType } from "@/lib/partner-help-create";
 import { assertIndependentOwnershipApprover } from "@/lib/partner-ownership-approval";
 import {
-  applyAtomicModerationTransition, isFoundationSubmissionStatus,
+  applyAtomicModerationTransition,
   type FoundationSubmissionStatus,
 } from "@/lib/moderation-transition";
-import { helpResourceId } from "@/lib/partner-help-claims";
 
 type HelpSubmissionRow = {
   id: string; resourceType: PartnerHelpCreateType; subjectId: string | null;
