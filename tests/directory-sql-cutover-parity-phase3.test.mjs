@@ -187,6 +187,10 @@ test("SQL parity is only exposed as an explicit authenticated Admin opt-in",()=>
   assert.ok(get.indexOf("await getAdminApiUser()") < get.indexOf("sqlParity"));
   assert.match(get,/searchParams\.get\("sqlParity"\) === "1"/);
   assert.match(get,/readDirectorySqlShadowParity\(db, id\)/);
-  assert.match(get,/return profile \? Response\.json\(\{ profile \}\)/);
+  // The Admin GET now returns an SQL-enriched profile, failing closed on read errors.
+  assert.match(get,/readDirectory0170EditorialFields\(db,/);
+  assert.match(get,/return Response\.json\(\{profile:\{\.\.\.profile,importData\}\}/);
+  assert.match(get,/if \(!db\) return Response\.json/);
+  assert.match(get,/status:503/);
   assert.doesNotMatch(get,/\b(?:UPDATE|DELETE|INSERT)\b/i);
 });
