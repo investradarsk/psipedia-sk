@@ -830,13 +830,13 @@ export async function listPublishedCanonicalBreedAtlasCards(): Promise<BreedAtla
       `
     SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,origin,group_name,
       official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,
-      ${sqlPrimary?"(SELECT f.fci_"+k+" FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+      ${sqlPrimary?"(SELECT f.fci_vyska_pes_cm FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
 `CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.vyska_pes_cm') AS TEXT) ELSE NULL END`} AS standard_dog_height,
-      ${sqlPrimary?"(SELECT f.fci_"+k+" FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+      ${sqlPrimary?"(SELECT f.fci_vyska_suka_cm FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
 `CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.vyska_suka_cm') AS TEXT) ELSE NULL END`} AS standard_bitch_height,
-      ${sqlPrimary?"(SELECT f.fci_"+k+" FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+      ${sqlPrimary?"(SELECT f.fci_hmotnost_pes_kg FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
 `CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.hmotnost_pes_kg') AS TEXT) ELSE NULL END`} AS standard_dog_weight,
-      ${sqlPrimary?"(SELECT f.fci_"+k+" FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+      ${sqlPrimary?"(SELECT f.fci_hmotnost_suka_kg FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
 `CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.hmotnost_suka_kg') AS TEXT) ELSE NULL END`} AS standard_bitch_weight
     FROM managed_breeds WHERE id IN (${canonicalBreedIdsForRuntime}) ORDER BY fci_group,name
   `,
@@ -1107,8 +1107,7 @@ export async function getManagedBreed(id: number) {
   ]);
   const row = (breedResult.results?.[0] ?? null) as unknown as Row | null;
   if (!row) return null;
-  // Step 4/6: optional parity diagnostics. The Admin still receives its
-  // current canonical legacy snapshot; no SQL/JSON cutover before backfill.
+  // Read SQL primary when enabled; legacy parity diagnostics run only in rollback mode.
   if(!sqlPrimary) await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
   return fromRow(row, {
     articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
@@ -1123,7 +1122,7 @@ const getPublishedBreedUncached = async (slug: string) => {
     .bind(slug)
     .first<Row>());
   if (!row) return null;
-  // Notion/Admin/public comparison only; SQL values are not exposed yet.
+  // The public result uses SQL primary in v2 mode; legacy compare is rollback-only.
   if(!sqlPrimary) await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
   const breed = fromRow(row, { public: true });
   breed.image = ownedBreedImage(breed.image);
