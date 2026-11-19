@@ -15,8 +15,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ re
     const body: unknown = await request.json();
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new HelpEditorValidationError("Neplatné údaje.");
     const data = body as Record<string, unknown>;
+    const allowed = new Set(["baseRevision","patch","mediaAssetId","galleryUrls","galleryMediaIds"]);
+    if (Object.keys(data).some(key=>!allowed.has(key))) throw new HelpEditorValidationError("Nepovolený údaj v požiadavke.");
     const result = await updatePartnerHelpPublic({
       accountId: identity.accountId,resourceId,baseRevision:data.baseRevision,patch:data.patch,
+      mediaAssetId:data.mediaAssetId,galleryUrls:data.galleryUrls,galleryMediaIds:data.galleryMediaIds,
     });
     return Response.json({ success: true, result }, { headers: { "Cache-Control":"private, no-store" } });
   } catch (error) {
