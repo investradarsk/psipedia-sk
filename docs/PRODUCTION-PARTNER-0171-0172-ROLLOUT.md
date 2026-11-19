@@ -24,6 +24,8 @@ export in protected private storage. Time Travel is not an independent export.
 7. Rebase or merge latest main into #1437, rerun CI and partner desktop/mobile
    E2E. Deploy Partner only after schema and direct write/Notion checks pass.
 
+The infra PR also makes current Admin membership writes OWNER-only, before D1 trigger 0171 is enabled, so the old MANAGER/EDITOR selectors cannot cause broken live inserts. Test this on deployed main before running APPLY.
+
 The workflow applies only its pinned source file; it never calls the generic
 migration replay. Cloudflare database data is never placed in public artifacts.
 SQL/Notion conflicts on the same field remain guarded, not silently overwritten.
