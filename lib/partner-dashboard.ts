@@ -4,7 +4,8 @@ type Resource = Pick<PartnerManagedResource, "entityType">;
 type Claim = { id: string; name: string; status: string; createdAt: string };
 type NewProfile = { id: string; displayName: string; status: string; statusLabel: string; createdAt: string };
 type EventSubmission = { id: string; title: string; status: string; statusLabel: string; createdAt: string };
-type HelpSubmission = { id: string; title: string; status: string; statusLabel: string; createdAt: string };\ntype ProfileChange = { id: string; resourceName: string; status: string; statusLabel: string; createdAt: string };
+type HelpSubmission = { id: string; title: string; status: string; statusLabel: string; createdAt: string };
+type ProfileChange = { id: string; resourceName: string; status: string; statusLabel: string; createdAt: string };
 
 export type PartnerDashboardRequest = {
   id: string;
