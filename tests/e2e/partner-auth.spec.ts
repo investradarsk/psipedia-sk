@@ -498,7 +498,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("heading",{name:"Moje podujatia"})).toBeVisible();
   const ownedEventCard=page.locator("article.partner-resource-card").filter({hasText:ownedEventTitle});
   await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Publikované":"Koncept");
-  await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Vlastník":"Editor");
+  await expect(ownedEventCard).toContainText("Vlastník");
   await expectNoHorizontalOverflow(page);
 
   if (project === "mobile-chromium") {
