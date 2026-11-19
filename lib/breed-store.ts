@@ -41,6 +41,9 @@ import {
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 import { cleanBreedCoatDescription, cleanBreedEditorialList } from "./breed-long-description.ts";
 import { compareBreedSqlV2Detail } from "./breed-sql-v2-preview";
+import {
+  breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements,
+} from "./breed-sql-v2-writer.mjs";
 
 export type BreedStatus = "draft" | "published";
 
@@ -1658,6 +1661,10 @@ export function buildManagedBreedUpdateStatements(
       "SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('BREED_UPDATE_CONFLICT', '$') END AS breed_update_guard",
     ),
     ...breedRelationStatements(database, id, value, user),
+    // Shadow every newly edited FCI/editorial/SEO/relation cell in the SAME
+    // CAS-guarded transaction. A stale full form cannot rewrite new SQL.
+    ...(breedSqlV2ShadowEnabled(env)
+      ?breedSqlV2FullSnapshotStatements(database,id,value):[]),
     // Read the exact committed version and relations before the batch commits.
     // A later writer must not leak its version into this caller's editor.
     database.prepare(`${select} WHERE id=?`).bind(id),
