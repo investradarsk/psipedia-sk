@@ -1,0 +1,64 @@
+name: Production Plemená JSON – READ ONLY audit (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Exact confirmation AUDIT-BREED-JSON-READONLY
+        type: string
+        required: true
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+permissions:
+  contents: read
+
+jobs:
+  breed-json-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      BREED_JSON_AUDIT_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Reject any automated or non-main run
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY" = investradarsk/psipedia-sk
+          test "$BREED_JSON_AUDIT_CONFIRMATION" = AUDIT-BREED-JSON-READONLY
+          test -n "$CLOUDFLARE_API_TOKEN"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Require newest main revision
+        shell: bash
+        run: |
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Validate local JSON inventory
+        run: node --test tests/breed-json-legacy-audit.test.mjs
+      - name: Bind canonical Cloudflare account
+        shell: bash
+        run: |
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id)')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Run SELECT-only 344/347 breed JSON quality audit
+        run: node scripts/production-breed-json-audit.mjs
+      - name: Save aggregate-only report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-breed-json-audit-${{ github.run_id }}
+          path: .production-breed-json-audit/report.json
+          retention-days: 30
+          if-no-files-found: ignore

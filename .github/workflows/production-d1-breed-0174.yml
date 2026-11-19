@@ -1,0 +1,87 @@
+name: Production D1 Breeds 0174 (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Audit = read-only; Apply = install the exact additive 0174 schema"
+        type: choice
+        required: true
+        default: audit
+        options: [audit, apply]
+      confirmation:
+        description: "AUDIT-0174-psipedia-sk-db or APPLY-0174-psipedia-sk-db"
+        type: string
+        required: true
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  breed-0174:
+    name: Owner-only exact-file SQL 0174 schema audit/apply
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: production
+    env:
+      BREED_0174_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Refuse automatic or non-main dispatch
+        env:
+          MODE: ${{ inputs.mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY" = investradarsk/psipedia-sk
+          test -n "$CLOUDFLARE_API_TOKEN"
+          case "$MODE" in
+            audit) test "$BREED_0174_CONFIRMATION" = AUDIT-0174-psipedia-sk-db ;;
+            apply) test "$BREED_0174_CONFIRMATION" = APPLY-0174-psipedia-sk-db ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Must match latest main to touch production D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - run: npm ci
+      - name: Verify D1 0174 isolated safety and SQLite migration tests
+        run: |
+          node --check scripts/production-d1-breed-0174.mjs
+          npm run db:check-migrations
+          node --test tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-backfill.test.mjs tests/production-d1-breed-0174.test.mjs
+      - name: Select canonical Cloudflare production account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -p 'require("./config/cloudflare-resources.json").account_id')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Owner-selected audit or schema-only 0174 apply
+        env:
+          MODE: ${{ inputs.mode }}
+        run: node scripts/production-d1-breed-0174.mjs "$MODE"
+      - name: Upload schema-only sanitized report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: breed-d1-0174-${{ github.run_id }}
+          path: .production-d1-breed-0174/report.json
+          retention-days: 30
+          if-no-files-found: ignore
