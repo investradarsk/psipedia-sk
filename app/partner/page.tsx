@@ -14,6 +14,9 @@ export const dynamic = "force-dynamic";
 function resourceTypeLabel(type: PartnerManagedResource["entityType"]) {
   if (type === "MANAGED_EVENT") return "Podujatie";
   if (type === "HELP_ORGANIZATION") return "Organizácia na pomoc psom";
+  if (type === "ADOPTION_DOG") return "Adopcia";
+  if (type === "LOST_FOUND_DOG") return "Stratený alebo nájdený pes";
+  if (type === "HELP_CASE") return "Pomoc psom";
   return "Služby pre psov";
 }
 
@@ -83,9 +86,9 @@ export default async function PartnerHomePage() {
                 <h3>{item.name}</h3>
                 <p>{partnerResourceStatusLabel(item.status)}</p>
                 <div className="partner-dashboard-record-actions">
-                  <Link className="button button--dark" href={resourceEditHref(item)}>
+{["DIRECTORY_PROFILE","HELP_ORGANIZATION","MANAGED_EVENT"].includes(item.entityType) ? <Link className="button button--dark" href={resourceEditHref(item)}>
                     {item.entityType === "MANAGED_EVENT" ? "Upraviť podujatie" : "Upraviť profil"}
-                  </Link>
+                  </Link> : <span>Správa schválená · editor sa pripravuje</span>}
                   {item.publicHref ? <Link href={item.publicHref} target="_blank" rel="noopener noreferrer">Verejný záznam ↗</Link> : null}
                 </div>
               </article>
