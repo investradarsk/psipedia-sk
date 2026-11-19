@@ -57,7 +57,14 @@ export const breedEditorialText = sqliteTable("breed_editorial_text", {
   otherDogsLife: text("other_dogs_life"),
   curiosities: text("curiosities"),
   commonOwnerMistakes: text("common_owner_mistakes"),
-});
+  exerciseTip: text("exercise_tip"),
+  trainingTip: text("training_tip"),
+  healthTip: text("health_tip"),
+  coatTip: text("coat_tip"),
+  heroTraitsJson: text("hero_traits_json"),
+}, (table) => [
+  check("breed_editorial_hero_traits_json_array", sql`${table.heroTraitsJson} IS NULL OR CASE WHEN json_valid(${table.heroTraitsJson}) THEN json_type(${table.heroTraitsJson})='array' ELSE 0 END`),
+]);
 
 export const breedPublicFacts = sqliteTable("breed_public_facts", {
   breedId: integer("breed_id").primaryKey()
