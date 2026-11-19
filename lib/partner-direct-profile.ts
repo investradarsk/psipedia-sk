@@ -111,10 +111,20 @@ export async function savePartnerManagedProfile(input: {
       );
     }
     const hoursEdited=Object.hasOwn(effectivePatch,"openingHours");
-    if(plans.length || hoursEdited){
+    const galleryEdited=Object.hasOwn(effectivePatch,"galleryUrls");
+    // Only explicit partner edits project to 0173; omitted fields are never
+    // cleared. This includes gallery additions from newly approved media.
+    const editorialMirror=hoursEdited || galleryEdited
+      ?planDirectory0173EditorialSqlMirror({
+        identity:{kind:"id",profileId:canonical.canonicalId,
+          updatedAt:nowIso,actor:actorRef},
+        ...(hoursEdited?{openingHoursText:String(effectivePatch.openingHours??"")}:{}),
+        ...(galleryEdited?{galleryUrls:effectivePatch.galleryUrls as readonly string[]}:{}),
+      }):[];
+    if(plans.length || editorialMirror.length){
       // Exactly one canonical CAS assertion, immediately after the profile
-      // UPDATE and before ALL 0170/0173 projections. SQL hours must not drift
-      // even when the partner changes only one free-text hours field.
+      // UPDATE and before ALL 0170/0173 projections. An absent field never
+      // clears a relation, even if another writer changed it meanwhile.
       const guard=plans.length?plans[0][0]:{
         sql:"SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', char(36)) END AS cas_ok",
         bindings:[] as string[],
@@ -122,17 +132,8 @@ export async function savePartnerManagedProfile(input: {
       statements.push(database.prepare(guard.sql).bind(...guard.bindings));
       for(const plan of plans)for(const item of plan.slice(1))
         statements.push(database.prepare(item.sql).bind(...item.bindings));
-      if(hoursEdited){
-        // Explicit '' clears SQL day 0; omission never touches SQL hours.
-        // Preserve shifts/notes literally, without inventing weekday rows.
-        const hours=planDirectory0173EditorialSqlMirror({
-          identity:{kind:"id",profileId:canonical.canonicalId,
-            updatedAt:nowIso,actor:actorRef},
-          openingHoursText:String(effectivePatch.openingHours??""),
-        });
-        for(const item of hours)
-          statements.push(database.prepare(item.sql).bind(...item.bindings));
-      }
+      for(const item of editorialMirror)
+        statements.push(database.prepare(item.sql).bind(...item.bindings));
     }
   }
   const table=canonical.entityType==="DIRECTORY_PROFILE"?"directory_profiles":"help_organizations";
