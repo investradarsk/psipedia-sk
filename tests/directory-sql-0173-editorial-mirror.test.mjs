@@ -118,6 +118,55 @@ test("Stale edit cannot delete a newer breeder gallery; creation uses unique slu
   assert.equal(db.prepare("SELECT image_url FROM directory_profile_media WHERE profile_id=2").get().image_url,"/media/a.webp");
  }finally{db.close()}
 });
+
+test("Opening hours 0173 sidecar preserves complete free-form schedules and intentional clears",()=>{
+ const db=fixture();
+ try{
+  const who={kind:"id",profileId:1,updatedAt:"T1",actor:"admin"};
+  const hours="Po–Pi 09:00–12:00; 13:00–18:00\\nSviatky: podľa dohody";
+  apply(db,{identity:who,openingHoursText:hours});
+  let rows=db.prepare("SELECT * FROM directory_profile_opening_hours WHERE profile_id=1").all();
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].day_of_week,0);
+  assert.equal(rows[0].hours_text,hours);
+  assert.equal(rows[0].updated_at,"T1");
+  assert.equal(rows[0].updated_by,"admin");
+  // An unrelated SEO save never clears hours, nor does a stale actor.
+  apply(db,{identity:who,seo:{title:"Only SEO"}});
+  apply(db,{identity:{...who,actor:"notion"},openingHoursText:"Overwritten"});
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=1").get().hours_text,hours);
+  apply(db,{identity:who,openingHoursText:""});
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM directory_profile_opening_hours WHERE profile_id=1").get().n,0);
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM directory_profile_opening_hours WHERE profile_id=2").get().n,0);
+ }finally{db.close()}
+});
+test("Opening hours SQL mirror honors category-slug inserts, missing fields and invalid values",()=>{
+ const db=fixture();
+ try{
+  const who={kind:"category-slug",category:"veterinari",slug:"druhy",updatedAt:"T1",actor:"admin"};
+  apply(db,{identity:who,openingHoursText:"Na objednávku"});
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=2").get().hours_text,"Na objednávku");
+  apply(db,{identity:who,qualifications:["No hours edit"]});
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=2").get().hours_text,"Na objednávku");
+  apply(db,{identity:{...who,updatedAt:"stale"},openingHoursText:""});
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=2").get().hours_text,"Na objednávku");
+  for(const value of [null,42,"x".repeat(2001)]) assert.throws(
+    ()=>planDirectory0173EditorialSqlMirror({identity:who,openingHoursText:value}),
+    /DIRECTORY_0173_INVALID_OPENING_HOURS/
+  );
+ }finally{db.close()}
+});
+test("Admin, Notion and moderated partner hours all use 0173 SQL without switching readers",()=>{
+ const notion=readFileSync(new URL("../lib/notion-directory-sync.ts",import.meta.url),"utf8");
+ const partner=readFileSync(new URL("../lib/partner-profile-changes-admin.ts",import.meta.url),"utf8");
+ assert.match(notion,/planDirectory0173EditorialSqlMirror/);
+ assert.match(notion,/openingHoursText: trimmed/);
+ assert.match(notion,/canonical, \.\.\.guard,[\\s\\S]*\.\.\.factMirror[\\s\\S]*\.\.\.hoursMirror/);
+ assert.match(partner,/Object\.hasOwn\(effectivePatch, "openingHours"\)/);
+ assert.match(partner,/planDirectory0173EditorialSqlMirror/);
+ assert.match(partner,/\.\.\.canonicalStatements/);
+});
+
 test("Admin breeder editor only sends explicit normalized gallery to the canonical 0173 batch",()=>{
  const source=readFileSync(new URL("../lib/directory-store.ts",import.meta.url),"utf8");
  assert.match(source,/payload\.galleryUrls !== undefined && input\.category === "chovatelske-stanice"/);
