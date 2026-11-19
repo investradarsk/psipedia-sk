@@ -396,7 +396,9 @@ export async function getPublicAdoptionBySlug(slug: string, database?: AdoptionD
 }
 
 export async function listPublishedAdoptionBreedOptions(database?: AdoptionD1Database): Promise<AdoptionBreedOptionsResult> {
-  return readCanonicalBreedOptions(database ?? getD1Binding());
+  return readCanonicalBreedOptions(database ?? getD1Binding(),{
+    sqlPrimary:(env as {BREED_SQL_V2_READ_MODE?:string}).BREED_SQL_V2_READ_MODE==="sql",
+  });
 }
 
 export async function listPublicAdoptions(filters: AdoptionPublicQueryFilters = {}, database?: AdoptionD1Database) {
