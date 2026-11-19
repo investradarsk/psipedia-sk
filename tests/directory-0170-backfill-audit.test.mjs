@@ -119,10 +119,25 @@ test("report contains only counts and sample IDs, never raw private field values
   assert.equal(report.byCategory.veterinari.profiles,2);
   assert.equal(report.byCategory.veterinari.notionMapped,1);
   assert.equal(report.issues["contact:public_phone_legacy_only_unverified"],1);
+  assert.equal(report.issuesByCategory.veterinari["contact:public_phone_legacy_only_unverified"],1);
+  assert.equal(report.issuesByCategory.veterinari["contact:public_email_legacy_only_unverified"],1);
   assert.deepEqual(report.sampleProfileIds["contact:public_phone_legacy_only_unverified"],[17]);
   assert(!JSON.stringify(report).includes("VERY-PRIVATE"));
   assert(!JSON.stringify(report).includes("PRIVATE@example"));
 });
+test("field discrepancies are counted separately by Directory category",()=>{
+  const results=aggregateDirectory0170Rows([
+    row({id:1,category:"veterinari",website_url:"",source_data_json:JSON.stringify({Web:"https://old.example.invalid"})}),
+    row({id:2,category:"treneri",website_url:null,source_data_json:JSON.stringify({"Webstránka":"https://other.example.invalid"})}),
+  ]);
+  assert.equal(results.issues["contact:website_url_explicit_clear_vs_legacy"],1);
+  assert.equal(results.issues["contact:website_url_legacy_only_unverified"],1);
+  assert.equal(results.issuesByCategory.veterinari["contact:website_url_explicit_clear_vs_legacy"],1);
+  assert.equal(results.issuesByCategory.treneri["contact:website_url_legacy_only_unverified"],1);
+  assert.equal(results.issuesByCategory.treneri["contact:website_url_explicit_clear_vs_legacy"],undefined);
+  assert(!JSON.stringify(results).includes("other.example"));
+});
+
 test("audit script contains no database write commands or Notion API calls",()=>{
   const content=readFileSync(new URL("../scripts/directory-0170-backfill-readonly.mjs",import.meta.url),"utf8");
   assert.match(content,/DIRECTORY_0170_BACKFILL_CONFIRMATION/);
