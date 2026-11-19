@@ -35,7 +35,7 @@ function fixture() {
   }
   const database = {
     prepare(sql) {
-      return { bind(...bindings) { return { sql, bindings }; } };
+      return { sql, bindings:[], bind(...bindings) { return { sql, bindings }; } };
     },
   };
   const apply = statement => sqlite.prepare(statement.sql).run(...statement.bindings);
@@ -162,6 +162,95 @@ test("partner grant writes SQL review state only for active matching owner",()=>
     assert.equal(f.apply(partnerDirectory0173ReviewSqlMirrorStatement(args)).changes,0);
     assert.equal(f.review(1).reviewed_at,source._psipedia_profile_review_reviewed_at);
   }finally{f.sqlite.close();}
+});
+
+test("legacy pending owner unlock finalization atomically updates SQL 0173 and preserves unrelated source fields",()=>{
+  const f=fixture();
+  try{
+    const pending={
+      _psipedia_profile_review_unlock_pending:"1",
+      _psipedia_profile_review_notion_synced:"1",
+      "Pošta":"nezmenené",
+    };
+    f.writeLegacy(1,pending,"T2","owner@example.invalid");
+    f.apply(directory0173ReviewSqlMirrorStatement({
+      database:f.database,profileId:1,sourceDataJson:JSON.stringify(pending),
+      profileUpdatedAt:"T2",projectedAt:"T2",projectedBy:"admin",
+    }));
+    assert.equal(f.review(1).unlock_pending,1);
+    assert.equal(isDirectoryReviewedSourceLocked(JSON.stringify(pending)),true);
+    const cleared={...pending};
+    delete cleared._psipedia_profile_review_unlock_pending;
+    const canonicalSql="UPDATE directory_profiles SET source_data_json=? "+
+      "WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id";
+    f.sqlite.exec("BEGIN");
+    try{
+      const result=f.sqlite.prepare(canonicalSql).get(
+        JSON.stringify(cleared),1,JSON.stringify(pending),"T2",
+      );
+      assert.equal(result.id,1);
+      f.sqlite.prepare(directory0173ReviewCasGuardStatement(f.database).sql).get();
+      const mirror=directory0173ReviewSqlMirrorStatement({
+        database:f.database,profileId:1,sourceDataJson:JSON.stringify(cleared),
+        profileUpdatedAt:"T2",projectedAt:"T3",projectedBy:"notion-directory-sync@psipedia.sk",
+      });
+      f.apply(mirror);
+      f.sqlite.exec("COMMIT");
+    }catch(error){f.sqlite.exec("ROLLBACK");throw error;}
+    assert.equal(f.review(1).unlock_pending,0);
+    assert.equal(f.review(1).reviewed_at,null);
+    assert.equal(f.review(1).updated_at,"T3");
+    assert.equal(f.review(1).updated_by,"notion-directory-sync@psipedia.sk");
+    const saved=JSON.parse(f.sqlite.prepare("SELECT source_data_json FROM directory_profiles WHERE id=1").get().source_data_json);
+    assert.equal(saved["Pošta"],"nezmenené");
+    assert.equal(saved._psipedia_profile_review_unlock_pending,undefined);
+    assert.equal(isDirectoryReviewedSourceLocked(JSON.stringify(saved)),false);
+    assert.equal(f.review(2),undefined);
+  }finally{f.sqlite.close();}
+});
+
+test("stale owner-unlock CAS rolls back SQL and keeps pending lock, never reports partial unlock",()=>{
+  const f=fixture();
+  try{
+    const pending={_psipedia_profile_review_unlock_pending:"1"};
+    f.writeLegacy(1,pending,"T2","admin");
+    f.apply(directory0173ReviewSqlMirrorStatement({
+      database:f.database,profileId:1,sourceDataJson:JSON.stringify(pending),
+      profileUpdatedAt:"T2",projectedAt:"T2",projectedBy:"admin",
+    }));
+    const baseline=JSON.stringify(pending);
+    const wrong={...pending,_psipedia_profile_review_unlock_pending:"0"};
+    f.sqlite.exec("BEGIN");
+    try{
+      const changed=f.sqlite.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id")
+        .get(JSON.stringify({}),1,JSON.stringify(wrong),"T2");
+      assert.equal(changed,undefined);
+      const cas=directory0173ReviewCasGuardStatement(f.database);
+      assert.throws(()=>f.sqlite.prepare(cas.sql).get(),/malformed JSON/);
+      f.sqlite.exec("ROLLBACK");
+    }catch(error){f.sqlite.exec("ROLLBACK");throw error;}
+    assert.equal(f.sqlite.prepare("SELECT source_data_json FROM directory_profiles WHERE id=1").get().source_data_json,baseline);
+    assert.equal(f.review(1).unlock_pending,1);
+    assert.equal(isDirectoryReviewedSourceLocked(baseline),true);
+  }finally{f.sqlite.close();}
+});
+
+test("Notion legacy unlock finalizer mirrors SQL only after verified remote owner writeback",()=>{
+  const notion=load("lib/notion-directory-sync.ts");
+  const start=notion.indexOf("async function completeDirectoryReviewedOwnerUnlock(");
+  const end=notion.indexOf("function fullProfileInput(",start);
+  const finalizer=notion.slice(start,end);
+  assert(start>0 && end>start);
+  assert.match(finalizer,/await writeProfileToNotion\(\{/);
+  assert.match(finalizer,/ownerUnlock: true/);
+  assert.match(finalizer,/directory0173ReviewSqlMirrorStatement\(\{/);
+  assert.match(finalizer,/directory0173ReviewCasGuardStatement\(input\.database\)/);
+  assert.match(finalizer,/input\.database\.batch\(\[/);
+  assert.match(finalizer,/AND source_data_json=\? AND updated_at=\? RETURNING id/);
+  assert.ok(finalizer.indexOf("await writeProfileToNotion(") <
+    finalizer.indexOf("delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY]"));
+  assert.ok(finalizer.indexOf("delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY]") <
+    finalizer.indexOf("input.database.batch("));
 });
 
 test("review writer paths are atomic and all legacy Notion lock predicates stay active",()=>{

@@ -7,6 +7,7 @@ import {
 } from "./directory-reviewed-sync-lock";
 import { approvedDirectoryFactSqlSlot, directoryNotionFacetRequiresSqlMirror, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
+import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directorySecondaryCategoriesSqlConfirmed, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
@@ -864,12 +865,27 @@ async function completeDirectoryReviewedOwnerUnlock(input: {
   try { source = JSON.parse(state.source_data_json) as Record<string, unknown>; }
   catch { throw new Error("DIRECTORY_REVIEW_UNLOCK_SOURCE_INVALID"); }
   delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY];
-  const saved = await input.database.prepare(
+  // The finalizer is an exceptional owner-authorized operation. Its legacy
+  // JSON lock stays authoritative until this exact CAS succeeds; then 0173
+  // must reflect that very same committed snapshot, not an old pending flag.
+  const projectedAt = new Date().toISOString();
+  const nextSourceJson = JSON.stringify(source);
+  const canonical = input.database.prepare(
     "UPDATE directory_profiles SET source_data_json=? " +
     "WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id",
-  ).bind(JSON.stringify(source), input.profileId, state.source_data_json, state.updated_at)
-    .first<{ id: number }>();
-  if (!saved) throw new Error("DIRECTORY_REVIEW_UNLOCK_CONCURRENT_CHANGE");
+  ).bind(nextSourceJson, input.profileId, state.source_data_json, state.updated_at);
+  const mirror = directory0173ReviewSqlMirrorStatement({
+    database: input.database, profileId: input.profileId,
+    sourceDataJson: nextSourceJson, profileUpdatedAt: state.updated_at,
+    projectedAt, projectedBy: SYSTEM_ACTOR,
+  });
+  // A stale D1 revision fails closed with a SQL error: neither the source
+  // lock nor its SQL projection is partially committed.
+  const responses = await input.database.batch([
+    canonical, directory0173ReviewCasGuardStatement(input.database), mirror,
+  ]);
+  if (!(responses[0]?.results?.[0] as { id?: number } | undefined)?.id)
+    throw new Error("DIRECTORY_REVIEW_UNLOCK_CONCURRENT_CHANGE");
   return true;
 }
 
