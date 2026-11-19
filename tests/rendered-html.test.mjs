@@ -169,6 +169,11 @@ function createAdminMockDatabase() {
         reviewed_at: "",
       }];
     }
+    // Mock the real lightweight paged Admin query independent of its ORDER BY aliases.
+    if (/SELECT id, slug, name, excerpt, category, status, services_json/i.test(normalized)
+      && /FROM directory_profiles(?: WHERE [^;]*)? ORDER BY [^;]* LIMIT \? OFFSET \?/i.test(normalized)) {
+      return [{...profileRow,reviewed_at:""}];
+    }
     if (/FROM directory_profiles WHERE status = 'published'.*LIMIT \?/i.test(normalized)) return [profileRow];
     if (/FROM directory_profiles WHERE status = 'published'.*category = \?.*slug = \?.*LIMIT 1/i.test(normalized)) return [profileRow];
     if (/SELECT \* FROM managed_articles WHERE id = \?/i.test(normalized)) return [articleRow];
