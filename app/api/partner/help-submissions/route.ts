@@ -8,6 +8,7 @@ export async function POST(request: Request) {
   try {
     assertPartnerJsonMutation(request);
     const identity = await requirePartnerAccount({ cookieHeader: request.headers.get("cookie") });
+    if (!identity.onboardingComplete) throw new PartnerHelpCreateError("Najprv dokončite kontaktné údaje účtu.", 403);
     const body = await request.json() as Record<string, unknown>;
     const submission = await submitPartnerHelpCreate({
       accountId: identity.accountId, resourceType: body.resourceType, payload: body.payload,
