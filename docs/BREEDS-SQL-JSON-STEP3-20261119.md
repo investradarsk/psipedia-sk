@@ -14,9 +14,9 @@ Keby sme vložili 0174 do `drizzle/` už teraz, CI by správne zlyhala na chýba
 
 ## Presný obsah SQL 0174
 
-### 7 nových nullable stĺpcov `managed_breeds`
+### 8 nových nullable stĺpcov `managed_breeds`
 
-`seo_title`, `seo_description`, `seo_focus_keyword`, `seo_canonical_url`, `seo_og_title`, `seo_og_description`: `TEXT NULL`.
+`seo_title`, `seo_description`, `seo_focus_keyword`, `seo_canonical_url`, `seo_og_title`, `seo_og_description`, `seo_og_image`: `TEXT NULL`.
 `seo_noindex`: `INTEGER NULL CHECK (seo_noindex IN (0,1))`.
 
 **Prečo NULL:** zatiaľ nie sú presunuté hodnoty. `NULL` = neskopírované, `''` = výslovne vymazaný text a `0` = explicitný indexovateľný obsah. Starý `seo_json` ostáva autoritou počas prípravy. Verejná canonical SQL podmienka a sitemap sa v kroku 3 nemenia.
@@ -57,6 +57,6 @@ node --test tests/breed-storage-decision.test.mjs
 npm run db:check-migrations
 ```
 
-SQLite fixture v teste má **347 existujúcich plemien** a reálne JSON výseky; overí zachovanie každého existujúceho poľa, všetkých 7 nullable SEO stĺpcov, 4 prázdne tabuľky, 33 FCI polí, 6 redakčných polí, 6 čísel, 3 JSON multi-selecty a FK/unikátnosť/prepojenia.
+SQLite fixture v teste má **347 existujúcich plemien** a reálne JSON výseky; overí zachovanie každého existujúceho poľa, všetkých 8 nullable SEO stĺpcov, 4 prázdne tabuľky, 33 FCI polí, 6 redakčných polí, 6 čísel, 3 JSON multi-selecty a FK/unikátnosť/prepojenia.
 
 **Nepúšťaj `pending-migrations/0174_breeds_sql_json_foundation.sql` ručne do produkčnej Cloudflare Console pred vyriešením 0171–0173.**
