@@ -69,6 +69,24 @@ export function planDirectory0170FactSqlMirror(input: {
   ];
 }
 
+
+/**
+ * A signed Notion filter edit is a no-op only when BOTH storage projections
+ * already agree with it. The public provider facet may read 0170 SQL first,
+ * so comparing just the historic JSON can leave a stale SQL choice visible.
+ * For a deliberate clear, absence in both places is required.
+ */
+export function directoryNotionFacetRequiresSqlMirror(input: {
+  source: Record<string, unknown>;
+  key: string;
+  sqlValue: string | null;
+  selected: string | null;
+}): boolean {
+  if (input.selected === null)
+    return Object.hasOwn(input.source, input.key) || input.sqlValue !== null;
+  return input.source[input.key] !== input.selected || input.sqlValue !== input.selected;
+}
+
 export function planDirectory0170FilterSqlMirror(input: {
   profileId: number; category: ServiceFilterCategory;
   /** null is an explicit cleared Notion select; omitted IDs are unchanged. */
