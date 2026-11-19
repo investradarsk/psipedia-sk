@@ -128,7 +128,7 @@ export function normalizeHelpEditorPatch(type: HelpEditorType, raw: unknown, all
     if (!field) throw new HelpEditorValidationError("Toto pole nie je možné upraviť: "+key+".");
     if (field.kind === "checkbox" || field.kind === "nullableBoolean") {
       if (typeof value !== "boolean" && !(field.kind === "nullableBoolean" && value === null)) throw new HelpEditorValidationError("Neplatná hodnota: "+field.label+".");
-      result[key] = value;
+      result[key] = value as boolean | null;
     } else if (field.kind === "number") {
       const n = value === "" || value === null ? null : value;
       if (n !== null && (typeof n !== "number" || !Number.isFinite(n) || n < (field.minimum ?? 0) || n > (field.maximum ?? Infinity))) {
