@@ -118,7 +118,45 @@ export function classifyDirectory0170Row(row) {
   const categories = parseArray(row.sql_categories);
   const facts = parseArray(row.sql_facts);
   const filters = parseArray(row.sql_filters);
-  if (!categories || !facts || !filters) issue("source","invalid_relation_aggregate");
+  const services = parseArray(row.sql_services);
+  if (!categories || !facts || !filters || !services)
+    issue("source","invalid_relation_aggregate");
+  if (services) {
+    // V3 is canonical by option ID; old "Služby" free text must never be
+    // promoted into or compared as equivalent to these explicit YES/NO rows.
+    const known = new Set();
+    const yes = new Set();
+    for (const selection of services) {
+      if (!selection || typeof selection.option_id !== "string" ||
+          !/^(svc|attr)\.[a-z0-9._-]+$/.test(selection.option_id) ||
+          !["yes","no"].includes(selection.choice) ||
+          !Number.isSafeInteger(selection.version) || selection.version < 1 ||
+          known.has(selection.option_id)) {
+        issue("service","invalid_choice_row");
+        continue;
+      }
+      known.add(selection.option_id);
+      if (selection.choice === "yes" && selection.option_id.startsWith("svc."))
+        yes.add(selection.option_id);
+    }
+    if (row.sql_service_baseline !== null) {
+      const baseline = parseArray(row.sql_service_baseline);
+      if (!baseline || baseline.some(id => typeof id !== "string" ||
+          !id.startsWith("svc.")) || new Set(baseline).size !== baseline.length) {
+        issue("service","invalid_notion_baseline");
+      } else if (baseline.length !== yes.size ||
+                 baseline.some(id => !yes.has(id))) {
+        // A changed D1 selection may be awaiting a Notion retry; do not
+        // attempt to overwrite either side or assert that one is stale.
+        issue("service","notion_baseline_differs_review");
+      }
+      if (Number(row.notion_mapped) !== 1 ||
+          row.sql_baseline_notion_page_id !== row.notion_page_id)
+        issue("service","notion_baseline_mapping_mismatch");
+    } else if (Number(row.notion_mapped) === 1 && yes.size > 0) {
+      issue("service","notion_baseline_missing_review");
+    }
+  }
   // Facts and select filters may belong to a SECONDARY membership as well.
   // Use both legacy and SQL membership when auditing; never silently treat
   // a legitimate second-category value as an unregistered SQL field.
@@ -134,6 +172,12 @@ export function classifyDirectory0170Row(row) {
   }
   if (source && categories) {
     const key = "_psipedia_additional_categories";
+    // The SQL empty set is ambiguous until an explicit checkbox save confirms
+    // it. Never treat identical [] / [] as proof of completed SQL cutover.
+    const sqlConfirmed = source._psipedia_additional_categories_sql_confirmed === "1";
+    if (!sqlConfirmed) issue("category","sql_membership_unconfirmed");
+    if (sqlConfirmed && categories.length === 0 && source[key] === undefined)
+      issue("category","confirmed_empty_missing_source_evidence");
     let old = [];
     if (own(source,key)) {
       const parsed = typeof source[key] === "string" ? parseArray(source[key]) : null;
@@ -248,8 +292,8 @@ function select(sql) {
   return batches.flatMap(x => x.results);
 }
 function state() {
-  const tables = select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('directory_profiles','directory_notion_sync','directory_profile_additional_categories','directory_profile_public_facts','directory_profile_filter_values')");
-  must(tables.length === 5, "MISSING_SCHEMA");
+  const tables = select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('directory_profiles','directory_notion_sync','directory_profile_additional_categories','directory_profile_public_facts','directory_profile_filter_values','service_profile_option_choices','directory_service_notion_relation_sync')");
+  must(tables.length === 7, "MISSING_SCHEMA");
   const columns = select("SELECT name FROM pragma_table_info('directory_profiles') WHERE name IN ('website_url','public_phone','public_email','facebook_url','instagram_url','source_data_json')");
   must(columns.length === 6,"MISSING_COLUMNS");
   const row = select("SELECT COUNT(*) AS profiles,COALESCE(MAX(id),0) AS max_id,COALESCE(SUM(id),0) AS id_sum,COALESCE(SUM(length(source_data_json)),0) AS json_chars,COALESCE(MAX(updated_at),'') AS latest_update FROM directory_profiles")[0];
@@ -260,6 +304,10 @@ const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_j
   "(SELECT json_group_array(category) FROM directory_profile_additional_categories WHERE profile_id=p.id) AS sql_categories,"+
   "(SELECT json_group_array(json_object('field_key',field_key,'value_text',value_text)) FROM directory_profile_public_facts WHERE profile_id=p.id) AS sql_facts,"+
   "(SELECT json_group_array(json_object('category',category,'filter_id',filter_id,'value_text',value_text)) FROM directory_profile_filter_values WHERE profile_id=p.id) AS sql_filters,"+
+  "(SELECT json_group_array(json_object('option_id',option_id,'choice',choice,'version',version)) FROM service_profile_option_choices WHERE profile_id=p.id) AS sql_services,"+
+  "(SELECT confirmed_ids_json FROM directory_service_notion_relation_sync WHERE directory_profile_id=p.id) AS sql_service_baseline,"+
+  "(SELECT notion_page_id FROM directory_service_notion_relation_sync WHERE directory_profile_id=p.id) AS sql_baseline_notion_page_id,"+
+  "(SELECT notion_page_id FROM directory_notion_sync WHERE directory_profile_id=p.id) AS notion_page_id,"+
   "CASE WHEN EXISTS(SELECT 1 FROM directory_notion_sync WHERE directory_profile_id=p.id) THEN 1 ELSE 0 END AS notion_mapped "+
   "FROM directory_profiles p WHERE p.id>"+cursor+" ORDER BY p.id LIMIT "+PAGE_SIZE;
 function run() {
@@ -303,7 +351,9 @@ function run() {
     snapshot:"best_effort_live_keyset_scan", stableAggregates:stable,
     scanned, baselineProfiles:Number(before.profiles), endProfiles:Number(after.profiles),
     byCategory,issues,issuesByCategory,sampleProfileIds,
-    nextStep:"review evidence and timestamps per field; this audit never approves backfill",
+    v3CanonicalSqlAudited:true, additionalCategoryEmptyConfirmedSeparately:true,
+    v3NotionBaselineIsReceiptOnly:true, legacyServicesTextNotEquivalent:true,
+    nextStep:"review 0170 category/fact/filter and V3 relation evidence; never infer backfill or SQL-only readiness from absent rows",
   };
   writeFileSync(REPORT,JSON.stringify(report,null,2)+"\n");
   console.log(JSON.stringify({
