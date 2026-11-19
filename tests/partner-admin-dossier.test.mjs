@@ -73,7 +73,10 @@ function setup() {
       ('audit-owner','MEMBERSHIP_CREATED','PARTNER','partner:partner-a','PARTNER_RESOURCE','r1','2026-11-15T10:00:00Z'),
       ('audit-admin','NEW_PROFILE_CREATED','ADMIN','admin:owner','MODERATION_SUBMISSION','new-a','2026-11-18T21:00:00Z'),
       ('audit-claim','CLAIM_APPROVED','ADMIN','admin:owner','PARTNER_HELP_CLAIM','help-a-approved','2026-11-18T22:00:00Z'),
-      ('audit-other','CLAIM_APPROVED','ADMIN','admin:owner','MODERATION_SUBMISSION','other','2026-11-19T09:00:00Z');
+      ('audit-other','CLAIM_APPROVED','ADMIN','admin:owner','MODERATION_SUBMISSION','other','2026-11-19T09:00:00Z'),
+      ('audit-claim-user','CLAIM_APPROVED','ADMIN','admin:owner','PARTNER_CLAIM','claim-a','2026-11-19T09:01:00Z'),
+      ('audit-verification','VERIFICATION_VERIFIED','ADMIN','admin:owner','PARTNER_RESOURCE_VERIFICATION','verify-a','2026-11-19T09:02:00Z'),
+      ('audit-membership','MEMBERSHIP_REVOKED','ADMIN','admin:owner','PARTNER_MEMBERSHIP','membership-old','2026-11-19T09:03:00Z');
   `);
   return {sqlite,db:fakeD1(sqlite)};
 }
@@ -141,8 +144,10 @@ test("dossier: history includes partner actions and admin decisions for their su
   const {sqlite,db}=setup();
   try{
     const history=await listPartnerAccountDossierHistory("partner-a",db);
-    assert.equal(history.total,3);
-    assert.deepEqual(new Set(history.items.map(row=>row.id)),new Set(["audit-owner","audit-admin","audit-claim"]));
+    assert.equal(history.total,6);
+    assert.deepEqual(new Set(history.items.map(row=>row.id)),new Set([
+      "audit-owner","audit-admin","audit-claim","audit-claim-user","audit-verification","audit-membership",
+    ]));
     assert.equal((await listPartnerAccountDossierHistory("partner-b",db)).total,0);
   }finally{sqlite.close();}
 });
