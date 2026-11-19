@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {
-  breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements,
+  breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements,breedSqlV2NewBreedStatements,
   breedSqlV2DirectFieldStatements,breedSqlV2ControlledStatements,
   breedSqlV2CasGuard,
 } from "../lib/breed-sql-v2-writer.mjs";
@@ -156,5 +156,35 @@ test("controlled CAS updates only changed numbers/selections and keeps other fac
       ...breedSqlV2ControlledStatements(db,1,{heightMinCm:11}),
     ]),/malformed JSON/);
     assert.equal(sqlite.prepare("SELECT height_min_cm FROM breed_public_facts WHERE breed_id=1").get().height_min_cm,52.5);
+  }finally{sqlite.close()}
+});
+
+
+test("new-breed creation commits legacy row, FCI, editorial, SEO and related breeds in one transaction",async()=>{
+  const {sqlite,db}=fixture();
+  try{
+    const value={fciStandard:{oci:"Modré"},editorial:{overview:"Nové plemeno"},
+      seo:{title:"Nové",noindex:true},relatedBreedIds:[1,2]};
+    const statements=[
+      db.prepare("INSERT INTO managed_breeds (slug,updated_at,fci_standard_json,editorial_json,seo_json,related_breeds_json) VALUES (?,?,?,?,?,?)")
+        .bind("new-breed",newer,JSON.stringify(value.fciStandard),
+          JSON.stringify(value.editorial),JSON.stringify(value.seo),
+          JSON.stringify(value.relatedBreedIds)),
+      ...breedSqlV2NewBreedStatements(db,"new-breed",value),
+    ];
+    await db.batch(statements);
+    const newBreed=sqlite.prepare("SELECT id,seo_title,seo_noindex FROM managed_breeds WHERE slug='new-breed'").get();
+    assert.ok(newBreed.id>4);
+    assert.equal(newBreed.seo_title,"Nové");
+    assert.equal(newBreed.seo_noindex,1);
+    assert.equal(sqlite.prepare("SELECT fci_oci FROM breed_fci_standard WHERE breed_id=?").get(newBreed.id).fci_oci,"Modré");
+    assert.equal(sqlite.prepare("SELECT overview FROM breed_editorial_text WHERE breed_id=?").get(newBreed.id).overview,"Nové plemeno");
+    assert.deepEqual(sqlite.prepare("SELECT related_breed_id FROM breed_related_breeds WHERE breed_id=? ORDER BY position")
+      .all(newBreed.id).map(x=>x.related_breed_id),[1,2]);
+    const invalid=[db.prepare("INSERT INTO managed_breeds (slug,updated_at) VALUES (?,?)")
+        .bind("bad-breed",newer),
+      ...breedSqlV2NewBreedStatements(db,"bad-breed",{relatedBreedIds:[9999]})];
+    await assert.rejects(db.batch(invalid),/FOREIGN KEY/);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM managed_breeds WHERE slug='bad-breed'").get().n,0);
   }finally{sqlite.close()}
 });
