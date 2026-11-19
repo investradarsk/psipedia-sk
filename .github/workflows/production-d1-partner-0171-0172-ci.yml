@@ -9,6 +9,9 @@ on:
       - "tests/production-d1-partner-0171-0172.test.mjs"
       - ".github/workflows/production-d1-partner-0171-0172*.yml"
   workflow_dispatch:
+concurrency:
+  group: partner-d1-0171-0172-ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
