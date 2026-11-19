@@ -10,7 +10,7 @@ import {
   type DirectoryEnrichmentTarget,
 } from "./address-enrichment";
 import { evaluateDirectoryServiceAddress } from "./directory-service-address";
-import { readDirectoryPublicContacts } from "./directory-profile-metadata";
+import { readDirectorySqlBackedContacts } from "./directory-sql-contacts";
 
 type Database = Pick<D1Database, "prepare">;
 type RuntimeBindings = { DB?: D1Database };
@@ -76,7 +76,7 @@ function parseRaw(value: string) {
 }
 
 function targetFromRow(row: TargetRow): DirectoryEnrichmentTarget {
-  const contacts = readDirectoryPublicContacts(parseObject(row.source_data_json) as Record<string, string | number | null>, row.website_url ?? "");
+  const contacts = readDirectorySqlBackedContacts(parseObject(row.source_data_json) as Record<string, string | number | null>, row);
   return {
     id: Number(row.id),
     name: String(row.name ?? ""),
@@ -153,7 +153,7 @@ export async function auditDirectoryAddressInventory(dbInput?: Database): Promis
 async function loadTargets(limit: number, db: Database) {
   const rows = await db.prepare(`SELECT
       id,name,category,status,region,district,city,postal_code,street,house_number,address_format,
-      service_address_confirmation,online,address,website_url,source_data_json,updated_at
+      service_address_confirmation,online,address,website_url,public_phone,public_email,facebook_url,instagram_url,source_data_json,updated_at
     FROM directory_profiles
     WHERE status <> 'archived'
     ORDER BY
