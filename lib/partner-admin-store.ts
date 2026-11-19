@@ -6,6 +6,7 @@ import { ensureCanonicalResource } from "./canonical-resource";
 import { getPartnerContactProfile } from "./partner-contact-profile";
 import { getPartnerAuthMethodSummary } from "./partner-auth-methods";
 import { assertSingleActivePartnerManager } from "./partner-single-manager";
+import { ensurePartnerDirectoryReviewLock } from "./partner-directory-review";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 function db(database?: D1Database) { return getPartnerDatabase(database ?? (env as unknown as Bindings).DB); }
@@ -103,6 +104,26 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
   };
 }
 
+/** Current external manager for a directory record; decrypted only on the Admin server. */
+export async function getDirectoryPartnerOwnerAdmin(profileId: number, input: { database?: D1Database; encryptionKey?: string } = {}) {
+  const database=db(input.database);
+  const row=await database.prepare(`
+    SELECT m.id membershipId,m.account_id accountId,m.created_at grantedAt,
+      a.email_ciphertext emailCiphertext,a.status accountStatus
+    FROM partner_resources r
+    JOIN partner_memberships m ON m.resource_id=r.id
+    JOIN partner_accounts a ON a.id=m.account_id
+    WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=?1
+      AND m.revoked_at IS NULL
+    LIMIT 1
+  `).bind(profileId).first<{
+    membershipId:string;accountId:string;grantedAt:string;emailCiphertext:string;accountStatus:PartnerAccountStatus;
+  }>();
+  if(!row)return null;
+  const {emailCiphertext,...owner}=row;
+  return {...owner,email:await decryptPii(emailCiphertext,piiKey(input.encryptionKey))};
+}
+
 export async function getPartnerAdminSummary(database?:D1Database){
   const row=await db(database).prepare(`SELECT COUNT(*) accounts,
     SUM(status='ACTIVE') active,SUM(status='SUSPENDED') suspended,SUM(status='DEACTIVATED') deactivated,
@@ -198,6 +219,11 @@ export async function ensurePartnerOwnerMembershipAdmin(input:{
   const resource=await database.prepare("SELECT id FROM partner_resources WHERE id=?1 LIMIT 1").bind(input.resourceId).first<{id:string}>();
   if(!resource)throw new Error("Partner resource neexistuje.");
   await assertSingleActivePartnerManager({database,resourceId:input.resourceId,accountId:input.accountId});
+  // Lock D1 against Notion BEFORE any new partner access is granted.
+  // An existing lock stays locked after revocation; the owner can later unlock it manually.
+  await ensurePartnerDirectoryReviewLock({
+    database,resourceId:input.resourceId,adminEmail:input.adminEmail,now:input.now,
+  });
   const current=await database.prepare(
     "SELECT id,role FROM partner_memberships WHERE account_id=?1 AND resource_id=?2 AND revoked_at IS NULL LIMIT 1",
   ).bind(input.accountId,input.resourceId).first<{id:string;role:PartnerRole}>();
