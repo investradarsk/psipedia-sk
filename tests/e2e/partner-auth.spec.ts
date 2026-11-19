@@ -422,10 +422,19 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await editMunicipality.press("ArrowDown");
     await editMunicipality.press("Enter");
     await expect(editMunicipality).toHaveValue("Trnava");
-    await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
-    await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
+    // Approved OWNER edits bypass moderation, but must update the canonical
+    // record immediately and remain visible after reloading both views.
+    const directoryDirectSave = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === "/api/partner/direct-profiles/partner-resource-e2e-directory" &&
+      response.request().method() === "PATCH",
+    );
+    await page.getByRole("button", { name: "Uložiť zmeny" }).click();
+    expect((await directoryDirectSave).status()).toBe(200);
+    await expect(page.getByRole("status")).toContainText("Zmeny sú uložené v existujúcom profile.");
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "Obec / mesto" })).toHaveValue("Trnava");
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
-    await expect(page.getByText("Nitra", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Trnava", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("heading",{name:"Tento profil spravujete cez Partner účet."})).toBeVisible();
     await expect(page.getByRole("link",{name:"Upraviť profil"})).toHaveAttribute(
       "href",
@@ -473,19 +482,21 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     // Wait for controlled input handlers before editing the server-rendered field.
     await expect(page.locator(".partner-profile-edit-form")).toHaveAttribute("data-partner-edit-ready", "true");
     await page.getByLabel("Verejný telefón").fill("+421900333444");
-    await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
-    await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
+    const organizationDirectSave = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === "/api/partner/direct-profiles/partner-resource-e2e-organization" &&
+      response.request().method() === "PATCH",
+    );
+    await page.getByRole("button", { name: "Uložiť zmeny" }).click();
+    expect((await organizationDirectSave).status()).toBe(200);
+    await expect(page.getByRole("status")).toContainText("Zmeny sú uložené v existujúcom profile.");
+    await page.reload();
+    await expect(page.getByLabel("Verejný telefón")).toHaveValue("+421900333444");
     await page.goto("/partner/ziadosti");
+    // Direct OWNER saves must not create a second moderation proposal.
     const profileChangesSection=page.locator("section.partner-requests-section").filter({
       has: page.getByRole("heading",{name:"Úpravy profilov"}),
     });
-    const organizationChange=profileChangesSection.locator("article").filter({hasText:"Partner E2E Organizácia"});
-    await expect(organizationChange).toContainText("Čaká na kontrolu");
-    await expect(organizationChange).toContainText("Verejný telefón");
-    await expect(organizationChange).not.toContainText("publicPhone");
-    page.once("dialog", dialog => void dialog.accept());
-    await organizationChange.getByRole("button", { name: "Zrušiť návrh" }).click();
-    await expect(organizationChange).toContainText("Zrušené");
+    await expect(profileChangesSection.locator("article").filter({hasText:"Partner E2E Organizácia"})).toHaveCount(0);
     const newProfilesSection=page.locator("section.partner-requests-section").filter({
       has: page.getByRole("heading",{name:"Moje návrhy nových profilov"}),
     });
@@ -574,18 +585,24 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByLabel("Miesto").fill(changedVenue);
   await expect(page.getByLabel("Miesto")).toHaveValue(changedVenue);
   await expectNoHorizontalOverflow(page);
-  await page.getByRole("button",{name:"Odoslať zmeny na kontrolu"}).click();
-  await expect(page.getByRole("status")).toContainText("Zmeny podujatia sme prijali a čakajú na kontrolu.");
-
-  const canonicalBeforeUpdate=await page.request.get("/api/admin/events");
-  expect(canonicalBeforeUpdate.ok()).toBeTruthy();
-  const canonicalBeforeUpdateJson=await canonicalBeforeUpdate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
-  expect(canonicalBeforeUpdateJson.events?.find(item=>item.title===ownedEventTitle)?.venue).toBe(originalVenue);
+  const eventDirectSave = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.startsWith("/api/partner/direct-events/") &&
+    response.request().method() === "PATCH",
+  );
+  await page.getByRole("button",{name:"Uložiť zmeny"}).click();
+  expect((await eventDirectSave).status()).toBe(200);
+  await expect(page.getByRole("status")).toContainText("Zmeny podujatia boli uložené.");
+  const canonicalAfterUpdate=await page.request.get("/api/admin/events");
+  expect(canonicalAfterUpdate.ok()).toBeTruthy();
+  const canonicalAfterUpdateJson=await canonicalAfterUpdate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
+  const savedEvent=canonicalAfterUpdateJson.events?.find(item=>item.title===ownedEventTitle);
+  expect(savedEvent?.venue).toBe(changedVenue);
+  expect(savedEvent?.status).toBe(project==="desktop-chromium"?"published":"draft");
 
   await page.goto("/partner/ziadosti");
   const eventRequests=page.locator("section.partner-requests-section").filter({has:page.getByRole("heading",{name:"Návrhy podujatí"})});
   await expect(eventRequests.locator("article").filter({hasText:newEventTitle})).toContainText("Čaká na kontrolu");
-  await expect(eventRequests.locator("article").filter({hasText:ownedEventTitle})).toContainText("Čaká na kontrolu");
+  await expect(eventRequests.locator("article").filter({hasText:ownedEventTitle})).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/partner/ziadosti");
