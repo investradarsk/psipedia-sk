@@ -61,7 +61,7 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
   const normalizedQuery=filters.q.toLocaleLowerCase("sk");
 
   let total=0;
-  let pageRows:Array<AccountRow & {email:string}>=[];
+  let pageRows:Array<AccountRow & {email:string;contactName:string|null}>=[];
   if(!normalizedQuery){
     const [count,rows]=await Promise.all([
       database.prepare("SELECT COUNT(*) total FROM partner_accounts a"+where).bind(...values).first<{total:number}>(),
