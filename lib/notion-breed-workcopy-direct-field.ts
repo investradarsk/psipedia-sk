@@ -2,6 +2,9 @@ import { getManagedBreed, type ManagedBreed } from "@/lib/breed-store";
 import { normalizeBreedSearchText } from "@/lib/breed-fci";
 import { env } from "cloudflare:workers";
 import { summarizeBreedSqlV2Write } from "@/lib/breed-sql-v2-bridge.mjs";
+import {
+  breedSqlV2ShadowEnabled,breedSqlV2DirectFieldStatements,breedSqlV2CasGuard,
+} from "@/lib/breed-sql-v2-writer.mjs";
 import { breedFieldSnapshot } from "@/lib/notion-breed-field-delta";
 import {
   breedEventD1FieldPatch,breedEventNeedsSearchRefresh,
@@ -68,10 +71,24 @@ export async function saveBreedNotionField(input:{
     const next=versionAfter(before.updatedAt);
     const sql="UPDATE managed_breeds SET "+patch.assignments.join(",")+
       ",updated_at=?,updated_by=? WHERE id=? AND updated_at=? RETURNING id";
-    const result=await input.database.prepare(sql)
-      .bind(...patch.params,next,input.actor??actor,input.breedId,before.updatedAt)
-      .first<{id:number}>();
-    if (!result) continue; // Independent legitimate writer won this version.
+    if(breedSqlV2ShadowEnabled(env)){
+      // CAS + legacy JSON + the exact SQL v2 cell in ONE D1 transaction.
+      // The guard rolls back everything if an independent writer won.
+      const statements=[
+        input.database.prepare(sql)
+          .bind(...patch.params,next,input.actor??actor,input.breedId,before.updatedAt),
+        breedSqlV2CasGuard(input.database),
+        ...breedSqlV2DirectFieldStatements(input.database,input.breedId,
+          input.field,input.value),
+      ];
+      const result=await input.database.batch(statements);
+      if(result[0]?.results?.length!==1)continue;
+    }else{
+      const result=await input.database.prepare(sql)
+        .bind(...patch.params,next,input.actor??actor,input.breedId,before.updatedAt)
+        .first<{id:number}>();
+      if (!result) continue; // Independent legitimate writer won this version.
+    }
     const breed=await getManagedBreed(input.breedId);
     if (!breed) throw Error("BREED_EVENT_RELOAD_FAILED");
     return {updated:true,breed};
