@@ -202,6 +202,24 @@ export function readDirectoryPublicContacts(
  * Historical aliases for untouched SQL-NULL contacts remain pending backfill;
  * removing those now would silently lose the only existing value.
  */
+/**
+ * Public Directory scalar labels have canonical SQL/Notion fields.
+ * Never persist these old top-level copies on ordinary Admin saves.
+ * The owner explicitly chose SQL as sole authority even when it is blank.
+ */
+export const DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS = [
+  "Názov", "Perex", "Popis", "Kraj", "Okres", "Mesto", "Adresa",
+  "PSČ", "Ulica", "Číslo domu", "Formát adresy", "Cena / poznámka",
+] as const;
+
+export function omitDirectorySqlNotionScalarAliases(
+  source: DirectoryImportData,
+): DirectoryImportData {
+  const result: DirectoryImportData = {...source};
+  for (const key of DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS) delete result[key];
+  return result;
+}
+
 export function omitDirectorySqlContactAliases(
   source: DirectoryImportData,
   written: {
@@ -223,7 +241,7 @@ export function omitDirectorySqlContactAliases(
     if (written[key] === undefined) continue;
     for (const alias of aliases) delete next[alias];
   }
-  return next;
+  return omitDirectorySqlNotionScalarAliases(next);
 }
 
 export function mergeDirectoryPublicContactData(
