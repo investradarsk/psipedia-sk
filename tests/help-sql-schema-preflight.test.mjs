@@ -68,7 +68,7 @@ test("0122 migration adds Help display columns without overwriting existing imag
       assert.ok(columns.includes("thumbnail_display_json"), table);
       assert.ok(columns.includes("detail_display_json"), table);
       const record = sqlite.prepare('SELECT image_url,thumbnail_display_json,detail_display_json FROM "' + table + '"').get();
-      assert.deepEqual(record, { image_url: "/existing.jpg", thumbnail_display_json: null, detail_display_json: null });
+      assert.deepEqual({ ...record }, { image_url: "/existing.jpg", thumbnail_display_json: null, detail_display_json: null });
     }
   } finally {
     sqlite.close();
