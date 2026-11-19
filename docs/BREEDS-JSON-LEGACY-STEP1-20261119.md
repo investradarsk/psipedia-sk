@@ -37,6 +37,33 @@ Po mergeri tohto PR sa dá v GitHub Actions spustiť **Production Plemená JSON 
 
 **Pozor:** samotný počet vyplnených JSON hodnôt nie je dôkaz, že ide o historické alebo nepotrebné údaje. Read-only report doplní rozhodnutie v kroku 2.
 
+## Produkčné meranie dodané z Cloudflare D1 Console (19. 11. 2026)
+
+Používateľ spustil **read-only SQL dotaz** v produkčnej D1 a poskytol agregované výsledky.
+Príkaz počítal `vyplnenych` ako hodnoty iné než prázdny reťazec, `[]`, `{}` a `null`.
+**Nevyhodnocoval počet položiek v zoznamoch ani skutočnú obsahovú kvalitu.**
+
+| SQL JSON stĺpec | riadkov | neprázdnych hodnôt | neplatných JSON |
+| --- | ---: | ---: | ---: |
+| consider_json | 347 | 347 | 0 |
+| editorial_json | 347 | 344 | 0 |
+| fci_standard_json | 347 | 343 | 0 |
+| gallery_json | 347 | 0 | 0 |
+| good_for_json | 347 | 347 | 0 |
+| health_risks_json | 347 | 343 | 0 |
+| related_breeds_json | 347 | 2 | 0 |
+| seo_json | 347 | 343 | 0 |
+| sources_json | 347 | 11 | 0 |
+| sports_json | 347 | 52 | 0 |
+
+### Bezpečnostný záver
+- **Žiadny JSON stĺpec nie je automaticky schválený na DROP.** Aj úplne prázdny `gallery_json` má stále aktívne referencie v runtime a Notion mapovaní.
+- `related_breeds_json`, `sources_json` a `sports_json` obsahujú aspoň niektoré neprázdne hodnoty, takže nejde o čisto prázdne historické úložiská.
+- V tabuľke je **347** záznamov, zatiaľ čo jednorazový plán počíta s **344** plemenami. Pred importom treba overiť rozdiel v identitách/statusoch; nespájať ich automaticky.
+- Nulový počet neplatných JSON je dobrý signál pre syntaktickú integritu, nie dôkaz o správnosti obsahu.
+- Pri kroku 2 treba vyhodnotiť najmä `good_for_json` a `consider_json` na úrovni jednotlivých prvkov zoznamu.
+- **V produkcii neprebehlo žiadne odstránenie dát, migrácia ani prepis.**
+
 ## Ako overiť
 ```bash
 node scripts/audit-breed-json-legacy.mjs
