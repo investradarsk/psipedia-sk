@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import {
+  directory0173ReviewCasGuardStatement,
   directory0173ReviewSqlMirrorStatement,
   partnerDirectory0173ReviewSqlMirrorStatement,
 } from "../lib/directory-0173-review-state-sql.ts";
@@ -122,6 +123,20 @@ test("Notion acknowledgement with unchanged profile revision still mirrors only 
   }finally{f.sqlite.close();}
 });
 
+test("review projection CAS guard aborts before a stale SQL row can be changed",()=>{
+  const f=fixture();
+  try{
+    f.sqlite.prepare("UPDATE directory_profiles SET updated_at='T2' WHERE id=1").run();
+    const stmt=directory0173ReviewCasGuardStatement(f.database);
+    // No row was changed in this transaction; the guard intentionally throws
+    // a SQL error rather than allowing a later sidecar upsert.
+    assert.throws(()=>f.apply(stmt),/malformed JSON/);
+    f.sqlite.prepare("UPDATE directory_profiles SET updated_at='T3' WHERE id=1").run();
+    assert.equal(f.apply(stmt).changes,0);
+    assert.equal(f.review(1),undefined);
+  }finally{f.sqlite.close();}
+});
+
 test("partner grant writes SQL review state only for active matching owner",()=>{
   const f=fixture();
   try{
@@ -156,10 +171,10 @@ test("review writer paths are atomic and all legacy Notion lock predicates stay 
   const lock=load("lib/directory-reviewed-sync-lock.ts");
   const adminWriter=store.slice(store.indexOf("export async function setManagedDirectoryProfileReviewed("),
     store.indexOf("export async function archiveManagedDirectoryProfile("));
-  assert.match(adminWriter,/database\.batch\(\[canonical, reviewMirror\]\)/);
+  assert.match(adminWriter,/database\.batch\(\[[\s\S]*?canonical, directory0173ReviewCasGuardStatement\(database\), reviewMirror/);
   assert.match(adminWriter,/source_data_json = \?/);
   assert.match(adminWriter,/AND \(\?=1 OR NOT EXISTS \(SELECT 1 FROM partner_resources/);
-  assert.match(notion,/database\.batch\(\[canonical, reviewMirror\]\)/);
+  assert.match(notion,/input\.database\.batch\(\[[\s\S]*?canonical, directory0173ReviewCasGuardStatement\(input\.database\), reviewMirror/);
   assert.match(partner,/partnerDirectory0173ReviewSqlMirrorStatement/);
   assert.equal((partner.match(/partnerDirectoryReviewLockStatement\(/g)??[]).length,2);
   assert.match(lock,/isDirectoryReviewedSourceLocked\(row\.source_data_json\)/);
