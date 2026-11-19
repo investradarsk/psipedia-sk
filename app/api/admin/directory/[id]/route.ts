@@ -1119,5 +1119,12 @@ export async function PATCH(request: Request, { params }: Props) {
     if (body.action !== "restore") return Response.json({ error: "Nepodporovaná lifecycle akcia." }, { status: 400 });
     const profile = await restoreManagedDirectoryProfile(id, user.email);
     return profile ? Response.json({ profile }) : Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-  } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Profil sa nepodarilo obnoviť." }, { status: 400 }); }
+  } catch (error) {
+    if (error instanceof Error && error.message === "DIRECTORY_PARTNER_MANAGED_REVIEW_LOCK") {
+      return Response.json({
+        error: "Tento profil spravuje partner. Notion synchronizáciu možno odomknúť až po odobratí jeho prístupu.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
+    return Response.json({ error: error instanceof Error ? error.message : "Profil sa nepodarilo obnoviť." }, { status: 400 });
+  }
 }
