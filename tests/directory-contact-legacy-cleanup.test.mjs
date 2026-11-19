@@ -100,6 +100,25 @@ test("NULL SQL retains all aliases, explicit SQL empty string removes only its o
     assert.equal(f.get(1).public_phone,"");
   }finally{f.db.close();}
 });
+test("historically blank SQL website retains old Web alias until separately reviewed",()=>{
+  const f=fixture();
+  try {
+    f.add(1,{Web:"old-site.example","Webstránka":"second.example"},
+      {website_url:""});
+    f.add(2,{Web:"old-site.example"},{website_url:"https://current.example"});
+    const before=f.report();
+    assert.equal(before.removable.website_url,1);
+    assert.equal(before.protected.website_url,1);
+    assert.equal(before.ambiguousEmptyWeb,1);
+    f.apply();
+    const still=JSON.parse(f.get(1).source_data_json);
+    assert.equal(still.Web,"old-site.example");
+    assert.equal(still["Webstránka"],"second.example");
+    assert.equal(f.get(1).website_url,"");
+    assert(!Object.hasOwn(JSON.parse(f.get(2).source_data_json),"Web"));
+    assert.equal(f.report().ambiguousEmptyWeb,1);
+  } finally {f.db.close();}
+});
 test("reviewed, pending unlock, archived and tombstoned profiles remain untouched",()=>{
   const f=fixture();
   try {
