@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - "drizzle/0174_breeds_sql_json_foundation.sql"
+      - "scripts/production-d1-breed-0174.mjs"
+      - "tests/production-d1-breed-0174.test.mjs"
+      - ".github/workflows/production-d1-breed-0174.yml"
       - "db/breed-storage-schema.ts"
       - "lib/breed-storage-decision.mjs"
       - "lib/breed-sql-v2-bridge.mjs"
@@ -42,5 +45,9 @@ jobs:
         run: node scripts/check-migration-safety.mjs
       - name: Verify full 90-field storage contract and SQL schema
         run: node --test tests/breed-storage-decision.test.mjs tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-bridge.test.mjs tests/breed-sql-v2-backfill.test.mjs tests/breed-sql-v2-cutover-gate.test.mjs
+      - name: Verify isolated owner-only production schema 0174 runner
+        run: |
+          node --check scripts/production-d1-breed-0174.mjs
+          node --test tests/production-d1-breed-0174.test.mjs
       - name: Verify stage-4 public and Admin fallback runtime
         run: node --experimental-strip-types --test tests/breed-sql-v2-preview-runtime.test.mjs
