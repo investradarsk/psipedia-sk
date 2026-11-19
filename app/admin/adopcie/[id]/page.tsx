@@ -5,6 +5,7 @@ import { AdminAdoptionEditor } from "@/components/admin-adoption-editor";
 import { AdminPartnerReviewStatus } from "@/components/admin-partner-review-status";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
+import { AdminPartnerCanonicalDraft } from "@/components/admin-partner-canonical-draft";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -38,5 +39,5 @@ export default async function EditAdoptionPage({ params, searchParams }: Props) 
     : null;
   // This option set alone depends on the selected breed of the loaded item.
   const breeds = await listAdoptionAdminBreedOptions(undefined, selectedBreed, item.breedId);
-  return <AdminShell recordId={item.id} user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<><AdminPartnerReviewStatus entityType="ADOPTION" entityId={item.id} />{isAdoptionPublicStatus(item.status) && <Link href={adoptionDetailPath(item.slug)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}<Link href={returnHref}>← Späť na adopcie</Link></>}><AdminGeminiOriginBadge agenda="adoptions" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions} returnHref={returnHref}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref={returnHref} />}</AdminShell>;
+  return <AdminShell recordId={item.id} user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<><AdminPartnerReviewStatus entityType="ADOPTION" entityId={item.id} />{isAdoptionPublicStatus(item.status) && <Link href={adoptionDetailPath(item.slug)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}<Link href={returnHref}>← Späť na adopcie</Link></>}><AdminPartnerCanonicalDraft resourceType="ADOPTION_DOG" canonicalId={item.id} /><AdminGeminiOriginBadge agenda="adoptions" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions} returnHref={returnHref}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref={returnHref} />}</AdminShell>;
 }
