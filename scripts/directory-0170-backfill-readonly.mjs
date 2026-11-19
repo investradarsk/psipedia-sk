@@ -24,6 +24,7 @@ const CATEGORIES = [
 ];
 const categorySet = new Set(CATEGORIES);
 const CONTACTS = {
+  website_url: ["Web", "Webstránka"],
   public_phone: ["Telefón", "Telefon", "phone"],
   public_email: ["E-mail", "Email", "email"],
   facebook_url: ["Facebook"],
@@ -99,15 +100,18 @@ export function classifyDirectory0170Row(row) {
       if (own(source,canonical) && !present(source[canonical]) && available.length) {
         issue("contact", sql + "_cleared_legacy_alias_present");
       }
-      const legacy = own(source,canonical) ? text(source[canonical]) :
-        available.length ? text(source[available[0]]) : "";
+      // An explicitly blank first alias must not conceal a populated second
+      // alias. Report it as a potential resurrection risk; never promote it.
+      const legacy = available.length ? text(source[available[0]]) : "";
       const value = row[sql];
       if (value == null && present(legacy)) issue("contact", sql + "_legacy_only_unverified");
       else if (value != null && value === "" && present(legacy))
         issue("contact", sql + "_explicit_clear_vs_legacy");
       else if (value != null && present(value) && present(legacy) && text(value) !== legacy)
         issue("contact", sql + "_different");
-      else if (value != null && present(value) && !present(legacy))
+      else if (sql !== "website_url" && value != null && present(value) && !present(legacy))
+        // website_url predates 0170 and is already a legitimate SQL owner;
+        // not having obsolete JSON aliases is not a migration problem.
         issue("contact", sql + "_sql_only");
     }
   }
@@ -244,13 +248,13 @@ function select(sql) {
 function state() {
   const tables = select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('directory_profiles','directory_notion_sync','directory_profile_additional_categories','directory_profile_public_facts','directory_profile_filter_values')");
   must(tables.length === 5, "MISSING_SCHEMA");
-  const columns = select("SELECT name FROM pragma_table_info('directory_profiles') WHERE name IN ('public_phone','public_email','facebook_url','instagram_url','source_data_json')");
-  must(columns.length === 5,"MISSING_COLUMNS");
+  const columns = select("SELECT name FROM pragma_table_info('directory_profiles') WHERE name IN ('website_url','public_phone','public_email','facebook_url','instagram_url','source_data_json')");
+  must(columns.length === 6,"MISSING_COLUMNS");
   const row = select("SELECT COUNT(*) AS profiles,COALESCE(MAX(id),0) AS max_id,COALESCE(SUM(id),0) AS id_sum,COALESCE(SUM(length(source_data_json)),0) AS json_chars,COALESCE(MAX(updated_at),'') AS latest_update FROM directory_profiles")[0];
   must(row && Object.values({profiles:row.profiles,max_id:row.max_id,id_sum:row.id_sum,json_chars:row.json_chars}).every(x=>Number.isSafeInteger(Number(x))),"INVALID_BASELINE");
   return row;
 }
-const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_json,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,"+
+const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_json,p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,"+
   "(SELECT json_group_array(category) FROM directory_profile_additional_categories WHERE profile_id=p.id) AS sql_categories,"+
   "(SELECT json_group_array(json_object('field_key',field_key,'value_text',value_text)) FROM directory_profile_public_facts WHERE profile_id=p.id) AS sql_facts,"+
   "(SELECT json_group_array(json_object('category',category,'filter_id',filter_id,'value_text',value_text)) FROM directory_profile_filter_values WHERE profile_id=p.id) AS sql_filters,"+
