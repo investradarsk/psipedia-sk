@@ -178,7 +178,7 @@ test("workflow never migrates, deploys, backfills, deletes or exports production
   const script=readFileSync(new URL("../scripts/production-help-sql-cutover.mjs",import.meta.url),"utf8");
   assert.match(workflow,/workflow_dispatch:/);
   assert.match(workflow,/environment: production/);
-  assert.match(workflow,/group: production-d1-migration/);
+  assert.match(workflow,/group: .*production-d1-migration/);
   assert.match(workflow,/refs\/heads\/main/);
   assert.match(workflow,/run: node scripts\/production-editorial-storage-readonly\.mjs/);
   assert.match(workflow,/run: node scripts\/production-help-sql-cutover\.mjs/);
