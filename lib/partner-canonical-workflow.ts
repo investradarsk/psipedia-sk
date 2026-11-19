@@ -35,7 +35,7 @@ const kinds:Record<PartnerCanonicalType,DraftKind> = {
       "websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"]),
       services:"services_json",qualifications:"qualifications_json"}},
   HELP_ORGANIZATION:{table:"help_organizations",type:"ORGANIZATION",reviewType:"ORGANIZATION",published:"PUBLISHED",
-    fields:textFields(["name","type","legalName","registrationNumber","shortDescription","description","publicEmail",
+    fields:textFields(["name","type","legalName","shortDescription","description","publicEmail",
       "publicPhone","websiteUrl","facebookUrl","instagramUrl","address","city","district","region","countryCode"])},
   MANAGED_EVENT:{table:"managed_events",type:"EVENT",reviewType:"EVENT",published:"published",
     fields:textFields(["title","excerpt","eventType","startDate","startTime","endDate","endTime","venue","city",
