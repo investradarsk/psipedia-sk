@@ -166,7 +166,9 @@ export async function updatePartnerHelpPublic(input: {
   const indexClause = indexCols.length && indexCols.some(col=>Object.prototype.hasOwnProperty.call(patch,col))
     ? `, search_text=lower(${indexCols.map(col => `coalesce(?,coalesce(${col},''))`).join("||' '||")})`
     : "";
-  const indexArgs = indexCols.map(col => Object.prototype.hasOwnProperty.call(patch,col) ? patch[col] : null);
+  // Bind search-index placeholders only when their SQL expression is present.
+  // Contact-only and media-only saves must not send extraneous D1 parameters.
+  const indexArgs = indexClause ? indexCols.map(col => Object.prototype.hasOwnProperty.call(patch,col) ? patch[col] : null) : [];
   const assetGuard = mediaReady.length
     ? ` AND (SELECT COUNT(*) FROM media_assets WHERE id IN (${mediaReady.map(() => "?").join(",")})
       AND owner_id=? AND owner_type='PARTNER_HELP_UPDATE' AND state='PENDING' AND deleted_at IS NULL)=?`
