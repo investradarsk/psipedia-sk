@@ -1,7 +1,7 @@
 # Directory SQL 0173 — štruktúra pred synchronizáciou Notion
 
 **Dátum:** 19. november 2026  
-**Stav:** čakajúci SQL súbor mimo aktívneho adresára drizzle, plus Drizzle modely. Nie je spustená na produkcii.
+**Stav:** SQL súbor je pripravený v aktívnom `drizzle/` migračnom reťazci a má Drizzle modely. **V produkčnej D1 ešte nebol spustený.**
 
 Táto etapa implementuje architektonický kontrakt z PR #1450:
 - Jeden SQL vlastník pre verejné aj samostatne editované údaje.
@@ -31,17 +31,20 @@ Všetky majú väzbu na directory_profiles(id) s ON DELETE CASCADE, zodpovedajú
 - breed_directory_relations a directory_breeder_club_relations — plemenné/klubové vzťahy.
 - directory_profiles — názvy, perexy, popisy, adresy, kontakty, základné statusy.
 
-## Ochrana pred konfliktom migrácií 0171 a 0172
+## Migrácie 0171 a 0172 sú už vyriešené
 
-PR #1437 (partner samoobsluha) má už vyhradené migrácie:
+Partnerský systém #1437 má vyhradené migrácie:
 - 0171_partner_single_manager.sql
 - 0172_partner_help_claim_ownership.sql
 
-Preto je nové číslo 0173. Aktívna kontrola migračného reťazca odmieta chýbajúce 0171/0172, preto SQL zatiaľ leží v pending-migrations/. Po zlúčení 0171/0172 sa musí presunúť do drizzle/0173_... v osobitnom PR. **NESPÚŠŤAŤ 0173 na produkcii**, kým:
-1. Nebude vyjasnený stav a nasadenie #1437, 0171 a 0172.
-2. Nie je overená fyzická schéma a stav migračnej histórie v produkčnej D1.
-3. Nie je vytvorený samostatný **owner-dispatched** chránený preflight/audit/apply workflow pre 0173 s obnovovacím bodom pred DDL.
-4. Vlastník neschváli jeho manuálne spustenie.
+Migrácie 0171 a 0172 sú už fyzicky nasadené v produkčnej D1 podľa úspešných, chránených GitHub Actions postflight behov z 19. 11. 2026. Ich SQL súbory sú na `main`, preto je možné 0173 zaradiť priamo do `drizzle/`. Neznamená to automatické nasadenie do D1.
+
+**NESPÚŠŤAŤ 0173 na produkcii**, kým:
+1. Nie je opätovne overená fyzická schéma a migračná história produkčnej D1, najmä neexistencia objektov 0173.
+2. Nie je vytvorený samostatný **owner-dispatched** chránený preflight/audit/apply postup pre presne 0173 s obnovovacím bodom pred DDL.
+3. Vlastník neschváli jeho manuálne spustenie.
+
+PR #1437 môže zostať Draft; schéma 0173 nemá cudzie kľúče ani iné väzby na nové partnerské objekty.
 
 Doterajší produkčný migračný ledger bol čiastočne nesúvislý; nepúšťať generické migrácie, ktoré by sa pokúšali automaticky prehrať staršie súbory. Pridanie 0173 do git main neznamená jeho nasadenie.
 
@@ -55,7 +58,7 @@ Doterajší produkčný migračný ledger bol čiastočne nesúvislý; nepúšť
 
 ## Najbližšie technické fázy
 
-1. Samostatný chránený preflight a migrácia 0173 až po vyriešení poradia 0171–0172.
+1. Samostatný chránený preflight a migrácia 0173; poradie 0171–0172 už bolo vyriešené.
 2. Zapojenie Admin/Notion/partnera do nových SQL tabuliek a existujúcich SQL public_facts/filter/additional-categories; explicitná úprava/prazdná hodnota = platný zápis.
 3. Vypnutie všetkých JSON fallbackov a ukladania do source_data_json, services_json, qualifications_json a seo_json.
 4. Voliteľný jednorazový import Notion → SQL, kontrola funkčnosti oboch smerov a verejných stránok.

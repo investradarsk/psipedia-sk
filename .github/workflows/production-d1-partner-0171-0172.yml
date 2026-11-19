@@ -1,0 +1,74 @@
+name: Production D1 Partner 0171-0172 (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        required: true
+        default: audit
+        options: [audit, apply0171, apply0172]
+      confirmation:
+        type: string
+        required: true
+        description: AUDIT-PARTNER-0171-0172-psipedia-sk-db or APPLY-0171/0172-psipedia-sk-db
+      recovery_confirmation:
+        type: string
+        required: false
+        description: For apply, enter TIME-TRAVEL-BOOKMARK-RECORDED
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  partner-0171-0172:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    env:
+      PARTNER_MIGRATION_CONFIRMATION: ${{ inputs.confirmation }}
+      PARTNER_RECOVERY_CONFIRMATION: ${{ inputs.recovery_confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Reject automation and non-main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test -n "$CLOUDFLARE_API_TOKEN"
+      - name: Checkout pinned main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Reject stale main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - name: Node and dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Validate exact migrations
+        run: |
+          node --check scripts/production-d1-partner-0171-0172.mjs
+          node --test tests/production-d1-partner-0171-0172.test.mjs tests/production-partner-owner-compatibility.test.mjs
+          npm run db:check-migrations
+      - name: Select protected Cloudflare account
+        run: |
+          echo "CLOUDFLARE_ACCOUNT_ID=$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id)')" >> "$GITHUB_ENV"
+      - name: Execute owner-selected operation
+        run: node scripts/production-d1-partner-0171-0172.mjs "${{ inputs.mode }}"
+      - name: Upload sanitized audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: partner-0171-0172-${{ github.run_id }}
+          path: .production-partner-0171-0172/report.json
+          if-no-files-found: ignore
+          retention-days: 30

@@ -4,12 +4,16 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "pending-migrations/0173_directory_structured_sql_foundation.sql"
+      - "drizzle/0173_directory_structured_sql_foundation.sql"
       - "db/directory-storage-schema.ts"
       - "db/index.ts"
       - "tests/directory-sql-0173-foundation.test.mjs"
       - ".github/workflows/directory-sql-0173-offline.yml"
       - "docs/audits/DIRECTORY-SQL-0173-FOUNDATION.md"
+
+concurrency:
+  group: directory-0173-offline-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

@@ -423,7 +423,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expectNoHorizontalOverflow(page);
   } else {
     await expect(page.getByRole("heading", { name: "Partner E2E Organizácia" })).toBeVisible();
-    await expect(page.getByText("Editor")).toBeVisible();
+    await expect(page.getByText("Vlastník", { exact: true })).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
@@ -498,7 +498,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("heading",{name:"Moje podujatia"})).toBeVisible();
   const ownedEventCard=page.locator("article.partner-resource-card").filter({hasText:ownedEventTitle});
   await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Publikované":"Koncept");
-  await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Vlastník":"Editor");
+  await expect(ownedEventCard).toContainText("Vlastník");
   await expectNoHorizontalOverflow(page);
 
   if (project === "mobile-chromium") {
@@ -972,19 +972,34 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(claimRow).toContainText("Konflikt správy profilu");
     await claimRow.getByRole("link",{name:"Detail →"}).click();
     await expect(page.getByText("Konflikt správy profilu").first()).toBeVisible();
+    // Another OWNER already manages this profile. 0171 must reject a second
+    // active manager, keep the claim pending, and avoid creating verification.
     const claimResponse = page.waitForResponse((response) =>
       response.url().includes("/api/admin/partners/claims/") &&
-      response.request().method() === "PATCH" &&
-      response.ok(),
+      response.request().method() === "PATCH",
     );
     await page.getByRole("button",{name:"Schváliť",exact:true}).click();
     const claimDialog=page.getByRole("dialog",{name:"Schváliť prevzatie profilu?"});
     await expect(claimDialog).toBeVisible();
     await claimDialog.getByRole("button",{name:"Schváliť prevzatie"}).click();
-    await claimResponse;
+    const conflictResponse = await claimResponse;
+    expect(conflictResponse.status()).toBe(409);
+    expect((await conflictResponse.json()).error).toContain("Profil už spravuje iný partner");
+    await expect(page.getByRole("status")).toContainText("Profil už spravuje iný partner");
+    // Admin may reject the conflict without taking access away from its owner.
+    const rejectResponse = page.waitForResponse((response) =>
+      response.url().includes("/api/admin/partners/claims/") &&
+      response.request().method() === "PATCH" &&
+      response.ok(),
+    );
+    await page.getByRole("button",{name:"Zamietnuť",exact:true}).click();
+    const rejectDialog=page.getByRole("dialog",{name:"Zamietnuť prevzatie profilu?"});
+    await expect(rejectDialog).toBeVisible();
+    await rejectDialog.getByRole("button",{name:"Zamietnuť žiadosť"}).click();
+    await rejectResponse;
     await page.goto("/admin/partners");
     await expect(page.getByRole("link",{name:/Prevzatie profilov 1/})).toBeVisible();
-    await expect(page.getByRole("link",{name:/Overenia 4/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Overenia 3/})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 });

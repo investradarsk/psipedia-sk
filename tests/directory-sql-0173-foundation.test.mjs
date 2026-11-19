@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
-const SQL_URL = new URL("../pending-migrations/0173_directory_structured_sql_foundation.sql",import.meta.url);
+const SQL_URL = new URL("../drizzle/0173_directory_structured_sql_foundation.sql",import.meta.url);
 const MIGRATION=readFileSync(SQL_URL,"utf8");
 const EXPECTED=[
   "directory_profile_qualifications",
@@ -132,4 +132,9 @@ test("foreign keys prevent orphan metadata and cascade profile deletion",()=>{
     for(const table of EXPECTED) assert.equal(db.prepare("SELECT COUNT(*) as n FROM "+table).get().n,0);
     assert.equal(db.prepare("SELECT COUNT(*) as n FROM directory_profiles").get().n,1);
   });
+});
+
+test("0173 is registered as an unactivated production target requiring an isolated owner approval",()=>{
+  const runner=readFileSync(new URL("../scripts/production-d1-migrate.mjs",import.meta.url),"utf8");
+  assert.match(runner,/UNACTIVATED_PRODUCTION_TARGETS[\\s\\S]*0173_directory_structured_sql_foundation\\.sql/);
 });
