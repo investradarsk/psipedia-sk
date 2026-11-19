@@ -15,7 +15,15 @@ function piiKey(key?: string) { const value=key ?? (env as unknown as Bindings).
 function validId(value:string){return /^[0-9a-f-]{20,64}$/i.test(value);}
 function auditActor(email:string){return `admin:${email.trim().toLowerCase()}`;}
 
-type AccountRow={id:string;emailCiphertext:string;status:PartnerAccountStatus;emailVerifiedAt:string|null;createdAt:string};
+type AccountRow={id:string;emailCiphertext:string;contactNameCiphertext:string|null;status:PartnerAccountStatus;emailVerifiedAt:string|null;createdAt:string};
+
+async function revealPartnerAccount(row:AccountRow,encryptionKey:string) {
+  const [email,contactName]=await Promise.all([
+    decryptPii(row.emailCiphertext,encryptionKey),
+    row.contactNameCiphertext?decryptPii(row.contactNameCiphertext,encryptionKey):Promise.resolve(null),
+  ]);
+  return {...row,email,contactName};
+}
 type PartnerAccountAdminFilters={q?:string;page?:number;pageSize?:number;status?:string;verified?:string;access?:string;database?:D1Database;encryptionKey?:string};
 const ACCOUNT_PAGE_SIZE=25;
 const ACCOUNT_MAX_PAGE_SIZE=100;
@@ -47,7 +55,7 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
   if(filters.access==="LINKED")conditions.push("EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL)");
   if(filters.access==="UNLINKED")conditions.push("NOT EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL)");
   const where=conditions.length?" WHERE "+conditions.join(" AND "):"";
-  const select="SELECT a.id,a.email_ciphertext emailCiphertext,a.status,a.email_verified_at emailVerifiedAt,a.created_at createdAt FROM partner_accounts a";
+  const select="SELECT a.id,a.email_ciphertext emailCiphertext,p.contact_name_ciphertext contactNameCiphertext,a.status,a.email_verified_at emailVerifiedAt,a.created_at createdAt FROM partner_accounts a LEFT JOIN partner_account_profiles p ON p.account_id=a.id";
   const order=" ORDER BY a.created_at DESC,a.id DESC";
   const offset=(filters.page-1)*filters.pageSize;
   const normalizedQuery=filters.q.toLocaleLowerCase("sk");
@@ -60,7 +68,7 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
       database.prepare(select+where+order+" LIMIT ? OFFSET ?").bind(...values,filters.pageSize,offset).all<AccountRow>(),
     ]);
     total=Number(count?.total??0);
-    pageRows=await Promise.all(rows.results.map(async row=>({...row,email:await decryptPii(row.emailCiphertext,key)})));
+    pageRows=await Promise.all(rows.results.map(row=>revealPartnerAccount(row,key)));
   }else{
     // Email is AES-GCM encrypted: substring searches cannot run against SQL ciphertext
     // or the exact-match HMAC email_hash. Scan *all* filtered accounts on the server
@@ -74,9 +82,9 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
       const batch=(await database.prepare(select+where+predicate+order+" LIMIT ?")
         .bind(...params,ACCOUNT_SCAN_BATCH_SIZE).all<AccountRow>()).results;
       if(!batch.length)break;
-      const decrypted=await Promise.all(batch.map(async row=>({...row,email:await decryptPii(row.emailCiphertext,key)})));
+      const decrypted=await Promise.all(batch.map(row=>revealPartnerAccount(row,key)));
       for(const item of decrypted){
-        if(item.id.toLowerCase().includes(normalizedQuery)||item.email.toLocaleLowerCase("sk").includes(normalizedQuery)){
+        if(item.id.toLowerCase().includes(normalizedQuery)||item.email.toLocaleLowerCase("sk").includes(normalizedQuery)||item.contactName?.toLocaleLowerCase("sk").includes(normalizedQuery)){
           if(total>=offset&&pageRows.length<filters.pageSize)pageRows.push(item);
           total++;
         }
@@ -87,17 +95,50 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
     }
   }
 
-  // Membership aggregation is limited to the selected page, not every scanned account.
-  const counts=new Map<string,number>();
+  // Aggregate only visible accounts. Never count completed claims or proposals as pending.
+  // Help ownership is stored separately from partner_memberships.
+  const memberships=new Map<string,number>();
+  const pending=new Map<string,{requests:number;helpProfiles:number}>();
   if(pageRows.length){
     const placeholders=pageRows.map(()=>"?").join(",");
-    const memberships=(await database.prepare(
-      "SELECT account_id accountId,COUNT(*) activeMembershipCount FROM partner_memberships WHERE revoked_at IS NULL AND account_id IN ("+placeholders+") GROUP BY account_id"
-    ).bind(...pageRows.map(row=>row.id)).all<{accountId:string;activeMembershipCount:number}>()).results;
-    for(const item of memberships)counts.set(item.accountId,Number(item.activeMembershipCount));
+    const ids=pageRows.map(row=>row.id);
+    const [membershipRows,requestRows]=await Promise.all([
+      database.prepare(
+        "SELECT account_id accountId,COUNT(*) activeMembershipCount FROM partner_memberships WHERE revoked_at IS NULL AND account_id IN ("+placeholders+") GROUP BY account_id"
+      ).bind(...ids).all<{accountId:string;activeMembershipCount:number}>(),
+      database.prepare(`
+        SELECT a.id accountId,
+          (SELECT COUNT(*) FROM partner_claims c WHERE c.account_id=a.id AND c.status='PENDING')
+          +(SELECT COUNT(*) FROM partner_help_claims c WHERE c.account_id=a.id AND c.status='PENDING')
+          +(SELECT COUNT(*) FROM moderation_submissions s JOIN partner_new_profile_metadata m ON m.submission_id=s.id
+              WHERE m.partner_account_id=a.id AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
+          +(SELECT COUNT(*) FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id
+              WHERE m.partner_account_id=a.id AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
+          +(SELECT COUNT(*) FROM moderation_submissions s JOIN partner_event_submission_metadata m ON m.submission_id=s.id
+              WHERE m.partner_account_id=a.id AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
+          +(SELECT COUNT(*) FROM moderation_submissions s WHERE s.submitter_type='PARTNER_ACCOUNT'
+              AND s.submitter_ref=a.id AND s.operation='CREATE'
+              AND s.resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE')
+              AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
+          +(SELECT COUNT(*) FROM partner_resource_verifications v WHERE v.account_id=a.id AND v.status='PENDING_VERIFICATION')
+          +(SELECT COUNT(*) FROM partner_commercial_interests i WHERE i.account_id=a.id AND i.status='NEW')
+          AS pendingRequests,
+          (SELECT COUNT(*) FROM partner_help_claims c WHERE c.account_id=a.id AND c.status='APPROVED') AS helpProfiles
+        FROM partner_accounts a WHERE a.id IN (${placeholders})
+      `).bind(...ids).all<{accountId:string;pendingRequests:number;helpProfiles:number}>(),
+    ]);
+    for(const item of membershipRows.results)memberships.set(item.accountId,Number(item.activeMembershipCount));
+    for(const item of requestRows.results)pending.set(item.accountId,{
+      requests:Number(item.pendingRequests),helpProfiles:Number(item.helpProfiles),
+    });
   }
   return {
-    items:pageRows.map(({emailCiphertext,...row})=>({...row,activeMembershipCount:counts.get(row.id)??0})),
+    items:pageRows.map(({emailCiphertext,contactNameCiphertext,...row})=>({
+      ...row,
+      pendingRequestCount:pending.get(row.id)?.requests??0,
+      activeMembershipCount:memberships.get(row.id)??0,
+      managedProfileCount:(memberships.get(row.id)??0)+(pending.get(row.id)?.helpProfiles??0),
+    })),
     total,
     page:filters.page,
     pageSize:filters.pageSize,
