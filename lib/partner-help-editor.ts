@@ -34,6 +34,7 @@ export async function getPartnerHelpEditor(accountId: string, resourceId: string
   for (const field of helpEditorFields[parsed.entityType]) {
     const value = raw[field.key];
     values[field.key] = field.kind === "checkbox" ? value === 1 || value === true
+      : field.kind === "nullableBoolean" ? (value === null || value === undefined ? null : value === 1 || value === true)
       : field.kind === "number" ? (typeof value === "number" ? value : null)
       : typeof value === "string" ? value : "";
   }
@@ -154,9 +155,9 @@ export async function updatePartnerHelpPublic(input: {
     return typeof v === "boolean" ? v ? 1 : 0 : v;
   });
   const indexCols = parsed.entityType === "ADOPTION_DOG"
-    ? ["name","breed_name","organization_name","city","region"]
-    : parsed.entityType === "LOST_FOUND_DOG" ? ["dog_name","breed","color","city","region"] : [];
-  const indexClause = indexCols.length
+    ? ["name","breed_name","organization_name","city","region","description","color"]
+    : parsed.entityType === "LOST_FOUND_DOG" ? ["dog_name","breed","color","city","region","description","short_description"] : [];
+  const indexClause = indexCols.length && indexCols.some(col=>Object.prototype.hasOwnProperty.call(patch,col))
     ? `, search_text=lower(${indexCols.map(col => `coalesce(?,coalesce(${col},''))`).join("||' '||")})`
     : "";
   const indexArgs = indexCols.map(col => Object.prototype.hasOwnProperty.call(patch,col) ? patch[col] : null);
