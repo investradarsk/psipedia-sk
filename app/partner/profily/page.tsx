@@ -35,7 +35,7 @@ export default async function Page() {
                 ) : null}
                 {(item.entityType === "DIRECTORY_PROFILE" || item.entityType === "HELP_ORGANIZATION") && partnerRoleHasPermission(item.role, "COMMERCIAL_INTEREST_CREATE") ? <Link href={`/partner/propagacia?resource=${encodeURIComponent(item.resourceId)}`}>Možnosti propagácie</Link> : null}
                 {item.publicHref ? <Link href={item.publicHref} target="_blank">Verejný profil ↗</Link> : null}
-                {item.entityType !== "DIRECTORY_PROFILE" && item.entityType !== "HELP_ORGANIZATION" ? <span>Prístup schválený · editor pripravujeme</span> : null}
+                {item.entityType !== "DIRECTORY_PROFILE" && item.entityType !== "HELP_ORGANIZATION" ? <Link className="button button--dark" href={`/partner/pomoc/${encodeURIComponent(item.resourceId)}/upravit`}>Upraviť údaje</Link> : null}
               </div>
             </article>
           ))}
