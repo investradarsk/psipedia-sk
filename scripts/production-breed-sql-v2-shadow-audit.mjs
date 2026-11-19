@@ -33,8 +33,10 @@ function authorize(){
     typeof TARGET.d1?.database_id==="string"&&
     Boolean(process.env.CLOUDFLARE_API_TOKEN),"TARGET_OR_TOKEN_INVALID");
   const worker=readFileSync("wrangler.jsonc","utf8");
-  must(/"BREED_SQL_V2_WRITE_MODE"\s*:\s*"off"/.test(worker),
-    "WORKER_SHADOW_MUST_BE_OFF");
+  // Valid after rollout as well: do not confuse a safe shadow write
+  // deployment with permission to switch public readers or delete JSON.
+  must(/"BREED_SQL_V2_WRITE_MODE"\s*:\s*"(?:off|shadow)"/.test(worker),
+    "WORKER_SHADOW_MODE_INVALID");
   mkdirSync(DIR,{recursive:true});
   writeFileSync(CONFIG,JSON.stringify({
     name:"psipedia-breed-sql-v2-shadow-readonly-audit",
