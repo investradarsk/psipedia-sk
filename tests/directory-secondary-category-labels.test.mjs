@@ -29,6 +29,9 @@ test("compact directory cards retain only category membership metadata", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, status TEXT, source_data_json TEXT)");
+    // 0170's canonical secondary-category table is required by the public
+    // category SQL expression, including when a legacy JSON fallback is used.
+    db.exec("CREATE TABLE directory_profile_additional_categories (profile_id INTEGER NOT NULL, category TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL, PRIMARY KEY(profile_id,category))");
     const insert = db.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?)");
     insert.run(1, "vencenie", "published", JSON.stringify({
       [DIRECTORY_ADDITIONAL_CATEGORIES_KEY]: JSON.stringify(["veterinari"]),
