@@ -12,7 +12,8 @@ export function isPartnerHelpType(value: unknown): value is PartnerHelpType {
   return typeof value === "string" && (partnerHelpTypes as readonly string[]).includes(value);
 }
 export class PartnerHelpClaimError extends Error {
-  constructor(message: string, readonly status = 400) { super(message); this.name = "PartnerHelpClaimError"; }
+  readonly status: number;
+  constructor(message: string, status = 400) { super(message); this.status=status; this.name = "PartnerHelpClaimError"; }
 }
 export const helpResourceId = (type: PartnerHelpType, id: number) => `help-record-${type}-${id}`;
 export function parseHelpResourceId(value: string) {
