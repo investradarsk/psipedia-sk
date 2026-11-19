@@ -40,6 +40,7 @@ import {
 } from "./admin-breeds";
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 import { cleanBreedCoatDescription, cleanBreedEditorialList } from "./breed-long-description.ts";
+import { compareBreedSqlV2Detail } from "./breed-sql-v2-preview";
 
 export type BreedStatus = "draft" | "published";
 
@@ -1087,12 +1088,14 @@ export async function getManagedBreed(id: number) {
       .bind(id),
   ]);
   const row = (breedResult.results?.[0] ?? null) as unknown as Row | null;
-  return row
-    ? fromRow(row, {
-        articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
-        directory: (directoryResult.results as RelationIdRow[]).map((item) => item.id),
-      })
-    : null;
+  if (!row) return null;
+  // Step 4/6: optional parity diagnostics. The Admin still receives its
+  // current canonical legacy snapshot; no SQL/JSON cutover before backfill.
+  await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
+  return fromRow(row, {
+    articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
+    directory: (directoryResult.results as RelationIdRow[]).map((item) => item.id),
+  });
 }
 const getPublishedBreedUncached = async (slug: string) => {
   const database = db();
@@ -1102,6 +1105,8 @@ const getPublishedBreedUncached = async (slug: string) => {
     .bind(slug)
     .first<Row>());
   if (!row) return null;
+  // Notion/Admin/public comparison only; SQL values are not exposed yet.
+  await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
   const breed = fromRow(row, { public: true });
   breed.image = ownedBreedImage(breed.image);
   breed.gallery = (breed.gallery ?? [])
