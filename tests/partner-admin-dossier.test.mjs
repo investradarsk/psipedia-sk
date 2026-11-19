@@ -101,6 +101,10 @@ test("dossier: every historic request type stays under the correct partner and p
     const event=result.items.find(row=>row.id==="event-a");
     assert.equal(event.requestHref,"/admin/partners/events/event-a");
     assert.equal(event.pending,false);
+    assert.equal(result.items.find(row=>row.id==="interest-a").requestHref,
+      "/admin/partners/commercial/interest-a");
+    assert.equal(result.items.find(row=>row.id==="agreement-a").requestHref,
+      "/admin/partners/commercial/agreements/agreement-a");
     const second=await listPartnerAccountDossierRequests("partner-b",db);
     assert.equal(second.total,1);
     assert.equal(second.pending,0);
