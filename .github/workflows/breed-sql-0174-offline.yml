@@ -1,0 +1,30 @@
+name: Breed 0174 SQL JSON foundation (offline)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "pending-migrations/0174_breeds_sql_json_foundation.sql"
+      - "db/breed-storage-schema.ts"
+      - "lib/breed-storage-decision.mjs"
+      - "tests/breed-sql-0174-foundation.test.mjs"
+      - "tests/breed-storage-decision.test.mjs"
+      - ".github/workflows/breed-sql-0174-offline.yml"
+      - "docs/BREEDS-SQL-JSON-STEP3-20261119.md"
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    name: Validate staged 0174 using SQLite, no D1 credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Verify frozen contiguous migration chain
+        run: node scripts/check-migration-safety.mjs
+      - name: Verify full 90-field storage contract and SQL schema
+        run: node --test tests/breed-storage-decision.test.mjs tests/breed-sql-0174-foundation.test.mjs
