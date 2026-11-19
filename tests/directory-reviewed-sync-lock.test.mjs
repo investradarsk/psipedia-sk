@@ -169,10 +169,10 @@ test("a repeated uncheck cannot erase a pending Notion rebaseline lock", () => {
   const route = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
   // The DB writer itself must preserve the existing pending marker: protecting
   // only the HTTP route would leave retry and other-caller bypasses.
-  assert.match(store, /const alreadyPending = isDirectoryReviewUnlockPendingSource\\(row\\.source_data_json\\)/);
-  assert.match(store, /!reviewed && \\(options\\.markNotionUnlockPending \\|\\| alreadyPending\\)/);
-  assert.match(route, /current\\.importData\\?\\.\\["_psipedia_profile_review_unlock_pending"\\] === "1"/);
-  assert.match(route, /if \\(current\\.reviewed \\|\\| alreadyPending\\)/);
+  assert.match(store, /const alreadyPending = isDirectoryReviewUnlockPendingSource\(row\.source_data_json\)/);
+  assert.match(store, /!reviewed && \(options\.markNotionUnlockPending \|\| alreadyPending\)/);
+  assert.match(route, /current\.importData\?\.\["_psipedia_profile_review_unlock_pending"\] === "1"/);
+  assert.match(route, /if \(current\.reviewed \|\| alreadyPending\)/);
   assert.match(route, /targetProfileId: id/);
   const persisted = JSON.stringify({
     "_psipedia_profile_review_unlock_pending": "1",
