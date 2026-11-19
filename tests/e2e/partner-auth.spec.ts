@@ -423,7 +423,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expectNoHorizontalOverflow(page);
   } else {
     await expect(page.getByRole("heading", { name: "Partner E2E Organizácia" })).toBeVisible();
-    await expect(page.getByText("Editor")).toBeVisible();
+    await expect(page.getByText("Vlastník", { exact: true })).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
