@@ -14,7 +14,7 @@ on:
       recovery_confirmation:
         type: string
         required: false
-        description: For apply, enter TIME-TRAVEL-BOOKMARK-RECORDED
+        description: For apply, enter AUTHORIZE-AUTO-BOOKMARK (runtime captures and archives the bookmark)
 concurrency:
   group: production-d1-migration
   cancel-in-progress: false

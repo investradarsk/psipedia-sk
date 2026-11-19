@@ -22,7 +22,7 @@ const tables=["d1_migrations","partner_accounts","partner_resources","partner_me
  "adoption_dogs","lost_found_dog_reports","help_cases","directory_profiles",
  "directory_profile_filter_values","directory_profile_additional_categories","directory_profile_public_facts"];
 const ok=(cond,code)=>{if(!cond)throw Error("PARTNER_ROLLOUT_"+code)};
-let last=null,recovery=false,phase="START";
+let last=null,recovery=false,recoveryBookmark=null,phase="START";
 function auth(){
  ok(["audit","apply0171","apply0172"].includes(mode),"INVALID_MODE");
  ok(process.env.GITHUB_EVENT_NAME==="workflow_dispatch","MANUAL_ONLY");
@@ -32,7 +32,7 @@ function auth(){
  const confirmations={audit:"AUDIT-PARTNER-0171-0172-psipedia-sk-db",
   apply0171:"APPLY-0171-psipedia-sk-db",apply0172:"APPLY-0172-psipedia-sk-db"};
  ok(process.env.PARTNER_MIGRATION_CONFIRMATION===confirmations[mode],"CONFIRMATION_MISMATCH");
- if(mode!=="audit")ok(process.env.PARTNER_RECOVERY_CONFIRMATION==="TIME-TRAVEL-BOOKMARK-RECORDED","RECOVERY_CONFIRMATION");
+ if(mode!=="audit")ok(process.env.PARTNER_RECOVERY_CONFIRMATION==="AUTHORIZE-AUTO-BOOKMARK","RECOVERY_CONFIRMATION");
  const cfg=JSON.parse(readFileSync("config/cloudflare-resources.json","utf8"));
  ok(cfg.account_id===ACCOUNT&&cfg.d1?.database_id===ID&&cfg.d1?.database_name===DB&&cfg.d1?.binding==="DB","WRONG_D1");
  for(const [file,sha] of Object.values(spec)){
@@ -103,11 +103,16 @@ function signature(s){return createHash("sha256").update(JSON.stringify(s)).dige
 function checkpoint(){
  const parsed=parse(exec(["d1","time-travel","info",DB,"--config",config,"--json"]));
  function seek(x){
-  if(!x||typeof x!=="object")return false;
-  if(typeof x.bookmark==="string"&&x.bookmark)return true;
-  return Object.values(x).some(seek);
+  if(!x||typeof x!=="object")return null;
+  if(typeof x.bookmark==="string"&&x.bookmark)return x.bookmark;
+  for(const value of Object.values(x)){const found=seek(value);if(found)return found}
+  return null;
  }
- ok(seek(parsed),"NO_RECOVERY_BOOKMARK");
+ const found=seek(parsed);
+ ok(Boolean(found),"NO_RECOVERY_BOOKMARK");
+ // Store the actual pre-apply bookmark, not just a boolean that one existed.
+ // A failed postflight must still preserve the rollback reference.
+ recoveryBookmark=found;
  recovery=true;
 }
 function report(status,s,error=null){
@@ -117,7 +122,8 @@ function report(status,s,error=null){
   duplicateManagers:s?.duplicate??null,legacyRoles:s?.legacy??null,
   inactiveAccounts:s?.inactive??null,foreignKeyViolations:s?.fk??null,
   counts:s?.counts??null,claims:s?.claims??null,
-  recoveryBookmarkCaptured:recovery,ledgerChanged:false,...(error?{error}:{})};
+  recoveryBookmarkCaptured:recovery,recoveryBookmark:recovery?recoveryBookmark:null,
+  ledgerChanged:false,...(error?{error}:{})};
  writeFileSync(resolve(out,"report.json"),JSON.stringify(data,null,2)+"\n");
  console.log(JSON.stringify({status,mode,schema171:data.schema171,schema172:data.schema172,error}));
 }

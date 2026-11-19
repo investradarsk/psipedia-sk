@@ -17,6 +17,15 @@ test("Fixed migrations, preflight and Time Travel guard",()=>{
  "0171_REQUIRED_FIRST","POSTFLIGHT_BASE_COUNT_CHANGED"])assert.ok(s.includes(v),v);
  assert.doesNotMatch(s,/["']migrations["']\s*,\s*["']apply["']/);
 });
+test("Guard preserves the actual pre-apply Time Travel bookmark in the rollback report",()=>{
+ const script=read("scripts/production-d1-partner-0171-0172.mjs");
+ const workflow=read(".github/workflows/production-d1-partner-0171-0172.yml");
+ assert.match(script,/recoveryBookmark=found/);
+ assert.match(script,/recoveryBookmark:recovery\?recoveryBookmark:null/);
+ assert.match(script,/ok\(Boolean\(found\),"NO_RECOVERY_BOOKMARK"\)/);
+ assert.match(workflow,/AUTHORIZE-AUTO-BOOKMARK/);
+ assert.doesNotMatch(script,/TIME-TRAVEL-BOOKMARK-RECORDED/);
+});
 test("Additive manager and help schema source",()=>{
  const a=read("drizzle/0171_partner_single_manager.sql");
  const b=read("drizzle/0172_partner_help_claim_ownership.sql");

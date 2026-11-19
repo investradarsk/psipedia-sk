@@ -4,8 +4,12 @@ This is a separate PR from #1437. It installs the prepared database schema
 BEFORE the new partner app is deployed. Merge alone does not run the workflow.
 
 The repository is public. Do not upload a production database export to GitHub.
-Record a Cloudflare Time Travel bookmark, and keep any separately approved full
-export in protected private storage. Time Travel is not an independent export.
+The guarded apply automatically captures the actual Cloudflare D1 Time Travel
+bookmark immediately before the exact migration and archives it in the workflow
+report, including if postflight fails. A bookmark is not a full independent backup:
+recovery can revert unrelated writes after the chosen point. Do not paste the
+bookmark into comments or other public places. Separately approved full database
+exports belong in protected private storage.
 
 1. After green CI, merge only this migration-infrastructure PR.
 2. In Actions, manually run Production D1 Partner 0171-0172 (manual) on main.
@@ -14,7 +18,10 @@ export in protected private storage. Time Travel is not an independent export.
    inactive owners and legacy roles. Any partial schema means STOP.
 3. Independently confirm backup/recovery and owner authorization to apply.
 4. Mode apply0171, confirmation APPLY-0171-psipedia-sk-db,
-   recovery_confirmation TIME-TRAVEL-BOOKMARK-RECORDED.
+   recovery_confirmation AUTHORIZE-AUTO-BOOKMARK. This authorizes automatic
+   recovery bookmark capture; it does NOT claim a manual bookmark was saved.
+   Require the report to show recoveryBookmarkCaptured=true and a nonempty
+   recoveryBookmark even when a postflight fails.
    Require POSTFLIGHT and schema171=installed.
 5. Run audit again; only then choose apply0172 with confirmation
    APPLY-0172-psipedia-sk-db and the same recovery confirmation.
