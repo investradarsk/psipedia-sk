@@ -6,7 +6,8 @@ import "photoswipe/style.css";
 
 /**
  * Keep gallery links in server HTML and out of the first-load JS bundle.
- * Load the lightbox controller only when the gallery nears the viewport.
+ * Load galleries near the viewport; hero photos wait for hover, focus or click
+ * so their controller does not compete with the initial page load.
  * A quick click before intersection completes still opens the lightbox after
  * its chunk loads; a failed import falls back to the original image URL.
  */
@@ -20,7 +21,9 @@ export function PublicPhotoSwipeEnhancer({ children }: { children: ReactNode }) 
     let active = true;
     let lightbox: PhotoSwipeLightbox | null = null;
     let pending: Promise<PhotoSwipeLightbox | null> | null = null;
-    const links = () => gallery.querySelectorAll<HTMLAnchorElement>('a[data-pswp-gallery-item]');
+    const links = () => gallery.querySelectorAll<HTMLAnchorElement>("a[data-pswp-gallery-item]");
+    const intentOnly = Boolean(gallery.querySelector("[data-profile-photo-lightbox]"));
+    const imageLoadCleanups: Array<() => void> = [];
 
     function updateImageDimensions() {
       links().forEach((anchor) => {
@@ -32,7 +35,10 @@ export function PublicPhotoSwipeEnhancer({ children }: { children: ReactNode }) 
           anchor.dataset.pswpHeight = String(image.naturalHeight);
         };
         if (image.complete) update();
-        else image.addEventListener("load", update, { once: true });
+        else {
+          image.addEventListener("load", update, { once: true });
+          imageLoadCleanups.push(() => image.removeEventListener("load", update));
+        }
       });
     }
 
@@ -45,7 +51,7 @@ export function PublicPhotoSwipeEnhancer({ children }: { children: ReactNode }) 
             updateImageDimensions();
             const instance = new PhotoSwipeLightbox({
               gallery,
-              children: 'a[data-pswp-gallery-item]',
+              children: "a[data-pswp-gallery-item]",
               pswpModule: () => import("photoswipe"),
               padding: { top: 24, bottom: 24, left: 16, right: 16 },
             });
@@ -54,18 +60,33 @@ export function PublicPhotoSwipeEnhancer({ children }: { children: ReactNode }) 
             return instance;
           })
           .catch(() => null)
-          .finally(() => { pending = null; });
+          .finally(() => {
+            pending = null;
+          });
       }
       return pending;
     }
 
     function onFirstClick(event: MouseEvent) {
-      if (lightbox || event.defaultPrevented || event.button !== 0 ||
-        event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (
+        lightbox ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
       if (!(event.target instanceof Element)) return;
-      const anchor = event.target.closest<HTMLAnchorElement>('a[data-pswp-gallery-item]');
-      if (!anchor || !gallery.contains(anchor) || anchor.hasAttribute("download") ||
-        (anchor.target && anchor.target !== "_self")) return;
+      const anchor = event.target.closest<HTMLAnchorElement>("a[data-pswp-gallery-item]");
+      if (
+        !anchor ||
+        !gallery.contains(anchor) ||
+        anchor.hasAttribute("download") ||
+        (anchor.target && anchor.target !== "_self")
+      )
+        return;
       const index = Array.from(links()).indexOf(anchor);
       if (index < 0) return;
       event.preventDefault();
@@ -79,24 +100,42 @@ export function PublicPhotoSwipeEnhancer({ children }: { children: ReactNode }) 
     // Intercept only the first click before PhotoSwipe registers its own
     // delegated listener. After initialization its standard click handling wins.
     gallery.addEventListener("click", onFirstClick, true);
-    const observer = typeof IntersectionObserver !== "undefined"
-      ? new IntersectionObserver((entries) => {
-          if (!entries.some((entry) => entry.isIntersecting)) return;
-          observer.disconnect();
-          void prepareLightbox();
-        }, { rootMargin: "600px 0px" })
-      : null;
+    const onIntent = () => {
+      void prepareLightbox();
+    };
+    if (intentOnly) {
+      gallery.addEventListener("pointerover", onIntent, { once: true });
+      gallery.addEventListener("focusin", onIntent, { once: true });
+    }
+    const observer =
+      !intentOnly && typeof IntersectionObserver !== "undefined"
+        ? new IntersectionObserver(
+            (entries) => {
+              if (!entries.some((entry) => entry.isIntersecting)) return;
+              observer.disconnect();
+              void prepareLightbox();
+            },
+            { rootMargin: "600px 0px" },
+          )
+        : null;
     // display:contents has no own layout box; observe the first real image link.
     if (observer) observer.observe(links().item(0) ?? gallery);
-    else void prepareLightbox();
+    else if (!intentOnly) void prepareLightbox();
 
     return () => {
       active = false;
       observer?.disconnect();
       gallery.removeEventListener("click", onFirstClick, true);
+      gallery.removeEventListener("pointerover", onIntent);
+      gallery.removeEventListener("focusin", onIntent);
+      imageLoadCleanups.forEach((cleanup) => cleanup());
       if (lightbox) lightbox.destroy();
     };
   }, []);
 
-  return <div ref={host} style={{ display: "contents" }}>{children}</div>;
+  return (
+    <div ref={host} style={{ display: "contents" }}>
+      {children}
+    </div>
+  );
 }

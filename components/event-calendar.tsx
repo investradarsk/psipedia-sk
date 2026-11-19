@@ -165,8 +165,7 @@ export function EventCalendar({
     window.setTimeout(() => {
       if (cacheRef.current.get(key) === payload) cacheRef.current.delete(key);
     }, 120_000);
-    if (cacheRef.current.size > 24)
-      cacheRef.current.delete(cacheRef.current.keys().next().value!);
+    if (cacheRef.current.size > 24) cacheRef.current.delete(cacheRef.current.keys().next().value!);
   }
   useEffect(() => {
     // Reuse server-rendered data when returning to the initial month/day.
@@ -201,21 +200,23 @@ export function EventCalendar({
   // A calendar response can contain many event previews. Avoid regenerating
   // summaries and scanning day events when unrelated UI controls rerender.
   const daySummaries = useMemo(
-    () => pending
-      ? new Map<string, { date: string; count: number; types: EventType[] }>()
-      : data.calendarSummaries
-        ? new Map(data.calendarSummaries.map((item) => [item.date, item]))
-        : new Map(
-            days
-              .filter((day) => day.inMonth)
-              .map((day) => [day.date, calendarDaySummary(data.calendarEvents, day.date)]),
-          ),
+    () =>
+      pending
+        ? new Map<string, { date: string; count: number; types: EventType[] }>()
+        : data.calendarSummaries
+          ? new Map(data.calendarSummaries.map((item) => [item.date, item]))
+          : new Map(
+              days
+                .filter((day) => day.inMonth)
+                .map((day) => [day.date, calendarDaySummary(data.calendarEvents, day.date)]),
+            ),
     [pending, data.calendarSummaries, data.calendarEvents, days],
   );
   const dailyEvents = useMemo(
-    () => selectedDay && !pending && !pendingDay
-      ? eventsForCalendarDay(data.calendarEvents, selectedDay)
-      : [],
+    () =>
+      selectedDay && !pending && !pendingDay
+        ? eventsForCalendarDay(data.calendarEvents, selectedDay)
+        : [],
     [selectedDay, pending, pendingDay, data.calendarEvents],
   );
 
@@ -234,8 +235,8 @@ export function EventCalendar({
     target.searchParams.forEach((value, key) => endpoint.searchParams.set(key, value));
     if (next.type !== "Všetky") endpoint.searchParams.set("typ", next.type);
     const key = endpoint.pathname + endpoint.search;
-    const sameListing = view.time === next.time &&
-      view.type === next.type && view.filterMonth === next.filterMonth;
+    const sameListing =
+      view.time === next.time && view.type === next.type && view.filterMonth === next.filterMonth;
     const sameMonth = sameListing && view.month === next.month;
 
     // A day selection changes only the right-hand panel. The list and month
@@ -243,7 +244,11 @@ export function EventCalendar({
     if (sameMonth && !pending) {
       setPendingDay(false);
       if (next.day === view.day && !pendingDay) return;
-      if (!next.day || (data.calendarSummaries && !data.calendarSummaries.some((item) => item.date === next.day && item.count > 0))) {
+      if (
+        !next.day ||
+        (data.calendarSummaries &&
+          !data.calendarSummaries.some((item) => item.date === next.day && item.count > 0))
+      ) {
         setData((current) => ({ ...current, calendarEvents: [] }));
         return;
       }
@@ -297,16 +302,21 @@ export function EventCalendar({
         headers: { Accept: "application/json" },
       });
       if (!response.ok) throw new Error("Calendar request failed");
-      const received = await response.json() as Partial<CalendarData>;
+      const received = (await response.json()) as Partial<CalendarData>;
       if (
         !Array.isArray(received.calendarEvents) ||
         !Array.isArray(received.calendarSummaries) ||
         (!calendarOnly && (!Array.isArray(received.events) || !received.listing))
-      ) throw new Error("Calendar response invalid");
+      )
+        throw new Error("Calendar response invalid");
       if (!controller.signal.aborted) {
         const payload = calendarOnly
-          ? { ...data, calendarEvents: received.calendarEvents, calendarSummaries: received.calendarSummaries }
-          : received as CalendarData;
+          ? {
+              ...data,
+              calendarEvents: received.calendarEvents,
+              calendarSummaries: received.calendarSummaries,
+            }
+          : (received as CalendarData);
         remember(key, payload);
         setData(payload);
       }
@@ -702,6 +712,7 @@ export function EventCalendar({
                           >
                             <EventImage
                               imageUrl={event.imageUrl}
+                              eventId={event.id}
                               eventType={event.eventType}
                               alt=""
                               loading="lazy"
@@ -761,7 +772,12 @@ export function EventCalendar({
               )}
             </div>
           </div>
-          <div className={styles.calendarLegend} role="list" aria-label="Typy podujatí v kalendári" data-events-legend>
+          <div
+            className={styles.calendarLegend}
+            role="list"
+            aria-label="Typy podujatí v kalendári"
+            data-events-legend
+          >
             {eventTypes.map((type) => {
               const presentation = eventTypePresentation[type];
               return (
