@@ -242,6 +242,15 @@ export async function listPartnerAccountDossierHistory(accountId:string,database
     ))
     OR (a.target_type='PARTNER_HELP_CLAIM' AND a.target_id IN (
       SELECT id FROM partner_help_claims WHERE account_id=?2
+    ))
+    OR (a.target_type='PARTNER_CLAIM' AND a.target_id IN (
+      SELECT id FROM partner_claims WHERE account_id=?2
+    ))
+    OR (a.target_type='PARTNER_RESOURCE_VERIFICATION' AND a.target_id IN (
+      SELECT id FROM partner_resource_verifications WHERE account_id=?2
+    ))
+    OR (a.target_type='PARTNER_MEMBERSHIP' AND a.target_id IN (
+      SELECT id FROM partner_memberships WHERE account_id=?2
     ))`;
   const [totalRow,rows]=await Promise.all([
     database.prepare("SELECT COUNT(*) total "+query).bind(`partner:${accountId}`,accountId).first<{total:number}>(),
