@@ -22,7 +22,11 @@ function fixture() {
     "created_by TEXT,main_image TEXT,short_description TEXT,description TEXT);" +
     "CREATE TABLE help_organizations (" +
     "id INTEGER PRIMARY KEY,slug TEXT,status TEXT,updated_at TEXT,updated_by TEXT," +
-    "import_key TEXT,image_url TEXT,short_description TEXT,description TEXT);"
+    "import_key TEXT,image_url TEXT,short_description TEXT,description TEXT);" +
+    "CREATE TABLE admin_entity_reviews (entity_type TEXT, entity_id INTEGER);" +
+    "CREATE TABLE partner_help_claims (id TEXT PRIMARY KEY, adoption_dog_id INTEGER, status TEXT);" +
+    "CREATE TABLE partner_resources (id TEXT PRIMARY KEY, help_organization_id INTEGER);" +
+    "CREATE TABLE partner_memberships (id TEXT PRIMARY KEY, resource_id TEXT, revoked_at TEXT);"
   );
   sqlite.prepare("INSERT INTO help_cases VALUES (?,?,?,?,?,?,?,?)")
     .run(11, "falco", "adopcia", "published", SOURCE_REV,
@@ -238,4 +242,72 @@ test("empty legacy cohorts return count 0, never null or invented target data", 
       assert.ok(Object.values(values).every(value => value === 0));
     }
   } finally { sqlite.close(); }
+});
+
+
+test("Admin review blocks old Help backfill for both canonical agendas", async () => {
+  for (const [type, id, planReceipt] of [
+    ["ADOPTION", 21, receipt()],
+    ["ORGANIZATION", 22, receipt({
+      agenda:"organizations", field:"image_url", sourceId:12, targetId:22,
+      slug:"pomoc-oz-labka", sourceSha256:hashHelpBackfillValue("/legacy-org.jpg"),
+    })],
+  ]) {
+    const { sqlite, database } = fixture();
+    try {
+      sqlite.prepare("INSERT INTO admin_entity_reviews VALUES (?,?)").run(type, id);
+      const plan = await prepareReviewedHelpBackfill(database, planReceipt);
+      assert.equal(plan.decision,"BLOCKED");
+      assert.equal(plan.reason,"CANONICAL_EDITORIAL_LOCKED");
+      const saved = sqlite.prepare(
+        "SELECT " + (type==="ADOPTION" ? "main_image FROM adoption_dogs" :
+          "image_url FROM help_organizations") + " WHERE id=?").get(id);
+      assert.equal(Object.values(saved)[0],null);
+    } finally {sqlite.close();}
+  }
+});
+
+test("approved adoption claim and organization OWNER block reviewed Help backfill", async () => {
+  const {sqlite,database}=fixture();
+  try {
+    sqlite.exec("INSERT INTO partner_help_claims VALUES ('claim-1',21,'APPROVED')");
+    assert.equal((await prepareReviewedHelpBackfill(database,receipt())).reason,
+      "CANONICAL_EDITORIAL_LOCKED");
+    sqlite.exec("UPDATE partner_help_claims SET status='REVOKED' WHERE id='claim-1'");
+    assert.equal((await prepareReviewedHelpBackfill(database,receipt())).decision,"READY");
+    sqlite.exec("INSERT INTO partner_resources VALUES ('org-1',22)");
+    sqlite.exec("INSERT INTO partner_memberships VALUES ('member-1','org-1',NULL)");
+    const organization = receipt({
+      agenda:"organizations",field:"image_url",sourceId:12,targetId:22,
+      slug:"pomoc-oz-labka",sourceSha256:hashHelpBackfillValue("/legacy-org.jpg"),
+    });
+    assert.equal((await prepareReviewedHelpBackfill(database,organization)).reason,
+      "CANONICAL_EDITORIAL_LOCKED");
+    sqlite.exec("UPDATE partner_memberships SET revoked_at='2026-11-19T20:00:00Z'");
+    assert.equal((await prepareReviewedHelpBackfill(database,organization)).decision,"READY");
+  }finally{sqlite.close();}
+});
+
+test("a review or partner ownership granted AFTER planning blocks the SQL UPDATE",async()=>{
+  for(const lock of ["review","partner","org-review","org-partner"]){
+    const {sqlite,database}=fixture();
+    try{
+      const org=lock.startsWith("org-");
+      const prepared=await prepareReviewedHelpBackfill(database,org ? receipt({
+        agenda:"organizations",field:"image_url",sourceId:12,targetId:22,
+        slug:"pomoc-oz-labka",sourceSha256:hashHelpBackfillValue("/legacy-org.jpg"),
+      }) : receipt());
+      assert.equal(prepared.decision,"READY");
+      if(lock==="review")sqlite.exec("INSERT INTO admin_entity_reviews VALUES('ADOPTION',21)");
+      if(lock==="partner")sqlite.exec("INSERT INTO partner_help_claims VALUES ('claim',21,'APPROVED')");
+      if(lock==="org-review")sqlite.exec("INSERT INTO admin_entity_reviews VALUES('ORGANIZATION',22)");
+      if(lock==="org-partner")sqlite.exec(
+        "INSERT INTO partner_resources VALUES('resource',22);" +
+        "INSERT INTO partner_memberships VALUES('membership','resource',NULL)"
+      );
+      assert.match(prepared.statement.sql,/AND NOT \(EXISTS\(SELECT 1 FROM admin_entity_reviews/);
+      const written=sqlite.prepare(prepared.statement.sql).run(...prepared.statement.binds);
+      assert.equal(written.changes,0,lock);
+    } finally {sqlite.close();}
+  }
 });
