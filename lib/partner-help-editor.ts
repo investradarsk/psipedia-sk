@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
+import { helpSearchIndexAssignment } from "@/lib/partner-help-search-index";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { getPartnerMediaAsset, normalizePartnerMediaId } from "@/lib/partner-media";
 import { normalizePartnerGalleryMediaIds } from "@/lib/partner-profile-gallery-media";
@@ -160,21 +161,13 @@ export async function updatePartnerHelpPublic(input: {
     const v = patch[key];
     return typeof v === "boolean" ? v ? 1 : 0 : v;
   });
-  const indexCols = parsed.entityType === "ADOPTION_DOG"
-    ? ["name","breed_name","organization_name","city","region","description","color"]
-    : parsed.entityType === "LOST_FOUND_DOG" ? ["dog_name","breed","color","city","region","description","short_description"] : [];
-  const indexClause = indexCols.length && indexCols.some(col=>Object.prototype.hasOwnProperty.call(patch,col))
-    ? `, search_text=lower(${indexCols.map(col => `coalesce(?,coalesce(${col},''))`).join("||' '||")})`
-    : "";
-  // Bind search-index placeholders only when their SQL expression is present.
-  // Contact-only and media-only saves must not send extraneous D1 parameters.
-  const indexArgs = indexClause ? indexCols.map(col => Object.prototype.hasOwnProperty.call(patch,col) ? patch[col] : null) : [];
+  const indexUpdate = helpSearchIndexAssignment(parsed.entityType, patch);
   const assetGuard = mediaReady.length
     ? ` AND (SELECT COUNT(*) FROM media_assets WHERE id IN (${mediaReady.map(() => "?").join(",")})
       AND owner_id=? AND owner_type='PARTNER_HELP_UPDATE' AND state='PENDING' AND deleted_at IS NULL)=?`
     : "";
   const updateParts = [...keys.map(key => `${key}=?`),...mediaSet];
-  if (indexClause) updateParts.push(indexClause.replace(/^, /,""));
+  if (indexUpdate.sql) updateParts.push(indexUpdate.sql);
   updateParts.push("updated_at=?");
   if (parsed.entityType !== "LOST_FOUND_DOG") updateParts.push("updated_by=?");
   const updateSql = `UPDATE ${target.table}
@@ -187,7 +180,7 @@ export async function updatePartnerHelpPublic(input: {
       )${assetGuard}`;
   // All SQL identifiers come from static server-owned field definitions; only values are bound.
   const args: unknown[] = [
-    ...values, ...mediaValues, ...indexArgs, nowIso, ...(parsed.entityType==="LOST_FOUND_DOG"?[]:[actor]),
+    ...values, ...mediaValues, ...indexUpdate.bindings, nowIso, ...(parsed.entityType==="LOST_FOUND_DOG"?[]:[actor]),
     parsed.canonicalId,baseRevision,parsed.canonicalId,parsed.entityType,input.accountId,
     ...(mediaReady.length?[...mediaIds,input.accountId,mediaReady.length]:[]),
   ];
