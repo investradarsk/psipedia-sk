@@ -11,6 +11,7 @@ import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { helpLegacyCoverageQueries } from "../lib/help-sql-reviewed-backfill.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const DB_NAME = "psipedia-sk-db";
@@ -263,6 +264,29 @@ async function main() {
         orphans.push({scope:item.spec.scope,count:data[0].orphans});
       }
     }
+    // Additional Help step-3 counts only: compare legacy adoption/shelter slugs
+    // against the existing canonical SQL owners. No individual IDs, URLs,
+    // names, source field values or private contacts leave the D1 query.
+    const helpLegacyCoverage = [];
+    for (const item of helpLegacyCoverageQueries()) {
+      const owner = item.category === "adopcia" ? "adoption_dogs" : "help_organizations";
+      if (!existing.has("help_cases") || !existing.has(owner)) {
+        helpLegacyCoverage.push({category:item.category,status:"missing_table",
+          legacyTotal:null,matched:null,unmatched:null});
+        continue;
+      }
+      const rows = query(assertReadOnlySelect(item.sql+";"),wranglerConfig);
+      if (rows.length !== 1 ||
+          ["legacy_total","matched","unmatched"].some(key=>naturalCount(rows[0][key])===null) ||
+          rows[0].matched + rows[0].unmatched !== rows[0].legacy_total) {
+        throw new Error("HELP_BACKFILL_LEGACY_COVERAGE_UNREADABLE");
+      }
+      helpLegacyCoverage.push({category:item.category,status:"aggregate_only",
+        legacyTotal:rows[0].legacy_total,matched:rows[0].matched,
+        unmatched:rows[0].unmatched});
+    }
+    // Unmatched legacy rows are NEVER permission to insert new canonical
+    // entities. Identity/provenance/manual approval are separate safety gates.
     const supportCounts = [];
     for (const table of plan.supporting) {
       const data = query(assertReadOnlySelect("SELECT COUNT(*) AS records FROM " + table + ";"),wranglerConfig);
@@ -291,12 +315,14 @@ async function main() {
       database:DB_NAME,readOnly:true,
       scope:"directory, eshops, help (5 agendas), events, service catalog V3",
       missingTables:plan.missing,supportCounts,orphanMappings:orphans,byCategory:groups,
+      helpLegacyCoverage,
       notes:[
         "Notion mapping count is not proof of synchronized field values or enabled runtime.",
         "Missing mapping table yields notionMapped=null; it is NOT an assertion of zero links.",
         "Nonempty source JSON may contain active technical values; never delete it based on this count.",
         "This report does not compare Notion property values, Admin output or public pages.",
         "No production data was changed; no migration or cleanup was performed.",
+        "Help legacy coverage is an aggregate identity hint, not a field-level parity or backfill authorization.",
       ],
     };
     await mkdir(outputDir,{recursive:true});
