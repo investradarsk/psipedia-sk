@@ -28,34 +28,51 @@ test("every public profile hero uses the existing PhotoSwipe controller rather t
     "app/plemena/[slug]/page.tsx",
   ]) {
     const source = read(path);
-    assert.match(source, /<PublicPhotoLightboxLink src=\{/,
-      `Missing shared hero photo link in ${path}`);
+    assert.match(
+      source,
+      /<PublicPhotoLightboxLink src=\{/,
+      `Missing shared hero photo link in ${path}`,
+    );
     assert.match(source, /<\/PublicPhotoLightboxLink>/);
   }
 });
 
 test("profile photo link keeps a native full-size image URL and omits links for invalid sources", async () => {
   const [{ default: ts }, React, { renderToStaticMarkup }] = await Promise.all([
-    import("typescript"), import("react"), import("react-dom/server"),
+    import("typescript"),
+    import("react"),
+    import("react-dom/server"),
   ]);
-  const compiled = ts.transpileModule(read("components/public-visual-system/public-photo-gallery.tsx"), {
-    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true },
-  }).outputText;
+  const compiled = ts.transpileModule(
+    read("components/public-visual-system/public-photo-gallery.tsx"),
+    {
+      compilerOptions: {
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.CommonJS,
+        esModuleInterop: true,
+      },
+    },
+  ).outputText;
   const jsx = await import("react/jsx-runtime");
   const exports = {};
   new Function("require", "exports", compiled)((name) => {
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsx;
     if (name === "@/lib/responsive-media") return { responsiveMediaSrcSet: () => undefined };
-    if (name === "./public-photoswipe-enhancer") return { PublicPhotoSwipeEnhancer: ({ children }) => children };
-    if (name.endsWith(".module.css")) return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
+    if (name === "./public-photoswipe-enhancer")
+      return { PublicPhotoSwipeEnhancer: ({ children }) => children };
+    if (name.endsWith(".module.css"))
+      return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
     throw Error("Unexpected import: " + name);
   }, exports);
-  const render = (src) => renderToStaticMarkup(React.createElement(
-    exports.PublicPhotoLightboxLink,
-    { src, alt: "Profilová fotografia" },
-    React.createElement("span", { "data-original-image": true }, "Fotografia"),
-  ));
+  const render = (src) =>
+    renderToStaticMarkup(
+      React.createElement(
+        exports.PublicPhotoLightboxLink,
+        { src, alt: "Profilová fotografia" },
+        React.createElement("span", { "data-original-image": true }, "Fotografia"),
+      ),
+    );
   const valid = render("/media/profile.jpg");
   assert.match(valid, /href="\/media\/profile.jpg"/);
   assert.match(valid, /aria-label="Zväčšiť fotografiu: Profilová fotografia"/);
@@ -63,7 +80,10 @@ test("profile photo link keeps a native full-size image URL and omits links for 
   assert.match(valid, /data-original-image="true"/);
   assert.doesNotMatch(valid, /target="_blank"/, "Fallback should remain a standard same-tab link");
   assert.equal(render("javascript:alert(1)"), '<span data-original-image="true">Fotografia</span>');
-  assert.equal(render("//untrusted.example/photo.jpg"), '<span data-original-image="true">Fotografia</span>');
+  assert.equal(
+    render("//untrusted.example/photo.jpg"),
+    '<span data-original-image="true">Fotografia</span>',
+  );
 });
 
 test("all profile photo crops and no-photo placeholders stay in their original templates", () => {
@@ -84,4 +104,148 @@ test("all profile photo crops and no-photo placeholders stay in their original t
   assert.match(breed, /<BreedPhoto/);
   assert.match(breed, /data-testid="breed-hero-image"/);
   assert.match(breed, /<PublicMediaFallback/);
+});
+
+test("hero lightboxes defer requests until intent, handle cold clicks and clean up image listeners", async () => {
+  const { default: ts } = await import("typescript");
+  const compiled = ts.transpileModule(
+    read("components/public-visual-system/public-photoswipe-enhancer.tsx"),
+    {
+      compilerOptions: {
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.CommonJS,
+        esModuleInterop: true,
+      },
+    },
+  ).outputText;
+  function mount({ hero = true, reject = false } = {}) {
+    const handlers = new Map();
+    const imageHandlers = new Map();
+    const counts = { imports: 0, opens: 0, destroyed: 0, observers: 0, fallback: 0 };
+    let cleanup;
+    class Target {
+      closest() {
+        return anchor;
+      }
+    }
+    const image = {
+      complete: false,
+      naturalWidth: 640,
+      naturalHeight: 480,
+      addEventListener: (event, handler) => imageHandlers.set(event, handler),
+      removeEventListener: (event) => imageHandlers.delete(event),
+    };
+    const anchor = new Target();
+    Object.assign(anchor, {
+      dataset: {},
+      target: "",
+      href: "/media/profile.jpg",
+      hasAttribute: () => false,
+      querySelector: () => image,
+    });
+    const anchors = [anchor];
+    anchors.item = (index) => anchors[index];
+    const gallery = {
+      querySelector: () => (hero ? anchor : null),
+      querySelectorAll: () => anchors,
+      contains: () => true,
+      addEventListener: (event, handler) => handlers.set(event, handler),
+      removeEventListener: (event) => handlers.delete(event),
+    };
+    const exports = {};
+    new Function("require", "exports", "Element", "IntersectionObserver", "window", compiled)(
+      (name) => {
+        if (name === "react")
+          return {
+            useRef: () => ({ current: gallery }),
+            useEffect: (effect) => {
+              cleanup = effect();
+            },
+          };
+        if (name === "react/jsx-runtime") return { jsx: () => null };
+        if (name === "photoswipe/style.css") return {};
+        if (name === "photoswipe/lightbox") {
+          counts.imports++;
+          if (reject) throw Error("Simulated chunk failure");
+          return class {
+            init() {}
+            loadAndOpen() {
+              counts.opens++;
+            }
+            destroy() {
+              counts.destroyed++;
+            }
+          };
+        }
+        throw Error("Unexpected import: " + name);
+      },
+      exports,
+      Target,
+      class {
+        constructor() {
+          counts.observers++;
+        }
+        observe() {}
+        disconnect() {}
+      },
+      {
+        location: {
+          assign: () => {
+            counts.fallback++;
+          },
+        },
+      },
+    );
+    exports.PublicPhotoSwipeEnhancer({ children: null });
+    return {
+      counts,
+      handlers,
+      imageHandlers,
+      cleanup: () => cleanup(),
+      click: (extras = {}) => {
+        let prevented = false;
+        handlers.get("click")({
+          target: anchor,
+          button: 0,
+          preventDefault: () => {
+            prevented = true;
+          },
+          ...extras,
+        });
+        return prevented;
+      },
+    };
+  }
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  const hero = mount();
+  await settle();
+  assert.equal(hero.counts.imports, 0, "visible hero does not download the controller");
+  assert.equal(hero.counts.observers, 0);
+  assert.equal(hero.click({ ctrlKey: true }), false);
+  assert.equal(hero.counts.imports, 0, "modified links keep native behavior");
+  assert.equal(hero.click(), true);
+  await settle();
+  assert.equal(hero.counts.imports, 1);
+  assert.equal(hero.counts.opens, 1, "first touch/click opens after the chunk arrives");
+  assert.equal(hero.imageHandlers.size, 1);
+  hero.cleanup();
+  assert.equal(hero.handlers.size, 0);
+  assert.equal(hero.imageHandlers.size, 0, "unmount removes pending image load listener");
+  assert.equal(hero.counts.destroyed, 1);
+  for (const event of ["pointerover", "focusin"]) {
+    const item = mount();
+    item.handlers.get(event)();
+    await settle();
+    assert.equal(item.counts.imports, 1);
+    assert.equal(item.counts.opens, 0, "intent preloads without opening");
+    item.cleanup();
+  }
+  const failed = mount({ reject: true });
+  failed.click();
+  await settle();
+  assert.equal(failed.counts.fallback, 1);
+  failed.cleanup();
+  const gallery = mount({ hero: false });
+  assert.equal(gallery.counts.observers, 1, "galleries retain viewport preparation");
+  gallery.cleanup();
 });
