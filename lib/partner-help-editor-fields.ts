@@ -140,6 +140,8 @@ export function normalizeHelpEditorPatch(type: HelpEditorType, raw: unknown, all
       const clean = value.trim().replace(/\r\n?/g,"\n");
       if (clean.length > (field.max ?? 1200)) throw new HelpEditorValidationError("Text je príliš dlhý: "+field.label+".");
       if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(clean)) throw new HelpEditorValidationError("Text obsahuje nepovolené znaky.");
+      if (/[<>]/.test(clean)) throw new HelpEditorValidationError("Verejné polia nesmú obsahovať HTML.");
+      if (key === "action_url" && clean && !/^(?:https?:\/\/|\/(?!\/)|mailto:|tel:)/i.test(clean)) throw new HelpEditorValidationError("Odkaz výzvy musí byť bezpečný.");
       if (field.required && !clean) throw new HelpEditorValidationError("Povinné pole: "+field.label+".");
       if (field.kind === "select" && !field.options?.includes(clean)) throw new HelpEditorValidationError("Neplatná možnosť: "+field.label+".");
       if (field.kind === "date" && clean && !validDate(clean)) throw new HelpEditorValidationError("Neplatný dátum: "+field.label+".");
