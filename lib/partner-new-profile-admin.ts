@@ -1,3 +1,4 @@
+import { partnerDirectoryReviewLockStatement } from "./partner-directory-review";
 import { env } from "cloudflare:workers";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { adminAuditActorRef } from "@/lib/audit-identity";
@@ -461,6 +462,11 @@ export async function createPartnerNewProfileAdmin(input:{
   canonicalStatements.push(...membershipStatements(database,{
     accountId:row.accountId,type:row.resourceType,canonicalSql,membershipId,actorRef,nowIso,existingMembership:canonicalState.membership,
   }));
+  if(row.resourceType==="DIRECTORY_PROFILE"){
+    canonicalStatements.push(partnerDirectoryReviewLockStatement({
+      database,canonicalSql,accountId:row.accountId,actorRef,nowIso,
+    }));
+  }
   canonicalStatements.push(...verificationStatements(database,{
     accountId:row.accountId,type:row.resourceType,canonicalSql,verificationId,actorRef,nowIso,current:canonicalState.verification,
   }));
@@ -546,6 +552,9 @@ export async function linkPartnerNewProfileAdmin(input:{
       accountId:row.accountId,type:row.resourceType,canonicalSql,membershipId:crypto.randomUUID(),
       actorRef,nowIso,existingMembership:existing.membership,
     }),
+    ...(row.resourceType==="DIRECTORY_PROFILE"
+      ? [partnerDirectoryReviewLockStatement({database,canonicalSql,accountId:row.accountId,actorRef,nowIso})]
+      : []),
     ...verificationStatements(database,{
       accountId:row.accountId,type:row.resourceType,canonicalSql,verificationId:crypto.randomUUID(),
       actorRef,nowIso,current:existing.verification,
