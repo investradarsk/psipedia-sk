@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminCommunityPagination, COMMUNITY_PAGE_SIZE } from "@/components/admin-community-pagination";
 import { SearchIcon } from "@/components/icons";
 import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
@@ -35,12 +35,40 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [rowDraft, setRowDraft] = useState<{ id: number; status: NewsTipStatus; initialStatus: NewsTipStatus; originalNote: string } | null>(null);
+  const [anchorTipId, setAnchorTipId] = useState<number | null>(null);
+
+  // A queue link may target a tip on a later client-paginated page.
+  // Reveal that page before scrolling to the original #tip-ID anchor.
+  useEffect(() => {
+    const revealAnchoredTip = () => {
+      const match = /^#tip-(\\d+)$/.exec(window.location.hash);
+      if (!match) return;
+      const id = Number(match[1]);
+      const index = initialTips.findIndex((tip) => tip.id === id);
+      if (index < 0) return;
+      setQuery("");
+      setStatus("all");
+      setPage(Math.floor(index / COMMUNITY_PAGE_SIZE) + 1);
+      setAnchorTipId(id);
+    };
+    revealAnchoredTip();
+    window.addEventListener("hashchange", revealAnchoredTip);
+    return () => window.removeEventListener("hashchange", revealAnchoredTip);
+  }, [initialTips]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
     return tips.filter((tip) => (status === "all" || tip.status === status)
       && (!needle || `${tip.title} ${tip.summary} ${tip.location} ${tip.contactName} ${tip.contactEmail ?? ""} ${newsTipTopicLabel(tip.topic)}`.toLocaleLowerCase("sk").includes(needle)));
   }, [query, status, tips]);
+
+  useEffect(() => {
+    if (anchorTipId === null) return;
+    const target = document.getElementById(`tip-${anchorTipId}`);
+    if (!target) return;
+    target.scrollIntoView({ block: "center" });
+    setAnchorTipId(null);
+  }, [anchorTipId, page]);
 
   async function saveTip(tip: NewsTip, nextStatus: NewsTipStatus) {
     setBusyId(tip.id); setMessage("");
