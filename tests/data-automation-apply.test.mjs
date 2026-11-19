@@ -86,7 +86,11 @@ test("HOTFIX DIRECTORY CREATE_DRAFT reuses public-contact metadata and unconfirm
     assert.match(applySource, new RegExp(field));
   }
   assert.match(draftMapper, /serviceAddressConfirmation:\s*"LEGACY_UNCONFIRMED"/);
-  assert.match(draftService, /mergeDirectoryPublicContactData/);
+  // A fresh Directory draft writes editable contact values to SQL only.
+  assert.match(draftService, /const sourceData = \{\};/);
+  for (const field of ["website_url", "public_phone", "public_email", "facebook_url", "instagram_url"]) {
+    assert.ok(draftService.includes(field + ": after."), field + " must use the SQL column");
+  }
   assert.match(draftService, /source_data_json:\s*JSON\.stringify\(after\.sourceData\)/);
   assert.match(draftService, /verifiedAddress/);
   assert.match(draftService, /"CONFIRMED_SERVICE_LOCATION" as const/);
