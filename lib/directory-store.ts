@@ -79,7 +79,7 @@ import {
   readDirectoryQualityMetadata,
   type DirectoryQualityResolutionInput,
 } from "@/lib/directory-profile-metadata";
-import { directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
+import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
 import { directoryQualificationSections } from "./directory-public-copy.ts";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
@@ -2371,7 +2371,9 @@ export async function setManagedDirectoryProfileReviewed(
     database, profileId: id, sourceDataJson: nextSourceJson,
     profileUpdatedAt: timestamp, projectedAt: timestamp, projectedBy: editorEmail,
   });
-  const responses = await database.batch([canonical, reviewMirror]);
+  const responses = await database.batch([
+    canonical, directory0173ReviewCasGuardStatement(database), reviewMirror,
+  ]);
   const updated = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   // Never lose a concurrent editor/Notion write while setting the lock.
   if (!updated) throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
