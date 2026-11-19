@@ -240,3 +240,23 @@ test("manual production runner cannot mutate without main, D1 preflight, protect
  assert.doesNotMatch(workflow,/^\s+(?:push|pull_request|schedule):/m);
  assert.doesNotMatch(script,/d1.migrations.apply/i);
 });
+
+test("corrupted or absent typed Notion values never become silently blank SQL fields",()=>{
+ const db=fixture();
+ try{
+   const row=db.prepare("SELECT values_json FROM breed_notion_controlled_values WHERE breed_id=1").get();
+   const initial=JSON.parse(row.values_json);
+   const wrong={...initial,heightMinCm:"54.5"};
+   const change=db.prepare("UPDATE breed_notion_controlled_values SET values_json=?,notion_values_json=? WHERE breed_id=1");
+   change.run(JSON.stringify(wrong),JSON.stringify(wrong));
+   const bad=report(db);
+   assert.ok(bad.invalidControlledTypes.invalid_types>0);
+   assert.throws(()=>assertBreedSqlV2BackfillPreflight(bad),/CONTROLLED_BAD_TYPES/);
+   const absent={...initial};
+   delete absent.heightMaxCm;
+   change.run(JSON.stringify(absent),JSON.stringify(absent));
+   const missing=report(db);
+   assert.ok(missing.missingControlledKeys.missing_keys>0);
+   assert.throws(()=>assertBreedSqlV2BackfillPreflight(missing),/CONTROLLED_MISSING_KEYS/);
+ }finally{db.close()}
+});
