@@ -6,6 +6,12 @@ on:
       - "pending-migrations/0174_breeds_sql_json_foundation.sql"
       - "db/breed-storage-schema.ts"
       - "lib/breed-storage-decision.mjs"
+      - "lib/breed-sql-v2-bridge.mjs"
+      - "lib/breed-sql-v2-preview.ts"
+      - "lib/breed-store.ts"
+      - "lib/notion-breed-workcopy-direct-field.ts"
+      - "tests/breed-sql-v2-bridge.test.mjs"
+      - "docs/BREEDS-SQL-JSON-STEP4-20261119.md"
       - "tests/breed-sql-0174-foundation.test.mjs"
       - "tests/breed-storage-decision.test.mjs"
       - ".github/workflows/breed-sql-0174-offline.yml"
@@ -27,4 +33,4 @@ jobs:
       - name: Verify frozen contiguous migration chain
         run: node scripts/check-migration-safety.mjs
       - name: Verify full 90-field storage contract and SQL schema
-        run: node --test tests/breed-storage-decision.test.mjs tests/breed-sql-0174-foundation.test.mjs
+        run: node --test tests/breed-storage-decision.test.mjs tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-bridge.test.mjs
