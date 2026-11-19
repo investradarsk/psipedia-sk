@@ -56,7 +56,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
     confirmation.getByRole("button", { name: "Publikovať", exact: true }).click(),
   ]);
   expect(publishResponse.ok()).toBe(true);
-  await expect(page.getByRole("status")).toContainText("Organizácia bola publikovaná");
+  await expect(page.getByRole("status").filter({ hasText: /Organizácia bola (publikovaná|presunutá do konceptu)/ })).toContainText("Organizácia bola publikovaná");
 
   row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Publikované");
@@ -81,7 +81,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
     confirmation.getByRole("button", { name: "Presunúť do konceptu", exact: true }).click(),
   ]);
   expect(unpublishResponse.ok()).toBe(true);
-  await expect(page.getByRole("status")).toContainText("Organizácia bola presunutá do konceptu");
+  await expect(page.getByRole("status").filter({ hasText: /Organizácia bola (publikovaná|presunutá do konceptu)/ })).toContainText("Organizácia bola presunutá do konceptu");
 
   row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Koncept");
