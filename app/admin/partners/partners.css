@@ -379,3 +379,61 @@
   .admin-partner-v2-filter-grid { grid-template-columns:minmax(0,1fr); }
 }
 .admin-partner-table.admin-partner-v2-table article+article { margin-top: 0; }
+
+
+/* Partneri V2 – partner detail; no global Admin styles are changed. */
+.admin-partner-v2-back { margin:0 0 .65rem; }
+.admin-partner-v2-back a { color:#245d47; font-size:.85rem; font-weight:750; text-decoration:none; }
+.admin-partner-v2-summary { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,2fr); gap:1rem; align-items:center; }
+.admin-partner-v2-contact h2 { margin:0 0 .45rem; font-family:inherit; font-size:1.05rem; }
+.admin-partner-v2-contact p { margin:.2rem 0; font-size:.85rem; overflow-wrap:anywhere; color:var(--admin-ui-muted,#607568); }
+.admin-partner-v2-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
+.admin-partner-v2-stats a { display:grid; gap:.2rem; padding:.65rem .75rem; min-height:80px; border:1px solid #dce5df; border-radius:12px; background:#f8fbf8; text-decoration:none; color:#234d3a; }
+.admin-partner-v2-stats a:focus-visible,
+.admin-partner-v2-tabs a:focus-visible,
+.admin-partner-v2-record-actions a:focus-visible { outline:3px solid var(--admin-ui-focus,#a26a1b); outline-offset:2px; }
+.admin-partner-v2-stats span { font-size:.74rem; font-weight:650; color:#607568; }
+.admin-partner-v2-stats strong { font-size:1.45rem; font-variant-numeric:tabular-nums; line-height:1.25; }
+.admin-partner-v2-tabs { display:flex; gap:.35rem; flex-wrap:wrap; margin:.75rem 0; padding:.25rem; background:#f2f6f2; border:1px solid #e0e8e1; border-radius:12px; }
+.admin-partner-v2-tabs a { display:inline-flex; justify-content:center; align-items:center; padding:.55rem .78rem; min-height:44px; border-radius:9px; color:#456756; text-decoration:none; font-size:.86rem; font-weight:750; }
+.admin-partner-v2-tabs a.is-active { background:#fff; color:#194d34; box-shadow:0 1px 4px rgba(27,61,43,.09); }
+.admin-partner-v2-panel { min-width:0; }
+.admin-partner-v2-panel-heading { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:.5rem; margin-bottom:.8rem; }
+.admin-partner-v2-panel h2 { margin:0 0 .5rem; font-family:inherit; font-size:1.05rem; }
+.admin-partner-v2-panel-heading h2 { margin:0; }
+.admin-partner-v2-panel-heading > span { color:#607568; font-size:.78rem; font-variant-numeric:tabular-nums; }
+.admin-partner-v2-records { display:grid; gap:.4rem; }
+.admin-partner-v2-records > article { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1rem; align-items:center; padding:.7rem .8rem; border:1px solid #dfe8e0; border-radius:10px; background:#fff; margin:0!important; }
+.admin-partner-v2-records h3 { font-family:inherit; font-size:.9rem; margin:.3rem 0; font-weight:800; overflow-wrap:anywhere; }
+.admin-partner-v2-records p { margin:0; font-size:.77rem; color:#607568; }
+.admin-partner-v2-records small { color:#607568; font-size:.72rem; overflow-wrap:anywhere; }
+.admin-partner-v2-record-actions { display:flex; align-items:center; justify-content:flex-end; gap:.45rem; flex-wrap:wrap; }
+.admin-partner-v2-record-actions > span { color:#486456; font-size:.76rem; font-weight:750; }
+.admin-partner-v2-record-actions > span.is-pending { color:#a15323; }
+.admin-partner-v2-record-actions a { display:inline-flex; align-items:center; min-height:44px; padding:.45rem .7rem; border-radius:9px; border:1px solid #d5dfd7; color:#205741; background:#f5faf6; font-size:.78rem; font-weight:750; text-decoration:none; }
+.admin-partner-v2-panel .admin-partner-pagination { align-items:center; }
+.admin-partner-v2-panel .admin-partner-pagination > span { color:#607568; font-size:.76rem; }
+.admin-partner-v2-history-memberships { border-top:1px solid #e2e8e4; margin-top:1rem; padding-top:1rem; }
+.admin-partner-v2-history-memberships h3 { margin:0 0 .5rem; font-size:.95rem; }
+.admin-partner-v2-history-memberships article { display:grid; padding:.45rem 0; margin:0!important; }
+.admin-partner-v2-history-memberships article+article { border-top:1px solid #e7ece8; }
+.admin-partner-v2-history-memberships article strong { font-size:.85rem; }
+.admin-partner-v2-history-memberships article span { font-size:.76rem; color:#607568; }
+.admin-partner-v2-audit-note { margin:1rem 0 0; color:#607568; font-size:.78rem; }
+@media (max-width:1050px) {
+  .admin-partner-v2-summary { grid-template-columns:minmax(0,1fr); }
+}
+@media (max-width:760px) {
+  .admin-partner-v2-stats { grid-template-columns:repeat(3,minmax(0,1fr)); gap:.35rem; }
+  .admin-partner-v2-stats a { padding:.5rem; min-height:72px; }
+  .admin-partner-v2-stats span { font-size:.69rem; }
+  .admin-partner-v2-stats strong { font-size:1.25rem; }
+  .admin-partner-v2-tabs { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.15rem; }
+  .admin-partner-v2-tabs a { padding:.45rem .22rem; font-size:.73rem; }
+  .admin-partner-v2-records > article { grid-template-columns:minmax(0,1fr); gap:.6rem; }
+  .admin-partner-v2-record-actions { justify-content:flex-start; }
+}
+@media (max-width:390px) {
+  .admin-partner-v2-stats { grid-template-columns:minmax(0,1fr); }
+  .admin-partner-v2-tabs { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
