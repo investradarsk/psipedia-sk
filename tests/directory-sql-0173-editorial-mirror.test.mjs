@@ -161,7 +161,7 @@ test("Admin, Notion and moderated partner hours all use 0173 SQL without switchi
  const partner=readFileSync(new URL("../lib/partner-profile-changes-admin.ts",import.meta.url),"utf8");
  assert.match(notion,/planDirectory0173EditorialSqlMirror/);
  assert.match(notion,/openingHoursText: trimmed/);
- assert.match(notion,/canonical, \.\.\.guard,[\\s\\S]*\.\.\.factMirror[\\s\\S]*\.\.\.hoursMirror/);
+ assert.match(notion,/canonical, \.\.\.guard,[\s\S]*\.\.\.factMirror[\s\S]*\.\.\.hoursMirror/);
  assert.match(partner,/Object\.hasOwn\(effectivePatch, "openingHours"\)/);
  assert.match(partner,/planDirectory0173EditorialSqlMirror/);
  assert.match(partner,/\.\.\.canonicalStatements/);
