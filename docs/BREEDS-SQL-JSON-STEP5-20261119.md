@@ -4,6 +4,14 @@
 **GitHub:** PR #1449.
 **D1 produkcia:** bez zápisov; migrácia 0174 je zatiaľ v `pending-migrations/`.
 
+## Aktualizácia po úspešnom importe zrkadiel (19. 11. 2026)
+
+**Pôvodný stav 3/344 je vyriešený.** Priamo v GitHub Actions bol overený [úspešný produkčný run #44601495993](https://github.com/investradarsk/psipedia-sk/actions/runs/44601495993): **2** dávky, po prvej **197** riadkov, po druhej **344** riadkov, **0** chýbajúcich a `postflight-success`. Nie je potrebné opakovať pomocný import PR #1455.
+
+**Pozor:** Týmto sa iba dokončilo naplnenie `breed_notion_controlled_values`, **nie** import do finálnych tabuliek 0174. Nižšie uvedená pôvodná blokujúca podmienka 341 chýbajúcich riadkov platila **pred** týmto úspešným runom; dnes ostávajú podmienky 0173→0174, aktuálna Notion parita, vyriešenie súbežných zápisov a read/write cutover.
+
+Po ďalšom audite treba chrániť 5 historických redakčných polí a 8 SEO polí; podrobnosti `docs/BREEDS-SQL-JSON-STEP6-20261119.md`.
+
 ## Produkčný preflight – skutočný výsledok z Cloudflare D1 (19. 11. 2026)
 
 Používateľ spustil read-only SQL:
