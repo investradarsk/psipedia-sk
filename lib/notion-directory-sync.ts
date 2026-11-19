@@ -1642,7 +1642,19 @@ export async function savePilotDirectoryMetadataField(input: {
       openingHoursText: trimmed,
     }) : [];
     const guard = approved ? [] : [input.database.prepare(
-      "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', '
+      "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract(char(110,111,116,45,106,115,111,110), char(36)) END AS cas_ok"
+    )];
+    const response = await input.database.batch([
+      canonical, ...guard,
+      ...factMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
+      ...hoursMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
+    ]);
+    if (!(response[0]?.results?.[0] as { id?: number } | undefined)?.id)
+      throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
+  } else {
+    const saved = await canonical.first<{ id: number }>();
+    if (!saved) throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
+  }
   const next = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!next) throw new Error("DIRECTORY_PILOT_METADATA_RELOAD_FAILED");
   return next;
