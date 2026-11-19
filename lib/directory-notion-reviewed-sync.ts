@@ -1,5 +1,5 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
-import { directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
+import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
 import {
   mergeDirectoryProfileReviewMetadata,
   readDirectoryProfileReviewMetadata,
@@ -118,7 +118,9 @@ async function saveReviewedAndBaseline(input: {
     sourceDataJson: nextSourceJson, profileUpdatedAt,
     projectedAt, projectedBy,
   });
-  const responses = await input.database.batch([canonical, reviewMirror]);
+  const responses = await input.database.batch([
+    canonical, directory0173ReviewCasGuardStatement(input.database), reviewMirror,
+  ]);
   if (!(responses[0]?.results?.[0] as { id?: number } | undefined)?.id)
     throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
 }
