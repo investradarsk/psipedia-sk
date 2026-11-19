@@ -18,7 +18,7 @@ export async function compareBreedSqlV2Detail(database:D1Database,
     const statements=[
       database.prepare("SELECT * FROM breed_fci_standard WHERE breed_id=? LIMIT 1").bind(row.id),
       database.prepare("SELECT * FROM breed_editorial_text WHERE breed_id=? LIMIT 1").bind(row.id),
-      database.prepare("SELECT seo_title,seo_description,seo_focus_keyword,seo_canonical_url,seo_og_title,seo_og_description,seo_noindex FROM managed_breeds WHERE id=? LIMIT 1").bind(row.id),
+      database.prepare("SELECT seo_title,seo_description,seo_focus_keyword,seo_canonical_url,seo_og_title,seo_og_description,seo_og_image,seo_noindex FROM managed_breeds WHERE id=? LIMIT 1").bind(row.id),
       database.prepare("SELECT related_breed_id FROM breed_related_breeds WHERE breed_id=? ORDER BY position").bind(row.id),
     ];
     const results=await database.batch(statements);
