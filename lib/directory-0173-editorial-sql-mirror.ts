@@ -19,6 +19,9 @@ export type Directory0173Seo = {
   noindex?: boolean;
 };
 
+export const DIRECTORY_0173_QUALITY_FIELDS = ["phone", "email", "website", "image", "address"] as const;
+export type Directory0173QualityField = (typeof DIRECTORY_0173_QUALITY_FIELDS)[number];
+
 export type Directory0173MirrorInput = {
   identity:
     | { kind: "id"; profileId: number; updatedAt: string; actor: string }
@@ -29,6 +32,12 @@ export type Directory0173MirrorInput = {
   galleryUrls?: readonly string[];
   /** Explicit hours edit; losslessly stored as day 0 until a reviewed day-row cutover. */
   openingHoursText?: string;
+  /**
+   * Only fields explicitly edited in the profile, or invalidated by a related
+   * contact/location edit. Values are read from the just-updated compatibility
+   * JSON in the very same D1 batch to avoid clock/normalization divergence.
+   */
+  qualityFields?: readonly Directory0173QualityField[];
 };
 
 export type Directory0173SqlStatement = { sql: string; bindings: Array<string | number> };
@@ -134,6 +143,37 @@ export function planDirectory0173EditorialSqlMirror(input: Directory0173MirrorIn
         "SELECT p.id,0,?,?,? FROM directory_profiles p WHERE " + where,
       bindings: [hours, updatedAt, actor, ...guardValues],
     });
+  }
+
+  if (input.qualityFields !== undefined) {
+    if (!Array.isArray(input.qualityFields) ||
+        input.qualityFields.some(field => !DIRECTORY_0173_QUALITY_FIELDS.includes(field)) ||
+        new Set(input.qualityFields).size !== input.qualityFields.length)
+      throw new Error("DIRECTORY_0173_INVALID_QUALITY_FIELDS");
+
+    for (const field of input.qualityFields) {
+      const statusPath = '$."_psipedia_quality_' + field + '_status"';
+      const checkedAtPath = '$."_psipedia_quality_' + field + '_checked_at"';
+      // Zero or one SQL resolution per field. Only the precisely edited field
+      // may be cleared; a missing qualityFields property is a complete no-op.
+      statements.push({
+        sql: "DELETE FROM directory_profile_quality_resolutions WHERE quality_field=? " +
+          "AND profile_id IN (SELECT p.id FROM directory_profiles p WHERE " + where + ")",
+        bindings: [field, ...guardValues],
+      });
+      statements.push({
+        sql: "INSERT INTO directory_profile_quality_resolutions " +
+          "(profile_id,quality_field,resolution_status,checked_at,updated_at,updated_by) " +
+          "SELECT p.id,?,json_extract(p.source_data_json,?),json_extract(p.source_data_json,?),?,? " +
+          "FROM directory_profiles p WHERE " + where +
+          " AND json_valid(COALESCE(p.source_data_json,'{}')) " +
+          "AND json_extract(p.source_data_json,?) IN " +
+          "('DOES_NOT_EXIST','NOT_PUBLIC','NOT_APPLICABLE','NOT_FOUND') " +
+          "AND NULLIF(TRIM(CAST(json_extract(p.source_data_json,?) AS TEXT)),'') IS NOT NULL",
+        bindings: [field, statusPath, checkedAtPath, updatedAt, actor,
+          ...guardValues, statusPath, checkedAtPath],
+      });
+    }
   }
 
   return statements;
