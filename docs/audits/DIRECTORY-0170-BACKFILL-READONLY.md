@@ -10,8 +10,14 @@
 - Každý profil číta cez keyset stránkovanie (`id > posledné_id`), s kontrolou
   presného počtu, maxima ID, súčtu ID, dĺžky JSON a posledného `updated_at` pred/po.
 - Overí fyzickú prítomnosť kontaktov a troch relačných tabuliek 0170.
-- Porovnáva historické kontakty, druhé kategórie, vybrané redakčné fakty,
+- Porovnáva **všetkých 5 kontaktov** voči SQL (`website_url`, `public_phone`,
+  `public_email`, `facebook_url`, `instagram_url`), vrátane historických aliasov
+  `Web` a `Webstránka`, druhé kategórie, vybrané redakčné fakty,
   21 konkrétnych filtrov a hodnoty už prítomné v SQL.
+- `issuesByCategory` eviduje agregované typy rozdielov osobitne pre každú
+  kategóriu; globálne `issues` a vzorky ID zostávajú zachované.
+- Prvý prázdny historický alias nezakryje druhý vyplnený alias.
+  Web existujúci iba v kanonickom SQL sa **nepovažuje za problém**.
 - Eviduje pokrytie mapovaní `directory_notion_sync` (len či väzba existuje),
   profily označené `Odkontrolované` a archivované profily.
 - Vydá iba agregované počty a najviac 12 D1 ID pre triedu problému.
@@ -24,6 +30,9 @@
 - Samotné mapovanie na Notion **nie je** overenie aktuálnej Notion hodnoty.
 - `directory_profiles.updated_at` ani `directory_notion_sync.last_synced_at`
   nedokazujú čas poslednej zmeny **konkrétneho poľa**.
+- `website_url = ''` pri historických profiloch samo o sebe nedokazuje, kedy
+  a kto web vymazal. Hlásenie `explicit_clear_vs_legacy` preto označuje
+  **rozpor na ručné overenie**, nie rozhodnutie o poslednom platnom zápise.
 - `legacy_only_unverified` **nie je bezpečný kandidát na automatické kopírovanie**.
   Vyžaduje dôkaz z per-field verzie/zmenovej histórie alebo ručný súhlas.
 - `stableAggregates=true` iba zachytáva rovnaké kontrolné agregáty na začiatku a

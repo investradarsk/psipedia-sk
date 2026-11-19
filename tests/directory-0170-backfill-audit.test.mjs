@@ -6,7 +6,7 @@ import { classifyDirectory0170Row, aggregateDirectory0170Rows } from "../scripts
 function row(extra={}) {
   return {
     id:1, category:"veterinari", status:"published", notion_mapped:1,
-    source_data_json:"{}", public_phone:null, public_email:null,
+    source_data_json:"{}", website_url:null, public_phone:null, public_email:null,
     facebook_url:null, instagram_url:null,
     sql_categories:"[]",sql_facts:"[]",sql_filters:"[]",...extra,
   };
@@ -35,6 +35,36 @@ test("SQL explicit blank against historical value is a conflict, not migration",
   }));
   assert(r.issues.includes("contact:public_email_explicit_clear_vs_legacy"));
 });
+test("canonical website SQL is audited against both Web aliases, never backfilled automatically",()=>{
+  const legacy = JSON.stringify({Web:"", "Webstránka":"https://historic.example.invalid"});
+  const absent = classifyDirectory0170Row(row({source_data_json:legacy,website_url:null}));
+  assert(absent.issues.includes("contact:website_url_cleared_legacy_alias_present"));
+  assert(absent.issues.includes("contact:website_url_legacy_only_unverified"));
+  const cleared = classifyDirectory0170Row(row({source_data_json:legacy,website_url:""}));
+  assert(cleared.issues.includes("contact:website_url_explicit_clear_vs_legacy"));
+  const changed = classifyDirectory0170Row(row({source_data_json:legacy,website_url:"https://current.example.invalid"}));
+  assert(changed.issues.includes("contact:website_url_different"));
+  const valid = classifyDirectory0170Row(row({website_url:"https://current.example.invalid"}));
+  assert(!valid.issues.includes("contact:website_url_sql_only"), "SQL websites are canonical even without JSON");
+  assert(!JSON.stringify({absent,cleared,changed,valid}).includes("historic.example"));
+});
+
+test("conflicting second website alias is detected even when first alias matches SQL",()=>{
+  const result = classifyDirectory0170Row(row({
+    website_url:"https://current.example.invalid",
+    source_data_json:JSON.stringify({Web:"https://current.example.invalid","Webstránka":"https://stale.example.invalid"}),
+  }));
+  assert(result.issues.includes("contact:website_url_alias_conflict"));
+  assert(!JSON.stringify(result).includes("stale.example"));
+});
+
+test("read-only inventory queries require website SQL column as one of five contacts",()=>{
+  const code = readFileSync(new URL("../scripts/directory-0170-backfill-readonly.mjs",import.meta.url),"utf8");
+  assert.match(code,/p\.source_data_json,p\.website_url,p\.public_phone/);
+  assert.match(code,/\x27website_url\x27,\x27public_phone\x27,\x27public_email\x27,\x27facebook_url\x27,\x27instagram_url\x27/);
+  assert.match(code,/must\(columns\.length === 6,"MISSING_COLUMNS"\)/);
+});
+
 test("secondary categories, facts and filters get independent review findings",()=>{
   const source={
     "_psipedia_additional_categories":JSON.stringify(["treneri"]),
@@ -89,10 +119,25 @@ test("report contains only counts and sample IDs, never raw private field values
   assert.equal(report.byCategory.veterinari.profiles,2);
   assert.equal(report.byCategory.veterinari.notionMapped,1);
   assert.equal(report.issues["contact:public_phone_legacy_only_unverified"],1);
+  assert.equal(report.issuesByCategory.veterinari["contact:public_phone_legacy_only_unverified"],1);
+  assert.equal(report.issuesByCategory.veterinari["contact:public_email_legacy_only_unverified"],1);
   assert.deepEqual(report.sampleProfileIds["contact:public_phone_legacy_only_unverified"],[17]);
   assert(!JSON.stringify(report).includes("VERY-PRIVATE"));
   assert(!JSON.stringify(report).includes("PRIVATE@example"));
 });
+test("field discrepancies are counted separately by Directory category",()=>{
+  const results=aggregateDirectory0170Rows([
+    row({id:1,category:"veterinari",website_url:"",source_data_json:JSON.stringify({Web:"https://old.example.invalid"})}),
+    row({id:2,category:"treneri",website_url:null,source_data_json:JSON.stringify({"Webstránka":"https://other.example.invalid"})}),
+  ]);
+  assert.equal(results.issues["contact:website_url_explicit_clear_vs_legacy"],1);
+  assert.equal(results.issues["contact:website_url_legacy_only_unverified"],1);
+  assert.equal(results.issuesByCategory.veterinari["contact:website_url_explicit_clear_vs_legacy"],1);
+  assert.equal(results.issuesByCategory.treneri["contact:website_url_legacy_only_unverified"],1);
+  assert.equal(results.issuesByCategory.treneri["contact:website_url_explicit_clear_vs_legacy"],undefined);
+  assert(!JSON.stringify(results).includes("other.example"));
+});
+
 test("audit script contains no database write commands or Notion API calls",()=>{
   const content=readFileSync(new URL("../scripts/directory-0170-backfill-readonly.mjs",import.meta.url),"utf8");
   assert.match(content,/DIRECTORY_0170_BACKFILL_CONFIRMATION/);
