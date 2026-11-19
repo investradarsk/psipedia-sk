@@ -101,7 +101,27 @@ export function compareDirectorySqlShadow(
   const legacyText = Object.fromEntries(Object.entries(legacy)
     .filter((entry): entry is [string, string | number | null] =>
       entry[1] === null || typeof entry[1] === "string" || typeof entry[1] === "number"));
-  const legacyContacts=readDirectoryPublicContacts(legacyText, row.website_url ?? "");
+  const legacyContacts=readDirectoryPublicContacts(legacyText);
+  // website_url was a canonical SQL field before the contact cutover.
+  // A SQL-only website is not a missing backfill. Audit *all* populated
+  // historical Web/Webstránka aliases independently, however: comparing only
+  // the first alias would miss a stale second value that could be resurrected
+  // by a later legacy writer. Never return the URLs themselves in the report.
+  const oldWebsites=["Web","Webstránka"].map(key => {
+    const value=legacyText[key];
+    return value === null || value === undefined ? "" : String(value).trim();
+  }).filter(Boolean);
+  if (oldWebsites.length) {
+    const current=row.website_url;
+    const issue=current===null
+      ? {group:"contact",field:"websiteUrl",kind:"not_backfilled"} as const
+      : !current.trim()
+        ? {group:"contact",field:"websiteUrl",kind:"legacy_alias_after_clear"} as const
+        : oldWebsites.some(value => value!==current.trim())
+          ? {group:"contact",field:"websiteUrl",kind:"value_differs"} as const
+          : null;
+    if (issue) issues.push(issue);
+  }
   for (const [field,sqlValue,old] of [
     ["publicPhone",row.public_phone,legacyContacts.phone],
     ["publicEmail",row.public_email,legacyContacts.email],
