@@ -890,8 +890,10 @@ test("internal admin Partner overview and account detail are protected admin pag
   const expectedPublicationStatus=project==="desktop-chromium"?"published":"draft";
 
   await page.goto("/admin/partners");
-  await expect(page.getByRole("link",{name:/Podujatia 3/})).toBeVisible();
-  await page.getByRole("link",{name:/Podujatia 3/}).click();
+  // The old OWNER update is saved directly; only the new event and seeded
+  // stale moderation fixture remain in the active admin queue.
+  await expect(page.getByRole("link",{name:/Podujatia 2/})).toBeVisible();
+  await page.getByRole("link",{name:/Podujatia 2/}).click();
   await expect(page.getByRole("heading",{name:"Podujatia"})).toBeVisible();
 
   const createEventRow=page.locator(".admin-commercial-list article").filter({hasText:eventCreateTitle});
@@ -924,23 +926,9 @@ test("internal admin Partner overview and account detail are protected admin pag
   expect(canonicalAfterCreateJson.events?.find(item=>item.title===eventCreateTitle)?.status).toBe("draft");
 
   await page.goto("/admin/partners/events?status=active");
+  // An approved OWNER's direct save must not queue an UPDATE moderation job.
   const updateEventRow=page.locator(".admin-commercial-list article").filter({hasText:ownedEventTitle});
-  await expect(updateEventRow).toContainText("UPDATE");
-  await updateEventRow.getByRole("link",{name:"Detail →"}).click();
-  await expect(page.getByRole("heading",{name:"OLD → NEW"})).toBeVisible();
-  await expect(page.getByText(changedVenue,{exact:true}).first()).toBeVisible();
-  const approveEventResponse=page.waitForResponse(response=>
-    response.url().includes("/api/admin/partners/events/") &&
-    response.request().method()==="PATCH" && response.ok(),
-  );
-  await page.getByRole("button",{name:"Schváliť zmeny"}).click();
-  const approveEventDialog=page.getByRole("dialog",{name:"Potvrdiť partnerské rozhodnutie"});
-  await expect(approveEventDialog).toBeVisible();
-  await expect(approveEventDialog).toContainText("aplikovať presný Partner patch");
-  await approveEventDialog.getByRole("button",{name:"Potvrdiť"}).click();
-  await approveEventResponse;
-  await expect(page.getByText("UPDATED")).toBeVisible();
-
+  await expect(updateEventRow).toHaveCount(0);
   const canonicalAfterUpdate=await page.request.get("/api/admin/events");
   expect(canonicalAfterUpdate.ok()).toBeTruthy();
   const canonicalAfterUpdateJson=await canonicalAfterUpdate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
@@ -955,26 +943,12 @@ test("internal admin Partner overview and account detail are protected admin pag
   await expect(page.getByRole("link",{name:/Podujatia 1/})).toBeVisible();
 
   if(project==="desktop-chromium"){
-    await expect(page.getByRole("link",{name:/Úpravy 2/})).toBeVisible();
+    // The seeded stale request is the only active moderation change; direct
+    // profile edits must never require a second Admin approval.
+    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
     await page.goto("/admin/partners/changes?status=active");
     const changeRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Veterina"});
-    await expect(changeRow).toContainText("3 zmenených polí");
-    await changeRow.getByRole("link",{name:"Detail →"}).click();
-    await expect(page.getByRole("heading",{name:"OLD → NEW"})).toBeVisible();
-    await expect(page.getByText("Nitra",{exact:true}).first()).toBeVisible();
-    await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
-    const changeResponse=page.waitForResponse((response)=>
-      response.url().includes("/api/admin/partners/changes/") &&
-      response.request().method()==="PATCH" &&
-      response.ok(),
-    );
-    await page.getByRole("button",{name:"Schváliť zmeny"}).click();
-    const changeDialog=page.getByRole("dialog",{name:"Schváliť zmeny profilu?"});
-    await expect(changeDialog).toBeVisible();
-    await changeDialog.getByRole("button",{name:"Schváliť zmeny"}).click();
-    await changeResponse;
-    await page.goto("/admin/partners");
-    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
+    await expect(changeRow).toHaveCount(0);
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
     await page.goto("/admin/partners");
