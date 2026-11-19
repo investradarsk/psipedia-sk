@@ -7,8 +7,8 @@ import {
   BREED_CANONICAL_JSON_FIELDS as JSON_COLS,
   BREED_JSON_COLUMN_DECISIONS,
 } from "../lib/breed-storage-decision.mjs";
-const staged=new URL("../pending-migrations/0174_breeds_sql_json_foundation.sql",import.meta.url);
-const sql=readFileSync(staged,"utf8");
+const migration=new URL("../drizzle/0174_breeds_sql_json_foundation.sql",import.meta.url);
+const sql=readFileSync(migration,"utf8");
 const schema=readFileSync(new URL("../db/breed-storage-schema.ts",import.meta.url),"utf8");
 const split=code=>code.replace(/^\s*--.*$/gm,"").split(";").map(x=>x.trim()).filter(Boolean);
 const statements=split(sql);
@@ -42,12 +42,12 @@ const shape=db=>Object.fromEntries(db.prepare("SELECT type,name,sql FROM sqlite_
 const names=["breed_fci_standard","breed_editorial_text","breed_public_facts","breed_related_breeds"];
 const newSql=["seo_title","seo_description","seo_focus_keyword","seo_canonical_url","seo_og_title","seo_og_description","seo_og_image","seo_noindex"];
 
-test("0174 staged SQL is additive-only: 8 nullable SEO fields, 4 tables, 1 index",()=>{
+test("0174 canonical SQL is additive-only: 8 nullable SEO fields, 4 tables, 1 index",()=>{
  assert.equal(statements.length,13);
  assert.equal(statements.filter(x=>/^ALTER TABLE managed_breeds ADD COLUMN/i.test(x)).length,8);
  assert.equal(statements.filter(x=>/^CREATE TABLE/i.test(x)).length,4);
  assert.equal(statements.filter(x=>/^CREATE INDEX/i.test(x)).length,1);
- assert.match(sql,/pending-migrations/);
+ assert.match(sql,/REGISTERED after 0173/);
  assert.doesNotMatch(sql,/^\s*(?:UPDATE|DELETE|DROP|INSERT|REPLACE|CREATE TRIGGER|VACUUM|ATTACH|DETACH)\b/im);
  assert.doesNotMatch(sql,/ALTER TABLE managed_breeds (?:DROP|RENAME)/i);
  assert.doesNotMatch(sql,/d1_migrations\s*\(/i);
@@ -155,7 +155,7 @@ test("staged SQL and proposed Drizzle shape include every contract field",()=>{
  }finally{db.close()}
 });
 
-test("no pending 0174 migration added prematurely to the frozen drizzle chain",()=>{
+test("0174 is registered after verified 0173 without altering frozen journal",()=>{
  const dbCheck=readFileSync(new URL("../scripts/check-migration-safety.mjs",import.meta.url),"utf8");
  assert.match(dbCheck,/requireContiguousSequence/);
  assert.match(sql,/0171\/0172 partner/);
