@@ -1,3 +1,4 @@
+import { getAdminEntityReview, setAdminEntityReviewed, type AdminReviewEntityType } from "./admin-entity-review-store";
 import { env } from "cloudflare:workers";
 import { decryptPii } from "./pii-crypto";
 import { appendPartnerAuditEvent, partnerResourceTypes, type PartnerResourceType, type PartnerRole } from "./partner-platform";
@@ -206,6 +207,22 @@ export async function changePartnerMembershipAdmin(input:{membershipId:string;ro
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:actor,action,targetType:"PARTNER_MEMBERSHIP",targetId:input.membershipId,metadata:{fromRole:current.role,toRole:input.role??null},database,now:new Date(now)});
 }
 
+async function markPartnerGrantedReview(input:{
+  database:D1Database;resourceId:string;adminEmail:string;
+}) {
+  const row=await input.database.prepare(`
+    SELECT entity_type entityType,managed_event_id eventId,
+      help_organization_id organizationId
+    FROM partner_resources WHERE id=?1 LIMIT 1
+  `).bind(input.resourceId).first<{entityType:string;eventId:number|null;organizationId:number|null}>();
+  const type:AdminReviewEntityType|null=row?.entityType==="MANAGED_EVENT"?"EVENT":
+    row?.entityType==="HELP_ORGANIZATION"?"ORGANIZATION":null;
+  const entityId=type==="EVENT"?row?.eventId:row?.organizationId;
+  if(!type||!entityId)return;
+  if(!(await getAdminEntityReview(type,entityId,input.database)).reviewed)
+    await setAdminEntityReviewed(type,entityId,true,"admin:"+input.adminEmail.trim().toLowerCase(),input.database);
+}
+
 export async function ensurePartnerOwnerMembershipAdmin(input:{
   accountId:string;
   resourceId:string;
@@ -227,7 +244,10 @@ export async function ensurePartnerOwnerMembershipAdmin(input:{
   const current=await database.prepare(
     "SELECT id,role FROM partner_memberships WHERE account_id=?1 AND resource_id=?2 AND revoked_at IS NULL LIMIT 1",
   ).bind(input.accountId,input.resourceId).first<{id:string;role:PartnerRole}>();
-  if(current?.role==="OWNER")return {id:current.id,resourceId:input.resourceId,role:"OWNER" as const,reused:true};
+  if(current?.role==="OWNER"){
+    await markPartnerGrantedReview({database,resourceId:input.resourceId,adminEmail:input.adminEmail});
+    return {id:current.id,resourceId:input.resourceId,role:"OWNER" as const,reused:true};
+  }
   if(current){
     await changePartnerMembershipAdmin({
       membershipId:current.id,
@@ -236,6 +256,7 @@ export async function ensurePartnerOwnerMembershipAdmin(input:{
       database,
       now:input.now,
     });
+    await markPartnerGrantedReview({database,resourceId:input.resourceId,adminEmail:input.adminEmail});
     return {id:current.id,resourceId:input.resourceId,role:"OWNER" as const,reused:false};
   }
   const now=input.now??new Date(),iso=now.toISOString(),id=crypto.randomUUID(),actor=auditActor(input.adminEmail);
@@ -252,5 +273,6 @@ export async function ensurePartnerOwnerMembershipAdmin(input:{
     database,
     now,
   });
+  await markPartnerGrantedReview({database,resourceId:input.resourceId,adminEmail:input.adminEmail});
   return {id,resourceId:input.resourceId,role:"OWNER" as const,reused:false};
 }
