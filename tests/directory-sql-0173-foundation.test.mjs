@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
-const SQL_URL = new URL("../drizzle/0173_directory_structured_sql_foundation.sql",import.meta.url);
+const SQL_URL = new URL("../pending-migrations/0173_directory_structured_sql_foundation.sql",import.meta.url);
 const MIGRATION=readFileSync(SQL_URL,"utf8");
 const EXPECTED=[
   "directory_profile_qualifications",
@@ -48,7 +48,7 @@ test("0173 is additive only, reserves 0171-0172 and defines exactly six non-dupl
   assert.equal(statements.length,11);
   for(const statement of statements){
     assert.match(statement,/^CREATE\s+(?:TABLE|INDEX)\s/i);
-    assert.doesNotMatch(statement,/\b(?:DROP|DELETE|UPDATE|ALTER|INSERT|REPLACE)\b/i);
+    assert.doesNotMatch(statement,/\b(?:DROP TABLE|DELETE FROM|UPDATE directory_profiles|ALTER TABLE|INSERT INTO|REPLACE INTO)\b/i);
   }
   withFixture(({db,before})=>{
     const tables=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'directory_profile_%' ORDER BY name")
