@@ -1,4 +1,5 @@
 import { partnerDirectoryReviewLockStatement } from "./partner-directory-review";
+import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
 import { env } from "cloudflare:workers";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { adminAuditActorRef } from "@/lib/audit-identity";
@@ -466,6 +467,12 @@ export async function createPartnerNewProfileAdmin(input:{
     canonicalStatements.push(partnerDirectoryReviewLockStatement({
       database,canonicalSql,accountId:row.accountId,actorRef,nowIso,
     }));
+  }else if(row.resourceType==="HELP_ORGANIZATION"){
+    // The organization owner grant and permanent Notion review lock must
+    // commit in the same moderation transaction, just like Help and Events.
+    canonicalStatements.push(partnerAdminReviewStatement(database,{
+      type:"ORGANIZATION",entitySql:canonicalSql,nowIso,actorRef,
+    }));
   }
   canonicalStatements.push(...verificationStatements(database,{
     accountId:row.accountId,type:row.resourceType,canonicalSql,verificationId,actorRef,nowIso,current:canonicalState.verification,
@@ -554,6 +561,9 @@ export async function linkPartnerNewProfileAdmin(input:{
     }),
     ...(row.resourceType==="DIRECTORY_PROFILE"
       ? [partnerDirectoryReviewLockStatement({database,canonicalSql,accountId:row.accountId,actorRef,nowIso})]
+      : []),
+    ...(row.resourceType==="HELP_ORGANIZATION"
+      ? [partnerAdminReviewStatement(database,{type:"ORGANIZATION",entitySql:canonicalSql,nowIso,actorRef})]
       : []),
     ...verificationStatements(database,{
       accountId:row.accountId,type:row.resourceType,canonicalSql,verificationId:crypto.randomUUID(),
