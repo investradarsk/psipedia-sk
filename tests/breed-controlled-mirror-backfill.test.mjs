@@ -44,12 +44,13 @@ const fixture=()=>{
   breed_id INTEGER PRIMARY KEY REFERENCES managed_breeds(id),
   values_json TEXT NOT NULL,notion_values_json TEXT NOT NULL,
   revision INTEGER NOT NULL DEFAULT 0)`);
+ const ids=[...Array.from({length:345},(_,i)=>i+1),3138,3214];
  const ins=db.prepare("INSERT INTO managed_breeds VALUES (?,?)");
- for(let id=1;id<=347;id++) ins.run(id,"breed-"+id);
+ for(const id of ids) ins.run(id,"breed-"+id);
  const links=[],pages=[],existing=[];
  const linkStmt=db.prepare("INSERT INTO breed_notion_workcopy_links VALUES (?,?,?,?)");
  const mirrorStmt=db.prepare("INSERT INTO breed_notion_controlled_values VALUES (?,?,?,?)");
- for(let id=1;id<=347;id++){
+ for(const id of ids){
    if([5,13,14].includes(id))continue;
    const link={breed_id:id,work_notion_page_id:uuid(id),
      work_data_source_id:SOURCE,status:"ACTIVE"};
