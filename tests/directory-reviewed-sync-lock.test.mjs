@@ -57,7 +57,7 @@ test("Notion sweep gates targeted, signed event, catalog and legacy paths",()=>{
   assert.match(sync,/if \(await directoryProfileNotionSyncLocked\(input\.database,mapping\.directory_profile_id\)\)/);
 });
 
-test("unchecking a reviewed mapped profile does not reopen Notion before D1 rebaseline", () => {
+test("old pending metadata remains a lock until an explicit owner action", () => {
   const pending = JSON.stringify({ [DIRECTORY_REVIEW_UNLOCK_PENDING_KEY]: "1" });
   assert.equal(isDirectoryReviewedSourceLocked(pending), true);
   assert.equal(isDirectoryReviewUnlockPendingSource(pending), true);
@@ -69,21 +69,18 @@ test("unchecking a reviewed mapped profile does not reopen Notion before D1 reba
   assert.equal(isDirectoryReviewUnlockPendingSource("{}"), false);
 });
 
-test("unlock is a verified owner-only D1 -> Notion rebaseline", () => {
-  const sync = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
-  const route = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
+test("explicit uncheck removes pending lock without whole-profile Notion rebaseline", () => {
   const store = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
-  assert.match(store, /markNotionUnlockPending/);
-  assert.match(store, /_psipedia_profile_review_unlock_pending/);
-  assert.match(route, /deferUnlock = Boolean\(linked\?\.notion_page_id\)/);
-  assert.match(route, /targetProfileId: id/);
-  assert.match(sync, /async function completeDirectoryReviewedOwnerUnlock/);
-  assert.match(sync, /ownerUnlock: true/);
-  assert.match(sync, /DIRECTORY_REVIEW_UNLOCK_CONTROL_NOT_CONFIRMED/);
-  assert.match(sync, /DIRECTORY_REVIEW_UNLOCK_CONCURRENT_CHANGE/);
-  assert.match(sync, /WHERE id=\? AND source_data_json=\? AND updated_at=\?/);
-  assert.match(sync, /directoryProfileNotionSyncLocked\(input.database,input.profile.id\)/);
-  assert.match(sync, /isDirectoryReviewUnlockPendingSource\(state.source_data_json\)/);
+  const route = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
+  const start = route.indexOf('if (body.action === "set-reviewed")');
+  const end = route.indexOf('if (body.action !== "restore")', start);
+  assert.ok(start > 0 && end > start);
+  const toggle = route.slice(start, end);
+  assert.match(store, /delete sourceData\["_psipedia_profile_review_unlock_pending"\]/);
+  assert.doesNotMatch(store, /markNotionUnlockPending|alreadyPending/);
+  assert.match(toggle, /setManagedDirectoryProfileReviewed\(/);
+  assert.match(toggle, /syncDirectoryReviewedWithNotion\(/);
+  assert.doesNotMatch(toggle, /runNotionDirectorySyncSweep|deferUnlock|stillPending/);
 });
 
 test("standalone Notion GEO and services relation adapters obey the directory review lock", () => {
@@ -107,7 +104,7 @@ test("standalone Notion GEO and services relation adapters obey the directory re
   }
 });
 
-test("unchecking keeps the profile Notion-locked until its D1-first rebaseline succeeds", () => {
+test("a legacy pending marker remains locked until explicitly cleared", () => {
   const pending = JSON.stringify({
     "_psipedia_profile_review_unlock_pending": "1",
     "_psipedia_profile_review_notion_synced": "0",
@@ -126,7 +123,7 @@ test("unchecking keeps the profile Notion-locked until its D1-first rebaseline s
   assert.equal(isDirectoryReviewUnlockPendingSource("{}"), false);
 });
 
-test("owner unlock is explicitly D1-first, echo-verified, and remains locked on failure", () => {
+test("legacy owner-unlock finalizer remains fail-closed if invoked outside checkbox action", () => {
   const sync = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
   const start = sync.indexOf("async function completeDirectoryReviewedOwnerUnlock(");
   const end = sync.indexOf("\nfunction fullProfileInput(", start);
@@ -154,32 +151,29 @@ test("additional Notion writers cannot bypass reviewed profile lock", () => {
   assert.match(media, /directoryProfileNotionSyncLocked\(input\.database, input\.row\.entityId\)/);
 });
 
-test("Admin review toggle unlocks through canonical targeted rebaseline without releasing pending lock", () => {
+test("Admin review toggle mirrors only checkbox and never waits for editorial hash", () => {
   const route = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
-  const store = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
-  assert.match(store, /markNotionUnlockPending/);
-  assert.match(store, /_psipedia_profile_review_unlock_pending/);
-  assert.match(route, /markNotionUnlockPending: deferUnlock/);
-  assert.match(route, /targetProfileId: id/);
-  assert.match(route, /notionReviewSync = status.failed \|\| stillPending \? "pending" : "pushed"/);
+  const start = route.indexOf('if (body.action === "set-reviewed")');
+  const end = route.indexOf('if (body.action !== "restore")', start);
+  const toggle = route.slice(start, end);
+  assert.match(toggle, /notionReviewSync = await syncDirectoryReviewedWithNotion/);
+  assert.match(toggle, /return Response.json\(\{ profile, notionReviewSync \}\)/);
+  assert.doesNotMatch(toggle, /markNotionUnlockPending|ownerUnlock|targetProfileId/);
 });
 
-test("a repeated uncheck cannot erase a pending Notion rebaseline lock", () => {
+test("repeated owner uncheck clears a legacy pending marker", () => {
   const store = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
-  const route = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
-  // The DB writer itself must preserve the existing pending marker: protecting
-  // only the HTTP route would leave retry and other-caller bypasses.
-  assert.match(store, /const alreadyPending = isDirectoryReviewUnlockPendingSource\(row\.source_data_json\)/);
-  assert.match(store, /!reviewed && \(options\.markNotionUnlockPending \|\| alreadyPending\)/);
-  assert.match(route, /current\.importData\?\.\["_psipedia_profile_review_unlock_pending"\] === "1"/);
-  assert.match(route, /if \(current\.reviewed \|\| alreadyPending\)/);
-  assert.match(route, /targetProfileId: id/);
-  const persisted = JSON.stringify({
+  const begin = store.indexOf("export async function setManagedDirectoryProfileReviewed(");
+  const finish = store.indexOf("export async function archiveManagedDirectoryProfile(", begin);
+  const writer = store.slice(begin, finish);
+  assert.match(writer, /delete sourceData\["_psipedia_profile_review_unlock_pending"\]/);
+  assert.doesNotMatch(writer, /alreadyPending|markNotionUnlockPending/);
+  const pending = JSON.stringify({
     "_psipedia_profile_review_unlock_pending": "1",
     "_psipedia_profile_review_reviewed_at": "",
-    "Zdroj dát": "unchanged",
   });
-  assert.equal(isDirectoryReviewUnlockPendingSource(persisted), true);
-  assert.equal(isDirectoryReviewedSourceLocked(persisted), true);
+  assert.equal(isDirectoryReviewedSourceLocked(pending), true);
+  const source = JSON.parse(pending);
+  delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY];
+  assert.equal(isDirectoryReviewedSourceLocked(JSON.stringify(source)), false);
 });
-
