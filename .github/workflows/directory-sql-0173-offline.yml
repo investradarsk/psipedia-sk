@@ -8,6 +8,9 @@ on:
       - "db/directory-storage-schema.ts"
       - "db/index.ts"
       - "tests/directory-sql-0173-foundation.test.mjs"
+      - "tests/directory-sql-0173-editorial-mirror.test.mjs"
+      - "lib/directory-0173-editorial-sql-mirror.ts"
+      - "lib/directory-store.ts"
       - ".github/workflows/directory-sql-0173-offline.yml"
       - "docs/audits/DIRECTORY-SQL-0173-FOUNDATION.md"
       - "scripts/production-d1-directory-0173.mjs"
@@ -31,4 +34,4 @@ jobs:
         with:
           node-version: "24.18.0"
       - name: Test isolated SQLite schema and constraints
-        run: node --test tests/directory-sql-0173-foundation.test.mjs
+        run: node --experimental-strip-types --test tests/directory-sql-0173-foundation.test.mjs tests/directory-sql-0173-editorial-mirror.test.mjs
