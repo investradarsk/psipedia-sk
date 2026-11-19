@@ -245,7 +245,11 @@ test('select page and unpublish confirmation use only selected IDs with no produ
   await page.getByRole('checkbox', { name: 'Vybrať túto stranu', exact: true }).check();
   await expect(page.getByText('Vybrané: 50', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Zrušiť výber', exact: true }).click();
-  await expect(page.getByText('Vybrané: 0', { exact: true })).toBeVisible();
+  // The bulk controls disappear when selection becomes empty; no “Vybrané: 0”
+  // counter is rendered by the Admin dashboard.
+  await expect(page.getByRole('checkbox', { name: 'Vybrať túto stranu', exact: true })).not.toBeChecked();
+  await expect(page.getByText('Vybrané: 50', { exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-admin-bulk-toolbar]')).toHaveCount(0);
   await openAdvancedEventFilters(page);
   await page.getByLabel('Publikačný stav', { exact: true }).selectOption('published');
   await page.getByLabel('Hľadať podujatie', { exact: true }).fill('e2e-admin-event-4');

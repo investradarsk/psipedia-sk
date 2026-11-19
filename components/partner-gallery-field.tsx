@@ -1,17 +1,20 @@
 "use client";
 
 import { useRef, useState } from "react";
+import type { PartnerMediaIntent } from "@/lib/partner-media";
 
 type Uploaded = { id: string; previewUrl: string; originalMime: string; sizeBytes: number };
 const LIMIT = 6;
 
 export function PartnerGalleryField({
-  initialUrls, onChangeUrls, onChangeMediaIds, disabled = false,
+  initialUrls, onChangeUrls, onChangeMediaIds, disabled = false, mediaIntent = "PARTNER_PROFILE_UPDATE", directPublish = false,
 }: {
   initialUrls: string[];
   onChangeUrls: (urls: string[]) => void;
   onChangeMediaIds: (ids: string[]) => void;
   disabled?: boolean;
+  mediaIntent?: PartnerMediaIntent;
+  directPublish?: boolean;
 }) {
   const [urls, setUrls] = useState<string[]>(initialUrls);
   const [uploads, setUploads] = useState<Uploaded[]>([]);
@@ -70,14 +73,14 @@ export function PartnerGalleryField({
           throw new Error("Fotografia musí byť JPG, PNG alebo WebP a mať najviac 8 MB.");
         }
         const res = await fetch("/api/partner/media", {
-          method: "POST", headers: { "content-type": file.type, "x-media-intent": "PARTNER_PROFILE_UPDATE" }, body: file,
+          method: "POST", headers: { "content-type": file.type, "x-media-intent": mediaIntent }, body: file,
         });
         const data = await res.json() as { error?: string; media?: Uploaded };
         if (!res.ok || !data.media) throw new Error(data.error || "Fotografiu sa nepodarilo nahrať.");
         next = [...next, data.media];
         changeUploads(next);
       }
-      setMessage("Fotografie sú pripravené. Zverejnia sa až po schválení návrhu.");
+      setMessage(directPublish?"Fotografie sú pripravené. Zverejnia sa pri uložení záznamu.":"Fotografie sú pripravené. Zverejnia sa až po schválení návrhu.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Nahrávanie galérie zlyhalo.");
     } finally {
@@ -103,7 +106,7 @@ export function PartnerGalleryField({
     <section className="partner-media-field partner-field--wide" aria-label="Fotogaléria">
       <div className="partner-media-heading">
         <div><strong>Fotogaléria</strong>
-          <small>Najviac 6 fotografií · JPG, PNG, WebP · max. 8 MB na fotografiu. Zmeny podliehajú schváleniu.</small>
+          <small>Najviac 6 fotografií · JPG, PNG, WebP · max. 8 MB na fotografiu. {directPublish?"Zmeny sa uložia po potvrdení.":"Zmeny podliehajú schváleniu."}</small>
         </div>
       </div>
       <p>{total} / {LIMIT} fotografií. Poradie upravíte šípkami; nové fotografie budú nasledovať za existujúcimi.</p>

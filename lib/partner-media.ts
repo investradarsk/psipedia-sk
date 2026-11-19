@@ -8,7 +8,7 @@ import {
   type PrivateBucketLike,
 } from "@/lib/private-media";
 
-export const partnerMediaIntents = ["PARTNER_PROFILE_CREATE","PARTNER_PROFILE_UPDATE","PARTNER_EVENT_CREATE","PARTNER_EVENT_UPDATE"] as const;
+export const partnerMediaIntents = ["PARTNER_PROFILE_CREATE","PARTNER_PROFILE_UPDATE","PARTNER_EVENT_CREATE","PARTNER_EVENT_UPDATE","PARTNER_HELP_UPDATE"] as const;
 export type PartnerMediaIntent = (typeof partnerMediaIntents)[number];
 export type PartnerMediaTerminalState = "APPROVED" | "REJECTED" | "ORPHANED";
 type Bindings = { DB?: D1Database; BUCKET?: R2Bucket; IMAGES?: ImagesBindingLike };

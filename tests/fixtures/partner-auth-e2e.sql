@@ -46,7 +46,7 @@ VALUES
   ('partner-e2e-entitlement-promoted','partner-e2e-desktop','partner-resource-e2e-directory','partner-e2e-agreement-promoted','PROMOTED_PROFILE','ACTIVE','2026-01-01T00:00:00.000Z','2099-01-01T00:00:00.000Z','partner-e2e-promotion','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','admin:e2e');
 
 
--- PARTNER-3A Help Organization fixture: OWNER membership under 0171, without VERIFIED trust badge.
+-- PARTNER-3A Help Organization fixture: single manager membership, deliberately without VERIFIED trust badge.
 INSERT INTO help_organizations (
   id,name,slug,legal_name,type,status,short_description,description,public_email,public_phone,
   website_url,address,city,district,region,country_code,published_at,created_at,updated_at,created_by,updated_by
@@ -91,7 +91,7 @@ INSERT INTO partner_resource_verifications (
 );
 
 
--- PARTNER-4 event fixtures: published OWNER and draft OWNER events.
+-- PARTNER-4 event fixtures: one published and one draft manager-owned event.
 INSERT INTO managed_events (
   id,slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,
   organizer,description,practical_info,website_url,registration_url,image_url,image_key,cancelled,seo_json,

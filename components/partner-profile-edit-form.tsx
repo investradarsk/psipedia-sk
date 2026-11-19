@@ -84,18 +84,18 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
     setState("sending");
     setMessage("");
     try {
-      const response = await fetch("/api/partner/profile-changes", {
-        method: "POST",
+      const response = await fetch(`/api/partner/direct-profiles/${encodeURIComponent(resourceId)}`, {
+        method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ resourceId, baseRevision, patch, mediaAssetId, galleryMediaIds }),
+        body: JSON.stringify({ baseRevision, patch, mediaAssetId, galleryMediaIds }),
       });
       const data = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(data.error || "Návrh sa nepodarilo odoslať.");
+      if (!response.ok) throw new Error(data.error || "Zmeny sa nepodarilo bezpečne uložiť.");
       setState("success");
-      setMessage("Zmeny sme prijali a čakajú na kontrolu.");
+      setMessage("Zmeny sú uložené v existujúcom profile. Pred ďalšou úpravou znovu otvorte editor.");
     } catch (error) {
       setState("error");
-      setMessage(error instanceof Error ? error.message : "Návrh sa nepodarilo odoslať.");
+      setMessage(error instanceof Error ? error.message : "Zmeny sa nepodarilo uložiť.");
     }
   }
 
@@ -182,7 +182,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
       {resourceType === "DIRECTORY_PROFILE" && directoryCategory ? (
         <fieldset className="partner-media-field partner-field--wide" disabled={state==="sending" || state==="success"}>
           <legend><strong>Ďalšie kategórie profilu</strong></legend>
-          <p>Hlavná kategória zostáva nezmenená. Môžete navrhnúť ďalšie kategórie, v ktorých sa bude váš profil zobrazovať.</p>
+          <p>Hlavná kategória zostáva nezmenená. Môžete pridať ďalšie kategórie, v ktorých sa bude váš profil zobrazovať.</p>
           <div style={{ display:"flex", flexWrap:"wrap", gap:12 }}>
             {directoryCategories.filter((item)=>item.slug!==directoryCategory).map((item)=>(
               <label key={item.slug} className="partner-profile-check">
@@ -206,17 +206,17 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
           idPrefix="partner-directory"
         />
       ) : null}
-      <PartnerMediaField label="Zmeniť hlavnú / profilovú fotografiu" intent="PARTNER_PROFILE_UPDATE" currentImageUrl={currentImageUrl} onChange={setMediaAssetId} disabled={state==="success"}/>
+      <PartnerMediaField label="Zmeniť hlavnú / profilovú fotografiu" intent="PARTNER_PROFILE_UPDATE" directPublish currentImageUrl={currentImageUrl} onChange={setMediaAssetId} disabled={state==="success"}/>
       <PartnerGalleryField initialUrls={Array.isArray(values.galleryUrls) ? values.galleryUrls : []}
-        onChangeUrls={setGalleryUrls} onChangeMediaIds={setGalleryMediaIds}
+        onChangeUrls={setGalleryUrls} onChangeMediaIds={setGalleryMediaIds} directPublish
         disabled={state==="success" || state==="sending"} />
       <div className="partner-profile-edit-submit">
         <div>
-          <strong>Žiadna zmena sa nezverejní okamžite.</strong>
-          <p>Po odoslaní vznikne moderovaný návrh. Verejný profil sa zmení až po schválení administrátorom.</p>
+          <strong>Priame uloženie schváleného správcu.</strong>
+          <p>Menia sa iba upravené verejné polia a fotografie. SEO a interné nastavenia zostávajú chránené.</p>
         </div>
         <button className="button button--dark" type="submit" disabled={state === "sending" || state === "success"}>
-          {state === "sending" ? "Odosielam…" : "Odoslať zmeny na kontrolu"}
+          {state === "sending" ? "Ukladám…" : "Uložiť zmeny"}
         </button>
       </div>
       {message ? <p className={`partner-form-message ${state === "success" ? "is-success" : "is-error"}`} role="status">{message}</p> : null}

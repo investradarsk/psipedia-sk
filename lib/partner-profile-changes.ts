@@ -69,11 +69,11 @@ const HELP_FIELDS: readonly PartnerProfileFieldDefinition[] = [
   { key: "type", label: "Typ organizácie", kind: "select", required: true, options: HELP_TYPES },
   { key: "shortDescription", label: "Krátky popis", kind: "textarea" },
   { key: "description", label: "Popis", kind: "textarea" },
-  { key: "publicEmail", label: "Verejný e-mail", kind: "email" },
-  { key: "publicPhone", label: "Verejný telefón", kind: "phone" },
-  { key: "websiteUrl", label: "Web", kind: "url" },
-  { key: "facebookUrl", label: "Facebook", kind: "url" },
-  { key: "instagramUrl", label: "Instagram", kind: "url" },
+  { key: "publicEmail", label: "Verejný e-mail", kind: "text" },
+  { key: "publicPhone", label: "Verejný telefón", kind: "text" },
+  { key: "websiteUrl", label: "Web", kind: "text" },
+  { key: "facebookUrl", label: "Facebook", kind: "text" },
+  { key: "instagramUrl", label: "Instagram", kind: "text" },
   { key: "address", label: "Adresa", kind: "text" },
   { key: "city", label: "Mesto", kind: "text" },
   { key: "district", label: "Okres", kind: "text" },
@@ -292,12 +292,14 @@ async function loadCanonical(resource: ResourceRow, db: D1Database): Promise<Can
   if (resource.entityType === "DIRECTORY_PROFILE") {
     const row = await db.prepare(`
       SELECT id,name,slug,category,status,excerpt,description,services_json,qualifications_json,
-        city,district,region,address,price_note,website_url,public_phone,public_email,facebook_url,instagram_url,image_url,source_data_json,updated_at
+        city,district,region,address,price_note,website_url,public_phone,public_email,
+        facebook_url,instagram_url,image_url,source_data_json,updated_at
       FROM directory_profiles WHERE id=?1 LIMIT 1
     `).bind(resource.canonicalId).first<{
       id:number;name:string;slug:string;category:string;status:string;excerpt:string;description:string;
       services_json:string;qualifications_json:string;city:string;district:string;region:string;address:string;
-      price_note:string;website_url:string|null;public_phone:string|null;public_email:string|null;facebook_url:string|null;instagram_url:string|null;image_url:string|null;source_data_json:string;updated_at:string;
+      price_note:string;website_url:string|null;public_phone?:string|null;public_email?:string|null;
+      facebook_url?:string|null;instagram_url?:string|null;image_url:string|null;source_data_json:string;updated_at:string;
     }>();
     if (!row || row.status === "archived") throw new PartnerProfileChangeError("Profil už nie je dostupný na úpravu.", 409);
     const sourceData = parseJsonObject(row.source_data_json);
@@ -536,11 +538,11 @@ function normalizeHelpPatch(raw: Record<string, unknown>, current: PartnerProfil
       result[key] = clean;
     } else if (key === "shortDescription") result[key] = textValue(value, "Krátky popis", 700);
     else if (key === "description") result[key] = textValue(value, "Popis", 20_000);
-    else if (key === "publicEmail") result[key] = emailValue(value);
-    else if (key === "publicPhone") result[key] = phoneValue(value);
-    else if (key === "websiteUrl") result[key] = urlValue(value, "Web");
-    else if (key === "facebookUrl") result[key] = urlValue(value, "Facebook");
-    else if (key === "instagramUrl") result[key] = urlValue(value, "Instagram");
+    else if (key === "publicEmail") result[key] = textValue(value, "Verejný e-mail", 2048);
+    else if (key === "publicPhone") result[key] = textValue(value, "Verejný telefón", 2048);
+    else if (key === "websiteUrl") result[key] = textValue(value, "Web", 2048);
+    else if (key === "facebookUrl") result[key] = textValue(value, "Facebook", 2048);
+    else if (key === "instagramUrl") result[key] = textValue(value, "Instagram", 2048);
     else if (key === "address") result[key] = textValue(value, "Adresa", 300);
     else if (key === "city") result[key] = textValue(value, "Mesto", 120);
     else if (key === "district") result[key] = textValue(value, "Okres", 120);
@@ -862,6 +864,25 @@ export function partnerProfileChangeIsStale(
   }
 }
 
+export type PartnerDirectOwnerGuard = { resourceId: string; accountId: string; baseUpdatedAt: string; mediaIds?: readonly string[] };
+function directOwnerCondition(type: PartnerProfileChangeResourceType, table: string) {
+  const column = type === "DIRECTORY_PROFILE" ? "directory_profile_id" : "help_organization_id";
+  return ` AND updated_at=? AND EXISTS (
+    SELECT 1 FROM partner_resources r
+    JOIN partner_memberships m ON m.resource_id=r.id AND m.revoked_at IS NULL AND m.role='OWNER'
+    JOIN partner_accounts a ON a.id=m.account_id AND a.status='ACTIVE'
+    WHERE r.id=? AND r.entity_type='${type}' AND r.${column}=${table}.id AND m.account_id=?
+  )`;
+}
+function directMediaGuard(guard?: PartnerDirectOwnerGuard) {
+  const ids = guard?.mediaIds ?? [];
+  if (!ids.length) return { sql: "", values: [] as unknown[] };
+  return {
+    sql: ` AND (SELECT COUNT(*) FROM media_assets WHERE id IN (${ids.map(() => "?").join(",")})
+      AND owner_id=? AND owner_type='PARTNER_PROFILE_UPDATE' AND state='PENDING' AND deleted_at IS NULL)=?`,
+    values: [...ids, guard!.accountId, ids.length] as unknown[],
+  };
+}
 export function buildDirectoryApplyStatement(
   db: D1Database,
   canonical: CanonicalEditable,
@@ -869,6 +890,7 @@ export function buildDirectoryApplyStatement(
   actorRef: string,
   nowIso: string,
   approvalSubmissionId?: string,
+  directGuard?: PartnerDirectOwnerGuard,
 ) {
   const sets: string[] = [];
   const bindings: unknown[] = [];
@@ -957,7 +979,10 @@ export function buildDirectoryApplyStatement(
     ? " AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?)"
     : "";
   if (approvalSubmissionId) bindings.push(approvalSubmissionId, nowIso, actorRef);
-  return db.prepare(`UPDATE directory_profiles SET ${sets.join(",")} WHERE id=?${approvalGuard} RETURNING id`).bind(...bindings);
+  if (directGuard) bindings.push(directGuard.baseUpdatedAt, directGuard.resourceId, directGuard.accountId);
+  const mediaGuard = directMediaGuard(directGuard); bindings.push(...mediaGuard.values);
+  const directWhere = directGuard ? directOwnerCondition("DIRECTORY_PROFILE", "directory_profiles") : "";
+  return db.prepare(`UPDATE directory_profiles SET ${sets.join(",")} WHERE id=?${approvalGuard}${directWhere}${mediaGuard.sql} RETURNING id`).bind(...bindings);
 }
 
 export function buildHelpApplyStatements(
@@ -967,6 +992,7 @@ export function buildHelpApplyStatements(
   actorRef: string,
   nowIso: string,
   approvalSubmissionId?: string,
+  directGuard?: PartnerDirectOwnerGuard,
 ) {
   const sets: string[] = [];
   const bindings: unknown[] = [];
@@ -993,8 +1019,11 @@ export function buildHelpApplyStatements(
     ? " AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?)"
     : "";
   if (approvalSubmissionId) bindings.push(approvalSubmissionId, nowIso, actorRef);
+  if (directGuard) bindings.push(directGuard.baseUpdatedAt, directGuard.resourceId, directGuard.accountId);
+  const mediaGuard = directMediaGuard(directGuard); bindings.push(...mediaGuard.values);
+  const directWhere = directGuard ? directOwnerCondition("HELP_ORGANIZATION", "help_organizations") : "";
   const statements: D1PreparedStatement[] = [
-    db.prepare(`UPDATE help_organizations SET ${sets.join(",")} WHERE id=?${approvalGuard} RETURNING id`).bind(...bindings),
+    db.prepare(`UPDATE help_organizations SET ${sets.join(",")} WHERE id=?${approvalGuard}${directWhere}${mediaGuard.sql} RETURNING id`).bind(...bindings),
   ];
   const locationKeys = ["address","city","district","region","countryCode"].filter((key) => key in patch);
   if (canonical.locationId && locationKeys.length) {
@@ -1010,7 +1039,15 @@ export function buildHelpApplyStatements(
       ? " AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?)"
       : "";
     if (approvalSubmissionId) locationBindings.push(approvalSubmissionId, nowIso, actorRef);
-    statements.push(db.prepare(`UPDATE organization_locations SET ${locationSets.join(",")} WHERE id=?${locationGuard}`).bind(...locationBindings));
+    const directLocationGuard = directGuard ? ` AND EXISTS (
+      SELECT 1 FROM help_organizations o
+      JOIN partner_resources r ON r.help_organization_id=o.id AND r.entity_type='HELP_ORGANIZATION'
+      JOIN partner_memberships m ON m.resource_id=r.id AND m.account_id=? AND m.role='OWNER' AND m.revoked_at IS NULL
+      JOIN partner_accounts a ON a.id=m.account_id AND a.status='ACTIVE'
+      WHERE o.id=organization_locations.organization_id AND r.id=? AND o.updated_at=?
+    )` : "";
+    if (directGuard) locationBindings.push(directGuard.accountId, directGuard.resourceId, nowIso);
+    statements.push(db.prepare(`UPDATE organization_locations SET ${locationSets.join(",")} WHERE id=?${locationGuard}${directLocationGuard}`).bind(...locationBindings));
   }
   return statements;
 }

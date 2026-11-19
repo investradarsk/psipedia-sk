@@ -30,7 +30,7 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
     listPartnerCommercialAgreements(identity.accountId),
   ]);
   const eligible=resources
-    .filter(r=>r.role==="OWNER"||r.role==="MANAGER")
+    .filter(r=>(r.entityType==="DIRECTORY_PROFILE"||r.entityType==="HELP_ORGANIZATION"||r.entityType==="MANAGED_EVENT")&&(r.role==="OWNER"||r.role==="MANAGER"))
     .map(r=>({resourceId:r.resourceId,name:r.name,role:partnerRoleLabel(r.role)}));
   const defaultResourceId=requestedResource&&eligible.some(r=>r.resourceId===requestedResource)?requestedResource:undefined;
 

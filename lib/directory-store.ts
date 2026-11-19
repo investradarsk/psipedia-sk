@@ -2296,6 +2296,15 @@ export async function setManagedDirectoryProfileReviewed(
     .bind(id)
     .first<DirectoryProfileRow>();
   if (!row) return null;
+  if (!reviewed) {
+    const manager = await database.prepare(`
+      SELECT 1 AS active FROM partner_resources r
+      JOIN partner_memberships m ON m.resource_id=r.id
+      WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=?1
+        AND m.revoked_at IS NULL LIMIT 1
+    `).bind(id).first<{ active: number }>();
+    if (manager) throw new Error("DIRECTORY_PARTNER_MANAGED_REVIEW_LOCK");
+  }
   const importData = safeImportData(row.source_data_json, true);
   const sourceData = mergeDirectoryProfileReviewMetadata(
     importData,
@@ -2320,13 +2329,17 @@ export async function setManagedDirectoryProfileReviewed(
       "public_email = CASE WHEN ?=1 THEN COALESCE(public_email, ?) ELSE public_email END, " +
       "facebook_url = CASE WHEN ?=1 THEN COALESCE(facebook_url, ?) ELSE facebook_url END, " +
       "instagram_url = CASE WHEN ?=1 THEN COALESCE(instagram_url, ?) ELSE instagram_url END " +
-      "WHERE id = ? AND source_data_json = ? AND updated_at = ? RETURNING *")
+      "WHERE id = ? AND source_data_json = ? AND updated_at = ? " +
+      "AND (?=1 OR NOT EXISTS (SELECT 1 FROM partner_resources r " +
+      "JOIN partner_memberships m ON m.resource_id=r.id " +
+      "WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=directory_profiles.id " +
+      "AND m.revoked_at IS NULL)) RETURNING *")
     .bind(JSON.stringify(sourceData), now.toISOString(), editorEmail,
       reviewed ? 1 : 0, visibleContacts.phone,
       reviewed ? 1 : 0, visibleContacts.email,
       reviewed ? 1 : 0, visibleContacts.facebook,
       reviewed ? 1 : 0, visibleContacts.instagram,
-      id, row.source_data_json, row.updated_at)
+      id, row.source_data_json, row.updated_at, reviewed ? 1 : 0)
     .first<DirectoryProfileRow>();
   // Never lose a concurrent editor/Notion write while setting the lock.
   if (!updated) throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");

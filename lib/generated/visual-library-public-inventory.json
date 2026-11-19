@@ -460,6 +460,14 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/partner-help-create-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-help-public-editor-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/partner-logout-button.tsx",
       "coverage": "needs-preview"
     },

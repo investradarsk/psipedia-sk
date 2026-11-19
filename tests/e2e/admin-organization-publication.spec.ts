@@ -56,7 +56,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
     confirmation.getByRole("button", { name: "Publikovať", exact: true }).click(),
   ]);
   expect(publishResponse.ok()).toBe(true);
-  await expect(page.getByRole("status")).toContainText("Organizácia bola publikovaná");
+  await expect(page.getByRole("status").filter({ hasText: /Organizácia bola (publikovaná|presunutá do konceptu)/ })).toContainText("Organizácia bola publikovaná");
 
   row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Publikované");
@@ -81,7 +81,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
     confirmation.getByRole("button", { name: "Presunúť do konceptu", exact: true }).click(),
   ]);
   expect(unpublishResponse.ok()).toBe(true);
-  await expect(page.getByRole("status")).toContainText("Organizácia bola presunutá do konceptu");
+  await expect(page.getByRole("status").filter({ hasText: /Organizácia bola (publikovaná|presunutá do konceptu)/ })).toContainText("Organizácia bola presunutá do konceptu");
 
   row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Koncept");
@@ -120,7 +120,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   await expect(page).toHaveURL(new RegExp("/admin/organizacie/\\d+$"));
   await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   await showOrganizationSection(page, "organization-general", "Základné");
-  await expect(page.getByLabel("Publication stav")).toHaveValue("DRAFT");
+  await expect(page.getByLabel("Stav publikovania")).toHaveValue("DRAFT");
 
   await showOrganizationSection(page, "organization-content", "Verejný obsah");
   await page.getByLabel("Verejný popis").fill("Verejný opis organizácie pre admin finalization E2E.");

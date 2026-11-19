@@ -266,16 +266,16 @@ async function sendPartnerAuthEmail(input: {
   } else {
     const copy: Record<Exclude<PartnerNotificationType, "AUTH_MAGIC_LINK" | "PASSWORD_RESET">, { subject: string; lines: string[] }> = {
       CLAIM_SUBMITTED: {
-        subject: "Žiadosť o prevzatie profilu sme prijali",
-        lines: ["Vašu žiadosť o prevzatie existujúceho profilu sme prijali a čaká na kontrolu."],
+        subject: "Žiadosť o správu záznamu sme prijali",
+        lines: ["Vašu žiadosť o správu existujúceho záznamu sme prijali a čaká na kontrolu."],
       },
       CLAIM_APPROVED: {
-        subject: "Žiadosť o prevzatie profilu bola schválená",
-        lines: ["Žiadosť bola schválená. Profil teraz môžete spravovať vo svojom Partner účte."],
+        subject: "Žiadosť o správu záznamu bola schválená",
+        lines: ["Žiadosť bola schválená. Záznam teraz nájdete na úpravu vo svojom Partner účte."],
       },
       CLAIM_REJECTED: {
-        subject: "Výsledok žiadosti o prevzatie profilu",
-        lines: ["Vaša žiadosť o prevzatie profilu nebola schválená. Ak potrebujete viac informácií, kontaktujte Psipediu."],
+        subject: "Výsledok žiadosti o správu záznamu",
+        lines: ["Vaša žiadosť o správu záznamu nebola schválená. Ak potrebujete viac informácií, kontaktujte Psipediu."],
       },
       VERIFICATION_APPROVED: {
         subject: "Správca profilu bol overený",
