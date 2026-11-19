@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { decryptPii } from "./pii-crypto";
-import { listPartnerHelpClaimsAdmin, getPartnerHelpClaimAdmin, decidePartnerHelpClaimAdmin, helpClaimHref, PartnerHelpClaimError, isPartnerHelpType } from "./partner-help-claims";
+import { listPartnerHelpClaimsAdmin, getPartnerHelpClaimAdmin, decidePartnerHelpClaimAdmin, helpClaimHref } from "./partner-help-claims";
 import { ensurePartnerOwnerMembershipAdmin } from "./partner-admin-store";
 import { getPartnerAccountById, getPartnerDatabase } from "./partner-auth-store";
 import {
@@ -127,7 +127,7 @@ export async function listPartnerClaimsAdmin(input: {
   let items = await hydrateClaims(rows, piiKey(input.encryptionKey));
   const otherRows=await listPartnerHelpClaimsAdmin(input.database);
   const help=await Promise.all(otherRows.map(async row=>({
-    ...row,resourceId:`help-record-${row.entityType}-${row.canonicalId}`,
+    ...row,emailCiphertext:row.emailCiphertext!,resourceId:`help-record-${row.entityType}-${row.canonicalId}`,
     resourceName:row.name,publicHref:helpClaimHref(row),
     email:await decryptPii(row.emailCiphertext!,piiKey(input.encryptionKey)),
     conflict:Boolean((row as {conflict?:number}).conflict),
