@@ -87,7 +87,7 @@ async function uniqueSlug(type:PartnerHelpCreateType,values:Record<string,unknow
   }
   throw new PartnerHelpReviewError("Nepodarilo sa vytvoriť jedinečnú adresu.",409);
 }
-function duplicateGuard(type:PartnerHelpCreateType,p:Record<string,unknown>){
+export function duplicateGuard(type:PartnerHelpCreateType,p:Record<string,unknown>){
   if(type==="ADOPTION_DOG")return {
     sql:"NOT EXISTS (SELECT 1 FROM adoption_dogs WHERE name=? COLLATE NOCASE AND city=? COLLATE NOCASE AND organization_name=? COLLATE NOCASE AND status<>'ARCHIVED')",
     args:[p.name,p.city,p.organizationName],
@@ -99,7 +99,7 @@ function duplicateGuard(type:PartnerHelpCreateType,p:Record<string,unknown>){
   return {sql:"NOT EXISTS (SELECT 1 FROM help_cases WHERE title=? COLLATE NOCASE AND category=? AND city=? COLLATE NOCASE AND status<>'archived')",
     args:[p.title,p.category,p.city]};
 }
-function insertCanonical(database:D1Database,input:{
+export function insertCanonical(database:D1Database,input:{
   id:string;type:PartnerHelpCreateType;p:Record<string,unknown>;slug:string;nowIso:string;actorRef:string;
 }){
   const p=input.p;
@@ -130,7 +130,7 @@ function insertCanonical(database:D1Database,input:{
     SELECT ?,?,?,'draft',?,?,?,?,?,?,?,?,?,?,?
     WHERE ${approved}`).bind(...values,input.id,input.nowIso,input.actorRef);
 }
-function claim(database:D1Database,input:{
+export function claim(database:D1Database,input:{
   submissionId:string;type:PartnerHelpCreateType;accountId:string;canonicalIdSql:string;actorRef:string;nowIso:string;
 }){
   const column=specs[input.type].column;
