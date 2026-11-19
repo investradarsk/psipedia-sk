@@ -4,11 +4,11 @@ type Resource = Pick<PartnerManagedResource, "entityType">;
 type Claim = { id: string; name: string; status: string; createdAt: string };
 type NewProfile = { id: string; displayName: string; status: string; statusLabel: string; createdAt: string };
 type EventSubmission = { id: string; title: string; status: string; statusLabel: string; createdAt: string };
-type ProfileChange = { id: string; resourceName: string; status: string; statusLabel: string; createdAt: string };
+type HelpSubmission = { id: string; title: string; status: string; statusLabel: string; createdAt: string };\ntype ProfileChange = { id: string; resourceName: string; status: string; statusLabel: string; createdAt: string };
 
 export type PartnerDashboardRequest = {
   id: string;
-  type: "claim" | "new-profile" | "event" | "profile-change";
+  type: "claim" | "new-profile" | "event" | "help" | "profile-change";
   category: string;
   title: string;
   status: string;
@@ -32,6 +32,7 @@ export function buildPartnerDashboardSummary(input: {
   newProfiles: readonly NewProfile[];
   eventSubmissions: readonly EventSubmission[];
   profileChanges: readonly ProfileChange[];
+  helpSubmissions?: readonly HelpSubmission[];
 }) {
   const requests: PartnerDashboardRequest[] = [
     ...input.claims.map((item) => ({
@@ -47,6 +48,11 @@ export function buildPartnerDashboardSummary(input: {
     })),
     ...input.eventSubmissions.map((item) => ({
       id: item.id, type: "event" as const, category: "Podujatie",
+      title: item.title, status: item.status, statusLabel: item.statusLabel,
+      createdAt: item.createdAt, pending: pendingStatuses.has(item.status),
+    })),
+    ...(input.helpSubmissions ?? []).map((item) => ({
+      id: item.id, type: "help" as const, category: "Nová pomoc psom",
       title: item.title, status: item.status, statusLabel: item.statusLabel,
       createdAt: item.createdAt, pending: pendingStatuses.has(item.status),
     })),
