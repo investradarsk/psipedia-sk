@@ -72,3 +72,29 @@ Overiť ručne: dostupnosť `/pomoc-psom`, všetkých troch všeobecných kateg�
 **Nie je dokončené v produkcii:** potvrdenie reálnej paritnej hodnoty Notion/Admin/Public, vykonanie chýbajúceho per-field backfillu (iba ak existujú schválené receipts), samostatná záloha, prípadné preklopenie historických permalinkov. Pred tým nie je bezpečné tvrdiť „kompletná migrácia je hotová“ ani vymazať SQL technické JSON.
 
 **Pravidlo:** jeden PR namiesto ďalších šiestich, ale bezpečnosť údajov má prednosť pred nulovým počtom kontrol.
+
+
+## Produkčná manuálna kontrola historických záznamov – rozhodnutie vlastníka
+
+Vlastník pri read-only SQL kontrole potvrdil, že **10 historických útulkov bez zhody v `help_organizations` zámerne odstránil**. Toto je redakčné rozhodnutie, **nie požiadavka na import**. Žiadny automatický backfill, Notion reconcile ani oprava migrácie ich nesmie znovu zverejniť bez nového výslovného rozhodnutia.
+
+Pôvodne publikované historické `help_cases` záznamy bez kanonického `help_organizations` páru:
+
+- `ceskoslovensky-kastracny-program`
+- `pomoc-mesto-dolny-kubin`
+- `pomoc-mesto-handlova`
+- `pomoc-mesto-malacky`
+- `pomoc-mesto-martin-mestsky-urad-martin`
+- `pomoc-mesto-mestsky-urad-kolarovo`
+- `pomoc-mesto-revuca`
+- `pomoc-mesto-skalica`
+- `pomoc-obec-priepasne`
+- `pomoc-td-s-r-o`
+
+Zvyšných **21 z 36** historických adopcií má kanonický záznam so stavom `ADOPTED`; ide o ukončené adopcie a **nesmú** sa kvôli starej publikácii prepínať na `ACTIVE`/`RESERVED`.
+
+**Dôležitá implementačná výhrada:** aktuálny agregovaný production release gate `helpLegacyCoverage` zatiaľ nevie rozlišovať `intentionally_removed` od `unmatched` a preto pri týchto desiatich záznamoch zostane `blocked`. Vlastníkovo potvrdenie nie je automatické potvrdenie všetkých identít, Notion väzieb, hodnotovej parity ani kompletnej zálohy. Pred Merge treba prípadné výnimky explicitne a bezpečne vyhodnotiť **bez importu týchto 10 profilov**, nie vypnúť celý blocker.
+
+Staré `/pomoc-psom/utulky/{slug}` detailové URL v aktuálnom kóde smerujú na `/organizacie/{slug}`; ak cieľový kanonický záznam chýba, pôvodný obsah sa tým nevráti do verejného zoznamu. Historické `help_cases` riadky zatiaľ fyzicky nemažeme; `status='published'` v nich stále existuje, preto je potrebné zabezpečiť, aby ich žiadna budúca synchronizácia alebo import neobnovila ako aktuálne profily.
+
+Zdroj: konkrétne počty z read-only produkčného D1 SQL poskytnuté vlastníkom; **36 adopcií (15 verejných, 21 `ADOPTED`), 104 útulkov (94 kanonických verejných, 10 cielene odstránených)**. Kód ani produkčná databáza týmto záznamom neboli upravené.
