@@ -1958,6 +1958,8 @@ export async function createManagedDirectoryProfile(
       updatedAt: now, actor: editorEmail },
     qualifications: input.qualifications,
     seo: input.seo,
+    ...(payload.galleryUrls !== undefined && input.category === "chovatelske-stanice"
+      ? { galleryUrls: readProfileGallery(input.sourceData, input.category) } : {}),
   });
   let row: DirectoryProfileRow | null;
   if (sqlCategoryCreate) {
@@ -2127,6 +2129,12 @@ export async function updateManagedDirectoryProfile(
       }).qualifications,
     } : {}),
     ...(payload.seo !== undefined ? { seo: payload.seo } : {}),
+    ...(payload.galleryUrls !== undefined &&
+      (payload.category ?? existing.category) === "chovatelske-stanice"
+      ? { galleryUrls: readProfileGallery(
+          mergeDirectoryBreederGallery(existing.importData,
+            "chovatelske-stanice", payload.galleryUrls), "chovatelske-stanice",
+        ) } : {}),
   });
   let row: DirectoryProfileRow | null;
   if (payload.additionalCategories !== undefined || editorialMirror.length > 0) {

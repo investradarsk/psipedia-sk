@@ -25,6 +25,8 @@ export type Directory0173MirrorInput = {
     | { kind: "category-slug"; category: string; slug: string; updatedAt: string; actor: string };
   qualifications?: readonly string[];
   seo?: Directory0173Seo;
+  /** Explicit, already-validated gallery edit, not a backfill of old JSON. */
+  galleryUrls?: readonly string[];
 };
 
 export type Directory0173SqlStatement = { sql: string; bindings: Array<string | number> };
@@ -89,5 +91,27 @@ export function planDirectory0173EditorialSqlMirror(input: Directory0173MirrorIn
       ],
     });
   }
+  if (input.galleryUrls !== undefined) {
+    if (!Array.isArray(input.galleryUrls) || input.galleryUrls.length > 6 ||
+        input.galleryUrls.some(value => typeof value !== "string" || !value.trim()) ||
+        new Set(input.galleryUrls).size !== input.galleryUrls.length) {
+      throw new Error("DIRECTORY_0173_INVALID_GALLERY");
+    }
+    // Never remove other profiles' media or affect the main image.
+    statements.push({
+      sql: "DELETE FROM directory_profile_media WHERE profile_id IN " +
+        "(SELECT p.id FROM directory_profiles p WHERE " + where + ")",
+      bindings: [...guardValues],
+    });
+    for (const [order, url] of input.galleryUrls.entries()) {
+      statements.push({
+        sql: "INSERT INTO directory_profile_media " +
+          "(profile_id,item_order,image_url,image_key,alt_text,attribution_text,updated_at,updated_by) " +
+          "SELECT p.id,?,?,NULL,?,?,?,? FROM directory_profiles p WHERE " + where,
+        bindings: [order, url, "", "", updatedAt, actor, ...guardValues],
+      });
+    }
+  }
+
   return statements;
 }
