@@ -62,7 +62,8 @@ test("0151 is approved only by pinned SHA and protected canonical DB identity", 
     "0169_directory_breeder_club_relations.sql",
     "0170_directory_canonical_sql_slots.sql",
     "0171_partner_single_manager.sql",
-  "0172_partner_help_claim_ownership.sql",
+    "0172_partner_help_claim_ownership.sql",
+    "0173_directory_structured_sql_foundation.sql",
   ]);
   assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes("0158_admin_directory_list_indexes.sql"));
 });
