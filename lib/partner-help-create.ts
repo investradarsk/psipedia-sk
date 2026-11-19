@@ -9,8 +9,12 @@ export type PartnerHelpCreateType = (typeof partnerHelpCreateTypes)[number];
 export const partnerHelpCaseCategories = ["docasna-opatera", "zbierky", "dobrovolnictvo", "urgentne-pripady"] as const;
 
 export class PartnerHelpCreateError extends Error {
-  constructor(message: string, readonly status = 400, readonly code = "INVALID_HELP_SUBMISSION") {
+  readonly status: number;
+  readonly code: string;
+  constructor(message: string, status = 400, code = "INVALID_HELP_SUBMISSION") {
     super(message);
+    this.status = status;
+    this.code = code;
     this.name = "PartnerHelpCreateError";
   }
 }
@@ -26,7 +30,9 @@ function db(input?: D1Database) {
 function valueText(raw: Record<string, unknown>, key: string, max = 1000) {
   const value = raw[key] ?? "";
   if (typeof value !== "string") throw new PartnerHelpCreateError(`Pole ${key} musí byť text.`);
-  const clean = value.trim();
+  const clean = value.trim().replace(/\r\n?/g,"\n");
+  if (/[<>]/.test(clean) || /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(clean))
+    throw new PartnerHelpCreateError(`Pole ${key} obsahuje nepovolený HTML alebo riadiaci znak.`);
   if (clean.length > max) throw new PartnerHelpCreateError(`Pole ${key} je príliš dlhé (max. ${max} znakov).`);
   return clean;
 }
