@@ -1020,7 +1020,7 @@ export function AdminDirectoryEditor({
                 type="checkbox"
                 checked={reviewed}
                 disabled={reviewSaving || Boolean(partnerOwner) || partnerOwnershipUnavailable}
-                onChange={(event) => void changeReviewed(event.target.checked)
+                onChange={(event) => void changeReviewed(event.target.checked)}
               />
               <span>Odkontrolované</span>
               {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
