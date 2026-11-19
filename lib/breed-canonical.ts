@@ -65,6 +65,24 @@ export function canonicalBreedEligibilitySql(alias:string) {
     AND COALESCE(json_extract(${seo},'$.canonicalUrl'),'') IN ('','https://psipedia.sk/plemena/'||${alias}.slug,'/plemena/'||${alias}.slug, 'https://psipedia.sk'||${modernPath}, ${modernPath})`;
 }
 
+/**
+ * SQL-primary breed SEO eligibility. Keeps exact canonical identity rules,
+ * but no longer reads legacy managed_breeds.seo_json. This is deliberately
+ * scoped to breed SQL cutover rather than changing unrelated query contracts.
+ */
+export function canonicalBreedEligibilitySqlV2(alias:string){
+  const original=canonicalBreedEligibilitySql(alias);
+  const previousSeo="CASE WHEN json_valid("+alias+".seo_json) THEN "+alias+".seo_json ELSE '{}' END";
+  const legacyNoindex="COALESCE(json_extract("+previousSeo+",'$.noindex'),0)";
+  const legacyCanonical="COALESCE(json_extract("+previousSeo+",'$.canonicalUrl'),'')";
+  const changed=original
+    .replace("AND json_valid("+alias+".seo_json)","AND "+alias+".seo_noindex IN (0,1)")
+    .replace(legacyNoindex,"COALESCE("+alias+".seo_noindex,0)")
+    .replace(legacyCanonical,"COALESCE("+alias+".seo_canonical_url,'')");
+  if(changed===original || changed.includes("seo_json"))
+    throw Error("BREED_V2_SQL_CANONICAL_REPLACEMENT_FAILED");
+  return changed;
+}
 /** Canonical winner predicate that can use a selective outer query (for example slug=?). */
 export function canonicalBreedWinnerSql(alias:string) {
   return `${canonicalBreedEligibilitySql(alias)}
@@ -73,6 +91,16 @@ export function canonicalBreedWinnerSql(alias:string) {
       AND other.id<${alias}.id
       AND (other.fci_number=${alias}.fci_number OR other.slug=${alias}.slug OR TRIM(other.import_key)=TRIM(${alias}.import_key))
   )`;
+}
+
+/** SQL-primary canonical winner – no stored SEO JSON eligibility. */
+export function canonicalBreedWinnerSqlV2(alias:string){
+  const legacy=canonicalBreedWinnerSql(alias);
+  const transformed=legacy
+    .replace(canonicalBreedEligibilitySql(alias),canonicalBreedEligibilitySqlV2(alias))
+    .replace(canonicalBreedEligibilitySql("other"),canonicalBreedEligibilitySqlV2("other"));
+  if(transformed.includes("seo_json"))throw Error("BREED_V2_WINNER_STILL_LEGACY");
+  return transformed;
 }
 
 /**
@@ -96,6 +124,12 @@ export const canonicalBreedIdsSql = `SELECT winners.id
   WHERE winners.id = winners.fci_first_id
     AND winners.id = winners.slug_first_id
     AND winners.id = winners.import_first_id`;
+
+/** SQL-primary canonical index, preserving the same winner ordering. */
+export const canonicalBreedIdsSqlV2=canonicalBreedIdsSql
+  .replace(canonicalBreedEligibilitySql("b"),canonicalBreedEligibilitySqlV2("b"));
+if(canonicalBreedIdsSqlV2.includes("seo_json"))
+  throw Error("BREED_V2_CANONICAL_IDS_STILL_LEGACY");
 
 /**
  * Cheap canonical ID projection for public directory reads.
