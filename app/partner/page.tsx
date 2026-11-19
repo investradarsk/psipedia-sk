@@ -5,6 +5,7 @@ import { listPartnerResources, type PartnerManagedResource } from "@/lib/partner
 import { listPartnerClaims } from "@/lib/partner-claims";
 import { listPartnerNewProfiles } from "@/lib/partner-new-profile";
 import { listPartnerEventSubmissions } from "@/lib/partner-events";
+import { listPartnerHelpCreateSubmissions } from "@/lib/partner-help-create";
 import { listPartnerProfileChanges } from "@/lib/partner-profile-changes";
 import { buildPartnerDashboardSummary } from "@/lib/partner-dashboard";
 import { partnerResourceStatusLabel } from "@/lib/partner-ui-labels";
@@ -29,12 +30,13 @@ function resourceEditHref(resource: PartnerManagedResource) {
 
 export default async function PartnerHomePage() {
   const identity = await requirePartnerPageIdentity();
-  const [resources, claims, newProfiles, eventSubmissions, profileChanges] = await Promise.all([
+  const [resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions, helpSubmissions] = await Promise.all([
     listPartnerResources(identity.accountId),
     listPartnerClaims(identity.accountId),
     listPartnerNewProfiles(identity.accountId),
     listPartnerEventSubmissions(identity.accountId),
     listPartnerProfileChanges(identity.accountId),
+    listPartnerHelpCreateSubmissions(identity.accountId),
   ]);
   const summary = buildPartnerDashboardSummary({
     resources, claims, newProfiles, eventSubmissions, profileChanges,
@@ -52,6 +54,7 @@ export default async function PartnerHomePage() {
           <div className="partner-dashboard-welcome-actions">
             <Link className="button button--dark" href="/partner/profily/novy">Pridať nový profil</Link>
             <Link className="button" href="/partner/podujatia/nove">Pridať podujatie</Link>
+            <Link className="button" href="/partner/pomoc/nova">Pridať pomoc psom</Link>
           </div>
         </div>
         <div className="partner-dashboard-welcome-aside" aria-hidden="true">
@@ -119,6 +122,7 @@ export default async function PartnerHomePage() {
               <span>Výstava, preteky, seminár či iné podujatie</span>
             </Link>
           </div>
+          <div className="partner-dashboard-quick-actions"><Link href="/partner/pomoc/nova"><strong>Pridať pomoc psom</strong><span>Adopcia, stratené alebo nájdené psy, zbierky a ďalšia pomoc</span></Link></div>
           <div className="partner-dashboard-claim">
             <h3>Profil už na Psipedii existuje?</h3>
             <p>Vyhľadajte záznam podľa názvu alebo mesta a požiadajte o jeho správu.</p>
