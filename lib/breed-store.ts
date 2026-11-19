@@ -682,40 +682,36 @@ const select = `SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_
 valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
+// Keep both queries static and independently testable. Legacy is rollback
+// only; SQL-primary never evaluates the old four object JSON documents.
+const legacyBreedSummarySql = `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,intro,updated_at,sports_json,needs,exercise,training,health,
+CASE WHEN json_valid(editorial_json) THEN
+  CASE WHEN json_type(editorial_json, '$.overview') = 'text' THEN json_extract(editorial_json, '$.overview') ELSE '' END
+ELSE '' END AS editorial_overview,
+CASE WHEN json_valid(fci_standard_json) THEN
+  CASE WHEN json_type(fci_standard_json, '$.fci_standard_pdf') = 'text' THEN json_extract(fci_standard_json, '$.fci_standard_pdf') ELSE '' END
+ELSE '' END AS fci_standard_pdf,
+CASE WHEN json_valid(fci_standard_json) THEN
+  CASE WHEN json_type(fci_standard_json, '$.fci_nomenklatura_url') = 'text' THEN json_extract(fci_standard_json, '$.fci_nomenklatura_url') ELSE '' END
+ELSE '' END AS fci_nomenklatura_url,
+(SELECT COUNT(*) FROM breed_article_relations r WHERE r.breed_id=managed_breeds.id) AS article_relation_count,
+(SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
+FROM managed_breeds ORDER BY fci_group,name LIMIT ?`;
+const sqlBreedSummarySql = `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,intro,updated_at,sports_json,needs,exercise,training,health,
+(SELECT COALESCE(e.overview,'') FROM breed_editorial_text e WHERE e.breed_id=managed_breeds.id) AS editorial_overview,
+(SELECT COALESCE(f.fci_fci_standard_pdf,'') FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id) AS fci_standard_pdf,
+(SELECT COALESCE(f.fci_fci_nomenklatura_url,'') FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id) AS fci_nomenklatura_url,
+(SELECT COUNT(*) FROM breed_article_relations r WHERE r.breed_id=managed_breeds.id) AS article_relation_count,
+(SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
+FROM managed_breeds ORDER BY fci_group,name LIMIT ?`;
 export async function listManagedBreedSummaries(limit = 500) {
   const database = requireDb();
   await ensure(database);
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
-  const result = await database
-    .prepare(
-      `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,intro,updated_at,sports_json,needs,exercise,training,health,
-${sqlPrimary?"(SELECT COALESCE(e.overview,'') FROM breed_editorial_text e WHERE e.breed_id=managed_breeds.id)":
-`CASE WHEN json_valid(editorial_json) THEN
-  CASE WHEN json_type(editorial_json, '$.overview') = 'text' THEN json_extract(editorial_json, '$.overview') ELSE '' END
-ELSE '' END`} AS editorial_overview,
-${sqlPrimary?"(SELECT COALESCE(f.fci_fci_standard_pdf,'') FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
-`CASE WHEN json_valid(fci_standard_json) THEN
-  CASE WHEN json_type(fci_standard_json, '$.fci_standard_pdf') = 'text' THEN json_extract(fci_standard_json, '$.fci_standard_pdf') ELSE '' END
-ELSE '' END`} AS fci_standard_pdf,
-${sqlPrimary?"(SELECT COALESCE(f.fci_fci_nomenklatura_url,'') FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
-`CASE WHEN json_valid(fci_standard_json) THEN
-  CASE WHEN json_type(fci_standard_json, '$.fci_nomenklatura_url') = 'text' THEN json_extract(fci_standard_json, '$.fci_nomenklatura_url') ELSE '' END
-ELSE '' END`} AS fci_nomenklatura_url,
-(SELECT COUNT(*) FROM breed_article_relations r WHERE r.breed_id=managed_breeds.id) AS article_relation_count,
-(SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
-FROM managed_breeds ORDER BY fci_group,name LIMIT ?`,
-    )
-    .bind(safeLimit)
-    .all<SummaryRow>();
+  const result = await database.prepare(sqlPrimary?sqlBreedSummarySql:legacyBreedSummarySql)
+    .bind(safeLimit).all<SummaryRow>();
   return result.results.map(fromSummaryRow);
 }
-const sqlPrimary=breedSqlPrimaryEnabled(env);
-const canonicalBreedIdsForRuntime=sqlPrimary?canonicalBreedIdsSqlV2:canonicalBreedIdsSql;
-const canonicalBreedWinnerForRuntime=sqlPrimary?canonicalBreedWinnerSqlV2:canonicalBreedWinnerSql;
-// Old selection stays available for regression tests and the rollback flag.
-// SQL mode assembles the same domain JSON shape ONLY from 0174 SQL tables.
-const readSelect=sqlPrimary?breedSqlPrimaryProjection(select):select;
-const primaryProjection=(sql:string)=>sqlPrimary?breedSqlPrimaryProjection(sql):sql;
 // Article relations need only identifiers and FCI labels, not all the
 // completeness, image, editorial JSON and relation-count fields required by
 // the breed administration dashboard. Keep the same 500-row order/limit.
@@ -1685,7 +1681,7 @@ export function buildManagedBreedUpdateStatements(
       ?breedSqlV2FullSnapshotStatements(database,id,value):[]),
     // Read the exact committed version and relations before the batch commits.
     // A later writer must not leak its version into this caller's editor.
-    database.prepare(`${readSelect} WHERE id=?`).bind(id),
+    database.prepare(`${select} WHERE id=?`).bind(id),
     database
       .prepare(
         "SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id",
