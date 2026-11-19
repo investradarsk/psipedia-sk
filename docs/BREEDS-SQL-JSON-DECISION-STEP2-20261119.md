@@ -26,7 +26,7 @@ Cloudflare **D1** je jediná produkčná databáza plemien. Typ ukladania rozhod
 | `related_breeds_json` | 6 vzťahov u 2 plemien | **nová `breed_related_breeds` SQL tabuľka** | až po prenose a parite všetkých 6 väzieb |
 | `fci_standard_json` | 343 neprázdnych objektov | **nová `breed_fci_standard` SQL 1:1 tabuľka** | až po prenose 31 textových + 2 URL/PDF kľúčov a cutovere |
 | `editorial_json` | 344 neprázdnych objektov | **nová `breed_editorial_text` SQL 1:1 tabuľka** | až po prenose šiestich používaných redakčných polí a overení starých tipov/heroTraits |
-| `seo_json` | 343 neprázdnych objektov | **7 SQL stĺpcov na `managed_breeds`** | až po zmene SQL canonical/noindex eligibility, sitemap a SEO editora |
+| `seo_json` | 343 neprázdnych objektov | **8 SQL stĺpcov na `managed_breeds`** | až po zmene SQL canonical/noindex eligibility, sitemap a SEO editora |
 
 **Záver: 6 JSON ponechať; 3 JSON objekty zmeniť na SQL; 1 JSON pole zmeniť na SQL väzby.**
 
@@ -35,7 +35,7 @@ Cloudflare **D1** je jediná produkčná databáza plemien. Typ ukladania rozhod
 ### `managed_breeds` – existujúca jadrová SQL tabuľka
 
 Ponechať identitu (`id`, `slug`, `import_key`, `fci_number`), publikovanie (`status`, `published_at`), FCI skupinu a sekciu (`fci_group`, `fci_section_number`), názov, obrázok, public texty `intro`, `character`, `history`, `needs`, `exercise`, `training`, `health`, hodnotenia 1–5 a súčasné filtrované hodnoty. 
-Nové SQL SEO polia: `seo_title`, `seo_description`, `seo_focus_keyword`, `seo_canonical_url`, `seo_og_title`, `seo_og_description`, `seo_noindex` (INTEGER 0/1; osobitne `noindex` a canonical nesmú na chybnom importe zmeniť indexovateľnosť).
+Nové SQL SEO polia: `seo_title`, `seo_description`, `seo_focus_keyword`, `seo_canonical_url`, `seo_og_title`, `seo_og_description`, `seo_og_image`, `seo_noindex` (INTEGER 0/1; osobitne `noindex` a canonical nesmú na chybnom importe zmeniť indexovateľnosť).
 
 `search_text` je **odvodený index**, nie nezávislý redakčný zdroj. Niektoré existujúce textové fallbacky (`origin`, `height`, `weight`, `lifespan`, `fci_section`) treba ponechať do auditu public parity; nekopírovať nové kontrolované hodnoty duplicitne do starých a nových permanentných stĺpcov.
 
