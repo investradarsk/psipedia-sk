@@ -1101,7 +1101,12 @@ export async function PATCH(request: Request, { params }: Props) {
         if (!current) {
           return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
         }
-        if (current.reviewed) {
+        // A retry after a partially acknowledged uncheck may see reviewed=false
+        // while the D1 -> Notion safety barrier is STILL pending.
+        // Re-enter the targeted rebaseline; never bypass it on the second PATCH.
+        const alreadyPending =
+          current.importData?.["_psipedia_profile_review_unlock_pending"] === "1";
+        if (current.reviewed || alreadyPending) {
           const linked = await database.prepare(
             "SELECT notion_page_id FROM directory_notion_sync " +
             "WHERE directory_profile_id=? LIMIT 1",
