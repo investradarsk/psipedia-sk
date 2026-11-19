@@ -1,6 +1,7 @@
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
 import { readDirectory0170EditorialFields } from "./directory-0170-editorial-read";
+import { isDirectoryReviewUnlockPendingSource } from "./directory-reviewed-sync-lock";
 import { env } from "cloudflare:workers";
 import {
   directoryLocationFacetStatement,
@@ -2250,6 +2251,7 @@ export async function setManagedDirectoryProfileReviewed(
   editorEmail: string,
   now = new Date(),
   databaseInput?: D1Database,
+  options: { markNotionUnlockPending?: boolean } = {},
 ) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
@@ -2265,6 +2267,18 @@ export async function setManagedDirectoryProfileReviewed(
     editorEmail,
     now.toISOString(),
   );
+  // Unchecking changes the UI state immediately, but never permits an old
+  // Notion snapshot to import until the canonical D1 values were re-exported.
+  // A retried/unacknowledged uncheck must NEVER erase a pending lock. Only
+  // the verified D1 -> Notion owner-unlock finalizer can clear this marker.
+  // This guard belongs in the persistence layer, not only the API route:
+  // duplicate requests or another direct caller cannot bypass it.
+  const alreadyPending = isDirectoryReviewUnlockPendingSource(row.source_data_json);
+  if (!reviewed && (options.markNotionUnlockPending || alreadyPending)) {
+    sourceData["_psipedia_profile_review_unlock_pending"] = "1";
+  } else {
+    delete sourceData["_psipedia_profile_review_unlock_pending"];
+  }
   // The owner reviewed the displayed contact values. On that explicit action,
   // adopt ONLY still-NULL SQL contact slots; an earlier SQL clear ('') wins.
   // No bulk backfill or automatic promotion on ordinary Notion/Admin reads.

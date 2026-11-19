@@ -9,6 +9,7 @@
  * The old Notion "Služby" rich-text property is preserved for historical data.
  */
 import {notionRequest,type NotionSyncBindings} from "./notion-sync-shared";
+import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
 import {planCatalogRelationSync,planSignedCatalogRelationSync} from "./service-catalog-notion-relation-plan";
 import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
 import {importNotionServiceIds} from "./service-profile-notion-bridge";
@@ -113,6 +114,7 @@ export async function syncProfileCatalogRelation(input:{
  adminChoiceSave?:boolean;
 }):Promise<"skipped"|"unchanged"|"pushed"|"pulled"|"merged">{
  const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
+ if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
  if(!await schemaExists(db))return "skipped"; // Migration not yet applied: do not break existing sync.
  const page=await readRemote(bindings,pageId,directoryDataSourceId);
  const raw=relationIds(page);
@@ -150,6 +152,7 @@ export async function syncProfileCatalogRelation(input:{
    :planCatalogRelationSync(local,remote,previous);
  if(plan.action==="conflict")throw Error("SERVICES_RELATION_BOTH_SIDES_CHANGED_REVIEW");
  if(plan.action==="pull"||plan.action==="merge"){
+   if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
    // Recheck the relation before touching D1; never import a truncated/superseded page.
    const latest=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
@@ -157,12 +160,14 @@ export async function syncProfileCatalogRelation(input:{
    const currentLocal=await canonicalYes(db,profileId,available);
    if(JSON.stringify(currentLocal)!==JSON.stringify(local))
      throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_IMPORT");
+   if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
    await importNotionServiceIds(db,profileId,category,plan.target);
    const confirmed=await canonicalYes(db,profileId,available);
    if(JSON.stringify(confirmed)!==JSON.stringify([...plan.target].sort()))
      throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
  }
  if(plan.action==="push"||plan.action==="merge"){
+   if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
    // Recheck before PATCH. PATCH touches only our relation, no editorial/identity fields.
    const currentLocal=await canonicalYes(db,profileId,available);
    if(JSON.stringify(currentLocal)!==JSON.stringify([...plan.target].sort()))
@@ -171,6 +176,7 @@ export async function syncProfileCatalogRelation(input:{
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_EXPORT");
    const pages=plan.target.map(id=>({id:lookup.serviceToPage.get(id)!}));
+   if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
    const ack=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId),{
      method:"PATCH",body:JSON.stringify({properties:{[PROPERTY]:{relation:pages}}})
    },{retryTransient:false}); // Unknown outcome must be read back, not blindly retried.
