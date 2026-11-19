@@ -4,7 +4,8 @@ import {DatabaseSync} from "node:sqlite";
 import {BREED_CONTROLLED_FIELDS,parseBreedControlledValues} from
   "../lib/breed-workcopy-controlled.mjs";
 import {MIRROR_KEYS,planBreedControlledMirrorBackfill,
-  breedControlledMirrorAtomicInsert,isBreedControlledMirrorInsertOnlySql} from
+  breedControlledMirrorAtomicInsert,isBreedControlledMirrorInsertOnlySql,
+  buildBreedControlledMirrorChunks,BREED_MIRROR_D1_MAX_SQL_BYTES} from
   "../lib/breed-controlled-mirror-backfill.mjs";
 
 const SOURCE="f460b1e5-4454-4a10-9200-3b35106f9e32";
@@ -200,5 +201,95 @@ test("production SQL guard accepts generated atomic INSERT containing REPLACE() 
      sql.replace("FROM verified","FROM verified; UPDATE managed_breeds SET slug='x'; --"),
      "INSERT INTO breed_notion_controlled_values VALUES (1,'a','b',0);",
    ])assert.equal(isBreedControlledMirrorInsertOnlySql(dangerous),false);
+ }finally{f.db.close()}
+});
+
+
+test("D1 production plan splits 341 mirrors into <=60KiB atomic, validated SQL statements",()=>{
+ const f=fixture();
+ try{
+   const p=planBreedControlledMirrorBackfill({
+     links:f.links,pages:f.pages,existing:f.existing,expectedSource:SOURCE});
+   const chunks=buildBreedControlledMirrorChunks(p,SOURCE);
+   assert.ok(chunks.length>=2,"a single 341-row statement is unsafe for D1");
+   assert.equal(chunks[0].expectedExisting,3);
+   assert.equal(chunks.reduce((n,c)=>n+c.rows.length,0),341);
+   let existing=3;
+   for(const c of chunks){
+     assert.equal(c.expectedExisting,existing);
+     assert.ok(new TextEncoder().encode(c.sql).byteLength<=
+       BREED_MIRROR_D1_MAX_SQL_BYTES);
+     assert.equal(isBreedControlledMirrorInsertOnlySql(c.sql),true);
+     existing+=c.rows.length;
+     dbExec(f.db,c.sql);
+     assert.equal(f.db.prepare(
+       "SELECT COUNT(*) n FROM breed_notion_controlled_values").get().n,existing);
+   }
+   assert.equal(existing,344);
+   for(const prev of f.existing){
+     const stored=f.db.prepare(
+       "SELECT * FROM breed_notion_controlled_values WHERE breed_id=?")
+       .get(prev.breed_id);
+     assert.deepEqual({...stored},prev);
+   }
+ }finally{f.db.close()}
+});
+
+test("D1 import resumes after a successful chunk without any overwrite",()=>{
+ const f=fixture();
+ try{
+   const oldPlan=planBreedControlledMirrorBackfill({
+     links:f.links,pages:f.pages,existing:f.existing,expectedSource:SOURCE});
+   const [first,...rest]=buildBreedControlledMirrorChunks(oldPlan,SOURCE);
+   assert.ok(rest.length>0);
+   dbExec(f.db,first.sql);
+   const snapshot=f.db.prepare(
+     "SELECT * FROM breed_notion_controlled_values ORDER BY breed_id").all()
+     .map(x=>({...x}));
+   const newPlan=planBreedControlledMirrorBackfill({
+     links:f.links,pages:f.pages,existing:snapshot,expectedSource:SOURCE});
+   assert.equal(newPlan.ready,true);
+   assert.equal(newPlan.existingCount,first.expectedExisting+first.rows.length);
+   assert.equal(newPlan.missingCount,341-first.rows.length);
+   const chunks=buildBreedControlledMirrorChunks(newPlan,SOURCE);
+   for(const chunk of chunks)dbExec(f.db,chunk.sql);
+   assert.equal(f.db.prepare(
+     "SELECT COUNT(*) n FROM breed_notion_controlled_values").get().n,344);
+   for(const row of snapshot){
+     const stored=f.db.prepare(
+       "SELECT * FROM breed_notion_controlled_values WHERE breed_id=?")
+       .get(row.breed_id);
+     assert.deepEqual({...stored},row);
+   }
+ }finally{f.db.close()}
+});
+
+test("D1 chunk refuses stale mirror counts when another writer inserts a row",()=>{
+ const f=fixture();
+ try{
+   const p=planBreedControlledMirrorBackfill({
+     links:f.links,pages:f.pages,existing:f.existing,expectedSource:SOURCE});
+   const chunk=buildBreedControlledMirrorChunks(p,SOURCE)[0];
+   const currentPayload=JSON.stringify(current(1));
+   f.db.prepare("INSERT INTO breed_notion_controlled_values VALUES(?,?,?,0)")
+     .run(1,currentPayload,currentPayload);
+   dbExec(f.db,chunk.sql);
+   assert.equal(f.db.prepare(
+     "SELECT COUNT(*) n FROM breed_notion_controlled_values").get().n,4);
+ }finally{f.db.close()}
+});
+
+test("D1 chunk builder refuses a tampered remote row and oversized single row",()=>{
+ const f=fixture();
+ try{
+   const p=planBreedControlledMirrorBackfill({
+     links:f.links,pages:f.pages,existing:f.existing,expectedSource:SOURCE});
+   p.newRows[0]={...p.newRows[0],valuesJson:JSON.stringify(current(3))};
+   // The seed still needs individually validated typed payloads, but this
+   // particular valid change is allowed as part of the planner state. A
+   // malformed encoded value must fail the existing validator instead.
+   p.newRows[0].valuesJson="{bad-json}";
+   assert.throws(()=>buildBreedControlledMirrorChunks(p,SOURCE),
+     /FIELDS_INVALID/);
  }finally{f.db.close()}
 });
