@@ -19,22 +19,23 @@ export default async function Page() {
         <div className="partner-resource-grid">
           {items.map((item) => (
             <article key={item.resourceId} className="partner-resource-card">
-              <span>{item.entityType === "DIRECTORY_PROFILE" ? "Adresár" : "Organizácia"}</span>
+              <span>{item.entityType === "DIRECTORY_PROFILE" ? "Adresár" : item.entityType === "HELP_ORGANIZATION" ? "Organizácia" : item.entityType === "ADOPTION_DOG" ? "Adopcia" : item.entityType === "LOST_FOUND_DOG" ? "Stratený/nájdený pes" : "Pomoc psom"}</span>
               <h2>{item.name}</h2>
               <dl>
                 <div><dt>Rola</dt><dd>{partnerRoleLabel(item.role)}</dd></div>
                 <div><dt>Stav</dt><dd>{partnerResourceStatusLabel(item.status)}</dd></div>
-                <div>
+                {(item.entityType === "DIRECTORY_PROFILE" || item.entityType === "HELP_ORGANIZATION") ? <div>
                   <dt>Overenie správcu</dt>
                   <dd>{item.verificationStatus === "UNVERIFIED" ? "Neoverené" : item.verificationStatus === "PENDING_VERIFICATION" ? "Čaká na overenie" : item.verificationStatus === "VERIFIED" ? "Overené" : "Overenie zamietnuté"}</dd>
-                </div>
+                </div> : null}
               </dl>
               <div className="partner-request-links">
-                {partnerRoleHasPermission(item.role, "PROFILE_SUBMIT_CHANGE") ? (
+                {(item.entityType === "DIRECTORY_PROFILE" || item.entityType === "HELP_ORGANIZATION") && partnerRoleHasPermission(item.role, "PROFILE_SUBMIT_CHANGE") ? (
                   <Link className="button button--dark" href={`/partner/profily/${encodeURIComponent(item.resourceId)}/upravit`}>Upraviť údaje</Link>
                 ) : null}
-                {partnerRoleHasPermission(item.role, "COMMERCIAL_INTEREST_CREATE") ? <Link href={`/partner/propagacia?resource=${encodeURIComponent(item.resourceId)}`}>Možnosti propagácie</Link> : null}
+                {(item.entityType === "DIRECTORY_PROFILE" || item.entityType === "HELP_ORGANIZATION") && partnerRoleHasPermission(item.role, "COMMERCIAL_INTEREST_CREATE") ? <Link href={`/partner/propagacia?resource=${encodeURIComponent(item.resourceId)}`}>Možnosti propagácie</Link> : null}
                 {item.publicHref ? <Link href={item.publicHref} target="_blank">Verejný profil ↗</Link> : null}
+                {item.entityType !== "DIRECTORY_PROFILE" && item.entityType !== "HELP_ORGANIZATION" ? <span>Prístup schválený · editor pripravujeme</span> : null}
               </div>
             </article>
           ))}
