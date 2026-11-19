@@ -1,4 +1,5 @@
 import { getPartnerDatabase, type PartnerAccountStatus } from "./partner-auth-store";
+import { getPartnerHelpMembership, parseHelpResourceId, listPartnerApprovedHelpResources, type PartnerHelpType } from "./partner-help-claims";
 
 export const partnerResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT"] as const;
 export type PartnerResourceType = (typeof partnerResourceTypes)[number];
@@ -19,7 +20,7 @@ export class PartnerAuthorizationError extends Error {
 }
 
 export type PartnerManagedResource = {
-  resourceId: string; entityType: PartnerResourceType; canonicalId: number; role: PartnerRole;
+  resourceId: string; entityType: PartnerResourceType | PartnerHelpType; canonicalId: number; role: PartnerRole;
   name: string; status: string; slug: string; publicHref: string | null;
   verificationStatus: "UNVERIFIED"|"PENDING_VERIFICATION"|"VERIFIED"|"REJECTED";
 };
@@ -31,6 +32,8 @@ function role(value: string): PartnerRole {
 }
 
 export async function getPartnerMembership(accountId: string, resourceId: string, database?: D1Database) {
+  // Help claim approval is the ownership source for canonical Help records.
+  if(parseHelpResourceId(resourceId))return getPartnerHelpMembership(accountId,resourceId,database);
   const row = await getPartnerDatabase(database).prepare(`
     SELECT m.id membershipId,m.account_id accountId,m.resource_id resourceId,m.role,
       a.status accountStatus,m.revoked_at revokedAt
@@ -77,12 +80,14 @@ export async function listPartnerResources(accountId: string, database?: D1Datab
     WHERE m.account_id=?1 AND m.revoked_at IS NULL
     ORDER BY name COLLATE NOCASE,r.id
   `).bind(accountId).all<{resourceId:string;entityType:PartnerResourceType;role:string;canonicalId:number;name:string;status:string;slug:string;directoryCategory:string|null;verificationStatus:"UNVERIFIED"|"PENDING_VERIFICATION"|"VERIFIED"|"REJECTED"}>();
-  return result.results.map((item) => ({
+  const canonical = result.results.map((item) => ({
     ...item, role: role(item.role),
     publicHref: item.entityType === "DIRECTORY_PROFILE" ? `/adresar/${item.directoryCategory}/${item.slug}`
       : item.entityType === "HELP_ORGANIZATION" ? `/organizacie/${item.slug}`
       : item.status === "published" ? `/podujatia/${item.slug}` : null,
   }));
+  const help = await listPartnerApprovedHelpResources(accountId,database);
+  return [...canonical,...help].sort((a,b)=>a.name.localeCompare(b.name,"sk"));
 }
 
 export type PartnerAuditAction = "ACCOUNT_CREATED"|"EMAIL_VERIFIED"|"ACCOUNT_SUSPENDED"|"ACCOUNT_REACTIVATED"|"ACCOUNT_DEACTIVATED"|"SESSIONS_REVOKED"|"MEMBERSHIP_CREATED"|"MEMBERSHIP_ROLE_CHANGED"|"MEMBERSHIP_REVOKED"|"COMMERCIAL_INTEREST_CREATED"|"COMMERCIAL_INTEREST_STATUS_CHANGED"|"COMMERCIAL_INTEREST_NOTE_UPDATED"|"COMMERCIAL_AGREEMENT_CREATED"|"COMMERCIAL_AGREEMENT_UPDATED"|"COMMERCIAL_PAYMENT_MARKED_PAID"|"ENTITLEMENT_ACTIVATED"|"ENTITLEMENT_PAUSED"|"ENTITLEMENT_CANCELLED"|"ENTITLEMENT_EXPIRED"|"COMMERCIAL_PROMOTION_LINKED"|"COMMERCIAL_CAMPAIGN_LINKED"|"CLAIM_SUBMITTED"|"CLAIM_APPROVED"|"CLAIM_REJECTED"|"CLAIM_CANCELLED"|"VERIFICATION_REQUESTED"|"VERIFICATION_VERIFIED"|"VERIFICATION_REJECTED"|"PROFILE_CHANGE_SUBMITTED"|"PROFILE_CHANGE_WITHDRAWN"|"PROFILE_CHANGE_APPROVED"|"PROFILE_CHANGE_REJECTED"|"NEW_PROFILE_SUBMITTED"|"NEW_PROFILE_WITHDRAWN"|"NEW_PROFILE_CREATED"|"NEW_PROFILE_LINKED_EXISTING"|"NEW_PROFILE_REJECTED"|"EVENT_SUBMITTED"|"EVENT_CHANGE_SUBMITTED"|"EVENT_WITHDRAWN"|"EVENT_CREATED"|"EVENT_LINKED_EXISTING"|"EVENT_CHANGE_APPROVED"|"EVENT_REJECTED"|"CONTACT_PROFILE_COMPLETED"|"CONTACT_PROFILE_UPDATED"|"PASSWORD_SET"|"PASSWORD_CHANGED"|"PASSWORD_RESET_COMPLETED"|"GOOGLE_IDENTITY_LINKED";
