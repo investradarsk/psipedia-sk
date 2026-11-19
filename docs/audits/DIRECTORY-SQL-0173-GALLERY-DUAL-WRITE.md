@@ -20,3 +20,12 @@ SQL štruktúra `directory_profile_media` už existuje od produkčnej migrácie
 
 Izolované testy: poradie, viac fotografií, typy hodnôt, clear vs omitted,
 súbežné zápisy, oddelenie hlavného obrázka a profilovej identity.
+
+## Ochrana pred historickou galériou
+
+Pri explicitnom vymazaní galérie chovateľskej stanice sa odstráni aj starý
+technický alias `_psipedia_profile_gallery_urls` pre tento profil, aby
+existujúci verejný čítač nenačítal už vymazané fotografie z iného JSON kľúča.
+Pri iných zmenách profilu sa tento alias nemení. SQL shadow sa vždy odvodzuje
+z konkrétneho normalizovaného poľa `_psipedia_breeder_gallery_urls`, nikdy
+z fallbacku partner-profile-gallery.

@@ -122,7 +122,7 @@ test("Admin breeder editor only sends explicit normalized gallery to the canonic
  const source=readFileSync(new URL("../lib/directory-store.ts",import.meta.url),"utf8");
  assert.match(source,/payload\.galleryUrls !== undefined && input\.category === "chovatelske-stanice"/);
  assert.match(source,/payload\.galleryUrls !== undefined &&[\s\S]*"chovatelske-stanice"/);
- assert.match(source,/readProfileGallery\(/);
+ assert.match(source,/readDirectoryBreederGallery\(/);
  assert.match(source,/mergeDirectoryBreederGallery\(/);
  assert.match(source,/\.\.\.editorialMirror\.map\(item => database\.prepare\(item\.sql\)\.bind\(\.\.\.item\.bindings\)\)/);
 });
