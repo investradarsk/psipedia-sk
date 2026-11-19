@@ -6,6 +6,7 @@ import { PROFILE_GALLERY_LIMIT } from "@/lib/partner-profile-gallery";
 import { publishSafeImage, type PrivateBucketLike } from "@/lib/private-media";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
+import { planDirectorySecondaryCategorySqlMirror } from "@/lib/directory-secondary-category-sql";
 import {
   approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror,
   planDirectory0170FilterSqlMirror, type Directory0170SqlStatement,
@@ -93,6 +94,13 @@ export async function savePartnerManagedProfile(input: {
         [...planDirectory0170FilterSqlMirror({profileId:canonical.canonicalId,category,
           values:filters,updatedAt:nowIso,actor:actorRef})]
       );
+    }
+    if("additionalCategories" in effectivePatch) {
+      plans.push([...planDirectorySecondaryCategorySqlMirror({
+        profileId:canonical.canonicalId,primaryCategory:category,
+        submitted:effectivePatch.additionalCategories as string[],
+        updatedAt:nowIso,actor:actorRef,
+      })]);
     }
     if("openingHours" in effectivePatch && approvedDirectoryFactSqlSlot(category,"Ordinačné hodiny")){
       (plans as Directory0170SqlStatement[][]).push(
