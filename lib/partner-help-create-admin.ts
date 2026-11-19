@@ -108,7 +108,7 @@ function insertCanonical(database:D1Database,input:{
   const search=(...v:unknown[])=>v.map(x=>String(x??"")).join(" ").toLocaleLowerCase("sk").slice(0,20000);
   if(input.type==="ADOPTION_DOG"){
     const values=[p.name,input.slug,p.sex,p.size,p.approximateAgeMonths,p.breedName,p.region,p.district,p.city,
-      p.organizationName,p.shortDescription,p.description,search(p.name,p.breedName,p.city,p.description),input.nowIso,input.actorRef];
+      p.organizationName,p.shortDescription,p.description,search(p.name,p.breedName,p.city,p.description),input.nowIso,input.nowIso,input.actorRef,input.actorRef];
     return database.prepare(`INSERT INTO adoption_dogs(
       name,slug,status,sex,size,approximate_age_months,breed_name,region,district,city,
       organization_name,short_description,description,search_text,created_at,updated_at,created_by,updated_by)
@@ -117,14 +117,14 @@ function insertCanonical(database:D1Database,input:{
   }
   if(input.type==="LOST_FOUND_DOG"){
     const values=[p.type,input.slug,p.dogName,p.sex,p.breed,p.color,p.size,p.eventDate,p.region,p.district,p.city,
-      p.locationDescription,p.description,search(p.dogName,p.breed,p.city,p.description),input.nowIso];
+      p.locationDescription,p.description,search(p.dogName,p.breed,p.city,p.description),input.nowIso,input.nowIso];
     return database.prepare(`INSERT INTO lost_found_dog_reports(
       type,slug,status,dog_name,sex,breed,color,size,event_date,region,district,city,
       location_description,description,search_text,created_at,updated_at)
       SELECT ?,?,'DRAFT',?,?,?,?,?,?,?,?,?,?,?,?,?,?
       WHERE ${approved}`).bind(...values,input.id,input.nowIso,input.actorRef);
   }
-  const values=[input.slug,p.title,p.category,p.excerpt,p.description,p.organization,p.city,p.region,p.actionLabel,p.contactNote,input.nowIso,input.actorRef];
+  const values=[input.slug,p.title,p.category,p.excerpt,p.description,p.organization,p.city,p.region,p.actionLabel,p.contactNote,input.nowIso,input.nowIso,input.actorRef,input.actorRef];
   return database.prepare(`INSERT INTO help_cases(
     slug,title,category,status,excerpt,description,organization,city,region,action_label,
     contact_note,created_at,updated_at,created_by,updated_by)
@@ -138,7 +138,7 @@ function claim(database:D1Database,input:{
   return database.prepare(`INSERT INTO partner_help_claims(
     id,account_id,entity_type,${column},status,request_message,decision_note,
     created_at,updated_at,reviewed_at,reviewed_by)
-    SELECT ?,?,? ,(${input.canonicalIdSql}),'APPROVED',NULL,'Vytvorené alebo prepojené po redakčnej kontrole',?,?,?,?,?
+    SELECT ?,?,? ,(${input.canonicalIdSql}),'APPROVED',NULL,'Vytvorené alebo prepojené po redakčnej kontrole',?,?,?,?
     WHERE EXISTS(SELECT 1 FROM moderation_submissions WHERE id=? AND status='APPROVED'
       AND updated_at=? AND reviewed_by=?)
       AND EXISTS(SELECT 1 FROM ${specs[input.type].table} WHERE id=(${input.canonicalIdSql}))
@@ -213,13 +213,11 @@ export async function createPartnerHelpDraftAdmin(input:{
   if(row.status!=="PENDING_REVIEW")throw new PartnerHelpReviewError("Návrh sa zmenil.",409);
   const now=input.now??new Date(),nowIso=now.toISOString();
   const spec=specs[row.resourceType];
-  const slugPred=row.resourceType==="LOST_FOUND_DOG"?"AND type=?":"";
   const canonicalIdSql=row.resourceType==="LOST_FOUND_DOG"
     ? `SELECT id FROM ${spec.table} WHERE slug='${slug.replaceAll("'","''")}' AND type='${String(data.type).replaceAll("'","''")}' LIMIT 1`
     : row.resourceType==="HELP_CASE"
       ? `SELECT id FROM help_cases WHERE slug='${slug.replaceAll("'","''")}' AND category='${String(data.category).replaceAll("'","''")}' LIMIT 1`
       : `SELECT id FROM adoption_dogs WHERE slug='${slug.replaceAll("'","''")}' LIMIT 1`;
-  void slugPred;
   try{
     await applyAtomicModerationTransition(database,{
       id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",
