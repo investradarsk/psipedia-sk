@@ -126,7 +126,7 @@ test("Notion acknowledgement with unchanged profile revision still mirrors only 
 test("review projection CAS guard aborts before a stale SQL row can be changed",()=>{
   const f=fixture();
   try{
-    f.sqlite.prepare("UPDATE directory_profiles SET updated_at='T2' WHERE id=1").run();
+    f.sqlite.prepare("UPDATE directory_profiles SET updated_at='T2' WHERE id=404").run();
     const stmt=directory0173ReviewCasGuardStatement(f.database);
     // No row was changed in this transaction; the guard intentionally throws
     // a SQL error rather than allowing a later sidecar upsert.
