@@ -9,7 +9,7 @@ Cieľ: jeden typovaný adaptér pre 90-field model, bezpečné paralelné overov
 `lib/breed-sql-v2-bridge.mjs` definuje **jednu mapu** pre:
 - `fciStandard.<kľúč>` → 33 individuálnych TEXT stĺpcov `breed_fci_standard`.
 - `editorial.overview`, `coatCare`, `familyLife`, `otherDogsLife`, `curiosities`, `commonOwnerMistakes` → 6 SQL stĺpcov `breed_editorial_text`.
-- `seo.title`, `description`, `focusKeyword`, `canonicalUrl`, `ogTitle`, `ogDescription`, `noindex` → 7 SQL stĺpcov `managed_breeds`.
+- `seo.title`, `description`, `focusKeyword`, `canonicalUrl`, `ogTitle`, `ogDescription`, `noindex` → 8 SQL stĺpcov `managed_breeds`.
 - `controlled.*` (12 typed Notion properties) → zodpovedajúce SQL scalar a tri JSON array stĺpce v `breed_public_facts`, pri FCI skupine/sekcii a veľkosti použijeme pôvodný SQL canonical stĺpec.
 - `healthRisks`, `goodFor`, `consider`, `sources`, `gallery`, `sports` → pôvodný JSON stĺpec ako **jeden atómovo upravovaný zoznam**.
 - `relatedBreedIds` → budúca SQL relácia s zachovaným poradím.
@@ -21,7 +21,7 @@ Plánovač **neprijíma voľné SQL názvy**, odmieta neplatný typ a **nevykon�
 `lib/breed-sql-v2-preview.ts` obsahuje iba 4 **read-only SELECT**:
 - `breed_fci_standard` podľa `breed_id`,
 - `breed_editorial_text` podľa `breed_id`,
-- 7 nových `seo_*` stĺpcov v `managed_breeds`,
+- 8 nových `seo_*` stĺpcov v `managed_breeds`,
 - `breed_related_breeds` podľa `breed_id` v poradí.
 
 Funguje **výhradne keď** `BREED_SQL_V2_COMPARE_MODE=compare` a tabulky fyzicky existujú. Inak sa nevykoná žiadna SQL požiadavka do nových tabuliek. Vrátené výsledky verejného webu aj Adminu sú *stále 100 % pôvodné*. SQL hodnoty sa zatiaľ iba porovnávajú s aktívnym JSON, a logy obsahujú iba počty nesúladov, nie texty alebo SEO údaje.
