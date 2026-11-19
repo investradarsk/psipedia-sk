@@ -584,7 +584,9 @@ test("uses light admin lists and loads full records only for detail and save", a
 
     const directory = await worker.fetch(adminRequest("/admin/adresar"), bindings, context);
     assert.equal(directory.status, 200);
-    assert.match(await directory.text(), /Testovací kynologický klub/);
+    const directoryHtml = await directory.text();
+    assert.match(directoryHtml, /Testovací kynologický klub/,
+      "Admin directory missing mocked profile; queries: "+JSON.stringify(database.queries.filter(q=>/directory_profiles/i.test(q.sql)).slice(-8).map(q=>({sql:q.sql.slice(0,250),bindings:q.bindings,operation:q.operation}))));
 
     const filteredDirectory = await worker.fetch(adminRequest("/admin/adresar?category=kynologicke-kluby"), bindings, context);
     assert.equal(filteredDirectory.status, 200);
