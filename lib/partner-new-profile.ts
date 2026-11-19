@@ -712,12 +712,13 @@ export async function withdrawPartnerNewProfile(input:{
 }) {
   const db=database(input.database);
   const row=await db.prepare(`
-    SELECT s.status,m.partner_account_id accountId
+    SELECT s.status,s.subject_id subjectId,m.partner_account_id accountId
     FROM moderation_submissions s
     JOIN partner_new_profile_metadata m ON m.submission_id=s.id
     WHERE s.id=?1 LIMIT 1
-  `).bind(input.id).first<{status:string;accountId:string}>();
+  `).bind(input.id).first<{status:string;accountId:string;subjectId:string|null}>();
   if(!row||row.accountId!==input.accountId)throw new PartnerNewProfileError("Návrh sa nenašiel.",404);
+  if(row.subjectId!==null)throw new PartnerNewProfileError("Odoslaný kanonický koncept nemožno stiahnuť.",409);
   if(!isFoundationSubmissionStatus(row.status)||!canTransitionModerationSubmission(row.status,"WITHDRAWN")){
     throw new PartnerNewProfileError("Tento návrh už nie je možné zrušiť.",409);
   }
