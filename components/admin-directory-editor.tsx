@@ -163,12 +163,15 @@ function QualityResolutionField({
 
 export function AdminDirectoryEditor({
   profile, notionDraft, onNotionSaved, automationSuggestions = [], returnHref = "/admin/adresar",
+  partnerOwner = null, partnerOwnershipUnavailable = false,
 }: {
   profile?: ManagedDirectoryProfile;
   notionDraft?: GeminiDirectoryDraft;
   onNotionSaved?: (keepEditorOpen?: boolean) => void;
   automationSuggestions?: CanonicalUpdateSuggestion[];
   returnHref?: string;
+  partnerOwner?: { accountId: string; email: string; grantedAt: string; accountStatus: string } | null;
+  partnerOwnershipUnavailable?: boolean;
 }) {
   // Last saved D1 projection; supports one-field saves from a long-open editor.
   const breederSaveBaselineRef = useRef(profile);
@@ -860,7 +863,7 @@ export function AdminDirectoryEditor({
   }
 
   async function changeReviewed(nextReviewed: boolean) {
-    if (!profile) return;
+    if (!profile || (!nextReviewed && (partnerOwner || partnerOwnershipUnavailable))) return;
     setReviewSaving(true); setError(""); setMessage("");
     try {
       const response = await fetch(`/api/admin/directory/${profile.id}`, {
@@ -925,12 +928,23 @@ export function AdminDirectoryEditor({
           <input
             type="checkbox"
             checked={reviewed}
-            disabled={reviewSaving}
+            disabled={reviewSaving || Boolean(partnerOwner) || partnerOwnershipUnavailable}
             onChange={(event) => void changeReviewed(event.target.checked)}
           />
           <span>Odkontrolované</span>
           {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
         </label>
+        {partnerOwner && (
+          <div className={styles.partnerOwnershipNotice} role="status" data-directory-partner-owner>
+            <strong>Tento profil spravuje partner</strong>
+            <span>Správca: <Link href={`/admin/partners/accounts/${partnerOwner.accountId}`}>{partnerOwner.email}</Link></span>
+            <span>Prístup od: {formatProfileReviewDate(partnerOwner.grantedAt)}</span>
+            <span>Notion synchronizácia je uzamknutá. Záznam sa upravuje cez Admin a partnerský účet.</span>
+            {partnerOwner.accountStatus !== "ACTIVE" && <span>Stav účtu: {partnerOwner.accountStatus} (prístup môže byť pozastavený).</span>}
+            <small>Prístup odoberieš v Admin → Partneri. Odkontrolované zostane zapnuté aj po odobratí prístupu, kým ho ručne nezmeníš.</small>
+          </div>
+        )}
+        {partnerOwnershipUnavailable && <p role="alert">Správcu profilu nemožno overiť. Odomknutie Notionu je preventívne vypnuté.</p>}
         <AdminFormFeedback message={message} error={error} pending={saving} pendingLabel="Obnovujem…" className="admin-flash" errorClassName="admin-flash--error" />
         <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status="archived" disabled={saving || uploading || galleryBusy} returnHref={returnHref} />
         <AdminActionButton variant="primary" disabled={saving} onClick={() => void restoreArchivedProfile()}>
@@ -1005,8 +1019,8 @@ export function AdminDirectoryEditor({
               <input
                 type="checkbox"
                 checked={reviewed}
-                disabled={reviewSaving}
-                onChange={(event) => void changeReviewed(event.target.checked)}
+                disabled={reviewSaving || Boolean(partnerOwner) || partnerOwnershipUnavailable}
+                onChange={(event) => void changeReviewed(event.target.checked)
               />
               <span>Odkontrolované</span>
               {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
@@ -1022,6 +1036,17 @@ export function AdminDirectoryEditor({
           </details>
         </div>
       </div>
+      {partnerOwner && (
+          <div className={styles.partnerOwnershipNotice} role="status" data-directory-partner-owner>
+            <strong>Tento profil spravuje partner</strong>
+            <span>Správca: <Link href={`/admin/partners/accounts/${partnerOwner.accountId}`}>{partnerOwner.email}</Link></span>
+            <span>Prístup od: {formatProfileReviewDate(partnerOwner.grantedAt)}</span>
+            <span>Notion synchronizácia je uzamknutá. Záznam sa upravuje cez Admin a partnerský účet.</span>
+            {partnerOwner.accountStatus !== "ACTIVE" && <span>Stav účtu: {partnerOwner.accountStatus} (prístup môže byť pozastavený).</span>}
+            <small>Prístup odoberieš v Admin → Partneri. Odkontrolované zostane zapnuté aj po odobratí prístupu, kým ho ručne nezmeníš.</small>
+          </div>
+        )}
+        {partnerOwnershipUnavailable && <p role="alert">Správcu profilu nemožno overiť. Odomknutie Notionu je preventívne vypnuté.</p>}
 
       <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
       <div className={styles.editorWorkspace} data-admin-directory-editor-workspace>
