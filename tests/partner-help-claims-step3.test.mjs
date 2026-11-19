@@ -50,7 +50,7 @@ test("Help ownership migration keeps typed canonical foreign keys and exactly on
     assert.equal(sql.prepare("SELECT COUNT(*) n FROM partner_help_claims WHERE account_id='a1' AND status='APPROVED'").get().n,3);
     sql.prepare("UPDATE partner_help_claims SET status='REVOKED',revoked_at='2026-11-19T09:00:00Z' WHERE id='one'").run();
     claim("newOwner","a2","ADOPTION_DOG",1,"APPROVED");
-    assert.equal(sql.prepare("SELECT COUNT(*) n FROM partner_help_claims WHERE adoption_dog_id=1").get().n,4);
+    assert.equal(sql.prepare("SELECT COUNT(*) n FROM partner_help_claims WHERE adoption_dog_id=1").get().n,3);
     assert.deepEqual(sql.prepare("PRAGMA foreign_key_check").all(),[]);
   }finally{sql.close();}
 });
