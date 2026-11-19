@@ -6,6 +6,7 @@ import { AdminOrganizationEditor } from "@/components/admin-organization-editor"
 import { AdminPartnerReviewStatus } from "@/components/admin-partner-review-status";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
+import { AdminPartnerCanonicalDraft } from "@/components/admin-partner-canonical-draft";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminOrganizationFundraising } from "@/components/admin-organization-fundraising";
 import { AdminShell } from "@/components/admin-shell";
@@ -92,7 +93,7 @@ export default async function OrganizationAdminDetailPage({ params, searchParams
       {organization.status === "PUBLISHED" && organization.slug && <Link href={"/organizacie/" + organization.slug} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
       <Link href={returnHref}>← Späť na organizácie</Link>
     </>}>
-    <AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} />
+    <AdminPartnerCanonicalDraft resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /><AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} />
     <Suspense fallback={null}><OrganizationDuplicateWarning organizationId={organization.id} /></Suspense>
     <AdminOrganizationEditor organization={organization} initialLocations={locations}
       automationSuggestionsPromise={suggestionsPromise} returnHref={returnHref} />
