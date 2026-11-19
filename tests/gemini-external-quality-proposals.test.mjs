@@ -22,7 +22,7 @@ function database(input={}) {
         if(input.error)throw Error("D1_OFFLINE_ERROR");
         if(sql.includes("FROM gemini_manual_background_jobs"))
           return input.missingJob?null:{stable_key:"directory.veterinari",status:"RUNNING",error_code:"EXT_MANUAL"};
-        if(sql.includes("SELECT id,category,name,city,website_url,source_data_json"))
+        if(sql.includes("SELECT id,category,name,city,website_url,public_phone,public_email,facebook_url,instagram_url,source_data_json"))
           return input.missingRow?null:row;
         return null;
       },
