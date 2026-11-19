@@ -7,7 +7,7 @@ export type HelpEditorType = "ADOPTION_DOG" | "LOST_FOUND_DOG" | "HELP_CASE";
 export type HelpEditorField = {
   key: string;
   label: string;
-  kind: "text" | "textarea" | "select" | "date" | "number" | "checkbox";
+  kind: "text" | "textarea" | "select" | "date" | "number" | "checkbox" | "nullableBoolean";
   required?: boolean;
   max?: number;
   options?: readonly string[];
@@ -19,6 +19,7 @@ const sex = ["UNKNOWN", "MALE", "FEMALE"];
 const size = ["UNKNOWN", "SMALL", "MEDIUM", "LARGE", "GIANT"];
 const suitability = ["UNKNOWN", "YES", "NO", "CONDITIONAL"];
 const booleanField = (key: string, label: string): HelpEditorField => ({ key, label, kind: "checkbox" });
+const nullableBooleanField = (key: string, label: string): HelpEditorField => ({ key, label, kind: "nullableBoolean" });
 const textField = (key: string, label: string, max = 500, required = false): HelpEditorField => ({ key, label, kind: "text", max, required });
 const areaField = (key: string, label: string, max = 12000): HelpEditorField => ({ key, label, kind: "textarea", max });
 const enumField = (key: string, label: string, options: readonly string[]): HelpEditorField => ({ key, label, kind: "select", options });
@@ -46,7 +47,11 @@ export const helpEditorFields: Record<HelpEditorType, readonly HelpEditorField[]
     enumField("suitable_for_dogs", "Vzťah k psom", suitability),
     enumField("suitable_for_cats", "Vzťah k mačkám", suitability),
     enumField("suitable_for_other_animals", "Vzťah k iným zvieratám", suitability),
+    nullableBooleanField("apartment_suitable","Vhodný do bytu"),
+    nullableBooleanField("beginner_suitable","Vhodný pre začiatočníka"),
+    booleanField("needs_experienced_owner","Potrebuje skúseného majiteľa"),
     enumField("vaccination_status", "Očkovanie", ["UNKNOWN","NONE","PARTIAL","UP_TO_DATE"]),
+    nullableBooleanField("chipped","Čipovaný"),nullableBooleanField("neutered","Kastrovaný"),
     areaField("health_notes", "Zdravotný stav", 6000),
     areaField("special_needs", "Osobitné potreby", 6000),
     areaField("adoption_requirements", "Podmienky adopcie", 6000),
@@ -58,9 +63,11 @@ export const helpEditorFields: Record<HelpEditorType, readonly HelpEditorField[]
     textField("dog_name", "Meno psa", 180),
     enumField("sex", "Pohlavie", sex),
     textField("breed", "Plemeno"),
+    booleanField("breed_unknown","Plemeno nie je známe"),
     textField("color", "Farba"),
     textField("approximate_age", "Približný vek"),
     enumField("size", "Veľkosť", size.slice(0,4)),
+    areaField("short_description","Krátky opis",1000),
     areaField("description", "Popis udalosti", 20000),
     areaField("distinguishing_marks", "Rozpoznávacie znaky", 3000),
     areaField("collar_description", "Obojok", 2000),
@@ -69,7 +76,11 @@ export const helpEditorFields: Record<HelpEditorType, readonly HelpEditorField[]
     textField("last_seen_date_time", "Naposledy videný – dátum a čas"),
     textField("region", "Kraj"),textField("district", "Okres"),textField("city", "Obec", 160),
     areaField("location_description", "Približná verejná lokalita", 3000),
+    enumField("public_location_precision","Presnosť verejnej lokality",["MUNICIPALITY","NEIGHBORHOOD","APPROXIMATE"]),
     areaField("public_contact_note", "Verejný kontakt / poznámka", 3000),
+    textField("public_phone","Verejný telefón"),textField("public_email","Verejný e-mail"),
+    textField("public_website_url","Verejný web",1200),
+    textField("public_facebook_url","Facebook",1200),textField("public_instagram_url","Instagram",1200),
   ],
   HELP_CASE: [
     textField("title", "Názov", 180, true),
@@ -115,8 +126,8 @@ export function normalizeHelpEditorPatch(type: HelpEditorType, raw: unknown, all
   for (const [key, value] of Object.entries(data)) {
     const field = contract.get(key);
     if (!field) throw new HelpEditorValidationError("Toto pole nie je možné upraviť: "+key+".");
-    if (field.kind === "checkbox") {
-      if (typeof value !== "boolean") throw new HelpEditorValidationError("Neplatná hodnota: "+field.label+".");
+    if (field.kind === "checkbox" || field.kind === "nullableBoolean") {
+      if (typeof value !== "boolean" && !(field.kind === "nullableBoolean" && value === null)) throw new HelpEditorValidationError("Neplatná hodnota: "+field.label+".");
       result[key] = value;
     } else if (field.kind === "number") {
       const n = value === "" || value === null ? null : value;
