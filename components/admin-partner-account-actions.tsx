@@ -40,7 +40,7 @@ export function AdminPartnerAccountActions({accountId,status,memberships}:{accou
   }
   async function add(){
     if(!selected)return;
-    if(await request("/api/admin/partners/memberships",{method:"POST",body:JSON.stringify({accountId,entityType:selected.entityType,canonicalId:selected.id})})){setSelected(null);setResources([]);setSearched(false);}
+    if(await request("/api/admin/partners/memberships",{method:"POST",body:JSON.stringify({accountId,entityType:selected.entityType,canonicalId:selected.id,role:"OWNER"})})){setSelected(null);setResources([]);setSearched(false);}
   }
   return <div className="admin-partner-actions">
     <section className="admin-form-card"><h2>Bezpečnostné akcie</h2><div className="admin-partner-button-row">
@@ -73,7 +73,8 @@ export function AdminPartnerAccountActions({accountId,status,memberships}:{accou
         : memberships.filter(m=>!m.revokedAt).map(m=>
           <div className="admin-partner-membership" key={m.id}>
             <code>{m.id.slice(0,8)}</code>
-            <strong>{m.role==="OWNER"?"Správca profilu":`Starší typ prístupu: ${m.role}`}</strong>
+            <strong>{m.role==="OWNER"?"Správca profilu":`Historická rola: ${m.role}`}</strong>
+            {m.role!=="OWNER"&&<button disabled={busy} onClick={()=>request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({role:"OWNER"})})}>Nastaviť správcu</button>}
             <button disabled={busy} onClick={()=>confirm("Odvolať prístup k profilu?")&&request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({revoke:true})})}>Odvolať</button>
           </div>
         )}
