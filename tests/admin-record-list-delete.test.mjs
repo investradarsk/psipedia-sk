@@ -97,16 +97,22 @@ test("API failures and incomplete states never announce completed deletion", asy
   assert.match(adminListRemovalMessage({state:"COMPLETE"}, "Článok"), /natrvalo odstránený/);
 });
 
-test("all four legacy list delete buttons are connected to the owner-confirmed lifecycle, not disabled endpoints", () => {
+test("legacy list delete buttons and directory permanent-delete action use the guarded lifecycle", () => {
   for (const [path, kind] of [
     ["components/admin-dashboard.tsx", "articles"],
     ["components/admin-breed-dashboard.tsx", "breeds"],
     ["components/admin-event-dashboard.tsx", "events"],
     ["components/admin-help-dashboard.tsx", "help"],
+    ["components/admin-directory-dashboard.tsx", "directory"],
   ]) {
     const source = read(path);
     assert.match(source, new RegExp('removeAdminRecordFromList\\("' + kind + '",'));
     assert.match(source, /adminListRemovalMessage\(result,/);
+    if (kind === "directory") {
+      assert.match(source, /Archivovať<\/button>/);
+      assert.match(source, />Odstrániť<\/button>/);
+      assert.match(source, /Natrvalo odstrániť profil\?/);
+    }
     assert.doesNotMatch(source, /fetch\(`\/api\/admin\/(?:articles|breeds|events|help)\/\$\{[^}]+\}`, \{ method: "DELETE" \}\)/);
   }
 });
