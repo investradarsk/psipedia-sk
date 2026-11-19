@@ -28,7 +28,8 @@ test("0174 exact-file owner production guard pins one canonical additive schema"
  assert.match(runner,/PARTIAL_SCHEMA_STOP/);
  assert.match(runner,/POSTFLIGHT_SCHEMA_NOT_EMPTY_OR_ABSENT/);
  assert.match(runner,/--file",SQL,"--yes","--json"/);
- assert.doesNotMatch(runner,/migrations\s+apply|UPDATE\s+d1_migrations/);
+ assert.doesNotMatch(runner,/\["d1","migrations"/);
+ assert.doesNotMatch(runner,/UPDATE\s+d1_migrations/);
  assert.match(workflow,/workflow_dispatch:/);
  assert.match(workflow,/default: audit/);
  assert.match(workflow,/production-d1-migration/);
