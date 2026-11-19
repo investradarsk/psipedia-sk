@@ -378,3 +378,4 @@
   .admin-partner-v2-messages small { display:inline; margin:0; }
   .admin-partner-v2-filter-grid { grid-template-columns:minmax(0,1fr); }
 }
+.admin-partner-table.admin-partner-v2-table article+article { margin-top: 0; }
