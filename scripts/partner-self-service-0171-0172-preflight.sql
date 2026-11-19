@@ -49,3 +49,17 @@ WHERE type='table'
     'adoption_dogs','lost_found_dog_reports','help_cases'
   )
 ORDER BY name;
+
+-- 0170 is a prerequisite for Partner directory public contacts, filters
+-- and secondary categories. The production D1 must contain these columns
+-- and tables before Partner direct editing is enabled.
+PRAGMA table_info(directory_profiles);
+
+SELECT 'directory_0170_table_present' AS finding, name AS subject, 1 AS object_present
+FROM sqlite_master
+WHERE type='table' AND name IN (
+  'directory_profile_filter_values',
+  'directory_profile_additional_categories',
+  'directory_profile_public_facts'
+)
+ORDER BY name;
