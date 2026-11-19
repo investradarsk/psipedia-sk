@@ -64,6 +64,7 @@ export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([
   "0169_directory_breeder_club_relations.sql",
   "0170_directory_canonical_sql_slots.sql",
   "0171_partner_single_manager.sql",
+  "0172_partner_help_claim_ownership.sql",
 ]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {
