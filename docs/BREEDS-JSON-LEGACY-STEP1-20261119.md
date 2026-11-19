@@ -64,6 +64,28 @@ Príkaz počítal `vyplnenych` ako hodnoty iné než prázdny reťazec, `[]`, `{
 - Pri kroku 2 treba vyhodnotiť najmä `good_for_json` a `consider_json` na úrovni jednotlivých prvkov zoznamu.
 - **V produkcii neprebehlo žiadne odstránenie dát, migrácia ani prepis.**
 
+## Produkčné meranie skutočného obsahu JSON zoznamov (19. 11. 2026)
+
+Výsledok druhého read-only dotazu, ktorý používa `json_array_length`, bez `UNION ALL` (prvý UNION ALL dotaz Cloudflare D1 odmietol). Toto meranie počíta prvky v JSON poliach, nie obsahovú kvalitu jednotlivých prvkov.
+
+| JSON stĺpec | plemien so zoznamom | celkový počet prvkov | maximum na plemeno |
+| --- | ---: | ---: | ---: |
+| consider_json | 347 | 633 | 7 |
+| gallery_json | 0 | 0 | 0 |
+| good_for_json | 347 | 657 | 5 |
+| health_risks_json | 343 | 706 | 6 |
+| related_breeds_json | 2 | 6 | 4 |
+| sources_json | 11 | 25 | 7 |
+| sports_json | 52 | 333 | 11 |
+
+**Spolu 2 360 záznamov položiek v šiestich aktívnych JSON zoznamoch.**
+`gallery_json` je v produkčných riadkoch úplne prázdny, ale má aktívny Admin/verejný/Notion kód; preto je iba *kandidát na odstránenie po cutovere*, nie okamžitý `DROP`. 
+`related_breeds_json` má šesť aktívnych väzieb, takže jeho zrušenie by odstránilo existujúce odkazy (kým nebudú presunuté do SQL relačnej tabuľky). 
+`sources_json` a `sports_json` sú síce menej rozšírené, ale nie prázdne. 
+`consider_json`, `good_for_json`, `health_risks_json` sú evidentne využívané a ich hodnota sa má zachovať.
+
+**Krok 1 – zistenie:** súborové historické plemenové JSON zálohy sa v Gite nepotvrdili; žiadny živý JSON stĺpec ešte nie je bezpečné dropnúť bez zmeny čítacích/zapisovacích závislostí. Žiadny produkčný zápis alebo mazanie neprebehlo.
+
 ## Ako overiť
 ```bash
 node scripts/audit-breed-json-legacy.mjs
