@@ -1,3 +1,4 @@
+import { isActiveAdminPartnerOwner, partnerReviewOwnerSql } from "./admin-notion-review-lock";
 import { env } from "cloudflare:workers";
 
 export const adminReviewEntityTypes = [
@@ -125,9 +126,17 @@ export async function setAdminEntityReviewed(
   if (!(await adminReviewEntityExists(entityType, entityId, db))) throw new Error("Záznam sa nenašiel.");
 
   if (!reviewed) {
+    if(await isActiveAdminPartnerOwner(db, entityType, entityId))
+      throw new Error("Tento záznam spravuje partner. Notion možno odomknúť až po odobratí správy.");
     try {
-      await db.prepare("DELETE FROM admin_entity_reviews WHERE entity_type = ? AND entity_id = ?")
+      // Repeat the ownership guard INSIDE DELETE to prevent a concurrent
+      // partner approval from reopening Notion after the initial check.
+      const guard=partnerReviewOwnerSql(entityType,"?2");
+      await db.prepare(`DELETE FROM admin_entity_reviews
+        WHERE entity_type=?1 AND entity_id=?2 AND NOT ${guard}`)
         .bind(entityType, entityId).run();
+      if(await isActiveAdminPartnerOwner(db, entityType, entityId))
+        throw new Error("Tento záznam spravuje partner. Notion zostáva uzamknutý.");
     } catch (error) {
       if (!isMissingReviewTable(error)) throw error;
       throw new Error("Najprv je potrebné nasadiť migráciu admin_entity_reviews.");

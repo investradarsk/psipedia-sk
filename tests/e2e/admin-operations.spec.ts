@@ -43,7 +43,7 @@ test("alerts center, shared bell and active/history controls are accessible and 
   await bell.focus();
   await expect(bell).toBeFocused();
 
-  const filter = page.getByRole("form", { name: "Filtrovať upozornenia" });
+  const filter = page.getByRole("search", { name: "Filtrovať upozornenia" });
   await expect(filter).toHaveAttribute("method", "get");
   await expect(filter.getByLabel("Zobrazenie")).toHaveValue("active");
   await expect(filter.getByLabel("Zdroj")).toHaveValue("all");
@@ -102,7 +102,7 @@ test("retired automation alerts cannot be selected or counted in the active queu
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
 
-  const filter = page.getByRole("form", { name: "Filtrovať upozornenia" });
+  const filter = page.getByRole("search", { name: "Filtrovať upozornenia" });
   // An old bookmarked source degrades safely to all *current* sources.
   await expect(filter.getByLabel("Zdroj")).toHaveValue("all");
   await expect(filter.getByLabel("Zdroj").locator('option[value="AUTOMATION_ACTION"]')).toHaveCount(0);
@@ -119,7 +119,7 @@ test("Attention pagination reaches items beyond the former source cap and distin
   let response = await page.goto("/admin/operations?source=NEWS_TIP", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
 
-  const filter = page.getByRole("form", { name: "Filtrovať upozornenia" });
+  const filter = page.getByRole("search", { name: "Filtrovať upozornenia" });
   await expect(filter.getByLabel("Zdroj")).toHaveValue("NEWS_TIP");
   const firstPageCards = page.locator('[data-source="NEWS_TIP"]');
   await expect(firstPageCards).toHaveCount(24);
@@ -144,7 +144,7 @@ test("Attention pagination reaches items beyond the former source cap and distin
 
   await page.goBack({ waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/admin\/operations\?source=NEWS_TIP(?:#centrum-pozornosti)?$/);
-  await expect(page.getByRole("form", { name: "Filtrovať upozornenia" }).getByLabel("Zdroj")).toHaveValue("NEWS_TIP");
+  await expect(page.getByRole("search", { name: "Filtrovať upozornenia" }).getByLabel("Zdroj")).toHaveValue("NEWS_TIP");
   await expect(page.locator('[data-source="NEWS_TIP"]')).toHaveCount(24);
   expect(await page.locator('[data-source="NEWS_TIP"] h2').allTextContents()).toEqual(firstTitles);
 

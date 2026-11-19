@@ -63,10 +63,22 @@ export function AdminPartnerAccountActions({accountId,status,memberships}:{accou
     </div>
       {searched&&!searchBusy&&!message&&!resources.length&&<p className="admin-partner-empty" role="status">Nenašiel sa žiadny zodpovedajúci profil ani podujatie. Skúste iný názov.</p>}
       {resources.length>0&&<div className="admin-partner-results">{resources.map(r=><button key={`${r.entityType}:${r.id}`} onClick={()=>setSelected(r)} aria-pressed={selected?.id===r.id&&selected.entityType===r.entityType}><strong>{r.name}</strong><small>{r.entityType} · {r.status}</small></button>)}</div>}
-      {selected&&<div className="admin-partner-picker"><span>Rola: Správca profilu</span><button disabled={busy||status!=="ACTIVE"} onClick={add}>Priradiť {selected.name}</button></div>}
+      {selected&&<div className="admin-partner-picker"><p className="admin-partner-empty">Jediný externý správca – prístup ku všetkým povoleným verejným údajom.</p><button disabled={busy||status!=="ACTIVE"} onClick={add}>Priradiť {selected.name}</button></div>}
       {status!=="ACTIVE"&&<p className="admin-partner-empty">Účet nie je aktívny. Pred priradením profilu ho najprv reaktivujte.</p>}
     </section>
-    <section className="admin-form-card"><h2>Správa pridelených prístupov</h2>{memberships.filter(m=>!m.revokedAt).length===0?<p className="admin-partner-empty">Tento účet zatiaľ nespravuje žiadny profil ani podujatie.</p>:memberships.filter(m=>!m.revokedAt).map(m=><div className="admin-partner-membership" key={m.id}><code>{m.id.slice(0,8)}</code><span>{m.role==="OWNER"?"Správca profilu":`Historická rola: ${m.role}`}</span>{m.role!=="OWNER"&&<button disabled={busy} onClick={()=>request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({role:"OWNER"})})}>Nastaviť správcu</button>}<button disabled={busy} onClick={()=>confirm("Odvolať prístup k profilu?")&&request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({revoke:true})})}>Odvolať</button></div>)}</section>
+    <section className="admin-form-card">
+      <h2>Správa pridelených prístupov</h2>
+      {memberships.filter(m=>!m.revokedAt).length===0
+        ? <p className="admin-partner-empty">Tento účet zatiaľ nespravuje žiadny profil ani podujatie.</p>
+        : memberships.filter(m=>!m.revokedAt).map(m=>
+          <div className="admin-partner-membership" key={m.id}>
+            <code>{m.id.slice(0,8)}</code>
+            <strong>{m.role==="OWNER"?"Správca profilu":`Historická rola: ${m.role}`}</strong>
+            {m.role!=="OWNER"&&<button disabled={busy} onClick={()=>request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({role:"OWNER"})})}>Nastaviť správcu</button>}
+            <button disabled={busy} onClick={()=>confirm("Odvolať prístup k profilu?")&&request(`/api/admin/partners/memberships/${m.id}`,{method:"PATCH",body:JSON.stringify({revoke:true})})}>Odvolať</button>
+          </div>
+        )}
+    </section>
     {message&&<p role="status" className="admin-partner-message">{message}</p>}
   </div>;
 }

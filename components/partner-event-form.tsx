@@ -42,10 +42,10 @@ export function PartnerEventForm({mode,resourceId,baseRevision,initial,currentIm
         for(const field of partnerEventFields){if(draft[field.key]!==original[field.key])patch[field.key]=draft[field.key];}
         if(cancelled!==(initial?.cancelled===true))patch.cancelled=cancelled;
         if(!Object.keys(patch).length&&!mediaAssetId)throw new Error("Nezmenili ste žiadny údaj.");
-        const response=await fetch(`/api/partner/events/${encodeURIComponent(resourceId)}/changes`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({baseRevision,patch,mediaAssetId})});
+        const response=await fetch(`/api/partner/direct-events/${encodeURIComponent(resourceId)}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({baseRevision,patch,mediaAssetId})});
         const data=await response.json() as {error?:string};
-        if(!response.ok)throw new Error(data.error||"Návrh úprav sa nepodarilo odoslať.");
-        setState("success");setMessage("Zmeny podujatia sme prijali a čakajú na kontrolu.");
+        if(!response.ok)throw new Error(data.error||"Zmeny sa nepodarilo uložiť.");
+        setState("success");setMessage("Zmeny podujatia boli uložené. Pred ďalšou úpravou obnovte editor.");
       }
     }catch(error){setState("error");setMessage(error instanceof Error?error.message:"Požiadavka zlyhala.");}
   }
@@ -66,11 +66,11 @@ export function PartnerEventForm({mode,resourceId,baseRevision,initial,currentIm
       })}
       {mode==="edit"?<label className="partner-profile-check partner-field--wide"><input type="checkbox" checked={cancelled} onChange={e=>setCancelled(e.target.checked)} disabled={state==="success"}/><span>Podujatie je zrušené</span></label>:null}
     </div>
-    <PartnerMediaField label={mode==="create"?"Hlavný obrázok podujatia":"Navrhnúť zmenu obrázka"} intent={mode==="create"?"PARTNER_EVENT_CREATE":"PARTNER_EVENT_UPDATE"} currentImageUrl={mode==="edit"?currentImageUrl:null} onChange={setMediaAssetId} disabled={state==="success"}/>
+    <PartnerMediaField label={mode==="create"?"Hlavný obrázok podujatia":"Zmeniť obrázok"} directPublish={mode==="edit"} intent={mode==="create"?"PARTNER_EVENT_CREATE":"PARTNER_EVENT_UPDATE"} currentImageUrl={mode==="edit"?currentImageUrl:null} onChange={setMediaAssetId} disabled={state==="success"}/>
     {duplicate.length?<section className="partner-duplicate-panel is-high" role="alert"><div><span className="eyebrow">Kontrola duplicít</span><h2>Podobné podujatie už môže na Psipedii existovať.</h2><p>Ak ide o to isté podujatie, administrátor môže návrh prepojiť s existujúcim záznamom. Nevznikne automatický claim.</p></div><div className="partner-duplicate-list">{duplicate.slice(0,5).map(item=><article key={item.id}><div><strong>{item.title}</strong><span>{item.startDate} · {item.city}</span></div><p>{item.reasons.join(" · ")}</p></article>)}</div><strong>Ak ste údaje skontrolovali, odošlite formulár ešte raz.</strong></section>:null}
-    <div className="partner-profile-edit-submit"><div><strong>Žiadna Partner zmena sa nezverejní okamžite.</strong><p>{mode==="create"?"Po schválení administrátorom vznikne podujatie ako koncept. Publikovanie je samostatný redakčný krok.":"Canonical podujatie sa zmení až po schválení administrátorom; jeho stav publikovania zostane zachovaný."}</p></div>
-      <button className="button button--dark" type="submit" disabled={state==="sending"||state==="success"}>{state==="sending"?"Odosielam…":mode==="create"&&confirmDuplicate?"Potvrdiť a odoslať na kontrolu":mode==="create"?"Odoslať na kontrolu":"Odoslať zmeny na kontrolu"}</button>
+    <div className="partner-profile-edit-submit"><div><strong>{mode==="create"?"Nový záznam podlieha schváleniu.":"Priame uloženie schváleného správcu."}</strong><p>{mode==="create"?"Po schválení administrátorom vznikne podujatie ako koncept. Publikovanie je samostatný redakčný krok.":"Zmenené verejné údaje sa uložia do existujúceho podujatia. SEO a stav publikovania zostávajú chránené."}</p></div>
+      <button className="button button--dark" type="submit" disabled={state==="sending"||state==="success"}>{state==="sending"?"Odosielam…":mode==="create"&&confirmDuplicate?"Potvrdiť a odoslať na kontrolu":mode==="create"?"Odoslať na kontrolu":"Uložiť zmeny"}</button>
     </div>
-    {message?<p className={`partner-form-message ${state==="success"?"is-success":"is-error"}`} role="status">{message}{state==="success"?<> <Link href="/partner/ziadosti">Zobraziť žiadosti →</Link></>:null}</p>:null}
+    {message?<p className={`partner-form-message ${state==="success"?"is-success":"is-error"}`} role="status">{message}{state==="success"?<> <Link href={mode==="create"?"/partner/ziadosti":"/partner/podujatia"}>{mode==="create"?"Zobraziť žiadosti →":"Moje podujatia →"}</Link></>:null}</p>:null}
   </form>;
 }

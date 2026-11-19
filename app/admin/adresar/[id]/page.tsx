@@ -20,6 +20,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { directoryProfileHref } from "@/lib/directory";
 import { getManagedDirectoryProfileById } from "@/lib/directory-store";
+import { getDirectoryPartnerOwnerAdmin } from "@/lib/partner-admin-store";
 import { readDirectory0170EditorialFields } from "@/lib/directory-0170-editorial-read";
 import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 
@@ -95,7 +96,18 @@ export default async function EditDirectoryProfilePage({ params, searchParams }:
   if (!canonicalProfile) notFound();
   const db = (env as unknown as { DB?: D1Database }).DB;
   let editorialReadError = !db;
+  let partnerOwnershipUnavailable = !db;
+  let partnerOwner: Awaited<ReturnType<typeof getDirectoryPartnerOwnerAdmin>> = null;
   let profile = canonicalProfile;
+  if (db) {
+    try {
+      partnerOwner = await getDirectoryPartnerOwnerAdmin(id, { database: db });
+    } catch (error) {
+      partnerOwnershipUnavailable = true;
+      console.error("ADMIN_DIRECTORY_PARTNER_OWNER_READ_FAILED", id,
+        error instanceof Error ? error.message : String(error));
+    }
+  }
   if (db) {
     try {
       const importData=await readDirectory0170EditorialFields(db,{
@@ -126,7 +138,8 @@ export default async function EditDirectoryProfilePage({ params, searchParams }:
     </Suspense>
     {editorialReadError
       ? <p role="alert">Kanonické SQL údaje profilu sa nepodarilo načítať. Formulár nie je dostupný; údaje sa nezmenili.</p>
-      : <AdminDirectoryEditor profile={profile} returnHref={returnHref} />}
+      : <AdminDirectoryEditor profile={profile} returnHref={returnHref}
+          partnerOwner={partnerOwner} partnerOwnershipUnavailable={partnerOwnershipUnavailable} />}
     <Suspense fallback={null}><AdminDirectoryNotionSyncStatus profileId={profile.id} /></Suspense>
     {isServiceCategory && !editorialReadError && <Suspense fallback={<p role="status">Načítavam hodnoty služieb…</p>}>
       <DirectoryServiceValues profileId={profile.id} category={profile.category as ServiceFilterCategory}

@@ -303,3 +303,21 @@
 @media (max-width: 420px) {
   .toplineActions { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Current partner ownership is a record status, not a second editable setting. */
+.partnerOwnershipNotice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px solid #cad8d1;
+  border-radius: 0.7rem;
+  background: #f7f9f6;
+  padding: 0.75rem 0.9rem;
+  color: #254b3c;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+.partnerOwnershipNotice strong { font-weight: 700; }
+.partnerOwnershipNotice small { color: #52655b; line-height: 1.45; }
+.partnerOwnershipNotice a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }

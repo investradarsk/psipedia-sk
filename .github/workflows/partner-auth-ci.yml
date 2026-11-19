@@ -92,6 +92,8 @@ jobs:
         run: npm run db:validate-clean
       - name: Partner auth security tests
         run: npm run test:partner-auth
+      - name: Partner review lock and Notion checkbox regressions
+        run: node --experimental-strip-types --test tests/admin-events-help-reviewed-lock.test.mjs tests/notion-events-help-reviewed-mirror.test.mjs
       - name: Partner admin search, paging and loading regression tests
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-admin-search.test.mjs
       - name: Moderation integrity CAS tests

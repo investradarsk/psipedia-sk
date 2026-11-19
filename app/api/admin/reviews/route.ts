@@ -34,6 +34,10 @@ export async function PATCH(request: Request) {
     return Response.json({ review });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Stav kontroly sa nepodarilo uložiť.";
-    return Response.json({ error: message }, { status: /nenašiel/.test(message) ? 404 : 500 });
+    return Response.json({ error: message }, {
+      status: /nenašiel/.test(message) ? 404
+        : /spravuje partner|partner.*uzamknut/i.test(message) ? 409 : 500,
+      headers: { "cache-control": "no-store" },
+    });
   }
 }

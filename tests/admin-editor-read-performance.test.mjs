@@ -35,24 +35,22 @@ test("directory and event editors stream before supplementary D1 reads", () => {
   }
 });
 
-test("adoption and help retain guarded parallel canonical reads", () => {
-  const checks = [
-    ["adoption", "getAdoptionById(numericId)", "getCanonicalDraftDuplicateWarning(\"ADOPTION\", numericId)", "getAdminEntityReview(\"ADOPTION\", numericId)"],
-    ["help", "getManagedHelpCaseById(numericId)", "getAdminEntityReview(\"HELP_CASE\", numericId)"],
-  ];
-  for (const [name, entityRead, independentA, independentB] of checks) {
-    const file = read(paths[name]);
+test("adoption and Help canonical reads remain authenticated while review and owner panels are auxiliary", () => {
+  const adoption = read(paths.adoption);
+  const help = read(paths.help);
+  const panel = read("components/admin-partner-review-status.tsx");
+  for (const [name, file] of [["adoption", adoption], ["help", help]]) {
     const authorizedAt = file.indexOf("await requireAdminPageUser(");
-    const parallelAt = file.indexOf("await Promise.all([");
-    assert.ok(authorizedAt >= 0 && parallelAt > authorizedAt, name + " must not read protected data before auth");
-    const parallelEnd = file.indexOf("]);", parallelAt);
-    const batch = file.slice(parallelAt, parallelEnd);
-    for (const expected of [entityRead, independentA, independentB].filter(Boolean)) {
-      assert.ok(batch.includes(expected), name + " parallel group missing " + expected);
-    }
-    assert.match(file.slice(parallelEnd), /if \(!(?:organization|item)\) notFound\(\)/);
-    assert.doesNotMatch(file, /Promise\.allSettled/);
+    const coreAt = file.indexOf(name === "adoption" ? "getAdoptionById(numericId)" : "getManagedHelpCaseById(numericId)");
+    assert.ok(authorizedAt >= 0 && coreAt > authorizedAt, name + " must authorize before canonical read");
+    assert.ok(file.indexOf("if (!item) notFound()") > coreAt, name + " must fail closed on missing canonical record");
+    assert.match(file, /AdminPartnerReviewStatus/, name + " uses the shared owner-aware reviewed control");
   }
+  assert.match(adoption, /await Promise\.all\(\[/);
+  assert.match(adoption, /getCanonicalDraftDuplicateWarning\("ADOPTION", numericId\)/);
+  assert.match(help, /getCanonicalDraftDuplicateWarning\(entityType, item\.id\)/);
+  assert.match(panel, /getAdminEntityReview/);
+  assert.match(panel, /getAdminReviewPartnerOwner/);
 });
 
 test("organization editor uses required identity and location only; side panels are isolated", () => {
@@ -114,12 +112,14 @@ test("breed editor retains draft state across switched sections and isolates FCI
   assert.match(editor, /if \(formEditRevisionRef\.current === submittedRevision\) setDirty\(false\)/);
 });
 
-test("FOSTER/HELP_ITEM warnings still depend on actual Help category", () => {
+test("FOSTER/HELP_ITEM warnings depend on loaded Help category, not an unrelated partner status", () => {
   const source = read(paths.help);
+  const loaded = source.indexOf("const item = await getManagedHelpCaseById(numericId)");
+  const checked = source.indexOf("if (!item) notFound()");
   const category = source.indexOf('item.category === "docasna-opatera"');
-  const reviewed = source.indexOf('getAdminEntityReview("HELP_CASE", numericId)');
-  const warning = source.indexOf('getCanonicalDraftDuplicateWarning(entityType, item.id)');
-  assert.ok(reviewed >= 0 && category > reviewed && warning > category);
+  const warning = source.indexOf("getCanonicalDraftDuplicateWarning(entityType, item.id)");
+  assert.ok(loaded >= 0 && checked > loaded && category > checked && warning > category);
+  assert.match(source,/AdminPartnerReviewStatus/);
 });
 
 test("adoption's selected breed remains dependent on the canonical item's breed ID", () => {
