@@ -13,7 +13,6 @@ import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTraine
 import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_TRUST_FIELDS, type TrainerTrustField } from "@/lib/notion-trainer-trust-fields";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { syncDirectoryReviewedWithNotion, type DirectoryReviewSyncResult } from "@/lib/directory-notion-reviewed-sync";
-import { isDirectoryReviewUnlockPendingSource } from "@/lib/directory-reviewed-sync-lock";
 import { parseDirectoryMainImageAction, directoryMainImageMatches } from "@/lib/directory-main-image-action";
 import { cleanupUnreferencedNotionUpload } from "@/lib/notion-sync-shared";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, DIRECTORY_CONTACT_EDITORIAL_PATHS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
@@ -1092,31 +1091,11 @@ export async function PATCH(request: Request, { params }: Props) {
       if (!database) {
         return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
       }
-      // A reviewed profile remains frozen while D1 is re-exported to Notion
-      // after an owner unchecks it. Do not mistake a local uncheck for remote
-      // editorial parity, or allow a stale Notion page to overwrite the Admin.
-      let deferUnlock = false;
-      if (!body.reviewed) {
-        const current = await getManagedDirectoryProfileById(id, database);
-        if (!current) {
-          return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-        }
-        // A retry after a partially acknowledged uncheck may see reviewed=false
-        // while the D1 -> Notion safety barrier is STILL pending.
-        // Re-enter the targeted rebaseline; never bypass it on the second PATCH.
-        const alreadyPending =
-          current.importData?.["_psipedia_profile_review_unlock_pending"] === "1";
-        if (current.reviewed || alreadyPending) {
-          const linked = await database.prepare(
-            "SELECT notion_page_id FROM directory_notion_sync " +
-            "WHERE directory_profile_id=? LIMIT 1",
-          ).bind(id).first<{ notion_page_id: string }>();
-          deferUnlock = Boolean(linked?.notion_page_id);
-        }
-      }
+      // The Admin checkbox is authoritative. Saving an explicit uncheck
+      // releases even an older failed unlock; do not require a whole-profile
+      // D1 -> Notion echo/hash before opening normal per-field sync.
       const profile = await setManagedDirectoryProfileReviewed(
         id, body.reviewed, user.email, new Date(), database,
-        { markNotionUnlockPending: deferUnlock },
       );
       if (!profile) {
         return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
@@ -1124,28 +1103,12 @@ export async function PATCH(request: Request, { params }: Props) {
 
       let notionReviewSync: DirectoryReviewSyncResult | "pending" = "disabled";
       try {
-        if (deferUnlock) {
-          // The targeted sweep is D1-first for owner unlocks, including after
-          // editorial edits made in Admin while the profile was reviewed.
-          const status = await runNotionDirectorySyncSweep({
-            database,
-            bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
-            targetProfileId: id,
-          });
-          const latest = await database.prepare(
-            "SELECT source_data_json FROM directory_profiles WHERE id=? LIMIT 1",
-          ).bind(id).first<{ source_data_json: string }>();
-          const stillPending = latest
-            ? isDirectoryReviewUnlockPendingSource(latest.source_data_json)
-            : true;
-          notionReviewSync = status.failed || stillPending ? "pending" : "pushed";
-        } else {
-          notionReviewSync = await syncDirectoryReviewedWithNotion({
-            database,
-            bindings: env as Parameters<typeof syncDirectoryReviewedWithNotion>[0]["bindings"],
-            profileId: id,
-          });
-        }
+        // Mirror ONLY the checkbox. A Notion outage cannot re-lock D1.
+        notionReviewSync = await syncDirectoryReviewedWithNotion({
+          database,
+          bindings: env as Parameters<typeof syncDirectoryReviewedWithNotion>[0]["bindings"],
+          profileId: id,
+        });
       } catch (error) {
         notionReviewSync = "pending";
         console.warn("DIRECTORY_REVIEW_NOTION_WRITEBACK_PENDING", id,
