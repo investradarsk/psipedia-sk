@@ -43,22 +43,19 @@ test("12 approved Notion/SQL columns have one exact historic JSON label each",()
   for (const c of cols) {
     const sql=directoryScalarCleanupUpdateSql(c);
     assert.match(sql,/^UPDATE directory_profiles SET source_data_json = json_remove\(/);
-    assert.match(sql,new RegExp(c+" IS NOT NULL"));
-    assert.match(sql,new RegExp("TRIM\\(CAST\\("+c+" AS TEXT\\)\\) <> ''"));
-    assert.match(sql,/admin_record_tombstones/);
-    assert.match(sql,/profile_review_reviewed_at/);
-    assert.match(sql,/profile_review_unlock_pending/);
+    assert.match(sql,/^UPDATE directory_profiles SET source_data_json/);
+    assert.doesNotMatch(sql,/TRIM\(CAST\(.* IS NOT NULL/);
     assert.doesNotMatch(sql,/\b(?:DROP|ALTER|DELETE|REPLACE|INSERT)\b/i);
     assert.doesNotMatch(sql,/\bupdated_at\s*=/i);
     assert.doesNotMatch(sql,/\bupdated_by\s*=/i);
   }
   assert.throws(()=>directoryScalarCleanupUpdateSql("services_json"),/UNKNOWN_COLUMN/);
 });
-test("removes SQL-owned scalar JSON duplicates but preserves every SQL value and unrelated public/technical metadata",()=>{
+test("removes all 12 historic scalar JSON keys, even when SQL values are empty or NULL",()=>{
   const f=fixture();
   try {
     const src=Object.fromEntries(DIRECTORY_SQL_NOTION_SCALAR_COLUMNS.map(c=>
-      [DIRECTORY_SQL_NOTION_SCALAR_LABELS[c],"old-"+c]));
+      [DIRECTORY_SQL_NOTION_SCALAR_LABELS[c],"legacy-"+c]));
     Object.assign(src,{
       "Ordinačné hodiny":"Po-Pi", "Pokrytie":"Celé Slovensko",
       "Služby":"legacy services", "Kvalifikácie":"cert",
@@ -67,18 +64,24 @@ test("removes SQL-owned scalar JSON duplicates but preserves every SQL value and
       _psipedia_breeder_gallery:'["image"]',
       "Iný atribút":{nested:["intact"]},
     });
-    const sql=Object.fromEntries(DIRECTORY_SQL_NOTION_SCALAR_COLUMNS.map(c=>[c,"SQL "+c]));
+    const sql={name:"SQL canonical",excerpt:"",description:null,district:"",address:"SQL street"};
     f.add(1,src,sql);
     const before=f.counts();
     assert.equal(before.profiles,1);
     for(const c of DIRECTORY_SQL_NOTION_SCALAR_COLUMNS)
       assert.equal(before.totals.removable[c],1);
+    assert.equal(before.totals.withoutSqlValue.description,1);
+    assert.equal(before.totals.withoutSqlValue.excerpt,1);
+    assert.equal(before.totals.withoutSqlValue.district,1);
     f.apply();
     const row=f.get(1),after=JSON.parse(row.source_data_json);
-    for(const c of DIRECTORY_SQL_NOTION_SCALAR_COLUMNS){
+    for(const c of DIRECTORY_SQL_NOTION_SCALAR_COLUMNS)
       assert(!Object.hasOwn(after,DIRECTORY_SQL_NOTION_SCALAR_LABELS[c]));
-      assert.equal(row[c],"SQL "+c);
-    }
+    assert.equal(row.name,"SQL canonical");
+    assert.equal(row.excerpt,"");
+    assert.equal(row.description,null);
+    assert.equal(row.district,"");
+    assert.equal(row.address,"SQL street");
     for (const key of ["Ordinačné hodiny","Pokrytie","Služby",
       "Kvalifikácie","_psipedia_additional_categories",
       "_psipedia_quality_phone_status","_psipedia_breeder_gallery","Iný atribút"])
@@ -88,71 +91,59 @@ test("removes SQL-owned scalar JSON duplicates but preserves every SQL value and
     const json=row.source_data_json;
     f.apply();
     assert.equal(f.get(1).source_data_json,json);
-    for(const c of DIRECTORY_SQL_NOTION_SCALAR_COLUMNS)
+    for(const c of DIRECTORY_SQL_NOTION_SCALAR_COLUMNS) {
       assert.equal(f.counts().totals.removable[c],0);
+      assert.equal(f.counts().totals.withoutSqlValue[c],0);
+    }
   }finally{f.db.close();}
 });
-test("does not erase an ambiguous empty SQL field, even when legacy JSON is nonempty",()=>{
-  const f=fixture();
-  try{
-    f.add(1,{
-      Názov:"Historical name",Perex:"Historical perex",Popis:"Historical popis",
-      Okres:"Nitra",Adresa:"Some address",
-    },{
-      name:"SQL canonical name",excerpt:"",description:null,district:"",address:"New SQL address",
-    });
-    const before=f.counts();
-    assert.equal(before.totals.unconfirmed.excerpt,1);
-    assert.equal(before.totals.unconfirmed.description,1);
-    assert.equal(before.totals.unconfirmed.district,1);
-    assert.equal(before.totals.removable.name,1);
-    assert.equal(before.totals.removable.address,1);
-    f.apply();
-    const source=JSON.parse(f.get(1).source_data_json);
-    assert.equal(source.Perex,"Historical perex");
-    assert.equal(source.Popis,"Historical popis");
-    assert.equal(source.Okres,"Nitra");
-    assert(!Object.hasOwn(source,"Názov"));
-    assert(!Object.hasOwn(source,"Adresa"));
-  }finally{f.db.close();}
-});
-test("archive, owner-reviewed, pending-unlock and tombstone profiles remain untouched",()=>{
+test("reviewed, archived, pending-unlock and tombstone profiles have historic copies removed",()=>{
   const f=fixture();
   try{
     for(let id=1;id<=4;id++){
-      const src={Perex:"legacy"};
+      const src={Perex:"legacy",Názov:"legacy name"};
       if(id===1)src._psipedia_profile_review_reviewed_at="2026-11-19T09:00:00Z";
       if(id===2)src._psipedia_profile_review_unlock_pending="1";
-      f.add(id,src,{excerpt:"sql"},id===3?"archived":"published");
+      f.add(id,src,{name:"sql"},id===3?"archived":"published");
     }
     f.db.exec("INSERT INTO admin_record_tombstones VALUES ('directory',4)");
-    assert.equal(f.counts().totals.protected.excerpt,4);
-    const before=[1,2,3,4].map(id=>f.get(id).source_data_json);
+    assert.equal(f.counts().totals.removable.excerpt,4);
     f.apply();
-    assert.deepEqual([1,2,3,4].map(id=>f.get(id).source_data_json),before);
+    for(let id=1;id<=4;id++) {
+      const source=JSON.parse(f.get(id).source_data_json);
+      assert(!Object.hasOwn(source,"Perex"));
+      assert(!Object.hasOwn(source,"Názov"));
+      if(id===1)assert.equal(source._psipedia_profile_review_reviewed_at,"2026-11-19T09:00:00Z");
+      if(id===2)assert.equal(source._psipedia_profile_review_unlock_pending,"1");
+    }
   }finally{f.db.close();}
 });
-test("malformed JSON and arrays never get replaced or silently emptied",()=>{
+test("invalid JSON and arrays remain intact and do not cause silent replacement",()=>{
   const f=fixture();
   try{
     f.add(1,"{not-json",{excerpt:"correct"});
     f.add(2,'["Perex"]',{excerpt:"correct"});
     f.add(3,{Perex:"legacy"},{excerpt:null});
-    const old=[1,2,3].map(id=>f.get(id).source_data_json);
+    const old=[1,2].map(id=>f.get(id).source_data_json);
+    const summary=f.counts();
+    assert.equal(summary.totals.invalidJson,1);
+    assert.equal(summary.totals.removable.excerpt,1);
     f.apply();
-    assert.deepEqual([1,2,3].map(id=>f.get(id).source_data_json),old);
+    assert.deepEqual([1,2].map(id=>f.get(id).source_data_json),old);
+    assert.equal(JSON.parse(f.get(3).source_data_json).Perex,undefined);
   }finally{f.db.close();}
 });
-test("audit output is grouped counts only and contains no names, descriptions or addresses",()=>{
+test("aggregate report counts only, no names, descriptions or addresses",()=>{
   const f=fixture();
   try {
-    f.add(1,{Popis:"Sensitive description"},{description:"Current description"});
-    f.add(2,{Adresa:"Specific private address"},{address:"SQL address"},
+    f.add(1,{Popis:"Sensitive description"},{description:""});
+    f.add(2,{Adresa:"Specific private address"},{address:null},
       "published","treneri");
     const result=f.counts();
     assert.equal(result.profiles,2);
     assert.equal(result.byCategory.veterinari.removable.description,1);
     assert.equal(result.byCategory.treneri.removable.address,1);
+    assert.equal(result.totals.withoutSqlValue.description,1);
     assert(!JSON.stringify(result).includes("Sensitive"));
     assert(!JSON.stringify(result).includes("Specific private"));
     assert.throws(()=>directoryScalarCleanupSummary([{category:"veterinari",profiles:1}]),
