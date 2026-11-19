@@ -19,6 +19,7 @@ const claimLabels = {
   APPROVED: "Schválené",
   REJECTED: "Zamietnuté",
   CANCELLED: "Zrušené",
+  REVOKED: "Prístup odobratý",
 } as const;
 const verificationLabels = {
   UNVERIFIED: "Neoverené",
@@ -56,12 +57,12 @@ export default async function Page() {
         {claims.length ? <div className="partner-request-list">{claims.map((claim) => (
           <article key={claim.id}>
             <div className="partner-request-title">
-              <div><span>{claim.entityType === "DIRECTORY_PROFILE" ? "Služba pre psov" : claim.entityType === "HELP_ORGANIZATION" ? "Organizácia" : "Podujatie"}</span><h3>{claim.name}</h3></div>
+              <div><span>{claim.entityType === "DIRECTORY_PROFILE" ? "Služba pre psov" : claim.entityType === "HELP_ORGANIZATION" ? "Organizácia" : claim.entityType === "MANAGED_EVENT" ? "Podujatie" : claim.entityType === "ADOPTION_DOG" ? "Adopcia" : claim.entityType === "LOST_FOUND_DOG" ? "Stratený/nájdený pes" : "Pomoc psom"}</span><h3>{claim.name}</h3></div>
               <strong>{claimLabels[claim.status]}</strong>
             </div>
             <dl>
               <div><dt>Odoslané</dt><dd>{new Date(claim.createdAt).toLocaleString("sk-SK")}</dd></div>
-              {claim.entityType !== "MANAGED_EVENT" ? <div><dt>Overenie správcu</dt><dd>{verificationLabels[claim.verificationState]}</dd></div> : null}
+              {(claim.entityType === "DIRECTORY_PROFILE" || claim.entityType === "HELP_ORGANIZATION") ? <div><dt>Overenie správcu</dt><dd>{verificationLabels[claim.verificationState]}</dd></div> : null}
             </dl>
             {claim.requestMessage ? <p>{claim.requestMessage}</p> : null}
             <div className="partner-request-links">
