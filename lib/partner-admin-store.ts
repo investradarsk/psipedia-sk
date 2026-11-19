@@ -52,8 +52,8 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
   if(filters.status){conditions.push("a.status=?");values.push(filters.status);}
   if(filters.verified==="VERIFIED")conditions.push("a.email_verified_at IS NOT NULL");
   if(filters.verified==="UNVERIFIED")conditions.push("a.email_verified_at IS NULL");
-  if(filters.access==="LINKED")conditions.push("EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL)");
-  if(filters.access==="UNLINKED")conditions.push("NOT EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL)");
+  if(filters.access==="LINKED")conditions.push("(EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL) OR EXISTS (SELECT 1 FROM partner_help_claims h WHERE h.account_id=a.id AND h.status='APPROVED'))");
+  if(filters.access==="UNLINKED")conditions.push("(NOT EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL) AND NOT EXISTS (SELECT 1 FROM partner_help_claims h WHERE h.account_id=a.id AND h.status='APPROVED'))");
   const where=conditions.length?" WHERE "+conditions.join(" AND "):"";
   const select="SELECT a.id,a.email_ciphertext emailCiphertext,p.contact_name_ciphertext contactNameCiphertext,a.status,a.email_verified_at emailVerifiedAt,a.created_at createdAt FROM partner_accounts a LEFT JOIN partner_account_profiles p ON p.account_id=a.id";
   const order=" ORDER BY a.created_at DESC,a.id DESC";
