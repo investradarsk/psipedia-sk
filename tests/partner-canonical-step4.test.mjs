@@ -120,3 +120,31 @@ test("old Admin CREATE paths delegate linked canonical submissions rather than d
   const dossier=read("lib/partner-admin-dossier.ts");
   assert.match(dossier,/s\.status<>'DRAFT'/);
 });
+
+
+test("submitted canonical drafts cannot be withdrawn via legacy Partner mutation endpoints",()=>{
+  const sources=[
+    ["lib/partner-new-profile.ts","withdrawPartnerNewProfile"],
+    ["lib/partner-events.ts","withdrawPartnerEventSubmission"],
+    ["lib/partner-help-create.ts","withdrawPartnerHelpCreate"],
+  ];
+  for(const [file,start] of sources){
+    const text=read(file);
+    const entry=text.slice(text.indexOf("export async function "+start));
+    assert.match(entry,/subject_id subjectId/,file+" must read canonical link");
+    assert.match(entry,/row\.subjectId\s*!==\s*null/,file+" must reject linked drafts");
+    assert.match(entry,/409/,file+" must return conflict");
+  }
+  const domain=read("lib/partner-canonical-workflow.ts");
+  assert.doesNotMatch(domain,/export async function withdrawPartnerCanonicalDraft/);
+});
+
+test("partner cannot edit internal SEO or organization registration number",()=>{
+  const domain=read("lib/partner-canonical-workflow.ts");
+  const form=read("components/partner-canonical-draft-form.tsx");
+  assert.match(domain,/Object\.prototype\.hasOwnProperty\.call\(mapping,key\)/);
+  assert.doesNotMatch(domain,/registrationNumber/);
+  assert.doesNotMatch(form,/registrationNumber|Registračné číslo/);
+  for(const key of ["seoJson","publishedAt","updatedBy","sourceDataJson","ownerId"])
+    assert.doesNotMatch(domain,new RegExp('"' + key + '"'));
+});
