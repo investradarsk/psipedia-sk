@@ -120,7 +120,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   await expect(page).toHaveURL(new RegExp("/admin/organizacie/\\d+$"));
   await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   await showOrganizationSection(page, "organization-general", "Základné");
-  await expect(page.getByLabel("Publication stav")).toHaveValue("DRAFT");
+  await expect(page.getByLabel("Stav publikovania")).toHaveValue("DRAFT");
 
   await showOrganizationSection(page, "organization-content", "Verejný obsah");
   await page.getByLabel("Verejný popis").fill("Verejný opis organizácie pre admin finalization E2E.");
