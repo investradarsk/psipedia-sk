@@ -25,7 +25,8 @@ function resourceEditHref(resource: PartnerManagedResource) {
   const id = encodeURIComponent(resource.resourceId);
   return resource.entityType === "MANAGED_EVENT"
     ? `/partner/podujatia/${id}/upravit`
-    : `/partner/profily/${id}/upravit`;
+    : ["ADOPTION_DOG","LOST_FOUND_DOG","HELP_CASE"].includes(resource.entityType)
+      ? `/partner/pomoc/${id}/upravit` : `/partner/profily/${id}/upravit`;
 }
 
 export default async function PartnerHomePage() {
@@ -89,9 +90,9 @@ export default async function PartnerHomePage() {
                 <h3>{item.name}</h3>
                 <p>{partnerResourceStatusLabel(item.status)}</p>
                 <div className="partner-dashboard-record-actions">
-{["DIRECTORY_PROFILE","HELP_ORGANIZATION","MANAGED_EVENT"].includes(item.entityType) ? <Link className="button button--dark" href={resourceEditHref(item)}>
+{<Link className="button button--dark" href={resourceEditHref(item)}>
                     {item.entityType === "MANAGED_EVENT" ? "Upraviť podujatie" : "Upraviť profil"}
-                  </Link> : <span>Správa schválená · editor sa pripravuje</span>}
+                  </Link>}
                   {item.publicHref ? <Link href={item.publicHref} target="_blank" rel="noopener noreferrer">Verejný záznam ↗</Link> : null}
                 </div>
               </article>
