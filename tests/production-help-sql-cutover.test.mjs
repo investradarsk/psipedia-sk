@@ -100,6 +100,17 @@ test("lost-found legacy records are never treated as safe from matching a slug",
     assert.ok(assessed.blockers.includes("HISTORICAL_LOST_FOUND_REQUIRES_TYPE_AND_URL_REVIEW"));
   }
 });
+test("unknown Notion mapping coverage must never count as zero linked",()=>{
+  const x=fixture();
+  x.inventory.byCategory.push({
+    scope:"adoptions",category:"adoptions",state:"ACTIVE",
+    records:3,notionMapped:null,
+  });
+  const output=assessHelpSqlCutover(x);
+  assert.equal(output.status,"blocked");
+  assert.ok(output.blockers.includes("NOTION_MAPPING_COVERAGE_UNKNOWN"));
+});
+
 test("Notion orphan mappings block even when all public SQL values exist",()=>{
   const x=fixture();
   x.inventory.orphanMappings.find(r=>r.scope==="lost-found").count=2;
