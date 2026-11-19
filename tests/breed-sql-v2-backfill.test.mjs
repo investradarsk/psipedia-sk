@@ -128,14 +128,14 @@ test("five additive backfill statements copy ALL live JSON and controlled facts 
    assert.equal(db.prepare("SELECT COUNT(*) n FROM breed_related_breeds").get().n,6);
    assert.equal(db.prepare("SELECT COUNT(*) n FROM managed_breeds").get().n,347);
    const seo=db.prepare("SELECT seo_title,seo_noindex,seo_og_image,seo_canonical_url FROM managed_breeds WHERE id=1").get();
-   assert.deepEqual(seo,{
+   assert.deepEqual({...seo}, {
      seo_title:"O plemene",seo_noindex:0,seo_og_image:"/media/breeds/profile.webp",
      seo_canonical_url:"https://psipedia.sk/plemena/8/breed-1",
    });
    assert.equal(db.prepare("SELECT seo_noindex FROM managed_breeds WHERE id=2").get().seo_noindex,1);
    assert.equal(db.prepare("SELECT seo_noindex FROM managed_breeds WHERE id=3").get().seo_noindex,null);
    const fci=db.prepare("SELECT fci_celkovy_vzhlad,fci_fci_standard_pdf FROM breed_fci_standard WHERE breed_id=1").get();
-   assert.deepEqual(fci,{
+   assert.deepEqual({...fci}, {
      fci_celkovy_vzhlad:"Detailný odborný opis",
      fci_fci_standard_pdf:"https://example.invalid/standard.pdf",
    });
@@ -145,7 +145,7 @@ test("five additive backfill statements copy ALL live JSON and controlled facts 
    assert.deepEqual(JSON.parse(facts.origin_countries_json),["Slovensko","Česko"]);
    assert.equal(db.prepare("SELECT COUNT(*) n FROM breed_public_facts WHERE breed_id IN (5,13,14)").get().n,0);
    const editorial=db.prepare("SELECT overview,coat_care FROM breed_editorial_text WHERE breed_id=2").get();
-   assert.deepEqual(editorial,{overview:"Podrobný opis plemena",coat_care:""});
+   assert.deepEqual({...editorial}, {overview:"Podrobný opis plemena",coat_care:""});
    assert.deepEqual(db.prepare("SELECT related_breed_id FROM breed_related_breeds WHERE breed_id=1 ORDER BY position").all().map(x=>x.related_breed_id),
      [2,3,4,6]);
    assert.equal(db.prepare("SELECT updated_at FROM managed_breeds WHERE id=1").get().updated_at,
