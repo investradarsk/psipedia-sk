@@ -56,7 +56,7 @@ type ClaimAdminRow = {
   emailCiphertext: string;
   resourceId: string;
   entityType: PartnerClaimableResourceType;
-  status: PartnerClaimStatus;
+  status: PartnerClaimStatus | "REVOKED";
   requestMessage: string | null;
   createdAt: string;
   updatedAt: string;
@@ -128,7 +128,7 @@ export async function listPartnerClaimsAdmin(input: {
   const otherRows=await listPartnerHelpClaimsAdmin(input.database);
   const help=await Promise.all(otherRows.map(async row=>({
     ...row,emailCiphertext:row.emailCiphertext!,resourceId:`help-record-${row.entityType}-${row.canonicalId}`,
-    resourceName:row.name,publicHref:helpClaimHref(row),
+    resourceName:row.name,directoryCategory:row.category,publicHref:helpClaimHref(row),
     email:await decryptPii(row.emailCiphertext!,piiKey(input.encryptionKey)),
     conflict:Boolean((row as {conflict?:number}).conflict),
   })));
