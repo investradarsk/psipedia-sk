@@ -1,13 +1,12 @@
 import { env } from "cloudflare:workers";
 import { PROFILE_GALLERY_LIMIT } from "@/lib/partner-profile-gallery";
 import { PARTNER_GALLERY_MEDIA_KEY, partnerGalleryMediaIdsFromStoredPatch, publishPartnerGalleryMedia, terminalPartnerGalleryMediaStatements } from "@/lib/partner-profile-gallery-media";
-import { directoryFilterRegistry } from "@/lib/directory-filter-contract";
+import { directoryFilterRegistry, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { decryptPii } from "@/lib/pii-crypto";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { planDirectory0173EditorialSqlMirror } from "@/lib/directory-0173-editorial-sql-mirror";
 import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
-import { serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import {
   buildDirectoryApplyStatement,
   buildHelpApplyStatements,
