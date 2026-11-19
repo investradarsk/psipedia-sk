@@ -2,7 +2,8 @@ import { env } from "cloudflare:workers";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { sha256Hex, stableJson } from "./data-automation";
 import { getAutomationPossibleMatchReviewDetail } from "./data-automation-match-review";
-import { mergeDirectoryPublicContactData, readDirectoryPublicContacts } from "./directory-profile-metadata";
+import { omitDirectorySqlContactAliases } from "./directory-profile-metadata";
+import { readDirectorySqlBackedContacts } from "./directory-sql-contacts";
 
 type Database = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -230,7 +231,7 @@ async function canonicalRow(target: CanonicalTarget, db: Database) {
 
 function canonicalFieldValue(entityType: EntityType, fieldName: string, row: Record<string,unknown>) {
   if (entityType === "DIRECTORY") {
-    const contacts = readDirectoryPublicContacts(parseObject(row.source_data_json) as Record<string,string|number|null>, text(row.website_url));
+    const contacts = readDirectorySqlBackedContacts(parseObject(row.source_data_json) as Record<string,string|number|null>, row);
     switch (fieldName) {
       case "name": return row.name ?? "";
       case "category": return row.category ?? "";
@@ -456,8 +457,6 @@ function buildMutation(
   const provenance:Array<Record<string,unknown>>=[];
   let sourceData=parseObject(current.source_data_json);
   let sourceDataChanged=false;
-  let directoryContacts:ReturnType<typeof readDirectoryPublicContacts>|null=null;
-  let contactChanged=false;
 
   for(const choice of selected){
     const field=fieldMap.get(choice.fieldName);
@@ -487,13 +486,20 @@ function buildMutation(
         case "postalCode": assignments.push("postal_code=?");args.push(text(raw));appliedValue=text(raw);break;
         case "domain": {
           const url=safeWebsite(raw,field.normalizedValue);
-          assignments.push("website_url=?");args.push(url||null);appliedValue=url;break;
+          assignments.push("website_url=?");args.push(url);
+          sourceData=omitDirectorySqlContactAliases(
+            sourceData as Record<string,string|number|null>,{websiteUrl:url});
+          sourceDataChanged=true;appliedValue=url;break;
         }
         case "phone":
         case "email": {
-          directoryContacts ??= readDirectoryPublicContacts(sourceData as Record<string,string|number|null>,text(current.website_url));
-          directoryContacts={...directoryContacts,[field.fieldName]:text(raw)};
-          contactChanged=true;appliedValue=text(raw);break;
+          const value=text(raw);
+          const phone=field.fieldName==="phone";
+          assignments.push(phone?"public_phone=?":"public_email=?");args.push(value);
+          sourceData=omitDirectorySqlContactAliases(
+            sourceData as Record<string,string|number|null>,
+            phone?{publicPhone:value}:{publicEmail:value});
+          sourceDataChanged=true;appliedValue=value;break;
         }
         case "ico": {
           const ico=normalizeIco(raw); if(!ico) throw new CanonicalApplyUnsupportedError("IČO musí mať 8 číslic.");
@@ -533,13 +539,6 @@ function buildMutation(
     });
   }
 
-  if(contactChanged&&preview.entityType==="DIRECTORY"&&directoryContacts){
-    sourceData=mergeDirectoryPublicContactData(sourceData as Record<string,string|number|null>,{
-      publicPhone:directoryContacts.phone,
-      publicEmail:directoryContacts.email,
-    });
-    sourceDataChanged=true;
-  }
   if(sourceDataChanged){assignments.push("source_data_json=?");args.push(JSON.stringify(sourceData));}
   if(!appliedFields.length) throw new CanonicalApplyUnsupportedError("Vyber aspoň jedno pole APPLY_INCOMING.");
 
