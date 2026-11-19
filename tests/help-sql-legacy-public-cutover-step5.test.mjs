@@ -34,6 +34,14 @@ test("generic Help public lists, image highlights and homepage exclude all three
   } finally {db.close();}
 });
 
+test("public sitemap never advertises dedicated lost/found old Help rows as current generic cases",()=>{
+  const sitemap = read("app/sitemap.ts");
+  assert.match(sitemap,
+    /const representedElsewhere = item\.category === "adopcia" \|\| item\.category === "utulky" \|\| item\.category === "stratene-a-najdene"/);
+  assert.match(sitemap,/exclusionReason: representedElsewhere/);
+  assert.match(sitemap,/dogReportHref\(item\)/);
+});
+
 test("owner-only dynamic public URL inventory excludes dedicated legacy Help identity",()=>{
   assert.ok(urlInventory.includes(
     "h.category NOT IN ('adopcia','utulky','stratene-a-najdene')"));
