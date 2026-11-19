@@ -350,7 +350,7 @@ export async function approvePartnerProfileChangeAdmin(input:{
         submitted:effectivePatch.additionalCategories as string[],
         updatedAt:nowIso,actor:actorRef,
       }));
-    const hoursEdited=Object.hasOwn(effectivePatch,"openingHours");
+    const hoursEdited=Object.hasOwn(effectivePatch, "openingHours");
     if(hoursEdited && approvedDirectoryFactSqlSlot(category,"Ordinačné hodiny"))
       plans.push(planDirectory0170FactSqlMirror({
         profileId:canonical.canonicalId,category,field:"Ordinačné hodiny",
