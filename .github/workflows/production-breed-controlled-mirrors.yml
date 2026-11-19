@@ -1,0 +1,88 @@
+name: Plemená – doplnenie 341 zrkadiel z Notionu (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Audit = nič nemení; Apply = doplní chýbajúce zrkadlá"
+        required: true
+        default: audit
+        type: choice
+        options: [audit, apply]
+      confirmation:
+        description: "AUDIT-BREED-MIRRORS-344 alebo APPLY-BREED-MIRRORS-344"
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirrors:
+    name: Read-only preflight / guarded atomic Notion mirror seed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      BREED_MIRROR_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      BREED_MIRROR_NOTION_TOKEN: ${{ secrets.NOTION_API_TOKEN || secrets.GEMINI_AGENT_NOTION_TOKEN }}
+    steps:
+      - name: Owner confirmation, main-only and production secrets
+        env:
+          MODE: ${{ inputs.mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY" = investradarsk/psipedia-sk
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$BREED_MIRROR_NOTION_TOKEN"
+          case "$MODE" in
+            audit) test "$BREED_MIRROR_CONFIRMATION" = AUDIT-BREED-MIRRORS-344 ;;
+            apply) test "$BREED_MIRROR_CONFIRMATION" = APPLY-BREED-MIRRORS-344 ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Refuse a stale main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - run: npm ci
+      - name: Verify pure mirror planner and migration ledger safety
+        run: |
+          node scripts/check-migration-safety.mjs
+          node --test tests/breed-controlled-mirror-backfill.test.mjs
+      - name: Use only canonical Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -p 'require("./config/cloudflare-resources.json").account_id')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Live Notion + D1 audit or insert only missing mirror rows
+        env:
+          MODE: ${{ inputs.mode }}
+        run: node scripts/production-breed-controlled-mirror-backfill.mjs "$MODE"
+      - name: Save count-only audit and private recovery bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: breed-controlled-mirrors-${{ github.run_id }}
+          path: .production-breed-mirror-344/report.json
+          retention-days: 30
+          if-no-files-found: ignore

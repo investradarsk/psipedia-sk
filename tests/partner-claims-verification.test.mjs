@@ -86,6 +86,17 @@ test("claim approval upgrades or creates audited OWNER membership without destru
   assert.match(claimAdminApi,/REJECT/);
 });
 
+test("0171 claim approval rejects competing active manager before any write",()=>{
+  const approval=admin.slice(admin.indexOf("export async function approvePartnerClaimAdmin"),admin.indexOf("export async function rejectPartnerClaimAdmin"));
+  const conflictAt=approval.indexOf("const conflictingManager = await database.prepare(");
+  const createAt=approval.indexOf("await ensurePartnerOwnerMembershipAdmin({");
+  assert.ok(conflictAt>0 && createAt>conflictAt);
+  assert.match(approval,/revoked_at IS NULL LIMIT 1/);
+  assert.match(approval,/Profil už spravuje iný partner/);
+  assert.match(approval,/new PartnerClaimAdminError\([^\n]+, 409\)/);
+  assert.doesNotMatch(approval.slice(0,conflictAt),/UPDATE partner_claims SET status='APPROVED'/);
+});
+
 test("ownership-sensitive approvals block a deterministically mapped admin from approving their own Partner request",()=>{
   assert.match(ownershipGuard,/hashPii\(normalizeEmail\(input\.adminEmail\), hashKey\)/);
   assert.match(ownershipGuard,/WHERE a\.email_hash=\?1/);

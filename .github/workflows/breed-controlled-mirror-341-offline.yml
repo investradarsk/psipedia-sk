@@ -1,0 +1,28 @@
+name: Breeds controlled mirror 341 (offline)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/breed-controlled-mirror-backfill.mjs"
+      - "scripts/production-breed-controlled-mirror-backfill.mjs"
+      - "tests/breed-controlled-mirror-backfill.test.mjs"
+      - ".github/workflows/production-breed-controlled-mirrors.yml"
+      - ".github/workflows/breed-controlled-mirror-341-offline.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Enforce contiguous migrations
+        run: node scripts/check-migration-safety.mjs
+      - name: Test exact 344/341 Notion-to-D1 mirror insert
+        run: node --test tests/breed-controlled-mirror-backfill.test.mjs

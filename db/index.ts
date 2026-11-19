@@ -4,8 +4,9 @@ import * as coreSchema from "./schema";
 import * as geoSchema from "./geo-schema";
 import * as partnerSchema from "./partner-schema";
 import * as reviewSchema from "./review-schema";
+import * as directoryStorageSchema from "./directory-storage-schema";
 
-const schema = { ...coreSchema, ...geoSchema, ...partnerSchema, ...reviewSchema };
+const schema = { ...coreSchema, ...geoSchema, ...partnerSchema, ...reviewSchema, ...directoryStorageSchema };
 
 export function getDb() {
   if (!env.DB) {

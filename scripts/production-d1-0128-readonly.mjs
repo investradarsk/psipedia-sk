@@ -14,6 +14,14 @@ import {
 } from "./production-d1-migrate.mjs";
 
 export const TARGET_0128 = "0128_facebook_image_posts.sql";
+/**
+ * Independently reviewed schema-only append; 0128 audit still reads no later
+ * migration, does not execute it and must not reject a safely appended 0174.
+ * This is only a historical read-only name allowlist, not deploy authority.
+ */
+const HISTORICAL_0128_FUTURE_SCHEMA_FILES=new Set([
+  "0174_breeds_sql_json_foundation.sql",
+]);
 export const SQL_LEDGER_0128 = "SELECT name FROM d1_migrations ORDER BY id";
 export const SQL_OBJECTS_0128 = "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name IN " +
   "('gemini_notion_created_pages','idx_gemini_notion_created_pages_job','idx_gemini_notion_created_pages_pending'," +
@@ -35,7 +43,7 @@ export function classify0128(mode, ledger, objects, canonicalNames) {
   // Require the future list to contain only recognized supported, prepared or explicitly unactivated migrations.
   if (targetIndex < 0 ||
       canonicalNames.slice(targetIndex + 1).some(name =>
-        !SUPPORTED_PRODUCTION_TARGETS.includes(name) && !PREPARED_PRODUCTION_TARGETS.includes(name) && !UNACTIVATED_PRODUCTION_TARGETS.includes(name) && name!==PROPOSED_SERVICES_V3_SQL) ||
+        !SUPPORTED_PRODUCTION_TARGETS.includes(name) && !PREPARED_PRODUCTION_TARGETS.includes(name) && !UNACTIVATED_PRODUCTION_TARGETS.includes(name) && name!==PROPOSED_SERVICES_V3_SQL && !HISTORICAL_0128_FUTURE_SCHEMA_FILES.has(name)) ||
       new Set(objects.map(row => row.name)).size !== objects.length)
     throw Error("0128_AUDIT_INVALID_CANONICAL_STATE");
   const history = ledger.map(row => row.name);
