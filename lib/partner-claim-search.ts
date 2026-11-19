@@ -1,4 +1,5 @@
 import { getPartnerDatabase } from "./partner-auth-store";
+import { isPartnerHelpType, searchPartnerHelpRecords } from "./partner-help-claims";
 import {
   isPartnerClaimableResourceType,
   type PartnerClaimableResourceType,
@@ -14,7 +15,7 @@ export type PartnerClaimSearchItem = {
   claimHref: string;
 };
 
-const typeSpecs: Record<PartnerClaimableResourceType, { sql: string; label: string }> = {
+const typeSpecs: Record<Exclude<PartnerClaimableResourceType, "ADOPTION_DOG" | "LOST_FOUND_DOG" | "HELP_CASE">, { sql: string; label: string }> = {
   DIRECTORY_PROFILE: {
     sql: "SELECT id,name,slug,category,city FROM directory_profiles WHERE status='published' AND (name LIKE ?1 ESCAPE '\\' OR city LIKE ?1 ESCAPE '\\') ORDER BY name COLLATE NOCASE,id LIMIT 15",
     label: "Služba pre psov",
@@ -37,16 +38,18 @@ export async function searchPartnerClaimableRecords(input: {
 }): Promise<PartnerClaimSearchItem[]> {
   if (!isPartnerClaimableResourceType(input.entityType)) return [];
   if (typeof input.query !== "string") return [];
+  if (isPartnerHelpType(input.entityType)) return searchPartnerHelpRecords(input.entityType,input.query,input.database);
   const query = input.query.trim().replace(/\s+/g, " ").slice(0, 80);
   if (query.length < 2) return [];
-  const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
-  const rows = (await getPartnerDatabase(input.database).prepare(typeSpecs[input.entityType].sql)
+  const pattern = `%${query.replace(/[\\%_]/g, "\\  const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;")}%`;
+  const type=input.entityType as keyof typeof typeSpecs;
+  const rows = (await getPartnerDatabase(input.database).prepare(typeSpecs[type].sql)
     .bind(pattern).all<ClaimSearchRow>()).results;
   return rows.map((row) => ({
     entityType: input.entityType as PartnerClaimableResourceType,
     canonicalId: row.id,
     name: row.name,
-    details: [typeSpecs[input.entityType as PartnerClaimableResourceType].label, row.city].filter(Boolean).join(" · "),
+    details: [typeSpecs[type].label, row.city].filter(Boolean).join(" · "),
     publicHref: input.entityType === "DIRECTORY_PROFILE" ? `/adresar/${row.category}/${row.slug}`
       : input.entityType === "HELP_ORGANIZATION" ? `/organizacie/${row.slug}` : `/podujatia/${row.slug}`,
     claimHref: `/partner/prevziat-profil/${input.entityType}/${row.id}`,
