@@ -53,8 +53,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
             Registrovaných: <strong>{summary.accounts}</strong>
           </p>
         </div>
-        <form className="admin-partner-search admin-partner-v2-search" role="search"
-          aria-label="Filtrovať partnerské účty" data-admin-list-filters>
+        <form className="admin-partner-search admin-partner-v2-search" role="search" aria-label="Filtrovať partnerské účty" data-admin-list-filters>
           <label htmlFor="partner-q">Hľadať partnera
             <input id="partner-q" name="q" defaultValue={filters.q} maxLength={120}
               placeholder="Meno, e-mail alebo ID" />
