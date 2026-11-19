@@ -8,6 +8,7 @@ import { getPartnerContactProfile } from "./partner-contact-profile";
 import { getPartnerAuthMethodSummary } from "./partner-auth-methods";
 import { assertSingleActivePartnerManager } from "./partner-single-manager";
 import { ensurePartnerDirectoryReviewLock } from "./partner-directory-review";
+import { listPartnerAccountDossierRequests, listPartnerAccountDossierProfiles, listPartnerAccountDossierHistory } from "./partner-admin-dossier";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 function db(database?: D1Database) { return getPartnerDatabase(database ?? (env as unknown as Bindings).DB); }
@@ -192,6 +193,20 @@ export async function getPartnerAccountAdmin(id:string,input:{database?:D1Databa
     getPartnerAuthMethodSummary(id,database),
   ]);
   return {...account,email:await decryptPii(account.emailCiphertext,key),contactProfile,authMethods,memberships:memberships.results,audit:audit.results,sessions:sessions??{total:0,active:0,lastCreatedAt:null}};
+}
+
+/** Unified read-only account dossier. Every list is scoped to this exact account. */
+export async function getPartnerAccountDossierAdmin(input:{
+  accountId:string;tab:"ziadosti"|"profily"|"spravy"|"ucet"|"historia";page?:number;database?:D1Database;
+}) {
+  const database=db(input.database);
+  const activePage=input.page??1;
+  const [requests,profiles,history]=await Promise.all([
+    listPartnerAccountDossierRequests(input.accountId,database,input.tab==="ziadosti"?activePage:1),
+    listPartnerAccountDossierProfiles(input.accountId,database,input.tab==="profily"?activePage:1),
+    input.tab==="historia"?listPartnerAccountDossierHistory(input.accountId,database,activePage):Promise.resolve(null),
+  ]);
+  return {requests,profiles,history};
 }
 
 export async function setPartnerAccountStatusAdmin(input:{accountId:string;action:"SUSPEND"|"REACTIVATE"|"DEACTIVATE"|"REVOKE_SESSIONS";adminEmail:string;database?:D1Database;now?:Date}){
