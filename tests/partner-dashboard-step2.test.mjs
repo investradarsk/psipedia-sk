@@ -73,8 +73,8 @@ test("Partner dashboard uses existing authenticated, account-scoped data and rea
   assert.match(home, /\/partner\/profily\/novy/);
   assert.match(home, /\/partner\/podujatia\/nove/);
   assert.match(home, /\/partner\/ziadosti/);
-  assert.match(home, /\/adresar/);
-  assert.match(home, /\/organizacie/);
+  assert.match(home, /\/partner\/prevziat/);
+  assert.match(shell, /\/partner\/prevziat/);
   assert.match(home, /resourceEditHref\(item\)/);
   assert.match(home, /resources\.slice\(0, 6\)/);
   assert.match(home, /rel="noopener noreferrer"/);
