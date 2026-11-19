@@ -17,6 +17,9 @@ on:
       - "tests/breed-sql-v2-preview-runtime.test.mjs"
       - "tests/breed-sql-v2-backfill.test.mjs"
       - "lib/breed-sql-v2-cutover-gate.mjs"
+      - "lib/breed-sql-v2-primary-read.mjs"
+      - "tests/breed-sql-v2-primary-read.test.mjs"
+      - "lib/breed-canonical.ts"
       - "lib/breed-sql-v2-writer.mjs"
       - "tests/breed-sql-v2-atomic-writers.test.mjs"
       - "lib/notion-breed-workcopy-controlled.ts"
@@ -62,5 +65,7 @@ jobs:
         run: |
           node --check scripts/production-d1-breed-0174.mjs
           node --test tests/production-d1-breed-0174.test.mjs
+      - name: Verify SQL-primary Admin/public projections and canonical SEO
+        run: node --experimental-strip-types --test tests/breed-sql-v2-primary-read.test.mjs
       - name: Verify stage-4 public and Admin fallback runtime
         run: node --experimental-strip-types --test tests/breed-sql-v2-preview-runtime.test.mjs
