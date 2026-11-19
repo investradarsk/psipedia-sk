@@ -41,7 +41,7 @@ Migrácie 0171 a 0172 sú už fyzicky nasadené v produkčnej D1 podľa úspešn
 
 **NESPÚŠŤAŤ 0173 na produkcii**, kým:
 1. Nie je opätovne overená fyzická schéma a migračná história produkčnej D1, najmä neexistencia objektov 0173.
-2. Nie je vytvorený samostatný **owner-dispatched** chránený preflight/audit/apply postup pre presne 0173 s obnovovacím bodom pred DDL.
+2. Nie je úspešne vykonaný audit cez pripravený, **owner-dispatched** workflow `Production D1 Directory 0173 (manual)`. Nasadenie sa spúšťa samostatne, s overením dostupnosti Time Travel pred DDL.
 3. Vlastník neschváli jeho manuálne spustenie.
 
 PR #1437 môže zostať Draft; schéma 0173 nemá cudzie kľúče ani iné väzby na nové partnerské objekty.
@@ -67,3 +67,13 @@ Doterajší produkčný migračný ledger bol čiastočne nesúvislý; nepúšť
 ## Offline test
 
 CI spustí node --test tests/directory-sql-0173-foundation.test.mjs na izolovanej SQLite databáze. Testuje tabuľky, obmedzenia, cudzie kľúče, duplicity, importné JSON hodnoty necháva bez zmeny a cascade vymazanie testovacieho profilu. Nie je potrebný Cloudflare token ani prístup k reálnej D1.
+
+## Chránené nasadenie 0173 po merge
+
+1. GitHub Actions → **Production D1 Directory 0173 (manual)** na vetve `main`.
+2. Mode `audit`, Confirmation `AUDIT-0173-psipedia-sk-db`. V reporte musí byť `status=AUDIT` a `installed=false`.
+3. Len po kontrole výsledku samostatne autorizovať mode `apply`, Confirmation `APPLY-0173-psipedia-sk-db`.
+4. Workflow vykoná len presne pripnuté SQL 0173. V reporte musí byť `status=POSTFLIGHT`, `installed=true`, nové tabuľky prázdne, pôvodné tabuľky/počty/JSON agregáty bezo zmeny.
+5. **Nikdy nepúšťať** všeobecný `wrangler d1 migrations apply`. Samotné zlúčenie PR nič v D1 nevykoná.
+
+Toto vytvára len prázdne SQL úložiská; presun dát a Notion/Admin cutover sú nasledujúce fázy.
