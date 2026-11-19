@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { helpOrganizations } from "./help-organization-schema";
-import { directoryProfiles, managedEvents } from "./schema";
+import { directoryProfiles, managedEvents, helpCases } from "./schema";
+import { adoptionDogs } from "./adoption-schema";
+import { lostFoundDogReports } from "./lost-found-dogs-schema";
 import { moderationSubmissions } from "./foundation-schema";
 
 export const partnerAccounts = sqliteTable(
@@ -209,6 +211,36 @@ export const partnerClaims = sqliteTable("partner_claims", {
   index("partner_claims_status_created_idx").on(table.status,table.createdAt),
   index("partner_claims_account_created_idx").on(table.accountId,table.createdAt),
   index("partner_claims_resource_status_idx").on(table.resourceId,table.status,table.createdAt),
+]);
+
+export const partnerHelpClaims = sqliteTable("partner_help_claims", {
+  id:text("id").primaryKey(),
+  accountId:text("account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  entityType:text("entity_type").notNull(),
+  adoptionDogId:integer("adoption_dog_id").references(()=>adoptionDogs.id,{onDelete:"restrict"}),
+  lostFoundReportId:integer("lost_found_report_id").references(()=>lostFoundDogReports.id,{onDelete:"restrict"}),
+  helpCaseId:integer("help_case_id").references(()=>helpCases.id,{onDelete:"restrict"}),
+  status:text("status").notNull(),
+  requestMessage:text("request_message"),decisionNote:text("decision_note"),
+  createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
+  reviewedAt:text("reviewed_at"),reviewedBy:text("reviewed_by"),
+  cancelledAt:text("cancelled_at"),revokedAt:text("revoked_at"),revokedBy:text("revoked_by"),
+}, table=>[
+  check("partner_help_claims_type_check",sql`${table.entityType} IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE')`),
+  check("partner_help_claims_status_check",sql`${table.status} IN ('PENDING','APPROVED','REJECTED','CANCELLED','REVOKED')`),
+  check("partner_help_claims_one_target_check",sql`(
+    (${table.entityType}='ADOPTION_DOG' AND ${table.adoptionDogId} IS NOT NULL AND ${table.lostFoundReportId} IS NULL AND ${table.helpCaseId} IS NULL) OR
+    (${table.entityType}='LOST_FOUND_DOG' AND ${table.adoptionDogId} IS NULL AND ${table.lostFoundReportId} IS NOT NULL AND ${table.helpCaseId} IS NULL) OR
+    (${table.entityType}='HELP_CASE' AND ${table.adoptionDogId} IS NULL AND ${table.lostFoundReportId} IS NULL AND ${table.helpCaseId} IS NOT NULL)
+  )`),
+  index("partner_help_claims_account_history").on(table.accountId,table.createdAt),
+  index("partner_help_claims_status_created").on(table.status,table.createdAt),
+  uniqueIndex("partner_help_claims_adoption_manager").on(table.adoptionDogId).where(sql`${table.status}='APPROVED'`),
+  uniqueIndex("partner_help_claims_report_manager").on(table.lostFoundReportId).where(sql`${table.status}='APPROVED'`),
+  uniqueIndex("partner_help_claims_case_manager").on(table.helpCaseId).where(sql`${table.status}='APPROVED'`),
+  uniqueIndex("partner_help_claims_adoption_pending").on(table.accountId,table.adoptionDogId).where(sql`${table.status}='PENDING'`),
+  uniqueIndex("partner_help_claims_report_pending").on(table.accountId,table.lostFoundReportId).where(sql`${table.status}='PENDING'`),
+  uniqueIndex("partner_help_claims_case_pending").on(table.accountId,table.helpCaseId).where(sql`${table.status}='PENDING'`),
 ]);
 
 export const partnerResourceVerifications = sqliteTable("partner_resource_verifications", {
