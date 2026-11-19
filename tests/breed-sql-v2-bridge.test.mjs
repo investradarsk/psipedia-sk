@@ -148,6 +148,6 @@ test("all three entrypoints are wired as read-only preview, without activating c
  assert.doesNotMatch(preview,/\b(?:UPDATE|INSERT|DELETE|DROP)\s+(?:managed_breeds|breed_)/i);
  assert.doesNotMatch(bridge,/\b(?:UPDATE|INSERT|DELETE|DROP)\s+(?:managed_breeds|breed_)/i);
  const planned=read("docs/BREEDS-SQL-JSON-STEP4-20261119.md");
- assert.match(planned,/krok 5/);
+ assert.match(planned,/krok 5/i);
  assert.match(planned,/0174/);
 });
