@@ -102,7 +102,7 @@ export async function savePartnerManagedProfile(input: {
   try {
     if(canonical.entityType==="DIRECTORY_PROFILE"){
       await reconcileGeoAfterSourceMutation({targetType:"DIRECTORY_PROFILE",targetId:canonical.canonicalId,
-        actorType:"PARTNER",actorRef},database);
+        actorType:"SYSTEM",actorRef},database);
     } else if(canonical.locationId&&["address","city","district","region","countryCode"].some(key=>key in effectivePatch)){
       await reconcileGeoAfterSourceMutation({targetType:"ORGANIZATION_LOCATION",targetId:canonical.locationId,
         actorType:"PARTNER",actorRef},database);
