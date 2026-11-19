@@ -11,7 +11,7 @@ import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { helpLegacyCoverageQueries } from "../lib/help-sql-reviewed-backfill.mjs";
+import { helpLegacyCoverageQueries, helpLegacyFieldCandidateQueries } from "../lib/help-sql-reviewed-backfill.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const DB_NAME = "psipedia-sk-db";
@@ -287,6 +287,32 @@ async function main() {
     }
     // Unmatched legacy rows are NEVER permission to insert new canonical
     // entities. Identity/provenance/manual approval are separate safety gates.
+    const helpLegacyFieldCandidates = [];
+    for (const item of helpLegacyFieldCandidateQueries()) {
+      const owner = item.agenda === "adoptions" ? "adoption_dogs" : "help_organizations";
+      if (!existing.has("help_cases") || !existing.has(owner)) {
+        helpLegacyFieldCandidates.push({agenda:item.agenda,field:item.field,
+          status:"missing_table",joinedPairs:null,potentialMissing:null,
+          differentNonempty:null});
+        continue;
+      }
+      const rows = query(assertReadOnlySelect(item.sql+";"),wranglerConfig);
+      if (rows.length !== 1 ||
+          ["joined_pairs","potential_missing","different_nonempty"].some(key=>
+            naturalCount(rows[0][key])===null) ||
+          rows[0].potential_missing + rows[0].different_nonempty >
+            rows[0].joined_pairs) {
+        throw new Error("HELP_BACKFILL_FIELD_CANDIDATE_UNREADABLE");
+      }
+      helpLegacyFieldCandidates.push({
+        agenda:item.agenda,field:item.field,status:"candidate_counts_only",
+        joinedPairs:rows[0].joined_pairs,
+        potentialMissing:rows[0].potential_missing,
+        differentNonempty:rows[0].different_nonempty,
+      });
+    }
+    // Values are never selected from D1 here; all candidate decisions must
+    // still be reviewed against Notion and revision/identity provenance.
     const supportCounts = [];
     for (const table of plan.supporting) {
       const data = query(assertReadOnlySelect("SELECT COUNT(*) AS records FROM " + table + ";"),wranglerConfig);
@@ -315,7 +341,7 @@ async function main() {
       database:DB_NAME,readOnly:true,
       scope:"directory, eshops, help (5 agendas), events, service catalog V3",
       missingTables:plan.missing,supportCounts,orphanMappings:orphans,byCategory:groups,
-      helpLegacyCoverage,
+      helpLegacyCoverage,helpLegacyFieldCandidates,
       notes:[
         "Notion mapping count is not proof of synchronized field values or enabled runtime.",
         "Missing mapping table yields notionMapped=null; it is NOT an assertion of zero links.",
