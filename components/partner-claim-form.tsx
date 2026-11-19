@@ -9,7 +9,7 @@ export function PartnerClaimForm({
   name,
   publicHref,
 }: {
-  entityType: "DIRECTORY_PROFILE" | "HELP_ORGANIZATION" | "MANAGED_EVENT";
+  entityType: "DIRECTORY_PROFILE" | "HELP_ORGANIZATION" | "MANAGED_EVENT" | "ADOPTION_DOG" | "LOST_FOUND_DOG" | "HELP_CASE";
   canonicalId: number;
   name: string;
   publicHref: string;
@@ -43,7 +43,7 @@ export function PartnerClaimForm({
   return (
     <section className="partner-claim-card">
       <div className="partner-claim-summary">
-        <span>{entityType === "DIRECTORY_PROFILE" ? "Služba pre psov" : entityType === "HELP_ORGANIZATION" ? "Organizácia Pomoc psom" : "Podujatie"}</span>
+        <span>{entityType === "DIRECTORY_PROFILE" ? "Služba pre psov" : entityType === "HELP_ORGANIZATION" ? "Organizácia Pomoc psom" : entityType === "MANAGED_EVENT" ? "Podujatie" : entityType === "ADOPTION_DOG" ? "Adopcia" : entityType === "LOST_FOUND_DOG" ? "Stratený/nájdený pes" : "Pomoc psom"}</span>
         <h2>{name}</h2>
         <Link href={publicHref} target="_blank">Verejný profil ↗</Link>
       </div>
