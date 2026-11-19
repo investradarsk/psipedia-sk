@@ -115,7 +115,7 @@ const REQUEST_UNION = `
     s.status,s.created_at,m.resolved_canonical_id
     FROM partner_new_profile_metadata m
     JOIN moderation_submissions s ON s.id=m.submission_id
-    WHERE m.partner_account_id=?1
+    WHERE m.partner_account_id=?1 AND s.status<>'DRAFT'
   UNION ALL
   SELECT 'PROFILE_CHANGE',s.id,s.resource_type,
     COALESCE(d.name,o.name,'Úprava profilu'),s.status,s.created_at,
@@ -132,7 +132,7 @@ const REQUEST_UNION = `
     FROM partner_event_submission_metadata m
     JOIN moderation_submissions s ON s.id=m.submission_id
     LEFT JOIN partner_resources r ON r.id=m.partner_resource_id
-    WHERE m.partner_account_id=?1
+    WHERE m.partner_account_id=?1 AND s.status<>'DRAFT'
   UNION ALL
   SELECT 'HELP_CREATE',s.id,s.resource_type,
     COALESCE(NULLIF(json_extract(CASE WHEN json_valid(s.proposed_patch_json) THEN s.proposed_patch_json ELSE '{}' END,'$.name'),''),
@@ -144,7 +144,7 @@ const REQUEST_UNION = `
     FROM moderation_submissions s
     WHERE s.submitter_type='PARTNER_ACCOUNT' AND s.submitter_ref=?1
       AND s.operation='CREATE'
-      AND s.resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE')
+      AND s.resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE') AND s.status<>'DRAFT'
   UNION ALL
   SELECT 'VERIFICATION',v.id,r.entity_type,
     COALESCE(d.name,o.name,e.title,'Overenie správcu'),
