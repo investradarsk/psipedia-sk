@@ -10,7 +10,7 @@ import {
 } from "../lib/breed-sql-v2-backfill.mjs";
 
 const migration=readFileSync(
-  new URL("../pending-migrations/0174_breeds_sql_json_foundation.sql",import.meta.url),"utf8");
+  new URL("../drizzle/0174_breeds_sql_json_foundation.sql",import.meta.url),"utf8");
 const extraIds=[5,13,14];
 
 function fixture(){
