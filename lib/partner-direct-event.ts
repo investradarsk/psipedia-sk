@@ -22,6 +22,7 @@ export async function savePartnerManagedEvent(input:{
 }) {
   const database=getPartnerDatabase(input.database??(env as unknown as {DB?:D1Database}).DB);
   const editor=await getPartnerEventEditor(input.accountId,input.resourceId,database);
+  if(editor.resource.role!=="OWNER")throw new PartnerEventError("Priamu úpravu môže uložiť iba schválený správca podujatia.",403);
   if(typeof input.baseRevision!=="string"||editor.baseRevision!==input.baseRevision)
     throw new PartnerEventError("Podujatie sa medzitým zmenilo. Obnovte editor.",409);
   const mediaId=normalizePartnerMediaId(input.mediaAssetId);
