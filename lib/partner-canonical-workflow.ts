@@ -435,3 +435,26 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
   return {id:row.id,resourceType:row.resourceType,canonicalId:row.canonicalId,
     status:outcome,editorHref:canonicalHref(row.resourceType,row.canonicalId)};
 }
+
+/** Partner-only list of their unsubmitted, returned and active canonical proposals. */
+export async function listPartnerCanonicalDrafts(accountId:string,dbInput?:D1Database){
+  const db=database(dbInput);
+  const rows=await db.prepare(
+    "SELECT id,resource_type resourceType,CAST(subject_id AS INTEGER) canonicalId,status,"+
+    "proposed_patch_json proposedPatchJson,created_at createdAt,updated_at updatedAt "+
+    "FROM moderation_submissions WHERE operation='CREATE' AND submitter_type='PARTNER_ACCOUNT' "+
+    "AND submitter_ref=?1 AND subject_id IS NOT NULL "+
+    "AND status IN ('DRAFT','RETURNED','SUBMITTED','PENDING_REVIEW','QUARANTINED') "+
+    "AND resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION','MANAGED_EVENT','ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE') "+
+    "ORDER BY updated_at DESC,id DESC LIMIT 200"
+  ).bind(accountId).all<{id:string;resourceType:PartnerCanonicalType;canonicalId:number;status:PartnerDraftStatus;
+    proposedPatchJson:string;createdAt:string;updatedAt:string}>();
+  return rows.results.map(({proposedPatchJson,...row})=>{
+    let values:Record<string,unknown>={};
+    try{const parsed=JSON.parse(proposedPatchJson) as unknown;
+      if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed))values=parsed as Record<string,unknown>;
+    }catch{}
+    return {...row,title:String(values.name??values.title??values.dogName??"Bez názvu")||"Bez názvu",
+      partnerHref:"/partner/koncepty/"+encodeURIComponent(row.id)};
+  });
+}
