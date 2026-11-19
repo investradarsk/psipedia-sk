@@ -176,20 +176,32 @@ export async function submitPartnerHelpCreate(input: { accountId: string; resour
   await enforcePartnerNewProfileRateLimit({ database, accountId: input.accountId, identityFingerprint: fingerprint, hashKey: key, now: input.now });
   const riskFlags = await canonicalDuplicate(resourceType, payload, database) ? ["POSSIBLE_DUPLICATE"] : [];
   const now = input.now ?? new Date(), nowIso = now.toISOString(), id = crypto.randomUUID();
-  await database.batch([
+  const results = await database.batch([
     database.prepare(`INSERT INTO moderation_submissions
       (id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,risk_flags_json,created_at,updated_at)
-      VALUES(?1,?2,NULL,'CREATE','SUBMITTED','PARTNER_ACCOUNT',?3,?4,?5,?6,?6)`)
+      SELECT ?1,?2,NULL,'CREATE','SUBMITTED','PARTNER_ACCOUNT',?3,?4,?5,?6,?6
+      WHERE NOT EXISTS (
+        SELECT 1 FROM moderation_submissions
+        WHERE submitter_type='PARTNER_ACCOUNT' AND submitter_ref=?3
+          AND resource_type=?2 AND operation='CREATE' AND proposed_patch_json=?4
+          AND status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')
+      )`)
       .bind(id, resourceType, input.accountId, proposedJson, JSON.stringify(riskFlags), nowIso),
     database.prepare(`INSERT INTO moderation_events
       (id,submission_id,resource_type,subject_id,action,actor_type,actor_ref,from_status,to_status,changed_fields_json,created_at)
-      VALUES(?1,?2,?3,NULL,'SUBMISSION_CREATED','PARTNER',?4,NULL,'SUBMITTED',?5,?6)`)
+      SELECT ?1,?2,?3,NULL,'SUBMISSION_CREATED','PARTNER',?4,NULL,'SUBMITTED',?5,?6
+      WHERE EXISTS (SELECT 1 FROM moderation_submissions WHERE id=?2)`)
       .bind(crypto.randomUUID(), id, resourceType, input.accountId, JSON.stringify(Object.keys(payload)), nowIso),
     database.prepare(`INSERT INTO partner_audit_events
       (id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at)
-      VALUES(?1,'PARTNER',?2,'NEW_PROFILE_SUBMITTED','MODERATION_SUBMISSION',?3,?4,?5)`)
+      SELECT ?1,'PARTNER',?2,'NEW_PROFILE_SUBMITTED','MODERATION_SUBMISSION',?3,?4,?5
+      WHERE EXISTS (SELECT 1 FROM moderation_submissions WHERE id=?3)`)
       .bind(crypto.randomUUID(), `partner:${input.accountId}`, id, JSON.stringify({ resourceType, source: "partner_help_create" }), nowIso),
   ]);
+  // Guard the race after the preliminary lookup: only one concurrent active proposal is inserted.
+  if (Number(results[0]?.meta?.changes ?? 0) !== 1) {
+    throw new PartnerHelpCreateError("Rovnaký návrh už čaká na kontrolu.", 409, "ACTIVE_DUPLICATE_SUBMISSION");
+  }
   try {
     await enqueueAdminNotificationEvent(database, {
       eventType: "partner_new_help_submitted",
