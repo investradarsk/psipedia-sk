@@ -31,7 +31,11 @@ import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { selectHomepageArticles } from "@/lib/homepage-content";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
-import { publicHeroImageSrc, publicHeroImageSrcSet, HERO_IMAGE_SIZES } from "@/lib/public-hero-image";
+import {
+  publicHeroImageSrc,
+  publicHeroImageSrcSet,
+  HERO_IMAGE_SIZES,
+} from "@/lib/public-hero-image";
 import { ImageDisplay } from "@/components/image-display";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { EventImage } from "@/components/event-image";
@@ -62,16 +66,19 @@ export const metadata: Metadata = {
 // articles, events, directory cards and rotating breed previews to complete.
 function loadHomepageContent() {
   return Promise.all([
-
     retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 120 })),
     retryTransientPublicRead(() => getHomepageUpcomingEventsWithImages(8)),
     retryTransientPublicRead(() => getHomepageHighlightedHelpCasesWithImages(3)),
-    retryTransientPublicRead(() => getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8)),
+    retryTransientPublicRead(() =>
+      getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8),
+    ),
     listHomepageFeaturedBreeds(8).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
     }),
-    retryTransientPublicRead(() => getPublishedDesktopBannerColorsBatch(["homepage:profil", "help:lost-found"])),
+    retryTransientPublicRead(() =>
+      getPublishedDesktopBannerColorsBatch(["homepage:profil", "help:lost-found"]),
+    ),
   ]);
 }
 
@@ -102,7 +109,6 @@ async function HomeBelowHero({
     .filter((breed, index, all) => all.findIndex((item) => item.slug === breed.slug) === index)
     .slice(0, 8);
 
-
   return (
     <>
       <HomeLatestArticles
@@ -122,6 +128,7 @@ async function HomeBelowHero({
                       media={
                         <EventImage
                           imageUrl={event.imageUrl}
+                          eventId={event.id}
                           eventType={event.eventType}
                           mode={event.imageDisplay}
                           config={event.thumbnailImageDisplay}

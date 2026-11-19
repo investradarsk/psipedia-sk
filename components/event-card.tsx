@@ -1,4 +1,4 @@
-import { eventTypePresentation, getEventOwnImage } from '@/lib/event-type-presentation';
+import { eventTypePresentation, getEventOwnImage } from "@/lib/event-type-presentation";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
@@ -31,7 +31,15 @@ function eventLocation(event: PublicEventCard) {
   return publicLocationValue(event.city, "city");
 }
 
-export function EventCard({ event, today, variant }: { event: PublicEventCard; today?: string; variant?: "grid" }) {
+export function EventCard({
+  event,
+  today,
+  variant,
+}: {
+  event: PublicEventCard;
+  today?: string;
+  variant?: "grid";
+}) {
   const ownImage = getEventOwnImage(event.imageUrl);
   const day = Number(event.startDate.slice(8, 10));
   const month = MONTHS[Number(event.startDate.slice(5, 7)) - 1] || event.startDate.slice(5, 7);
@@ -39,7 +47,13 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
   const timeLabel = eventTimeLabel(event);
   const location = eventLocation(event);
   const endLabel = endDateLabel(event);
-  const statusLabel = event.cancelled ? "Zrušené" : dateStatus === "current" ? "Prebieha" : dateStatus === "past" ? "Uskutočnilo sa" : null;
+  const statusLabel = event.cancelled
+    ? "Zrušené"
+    : dateStatus === "current"
+      ? "Prebieha"
+      : dateStatus === "past"
+        ? "Uskutočnilo sa"
+        : null;
 
   if (variant === "grid") {
     return (
@@ -49,7 +63,11 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
         typeLabel={
           <span
             className={styles.listTypeBadge}
-            style={{ "--event-type-color": eventTypePresentation[event.eventType].color } as CSSProperties}
+            style={
+              {
+                "--event-type-color": eventTypePresentation[event.eventType].color,
+              } as CSSProperties
+            }
           >
             {eventTypePresentation[event.eventType].label}
           </span>
@@ -58,10 +76,13 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
         location={location || "Miesto nie je uvedené"}
         hasImage={Boolean(ownImage)}
         eventStatus={event.cancelled ? "cancelled" : dateStatus}
-        badge={statusLabel ? <span className={styles.listStatusBadge}>{statusLabel}</span> : undefined}
+        badge={
+          statusLabel ? <span className={styles.listStatusBadge}>{statusLabel}</span> : undefined
+        }
         media={
           <EventImage
             imageUrl={event.imageUrl}
+            eventId={event.id}
             eventType={event.eventType}
             mode={event.imageDisplay}
             config={event.thumbnailImageDisplay}
@@ -90,20 +111,36 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
       className={[
         event.cancelled ? styles.cancelledCard : styles.eventCard,
         styles.eventCardWithImage,
-      ].filter(Boolean).join(" ")}
+      ]
+        .filter(Boolean)
+        .join(" ")}
       data-public-card="event-list"
       data-event-card
       data-event-has-image={ownImage ? "true" : "false"}
       data-event-status={event.cancelled ? "cancelled" : dateStatus}
     >
-      <time className={styles.dateBlock} dateTime={event.startDate} aria-label={formatEventDate(event)}>
+      <time
+        className={styles.dateBlock}
+        dateTime={event.startDate}
+        aria-label={formatEventDate(event)}
+      >
         <strong>{day}</strong>
         <span>{month}</span>
         {endLabel && <small>{endLabel}</small>}
       </time>
 
       <span className={styles.cardMedia} aria-hidden="true">
-        <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} config={event.thumbnailImageDisplay} sizes="(max-width: 520px) 68px, (max-width: 760px) 82px, 128px" alt="" loading="lazy" decoding="async" />
+        <EventImage
+          imageUrl={event.imageUrl}
+          eventId={event.id}
+          eventType={event.eventType}
+          mode={event.imageDisplay}
+          config={event.thumbnailImageDisplay}
+          sizes="(max-width: 520px) 68px, (max-width: 760px) 82px, 128px"
+          alt=""
+          loading="lazy"
+          decoding="async"
+        />
       </span>
 
       <div className={styles.cardBody}>
@@ -111,14 +148,26 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
           <span>{eventTypePresentation[event.eventType].label}</span>
           {statusLabel && <b>{statusLabel}</b>}
         </div>
-        <h3 data-public-card-title><Link href={eventHref(event)}>{event.title}</Link></h3>
+        <h3 data-public-card-title>
+          <Link href={eventHref(event)}>{event.title}</Link>
+        </h3>
         <div className={styles.cardFacts}>
-          {timeLabel && <span><strong>Čas</strong> {timeLabel}</span>}
-          <span><strong>Miesto</strong> {location || "Miesto nie je uvedené"}</span>
+          {timeLabel && (
+            <span>
+              <strong>Čas</strong> {timeLabel}
+            </span>
+          )}
+          <span>
+            <strong>Miesto</strong> {location || "Miesto nie je uvedené"}
+          </span>
         </div>
       </div>
 
-      <Link href={eventHref(event)} className={styles.detailLink} aria-label={"Detail podujatia " + event.title}>
+      <Link
+        href={eventHref(event)}
+        className={styles.detailLink}
+        aria-label={"Detail podujatia " + event.title}
+      >
         Detail <ArrowIcon size={17} />
       </Link>
     </article>

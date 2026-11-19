@@ -97,7 +97,13 @@ test("external event poster stays the preferred SSR image and is retried before 
 test("external event detail can retry a blocked poster using its published event ID", () => {
   const url = "https://www.nitradog.sk/wp-content/uploads/2026/09/banner-web-napis.jpg";
   const html = renderToStaticMarkup(
-    React.createElement(EventImage, { imageUrl: url, eventId: 173, eventType: "Výstava", context: "detail", alt: "Plagát" }),
+    React.createElement(EventImage, {
+      imageUrl: url,
+      eventId: 173,
+      eventType: "Výstava",
+      context: "detail",
+      alt: "Plagát",
+    }),
   );
   // The official poster remains the first choice; the proxy is only for a
   // failure reported by the browser, not an unconditional network request.
@@ -112,10 +118,29 @@ test("external event detail can retry a blocked poster using its published event
   const detail = readFileSync("components/event-detail.tsx", "utf8");
   assert.match(detail, /eventId=\{event\.id\}/);
   const route = readFileSync("app/api/public/events/image/[id]/route.ts", "utf8");
-  assert.match(route, /SELECT image_url FROM managed_events WHERE id = \? AND status = 'published'/);
+  assert.match(
+    route,
+    /SELECT image_url FROM managed_events WHERE id = \? AND status = 'published'/,
+  );
   assert.match(route, /safeRemoteImageUrl\(row\.image_url\)/);
   assert.match(route, /downloadRemoteImage\(source\.toString\(\)\)/);
   assert.doesNotMatch(route, /request\.url.*searchParams|new URLSearchParams\(.*request/);
+});
+
+test("all public event thumbnails pass the event ID required by the blocked-photo retry", () => {
+  for (const [path, expected] of [
+    ["components/event-card.tsx", 2],
+    ["components/event-calendar.tsx", 1],
+    ["app/page.tsx", 1],
+  ]) {
+    const source = readFileSync(path, "utf8");
+    const images = [...source.matchAll(/<EventImage\b[\s\S]*?\/>/g)];
+    assert.equal(images.length, expected, path);
+    for (const [image] of images) {
+      assert.match(image, /eventId=\{event\.id\}/, path);
+      assert.match(image, /loading="lazy"/, "Retry support must not eagerly load thumbnails");
+    }
+  }
 });
 
 test("unsafe or invalid photo URLs select the fallback during SSR", () => {
@@ -177,4 +202,49 @@ test("homepage shows published upcoming events with photographic fallback and pr
       readFileSync(file, "utf8"),
       /getEventFallbackImage|images\/events\/defaults/,
     );
+});
+
+test("blocked remote posters retry the original before the published-event relay", async () => {
+  const { default: ts } = await import("typescript");
+  const jsx = await import("react/jsx-runtime");
+  const source = ts.transpileModule(readFileSync("components/event-image.tsx", "utf8"), {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  let state = null;
+  const exports = {};
+  new Function("require", "exports", source)((name) => {
+    if (name === "react")
+      return {
+        useState: () => [
+          state,
+          (next) => {
+            state = next;
+          },
+        ],
+      };
+    if (name === "react/jsx-runtime") return jsx;
+    if (name === "@/lib/responsive-media") return { responsiveMediaSrcSet: () => undefined };
+    if (name === "@/components/image-display") return { ImageDisplay: () => null };
+    if (name === "@/lib/event-type-presentation")
+      return {
+        getEventOwnImage,
+        getEventFallbackImage,
+        getEventFallbackSrcSet,
+        eventTypePresentation,
+      };
+    throw Error("Unexpected import: " + name);
+  }, exports);
+  const original = "https://example.org/poster.jpg";
+  const render = () =>
+    exports.EventImage({ imageUrl: original, eventId: 173, eventType: "Výstava", loading: "lazy" });
+  let image = render();
+  assert.equal(image.props.src, original);
+  image.props.onImageFailure();
+  image = render();
+  assert.equal(image.props.src, original);
+  image.props.onImageFailure();
+  image = render();
+  assert.equal(image.props.src, "/api/public/events/image/173");
+  assert.equal(image.props.loading, "lazy");
+  assert.equal(image.props["data-event-image-source"], "real");
 });
