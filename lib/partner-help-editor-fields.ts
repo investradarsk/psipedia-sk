@@ -106,7 +106,7 @@ function validDate(v: string) {
   const d = new Date(v+"T12:00:00.000Z");
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10) === v;
 }
-export function normalizeHelpEditorPatch(type: HelpEditorType, raw: unknown): HelpEditorPatch {
+export function normalizeHelpEditorPatch(type: HelpEditorType, raw: unknown, allowEmpty = false): HelpEditorPatch {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new HelpEditorValidationError("Zmeny musia byť objekt.");
   const data = raw as Record<string, unknown>;
   if (Object.keys(data).length > 60) throw new HelpEditorValidationError("Priveľa polí v jednej zmene.");
@@ -135,6 +135,6 @@ export function normalizeHelpEditorPatch(type: HelpEditorType, raw: unknown): He
       result[key] = clean;
     }
   }
-  if (!Object.keys(result).length) throw new HelpEditorValidationError("Nezmenili ste žiadny údaj.");
+  if (!Object.keys(result).length && !allowEmpty) throw new HelpEditorValidationError("Nezmenili ste žiadny údaj.");
   return result;
 }
