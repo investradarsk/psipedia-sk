@@ -1088,6 +1088,17 @@ async function writeCanonicalFieldAndDecision(input: {
         value, JSON.stringify(nextData), input.at, input.actor,
         input.suggestion.canonical_entity_id, expectedUpdatedAt,
       );
+  } else if (input.suggestion.entity_type === "DIRECTORY" &&
+             input.spec.column === "website_url") {
+    const value = String(input.value ?? "");
+    const currentData = parseRecord(input.row.source_data_json) as DirectoryImportData;
+    const nextData = omitDirectorySqlContactAliases(currentData, { websiteUrl: value });
+    updateStatement = db.prepare(`UPDATE directory_profiles
+      SET website_url=?,source_data_json=?,updated_at=?,updated_by=?
+      WHERE id=? AND updated_at=?`).bind(
+        value, JSON.stringify(nextData), input.at, input.actor,
+        input.suggestion.canonical_entity_id, expectedUpdatedAt,
+      );
   } else {
     if (!input.spec.column) throw new AutomationUpdateReviewUnsupportedError();
     const dbValue = input.spec.kind === "boolean"
