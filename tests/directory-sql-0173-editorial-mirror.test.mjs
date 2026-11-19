@@ -123,7 +123,7 @@ test("Opening hours 0173 sidecar preserves complete free-form schedules and inte
  const db=fixture();
  try{
   const who={kind:"id",profileId:1,updatedAt:"T1",actor:"admin"};
-  const hours="Po–Pi 09:00–12:00; 13:00–18:00\\nSviatky: podľa dohody";
+  const hours="Po–Pi 09:00–12:00; 13:00–18:00\nSviatky: podľa dohody";
   apply(db,{identity:who,openingHoursText:hours});
   let rows=db.prepare("SELECT * FROM directory_profile_opening_hours WHERE profile_id=1").all();
   assert.equal(rows.length,1);
