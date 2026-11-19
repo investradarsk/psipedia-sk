@@ -21,7 +21,7 @@ function localHref(kind: DynamicUrlKind, row: PublicRow): string | null {
     return row.category && isDirectoryCategory(row.category)
       ? directoryProfileHref({ category: row.category, slug: row.slug }) : null;
   if (kind === "help")
-    return row.category && isHelpCategory(row.category) && row.category !== "adopcia" && row.category !== "utulky"
+    return row.category && isHelpCategory(row.category) && row.category !== "adopcia" && row.category !== "utulky" && row.category !== "stratene-a-najdene"
       ? helpCaseHref({ category: row.category, slug: row.slug }) : null;
   if (kind === "lost-found")
     return row.category === "LOST" || row.category === "FOUND"
@@ -54,7 +54,7 @@ const SOURCES: Record<DynamicUrlKind, { from: string; where: string; label: stri
   },
   help: {
     from: "help_cases h",
-    where: "h.status='published' AND h.category NOT IN ('adopcia','utulky') AND h.slug<>'' AND h.slug NOT GLOB '*[^a-z0-9-]*'",
+    where: "h.status='published' AND h.category NOT IN ('adopcia','utulky','stratene-a-najdene') AND h.slug<>'' AND h.slug NOT GLOB '*[^a-z0-9-]*'",
     label: "h.title", slug: "h.slug", category: "h.category",
   },
   "lost-found": {
