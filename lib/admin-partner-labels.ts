@@ -22,6 +22,9 @@ const resources: Record<string, string> = {
   DIRECTORY_PROFILE: "Profil služby",
   HELP_ORGANIZATION: "Organizácia pomoci psom",
   MANAGED_EVENT: "Podujatie",
+  ADOPTION_DOG: "Adopcia",
+  LOST_FOUND_DOG: "Stratený alebo nájdený pes",
+  HELP_CASE: "Pomoc psom",
 };
 const risks: Record<string, string> = {
   STALE_BASE: "Zastaralý pôvodný údaj",
