@@ -1,7 +1,7 @@
 # Directory SQL 0173 — štruktúra pred synchronizáciou Notion
 
 **Dátum:** 19. november 2026  
-**Stav:** iba pripravená aditívna SQL migrácia a Drizzle modely. Nie je spustená na produkcii.
+**Stav:** čakajúci SQL súbor mimo aktívneho adresára drizzle, plus Drizzle modely. Nie je spustená na produkcii.
 
 Táto etapa implementuje architektonický kontrakt z PR #1450:
 - Jeden SQL vlastník pre verejné aj samostatne editované údaje.
@@ -37,7 +37,7 @@ PR #1437 (partner samoobsluha) má už vyhradené migrácie:
 - 0171_partner_single_manager.sql
 - 0172_partner_help_claim_ownership.sql
 
-Preto je nové číslo 0173. **NESPÚŠŤAŤ 0173 na produkcii**, kým:
+Preto je nové číslo 0173. Aktívna kontrola migračného reťazca odmieta chýbajúce 0171/0172, preto SQL zatiaľ leží v pending-migrations/. Po zlúčení 0171/0172 sa musí presunúť do drizzle/0173_... v osobitnom PR. **NESPÚŠŤAŤ 0173 na produkcii**, kým:
 1. Nebude vyjasnený stav a nasadenie #1437, 0171 a 0172.
 2. Nie je overená fyzická schéma a stav migračnej histórie v produkčnej D1.
 3. Nie je vytvorený samostatný **owner-dispatched** chránený preflight/audit/apply workflow pre 0173 s obnovovacím bodom pred DDL.
