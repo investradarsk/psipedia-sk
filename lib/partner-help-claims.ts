@@ -29,7 +29,7 @@ const specs = {
   LOST_FOUND_DOG: {
     column: "lost_found_report_id", label: "Stratené a nájdené psy",
     table: "lost_found_dog_reports", title: "COALESCE(NULLIF(dog_name,''),NULLIF(breed,''),'Pes')",
-    publicWhere: "status='ACTIVE' AND type IN ('LOST','FOUND') AND published_at IS NOT NULL AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)",
+    publicWhere: "status='ACTIVE' AND type IN ('LOST','FOUND') AND published_at IS NOT NULL AND (expires_at IS NULL OR expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now'))",
   },
   HELP_CASE: {
     column: "help_case_id", label: "Pomoc psom",
@@ -161,7 +161,7 @@ export async function listPartnerApprovedHelpResources(accountId:string,database
   return rows.map(row=>({
     resourceId:helpResourceId(row.entityType,row.canonicalId),entityType:row.entityType,
     canonicalId:row.canonicalId,role:"OWNER" as const,name:row.name,status:row.recordStatus,
-    slug:row.slug,publicHref:helpClaimHref(row),verificationStatus:"UNVERIFIED" as const,
+    slug:row.slug,publicHref:row.entityType==="ADOPTION_DOG"&&!["ACTIVE","RESERVED"].includes(row.recordStatus)?null:row.entityType==="LOST_FOUND_DOG"&&row.recordStatus!=="ACTIVE"?null:row.entityType==="HELP_CASE"&&row.recordStatus!=="published"?null:helpClaimHref(row),verificationStatus:"UNVERIFIED" as const,
   }));
 }
 export async function getPartnerHelpMembership(accountId:string,resourceId:string,database?:D1Database){
