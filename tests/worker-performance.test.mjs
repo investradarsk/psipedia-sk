@@ -70,7 +70,7 @@ test("public HTML has a short edge cache while admin remains no-store", () => {
 test("breed detail uses a selective canonical query and avoids runtime image HEAD checks", () => {
   // Formatting and quote style change during normal refactors; require the
   // canonical filter, bounded query and publicly safe image projection.
-  assert.match(breedStore, /WHERE slug=\? AND \$\{canonicalBreedWinnerSql\(["']managed_breeds["']\)\} LIMIT 1/);
+  assert.match(breedStore, /WHERE slug=\? AND \$\{canonicalBreedWinnerForRuntime\(["']managed_breeds["']\)\} LIMIT 1/);
   const detailLoader = breedStore.match(/const getPublishedBreedUncached\s*=[\s\S]*?export const getPublishedBreed\s*=/)?.[0] ?? "";
   assert.doesNotMatch(detailLoader, /availableBreedImage/);
   assert.match(detailLoader, /ownedBreedImage/);
