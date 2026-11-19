@@ -5,6 +5,7 @@ import {
   hashHelpBackfillValue,
   prepareReviewedHelpBackfill,
   helpLegacyCoverageQueries,
+  helpLegacyFieldCandidateQueries,
 } from "../lib/help-sql-reviewed-backfill.mjs";
 
 const SOURCE_REV = "2026-10-01T10:00:00.000Z";
@@ -199,6 +200,42 @@ test("coverage reports aggregate counts only: no row IDs or user content", () =>
       assert.equal(stats.legacy_total, 1);
       assert.equal(stats.matched, 1);
       assert.equal(stats.unmatched, 0);
+    }
+  } finally { sqlite.close(); }
+});
+
+
+test("field-specific aggregate counts never select user content or grant approval", () => {
+  const { sqlite } = fixture();
+  try {
+    const queries = helpLegacyFieldCandidateQueries();
+    assert.equal(queries.length, 6);
+    assert.deepEqual(queries.map(x => x.agenda),
+      ["adoptions", "adoptions", "adoptions",
+        "organizations", "organizations", "organizations"]);
+    const counts = Object.fromEntries(queries.map(query => {
+      assert.match(query.sql, /^SELECT COUNT\(\*\) AS joined_pairs/);
+      assert.doesNotMatch(query.sql, /SELECT\s+(?:h|t)\.(?:id|name|email|phone)/i);
+      const data = sqlite.prepare(query.sql).get();
+      assert.equal(data.joined_pairs, 1);
+      assert.ok(data.potential_missing + data.different_nonempty <= data.joined_pairs);
+      return [query.agenda + ":" + query.field, data];
+    }));
+    assert.equal(counts["adoptions:main_image"].potential_missing, 1);
+    assert.equal(counts["adoptions:description"].different_nonempty, 1);
+    assert.equal(counts["organizations:image_url"].potential_missing, 1);
+    assert.equal(counts["organizations:description"].potential_missing, 1);
+    assert.equal(counts["organizations:short_description"].different_nonempty, 1);
+  } finally { sqlite.close(); }
+});
+
+test("empty legacy cohorts return count 0, never null or invented target data", () => {
+  const { sqlite } = fixture();
+  try {
+    sqlite.exec("DELETE FROM help_cases");
+    for (const query of [...helpLegacyCoverageQueries(), ...helpLegacyFieldCandidateQueries()]) {
+      const values = sqlite.prepare(query.sql).get();
+      assert.ok(Object.values(values).every(value => value === 0));
     }
   } finally { sqlite.close(); }
 });
