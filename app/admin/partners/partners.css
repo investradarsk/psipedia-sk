@@ -308,3 +308,73 @@
   .admin-partner-actions .admin-partner-picker > button { width: 100%; }
   .admin-partner-actions .admin-partner-membership { grid-template-columns: minmax(0,1fr); }
 }
+
+
+/* Partneri V2 – account-first overview. Scope to this page; old moderation grids stay intact. */
+.admin-partner-v2-workspace { min-width: 0; }
+.admin-partner-v2-heading { display:flex; justify-content:space-between; align-items:start; gap:1rem; margin-bottom:1rem; }
+.admin-partner-v2-heading h2 { margin:0 0 .35rem; font-family:inherit; font-size:1.1rem; }
+.admin-partner-v2-heading p { margin:0; font-size:.85rem; line-height:1.5; color:var(--admin-ui-muted,#607568); }
+.admin-partner-v2-total { white-space:nowrap; font-variant-numeric:tabular-nums; }
+.admin-partner-v2-total strong { color:var(--admin-ui-heading,#173f2d); }
+.admin-partner-search.admin-partner-v2-search { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:.6rem; }
+.admin-partner-v2-search > label { grid-column:1; }
+.admin-partner-v2-search > button { grid-column:2; }
+.admin-partner-v2-filters { grid-column:1 / -1; grid-row:2; }
+.admin-partner-v2-filters summary { cursor:pointer; font-size:.84rem; font-weight:750; color:#245d47; width:max-content; min-height:32px; }
+.admin-partner-v2-filter-grid { margin-top:.55rem; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; }
+.admin-partner-v2-filter-grid label { display:grid; gap:.3rem; min-width:0; }
+.admin-partner-v2-filter-grid select { width:100%; background:#fff; }
+.admin-partner-table.admin-partner-v2-table { gap:.25rem; }
+.admin-partner-v2-columns,
+.admin-partner-table.admin-partner-v2-table article {
+  display:grid;
+  grid-template-columns:minmax(145px,1.2fr) minmax(180px,1.5fr) minmax(75px,.5fr) minmax(75px,.5fr) minmax(85px,.7fr) minmax(102px,.65fr);
+  align-items:center;
+  gap:.7rem;
+}
+.admin-partner-v2-columns { padding:.45rem .75rem; color:var(--admin-ui-muted,#607568); font-size:.75rem; font-weight:800; }
+.admin-partner-table.admin-partner-v2-table article { padding:.65rem .75rem; }
+.admin-partner-table.admin-partner-v2-table article > * { min-width:0; overflow-wrap:anywhere; }
+.admin-partner-table.admin-partner-v2-table .admin-partner-v2-partner strong { font-size:.88rem; }
+.admin-partner-v2-partner small { margin-top:.22rem; font-size:.73rem; }
+.admin-partner-v2-email { font-size:.85rem; }
+.admin-partner-v2-count strong { font-size:1rem; font-variant-numeric:tabular-nums; }
+.admin-partner-v2-count .admin-partner-v2-alert { color:#a34b22; }
+.admin-partner-v2-messages { color:var(--admin-ui-muted,#607568); font-variant-numeric:tabular-nums; }
+.admin-partner-v2-messages small { margin-top:.18rem; font-size:.68rem; }
+.admin-partner-v2-empty { padding:1rem .5rem; font-size:.88rem; color:var(--admin-ui-muted,#607568); }
+.admin-partner-v2-legacy { margin-top:.65rem; color:var(--admin-ui-muted,#607568); font-size:.83rem; }
+.admin-partner-v2-legacy details { padding:.4rem .65rem; }
+.admin-partner-v2-legacy summary { width:max-content; max-width:100%; cursor:pointer; font-weight:750; color:#245d47; }
+.admin-partner-v2-legacy p { margin:.6rem 0; }
+.admin-partner-v2-legacy .admin-partner-pending { margin-top:.6rem; }
+@media (max-width:1100px) {
+  .admin-partner-v2-columns,
+  .admin-partner-table.admin-partner-v2-table article {
+    grid-template-columns:minmax(125px,1.1fr) minmax(155px,1.3fr) repeat(3,minmax(63px,.6fr)) minmax(91px,.7fr);
+    gap:.45rem;
+  }
+  .admin-partner-v2-filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:760px) {
+  .admin-partner-v2-heading { flex-direction:column; gap:.45rem; }
+  .admin-partner-search.admin-partner-v2-search { grid-template-columns:minmax(0,1fr) auto; }
+  .admin-partner-v2-search > label { grid-column:1 / -1; }
+  .admin-partner-v2-search > button { grid-column:1 / -1; grid-row:3; width:100%; }
+  .admin-partner-v2-filters { grid-row:2; }
+  .admin-partner-v2-columns { display:none; }
+  .admin-partner-table.admin-partner-v2-table article { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Partner"],
+  .admin-partner-table.admin-partner-v2-table article > [data-label="E-mail"],
+  .admin-partner-table.admin-partner-v2-table article > a { grid-column:1 / -1; }
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Žiadosti"],
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Profily"],
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Správy"] { display:flex; align-items:center; gap:.4rem; }
+  .admin-partner-table.admin-partner-v2-table article > [data-label]:not([data-label="Partner"])::before {
+    content:attr(data-label); color:var(--admin-ui-muted,#607568); font-size:.75rem; font-weight:700;
+  }
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Správy"] { grid-column:1 / -1; }
+  .admin-partner-v2-messages small { display:inline; margin:0; }
+  .admin-partner-v2-filter-grid { grid-template-columns:minmax(0,1fr); }
+}
