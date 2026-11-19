@@ -1,5 +1,6 @@
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
+import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { readDirectory0170EditorialFields } from "./directory-0170-editorial-read";
 import { env } from "cloudflare:workers";
 import {
@@ -1949,6 +1950,15 @@ export async function createManagedDirectoryProfile(
   const canonical = buildManagedDirectoryProfileCreateStatement(
     database, input, editorEmail, now,
   );
+  // Keep 0173 SEO and qualifications in the same transaction as the INSERT.
+  // Canonical (category,slug) is unique and the updated-at/actor guard binds
+  // the SQL companions to this exact newly created profile.
+  const editorialMirror = planDirectory0173EditorialSqlMirror({
+    identity: { kind: "category-slug", category: input.category, slug: input.slug,
+      updatedAt: now, actor: editorEmail },
+    qualifications: input.qualifications,
+    seo: input.seo,
+  });
   let row: DirectoryProfileRow | null;
   if (sqlCategoryCreate) {
     const mirror = planDirectorySecondaryCategoryCreateSqlMirror({
@@ -1958,10 +1968,15 @@ export async function createManagedDirectoryProfile(
     const responses = await database.batch([
       canonical,
       ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+      ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
     ]);
     row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   } else {
-    row = await canonical.first<DirectoryProfileRow>();
+    const responses = await database.batch([
+      canonical,
+      ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+    ]);
+    row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   }
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
   await ensureResourceForDirectoryProfile(row.id, database, new Date(now));
@@ -2101,22 +2116,36 @@ export async function updateManagedDirectoryProfile(
     guard,
     payload.additionalCategories !== undefined,
   );
+  // The exact same guarded canonical update is called by Admin and Notion.
+  // Mirror only explicitly provided fields, never infer an empty edit.
+  const editorialMirror = planDirectory0173EditorialSqlMirror({
+    identity: { kind: "id", profileId: id, updatedAt: now, actor: editorEmail },
+    ...(payload.qualifications !== undefined ? {
+      qualifications: normalizeManagedDirectoryProfileInput(payload, existing.importData, {
+        currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
+        legacyAddress: existing.address,
+      }).qualifications,
+    } : {}),
+    ...(payload.seo !== undefined ? { seo: payload.seo } : {}),
+  });
   let row: DirectoryProfileRow | null;
-  if (payload.additionalCategories !== undefined) {
+  if (payload.additionalCategories !== undefined || editorialMirror.length > 0) {
     // Owner-submitted category changes mirror JSON and 0170 SQL in the SAME
     // D1 transaction. An omitted field must never clear SQL membership.
     // The initial UPDATE is the authority/CAS and the planner fails closed
     // if it affected no row. This does NOT switch public/Notion reads yet.
-    const mirror = planDirectorySecondaryCategorySqlMirror({
-      profileId: id,
-      primaryCategory: payload.category ?? existing.category,
-      submitted: payload.additionalCategories,
-      updatedAt: now,
-      actor: editorEmail,
-    });
+    const mirror = payload.additionalCategories === undefined ? [] :
+      planDirectorySecondaryCategorySqlMirror({
+        profileId: id,
+        primaryCategory: payload.category ?? existing.category,
+        submitted: payload.additionalCategories,
+        updatedAt: now,
+        actor: editorEmail,
+      });
     const responses = await database.batch([
       canonicalStatement,
       ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+      ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
     ]);
     row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   } else {
