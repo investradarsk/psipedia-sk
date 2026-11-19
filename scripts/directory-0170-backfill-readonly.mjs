@@ -291,6 +291,26 @@ function select(sql) {
   must(batches.length > 0 && batches.every(x => x?.success !== false && Array.isArray(x?.results)), "REMOTE_SELECT_FAILED");
   return batches.flatMap(x => x.results);
 }
+const RELATION_SNAPSHOT = Object.freeze([
+  ["directory_profile_additional_categories", "category", "updated_at"],
+  ["directory_profile_public_facts", "value_text", "updated_at"],
+  ["directory_profile_filter_values", "value_text", "updated_at"],
+  ["service_profile_option_choices", "choice", "updated_at"],
+  ["directory_service_notion_relation_sync", "confirmed_ids_json", "synced_at"],
+]);
+function relationalSnapshot() {
+  // Aggregate fingerprints are SELECT-only and contain no personal values.
+  // A concurrent Services V3 choice edit need not touch profile.updated_at:
+  // checking only directory_profiles would give a misleading stable scan.
+  return Object.fromEntries(RELATION_SNAPSHOT.map(([table, value, timestamp]) => {
+    const rows = select("SELECT COUNT(*) AS records," +
+      "COALESCE(SUM(length(" + value + ")),0) AS chars," +
+      "COALESCE(MAX(" + timestamp + "),'') AS latest FROM " + table);
+    must(rows.length === 1 && Number.isSafeInteger(Number(rows[0].records)) &&
+      Number.isSafeInteger(Number(rows[0].chars)),"RELATION_SNAPSHOT_INVALID");
+    return [table, rows[0]];
+  }));
+}
 function state() {
   const tables = select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('directory_profiles','directory_notion_sync','directory_profile_additional_categories','directory_profile_public_facts','directory_profile_filter_values','service_profile_option_choices','directory_service_notion_relation_sync')");
   must(tables.length === 7, "MISSING_SCHEMA");
@@ -298,7 +318,7 @@ function state() {
   must(columns.length === 6,"MISSING_COLUMNS");
   const row = select("SELECT COUNT(*) AS profiles,COALESCE(MAX(id),0) AS max_id,COALESCE(SUM(id),0) AS id_sum,COALESCE(SUM(length(source_data_json)),0) AS json_chars,COALESCE(MAX(updated_at),'') AS latest_update FROM directory_profiles")[0];
   must(row && Object.values({profiles:row.profiles,max_id:row.max_id,id_sum:row.id_sum,json_chars:row.json_chars}).every(x=>Number.isSafeInteger(Number(x))),"INVALID_BASELINE");
-  return row;
+  return { ...row, relations:relationalSnapshot() };
 }
 const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_json,p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,"+
   "(SELECT json_group_array(category) FROM directory_profile_additional_categories WHERE profile_id=p.id) AS sql_categories,"+
@@ -343,12 +363,14 @@ function run() {
   const after=state();
   const keys=["profiles","max_id","id_sum","json_chars","latest_update"];
   const stable=keys.every(k=>String(before[k])===String(after[k])) &&
+    JSON.stringify(before.relations)===JSON.stringify(after.relations) &&
     scanned===Number(before.profiles) && cursor===Number(before.max_id);
   const report={
     phase:"READ_ONLY_BACKFILL_AUDIT", database:DATABASE, sourceCommit:process.env.GITHUB_SHA,
     readOnly:true, rawValuesIncluded:false, notionLiveVerified:false,
     perFieldLastWriteWinnerVerified:false, transferApproved:false,
     snapshot:"best_effort_live_keyset_scan", stableAggregates:stable,
+    v3AndRelationalSnapshotStable:JSON.stringify(before.relations)===JSON.stringify(after.relations),
     scanned, baselineProfiles:Number(before.profiles), endProfiles:Number(after.profiles),
     byCategory,issues,issuesByCategory,sampleProfileIds,
     v3CanonicalSqlAudited:true, additionalCategoryEmptyConfirmedSeparately:true,
