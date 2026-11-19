@@ -927,7 +927,10 @@ export function buildDirectoryApplyStatement(
   }
   const contactTouched = ["websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"]
     .some((key) => key in patch);
-  if (Object.keys(filterUpdates).length || contactTouched || "galleryUrls" in patch || "openingHours" in patch || "additionalCategories" in patch) {
+  if (directGuard && "websiteUrl" in patch) add("website_url", patch.websiteUrl || null);
+  // Partner direct edits write contacts to 0170 SQL only. Legacy source JSON is
+  // kept for unrelated import metadata but must never become a new authority.
+  if (Object.keys(filterUpdates).length || (!directGuard && contactTouched) || "galleryUrls" in patch || "openingHours" in patch || "additionalCategories" in patch) {
     // Start from the exact stored JSON, never the public/contact projection:
     // imported metadata may contain objects and keys not exposed by Partner.
     let preserved = canonical.sourceDataJson ?? "{}";
@@ -959,7 +962,7 @@ export function buildDirectoryApplyStatement(
       // Otherwise a subsequent legacy import could resurrect old hours.
       source["Ordinačné hodiny"] = String(patch.openingHours ?? "").trim();
     }
-    if (contactTouched) {
+    if (contactTouched && !directGuard) {
       const currentRow = canonical.values;
       source = mergeDirectoryPublicContactData(source, {
         publicPhone: "publicPhone" in patch ? String(patch.publicPhone ?? "") : String(currentRow.publicPhone ?? ""),
