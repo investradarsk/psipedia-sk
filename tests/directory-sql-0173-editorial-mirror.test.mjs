@@ -243,13 +243,16 @@ test("Approved partner direct edits also mirror exact 0173 free-text hours under
  const source=readFileSync(new URL("../lib/partner-direct-profile.ts",import.meta.url),"utf8");
  assert.match(source,/planDirectory0173EditorialSqlMirror/);
  assert.match(source,/Object\.hasOwn\(effectivePatch,"openingHours"\)/);
- assert.match(source,/if\(plans\.length \|\| hoursEdited\)/);
+ assert.match(source,/Object\.hasOwn\(effectivePatch,"galleryUrls"\)/);
+ assert.match(source,/planDirectory0173EditorialSqlMirror/);
+ assert.match(source,/if\(plans\.length \|\| editorialMirror\.length\)/);
  assert.match(source,/const guard=plans\.length\?plans\[0\]\[0\]:\{/);
  assert.match(source,/statements\.push\(database\.prepare\(guard\.sql\)\.bind/);
  assert.match(source,/openingHoursText:String\(effectivePatch\.openingHours\?\?""\)/);
- assert.match(source,/for\(const item of hours\)/);
+ assert.match(source,/galleryUrls:effectivePatch\.galleryUrls as readonly string\[\]/);
+ assert.match(source,/for\(const item of editorialMirror\)/);
  const first=source.indexOf("statements.push(database.prepare(guard.sql)");
- const second=source.indexOf("for(const item of hours)");
+ const second=source.indexOf("for(const item of editorialMirror)");
  assert.ok(first>0 && second>first,"CAS must precede 0173 mutation");
  const db=fixture();
  try{
@@ -270,6 +273,37 @@ test("Approved partner direct edits also mirror exact 0173 free-text hours under
   // Explicit empty edit is a deletion; never restore old Admin or Notion text.
   apply(db,{identity:{...identity,updatedAt:"T2",actor:"partner:owner-1"},openingHoursText:""});
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_opening_hours WHERE profile_id=1").get().n,0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_opening_hours WHERE profile_id=2").get().n,0);
+ }finally{db.close();}
+});
+
+test("Partner direct gallery and hours project together, including explicit [] clears",()=>{
+ const db=fixture();
+ try{
+  const identity={kind:"id",profileId:1,updatedAt:"T1",actor:"admin"};
+  apply(db,{identity,galleryUrls:["/media/directory/a.webp"],openingHoursText:"Po–Pi 8:00"});
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_media WHERE profile_id=1").get().n,1);
+  db.prepare("UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=1")
+    .run("T2","partner:owner-1");
+  const partnerIdentity={...identity,updatedAt:"T2",actor:"partner:owner-1"};
+  apply(db,{identity:partnerIdentity,galleryUrls:[
+    "/media/directory/new.webp","/media/directory/another.webp",
+  ],openingHoursText:"Po–Pi na objednávku"});
+  assert.deepEqual(db.prepare("SELECT image_url FROM directory_profile_media WHERE profile_id=1 ORDER BY item_order").all().map(x=>x.image_url),[
+    "/media/directory/new.webp","/media/directory/another.webp",
+  ]);
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=1").get().hours_text,"Po–Pi na objednávku");
+  // Partner edits unrelated fields; gallery and hours remain unchanged.
+  apply(db,{identity:partnerIdentity,qualifications:["New certificate"]});
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_media WHERE profile_id=1").get().n,2);
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=1").get().hours_text,"Po–Pi na objednávku");
+  // Explicit gallery clear does not clear hours.
+  apply(db,{identity:partnerIdentity,galleryUrls:[]});
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_media WHERE profile_id=1").get().n,0);
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=1").get().hours_text,"Po–Pi na objednávku");
+  // Neither other profile nor a stale write may gain/lose media.
+  apply(db,{identity:{...partnerIdentity,updatedAt:"stale"},galleryUrls:["/media/directory/stale.webp"]});
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_media").get().n,0);
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_opening_hours WHERE profile_id=2").get().n,0);
  }finally{db.close();}
 });
