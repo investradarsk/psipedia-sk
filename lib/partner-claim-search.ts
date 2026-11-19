@@ -41,7 +41,7 @@ export async function searchPartnerClaimableRecords(input: {
   if (isPartnerHelpType(input.entityType)) return searchPartnerHelpRecords(input.entityType,input.query,input.database);
   const query = input.query.trim().replace(/\s+/g, " ").slice(0, 80);
   if (query.length < 2) return [];
-  const pattern = \`%\${query.replace(/[\\%_]/g, "\\$&")}%\`;
+  const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
   const type=input.entityType as keyof typeof typeSpecs;
   const rows = (await getPartnerDatabase(input.database).prepare(typeSpecs[type].sql)
     .bind(pattern).all<ClaimSearchRow>()).results;
