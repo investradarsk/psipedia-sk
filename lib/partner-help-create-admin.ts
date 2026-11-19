@@ -270,7 +270,7 @@ export async function linkPartnerHelpCreateAdmin(input:{
       requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(["LINK_EXISTING"]),
       now:nowIso,transitionGuard:{
         sql:`EXISTS(SELECT 1 FROM partner_accounts WHERE id=? AND status='ACTIVE')
-          AND EXISTS(SELECT 1 FROM ${spec.table} WHERE id=?)
+          AND EXISTS(SELECT 1 FROM ${spec.table} WHERE id=? AND status NOT IN ('ARCHIVED','archived','REJECTED'))
           AND ${alreadyManaged
             ? `EXISTS(SELECT 1 FROM partner_help_claims WHERE ${spec.column}=? AND status='APPROVED' AND account_id=?)`
             : ownerGuard}`,
