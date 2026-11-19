@@ -39,7 +39,7 @@ test("public-only states exclude drafts and respect canonical breed winners", ()
   assert.match(service, /p\.status='published'/);
   assert.match(service, /o\.status='PUBLISHED' AND o\.published_at IS NOT NULL AND o\.archived_at IS NULL/);
   assert.match(service, /d\.status IN \('ACTIVE','RESERVED'\)/);
-  assert.match(service, /h\.status='published' AND h\.category NOT IN \('adopcia','utulky'\)/);
+  assert.match(service, /h\.status='published' AND h\.category NOT IN \('adopcia','utulky','stratene-a-najdene'\)/);
   assert.match(service, /r\.published_at IS NOT NULL AND r\.duplicate_of_id IS NULL/);
   assert.match(service, /r\.status IN \('ACTIVE','RESOLVED','EXPIRED','ARCHIVED'\)/);
   assert.match(service, /e\.status='published'/);
