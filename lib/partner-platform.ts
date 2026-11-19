@@ -5,7 +5,7 @@ export const partnerResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "
 export type PartnerResourceType = (typeof partnerResourceTypes)[number];
 export const partnerRoles = ["OWNER", "MANAGER", "EDITOR"] as const;
 export type PartnerRole = (typeof partnerRoles)[number];
-export const partnerPermissions = ["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE", "EVENT_SUBMIT", "COMMERCIAL_INTEREST_CREATE", "MEMBERSHIP_MANAGE"] as const;
+export const partnerPermissions = ["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE", "EVENT_SUBMIT", "COMMERCIAL_INTEREST_CREATE", "MEMBERSHIP_MANAGE", "HELP_EDIT_PUBLIC"] as const;
 export type PartnerPermission = (typeof partnerPermissions)[number];
 
 export const ROLE_PERMISSIONS: Record<PartnerRole, ReadonlySet<PartnerPermission>> = {
@@ -60,7 +60,7 @@ export function partnerRoleHasPermission(role: PartnerRole, permission: PartnerP
 
 export async function requirePartnerPermission(accountId: string, resourceId: string, permission: PartnerPermission, database?: D1Database) {
   const membership = await requirePartnerMembership(accountId, resourceId, database);
-  if (parseHelpResourceId(resourceId) && !["RESOURCE_VIEW","MEMBERSHIP_VIEW"].includes(permission)) throw new PartnerAuthorizationError("Editor a komerčné nastavenia Pomoci psom ešte nie sú sprístupnené.",403);
+  if (parseHelpResourceId(resourceId) && !["RESOURCE_VIEW","MEMBERSHIP_VIEW","HELP_EDIT_PUBLIC"].includes(permission)) throw new PartnerAuthorizationError("Táto operácia nie je povolená pri záznamoch Pomoci psom.",403);
   if (!ROLE_PERMISSIONS[membership.role].has(permission)) throw new PartnerAuthorizationError();
   return membership;
 }
