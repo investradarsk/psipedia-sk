@@ -3,24 +3,25 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path) => readFile(new URL("../"+path,import.meta.url), "utf8");
-const [domain,createApi,withdrawApi,form,page,requests,dashboard,admin,attention,adminHome,documentation] = await Promise.all([
+const [domain,createApi,withdrawApi,form,page,requests,dashboard,admin,attention,adminHome,documentation,formFields] = await Promise.all([
   "lib/partner-help-create.ts","app/api/partner/help-submissions/route.ts",
   "app/api/partner/help-submissions/[id]/route.ts","components/partner-help-create-form.tsx",
   "app/partner/pomoc/nova/page.tsx","app/partner/ziadosti/page.tsx",
   "app/partner/page.tsx","app/admin/partners/help-submissions/page.tsx",
   "lib/partner-attention.ts","app/admin/partners/page.tsx",
-  "docs/PARTNER-SELF-SERVICE-STEP4.md",
+  "docs/PARTNER-SELF-SERVICE-STEP4.md","lib/partner-help-create-form-fields.ts",
 ].map(read));
 
 test("Step 4 covers exactly the three canonical Help areas and all four case categories",()=>{
   for(const type of ["ADOPTION_DOG","LOST_FOUND_DOG","HELP_CASE"]) {
     assert.match(domain,new RegExp(type));
-    assert.match(form,new RegExp(type));
+    assert.match(formFields,new RegExp(type));
   }
   for(const category of ["docasna-opatera","zbierky","dobrovolnictvo","urgentne-pripady"]) {
     assert.ok(domain.includes(category));
-    assert.ok(form.includes(category));
+    assert.ok(formFields.includes(category));
   }
+  assert.match(form,/from "@\/lib\/partner-help-create-form-fields"/);
   assert.match(domain,/normalizePartnerHelpCreate/);
   assert.match(domain,/reject|illegal/);
   assert.match(domain,/published|Publikáciu/);
