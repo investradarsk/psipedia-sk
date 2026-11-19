@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {DatabaseSync} from "node:sqlite";
 import {
+  omitDirectorySqlContactAliases,
+  omitDirectorySqlNotionScalarAliases,
+  DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS,
+} from "../lib/directory-profile-metadata.ts";
+import {
   DIRECTORY_SQL_NOTION_SCALAR_COLUMNS,
   DIRECTORY_SQL_NOTION_SCALAR_LABELS,
   directoryScalarCleanupCountSql,
@@ -149,4 +154,24 @@ test("aggregate report counts only, no names, descriptions or addresses",()=>{
     assert.throws(()=>directoryScalarCleanupSummary([{category:"veterinari",profiles:1}]),
       /INVALID_REPORT/);
   }finally{f.db.close();}
+});
+
+test("normal Admin SQL contact writes also strip the 12 old scalar keys",()=>{
+  const old=Object.fromEntries(
+    DIRECTORY_SQL_NOTION_SCALAR_COLUMNS.map(c=>
+      [DIRECTORY_SQL_NOTION_SCALAR_LABELS[c],"old"]
+    )
+  );
+  const source={...old, "Služby":"active", _psipedia_profile_review_reviewed_at:"today"};
+  assert.deepEqual([...DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS].sort(),
+    Object.values(DIRECTORY_SQL_NOTION_SCALAR_LABELS).sort());
+  const direct=omitDirectorySqlNotionScalarAliases(source);
+  const saved=omitDirectorySqlContactAliases(source,{publicPhone:"+421 555"});
+  for(const result of [direct,saved]){
+    for(const key of DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS)
+      assert(!Object.hasOwn(result,key));
+    assert.equal(result["Služby"],"active");
+    assert.equal(result._psipedia_profile_review_reviewed_at,"today");
+  }
+  assert.equal(source["Popis"],"old");
 });
