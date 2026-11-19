@@ -13,6 +13,9 @@ const typeChoices: Array<{ value: PartnerClaimableResourceType; label: string }>
   { value: "DIRECTORY_PROFILE", label: "Služby pre psov" },
   { value: "HELP_ORGANIZATION", label: "Organizácie – Pomoc psom" },
   { value: "MANAGED_EVENT", label: "Podujatia" },
+  { value: "ADOPTION_DOG", label: "Adopcie" },
+  { value: "LOST_FOUND_DOG", label: "Stratené a nájdené psy" },
+  { value: "HELP_CASE", label: "Ostatná pomoc psom" },
 ];
 
 type Search = { type?: string | string[]; q?: string | string[] };
