@@ -1087,28 +1087,32 @@ export async function PATCH(request: Request, { params }: Props) {
       if (typeof body.reviewed !== "boolean") {
         return Response.json({ error: "Stav kontroly musí byť true alebo false." }, { status: 400 });
       }
-      const profile = await setManagedDirectoryProfileReviewed(id, body.reviewed, user.email);
+      const database = (env as unknown as { DB?: D1Database }).DB;
+      if (!database) {
+        return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+      }
+      // The Admin checkbox is authoritative. Saving an explicit uncheck
+      // releases even an older failed unlock; do not require a whole-profile
+      // D1 -> Notion echo/hash before opening normal per-field sync.
+      const profile = await setManagedDirectoryProfileReviewed(
+        id, body.reviewed, user.email, new Date(), database,
+      );
       if (!profile) {
         return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
       }
 
-      // The D1 edit immediately freezes mapped editorial and relation sync,
-      // even if the isolated Notion checkbox reflection is still pending.
       let notionReviewSync: DirectoryReviewSyncResult | "pending" = "disabled";
-      const database = (env as unknown as { DB?: D1Database }).DB;
-      if (database) {
-        try {
-          notionReviewSync = await syncDirectoryReviewedWithNotion({
-            database, bindings: env as Parameters<typeof syncDirectoryReviewedWithNotion>[0]["bindings"],
-            profileId: id,
-          });
-        } catch (error) {
-          notionReviewSync = "pending";
-          console.warn("DIRECTORY_REVIEW_NOTION_WRITEBACK_PENDING", id,
-            error instanceof Error ? error.message : String(error));
-        }
-      } else {
+      try {
+        // Mirror ONLY the checkbox. A Notion outage cannot re-lock D1.
+        notionReviewSync = await syncDirectoryReviewedWithNotion({
+          database,
+          bindings: env as Parameters<typeof syncDirectoryReviewedWithNotion>[0]["bindings"],
+          profileId: id,
+        });
+      } catch (error) {
         notionReviewSync = "pending";
+        console.warn("DIRECTORY_REVIEW_NOTION_WRITEBACK_PENDING", id,
+          error instanceof Error ? error.message : String(error));
       }
       return Response.json({ profile, notionReviewSync });
     }

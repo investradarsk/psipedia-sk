@@ -2265,6 +2265,10 @@ export async function setManagedDirectoryProfileReviewed(
     editorEmail,
     now.toISOString(),
   );
+  // An explicit owner checkbox action always updates the D1 review lock.
+  // A previous failed Notion full-profile echo must not keep it locked.
+  // No editorial/profile field changes as part of this action.
+  delete sourceData["_psipedia_profile_review_unlock_pending"];
   // The owner reviewed the displayed contact values. On that explicit action,
   // adopt ONLY still-NULL SQL contact slots; an earlier SQL clear ('') wins.
   // No bulk backfill or automatic promotion on ordinary Notion/Admin reads.

@@ -5,14 +5,29 @@
  */
 import { readDirectoryProfileReviewMetadata } from "./directory-profile-metadata.ts";
 
-export function isDirectoryReviewedSourceLocked(sourceJson: string): boolean {
+export const DIRECTORY_REVIEW_UNLOCK_PENDING_KEY = "_psipedia_profile_review_unlock_pending";
+
+function reviewSource(sourceJson: string): Record<string, string | number | null> {
   let value: unknown;
   try { value = JSON.parse(sourceJson); }
   catch { throw new Error("DIRECTORY_REVIEW_LOCK_INVALID_JSON"); }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("DIRECTORY_REVIEW_LOCK_INVALID_JSON");
   }
-  return readDirectoryProfileReviewMetadata(value as Record<string, string | number | null>).reviewed;
+  return value as Record<string, string | number | null>;
+}
+
+/** A pending owner unlock must block ordinary Notion sync until D1 wins again. */
+export function isDirectoryReviewUnlockPendingSource(sourceJson: string): boolean {
+  const source = reviewSource(sourceJson);
+  return !readDirectoryProfileReviewMetadata(source).reviewed &&
+    source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY] === "1";
+}
+
+export function isDirectoryReviewedSourceLocked(sourceJson: string): boolean {
+  const source = reviewSource(sourceJson);
+  return readDirectoryProfileReviewMetadata(source).reviewed ||
+    source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY] === "1";
 }
 
 export async function directoryProfileNotionSyncLocked(

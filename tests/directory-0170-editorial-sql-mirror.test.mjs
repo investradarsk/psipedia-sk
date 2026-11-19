@@ -3,8 +3,8 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import {
-  approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror,
-  planDirectory0170FilterSqlMirror,
+  approvedDirectoryFactSqlSlot, directoryNotionFacetRequiresSqlMirror,
+  planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror,
 } from "../lib/directory-0170-editorial-sql-mirror.ts";
 import { directoryFilterRegistry } from "../lib/directory-filter-contract.ts";
 
@@ -138,6 +138,66 @@ test("invalid values and prohibited fields fail before preparing writes",()=>{
     assert.throws(()=>planDirectory0170FilterSqlMirror({...base,values}));
   }
   assert.throws(()=>planDirectory0170FactSqlMirror({...base,field:"Hospitalizácia",value:null}),/INVALID_VALUE/);
+});
+
+
+test("signed Notion filter events repair stale SQL, even when legacy JSON already matches", () => {
+  const f=fixture();
+  try {
+    const id="veterinari.facility_type";
+    const key="_psipedia_filter_v1_veterinari_facility_type";
+    const source={ [key]:"clinic", "Zdroj dát":"untouched" };
+    f.db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=1")
+      .run(JSON.stringify(source));
+    f.db.prepare("INSERT INTO directory_profile_filter_values VALUES (?,?,?,?,?,?)")
+      .run(1,"veterinari",id,"hospital",before,"admin");
+    assert.equal(directoryNotionFacetRequiresSqlMirror({
+      source,key,sqlValue:"hospital",selected:"clinic",
+    }),true);
+    assert.equal(directoryNotionFacetRequiresSqlMirror({
+      source,key,sqlValue:"clinic",selected:"clinic",
+    }),false);
+    assert.equal(directoryNotionFacetRequiresSqlMirror({
+      source,key,sqlValue:null,selected:"clinic",
+    }),true,"Notion's explicit change establishes SQL authority");
+    const plan=planDirectory0170FilterSqlMirror({
+      profileId:1,category:"veterinari",values:{[id]:"clinic"},updatedAt:after,actor:"admin",
+    });
+    f.run("veterinari",plan);
+    assert.equal(f.filter(1,id),"clinic");
+
+    // The mirror must also delete a stale SQL row after an explicit clear
+    // even when historic JSON already lacks the selected filter key.
+    f.db.prepare("UPDATE directory_profiles SET source_data_json=?,updated_at=? WHERE id=1")
+      .run(JSON.stringify({"Zdroj dát":"untouched"}),before);
+    const cleared={"Zdroj dát":"untouched"};
+    assert.equal(directoryNotionFacetRequiresSqlMirror({
+      source:cleared,key,sqlValue:"clinic",selected:null,
+    }),true);
+    assert.equal(directoryNotionFacetRequiresSqlMirror({
+      source:cleared,key,sqlValue:null,selected:null,
+    }),false);
+    assert.equal(directoryNotionFacetRequiresSqlMirror({
+      source,key,sqlValue:null,selected:null,
+    }),true);
+    const clear=planDirectory0170FilterSqlMirror({
+      profileId:1,category:"veterinari",values:{[id]:null},updatedAt:after,actor:"admin",
+    });
+    f.run("veterinari",clear);
+    assert.equal(f.filter(1,id),undefined);
+    assert.equal(JSON.parse(f.db.prepare(
+      "SELECT source_data_json FROM directory_profiles WHERE id=1",
+    ).get().source_data_json)["Zdroj dát"],"untouched");
+    assert.equal(f.filter(2,id),undefined,"other profiles unchanged");
+  } finally {f.db.close();}
+});
+
+test("signed Notion event compares both stored projections before skipping SQL",()=>{
+  const source=readFileSync(new URL("../lib/notion-directory-sync.ts",import.meta.url),"utf8");
+  assert.match(source,/AS sql_filter_value/);
+  assert.match(source,/directoryNotionFacetRequiresSqlMirror\(\{/);
+  assert.match(source,/sqlValue: row\.sql_filter_value/);
+  assert.doesNotMatch(source,/if \(source\[def\.d1\.key\] === normalized!\.value\) continue;/);
 });
 
 test("both Admin and Notion writers batch SQL mirror with canonical update",()=>{

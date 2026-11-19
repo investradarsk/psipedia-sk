@@ -868,11 +868,23 @@ export function AdminDirectoryEditor({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "set-reviewed", reviewed: nextReviewed }),
       });
-      const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
+      const data = await response.json() as {
+        profile?: ManagedDirectoryProfile;
+        notionReviewSync?: string;
+        error?: string;
+      };
       if (!response.ok || !data.profile) throw new Error(data.error || "Stav kontroly sa nepodarilo uložiť.");
       setReviewed(Boolean(data.profile.reviewed));
       setReviewedAt(data.profile.reviewedAt ?? "");
-      setMessage(data.profile.reviewed ? "Profil je označený ako odkontrolovaný." : "Označenie kontroly bolo zrušené.");
+      setMessage(
+        data.notionReviewSync === "pending"
+          ? data.profile.reviewed
+            ? "Profil je v D1 uzamknutý. Prenos checkboxu do Notionu čaká na potvrdenie."
+            : "Kontrola je v Admine zrušená. Notion zostáva zablokovaný, kým sa nepotvrdí obnova údajov z D1."
+          : data.profile.reviewed
+            ? "Profil je odkontrolovaný a synchronizácia s Notionom je vypnutá."
+            : "Kontrola bola zrušená a synchronizácia s Notionom je opäť povolená.",
+      );
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : "Stav kontroly sa nepodarilo uložiť.");
     } finally {

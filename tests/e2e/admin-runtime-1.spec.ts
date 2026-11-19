@@ -68,7 +68,9 @@ test("representative existing directory detail loads from isolated fixture", asy
   const detail = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true }).first();
   await expect(detail).toBeVisible();
   const detailHref = await detail.getAttribute("href");
-  expect(detailHref).toMatch(/^\/admin\/adresar\/\d+$/);
+  // Search results intentionally preserve returnTo so the editor can return
+  // to the same filtered Admin list. Validate the route, not the query string.
+  expect(new URL(detailHref!, "http://localhost").pathname).toMatch(/^\/admin\/adresar\/\d+$/);
 
   const detailResponse = await page.goto(detailHref!, { waitUntil: "domcontentloaded" });
   expect(detailResponse).not.toBeNull();
