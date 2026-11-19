@@ -86,6 +86,17 @@ test("claim approval upgrades or creates audited OWNER membership without destru
   assert.match(claimAdminApi,/REJECT/);
 });
 
+test("0171 claim approval refuses a competing active OWNER before any new membership",async()=>{
+  const membershipStore=await read("lib/partner-admin-store.ts");
+  const owner=membershipStore.slice(membershipStore.indexOf("export async function ensurePartnerOwnerMembershipAdmin"));
+  const guard=owner.indexOf("await assertSingleActivePartnerManager({");
+  const insert=owner.indexOf("INSERT INTO partner_memberships");
+  assert.ok(guard>=0 && insert>guard,"ownership conflict guard must precede insert");
+  assert.match(owner,/account\.status!=="ACTIVE"/);
+  assert.match(claimAdminApi,/PartnerSingleManagerConflictError/);
+  assert.match(claimAdminApi,/isPartnerSingleManagerConstraintError\(error\) \? 409/);
+});
+
 test("ownership-sensitive approvals block a deterministically mapped admin from approving their own Partner request",()=>{
   assert.match(ownershipGuard,/hashPii\(normalizeEmail\(input\.adminEmail\), hashKey\)/);
   assert.match(ownershipGuard,/WHERE a\.email_hash=\?1/);
