@@ -73,7 +73,16 @@ test("server page, status/verification filters and stable order work without sea
     assert.equal(searched.total,108);
     assert.equal(searched.items.length,50);
     assert.ok(searched.items.every(x=>x.status==="SUSPENDED"&&x.emailVerifiedAt));
-    assert.deepEqual(normalizePartnerAccountAdminFilters({page:-5,pageSize:10000,status:"INJECT"}),{q:"",page:1,pageSize:100,status:"",verified:""});
+    const linked=await listPartnerAccountsAdmin({access:"LINKED",database,encryptionKey:key});
+    const unlinked=await listPartnerAccountsAdmin({access:"UNLINKED",database,encryptionKey:key});
+    assert.equal(linked.total,1);
+    assert.equal(linked.items[0].id,"partner-0007");
+    assert.equal(unlinked.total,324);
+    assert.equal(unlinked.items.some(item=>item.id==="partner-0007"),false);
+    const linkedSuspended=await listPartnerAccountsAdmin({status:"SUSPENDED",access:"LINKED",database,encryptionKey:key});
+    assert.equal(linkedSuspended.total,1);
+    assert.equal(normalizePartnerAccountAdminFilters({access:"INVALID"}).access,"");
+    assert.deepEqual(normalizePartnerAccountAdminFilters({page:-5,pageSize:10000,status:"INJECT"}),{q:"",page:1,pageSize:100,status:"",verified:"",access:""});
   }finally{sql.close();}
 });
 function collector(fetcher,timeoutMs){

@@ -13,7 +13,7 @@ function validId(value:string){return /^[0-9a-f-]{20,64}$/i.test(value);}
 function auditActor(email:string){return `admin:${email.trim().toLowerCase()}`;}
 
 type AccountRow={id:string;emailCiphertext:string;status:PartnerAccountStatus;emailVerifiedAt:string|null;createdAt:string};
-type PartnerAccountAdminFilters={q?:string;page?:number;pageSize?:number;status?:string;verified?:string;database?:D1Database;encryptionKey?:string};
+type PartnerAccountAdminFilters={q?:string;page?:number;pageSize?:number;status?:string;verified?:string;access?:string;database?:D1Database;encryptionKey?:string};
 const ACCOUNT_PAGE_SIZE=25;
 const ACCOUNT_MAX_PAGE_SIZE=100;
 const ACCOUNT_SCAN_BATCH_SIZE=200;
@@ -28,6 +28,7 @@ export function normalizePartnerAccountAdminFilters(input:PartnerAccountAdminFil
     pageSize:positiveInt(input.pageSize,ACCOUNT_PAGE_SIZE,ACCOUNT_MAX_PAGE_SIZE),
     status:accountStatuses.includes(input.status as PartnerAccountStatus)?input.status as PartnerAccountStatus:"",
     verified:input.verified==="VERIFIED"||input.verified==="UNVERIFIED"?input.verified:"",
+    access:input.access==="LINKED"||input.access==="UNLINKED"?input.access:"",
   };
 }
 
@@ -40,6 +41,8 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
   if(filters.status){conditions.push("a.status=?");values.push(filters.status);}
   if(filters.verified==="VERIFIED")conditions.push("a.email_verified_at IS NOT NULL");
   if(filters.verified==="UNVERIFIED")conditions.push("a.email_verified_at IS NULL");
+  if(filters.access==="LINKED")conditions.push("EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL)");
+  if(filters.access==="UNLINKED")conditions.push("NOT EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL)");
   const where=conditions.length?" WHERE "+conditions.join(" AND "):"";
   const select="SELECT a.id,a.email_ciphertext emailCiphertext,a.status,a.email_verified_at emailVerifiedAt,a.created_at createdAt FROM partner_accounts a";
   const order=" ORDER BY a.created_at DESC,a.id DESC";
@@ -103,8 +106,11 @@ export async function getPartnerAdminSummary(database?:D1Database){
   const row=await db(database).prepare(`SELECT COUNT(*) accounts,
     SUM(status='ACTIVE') active,SUM(status='SUSPENDED') suspended,SUM(status='DEACTIVATED') deactivated,
     (SELECT COUNT(*) FROM partner_resources) resources,
-    (SELECT COUNT(*) FROM partner_memberships WHERE revoked_at IS NULL) activeMemberships FROM partner_accounts`).first<Record<string,number>>();
-  return {accounts:Number(row?.accounts??0),active:Number(row?.active??0),suspended:Number(row?.suspended??0),deactivated:Number(row?.deactivated??0),resources:Number(row?.resources??0),activeMemberships:Number(row?.activeMemberships??0)};
+    (SELECT COUNT(*) FROM partner_memberships WHERE revoked_at IS NULL) activeMemberships,
+    (SELECT COUNT(DISTINCT m.account_id) FROM partner_memberships m JOIN partner_accounts p ON p.id=m.account_id WHERE m.revoked_at IS NULL AND p.status='ACTIVE') activeAccountsWithAccess,
+    (SELECT COUNT(*) FROM partner_accounts p WHERE p.status='ACTIVE' AND NOT EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=p.id AND m.revoked_at IS NULL)) activeAccountsWithoutAccess
+    FROM partner_accounts`).first<Record<string,number>>();
+  return {accounts:Number(row?.accounts??0),active:Number(row?.active??0),suspended:Number(row?.suspended??0),deactivated:Number(row?.deactivated??0),resources:Number(row?.resources??0),activeMemberships:Number(row?.activeMemberships??0),activeAccountsWithAccess:Number(row?.activeAccountsWithAccess??0),activeAccountsWithoutAccess:Number(row?.activeAccountsWithoutAccess??0)};
 }
 
 export async function getPartnerAccountAdmin(id:string,input:{database?:D1Database;encryptionKey?:string}={}){

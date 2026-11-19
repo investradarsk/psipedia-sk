@@ -829,8 +829,8 @@ test("internal admin Partner overview and account detail are protected admin pag
     const directoryItems=directoryJson.items??directoryJson.profiles??[];
     expect(directoryItems.find((item)=>item.name==="Partner E2E Nová Služba")?.status).toBe("draft");
     await page.goto("/admin/partners/accounts/partner-e2e-desktop");
-    const createdMembership=page.locator("section").filter({hasText:"Membership história"}).locator("article").filter({hasText:"Partner E2E Nová Služba"});
-    await expect(createdMembership).toContainText("OWNER");
+    const createdMembership=page.locator("section").filter({hasText:"História prístupov"}).locator("article").filter({hasText:"Partner E2E Nová Služba"});
+    await expect(createdMembership).toContainText("Správca profilu");
     await page.goto("/admin/partners");
   }else{
     const newRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Organizácia"});
@@ -848,8 +848,8 @@ test("internal admin Partner overview and account detail are protected admin pag
     await linkResponse;
     await expect(page.getByText("LINKED_EXISTING")).toBeVisible();
     await page.goto("/admin/partners/accounts/partner-e2e-mobile");
-    const linkedMembership=page.locator("section").filter({hasText:"Membership história"}).locator("article").filter({hasText:"Partner E2E Organizácia"});
-    await expect(linkedMembership).toContainText("OWNER");
+    const linkedMembership=page.locator("section").filter({hasText:"História prístupov"}).locator("article").filter({hasText:"Partner E2E Organizácia"});
+    await expect(linkedMembership).toContainText("Správca profilu");
     await page.goto("/admin/partners");
   }
 

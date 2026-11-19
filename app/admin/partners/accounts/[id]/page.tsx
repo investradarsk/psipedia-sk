@@ -4,6 +4,7 @@ import { AdminPartnerAccountActions } from "@/components/admin-partner-account-a
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getPartnerAccountAdmin } from "@/lib/partner-admin-store";
 import "../../partners.css";
+import { partnerAdminStatusLabel, partnerAdminResourceLabel, partnerAdminRoleLabel } from "@/lib/admin-partner-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +35,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       user={user}
       eyebrow="Partner účet"
       title={account.email}
-      description={`${account.status} · vytvorený ${new Date(account.createdAt).toLocaleDateString("sk-SK")}`}
+      description={`${partnerAdminStatusLabel(account.status)} · vytvorený ${new Date(account.createdAt).toLocaleDateString("sk-SK")}`}
     >
+      {memberships.every(m => Boolean(m.revokedAt)) && <p className="admin-partner-explainer" role="status">Tento účet zatiaľ nemá priradený aktívny prístup k žiadnemu profilu ani podujatiu. Samotná registrácia prístup nevytvára.</p>}
       <div className="admin-partner-detail">
         <section className="admin-form-card">
           <h2>Kontakt</h2>
@@ -72,17 +74,17 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </section>
 
         <section className="admin-form-card">
-          <h2>Membership história</h2>
+          <h2>História prístupov</h2>
           {memberships.length ? memberships.map((membership) => (
             <article key={membership.id}>
               <strong>{membership.resourceName}</strong>
-              <span>{membership.entityType} · {membership.role} · {membership.revokedAt ? "odvolaná" : "aktívna"}</span>
+              <span>{partnerAdminResourceLabel(membership.entityType)} · {partnerAdminRoleLabel(membership.role)} · {membership.revokedAt ? "odvolaný prístup" : "aktívny prístup"}</span>
             </article>
-          )) : <p>Bez memberships.</p>}
+          )) : <p>Žiadny prístup zatiaľ nebol pridelený.</p>}
         </section>
 
         <section className="admin-form-card">
-          <h2>Partner audit</h2>
+          <h2>História účtu</h2>
           {audit.length ? audit.map((event) => (
             <article key={event.id}>
               <strong>{event.action}</strong>

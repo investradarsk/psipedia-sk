@@ -63,6 +63,9 @@ const catalogFacetMap = new Map(
  * Old source_data_json remains intact for history but cannot override the choice.
  */
 export function directoryPublicFacetSql(category: string, facets: DirectoryPublicFacets = {}, column = "source_data_json") {
+  // Both callers are fixed SQL read paths; never interpolate an arbitrary alias.
+  if (column !== "source_data_json" && column !== "d.source_data_json")
+    throw new Error("DIRECTORY_PUBLIC_FACET_INVALID_COLUMN");
   const clauses: string[] = [];
   const bindings: string[] = [];
   const profileIdColumn = column === "d.source_data_json" ? "d.id" : "directory_profiles.id";
@@ -79,9 +82,22 @@ export function directoryPublicFacetSql(category: string, facets: DirectoryPubli
       bindings.push(catalogId, value);
       continue;
     }
+    // Only unmapped provider facets use this legacy/0170 read-through.
+    // An explicitly edited SQL row overrides the historical JSON, including
+    // 'unknown' (which must not match any public yes/no/select request).
+    // A missing SQL row retains the original JSON for unreviewed profiles.
+    // Other 20 facets continue to read Services V3 and never consult this row.
     const path = '$."' + definition.d1.key + '"';
-    clauses.push("json_extract(CASE WHEN json_valid(" + column + ") THEN " + column + " ELSE '{}' END, '" + path + "') = ?");
-    bindings.push(value);
+    const legacyValue =
+      "json_extract(CASE WHEN json_valid(" + column + ") THEN " +
+      column + " ELSE '{}' END, '" + path + "')";
+    clauses.push(
+      "COALESCE((SELECT sql_filter.value_text FROM directory_profile_filter_values AS sql_filter " +
+      "WHERE sql_filter.profile_id = " + profileIdColumn +
+      " AND sql_filter.category = ? AND sql_filter.filter_id = ?), " +
+      legacyValue + ") = ?",
+    );
+    bindings.push(definition.category, definition.id, value);
   }
   return { clauses, bindings };
 }

@@ -5,7 +5,7 @@ import {
   directoryProfileNotionSyncLocked,
   isDirectoryReviewUnlockPendingSource,
 } from "./directory-reviewed-sync-lock";
-import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
+import { approvedDirectoryFactSqlSlot, directoryNotionFacetRequiresSqlMirror, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directorySecondaryCategoriesSqlConfirmed, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
@@ -1862,17 +1862,30 @@ async function syncBreederEvent(input: {
         continue;
       }
       try {
-        const row = await database.prepare("SELECT source_data_json, updated_at FROM directory_profiles WHERE id=? LIMIT 1")
-          .bind(current.id).first<{ source_data_json: string; updated_at: string }>();
+        // Read the SAME profile's confirmed SQL filter alongside its legacy
+        // JSON. A Notion event is no-op only when BOTH copies agree; otherwise
+        // an old SQL value could override an apparently unchanged JSON value
+        // in the public provider filter after #1440.
+        const row = await database.prepare(`
+          SELECT source_data_json,updated_at,
+            (SELECT f.value_text FROM directory_profile_filter_values f
+             WHERE f.profile_id=directory_profiles.id
+               AND f.category=? AND f.filter_id=?) AS sql_filter_value
+          FROM directory_profiles WHERE id=? LIMIT 1
+        `).bind(current.category, id, current.id).first<{
+          source_data_json: string; updated_at: string; sql_filter_value: string | null;
+        }>();
         if (!row) throw new Error("DIRECTORY_FACET_PROFILE_MISSING");
         const source = JSON.parse(row.source_data_json) as Record<string, unknown>;
+        const desired = selected ? normalized!.value : null;
+        if (!directoryNotionFacetRequiresSqlMirror({
+          source, key: def.d1.key, sqlValue: row.sql_filter_value, selected: desired,
+        })) continue;
         let merged: string;
         if (!selected) {
-          if (!Object.hasOwn(source, def.d1.key)) continue;
           delete source[def.d1.key];
           merged = JSON.stringify(source);
         } else {
-          if (source[def.d1.key] === normalized!.value) continue;
           merged = mergeDirectoryFilterValues(
             row.source_data_json, current.category as ServiceFilterCategory,
             { [id]: normalized!.value },
