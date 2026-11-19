@@ -20,9 +20,14 @@ ktorých SQL vlastník má hodnotu (vrátane zámerného SQL prázdna).
 - SQL facebook_url: JSON Facebook
 - SQL instagram_url: JSON Instagram
 
-Každá skupina sa čistí nezávisle. Pre konkrétne pole musí SQL obsahovať
-hodnotu IS NOT NULL. SQL prázdny reťazec je platné vedomé vymazanie,
-preto z neho tiež možno bezpečne odstrániť zastaraný JSON alias.
+Každá skupina sa čistí nezávisle. Pre štyri nové kontaktné stĺpce
+z migrácie 0170 platí SQL IS NOT NULL vrátane prázdneho reťazca, ktorý
+je vedomým vymazaním.
+
+Výnimka: website_url je starší SQL stĺpec. Historická prázdna hodnota
+nemusí byť vedomým vymazaním. Preto sa aliasy Web a Webstránka odstránia
+iba pri neprázdnom website_url. Prázdny SQL web s existujúcou JSON adresou
+ostane zachovaný a započíta sa do ambiguousEmptyWeb na neskoršiu kontrolu.
 
 SQL NULL znamená, že údaj zatiaľ nie je prenesený. Jeho pôvodný JSON
 zostáva zachovaný. Prvá etapa sa nedotkne archivovaných a odkontrolovaných
@@ -53,7 +58,7 @@ Najprv spustiť na main režim audit s potvrdením:
 AUDIT-DIRECTORY-CONTACT-ALIASES-psipedia-sk-db
 
 Z privátneho report.json overiť before.candidates.removable a
-počty unmigrated a protected. Produkčný audit iba číta D1.
+počty unmigrated, protected a ambiguousEmptyWeb (staré prázdne weby). Produkčný audit iba číta D1.
 
 Až po overení spustiť režim apply s potvrdením:
 APPLY-DIRECTORY-CONTACT-ALIASES-psipedia-sk-db
