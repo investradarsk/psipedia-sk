@@ -38,6 +38,8 @@ test("Help editor updates only changed public fields and rejects system/SEO/priv
   assert.throws(()=>contract.normalizeHelpEditorPatch("ADOPTION_DOG",{approximate_age_months:-1}),/Neplatná číselná/);
   assert.throws(()=>contract.normalizeHelpEditorPatch("LOST_FOUND_DOG",{event_date:"2026-02-31"}),/Neplatný dátum/);
   assert.throws(()=>contract.normalizeHelpEditorPatch("HELP_CASE",{"public_latitude":40}),/nie je možné upraviť/);
+  assert.throws(()=>contract.normalizeHelpEditorPatch("HELP_CASE",{action_url:"javascript:alert(1)"}),/bezpečný/);
+  assert.throws(()=>contract.normalizeHelpEditorPatch("HELP_CASE",{description:"<script>alert(1)</script>"}),/HTML/);
   assert.throws(()=>contract.normalizeHelpEditorPatch("HELP_CASE",{}),/Nezmenili ste/);
   assert.deepEqual(contract.normalizeHelpEditorPatch("HELP_CASE",{},true),{});
 });
