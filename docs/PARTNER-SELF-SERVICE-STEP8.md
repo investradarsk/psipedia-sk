@@ -26,6 +26,12 @@ Pôvodný Step 5 SQL pri zmene napríklad iba telefónu posielal parametre aj pr
 
 U Help adopcií a stratených/nájdených psov teraz vynechaný `galleryUrls` znamená „ponechať aktuálnu galériu“, nie „vyprázdniť ju“. Server číta existujúci kanonický `gallery_json`, uplatní 6-fotografový limit a unikátnosť a len explicitne odoslaný zoznam môže fotografie zmazať. Každý zápis má `updated_at` CAS proti súbehu.
 
+### 8B2 – SQL-first adresár 0170 (priamy zápis nesmie zostať iba v JSON)
+
+Partner editory teraz v spoločnom D1 batchi nastavujú zmenené SQL kontakty `public_phone`, `public_email`, `facebook_url`, `instagram_url` a zároveň používajú existujúce bezpečné 0170 mirror plannery pre kategóriové filtre, ordinačné hodiny (kde je schválené SQL pole) a sekundárne kategórie. SQL mirror má jediný `changes()=1` CAS guard priamo za kanonickým UPDATE; ak pôvodný zápis neprejde, celá transakcia sa vráti. Explicitné vymazanie kontaktu je **prázdny reťazec**, nie `NULL` (to znamená nemigrovaná hodnota). SQL mirror neoddeľuje publikačné statusy od Adminu.
+
+**Preflight navyše vyžaduje fyzickú 0170 schému** vrátane kontaktných stĺpcov a tabuliek `directory_profile_filter_values`, `directory_profile_public_facts` a `directory_profile_additional_categories`. Migrácie 0171/0172 samy osebe 0170 nenahrádzajú. Aktuálny main má ďalšie opravy 0170 / Notion; pred merge sa musí uplatniť najnovší main a potvrdiť, že žiadny Partner writer nezaostáva za kanonickými verejnými read modelmi.
+
 ### 8C – chýbajúci spoľahlivý čas úpravy identického poľa Notion ↔ D1
 
 Notion `last_edited_time` je timestamp celej stránky, nie jednotlivého poľa. Keď sa to isté pole zmení na oboch stranách po poslednom potvrdenom baseline, automatické „najnovšie vyhráva“ **nie je dokázateľné**. Aktuálne správne bezpečné správanie je explicitný `CONFLICT` bez tichého prepísania údajov. **Podmienka produkčnej aktivácie:** schválenie tejto konfliktovej politiky alebo vybudovanie per-field prenosu potvrdených revízií a auditovaného LWW pre všetky relevantné typy. Neoznačovať ako „hotová LWW synchronizácia“.
