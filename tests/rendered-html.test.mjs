@@ -579,7 +579,11 @@ test("uses light admin lists and loads full records only for detail and save", a
 
     const directory = await worker.fetch(adminRequest("/admin/adresar"), bindings, context);
     assert.equal(directory.status, 200);
-    assert.match(await directory.text(), /Testovací kynologický klub/);
+    const directoryHtml = await directory.text();
+    assert.match(directoryHtml, /Testovací kynologický klub/,
+      "Directory SSR must include the mocked profile; SQL trace: " +
+      JSON.stringify(database.queries.filter(({sql}) => /FROM directory_profiles/i.test(sql))
+        .map(({sql,operation}) => ({operation, sql:sql.slice(0,450)})).slice(-8)));
 
     const filteredDirectory = await worker.fetch(adminRequest("/admin/adresar?category=kynologicke-kluby"), bindings, context);
     assert.equal(filteredDirectory.status, 200);
