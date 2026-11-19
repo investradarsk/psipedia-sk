@@ -99,6 +99,17 @@ const REQUEST_UNION = `
     LEFT JOIN lost_found_dog_reports l ON l.id=h.lost_found_report_id
     LEFT JOIN help_cases c ON c.id=h.help_case_id
     WHERE h.account_id=?1
+      -- A new Help CREATE auto-generates an approved ownership claim.
+      -- It is not a second request by the partner, so show only CREATE.
+      AND NOT EXISTS (
+        SELECT 1 FROM moderation_submissions created
+        WHERE created.submitter_type='PARTNER_ACCOUNT'
+          AND created.submitter_ref=h.account_id
+          AND created.operation='CREATE'
+          AND created.resource_type=h.entity_type
+          AND created.status='APPROVED'
+          AND CAST(created.subject_id AS INTEGER)=COALESCE(h.adoption_dog_id,h.lost_found_report_id,h.help_case_id)
+      )
   UNION ALL
   SELECT 'NEW_PROFILE',s.id,s.resource_type,m.display_name,
     s.status,s.created_at,m.resolved_canonical_id
