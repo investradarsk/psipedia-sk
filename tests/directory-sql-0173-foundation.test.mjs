@@ -136,5 +136,5 @@ test("foreign keys prevent orphan metadata and cascade profile deletion",()=>{
 
 test("0173 is registered as an unactivated production target requiring an isolated owner approval",()=>{
   const runner=readFileSync(new URL("../scripts/production-d1-migrate.mjs",import.meta.url),"utf8");
-  assert.match(runner,/UNACTIVATED_PRODUCTION_TARGETS[\\s\\S]*0173_directory_structured_sql_foundation\\.sql/);
+  assert.match(runner,/UNACTIVATED_PRODUCTION_TARGETS[\s\S]*0173_directory_structured_sql_foundation\.sql/);
 });
