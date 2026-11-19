@@ -4,6 +4,22 @@
 **GitHub:** PR #1449.
 **D1 produkcia:** bez zápisov; migrácia 0174 je zatiaľ v `pending-migrations/`.
 
+## Produkčný preflight – skutočný výsledok z Cloudflare D1 (19. 11. 2026)
+
+Používateľ spustil read-only SQL:
+
+| Metrika | Hodnota |
+| --- | ---: |
+| `managed_breeds` | **347** |
+| `breed_notion_workcopy_links` so `status='ACTIVE'` | **344** |
+| Existujúce riadky `breed_notion_controlled_values` naviazané na ACTIVE | **3** |
+| Čakajúce `values_json <> notion_values_json` medzi existujúcimi zrkadlami | **0** |
+| **Chýbajúce ACTIVE zrkadlá** | **341** |
+
+**ZÁKAZ APPLY:** importný preflight vyžaduje presne 344 kompatibilných zrkadiel. Nulová hodnota pending_sync sa vzťahuje iba na 3 záznamy; 341 neexistujúcich nie je dôkazom nulových zmien v Notione.
+
+**Postup:** read-only určiť, ktoré linky nemajú zrkadlo; potom presne pre tieto ACTIVE ID získať 12 fyzických Notion polí z aktuálneho work-copy zdroja s overením source/page/ID a validovať hodnoty. Až následne ich vložiť do sidecar `values_json` a `notion_values_json` s porovnaním stavu, CAS, kontrolou receipts a bez dotyku starých redakčných JSON. Existujúce 3 riadky nesmú byť prepísané. Nie je správne vložiť 341 prázdnych default objektov len kvôli splneniu počtu. Bez overenia Notionu ostáva náš 0174 import zablokovaný.
+
 ## Čo sa presúva
 
 Starý model `managed_breeds` sa nevymaže. D1 ostáva jediným produkčným úložiskom; Notion slúži ako overovaný editor a poskytovateľ 12 typed polí cez aktuálne synchronizované `breed_notion_controlled_values.values_json`.
