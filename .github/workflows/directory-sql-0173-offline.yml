@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "drizzle/0173_directory_structured_sql_foundation.sql"
+      - "pending-migrations/0173_directory_structured_sql_foundation.sql"
       - "db/directory-storage-schema.ts"
       - "db/index.ts"
       - "tests/directory-sql-0173-foundation.test.mjs"
