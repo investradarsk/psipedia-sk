@@ -102,6 +102,7 @@ function createClubDatabase() {
       online INTEGER NOT NULL DEFAULT 0,
       price_note TEXT NOT NULL DEFAULT '',
       website_url TEXT,
+      public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT,
       internal_email TEXT,
       image_url TEXT,
       image_key TEXT,
