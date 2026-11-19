@@ -34,6 +34,8 @@ test("Step 4 creates only moderated CREATE proposals, not prematurely published 
   assert.match(submit,/SUBMITTED/);
   assert.match(submit,/canonicalDuplicate/);
   assert.match(submit,/ACTIVE_DUPLICATE_SUBMISSION/);
+  assert.match(submit,/WHERE NOT EXISTS/);
+  assert.match(submit,/results\[0\]\?\.meta\?\.changes/);
   assert.match(submit,/enforcePartnerNewProfileRateLimit/);
   assert.doesNotMatch(submit,/INSERT INTO (adoption_dogs|lost_found_dog_reports|help_cases)/);
   assert.doesNotMatch(submit,/UPDATE (adoption_dogs|lost_found_dog_reports|help_cases)/);
