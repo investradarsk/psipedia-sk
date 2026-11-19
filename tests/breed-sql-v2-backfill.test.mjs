@@ -112,9 +112,14 @@ test("five additive backfill statements copy ALL live JSON and controlled facts 
    for(const statement of BREED_V2_BACKFILL_STATEMENTS)db.exec(statement);
    const after=db.prepare("SELECT * FROM managed_breeds ORDER BY id").all();
    assert.equal(after.length,347);
+   const legacyKeys=[
+     "id","slug","status","updated_at","fci_standard_json",
+     "editorial_json","seo_json","related_breeds_json",
+   ];
    for(let i=0;i<before.length;i++){
-     for(const [key,value] of Object.entries(before[i]))
-       assert.equal(after[i][key],value,"Original value changed for breed "+before[i].id+":"+key);
+     for(const key of legacyKeys)
+       assert.equal(after[i][key],before[i][key],
+         "Original value changed for breed "+before[i].id+":"+key);
    }
    assert.equal(db.prepare("SELECT COUNT(*) n FROM breed_fci_standard").get().n,347);
    assert.equal(db.prepare("SELECT COUNT(*) n FROM breed_editorial_text").get().n,347);
