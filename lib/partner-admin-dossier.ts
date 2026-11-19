@@ -74,8 +74,8 @@ function requestHref(kind: string, id: string) {
     COMMERCIAL_AGREEMENT: "/admin/partners/commercial/agreements",
   };
   const base=paths[kind];
-  // Existing commercial screens are collection pages; do not invent detail routes.
-  return kind.startsWith("COMMERCIAL_") ? base : `${base}/${encodeURIComponent(id)}`;
+  // Both commercial leads and agreements have existing canonical Admin details.
+  return `${base}/${encodeURIComponent(id)}`;
 }
 
 const REQUEST_UNION = `
