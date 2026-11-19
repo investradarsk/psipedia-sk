@@ -76,7 +76,7 @@ test("347 populated original breeds and all old JSON survive additive 0174 migra
  }finally{db.close()}
 });
 
-test("FCI has 33 independent nullable cells and editorial has exactly 6",()=>{
+test("FCI 33 + all six Notion and five historical editorial values preserved",()=>{
  const db=fixture();
  try{
    db.exec(sql);
@@ -164,4 +164,23 @@ test("no pending 0174 migration added prematurely to the frozen drizzle chain",(
  assert.match(staged,/0171/);
  assert.match(staged,/0172/);
  assert.match(staged,/0173/);
+});
+
+
+test("legacy heroTraits array has a dedicated guarded SQL JSON slot",()=>{
+  const db=fixture();
+  try{
+    db.exec(sql);
+    db.prepare("INSERT INTO breed_editorial_text (breed_id,exercise_tip,training_tip,health_tip,coat_tip,hero_traits_json) VALUES (?,?,?,?,?,?)")
+      .run(1,"cvičenie","tréning","zdravie","srsť",
+        '[{"label":"Pokoj","rating":5}]');
+    const row=db.prepare("SELECT * FROM breed_editorial_text WHERE breed_id=1").get();
+    assert.equal(row.exercise_tip,"cvičenie");
+    assert.equal(row.training_tip,"tréning");
+    assert.equal(row.health_tip,"zdravie");
+    assert.equal(row.coat_tip,"srsť");
+    assert.equal(JSON.parse(row.hero_traits_json)[0].rating,5);
+    assert.throws(()=>db.prepare("UPDATE breed_editorial_text SET hero_traits_json=? WHERE breed_id=1").run("{}"),/CHECK/);
+    assert.throws(()=>db.prepare("UPDATE breed_editorial_text SET hero_traits_json=? WHERE breed_id=1").run("{broken"),/CHECK/);
+  }finally{db.close()}
 });
