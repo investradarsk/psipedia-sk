@@ -124,9 +124,9 @@ const REQUEST_UNION = `
     WHERE m.partner_account_id=?1
   UNION ALL
   SELECT 'HELP_CREATE',s.id,s.resource_type,
-    COALESCE(NULLIF(json_extract(s.proposed_patch_json,'$.name'),''),
-      NULLIF(json_extract(s.proposed_patch_json,'$.dogName'),''),
-      NULLIF(json_extract(s.proposed_patch_json,'$.title'),''),
+    COALESCE(NULLIF(json_extract(CASE WHEN json_valid(s.proposed_patch_json) THEN s.proposed_patch_json ELSE '{}' END,'$.name'),''),
+      NULLIF(json_extract(CASE WHEN json_valid(s.proposed_patch_json) THEN s.proposed_patch_json ELSE '{}' END,'$.dogName'),''),
+      NULLIF(json_extract(CASE WHEN json_valid(s.proposed_patch_json) THEN s.proposed_patch_json ELSE '{}' END,'$.title'),''),
       'Nový záznam Pomoci psom'),
     s.status,s.created_at,
     CASE WHEN s.subject_id GLOB '[1-9]*' THEN CAST(s.subject_id AS INTEGER) ELSE NULL END
