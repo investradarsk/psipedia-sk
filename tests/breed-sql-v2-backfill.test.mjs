@@ -5,6 +5,7 @@ import {readFileSync} from "node:fs";
 import {
   BREED_V2_COUNTS,BREED_V2_BACKFILL_STATEMENTS,BREED_V2_PREFLIGHT_SQL,
   BREED_V2_REQUIRED_COLUMNS,BREED_V2_EXPECTED_MIGRATED_COLUMNS,
+  BREED_V2_POSTFLIGHT_SQL,assertBreedSqlV2BackfillPostflight,
   assertBreedSqlV2BackfillPreflight,
 } from "../lib/breed-sql-v2-backfill.mjs";
 
@@ -153,6 +154,17 @@ test("five additive backfill statements copy ALL live JSON and controlled facts 
      "Starý tip, nesmie sa vymazať");
    assert.equal(db.prepare("SELECT COUNT(*) n FROM breed_notion_workcopy_links").get().n,344);
    assert.equal(db.prepare("SELECT COUNT(*) n FROM breed_notion_controlled_values").get().n,344);
+   const p=report(db);
+   const post=Object.fromEntries(Object.entries(BREED_V2_POSTFLIGHT_SQL).map(([name,query])=>[
+     name,db.prepare(query).get().mismatches,
+   ]));
+   const checked=assertBreedSqlV2BackfillPostflight({
+     base:p.base,links:p.links,controlled:p.controlled,
+     counts:p.destination,post,
+   });
+   assert.deepEqual(checked,{verified:true,breedRows:347,linkedNotionBreeds:344,
+     checkedGroups:6,publicCutoverEnabled:false});
+   assert.deepEqual(post,{fci:0,editorial:0,seo:0,facts:0,relations:0,extraRelations:0});
    assert.throws(()=>assertBreedSqlV2BackfillPreflight(report(db)),/DESTINATION_NONEMPTY/);
    for(const statement of BREED_V2_BACKFILL_STATEMENTS)db.exec(statement);
    assert.equal(db.prepare("SELECT COUNT(*) n FROM breed_related_breeds").get().n,6);
@@ -189,4 +201,42 @@ test("preflight denies invalid, self, duplicate relations and old wrong types be
    assert.ok(state2.invalidFieldTypes.invalid_types>0);
    assert.throws(()=>assertBreedSqlV2BackfillPreflight(state2),/BAD_TYPES/);
  }finally{db.close()}
+});
+
+test("postflight detects a concurrent Admin JSON edit and must block public SQL cutover",()=>{
+ const db=fixture();
+ try{
+   for(const statement of BREED_V2_BACKFILL_STATEMENTS)db.exec(statement);
+   db.prepare("UPDATE managed_breeds SET editorial_json=? WHERE id=2").run(
+     '{"overview":"Medzitým zmenené v Notione","coatCare":"","heroTraits":[]}');
+   const p=report(db);
+   const post=Object.fromEntries(Object.entries(BREED_V2_POSTFLIGHT_SQL).map(([name,query])=>[
+     name,db.prepare(query).get().mismatches,
+   ]));
+   assert.equal(post.editorial,1);
+   assert.throws(()=>assertBreedSqlV2BackfillPostflight({
+     base:p.base,links:p.links,controlled:p.controlled,
+     counts:p.destination,post,
+   }),/POST_MISMATCH_editorial/);
+ }finally{db.close()}
+});
+
+test("manual production runner cannot mutate without main, D1 preflight, protected approval and recovery",()=>{
+ const script=readFileSync(
+   new URL("../scripts/production-breed-sql-v2-backfill.mjs",import.meta.url),"utf8");
+ const workflow=readFileSync(
+   new URL("../.github/workflows/production-breed-sql-v2-backfill.yml",import.meta.url),"utf8");
+ assert.match(script,/OWNER_MAIN_DISPATCH_ONLY/);
+ assert.match(script,/CLOUDFLARE_API_TOKEN/);
+ assert.match(script,/assertBreedSqlV2BackfillPreflight/);
+ assert.match(script,/assertBreedSqlV2BackfillPostflight/);
+ assert.match(script,/RECOVERY_BOOKMARK_REQUIRED/);
+ assert.match(script,/NO_UPDATE_NOTIFIER/);
+ assert.match(workflow,/workflow_dispatch/);
+ assert.match(workflow,/environment: production/);
+ assert.match(workflow,/refs\/heads\/main/);
+ assert.match(workflow,/APPLY-BREEDS-V2-344-347/);
+ assert.match(workflow,/AUDIT-BREEDS-V2-344-347/);
+ assert.doesNotMatch(workflow,/^\s+(?:push|pull_request|schedule):/m);
+ assert.doesNotMatch(script,/d1.migrations.apply/i);
 });
