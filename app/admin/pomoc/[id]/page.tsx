@@ -2,13 +2,12 @@ import Link from "next/link";
 import { adminReturnHref } from "@/lib/admin-return-navigation";
 import { notFound } from "next/navigation";
 import { AdminHelpEditor } from "@/components/admin-help-editor";
-import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+import { AdminPartnerReviewStatus } from "@/components/admin-partner-review-status";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { helpCaseHref } from "@/lib/help";
 import { getManagedHelpCaseById } from "@/lib/help-store";
 import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
@@ -24,10 +23,7 @@ export default async function EditHelpCasePage({ params, searchParams }: Props) 
   const user = await requireAdminPageUser(`/admin/pomoc/${id}`);
   // The review badge is independent of the category-specific FOSTER/HELP_ITEM
   // warning and update suggestions, so begin its read alongside the item.
-  const [item, review] = await Promise.all([
-    getManagedHelpCaseById(numericId),
-    getAdminEntityReview("HELP_CASE", numericId),
-  ]);
+  const item = await getManagedHelpCaseById(numericId);
   if (!item) notFound();
   const entityType = item.category === "docasna-opatera" ? "FOSTER" as const : "HELP_ITEM" as const;
   const [duplicateWarning, automationSuggestions] = await Promise.all([
@@ -40,7 +36,7 @@ export default async function EditHelpCasePage({ params, searchParams }: Props) 
     title={item.title}
     description="Úprava prípadu. Publikácia, urgentnosť a vybavenie sa nastavujú samostatne."
    actions={<>
-    <AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />
+    <AdminPartnerReviewStatus entityType="HELP_CASE" entityId={item.id} />
     {item.status === "published" && <Link href={helpCaseHref(item)} target="_blank" rel="noreferrer">Otvoriť verejný záznam ↗</Link>}
     <Link href={returnHref}>← Späť na pomoc psom</Link>
    </>}>
