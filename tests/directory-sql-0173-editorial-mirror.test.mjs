@@ -238,3 +238,38 @@ test("Admin breeder editor only sends explicit normalized gallery to the canonic
  assert.match(source,/mergeDirectoryBreederGallery\(/);
  assert.match(source,/\.\.\.editorialMirror\.map\(item => database\.prepare\(item\.sql\)\.bind\(\.\.\.item\.bindings\)\)/);
 });
+
+test("Approved partner direct edits also mirror exact 0173 free-text hours under one CAS guard",()=>{
+ const source=readFileSync(new URL("../lib/partner-direct-profile.ts",import.meta.url),"utf8");
+ assert.match(source,/planDirectory0173EditorialSqlMirror/);
+ assert.match(source,/Object\.hasOwn\(effectivePatch,"openingHours"\)/);
+ assert.match(source,/if\(plans\.length \|\| hoursEdited\)/);
+ assert.match(source,/const guard=plans\.length\?plans\[0\]\[0\]:\{/);
+ assert.match(source,/statements\.push\(database\.prepare\(guard\.sql\)\.bind/);
+ assert.match(source,/openingHoursText:String\(effectivePatch\.openingHours\?\?""\)/);
+ assert.match(source,/for\(const item of hours\)/);
+ const first=source.indexOf("statements.push(database.prepare(guard.sql)");
+ const second=source.indexOf("for(const item of hours)");
+ assert.ok(first>0 && second>first,"CAS must precede 0173 mutation");
+ const db=fixture();
+ try{
+  const identity={kind:"id",profileId:1,updatedAt:"T1",actor:"admin"};
+  // Populate a previous administrator's confirmed sidecar.
+  apply(db,{identity,openingHoursText:"Po–Pi 8:00–16:00"});
+  // Partner only edits the free-text schedule; shifts and notes must survive.
+  const changed="Po: 08:00–12:00; 13:00–17:00\\nSviatky: dohodou";
+  db.prepare("UPDATE directory_profiles SET updated_at=?,updated_by=? WHERE id=1")
+    .run("T2","partner:owner-1");
+  apply(db,{identity:{...identity,updatedAt:"T2",actor:"partner:owner-1"},openingHoursText:changed});
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=1 AND day_of_week=0").get().hours_text,changed);
+  apply(db,{identity:{...identity,updatedAt:"T1",actor:"admin"},openingHoursText:"stale"});
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=1").get().hours_text,changed);
+  // Omission is not an instruction to clear hours.
+  apply(db,{identity:{...identity,updatedAt:"T2",actor:"partner:owner-1"}});
+  assert.equal(db.prepare("SELECT hours_text FROM directory_profile_opening_hours WHERE profile_id=1").get().hours_text,changed);
+  // Explicit empty edit is a deletion; never restore old Admin or Notion text.
+  apply(db,{identity:{...identity,updatedAt:"T2",actor:"partner:owner-1"},openingHoursText:""});
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_opening_hours WHERE profile_id=1").get().n,0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_opening_hours WHERE profile_id=2").get().n,0);
+ }finally{db.close();}
+});
