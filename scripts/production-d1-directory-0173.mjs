@@ -56,7 +56,7 @@ function authorize(){
  fail(resources.account_id===ACCOUNT&&resources.d1?.database_name===DATABASE&&
   resources.d1?.database_id===DATABASE_ID&&resources.d1?.binding==="DB","WRONG_D1");
  const bytes=readFileSync(SQL);
- const blob=createHash("sha1").update(Buffer.concat([Buffer.from("blob "+bytes.length+"\\0"),bytes])).digest("hex");
+ const blob=createHash("sha1").update(Buffer.concat([Buffer.from("blob "+bytes.length+"\0"),bytes])).digest("hex");
  fail(blob===SQL_BLOB,"PINNED_SQL_CHANGED");
  mkdirSync(OUT,{recursive:true});
  // Deliberately no migrations_dir, so the generic migration runner cannot replay older migrations.
