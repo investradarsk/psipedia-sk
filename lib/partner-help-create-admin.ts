@@ -1,3 +1,4 @@
+import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
 import { env } from "cloudflare:workers";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { slugifyArticleTitle } from "@/lib/article-store";
@@ -227,6 +228,8 @@ export async function createPartnerHelpDraftAdmin(input:{
       extraStatements:[
         insertCanonical(database,{id:row.id,type:row.resourceType,p:data,slug,nowIso,actorRef}),
         claim(database,{submissionId:row.id,type:row.resourceType,accountId:row.accountId,canonicalIdSql,actorRef,nowIso}),
+        partnerAdminReviewStatement(database,{type:({ADOPTION_DOG:"ADOPTION",LOST_FOUND_DOG:"LOST_FOUND",HELP_CASE:"HELP_CASE"} as const)[row.resourceType],
+          entitySql:canonicalIdSql,nowIso,actorRef}),
         subjectUpdate(database,{id:row.id,canonicalIdSql,nowIso,actorRef}),
         audit(database,{id:row.id,accountId:row.accountId,type:row.resourceType,nowIso,actorRef,
           action:"NEW_PROFILE_CREATED",edited,canonicalIdSql}),
@@ -279,6 +282,8 @@ export async function linkPartnerHelpCreateAdmin(input:{
       extraStatements:[
         ...(!alreadyManaged?[claim(database,{submissionId:input.id,type:original.resourceType,accountId:original.accountId,
           canonicalIdSql,actorRef,nowIso})]:[]),
+        partnerAdminReviewStatement(database,{type:({ADOPTION_DOG:"ADOPTION",LOST_FOUND_DOG:"LOST_FOUND",HELP_CASE:"HELP_CASE"} as const)[original.resourceType],
+          entitySql:canonicalIdSql,nowIso,actorRef}),
         subjectUpdate(database,{id:input.id,canonicalIdSql,nowIso,actorRef}),
         audit(database,{id:input.id,accountId:original.accountId,type:original.resourceType,nowIso,actorRef,
           action:"NEW_PROFILE_LINKED_EXISTING",canonicalIdSql}),
