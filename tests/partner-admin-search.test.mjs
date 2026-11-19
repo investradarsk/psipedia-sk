@@ -217,3 +217,22 @@ test("API and UI preserve admin-only access, no-store, abort cleanup and no sche
   assert.match(store,/ORDER BY a\.created_at DESC,a\.id DESC/);
   assert.doesNotMatch(store,/GROUP BY a\.id ORDER BY a\.created_at DESC LIMIT 250/);
 });
+
+test("Partneri V2 opens on registered accounts with six useful columns and preserved queues",async()=>{
+  const page=await fs.readFile(new URL("../app/admin/partners/page.tsx",import.meta.url),"utf8");
+  const css=await fs.readFile(new URL("../app/admin/partners/partners.css",import.meta.url),"utf8");
+  const headers=["Partner","E-mail","Žiadosti","Profily","Správy","Akcia"];
+  const heading=page.slice(page.indexOf('className="admin-partner-v2-columns"'));
+  assert.ok(heading.startsWith('className="admin-partner-v2-columns"'));
+  for(const title of headers)assert.ok(heading.includes(">"+title+"</span>"),title);
+  assert.ok(page.indexOf("data-admin-partner-accounts")<page.indexOf("data-admin-partner-attention"),
+    "Partner accounts must be first; historic review queues are secondary");
+  assert.match(page,/a\.pendingRequestCount/);
+  assert.match(page,/a\.managedProfileCount/);
+  assert.match(page,/a\.contactName/);
+  assert.match(page,/Pripravujeme/,"chat unread counts must not be invented");
+  assert.match(page,/\/admin\/partners\/accounts\/\$\{a\.id\}/);
+  assert.doesNotMatch(page,/className="admin-partner-stats"/,"old eight-stat dashboard removed");
+  assert.match(css,/\.admin-partner-table\.admin-partner-v2-table/);
+  assert.match(css,/@media \(max-width:760px\)/);
+});
