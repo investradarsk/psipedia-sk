@@ -127,8 +127,9 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.doesNotMatch(queries[0].sql, /public_email|internal_email|website_url/);
   assert.equal(queries[0].values[0], "Voľný opis");
   await exports.saveBreederEditorialValue(db, current, desired, "publicEmail");
-  assert.match(queries[1].sql, /source_data_json = json_set/);
-  assert.equal(queries[1].values[1], "blaljdljflajsdlfa");
+  assert.match(queries[1].sql, /source_data_json = json_remove/);
+  assert.match(queries[1].sql, /public_email = \?/);
+  assert.equal(queries[1].values[0], "blaljdljflajsdlfa");
   await exports.saveBreederEditorialValue(db, current, desired, "seo.canonicalUrl");
   assert.match(queries[2].sql, /seo_json = json_set/);
   assert.equal(queries[2].values[1], "čistý ľubovoľný text");
