@@ -986,19 +986,22 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(claimRow).toContainText("Konflikt správy profilu");
     await claimRow.getByRole("link",{name:"Detail →"}).click();
     await expect(page.getByText("Konflikt správy profilu").first()).toBeVisible();
+    // The resource already has another active owner. Single-manager policy
+    // must reject a second approval; this is not a successful claim.
     const claimResponse = page.waitForResponse((response) =>
       response.url().includes("/api/admin/partners/claims/") &&
-      response.request().method() === "PATCH" &&
-      response.ok(),
+      response.request().method() === "PATCH",
     );
     await page.getByRole("button",{name:"Schváliť",exact:true}).click();
     const claimDialog=page.getByRole("dialog",{name:"Schváliť správu záznamu?"});
     await expect(claimDialog).toBeVisible();
     await claimDialog.getByRole("button",{name:"Schváliť prevzatie"}).click();
-    await claimResponse;
+    const blockedClaimResponse = await claimResponse;
+    expect(blockedClaimResponse.status()).toBe(409);
+    await expect(page.getByText("Tento záznam už spravuje iný partner. Najprv mu odoberte prístup.")).toBeVisible();
     await page.goto("/admin/partners");
-    await expect(page.getByRole("link",{name:/Prevzatie profilov 1/})).toBeVisible();
-    await expect(page.getByRole("link",{name:/Overenia 4/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Prevzatie profilov 2/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Overenia 3/})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 });
