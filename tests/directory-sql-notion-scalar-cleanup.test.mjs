@@ -9,6 +9,8 @@ import {
 import {
   DIRECTORY_SQL_NOTION_SCALAR_COLUMNS,
   DIRECTORY_SQL_NOTION_SCALAR_LABELS,
+  DIRECTORY_SQL_NOTION_CLEANUP_COLUMNS,
+  DIRECTORY_SQL_NOTION_CONTACT_ALIASES,
   directoryScalarCleanupCountSql,
   directoryScalarCleanupUpdateSql,
   directoryScalarCleanupSummary,
@@ -16,7 +18,7 @@ import {
 
 function fixture() {
   const db=new DatabaseSync(":memory:");
-  const cols=DIRECTORY_SQL_NOTION_SCALAR_COLUMNS;
+  const cols=DIRECTORY_SQL_NOTION_CLEANUP_COLUMNS;
   db.exec("CREATE TABLE directory_profiles (" +
     "id INTEGER PRIMARY KEY,category TEXT,status TEXT,source_data_json TEXT,"+
     cols.map(k=>k+" TEXT").join(",")+",updated_at TEXT,updated_by TEXT)");
@@ -102,6 +104,39 @@ test("removes all 12 historic scalar JSON keys, even when SQL values are empty o
     }
   }finally{f.db.close();}
 });
+test("removes all remaining JSON-only contact backups, with no SQL value needed",()=>{
+  const f=fixture();
+  try{
+    const src={
+      Web:"old website", "Webstránka":"older website",
+      "Telefón":"old phone",Telefon:"old2",phone:"old3",
+      "E-mail":"email",Email:"old email",email:"old email 2",
+      Facebook:"facebook",Instagram:"instagram",
+      Perex:"old excerpt",
+      "Ordinačné hodiny":"Mon-Fri",
+      _psipedia_additional_categories:'["treneri"]',
+    };
+    f.add(1,src,{website_url:"",public_phone:null,
+      public_email:null,facebook_url:"",instagram_url:null,excerpt:""});
+    const before=f.counts();
+    for(const field of Object.keys(DIRECTORY_SQL_NOTION_CONTACT_ALIASES)) {
+      assert.equal(before.totals.removable[field],1);
+      assert.equal(before.totals.withoutSqlValue[field],1);
+    }
+    f.apply();
+    const row=f.get(1);
+    const kept=JSON.parse(row.source_data_json);
+    for(const key of ["Web","Webstránka","Telefón","Telefon","phone",
+      "E-mail","Email","email","Facebook","Instagram","Perex"])
+      assert(!Object.hasOwn(kept,key),key);
+    assert.equal(kept["Ordinačné hodiny"],"Mon-Fri");
+    assert.equal(kept._psipedia_additional_categories,'["treneri"]');
+    assert.equal(row.website_url,"");
+    assert.equal(row.public_phone,null);
+    for(const field of Object.keys(DIRECTORY_SQL_NOTION_CONTACT_ALIASES))
+      assert.equal(f.counts().totals.removable[field],0);
+  }finally{f.db.close();}
+});
 test("reviewed, archived, pending-unlock and tombstone profiles have historic copies removed",()=>{
   const f=fixture();
   try{
@@ -156,13 +191,14 @@ test("aggregate report counts only, no names, descriptions or addresses",()=>{
   }finally{f.db.close();}
 });
 
-test("normal Admin SQL contact writes also strip the 12 old scalar keys",()=>{
+test("normal Admin SQL writes strip the 12 old scalar and 5 contact alias groups",()=>{
   const old=Object.fromEntries(
     DIRECTORY_SQL_NOTION_SCALAR_COLUMNS.map(c=>
       [DIRECTORY_SQL_NOTION_SCALAR_LABELS[c],"old"]
     )
   );
-  const source={...old, "Služby":"active", _psipedia_profile_review_reviewed_at:"today"};
+  const source={...old, "Telefón":"old number",Facebook:"old facebook",
+    "Služby":"active", _psipedia_profile_review_reviewed_at:"today"};
   assert.deepEqual([...DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS].sort(),
     Object.values(DIRECTORY_SQL_NOTION_SCALAR_LABELS).sort());
   const direct=omitDirectorySqlNotionScalarAliases(source);
@@ -171,6 +207,8 @@ test("normal Admin SQL contact writes also strip the 12 old scalar keys",()=>{
     for(const key of DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS)
       assert(!Object.hasOwn(result,key));
     assert.equal(result["Služby"],"active");
+    if(result===saved){assert(!Object.hasOwn(result,"Telefón"));
+      assert(!Object.hasOwn(result,"Facebook"));}
     assert.equal(result._psipedia_profile_review_reviewed_at,"today");
   }
   assert.equal(source["Popis"],"old");
