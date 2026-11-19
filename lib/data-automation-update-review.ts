@@ -15,10 +15,10 @@ import { dogSexes, dogSizes } from "./lost-found-dogs.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { normalizeDirectorySearchText } from "./directory-store.ts";
 import {
-  mergeDirectoryPublicContactData,
-  readDirectoryPublicContacts,
+  omitDirectorySqlContactAliases,
   type DirectoryImportData,
 } from "./directory-profile-metadata.ts";
+import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 
 export type AutomationUpdateOrigin = "DIRECT_ENTITY" | "FEED_SOURCE";
 export type AutomationUpdateDecision = "ACCEPTED" | "REJECTED";
@@ -392,7 +392,7 @@ function valuesEqual(spec: FieldSpec | null, a: unknown, b: unknown) {
 function currentValue(row: Record<string, unknown>, entityType: AutomationEntityType, field: string, spec: FieldSpec | null) {
   if (!spec) return null;
   if (entityType === "DIRECTORY" && spec.directoryContact) {
-    const contacts = readDirectoryPublicContacts(parseRecord(row.source_data_json) as DirectoryImportData, String(row.website_url ?? ""));
+    const contacts = readDirectorySqlBackedContacts(parseRecord(row.source_data_json) as DirectoryImportData, row);
     if (spec.directoryContact === "phone") return contacts.phone;
     if (spec.directoryContact === "email") return contacts.email;
     if (spec.directoryContact === "facebook") return contacts.facebook;
@@ -1071,16 +1071,22 @@ async function writeCanonicalFieldAndDecision(input: {
 
   if (input.suggestion.entity_type === "DIRECTORY" && input.spec.directoryContact) {
     const currentData = parseRecord(input.row.source_data_json) as DirectoryImportData;
-    const patch: Parameters<typeof mergeDirectoryPublicContactData>[1] = {};
-    if (input.spec.directoryContact === "phone") patch.publicPhone = String(input.value ?? "");
-    if (input.spec.directoryContact === "email") patch.publicEmail = String(input.value ?? "");
-    if (input.spec.directoryContact === "facebook") patch.facebookUrl = String(input.value ?? "");
-    if (input.spec.directoryContact === "instagram") patch.instagramUrl = String(input.value ?? "");
-    const nextData = mergeDirectoryPublicContactData(currentData, patch);
+    const contact = {
+      phone: ["publicPhone", "public_phone"],
+      email: ["publicEmail", "public_email"],
+      facebook: ["facebookUrl", "facebook_url"],
+      instagram: ["instagramUrl", "instagram_url"],
+    } as const;
+    const [field, column] = contact[input.spec.directoryContact];
+    const value = String(input.value ?? "");
+    const nextData = omitDirectorySqlContactAliases(currentData, { [field]: value });
+    // Approval writes the SQL value and removes ONLY its legacy alias in the
+    // same guarded statement; a stale suggestion cannot overwrite newer D1.
     updateStatement = db.prepare(`UPDATE directory_profiles
-      SET source_data_json=?,updated_at=?,updated_by=?
+      SET ${column}=?,source_data_json=?,updated_at=?,updated_by=?
       WHERE id=? AND updated_at=?`).bind(
-        JSON.stringify(nextData), input.at, input.actor, input.suggestion.canonical_entity_id, expectedUpdatedAt,
+        value, JSON.stringify(nextData), input.at, input.actor,
+        input.suggestion.canonical_entity_id, expectedUpdatedAt,
       );
   } else {
     if (!input.spec.column) throw new AutomationUpdateReviewUnsupportedError();
