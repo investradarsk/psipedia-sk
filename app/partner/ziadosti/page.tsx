@@ -3,6 +3,7 @@ import { PartnerClaimCancelButton, PartnerVerificationRequest } from "@/componen
 import { PartnerProfileChangeWithdrawButton } from "@/components/partner-profile-change-actions";
 import { PartnerNewProfileWithdrawButton } from "@/components/partner-new-profile-actions";
 import { PartnerEventWithdrawButton } from "@/components/partner-event-actions";
+import { PartnerHelpWithdrawButton } from "@/components/partner-help-create-form";
 import { PartnerShell } from "@/components/partner-shell";
 import { getDirectoryCategory } from "@/lib/directory";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
@@ -11,6 +12,7 @@ import { getPartnerEditableFields, listPartnerProfileChanges } from "@/lib/partn
 import { partnerEventOperationLabel, partnerOrganizationTypeLabel } from "@/lib/partner-ui-labels";
 import { listPartnerNewProfiles } from "@/lib/partner-new-profile";
 import { listPartnerEventSubmissions } from "@/lib/partner-events";
+import { listPartnerHelpCreateSubmissions } from "@/lib/partner-help-create";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +42,13 @@ function profileCategoryLabel(resourceType: "DIRECTORY_PROFILE" | "HELP_ORGANIZA
 
 export default async function Page() {
   const identity = await requirePartnerPageIdentity();
-  const [claims, resources, profileChanges, newProfiles, eventSubmissions] = await Promise.all([
+  const [claims, resources, profileChanges, newProfiles, eventSubmissions, helpSubmissions] = await Promise.all([
     listPartnerClaims(identity.accountId),
     listPartnerVerificationResources(identity.accountId),
     listPartnerProfileChanges(identity.accountId),
     listPartnerNewProfiles(identity.accountId),
     listPartnerEventSubmissions(identity.accountId),
+    listPartnerHelpCreateSubmissions(identity.accountId),
   ]);
 
   return (
@@ -100,6 +103,28 @@ export default async function Page() {
             </div>
           </article>
         ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte návrh nového profilu</h2><p>Ak svoj profil na Psipedii nenájdete, môžete ho navrhnúť na moderátorskú kontrolu.</p></div>}
+      </section>
+
+
+      <section className="partner-requests-section">
+        <div className="partner-section-heading">
+          <div><span className="eyebrow">Pomoc psom</span><h2>Návrhy nových záznamov</h2></div>
+          <Link href="/partner/pomoc/nova">Pridať pomoc psom</Link>
+        </div>
+        {helpSubmissions.length ? <div className="partner-request-list">{helpSubmissions.map((submission) => (
+          <article key={submission.id}>
+            <div className="partner-request-title">
+              <div><span>{submission.resourceType==="ADOPTION_DOG"?"Adopcia":submission.resourceType==="LOST_FOUND_DOG"?"Stratený/nájdený pes":"Pomoc psom"}</span><h3>{submission.title}</h3></div>
+              <strong>{submission.statusLabel}</strong>
+            </div>
+            <dl><div><dt>Odoslané</dt><dd>{new Date(submission.createdAt).toLocaleString("sk-SK")}</dd></div></dl>
+            {submission.risks.includes("POSSIBLE_DUPLICATE") ? <p>Možná zhoda s existujúcim záznamom – administrátor ju preverí.</p> : null}
+            <div className="partner-request-links">
+              {submission.canWithdraw ? <PartnerHelpWithdrawButton id={submission.id}/> : null}
+              {submission.status==="APPROVED" ? <span>Návrh bol schválený na ďalšie spracovanie.</span> : null}
+            </div>
+          </article>
+        ))}</div> : <div className="partner-empty"><h2>Nemáte žiadne návrhy Pomoci psom</h2><p>Pridajte adopciu, strateného psa alebo ďalší prípad pomoci.</p></div>}
       </section>
 
       <section className="partner-requests-section">
