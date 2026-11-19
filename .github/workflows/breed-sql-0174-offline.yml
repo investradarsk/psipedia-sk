@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "pending-migrations/0174_breeds_sql_json_foundation.sql"
+      - "drizzle/0174_breeds_sql_json_foundation.sql"
       - "db/breed-storage-schema.ts"
       - "lib/breed-storage-decision.mjs"
       - "lib/breed-sql-v2-bridge.mjs"
