@@ -25,12 +25,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         <section className="admin-form-card"><h2>Partner</h2><p>{claim.email}</p><Link href={`/admin/partners/accounts/${claim.accountId}`}>Partner účet →</Link></section>
         <section className="admin-form-card"><h2>Profil</h2><p>{claim.resourceName}</p><p>{partnerAdminResourceLabel(claim.entityType)} · ID profilu {claim.resourceId}</p><Link href={claim.publicHref} target="_blank">Verejný profil ↗</Link></section>
         <section className="admin-form-card"><h2>Žiadosť</h2><p className="admin-commercial-message">{claim.requestMessage ?? "Bez správy."}</p><small>Odoslané {new Date(claim.createdAt).toLocaleString("sk-SK")}</small></section>
-        {claim.entityType !== "MANAGED_EVENT" ? <section className="admin-form-card"><h2>Overenie správcu</h2><p>{partnerAdminStatusLabel(String((claim.verification as { status?: string }).status ?? "UNVERIFIED"))}</p></section> : null}
+        {(claim.entityType === "DIRECTORY_PROFILE" || claim.entityType === "HELP_ORGANIZATION") ? <section className="admin-form-card"><h2>Overenie správcu</h2><p>{partnerAdminStatusLabel(String((claim.verification as { status?: string }).status ?? "UNVERIFIED"))}</p></section> : null}
         <section className="admin-form-card"><h2>Aktívne prístupy</h2>{memberships.length ? memberships.map((m) => <article key={m.id}><strong>{partnerAdminRoleLabel(m.role)}</strong><span>{m.accountId} · {partnerAdminStatusLabel(m.accountStatus)}</span></article>) : <p>Žiadne aktívne prístupy.</p>}</section>
         <section className="admin-form-card"><h2>Ďalšie čakajúce žiadosti</h2>{pending.length ? pending.map((item) => <article key={item.id}><Link href={`/admin/partners/claims/${item.id}`}>{item.accountId}</Link><span>{new Date(item.createdAt).toLocaleString("sk-SK")}</span></article>) : <p>Žiadne.</p>}</section>
         <section className="admin-form-card"><h2>História rozhodnutí</h2>{audit.length ? audit.map((item) => <article key={item.id}><strong>{item.action}</strong><span>{item.actorRef} · {new Date(item.createdAt).toLocaleString("sk-SK")}</span></article>) : <p>Zatiaľ bez zaznamenaných rozhodnutí.</p>}</section>
       </div>
-      {claim.status === "PENDING" ? <AdminPartnerClaimActions claimId={claim.id} /> : null}
+      {(claim.status === "PENDING" || (claim.status === "APPROVED" && claim.entityType !== "DIRECTORY_PROFILE" && claim.entityType !== "HELP_ORGANIZATION" && claim.entityType !== "MANAGED_EVENT")) ? <AdminPartnerClaimActions claimId={claim.id} status={claim.status} /> : null}
     </AdminShell>
   );
 }
