@@ -1642,7 +1642,7 @@ export async function savePilotDirectoryMetadataField(input: {
       openingHoursText: trimmed,
     }) : [];
     const guard = approved ? [] : [input.database.prepare(
-      "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract(char(110,111,116,45,106,115,111,110), char(36)) END AS cas_ok"
+      "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', char(36)) END AS cas_ok"
     )];
     const response = await input.database.batch([
       canonical, ...guard,
