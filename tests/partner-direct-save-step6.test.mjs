@@ -36,8 +36,12 @@ function fixture() {
     prepare(query){
       return {bind(...values){return {
         run:async()=>{
-          const rows=sqlite.prepare(query).all(...values);
-          return {results:rows,meta:{changes:rows.length}};
+          if(/\bRETURNING\b/i.test(query)){
+            const rows=sqlite.prepare(query).all(...values);
+            return {results:rows,meta:{changes:rows.length}};
+          }
+          const change=sqlite.prepare(query).run(...values);
+          return {meta:{changes:change.changes}};
         },
       }}};
     },
@@ -68,7 +72,7 @@ test("Partner directory canonical UPDATE is owner-scoped, optimistic and field-o
       "partner:a1",now,undefined,guard).run();
     assert.equal((await apply()).meta.changes,1);
     const row=sqlite.prepare("SELECT name,excerpt,description,updated_at FROM directory_profiles WHERE id=1").get();
-    assert.deepEqual(row,{name:"Nový názov",excerpt:"Existing excerpt",description:"Existing body",updated_at:now});
+    assert.deepEqual({...row},{name:"Nový názov",excerpt:"Existing excerpt",description:"Existing body",updated_at:now});
     assert.equal((await apply()).meta.changes,0,"stale version cannot overwrite a later canonical save");
     sqlite.exec("UPDATE partner_memberships SET revoked_at='2026-11-19T12:00:00Z' WHERE id='d'");
     const refreshed={...guard,baseUpdatedAt:now};
