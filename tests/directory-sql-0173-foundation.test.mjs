@@ -138,3 +138,19 @@ test("0173 is registered as an unactivated production target requiring an isolat
   const runner=readFileSync(new URL("../scripts/production-d1-migrate.mjs",import.meta.url),"utf8");
   assert.match(runner,/UNACTIVATED_PRODUCTION_TARGETS[\s\S]*0173_directory_structured_sql_foundation\.sql/);
 });
+
+test("Owner-only production 0173 workflow uses pinned SQL and no generic migration replay",()=>{
+  const script=readFileSync(new URL("../scripts/production-d1-directory-0173.mjs",import.meta.url),"utf8");
+  const workflow=readFileSync(new URL("../.github/workflows/production-d1-directory-0173.yml",import.meta.url),"utf8");
+  assert.match(workflow,/workflow_dispatch:/);
+  assert.match(workflow,/environment: production/);
+  assert.match(workflow,/production-d1-migration/);
+  assert.match(workflow,/refs\\/heads\\/main/);
+  assert.doesNotMatch(workflow,/^\\s+(?:push|pull_request|schedule):/m);
+  assert.match(script,/SQL_BLOB/);
+  assert.match(script,/NO_RECOVERY_POINT/);
+  assert.match(script,/PARTIAL_SCHEMA_STOP/);
+  assert.match(script,/--file",SQL/);
+  assert.match(script,/migrationLedgerWritten:false/);
+  assert.doesNotMatch(script,/"migrations","apply"/);
+});
