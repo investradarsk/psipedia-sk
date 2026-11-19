@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { decryptPii } from "./pii-crypto";
-import { appendPartnerAuditEvent, partnerResourceTypes, partnerRoles, type PartnerResourceType, type PartnerRole } from "./partner-platform";
+import { appendPartnerAuditEvent, partnerResourceTypes, type PartnerResourceType, type PartnerRole } from "./partner-platform";
 import { getPartnerAccountById, getPartnerDatabase, type PartnerAccountStatus } from "./partner-auth-store";
 import { ensureCanonicalResource } from "./canonical-resource";
 import { getPartnerContactProfile } from "./partner-contact-profile";
@@ -165,8 +165,8 @@ export async function searchCanonicalPartnerResources(input:{q?:string;type?:Par
 }
 
 export async function createPartnerMembershipAdmin(input:{accountId:string;entityType:PartnerResourceType;canonicalId:number;role:PartnerRole;adminEmail:string;database?:D1Database;now?:Date}){
-  if(!(partnerResourceTypes as readonly string[]).includes(input.entityType)||!(partnerRoles as readonly string[]).includes(input.role)||!Number.isSafeInteger(input.canonicalId)||input.canonicalId<1)throw new Error("Neplatný Partner resource alebo rola.");
-  const database=db(input.database),account=await getPartnerAccountById(input.accountId,database);if(!account)throw new Error("Partner účet neexistuje.");
+  if(!(partnerResourceTypes as readonly string[]).includes(input.entityType)||input.role!=="OWNER"||!Number.isSafeInteger(input.canonicalId)||input.canonicalId<1)throw new Error("Neplatný Partner resource alebo rola.");
+  const database=db(input.database),account=await getPartnerAccountById(input.accountId,database);if(!account||account.status!=="ACTIVE")throw new Error("Partner účet musí byť aktívny.");
   const nowDate=input.now??new Date();
   const resource=await ensureCanonicalResource({entityType:input.entityType,canonicalId:input.canonicalId,database,now:nowDate});
   const now=nowDate.toISOString();
@@ -176,7 +176,7 @@ export async function createPartnerMembershipAdmin(input:{accountId:string;entit
 }
 
 export async function changePartnerMembershipAdmin(input:{membershipId:string;role?:PartnerRole;revoke?:boolean;adminEmail:string;database?:D1Database;now?:Date}){
-  if(!validId(input.membershipId))throw new Error("Neplatná membership.");if(input.role&&!(partnerRoles as readonly string[]).includes(input.role))throw new Error("Neplatná Partner rola.");
+  if(!validId(input.membershipId))throw new Error("Neplatná membership.");if(!input.revoke && input.role!=="OWNER")throw new Error("Podporovaná je len rola Správca profilu.");
   const database=db(input.database),current=await database.prepare("SELECT id,role,revoked_at revokedAt FROM partner_memberships WHERE id=?").bind(input.membershipId).first<{id:string;role:PartnerRole;revokedAt:string|null}>();
   if(!current)throw new Error("Membership neexistuje.");if(current.revokedAt)throw new Error("Membership už bola odvolaná.");const now=(input.now??new Date()).toISOString(),actor=auditActor(input.adminEmail);
   const action=input.revoke?"MEMBERSHIP_REVOKED":"MEMBERSHIP_ROLE_CHANGED";

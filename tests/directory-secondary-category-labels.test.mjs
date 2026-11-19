@@ -29,6 +29,8 @@ test("compact directory cards retain only category membership metadata", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, status TEXT, source_data_json TEXT)");
+    // Public membership SQL can query this 0170 relation even for legacy JSON rows.
+    db.exec("CREATE TABLE directory_profile_additional_categories (profile_id INTEGER, category TEXT)");
     const insert = db.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?)");
     insert.run(1, "vencenie", "published", JSON.stringify({
       [DIRECTORY_ADDITIONAL_CATEGORIES_KEY]: JSON.stringify(["veterinari"]),
