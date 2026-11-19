@@ -17,6 +17,18 @@ export type FieldResolution = {
   psipediaFields: string[];
 };
 
+/** Only authenticated, field-scoped human edit receipts may establish LWW.
+ * Never substitute D1 profile updated_at or Notion page last_edited_time. */
+export type VerifiedFieldEdit = {
+  observedAt: string;
+  editId: string;
+  value: unknown;
+};
+export type VerifiedFieldEditPair = {
+  notion: VerifiedFieldEdit;
+  psipedia: VerifiedFieldEdit;
+};
+
 function leaves(value: unknown, prefix = "", output: Record<string, unknown> = {}) {
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
     const entries = Object.entries(value);
@@ -75,6 +87,26 @@ function blank(value: unknown) {
     || (Array.isArray(value) && !value.length);
 }
 
+/** Both source receipts must be authenticated by the caller and exactly bound
+ * to current compared field values. Invalid evidence never chooses a winner. */
+function verifiedLatestWinner(
+  evidence: VerifiedFieldEditPair | undefined,
+  notionValue: unknown, adminValue: unknown,
+): "notion" | "psipedia" | null {
+  if (!evidence?.notion || !evidence.psipedia) return null;
+  const n = evidence.notion, p = evidence.psipedia;
+  const valid = (r: VerifiedFieldEdit) => typeof r.observedAt === "string"
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(r.observedAt)
+    && Number.isFinite(Date.parse(r.observedAt))
+    && new Date(Date.parse(r.observedAt)).toISOString() === r.observedAt
+    && typeof r.editId === "string" && r.editId.length > 0;
+  if (!valid(n) || !valid(p) || !same(n.value, notionValue)
+      || !same(p.value, adminValue)) return null;
+  const nt = Date.parse(n.observedAt), pt = Date.parse(p.observedAt);
+  if (nt === pt) return null;
+  return nt > pt ? "notion" : "psipedia";
+}
+
 /** verifiedDeletes are field-specific trusted human intent receipts, not blank inference. */
 export function reconcileProfileFields(input: {
   baseline: FieldSnapshot | null;
@@ -88,6 +120,12 @@ export function reconcileProfileFields(input: {
   equalField?: (path: string, left: unknown, right: unknown) => boolean;
   /** Per-field operator authority; never overrides protectedFields or baseline checks. */
   authorities?: Readonly<Record<string, "safe" | "notion" | "admin" | "latest">>;
+  /** Directory only: trust the verified one-sided baseline difference over
+   * a historical static authority setting. */
+  changedSideWins?: boolean;
+  /** OPTIONAL: only independently authenticated human field edits, each
+   * paired with the actual observed value. No caller supplies these yet. */
+  verifiedFieldEdits?: Readonly<Record<string, VerifiedFieldEditPair>>;
 }): FieldResolution {
   const merged = structuredClone(input.psipedia);
   if (!input.baseline) return {
@@ -119,21 +157,33 @@ export function reconcileProfileFields(input: {
       continue;
     }
     const authority = input.authorities?.[path] ?? "safe";
-    // Explicit user decisions apply only to non-protected, baseline-verified
-    // fields. Admin priority keeps the canonical value on both sides.
-    if (authority === "admin") continue;
-    if ((n && !blank(base[path]) && blank(remote[path]) && !input.verifiedDeletes?.has(`notion:${path}`))
-      || (p && !blank(base[path]) && blank(local[path]) && !input.verifiedDeletes?.has(`psipedia:${path}`))) {
+    // When one side is hash-proven unchanged, an old preferred-source setting
+    // cannot turn a newer edit from the other side back into the baseline.
+    const singleSideWins = input.changedSideWins === true && n !== p;
+    if (authority === "admin" && !(singleSideWins && n)) continue;
+    if ((n && !blank(base[path]) && blank(remote[path]) && !input.verifiedDeletes?.has(\`notion:\${path}\`))
+      || (p && !blank(base[path]) && blank(local[path]) && !input.verifiedDeletes?.has(\`psipedia:\${path}\`))) {
       conflicts.push({ field: path, reason: "UNVERIFIED_DELETE" });
       continue;
     }
-    // 'latest' deliberately refuses to guess from record-level timestamps:
-    // if both sides edited the same field, there is no verified field revision.
-    if (n && p && !equal(path, remote[path], local[path]) && authority !== "notion") {
-      conflicts.push({ field: path, reason: "AMBIGUOUS_SAME_FIELD" });
-      continue;
+    if (n && p && !equal(path, remote[path], local[path])) {
+      const latest = authority === "latest"
+        ? verifiedLatestWinner(input.verifiedFieldEdits?.[path], remote[path], local[path])
+        : null;
+      if (latest === "notion") {
+        setLeaf(merged, path, remote[path]);
+        continue;
+      }
+      if (latest === "psipedia") continue;
+      if (authority !== "notion") {
+        conflicts.push({ field: path, reason: "AMBIGUOUS_SAME_FIELD" });
+        continue;
+      }
     }
-    if (n || (authority === "notion" && p)) setLeaf(merged, path, remote[path]);
+    // Only the actually changed side wins when the caller supplies a verified
+    // baseline. Never pull the unchanged Notion value over a new Admin edit.
+    if (n || (authority === "notion" && p && !singleSideWins))
+      setLeaf(merged, path, remote[path]);
   }
   return {
     kind: conflicts.length ? "CONFLICT" : notionFields.length || psipediaFields.length ? "MERGE" : "UNCHANGED",
