@@ -49,8 +49,8 @@ test("searchable Help edit binds exactly one value per index column and preserve
       .run("Trnava",...assignment.bindings,"2026-11-19T01:00:00.000Z",1);
     const row=db.prepare("SELECT name,description,city,search_text FROM adoption_dogs WHERE id=1").get();
     assert.equal(row.name,"Bela");assert.equal(row.description,"Hľadá domov");
-    assert.equal(row.city,"Trnava");assert.ok(row.search_text.includes("Trnava"));
-    assert.ok(row.search_text.includes("Bela"));
+    assert.equal(row.city,"Trnava");assert.ok(row.search_text.includes("trnava"));
+    assert.ok(row.search_text.includes("bela"));
     const lost=idx.helpSearchIndexAssignment("LOST_FOUND_DOG",{public_phone:"333"});
     assert.equal(lost.sql,"");
     assert.equal(lost.bindings.length,0);
