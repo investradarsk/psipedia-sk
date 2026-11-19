@@ -31,6 +31,9 @@ test("Help editor updates only changed public fields and rejects system/SEO/priv
     }
   }
   assert.throws(()=>contract.normalizeHelpEditorPatch("ADOPTION_DOG",{sex:"DRAGON"}),/Neplatná možnosť/);
+  assert.deepEqual(contract.normalizeHelpEditorPatch("ADOPTION_DOG",{chipped:null,neutered:true,apartment_suitable:false}),{chipped:null,neutered:true,apartment_suitable:false});
+  assert.throws(()=>contract.normalizeHelpEditorPatch("ADOPTION_DOG",{chipped:"maybe"}),/Neplatná hodnota/);
+  assert.deepEqual(contract.normalizeHelpEditorPatch("LOST_FOUND_DOG",{public_phone:"hocijaký text",short_description:"Nájdený pes"}),{public_phone:"hocijaký text",short_description:"Nájdený pes"});
   assert.throws(()=>contract.normalizeHelpEditorPatch("ADOPTION_DOG",{name:""}),/Povinné pole/);
   assert.throws(()=>contract.normalizeHelpEditorPatch("ADOPTION_DOG",{approximate_age_months:-1}),/Neplatná číselná/);
   assert.throws(()=>contract.normalizeHelpEditorPatch("LOST_FOUND_DOG",{event_date:"2026-02-31"}),/Neplatný dátum/);
