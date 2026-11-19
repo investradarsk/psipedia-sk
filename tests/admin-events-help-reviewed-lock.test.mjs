@@ -95,6 +95,7 @@ test("every partner approval includes automatic review lock and Admin shows owne
   const claims=read("lib/partner-help-claims.ts");
   const helpCreate=read("lib/partner-help-create-admin.ts");
   const events=read("lib/partner-events-admin.ts");
+  const newProfiles=read("lib/partner-new-profile-admin.ts");
   const store=read("lib/partner-admin-store.ts");
   const reviewStore=read("lib/admin-entity-review-store.ts");
   const ui=read("components/admin-partner-review-status.tsx");
@@ -102,6 +103,10 @@ test("every partner approval includes automatic review lock and Admin shows owne
   assert.match(claims,/database\.batch\(/);
   assert.equal((helpCreate.match(/partnerAdminReviewStatement\(/g)??[]).length,2);
   assert.equal((events.match(/partnerAdminReviewStatement\(/g)??[]).length,2);
+  assert.equal((newProfiles.match(/partnerAdminReviewStatement\(/g)??[]).length,2,
+    "organization CREATE and LINK_EXISTING both persist Odkontrolované");
+  assert.equal((newProfiles.match(/type:"ORGANIZATION"/g)??[]).length,2);
+  assert.match(newProfiles,/row\.resourceType==="HELP_ORGANIZATION"/);
   assert.match(store,/markPartnerGrantedReview/);
   assert.match(reviewStore,/partnerReviewOwnerSql\(entityType,"\?2"\)/);
   assert.match(ui,/Tento záznam spravuje partner/);
