@@ -2,7 +2,7 @@
 /**
  * Owner-only production cleanup of duplicate Notion/SQL scalar keys in
  * directory_profiles.source_data_json. Audit never mutates D1.
- * Apply only removes 12 allowlisted keys where SQL is nonempty.
+ * Apply removes all 12 allowlisted keys regardless of the SQL values.
  */
 import {spawnSync} from "node:child_process";
 import {readFileSync,mkdirSync,writeFileSync} from "node:fs";
@@ -170,10 +170,10 @@ try{
     const after={baseline:baseline(),candidates:candidates()};
     const ok=stable(original,after.baseline)&&
       after.baseline.json_chars<=original.json_chars&&
+      after.candidates.totals.invalidJson===before.candidates.totals.invalidJson &&
       DIRECTORY_SQL_NOTION_SCALAR_COLUMNS.every(column=>
         after.candidates.totals.removable[column]===0 &&
-        after.candidates.totals.unconfirmed[column]===before.candidates.totals.unconfirmed[column] &&
-        after.candidates.totals.protected[column]===before.candidates.totals.protected[column]);
+        after.candidates.totals.withoutSqlValue[column]===0);
     writeReport("POSTFLIGHT",{readOnly:false,applied:true,before,after,
       invariantsPassed:ok});
     must(ok,"POSTFLIGHT_INVARIANTS");
