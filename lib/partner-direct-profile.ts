@@ -7,6 +7,14 @@ import { publishSafeImage, type PrivateBucketLike } from "@/lib/private-media";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import {
+  approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror,
+  planDirectory0170FilterSqlMirror, type Directory0170SqlStatement,
+} from "@/lib/directory-0170-editorial-sql-mirror";
+import {
+  getDirectoryFilterDefinition, serviceFilterCategories,
+  type ServiceFilterCategory,
+} from "@/lib/directory-filter-contract";
+import {
   buildDirectoryApplyStatement, buildHelpApplyStatements, getPartnerProfileEditor,
   loadPartnerCanonicalForResource, normalizePartnerProfilePatch, PartnerProfileChangeError,
   type PartnerProfilePatch,
@@ -68,6 +76,40 @@ export async function savePartnerManagedProfile(input: {
   const statements=canonical.entityType==="DIRECTORY_PROFILE"
     ? [buildDirectoryApplyStatement(database,canonical,effectivePatch,actorRef,nowIso,undefined,guard)]
     : buildHelpApplyStatements(database,canonical,effectivePatch,actorRef,nowIso,undefined,guard);
+  if(canonical.entityType==="DIRECTORY_PROFILE"&&canonical.directoryCategory &&
+    (serviceFilterCategories as readonly string[]).includes(canonical.directoryCategory)){
+    // The 0170 SQL facet read model must be updated in the SAME transaction
+    // as the canonical profile UPDATE. JSON-only Partner edits become invisible
+    // when the SQL-first public facet wins; do not silently allow that split.
+    const category=canonical.directoryCategory as ServiceFilterCategory;
+    const filters:Record<string,string|null>={};
+    for(const [field,value] of Object.entries(effectivePatch)){
+      const definition=getDirectoryFilterDefinition(field);
+      if(definition&&definition.category===category)filters[field]=value===null?null:String(value);
+    }
+    const plans: readonly Directory0170SqlStatement[][]=[];
+    if(Object.keys(filters).length) {
+      (plans as Directory0170SqlStatement[][]).push(
+        [...planDirectory0170FilterSqlMirror({profileId:canonical.canonicalId,category,
+          values:filters,updatedAt:nowIso,actor:actorRef})]
+      );
+    }
+    if("openingHours" in effectivePatch && approvedDirectoryFactSqlSlot(category,"Ordinačné hodiny")){
+      (plans as Directory0170SqlStatement[][]).push(
+        [...planDirectory0170FactSqlMirror({profileId:canonical.canonicalId,category,
+          field:"Ordinačné hodiny",value:String(effectivePatch.openingHours??""),
+          updatedAt:nowIso,actor:actorRef})]
+      );
+    }
+    if(plans.length){
+      // Each planner starts with the same SQLite changes() guard. Run it
+      // exactly once, IMMEDIATELY after the profile CAS, before any mirror.
+      const guard=plans[0][0];
+      statements.push(database.prepare(guard.sql).bind(...guard.bindings));
+      for(const plan of plans)for(const item of plan.slice(1))
+        statements.push(database.prepare(item.sql).bind(...item.bindings));
+    }
+  }
   const table=canonical.entityType==="DIRECTORY_PROFILE"?"directory_profiles":"help_organizations";
   const main=mainId?images.find(image=>image.id===mainId)!:null;
   if(main){
