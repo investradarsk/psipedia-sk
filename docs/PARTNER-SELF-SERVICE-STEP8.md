@@ -36,9 +36,11 @@ Partner editory teraz v spoločnom D1 batchi nastavujú zmenené SQL kontakty `p
 
 Notion `last_edited_time` je timestamp celej stránky, nie jednotlivého poľa. Keď sa to isté pole zmení na oboch stranách po poslednom potvrdenom baseline, automatické „najnovšie vyhráva“ **nie je dokázateľné**. Aktuálne správne bezpečné správanie je explicitný `CONFLICT` bez tichého prepísania údajov. **Podmienka produkčnej aktivácie:** schválenie tejto konfliktovej politiky alebo vybudovanie per-field prenosu potvrdených revízií a auditovaného LWW pre všetky relevantné typy. Neoznačovať ako „hotová LWW synchronizácia“.
 
-### 8D – aktuálny main je pred vetvou PR #1437
+### 8D – synchronizácia vetvy s aktuálnym main
 
-V čase kontroly bol PR branch pozadu o **41 commitov**, vrátane novších opráv `lib/notion-directory-sync.ts`, `lib/directory-reviewed-sync-lock.ts`, `lib/directory-store.ts` a verejného filtrovania. **Nesmie sa force-pushnúť ani nahradiť main zo starého branch headu.** Aktualizovať PR vetvu z aktuálneho `main`, vyriešiť najmä `package.json`, zachovať novšie zmeny 0170/synchronizácie, a znovu spustiť všetky testy. Takisto znovu overiť počet behind commitov (main sa priebežne mení).
+Prvý audit odhalil, že PR branch bol pozadu o **41 commitov**, vrátane novších opráv `lib/notion-directory-sync.ts`, `lib/directory-reviewed-sync-lock.ts`, `lib/directory-store.ts` a verejného filtrovania. **Nesmie sa force-pushnúť ani nahradiť main zo starého branch headu.** Aktualizovať PR vetvu z aktuálneho `main`, vyriešiť najmä `package.json`, zachovať novšie zmeny 0170/synchronizácie, a znovu spustiť všetky testy. Takisto znovu overiť počet behind commitov (main sa priebežne mení).
+
+**Následný stav:** do PR vetvy bol zlúčený najnovší `main` v merge commite `1f351af2f99ee04a024d46b70a5af56bbe744143`; pri následnom porovnaní bolo `behind_by=0`. Naďalej je povinné overiť, že branch je aktuálny aj v okamihu merge a že nové testy prejdú na tomto kombinovanom kóde.
 
 ### 8E – posledný CI bol červený / Partner security workflow na Draft preskočený
 
@@ -46,7 +48,7 @@ Posledný overený výsledok mal zelený lint, migrácie, vizuálne a výkonové
 
 ## Produkčný rollout – presné poradie a stop-podmienky
 
-0. Zjednotiť vetvu PR s aktuálnym main, nesmazať najnovšie synchronizačné kódy. Revízia všetkých zmien, zero kritických konfliktov.
+0. Vetva už prevzala `main` (`behind_by=0` pri audite). Pred merge opätovne overiť najnovší SHA, zachovanie 0170 SQL kontaktov/filtrov a nulové kritické konflikty.
 1. Potvrdiť, že aktuálne verejné dáta sú v **kanonickej D1**, exportovať a bezpečne odložiť backup produkčnej databázy, záznam o presnom SHA a odkazy na pôvodné verzovanie.
 2. Vykonať v produkcii **iba read-only** `scripts/partner-self-service-0171-0172-preflight.sql`: žiadne duplicitné aktívne membershipy, preveriť historické role, aktívnosť accountov, existujúce tabuľky a `PRAGMA foreign_key_check`. Každý nejasný výsledok = STOP. Pozrieť produkčnú históriu migrácií a či 0171/0172 už nie sú fyzicky prítomné; nepridávať slepo ich objekty.
 3. Pred produkčným code deployom pripraviť **oddelený owner-authorized schema rollout**: iba explicitný manuálny dispatch / Cloudflare D1, správny databázový účet, presné kontrolované SQL, bez generického replay všetkých migrácií. Branch PR obsahuje obe SQL definície, ale generický `production-d1-migrate.mjs` ich zámerne **nepovoľuje**.
