@@ -40,11 +40,11 @@ function fixture(){
 }
 const shape=db=>Object.fromEntries(db.prepare("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index') ORDER BY name").all().map(r=>[r.name,r.sql]));
 const names=["breed_fci_standard","breed_editorial_text","breed_public_facts","breed_related_breeds"];
-const newSql=["seo_title","seo_description","seo_focus_keyword","seo_canonical_url","seo_og_title","seo_og_description","seo_noindex"];
+const newSql=["seo_title","seo_description","seo_focus_keyword","seo_canonical_url","seo_og_title","seo_og_description","seo_og_image","seo_noindex"];
 
-test("0174 staged SQL is additive-only: 7 nullable SEO fields, 4 tables, 1 index",()=>{
- assert.equal(statements.length,12);
- assert.equal(statements.filter(x=>/^ALTER TABLE managed_breeds ADD COLUMN/i.test(x)).length,7);
+test("0174 staged SQL is additive-only: 8 nullable SEO fields, 4 tables, 1 index",()=>{
+ assert.equal(statements.length,13);
+ assert.equal(statements.filter(x=>/^ALTER TABLE managed_breeds ADD COLUMN/i.test(x)).length,8);
  assert.equal(statements.filter(x=>/^CREATE TABLE/i.test(x)).length,4);
  assert.equal(statements.filter(x=>/^CREATE INDEX/i.test(x)).length,1);
  assert.match(sql,/pending-migrations/);
