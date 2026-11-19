@@ -51,11 +51,17 @@ test("six editorial, eight SEO and six controlled numeric values map to the corr
    overview:"overview",coatCare:"coat_care",familyLife:"family_life",
    otherDogsLife:"other_dogs_life",curiosities:"curiosities",
    commonOwnerMistakes:"common_owner_mistakes",
+   exerciseTip:"exercise_tip",trainingTip:"training_tip",
+   healthTip:"health_tip",coatTip:"coat_tip",
  };
  for(const [key,col] of Object.entries(editorFields)){
    const plan=planBreedSqlV2FieldWrite("editorial."+key,"test");
    assert.deepEqual([plan.table,plan.column,plan.stored],["breed_editorial_text",col,"test"]);
  }
+ const traits=planBreedSqlV2FieldWrite("editorial.heroTraits",[{label:"Pokoj",rating:4}]);
+ assert.equal(traits.table,"breed_editorial_text");
+ assert.equal(traits.column,"hero_traits_json");
+ assert.equal(traits.stored,'[{"label":"Pokoj","rating":4}]');
  const seoFields={
    title:"seo_title",description:"seo_description",focusKeyword:"seo_focus_keyword",
    canonicalUrl:"seo_canonical_url",ogTitle:"seo_og_title",
