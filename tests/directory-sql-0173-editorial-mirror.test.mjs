@@ -83,3 +83,46 @@ test("Canonical Admin/Notion writer uses a single D1 batch to publish 0173 sidec
  assert.match(source,/canonicalStatement,[\s\S]*\.\.\.editorialMirror/);
  assert.match(source,/canonical,[\s\S]*\.\.\.editorialMirror/);
 });
+
+test("Explicit breeder gallery is an ordered 0173 SQL mirror, with clear and absent-value semantics",()=>{
+ const db=fixture();
+ try{
+  const who={kind:"id",profileId:1,updatedAt:"T1",actor:"admin"};
+  apply(db,{identity:who,galleryUrls:["/media/breeder-1.webp","https://example.com/breeder-2.jpg"]});
+  let rows=db.prepare("SELECT profile_id,item_order,image_url,image_key,alt_text,attribution_text FROM directory_profile_media ORDER BY item_order").all();
+  assert.deepEqual(rows.map(x=>x.image_url),["/media/breeder-1.webp","https://example.com/breeder-2.jpg"]);
+  assert.deepEqual(rows.map(x=>x.item_order),[0,1]);
+  assert.deepEqual(rows.map(x=>x.alt_text),["",""]);
+  assert.deepEqual(rows.map(x=>x.attribution_text),["",""]);
+  assert.deepEqual(rows.map(x=>x.image_key),[null,null]);
+  apply(db,{identity:who,seo:{title:"Independent SEO edit"}});
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_media WHERE profile_id=1").get().n,2);
+  apply(db,{identity:who,galleryUrls:[]});
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_media WHERE profile_id=1").get().n,0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_media WHERE profile_id=2").get().n,0);
+ }finally{db.close()}
+});
+test("Gallery mirror rejects malformed, duplicate and oversized batches",()=>{
+ const who={kind:"id",profileId:1,updatedAt:"T1",actor:"admin"};
+ for (const urls of [
+  ["a","a"],Array.from({length:7},(_,i)=>"/media/"+i+".webp"),[""],[null]
+ ]) assert.throws(()=>planDirectory0173EditorialSqlMirror({identity:who,galleryUrls:urls}),/DIRECTORY_0173_INVALID_GALLERY/);
+});
+test("Stale edit cannot delete a newer breeder gallery; creation uses unique slug identity",()=>{
+ const db=fixture();
+ try{
+  apply(db,{identity:{kind:"category-slug",category:"veterinari",slug:"druhy",updatedAt:"T1",actor:"admin"},
+    galleryUrls:["/media/a.webp"]});
+  apply(db,{identity:{kind:"id",profileId:2,updatedAt:"T0",actor:"admin"},galleryUrls:[]});
+  apply(db,{identity:{kind:"id",profileId:2,updatedAt:"T1",actor:"notion"},galleryUrls:[]});
+  assert.equal(db.prepare("SELECT image_url FROM directory_profile_media WHERE profile_id=2").get().image_url,"/media/a.webp");
+ }finally{db.close()}
+});
+test("Admin breeder editor only sends explicit normalized gallery to the canonical 0173 batch",()=>{
+ const source=readFileSync(new URL("../lib/directory-store.ts",import.meta.url),"utf8");
+ assert.match(source,/payload\.galleryUrls !== undefined && input\.category === "chovatelske-stanice"/);
+ assert.match(source,/payload\.galleryUrls !== undefined &&[\s\S]*"chovatelske-stanice"/);
+ assert.match(source,/readDirectoryBreederGallery\(/);
+ assert.match(source,/mergeDirectoryBreederGallery\(/);
+ assert.match(source,/\.\.\.editorialMirror\.map\(item => database\.prepare\(item\.sql\)\.bind\(\.\.\.item\.bindings\)\)/);
+});
