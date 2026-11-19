@@ -161,8 +161,8 @@ export function reconcileProfileFields(input: {
     // cannot turn a newer edit from the other side back into the baseline.
     const singleSideWins = input.changedSideWins === true && n !== p;
     if (authority === "admin" && !(singleSideWins && n)) continue;
-    if ((n && !blank(base[path]) && blank(remote[path]) && !input.verifiedDeletes?.has(\`notion:\${path}\`))
-      || (p && !blank(base[path]) && blank(local[path]) && !input.verifiedDeletes?.has(\`psipedia:\${path}\`))) {
+    if ((n && !blank(base[path]) && blank(remote[path]) && !input.verifiedDeletes?.has(`notion:${path}`))
+      || (p && !blank(base[path]) && blank(local[path]) && !input.verifiedDeletes?.has(`psipedia:${path}`))) {
       conflicts.push({ field: path, reason: "UNVERIFIED_DELETE" });
       continue;
     }
