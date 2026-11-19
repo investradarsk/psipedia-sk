@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { getPartnerMediaAsset, normalizePartnerMediaId } from "@/lib/partner-media";
 import { normalizePartnerGalleryMediaIds } from "@/lib/partner-profile-gallery-media";
@@ -83,6 +84,8 @@ export async function updatePartnerHelpPublic(input: {
   galleryMediaIds?: unknown;
   database?: D1Database;
   now?: Date;
+  publicOrigin?: string;
+  workerVersionId?: string;
 }) {
   const parsed = parseHelpResourceId(input.resourceId);
   if (!parsed) throw new PartnerHelpEditorError("Neplatný záznam Pomoci psom.",404);
@@ -205,6 +208,23 @@ export async function updatePartnerHelpPublic(input: {
         nowIso,parsed.canonicalId),
   ]);
   if (Number(result[0]?.meta?.changes ?? 0) !== 1) throw new PartnerHelpEditorError("Záznam sa medzitým zmenil alebo už nemáte oprávnenie. Obnovte stránku.",409);
+  if(input.publicOrigin){
+    const current=await getPartnerHelpEditor(input.accountId,input.resourceId,database);
+    const paths=new Set<string>(["/pomoc-psom"]);
+    if(parsed.entityType==="ADOPTION_DOG")paths.add("/pomoc-psom/adopcia");
+    if(parsed.entityType==="LOST_FOUND_DOG"){paths.add("/pomoc-psom/stratene-psy");paths.add("/pomoc-psom/najdene-psy");}
+    if(parsed.entityType==="HELP_CASE"){
+      const previousCategory=await database.prepare("SELECT category,slug FROM help_cases WHERE id=?1")
+        .bind(parsed.canonicalId).first<{category:string;slug:string}>();
+      if(previousCategory)paths.add(`/pomoc-psom/${previousCategory.category}`);
+    }
+    if(current.publicHref)paths.add(current.publicHref);
+    const version=input.workerVersionId??(env as unknown as {CF_VERSION_METADATA?:{id?:string}}).CF_VERSION_METADATA?.id;
+    for(const path of paths){
+      try{await invalidateVersionedPublicHtmlCacheUrl(new URL(path,input.publicOrigin),version);}
+      catch(error){console.error("Partner Help public cache invalidation failed",error);}
+    }
+  }
   return { resourceId: input.resourceId, baseRevision: nowIso,
     updatedFields: [...keys,...(newMain?["image"]:[]),...(hasGalleryEdit?["gallery"]:[])], saved: true };
 }
