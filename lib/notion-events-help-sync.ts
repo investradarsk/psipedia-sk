@@ -1,3 +1,4 @@
+import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
 import { isHelpFieldEventAgenda, changedNotionHelpFields, helpFieldSnapshot } from "./notion-help-field-events.ts";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
@@ -847,6 +848,12 @@ async function syncAgenda(input: {
     if (ownerTargetedImport) break;
     const entityId = sourceId(source);
     if (entityId === null) continue;
+    // Review is an Admin/D1-owned hard lock. It blocks both Notion pull
+    // and push, including targeted imports, hashes and automatic backfills.
+    if (await isAdminNotionSyncLocked(input.database, input.definition.key, entityId)) {
+      summary.unchanged += 1;
+      continue;
+    }
     let mapping = mappingByEntity.get(entityId) ?? null;
     // Existing mapped Events now use targeted field events on Admin saves and
     // signed Notion webhooks. Do not run an hourly whole-profile replay over
