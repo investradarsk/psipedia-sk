@@ -20,6 +20,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ re
     const result = await updatePartnerHelpPublic({
       accountId: identity.accountId,resourceId,baseRevision:data.baseRevision,patch:data.patch,
       mediaAssetId:data.mediaAssetId,galleryUrls:data.galleryUrls,galleryMediaIds:data.galleryMediaIds,
+      publicOrigin:new URL(request.url).origin,
     });
     return Response.json({ success: true, result }, { headers: { "Cache-Control":"private, no-store" } });
   } catch (error) {
