@@ -1,7 +1,9 @@
 import {
   breedProfileHref,
   canonicalBreedIdsSql,
+  canonicalBreedIdsSqlV2,
   canonicalBreedWinnerSql,
+  canonicalBreedWinnerSqlV2,
   rotateBreeds,
 } from "./breed-canonical";
 import {
@@ -41,6 +43,8 @@ import {
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 import { cleanBreedCoatDescription, cleanBreedEditorialList } from "./breed-long-description.ts";
 import { compareBreedSqlV2Detail } from "./breed-sql-v2-preview";
+import {breedSqlPrimaryEnabled,breedSqlPrimaryProjection}
+  from "./breed-sql-v2-primary-read.mjs";
 import {
   breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements,
   breedSqlV2NewBreedStatements,
@@ -678,6 +682,13 @@ const select = `SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_
 valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
+const sqlPrimary=breedSqlPrimaryEnabled(env);
+const canonicalBreedIdsForRuntime=sqlPrimary?canonicalBreedIdsSqlV2:canonicalBreedIdsSql;
+const canonicalBreedWinnerForRuntime=sqlPrimary?canonicalBreedWinnerSqlV2:canonicalBreedWinnerSql;
+// Old selection stays available for regression tests and the rollback flag.
+// SQL mode assembles the same domain JSON shape ONLY from 0174 SQL tables.
+const readSelect=sqlPrimary?breedSqlPrimaryProjection(select):select;
+const primaryProjection=(sql:string)=>sqlPrimary?breedSqlPrimaryProjection(sql):sql;
 export async function listManagedBreedSummaries(limit = 500) {
   const database = requireDb();
   await ensure(database);
@@ -685,15 +696,18 @@ export async function listManagedBreedSummaries(limit = 500) {
   const result = await database
     .prepare(
       `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,intro,updated_at,sports_json,needs,exercise,training,health,
-CASE WHEN json_valid(editorial_json) THEN
+${sqlPrimary?"(SELECT COALESCE(e.overview,'') FROM breed_editorial_text e WHERE e.breed_id=managed_breeds.id)":
+`CASE WHEN json_valid(editorial_json) THEN
   CASE WHEN json_type(editorial_json, '$.overview') = 'text' THEN json_extract(editorial_json, '$.overview') ELSE '' END
-ELSE '' END AS editorial_overview,
-CASE WHEN json_valid(fci_standard_json) THEN
+ELSE '' END`} AS editorial_overview,
+${sqlPrimary?"(SELECT COALESCE(f.fci_fci_standard_pdf,'') FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+`CASE WHEN json_valid(fci_standard_json) THEN
   CASE WHEN json_type(fci_standard_json, '$.fci_standard_pdf') = 'text' THEN json_extract(fci_standard_json, '$.fci_standard_pdf') ELSE '' END
-ELSE '' END AS fci_standard_pdf,
-CASE WHEN json_valid(fci_standard_json) THEN
+ELSE '' END`} AS fci_standard_pdf,
+${sqlPrimary?"(SELECT COALESCE(f.fci_fci_nomenklatura_url,'') FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+`CASE WHEN json_valid(fci_standard_json) THEN
   CASE WHEN json_type(fci_standard_json, '$.fci_nomenklatura_url') = 'text' THEN json_extract(fci_standard_json, '$.fci_nomenklatura_url') ELSE '' END
-ELSE '' END AS fci_nomenklatura_url,
+ELSE '' END`} AS fci_nomenklatura_url,
 (SELECT COUNT(*) FROM breed_article_relations r WHERE r.breed_id=managed_breeds.id) AS article_relation_count,
 (SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
 FROM managed_breeds ORDER BY fci_group,name LIMIT ?`,
@@ -738,7 +752,7 @@ export async function listPublishedBreedIndex() {
     }));
   const result = await database
     .prepare(
-      `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`,
+      primaryProjection(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsForRuntime}) ORDER BY fci_group,name`),
     )
     .all<IndexRow>();
   return withAvailableBreedImages(result.results.map(fromIndexRow), env);
@@ -748,7 +762,7 @@ export async function listPublishedCanonicalBreedIndex() {
   if (!database) return listPublishedBreedIndex();
   const result = await database
     .prepare(
-      `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`,
+      primaryProjection(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsForRuntime}) ORDER BY fci_group,name`),
     )
     .all<IndexRow>();
   // The public atlas displays hundreds of breeds. Waiting for R2 listings and
@@ -816,15 +830,15 @@ export async function listPublishedCanonicalBreedAtlasCards(): Promise<BreedAtla
       `
     SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,origin,group_name,
       official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,
-      CASE WHEN json_valid(fci_standard_json) THEN
-        CAST(json_extract(fci_standard_json, '$.vyska_pes_cm') AS TEXT) ELSE NULL END AS standard_dog_height,
-      CASE WHEN json_valid(fci_standard_json) THEN
-        CAST(json_extract(fci_standard_json, '$.vyska_suka_cm') AS TEXT) ELSE NULL END AS standard_bitch_height,
-      CASE WHEN json_valid(fci_standard_json) THEN
-        CAST(json_extract(fci_standard_json, '$.hmotnost_pes_kg') AS TEXT) ELSE NULL END AS standard_dog_weight,
-      CASE WHEN json_valid(fci_standard_json) THEN
-        CAST(json_extract(fci_standard_json, '$.hmotnost_suka_kg') AS TEXT) ELSE NULL END AS standard_bitch_weight
-    FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name
+      ${sqlPrimary?"(SELECT f.fci_"+k+" FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+`CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.vyska_pes_cm') AS TEXT) ELSE NULL END`} AS standard_dog_height,
+      ${sqlPrimary?"(SELECT f.fci_"+k+" FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+`CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.vyska_suka_cm') AS TEXT) ELSE NULL END`} AS standard_bitch_height,
+      ${sqlPrimary?"(SELECT f.fci_"+k+" FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+`CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.hmotnost_pes_kg') AS TEXT) ELSE NULL END`} AS standard_dog_weight,
+      ${sqlPrimary?"(SELECT f.fci_"+k+" FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
+`CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.hmotnost_suka_kg') AS TEXT) ELSE NULL END`} AS standard_bitch_weight
+    FROM managed_breeds WHERE id IN (${canonicalBreedIdsForRuntime}) ORDER BY fci_group,name
   `,
     )
     .all<BreedAtlasCardRow>());
@@ -903,10 +917,10 @@ export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSi
   }
   const result = await database
     .prepare(
-      `SELECT slug,fci_group,image_url,seo_json,updated_at
+      primaryProjection(`SELECT slug,fci_group,image_url,seo_json,updated_at
      FROM managed_breeds
-     WHERE id IN (${canonicalBreedIdsSql})
-     ORDER BY fci_group,name`,
+     WHERE id IN (${canonicalBreedIdsForRuntime})
+     ORDER BY fci_group,name`),
     )
     .all<BreedSitemapIndexRow>();
   return result.results.map((row) => ({
@@ -922,7 +936,7 @@ export async function listPublishedBreedsForComparison(): Promise<BreedCompariso
   if (!database) return seedBreeds;
   const result = await database
     .prepare(
-      `SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,fci_standard_json,origin,accent,size,weight,lifespan,coat,energy,trainability,family,intro,good_for_json,consider_json FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`,
+      primaryProjection(`SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,fci_standard_json,origin,accent,size,weight,lifespan,coat,energy,trainability,family,intro,good_for_json,consider_json FROM managed_breeds WHERE id IN (${canonicalBreedIdsForRuntime}) ORDER BY fci_group,name`),
     )
     .all<ComparisonRow>();
   return withAvailableBreedImages(
@@ -965,7 +979,7 @@ export async function getBreedOfTheDay(dayOfYear: number): Promise<BreedOfTheDay
     // This small projection avoids loading the FCI standard for the homepage.
     const result = await database
       .prepare(
-        `SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,size,energy,trainability,intro FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name,id`,
+        `SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,size,energy,trainability,intro FROM managed_breeds WHERE id IN (${canonicalBreedIdsForRuntime}) ORDER BY fci_group,name,id`,
       )
       .all<BreedOfTheDayRow>();
     const candidates = rotateBreeds<BreedOfTheDayRow>(result.results, dayOfYear);
@@ -1006,7 +1020,7 @@ export async function listPublishedBreeds() {
   const database = db();
   if (!database) return seedBreeds;
   const result = await database
-    .prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`)
+    .prepare(`${readSelect} WHERE id IN (${canonicalBreedIdsForRuntime}) ORDER BY fci_group,name`)
     .all<Row>();
   return withAvailableBreedImages(
     result.results.map((row) => fromRow(row, { public: true })),
@@ -1018,7 +1032,7 @@ export async function listFeaturedBreeds(limit = 3) {
   const database = db();
   if (!database) return seedBreeds.slice(0, safeLimit);
   const result = await database
-    .prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name LIMIT ?`)
+    .prepare(`${readSelect} WHERE id IN (${canonicalBreedIdsForRuntime}) ORDER BY fci_group,name LIMIT ?`)
     .bind(safeLimit)
     .all<Row>();
   return withAvailableBreedImages(
@@ -1052,7 +1066,7 @@ export async function listHomepageFeaturedBreeds(
           ROW_NUMBER() OVER (ORDER BY slug ASC) - 1 AS rotation_index,
           COUNT(*) OVER () AS rotation_count
         FROM managed_breeds
-        WHERE id IN (${canonicalBreedIdsSql})
+        WHERE id IN (${canonicalBreedIdsForRuntime})
           AND (
             image_url LIKE '/images/%' OR image_url LIKE '/media/%'
             OR image_url LIKE '/migrated-media/%'
@@ -1079,7 +1093,7 @@ export async function getManagedBreed(id: number) {
   const database = requireDb();
   await ensure(database);
   const [breedResult, articleResult, directoryResult] = await database.batch([
-    database.prepare(`${select} WHERE id=?`).bind(id),
+    database.prepare(`${readSelect} WHERE id=?`).bind(id),
     database
       .prepare(
         "SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id",
@@ -1095,7 +1109,7 @@ export async function getManagedBreed(id: number) {
   if (!row) return null;
   // Step 4/6: optional parity diagnostics. The Admin still receives its
   // current canonical legacy snapshot; no SQL/JSON cutover before backfill.
-  await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
+  if(!sqlPrimary) await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
   return fromRow(row, {
     articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
     directory: (directoryResult.results as RelationIdRow[]).map((item) => item.id),
@@ -1105,12 +1119,12 @@ const getPublishedBreedUncached = async (slug: string) => {
   const database = db();
   if (!database) return seedBreeds.find((breed) => breed.slug === slug) ?? null;
   const row = await retryTransientPublicRead(() => database
-    .prepare(`${select} WHERE slug=? AND ${canonicalBreedWinnerSql("managed_breeds")} LIMIT 1`)
+    .prepare(`${readSelect} WHERE slug=? AND ${canonicalBreedWinnerForRuntime("managed_breeds")} LIMIT 1`)
     .bind(slug)
     .first<Row>());
   if (!row) return null;
   // Notion/Admin/public comparison only; SQL values are not exposed yet.
-  await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
+  if(!sqlPrimary) await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
   const breed = fromRow(row, { public: true });
   breed.image = ownedBreedImage(breed.image);
   breed.gallery = (breed.gallery ?? [])
@@ -1193,7 +1207,7 @@ export async function getBreedDetailRelations(
           `SELECT b.id,b.slug,b.name,b.image_url,b.fci_group,b.fci_section,b.fci_section_number
         FROM json_each(?) chosen
         JOIN managed_breeds b ON b.id=CAST(chosen.value AS INTEGER)
-        WHERE b.id IN (${canonicalBreedIdsSql}) AND b.id<>?
+        WHERE b.id IN (${canonicalBreedIdsForRuntime}) AND b.id<>?
         GROUP BY b.id
         ORDER BY MIN(CAST(chosen.key AS INTEGER)) ASC,b.id ASC
         LIMIT 4`,
@@ -1672,7 +1686,7 @@ export function buildManagedBreedUpdateStatements(
       ?breedSqlV2FullSnapshotStatements(database,id,value):[]),
     // Read the exact committed version and relations before the batch commits.
     // A later writer must not leak its version into this caller's editor.
-    database.prepare(`${select} WHERE id=?`).bind(id),
+    database.prepare(`${readSelect} WHERE id=?`).bind(id),
     database
       .prepare(
         "SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id",
