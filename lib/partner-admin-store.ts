@@ -123,6 +123,7 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
               AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
           +(SELECT COUNT(*) FROM partner_resource_verifications v WHERE v.account_id=a.id AND v.status='PENDING_VERIFICATION')
           +(SELECT COUNT(*) FROM partner_commercial_interests i WHERE i.account_id=a.id AND i.status='NEW')
+          +(SELECT COUNT(*) FROM partner_commercial_agreements g WHERE g.account_id=a.id AND g.status='OFFERED')
           AS pendingRequests,
           (SELECT COUNT(*) FROM partner_help_claims c WHERE c.account_id=a.id AND c.status='APPROVED') AS helpProfiles
         FROM partner_accounts a WHERE a.id IN (${placeholders})
