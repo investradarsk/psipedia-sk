@@ -248,6 +248,14 @@ export async function approvePartnerClaimAdmin(input: {
     database,
     hashKey: input.hashKey,
   });
+  // 0171 permits only one active external manager. Reject conflicts explicitly
+  // before touching membership, verification, claim status or notification state.
+  const conflictingManager = await database.prepare(
+    "SELECT id FROM partner_memberships WHERE resource_id=?1 AND account_id<>?2 AND revoked_at IS NULL LIMIT 1",
+  ).bind(claim.resourceId, claim.accountId).first<{ id: string }>();
+  if (conflictingManager) {
+    throw new PartnerClaimAdminError("Profil už spravuje iný partner. Najprv mu odoberte prístup.", 409);
+  }
   const now = input.now ?? new Date();
   await ensurePartnerOwnerMembershipAdmin({
     accountId: claim.accountId,
