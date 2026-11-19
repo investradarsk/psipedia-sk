@@ -27,6 +27,8 @@ export type Directory0173MirrorInput = {
   seo?: Directory0173Seo;
   /** Explicit, already-validated gallery edit, not a backfill of old JSON. */
   galleryUrls?: readonly string[];
+  /** Explicit hours edit; losslessly stored as day 0 until a reviewed day-row cutover. */
+  openingHoursText?: string;
 };
 
 export type Directory0173SqlStatement = { sql: string; bindings: Array<string | number> };
@@ -111,6 +113,27 @@ export function planDirectory0173EditorialSqlMirror(input: Directory0173MirrorIn
         bindings: [order, url, "", "", updatedAt, actor, ...guardValues],
       });
     }
+  }
+
+  if (input.openingHoursText !== undefined) {
+    if (typeof input.openingHoursText !== "string" || input.openingHoursText.length > 2000)
+      throw new Error("DIRECTORY_0173_INVALID_OPENING_HOURS");
+    const hours = input.openingHoursText.trim();
+    // The existing Admin/Notion/partner editors accept free-form text, ranges,
+    // split shifts and holiday notes. Keep the complete text intact in day 0;
+    // do not guess weekday rows or lose a non-round-trippable schedule.
+    // Empty is an explicit clear (zero rows), not a replacement of other fields.
+    statements.push({
+      sql: "DELETE FROM directory_profile_opening_hours WHERE profile_id IN " +
+        "(SELECT p.id FROM directory_profiles p WHERE " + where + ")",
+      bindings: [...guardValues],
+    });
+    if (hours) statements.push({
+      sql: "INSERT INTO directory_profile_opening_hours " +
+        "(profile_id,day_of_week,hours_text,updated_at,updated_by) " +
+        "SELECT p.id,0,?,?,? FROM directory_profiles p WHERE " + where,
+      bindings: [hours, updatedAt, actor, ...guardValues],
+    });
   }
 
   return statements;
