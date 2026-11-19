@@ -1,3 +1,7 @@
+## Aktualizácia 0174 po fyzickom potvrdení 0173
+
+Produkčný 0173 apply je potvrdený v [run 44604743812](https://github.com/investradarsk/psipedia-sk/actions/runs/44604743812). SQL 0174 je preto v tomto PR presunuté z `pending-migrations/` do `drizzle/0174_breeds_sql_json_foundation.sql`, bez duplikátneho súboru. Samotná schéma sa ešte **nespustila**. Po merge PR je potrebné použiť len samostatný owner-only workflow **Production D1 Breeds 0174**: `audit` bez zápisu, následne pri úspechu `apply` iba na túto schému. Generic `migrations apply` je zakázaný pre neistý historický backlog.
+
 ## Overenie poradia migrácií – 0173 úspešne nasadená (19. 11. 2026)
 
 GitHub Actions owner-only `production-d1-directory-0173.yml` [run #44604743812](https://github.com/investradarsk/psipedia-sk/actions/runs/44604743812) má **success** a v produkčnom logu `{"status":"POSTFLIGHT","mode":"apply","installed":true,"applied":true,"error":null}`. Súbor `drizzle/0173_directory_structured_sql_foundation.sql` je v `main`.
