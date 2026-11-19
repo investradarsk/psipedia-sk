@@ -107,8 +107,8 @@ test("Step 3 is wired into existing claim approval and application without a dup
   assert.match(claims,/createPartnerHelpClaim/);assert.match(claims,/cancelPartnerHelpClaim/);
   assert.match(admin,/decidePartnerHelpClaimAdmin/);assert.match(admin,/revokePartnerHelpClaimAdmin/);
   assert.match(platform,/getPartnerHelpMembership/);assert.match(platform,/listPartnerApprovedHelpResources/);
-  assert.match(platform,/parseHelpResourceId\(resourceId\).*RESOURCE_VIEW/s);
-  assert.match(profiles,/editor pripravujeme/);
+  assert.match(platform,/parseHelpResourceId\(resourceId\).*HELP_EDIT_PUBLIC/s);
+  assert.match(profiles,/\/partner\/pomoc\//);
   assert.match(api,/body.action === "REVOKE"/);
   assert.match(runner,/0172_partner_help_claim_ownership.sql/);
 });
