@@ -1,5 +1,7 @@
 import { getManagedBreed, type ManagedBreed } from "@/lib/breed-store";
 import { normalizeBreedSearchText } from "@/lib/breed-fci";
+import { env } from "cloudflare:workers";
+import { summarizeBreedSqlV2Write } from "@/lib/breed-sql-v2-bridge.mjs";
 import { breedFieldSnapshot } from "@/lib/notion-breed-field-delta";
 import {
   breedEventD1FieldPatch,breedEventNeedsSearchRefresh,
@@ -46,6 +48,23 @@ export async function saveBreedNotionField(input:{
       return {updated:false,breed:before};
     const patch=breedEventD1FieldPatch(input.field,input.value,
       searchAfter(before,input.field,input.value));
+    // Step 4/6: one shared routing plan for Admin and signed Notion events.
+    // Never execute a second SQL write until 0174/backfill + atomic
+    // per-field shadow-write transaction are verified in steps 5–6.
+    if ((env as unknown as {BREED_SQL_V2_COMPARE_MODE?:string})
+        .BREED_SQL_V2_COMPARE_MODE === "compare") {
+      try {
+        const preview=summarizeBreedSqlV2Write(input.field,input.value);
+        if(preview)console.info("breed_sql_v2_write_route_preview",{
+          breedId:input.breedId,...preview,
+        });
+      }catch(error){
+        console.warn("breed_sql_v2_write_plan_unavailable",{
+          breedId:input.breedId,field:input.field,
+          code:error instanceof Error?error.name:"UNKNOWN",
+        });
+      }
+    }
     const next=versionAfter(before.updatedAt);
     const sql="UPDATE managed_breeds SET "+patch.assignments.join(",")+
       ",updated_at=?,updated_by=? WHERE id=? AND updated_at=? RETURNING id";
