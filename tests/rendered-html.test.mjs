@@ -119,6 +119,10 @@ function createAdminMockDatabase() {
 
   function rowsFor(sql) {
     const normalized = sql.replace(/\s+/g, " ").trim();
+    // The SQL-first 0170 editorial read is mandatory before rendering an editable form.
+    // No explicitly mirrored facts/filters in this isolated fixture: keep legacy values.
+    if (/AS facts_json/i.test(normalized) && /AS filters_json/i.test(normalized))
+      return [{ facts_json: "[]", filters_json: "[]" }];
     if (/FROM sqlite_master/i.test(normalized)) {
       // Intentionally omit the newer module tables to verify that the dashboard
       // still renders while production migrations catch up.
