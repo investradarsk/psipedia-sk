@@ -177,7 +177,8 @@ export async function createPartnerClaim(input: {
   const recent = await database.prepare(
     "SELECT COUNT(*) count FROM partner_claims WHERE account_id=?1 AND created_at>=?2",
   ).bind(input.accountId, threshold).first<{ count: number }>();
-  if (Number(recent?.count ?? 0) >= 10) {
+  const recentHelp = await database.prepare("SELECT COUNT(*) count FROM partner_help_claims WHERE account_id=?1 AND created_at>=?2").bind(input.accountId, threshold).first<{count:number}>();
+  if (Number(recent?.count ?? 0)+Number(recentHelp?.count ?? 0) >= 10) {
     throw new PartnerClaimError("Za krátky čas bolo odoslaných priveľa žiadostí. Skúste to neskôr.", 429);
   }
 
