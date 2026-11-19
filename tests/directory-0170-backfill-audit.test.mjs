@@ -211,6 +211,20 @@ test("read-only audit includes real V3 SQL selection and notion relation receipt
   assert.doesNotMatch(source,/fetch\(\s*["']https:\/\/api\.notion/);
 });
 
+test("read-only report rejects concurrent Services V3 or SQL relation changes",()=>{
+  const src=readFileSync(new URL("../scripts/directory-0170-backfill-readonly.mjs",import.meta.url),"utf8");
+  assert.match(src,/function relationalSnapshot\(\)/);
+  for(const table of [
+    "directory_profile_additional_categories",
+    "directory_profile_public_facts",
+    "directory_profile_filter_values",
+    "service_profile_option_choices",
+    "directory_service_notion_relation_sync",
+  ]) assert(src.includes('["'+table+'",'));
+  assert.match(src,/JSON\.stringify\(before\.relations\)===JSON\.stringify\(after\.relations\)/);
+  assert.match(src,/v3AndRelationalSnapshotStable:/);
+});
+
 test("audit script contains no database write commands or Notion API calls",()=>{
   const content=readFileSync(new URL("../scripts/directory-0170-backfill-readonly.mjs",import.meta.url),"utf8");
   assert.match(content,/DIRECTORY_0170_BACKFILL_CONFIRMATION/);
