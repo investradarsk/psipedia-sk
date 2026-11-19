@@ -281,7 +281,7 @@ export function AdminDirectoryEditor({
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [qualityResolutions, setQualityResolutions] = useState<DirectoryQualityResolutionInput>(() => profile ? qualityResolutionInput(profile) : notionDraft?.qualityResolutions ?? qualityResolutionInput());
   const [qualityCheckedAt, setQualityCheckedAt] = useState<Partial<Record<DirectoryQualityField, string>>>(() => qualityCheckedAtInput(profile));
-  const [reviewed, setReviewed] = useState(profile?.reviewed ?? false);
+  const [reviewed, setReviewed] = useState(Boolean(profile?.reviewed || partnerOwner));
   const [reviewedAt, setReviewedAt] = useState(profile?.reviewedAt ?? "");
   useEffect(() => {
     if (!profile || !["chovatelske-stanice", "chovatelske-kluby"].includes(profile.category)) return;
