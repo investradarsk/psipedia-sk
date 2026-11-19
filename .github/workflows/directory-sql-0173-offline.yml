@@ -1,0 +1,34 @@
+name: Directory 0173 canonical SQL foundation (offline)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "drizzle/0173_directory_structured_sql_foundation.sql"
+      - "db/directory-storage-schema.ts"
+      - "db/index.ts"
+      - "tests/directory-sql-0173-foundation.test.mjs"
+      - ".github/workflows/directory-sql-0173-offline.yml"
+      - "docs/audits/DIRECTORY-SQL-0173-FOUNDATION.md"
+      - "scripts/production-d1-directory-0173.mjs"
+      - ".github/workflows/production-d1-directory-0173.yml"
+
+concurrency:
+  group: directory-0173-offline-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    name: Verify additive SQL foundation without D1 access
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Test isolated SQLite schema and constraints
+        run: node --test tests/directory-sql-0173-foundation.test.mjs
