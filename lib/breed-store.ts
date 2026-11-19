@@ -682,13 +682,6 @@ const select = `SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_
 valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
-const sqlPrimary=breedSqlPrimaryEnabled(env);
-const canonicalBreedIdsForRuntime=sqlPrimary?canonicalBreedIdsSqlV2:canonicalBreedIdsSql;
-const canonicalBreedWinnerForRuntime=sqlPrimary?canonicalBreedWinnerSqlV2:canonicalBreedWinnerSql;
-// Old selection stays available for regression tests and the rollback flag.
-// SQL mode assembles the same domain JSON shape ONLY from 0174 SQL tables.
-const readSelect=sqlPrimary?breedSqlPrimaryProjection(select):select;
-const primaryProjection=(sql:string)=>sqlPrimary?breedSqlPrimaryProjection(sql):sql;
 export async function listManagedBreedSummaries(limit = 500) {
   const database = requireDb();
   await ensure(database);
@@ -716,6 +709,13 @@ FROM managed_breeds ORDER BY fci_group,name LIMIT ?`,
     .all<SummaryRow>();
   return result.results.map(fromSummaryRow);
 }
+const sqlPrimary=breedSqlPrimaryEnabled(env);
+const canonicalBreedIdsForRuntime=sqlPrimary?canonicalBreedIdsSqlV2:canonicalBreedIdsSql;
+const canonicalBreedWinnerForRuntime=sqlPrimary?canonicalBreedWinnerSqlV2:canonicalBreedWinnerSql;
+// Old selection stays available for regression tests and the rollback flag.
+// SQL mode assembles the same domain JSON shape ONLY from 0174 SQL tables.
+const readSelect=sqlPrimary?breedSqlPrimaryProjection(select):select;
+const primaryProjection=(sql:string)=>sqlPrimary?breedSqlPrimaryProjection(sql):sql;
 // Article relations need only identifiers and FCI labels, not all the
 // completeness, image, editorial JSON and relation-count fields required by
 // the breed administration dashboard. Keep the same 500-row order/limit.
