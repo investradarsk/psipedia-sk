@@ -101,7 +101,7 @@ test("sitemap source contains the catalog and indexable new details without dupl
   assert.match(sitemap, /getPublishedHelpSitemapRecords\(\)/);
   assert.equal((sitemap.match(/getPublishedHelpSitemapRecords\(\)/g) ?? []).length, 1);
   assert.doesNotMatch(sitemap, /getPublishedHelpCases\(\)/);
-  assert.match(sitemap, /const representedElsewhere = item\.category === "adopcia" \|\| item\.category === "utulky"/);
+  assert.match(sitemap, /const representedElsewhere = item\.category === "adopcia" \|\| item\.category === "utulky" \|\| item\.category === "stratene-a-najdene"/);
   assert.match(sitemap, /exclusionReason: representedElsewhere/);
   assert.match(sitemap, /runSitemapStageSync\("global-validation", \(\) => assertValidSitemap\(entries\)\)/);
 });
