@@ -1,9 +1,9 @@
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
-import { parseHelpResourceId, type PartnerHelpType } from "@/lib/partner-help-claims";
-import { requirePartnerPermission, PartnerAuthorizationError } from "@/lib/partner-platform";
+import { parseHelpResourceId } from "@/lib/partner-help-claims";
+import { requirePartnerPermission } from "@/lib/partner-platform";
 import {
-  helpEditorFields, normalizeHelpEditorPatch, HelpEditorValidationError,
-  type HelpEditorPatch, type HelpEditorType, type HelpEditorValue,
+  helpEditorFields, normalizeHelpEditorPatch,
+  type HelpEditorPatch, type HelpEditorValue,
 } from "@/lib/partner-help-editor-fields";
 
 export class PartnerHelpEditorError extends Error {
@@ -90,21 +90,26 @@ export async function updatePartnerHelpPublic(input: {
     const v = patch[key];
     return typeof v === "boolean" ? v ? 1 : 0 : v;
   });
+  const indexCols = parsed.entityType === "ADOPTION_DOG"
+    ? ["name","breed_name","organization_name","city","region"]
+    : parsed.entityType === "LOST_FOUND_DOG" ? ["dog_name","breed","color","city","region"] : [];
+  const indexClause = indexCols.length
+    ? `, search_text=lower(${indexCols.map(col => `coalesce(?,coalesce(${col},''))`).join("||' '||")})`
+    : "";
+  const indexArgs = indexCols.map(col => Object.prototype.hasOwnProperty.call(patch,col) ? patch[col] : null);
   const updateSql = `UPDATE ${target.table}
-    SET ${keys.map(key => `${key}=?`).join(", ")}, updated_at=?, ${parsed.entityType !== "LOST_FOUND_DOG" ? "updated_by=?," : ""}
-      ${parsed.entityType === "ADOPTION_DOG" ? "search_text=lower(coalesce(name,'')||' '||coalesce(breed_name,'')||' '||coalesce(organization_name,'')||' '||coalesce(city,''))," : ""}
-      ${parsed.entityType === "LOST_FOUND_DOG" ? "search_text=lower(coalesce(dog_name,'')||' '||coalesce(breed,'')||' '||coalesce(color,'')||' '||coalesce(city,''))," : ""}
-      ${parsed.entityType === "HELP_CASE" ? "" : ""}
-      updated_at=?
+    SET ${keys.map(key => `${key}=?`).join(", ")}${indexClause}, updated_at=?${parsed.entityType!=="LOST_FOUND_DOG"?", updated_by=?":""}
     WHERE id=? AND updated_at=?
       AND EXISTS (
         SELECT 1 FROM partner_help_claims c JOIN partner_accounts a ON a.id=c.account_id
         WHERE c.${target.claim}=? AND c.entity_type=? AND c.account_id=?
           AND c.status='APPROVED' AND a.status='ACTIVE'
       )`;
-  // Avoid any hidden full-record replacement. This query's SET expressions use
-  // only field names from the server-side allowlist.
-  const args: unknown[] = [...values,nowIso,...(parsed.entityType==="LOST_FOUND_DOG"?[]:[actor]),nowIso,parsed.canonicalId,baseRevision,parsed.canonicalId,parsed.entityType,input.accountId];
+  // All SQL identifiers come from static server-owned field definitions; only values are bound.
+  const args: unknown[] = [
+    ...values, ...indexArgs, nowIso, ...(parsed.entityType==="LOST_FOUND_DOG"?[]:[actor]),
+    parsed.canonicalId,baseRevision,parsed.canonicalId,parsed.entityType,input.accountId,
+  ];
   const eventId = crypto.randomUUID();
   const result = await database.batch([
     database.prepare(updateSql).bind(...args),
