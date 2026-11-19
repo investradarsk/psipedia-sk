@@ -76,7 +76,7 @@ export function canonicalBreedEligibilitySqlV2(alias:string){
   const legacyNoindex="COALESCE(json_extract("+previousSeo+",'$.noindex'),0)";
   const legacyCanonical="COALESCE(json_extract("+previousSeo+",'$.canonicalUrl'),'')";
   const changed=original
-    .replace("AND json_valid("+alias+".seo_json)","AND "+alias+".seo_noindex IN (0,1)")
+    .replace("AND json_valid("+alias+".seo_json)","AND ("+alias+".seo_noindex IS NULL OR "+alias+".seo_noindex IN (0,1))")
     .replace(legacyNoindex,"COALESCE("+alias+".seo_noindex,0)")
     .replace(legacyCanonical,"COALESCE("+alias+".seo_canonical_url,'')");
   if(changed===original || changed.includes("seo_json"))
