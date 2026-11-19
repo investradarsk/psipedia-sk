@@ -30,7 +30,7 @@ function resourceEditHref(resource: PartnerManagedResource) {
 
 export default async function PartnerHomePage() {
   const identity = await requirePartnerPageIdentity();
-  const [resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions, helpSubmissions] = await Promise.all([
+  const [resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions] = await Promise.all([
     listPartnerResources(identity.accountId),
     listPartnerClaims(identity.accountId),
     listPartnerNewProfiles(identity.accountId),
@@ -39,7 +39,7 @@ export default async function PartnerHomePage() {
     listPartnerHelpCreateSubmissions(identity.accountId),
   ]);
   const summary = buildPartnerDashboardSummary({
-    resources, claims, newProfiles, eventSubmissions, profileChanges,
+    resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions,
   });
 
   return (
