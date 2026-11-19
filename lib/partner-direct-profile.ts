@@ -87,9 +87,9 @@ export async function savePartnerManagedProfile(input: {
       const definition=getDirectoryFilterDefinition(field);
       if(definition&&definition.category===category)filters[field]=value===null?null:String(value);
     }
-    const plans: readonly Directory0170SqlStatement[][]=[];
+    const plans: Directory0170SqlStatement[][]=[];
     if(Object.keys(filters).length) {
-      (plans as Directory0170SqlStatement[][]).push(
+      plans.push(
         [...planDirectory0170FilterSqlMirror({profileId:canonical.canonicalId,category,
           values:filters,updatedAt:nowIso,actor:actorRef})]
       );
