@@ -48,7 +48,7 @@ test("0063 creates canonical claims and verification with FKs, checks, indexes a
 });
 
 test("claim scope covers published Directory, Help Organization and managed event records",()=>{
-  assert.ok(claims.includes('partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT"]'));
+  assert.ok(claims.includes('partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT", "ADOPTION_DOG", "LOST_FOUND_DOG", "HELP_CASE"]'));
   assert.match(claims,/managed_events WHERE id=\?1 AND status='published' AND published_at IS NOT NULL/);
   assert.match(claims,/managed_event_id/);
   assert.match(claims,/status='published'/);
