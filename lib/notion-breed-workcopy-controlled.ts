@@ -110,16 +110,43 @@ function state(row:Raw):ControlledBreedState {
   return {values,revision:row.revision,
     pendingKeys:breedControlledKeys.filter((key:string)=>!eq(values[key],notion[key]))};
 }
-async function seed(database:D1Database,link:Link,page:NotionPage) {
+async function seed(database:D1Database,link:Link,page:NotionPage,bindings:ControlledBreedBindings) {
   // The first verified encounter snapshots only current controlled properties;
   // blank and malformed fields are NOT inferred from old descriptive text.
   const parsed=readBreedControlledNotionPage(page);
   const values=parseBreedControlledValues({...emptyBreedControlledValues(),...parsed.values});
   const json=JSON.stringify(values);
-  await database.prepare(
-    "INSERT OR IGNORE INTO breed_notion_controlled_values "+
-    "(breed_id,values_json,notion_values_json,revision) VALUES (?,?,?,0)",
-  ).bind(link.breed_id,json,json).run();
+  if(breedSqlV2ShadowEnabled(bindings)){
+    const previous=await database.prepare("SELECT updated_at FROM managed_breeds WHERE id=?")
+      .bind(link.breed_id).first<{updated_at:string}>();
+    if(!previous)throw Error("BREED_CONTROLLED_BREED_MISSING");
+    const prior=Date.parse(previous.updated_at);
+    if(!Number.isFinite(prior))throw Error("BREED_CONTROLLED_VERSION_INVALID");
+    const next=new Date(Math.max(Date.now(),prior+1)).toISOString();
+    try{
+      await database.batch([
+        database.prepare(
+          "INSERT OR IGNORE INTO breed_notion_controlled_values "+
+          "(breed_id,values_json,notion_values_json,revision) VALUES (?,?,?,0)"
+        ).bind(link.breed_id,json,json),
+        breedSqlV2CasGuard(database),
+        database.prepare("UPDATE managed_breeds SET updated_at=? WHERE id=? AND updated_at=?")
+          .bind(next,link.breed_id,previous.updated_at),
+        breedSqlV2CasGuard(database),
+        database.prepare("INSERT OR IGNORE INTO breed_public_facts (breed_id) VALUES (?)")
+          .bind(link.breed_id),
+        ...breedSqlV2ControlledStatements(database,link.breed_id,values),
+      ]);
+    }catch(error){
+      if(!await record(database,link.breed_id))throw error;
+      // A concurrent seeder won; leave its values untouched.
+    }
+  }else{
+    await database.prepare(
+      "INSERT OR IGNORE INTO breed_notion_controlled_values "+
+      "(breed_id,values_json,notion_values_json,revision) VALUES (?,?,?,0)",
+    ).bind(link.breed_id,json,json).run();
+  }
   if (parsed.errors.length)
     console.warn("breed_controlled_seed_incomplete",{breedId:link.breed_id,count:parsed.errors.length});
   const saved=await record(database,link.breed_id);
@@ -138,7 +165,7 @@ export async function getBreedControlledState(args:{
     const page=await notionRequest<NotionPage>(args.bindings,
       "/pages/"+encodeURIComponent(link.work_notion_page_id));
     await verifyPage(page,link,args.bindings);
-    row=await seed(args.database,link,page);
+    row=await seed(args.database,link,page,args.bindings);
   }
   return state(row);
 }
@@ -160,7 +187,7 @@ export async function receiveBreedControlledNotionEdit(args:{
   const parsed=readBreedControlledNotionPage(args.page,edited);
   let row=await record(args.database,args.breedId);
   if (!row) {
-    await seed(args.database,link,args.page);
+    await seed(args.database,link,args.page,args.bindings);
     return {updated:true,invalidKeys:parsed.errors.map((e:{key:string})=>e.key)};
   }
   if (!Object.keys(parsed.values).length)
