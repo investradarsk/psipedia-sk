@@ -18,6 +18,8 @@ ALTER TABLE managed_breeds ADD COLUMN seo_og_title TEXT;
 --> statement-breakpoint
 ALTER TABLE managed_breeds ADD COLUMN seo_og_description TEXT;
 --> statement-breakpoint
+ALTER TABLE managed_breeds ADD COLUMN seo_og_image TEXT;
+--> statement-breakpoint
 ALTER TABLE managed_breeds ADD COLUMN seo_noindex INTEGER CHECK (seo_noindex IN (0,1));
 --> statement-breakpoint
 -- 33 independently editable FCI cells; no duplicate public master.
