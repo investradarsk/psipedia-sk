@@ -11,11 +11,11 @@ import {
   directoryQualityResolutionStatuses,
   directoryQualityStatusSourceKey,
   isDirectoryQualityResolutionCurrent,
-  readDirectoryPublicContacts,
   readDirectoryQualityMetadata,
   type DirectoryQualityField,
 } from "@/lib/directory-profile-metadata";
 import { directoryCategories } from "@/lib/directory";
+import { readDirectorySqlBackedContacts } from "@/lib/directory-sql-contacts";
 import { RAW_MISSING_PHONE_SQL, RAW_MISSING_EMAIL_SQL, RAW_MISSING_WEBSITE_SQL } from "@/lib/data-quality-contact-sql";
 import {
   listMediaSourceIssues,
@@ -37,6 +37,10 @@ type DirectoryQualityRow = {
   status: string;
   description: string | null;
   website_url: string | null;
+  public_phone: string | null;
+  public_email: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
   image_url: string | null;
   image_key: string | null;
   address: string | null;
@@ -360,7 +364,7 @@ function emptyPagination(page: number, pageSize: number) {
 
 function directoryIssues(row: DirectoryQualityRow) {
   const importData = parseImportData(row.source_data_json);
-  const contacts = readDirectoryPublicContacts(importData, row.website_url ?? "");
+  const contacts = readDirectorySqlBackedContacts(importData, row);
   const quality = readDirectoryQualityMetadata(importData);
   const issues: DirectoryQualityItem["issues"] = [];
   if (!row.description?.trim()) issues.push({ key: "description", label: "Chýba popis" });
@@ -574,7 +578,7 @@ async function loadProfileQualityPage(
   const firstOffset = loadAllMatches ? 0 : (paging.page - 1) * paging.pageSize;
   const pageCount = resultCount === 0 ? 0 : loadAllMatches ? Math.ceil(resultCount / pageSize) : 1;
   const loadPage = (offset: number) => db.prepare(`
-      SELECT id, slug, name, category, status, description, website_url, image_url, image_key,
+      SELECT id, slug, name, category, status, description, website_url, public_phone, public_email, facebook_url, instagram_url, image_url, image_key,
              address, online, city, district, region, service_address_confirmation, source_data_json,
              CASE WHEN ${GOOGLE_MAPS_NOT_REQUIRED_SQL} THEN 1 ELSE 0 END AS google_maps_not_required
       FROM directory_profiles

@@ -22,7 +22,7 @@ import {
 } from "./data-automation.ts";
 import { selectSafeAutomationMatch, type AutomationMatchCandidate } from "./data-automation-matching.ts";
 import { getCanonicalDraftFlag } from "./canonical-draft-flags.ts";
-import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 
 export type AutomationD1Database = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -380,7 +380,7 @@ function organizationBefore(row: Record<string, unknown>) {
 
 function directoryBefore(row: Record<string, unknown>) {
   const sourceData = parseJson<Record<string, string | number | null>>(String(row.source_data_json ?? "{}"), {});
-  const contacts = readDirectoryPublicContacts(sourceData, String(row.website_url ?? ""));
+  const contacts = readDirectorySqlBackedContacts(sourceData, row);
   return {
     slug: row.slug, name: row.name, category: row.category, status: row.status, excerpt: row.excerpt,
     description: row.description, services: parseJson(String(row.services_json ?? "[]"), []),

@@ -3,8 +3,8 @@ import { readProfileGallery, mergeProfileGallery, normalizeProfileGalleryUrls, P
 import { mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "@/lib/directory-multi-category";
 import { assertPendingPartnerGalleryMedia, attachPartnerGalleryMediaStatements, galleryPendingInsertGuard, normalizePartnerGalleryMediaIds, partnerGalleryMediaIdsFromStoredPatch, terminalPartnerGalleryMediaStatements, PARTNER_GALLERY_MEDIA_KEY } from "@/lib/partner-profile-gallery-media";
 import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
-import { readDirectoryPublicContacts, mergeDirectoryPublicContactData } from "@/lib/directory-profile-metadata";
-import { overlayDirectorySqlContacts } from "@/lib/directory-sql-contacts";
+import { omitDirectorySqlContactAliases } from "@/lib/directory-profile-metadata";
+import { readDirectorySqlBackedContacts } from "@/lib/directory-sql-contacts";
 import { readDirectoryPublicMetadataValue } from "@/lib/directory-public-facts";
 import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, serviceFiltersForCategory, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { normalizeDirectoryRegion, normalizeDirectorySearchText } from "@/lib/directory-store";
@@ -303,13 +303,7 @@ async function loadCanonical(resource: ResourceRow, db: D1Database): Promise<Can
     }>();
     if (!row || row.status === "archived") throw new PartnerProfileChangeError("Profil už nie je dostupný na úpravu.", 409);
     const sourceData = parseJsonObject(row.source_data_json);
-    // 0170 SQL values override only their corresponding legacy import aliases.
-    // An explicit empty string remains a clear; NULL retains migration fallback.
-    const contactView = overlayDirectorySqlContacts(sourceData, {
-      public_phone:row.public_phone,public_email:row.public_email,
-      facebook_url:row.facebook_url,instagram_url:row.instagram_url,
-    }) ?? {};
-    const contacts = readDirectoryPublicContacts(contactView, row.website_url ?? "");
+    const contacts = readDirectorySqlBackedContacts(sourceData, row);
     return {
       resourceId: resource.resourceId,
       entityType: "DIRECTORY_PROFILE",
@@ -912,25 +906,9 @@ export function buildDirectoryApplyStatement(
   const filterUpdates = Object.fromEntries(
     Object.entries(patch).filter(([key]) => Boolean(getDirectoryFilterDefinition(key))),
   ) as Record<string, string>;
-  // 0170 canonical SQL contact columns: updating the JSON import projection
-  // alone would leave public SQL-first reads stale after a Partner save.
-  if (directGuard) {
-    const canonicalContactColumns: Record<string,string> = {
-      publicPhone:"public_phone",publicEmail:"public_email",
-      facebookUrl:"facebook_url",instagramUrl:"instagram_url",
-    };
-    for (const [field,column] of Object.entries(canonicalContactColumns)) {
-      // 0170: NULL means not migrated; empty string means intentional clear.
-      // Never resurrect an old source_data_json value after Partner clears a contact.
-      if (field in patch) add(column, String(patch[field] ?? ""));
-    }
-  }
   const contactTouched = ["websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"]
     .some((key) => key in patch);
-  if (directGuard && "websiteUrl" in patch) add("website_url", patch.websiteUrl || null);
-  // Partner direct edits write contacts to 0170 SQL only. Legacy source JSON is
-  // kept for unrelated import metadata but must never become a new authority.
-  if (Object.keys(filterUpdates).length || (!directGuard && contactTouched) || "galleryUrls" in patch || "openingHours" in patch || "additionalCategories" in patch) {
+  if (Object.keys(filterUpdates).length || contactTouched || "galleryUrls" in patch || "openingHours" in patch || "additionalCategories" in patch) {
     // Start from the exact stored JSON, never the public/contact projection:
     // imported metadata may contain objects and keys not exposed by Partner.
     let preserved = canonical.sourceDataJson ?? "{}";
@@ -962,16 +940,26 @@ export function buildDirectoryApplyStatement(
       // Otherwise a subsequent legacy import could resurrect old hours.
       source["Ordinačné hodiny"] = String(patch.openingHours ?? "").trim();
     }
-    if (contactTouched && !directGuard) {
-      const currentRow = canonical.values;
-      source = mergeDirectoryPublicContactData(source, {
-        publicPhone: "publicPhone" in patch ? String(patch.publicPhone ?? "") : String(currentRow.publicPhone ?? ""),
-        publicEmail: "publicEmail" in patch ? String(patch.publicEmail ?? "") : String(currentRow.publicEmail ?? ""),
-        websiteUrl: "websiteUrl" in patch ? String(patch.websiteUrl ?? "") : String(currentRow.websiteUrl ?? ""),
-        facebookUrl: "facebookUrl" in patch ? String(patch.facebookUrl ?? "") : String(currentRow.facebookUrl ?? ""),
-        instagramUrl: "instagramUrl" in patch ? String(patch.instagramUrl ?? "") : String(currentRow.instagramUrl ?? ""),
+    if (contactTouched) {
+      // Explicitly edited public contacts are single-source SQL values.
+      // Remove only their historical aliases; never copy unrelated contacts
+      // from an old partner editor snapshot back into JSON.
+      source = omitDirectorySqlContactAliases(source, {
+        publicPhone: "publicPhone" in patch ? String(patch.publicPhone ?? "") : undefined,
+        publicEmail: "publicEmail" in patch ? String(patch.publicEmail ?? "") : undefined,
+        websiteUrl: "websiteUrl" in patch ? String(patch.websiteUrl ?? "") : undefined,
+        facebookUrl: "facebookUrl" in patch ? String(patch.facebookUrl ?? "") : undefined,
+        instagramUrl: "instagramUrl" in patch ? String(patch.instagramUrl ?? "") : undefined,
       });
-      if ("websiteUrl" in patch) add("website_url", patch.websiteUrl || null);
+      for (const [field, column] of [
+        ["websiteUrl", "website_url"],
+        ["publicPhone", "public_phone"],
+        ["publicEmail", "public_email"],
+        ["facebookUrl", "facebook_url"],
+        ["instagramUrl", "instagram_url"],
+      ] as const) {
+        if (field in patch) add(column, String(patch[field] ?? ""));
+      }
     }
     add("source_data_json", JSON.stringify(source));
   }

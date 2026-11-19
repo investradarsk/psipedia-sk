@@ -89,6 +89,35 @@ test("a verified normalized SQL projection matches the existing public/Admin/Not
   } finally { db.close(); }
 });
 
+test("website parity checks every historical alias without treating SQL-only websites as conflicts",async()=>{
+  const db=newDb();
+  try {
+    insertParity(db);
+    const first=await readDirectorySqlShadowParity(d1(db),1);
+    assert.equal(first.status,"no_detected_differences", "an existing SQL-only website is valid");
+    const get=db.prepare("SELECT source_data_json FROM directory_profiles WHERE id=1");
+    const source=JSON.parse(get.get().source_data_json);
+    source.Web="https://clinic.example.invalid";
+    source["Webstránka"]="https://stale.example.invalid";
+    db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=1").run(JSON.stringify(source));
+    const mismatch=await readDirectorySqlShadowParity(d1(db),1);
+    assert.deepEqual(mismatch.issues.filter(x=>x.field==="websiteUrl").map(x=>x.kind),["value_differs"],
+      "even a stale secondary alias needs review");
+    assert.doesNotMatch(JSON.stringify(mismatch),/clinic\.example|stale\.example/);
+    db.prepare("UPDATE directory_profiles SET website_url='' WHERE id=1").run();
+    const cleared=await readDirectorySqlShadowParity(d1(db),1);
+    assert.deepEqual(cleared.issues.filter(x=>x.field==="websiteUrl").map(x=>x.kind),["legacy_alias_after_clear"]);
+    db.prepare("UPDATE directory_profiles SET website_url=NULL WHERE id=1").run();
+    const unbackfilled=await readDirectorySqlShadowParity(d1(db),1);
+    assert.deepEqual(unbackfilled.issues.filter(x=>x.field==="websiteUrl").map(x=>x.kind),["not_backfilled"]);
+    db.prepare("UPDATE directory_profiles SET website_url='https://clinic.example.invalid' WHERE id=1").run();
+    source["Webstránka"]="  ";
+    db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=1").run(JSON.stringify(source));
+    const parity=await readDirectorySqlShadowParity(d1(db),1);
+    assert.deepEqual(parity.issues.filter(x=>x.field==="websiteUrl"),[]);
+  } finally { db.close(); }
+});
+
 test("explicit cleared SQL contact cannot silently revive a previous JSON alias",async()=>{
   const db=newDb();
   try {
@@ -158,6 +187,10 @@ test("SQL parity is only exposed as an explicit authenticated Admin opt-in",()=>
   assert.ok(get.indexOf("await getAdminApiUser()") < get.indexOf("sqlParity"));
   assert.match(get,/searchParams\.get\("sqlParity"\) === "1"/);
   assert.match(get,/readDirectorySqlShadowParity\(db, id\)/);
-  assert.match(get,/return profile \? Response\.json\(\{ profile \}\)/);
+  // The Admin GET now returns an SQL-enriched profile, failing closed on read errors.
+  assert.match(get,/readDirectory0170EditorialFields\(db,/);
+  assert.match(get,/return Response\.json\(\{profile:\{\.\.\.profile,importData\}\}/);
+  assert.match(get,/if \(!db\) return Response\.json/);
+  assert.match(get,/status:503/);
   assert.doesNotMatch(get,/\b(?:UPDATE|DELETE|INSERT)\b/i);
 });

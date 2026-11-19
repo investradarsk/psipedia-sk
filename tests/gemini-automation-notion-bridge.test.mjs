@@ -226,7 +226,8 @@ async function lifecycleHarness() {
     status TEXT, excerpt TEXT, description TEXT, services_json TEXT, qualifications_json TEXT,
     city TEXT, region TEXT, address TEXT, postal_code TEXT, street TEXT, house_number TEXT,
     address_format TEXT, service_address_confirmation TEXT, online INTEGER, price_note TEXT,
-    website_url TEXT, import_key TEXT UNIQUE, source_data_json TEXT, verified INTEGER, featured INTEGER,
+    website_url TEXT, public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT,
+    import_key TEXT UNIQUE, source_data_json TEXT, verified INTEGER, featured INTEGER,
     district TEXT, search_text TEXT, created_at TEXT, updated_at TEXT, published_at TEXT,
     created_by TEXT, updated_by TEXT
   )`);

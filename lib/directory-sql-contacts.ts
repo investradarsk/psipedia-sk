@@ -4,7 +4,10 @@
  * Keep historical source_data_json for other editorial metadata and as a
  * fallback only until that particular SQL column is populated.
  */
+import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+
 export const DIRECTORY_SQL_CONTACT_KEYS = {
+  website_url: ["Web", "Webstránka"],
   public_phone: ["Telefón", "Telefon", "phone"],
   public_email: ["E-mail", "Email", "email"],
   facebook_url: ["Facebook"],
@@ -34,4 +37,19 @@ export function overlayDirectorySqlContacts<T extends Record<string, string | nu
     if (current !== "") result[aliases[0]] = current;
   }
   return result as T;
+}
+
+
+/**
+ * Use this for consumers that query a raw directory_profiles row instead of
+ * going through directory-store. SQL is authoritative for all five contacts.
+ * NULL (not yet migrated) keeps the historical JSON value visible.
+ */
+export function readDirectorySqlBackedContacts(
+  source: Record<string, string | number | null> | null | undefined,
+  row: object,
+): ReturnType<typeof readDirectoryPublicContacts> {
+  const columns = row as DirectorySqlContactColumns & { website_url?: string | null };
+  const projected = overlayDirectorySqlContacts(source ?? null, columns);
+  return readDirectoryPublicContacts(projected, columns.website_url ?? "");
 }

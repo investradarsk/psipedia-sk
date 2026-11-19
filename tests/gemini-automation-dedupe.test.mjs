@@ -33,7 +33,9 @@ function setup() {
   sqlite.exec(sql);
   sqlite.exec(`CREATE TABLE directory_profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, status TEXT NOT NULL,
-    name TEXT NOT NULL, city TEXT NOT NULL, website_url TEXT, source_data_json TEXT NOT NULL
+    name TEXT NOT NULL, city TEXT NOT NULL, website_url TEXT,
+    public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT,
+    source_data_json TEXT NOT NULL
   )`);
   const executed = [];
   const db = { prepare(statement) {

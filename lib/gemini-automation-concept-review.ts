@@ -1,5 +1,5 @@
 import type { GeminiD1 } from "./gemini-automation-store.ts";
-import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 
 export type GeminiDirectoryReviewConcept = {
   id: number;
@@ -37,6 +37,10 @@ type ReviewRow = {
   region: string;
   description: string;
   website_url: string | null;
+  public_phone: string | null;
+  public_email: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
   source_data_json: string;
 };
 
@@ -69,7 +73,7 @@ function sourceUrls(primary: string | null, serialized: string): string[] {
   return [...new Set(sources.map(safeGeminiReviewUrl).filter((url): url is string => Boolean(url)))];
 }
 
-function contactsFromSourceData(raw: string, website: string | null) {
+function contactsFromSourceData(raw: string, row: ReviewRow) {
   let data: Record<string, string | number | null> | null = null;
   try {
     const value: unknown = JSON.parse(raw);
@@ -78,11 +82,11 @@ function contactsFromSourceData(raw: string, website: string | null) {
         item === null || typeof item === "string" || typeof item === "number"));
     }
   } catch { /* The canonical profile remains reviewable if metadata is malformed. */ }
-  return readDirectoryPublicContacts(data, website ?? "");
+  return readDirectorySqlBackedContacts(data, row);
 }
 
 function reviewRow(row: ReviewRow): GeminiDirectoryReviewConcept {
-  const contacts = contactsFromSourceData(row.source_data_json, row.website_url);
+  const contacts = contactsFromSourceData(row.source_data_json, row);
   return {
     id: row.concept_id,
     stableKey: row.stable_key,
@@ -112,7 +116,7 @@ export async function listPendingGeminiDirectoryConcepts(db: GeminiD1, limit = 5
     "SELECT c.id AS concept_id, c.stable_key, c.canonical_entity_id, c.notion_page_id, " +
     "c.primary_source_url, c.source_urls_json, c.discovered_at, " +
     "d.name, d.category, d.city, d.district, d.region, d.description, " +
-    "d.website_url, d.source_data_json " +
+    "d.website_url, d.public_phone, d.public_email, d.facebook_url, d.instagram_url, d.source_data_json " +
     "FROM gemini_automation_concepts c " +
     "JOIN directory_profiles d ON d.id = c.canonical_entity_id " +
     "WHERE c.canonical_entity_type = 'DIRECTORY' AND c.status = 'NOTION_LINKED' " +

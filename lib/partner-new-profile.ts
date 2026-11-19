@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import { directoryCategories } from "@/lib/directory";
-import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import { readDirectorySqlBackedContacts } from "@/lib/directory-sql-contacts";
 import { verifyExternalDirectoryAddressBestEffort } from "@/lib/directory-address-provider";
 import { getPartnerAccountById, getPartnerDatabase } from "@/lib/partner-auth-store";
 import { normalizePartnerProfilePatch, publicPartnerProfileChangeReason, type PartnerProfilePatch } from "@/lib/partner-profile-changes";
@@ -379,13 +379,13 @@ export async function scanPartnerNewProfileDuplicates(
   const items: PartnerDuplicateCandidate[] = [];
   if (profile.resourceType === "DIRECTORY_PROFILE") {
     const rows = await db.prepare(`
-      SELECT id,name,category,city,address,website_url websiteUrl,source_data_json sourceDataJson,status,slug
+      SELECT id,name,category,city,address,website_url websiteUrl,website_url,public_phone,public_email,facebook_url,instagram_url,source_data_json sourceDataJson,status,slug
       FROM directory_profiles
       WHERE status<>'archived'
       ORDER BY id DESC
     `).all<DirectoryCandidateRow>();
     for (const row of rows.results) {
-      const contacts = readDirectoryPublicContacts(safeSourceData(row.sourceDataJson), row.websiteUrl ?? "");
+      const contacts = readDirectorySqlBackedContacts(safeSourceData(row.sourceDataJson), row);
       const candidate = evaluatePartnerDuplicateCandidate({
         resourceType: "DIRECTORY_PROFILE",
         incoming: profile.values,

@@ -195,6 +195,37 @@ export function readDirectoryPublicContacts(
   };
 }
 
+/**
+ * Remove only contacts that have an explicit SQL write in the same D1
+ * statement. Values are validated and retained in directory_profiles columns.
+ *
+ * Historical aliases for untouched SQL-NULL contacts remain pending backfill;
+ * removing those now would silently lose the only existing value.
+ */
+export function omitDirectorySqlContactAliases(
+  source: DirectoryImportData,
+  written: {
+    publicPhone?: string | null;
+    publicEmail?: string | null;
+    websiteUrl?: string | null;
+    facebookUrl?: string | null;
+    instagramUrl?: string | null;
+  },
+): DirectoryImportData {
+  const next: DirectoryImportData = { ...source };
+  for (const [key, aliases] of [
+    ["publicPhone", contactAliases.phone],
+    ["publicEmail", contactAliases.email],
+    ["websiteUrl", contactAliases.website],
+    ["facebookUrl", contactAliases.facebook],
+    ["instagramUrl", contactAliases.instagram],
+  ] as const) {
+    if (written[key] === undefined) continue;
+    for (const alias of aliases) delete next[alias];
+  }
+  return next;
+}
+
 export function mergeDirectoryPublicContactData(
   current: DirectoryImportData | null | undefined,
   input: {

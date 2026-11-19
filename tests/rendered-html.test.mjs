@@ -119,6 +119,19 @@ function createAdminMockDatabase() {
 
   function rowsFor(sql) {
     const normalized = sql.replace(/\s+/g, " ").trim();
+    // SQL 0170 editorial detail always performs one fail-closed facts/filters
+    // projection. This fixture models an applied but empty 0170 sidecar schema.
+    if (/FROM directory_profile_public_facts WHERE profile_id=\?1/i.test(normalized) &&
+        /FROM directory_profile_filter_values WHERE profile_id=\?1/i.test(normalized)) {
+      return [{ facts_json: "[]", filters_json: "[]" }];
+    }
+    if (/FROM directory_profile_public_facts/i.test(normalized) &&
+        /FROM directory_profile_filter_values/i.test(normalized)) {
+      // 0170 SQL-first detail projection: this fixture has no post-cutover
+      // fact/filter rows. Empty arrays are a valid canonical read, unlike a
+      // missing response which must fail closed in production.
+      return [{ facts_json: "[]", filters_json: "[]" }];
+    }
     // The SQL-first 0170 editorial read is mandatory before rendering an editable form.
     // No explicitly mirrored facts/filters in this isolated fixture: keep legacy values.
     if (/AS facts_json/i.test(normalized) && /AS filters_json/i.test(normalized))
