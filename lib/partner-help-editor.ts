@@ -91,6 +91,7 @@ export async function updatePartnerHelpPublic(input: {
   if (!parsed) throw new PartnerHelpEditorError("Neplatný záznam Pomoci psom.",404);
   const database = getPartnerDatabase(input.database);
   await requirePartnerPermission(input.accountId, input.resourceId, "HELP_EDIT_PUBLIC", database);
+  const oldPublicHref = input.publicOrigin ? (await getPartnerHelpEditor(input.accountId,input.resourceId,database)).publicHref : null;
   const baseRevision = input.baseRevision;
   if (typeof baseRevision !== "string" || baseRevision.length < 10 || baseRevision.length > 64)
     throw new PartnerHelpEditorError("Chýba verzia záznamu.");
@@ -209,21 +210,25 @@ export async function updatePartnerHelpPublic(input: {
   ]);
   if (Number(result[0]?.meta?.changes ?? 0) !== 1) throw new PartnerHelpEditorError("Záznam sa medzitým zmenil alebo už nemáte oprávnenie. Obnovte stránku.",409);
   if(input.publicOrigin){
-    const current=await getPartnerHelpEditor(input.accountId,input.resourceId,database);
-    const paths=new Set<string>(["/pomoc-psom"]);
-    if(parsed.entityType==="ADOPTION_DOG")paths.add("/pomoc-psom/adopcia");
-    if(parsed.entityType==="LOST_FOUND_DOG"){paths.add("/pomoc-psom/stratene-psy");paths.add("/pomoc-psom/najdene-psy");}
-    if(parsed.entityType==="HELP_CASE"){
-      const previousCategory=await database.prepare("SELECT category,slug FROM help_cases WHERE id=?1")
-        .bind(parsed.canonicalId).first<{category:string;slug:string}>();
-      if(previousCategory)paths.add(`/pomoc-psom/${previousCategory.category}`);
-    }
-    if(current.publicHref)paths.add(current.publicHref);
-    const version=input.workerVersionId??(env as unknown as {CF_VERSION_METADATA?:{id?:string}}).CF_VERSION_METADATA?.id;
-    for(const path of paths){
-      try{await invalidateVersionedPublicHtmlCacheUrl(new URL(path,input.publicOrigin),version);}
-      catch(error){console.error("Partner Help public cache invalidation failed",error);}
-    }
+    try{
+      const current=await getPartnerHelpEditor(input.accountId,input.resourceId,database);
+      const paths=new Set<string>(["/pomoc-psom"]);
+      if(oldPublicHref)paths.add(oldPublicHref);
+      if(current.publicHref)paths.add(current.publicHref);
+      if(parsed.entityType==="ADOPTION_DOG")paths.add("/pomoc-psom/adopcia");
+      if(parsed.entityType==="LOST_FOUND_DOG"){paths.add("/pomoc-psom/stratene-psy");paths.add("/pomoc-psom/najdene-psy");}
+      if(parsed.entityType==="HELP_CASE"){
+        for(const path of [oldPublicHref,current.publicHref]){
+          const category=path?.split("/").filter(Boolean)[1];
+          if(category)paths.add(`/pomoc-psom/${category}`);
+        }
+      }
+      const version=input.workerVersionId??(env as unknown as {CF_VERSION_METADATA?:{id?:string}}).CF_VERSION_METADATA?.id;
+      for(const path of paths){
+        try{await invalidateVersionedPublicHtmlCacheUrl(new URL(path,input.publicOrigin),version);}
+        catch(error){console.error("Partner Help public cache invalidation failed",error);}
+      }
+    }catch(error){console.error("Partner Help cache refresh failed after successful canonical save",error);}
   }
   return { resourceId: input.resourceId, baseRevision: nowIso,
     updatedFields: [...keys,...(newMain?["image"]:[]),...(hasGalleryEdit?["gallery"]:[])], saved: true };
