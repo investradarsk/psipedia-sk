@@ -39,6 +39,9 @@ function fixture(){
       overview:"Podrobný opis plemena",
       coatCare:"",heroTraits:[{label:"Ostražitosť",rating:5}],
       exerciseTip:"Starý tip, nesmie sa vymazať",
+      trainingTip:"Historický tréningový tip",
+      healthTip:"Historická zdravotná poznámka",
+      coatTip:"Historický tip na srsť",
     }):"{}";
     const seo=id===1?JSON.stringify({
       title:"O plemene",ogImage:"/media/breeds/profile.webp",noindex:false,
@@ -90,7 +93,7 @@ test("fail closed unless 347 exact D1 rows, 344 matching ACTIVE links and all 34
    assert.equal(BREED_V2_COUNTS.breeds,347);
    assert.equal(BREED_V2_COUNTS.activeNotionLinks,344);
    assert.deepEqual(BREED_V2_EXPECTED_MIGRATED_COLUMNS,
-     {fci:33,editorial:6,seo:8,controlled:9,related:3});
+     {fci:33,editorial:11,seo:8,controlled:9,related:3});
    const altered=structuredClone(pre);
    altered.links.active_count=343;
    assert.throws(()=>assertBreedSqlV2BackfillPreflight(altered),/NOTION_ACTIVE_LINKS/);
@@ -144,8 +147,15 @@ test("five additive backfill statements copy ALL live JSON and controlled facts 
    assert.equal(facts.height_max_cm,61);
    assert.deepEqual(JSON.parse(facts.origin_countries_json),["Slovensko","Česko"]);
    assert.equal(db.prepare("SELECT COUNT(*) n FROM breed_public_facts WHERE breed_id IN (5,13,14)").get().n,0);
-   const editorial=db.prepare("SELECT overview,coat_care FROM breed_editorial_text WHERE breed_id=2").get();
-   assert.deepEqual({...editorial}, {overview:"Podrobný opis plemena",coat_care:""});
+   const editorial=db.prepare("SELECT overview,coat_care,exercise_tip,training_tip,health_tip,coat_tip,hero_traits_json FROM breed_editorial_text WHERE breed_id=2").get();
+    assert.deepEqual({...editorial}, {
+      overview:"Podrobný opis plemena",coat_care:"",
+      exercise_tip:"Starý tip, nesmie sa vymazať",
+      training_tip:"Historický tréningový tip",
+      health_tip:"Historická zdravotná poznámka",
+      coat_tip:"Historický tip na srsť",
+      hero_traits_json:'[{"label":"Ostražitosť","rating":5}]',
+    });
    assert.deepEqual(db.prepare("SELECT related_breed_id FROM breed_related_breeds WHERE breed_id=1 ORDER BY position").all().map(x=>x.related_breed_id),
      [2,3,4,6]);
    assert.equal(db.prepare("SELECT updated_at FROM managed_breeds WHERE id=1").get().updated_at,
