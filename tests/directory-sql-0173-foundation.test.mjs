@@ -53,7 +53,7 @@ test("0173 is additive only, reserves 0171-0172 and defines exactly six non-dupl
   withFixture(({db,before})=>{
     const tables=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'directory_profile_%' ORDER BY name")
       .all().map(row=>row.name).sort();
-    assert.deepEqual(tables,EXPECTED.slice().sort());
+    assert.deepEqual(tables, [...EXPECTED, 'directory_profiles'].sort());
     assert.deepEqual(db.prepare("SELECT * FROM directory_profiles ORDER BY id").all(),before);
     for(const table of EXPECTED) {
       assert.match(TS,new RegExp('"'+table+'"'));
