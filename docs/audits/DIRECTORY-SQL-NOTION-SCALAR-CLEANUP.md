@@ -1,18 +1,13 @@
-# Directory – SQL/Notion scalars: remove historical JSON duplicates
+# Directory – remove the 12 obsolete Notion/SQL scalar JSON copies
 
-Date: 19 November 2026. Scope: public Directory profiles, all primary categories.
+Date: 19 November 2026. Owner explicitly requested that historical JSON
+backups of the selected 12 public scalar values be removed even if data is
+lost because SQL is currently blank. Do not preserve an old public value
+merely because SQL is missing. This is a targeted removal, not a transfer.
 
-## Owner-approved goal
+## Exactly which historical JSON keys are deleted
 
-Once the same field has a direct D1 SQL column and Notion sync mapping,
-remove its old top-level property from directory_profiles.source_data_json.
-D1 SQL stays canonical; Notion is an editor. Do NOT drop the JSON column
-while live public facts, filters, review locks, media, multi-category
-membership and relationship metadata still use it.
-
-## Confirmed mappings (12 fields)
-
-| Notion / historic JSON key | SQL column |
+| Top-level JSON / Notion label | Canonical SQL column |
 | --- | --- |
 | Názov | directory_profiles.name |
 | Perex | directory_profiles.excerpt |
@@ -27,57 +22,51 @@ membership and relationship metadata still use it.
 | Formát adresy | directory_profiles.address_format |
 | Cena / poznámka | directory_profiles.price_note |
 
-The mapping is grounded in the existing Directory Notion encoder/decoder,
-the scalar patch writer and the canonical SQL schema. The existence of a
-mapping does not itself prove live Notion field parity; the cleanup does
-not modify SQL or Notion values.
+For every valid JSON object in every directory profile, including
+archived, reviewed, pending-unlock and tombstoned rows, delete each of
+these 12 top-level keys when present. This is intentional even when SQL
+is NULL or empty, or the historical value is different. SQL is the
+only canonical value from now on. The removal **does not** modify SQL.
 
-## Removal rules
+This is a deliberate behavior change for old district JSON fallbacks:
+when SQL district is blank, deleting a historical Okres may make the
+district disappear on the public site and in historical filtering.
+This matches the owner's instruction not to preserve JSON-only copies.
 
-A JSON property is removed only if:
-- Its exact, allowlisted top-level key is present.
-- Its corresponding SQL value is non-NULL and nonblank after trimming.
-- The profile is draft or published, not archived or owner-reviewed;
-  no pending review unlock and no D1 tombstone exists.
+Malformed JSON and JSON arrays are not rewritten: their bytes remain
+unchanged, so an unrelated technical payload is never accidentally
+replaced by an empty object. The audit explicitly counts invalid JSON.
 
-This is conservative for pre-0170 SQL fields: SQL empty string could
-mean old missing data rather than an explicit clear. Such cases remain
-in source_data_json and are reported as unconfirmed.
+## What is not deleted by this operation
 
-The public Directory still has a historical JSON fallback for Okres
-when district is empty. Delete Okres only when district is nonempty,
-so public display and geographic filters remain stable. Do not delete
-breed/club relationship labels, category-specific facts, Services V3
-choices or select filters.
+- The entire source_data_json column. It still stores *active*, non-backup
+  metadata used by review locks, public facts, service filters, media and
+  multi-category relations. Removing it now would break those features.
+- Technical keys, photos, categories, service choices, qualifications,
+  Notion mapping rows, SEO, image settings or any unrelated JSON keys.
+- SQL columns, SQL values, updated_at/updated_by or other table rows.
 
-One UPDATE per column, each with the full guarded predicate. Only
-source_data_json changes, never name, excerpt, description, region,
-address or other SQL values, timestamps, Notion mapping, Services V3,
-SEO or image metadata. No schema migration or generic replay.
+Any later plan to eliminate source_data_json completely needs to move
+these active dependencies to canonical SQL first. This PR is the
+requested removal of all 12 selected historical field copies, not
+an unverified DROP COLUMN operation.
 
-## Owner-approved rollout
+## Workflow
 
-1. Merge only after green offline tests, Playwright and Admin regression.
-2. GitHub Actions: production-directory-sql-notion-scalar-cleanup.yml,
-   branch main, mode=audit and exact confirmation:
+1. Merge after tests and CI finish green.
+2. Manually run production-directory-sql-notion-scalar-cleanup.yml on
+   main with mode=audit and confirmation:
    AUDIT-DIRECTORY-SQL-SCALARS-psipedia-sk-db
-3. Review the private report.json counts grouped by category:
-   before.candidates.totals.removable, unconfirmed, protected.
-4. After approval run mode=apply and exact confirmation:
+3. Read private report.json with aggregate counts by category:
+   removable, withoutSqlValue (removal still occurs), invalidJson.
+   There is no row-level data or PII in logs.
+4. Manually run mode=apply with confirmation:
    APPLY-DIRECTORY-SQL-SCALARS-psipedia-sk-db
-5. Prior to any write, create a D1 time-travel recovery bookmark (not a
-   separately exported backup). Required postflight:
-   invariantsPassed=true, all 12 after.candidates.totals.removable=0,
-   stable record counts, identifiers, latest updated_at and SQL aggregates;
-   unchanged unconfirmed and protected groups; JSON size not increased.
-   Apply is idempotent.
+5. Before writing, D1 time-travel bookmark is created. After
+   running, invariantsPassed must be true and all 12 removable
+   counts must be zero, even if the SQL column is blank.
+   SQL length/count aggregates and profile count/IDs stay unchanged;
+   invalid JSON count must remain stable.
 
-PR CI never connects to production D1. Merge alone does not write data.
-
-## Not in this change
-
-- Fixing unresolved empty SQL scalar fields.
-- Public fact, secondary category, faceted filter, Services V3 or
-  qualification read/write cutover.
-- Moving review locks, image or SEO technical metadata.
-- Dropping JSON columns in a destructive schema operation.
+A PR merge cannot trigger any production write; only a separately
+approved GitHub Actions workflow_dispatch can run the cleanup.
