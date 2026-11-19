@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { decryptPii } from "./pii-crypto";
+import { listPartnerHelpClaimsAdmin, getPartnerHelpClaimAdmin, decidePartnerHelpClaimAdmin, helpClaimHref, PartnerHelpClaimError, isPartnerHelpType } from "./partner-help-claims";
 import { ensurePartnerOwnerMembershipAdmin } from "./partner-admin-store";
 import { getPartnerAccountById, getPartnerDatabase } from "./partner-auth-store";
 import {
@@ -117,13 +118,25 @@ export async function listPartnerClaimsAdmin(input: {
   if (input.status && input.status !== "all" && !isPartnerClaimStatus(input.status)) {
     throw new PartnerClaimAdminError("Neplatný filter claim statusu.");
   }
-  if (input.entityType && input.entityType !== "all" && !["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT"].includes(input.entityType)) {
+  if (input.entityType && input.entityType !== "all" && !["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT", "ADOPTION_DOG", "LOST_FOUND_DOG", "HELP_CASE"].includes(input.entityType)) {
     throw new PartnerClaimAdminError("Neplatný typ resource.");
   }
   const rows = (await db(input.database).prepare(
     CLAIM_BASE + " ORDER BY CASE WHEN c.status='PENDING' THEN 0 ELSE 1 END,c.created_at ASC LIMIT 300",
   ).all<ClaimAdminRow>()).results;
   let items = await hydrateClaims(rows, piiKey(input.encryptionKey));
+  const otherRows=await listPartnerHelpClaimsAdmin(input.database);
+  const help=await Promise.all(otherRows.map(async row=>({
+    ...row,resourceId:`help-record-${row.entityType}-${row.canonicalId}`,
+    resourceName:row.name,publicHref:helpClaimHref(row),
+    email:await decryptPii(row.emailCiphertext!,piiKey(input.encryptionKey)),
+    conflict:Boolean((row as {conflict?:number}).conflict),
+  })));
+  items=[...items,...help].sort((a,b)=>{
+    if(a.status==="PENDING"&&b.status!=="PENDING")return -1;
+    if(b.status==="PENDING"&&a.status!=="PENDING")return 1;
+    return a.createdAt.localeCompare(b.createdAt);
+  }).slice(0,300);
   if (input.status && input.status !== "all") items = items.filter((item) => item.status === input.status);
   if (input.entityType && input.entityType !== "all") items = items.filter((item) => item.entityType === input.entityType);
   const q = (input.q ?? "").trim().toLocaleLowerCase("sk");
@@ -137,6 +150,10 @@ export async function listPartnerClaimsAdmin(input: {
 
 export async function getPartnerClaimAdmin(id: string, input: { database?: D1Database; encryptionKey?: string } = {}) {
   if (!safeId(id)) return null;
+  if(id.startsWith("help-claim-")){
+    const claim=await getPartnerHelpClaimAdmin(id,input.database);
+    return claim?{...claim,email:await decryptPii(claim.emailCiphertext!,piiKey(input.encryptionKey))}:null;
+  }
   const database = db(input.database);
   const row = await database.prepare(CLAIM_BASE + " WHERE c.id=?1 LIMIT 1").bind(id).first<ClaimAdminRow>();
   if (!row) return null;
@@ -239,6 +256,7 @@ export async function approvePartnerClaimAdmin(input: {
   hashKey?: string;
 }) {
   if (!safeId(input.id)) throw new PartnerClaimAdminError("Neplatný claim.");
+  if(input.id.startsWith("help-claim-"))return decidePartnerHelpClaimAdmin({...input,action:"APPROVE"});
   const database = db(input.database);
   const claim = await claimForDecision(input.id, database);
   await assertClaimIndependentOwnershipApprover({
@@ -300,6 +318,7 @@ export async function rejectPartnerClaimAdmin(input: {
   now?: Date;
 }) {
   if (!safeId(input.id)) throw new PartnerClaimAdminError("Neplatný claim.");
+  if(input.id.startsWith("help-claim-"))return decidePartnerHelpClaimAdmin({...input,action:"REJECT"});
   const database = db(input.database);
   const claim = await claimForDecision(input.id, database);
   const note = normalizePartnerClaimText(input.decisionNote, 2000);
@@ -327,6 +346,11 @@ export async function rejectPartnerClaimAdmin(input: {
     now,
   });
   return getPartnerClaimAdmin(input.id, { database });
+}
+
+export async function revokePartnerHelpClaimAdmin(input:{id:string;adminEmail:string;decisionNote?:unknown;database?:D1Database;now?:Date}) {
+  if(!input.id.startsWith("help-claim-"))throw new PartnerClaimAdminError("Prístup tohto typu sa odoberá cez správu prístupov.",400);
+  return decidePartnerHelpClaimAdmin({...input,action:"REVOKE"});
 }
 
 type VerificationAdminRow = {
