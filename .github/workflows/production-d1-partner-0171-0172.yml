@@ -57,7 +57,7 @@ jobs:
       - name: Validate exact migrations
         run: |
           node --check scripts/production-d1-partner-0171-0172.mjs
-          node --test tests/production-d1-partner-0171-0172.test.mjs
+          node --test tests/production-d1-partner-0171-0172.test.mjs tests/production-partner-owner-compatibility.test.mjs
           npm run db:check-migrations
       - name: Select protected Cloudflare account
         run: |
