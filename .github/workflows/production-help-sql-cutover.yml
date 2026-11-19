@@ -1,0 +1,136 @@
+name: Production Help SQL cutover verification (manual, no writes)
+
+# Merge cannot be treated as proof of production data parity.
+# PR checks are OFFLINE ONLY. Cloudflare credentials are available exclusively
+# in a manually approved production environment on the current main commit.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/production-help-sql-cutover.yml"
+      - "lib/help-sql-cutover-readiness.mjs"
+      - "scripts/production-help-sql-cutover.mjs"
+      - "tests/production-help-sql-cutover.test.mjs"
+      - "lib/help-sql-schema-preflight.mjs"
+      - "lib/help-sql-reviewed-backfill.mjs"
+      - "scripts/production-editorial-storage-readonly.mjs"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Read-only audit; postflight verifies manually checked deployment only (no migration)"
+        type: choice
+        default: audit
+        required: true
+        options:
+          - audit
+          - postflight
+      confirmation:
+        description: "AUDIT-HELP-SQL-psipedia-sk-db or POSTFLIGHT-HELP-SQL-psipedia-sk-db"
+        type: string
+        required: true
+      backup_confirmation:
+        description: "For postflight only: INDEPENDENT-BACKUP-VERIFIED"
+        type: string
+        required: false
+      parity_confirmation:
+        description: "For postflight only: ADMIN-NOTION-PUBLIC-PARITY-REVIEWED"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('help-sql-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  offline-safety:
+    name: Help schema, canonical reads and manual production gate (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Run offline SQLite and safety contracts (no credentials, D1 or Notion)
+        run: node --test tests/production-help-sql-cutover.test.mjs tests/help-sql-schema-preflight.test.mjs tests/help-sql-reviewed-backfill.test.mjs tests/help-sql-legacy-public-cutover-step5.test.mjs
+
+  production-verify:
+    name: Verify canonical Help D1, recovery point and aggregate blockers (no writes)
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      HELP_SQL_MODE: ${{ inputs.mode }}
+      HELP_SQL_CONFIRMATION: ${{ inputs.confirmation }}
+      HELP_SQL_BACKUP_CONFIRMATION: ${{ inputs.backup_confirmation }}
+      HELP_SQL_PARITY_CONFIRMATION: ${{ inputs.parity_confirmation }}
+    steps:
+      - name: Reject unexpected repository, branch or invocation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          case "$HELP_SQL_MODE" in
+            audit) test "$HELP_SQL_CONFIRMATION" = "AUDIT-HELP-SQL-psipedia-sk-db" ;;
+            postflight)
+              test "$HELP_SQL_CONFIRMATION" = "POSTFLIGHT-HELP-SQL-psipedia-sk-db"
+              test "$HELP_SQL_BACKUP_CONFIRMATION" = "INDEPENDENT-BACKUP-VERIFIED"
+              test "$HELP_SQL_PARITY_CONFIRMATION" = "ADMIN-NOTION-PUBLIC-PARITY-REVIEWED"
+              ;;
+            *) exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Reject stale main (never inspect unknown deployed code)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install pinned Wrangler and app dependencies
+        run: npm ci
+
+      - name: Bind exact canonical Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Verify SQL migration metadata (offline only)
+        run: npm run db:check-migrations
+
+      - name: Collect existing production D1 inventory (SELECT only, no export)
+        run: node scripts/production-editorial-storage-readonly.mjs
+
+      - name: Verify Help schema, D1 recovery checkpoint and legacy parity blockers
+        run: node scripts/production-help-sql-cutover.mjs "$HELP_SQL_MODE"
+
+      - name: Upload count-only gate result even if blocked
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: help-sql-readonly-${{ github.run_id }}
+          path: |
+            .production-help-sql-cutover/report.json
+            .production-editorial-storage-readonly/report.json
+          if-no-files-found: warn
+          retention-days: 14
