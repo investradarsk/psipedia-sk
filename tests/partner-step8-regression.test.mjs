@@ -85,3 +85,20 @@ test("step8 keeps prepared migrations manual and guards all approved owner canon
   assert.match(helpReview,/status='APPROVED'/);
   assert.match(migrations,/CREATE UNIQUE INDEX `partner_help_claims_case_manager`/);
 });
+
+test("0171/0172 preflight remains strictly read-only and refuses silent ownership selection",async()=>{
+  const [preflight,m171,m172]=await Promise.all([
+    "scripts/partner-self-service-0171-0172-preflight.sql",
+    "drizzle/0171_partner_single_manager.sql",
+    "drizzle/0172_partner_help_claim_ownership.sql",
+  ].map(read));
+  const statements=preflight.split("\\n")
+    .filter(line=>!line.trim().startsWith("--")).join("\\n");
+  assert.match(statements,/PRAGMA foreign_key_check/i);
+  assert.match(statements,/active_manager_duplicate/);
+  assert.match(statements,/partner_help_claims/);
+  assert.doesNotMatch(statements,/\\b(INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|REPLACE)\\b/i);
+  assert.match(m171,/CREATE UNIQUE INDEX \`partner_memberships_one_active_resource\`/);
+  assert.match(m171,/partner_memberships_only_owner_insert/);
+  assert.match(m172,/CREATE UNIQUE INDEX \`partner_help_claims_adoption_manager\`/);
+});
