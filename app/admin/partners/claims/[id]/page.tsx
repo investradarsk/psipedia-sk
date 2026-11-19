@@ -30,7 +30,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         <section className="admin-form-card"><h2>Ďalšie čakajúce žiadosti</h2>{pending.length ? pending.map((item) => <article key={item.id}><Link href={`/admin/partners/claims/${item.id}`}>{item.accountId}</Link><span>{new Date(item.createdAt).toLocaleString("sk-SK")}</span></article>) : <p>Žiadne.</p>}</section>
         <section className="admin-form-card"><h2>História rozhodnutí</h2>{audit.length ? audit.map((item) => <article key={item.id}><strong>{item.action}</strong><span>{item.actorRef} · {new Date(item.createdAt).toLocaleString("sk-SK")}</span></article>) : <p>Zatiaľ bez zaznamenaných rozhodnutí.</p>}</section>
       </div>
-      {(claim.status === "PENDING" || (claim.status === "APPROVED" && claim.entityType !== "DIRECTORY_PROFILE" && claim.entityType !== "HELP_ORGANIZATION" && claim.entityType !== "MANAGED_EVENT")) ? <AdminPartnerClaimActions claimId={claim.id} status={claim.status} /> : null}
+      {claim.status === "PENDING" ? <AdminPartnerClaimActions claimId={claim.id} status={claim.status} /> : claim.status === "APPROVED" && ["ADOPTION_DOG","LOST_FOUND_DOG","HELP_CASE"].includes(claim.entityType) ? <AdminPartnerClaimActions claimId={claim.id} status={claim.status} /> : null}
     </AdminShell>
   );
 }
