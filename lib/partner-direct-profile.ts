@@ -23,6 +23,7 @@ export async function savePartnerManagedProfile(input: {
 }) {
   const database=getPartnerDatabase(input.database ?? (env as unknown as {DB?:D1Database}).DB);
   const editor=await getPartnerProfileEditor(input.accountId,input.resourceId,database);
+  if(editor.resource.role!=="OWNER")throw new PartnerProfileChangeError("Priamu úpravu môže uložiť iba schválený správca profilu.",403);
   if(typeof input.baseRevision!=="string"||editor.baseRevision!==input.baseRevision)
     throw new PartnerProfileChangeError("Profil sa medzitým zmenil. Obnovte editor.",409);
   const canonical=await loadPartnerCanonicalForResource(input.resourceId,database);
