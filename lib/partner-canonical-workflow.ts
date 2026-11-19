@@ -309,11 +309,13 @@ export async function getPendingPartnerCanonicalDraft(input:{
   resourceType:PartnerCanonicalType;canonicalId:number;database?:D1Database;
 }){
   const db=database(input.database);
-  return db.prepare("SELECT id,status,submitter_ref accountId,updated_at updatedAt FROM moderation_submissions "+
+  return db.prepare("SELECT id,status,submitter_ref accountId,updated_at updatedAt,"+
+    "(SELECT updated_at FROM "+tableFor(input.resourceType)+" WHERE id=?3) canonicalUpdatedAt "+
+    "FROM moderation_submissions "+
     "WHERE operation='CREATE' AND submitter_type='PARTNER_ACCOUNT' AND resource_type=?1 AND subject_id=?2 "+
-    "AND status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED') ORDER BY created_at DESC LIMIT 1")
-    .bind(input.resourceType,String(input.canonicalId))
-    .first<{id:string;status:PartnerDraftStatus;accountId:string;updatedAt:string}>();
+    "AND status IN ('DRAFT','SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED') ORDER BY created_at DESC LIMIT 1")
+    .bind(input.resourceType,String(input.canonicalId),input.canonicalId)
+    .first<{id:string;status:PartnerDraftStatus;accountId:string;updatedAt:string;canonicalUpdatedAt:string|null}>();
 }
 function publication(db:Database,row:DraftRow,nowIso:string,actorRef:string,baseUpdatedAt:string){
   const table=tableFor(row.resourceType);
