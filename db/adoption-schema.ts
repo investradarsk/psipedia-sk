@@ -25,6 +25,8 @@ export const adoptionDogs = sqliteTable(
     organizationName: text("organization_name").notNull().default(""),
     organizationSlug: text("organization_slug"),
     mainImage: text("main_image"),
+    thumbnailDisplayJson: text("thumbnail_display_json"),
+    detailDisplayJson: text("detail_display_json"),
     galleryJson: text("gallery_json").notNull().default("[]"),
     shortDescription: text("short_description").notNull().default(""),
     description: text("description").notNull().default(""),
