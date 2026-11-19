@@ -11,7 +11,7 @@ import {resolve} from "node:path";
 import {createHash} from "node:crypto";
 import {
   MIRROR_COHORT,planBreedControlledMirrorBackfill,
-  breedControlledMirrorAtomicInsert,
+  breedControlledMirrorAtomicInsert,isBreedControlledMirrorInsertOnlySql,
 } from "../lib/breed-controlled-mirror-backfill.mjs";
 
 const MODE=process.argv[2];
@@ -192,9 +192,7 @@ async function main(){
  });
  required(stable(first)===stable(second),"NOTION_OR_D1_CHANGED_AFTER_AUDIT");
  const sql=breedControlledMirrorAtomicInsert(second.plan,SOURCE);
- required(sql.startsWith("WITH candidates")&&
-   sql.includes("INSERT INTO breed_notion_controlled_values")&&
-   !/\b(?:UPDATE|DELETE|DROP|ALTER|REPLACE|CREATE TRIGGER)\b/i.test(sql),
+ required(isBreedControlledMirrorInsertOnlySql(sql),
    "SQL_INSERT_ONLY_REQUIRED");
  stage="apply";
  writeFileSync(SQL,sql+"\n",{mode:0o600});
