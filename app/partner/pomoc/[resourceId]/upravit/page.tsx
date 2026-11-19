@@ -25,6 +25,7 @@ export default async function Page({ params }: {params:Promise<{resourceId:strin
       </div>
       <PartnerHelpPublicEditorForm
         resourceId={editor.resourceId}
+        entityType={editor.entityType}
         fields={editor.fields}
         originalValues={editor.values}
         initialRevision={editor.baseRevision}
