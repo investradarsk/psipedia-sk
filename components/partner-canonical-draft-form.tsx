@@ -26,7 +26,7 @@ const fields:Record<PartnerCanonicalType,Field[]>={
       options:[["SHELTER","Útulok"],["CIVIC_ASSOCIATION","Občianske združenie"],
         ["RESCUE_ORGANIZATION","Záchranná organizácia"],["MUNICIPAL_ORGANIZATION","Mestská organizácia"],
         ["NONPROFIT","Nezisková organizácia"],["OTHER","Iné"]]},
-    t("legalName","Právny názov"),t("registrationNumber","Registračné číslo"),
+    t("legalName","Právny názov"),
     t("shortDescription","Krátky popis",true),t("description","Opis",true),
     ...address,t("countryCode","Kód krajiny"),...commonContacts,
   ],
