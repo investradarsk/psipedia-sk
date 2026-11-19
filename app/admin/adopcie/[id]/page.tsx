@@ -2,13 +2,12 @@ import Link from "next/link";
 import { adminReturnHref } from "@/lib/admin-return-navigation";
 import { notFound } from "next/navigation";
 import { AdminAdoptionEditor } from "@/components/admin-adoption-editor";
-import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+import { AdminPartnerReviewStatus } from "@/components/admin-partner-review-status";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { adoptionStatusLabels, isAdoptionPublicStatus, type AdoptionStatus } from "@/lib/adoption";
 import { adoptionDetailPath } from "@/lib/adoption-detail";
 import { listAdoptionAdminBreedOptions, listAdoptionAdminOrganizationOptions } from "@/lib/adoption-admin-write";
@@ -27,12 +26,11 @@ export default async function EditAdoptionPage({ params, searchParams }: Props) 
   const user = await requireAdminPageUser(`/admin/adopcie/${id}`);
   // The selected breed is the only dependent option; start all other
   // canonical lookups together and await their already-running promises.
-  const [item, organizations, duplicateWarning, automationSuggestions, review] = await Promise.all([
+  const [item, organizations, duplicateWarning, automationSuggestions] = await Promise.all([
     getAdoptionById(numericId),
     listAdoptionAdminOrganizationOptions(),
     getCanonicalDraftDuplicateWarning("ADOPTION", numericId).catch(() => null),
     listCanonicalAutomationUpdateSuggestions({ entityType: "ADOPTION", canonicalEntityId: numericId }),
-    getAdminEntityReview("ADOPTION", numericId),
   ]);
   if (!item) notFound();
   const selectedBreed = item.breedId && item.breedName.trim()
@@ -40,5 +38,5 @@ export default async function EditAdoptionPage({ params, searchParams }: Props) 
     : null;
   // This option set alone depends on the selected breed of the loaded item.
   const breeds = await listAdoptionAdminBreedOptions(undefined, selectedBreed, item.breedId);
-  return <AdminShell recordId={item.id} user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />{isAdoptionPublicStatus(item.status) && <Link href={adoptionDetailPath(item.slug)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}<Link href={returnHref}>← Späť na adopcie</Link></>}><AdminGeminiOriginBadge agenda="adoptions" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions} returnHref={returnHref}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref={returnHref} />}</AdminShell>;
+  return <AdminShell recordId={item.id} user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<><AdminPartnerReviewStatus entityType="ADOPTION" entityId={item.id} />{isAdoptionPublicStatus(item.status) && <Link href={adoptionDetailPath(item.slug)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}<Link href={returnHref}>← Späť na adopcie</Link></>}><AdminGeminiOriginBadge agenda="adoptions" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions} returnHref={returnHref}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref={returnHref} />}</AdminShell>;
 }

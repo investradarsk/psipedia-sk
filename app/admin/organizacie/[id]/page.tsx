@@ -3,7 +3,7 @@ import { adminReturnHref } from "@/lib/admin-return-navigation";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { AdminOrganizationEditor } from "@/components/admin-organization-editor";
-import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+import { AdminPartnerReviewStatus } from "@/components/admin-partner-review-status";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
@@ -12,7 +12,6 @@ import { AdminShell } from "@/components/admin-shell";
 import { AdminOptionalReadError } from "@/components/admin-recovery-actions";
 import type { OrganizationSuggestionsResult } from "@/components/admin-organization-suggestions";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { getOrganizationPublicationAdminById } from "@/lib/help-organization-admin-store";
 import type { OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
 import { listOrganizationFundraisingMethodsAdmin } from "@/lib/organization-fundraising-admin-store";
@@ -24,14 +23,9 @@ import { listCanonicalAutomationUpdateSuggestions } from "@/lib/data-automation-
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string | string[] }> };
 
-/** A failed review lookup must not mark a record as unchecked. */
+/** Never treat a failed Partner/Review lookup as an unchecked record. */
 async function OrganizationReviewAction({ organizationId }: { organizationId: number }) {
-  const loaded = await getAdminEntityReview("ORGANIZATION", organizationId)
-    .then((review) => ({ review, failed: false as const }))
-    .catch(() => ({ review: null, failed: true as const }));
-  if (loaded.failed) return <AdminOptionalReadError message="Stav redakčnej kontroly sa nepodarilo načítať." />;
-  return <AdminReviewCheckbox entityType="ORGANIZATION" entityId={organizationId}
-    initialReviewed={loaded.review.reviewed} initialReviewedAt={loaded.review.reviewedAt} showDate />;
+  return <AdminPartnerReviewStatus entityType="ORGANIZATION" entityId={organizationId} />;
 }
 
 async function OrganizationDuplicateWarning({ organizationId }: { organizationId: number }) {

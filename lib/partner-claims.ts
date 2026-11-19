@@ -1,9 +1,11 @@
 import { getPartnerAccountById, getPartnerDatabase } from "./partner-auth-store";
 import { queuePartnerLifecycleNotification } from "./partner-email";
 import { appendPartnerAuditEvent, type PartnerRole } from "./partner-platform";
+import { createPartnerHelpClaim, cancelPartnerHelpClaim, getPartnerHelpPreview, listPartnerHelpClaims, isPartnerHelpType } from "./partner-help-claims";
 
-export const partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION"] as const;
+export const partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT", "ADOPTION_DOG", "LOST_FOUND_DOG", "HELP_CASE"] as const;
 export type PartnerClaimableResourceType = (typeof partnerClaimableResourceTypes)[number];
+export type PartnerVerifiableResourceType = Extract<PartnerClaimableResourceType, "DIRECTORY_PROFILE" | "HELP_ORGANIZATION">;
 export const partnerClaimStatuses = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
 export type PartnerClaimStatus = (typeof partnerClaimStatuses)[number];
 export const partnerVerificationStates = ["UNVERIFIED", "PENDING_VERIFICATION", "VERIFIED", "REJECTED"] as const;
@@ -59,6 +61,19 @@ export async function getClaimablePartnerResourcePreview(
   if (!isPartnerClaimableResourceType(entityTypeValue)) return null;
   const id = canonicalId(canonicalIdValue);
   const db = getPartnerDatabase(database);
+  if (isPartnerHelpType(entityTypeValue)) return getPartnerHelpPreview(entityTypeValue,id,db);
+  if (entityTypeValue === "MANAGED_EVENT") {
+    const row = await db.prepare(
+      "SELECT id,title,slug FROM managed_events WHERE id=?1 AND status='published' AND published_at IS NOT NULL LIMIT 1",
+    ).bind(id).first<{ id: number; title: string; slug: string }>();
+    return row ? {
+      entityType: entityTypeValue,
+      canonicalId: Number(row.id),
+      name: row.title,
+      slug: row.slug,
+      publicHref: `/podujatia/${row.slug}`,
+    } : null;
+  }
   if (entityTypeValue === "DIRECTORY_PROFILE") {
     const row = await db.prepare(
       "SELECT id,name,slug,category FROM directory_profiles WHERE id=?1 AND status='published' LIMIT 1",
@@ -89,7 +104,7 @@ async function getOrCreateResourceAnchor(
   database: D1Database,
   now: Date,
 ) {
-  const column = entityType === "DIRECTORY_PROFILE" ? "directory_profile_id" : "help_organization_id";
+  const column = entityType === "DIRECTORY_PROFILE" ? "directory_profile_id" : entityType === "HELP_ORGANIZATION" ? "help_organization_id" : "managed_event_id";
   let resource = await database.prepare(
     `SELECT id FROM partner_resources WHERE ${column}=?1 LIMIT 1`,
   ).bind(id).first<{ id: string }>();
@@ -135,6 +150,7 @@ export async function createPartnerClaim(input: {
 }) {
   const database = getPartnerDatabase(input.database);
   await activeAccount(input.accountId, database);
+  if (isPartnerHelpType(input.entityType)) return createPartnerHelpClaim({ ...input, entityType: input.entityType, database });
   if (!isPartnerClaimableResourceType(input.entityType)) {
     throw new PartnerClaimError("Tento typ profilu zatiaľ nie je možné prevziať.");
   }
@@ -161,7 +177,8 @@ export async function createPartnerClaim(input: {
   const recent = await database.prepare(
     "SELECT COUNT(*) count FROM partner_claims WHERE account_id=?1 AND created_at>=?2",
   ).bind(input.accountId, threshold).first<{ count: number }>();
-  if (Number(recent?.count ?? 0) >= 10) {
+  const recentHelp = await database.prepare("SELECT COUNT(*) count FROM partner_help_claims WHERE account_id=?1 AND created_at>=?2").bind(input.accountId, threshold).first<{count:number}>();
+  if (Number(recent?.count ?? 0)+Number(recentHelp?.count ?? 0) >= 10) {
     throw new PartnerClaimError("Za krátky čas bolo odoslaných priveľa žiadostí. Skúste to neskôr.", 429);
   }
 
@@ -222,6 +239,7 @@ export async function cancelPartnerClaim(input: {
 }) {
   const database = getPartnerDatabase(input.database);
   await activeAccount(input.accountId, database);
+  if (input.claimId.startsWith("help-claim-")) return cancelPartnerHelpClaim({...input,database});
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(input.claimId)) throw new PartnerClaimError("Neplatná žiadosť.");
   const claim = await database.prepare(
     "SELECT id,status FROM partner_claims WHERE id=?1 AND account_id=?2 LIMIT 1",
@@ -264,29 +282,31 @@ type ClaimHistoryRow = {
 function historyHref(row: ClaimHistoryRow) {
   return row.entityType === "DIRECTORY_PROFILE"
     ? `/adresar/${row.directoryCategory}/${row.slug}`
-    : `/organizacie/${row.slug}`;
+    : row.entityType === "HELP_ORGANIZATION" ? `/organizacie/${row.slug}` : `/podujatia/${row.slug}`;
 }
 
 export async function listPartnerClaims(accountId: string, database?: D1Database) {
   const rows = (await getPartnerDatabase(database).prepare(`
     SELECT c.id,c.resource_id resourceId,r.entity_type entityType,c.status,c.request_message requestMessage,
       c.created_at createdAt,c.updated_at updatedAt,c.reviewed_at reviewedAt,
-      COALESCE(d.id,o.id) canonicalId,COALESCE(d.name,o.name) name,COALESCE(d.slug,o.slug) slug,
+      COALESCE(d.id,o.id,e.id) canonicalId,COALESCE(d.name,o.name,e.title) name,COALESCE(d.slug,o.slug,e.slug) slug,
       d.category directoryCategory,v.status verificationStatus
     FROM partner_claims c
     JOIN partner_resources r ON r.id=c.resource_id
     LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
     LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+    LEFT JOIN managed_events e ON e.id=r.managed_event_id
     LEFT JOIN partner_resource_verifications v ON v.account_id=c.account_id AND v.resource_id=c.resource_id
     WHERE c.account_id=?1
     ORDER BY c.created_at DESC,c.id DESC
     LIMIT 150
   `).bind(accountId).all<ClaimHistoryRow>()).results;
-  return rows.map((row) => ({
+  const helpClaims=await listPartnerHelpClaims(accountId,database);
+  return [...rows.map((row) => ({
     ...row,
     publicHref: historyHref(row),
     verificationState: (row.verificationStatus ?? "UNVERIFIED") as PartnerVerificationState,
-  }));
+  })),...helpClaims].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,150);
 }
 
 export async function getPartnerResourceVerificationState(
@@ -401,7 +421,7 @@ export async function requestPartnerVerification(input: {
 }
 
 export async function isPublicPartnerResourceVerified(
-  entityType: PartnerClaimableResourceType,
+  entityType: PartnerVerifiableResourceType,
   canonicalIdValue: number,
   database?: D1Database,
 ) {

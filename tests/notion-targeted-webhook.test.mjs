@@ -286,6 +286,7 @@ test("targeted Admin Help statuses require actual reconciliation evidence", asyn
     const summary = { enabled: true, schemaReady: true, agendas: [item], totals, ...overrides.summary };
     const context = {
       exports: {},
+      isAdminNotionSyncLocked: async () => false,
       runNotionEventsHelpSyncSweep: async args => { calls.push(args); return summary; },
     };
     runInNewContext(compiled, context);
@@ -322,7 +323,8 @@ test("mapped Events now route Admin save to the per-field engine with no legacy 
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
   }).outputText;
   const events = [];
-  const context = {exports: {}, runNotionEventsHelpSyncSweep: async () => {
+  const context = {exports: {}, isAdminNotionSyncLocked: async () => false,
+    runNotionEventsHelpSyncSweep: async () => {
     throw new Error("Legacy whole-profile sweep must not run");
   },syncEventAdminFields:async args => {events.push(args);return "synced";}};
   runInNewContext(compiled, context);

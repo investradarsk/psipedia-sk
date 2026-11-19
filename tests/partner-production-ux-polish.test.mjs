@@ -168,7 +168,7 @@ test("Partner-facing terminology and raw codes are localized", () => {
 
 test("shared Partner labels cover roles, commercial states, payments and event operations", () => {
   for (const expected of [
-    'OWNER: "Vlastník"',
+    'OWNER: "Správca profilu"',
     'MANAGER: "Manažér"',
     'EDITOR: "Editor"',
     'NEW: "Nové"',

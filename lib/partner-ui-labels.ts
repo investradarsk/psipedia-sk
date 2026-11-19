@@ -1,7 +1,7 @@
 import type { PartnerRole } from "@/lib/partner-platform";
 
 const ROLE_LABELS: Record<PartnerRole, string> = {
-  OWNER: "Vlastník",
+  OWNER: "Správca profilu",
   MANAGER: "Manažér",
   EDITOR: "Editor",
 };

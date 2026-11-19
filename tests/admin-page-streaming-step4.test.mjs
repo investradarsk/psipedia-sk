@@ -48,7 +48,8 @@ test("organization editor data required for editing is never substituted by empt
   for (const optional of ["listOrganizationFundraisingMethodsAdmin", "getAdminEntityReview", "getCanonicalDraftDuplicateWarning", "listCanonicalAutomationUpdateSuggestions"])
     assert.ok(!primary.includes(optional), optional + " never blocks core editor");
   assert.match(page, /Fundraising sa nepodarilo načítať/);
-  assert.match(page, /Stav redakčnej kontroly sa nepodarilo načítať/);
+  assert.match(page, /AdminPartnerReviewStatus/);
+  assert.match(read("components/admin-partner-review-status.tsx"), /Správcu a stav kontroly sa nepodarilo overiť\. Odomknutie je nedostupné/);
   assert.match(page, /automationSuggestionsPromise=\{suggestionsPromise\}/);
   assert.match(suggestions, /use\(promise\)/);
   assert.match(suggestions, /<Suspense fallback=/);

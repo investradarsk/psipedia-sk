@@ -1,3 +1,4 @@
+import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
 import type { DogEvent } from "./events.ts";
 import { eventTypes, slovakRegions } from "./events.ts";
 import { getManagedEventById, updateManagedEvent } from "./event-store.ts";
@@ -226,6 +227,7 @@ export async function syncEventNotionFields(input:{
   if(!mapping)return "deferred";
   const id=Number(mapping.event_id);
   if(!Number.isSafeInteger(id)||id<1)throw Error("EVENT_ID_INVALID");
+  if(await isAdminNotionSyncLocked(input.database,"events",id))return "deferred";
   const source=await loadSource(input.database,id);
   verifyIdentity(input.page,source,input.bindings);
   await confirmMapping(input.database,input.page.id,id);
@@ -265,6 +267,7 @@ export async function syncEventAdminFields(input:{
   if(input.bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED!=="true" ||
       !available(input.bindings))return "disabled";
   if(!Number.isSafeInteger(input.eventId)||input.eventId<1)return "unlinked";
+  if(await isAdminNotionSyncLocked(input.database,"events",input.eventId))return "disabled";
   const mapping=await getMapping(input.database,input.eventId);
   if(!mapping)return "unlinked";
   try{
@@ -286,6 +289,7 @@ export async function syncEventAdminFields(input:{
     let written=0;
     for(const path of EVENT_NOTION_PATHS){
       if(!selected.has(path))continue;
+      if(await isAdminNotionSyncLocked(input.database,"events",input.eventId))return "disabled";
       const name=EVENT_NOTION_FIELDS[path];
       try{
         const original=latest.properties?.[name];

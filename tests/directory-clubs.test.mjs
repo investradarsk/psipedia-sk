@@ -121,7 +121,12 @@ function createClubDatabase() {
       updated_by TEXT NOT NULL
     );
     CREATE INDEX directory_profiles_public_idx ON directory_profiles (status, category, region, featured);
-    CREATE TABLE directory_profile_additional_categories (profile_id INTEGER NOT NULL, category TEXT NOT NULL, PRIMARY KEY(profile_id,category));
+    -- The public directory now resolves secondary categories from the 0170 SQL relation.
+    CREATE TABLE directory_profile_additional_categories (
+      profile_id INTEGER NOT NULL, category TEXT NOT NULL,
+      updated_at TEXT NOT NULL, updated_by TEXT NOT NULL,
+      PRIMARY KEY(profile_id,category)
+    );
   `);
   applySqlMigration(sqlite, "../drizzle/0018_cold_nico_minoru.sql");
   applySqlMigration(sqlite, "../drizzle/0020_violet_khan.sql");

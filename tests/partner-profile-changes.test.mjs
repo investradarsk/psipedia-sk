@@ -281,7 +281,9 @@ test("PARTNER-3A stays within scope", () => {
   assert.doesNotMatch(mutationSurface, /MANAGED_EVENT|EVENT_SUBMIT/);
   assert.match(profilesPage, /item\.entityType !== "MANAGED_EVENT"/);
   assert.doesNotMatch(mutationSurface, /stripe|billing|payment|subscription|premium_entitlement|sponsored_entitlement/i);
-  assert.doesNotMatch(domain, /media_assets|R2|upload/i);
+  // Step 6 validates already-pending media in the original canonical writer; it never uploads raw images here.
+  assert.match(domain, /directMediaGuard/);
+  assert.doesNotMatch(domain, /INSERT INTO media_assets|publishSafeImage|ingestPrivateImage/);
   assert.doesNotMatch(domain, /organization_fundraising_methods|fundraising/i);
 });
 
@@ -342,6 +344,7 @@ test("all 10 category facet patches are allowlisted and unchanged saves are empt
   assert.equal(columns.filter((item) => item === "public_email").length, 1);
   assert.equal(statement.bindings[columns.indexOf("public_email")], "new@example.sk",
     "approved contact must be stored in canonical SQL");
+
   assert.match(statement.sql, /moderation_submissions WHERE id=\?/);
   assert.throws(() => buildDirectoryApplyStatement(prepared,
     { ...canonical, sourceDataJson: "broken" }, { "veterinari.emergency": "no" },

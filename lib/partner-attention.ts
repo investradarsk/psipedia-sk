@@ -1,7 +1,7 @@
 export const partnerAttentionTypes = ["PARTNER_CLAIM_REVIEW","PARTNER_PROFILE_CHANGE_REVIEW","PARTNER_NEW_PROFILE_REVIEW","PARTNER_EVENT_REVIEW","PARTNER_VERIFICATION_REVIEW","PARTNER_COMMERCIAL_LEAD","PARTNER_COMMERCIAL_AGREEMENT"] as const;
 export type PartnerAttentionType=(typeof partnerAttentionTypes)[number];
-export type PartnerPendingSummary={claims:number;profileChanges:number;newProfiles:number;events:number;verifications:number;commercial:number;agreements:number;total:number};
-export const emptyPartnerPendingSummary=():PartnerPendingSummary=>({claims:0,profileChanges:0,newProfiles:0,events:0,verifications:0,commercial:0,agreements:0,total:0});
+export type PartnerPendingSummary={claims:number;profileChanges:number;newProfiles:number;helpSubmissions:number;events:number;verifications:number;commercial:number;agreements:number;total:number};
+export const emptyPartnerPendingSummary=():PartnerPendingSummary=>({claims:0,profileChanges:0,newProfiles:0,helpSubmissions:0,events:0,verifications:0,commercial:0,agreements:0,total:0});
 const contracts={
   PARTNER_CLAIM_REVIEW:{key:"partner-claim",href:"/admin/partners/claims"},
   PARTNER_PROFILE_CHANGE_REVIEW:{key:"partner-change",href:"/admin/partners/changes"},
@@ -20,10 +20,11 @@ export async function loadPartnerPendingSummary(database?:D1Database){
     const {getPartnerDatabase}=await import("./partner-auth-store");
     const db=getPartnerDatabase(database);
     const now=new Date(),nowIso=now.toISOString(),expiringAt=new Date(now.getTime()+14*86400000).toISOString();
-    const [claimRow,profileChangeRow,newProfileRow,eventRow,verificationRow,commercialRow,agreementRow]=await Promise.all([
+    const [claimRow,profileChangeRow,newProfileRow,helpRow,eventRow,verificationRow,commercialRow,agreementRow]=await Promise.all([
       db.prepare("SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION') AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_new_profile_metadata m ON m.submission_id=s.id WHERE s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>(),
+      db.prepare("SELECT COUNT(*) count FROM moderation_submissions WHERE operation='CREATE' AND submitter_type='PARTNER_ACCOUNT' AND resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE') AND status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_event_submission_metadata m ON m.submission_id=s.id WHERE s.resource_type='MANAGED_EVENT' AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>().catch(()=>null),
       db.prepare("SELECT COUNT(*) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'").first<{count:number}>(),
@@ -35,10 +36,11 @@ export async function loadPartnerPendingSummary(database?:D1Database){
     const claims=Number(claimRow?.count??0);
     const profileChanges=Number(profileChangeRow?.count??0);
     const newProfiles=Number(newProfileRow?.count??0);
+    const helpSubmissions=Number(helpRow?.count??0);
     const events=Number(eventRow?.count??0);
     const verifications=Number(verificationRow?.count??0);
     const commercial=Number(commercialRow?.count??0);const agreements=Number(agreementRow?.count??0);
-    return {...emptyPartnerPendingSummary(),claims,profileChanges,newProfiles,events,verifications,commercial,agreements,total:claims+profileChanges+newProfiles+events+verifications+commercial+agreements};
+    return {...emptyPartnerPendingSummary(),claims,profileChanges,newProfiles,helpSubmissions,events,verifications,commercial,agreements,total:claims+profileChanges+newProfiles+helpSubmissions+events+verifications+commercial+agreements};
   }catch{
     return emptyPartnerPendingSummary();
   }
