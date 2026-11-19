@@ -196,30 +196,10 @@ export function readDirectoryPublicContacts(
 }
 
 /**
- * Remove only contacts that have an explicit SQL write in the same D1
- * statement. Values are validated and retained in directory_profiles columns.
- *
- * Historical aliases for untouched SQL-NULL contacts remain pending backfill;
- * removing those now would silently lose the only existing value.
+ * On every ordinary Admin save, retain no old Notion-mapped public data keys
+ * in source_data_json, even for SQL NULL columns. Canonical storage is SQL;
+ * the owner explicitly rejected retaining these old JSON backup values.
  */
-/**
- * Public Directory scalar labels have canonical SQL/Notion fields.
- * Never persist these old top-level copies on ordinary Admin saves.
- * The owner explicitly chose SQL as sole authority even when it is blank.
- */
-export const DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS = [
-  "Názov", "Perex", "Popis", "Kraj", "Okres", "Mesto", "Adresa",
-  "PSČ", "Ulica", "Číslo domu", "Formát adresy", "Cena / poznámka",
-] as const;
-
-export function omitDirectorySqlNotionScalarAliases(
-  source: DirectoryImportData,
-): DirectoryImportData {
-  const result: DirectoryImportData = {...source};
-  for (const key of DIRECTORY_SQL_NOTION_SCALAR_JSON_KEYS) delete result[key];
-  return result;
-}
-
 export function omitDirectorySqlContactAliases(
   source: DirectoryImportData,
   written: {
@@ -230,6 +210,7 @@ export function omitDirectorySqlContactAliases(
     instagramUrl?: string | null;
   },
 ): DirectoryImportData {
+  void written;
   const next: DirectoryImportData = { ...source };
   for (const [key, aliases] of [
     ["publicPhone", contactAliases.phone],
@@ -238,7 +219,8 @@ export function omitDirectorySqlContactAliases(
     ["facebookUrl", contactAliases.facebook],
     ["instagramUrl", contactAliases.instagram],
   ] as const) {
-    if (written[key] === undefined) continue;
+    // No historical contact JSON should survive an Admin write.
+    void key;
     for (const alias of aliases) delete next[alias];
   }
   return omitDirectorySqlNotionScalarAliases(next);
