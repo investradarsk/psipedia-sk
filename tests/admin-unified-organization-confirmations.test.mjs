@@ -37,7 +37,7 @@ test("organization bulk lifecycle keeps selection/version contract and safe canc
 test("Partner E2E confirms every moderation action with shared in-page dialogs", () => {
   const e2e = read("tests/e2e/partner-auth.spec.ts");
   const admin = e2e.slice(e2e.indexOf('test("internal admin Partner overview'), e2e.indexOf('for (const token of [', e2e.indexOf('test("internal admin Partner overview')));
-  for (const label of ["Vytvoriť nový profil?", "Prepojiť tento profil?", "Schváliť zmeny profilu?", "Overiť správcu profilu?", "Schváliť správu záznamu?"]) {
+  for (const label of ["Vytvoriť nový profil?", "Prepojiť tento profil?", "Overiť správcu profilu?", "Schváliť správu záznamu?"]) {
     assert.ok(admin.includes('getByRole("dialog",{name:"' + label + '"})'), label);
   }
   assert.match(admin, /await createDialog\.getByRole\("button",\{name:"Zrušiť"\}\)\.click\(\)/);
@@ -47,7 +47,10 @@ test("Partner E2E confirms every moderation action with shared in-page dialogs",
   assert.match(admin, /getByRole\("dialog",\{name:"Potvrdiť partnerské rozhodnutie"\}\)/);
   assert.match(admin, /createEventDialog\.getByRole\("button",\{name:"Zrušiť"\}\)\.click\(\)/);
   assert.match(admin, /createEventDialog\.getByRole\("button",\{name:"Potvrdiť"\}\)\.click\(\)/);
-  assert.match(admin, /approveEventDialog\.getByRole\("button",\{name:"Potvrdiť"\}\)\.click\(\)/);
+  // Existing OWNER records save directly: neither profile nor event updates
+  // should create an Admin moderation action in this E2E journey.
+  assert.match(admin, /await expect\(updateEventRow\)\.toHaveCount\(0\)/);
+  assert.match(admin, /await expect\(changeRow\)\.toHaveCount\(0\)/);
   assert.match(read("components/admin-partner-event-actions.tsx"), /<AdminDestructiveConfirmDialog/);
   assert.doesNotMatch(read("components/admin-partner-event-actions.tsx"), /window\.confirm/);
 });
