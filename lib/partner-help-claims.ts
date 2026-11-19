@@ -175,10 +175,10 @@ export async function getPartnerHelpMembership(accountId:string,resourceId:strin
   return row?{...row,resourceId,role:"OWNER" as const,revokedAt:null}:null;
 }
 export async function listPartnerHelpClaimsAdmin(database?:D1Database) {
-  return (await getPartnerDatabase(database).prepare(
-    HELP_SELECT+" JOIN partner_accounts a ON a.id=c.account_id"+
-    " ORDER BY CASE WHEN c.status='PENDING' THEN 0 ELSE 1 END,c.created_at ASC LIMIT 300"
-  .replace("SELECT c.id","SELECT a.email_ciphertext emailCiphertext,c.id")).all<HelpClaimRow>()).results;
+  const query=(HELP_SELECT+" JOIN partner_accounts a ON a.id=c.account_id"+
+    " ORDER BY CASE WHEN c.status='PENDING' THEN 0 ELSE 1 END,c.created_at ASC LIMIT 300")
+    .replace("SELECT c.id","SELECT a.email_ciphertext emailCiphertext,c.id");
+  return (await getPartnerDatabase(database).prepare(query).all<HelpClaimRow>()).results;
 }
 export async function getPartnerHelpClaimAdmin(id:string,database?:D1Database) {
   const db=getPartnerDatabase(database);
