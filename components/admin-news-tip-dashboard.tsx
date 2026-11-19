@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminCommunityPagination, COMMUNITY_PAGE_SIZE } from "@/components/admin-community-pagination";
 import { SearchIcon } from "@/components/icons";
 import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
@@ -36,12 +36,13 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
   const [message, setMessage] = useState("");
   const [rowDraft, setRowDraft] = useState<{ id: number; status: NewsTipStatus; initialStatus: NewsTipStatus; originalNote: string } | null>(null);
   const [anchorTipId, setAnchorTipId] = useState<number | null>(null);
+  const scrolledAnchorId = useRef<number | null>(null);
 
   // A queue link may target a tip on a later client-paginated page.
   // Reveal that page before scrolling to the original #tip-ID anchor.
   useEffect(() => {
     const revealAnchoredTip = () => {
-      const match = /^#tip-(\\d+)$/.exec(window.location.hash);
+      const match = /^#tip-(\d+)$/.exec(window.location.hash);
       if (!match) return;
       const id = Number(match[1]);
       const index = initialTips.findIndex((tip) => tip.id === id);
@@ -49,11 +50,15 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
       setQuery("");
       setStatus("all");
       setPage(Math.floor(index / COMMUNITY_PAGE_SIZE) + 1);
+      scrolledAnchorId.current = null;
       setAnchorTipId(id);
     };
-    revealAnchoredTip();
+    const initialFrame = window.requestAnimationFrame(revealAnchoredTip);
     window.addEventListener("hashchange", revealAnchoredTip);
-    return () => window.removeEventListener("hashchange", revealAnchoredTip);
+    return () => {
+      window.cancelAnimationFrame(initialFrame);
+      window.removeEventListener("hashchange", revealAnchoredTip);
+    };
   }, [initialTips]);
 
   const visible = useMemo(() => {
@@ -63,11 +68,11 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
   }, [query, status, tips]);
 
   useEffect(() => {
-    if (anchorTipId === null) return;
+    if (anchorTipId === null || scrolledAnchorId.current === anchorTipId) return;
     const target = document.getElementById(`tip-${anchorTipId}`);
     if (!target) return;
     target.scrollIntoView({ block: "center" });
-    setAnchorTipId(null);
+    scrolledAnchorId.current = anchorTipId;
   }, [anchorTipId, page]);
 
   async function saveTip(tip: NewsTip, nextStatus: NewsTipStatus) {
