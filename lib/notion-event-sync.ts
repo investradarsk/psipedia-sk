@@ -1,3 +1,4 @@
+import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { SITE_URL } from "@/config/public-site";
 import {
@@ -214,6 +215,7 @@ async function syncOneEvent(
     if (!existing) {
       throw new Error("Notion záznam je prepojený na chýbajúce podujatie v Psipedii.");
     }
+    if (await isAdminNotionSyncLocked(database,"events",existing.id)) return "unchanged";
     if (mapping.inbound_locked_at) {
       // Partner moderation owns inbound priority from this point on. Keep the
       // mapping for publication write-back, but do not turn every hourly sweep

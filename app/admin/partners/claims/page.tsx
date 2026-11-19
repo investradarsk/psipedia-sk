@@ -18,11 +18,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const items = await listPartnerClaimsAdmin({ status, entityType, q });
 
   return (
-    <AdminShell user={user} eyebrow="Partner platforma" title="Prevzatie profilov" description="Posúď žiadosti partnerov o správu existujúcich profilov. Vlastníctvo iného správcu sa nemení automaticky.">
+    <AdminShell user={user} eyebrow="Partner platforma" title="Žiadosti o správu" description="Schvaľuj prevzatie existujúcich služieb, organizácií a podujatí. Iný správca sa nikdy neodoberie automaticky.">
       <section className="admin-form-card">
         <form className="admin-commercial-filters" role="search" aria-label="Filtrovať žiadosti o prevzatie" data-admin-list-filters>
           <label>Stav<select name="status" defaultValue={status}><option value="all">Všetky</option>{partnerClaimStatuses.map((item) => <option key={item} value={item}>{partnerAdminStatusLabel(item)}</option>)}</select></label>
-          <label>Typ<select name="type" defaultValue={entityType}><option value="all">Všetky</option><option value="DIRECTORY_PROFILE">Profil služby</option><option value="HELP_ORGANIZATION">Organizácia pomoci psom</option></select></label>
+          <label>Typ<select name="type" defaultValue={entityType}><option value="all">Všetky</option><option value="DIRECTORY_PROFILE">Profil služby</option><option value="HELP_ORGANIZATION">Organizácia pomoci psom</option><option value="MANAGED_EVENT">Podujatie</option><option value="ADOPTION_DOG">Adopcie</option><option value="LOST_FOUND_DOG">Stratené a nájdené</option><option value="HELP_CASE">Ostatná pomoc psom</option></select></label>
           <label>Hľadať<input name="q" defaultValue={q} /></label>
           <button>Filtrovať</button>
         </form>

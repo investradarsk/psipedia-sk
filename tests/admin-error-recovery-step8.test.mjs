@@ -77,10 +77,13 @@ test("optional failures are recoverable without replacing an editable form with 
   const suggestions = read("components/admin-organization-suggestions.tsx");
   const optional = read("components/admin-recovery-actions.tsx");
   for (const message of [
-    "Stav redakčnej kontroly sa nepodarilo načítať.",
     "Kontrola duplicít je dočasne nedostupná.",
     "Fundraising sa nepodarilo načítať.",
   ]) assert.ok(page.includes(message), message);
+  const review = read("components/admin-partner-review-status.tsx");
+  assert.match(page, /AdminPartnerReviewStatus/);
+  assert.match(review, /Správcu a stav kontroly sa nepodarilo overiť/);
+  assert.match(review, /Odomknutie je nedostupné/);
   assert.match(page, /<AdminOptionalReadError/);
   assert.match(suggestions, /<AdminOptionalReadError/);
   assert.match(optional, /document\.documentElement\.hasAttribute\("data-admin-unsaved-editor"\)/);

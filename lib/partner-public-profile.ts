@@ -4,7 +4,7 @@ import {
   partnerRoles,
   type PartnerRole,
 } from "./partner-platform";
-import { isPublicPartnerResourceVerified, type PartnerClaimableResourceType } from "./partner-claims";
+import { isPublicPartnerResourceVerified, type PartnerVerifiableResourceType } from "./partner-claims";
 import { normalizePartnerReturnTo, partnerAuthHref } from "./partner-return-to";
 
 type PublicPartnerProfileBase = {
@@ -60,7 +60,7 @@ function membershipRole(value: string | null): PartnerRole | null {
 }
 
 export function publicPartnerClaimHref(
-  entityType: PartnerClaimableResourceType,
+  entityType: PartnerVerifiableResourceType,
   canonicalIdValue: number,
 ) {
   return `/partner/prevziat-profil/${encodeURIComponent(entityType)}/${canonicalId(canonicalIdValue)}`;
@@ -68,7 +68,7 @@ export function publicPartnerClaimHref(
 
 export async function getPublicPartnerProfileManagementState(input: {
   accountId: string | null;
-  entityType: PartnerClaimableResourceType;
+  entityType: PartnerVerifiableResourceType;
   canonicalId: number;
   database?: D1Database;
 }): Promise<PublicPartnerProfileManagementState> {

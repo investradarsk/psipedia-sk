@@ -65,7 +65,8 @@ test("marking Odkontrolované adopts only NULL contacts into SQL and bumps revis
   assert.match(review,/public_email = CASE WHEN \?=1 THEN COALESCE\(public_email, \?\) ELSE public_email END/);
   assert.match(review,/facebook_url = CASE WHEN \?=1 THEN COALESCE\(facebook_url, \?\) ELSE facebook_url END/);
   assert.match(review,/instagram_url = CASE WHEN \?=1 THEN COALESCE\(instagram_url, \?\) ELSE instagram_url END/);
-  assert.match(review,/AND updated_at = \? RETURNING \*/);
+  assert.match(review,/AND updated_at = \? /);
+  assert.match(review,/m\.revoked_at IS NULL/);
   assert.match(review,/reviewed \? 1 : 0/);
 });
 
