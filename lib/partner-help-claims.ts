@@ -1,3 +1,4 @@
+import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
 import { getPartnerAccountById, getPartnerDatabase } from "./partner-auth-store";
 import { appendPartnerAuditEvent } from "./partner-platform";
 import { normalizePartnerClaimText } from "./partner-claims";
@@ -229,10 +230,21 @@ export async function decidePartnerHelpClaimAdmin(input:{id:string;action:"APPRO
   const note=normalizePartnerClaimText(input.decisionNote,2000);
   let result;
   try{
-    result=await database.prepare(
+    const transition=database.prepare(
       `UPDATE partner_help_claims SET status=?2,decision_note=?3,reviewed_at=?4,reviewed_by=?5,updated_at=?4,
        revoked_at=?6,revoked_by=?7 WHERE id=?1 AND status=?8`
-    ).bind(input.id,status,note,iso,actor,revoke?iso:null,revoke?actor:null,revoke?"APPROVED":"PENDING").run();
+    ).bind(input.id,status,note,iso,actor,revoke?iso:null,revoke?actor:null,revoke?"APPROVED":"PENDING");
+    if(input.action==="APPROVE"){
+      // Both the ownership decision and review lock commit atomically.
+      const [decision]=await database.batch([
+        transition,
+        partnerAdminReviewStatement(database,{
+          type:({ADOPTION_DOG:"ADOPTION",LOST_FOUND_DOG:"LOST_FOUND",HELP_CASE:"HELP_CASE"} as const)[claim.entityType],
+          entitySql:`SELECT ${claim.canonicalId}`,nowIso:iso,actorRef:actor,
+        }),
+      ]);
+      result=decision;
+    }else result=await transition.run();
   }catch(error){
     if(error instanceof Error && /UNIQUE constraint failed|partner_help_claims_.*manager/i.test(error.message))
       throw new PartnerHelpClaimError("Záznam už má aktívneho správcu.",409);
