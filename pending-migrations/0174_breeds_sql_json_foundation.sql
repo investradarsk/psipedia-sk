@@ -68,7 +68,17 @@ CREATE TABLE breed_editorial_text (
   family_life TEXT,
   other_dogs_life TEXT,
   curiosities TEXT,
-  common_owner_mistakes TEXT
+  common_owner_mistakes TEXT,
+  -- Existing editor-only historical content must survive removal of editorial_json.
+  exercise_tip TEXT,
+  training_tip TEXT,
+  health_tip TEXT,
+  coat_tip TEXT,
+  hero_traits_json TEXT CHECK (
+    hero_traits_json IS NULL OR
+    CASE WHEN json_valid(hero_traits_json)
+      THEN json_type(hero_traits_json)='array' ELSE 0 END
+  )
 );
 --> statement-breakpoint
 -- Six numeric controlled facts and 3 multi-select JSON lists.
