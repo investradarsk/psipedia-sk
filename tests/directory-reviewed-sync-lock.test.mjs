@@ -163,3 +163,23 @@ test("Admin review toggle unlocks through canonical targeted rebaseline without 
   assert.match(route, /targetProfileId: id/);
   assert.match(route, /notionReviewSync = status.failed \|\| stillPending \? "pending" : "pushed"/);
 });
+
+test("a repeated uncheck cannot erase a pending Notion rebaseline lock", () => {
+  const store = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
+  // The DB writer itself must preserve the existing pending marker: protecting
+  // only the HTTP route would leave retry and other-caller bypasses.
+  assert.match(store, /const alreadyPending = isDirectoryReviewUnlockPendingSource\\(row\\.source_data_json\\)/);
+  assert.match(store, /!reviewed && \\(options\\.markNotionUnlockPending \\|\\| alreadyPending\\)/);
+  assert.match(route, /current\\.importData\\?\\.\\["_psipedia_profile_review_unlock_pending"\\] === "1"/);
+  assert.match(route, /if \\(current\\.reviewed \\|\\| alreadyPending\\)/);
+  assert.match(route, /targetProfileId: id/);
+  const persisted = JSON.stringify({
+    "_psipedia_profile_review_unlock_pending": "1",
+    "_psipedia_profile_review_reviewed_at": "",
+    "Zdroj dát": "unchanged",
+  });
+  assert.equal(isDirectoryReviewUnlockPendingSource(persisted), true);
+  assert.equal(isDirectoryReviewedSourceLocked(persisted), true);
+});
+
