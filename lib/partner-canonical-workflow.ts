@@ -319,8 +319,8 @@ export async function getPendingPartnerCanonicalDraft(input:{
 }
 function publication(db:Database,row:DraftRow,nowIso:string,actorRef:string,baseUpdatedAt:string){
   const table=tableFor(row.resourceType);
-  const publisher=row.resourceType==="LOST_FOUND_DOG"?"":" ,updated_by=?3";
-  const sql="UPDATE "+table+" SET status=?1,published_at=?2"+publisher+
+  const publisher=row.resourceType==="LOST_FOUND_DOG"?"":",updated_by=?3";
+  const sql="UPDATE "+table+" SET status=?1,published_at=?2,updated_at=?2"+publisher+
     " WHERE id="+(publisher?"?4":"?3")+
     " AND status IN ('draft','DRAFT') AND published_at IS NULL AND updated_at="+(publisher?"?5":"?4");
   return db.prepare(sql).bind(kinds[row.resourceType].published,nowIso,
