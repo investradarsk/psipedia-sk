@@ -22,7 +22,8 @@ function fixture() {
   sqlite.exec("CREATE TABLE directory_profiles (" +
     "id INTEGER PRIMARY KEY, status TEXT NOT NULL, name TEXT NOT NULL, category TEXT NOT NULL, " +
     "city TEXT NOT NULL, district TEXT NOT NULL, region TEXT NOT NULL, description TEXT NOT NULL, " +
-    "website_url TEXT, source_data_json TEXT NOT NULL)");
+    "website_url TEXT, public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT, " +
+    "source_data_json TEXT NOT NULL)");
   const db = { prepare(sql) {
     return { bind(...values) {
       const statement = sqlite.prepare(sql);
@@ -54,7 +55,7 @@ test("review queue includes ONLY linked DIRECTORY drafts; non-Gemini drafts neve
     f.add(3, 3, { status: "archived" });
     f.add(4, 4, { bridge: "NOTION_UNCERTAIN" });
     f.add(5, 5, { entityType: "EVENT" });
-    f.sqlite.prepare("INSERT INTO directory_profiles VALUES (?,?,?,?,?,?,?,?,?,?)")
+    f.sqlite.prepare("INSERT INTO directory_profiles (id,status,name,category,city,district,region,description,website_url,source_data_json) VALUES (?,?,?,?,?,?,?,?,?,?)")
       .run(6,"draft","Non-Gemini","treneri","Nitra","Nitra","Nitriansky kraj","","", "{}");
     const rows = await listPendingGeminiDirectoryConcepts(f.db);
     assert.deepEqual(rows.map(row => row.canonicalEntityId), [1]);

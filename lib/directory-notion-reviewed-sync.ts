@@ -1,4 +1,5 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
+import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
 import {
   mergeDirectoryProfileReviewMetadata,
   readDirectoryProfileReviewMetadata,
@@ -97,16 +98,31 @@ async function saveReviewedAndBaseline(input: {
     : { ...input.source };
   next[REVIEW_SYNC_BASELINE_KEY] = input.reviewed ? "1" : "0";
   const activateLock = input.changedByNotion && input.reviewed;
+  const projectedAt = new Date().toISOString();
+  const projectedBy = "notion-directory-sync@psipedia.sk";
+  const nextSourceJson = JSON.stringify(next);
+  const profileUpdatedAt = activateLock ? projectedAt : input.row.updated_at;
   const sql = "UPDATE directory_profiles SET source_data_json=?" +
     (activateLock ? ", updated_at=?, updated_by=?" : "") +
     " WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id";
   const values = activateLock
-    ? [JSON.stringify(next), new Date().toISOString(),
-        "notion-directory-sync@psipedia.sk", input.profileId,
+    ? [nextSourceJson, projectedAt,
+        projectedBy, input.profileId,
         input.row.source_data_json, input.row.updated_at]
-    : [JSON.stringify(next), input.profileId, input.row.source_data_json, input.row.updated_at];
-  const saved = await input.database.prepare(sql).bind(...values).first<{ id: number }>();
-  if (!saved) throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
+    : [nextSourceJson, input.profileId, input.row.source_data_json, input.row.updated_at];
+  // Acknowledging the checkbox baseline also projects the *current* owner
+  // lock; an outdated Notion checkbox is not allowed to unlock a profile.
+  const canonical = input.database.prepare(sql).bind(...values);
+  const reviewMirror = directory0173ReviewSqlMirrorStatement({
+    database: input.database, profileId: input.profileId,
+    sourceDataJson: nextSourceJson, profileUpdatedAt,
+    projectedAt, projectedBy,
+  });
+  const responses = await input.database.batch([
+    canonical, directory0173ReviewCasGuardStatement(input.database), reviewMirror,
+  ]);
+  if (!(responses[0]?.results?.[0] as { id?: number } | undefined)?.id)
+    throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
 }
 
 async function fetchReviewPage(bindings: DirectoryReviewBindings, pageId: string) {

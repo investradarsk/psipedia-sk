@@ -1087,33 +1087,44 @@ export async function PATCH(request: Request, { params }: Props) {
       if (typeof body.reviewed !== "boolean") {
         return Response.json({ error: "Stav kontroly musí byť true alebo false." }, { status: 400 });
       }
-      const profile = await setManagedDirectoryProfileReviewed(id, body.reviewed, user.email);
+      const database = (env as unknown as { DB?: D1Database }).DB;
+      if (!database) {
+        return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+      }
+      // The Admin checkbox is authoritative. Saving an explicit uncheck
+      // releases even an older failed unlock; do not require a whole-profile
+      // D1 -> Notion echo/hash before opening normal per-field sync.
+      const profile = await setManagedDirectoryProfileReviewed(
+        id, body.reviewed, user.email, new Date(), database,
+      );
       if (!profile) {
         return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
       }
 
-      // The D1 edit immediately freezes mapped editorial and relation sync,
-      // even if the isolated Notion checkbox reflection is still pending.
       let notionReviewSync: DirectoryReviewSyncResult | "pending" = "disabled";
-      const database = (env as unknown as { DB?: D1Database }).DB;
-      if (database) {
-        try {
-          notionReviewSync = await syncDirectoryReviewedWithNotion({
-            database, bindings: env as Parameters<typeof syncDirectoryReviewedWithNotion>[0]["bindings"],
-            profileId: id,
-          });
-        } catch (error) {
-          notionReviewSync = "pending";
-          console.warn("DIRECTORY_REVIEW_NOTION_WRITEBACK_PENDING", id,
-            error instanceof Error ? error.message : String(error));
-        }
-      } else {
+      try {
+        // Mirror ONLY the checkbox. A Notion outage cannot re-lock D1.
+        notionReviewSync = await syncDirectoryReviewedWithNotion({
+          database,
+          bindings: env as Parameters<typeof syncDirectoryReviewedWithNotion>[0]["bindings"],
+          profileId: id,
+        });
+      } catch (error) {
         notionReviewSync = "pending";
+        console.warn("DIRECTORY_REVIEW_NOTION_WRITEBACK_PENDING", id,
+          error instanceof Error ? error.message : String(error));
       }
       return Response.json({ profile, notionReviewSync });
     }
     if (body.action !== "restore") return Response.json({ error: "Nepodporovaná lifecycle akcia." }, { status: 400 });
     const profile = await restoreManagedDirectoryProfile(id, user.email);
     return profile ? Response.json({ profile }) : Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-  } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Profil sa nepodarilo obnoviť." }, { status: 400 }); }
+  } catch (error) {
+    if (error instanceof Error && error.message === "DIRECTORY_PARTNER_MANAGED_REVIEW_LOCK") {
+      return Response.json({
+        error: "Tento profil spravuje partner. Notion synchronizáciu možno odomknúť až po odobratí jeho prístupu.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
+    return Response.json({ error: error instanceof Error ? error.message : "Profil sa nepodarilo obnoviť." }, { status: 400 });
+  }
 }

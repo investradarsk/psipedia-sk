@@ -1,0 +1,66 @@
+name: Breed 0174 SQL JSON foundation (offline)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "drizzle/0174_breeds_sql_json_foundation.sql"
+      - "scripts/production-d1-breed-0174.mjs"
+      - "tests/production-d1-breed-0174.test.mjs"
+      - ".github/workflows/production-d1-breed-0174.yml"
+      - "db/breed-storage-schema.ts"
+      - "lib/breed-storage-decision.mjs"
+      - "lib/breed-sql-v2-bridge.mjs"
+      - "lib/breed-sql-v2-preview.ts"
+      - "lib/breed-store.ts"
+      - "lib/notion-breed-workcopy-direct-field.ts"
+      - "tests/breed-sql-v2-bridge.test.mjs"
+      - "tests/breed-sql-v2-preview-runtime.test.mjs"
+      - "tests/breed-sql-v2-backfill.test.mjs"
+      - "lib/breed-sql-v2-cutover-gate.mjs"
+      - "lib/breed-sql-v2-writer.mjs"
+      - "tests/breed-sql-v2-atomic-writers.test.mjs"
+      - "lib/notion-breed-workcopy-controlled.ts"
+      - "lib/notion-breed-workcopy-direct-field.ts"
+      - "tests/breed-sql-v2-cutover-gate.test.mjs"
+      - "tests/breed-sql-v2-atomic-writers.test.mjs"
+      - "lib/breed-sql-v2-shadow-readiness.mjs"
+      - "scripts/production-breed-sql-v2-shadow-audit.mjs"
+      - ".github/workflows/production-breed-sql-v2-shadow-audit.yml"
+      - "tests/breed-sql-v2-shadow-readiness.test.mjs"
+      - "lib/breed-sql-v2-backfill.mjs"
+      - "docs/BREEDS-SQL-JSON-STEP5-20261119.md"
+      - "scripts/production-breed-sql-v2-backfill.mjs"
+      - ".github/workflows/production-breed-sql-v2-backfill.yml"
+      - "docs/BREEDS-SQL-JSON-STEP4-20261119.md"
+      - "tests/breed-sql-0174-foundation.test.mjs"
+      - "tests/breed-storage-decision.test.mjs"
+      - ".github/workflows/breed-sql-0174-offline.yml"
+      - "docs/BREEDS-SQL-JSON-STEP3-20261119.md"
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    name: Validate staged 0174 using SQLite, no D1 credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Verify frozen contiguous migration chain
+        run: node scripts/check-migration-safety.mjs
+      - name: Verify full 90-field storage contract and SQL schema
+        run: node --test tests/breed-storage-decision.test.mjs tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-bridge.test.mjs tests/breed-sql-v2-backfill.test.mjs tests/breed-sql-v2-cutover-gate.test.mjs
+      - name: Verify post-backfill shadow readiness and its SELECT-only runner
+        run: |
+          node --check scripts/production-breed-sql-v2-shadow-audit.mjs
+          node --test tests/breed-sql-v2-shadow-readiness.test.mjs
+      - name: Verify isolated owner-only production schema 0174 runner
+        run: |
+          node --check scripts/production-d1-breed-0174.mjs
+          node --test tests/production-d1-breed-0174.test.mjs
+      - name: Verify stage-4 public and Admin fallback runtime
+        run: node --experimental-strip-types --test tests/breed-sql-v2-preview-runtime.test.mjs

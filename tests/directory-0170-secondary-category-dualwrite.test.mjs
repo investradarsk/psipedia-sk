@@ -91,7 +91,10 @@ test("invalid or absent categories cannot be treated as a clear",()=>{
 
 test("Admin writer invokes the planner only for an explicit submitted category change",()=>{
   const store=readFileSync(new URL("../lib/directory-store.ts",import.meta.url),"utf8");
-  assert.match(store,/if \(payload\.additionalCategories !== undefined\)/);
+  // 0173 uses the same D1 batch for SEO/qualifications. Preserve the
+  // 0170 invariant: secondary categories change ONLY when explicitly supplied.
+  assert.ok(store.includes("if (payload.additionalCategories !== undefined || editorialMirror.length > 0)"));
+  assert.ok(store.includes("const mirror = payload.additionalCategories === undefined ? [] :"));
   assert.match(store,/planDirectorySecondaryCategorySqlMirror\(/);
   assert.match(store,/database\.batch\(\[/);
   assert.match(store,/const canonicalStatement = buildManagedDirectoryProfileUpdateStatement\(/);

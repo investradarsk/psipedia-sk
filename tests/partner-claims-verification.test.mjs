@@ -47,10 +47,10 @@ test("0063 creates canonical claims and verification with FKs, checks, indexes a
   assert.match(migration,/partner_audit_events_no_delete/);
 });
 
-test("claim scope is restricted to Directory and Help Organization and never claims managed events",()=>{
-  assert.ok(claims.includes('partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION"]'));
-  const submit=claims.slice(claims.indexOf("createPartnerClaim"));
-  assert.doesNotMatch(submit,/MANAGED_EVENT/);
+test("claim scope covers published Directory, Help Organization and managed event records",()=>{
+  assert.ok(claims.includes('partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT", "ADOPTION_DOG", "LOST_FOUND_DOG", "HELP_CASE"]'));
+  assert.match(claims,/managed_events WHERE id=\?1 AND status='published' AND published_at IS NOT NULL/);
+  assert.match(claims,/managed_event_id/);
   assert.match(claims,/status='published'/);
   assert.match(claims,/status='PUBLISHED'.*published_at IS NOT NULL.*archived_at IS NULL/s);
   assert.match(claims,/INSERT OR IGNORE INTO partner_resources/);
@@ -84,6 +84,17 @@ test("claim approval upgrades or creates audited OWNER membership without destru
   assert.match(claimAdminApi,/requirePartnerAdminMutation/);
   assert.match(claimAdminApi,/APPROVE/);
   assert.match(claimAdminApi,/REJECT/);
+});
+
+test("0171 claim approval refuses a competing active OWNER before any new membership",async()=>{
+  const membershipStore=await read("lib/partner-admin-store.ts");
+  const owner=membershipStore.slice(membershipStore.indexOf("export async function ensurePartnerOwnerMembershipAdmin"));
+  const guard=owner.indexOf("await assertSingleActivePartnerManager({");
+  const insert=owner.indexOf("INSERT INTO partner_memberships");
+  assert.ok(guard>=0 && insert>guard,"ownership conflict guard must precede insert");
+  assert.match(owner,/account\.status!=="ACTIVE"/);
+  assert.match(claimAdminApi,/PartnerSingleManagerConflictError/);
+  assert.match(claimAdminApi,/isPartnerSingleManagerConstraintError\(error\) \? 409/);
 });
 
 test("ownership-sensitive approvals block a deterministically mapped admin from approving their own Partner request",()=>{
@@ -128,7 +139,7 @@ test("public claim CTA and Partner request history implement the PARTNER-2 UX",(
   assert.match(organizationPage,/PartnerPublicOwnership/);
   assert.match(publicOwnership,/Spravujete tento profil\?/);
   assert.match(publicOwnership,/Správa základných údajov profilu je bezplatná/);
-  assert.match(claimPage,/Prevziať existujúci profil/);
+  assert.match(claimPage,/Požiadať o správu záznamu/);
   assert.match(claimPage,/requirePartnerPageIdentity\(\{ returnTo \}\)/);
   assert.match(claimPage,/\/partner\/prevziat-profil\//);
   assert.match(requestsPage,/Prevzatie profilov/);

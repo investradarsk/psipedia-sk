@@ -119,6 +119,23 @@ function createAdminMockDatabase() {
 
   function rowsFor(sql) {
     const normalized = sql.replace(/\s+/g, " ").trim();
+    // SQL 0170 editorial detail always performs one fail-closed facts/filters
+    // projection. This fixture models an applied but empty 0170 sidecar schema.
+    if (/FROM directory_profile_public_facts WHERE profile_id=\?1/i.test(normalized) &&
+        /FROM directory_profile_filter_values WHERE profile_id=\?1/i.test(normalized)) {
+      return [{ facts_json: "[]", filters_json: "[]" }];
+    }
+    if (/FROM directory_profile_public_facts/i.test(normalized) &&
+        /FROM directory_profile_filter_values/i.test(normalized)) {
+      // 0170 SQL-first detail projection: this fixture has no post-cutover
+      // fact/filter rows. Empty arrays are a valid canonical read, unlike a
+      // missing response which must fail closed in production.
+      return [{ facts_json: "[]", filters_json: "[]" }];
+    }
+    // The SQL-first 0170 editorial read is mandatory before rendering an editable form.
+    // No explicitly mirrored facts/filters in this isolated fixture: keep legacy values.
+    if (/AS facts_json/i.test(normalized) && /AS filters_json/i.test(normalized))
+      return [{ facts_json: "[]", filters_json: "[]" }];
     if (/FROM sqlite_master/i.test(normalized)) {
       // Intentionally omit the newer module tables to verify that the dashboard
       // still renders while production migrations catch up.
@@ -168,6 +185,11 @@ function createAdminMockDatabase() {
         updated_at: profileRow.updated_at,
         reviewed_at: "",
       }];
+    }
+    // Mock the real lightweight paged Admin query independent of its ORDER BY aliases.
+    if (/SELECT id, slug, name, excerpt, category, status, services_json/i.test(normalized)
+      && /FROM directory_profiles(?: WHERE [^;]*)? ORDER BY [^;]* LIMIT \? OFFSET \?/i.test(normalized)) {
+      return [{...profileRow,reviewed_at:""}];
     }
     if (/FROM directory_profiles WHERE status = 'published'.*LIMIT \?/i.test(normalized)) return [profileRow];
     if (/FROM directory_profiles WHERE status = 'published'.*category = \?.*slug = \?.*LIMIT 1/i.test(normalized)) return [profileRow];
@@ -579,7 +601,9 @@ test("uses light admin lists and loads full records only for detail and save", a
 
     const directory = await worker.fetch(adminRequest("/admin/adresar"), bindings, context);
     assert.equal(directory.status, 200);
-    assert.match(await directory.text(), /Testovací kynologický klub/);
+    const directoryHtml = await directory.text();
+    assert.match(directoryHtml, /Testovací kynologický klub/,
+      "Admin directory missing mocked profile; queries: "+JSON.stringify(database.queries.filter(q=>/directory_profiles/i.test(q.sql)).slice(-8).map(q=>({sql:q.sql.slice(0,250),bindings:q.bindings,operation:q.operation}))));
 
     const filteredDirectory = await worker.fetch(adminRequest("/admin/adresar?category=kynologicke-kluby"), bindings, context);
     assert.equal(filteredDirectory.status, 200);

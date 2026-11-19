@@ -1,7 +1,12 @@
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
 import { syncDirectoryReviewedWithNotion } from "./directory-notion-reviewed-sync";
-import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
-import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
+import {
+  DIRECTORY_REVIEW_UNLOCK_PENDING_KEY,
+  directoryProfileNotionSyncLocked,
+  isDirectoryReviewUnlockPendingSource,
+} from "./directory-reviewed-sync-lock";
+import { approvedDirectoryFactSqlSlot, directoryNotionFacetRequiresSqlMirror, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
+import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directorySecondaryCategoriesSqlConfirmed, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
@@ -729,10 +734,23 @@ async function writeProfileToNotion(input: {
   profile: ManagedDirectoryProfile;
   pageId?: string | null;
   singleAttemptCreate?: boolean;
+  /** Only the owner-initiated unlock finalizer may rebaseline while locked. */
+  ownerUnlock?: boolean;
 }) {
-  // Direct Notion writebacks must not bypass an Admin-reviewed profile lock.
-  if (await directoryProfileNotionSyncLocked(input.database,input.profile.id))
-    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
+  // Ordinary writers are never allowed through a reviewed or pending lock.
+  // An owner unlock may write only after its dedicated D1 pending marker exists.
+  async function assertWritePermitted() {
+    const locked = await directoryProfileNotionSyncLocked(input.database, input.profile.id);
+    if (!locked) return;
+    if (!input.ownerUnlock) throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
+    const state = await input.database.prepare(
+      "SELECT source_data_json FROM directory_profiles WHERE id=? LIMIT 1",
+    ).bind(input.profile.id).first<{ source_data_json: string }>();
+    if (!state || !isDirectoryReviewUnlockPendingSource(state.source_data_json)) {
+      throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_UNLOCK_NOT_PENDING");
+    }
+  }
+  await assertWritePermitted();
   const syncedAt = new Date().toISOString();
   const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", input.profile.id);
   const sourceImageUrl = monitor?.sourceImageUrl || externalSourceImageUrl(input.profile.imageUrl);
@@ -751,6 +769,7 @@ async function writeProfileToNotion(input: {
       throw new NotionDirectoryUnsafeTargetError("NOTION_DIRECTORY_TARGET_MOVED");
     const adapted = adaptDirectoryNotionTextProperties(properties, current.properties ?? {});
     const patch = selectiveNotionProperties(current.properties ?? {}, adapted);
+    await assertWritePermitted();
     page = patch ? await patchNotionPage(input.bindings, input.pageId, patch) : current;
   } else {
     page = await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
@@ -794,6 +813,64 @@ async function writeProfileToNotion(input: {
     pageId: page.id, hash, snapshot: profileSnapshot(input.profile, sourceImageUrl), syncedAt,
   });
   return page;
+}
+
+/** A previously reviewed profile remains locked until the CURRENT canonical
+ * D1 snapshot has been acknowledged by its mapped Notion page. Never use
+ * old Notion values or its last-edited timestamp to reopen this profile.
+ */
+async function completeDirectoryReviewedOwnerUnlock(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  dataSourceId: string;
+  profileId: number;
+}): Promise<boolean> {
+  if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED)) {
+    return false;
+  }
+  const state = await input.database.prepare(
+    "SELECT source_data_json, updated_at, status FROM directory_profiles WHERE id=? LIMIT 1",
+  ).bind(input.profileId).first<{
+    source_data_json: string;
+    updated_at: string;
+    status: string;
+  }>();
+  if (!state || !isDirectoryReviewUnlockPendingSource(state.source_data_json)) return false;
+  if (state.status === "archived") throw new Error("DIRECTORY_REVIEW_UNLOCK_ARCHIVED");
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  const mapping = await loadMappingByProfile(input.database, input.profileId);
+  if (!profile || profile.reviewed || !mapping) {
+    throw new Error("DIRECTORY_REVIEW_UNLOCK_MAPPING_MISSING");
+  }
+
+  // Mirror the control flag first. Editorial sync must never reopen if Notion
+  // still says reviewed or its independent checkbox write could not be verified.
+  const remote = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+  if (remote.id !== mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(remote, input.dataSourceId) ||
+      propertyText(remote, "Psipedia ID") !== String(input.profileId) ||
+      !Object.hasOwn(remote.properties ?? {}, "Odkontrolované") ||
+      propertyCheckbox(remote, "Odkontrolované")) {
+    throw new Error("DIRECTORY_REVIEW_UNLOCK_CONTROL_NOT_CONFIRMED");
+  }
+
+  // The only owner-authorized exception to the normal editorial freeze.
+  await writeProfileToNotion({
+    database: input.database, bindings: input.bindings,
+    dataSourceId: input.dataSourceId, profile,
+    pageId: mapping.notion_page_id, ownerUnlock: true,
+  });
+  let source: Record<string, unknown>;
+  try { source = JSON.parse(state.source_data_json) as Record<string, unknown>; }
+  catch { throw new Error("DIRECTORY_REVIEW_UNLOCK_SOURCE_INVALID"); }
+  delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY];
+  const saved = await input.database.prepare(
+    "UPDATE directory_profiles SET source_data_json=? " +
+    "WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id",
+  ).bind(JSON.stringify(source), input.profileId, state.source_data_json, state.updated_at)
+    .first<{ id: number }>();
+  if (!saved) throw new Error("DIRECTORY_REVIEW_UNLOCK_CONCURRENT_CHANGE");
+  return true;
 }
 
 function fullProfileInput(
@@ -1410,25 +1487,18 @@ async function saveBreederEditorialValue(
     assignments.push("address_format = ?");
     params.push(value);
   } else if (contact) {
-    // A signed edit is authoritative for only this contact. Removing its
-    // historical aliases prevents a stale "Telefon"/"Email"/"Webstránka"
-    // from reappearing when the new value is cleared. Preserve every other
-    // source_data_json key, including relations and category metadata.
+    // One signed Notion contact edit has exactly one SQL value authority.
+    // Remove ONLY the edited field's historical JSON aliases so they cannot
+    // resurrect a cleared value. Never write a second editorial JSON copy.
     const aliases = breederContactAliases[path];
     if (!aliases?.length) throw new Error("DIRECTORY_CONTACT_ALIAS_MAPPING_MISSING");
     const removed = "json_remove(COALESCE(source_data_json, '{}'), " +
-      aliases.map(alias => "'$.\"" + alias + "\"'").join(", ") + ")";
-    if (value) {
-      assignments.push("source_data_json = json_set(" + removed + ", ?, ?)");
-      params.push('$."' + contact + '"', value);
-    } else {
-      assignments.push("source_data_json = " + removed);
-    }
+      aliases.map(alias => `'$."${alias}"'`).join(", ") + ")";
+    assignments.push("source_data_json = " + removed);
     if (path === "websiteUrl") {
       assignments.push("website_url = ?");
       params.push(value);
     } else {
-      // SQL and the compatibility JSON mirror must change in the SAME D1 UPDATE.
       const column = breederSqlContactColumns[path];
       if (!column) throw new Error("DIRECTORY_SQL_CONTACT_COLUMN_MISSING");
       assignments.push(column + " = ?");
@@ -1531,7 +1601,19 @@ export async function savePilotDirectoryMetadataField(input: {
     throw new Error("DIRECTORY_PUBLIC_METADATA_STALE_VALUE");
   }
   if (currentValue === trimmed &&
-      Object.hasOwn(current.importData ?? {}, input.field)) return current;
+      Object.hasOwn(current.importData ?? {}, input.field)) {
+    if (input.field !== "Ordinačné hodiny") return current;
+    // Explicit repeat edits can repair a missing 0173 SQL projection without
+    // inferring edits to unrelated profiles or historical values.
+    const rows = await input.database.prepare(
+      "SELECT day_of_week,hours_text FROM directory_profile_opening_hours WHERE profile_id=?"
+    ).bind(input.profileId).all<{ day_of_week: number; hours_text: string }>();
+    const matches = trimmed
+      ? rows.results.length === 1 &&
+        rows.results[0].day_of_week === 0 && rows.results[0].hours_text === trimmed
+      : rows.results.length === 0;
+    if (matches) return current;
+  }
   const now = new Date().toISOString();
   const path = '$."' + input.field + '"';
   const previousRaw = String(current.importData?.[input.field] ?? "");
@@ -1544,19 +1626,28 @@ export async function savePilotDirectoryMetadataField(input: {
   ).bind(path, trimmed, now, SYSTEM_ACTOR,
     input.profileId, input.category, current.updatedAt, path, previousRaw);
   const approved = approvedDirectoryFactSqlSlot(input.category as ServiceFilterCategory, input.field);
-  if (approved) {
-    // Explicit single-field Admin/Notion edit: compatibility JSON plus its
-    // 0170 SQL fact row in ONE transactional D1 batch, guarded by the CAS.
-    // A deliberately blank fact remains an empty SQL value, never a fallback
-    // to older imported prose.
-    const mirror = planDirectory0170FactSqlMirror({
+  const isHours = input.field === "Ordinačné hodiny";
+  if (approved || isHours) {
+    // Canonical CAS, existing 0170 public fact and 0173 hours sidecar must
+    // commit together. A missing field is never treated as an empty edit.
+    const factMirror = approved ? planDirectory0170FactSqlMirror({
       profileId: input.profileId, category: input.category as ServiceFilterCategory,
       field: input.field, value: trimmed, updatedAt: now, actor: SYSTEM_ACTOR,
-    });
+    }) : [];
+    const hoursMirror = isHours ? planDirectory0173EditorialSqlMirror({
+      identity: { kind: "id", profileId: input.profileId,
+        updatedAt: now, actor: SYSTEM_ACTOR },
+      openingHoursText: trimmed,
+    }) : [];
+    const guard = approved ? [] : [input.database.prepare(
+      "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', char(36)) END AS cas_ok"
+    )];
     const response = await input.database.batch([
-      canonical, ...mirror.map(item=>input.database.prepare(item.sql).bind(...item.bindings)),
+      canonical, ...guard,
+      ...factMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
+      ...hoursMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
     ]);
-    if (!(response[0]?.results?.[0] as {id?:number}|undefined)?.id)
+    if (!(response[0]?.results?.[0] as { id?: number } | undefined)?.id)
       throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
   } else {
     const saved = await canonical.first<{ id: number }>();
@@ -1574,6 +1665,7 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
   profileId: number;
   changed: Partial<Record<PilotDirectoryMetadataField, string>>;
 }): Promise<boolean> {
+  if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || !(serviceFilterCategories as readonly string[]).includes(profile.category))
     throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
@@ -1623,6 +1715,7 @@ export async function mirrorDirectoryMainImageToNotion(input: {
   bindings: NotionDirectorySyncBindings;
   profileId: number;
 }): Promise<void> {
+  if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return;
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!profile || profile.status === "archived")
     throw new Error("DIRECTORY_IMAGE_PROFILE_UNAVAILABLE");
@@ -1784,17 +1877,30 @@ async function syncBreederEvent(input: {
         continue;
       }
       try {
-        const row = await database.prepare("SELECT source_data_json, updated_at FROM directory_profiles WHERE id=? LIMIT 1")
-          .bind(current.id).first<{ source_data_json: string; updated_at: string }>();
+        // Read the SAME profile's confirmed SQL filter alongside its legacy
+        // JSON. A Notion event is no-op only when BOTH copies agree; otherwise
+        // an old SQL value could override an apparently unchanged JSON value
+        // in the public provider filter after #1440.
+        const row = await database.prepare(`
+          SELECT source_data_json,updated_at,
+            (SELECT f.value_text FROM directory_profile_filter_values f
+             WHERE f.profile_id=directory_profiles.id
+               AND f.category=? AND f.filter_id=?) AS sql_filter_value
+          FROM directory_profiles WHERE id=? LIMIT 1
+        `).bind(current.category, id, current.id).first<{
+          source_data_json: string; updated_at: string; sql_filter_value: string | null;
+        }>();
         if (!row) throw new Error("DIRECTORY_FACET_PROFILE_MISSING");
         const source = JSON.parse(row.source_data_json) as Record<string, unknown>;
+        const desired = selected ? normalized!.value : null;
+        if (!directoryNotionFacetRequiresSqlMirror({
+          source, key: def.d1.key, sqlValue: row.sql_filter_value, selected: desired,
+        })) continue;
         let merged: string;
         if (!selected) {
-          if (!Object.hasOwn(source, def.d1.key)) continue;
           delete source[def.d1.key];
           merged = JSON.stringify(source);
         } else {
-          if (source[def.d1.key] === normalized!.value) continue;
           merged = mergeDirectoryFilterValues(
             row.source_data_json, current.category as ServiceFilterCategory,
             { [id]: normalized!.value },
@@ -2015,7 +2121,8 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
   profileId: number;
   fields: readonly string[];
 }): Promise<boolean> {
-  if (!input.fields.length) return false;
+  if (!input.fields.length ||
+      await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
     throw new Error("DIRECTORY_FACET_NOTION_SYNC_DISABLED");
@@ -2101,7 +2208,8 @@ export async function mirrorTrainerTrustFieldsToNotion(input: {
   profileId: number;
   fields: readonly TrainerTrustField[];
 }): Promise<boolean> {
-  if (!input.fields.length) return false;
+  if (!input.fields.length ||
+      await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
     throw new Error("TRAINER_TRUST_NOTION_DISABLED");
@@ -2139,6 +2247,7 @@ export async function mirrorBreederRelationNamesToNotion(input: {
   profileId: number;
   fields: readonly BreederRelationField[];
 }): Promise<boolean> {
+  if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!input.fields.length || !notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
     return false;
@@ -2259,6 +2368,7 @@ async function applyNotionAdditionalCategories(input: {
 export async function mirrorDirectoryAdditionalCategoriesToNotion(input: {
   database: D1Database; bindings: NotionDirectorySyncBindings; profileId: number;
 }): Promise<boolean> {
+  if (await directoryProfileNotionSyncLocked(input.database, input.profileId)) return false;
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
     throw Error("DIRECTORY_CATEGORIES_NOTION_DISABLED");
@@ -2862,7 +2972,9 @@ export async function ensureDirectoryProfileInNotion(input: {
     throw new Error("GEMINI_NOTION_CONFIG_MISSING");
   if (!(await schemaReady(input.database))) throw new Error("GEMINI_NOTION_MAPPING_SCHEMA_MISSING");
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!profile || profile.status !== "draft" || profile.reviewed) throw new Error("GEMINI_NOTION_CANONICAL_DRAFT_MISSING");
+  if (!profile || profile.status !== "draft" || profile.reviewed ||
+      await directoryProfileNotionSyncLocked(input.database, input.profileId))
+    throw new Error("GEMINI_NOTION_CANONICAL_DRAFT_MISSING");
   const mapped = await loadMappingByProfile(input.database, profile.id);
   if (mapped) return { notionPageId: mapped.notion_page_id, created: false };
   // This query must complete successfully before a Notion create is permitted.
@@ -3044,6 +3156,19 @@ export async function runNotionDirectorySyncSweep(input: {
       console.warn("DIRECTORY_REVIEW_NOTION_TARGET_SYNC_FAILED", input.targetProfileId,
         error instanceof Error ? error.message : String(error));
     }
+    try {
+      if (await completeDirectoryReviewedOwnerUnlock({
+        database: input.database, bindings: input.bindings,
+        dataSourceId, profileId: input.targetProfileId,
+      })) {
+        summary.pushedToNotion++;
+        return summary;
+      }
+    } catch (error) {
+      summary.failed++;
+      console.warn("DIRECTORY_REVIEW_OWNER_UNLOCK_PENDING", input.targetProfileId,
+        error instanceof Error ? error.message : String(error));
+    }
     if (await directoryProfileNotionSyncLocked(input.database, input.targetProfileId)) {
       summary.unchanged++;
       return summary;
@@ -3167,6 +3292,13 @@ export async function runNotionDirectorySyncSweep(input: {
             summary.failed++;
             console.warn("DIRECTORY_REVIEW_NOTION_EVENT_SYNC_FAILED", mapped.directory_profile_id,
               error instanceof Error ? error.message : String(error));
+          }
+          if (await completeDirectoryReviewedOwnerUnlock({
+            database: input.database, bindings: input.bindings,
+            dataSourceId, profileId: mapped.directory_profile_id,
+          })) {
+            summary.pushedToNotion++;
+            continue;
           }
           if (await directoryProfileNotionSyncLocked(input.database,mapped.directory_profile_id)) {
             summary.unchanged++;
@@ -3358,6 +3490,13 @@ export async function runNotionDirectorySyncSweep(input: {
             error instanceof Error ? error.message : String(error));
         }
       }
+      if (await completeDirectoryReviewedOwnerUnlock({
+        database: input.database, bindings: input.bindings,
+        dataSourceId, profileId: mapping.directory_profile_id,
+      })) {
+        summary.pushedToNotion++;
+        continue;
+      }
       if (await directoryProfileNotionSyncLocked(input.database,mapping.directory_profile_id)) {
         summary.unchanged++;
         continue;
@@ -3540,6 +3679,19 @@ export async function runNotionDirectorySyncSweep(input: {
     if (attemptedMappedProfileIds.has(profileId)) continue;
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping || await notionPageMustSkipInboundSync(input.database,mapping.notion_page_id)) continue;
+    try {
+      if (await completeDirectoryReviewedOwnerUnlock({
+        database: input.database, bindings: input.bindings,
+        dataSourceId, profileId,
+      })) {
+        summary.pushedToNotion++;
+        continue;
+      }
+    } catch (error) {
+      summary.failed++;
+      console.warn("DIRECTORY_REVIEW_UNLOCK_SWEEP_PENDING", profileId,
+        error instanceof Error ? error.message : String(error));
+    }
     if (await directoryProfileNotionSyncLocked(input.database,profileId)) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
     if (changedProfile?.reviewed || (changedProfile && isDirectoryFieldEventCategory(changedProfile.category))) continue;

@@ -10,6 +10,7 @@ import {
   mergeDirectoryBreederGallery,
 } from "../lib/directory-breeder-gallery.ts";
 import { isDirectoryInternalMetadataKey } from "../lib/directory-profile-metadata.ts";
+import { readProfileGallery } from "../lib/partner-profile-gallery.ts";
 
 const source = readFileSync("components/directory-profile-detail.tsx", "utf8");
 const css = readFileSync("components/directory-profile-detail.module.css", "utf8");
@@ -139,6 +140,14 @@ test("breeder gallery metadata round-trips six ordered URLs without affecting un
   const cleared = mergeDirectoryBreederGallery(stored, "chovatelske-stanice", []);
   assert.deepEqual(readDirectoryBreederGallery(cleared), []);
   assert.equal(Object.hasOwn(cleared, DIRECTORY_BREEDER_GALLERY_KEY), false);
+  // A legacy generic gallery must not override an explicit breeder clear.
+  const legacy = {
+    ...stored,
+    _psipedia_profile_gallery_urls: '["/media/old-partner.webp"]',
+  };
+  const clearedLegacy = mergeDirectoryBreederGallery(legacy, "chovatelske-stanice", []);
+  assert.equal(Object.hasOwn(clearedLegacy, "_psipedia_profile_gallery_urls"), false);
+  assert.deepEqual(readProfileGallery(clearedLegacy, "chovatelske-stanice"), []);
 });
 
 test("breeder gallery rejects unsafe, duplicated, oversized and wrong-category writes", () => {

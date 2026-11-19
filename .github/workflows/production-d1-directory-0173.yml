@@ -1,0 +1,82 @@
+name: Production D1 Directory 0173 (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read-only audit first; apply requires explicit owner approval
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: AUDIT-0173-psipedia-sk-db or APPLY-0173-psipedia-sk-db
+        type: string
+        required: true
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  directory-0173:
+    name: Canonical SQL 0173 audit or exact-file apply
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    env:
+      DIRECTORY_0173_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Refuse automated, non-main or unconfirmed operations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          case "${{ inputs.mode }}" in
+            audit) expected="AUDIT-0173-psipedia-sk-db" ;;
+            apply) expected="APPLY-0173-psipedia-sk-db" ;;
+            *) exit 1 ;;
+          esac
+          test "$DIRECTORY_0173_CONFIRMATION" = "$expected"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Reject stale main before D1 access
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Validate isolated 0173 rollout guard and SQL constraints
+        run: |
+          npm run db:check-migrations
+          node --test tests/directory-sql-0173-foundation.test.mjs
+      - name: Bind canonical Cloudflare account
+        run: |
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Run owner-selected audit or exact SQL 0173
+        run: node scripts/production-d1-directory-0173.mjs "${{ inputs.mode }}"
+      - name: Save schema-only audit/report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-directory-0173-${{ github.run_id }}
+          path: .production-d1-directory-0173/report.json
+          if-no-files-found: ignore
+          retention-days: 30

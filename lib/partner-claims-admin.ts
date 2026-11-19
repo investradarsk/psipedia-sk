@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { decryptPii } from "./pii-crypto";
+import { listPartnerHelpClaimsAdmin, getPartnerHelpClaimAdmin, decidePartnerHelpClaimAdmin, helpClaimHref } from "./partner-help-claims";
 import { ensurePartnerOwnerMembershipAdmin } from "./partner-admin-store";
 import { getPartnerAccountById, getPartnerDatabase } from "./partner-auth-store";
 import {
@@ -55,7 +56,7 @@ type ClaimAdminRow = {
   emailCiphertext: string;
   resourceId: string;
   entityType: PartnerClaimableResourceType;
-  status: PartnerClaimStatus;
+  status: PartnerClaimStatus | "REVOKED";
   requestMessage: string | null;
   createdAt: string;
   updatedAt: string;
@@ -73,13 +74,12 @@ const CLAIM_BASE = `
   SELECT c.id,c.account_id accountId,a.email_ciphertext emailCiphertext,c.resource_id resourceId,
     r.entity_type entityType,c.status,c.request_message requestMessage,c.created_at createdAt,
     c.updated_at updatedAt,c.reviewed_at reviewedAt,c.reviewed_by reviewedBy,c.decision_note decisionNote,
-    COALESCE(d.id,o.id) canonicalId,COALESCE(d.name,o.name) resourceName,COALESCE(d.slug,o.slug) slug,
+    COALESCE(d.id,o.id,e.id) canonicalId,COALESCE(d.name,o.name,e.title) resourceName,COALESCE(d.slug,o.slug,e.slug) slug,
     d.category directoryCategory,
     CASE WHEN
       EXISTS(
         SELECT 1 FROM partner_memberships om
-        JOIN partner_accounts oa ON oa.id=om.account_id AND oa.status='ACTIVE'
-        WHERE om.resource_id=c.resource_id AND om.revoked_at IS NULL AND om.role='OWNER' AND om.account_id<>c.account_id
+        WHERE om.resource_id=c.resource_id AND om.revoked_at IS NULL AND om.account_id<>c.account_id
       )
       OR EXISTS(
         SELECT 1 FROM partner_claims oc
@@ -91,12 +91,13 @@ const CLAIM_BASE = `
   JOIN partner_resources r ON r.id=c.resource_id
   LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
   LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+  LEFT JOIN managed_events e ON e.id=r.managed_event_id
 `;
 
 function publicHref(row: ClaimAdminRow) {
   return row.entityType === "DIRECTORY_PROFILE"
     ? `/adresar/${row.directoryCategory}/${row.slug}`
-    : `/organizacie/${row.slug}`;
+    : row.entityType === "HELP_ORGANIZATION" ? `/organizacie/${row.slug}` : `/podujatia/${row.slug}`;
 }
 async function hydrateClaims(rows: ClaimAdminRow[], encryptionKey: string) {
   return Promise.all(rows.map(async (row) => ({
@@ -117,13 +118,25 @@ export async function listPartnerClaimsAdmin(input: {
   if (input.status && input.status !== "all" && !isPartnerClaimStatus(input.status)) {
     throw new PartnerClaimAdminError("Neplatný filter claim statusu.");
   }
-  if (input.entityType && input.entityType !== "all" && !["DIRECTORY_PROFILE", "HELP_ORGANIZATION"].includes(input.entityType)) {
+  if (input.entityType && input.entityType !== "all" && !["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT", "ADOPTION_DOG", "LOST_FOUND_DOG", "HELP_CASE"].includes(input.entityType)) {
     throw new PartnerClaimAdminError("Neplatný typ resource.");
   }
   const rows = (await db(input.database).prepare(
     CLAIM_BASE + " ORDER BY CASE WHEN c.status='PENDING' THEN 0 ELSE 1 END,c.created_at ASC LIMIT 300",
   ).all<ClaimAdminRow>()).results;
   let items = await hydrateClaims(rows, piiKey(input.encryptionKey));
+  const otherRows=await listPartnerHelpClaimsAdmin(input.database);
+  const help=await Promise.all(otherRows.map(async row=>({
+    ...row,emailCiphertext:row.emailCiphertext!,resourceId:`help-record-${row.entityType}-${row.canonicalId}`,
+    resourceName:row.name,directoryCategory:row.category,publicHref:helpClaimHref(row),
+    email:await decryptPii(row.emailCiphertext!,piiKey(input.encryptionKey)),
+    conflict:Boolean((row as {conflict?:number}).conflict),
+  })));
+  items=[...items,...help].sort((a,b)=>{
+    if(a.status==="PENDING"&&b.status!=="PENDING")return -1;
+    if(b.status==="PENDING"&&a.status!=="PENDING")return 1;
+    return a.createdAt.localeCompare(b.createdAt);
+  }).slice(0,300);
   if (input.status && input.status !== "all") items = items.filter((item) => item.status === input.status);
   if (input.entityType && input.entityType !== "all") items = items.filter((item) => item.entityType === input.entityType);
   const q = (input.q ?? "").trim().toLocaleLowerCase("sk");
@@ -137,6 +150,10 @@ export async function listPartnerClaimsAdmin(input: {
 
 export async function getPartnerClaimAdmin(id: string, input: { database?: D1Database; encryptionKey?: string } = {}) {
   if (!safeId(id)) return null;
+  if(id.startsWith("help-claim-")){
+    const claim=await getPartnerHelpClaimAdmin(id,input.database);
+    return claim?{...claim,email:await decryptPii(claim.emailCiphertext!,piiKey(input.encryptionKey))}:null;
+  }
   const database = db(input.database);
   const row = await database.prepare(CLAIM_BASE + " WHERE c.id=?1 LIMIT 1").bind(id).first<ClaimAdminRow>();
   if (!row) return null;
@@ -184,7 +201,7 @@ async function claimForDecision(id: string, database: D1Database) {
   }>();
   if (!claim) throw new PartnerClaimAdminError("Claim neexistuje.", 404);
   if (claim.status !== "PENDING") throw new PartnerClaimAdminError("Rozhodnúť možno iba PENDING claim.", 409);
-  if (!["DIRECTORY_PROFILE", "HELP_ORGANIZATION"].includes(claim.entityType)) {
+  if (!["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT"].includes(claim.entityType)) {
     throw new PartnerClaimAdminError("Tento resource nie je claimable v PARTNER-2.", 400);
   }
   const account = await getPartnerAccountById(claim.accountId, database);
@@ -239,6 +256,7 @@ export async function approvePartnerClaimAdmin(input: {
   hashKey?: string;
 }) {
   if (!safeId(input.id)) throw new PartnerClaimAdminError("Neplatný claim.");
+  if(input.id.startsWith("help-claim-"))return decidePartnerHelpClaimAdmin({...input,action:"APPROVE"});
   const database = db(input.database);
   const claim = await claimForDecision(input.id, database);
   await assertClaimIndependentOwnershipApprover({
@@ -256,13 +274,17 @@ export async function approvePartnerClaimAdmin(input: {
     database,
     now,
   });
-  await ensurePendingVerification({
-    accountId: claim.accountId,
-    resourceId: claim.resourceId,
-    adminEmail: input.adminEmail,
-    database,
-    now,
-  });
+  // Event ownership approval is sufficient; the separate public verification
+  // badge workflow applies only to service/organization profiles.
+  if (claim.entityType !== "MANAGED_EVENT") {
+    await ensurePendingVerification({
+      accountId: claim.accountId,
+      resourceId: claim.resourceId,
+      adminEmail: input.adminEmail,
+      database,
+      now,
+    });
+  }
   const iso = now.toISOString();
   await database.prepare(
     "UPDATE partner_claims SET status='APPROVED',reviewed_at=?2,reviewed_by=?3,updated_at=?2 " +
@@ -296,6 +318,7 @@ export async function rejectPartnerClaimAdmin(input: {
   now?: Date;
 }) {
   if (!safeId(input.id)) throw new PartnerClaimAdminError("Neplatný claim.");
+  if(input.id.startsWith("help-claim-"))return decidePartnerHelpClaimAdmin({...input,action:"REJECT"});
   const database = db(input.database);
   const claim = await claimForDecision(input.id, database);
   const note = normalizePartnerClaimText(input.decisionNote, 2000);
@@ -323,6 +346,11 @@ export async function rejectPartnerClaimAdmin(input: {
     now,
   });
   return getPartnerClaimAdmin(input.id, { database });
+}
+
+export async function revokePartnerHelpClaimAdmin(input:{id:string;adminEmail:string;decisionNote?:unknown;database?:D1Database;now?:Date}) {
+  if(!input.id.startsWith("help-claim-"))throw new PartnerClaimAdminError("Prístup tohto typu sa odoberá cez správu prístupov.",400);
+  return decidePartnerHelpClaimAdmin({...input,action:"REVOKE"});
 }
 
 type VerificationAdminRow = {
@@ -359,8 +387,7 @@ const VERIFICATION_BASE = `
     CASE WHEN
       EXISTS(
         SELECT 1 FROM partner_memberships om
-        JOIN partner_accounts oa ON oa.id=om.account_id AND oa.status='ACTIVE'
-        WHERE om.resource_id=v.resource_id AND om.revoked_at IS NULL AND om.role='OWNER' AND om.account_id<>v.account_id
+        WHERE om.resource_id=v.resource_id AND om.revoked_at IS NULL AND om.account_id<>v.account_id
       )
       OR EXISTS(
         SELECT 1 FROM partner_claims pc

@@ -108,10 +108,14 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "set-reviewed", reviewed }),
       });
-      const result = await response.json() as { profile?: ManagedDirectoryProfileSummary; error?: string };
+      const result = await response.json() as {
+        profile?: ManagedDirectoryProfileSummary;
+        notionReviewSync?: string;
+        error?: string;
+      };
       if (!response.ok || !result.profile) throw new Error(result.error || "Stav kontroly sa nepodarilo uložiť.");
       setReviewedOverrides((current) => ({ ...current, [profile.id]: Boolean(result.profile?.reviewed) }));
-      setMessage(result.profile.reviewed ? `Profil „${profile.name}“ je odkontrolovaný.` : `Kontrola profilu „${profile.name}“ bola zrušená.`);
+      setMessage(result.notionReviewSync === "pending" ? `Profil „${profile.name}“ bol zmenený v D1. Notion stále čaká na potvrdenie a zostáva chránený.` : result.profile.reviewed ? `Profil „${profile.name}“ je odkontrolovaný; Notion synchronizácia je vypnutá.` : `Kontrola profilu „${profile.name}“ bola zrušená; Notion synchronizácia je povolená.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Stav kontroly sa nepodarilo uložiť.");
     } finally {

@@ -5,6 +5,7 @@ import {
   rejectPartnerNewProfileAdmin,
 } from "@/lib/partner-new-profile-admin";
 import { PartnerNewProfileError } from "@/lib/partner-new-profile";
+import { PartnerSingleManagerConflictError, isPartnerSingleManagerConstraintError } from "@/lib/partner-single-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -48,9 +49,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     return Response.json({ error: "Neplatná resolution akcia." }, { status: 400 });
   } catch (error) {
-    const status = error instanceof PartnerNewProfileError
+    const status = error instanceof PartnerNewProfileError || error instanceof PartnerSingleManagerConflictError
       ? error.status
-      : error instanceof Error && error.name === "ModerationStateConflictError" ? 409 : 500;
+      : error instanceof Error && (error.name === "ModerationStateConflictError" || isPartnerSingleManagerConstraintError(error)) ? 409 : 500;
     return Response.json({
       error: status >= 500 ? "Rozhodnutie nového profilu sa nepodarilo uložiť." : error instanceof Error ? error.message : "Rozhodnutie zlyhalo.",
     }, { status, headers: { "Cache-Control": "private, no-store" } });

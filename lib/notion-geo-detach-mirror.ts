@@ -2,6 +2,7 @@ import type { GeoTargetType } from "./geo";
 import { loadNotionBulkEvents, loadNotionBulkOrganizations } from "./notion-bulk-sources";
 import { notionGeoMirrorFields, notionGeoMirrorProperties } from "./notion-geo-mirror";
 import { notionDirectoryPageBelongsToSource } from "./notion-directory-update-safety";
+import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
 import { eventReadNotionProperty } from "./notion-event-field-contract";
 import { notionFlagEnabled, notionRequest, type NotionSyncBindings } from "./notion-sync-shared";
 
@@ -46,6 +47,9 @@ async function syncDirectoryGeoMirrorAfterDetach(
   const dataSourceId = bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() ?? "";
   if (!notionFlagEnabled(bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
       !dataSourceId || !bindings.NOTION_API_TOKEN?.trim()) return "disabled";
+  // GEO detach is a separate Notion writer: honor the same owner review
+  // freeze as the main Directory/editorial synchronizer.
+  if (await directoryProfileNotionSyncLocked(db, targetId)) return "disabled";
 
   const mapping = await db.prepare(
     "SELECT notion_page_id FROM directory_notion_sync WHERE directory_profile_id=? LIMIT 1"
@@ -127,6 +131,7 @@ async function syncDirectoryGeoMirrorAfterDetach(
     throw Error("GEO_DIRECTORY_UNLINK_STATE_CHANGED");
   }
 
+  if (await directoryProfileNotionSyncLocked(db, targetId)) return "disabled";
   const echoed = await notionRequest<Page>(bindings, "/pages/" + encodeURIComponent(page.id), {
     method: "PATCH", body: JSON.stringify({ properties: patch }),
   });

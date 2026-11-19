@@ -2,7 +2,8 @@ import { env } from "cloudflare:workers";
 import { TavilyAutomationSearchProvider } from "./data-automation-search-tavily.ts";
 import { AutomationSearchProviderError } from "./data-automation-discovery.ts";
 import { isSafeAutomationSourceUrl, normalizeAutomationIdentity } from "./data-automation.ts";
-import { mergeDirectoryPublicContactData, readDirectoryPublicContacts, type DirectoryImportData } from "./directory-profile-metadata.ts";
+import { omitDirectorySqlContactAliases, type DirectoryImportData } from "./directory-profile-metadata.ts";
+import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 import { buildQualityTavilyQuery, qualityMayResearch, qualityTodayInSlovakia } from "./data-quality-tavily-query.ts";
 
 export type QualityArea = "services" | "events" | "help";
@@ -76,11 +77,11 @@ function sourceData(value:unknown): DirectoryImportData {
 }
 function fieldValue(kind:Kind,row:Row,f:Field) {
   if(kind==="DIRECTORY"&&f.key==="websiteUrl") {
-    const contacts=readDirectoryPublicContacts(sourceData(row.source_data_json),String(row.website_url??""));
+    const contacts=readDirectorySqlBackedContacts(sourceData(row.source_data_json),row);
     return contacts.website;
   }
   if(kind==="DIRECTORY"&&f.contact){
-    const contacts=readDirectoryPublicContacts(sourceData(row.source_data_json),String(row.website_url??""));
+    const contacts=readDirectorySqlBackedContacts(sourceData(row.source_data_json),row);
     return contacts[f.contact];
   }
   return f.column ? row[f.column] : null;
@@ -713,16 +714,20 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     reviewedImage={key,url:"/media/"+key};
   }
   let update:D1PreparedStatement;
-  if(p.entity_type==="DIRECTORY"&&f.contact){
-    const patch:Parameters<typeof mergeDirectoryPublicContactData>[1]={};
-    if(f.contact==="phone")patch.publicPhone=approvedValue;
-    if(f.contact==="email")patch.publicEmail=approvedValue;
-    if(f.contact==="facebook")patch.facebookUrl=approvedValue;
-    if(f.contact==="instagram")patch.instagramUrl=approvedValue;
-    const data=mergeDirectoryPublicContactData(sourceData(row.source_data_json),patch);
-    update=db.prepare(`UPDATE directory_profiles SET source_data_json=?,updated_at=?,updated_by=?
+  if(p.entity_type==="DIRECTORY"&&(f.contact||f.key==="websiteUrl")){
+    const key=f.key==="websiteUrl"?"websiteUrl":({
+      phone:"publicPhone",email:"publicEmail",facebook:"facebookUrl",instagram:"instagramUrl",
+    } as const)[f.contact!];
+    const column=({
+      websiteUrl:"website_url",publicPhone:"public_phone",publicEmail:"public_email",
+      facebookUrl:"facebook_url",instagramUrl:"instagram_url",
+    } as const)[key];
+    // Only this explicitly approved contact is changed. SQL becomes the sole
+    // value; unrelated JSON fields and SQL-NULL legacy contacts are preserved.
+    const data=omitDirectorySqlContactAliases(sourceData(row.source_data_json),{[key]:approvedValue});
+    update=db.prepare(`UPDATE directory_profiles SET ${column}=?,source_data_json=?,updated_at=?,updated_by=?
       WHERE id=? AND updated_at=? AND EXISTS (SELECT 1 FROM quality_missing_proposals WHERE id=? AND status='OPEN')`)
-      .bind(JSON.stringify(data),at,actor,p.entity_id,updatedAt,p.id);
+      .bind(approvedValue,JSON.stringify(data),at,actor,p.entity_id,updatedAt,p.id);
   }else{
     if(!f.column)throw new Error("Chýba mapovanie poľa.");
     // Field column is always from the static allowlist above, never from user input.

@@ -289,8 +289,8 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(requestManagement).toHaveAttribute("href","/partner/prevziat-profil/DIRECTORY_PROFILE/990001");
     await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toBeVisible();
     await requestManagement.click();
-    await expect(page.getByRole("heading",{name:"Prevziať existujúci profil"})).toBeVisible();
-    await page.getByLabel(/Ako ste spojení/).fill("E2E poverený správca");
+    await expect(page.getByRole("heading",{name:"Požiadať o správu záznamu"})).toBeVisible();
+    await page.getByLabel(/Aký je váš vzťah k tomuto záznamu/).fill("E2E poverený správca");
     await page.getByRole("button",{name:"Odoslať žiadosť o prevzatie"}).click();
     await expect(page.getByRole("status")).toContainText("Žiadosť sme prijali a čaká na kontrolu.");
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
@@ -304,7 +304,21 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
   await expect(page.getByRole("heading", { name: "Prehľad" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
+  // Step 2: both desktop and mobile show real self-service destinations.
+  const dashboardActions = page.locator(".partner-dashboard-welcome");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať nový profil" })).toHaveAttribute("href", "/partner/profily/novy");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať podujatie" })).toHaveAttribute("href", "/partner/podujatia/nove");
+  await expect(page.locator(".partner-dashboard-stat")).toHaveCount(3);
+  await expect(page.getByRole("heading", { name: "Čo spravujete" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+  // Partner claim search is usable for published existing events on both viewports.
+  await page.goto("/partner/prevziat?type=MANAGED_EVENT&q=Partner%20E2E");
+  await expect(page.getByRole("heading", { name: "Požiadať o správu" })).toBeVisible();
+  const eventClaimRow = page.locator(".partner-claim-search-results li").filter({ hasText: "Partner E2E Publikované Podujatie" });
+  await expect(eventClaimRow).toHaveCount(1);
+  await expect(eventClaimRow.getByRole("link", { name: "Požiadať o správu" })).toHaveAttribute("href", "/partner/prevziat-profil/MANAGED_EVENT/990003");
+  await expectNoHorizontalOverflow(page);
+  await page.goto("/partner");
 
   const linkBridgeResponse = await page.goto(
     "/partner/google-navrat?to=" + encodeURIComponent("/partner/prepojit-google"),
@@ -339,10 +353,10 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(accountLink).toHaveAttribute("href", "/partner");
   }
 
-  await page.getByRole("link", { name: "Moje profily" }).click();
+  await page.getByRole("navigation", { name: "Partner navigácia" }).getByRole("link", { name: "Moje profily" }).click();
   if (project === "desktop-chromium") {
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
-    await expect(page.getByText("Vlastník")).toBeVisible();
+    await expect(page.getByText("Správca profilu")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
@@ -408,10 +422,19 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await editMunicipality.press("ArrowDown");
     await editMunicipality.press("Enter");
     await expect(editMunicipality).toHaveValue("Trnava");
-    await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
-    await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
+    // Approved OWNER edits bypass moderation, but must update the canonical
+    // record immediately and remain visible after reloading both views.
+    const directoryDirectSave = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === "/api/partner/direct-profiles/partner-resource-e2e-directory" &&
+      response.request().method() === "PATCH",
+    );
+    await page.getByRole("button", { name: "Uložiť zmeny" }).click();
+    expect((await directoryDirectSave).status()).toBe(200);
+    await expect(page.getByRole("status")).toContainText("Zmeny sú uložené v existujúcom profile.");
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "Obec / mesto" })).toHaveValue("Trnava");
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
-    await expect(page.getByText("Nitra", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Trnava", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("heading",{name:"Tento profil spravujete cez Partner účet."})).toBeVisible();
     await expect(page.getByRole("link",{name:"Upraviť profil"})).toHaveAttribute(
       "href",
@@ -423,7 +446,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expectNoHorizontalOverflow(page);
   } else {
     await expect(page.getByRole("heading", { name: "Partner E2E Organizácia" })).toBeVisible();
-    await expect(page.getByText("Editor")).toBeVisible();
+    await expect(page.getByText("Správca profilu")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
@@ -459,19 +482,21 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     // Wait for controlled input handlers before editing the server-rendered field.
     await expect(page.locator(".partner-profile-edit-form")).toHaveAttribute("data-partner-edit-ready", "true");
     await page.getByLabel("Verejný telefón").fill("+421900333444");
-    await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
-    await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
+    const organizationDirectSave = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === "/api/partner/direct-profiles/partner-resource-e2e-organization" &&
+      response.request().method() === "PATCH",
+    );
+    await page.getByRole("button", { name: "Uložiť zmeny" }).click();
+    expect((await organizationDirectSave).status()).toBe(200);
+    await expect(page.getByRole("status")).toContainText("Zmeny sú uložené v existujúcom profile.");
+    await page.reload();
+    await expect(page.getByLabel("Verejný telefón")).toHaveValue("+421900333444");
     await page.goto("/partner/ziadosti");
+    // Direct OWNER saves must not create a second moderation proposal.
     const profileChangesSection=page.locator("section.partner-requests-section").filter({
       has: page.getByRole("heading",{name:"Úpravy profilov"}),
     });
-    const organizationChange=profileChangesSection.locator("article").filter({hasText:"Partner E2E Organizácia"});
-    await expect(organizationChange).toContainText("Čaká na kontrolu");
-    await expect(organizationChange).toContainText("Verejný telefón");
-    await expect(organizationChange).not.toContainText("publicPhone");
-    page.once("dialog", dialog => void dialog.accept());
-    await organizationChange.getByRole("button", { name: "Zrušiť návrh" }).click();
-    await expect(organizationChange).toContainText("Zrušené");
+    await expect(profileChangesSection.locator("article").filter({hasText:"Partner E2E Organizácia"})).toHaveCount(0);
     const newProfilesSection=page.locator("section.partner-requests-section").filter({
       has: page.getByRole("heading",{name:"Moje návrhy nových profilov"}),
     });
@@ -498,7 +523,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("heading",{name:"Moje podujatia"})).toBeVisible();
   const ownedEventCard=page.locator("article.partner-resource-card").filter({hasText:ownedEventTitle});
   await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Publikované":"Koncept");
-  await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Vlastník":"Editor");
+  await expect(ownedEventCard).toContainText("Správca profilu");
   await expectNoHorizontalOverflow(page);
 
   if (project === "mobile-chromium") {
@@ -560,18 +585,24 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByLabel("Miesto").fill(changedVenue);
   await expect(page.getByLabel("Miesto")).toHaveValue(changedVenue);
   await expectNoHorizontalOverflow(page);
-  await page.getByRole("button",{name:"Odoslať zmeny na kontrolu"}).click();
-  await expect(page.getByRole("status")).toContainText("Zmeny podujatia sme prijali a čakajú na kontrolu.");
-
-  const canonicalBeforeUpdate=await page.request.get("/api/admin/events");
-  expect(canonicalBeforeUpdate.ok()).toBeTruthy();
-  const canonicalBeforeUpdateJson=await canonicalBeforeUpdate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
-  expect(canonicalBeforeUpdateJson.events?.find(item=>item.title===ownedEventTitle)?.venue).toBe(originalVenue);
+  const eventDirectSave = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.startsWith("/api/partner/direct-events/") &&
+    response.request().method() === "PATCH",
+  );
+  await page.getByRole("button",{name:"Uložiť zmeny"}).click();
+  expect((await eventDirectSave).status()).toBe(200);
+  await expect(page.getByRole("status")).toContainText("Zmeny podujatia boli uložené.");
+  const canonicalAfterUpdate=await page.request.get("/api/admin/events");
+  expect(canonicalAfterUpdate.ok()).toBeTruthy();
+  const canonicalAfterUpdateJson=await canonicalAfterUpdate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
+  const savedEvent=canonicalAfterUpdateJson.events?.find(item=>item.title===ownedEventTitle);
+  expect(savedEvent?.venue).toBe(changedVenue);
+  expect(savedEvent?.status).toBe(project==="desktop-chromium"?"published":"draft");
 
   await page.goto("/partner/ziadosti");
   const eventRequests=page.locator("section.partner-requests-section").filter({has:page.getByRole("heading",{name:"Návrhy podujatí"})});
   await expect(eventRequests.locator("article").filter({hasText:newEventTitle})).toContainText("Čaká na kontrolu");
-  await expect(eventRequests.locator("article").filter({hasText:ownedEventTitle})).toContainText("Čaká na kontrolu");
+  await expect(eventRequests.locator("article").filter({hasText:ownedEventTitle})).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/partner/ziadosti");
@@ -859,8 +890,10 @@ test("internal admin Partner overview and account detail are protected admin pag
   const expectedPublicationStatus=project==="desktop-chromium"?"published":"draft";
 
   await page.goto("/admin/partners");
-  await expect(page.getByRole("link",{name:/Podujatia 3/})).toBeVisible();
-  await page.getByRole("link",{name:/Podujatia 3/}).click();
+  // The old OWNER update is saved directly; only the new event and seeded
+  // stale moderation fixture remain in the active admin queue.
+  await expect(page.getByRole("link",{name:/Podujatia 2/})).toBeVisible();
+  await page.getByRole("link",{name:/Podujatia 2/}).click();
   await expect(page.getByRole("heading",{name:"Podujatia"})).toBeVisible();
 
   const createEventRow=page.locator(".admin-commercial-list article").filter({hasText:eventCreateTitle});
@@ -893,23 +926,9 @@ test("internal admin Partner overview and account detail are protected admin pag
   expect(canonicalAfterCreateJson.events?.find(item=>item.title===eventCreateTitle)?.status).toBe("draft");
 
   await page.goto("/admin/partners/events?status=active");
+  // An approved OWNER's direct save must not queue an UPDATE moderation job.
   const updateEventRow=page.locator(".admin-commercial-list article").filter({hasText:ownedEventTitle});
-  await expect(updateEventRow).toContainText("UPDATE");
-  await updateEventRow.getByRole("link",{name:"Detail →"}).click();
-  await expect(page.getByRole("heading",{name:"OLD → NEW"})).toBeVisible();
-  await expect(page.getByText(changedVenue,{exact:true}).first()).toBeVisible();
-  const approveEventResponse=page.waitForResponse(response=>
-    response.url().includes("/api/admin/partners/events/") &&
-    response.request().method()==="PATCH" && response.ok(),
-  );
-  await page.getByRole("button",{name:"Schváliť zmeny"}).click();
-  const approveEventDialog=page.getByRole("dialog",{name:"Potvrdiť partnerské rozhodnutie"});
-  await expect(approveEventDialog).toBeVisible();
-  await expect(approveEventDialog).toContainText("aplikovať presný Partner patch");
-  await approveEventDialog.getByRole("button",{name:"Potvrdiť"}).click();
-  await approveEventResponse;
-  await expect(page.getByText("UPDATED")).toBeVisible();
-
+  await expect(updateEventRow).toHaveCount(0);
   const canonicalAfterUpdate=await page.request.get("/api/admin/events");
   expect(canonicalAfterUpdate.ok()).toBeTruthy();
   const canonicalAfterUpdateJson=await canonicalAfterUpdate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
@@ -918,32 +937,18 @@ test("internal admin Partner overview and account detail are protected admin pag
   expect(updatedEvent?.status).toBe(expectedPublicationStatus);
 
   // The isolated Partner D1 fixture intentionally does not seed managed portal sections.
-  // Canonical API assertions above prove the approved patch and publication-status preservation;
+  // Canonical API assertions above prove the direct OWNER patch and publication-status preservation;
   // public route rendering is covered by the dedicated event/public E2E suites.
   await page.goto("/admin/partners");
   await expect(page.getByRole("link",{name:/Podujatia 1/})).toBeVisible();
 
   if(project==="desktop-chromium"){
-    await expect(page.getByRole("link",{name:/Úpravy 2/})).toBeVisible();
+    // The seeded stale request is the only active moderation change; direct
+    // profile edits must never require a second Admin approval.
+    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
     await page.goto("/admin/partners/changes?status=active");
     const changeRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Veterina"});
-    await expect(changeRow).toContainText("3 zmenených polí");
-    await changeRow.getByRole("link",{name:"Detail →"}).click();
-    await expect(page.getByRole("heading",{name:"OLD → NEW"})).toBeVisible();
-    await expect(page.getByText("Nitra",{exact:true}).first()).toBeVisible();
-    await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
-    const changeResponse=page.waitForResponse((response)=>
-      response.url().includes("/api/admin/partners/changes/") &&
-      response.request().method()==="PATCH" &&
-      response.ok(),
-    );
-    await page.getByRole("button",{name:"Schváliť zmeny"}).click();
-    const changeDialog=page.getByRole("dialog",{name:"Schváliť zmeny profilu?"});
-    await expect(changeDialog).toBeVisible();
-    await changeDialog.getByRole("button",{name:"Schváliť zmeny"}).click();
-    await changeResponse;
-    await page.goto("/admin/partners");
-    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
+    await expect(changeRow).toHaveCount(0);
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
     await page.goto("/admin/partners");
@@ -972,19 +977,22 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(claimRow).toContainText("Konflikt správy profilu");
     await claimRow.getByRole("link",{name:"Detail →"}).click();
     await expect(page.getByText("Konflikt správy profilu").first()).toBeVisible();
+    // The resource already has another active owner. Single-manager policy
+    // must reject a second approval; this is not a successful claim.
     const claimResponse = page.waitForResponse((response) =>
       response.url().includes("/api/admin/partners/claims/") &&
-      response.request().method() === "PATCH" &&
-      response.ok(),
+      response.request().method() === "PATCH",
     );
     await page.getByRole("button",{name:"Schváliť",exact:true}).click();
-    const claimDialog=page.getByRole("dialog",{name:"Schváliť prevzatie profilu?"});
+    const claimDialog=page.getByRole("dialog",{name:"Schváliť správu záznamu?"});
     await expect(claimDialog).toBeVisible();
     await claimDialog.getByRole("button",{name:"Schváliť prevzatie"}).click();
-    await claimResponse;
+    const blockedClaimResponse = await claimResponse;
+    expect(blockedClaimResponse.status()).toBe(409);
+    await expect(page.getByText("Tento záznam už spravuje iný partner. Najprv mu odoberte prístup.")).toBeVisible();
     await page.goto("/admin/partners");
-    await expect(page.getByRole("link",{name:/Prevzatie profilov 1/})).toBeVisible();
-    await expect(page.getByRole("link",{name:/Overenia 4/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Prevzatie profilov 2/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Overenia 3/})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 });

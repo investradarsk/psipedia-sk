@@ -2,13 +2,12 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { AdminEventEditor } from "@/components/admin-event-editor";
-import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+import { AdminPartnerReviewStatus } from "@/components/admin-partner-review-status";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { eventHref } from "@/lib/events";
 import { getManagedEventById, getManagedEventInternalNotesById } from "@/lib/event-store";
 import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
@@ -17,9 +16,7 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 async function EventReviewAction({ id }: { id: number }) {
-  const review = await getAdminEntityReview("EVENT", id);
-  return <AdminReviewCheckbox entityType="EVENT" entityId={id}
-    initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />;
+  return <AdminPartnerReviewStatus entityType="EVENT" entityId={id} />;
 }
 
 async function EventDuplicateWarning({ id }: { id: number }) {

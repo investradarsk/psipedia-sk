@@ -1,0 +1,82 @@
+name: Breed SQL 0174 – guarded 344/347 backfill (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "audit = SELECT only; apply = copy into verified 0174"
+        required: true
+        type: choice
+        options: [audit, apply]
+        default: audit
+      confirmation:
+        description: "AUDIT-BREEDS-V2-344-347 or APPLY-BREEDS-V2-344-347"
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      BREED_V2_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Owner-only main dispatch and explicit per-mode approval
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY" = investradarsk/psipedia-sk
+          test -n "$CLOUDFLARE_API_TOKEN"
+          case "$MODE" in
+            audit) test "$BREED_V2_CONFIRMATION" = AUDIT-BREEDS-V2-344-347 ;;
+            apply) test "$BREED_V2_CONFIRMATION" = APPLY-BREEDS-V2-344-347 ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Only the current main revision may touch production D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - run: npm ci
+      - name: Confirm canonical D1 account binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CLOUDFLARE_ACCOUNT_ID=$(node -p 'require("./config/cloudflare-resources.json").account_id')" >> "$GITHUB_ENV"
+      - name: Verify isolated migration safety and complete offline backfill
+        run: |
+          node scripts/check-migration-safety.mjs
+          node --test tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-backfill.test.mjs
+      - name: Cloudflare D1 owner-only audit or guarded data copy
+        env:
+          MODE: ${{ inputs.mode }}
+        run: node scripts/production-breed-sql-v2-backfill.mjs "$MODE"
+      - name: Preserve counts and D1 recovery bookmark privately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: breed-sql-v2-344-347-${{ github.run_id }}
+          path: .production-breed-v2-backfill/report.json
+          retention-days: 30
+          if-no-files-found: ignore

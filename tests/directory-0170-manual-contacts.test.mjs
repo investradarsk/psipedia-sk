@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { overlayDirectorySqlContacts } from "../lib/directory-sql-contacts.ts";
-import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
+import { readDirectoryPublicContacts, omitDirectorySqlContactAliases } from "../lib/directory-profile-metadata.ts";
 
 test("legacy contacts stay readable while SQL 0170 is NULL", () => {
   const result = overlayDirectorySqlContacts({
@@ -65,6 +65,59 @@ test("marking Odkontrolované adopts only NULL contacts into SQL and bumps revis
   assert.match(review,/public_email = CASE WHEN \?=1 THEN COALESCE\(public_email, \?\) ELSE public_email END/);
   assert.match(review,/facebook_url = CASE WHEN \?=1 THEN COALESCE\(facebook_url, \?\) ELSE facebook_url END/);
   assert.match(review,/instagram_url = CASE WHEN \?=1 THEN COALESCE\(instagram_url, \?\) ELSE instagram_url END/);
-  assert.match(review,/AND updated_at = \? RETURNING \*/);
+  assert.match(review,/AND updated_at = \? /);
+  assert.match(review,/m\.revoked_at IS NULL/);
   assert.match(review,/reviewed \? 1 : 0/);
+});
+
+
+test("SQL contact persistence omits every alias of explicitly written fields", () => {
+  const original = {
+    "Telefón": "zastaralé", Telefon: "starší", phone: "staré",
+    "E-mail": "stary@example.sk", Email: "stary2@example.sk", email: "stary3@example.sk",
+    Web: "zastaralý web", "Webstránka": "zastaralá URL",
+    Facebook: "starý FB", Instagram: "starý IG",
+    "Chovateľ": "Zachovať", "_psipedia_some_control": "zachovať",
+  };
+  const sql = omitDirectorySqlContactAliases(original, {
+    publicPhone: "nový ľubovoľný text",
+    publicEmail: "",
+    websiteUrl: null,
+    facebookUrl: "https://facebook.com/novy",
+    instagramUrl: "@instagram",
+  });
+  for (const field of ["Telefón","Telefon","phone","E-mail","Email","email",
+    "Web","Webstránka","Facebook","Instagram"]) {
+    assert.equal(Object.hasOwn(sql, field), false, field);
+  }
+  assert.equal(sql["Chovateľ"], original["Chovateľ"]);
+  assert.equal(sql["_psipedia_some_control"], original["_psipedia_some_control"]);
+  assert.equal(original["Telefón"], "zastaralé", "the original JSON is not mutated");
+});
+
+test("untouched SQL-NULL contacts keep legacy data until their backfill is confirmed", () => {
+  const original = {
+    Telefon: "legacy-only phone", "E-mail": "legacy-only email",
+    Facebook: "historický Facebook", "Zdroje": "poznámky",
+  };
+  const sql = omitDirectorySqlContactAliases(original, {
+    publicPhone: undefined, publicEmail: undefined, facebookUrl: "",
+  });
+  assert.equal(sql.Telefon, "legacy-only phone");
+  assert.equal(sql["E-mail"], "legacy-only email");
+  assert.equal(Object.hasOwn(sql, "Facebook"), false);
+  assert.equal(sql["Zdroje"], "poznámky");
+});
+
+test("the canonical Admin SQL create/update never persist edited contacts to import JSON", () => {
+  const store = readFileSync("lib/directory-store.ts", "utf8");
+  const notion = readFileSync("lib/notion-directory-sync.ts", "utf8");
+  assert.match(store, /JSON\.stringify\(omitDirectorySqlContactAliases\(input\.sourceData, input\)\)/);
+  assert.match(store, /JSON\.stringify\(omitDirectorySqlContactAliases\(input\.sourceData, payload\)\)/);
+  const start = notion.indexOf("async function saveBreederEditorialValue(");
+  const finish = notion.indexOf("  } else if (path === \"seo.noindex\")", start);
+  const branch = notion.slice(start, finish);
+  assert.match(branch, /source_data_json = \" \+ removed/);
+  assert.doesNotMatch(branch, /source_data_json = json_set\(\" \+ removed/);
+  assert.match(branch, /assignments\.push\(column \+ \" = \?\"\)/);
 });

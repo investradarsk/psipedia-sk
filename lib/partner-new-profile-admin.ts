@@ -1,3 +1,6 @@
+import { partnerDirectoryReviewLockStatement } from "./partner-directory-review";
+import { partnerDirectory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
+import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
 import { env } from "cloudflare:workers";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { adminAuditActorRef } from "@/lib/audit-identity";
@@ -30,6 +33,7 @@ import { transitionModerationSubmission } from "@/lib/moderation-store";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
+import { assertSingleActivePartnerManager } from "@/lib/partner-single-manager";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 type Resolution = "CREATED_NEW" | "LINKED_EXISTING";
@@ -460,6 +464,22 @@ export async function createPartnerNewProfileAdmin(input:{
   canonicalStatements.push(...membershipStatements(database,{
     accountId:row.accountId,type:row.resourceType,canonicalSql,membershipId,actorRef,nowIso,existingMembership:canonicalState.membership,
   }));
+  if(row.resourceType==="DIRECTORY_PROFILE"){
+    canonicalStatements.push(partnerDirectoryReviewLockStatement({
+      database,canonicalSql,accountId:row.accountId,actorRef,nowIso,
+    }));
+    // The membership, legacy JSON lock and 0173 review-state projection
+    // must commit in the same protected moderation transaction.
+    canonicalStatements.push(partnerDirectory0173ReviewSqlMirrorStatement({
+      database,canonicalSql,accountId:row.accountId,actorRef,nowIso,
+    }));
+  }else if(row.resourceType==="HELP_ORGANIZATION"){
+    // The organization owner grant and permanent Notion review lock must
+    // commit in the same moderation transaction, just like Help and Events.
+    canonicalStatements.push(partnerAdminReviewStatement(database,{
+      type:"ORGANIZATION",entitySql:canonicalSql,nowIso,actorRef,
+    }));
+  }
   canonicalStatements.push(...verificationStatements(database,{
     accountId:row.accountId,type:row.resourceType,canonicalSql,verificationId,actorRef,nowIso,current:canonicalState.verification,
   }));
@@ -522,6 +542,7 @@ export async function linkPartnerNewProfileAdmin(input:{
   await assertNewProfileIndependentOwnershipApprover({
     adminEmail:input.adminEmail,accountId:row.accountId,resourceId:targetResource?.id??null,database,
   });
+  if(targetResource)await assertSingleActivePartnerManager({database,resourceId:targetResource.id,accountId:row.accountId});
   const existing=await currentMembershipAndVerification({accountId:row.accountId,type:row.resourceType,canonicalId:input.canonicalId,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);
   await ensurePendingReview(input.id,row.status,actorRef,database,input.requestId);
@@ -544,6 +565,15 @@ export async function linkPartnerNewProfileAdmin(input:{
       accountId:row.accountId,type:row.resourceType,canonicalSql,membershipId:crypto.randomUUID(),
       actorRef,nowIso,existingMembership:existing.membership,
     }),
+    ...(row.resourceType==="DIRECTORY_PROFILE"
+      ? [
+          partnerDirectoryReviewLockStatement({database,canonicalSql,accountId:row.accountId,actorRef,nowIso}),
+          partnerDirectory0173ReviewSqlMirrorStatement({database,canonicalSql,accountId:row.accountId,actorRef,nowIso}),
+        ]
+      : []),
+    ...(row.resourceType==="HELP_ORGANIZATION"
+      ? [partnerAdminReviewStatement(database,{type:"ORGANIZATION",entitySql:canonicalSql,nowIso,actorRef})]
+      : []),
     ...verificationStatements(database,{
       accountId:row.accountId,type:row.resourceType,canonicalSql,verificationId:crypto.randomUUID(),
       actorRef,nowIso,current:existing.verification,

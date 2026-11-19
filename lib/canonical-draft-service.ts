@@ -1,5 +1,3 @@
-import { mergeDirectoryPublicContactData } from "./directory-profile-metadata.ts";
-
 export type CanonicalDraftEntityType =
   | "EVENT"
   | "ORGANIZATION"
@@ -257,13 +255,9 @@ export async function createCanonicalDraft(
     const publicEmail = textValue(p.publicEmail ?? p.public_email);
     const facebookUrl = textValue(p.facebookUrl ?? p.facebook_url);
     const instagramUrl = textValue(p.instagramUrl ?? p.instagram_url);
-    const sourceData = mergeDirectoryPublicContactData(null, {
-      publicPhone,
-      publicEmail,
-      websiteUrl,
-      facebookUrl,
-      instagramUrl,
-    });
+    // The new draft's editable contacts exist only in SQL. No legacy JSON
+    // contact aliases are ever created for a fresh record.
+    const sourceData = {};
 
     const after = {
       slug: canonicalDraftSlug(p.slug, name, input.slugSuffix),
@@ -316,6 +310,10 @@ export async function createCanonicalDraft(
       online: after.online ? 1 : 0,
       price_note: after.priceNote,
       website_url: after.websiteUrl,
+      public_phone: after.publicPhone,
+      public_email: after.publicEmail,
+      facebook_url: after.facebookUrl,
+      instagram_url: after.instagramUrl,
       import_key: after.importKey,
       source_data_json: JSON.stringify(after.sourceData),
       verified: after.verified ? 1 : 0,

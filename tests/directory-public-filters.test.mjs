@@ -35,6 +35,7 @@ sqlite.exec(
   "CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, source_data_json TEXT)",
 );
 sqlite.exec("CREATE TABLE service_profile_option_choices (profile_id INTEGER, option_id TEXT, choice TEXT)");
+sqlite.exec("CREATE TABLE directory_profile_filter_values (profile_id INTEGER, category TEXT, filter_id TEXT, value_text TEXT)");
 const canonicalMapping = new Map(legacyFacetMappings
   .filter((mapping) => mapping.targetKind !== "provider")
   .map((mapping) => [mapping.legacyId, mapping.targetId]));
@@ -90,10 +91,10 @@ test("parameterized SQLite queries match explicit values only; missing, unknown 
       assert.match(where.clauses[0], /EXISTS \(SELECT 1 FROM service_profile_option_choices/);
       assert.deepEqual(where.bindings, [catalogId, value]);
     } else {
-      assert.equal(where.bindings.length, 1);
+      assert.deepEqual(where.bindings, [definition.category, definition.id, value]);
+      assert.ok(where.clauses[0].includes("directory_profile_filter_values"));
       assert.ok(where.clauses[0].includes("json_extract("));
       assert.ok(where.clauses[0].endsWith("= ?"));
-      assert.equal(where.bindings[0], value);
     }
     const ids = sqlite
       .prepare(
@@ -149,6 +150,57 @@ test("explicit no differs from absent and unknown; select and tri-state facets c
     clauses: [],
     bindings: [],
   });
+});
+
+test("0170 provider facet prefers confirmed SQL, preserves legacy fallback and agrees across list/map aliases", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(
+      "CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, source_data_json TEXT);" +
+      "CREATE TABLE directory_profile_filter_values (" +
+        "profile_id INTEGER, category TEXT, filter_id TEXT, value_text TEXT);",
+    );
+    const def = serviceFiltersForCategory("veterinari")
+      .find((item) => item.id === "veterinari.facility_type");
+    assert.ok(def);
+    const insert = db.prepare(
+      "INSERT INTO directory_profiles (id,category,source_data_json) VALUES (?,'veterinari',?)",
+    );
+    insert.run(1, JSON.stringify({ [def.d1.key]: "clinic" }));
+    insert.run(2, JSON.stringify({ [def.d1.key]: "clinic" }));
+    insert.run(3, JSON.stringify({ [def.d1.key]: "clinic" }));
+    insert.run(4, "{broken");
+    insert.run(5, "{}");
+    insert.run(6, JSON.stringify({ [def.d1.key]: "hospital" }));
+    insert.run(7, JSON.stringify({ [def.d1.key]: "clinic" }));
+    insert.run(8, "{}");
+    const sql = db.prepare("INSERT INTO directory_profile_filter_values VALUES (?,?,?,?)");
+    sql.run(1, "veterinari", def.id, "hospital");
+    sql.run(2, "veterinari", def.id, "unknown");
+    sql.run(4, "veterinari", def.id, "clinic");
+    sql.run(5, "veterinari", def.id, "clinic");
+    sql.run(6, "veterinari", def.id, "clinic");
+    // Wrong-category rows must not gain authority over a primary vet profile.
+    sql.run(7, "treneri", def.id, "hospital");
+    for (const column of ["source_data_json", "d.source_data_json"]) {
+      const alias = column === "d.source_data_json" ? " d" : "";
+      const query = (selected) => {
+        const where = directoryPublicFacetSql("veterinari", { [def.id]: selected }, column);
+        return db.prepare(
+          "SELECT id FROM directory_profiles" + alias + " WHERE category = 'veterinari' AND " +
+          where.clauses.join(" AND ") + " ORDER BY id",
+        ).all(...where.bindings).map((row) => row.id);
+      };
+      assert.deepEqual(query("clinic"), [3, 4, 5, 6, 7]);
+      assert.deepEqual(query("hospital"), [1]);
+    }
+    assert.throws(
+      () => directoryPublicFacetSql("veterinari", { [def.id]: "clinic" }, "unsafe"),
+      /INVALID_COLUMN/,
+    );
+  } finally {
+    db.close();
+  }
 });
 
 test("existing search/page and filter serialization preserve canonical public GET round trip", () => {
@@ -272,8 +324,11 @@ test("approved desktop A and mobile B render a single canonical set of category 
 test("facet predicates exclude malformed JSON instead of failing public COUNT/LIST and map queries", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    db.exec("CREATE TABLE directory_profiles (category TEXT, source_data_json TEXT)");
-    const insert = db.prepare("INSERT INTO directory_profiles VALUES (?, ?)");
+    db.exec(
+      "CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, source_data_json TEXT);" +
+      "CREATE TABLE directory_profile_filter_values (profile_id INTEGER,category TEXT,filter_id TEXT,value_text TEXT)",
+    );
+    const insert = db.prepare("INSERT INTO directory_profiles (category,source_data_json) VALUES (?, ?)");
     const key = serviceFiltersForCategory("veterinari").find((d) => d.id === "veterinari.facility_type")
       .d1.key;
     insert.run("veterinari", "{broken");
@@ -287,8 +342,9 @@ test("facet predicates exclude malformed JSON instead of failing public COUNT/LI
         { "veterinari.facility_type": "clinic" },
         column,
       );
+      const from = column === "d.source_data_json" ? "directory_profiles d" : "directory_profiles";
       const sql =
-        "SELECT rowid AS id FROM directory_profiles d WHERE category = 'veterinari' AND " +
+        "SELECT rowid AS id FROM " + from + " WHERE category = 'veterinari' AND " +
         where.clauses.join(" AND ");
       assert.deepEqual(
         db

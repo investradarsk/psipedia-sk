@@ -61,6 +61,12 @@ export function mergeDirectoryBreederGallery(
     urls.push(url);
   }
   if (urls.length) next[DIRECTORY_BREEDER_GALLERY_KEY] = JSON.stringify(urls);
-  else delete next[DIRECTORY_BREEDER_GALLERY_KEY];
+  else {
+    delete next[DIRECTORY_BREEDER_GALLERY_KEY];
+    // Older partner edits may have used a generic gallery key. An explicit
+    // owner clear must not resurrect those images via readProfileGallery().
+    // Do not remove that fallback during an unrelated profile save.
+    delete next["_psipedia_profile_gallery_urls"];
+  }
   return next;
 }

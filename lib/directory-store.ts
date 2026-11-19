@@ -1,5 +1,6 @@
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
+import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { readDirectory0170EditorialFields } from "./directory-0170-editorial-read";
 import { env } from "cloudflare:workers";
 import {
@@ -18,7 +19,7 @@ import { cache } from "react";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
 import { planDirectorySecondaryCategorySqlMirror, planDirectorySecondaryCategoryCreateSqlMirror } from "./directory-secondary-category-sql";
 import { directoryCatalogFilters } from "./directory-query.ts";
-import { mergeDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
+import { mergeDirectoryBreederGallery, readDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
 import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card";
 import { canonicalBreedIdsSql, readCanonicalBreedIds } from "./breed-canonical";
@@ -70,12 +71,15 @@ import {
   TRAINER_SERVICES_TEXT_METADATA_KEY,
   mergeDirectoryProfileReviewMetadata,
   mergeDirectoryPublicContactData,
+  omitDirectorySqlContactAliases,
   mergeDirectoryQualityMetadata,
+  directoryQualityFields,
   readDirectoryProfileReviewMetadata,
   readDirectoryPublicContacts,
   readDirectoryQualityMetadata,
   type DirectoryQualityResolutionInput,
 } from "@/lib/directory-profile-metadata";
+import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
 import { directoryQualificationSections } from "./directory-public-copy.ts";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
@@ -1219,7 +1223,7 @@ export function buildManagedDirectoryProfileCreateStatement(
     input.imageKey,
     input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
     input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
-    JSON.stringify(input.sourceData),
+    JSON.stringify(omitDirectorySqlContactAliases(input.sourceData, input)),
     input.verified ? 1 : 0,
     input.featured ? 1 : 0,
     JSON.stringify(input.seo),
@@ -1256,7 +1260,7 @@ export function buildManagedDirectoryProfileCreateStatement(
       input.imageKey,
       input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
       input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
-      JSON.stringify(input.sourceData),
+      JSON.stringify(omitDirectorySqlContactAliases(input.sourceData, input)),
       input.verified ? 1 : 0,
       input.featured ? 1 : 0,
       JSON.stringify(input.seo),
@@ -1929,6 +1933,25 @@ export async function getManagedDirectoryProfileByCategorySlug(
   return row ? rowToManagedProfile(row) : null;
 }
 
+/**
+ * Quality fields whose SQL row may change during this explicit save.
+ * The actual normalized status and checked_at are taken from the committed
+ * compatibility JSON by the 0173 planner, never re-computed independently.
+ */
+function directoryQualityMirrorFields(payload: ManagedDirectoryProfileInput) {
+  return directoryQualityFields.filter(field => {
+    if (Object.hasOwn(payload.qualityResolutions ?? {}, field) ||
+        payload.qualityCheckedAt !== undefined) return true;
+    if (field === "phone") return payload.publicPhone !== undefined;
+    if (field === "email") return payload.publicEmail !== undefined;
+    if (field === "website") return payload.websiteUrl !== undefined;
+    if (field === "image") return payload.imageUrl !== undefined;
+    return ["region", "district", "city", "address", "postalCode",
+      "street", "houseNumber", "addressFormat", "confirmServiceAddress",
+      "clearServiceAddressConfirmation"].some(key => Object.hasOwn(payload, key));
+  });
+}
+
 export async function createManagedDirectoryProfile(
   payload: ManagedDirectoryProfileInput,
   editorEmail: string,
@@ -1948,6 +1971,18 @@ export async function createManagedDirectoryProfile(
   const canonical = buildManagedDirectoryProfileCreateStatement(
     database, input, editorEmail, now,
   );
+  // Keep 0173 SEO and qualifications in the same transaction as the INSERT.
+  // Canonical (category,slug) is unique and the updated-at/actor guard binds
+  // the SQL companions to this exact newly created profile.
+  const editorialMirror = planDirectory0173EditorialSqlMirror({
+    identity: { kind: "category-slug", category: input.category, slug: input.slug,
+      updatedAt: now, actor: editorEmail },
+    qualifications: input.qualifications,
+    seo: input.seo,
+    qualityFields: directoryQualityMirrorFields(payload),
+    ...(payload.galleryUrls !== undefined && input.category === "chovatelske-stanice"
+      ? { galleryUrls: readDirectoryBreederGallery(input.sourceData) } : {}),
+  });
   let row: DirectoryProfileRow | null;
   if (sqlCategoryCreate) {
     const mirror = planDirectorySecondaryCategoryCreateSqlMirror({
@@ -1957,10 +1992,15 @@ export async function createManagedDirectoryProfile(
     const responses = await database.batch([
       canonical,
       ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+      ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
     ]);
     row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   } else {
-    row = await canonical.first<DirectoryProfileRow>();
+    const responses = await database.batch([
+      canonical,
+      ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+    ]);
+    row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   }
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
   await ensureResourceForDirectoryProfile(row.id, database, new Date(now));
@@ -2044,7 +2084,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
         ? (existing.detailImageDisplay ?? null)
         : (input.detailImageDisplay ?? null),
     ),
-    JSON.stringify(input.sourceData),
+    JSON.stringify(omitDirectorySqlContactAliases(input.sourceData, payload)),
     input.verified ? 1 : 0,
     input.featured ? 1 : 0,
     JSON.stringify(input.seo),
@@ -2100,22 +2140,43 @@ export async function updateManagedDirectoryProfile(
     guard,
     payload.additionalCategories !== undefined,
   );
+  // The exact same guarded canonical update is called by Admin and Notion.
+  // Mirror only explicitly provided fields, never infer an empty edit.
+  const editorialMirror = planDirectory0173EditorialSqlMirror({
+    identity: { kind: "id", profileId: id, updatedAt: now, actor: editorEmail },
+    ...(payload.qualifications !== undefined ? {
+      qualifications: normalizeManagedDirectoryProfileInput(payload, existing.importData, {
+        currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
+        legacyAddress: existing.address,
+      }).qualifications,
+    } : {}),
+    ...(payload.seo !== undefined ? { seo: payload.seo } : {}),
+    qualityFields: directoryQualityMirrorFields(payload),
+    ...(payload.galleryUrls !== undefined &&
+      (payload.category ?? existing.category) === "chovatelske-stanice"
+      ? { galleryUrls: readDirectoryBreederGallery(
+          mergeDirectoryBreederGallery(existing.importData,
+            "chovatelske-stanice", payload.galleryUrls),
+        ) } : {}),
+  });
   let row: DirectoryProfileRow | null;
-  if (payload.additionalCategories !== undefined) {
+  if (payload.additionalCategories !== undefined || editorialMirror.length > 0) {
     // Owner-submitted category changes mirror JSON and 0170 SQL in the SAME
     // D1 transaction. An omitted field must never clear SQL membership.
     // The initial UPDATE is the authority/CAS and the planner fails closed
     // if it affected no row. This does NOT switch public/Notion reads yet.
-    const mirror = planDirectorySecondaryCategorySqlMirror({
-      profileId: id,
-      primaryCategory: payload.category ?? existing.category,
-      submitted: payload.additionalCategories,
-      updatedAt: now,
-      actor: editorEmail,
-    });
+    const mirror = payload.additionalCategories === undefined ? [] :
+      planDirectorySecondaryCategorySqlMirror({
+        profileId: id,
+        primaryCategory: payload.category ?? existing.category,
+        submitted: payload.additionalCategories,
+        updatedAt: now,
+        actor: editorEmail,
+      });
     const responses = await database.batch([
       canonicalStatement,
       ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+      ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
     ]);
     row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   } else {
@@ -2258,6 +2319,15 @@ export async function setManagedDirectoryProfileReviewed(
     .bind(id)
     .first<DirectoryProfileRow>();
   if (!row) return null;
+  if (!reviewed) {
+    const manager = await database.prepare(`
+      SELECT 1 AS active FROM partner_resources r
+      JOIN partner_memberships m ON m.resource_id=r.id
+      WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=?1
+        AND m.revoked_at IS NULL LIMIT 1
+    `).bind(id).first<{ active: number }>();
+    if (manager) throw new Error("DIRECTORY_PARTNER_MANAGED_REVIEW_LOCK");
+  }
   const importData = safeImportData(row.source_data_json, true);
   const sourceData = mergeDirectoryProfileReviewMetadata(
     importData,
@@ -2265,6 +2335,10 @@ export async function setManagedDirectoryProfileReviewed(
     editorEmail,
     now.toISOString(),
   );
+  // An explicit owner checkbox action always updates the D1 review lock.
+  // A previous failed Notion full-profile echo must not keep it locked.
+  // No editorial/profile field changes as part of this action.
+  delete sourceData["_psipedia_profile_review_unlock_pending"];
   // The owner reviewed the displayed contact values. On that explicit action,
   // adopt ONLY still-NULL SQL contact slots; an earlier SQL clear ('') wins.
   // No bulk backfill or automatic promotion on ordinary Notion/Admin reads.
@@ -2272,20 +2346,35 @@ export async function setManagedDirectoryProfileReviewed(
     overlayDirectorySqlContacts(safeImportData(row.source_data_json, true), row),
     row.website_url ?? "",
   );
-  const updated = await database
+  const timestamp = now.toISOString();
+  const nextSourceJson = JSON.stringify(sourceData);
+  const canonical = database
     .prepare("UPDATE directory_profiles SET source_data_json = ?, updated_at = ?, updated_by = ?, " +
       "public_phone = CASE WHEN ?=1 THEN COALESCE(public_phone, ?) ELSE public_phone END, " +
       "public_email = CASE WHEN ?=1 THEN COALESCE(public_email, ?) ELSE public_email END, " +
       "facebook_url = CASE WHEN ?=1 THEN COALESCE(facebook_url, ?) ELSE facebook_url END, " +
       "instagram_url = CASE WHEN ?=1 THEN COALESCE(instagram_url, ?) ELSE instagram_url END " +
-      "WHERE id = ? AND source_data_json = ? AND updated_at = ? RETURNING *")
-    .bind(JSON.stringify(sourceData), now.toISOString(), editorEmail,
+      "WHERE id = ? AND source_data_json = ? AND updated_at = ? " +
+      "AND (?=1 OR NOT EXISTS (SELECT 1 FROM partner_resources r " +
+      "JOIN partner_memberships m ON m.resource_id=r.id " +
+      "WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=directory_profiles.id " +
+      "AND m.revoked_at IS NULL)) RETURNING *")
+    .bind(nextSourceJson, timestamp, editorEmail,
       reviewed ? 1 : 0, visibleContacts.phone,
       reviewed ? 1 : 0, visibleContacts.email,
       reviewed ? 1 : 0, visibleContacts.facebook,
       reviewed ? 1 : 0, visibleContacts.instagram,
-      id, row.source_data_json, row.updated_at)
-    .first<DirectoryProfileRow>();
+      id, row.source_data_json, row.updated_at, reviewed ? 1 : 0);
+  // The review checkbox and its 0173 SQL projection commit or fail together.
+  // The old JSON/partner Notion lock stays authoritative until audited cutover.
+  const reviewMirror = directory0173ReviewSqlMirrorStatement({
+    database, profileId: id, sourceDataJson: nextSourceJson,
+    profileUpdatedAt: timestamp, projectedAt: timestamp, projectedBy: editorEmail,
+  });
+  const responses = await database.batch([
+    canonical, directory0173ReviewCasGuardStatement(database), reviewMirror,
+  ]);
+  const updated = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   // Never lose a concurrent editor/Notion write while setting the lock.
   if (!updated) throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
   return rowToManagedProfile(updated);

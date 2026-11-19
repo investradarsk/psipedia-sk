@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror } from "../lib/directory-0170-editorial-sql-mirror.ts";
+import { planDirectory0173EditorialSqlMirror } from "../lib/directory-0173-editorial-sql-mirror.ts";
 import {
   isDirectoryEventPilotCategory,
   isDirectoryFieldEventCategory,
@@ -219,8 +220,8 @@ test("explicit blank Admin and Notion edits clear a single JSON field without to
       };
     },
     async batch(statements) {
-      assert.equal(statements.length, 3, "canonical UPDATE + CAS assertion + SQL fact");
-      return [{ results: [{ id: profile.id }] }, { results: [{ cas_ok: 1 }] }, { results: [] }];
+      assert.equal(statements.length, 4, "canonical UPDATE + CAS + 0170 fact + 0173 hours clear");
+      return [{ results: [{ id: profile.id }] }, { results: [{ cas_ok: 1 }] }, { results: [] }, { results: [] }];
     },
   };
   const exports = {};
@@ -231,6 +232,7 @@ test("explicit blank Admin and Notion edits clear a single JSON field without to
     isDirectoryPublicMetadataField: field => ["Ordinačné hodiny", "Organizácia", "Zameranie"].includes(field),
     readDirectoryPublicMetadataValue: (data, key) => String(data?.[key] ?? ""),
     approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror,
+    planDirectory0173EditorialSqlMirror,
     getManagedDirectoryProfileById: async () => profile,
     Date,
   });
@@ -238,12 +240,14 @@ test("explicit blank Admin and Notion edits clear a single JSON field without to
     database, profileId: 1653, category: "fyzioterapia",
     field: "Ordinačné hodiny", value: "",
   });
-  assert.equal(logs.length, 3);
+  assert.equal(logs.length, 4);
   assert.match(logs[0].sql, /source_data_json = json_set/);
   assert.match(logs[1].sql, /changes\(\)=1/);
   assert.match(logs[2].sql, /directory_profile_public_facts/);
   assert.ok(logs[2].args.includes("Ordinačné hodiny"));
   assert.ok(logs[2].args.includes(""), "explicit clear is mirrored as blank SQL text");
+  assert.match(logs[3].sql, /DELETE FROM directory_profile_opening_hours/);
+  assert.equal(logs[3].args.includes(profile.id), true);
   assert.ok(logs[0].args.includes('$."Ordinačné hodiny"'));
   assert.ok(logs[0].args.includes(""), "empty edit is persisted as empty, not silently skipped");
   assert.equal(logs[0].args.includes('$."Zdroj dát"'), false, "unrelated sources are untouched");

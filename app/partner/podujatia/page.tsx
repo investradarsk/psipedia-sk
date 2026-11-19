@@ -16,7 +16,7 @@ export default async function Page(){
  return <PartnerShell title="Moje podujatia" description="Podujatia priradené k vášmu Partner účtu. Úpravy vždy prechádzajú moderáciou.">
   <div className="partner-new-profile-cta">
     <div><span className="eyebrow">Podujatia</span><h2>Chýba vaše podujatie?</h2><p>Navrhnite nové podujatie. Po schválení vznikne ako koncept a redakcia rozhodne o publikovaní.</p></div>
-    <Link href="/partner/podujatia/nove" className="button button--dark">Pridať podujatie</Link>
+    <div className="partner-hero-actions"><Link href="/partner/podujatia/nove" className="button button--dark">Pridať podujatie</Link><Link href="/partner/prevziat?type=MANAGED_EVENT" className="button">Požiadať o správu podujatia</Link></div>
   </div>
   {items.length?<div className="partner-resource-grid">{items.map(item=><article className="partner-resource-card" key={item.resourceId}>
     <span>{item.eventType}</span><h2>{item.title}</h2>

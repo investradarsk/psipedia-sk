@@ -1,3 +1,4 @@
+import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
 import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync.ts";
 import type { BidirectionalAgendaKey } from "./notion-events-help-adapters.ts";
 import { syncEventAdminFields } from "./notion-event-field-sync.ts";
@@ -17,6 +18,8 @@ export async function syncOneAdminHelpRecord(input: {
   changedHelpFields?: readonly string[];
 }): Promise<"disabled" | "unlinked" | "synced" | "pending"> {
   if (input.bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") return "disabled";
+  // A checked review or partner owner suppresses all outbound mirrors.
+  if(await isAdminNotionSyncLocked(input.database,input.agenda,input.entityId))return "disabled";
   if (!Number.isSafeInteger(input.entityId) || input.entityId < 1) return "unlinked";
   if (!["events", "organizations", "adoptions", "help-cases", "lost-found"].includes(input.agenda))
     return "unlinked";

@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
 
-type ClaimDecision = "APPROVE" | "REJECT";
+type ClaimDecision = "APPROVE" | "REJECT" | "REVOKE";
 
-export function AdminPartnerClaimActions({ claimId }: { claimId: string }) {
+export function AdminPartnerClaimActions({ claimId, status="PENDING" }: { claimId: string; status?: string }) {
   const router = useRouter();
   const [decisionNote, setDecisionNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,7 +25,7 @@ export function AdminPartnerClaimActions({ claimId }: { claimId: string }) {
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Rozhodnutie sa nepodarilo uložiť.");
-      setMessage(action === "APPROVE" ? "Claim bol schválený." : "Claim bol zamietnutý.");
+      setMessage(action === "APPROVE" ? "Prístup bol schválený." : action === "REVOKE" ? "Prístup bol odobratý." : "Žiadosť bola zamietnutá.");
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Rozhodnutie sa nepodarilo uložiť.");
@@ -43,21 +43,21 @@ export function AdminPartnerClaimActions({ claimId }: { claimId: string }) {
           <label>Interná poznámka k rozhodnutiu<textarea rows={5} maxLength={2000} value={decisionNote} onChange={(event) => setDecisionNote(event.target.value)} /></label>
           <p className="admin-partner-hint">Poznámka zostáva v administrácii a neposiela sa Partnerovi e-mailom.</p>
           <div className="admin-partner-button-row">
-            <button type="button" disabled={busy} onClick={() => setPendingAction("APPROVE")}>Schváliť</button>
-            <button type="button" className="is-danger" disabled={busy} onClick={() => setPendingAction("REJECT")}>Zamietnuť</button>
+            {status === "PENDING" ? <><button type="button" disabled={busy} onClick={() => setPendingAction("APPROVE")}>Schváliť</button>
+            <button type="button" className="is-danger" disabled={busy} onClick={() => setPendingAction("REJECT")}>Zamietnuť</button></> : <button type="button" className="is-danger" disabled={busy} onClick={() => setPendingAction("REVOKE")}>Odobrať správu záznamu</button>}
           </div>
           {message ? <p role="status" className="admin-partner-message">{message}</p> : null}
         </div>
       </section>
       <AdminDestructiveConfirmDialog
         open={pendingAction !== null}
-        title={pendingAction === "APPROVE" ? "Schváliť prevzatie profilu?" : "Zamietnuť prevzatie profilu?"}
+        title={pendingAction === "APPROVE" ? "Schváliť správu záznamu?" : pendingAction === "REVOKE" ? "Odobrať správu záznamu?" : "Zamietnuť správu záznamu?"}
         description={pendingAction === "APPROVE"
-          ? "Schváliť claim a prideliť tomuto Partner účtu OWNER membership? Existujúci OWNER nebude odobratý."
-          : "Zamietnuť túto žiadosť o prevzatie profilu?"}
+          ? "Schváliť žiadosť a prideliť správu existujúceho záznamu? Predchádzajúci správca sa nikdy neodoberie automaticky."
+          : pendingAction === "REVOKE" ? "Odobrať tomuto partnerovi aktívne oprávnenie? Záznam a história zostanú zachované." : "Zamietnuť túto žiadosť o správu záznamu?"}
         affectedCount={1}
         affectedLabel="žiadosť"
-        confirmLabel={pendingAction === "APPROVE" ? "Schváliť prevzatie" : "Zamietnuť žiadosť"}
+        confirmLabel={pendingAction === "APPROVE" ? "Schváliť prevzatie" : pendingAction === "REVOKE" ? "Odobrať prístup" : "Zamietnuť žiadosť"}
         confirmVariant={pendingAction === "APPROVE" ? "primary" : "destructive"}
         pending={busy}
         onCancel={() => { if (!busy) setPendingAction(null); }}

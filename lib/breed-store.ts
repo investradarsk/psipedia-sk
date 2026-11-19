@@ -40,6 +40,11 @@ import {
 } from "./admin-breeds";
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 import { cleanBreedCoatDescription, cleanBreedEditorialList } from "./breed-long-description.ts";
+import { compareBreedSqlV2Detail } from "./breed-sql-v2-preview";
+import {
+  breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements,
+  breedSqlV2NewBreedStatements,
+} from "./breed-sql-v2-writer.mjs";
 
 export type BreedStatus = "draft" | "published";
 
@@ -1087,12 +1092,14 @@ export async function getManagedBreed(id: number) {
       .bind(id),
   ]);
   const row = (breedResult.results?.[0] ?? null) as unknown as Row | null;
-  return row
-    ? fromRow(row, {
-        articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
-        directory: (directoryResult.results as RelationIdRow[]).map((item) => item.id),
-      })
-    : null;
+  if (!row) return null;
+  // Step 4/6: optional parity diagnostics. The Admin still receives its
+  // current canonical legacy snapshot; no SQL/JSON cutover before backfill.
+  await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
+  return fromRow(row, {
+    articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
+    directory: (directoryResult.results as RelationIdRow[]).map((item) => item.id),
+  });
 }
 const getPublishedBreedUncached = async (slug: string) => {
   const database = db();
@@ -1102,6 +1109,8 @@ const getPublishedBreedUncached = async (slug: string) => {
     .bind(slug)
     .first<Row>());
   if (!row) return null;
+  // Notion/Admin/public comparison only; SQL values are not exposed yet.
+  await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
   const breed = fromRow(row, { public: true });
   breed.image = ownedBreedImage(breed.image);
   breed.gallery = (breed.gallery ?? [])
@@ -1601,13 +1610,17 @@ export async function createManagedBreed(input: ManagedBreedInput, user: string)
   const value = clean(input);
   const now = new Date().toISOString();
   const placeholders = Array.from({ length: 54 }, () => "?").join(",");
-  const result = await database
-    .prepare(
+  const insert = database.prepare(
       `INSERT INTO managed_breeds (slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json,created_at,updated_at,published_at,created_by,updated_by) VALUES (${placeholders})`,
-    )
-    .bind(...values(value), now, now, value.status === "published" ? now : null, user, user)
-    .run();
-  const id = Number(result.meta.last_row_id);
+    ).bind(...values(value), now, now, value.status === "published" ? now : null, user, user);
+  const shadow=breedSqlV2ShadowEnabled(env);
+  const result=shadow
+    ?(await database.batch([
+        insert,...breedSqlV2NewBreedStatements(database,value.slug,value),
+      ]))[0]
+    :await insert.run();
+  const id=Number(result.meta.last_row_id);
+  if(!Number.isSafeInteger(id)||id<1)throw Error("BREED_CREATE_ID_INVALID");
   await syncRelations(database, id, value, user);
   return getManagedBreed(id);
 }
@@ -1653,6 +1666,10 @@ export function buildManagedBreedUpdateStatements(
       "SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('BREED_UPDATE_CONFLICT', '$') END AS breed_update_guard",
     ),
     ...breedRelationStatements(database, id, value, user),
+    // Shadow every newly edited FCI/editorial/SEO/relation cell in the SAME
+    // CAS-guarded transaction. A stale full form cannot rewrite new SQL.
+    ...(breedSqlV2ShadowEnabled(env)
+      ?breedSqlV2FullSnapshotStatements(database,id,value):[]),
     // Read the exact committed version and relations before the batch commits.
     // A later writer must not leak its version into this caller's editor.
     database.prepare(`${select} WHERE id=?`).bind(id),
