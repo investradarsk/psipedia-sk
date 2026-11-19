@@ -4,7 +4,7 @@ import {DatabaseSync} from "node:sqlite";
 import {BREED_CONTROLLED_FIELDS,parseBreedControlledValues} from
   "../lib/breed-workcopy-controlled.mjs";
 import {MIRROR_KEYS,planBreedControlledMirrorBackfill,
-  breedControlledMirrorAtomicInsert} from
+  breedControlledMirrorAtomicInsert,isBreedControlledMirrorInsertOnlySql} from
   "../lib/breed-controlled-mirror-backfill.mjs";
 
 const SOURCE="f460b1e5-4454-4a10-9200-3b35106f9e32";
@@ -180,5 +180,25 @@ test("source values escaped safely, no SQL injection via selectable Notion text"
    assert.ok(sql.includes("'"));
    assert.equal(sql.split("INSERT INTO breed_notion_controlled_values").length,2);
    assert.equal(p.newRows.length,341);
+ }finally{f.db.close()}
+});
+
+
+test("production SQL guard accepts generated atomic INSERT containing REPLACE() scalar",()=>{
+ const f=fixture();
+ try{
+   const p=planBreedControlledMirrorBackfill({
+     links:f.links,pages:f.pages,existing:f.existing,expectedSource:SOURCE});
+   const sql=breedControlledMirrorAtomicInsert(p,SOURCE);
+   assert.match(sql,/replace\(lower\(l\.work_notion_page_id\)/i);
+   assert.equal(isBreedControlledMirrorInsertOnlySql(sql),true);
+   for(const dangerous of [
+     sql.replace("INSERT INTO breed_notion_controlled_values",
+       "REPLACE INTO breed_notion_controlled_values"),
+     sql+"\nDELETE FROM managed_breeds;",
+     sql.replace("FROM verified","FROM verified; DROP TABLE managed_breeds; --"),
+     sql.replace("FROM verified","FROM verified; UPDATE managed_breeds SET slug='x'; --"),
+     "INSERT INTO breed_notion_controlled_values VALUES (1,'a','b',0);",
+   ])assert.equal(isBreedControlledMirrorInsertOnlySql(dangerous),false);
  }finally{f.db.close()}
 });
