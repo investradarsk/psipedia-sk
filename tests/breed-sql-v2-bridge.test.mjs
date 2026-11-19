@@ -46,7 +46,7 @@ test("all 33 independent FCI text keys have ONE SQL plan",()=>{
  assert.equal(observed.size,33);
 });
 
-test("six editorial, seven SEO and six controlled numeric values map to the correct table",()=>{
+test("six editorial, eight SEO and six controlled numeric values map to the correct table",()=>{
  const editorFields={
    overview:"overview",coatCare:"coat_care",familyLife:"family_life",
    otherDogsLife:"other_dogs_life",curiosities:"curiosities",
@@ -59,7 +59,7 @@ test("six editorial, seven SEO and six controlled numeric values map to the corr
  const seoFields={
    title:"seo_title",description:"seo_description",focusKeyword:"seo_focus_keyword",
    canonicalUrl:"seo_canonical_url",ogTitle:"seo_og_title",
-   ogDescription:"seo_og_description",
+   ogDescription:"seo_og_description",ogImage:"seo_og_image",
  };
  for(const [key,col] of Object.entries(seoFields)){
    const plan=planBreedSqlV2FieldWrite("seo."+key,"test");
