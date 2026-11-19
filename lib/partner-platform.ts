@@ -60,6 +60,7 @@ export function partnerRoleHasPermission(role: PartnerRole, permission: PartnerP
 
 export async function requirePartnerPermission(accountId: string, resourceId: string, permission: PartnerPermission, database?: D1Database) {
   const membership = await requirePartnerMembership(accountId, resourceId, database);
+  if (parseHelpResourceId(resourceId) && !["RESOURCE_VIEW","MEMBERSHIP_VIEW"].includes(permission)) throw new PartnerAuthorizationError("Editor a komerčné nastavenia Pomoci psom ešte nie sú sprístupnené.",403);
   if (!ROLE_PERMISSIONS[membership.role].has(permission)) throw new PartnerAuthorizationError();
   return membership;
 }
