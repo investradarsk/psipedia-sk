@@ -126,5 +126,8 @@ test("relations and field level sync policy prevent accidental duplicate masters
   assert.match(BREED_SYNC_CUTOVER_POLICY.missingNotionField,/unchanged/);
   assert.match(BREED_SYNC_CUTOVER_POLICY.preserve347,/3 D1 rows/);
   const steps=BREED_SYNC_CUTOVER_POLICY.deployOrder;
-  assert.ok(steps.indexOf("additive SQL schema")<steps.indexOf("drop duplicated legacy columns and fallbacks"));
+  assert.equal(steps[0],"additive SQL schema");
+  assert.ok(steps.indexOf("enable guarded per-field shadow writes while old readers are active")<
+    steps.indexOf("feature-flag cutover of readers and writers in one controlled deployment"));
+  assert.match(steps[steps.length-1],/drop duplicated legacy columns and fallbacks/);
 });
