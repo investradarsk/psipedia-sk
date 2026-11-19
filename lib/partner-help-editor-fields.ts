@@ -110,7 +110,8 @@ export type HelpEditorValue = string | number | boolean | null;
 export type HelpEditorPatch = Record<string, HelpEditorValue>;
 
 export class HelpEditorValidationError extends Error {
-  constructor(message: string, readonly status = 400) { super(message); this.name = "HelpEditorValidationError"; }
+  readonly status: number;
+  constructor(message: string, status = 400) { super(message); this.status = status; this.name = "HelpEditorValidationError"; }
 }
 function validDate(v: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
