@@ -113,7 +113,9 @@ test("0170 SQL first public filters, secondary categories and contact clears are
   assert.match(direct,/planDirectorySecondaryCategorySqlMirror/);
   assert.match(direct,/const guard=plans\[0\]\[0\]/);
   assert.match(direct,/statements\.push\(database\.prepare\(guard\.sql\)/);
-  assert.match(writer,/canonicalContactColumns/);
+  assert.match(writer,/omitDirectorySqlContactAliases/);
+  assert.match(writer,/readDirectorySqlBackedContacts/);
+  assert.match(writer,/\["publicPhone", "public_phone"\]/);
   assert.match(writer,/String\(patch\[field\] \?\? ""\)/);
   assert.match(overlay,/empty string is an intentional clear/);
   assert.match(preflight,/PRAGMA table_info\(directory_profiles\)/);
