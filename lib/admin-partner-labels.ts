@@ -15,6 +15,7 @@ const statuses: Record<string, string> = {
   SUSPENDED: "Pozastavené",
   DEACTIVATED: "Deaktivované",
   ARCHIVED: "Archivované",
+  REVOKED: "Prístup odobratý",
   NEW: "Nové",
   NONE: "Bez zhody",
 };
