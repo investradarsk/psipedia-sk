@@ -661,6 +661,8 @@ function statusLabel(status: string) {
   if (status === "QUARANTINED") return "Vyžaduje dodatočnú kontrolu";
   if (status === "APPROVED") return "Schválené";
   if (status === "REJECTED") return "Zamietnuté";
+  if (status === "RETURNED") return "Vrátené na doplnenie";
+  if (status === "DRAFT") return "Rozpracovaný koncept";
   return "Zrušené";
 }
 
@@ -677,7 +679,7 @@ export async function listPartnerNewProfiles(accountId: string, dbInput?: D1Data
     JOIN moderation_submissions s ON s.id=m.submission_id
     LEFT JOIN directory_profiles d ON m.intended_resource_type='DIRECTORY_PROFILE' AND d.id=m.resolved_canonical_id
     LEFT JOIN help_organizations o ON m.intended_resource_type='HELP_ORGANIZATION' AND o.id=m.resolved_canonical_id
-    WHERE m.partner_account_id=?1
+    WHERE m.partner_account_id=?1 AND s.status<>'DRAFT'
     ORDER BY s.created_at DESC,s.id DESC LIMIT 200
   `).bind(accountId).all<{
     id:string;status:string;rejectionReasonCode:string|null;createdAt:string;updatedAt:string;
@@ -698,7 +700,7 @@ export async function listPartnerNewProfiles(accountId: string, dbInput?: D1Data
         ? `/adresar/${row.directoryCategory}/${row.directorySlug}`
         : row.resourceType === "HELP_ORGANIZATION" && row.organizationSlug ? `/organizacie/${row.organizationSlug}` : null
       : null,
-    canWithdraw: activeStatus(row.status),
+    canWithdraw: !row.resolvedCanonicalId && activeStatus(row.status),
   }));
 }
 
