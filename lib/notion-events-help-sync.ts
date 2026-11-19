@@ -1,3 +1,4 @@
+import { mirrorAdminReviewFlagToNotion } from "./notion-admin-review-field";
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
 import { isHelpFieldEventAgenda, changedNotionHelpFields, helpFieldSnapshot } from "./notion-help-field-events.ts";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
@@ -848,13 +849,29 @@ async function syncAgenda(input: {
     if (ownerTargetedImport) break;
     const entityId = sourceId(source);
     if (entityId === null) continue;
+    let mapping = mappingByEntity.get(entityId) ?? null;
+    // The isolated Odkontrolované checkbox remains mirrorable even when
+    // editorial fields are locked. Only exact existing mappings are eligible.
+    if (mapping && input.mode === "sync") {
+      const mappedPage = pagesById.get(mapping.notion_page_id);
+      if (mappedPage) {
+        try {
+          await mirrorAdminReviewFlagToNotion({
+            database: input.database, bindings: input.bindings,
+            agenda: input.definition.key, entityId,
+            dataSourceId: target.dataSourceId, page: mappedPage,
+          });
+        } catch (error) {
+          logFailure(summary, { entityId, operation: "mirror_review_checkbox", error });
+        }
+      }
+    }
     // Review is an Admin/D1-owned hard lock. It blocks both Notion pull
     // and push, including targeted imports, hashes and automatic backfills.
     if (await isAdminNotionSyncLocked(input.database, input.definition.key, entityId)) {
       summary.unchanged += 1;
       continue;
     }
-    let mapping = mappingByEntity.get(entityId) ?? null;
     // Existing mapped Events now use targeted field events on Admin saves and
     // signed Notion webhooks. Do not run an hourly whole-profile replay over
     // their pending/invalid individual fields. Keep new drafts/bootstrap.
