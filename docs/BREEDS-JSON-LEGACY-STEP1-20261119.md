@@ -31,6 +31,12 @@ Vlastná príprava migrácie 0173, ktorá bez výnimky zakazovala JSON a predča
 - Polia, ktoré dnes nie sú viditeľné na verejnom webe, môžu stále slúžiť Notion synchronizácii a Adminu. Samotná neviditeľnosť nie je dôkaz, že sa dajú vymazať.
 - Žiadny z uvedených aktívnych JSON stĺpcov nesmie krok 1 odstrániť; o ich konečnej SQL/JSON podobe sa rozhodne v kroku 2.
 
+## Read-only kontrola produkčnej D1 – pripravená, ešte nespustená
+
+Po mergeri tohto PR sa dá v GitHub Actions spustiť **Production Plemená JSON – READ ONLY audit (manual)**. Zadaj potvrdenie `AUDIT-BREED-JSON-READONLY`. Workflow vykoná iba agregované `SELECT` dotazy nad živými stĺpcami `managed_breeds` (počet riadkov, vyplnených a poškodených JSON hodnôt) a uloží report. Nikdy nevypisuje osobné alebo celé textové údaje, nič nemení a nepovoľuje `DROP`.
+
+**Pozor:** samotný počet vyplnených JSON hodnôt nie je dôkaz, že ide o historické alebo nepotrebné údaje. Read-only report doplní rozhodnutie v kroku 2.
+
 ## Ako overiť
 ```bash
 node scripts/audit-breed-json-legacy.mjs
