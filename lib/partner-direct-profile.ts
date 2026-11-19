@@ -105,13 +105,19 @@ export async function savePartnerManagedProfile(input: {
         actorType:"SYSTEM",actorRef},database);
     } else if(canonical.locationId&&["address","city","district","region","countryCode"].some(key=>key in effectivePatch)){
       await reconcileGeoAfterSourceMutation({targetType:"ORGANIZATION_LOCATION",targetId:canonical.locationId,
-        actorType:"PARTNER",actorRef},database);
+        actorType:"SYSTEM",actorRef},database);
     }
   }catch(error){console.error("Partner direct profile geo reconciliation failed",error);}
   if(input.publicOrigin&&canonical.publicHref){
-    try{await invalidateVersionedPublicHtmlCacheUrl(new URL(canonical.publicHref,input.publicOrigin),
-      input.workerVersionId??(env as unknown as {CF_VERSION_METADATA?:{id?:string}}).CF_VERSION_METADATA?.id);}
-    catch(error){console.error("Partner direct profile cache invalidation failed",error);}
+    const version=input.workerVersionId??(env as unknown as {CF_VERSION_METADATA?:{id?:string}}).CF_VERSION_METADATA?.id;
+    const parts=canonical.publicHref.split("/").filter(Boolean);
+    const paths=[canonical.publicHref];
+    if(parts[0]==="adresar"&&parts[1])paths.push(`/adresar/${parts[1]}`);
+    if(parts[0]==="organizacie")paths.push("/organizacie");
+    for(const href of [...new Set(paths)]){
+      try{await invalidateVersionedPublicHtmlCacheUrl(new URL(href,input.publicOrigin),version);}
+      catch(error){console.error("Partner direct profile cache invalidation failed",error);}
+    }
   }
   return {resourceId:input.resourceId,baseUpdatedAt:nowIso,changedFields,saved:true};
 }
