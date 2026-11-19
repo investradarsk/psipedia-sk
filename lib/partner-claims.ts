@@ -1,10 +1,11 @@
 import { getPartnerAccountById, getPartnerDatabase } from "./partner-auth-store";
 import { queuePartnerLifecycleNotification } from "./partner-email";
 import { appendPartnerAuditEvent, type PartnerRole } from "./partner-platform";
+import { createPartnerHelpClaim, cancelPartnerHelpClaim, getPartnerHelpPreview, listPartnerHelpClaims, isPartnerHelpType } from "./partner-help-claims";
 
-export const partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT"] as const;
+export const partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT", "ADOPTION_DOG", "LOST_FOUND_DOG", "HELP_CASE"] as const;
 export type PartnerClaimableResourceType = (typeof partnerClaimableResourceTypes)[number];
-export type PartnerVerifiableResourceType = Exclude<PartnerClaimableResourceType, "MANAGED_EVENT">;
+export type PartnerVerifiableResourceType = Extract<PartnerClaimableResourceType, "DIRECTORY_PROFILE" | "HELP_ORGANIZATION">;
 export const partnerClaimStatuses = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
 export type PartnerClaimStatus = (typeof partnerClaimStatuses)[number];
 export const partnerVerificationStates = ["UNVERIFIED", "PENDING_VERIFICATION", "VERIFIED", "REJECTED"] as const;
@@ -60,6 +61,7 @@ export async function getClaimablePartnerResourcePreview(
   if (!isPartnerClaimableResourceType(entityTypeValue)) return null;
   const id = canonicalId(canonicalIdValue);
   const db = getPartnerDatabase(database);
+  if (isPartnerHelpType(entityTypeValue)) return getPartnerHelpPreview(entityTypeValue,id,db);
   if (entityTypeValue === "MANAGED_EVENT") {
     const row = await db.prepare(
       "SELECT id,title,slug FROM managed_events WHERE id=?1 AND status='published' AND published_at IS NOT NULL LIMIT 1",
@@ -148,6 +150,7 @@ export async function createPartnerClaim(input: {
 }) {
   const database = getPartnerDatabase(input.database);
   await activeAccount(input.accountId, database);
+  if (isPartnerHelpType(input.entityType)) return createPartnerHelpClaim({ ...input, entityType: input.entityType, database });
   if (!isPartnerClaimableResourceType(input.entityType)) {
     throw new PartnerClaimError("Tento typ profilu zatiaľ nie je možné prevziať.");
   }
@@ -235,6 +238,7 @@ export async function cancelPartnerClaim(input: {
 }) {
   const database = getPartnerDatabase(input.database);
   await activeAccount(input.accountId, database);
+  if (input.claimId.startsWith("help-claim-")) return cancelPartnerHelpClaim({...input,database});
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(input.claimId)) throw new PartnerClaimError("Neplatná žiadosť.");
   const claim = await database.prepare(
     "SELECT id,status FROM partner_claims WHERE id=?1 AND account_id=?2 LIMIT 1",
@@ -296,11 +300,12 @@ export async function listPartnerClaims(accountId: string, database?: D1Database
     ORDER BY c.created_at DESC,c.id DESC
     LIMIT 150
   `).bind(accountId).all<ClaimHistoryRow>()).results;
-  return rows.map((row) => ({
+  const helpClaims=await listPartnerHelpClaims(accountId,database);
+  return [...rows.map((row) => ({
     ...row,
     publicHref: historyHref(row),
     verificationState: (row.verificationStatus ?? "UNVERIFIED") as PartnerVerificationState,
-  }));
+  })),...helpClaims].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,150);
 }
 
 export async function getPartnerResourceVerificationState(
