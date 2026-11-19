@@ -21,7 +21,12 @@ on:
       - "tests/breed-sql-v2-atomic-writers.test.mjs"
       - "lib/notion-breed-workcopy-controlled.ts"
       - "lib/notion-breed-workcopy-direct-field.ts"
-      - "tests/breed-sql-v2-cutover-gate.test.mjs tests/breed-sql-v2-atomic-writers.test.mjs"
+      - "tests/breed-sql-v2-cutover-gate.test.mjs"
+      - "tests/breed-sql-v2-atomic-writers.test.mjs"
+      - "lib/breed-sql-v2-shadow-readiness.mjs"
+      - "scripts/production-breed-sql-v2-shadow-audit.mjs"
+      - ".github/workflows/production-breed-sql-v2-shadow-audit.yml"
+      - "tests/breed-sql-v2-shadow-readiness.test.mjs"
       - "lib/breed-sql-v2-backfill.mjs"
       - "docs/BREEDS-SQL-JSON-STEP5-20261119.md"
       - "scripts/production-breed-sql-v2-backfill.mjs"
@@ -49,6 +54,10 @@ jobs:
         run: node scripts/check-migration-safety.mjs
       - name: Verify full 90-field storage contract and SQL schema
         run: node --test tests/breed-storage-decision.test.mjs tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-bridge.test.mjs tests/breed-sql-v2-backfill.test.mjs tests/breed-sql-v2-cutover-gate.test.mjs
+      - name: Verify post-backfill shadow readiness and its SELECT-only runner
+        run: |
+          node --check scripts/production-breed-sql-v2-shadow-audit.mjs
+          node --test tests/breed-sql-v2-shadow-readiness.test.mjs
       - name: Verify isolated owner-only production schema 0174 runner
         run: |
           node --check scripts/production-d1-breed-0174.mjs
