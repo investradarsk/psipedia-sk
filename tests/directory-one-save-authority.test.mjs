@@ -9,6 +9,7 @@ import {
 } from "../lib/notion-breeder-field-events.ts";
 import { normalizeManagedDirectoryProfileInput, buildManagedDirectoryProfileUpdateStatement } from "../lib/directory-store.ts";
 import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
+import { overlayDirectorySqlContacts } from "../lib/directory-sql-contacts.ts";
 
 const categories = [
   "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
@@ -124,7 +125,16 @@ test("Real SQLite canonical UPDATE: Save all Test, change Facebook only, retain 
       ).first();
       assert.ok(saved, "D1 update must succeed with matching revision");
       row = read();
-      return readDirectoryPublicContacts(JSON.parse(row.source_data_json), row.website_url ?? "");
+      // The persisted SQL columns are now the sole contact owner. JSON keeps
+      // only untouched legacy metadata, not duplicated saved contact values.
+      const persisted = JSON.parse(row.source_data_json);
+      for (const key of ["Telefón","Telefon","phone","E-mail","Email","email",
+        "Web","Webstránka","Facebook","Instagram"])
+        assert.equal(Object.hasOwn(persisted,key),false,key + " must not be duplicated");
+      return readDirectoryPublicContacts(
+        overlayDirectorySqlContacts(persisted,row),
+        row.website_url ?? "",
+      );
     };
 
     let contacts = await update(base, "2026-11-16T06:01:00.000Z");

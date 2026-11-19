@@ -30,9 +30,14 @@ function normalizedJsonContact(key: string): string {
 }
 
 export function missingDirectoryContactSql(field: ContactField): string {
-  const fallbacks = aliases[field].map(normalizedJsonContact);
-  if (field === "website") fallbacks.push(normalizedContact("website_url"));
-  return "COALESCE(" + fallbacks.join(", ") + ", '') = ''";
+  // Populated (including intentionally cleared '') SQL is authoritative.
+  // Legacy JSON is consulted ONLY when the SQL column is NULL/unmigrated.
+  // Match overlayDirectorySqlContacts/readDirectorySqlBackedContacts.
+  const column = field === "phone" ? "public_phone" :
+    field === "email" ? "public_email" : "website_url";
+  const legacy = "COALESCE(" + aliases[field].map(normalizedJsonContact).join(", ") + ", '') = ''";
+  return "(CASE WHEN " + column + " IS NOT NULL THEN " +
+    normalizedContact(column) + " IS NULL ELSE " + legacy + " END)";
 }
 
 export const RAW_MISSING_PHONE_SQL = missingDirectoryContactSql("phone");

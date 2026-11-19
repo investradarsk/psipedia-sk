@@ -68,6 +68,25 @@ test("central hard-delete service covers every Automation V1 canonical table wit
   assert.match(deleteService, /Úplne vymazať možno iba koncept\./);
 });
 
+test("canonical hard delete observes lifecycle 0164 instead of bypassing its guard", () => {
+  // Only an unlinked DRAFT gets a READY_LOCAL receipt in the same D1 batch.
+  for (const mapping of ["event_notion_sync", "directory_notion_sync", "notion_agenda_sync"]) {
+    assert.ok(deleteService.includes(mapping), "missing Notion mapping guard: " + mapping);
+  }
+  assert.ok(deleteService.includes("INSERT INTO admin_record_tombstones"));
+  assert.ok(deleteService.includes("\x27READY_LOCAL\x27"));
+  assert.ok(deleteService.includes("state=\x27COMPLETE\x27,completed_at="));
+  assert.ok(deleteService.includes("NOT (${localOnlyGuard})"));
+  assert.ok(deleteService.includes("WHERE c.id=? AND c.status=? AND ${localOnlyGuard}"));
+  assert.ok(deleteService.includes("USE_VERIFIED_LIFECYCLE_DELETE"));
+  const receiptInsert = deleteService.indexOf("INSERT INTO admin_record_tombstones");
+  const canonicalDelete = deleteService.indexOf("DELETE FROM ${config.table}");
+  const receiptComplete = deleteService.indexOf("state=\x27COMPLETE\x27,completed_at=");
+  assert.ok(receiptInsert >= 0 && receiptInsert < canonicalDelete);
+  assert.ok(canonicalDelete < receiptComplete);
+  assert.match(deleteService, /database\.batch\(statements\)/);
+});
+
 test("delete captures suppressions before provenance removal and preserves receipts/history", () => {
   const suppressionIndex = deleteService.indexOf("INSERT OR IGNORE INTO automation_record_suppressions");
   const provenanceDeleteIndex = deleteService.indexOf("DELETE FROM canonical_external_provenance");

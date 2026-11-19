@@ -11,6 +11,26 @@ type EntityConfig = {
   labelColumn: string;
 };
 
+// The lifecycle migration (0164) allows a hard delete only after a durable
+// READY_LOCAL receipt. Canonical draft deletion is local-only: mapped Notion
+// records must instead use the owner-controlled lifecycle flow. The predicates
+// are checked again inside the D1 batch, so a newly inserted link cannot race
+// the preflight check and be deleted locally.
+const localOnlyNotionGuards: Record<CanonicalDraftDeleteEntityType, string> = {
+  EVENT: "NOT EXISTS (SELECT 1 FROM event_notion_sync WHERE event_id=c.id) AND NOT EXISTS (SELECT 1 FROM notion_agenda_sync WHERE agenda='events' AND entity_id=c.id)",
+  DIRECTORY: "NOT EXISTS (SELECT 1 FROM directory_notion_sync WHERE directory_profile_id=c.id)",
+  ORGANIZATION: "NOT EXISTS (SELECT 1 FROM notion_agenda_sync WHERE agenda='organizations' AND entity_id=c.id)",
+  HELP_ITEM: "NOT EXISTS (SELECT 1 FROM notion_agenda_sync WHERE agenda='help-cases' AND entity_id=c.id)",
+  FOSTER: "NOT EXISTS (SELECT 1 FROM notion_agenda_sync WHERE agenda='help-cases' AND entity_id=c.id)",
+  ADOPTION: "NOT EXISTS (SELECT 1 FROM notion_agenda_sync WHERE agenda='adoptions' AND entity_id=c.id)",
+  LOST_FOUND: "NOT EXISTS (SELECT 1 FROM notion_agenda_sync WHERE agenda='lost-found' AND entity_id=c.id)",
+};
+
+const lifecycleKind: Record<CanonicalDraftDeleteEntityType, string> = {
+  EVENT: "events", DIRECTORY: "directory", ORGANIZATION: "organizations",
+  HELP_ITEM: "help", FOSTER: "help", ADOPTION: "adoptions", LOST_FOUND: "lost-found",
+};
+
 const entityConfigs: Record<CanonicalDraftDeleteEntityType, EntityConfig> = {
   EVENT: {
     table: "managed_events",
@@ -238,8 +258,42 @@ export async function deleteCanonicalDraft(input: {
   const at = (input.now ?? new Date()).toISOString();
   const actorRef = await safeAuditActorRef(input.actor);
   const id = input.canonicalEntityId;
+  const kind = lifecycleKind[input.entityType];
+  const localOnlyGuard = localOnlyNotionGuards[input.entityType];
+
+  // Never silently transform a pending owner-controlled deletion into a local
+  // draft deletion. Nor may a linked Notion page be left behind after D1 delete.
+  const [existingReceipt, linkedNotionPage] = await Promise.all([
+    database.prepare("SELECT 1 AS present FROM admin_record_tombstones WHERE kind=? AND record_id=? LIMIT 1")
+      .bind(kind, id).first<{ present: number }>(),
+    database.prepare(`SELECT 1 AS linked FROM ${config.table} c WHERE c.id=? AND NOT (${localOnlyGuard}) LIMIT 1`)
+      .bind(id).first<{ linked: number }>(),
+  ]);
+  if (existingReceipt || linkedNotionPage) {
+    throw new CanonicalDraftDeleteError(
+      "Koncept má rozpracované odstránenie alebo prepojenie s Notion. Použite bezpečné odstránenie záznamu.",
+      "PROTECTED_DEPENDENCY",
+    );
+  }
+
   const draftExists = `EXISTS (SELECT 1 FROM ${config.table} c WHERE c.id=? AND c.status=?)`;
   const statements: D1PreparedStatement[] = [];
+
+  // The receipt and the actual delete live in one atomic D1 batch. The
+  // conditional INSERT independently rechecks status + all Notion mappings;
+  // if either changed, the guarded DELETE aborts and rolls the batch back.
+  const label = String(current[config.labelColumn] ?? "").trim() || "Bez názvu";
+  const category = String(current.category ?? current.event_type ?? current.type ?? kind).trim() || kind;
+  const externalKey = input.entityType === "DIRECTORY" || input.entityType === "ORGANIZATION"
+    ? String(current.import_key ?? "").trim() || null : null;
+  statements.push(database.prepare(`INSERT INTO admin_record_tombstones
+      (kind,record_id,record_slug,record_external_key,record_name,record_category,
+       notion_targets_json,state,created_by,created_at,updated_at)
+    SELECT ?,c.id,c.slug,?,?,?,'[]','READY_LOCAL',?,?,?
+    FROM ${config.table} c
+    WHERE c.id=? AND c.status=? AND ${localOnlyGuard}`).bind(
+      kind, externalKey, label, category, actorRef, at, at, id, config.draftStatus,
+    ));
 
   statements.push(database.prepare(`INSERT OR IGNORE INTO automation_record_suppressions
       (entity_type,external_source_url,external_record_id,suppression_reason,created_by,created_at)
@@ -330,12 +384,15 @@ export async function deleteCanonicalDraft(input: {
 
   statements.push(database.prepare(`DELETE FROM ${config.table}
     WHERE id=? AND status=?`).bind(id, config.draftStatus));
+  statements.push(database.prepare(`UPDATE admin_record_tombstones
+      SET state='COMPLETE',completed_at=?,updated_at=?
+      WHERE kind=? AND record_id=? AND state='READY_LOCAL'`).bind(at, at, kind, id));
 
   try {
     await database.batch(statements);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (/foreign key|constraint|restrict/i.test(message)) {
+    if (/foreign key|constraint|restrict|USE_VERIFIED_LIFECYCLE_DELETE|RECORD_TOMBSTONED|RECORD_REMOVAL_PENDING/i.test(message)) {
       throw new CanonicalDraftDeleteError(
         "Koncept má naviazané chránené údaje a nemožno ho bezpečne úplne vymazať.",
         "PROTECTED_DEPENDENCY",

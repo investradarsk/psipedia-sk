@@ -1,4 +1,4 @@
-import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 import { HELP_ADMIN_DOMAIN_SQL } from "./help-admin-query.ts";
 import type { EditableSeo } from "./content-seo.ts";
 import type { CanonicalSourceRecord, ReconciliationValue } from "./notion-bulk-reconciliation.ts";
@@ -99,11 +99,11 @@ async function rows(database: D1Database, sql: string, targetId?: number) {
 export async function loadNotionBulkServices(database: D1Database) {
   const sourceRows = await rows(database, `SELECT id,slug,name,category,status,excerpt,description,services_json,qualifications_json,
     city,district,region,address,postal_code,street,house_number,address_format,service_address_confirmation,price_note,
-    website_url,internal_email,image_url,image_key,source_data_json,verified,featured,created_at,updated_at,published_at,archived_at,seo_json
+    website_url,public_phone,public_email,facebook_url,instagram_url,internal_email,image_url,image_key,source_data_json,verified,featured,created_at,updated_at,published_at,archived_at,seo_json
     FROM directory_profiles ORDER BY id ASC`);
 
   return sourceRows.map((row) => {
-    const contacts = readDirectoryPublicContacts(importData(row.source_data_json), s(row.website_url));
+    const contacts = readDirectorySqlBackedContacts(importData(row.source_data_json), row);
     const seo = jsonObject(row.seo_json) ?? {};
     const url = `${SITE_URL}/adresar/${s(row.category)}/${s(row.slug)}`;
     return source(row.id, row.name, url, {

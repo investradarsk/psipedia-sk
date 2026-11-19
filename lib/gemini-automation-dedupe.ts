@@ -1,6 +1,7 @@
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { createGeminiDiscoveryRequest, parseGeminiDiscoveryEnvelope, type GeminiDiscoveryCandidateV1 } from "./gemini-automation-discovery-contract.ts";
-import { readDirectoryPublicContacts, type DirectoryImportData } from "./directory-profile-metadata.ts";
+import type { DirectoryImportData } from "./directory-profile-metadata.ts";
+import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 import type { GeminiD1 } from "./gemini-automation-store.ts";
 import { geminiCandidateSignals, normalizeGeminiCity, normalizeGeminiEmail,
   normalizeGeminiName, normalizeGeminiPhone, normalizeGeminiWebsite, isSharedGeminiDomain,
@@ -18,7 +19,8 @@ export type GeminiDedupeResult = {
 };
 type DirectoryRow = {
   id: number; category: string; status: string; name: string; city: string;
-  website_url: string | null; source_data_json: string;
+  website_url: string | null; public_phone: string | null; public_email: string | null;
+  facebook_url: string | null; instagram_url: string | null; source_data_json: string;
 };
 type Matched = { row: DirectoryRow; reasons: string[]; signals: string[] };
 const MAX_CANONICAL_ROWS = 10000;
@@ -38,7 +40,7 @@ function parsePublicContacts(raw: string): DirectoryImportData {
   } catch { throw new Error("GEMINI_DEDUPE_CANONICAL_DATA_INVALID"); }
 }
 function rowSignals(row: DirectoryRow): GeminiSignals {
-  const contacts = readDirectoryPublicContacts(parsePublicContacts(row.source_data_json ?? "{}"), row.website_url ?? "");
+  const contacts = readDirectorySqlBackedContacts(parsePublicContacts(row.source_data_json ?? "{}"), row);
   return {
     name: normalizeGeminiName(row.name), city: normalizeGeminiCity(row.city),
     website: normalizeGeminiWebsite(row.website_url || contacts.website),
@@ -101,7 +103,7 @@ export async function checkGeminiCandidateDedupe(
   if (!candidate.name) throw new Error("GEMINI_DEDUPE_INVALID_CANDIDATE");
   const rejected = await isGeminiCandidateRejected(db, input);
   if (rejected) return result("REJECTED_BEFORE", ["REJECTION_MEMORY_MATCH"], [rejected.identityKind]);
-  const rows = await db.prepare(`SELECT id, category, status, name, city, website_url, source_data_json
+  const rows = await db.prepare(`SELECT id, category, status, name, city, website_url, public_phone, public_email, facebook_url, instagram_url, source_data_json
     FROM directory_profiles ORDER BY id ASC LIMIT ?`).bind(MAX_CANONICAL_ROWS + 1).all<DirectoryRow>();
   if (rows.results.length > MAX_CANONICAL_ROWS) throw new Error("GEMINI_DEDUPE_CANONICAL_LIMIT");
   let exact: Matched | null = null;

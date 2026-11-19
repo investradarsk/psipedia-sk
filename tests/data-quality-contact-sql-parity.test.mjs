@@ -8,7 +8,7 @@ import {
   RAW_MISSING_WEBSITE_SQL,
   missingDirectoryContactSql,
 } from "../lib/data-quality-contact-sql.ts";
-import {readDirectoryPublicContacts} from "../lib/directory-profile-metadata.ts";
+import {readDirectorySqlBackedContacts} from "../lib/directory-sql-contacts.ts";
 
 /** Match Data Quality's read-only profile SQL with canonical JS contact aliases. */
 const cases=[
@@ -35,7 +35,7 @@ const cases=[
 test("blank aliases do not shadow later contact aliases or website_url",()=>{
   const sqlite=new DatabaseSync(":memory:");
   try {
-    sqlite.exec("CREATE TABLE directory_profiles (source_data_json TEXT, website_url TEXT)");
+    sqlite.exec("CREATE TABLE directory_profiles (source_data_json TEXT, website_url TEXT, public_phone TEXT, public_email TEXT)");
     const insert=sqlite.prepare("INSERT INTO directory_profiles (source_data_json,website_url) VALUES (?,?)");
     const read=sqlite.prepare(
       "SELECT " +
@@ -47,14 +47,16 @@ test("blank aliases do not shadow later contact aliases or website_url",()=>{
     for(const c of cases){
       insert.run(
         typeof c.contacts==="string"?c.contacts:JSON.stringify(c.contacts),
-        c.website
+        c.website || null
       );
     }
     const rows=read.all();
     assert.equal(rows.length,cases.length);
     cases.forEach((c,index)=>{
       const parsed=typeof c.contacts==="string"?null:c.contacts;
-      const expected=readDirectoryPublicContacts(parsed,c.website);
+      const expected=readDirectorySqlBackedContacts(parsed,{
+        website_url:c.website || null,public_phone:null,public_email:null,
+      });
       assert.equal(rows[index].missing_phone,expected.phone?0:1,c.name+": phone");
       assert.equal(rows[index].missing_email,expected.email?0:1,c.name+": email");
       assert.equal(rows[index].missing_website,expected.website?0:1,c.name+": website");
@@ -84,4 +86,38 @@ test("Data Quality count, issue, priority filters use identical contact SQL expr
   assert.match(source,/missing_phone/);
   assert.match(source,/profiles_with_issues/);
   assert.match(source,/const IMPORTANT_PROFILE_ISSUE_SQL/);
+});
+
+
+test("SQL contacts and explicit SQL clears take priority over stale JSON aliases", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE directory_profiles (source_data_json TEXT, website_url TEXT, public_phone TEXT, public_email TEXT)");
+    const previous = JSON.stringify({
+      "Telefón":"old phone","E-mail":"old email","Web":"https://old.example",
+    });
+    const records = [
+      {phone:"new phone",email:"new email",website:"https://new.example"},
+      {phone:"",email:"",website:""},
+      {phone:null,email:null,website:null},
+    ];
+    const insert = db.prepare("INSERT INTO directory_profiles (source_data_json,website_url,public_phone,public_email) VALUES (?,?,?,?)");
+    for (const row of records) insert.run(previous,row.website,row.phone,row.email);
+    const data = db.prepare("SELECT " +
+      RAW_MISSING_PHONE_SQL + " AS missing_phone," +
+      RAW_MISSING_EMAIL_SQL + " AS missing_email," +
+      RAW_MISSING_WEBSITE_SQL + " AS missing_website," +
+      "source_data_json,website_url,public_phone,public_email FROM directory_profiles ORDER BY rowid").all();
+    assert.deepEqual(data.map(row=>[row.missing_phone,row.missing_email,row.missing_website]),[
+      [0,0,0],[1,1,1],[0,0,0],
+    ]);
+    const current = data.map(row=>readDirectorySqlBackedContacts(JSON.parse(row.source_data_json),row));
+    assert.deepEqual(current.map(x=>[x.phone,x.email,x.website]),[
+      ["new phone","new email","https://new.example"],
+      ["","",""],
+      ["old phone","old email","https://old.example"],
+    ]);
+  } finally {
+    db.close();
+  }
 });

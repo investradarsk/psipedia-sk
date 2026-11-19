@@ -1021,7 +1021,7 @@ jobs:
     name: SEO-RECOVERY-1 local indexability matrix
     if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true'
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     permissions:
       contents: read

@@ -78,19 +78,33 @@ test("admin API is authenticated, same-origin JSON only and has explicit error c
   assert.doesNotMatch(api,/applyAutomationUpdate|\.prepare\(|upsertAutomation/);
 });
 
-test("canonical editors receive suggestions server-side and keep local dirty state synchronized", async () => {
+test("editor suggestion contracts reflect retirement of legacy update API without suppressing active editor guards", async () => {
+  // This route is deliberately retired (410). Directory and Event editor
+  // pages no longer request legacy suggestions on their server render;
+  // requiring those removed imports in CI would turn a safe cleanup into a
+  // false regression. Assert their absence explicitly.
+  const [retired, directoryPage, eventPage] = await Promise.all([
+    read("app/api/admin/automation-update-suggestions/[origin]/[id]/fields/[field]/route.ts"),
+    read("app/admin/adresar/[id]/page.tsx"),
+    read("app/admin/podujatia/[id]/page.tsx"),
+  ]);
+  assert.match(retired, /legacyAutomationRetiredResponse/);
+  for (const source of [directoryPage, eventPage]) {
+    assert.doesNotMatch(source, /listCanonicalAutomationUpdateSuggestions/);
+  }
+
+  // The remaining editors still have distinct server-side wiring, including
+  // async streaming of Organization suggestions. Preserve those guards.
   const pages = [
-    ["app/admin/adresar/[id]/page.tsx", "DIRECTORY"],
-    ["app/admin/organizacie/[id]/page.tsx", "ORGANIZATION"],
-    ["app/admin/podujatia/[id]/page.tsx", "EVENT"],
-    ["app/admin/adopcie/[id]/page.tsx", "ADOPTION"],
-    ["app/admin/pomoc/[id]/page.tsx", "listCanonicalAutomationUpdateSuggestions"],
-    ["app/admin/stratene-najdene/[id]/page.tsx", "LOST_FOUND"],
+    ["app/admin/organizacie/[id]/page.tsx", "ORGANIZATION", "automationSuggestionsPromise="],
+    ["app/admin/adopcie/[id]/page.tsx", "ADOPTION", "automationSuggestions="],
+    ["app/admin/pomoc/[id]/page.tsx", "listCanonicalAutomationUpdateSuggestions", "automationSuggestions="],
+    ["app/admin/stratene-najdene/[id]/page.tsx", "LOST_FOUND", "automationSuggestions="],
   ];
-  for (const [path, marker] of pages) {
+  for (const [path, marker, prop] of pages) {
     const page = await read(path);
     assert.match(page, /listCanonicalAutomationUpdateSuggestions/);
-    assert.match(page, /automationSuggestions=/);
+    assert.ok(page.includes(prop), path + " must pass suggestions to its editor");
     assert.match(page, new RegExp(marker));
   }
 

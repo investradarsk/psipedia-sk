@@ -55,8 +55,9 @@ test("all ten Directory categories save Popis, SEO and contacts independently wi
    assert.equal(ctx.writes[0].args[0],"x");
    assert.match(ctx.writes[1].sql,/seo_json = json_set/);
    assert.equal(ctx.writes[1].args[1],"Test SEO");
-   assert.match(ctx.writes[2].sql,/source_data_json = json_set/);
-   assert.equal(ctx.writes[2].args[1],"0912345678");
+   assert.match(ctx.writes[2].sql,/source_data_json = json_remove/);
+   assert.match(ctx.writes[2].sql,/public_phone = \?/);
+   assert.equal(ctx.writes[2].args[0],"0912345678");
    for(const write of ctx.writes){
      assert.match(write.sql,/updated_at = \?/);
      assert.match(write.sql,/status <> 'archived'/);
@@ -97,28 +98,28 @@ test("legacy free-text service writes never reach V3 and pilot categories reject
 });
 
 
-test("explicit Notion contact edit removes only competing legacy aliases", async () => {
+test("explicit Notion contact edit stores SQL only and removes edited-field JSON aliases", async () => {
   const { DatabaseSync } = await import("node:sqlite");
   const cases = [
     {
       field: "websiteUrl", value: "https://new.example.sk",
-      aliases: ["Web", "Webstránka"], expectedKey: "Web",
+      aliases: ["Web", "Webstránka"],
     },
     {
       field: "publicPhone", value: "0911 555 123",
-      aliases: ["Telefón", "Telefon", "phone"], expectedKey: "Telefón",
+      aliases: ["Telefón", "Telefon", "phone"],
     },
     {
       field: "publicEmail", value: "novy@example.sk",
-      aliases: ["E-mail", "Email", "email"], expectedKey: "E-mail",
+      aliases: ["E-mail", "Email", "email"],
     },
     {
       field: "facebookUrl", value: "https://facebook.com/new",
-      aliases: ["Facebook"], expectedKey: "Facebook",
+      aliases: ["Facebook"],
     },
     {
       field: "instagramUrl", value: "@novyprofil",
-      aliases: ["Instagram"], expectedKey: "Instagram",
+      aliases: ["Instagram"],
     },
   ];
   for (const change of cases) {
@@ -126,7 +127,8 @@ test("explicit Notion contact edit removes only competing legacy aliases", async
     await ctx.save(ctx.db, ctx.record, { ...desired(), [change.field]: change.value }, change.field);
     assert.equal(ctx.writes.length, 1, change.field);
     const { sql, args } = ctx.writes[0];
-    assert.match(sql, /source_data_json = json_set\(json_remove\(/, change.field);
+    assert.match(sql, /source_data_json = json_remove\(/, change.field);
+    assert.doesNotMatch(sql, /source_data_json = json_set\(/, change.field);
     assert.match(sql, /AND updated_at = \?/, change.field);
     const sqlite = new DatabaseSync(":memory:");
     try {
@@ -158,8 +160,8 @@ test("explicit Notion contact edit removes only competing legacy aliases", async
       const row = sqlite.prepare("SELECT source_data_json,website_url FROM directory_profiles WHERE id=?")
         .get(ctx.record.id);
       const after = JSON.parse(row.source_data_json);
-      assert.equal(after[change.expectedKey], change.value, change.field);
-      for (const alias of change.aliases.filter(key => key !== change.expectedKey)) {
+      // Value lives in SQL; no parallel edited-field copy survives in JSON.
+      for (const alias of change.aliases) {
         assert.equal(Object.hasOwn(after, alias), false, change.field + ": " + alias);
       }
       if (change.field === "websiteUrl") assert.equal(row.website_url, change.value);
@@ -176,7 +178,7 @@ test("explicit Notion contact edit removes only competing legacy aliases", async
       assert.equal(after.Organizácia, before.Organizácia, change.field);
       assert.deepEqual(after._psipedia_breeder_gallery_urls, before._psipedia_breeder_gallery_urls);
       for (const key of ["Web", "Telefón", "E-mail", "Facebook", "Instagram"]) {
-        if (key !== change.expectedKey) assert.equal(after[key], before[key], change.field + ": " + key);
+        if (!change.aliases.includes(key)) assert.equal(after[key], before[key], change.field + ": " + key);
       }
     } finally {
       sqlite.close();

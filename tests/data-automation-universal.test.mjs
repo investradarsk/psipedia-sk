@@ -20,7 +20,7 @@ import {
 import { universalAutomationDiscoveryRootPresets } from "../lib/data-automation-source-presets.ts";
 import { createCanonicalDraft } from "../lib/canonical-draft-service.ts";
 import { mapAutomationFindingToDraftInput } from "../lib/data-automation-draft-mapper.ts";
-import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
+import { readDirectorySqlBackedContacts } from "../lib/directory-sql-contacts.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const applySource = read("lib/data-automation-apply.ts");
@@ -387,16 +387,18 @@ test("HOTFIX DIRECTORY parser-to-canonical-draft preserves contacts and keeps so
   assert.equal(row.published_at, null);
 
   const importData = JSON.parse(row.source_data_json);
-  assert.deepEqual(readDirectoryPublicContacts(importData, row.website_url), {
+  assert.deepEqual(readDirectorySqlBackedContacts(importData, row), {
     phone: "+421 903 494 000",
     email: "info@spektravet.sk",
     website: "https://spektravet.sk/sk",
     facebook: "",
     instagram: "",
   });
-  assert.equal(importData["Telefón"], "+421 903 494 000");
-  assert.equal(importData["E-mail"], "info@spektravet.sk");
-  assert.equal(importData.Web, "https://spektravet.sk/sk");
+  assert.equal(row.public_phone, "+421 903 494 000");
+  assert.equal(row.public_email, "info@spektravet.sk");
+  assert.equal(row.website_url, "https://spektravet.sk/sk");
+  for (const alias of ["Telefón","Telefon","phone","E-mail","Email","email","Web","Webstránka"])
+    assert.equal(Object.hasOwn(importData,alias),false,alias+" must not survive in JSON");
 });
 
 test("generic DIRECTORY parser extracts only explicit schema data and fails closed", () => {
