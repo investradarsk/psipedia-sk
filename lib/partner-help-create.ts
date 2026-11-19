@@ -233,12 +233,13 @@ export async function withdrawPartnerHelpCreate(input: { accountId: string; id: 
   if (!/^[0-9a-f-]{36}$/i.test(input.id)) throw new PartnerHelpCreateError("Neplatný návrh.", 404);
   const database = db(input.database);
   const row = await database.prepare(`
-    SELECT status FROM moderation_submissions
+    SELECT status,subject_id subjectId FROM moderation_submissions
     WHERE id=?1 AND submitter_type='PARTNER_ACCOUNT' AND submitter_ref=?2
       AND resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE') AND operation='CREATE'
     LIMIT 1
-  `).bind(input.id, input.accountId).first<{status: string}>();
+  `).bind(input.id, input.accountId).first<{status: string;subjectId:string|null}>();
   if (!row) throw new PartnerHelpCreateError("Návrh sa nenašiel.", 404);
+  if (row.subjectId !== null) throw new PartnerHelpCreateError("Odoslaný kanonický koncept nemožno stiahnuť.",409);
   if (!isFoundationSubmissionStatus(row.status) || !canTransitionModerationSubmission(row.status, "WITHDRAWN")) {
     throw new PartnerHelpCreateError("Tento návrh už nemožno stiahnuť.", 409);
   }
