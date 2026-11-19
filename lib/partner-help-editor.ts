@@ -140,7 +140,7 @@ export async function updatePartnerHelpPublic(input: {
   if (newMain) {
     mediaSet.push(`${target.image}=?`); mediaValues.push(newMain.url);
     if (parsed.entityType !== "ADOPTION_DOG") {
-      mediaSet.push("image_key=?"); mediaValues.push(newMain.publicKey);
+      mediaSet.push(parsed.entityType === "LOST_FOUND_DOG" ? "main_image_key=?" : "image_key=?"); mediaValues.push(newMain.publicKey);
     }
   }
   if (hasGalleryEdit) {
