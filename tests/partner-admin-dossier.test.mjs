@@ -162,3 +162,32 @@ test("dossier: five navigation tabs, account-scoped loaders and safe placeholder
   assert.match(store,/listPartnerAccountDossierProfiles/);
   assert.match(store,/listPartnerAccountDossierHistory/);
 });
+
+test("dossier: automatic owner created by approved Help submission is not a second partner request",async()=>{
+  const {sqlite,db}=setup();
+  try{
+    sqlite.exec(`
+      INSERT INTO moderation_submissions VALUES
+      ('help-create-approved','ADOPTION_DOG','APPROVED','2026-11-19T08:00:00Z',
+       '{"name":"Labrador Neo"}','PARTNER_ACCOUNT','partner-a','11','CREATE');
+    `);
+    const data=await listPartnerAccountDossierRequests("partner-a",db);
+    assert.equal(data.total,10);
+    assert.equal(data.pending,8);
+    assert.ok(data.items.some(row=>row.id==="help-create-approved"));
+    assert.ok(!data.items.some(row=>row.id==="help-a-approved"));
+    assert.equal((await listPartnerAccountDossierProfiles("partner-a",db)).total,2,
+      "automatic approved ownership still exists for managing the profile");
+  }finally{sqlite.close();}
+});
+
+test("dossier: malformed historical Help JSON must not hide the partner's other requests",async()=>{
+  const {sqlite,db}=setup();
+  try{
+    sqlite.prepare("UPDATE moderation_submissions SET proposed_patch_json=? WHERE id=?")
+      .run("{malformed","help-create-a");
+    const result=await listPartnerAccountDossierRequests("partner-a",db);
+    assert.equal(result.total,10);
+    assert.equal(result.items.find(row=>row.id==="help-create-a").title,"Nový záznam Pomoci psom");
+  }finally{sqlite.close();}
+});
