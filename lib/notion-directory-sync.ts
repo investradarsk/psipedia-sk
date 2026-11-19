@@ -6,6 +6,7 @@ import {
   isDirectoryReviewUnlockPendingSource,
 } from "./directory-reviewed-sync-lock";
 import { approvedDirectoryFactSqlSlot, directoryNotionFacetRequiresSqlMirror, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
+import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directorySecondaryCategoriesSqlConfirmed, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
@@ -1600,7 +1601,19 @@ export async function savePilotDirectoryMetadataField(input: {
     throw new Error("DIRECTORY_PUBLIC_METADATA_STALE_VALUE");
   }
   if (currentValue === trimmed &&
-      Object.hasOwn(current.importData ?? {}, input.field)) return current;
+      Object.hasOwn(current.importData ?? {}, input.field)) {
+    if (input.field !== "Ordinačné hodiny") return current;
+    // Explicit repeat edits can repair a missing 0173 SQL projection without
+    // inferring edits to unrelated profiles or historical values.
+    const rows = await input.database.prepare(
+      "SELECT day_of_week,hours_text FROM directory_profile_opening_hours WHERE profile_id=?"
+    ).bind(input.profileId).all<{ day_of_week: number; hours_text: string }>();
+    const matches = trimmed
+      ? rows.results.length === 1 &&
+        rows.results[0].day_of_week === 0 && rows.results[0].hours_text === trimmed
+      : rows.results.length === 0;
+    if (matches) return current;
+  }
   const now = new Date().toISOString();
   const path = '$."' + input.field + '"';
   const previousRaw = String(current.importData?.[input.field] ?? "");
@@ -1613,19 +1626,28 @@ export async function savePilotDirectoryMetadataField(input: {
   ).bind(path, trimmed, now, SYSTEM_ACTOR,
     input.profileId, input.category, current.updatedAt, path, previousRaw);
   const approved = approvedDirectoryFactSqlSlot(input.category as ServiceFilterCategory, input.field);
-  if (approved) {
-    // Explicit single-field Admin/Notion edit: compatibility JSON plus its
-    // 0170 SQL fact row in ONE transactional D1 batch, guarded by the CAS.
-    // A deliberately blank fact remains an empty SQL value, never a fallback
-    // to older imported prose.
-    const mirror = planDirectory0170FactSqlMirror({
+  const isHours = input.field === "Ordinačné hodiny";
+  if (approved || isHours) {
+    // Canonical CAS, existing 0170 public fact and 0173 hours sidecar must
+    // commit together. A missing field is never treated as an empty edit.
+    const factMirror = approved ? planDirectory0170FactSqlMirror({
       profileId: input.profileId, category: input.category as ServiceFilterCategory,
       field: input.field, value: trimmed, updatedAt: now, actor: SYSTEM_ACTOR,
-    });
+    }) : [];
+    const hoursMirror = isHours ? planDirectory0173EditorialSqlMirror({
+      identity: { kind: "id", profileId: input.profileId,
+        updatedAt: now, actor: SYSTEM_ACTOR },
+      openingHoursText: trimmed,
+    }) : [];
+    const guard = approved ? [] : [input.database.prepare(
+      "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', char(36)) END AS cas_ok"
+    )];
     const response = await input.database.batch([
-      canonical, ...mirror.map(item=>input.database.prepare(item.sql).bind(...item.bindings)),
+      canonical, ...guard,
+      ...factMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
+      ...hoursMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
     ]);
-    if (!(response[0]?.results?.[0] as {id?:number}|undefined)?.id)
+    if (!(response[0]?.results?.[0] as { id?: number } | undefined)?.id)
       throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
   } else {
     const saved = await canonical.first<{ id: number }>();

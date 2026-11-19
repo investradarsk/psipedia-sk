@@ -73,6 +73,7 @@ import {
   mergeDirectoryPublicContactData,
   omitDirectorySqlContactAliases,
   mergeDirectoryQualityMetadata,
+  directoryQualityFields,
   readDirectoryProfileReviewMetadata,
   readDirectoryPublicContacts,
   readDirectoryQualityMetadata,
@@ -1931,6 +1932,25 @@ export async function getManagedDirectoryProfileByCategorySlug(
   return row ? rowToManagedProfile(row) : null;
 }
 
+/**
+ * Quality fields whose SQL row may change during this explicit save.
+ * The actual normalized status and checked_at are taken from the committed
+ * compatibility JSON by the 0173 planner, never re-computed independently.
+ */
+function directoryQualityMirrorFields(payload: ManagedDirectoryProfileInput) {
+  return directoryQualityFields.filter(field => {
+    if (Object.hasOwn(payload.qualityResolutions ?? {}, field) ||
+        payload.qualityCheckedAt !== undefined) return true;
+    if (field === "phone") return payload.publicPhone !== undefined;
+    if (field === "email") return payload.publicEmail !== undefined;
+    if (field === "website") return payload.websiteUrl !== undefined;
+    if (field === "image") return payload.imageUrl !== undefined;
+    return ["region", "district", "city", "address", "postalCode",
+      "street", "houseNumber", "addressFormat", "confirmServiceAddress",
+      "clearServiceAddressConfirmation"].some(key => Object.hasOwn(payload, key));
+  });
+}
+
 export async function createManagedDirectoryProfile(
   payload: ManagedDirectoryProfileInput,
   editorEmail: string,
@@ -1958,6 +1978,7 @@ export async function createManagedDirectoryProfile(
       updatedAt: now, actor: editorEmail },
     qualifications: input.qualifications,
     seo: input.seo,
+    qualityFields: directoryQualityMirrorFields(payload),
     ...(payload.galleryUrls !== undefined && input.category === "chovatelske-stanice"
       ? { galleryUrls: readDirectoryBreederGallery(input.sourceData) } : {}),
   });
@@ -2129,6 +2150,7 @@ export async function updateManagedDirectoryProfile(
       }).qualifications,
     } : {}),
     ...(payload.seo !== undefined ? { seo: payload.seo } : {}),
+    qualityFields: directoryQualityMirrorFields(payload),
     ...(payload.galleryUrls !== undefined &&
       (payload.category ?? existing.category) === "chovatelske-stanice"
       ? { galleryUrls: readDirectoryBreederGallery(
