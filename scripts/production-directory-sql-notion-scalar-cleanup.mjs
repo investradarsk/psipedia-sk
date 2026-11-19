@@ -2,14 +2,14 @@
 /**
  * Owner-only production cleanup of duplicate Notion/SQL scalar keys in
  * directory_profiles.source_data_json. Audit never mutates D1.
- * Apply removes all 12 allowlisted keys regardless of the SQL values.
+ * Apply removes 12 scalar and 5 contact groups, regardless of SQL values.
  */
 import {spawnSync} from "node:child_process";
 import {readFileSync,mkdirSync,writeFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {fileURLToPath} from "node:url";
 import {
-  DIRECTORY_SQL_NOTION_SCALAR_COLUMNS,
+  DIRECTORY_SQL_NOTION_CLEANUP_COLUMNS,
   directoryScalarCleanupCountSql,
   directoryScalarCleanupUpdateSql,
   directoryScalarCleanupSummary,
@@ -64,7 +64,7 @@ function remote(args) {
 function query(sql,write=false){
   must(typeof sql==="string"&&!sql.includes(";"),"BAD_SQL");
   if(write){
-    must(DIRECTORY_SQL_NOTION_SCALAR_COLUMNS.some(column=>
+    must(DIRECTORY_SQL_NOTION_CLEANUP_COLUMNS.some(column=>
       sql===directoryScalarCleanupUpdateSql(column)),"UNEXPECTED_UPDATE");
   } else {
     must(/^SELECT\s/i.test(sql),"READ_ONLY_SELECT_REQUIRED");
@@ -81,9 +81,9 @@ function ensureSchema() {
   must(tables.length===2,"TABLE_MISSING");
   const sql="SELECT name FROM pragma_table_info('directory_profiles') WHERE name IN ("+
     ["id","category","status","source_data_json","updated_at",
-     ...DIRECTORY_SQL_NOTION_SCALAR_COLUMNS].map(k=>"'"+k+"'").join(",")+")";
+     ...DIRECTORY_SQL_NOTION_CLEANUP_COLUMNS].map(k=>"'"+k+"'").join(",")+")";
   const columns=query(sql).map(x=>x.name);
-  must(new Set(columns).size===DIRECTORY_SQL_NOTION_SCALAR_COLUMNS.length+5,
+  must(new Set(columns).size===DIRECTORY_SQL_NOTION_CLEANUP_COLUMNS.length+5,
     "CANONICAL_COLUMN_MISSING");
 }
 function recoveryBookmark(){
@@ -105,7 +105,7 @@ function baseline(){
     "COALESCE(MAX(id),0) AS max_id",
     "COALESCE(MAX(updated_at),'') AS latest_update",
     "COALESCE(SUM(LENGTH(source_data_json)),0) AS json_chars",
-    ...DIRECTORY_SQL_NOTION_SCALAR_COLUMNS.flatMap(column=>[
+    ...DIRECTORY_SQL_NOTION_CLEANUP_COLUMNS.flatMap(column=>[
       "COALESCE(SUM(LENGTH(COALESCE("+column+",''))),0) AS "+column+"_chars",
       "COUNT("+column+") AS "+column+"_non_null",
     ]),
@@ -163,7 +163,7 @@ try{
     must(JSON.stringify(before.candidates)===JSON.stringify(candidates()),
       "CONCURRENT_CANDIDATES");
     stage="APPLYING";
-    for(const column of DIRECTORY_SQL_NOTION_SCALAR_COLUMNS){
+    for(const column of DIRECTORY_SQL_NOTION_CLEANUP_COLUMNS){
       query(directoryScalarCleanupUpdateSql(column),true);
       appliedColumns.push(column);
     }
@@ -171,7 +171,7 @@ try{
     const ok=stable(original,after.baseline)&&
       after.baseline.json_chars<=original.json_chars&&
       after.candidates.totals.invalidJson===before.candidates.totals.invalidJson &&
-      DIRECTORY_SQL_NOTION_SCALAR_COLUMNS.every(column=>
+      DIRECTORY_SQL_NOTION_CLEANUP_COLUMNS.every(column=>
         after.candidates.totals.removable[column]===0 &&
         after.candidates.totals.withoutSqlValue[column]===0);
     writeReport("POSTFLIGHT",{readOnly:false,applied:true,before,after,
