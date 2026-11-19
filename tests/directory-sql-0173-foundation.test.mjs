@@ -145,8 +145,8 @@ test("Owner-only production 0173 workflow uses pinned SQL and no generic migrati
   assert.match(workflow,/workflow_dispatch:/);
   assert.match(workflow,/environment: production/);
   assert.match(workflow,/production-d1-migration/);
-  assert.match(workflow,/refs\\/heads\\/main/);
-  assert.doesNotMatch(workflow,/^\\s+(?:push|pull_request|schedule):/m);
+  assert.match(workflow,/refs\/heads\/main/);
+  assert.doesNotMatch(workflow,/^\s+(?:push|pull_request|schedule):/m);
   assert.match(script,/SQL_BLOB/);
   assert.match(script,/NO_RECOVERY_POINT/);
   assert.match(script,/PARTIAL_SCHEMA_STOP/);
