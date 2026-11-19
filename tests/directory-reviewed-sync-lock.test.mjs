@@ -27,15 +27,17 @@ test("malformed metadata never silently unlocks Notion sync", () => {
   assert.throws(() => isDirectoryReviewedSourceLocked("[]"), /DIRECTORY_REVIEW_LOCK_INVALID_JSON/);
 });
 
-test("database review lock checks current D1 metadata and archives", async () => {
+test("database review lock checks current D1 metadata, archives and partner membership", async () => {
   let seen=0;
   const db={
     prepare(sql) {
-      assert.match(sql,/FROM directory_profiles WHERE id=\?/);
+      const membership=/JOIN partner_memberships/.test(sql);
+      if(!membership)assert.match(sql,/FROM directory_profiles WHERE id=\?/);
       return {bind(id) { seen=id; return {async first(){
+        if(membership)return id===5?{active:1}:null;
         if(id===1)return {source_data_json:JSON.stringify({"_psipedia_profile_review_reviewed_at":"2026-11-18"}),status:"published"};
         if(id===2)return {source_data_json:"{}",status:"archived"};
-        if(id===3)return {source_data_json:"{}",status:"published"};
+        if(id===3||id===5)return {source_data_json:"{}",status:"published"};
         return null;
       }};}};
     },
@@ -44,7 +46,8 @@ test("database review lock checks current D1 metadata and archives", async () =>
   assert.equal(await directoryProfileNotionSyncLocked(db,2),true);
   assert.equal(await directoryProfileNotionSyncLocked(db,3),false);
   assert.equal(await directoryProfileNotionSyncLocked(db,4),true);
-  assert.equal(seen,4);
+  assert.equal(await directoryProfileNotionSyncLocked(db,5),true);
+  assert.equal(seen,5);
   await assert.rejects(()=>directoryProfileNotionSyncLocked(db,0),/DIRECTORY_REVIEW_LOCK_INVALID_ID/);
 });
 
