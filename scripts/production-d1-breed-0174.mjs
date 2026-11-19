@@ -10,6 +10,7 @@ import {createHash} from "node:crypto";
 import {spawnSync} from "node:child_process";
 import {mkdirSync,readFileSync,writeFileSync} from "node:fs";
 import {resolve} from "node:path";
+import {BREED_V2_REQUIRED_COLUMNS} from "../lib/breed-sql-v2-backfill.mjs";
 
 const MODE=process.argv[2];
 const REPO="investradarsk/psipedia-sk";
@@ -139,15 +140,11 @@ function inspect(){
   fail(present===0||present===expected,"PARTIAL_SCHEMA_STOP");
   const installed=present===expected;
   if(installed){
-    const shape={
-      breed_fci_standard:["breed_id","fci_status_fci","fci_fci_standard_pdf"],
-      breed_editorial_text:["breed_id","overview","hero_traits_json","exercise_tip"],
-      breed_public_facts:["breed_id","height_min_cm","origin_countries_json"],
-      breed_related_breeds:["breed_id","related_breed_id","position"],
-    };
-    for(const [table,fields] of Object.entries(shape)){
-      const actual=read("SELECT name FROM pragma_table_info('"+table+"')").map(x=>x.name);
+    for(const [table,fields] of Object.entries(BREED_V2_REQUIRED_COLUMNS)){
+      const actual=table==="managed_breeds"?cols:
+        read("SELECT name FROM pragma_table_info('"+table+"')").map(x=>x.name);
       fail(fields.every(x=>actual.includes(x)),"SCHEMA_COLUMNS_"+table);
+      if(!TABLES.includes(table))continue;
       const fk=read("SELECT \"table\",on_delete FROM pragma_foreign_key_list('"+table+"')");
       fail(fk.some(x=>x.table==="managed_breeds"&&x.on_delete==="CASCADE"),
         "SCHEMA_FK_"+table);
@@ -195,7 +192,11 @@ function report(state,error=null){
     expectedCounts:{breeds:347,notionLinks:344,notionMirrors:344},
     currentCounts:after?{breeds:after.breeds,links:after.links,mirrors:after.mirrors}
       :before?{breeds:before.breeds,links:before.links,mirrors:before.mirrors}:null,
-    writeAttempted,oldJsonChanged:false,backfillExecuted:false,
+    writeAttempted,
+    oldJsonChanged:before&&after
+      ?JSON.stringify(before.oldLengths)!==JSON.stringify(after.oldLengths)
+      :null,
+    backfillExecuted:false,
     notionUpdated:false,publicCutover:false,ledgerWritten:false,
     recoveryAvailable:Boolean(recoveryBookmark),
     ...(error?{error}:{})};
