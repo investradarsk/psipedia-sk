@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "lib/directory-sql-notion-scalar-cleanup.mjs"
+      - "lib/directory-profile-metadata.ts"
       - "scripts/production-directory-sql-notion-scalar-cleanup.mjs"
       - "tests/directory-sql-notion-scalar-cleanup.test.mjs"
       - ".github/workflows/production-directory-sql-notion-scalar-cleanup.yml"
