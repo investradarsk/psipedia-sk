@@ -37,6 +37,7 @@ async function setup(){
     CREATE TABLE partner_event_submission_metadata(submission_id TEXT,partner_account_id TEXT NOT NULL);
     CREATE TABLE partner_resource_verifications(account_id TEXT NOT NULL,status TEXT NOT NULL);
     CREATE TABLE partner_commercial_interests(account_id TEXT NOT NULL,status TEXT NOT NULL);
+    CREATE TABLE partner_commercial_agreements(account_id TEXT NOT NULL,status TEXT NOT NULL);
   `);
   const insert=sql.prepare("INSERT INTO partner_accounts VALUES (?,?,?,?,?)");
   const member=sql.prepare("INSERT INTO partner_memberships VALUES (?,?,?)");
@@ -123,9 +124,10 @@ test("partner overview counts pending requests from all current sources and appr
       INSERT INTO partner_event_submission_metadata VALUES ('event-1','partner-0007');
       INSERT INTO partner_resource_verifications VALUES ('partner-0007','PENDING_VERIFICATION');
       INSERT INTO partner_commercial_interests VALUES ('partner-0007','NEW');
+      INSERT INTO partner_commercial_agreements VALUES ('partner-0007','OFFERED');
     `);
     const result=await listPartnerAccountsAdmin({q:"partner-0007",database,encryptionKey:key});
-    assert.equal(result.items[0].pendingRequestCount,8);
+    assert.equal(result.items[0].pendingRequestCount,9);
     assert.equal(result.items[0].managedProfileCount,3);
     const other=await listPartnerAccountsAdmin({q:"partner-0008",database,encryptionKey:key});
     assert.equal(other.items[0].pendingRequestCount,1);
