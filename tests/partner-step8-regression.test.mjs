@@ -102,3 +102,21 @@ test("0171/0172 preflight remains strictly read-only and refuses silent ownershi
   assert.match(m171,/partner_memberships_only_owner_insert/);
   assert.match(m172,/CREATE UNIQUE INDEX `partner_help_claims_adoption_manager`/);
 });
+
+test("0170 SQL first public filters, secondary categories and contact clears are mirrored atomically",async()=>{
+  const [direct,writer,overlay,preflight]=await Promise.all([
+    "lib/partner-direct-profile.ts","lib/partner-profile-changes.ts",
+    "lib/directory-sql-contacts.ts","scripts/partner-self-service-0171-0172-preflight.sql",
+  ].map(read));
+  assert.match(direct,/planDirectory0170FilterSqlMirror/);
+  assert.match(direct,/planDirectory0170FactSqlMirror/);
+  assert.match(direct,/planDirectorySecondaryCategorySqlMirror/);
+  assert.match(direct,/const guard=plans\[0\]\[0\]/);
+  assert.match(direct,/statements\.push\(database\.prepare\(guard\.sql\)/);
+  assert.match(writer,/canonicalContactColumns/);
+  assert.match(writer,/String\(patch\[field\] \?\? ""\)/);
+  assert.match(overlay,/empty string is an intentional clear/);
+  assert.match(preflight,/PRAGMA table_info\(directory_profiles\)/);
+  assert.match(preflight,/directory_profile_additional_categories/);
+  assert.match(preflight,/directory_profile_filter_values/);
+});
