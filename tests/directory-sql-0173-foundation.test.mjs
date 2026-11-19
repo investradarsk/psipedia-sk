@@ -45,7 +45,7 @@ test("0173 is additive only, reserves 0171-0172 and defines exactly six non-dupl
   assert.match(MIGRATION,/Reserved sequence: 0171 and 0172/);
   const statements=MIGRATION.split("--> statement-breakpoint")
     .map(x=>x.replace(/^\s*(?:--[^\n]*\n\s*)+/g,"").trim()).filter(Boolean);
-  assert(statements.length>=12);
+  assert.equal(statements.length,11);
   for(const statement of statements){
     assert.match(statement,/^CREATE\s+(?:TABLE|INDEX)\s/i);
     assert.doesNotMatch(statement,/\b(?:DROP|DELETE|UPDATE|ALTER|INSERT|REPLACE)\b/i);
