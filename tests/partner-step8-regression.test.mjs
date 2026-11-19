@@ -111,7 +111,7 @@ test("0170 SQL first public filters, secondary categories and contact clears are
   assert.match(direct,/planDirectory0170FilterSqlMirror/);
   assert.match(direct,/planDirectory0170FactSqlMirror/);
   assert.match(direct,/planDirectorySecondaryCategorySqlMirror/);
-  assert.match(direct,/const guard=plans\[0\]\[0\]/);
+  assert.match(direct,/const guard=plans\.length\?plans\[0\]\[0\]:\{/);
   assert.match(direct,/statements\.push\(database\.prepare\(guard\.sql\)/);
   assert.match(writer,/omitDirectorySqlContactAliases/);
   assert.match(writer,/readDirectorySqlBackedContacts/);
