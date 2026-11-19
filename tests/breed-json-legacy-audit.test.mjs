@@ -47,3 +47,11 @@ test("step 1 audit is a pure inspection, without production writes",()=>{
   assert.doesNotMatch(code,/\b(?:wrangler|notionRequest|mcp__|fetch\()\b/);
   assert.doesNotMatch(code,/\b(?:unlinkSync|rmSync|deleteFile|writeFileSync|UPDATE managed_breeds|DROP TABLE)\b/);
 });
+
+test("production D1 audit only performs aggregates and cannot modify rows",()=>{
+  const code=readFileSync(new URL("../scripts/production-breed-json-audit.mjs",import.meta.url),"utf8");
+  assert.match(code,/SELECT/);
+  assert.match(code,/BREED_JSON_MANUAL_CURRENT_MAIN_REQUIRED/);
+  assert.match(code,/dropApproved:false/);
+  assert.doesNotMatch(code,/\b(?:DELETE FROM|DROP TABLE|ALTER TABLE|UPDATE managed_breeds|INSERT INTO managed_breeds)\b/);
+});
