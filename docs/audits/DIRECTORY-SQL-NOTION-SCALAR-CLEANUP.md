@@ -3,7 +3,7 @@
 Date: 19 November 2026. Owner explicitly requested that historical JSON
 backups of the selected 12 public scalar values be removed even if data is
 lost because SQL is currently blank. Do not preserve an old public value
-merely because SQL is missing. This is a targeted removal, not a transfer.
+merely because SQL is missing. This is a targeted removal of 12 scalar and 5 contact field groups, not a transfer.
 
 ## Exactly which historical JSON keys are deleted
 
@@ -21,6 +21,25 @@ merely because SQL is missing. This is a targeted removal, not a transfer.
 | Číslo domu | directory_profiles.house_number |
 | Formát adresy | directory_profiles.address_format |
 | Cena / poznámka | directory_profiles.price_note |
+
+## Previously migrated contacts (also remove all remaining backups)
+
+The previous contact cleanup intentionally left legacy-only contacts when
+their SQL owner was empty or the profile was reviewed/archived. The owner
+has now explicitly rejected retaining these legacy JSON-only backups too.
+
+| SQL column | Delete all matching top-level JSON aliases |
+| --- | --- |
+| website_url | Web, Webstránka |
+| public_phone | Telefón, Telefon, phone |
+| public_email | E-mail, Email, email |
+| facebook_url | Facebook |
+| instagram_url | Instagram |
+
+Remove these contact aliases for every valid JSON object, even when
+SQL is NULL or ''. No profile-state exclusion. This can make old
+JSON-only contacts disappear from public pages and Notion outbound
+snapshots; it is intentional. No contact SQL values are changed.
 
 For every valid JSON object in every directory profile, including
 archived, reviewed, pending-unlock and tombstoned rows, delete each of
@@ -63,7 +82,7 @@ an unverified DROP COLUMN operation.
 4. Manually run mode=apply with confirmation:
    APPLY-DIRECTORY-SQL-SCALARS-psipedia-sk-db
 5. Before writing, D1 time-travel bookmark is created. After
-   running, invariantsPassed must be true and all 12 removable
+   running, invariantsPassed must be true and all 17 removable
    counts must be zero, even if the SQL column is blank.
    SQL length/count aggregates and profile count/IDs stay unchanged;
    invalid JSON count must remain stable.
