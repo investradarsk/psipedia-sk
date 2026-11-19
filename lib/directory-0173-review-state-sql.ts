@@ -59,6 +59,18 @@ export function directory0173ReviewSqlMirrorStatement(input: {
 }
 
 /**
+ * D1.batch runs statements in order in one transaction. The CAS UPDATE must
+ * actually have modified exactly one row; otherwise deliberately raise a SQL
+ * error before the projection, rolling the entire batch back.
+ */
+export function directory0173ReviewCasGuardStatement(database: D1Database): D1PreparedStatement {
+  return database.prepare(
+    "SELECT CASE WHEN changes()=1 THEN 1 " +
+    "ELSE json_extract('DIRECTORY_REVIEW_CAS_CONFLICT', char(36)) END AS cas_accepted",
+  );
+}
+
+/**
  * Partner moderation holds a canonical resource subquery and an active
  * membership in its transaction. Mirror the actual legacy reviewed state,
  * without replacing a previous human review timestamp or weakening the lock.
