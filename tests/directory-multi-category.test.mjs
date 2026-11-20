@@ -30,7 +30,7 @@ test("untouched saves preserve categories and explicit clearing works", () => {
 
 test("secondary listing membership is parameterized", () => {
   assert.match(directoryCategoryMembershipSql(), /category = \?/);
-  assert.match(directoryCategoryMembershipSql(), /json_each/);
+  assert.doesNotMatch(directoryCategoryMembershipSql(), /json_each|source_data_json/);
   assert.throws(() => directoryCategoryMembershipSql("foo;drop"));
 });
 
@@ -57,6 +57,8 @@ test("one canonical profile appears in both category listings exactly once", () 
     insert.run(3, "treneri", "published", "{}");
     insert.run(4, "treneri", "draft", source(["hotely-a-opatrovanie"]));
     insert.run(5, "treneri", "published", "not valid JSON");
+    db.prepare("INSERT INTO directory_profile_additional_categories VALUES(?,?,?,?)")
+      .run(1,"hotely-a-opatrovanie","2026-11-21","sql");
 
     const sql = `SELECT id FROM directory_profiles
       WHERE status='published' AND ${directoryCategoryMembershipSql()}
@@ -65,7 +67,7 @@ test("one canonical profile appears in both category listings exactly once", () 
     assert.deepEqual(query.all("hotely-a-opatrovanie", "hotely-a-opatrovanie").map((row) => row.id), [1, 2]);
     assert.deepEqual(query.all("treneri", "treneri").map((row) => row.id), [1, 3, 5]);
     assert.deepEqual(query.all("kynologicke-kluby", "kynologicke-kluby"), []);
-    assert.match(directoryAdditionalCategoryJsonSql("directory_profiles"), /json_valid/);
+    assert.doesNotMatch(directoryAdditionalCategoryJsonSql("directory_profiles"), /source_data_json|json_valid/);
     assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM directory_profiles
       WHERE status='published'`).get().count, 4);
   } finally {
