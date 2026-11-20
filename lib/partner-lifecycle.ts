@@ -187,6 +187,12 @@ function closeAccountStatements(db:D1Database,row:Row,iso:string,actor:string){
     db.prepare("UPDATE partner_new_profile_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(row.accountId),
     db.prepare("UPDATE partner_event_submission_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(row.accountId),
     db.prepare("UPDATE partner_profile_change_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(row.accountId),
+    db.prepare("UPDATE partner_resource_verifications SET status='REJECTED',updated_at=?,reviewed_at=?,reviewed_by=?,review_note='Uzavreté po zrušení partnerského účtu' WHERE account_id=? AND status='PENDING_VERIFICATION'")
+      .bind(iso,iso,actor,row.accountId),
+    db.prepare("UPDATE partner_commercial_interests SET status='CLOSED',updated_at=?,status_updated_at=?,status_updated_by=? WHERE account_id=? AND status='NEW'")
+      .bind(iso,iso,actor,row.accountId),
+    db.prepare("UPDATE partner_commercial_agreements SET status='CANCELLED',updated_at=?,updated_by=? WHERE account_id=? AND status='OFFERED'")
+      .bind(iso,actor,row.accountId),
     db.prepare("UPDATE resource_management_sessions SET revoked_at=? WHERE resource_type='PARTNER_ACCOUNT' "+
       "AND subject_id=? AND revoked_at IS NULL").bind(iso,row.accountId),
     db.prepare("UPDATE resource_access_tokens SET revoked_at=? WHERE resource_type='PARTNER_ACCOUNT' "+
