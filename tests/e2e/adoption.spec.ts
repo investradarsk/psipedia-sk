@@ -1,8 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { getReviewedAdoptionManifest } from "../fixtures/adoption-sql-migration-fixture.mjs";
 
-const migrationManifest = JSON.parse(readFileSync("data/imports/adoptions-ready-2026-09-13.json", "utf8")) as { ready: Array<{ slug: string; dogName: string }> };
+const migrationManifest = getReviewedAdoptionManifest();
 
 test.beforeEach(async ({ page }) => {
   // The catalogue journeys intentionally test adoption, not undecided cookies.
@@ -170,6 +170,11 @@ test("missing canonical adoption never falls back to an existing published legac
 test("all 36 activated migration profiles resolve to canonical detail", async ({ request }) => {
   expect(migrationManifest.ready).toHaveLength(36);
   for (const dog of migrationManifest.ready) {
+    // SQLite exposes generic SQL value types; validate the expected text
+    // columns before passing them to Playwright's string-only assertions.
+    if (typeof dog.slug !== "string" || typeof dog.dogName !== "string") {
+      throw new Error("Invalid immutable SQL adoption fixture");
+    }
     const response = await request.get(`${catalogPath}/${dog.slug}`);
     expect(response.status(), dog.slug).toBe(200);
     const html = await response.text();

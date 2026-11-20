@@ -1,12 +1,12 @@
 import { parseArgs } from "node:util";
-import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { preflightAdoptionMigration } from "../lib/adoption-migration-safety.ts";
+import { getReviewedAdoptionManifest } from "../tests/fixtures/adoption-sql-migration-fixture.mjs";
 
 const { values } = parseArgs({ options: { database: { type: "string", short: "d" } } });
 if (!values.database) throw new Error("Použitie: npm run preflight:adoptions -- --database <lokálny-d1.sqlite>");
 
-const manifest = JSON.parse(readFileSync(new URL("../data/imports/adoptions-ready-2026-09-13.json", import.meta.url), "utf8"));
+const manifest = getReviewedAdoptionManifest();
 const db = new DatabaseSync(values.database, { readOnly: true });
 try {
   const legacyRows = db.prepare(`SELECT category, slug, status, excerpt, description,

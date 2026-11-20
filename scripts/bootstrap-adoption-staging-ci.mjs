@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { resolve } from "node:path";
+import { getReviewedAdoptionManifest } from "../tests/fixtures/adoption-sql-migration-fixture.mjs";
 import {
   ADOPTION_ORGANIZATION_IDENTITIES,
   preflightAdoptionMigration,
 } from "../lib/adoption-migration-safety.ts";
 
 const LOCAL_D1_DIRECTORY = resolve(process.env.PSIPEDIA_LOCAL_D1_DIRECTORY || ".wrangler/state/v3/d1/miniflare-D1DatabaseObject");
-const manifest = JSON.parse(readFileSync(new URL("../data/imports/adoptions-ready-2026-09-13.json", import.meta.url), "utf8"));
+const manifest = getReviewedAdoptionManifest();
 
 function assertCiLocalOnly() {
   if (process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP !== "1" || process.env.CI !== "true" || process.env.NODE_ENV === "production") {
