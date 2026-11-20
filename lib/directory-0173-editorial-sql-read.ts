@@ -37,10 +37,7 @@ export type Directory0173SqlRead = {
 
 export const DIRECTORY_0173_DETAIL_READ_SQL = [
   "SELECT",
-  "(SELECT CASE WHEN json_valid(p.source_data_json) THEN",
-  "CASE WHEN json_extract(p.source_data_json,",
-  "'$.\"_psipedia_additional_categories_sql_confirmed\"')='1' THEN 1 ELSE 0 END",
-  "ELSE 0 END FROM directory_profiles p WHERE p.id=?1) AS categories_confirmed,",
+  "1 AS categories_confirmed,",
   "(SELECT json_group_array(category) FROM (",
   "SELECT category FROM directory_profile_additional_categories",
   "WHERE profile_id=?1 ORDER BY category)) AS secondary_categories_json,",
