@@ -1426,7 +1426,8 @@ export async function getHomepageDirectoryProfilesWithImages(
   const result = await database
     .prepare(
       `WITH candidates AS (
-        SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
+        SELECT id, slug, name, category, city, district, image_url,
+          ${directoryImageSqlExpression("thumbnail")} AS thumbnail_display_json,
           featured,
           ${directoryLegacyDistrictSql()} AS fallback_district,
           ROW_NUMBER() OVER (PARTITION BY featured ORDER BY name ASC, id ASC) - 1 AS rotation_index,
