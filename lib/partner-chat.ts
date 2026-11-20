@@ -118,8 +118,11 @@ export async function sendPartnerChat(input:{accountId:string;senderRole:Role;se
   try{
     for(const file of files){
       const bytes=new Uint8Array(await file.arrayBuffer()),kind=fileKind(bytes);
-      const key="partner-chat/"+account+"/"+messageId+"/"+crypto.randomUUID()+"."+kind.ext;
-      await store!.put(key,bytes,{httpMetadata:{contentType:kind.mime}});
+      // Public /media proxy blocks the quarantine/ prefix. Chat files must
+      // NEVER be saved under any directly serveable public media key.
+      const key="quarantine/partner-chat/"+account+"/"+messageId+"/"+crypto.randomUUID()+"."+kind.ext;
+      await store!.put(key,bytes,{httpMetadata:{contentType:kind.mime},
+        customMetadata:{visibility:"private-partner-chat"}});
       uploads.push({id:crypto.randomUUID(),key,name:fileName(file.name),mime:kind.mime,size:bytes.length});
     }
     const statements:D1PreparedStatement[]=[
