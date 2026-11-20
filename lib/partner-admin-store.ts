@@ -240,6 +240,9 @@ export async function setPartnerAccountStatusAdmin(input:{accountId:string;actio
         database.prepare("UPDATE partner_new_profile_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(input.accountId),
         database.prepare("UPDATE partner_event_submission_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(input.accountId),
         database.prepare("UPDATE partner_profile_change_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(input.accountId),
+        database.prepare("UPDATE partner_resource_verifications SET status='REJECTED',updated_at=?,reviewed_at=?,reviewed_by=?,review_note='Uzavreté po deaktivácii účtu' WHERE account_id=? AND status='PENDING_VERIFICATION'").bind(now,now,actor,input.accountId),
+        database.prepare("UPDATE partner_commercial_interests SET status='CLOSED',updated_at=?,status_updated_at=?,status_updated_by=? WHERE account_id=? AND status='NEW'").bind(now,now,actor,input.accountId),
+        database.prepare("UPDATE partner_commercial_agreements SET status='CANCELLED',updated_at=?,updated_by=? WHERE account_id=? AND status='OFFERED'").bind(now,actor,input.accountId),
       ]:[]),
     ]); action=input.action==="SUSPEND"?"ACCOUNT_SUSPENDED":"ACCOUNT_DEACTIVATED";
   }else{
