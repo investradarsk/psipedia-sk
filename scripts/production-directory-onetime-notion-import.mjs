@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { notionId, planNotionDirectoryImport } from "../lib/directory-notion-onetime-import.mjs";
 import {STEP2_TABLES, STEP2_INDEXES, step2Plan, step2Sql} from "../lib/directory-sql-step2-plan.mjs";
 import { directoryStep3Readiness, summarizeDirectoryStep3Issues } from "../lib/directory-sql-step3-readiness.mjs";
+import { DIRECTORY_STEP3_FIELD_PARITY_SQL, summarizeDirectoryStep3SqlFieldParity } from "../lib/directory-sql-step3-field-parity.mjs";
 
 const MODE=process.argv[2]??"";
 const ROOT=resolve(new URL("..",import.meta.url).pathname);
@@ -414,6 +415,22 @@ async function scanStep3Receipts(){
   return out;
 }
 
+/** Paginate only D1 sidecars, without writing profile or Notion data. */
+async function scanStep3SqlFields(){
+  const out=[];let last=0;
+  while(true){
+    const rows=await select(DIRECTORY_STEP3_FIELD_PARITY_SQL,[last]);
+    must(rows.length<=200,"STEP3_FIELD_PAGE_SIZE");
+    if(!rows.length)break;
+    for(const row of rows){
+      must(Number.isSafeInteger(row.id)&&row.id>last,"STEP3_FIELD_SORT");
+      last=row.id;out.push(row);
+    }
+    if(rows.length<200)break;
+  }
+  return out;
+}
+
 /** Fail closed inside the same D1 batch as the additive SQL writes. */
 export function step3RepairGate(plan){
   return {
@@ -465,8 +482,13 @@ async function runStep3(){
   }
   const currentSourceIssues=summarizeDirectoryStep3Issues(issues);
   if(MODE==="step3-audit"){
-    report("STEP3_AUDIT_ONLY",{readiness,currentSourceIssues,noCanonicalWrites:true,
-      next:"repair missing active profile, verify stale revisions and SQL parity"});
+    const sqlRows=await scanStep3SqlFields();
+    must(sqlRows.length===rows.size,"STEP3_FIELD_INVENTORY_CHANGED");
+    const sqlFieldParity=summarizeDirectoryStep3SqlFieldParity(
+      sqlRows,rows,notionPages,SOURCE);
+    report("STEP3_AUDIT_ONLY",{readiness,currentSourceIssues,sqlFieldParity,
+      noCanonicalWrites:true,noRuntimeCutover:true,
+      next:"review field-level parity and all runtime write paths before VERIFIED"});
     return;
   }
   const missing=new Set(readiness.samples.missingActive);
