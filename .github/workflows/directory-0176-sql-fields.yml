@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "drizzle/0176_directory_admin_sql_complete.sql"
+      - "db/isolated/directory_admin_sql_completion.sql"
       - "db/directory-storage-schema.ts"
       - "lib/directory-admin-sql-field-owners.mjs"
       - "tests/directory-0176-sql-schema.test.mjs"
