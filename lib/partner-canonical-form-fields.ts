@@ -41,10 +41,13 @@ export function getPartnerCanonicalFormFields():Record<PartnerCanonicalType,Cano
     ],
     HELP_ORGANIZATION:copy("HELP_ORGANIZATION").map(field=>
       field.key==="type"?{...field,required:true}:field),
-    MANAGED_EVENT:partnerEventFields.map(field=>({
-      key:field.key,label:field.label,kind:field.kind as CanonicalFieldKind,required:false,
-      ...("options" in field&&field.options?{options:[...field.options]}:{}),
-    })).concat([make("cancelled","Podujatie je zrušené","checkbox")]),
+    MANAGED_EVENT:[
+      ...partnerEventFields.map(field=>({
+        key:field.key,label:field.label,kind:field.kind as CanonicalFieldKind,required:false,
+        ...("options" in field&&field.options?{options:[...field.options]}:{}),
+      })),
+      make("cancelled","Podujatie je zrušené","checkbox"),
+    ],
     ADOPTION_DOG:help("ADOPTION_DOG"),
     LOST_FOUND_DOG:[
       {...make("type","Typ hlásenia","select",["LOST","FOUND"]),required:true},
