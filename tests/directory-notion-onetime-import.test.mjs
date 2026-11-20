@@ -117,5 +117,5 @@ test("source importer is owner-only, never patches Notion, never deletes profile
   assert.match(wf,/environment: production/);
   assert.match(wf,/secrets.CLOUDFLARE_D1_API_TOKEN/);
   assert.match(wf,/secrets.GEMINI_AGENT_NOTION_TOKEN/);
-  assert.match(wf,/mode: choice/);
+  assert.match(wf,/mode:\s*\n\s*description:[^\n]*\n\s*type:\s*choice/);
 });
