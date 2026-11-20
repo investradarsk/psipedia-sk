@@ -395,8 +395,12 @@ test("valid one-time link creates a session and exposes membership dashboard/set
       throw new Error("Partner draft POST not issued; invalid=" + JSON.stringify(invalid) +
         "; alerts=" + JSON.stringify(alerts));
     }
-    expect(draftReply.status(),
-      "Partner draft POST: " + (await draftReply.text()).slice(0, 1_000)).toBe(201);
+    // A successful navigation may dispose the response body before Playwright
+    // can read it; inspect the body only for failed HTTP responses.
+    if (draftReply.status() !== 201) {
+      const failureBody = await draftReply.text().catch(() => "(response body unavailable)");
+      throw new Error("Partner draft POST " + draftReply.status() + ": " + failureBody.slice(0, 1_000));
+    }
     await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
     await expect(page.getByText("Rozpracovaný súkromný koncept", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Odoslať na schválenie" }).click();
