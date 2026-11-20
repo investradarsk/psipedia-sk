@@ -1,0 +1,56 @@
+name: Pomoc psom – jednorazové SQL čistenie, Notion bez zmeny
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/help-legacy-sql-cleanup-once.yml"
+      - "scripts/maintenance/help-legacy-140.sql"
+      - "scripts/maintenance/help-legacy-140.mjs"
+      - "tests/help-legacy-sql-cleanup.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/help-legacy-sql-cleanup-once.yml"
+      - "scripts/maintenance/help-legacy-140.sql"
+      - "scripts/maintenance/help-legacy-140.mjs"
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Presne: VYMAZAT LEN 140 SQL KOPII NOTION PONECHAT"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+jobs:
+  offline:
+    name: Offline safety — 140-row rollback
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - run: node --test tests/help-legacy-sql-cleanup.test.mjs
+  delete-once:
+    name: SQL-only delete 140 historical Help rows
+    needs: offline
+    if: >-
+      (github.event_name == 'push' && contains(github.event.head_commit.message, 'historical SQL cleanup (#'))
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      HELP_SQL_CONFIRMATION: ${{ inputs.confirmation }}
+      HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - run: node scripts/maintenance/help-legacy-140.mjs
