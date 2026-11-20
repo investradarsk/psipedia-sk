@@ -876,7 +876,9 @@ test("internal admin Partner overview and account detail are protected admin pag
     const newRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Nová Organizácia Mobile"});
     await expect(newRow).toContainText("zhoda: Vysoká zhoda");
     await newRow.getByRole("link",{name:"Detail →"}).click();
-    await expect(page.getByText("Rovnaká webová doména")).toBeVisible();
+    // This V2 draft matches the seeded existing organization by its public phone,
+    // not by a normalized website domain (the website field is plain text).
+    await expect(page.getByText("Rovnaký verejný telefón")).toBeVisible();
     // V2 creates its canonical D1 draft before submission. Linking it to
     // a different existing profile is prohibited, so Admin publishes this draft.
     await expect(page.getByRole("button",{name:"Prepojiť tento profil"})).toHaveCount(0);
