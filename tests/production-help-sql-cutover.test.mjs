@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+import { helpApprovedShelterRemovalsQuery, HELP_INTENTIONALLY_REMOVED_SHELTERS } from "../lib/help-sql-reviewed-backfill.mjs";
 import {
   HELP_SQL_CUTOVER_SCHEMA,
   HELP_SQL_CUTOVER_AGENDAS,
@@ -28,6 +30,10 @@ function fixture() {
     helpLegacyCoverage:categories.map(category=>({
       category,status:"aggregate_only",legacyTotal:0,matched:0,unmatched:0,
     })),
+    helpLegacyApprovedRemovals:{
+      status:"exact_slug_audit",approvedUnmatched:0,
+      approvedDistinct:0,unexpectedUnmatched:0,
+    },
     helpLegacyLostFoundCoverage:{
       status:"requires_manual_type_review",legacyTotal:0,
       noSlugMatch:0,needsTypeReview:0,ambiguousTypeMatch:0,
@@ -86,6 +92,64 @@ test("historic missing adoption/shelter links and missing public content are blo
     const x=fixture();modify(x);
     assert.equal(assessHelpSqlCutover(x).status,"blocked");
   }
+});
+test("only exact owner-approved shelter removals bypass the old unmatched aggregate blocker",()=>{
+  const x=fixture();
+  Object.assign(x.inventory.helpLegacyCoverage[1],{
+    legacyTotal:104,matched:94,unmatched:10,
+  });
+  Object.assign(x.inventory.helpLegacyApprovedRemovals,{
+    approvedUnmatched:10,approvedDistinct:10,unexpectedUnmatched:0,
+  });
+  const approved=assessHelpSqlCutover(x);
+  assert.equal(approved.status,"structural_check_passed");
+  assert.equal(approved.canApplyBackfill,false);
+  assert.equal(approved.canDeleteLegacy,false);
+  assert.equal(approved.summary.intentionallyRemovedShelters,10);
+  assert.ok(approved.warnings.some(w=>w.includes("reimport")));
+  for(const modify of [
+    y=>{y.inventory.helpLegacyApprovedRemovals.unexpectedUnmatched=1;
+      y.inventory.helpLegacyApprovedRemovals.approvedUnmatched=9;
+      y.inventory.helpLegacyApprovedRemovals.approvedDistinct=9;},
+    y=>{y.inventory.helpLegacyApprovedRemovals.approvedDistinct=9;},
+    y=>{y.inventory.helpLegacyApprovedRemovals.approvedUnmatched=11;},
+    y=>{y.inventory.helpLegacyApprovedRemovals.status="missing_table";},
+    y=>{delete y.inventory.helpLegacyApprovedRemovals;},
+  ]) {
+    const copy=fixture();
+    Object.assign(copy.inventory.helpLegacyCoverage[1],{
+      legacyTotal:104,matched:94,unmatched:10,
+    });
+    Object.assign(copy.inventory.helpLegacyApprovedRemovals,{
+      approvedUnmatched:10,approvedDistinct:10,unexpectedUnmatched:0,
+    });
+    modify(copy);
+    assert.equal(assessHelpSqlCutover(copy).status,"blocked");
+  }
+});
+test("exact-slug read-only audit rejects unknown, changed-state or duplicate shelters",()=>{
+  const db=new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE help_cases (slug TEXT,category TEXT,status TEXT);"+
+      "CREATE TABLE help_organizations (slug TEXT);");
+    const insert=db.prepare("INSERT INTO help_cases (slug,category,status) VALUES (?,?,?)");
+    for(const slug of HELP_INTENTIONALLY_REMOVED_SHELTERS)
+      insert.run(slug,"utulky","published");
+    const sql=helpApprovedShelterRemovalsQuery();
+    assert.match(sql,/^SELECT /);
+    const audit=()=>db.prepare(sql).get();
+    assert.deepEqual(audit(),{
+      approved_unmatched:10,approved_distinct:10,unexpected_unmatched:0,
+    });
+    insert.run("unknown-rescue","utulky","published");
+    assert.equal(audit().unexpected_unmatched,1);
+    db.prepare("UPDATE help_cases SET status='draft' WHERE slug=?")
+      .run(HELP_INTENTIONALLY_REMOVED_SHELTERS[0]);
+    assert.equal(audit().unexpected_unmatched,2);
+    insert.run(HELP_INTENTIONALLY_REMOVED_SHELTERS[1],"utulky","published");
+    assert.equal(audit().approved_unmatched,10);
+    assert.equal(audit().approved_distinct,9);
+  } finally { db.close(); }
 });
 test("lost-found legacy records are never treated as safe from matching a slug",()=>{
   for(const patch of [

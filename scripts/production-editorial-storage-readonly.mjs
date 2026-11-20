@@ -11,7 +11,7 @@ import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { helpLegacyCoverageQueries, helpLegacyFieldCandidateQueries, helpLegacyLostFoundCoverageQuery } from "../lib/help-sql-reviewed-backfill.mjs";
+import { helpLegacyCoverageQueries, helpLegacyFieldCandidateQueries, helpLegacyLostFoundCoverageQuery, helpApprovedShelterRemovalsQuery } from "../lib/help-sql-reviewed-backfill.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const DB_NAME = "psipedia-sk-db";
@@ -285,6 +285,27 @@ async function main() {
         legacyTotal:rows[0].legacy_total,matched:rows[0].matched,
         unmatched:rows[0].unmatched});
     }
+    // Owner-approved exact-slug removal exceptions, not a blanket count waiver.
+    let helpLegacyApprovedRemovals = {
+      status:"missing_table",approvedUnmatched:null,
+      approvedDistinct:null,unexpectedUnmatched:null,
+    };
+    if (existing.has("help_cases") && existing.has("help_organizations")) {
+      const rows = query(assertReadOnlySelect(helpApprovedShelterRemovalsQuery()+";"),wranglerConfig);
+      if (rows.length!==1 ||
+          ["approved_unmatched","approved_distinct","unexpected_unmatched"].some(
+            key=>naturalCount(rows[0][key])===null))
+        throw new Error("HELP_APPROVED_REMOVALS_AUDIT_UNREADABLE");
+      const shelter = helpLegacyCoverage.find(row=>row.category==="utulky");
+      if (!shelter || shelter.unmatched!==
+          rows[0].approved_unmatched+rows[0].unexpected_unmatched)
+        throw new Error("HELP_APPROVED_REMOVALS_COVERAGE_MISMATCH");
+      helpLegacyApprovedRemovals={
+        status:"exact_slug_audit",approvedUnmatched:rows[0].approved_unmatched,
+        approvedDistinct:rows[0].approved_distinct,
+        unexpectedUnmatched:rows[0].unexpected_unmatched,
+      };
+    }
     // Unmatched legacy rows are NEVER permission to insert new canonical
     // entities. Identity/provenance/manual approval are separate safety gates.
     // A legacy lost/found Help row cannot safely be linked by slug alone:
@@ -366,6 +387,7 @@ async function main() {
       scope:"directory, eshops, help (5 agendas), events, service catalog V3",
       missingTables:plan.missing,supportCounts,orphanMappings:orphans,byCategory:groups,
       helpLegacyCoverage,helpLegacyFieldCandidates,helpLegacyLostFoundCoverage,
+      helpLegacyApprovedRemovals,
       notes:[
         "Notion mapping count is not proof of synchronized field values or enabled runtime.",
         "Missing mapping table yields notionMapped=null; it is NOT an assertion of zero links.",

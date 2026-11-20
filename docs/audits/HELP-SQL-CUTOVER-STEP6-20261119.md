@@ -93,8 +93,11 @@ Pôvodne publikované historické `help_cases` záznamy bez kanonického `help_o
 
 Zvyšných **21 z 36** historických adopcií má kanonický záznam so stavom `ADOPTED`; ide o ukončené adopcie a **nesmú** sa kvôli starej publikácii prepínať na `ACTIVE`/`RESERVED`.
 
-**Dôležitá implementačná výhrada:** aktuálny agregovaný production release gate `helpLegacyCoverage` zatiaľ nevie rozlišovať `intentionally_removed` od `unmatched` a preto pri týchto desiatich záznamoch zostane `blocked`. Vlastníkovo potvrdenie nie je automatické potvrdenie všetkých identít, Notion väzieb, hodnotovej parity ani kompletnej zálohy. Pred Merge treba prípadné výnimky explicitne a bezpečne vyhodnotiť **bez importu týchto 10 profilov**, nie vypnúť celý blocker.
+**Bezpečná výnimka v audite:** `helpLegacyApprovedRemovals` preveruje iba **presne schválené URL slugy**. Len tieto záznamy, s historickým `published` stavom a bez kanonického útulku, neblokujú agregovanú kontrolu. Akákoľvek iná chýbajúca položka, duplicitná identita či neúplný kontrolný súčet zostáva blokátorom. Nevytvárajú sa profily ani sa nemení SQL, Notion či web. Potvrdenie výnimky nie je potvrdením field-level Notion parity, historických deep-linkov ani nezávislej zálohy.
 
 Staré `/pomoc-psom/utulky/{slug}` detailové URL v aktuálnom kóde smerujú na `/organizacie/{slug}`; ak cieľový kanonický záznam chýba, pôvodný obsah sa tým nevráti do verejného zoznamu. Historické `help_cases` riadky zatiaľ fyzicky nemažeme; `status='published'` v nich stále existuje, preto je potrebné zabezpečiť, aby ich žiadna budúca synchronizácia alebo import neobnovila ako aktuálne profily.
 
 Zdroj: konkrétne počty z read-only produkčného D1 SQL poskytnuté vlastníkom; **36 adopcií (15 verejných, 21 `ADOPTED`), 104 útulkov (94 kanonických verejných, 10 cielene odstránených)**. Kód ani produkčná databáza týmto záznamom neboli upravené.
+
+
+**20.11.2026:** Produkčná read-only kontrola používateľa potvrdila nulový počet historických riadkov v `help_cases` pre kategóriu `stratene-a-najdene`. Všetky štyri kontrolované počty boli 0. Nasledujúci produkčný audit tento stav opätovne preverí.
