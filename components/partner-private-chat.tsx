@@ -116,7 +116,7 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
       const response=await fetch(base,{method:"POST",body:form});
       const result=await response.json() as {error?:string};
       if(!response.ok)throw new Error(result.error||"Správu sa nepodarilo odoslať.");
-      setBody("");setFocused(false);signalTyping(false);
+      setBody("");signalTyping(false);
       setFiles([]);if(input.current)input.current.value="";
       await refresh();
       scrollDown(true);
