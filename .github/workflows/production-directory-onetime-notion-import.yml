@@ -26,8 +26,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-d1-migration
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('directory-notion-import-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   offline-test:
