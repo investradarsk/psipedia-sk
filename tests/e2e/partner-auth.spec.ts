@@ -463,6 +463,12 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
     await expect(page.getByText("Rozpracovaný súkromný koncept", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Odoslať na schválenie" }).click();
+    // The existing seeded organization is intentionally a similar match.
+    // Explicit duplicate acknowledgment is required; do not bypass the
+    // canonical duplicate safeguard in order to pass the mobile test.
+    const duplicateAlert=page.getByRole("alert").filter({hasText:"Našli sme podobný profil"});
+    await expect(duplicateAlert).toBeVisible();
+    await duplicateAlert.getByRole("button",{name:"Skontroloval som to – napriek tomu odoslať"}).click();
     await expect(page).toHaveURL(/\/partner\/ziadosti$/);
     await page.goto("/partner");
     await expect(page.locator(".partner-dashboard-record").filter({ hasText: "Partner E2E Nová Organizácia Mobile" })).toContainText("Čaká na schválenie");
