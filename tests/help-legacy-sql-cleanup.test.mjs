@@ -121,7 +121,7 @@ test("ordinary raw legacy DELETE is still prohibited by existing trigger",()=>{
  db.close();
 });
 test("no Notion mutation or technical JSON alteration commands in the one-off SQL",()=>{
- assert.doesNotMatch(sql,/https?:\\/\\/|ALTER\\s+TABLE|source_data_json|gallery_json|seo_json|BEGIN\\s+TRANSACTION|DROP\\s+TRIGGER/i);
+ assert.doesNotMatch(sql,/ALTER\s+TABLE|source_data_json|gallery_json|seo_json|BEGIN\s+TRANSACTION|DROP\s+TRIGGER|https?:/i);
  assert.match(sql,/admin_guarded_help_delete/);
  assert.match(sql,/HISTORICAL_SQL_ONLY_NOTION_RETAINED/);
 });
