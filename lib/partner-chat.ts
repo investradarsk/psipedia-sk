@@ -68,8 +68,13 @@ export async function listPartnerChat(input:{accountId:string;database?:D1Databa
     list.push({id:file.id,name:file.name,size:file.size});
     grouped.set(file.messageId,list);
   }
+  const reads=await database.prepare("SELECT partner_last_read_at partnerLastReadAt,admin_last_read_at adminLastReadAt "+
+    "FROM partner_conversations WHERE partner_account_id=?").bind(id)
+    .first<{partnerLastReadAt:string|null;adminLastReadAt:string|null}>();
   return {items:items.reverse().map(item=>({...item,attachments:grouped.get(item.id)??[]})),
-    nextBefore:result.results.length>50&&items.length?items[0].createdAt+"_"+items[0].id:null};
+    nextBefore:result.results.length>50&&items.length?items[0].createdAt+"_"+items[0].id:null,
+    partnerLastReadAt:reads?.partnerLastReadAt??null,
+    adminLastReadAt:reads?.adminLastReadAt??null};
 }
 export async function getPartnerChatUnread(input:{accountId:string;viewer:Role;database?:D1Database}){
   const database=db(input.database),id=validAccount(input.accountId);

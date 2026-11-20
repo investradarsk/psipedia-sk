@@ -3,12 +3,13 @@ import { useCallback,useEffect,useRef,useState } from "react";
 import type { ChatMessage } from "@/lib/partner-chat";
 import styles from "./partner-private-chat.module.css";
 
-type ChatPage={items:ChatMessage[];nextBefore:string|null};
+type ChatPage={items:ChatMessage[];nextBefore:string|null;partnerLastReadAt?:string|null;adminLastReadAt?:string|null};
 type Props={mode:"PARTNER"|"ADMIN";accountId?:string;initial:ChatPage};
 export function PartnerPrivateChat({mode,accountId,initial}:Props){
   const base=mode==="PARTNER"?"/api/partner/chat":
     "/api/admin/partners/chat/"+encodeURIComponent(accountId??"");
   const readUrl=base+"/read";
+  const typingUrl=base+"/typing";
   const attachments=mode==="PARTNER"?"/api/partner/chat/attachments/":
     "/api/admin/partners/chat-attachments/";
   const [items,setItems]=useState<ChatMessage[]>(initial.items);
@@ -19,9 +20,51 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
   const [moreBusy,setMoreBusy]=useState(false);
   const [error,setError]=useState("");
   const [notice,setNotice]=useState("");
-  const bottom=useRef<HTMLDivElement>(null);
+  const [peerReadAt,setPeerReadAt]=useState<string|null>(
+    mode==="PARTNER"?initial.adminLastReadAt??null:initial.partnerLastReadAt??null);
+  const [peerTyping,setPeerTyping]=useState(false);
+  const [focused,setFocused]=useState(false);
+  const typingSent=useRef(false);
+  const lastTypingSignal=useRef(0);
+  const timeline=useRef<HTMLDivElement>(null);
+  const lastInputAt=useRef(0);
+  const scrollDown=useCallback((smooth=false)=>{
+    const element=timeline.current;
+    if(element)element.scrollTo({top:element.scrollHeight,behavior:smooth?"smooth":"auto"});
+  },[]);
   const input=useRef<HTMLInputElement>(null);
   const scrollOnce=useRef(false);
+  const signalTyping=useCallback((typing:boolean)=>{
+    const now=Date.now();
+    if(typing&&typingSent.current&&now-lastTypingSignal.current<3500)return;
+    if(!typing&&!typingSent.current)return;
+    typingSent.current=typing;
+    lastTypingSignal.current=now;
+    void fetch(typingUrl,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({typing})}).catch(()=>{});
+  },[typingUrl]);
+  useEffect(()=>{
+    if(!body.trim()||!focused){signalTyping(false);return;}
+    if(Date.now()-lastInputAt.current<6000)signalTyping(true);
+    const timer=window.setInterval(()=>{
+      if(!document.hidden)signalTyping(Date.now()-lastInputAt.current<6000);
+    },3000);
+    return ()=>window.clearInterval(timer);
+  },[body,focused,signalTyping]);
+  useEffect(()=>{
+    let current=true;
+    const refreshTyping=async()=>{
+      if(document.hidden){if(current)setPeerTyping(false);return;}
+      try{
+        const response=await fetch(typingUrl,{cache:"no-store"});
+        if(response.ok){const result=await response.json() as {typing:boolean};
+          if(current)setPeerTyping(result.typing===true);}
+      }catch{if(current)setPeerTyping(false);}
+    };
+    void refreshTyping();
+    const timer=window.setInterval(()=>void refreshTyping(),4000);
+    return ()=>{current=false;window.clearInterval(timer);};
+  },[typingUrl]);
   const ack=useCallback(async()=>{
     try{await fetch(readUrl,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});}
     catch{/* Next poll or later opening will retry. */}
@@ -37,16 +80,17 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
         return Array.from(all.values()).sort((a,b)=>
           a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
       });
-      if(!scrollOnce.current){scrollOnce.current=true;bottom.current?.scrollIntoView({block:"end"});}
+      setPeerReadAt(mode==="PARTNER"?result.adminLastReadAt??null:result.partnerLastReadAt??null);
+      if(!scrollOnce.current){scrollOnce.current=true;scrollDown();}
       await ack();
     }catch{/* Polling is best effort, never silently discards an unsent draft. */}
-  },[base,ack]);
+  },[base,ack,mode,scrollDown]);
   useEffect(()=>{
     void ack();
-    bottom.current?.scrollIntoView({block:"end"});
-    const timer=window.setInterval(()=>{if(!document.hidden)void refresh();},20000);
+    scrollDown();
+    const timer=window.setInterval(()=>{if(!document.hidden)void refresh();},7000);
     return ()=>window.clearInterval(timer);
-  },[ack,refresh]);
+  },[ack,refresh,scrollDown]);
   async function loadOlder(){
     if(!before||moreBusy)return;
     setMoreBusy(true);setError("");
@@ -72,13 +116,16 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
       const response=await fetch(base,{method:"POST",body:form});
       const result=await response.json() as {error?:string};
       if(!response.ok)throw new Error(result.error||"Správu sa nepodarilo odoslať.");
-      setBody("");setFiles([]);if(input.current)input.current.value="";
+      setBody("");signalTyping(false);
+      setFiles([]);if(input.current)input.current.value="";
       await refresh();
-      bottom.current?.scrollIntoView({block:"end",behavior:"smooth"});
+      scrollDown(true);
       setNotice("Správa bola odoslaná.");
     }catch(e){setError(e instanceof Error?e.message:"Odoslanie sa nepodarilo.");}
     finally{setBusy(false);}
   }
+  const lastOwn=[...items].reverse().find(item=>item.senderRole===mode);
+  const lastOwnRead=Boolean(lastOwn&&peerReadAt&&lastOwn.createdAt<=peerReadAt);
   return <section className={mode==="PARTNER"?`${styles.chat} ${styles.partnerChat}`:styles.chat} aria-label="Súkromné správy Partneri">
     <div className={styles.description}>
       <strong>Súkromný rozhovor</strong>
@@ -88,7 +135,7 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
     {before&&<button type="button" className={styles.older} onClick={()=>void loadOlder()} disabled={moreBusy}>
       {moreBusy?"Načítavam…":"Načítať staršie správy"}
     </button>}
-    <div className={styles.timeline} role="log" aria-live="polite" aria-relevant="additions">
+    <div ref={timeline} className={styles.timeline} role="log" aria-live="polite" aria-relevant="additions">
       {!items.length&&<p className={styles.empty}>Zatiaľ žiadne správy. Napíšte prvú správu.</p>}
       {items.map(item=>{
         const own=item.senderRole===mode;
@@ -106,13 +153,20 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
           </div>}
         </article>;
       })}
-      <div ref={bottom}/>
+      {lastOwn&&<p className={styles.receipt} aria-live="polite">
+        {lastOwnRead?"✓✓ Prečítané":"✓ Odoslané"}
+      </p>}
+      {peerTyping&&<p className={styles.typing} role="status">
+        {mode==="PARTNER"?"Psipedia":"Partner"} píše…
+      </p>}
+
     </div>
     <form onSubmit={event=>void send(event)} className={styles.composer}>
       <label htmlFor={mode==="PARTNER"?"partner-chat-text":"admin-chat-text"}>Nová správa</label>
       <textarea id={mode==="PARTNER"?"partner-chat-text":"admin-chat-text"}
         value={body} maxLength={4000} rows={3} disabled={busy}
-        onChange={event=>setBody(event.target.value)} placeholder="Napíšte správu…"/>
+        onFocus={()=>setFocused(true)} onBlur={()=>{setFocused(false);signalTyping(false);}}
+        onChange={event=>{lastInputAt.current=Date.now();setBody(event.target.value);}} placeholder="Napíšte správu…"/>
       <label htmlFor={mode==="PARTNER"?"partner-chat-files":"admin-chat-files"}>Prílohy (JPG, PNG, WebP, PDF)</label>
       <input id={mode==="PARTNER"?"partner-chat-files":"admin-chat-files"} ref={input}
         disabled={busy} type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf"
