@@ -22,6 +22,8 @@ export function PartnerClaimSearchForm({choices,initialType,initialQuery}:Props)
   useEffect(()=>{
     const clean=query.trim();
     if(!clean){setItems([]);setLoading(false);setOpen(false);return;}
+    setLoading(true);
+    setItems([]);
     const controller=new AbortController();
     let current=true;
     const timeout=setTimeout(async()=>{
@@ -59,7 +61,7 @@ export function PartnerClaimSearchForm({choices,initialType,initialQuery}:Props)
         placeholder="Začnite písať, napr. V…" autoComplete="off" value={query}
         role="combobox" aria-autocomplete="list" aria-controls={listId}
         aria-expanded={show} aria-activedescendant={show&&active>=0?`${listId}-${active}`:undefined}
-        onChange={event=>{setQuery(event.target.value);setOpen(true);setActive(-1);}}
+        onChange={event=>{setQuery(event.target.value);setItems([]);setLoading(Boolean(event.target.value.trim()));setOpen(true);setActive(-1);}}
         onFocus={()=>{if(items.length)setOpen(true);}}
         onKeyDown={event=>{
           if(event.key==="Escape"){setOpen(false);setActive(-1);return;}
