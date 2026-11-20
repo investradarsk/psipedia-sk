@@ -100,7 +100,7 @@ export function PartnerGalleryField({
       // atomic SAVE, not by the API for unsubmitted PENDING uploads.
       if(!item.persisted){
         const res = await fetch(`/api/partner/media/${encodeURIComponent(item.id)}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("Fotografiu sa nepodarilo odstrániť.");
+        if (!res.ok && res.status!==409) throw new Error("Fotografiu sa nepodarilo odstrániť.");
       }
       changeUploads(uploads.filter((_, i) => i !== index));
       setMessage("");
