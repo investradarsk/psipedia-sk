@@ -1475,6 +1475,7 @@ async function saveBreederEditorialValue(
   if (path === "name" && !value.trim()) throw new Error("DIRECTORY_NAME_REQUIRED");
   const assignments: string[] = [];
   const params: string[] = [];
+  let editedQualifications: string[] | undefined;
   const scalar = breederScalarColumns[path];
   const contact = breederContactJsonNames[path];
   const seoKey = breederSeoJsonNames[path];
@@ -1496,6 +1497,7 @@ async function saveBreederEditorialValue(
       : value ? value.split(/\r?\n/).map(item => item.trim()).filter(Boolean) : [];
     assignments.push(path === "services" ? "services_json = ?" : "qualifications_json = ?");
     params.push(JSON.stringify(items));
+    if (path === "qualifications") editedQualifications = items;
   } else if (path === "addressFormat") {
     // A storage format is a technical enum, not editorial prose.
     if (!["", "STREET", "MUNICIPALITY_NUMBER"].includes(value))
@@ -1545,13 +1547,43 @@ async function saveBreederEditorialValue(
   const guardedCategory = current.category === "chovatelske-stanice"
     ? "category = 'chovatelske-stanice'" : "category = ?";
   const categoryArg = current.category === "chovatelske-stanice" ? [] : [current.category];
-  const saved = await database.prepare(
+  const canonical = database.prepare(
     "UPDATE directory_profiles SET " + assignments.join(", ") +
     ", updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND " + guardedCategory + " AND status <> 'archived' " +
     "AND updated_at = ? RETURNING id",
-  ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt)
-    .first<{ id: number }>();
+  ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt);
+  // Notion field-events must update the EXACT 0173 SQL owner inside the same
+  // D1 transaction as the compatibility column. Otherwise a fresh Notion SEO
+  // / qualification edit would be hidden by the now SQL-first public/Admin
+  // reader, or a subsequent full Admin save could undo that edit.
+  const mirrorIdentity = {kind:"id" as const,profileId:current.id,
+    updatedAt:now,actor:SYSTEM_ACTOR};
+  const seoEdited=path==="seo.noindex"||Boolean(seoKey);
+  const nextSeo = seoEdited ? {...(current.seo??{})} : null;
+  if(nextSeo){
+    if(path==="seo.noindex") nextSeo.noindex=raw as boolean;
+    else if(seoKey) (nextSeo as Record<string,string|boolean|undefined>)[seoKey]=value;
+  }
+  const mirror = editedQualifications!==undefined
+    ? planDirectory0173EditorialSqlMirror({
+      identity:mirrorIdentity,qualifications:editedQualifications,
+    })
+    : nextSeo ? planDirectory0173EditorialSqlMirror({
+      identity:mirrorIdentity,seo:nextSeo,
+    }) : [];
+  let saved:{id:number}|null = null;
+  if(mirror.length){
+    // A stale CAS must abort the entire D1 batch, including sidecar writes.
+    // The intentionally invalid json_extract fails the transaction when the
+    // canonical UPDATE affected no row.
+    const verify=database.prepare(
+      "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('DIRECTORY_FIELD_CAS_CONFLICT','$.invalid') END AS verified"
+    );
+    const responses=await database.batch([canonical,verify,
+      ...mirror.map(entry=>database.prepare(entry.sql).bind(...entry.bindings))]);
+    saved=(responses[0]?.results?.[0]??null) as {id:number}|null;
+  } else saved=await canonical.first<{id:number}>();
   if (!saved) throw new Error("BREEDER_FIELD_WRITE_CONFLICT");
   const updated = await getManagedDirectoryProfileById(current.id, database);
   if (!updated) throw new Error("BREEDER_FIELD_RELOAD_FAILED");

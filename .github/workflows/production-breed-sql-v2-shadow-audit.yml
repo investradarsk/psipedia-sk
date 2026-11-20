@@ -1,4 +1,4 @@
-name: Production D1 Breeds SQL v2 shadow parity (read-only)
+name: Production D1 Breeds SQL v2 health (read-only)
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   shadow-audit:
-    name: Owner-only 347/344 parity and controlled scalar audit
+    name: Owner-only SQL integrity or shadow parity audit
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment: production
@@ -54,16 +54,16 @@ jobs:
         run: |
           set -euo pipefail
           echo "CLOUDFLARE_ACCOUNT_ID=$(node -p 'require("./config/cloudflare-resources.json").account_id')" >> "$GITHUB_ENV"
-      - name: Offline readiness contract
+      - name: Offline SQL integrity and shadow readiness contracts
         run: |
-          node --test tests/breed-sql-v2-shadow-readiness.test.mjs
-      - name: SELECT-only production 0174 post-backfill parity
+          node --test tests/breed-sql-v2-shadow-readiness.test.mjs tests/breed-sql-v2-primary-health.test.mjs
+      - name: SELECT-only production SQL integrity or pre-cutover parity
         run: node scripts/production-breed-sql-v2-shadow-audit.mjs
       - name: Upload only the sanitized parity counts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: breeds-v2-shadow-readonly-${{ github.run_id }}
+          name: breeds-v2-health-readonly-${{ github.run_id }}
           path: .production-breed-v2-shadow-audit/report.json
           retention-days: 30
           if-no-files-found: ignore

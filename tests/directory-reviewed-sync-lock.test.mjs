@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import {
   DIRECTORY_REVIEW_UNLOCK_PENDING_KEY,
   isDirectoryReviewUnlockPendingSource,
   isDirectoryReviewedSourceLocked,
   directoryProfileNotionSyncLocked,
+  DIRECTORY_REVIEW_LOCK_SQL,
+  directoryReviewLockedFromProjection,
 } from "../lib/directory-reviewed-sync-lock.ts";
 
 test("review lock is determined only by Admin review timestamp", () => {
@@ -27,28 +30,65 @@ test("malformed metadata never silently unlocks Notion sync", () => {
   assert.throws(() => isDirectoryReviewedSourceLocked("[]"), /DIRECTORY_REVIEW_LOCK_INVALID_JSON/);
 });
 
-test("database review lock checks current D1 metadata, archives and partner membership", async () => {
-  let seen=0;
+test("single SQL-first lock query protects reviewed, partner, tombstone and legacy states", async () => {
+  const sqlite=new DatabaseSync(":memory:");
+  sqlite.exec([
+    "CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,status TEXT,source_data_json TEXT)",
+    "CREATE TABLE directory_profile_review_state(profile_id INTEGER PRIMARY KEY,reviewed_at TEXT,unlock_pending INTEGER)",
+    "CREATE TABLE partner_resources(id TEXT PRIMARY KEY,entity_type TEXT,directory_profile_id INTEGER)",
+    "CREATE TABLE partner_memberships(id TEXT PRIMARY KEY,resource_id TEXT,revoked_at TEXT)",
+    "CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER)",
+  ].join(";")+";");
+  const addProfile=sqlite.prepare("INSERT INTO directory_profiles VALUES(?,?,?)");
+  for(const id of [1,2,3,5,6,7,8,9])addProfile.run(id,id===2?"archived":"published","{}");
+  sqlite.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=1")
+    .run(JSON.stringify({"_psipedia_profile_review_reviewed_at":"2026-11-18"}));
+  sqlite.exec([
+    "INSERT INTO partner_resources VALUES('res-5','DIRECTORY_PROFILE',5)",
+    "INSERT INTO partner_memberships VALUES('m-5','res-5',NULL)",
+    "INSERT INTO directory_profile_review_state VALUES(6,'2026-11-19',0)",
+    "INSERT INTO directory_profile_review_state VALUES(7,NULL,1)",
+    "INSERT INTO admin_record_tombstones VALUES('directory',8)",
+    "INSERT INTO directory_profile_review_state VALUES(9,NULL,0)",
+  ].join(";")+";");
+  sqlite.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=9")
+    .run(JSON.stringify({"_psipedia_profile_review_unlock_pending":"1"}));
   const db={
-    prepare(sql) {
-      const membership=/JOIN partner_memberships/.test(sql);
-      if(!membership)assert.match(sql,/FROM directory_profiles WHERE id=\?/);
-      return {bind(id) { seen=id; return {async first(){
-        if(membership)return id===5?{active:1}:null;
-        if(id===1)return {source_data_json:JSON.stringify({"_psipedia_profile_review_reviewed_at":"2026-11-18"}),status:"published"};
-        if(id===2)return {source_data_json:"{}",status:"archived"};
-        if(id===3||id===5)return {source_data_json:"{}",status:"published"};
-        return null;
-      }};}};
+    prepare(sql){
+      assert.equal(sql,DIRECTORY_REVIEW_LOCK_SQL);
+      return {bind(id){return {first:async()=>sqlite.prepare(sql).get(id)??null}}};
     },
   };
-  assert.equal(await directoryProfileNotionSyncLocked(db,1),true);
-  assert.equal(await directoryProfileNotionSyncLocked(db,2),true);
-  assert.equal(await directoryProfileNotionSyncLocked(db,3),false);
-  assert.equal(await directoryProfileNotionSyncLocked(db,4),true);
-  assert.equal(await directoryProfileNotionSyncLocked(db,5),true);
-  assert.equal(seen,5);
-  await assert.rejects(()=>directoryProfileNotionSyncLocked(db,0),/DIRECTORY_REVIEW_LOCK_INVALID_ID/);
+  try {
+    assert.equal(await directoryProfileNotionSyncLocked(db,1),true,"legacy reviewed");
+    assert.equal(await directoryProfileNotionSyncLocked(db,2),true,"archived");
+    assert.equal(await directoryProfileNotionSyncLocked(db,3),false,"unlocked");
+    assert.equal(await directoryProfileNotionSyncLocked(db,4),true,"missing");
+    assert.equal(await directoryProfileNotionSyncLocked(db,5),true,"active partner");
+    assert.equal(await directoryProfileNotionSyncLocked(db,6),true,"SQL reviewed with blank JSON");
+    assert.equal(await directoryProfileNotionSyncLocked(db,7),true,"SQL unlock pending");
+    assert.equal(await directoryProfileNotionSyncLocked(db,8),true,"pending deletion");
+    assert.equal(await directoryProfileNotionSyncLocked(db,9),true,"SQL clear never overrides legacy pending");
+    sqlite.exec("UPDATE directory_profile_review_state SET reviewed_at=NULL,unlock_pending=0 WHERE profile_id=6");
+    assert.equal(await directoryProfileNotionSyncLocked(db,6),false,"explicit SQL unlock");
+    sqlite.exec("UPDATE partner_memberships SET revoked_at='2026-11-20' WHERE id='m-5'");
+    assert.equal(await directoryProfileNotionSyncLocked(db,5),false,"revoked partner");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n,8,
+      "read-only query cannot create or delete profiles");
+    await assert.rejects(()=>directoryProfileNotionSyncLocked(db,0),/DIRECTORY_REVIEW_LOCK_INVALID_ID/);
+  } finally { sqlite.close(); }
+});
+
+test("SQL-first lock predicate fails closed on corrupt JSON instead of accidental unlock",()=>{
+  assert.throws(()=>directoryReviewLockedFromProjection({
+    source_data_json:"{",status:"published",sql_reviewed_at:null,
+    sql_unlock_pending:0,partner_active:0,deletion_pending:0,
+  }),/DIRECTORY_REVIEW_LOCK_INVALID_JSON/);
+  assert.equal(directoryReviewLockedFromProjection(null),true);
+  assert.equal(directoryReviewLockedFromProjection({
+    source_data_json:"{}",status:"published",sql_reviewed_at:null,
+    sql_unlock_pending:null,partner_active:0,deletion_pending:0,
+  }),false,"missing SQL row can retain a truly open legacy profile");
 });
 
 test("Notion sweep gates targeted, signed event, catalog and legacy paths",()=>{

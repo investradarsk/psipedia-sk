@@ -12,6 +12,8 @@ import {
 import {BREED_SQL_V2_CUTOVER_AUDIT_SQL} from "../lib/breed-sql-v2-cutover-gate.mjs";
 import {assessBreedSqlV2ShadowReadiness}
   from "../lib/breed-sql-v2-shadow-readiness.mjs";
+import {assessBreedSqlV2PrimaryHealth}
+  from "../lib/breed-sql-v2-primary-health.mjs";
 
 const TARGET=JSON.parse(readFileSync("config/cloudflare-resources.json","utf8"));
 const DIR=resolve(".production-breed-v2-shadow-audit");
@@ -20,7 +22,7 @@ const REPORT=resolve(DIR,"report.json");
 const MODE="audit";
 const DB_NAME="psipedia-sk-db";
 const must=(yes,code)=>{if(!yes)throw Error("BREED_V2_SHADOW_"+code)};
-let stage="authorization",result=null;
+let stage="authorization",result=null,writeMode="unknown";
 function authorize(){
   must(process.env.GITHUB_EVENT_NAME==="workflow_dispatch"&&
     process.env.GITHUB_REF==="refs/heads/main"&&
@@ -32,11 +34,12 @@ function authorize(){
     TARGET.d1?.database_name===DB_NAME&&TARGET.d1?.binding==="DB"&&
     typeof TARGET.d1?.database_id==="string"&&
     Boolean(process.env.CLOUDFLARE_API_TOKEN),"TARGET_OR_TOKEN_INVALID");
-  const worker=readFileSync("wrangler.jsonc","utf8");
-  // Valid after rollout as well: do not confuse a safe shadow write
-  // deployment with permission to switch public readers or delete JSON.
-  must(/"BREED_SQL_V2_WRITE_MODE"\s*:\s*"(?:off|shadow)"/.test(worker),
-    "WORKER_SHADOW_MODE_INVALID");
+  const worker=JSON.parse(readFileSync("wrangler.jsonc","utf8"));
+  writeMode=worker.vars?.BREED_SQL_V2_WRITE_MODE;
+  must(["off","shadow","sql"].includes(writeMode),"WORKER_MODE_INVALID");
+  if(writeMode==="sql")
+    must(worker.vars?.BREED_SQL_V2_READ_MODE==="sql","SQL_READ_REQUIRED");
+  // Do not inspect obsolete JSON in SQL-only mode.
   mkdirSync(DIR,{recursive:true});
   writeFileSync(CONFIG,JSON.stringify({
     name:"psipedia-breed-sql-v2-shadow-readonly-audit",
@@ -80,6 +83,33 @@ function one(sql,key){
 }
 function run(){
   stage="read-only";
+  if(writeMode==="sql"){
+    // SQL is canonical. Historic breed JSON objects are intentionally stale.
+    return assessBreedSqlV2PrimaryHealth({
+      base:one("SELECT COUNT(*) AS breed_count FROM managed_breeds","base"),
+      links:one(BREED_V2_PREFLIGHT_SQL.links,"links"),
+      extras:query(BREED_V2_PREFLIGHT_SQL.extras),
+      controlled:one(BREED_V2_PREFLIGHT_SQL.controlled,"controlled"),
+      orphanControlled:one(BREED_V2_PREFLIGHT_SQL.orphanControlled,"orphanControlled"),
+      destination:one(BREED_V2_PREFLIGHT_SQL.destination,"destination"),
+      missing:one(`SELECT
+        (SELECT COUNT(*) FROM managed_breeds b LEFT JOIN breed_fci_standard f
+          ON f.breed_id=b.id WHERE f.breed_id IS NULL) AS missing_fci,
+        (SELECT COUNT(*) FROM managed_breeds b LEFT JOIN breed_editorial_text e
+          ON e.breed_id=b.id WHERE e.breed_id IS NULL) AS missing_editorial,
+        (SELECT COUNT(*) FROM breed_notion_workcopy_links l
+          LEFT JOIN breed_public_facts f ON f.breed_id=l.breed_id
+          WHERE l.status='ACTIVE' AND f.breed_id IS NULL) AS missing_facts`,
+        "missing"),
+      foreignKeys:one(`SELECT COUNT(*) AS violations
+        FROM pragma_foreign_key_check WHERE "table" IN
+        ('breed_fci_standard','breed_editorial_text',
+         'breed_public_facts','breed_related_breeds')`,
+        "foreignKeys"),
+      scalarParity:one(BREED_SQL_V2_CUTOVER_AUDIT_SQL.scalarParity,"scalarParity"),
+      controlledFacts:one(BREED_V2_POSTFLIGHT_SQL.facts,"controlledFacts"),
+    });
+  }
   const result={
     base:one(BREED_V2_PREFLIGHT_SQL.base,"base"),
     links:one(BREED_V2_PREFLIGHT_SQL.links,"links"),
@@ -103,17 +133,18 @@ try{
   authorize();
   result=run();
   stage="report";
+  const status=result.ready?(writeMode==="sql"?"SQL_ONLY_HEALTHY":"READY_FOR_GATED_ACTIVATION"):"BLOCKED";
   writeFileSync(REPORT,JSON.stringify({
-    status:result.ready?"READY_FOR_GATED_ACTIVATION":"BLOCKED",
+    status,mode:writeMode,
     commit:process.env.GITHUB_SHA,
     ...result,
   },null,2)+"\n");
   console.log(JSON.stringify({
-    status:result.ready?"READY_FOR_GATED_ACTIVATION":"BLOCKED",
+    status,mode:writeMode,
     inspected:result.inspected,blockers:result.blockers,
     writesAttempted:false,liveNotionPageChecked:false,
   }));
-  must(result.ready,"PARITY_NOT_READY");
+  must(result.ready,writeMode==="sql"?"SQL_INTEGRITY_NOT_READY":"PARITY_NOT_READY");
 }catch(error){
   const code=error instanceof Error?error.message:"UNKNOWN";
   console.error(JSON.stringify({status:"BLOCKED",stage,code,
