@@ -101,7 +101,7 @@ test("event type navigation and time filters stay crawlable with the intended tr
   assert.match(eventsPage, /shortcuts=\{\[\]\}/);
   assert.match(eventsPage, /eventTypePortalHref\(type\)/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(calendar, /role="list" aria-label="Typy podujatí v kalendári"/);
+  assert.match(calendar, /role="list"\s+aria-label="Typy podujatí v kalendári"/);
   // Period links are now rendered through the shared compact navigator.
   // It still emits crawlable anchors and delegates ordinary clicks to the
   // in-place calendar navigation (preserving browser back/forward).

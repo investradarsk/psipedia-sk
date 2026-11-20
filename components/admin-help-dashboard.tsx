@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
+import { removeAdminRecordFromList, adminListRemovalMessage } from "@/lib/admin-record-list-delete";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AdminRecordTable } from "@/components/admin-record-table";
@@ -124,12 +125,10 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
     if (deletingId !== null || bulkBusy) return;
     setDeletingId(item.id); setMessage("");
     try {
-      const response = await fetch(`/api/admin/help/${item.id}`, { method: "DELETE" });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error || "Prípad sa nepodarilo odstrániť.");
+      const result = await removeAdminRecordFromList("help", item.id, item.title);
       setSelected((current) => { const next = new Set(current); next.delete(item.id); return next; });
       setPendingDelete(null);
-      setMessage("Help záznam bol odstránený.");
+      setMessage(adminListRemovalMessage(result, "Prípad"));
       router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Prípad sa nepodarilo odstrániť."); }
     finally { setDeletingId(null); }

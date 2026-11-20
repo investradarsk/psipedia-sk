@@ -30,7 +30,7 @@ test("action bar keeps one guarded back navigation and full meaning of buttons",
   assert.match(editor, /onClose=\{\(\) => router\.push\("\/admin\/podujatia"\)\}/);
   assert.match(shell, /closeLabel\?: string/);
   assert.match(shell, /if \(dirty\) setConfirmClose\(true\)/);
-  assert.match(eventPage, /<AdminReviewCheckbox/);
+  assert.match(eventPage, /<AdminPartnerReviewStatus entityType="EVENT" entityId=\{id\}/);
   assert.match(eventPage, /<AdminCanonicalDraftWarning/);
   assert.match(eventPage, /<AdminCanonicalDraftDelete/);
   assert.match(eventPage, /eventHref\(event\)/);

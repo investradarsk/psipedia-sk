@@ -99,7 +99,7 @@ test("event categories have one canonical navigator and a non-link calendar lege
   assert.match(calendar, /eventTypePortalHref\(view\.type\)/);
   assert.match(eventsPage, /<PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(calendar, /role="list" aria-label="Typy podujatí v kalendári"/);
+  assert.match(calendar, /role="list"\s+aria-label="Typy podujatí v kalendári"/);
   assert.doesNotMatch(calendar, /<nav className=\{styles\.calendarLegend\}/);
   assert.match(listing, /className=\{`\$\{styles\.cardGrid\}\s+\$\{directoryStyles\.listRows\}`\}\s+data-event-list/);
   assert.doesNotMatch(
@@ -117,7 +117,7 @@ test("default listing order keeps current and upcoming events ahead of past even
 });
 
 test("event rows stay compact and date-first with an image presentation slot", () => {
-  assert.match(eventCard, /<time className=\{styles\.dateBlock\}/);
+  assert.match(eventCard, /<time\s+className=\{styles\.dateBlock\}/);
   assert.match(eventCard, /endDateLabel\(event\)/);
   assert.match(eventCard, /Čas/);
   assert.match(eventCard, /Miesto/);
@@ -128,7 +128,7 @@ test("event rows stay compact and date-first with an image presentation slot", (
   assert.match(eventCard, /styles\.eventCardWithImage/);
   assert.match(
     eventCard,
-    /<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\} mode=\{event\.imageDisplay\} config=\{event\.thumbnailImageDisplay\} sizes="[^"]+" alt="" loading="lazy" decoding="async"/,
+    /<EventImage\s+imageUrl=\{event\.imageUrl\}\s+eventId=\{event\.id\}\s+eventType=\{event\.eventType\}\s+mode=\{event\.imageDisplay\}\s+config=\{event\.thumbnailImageDisplay\}\s+sizes="[^"]+"\s+alt=""\s+loading="lazy"\s+decoding="async"/,
   );
   assert.doesNotMatch(eventCard, /PawMark/);
   assert.match(eventsCss, /grid-template-columns:\s*78px minmax\(0, 1fr\) auto/);
