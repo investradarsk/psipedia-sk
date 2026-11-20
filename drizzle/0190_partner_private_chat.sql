@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS partner_chat_messages (
   created_at TEXT NOT NULL,
   CHECK(length(body)<=4000 AND (length(trim(body))>0 OR attachment_count>0))
 );
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS partner_chat_messages_account_created_idx
   ON partner_chat_messages(partner_account_id,created_at DESC,id DESC);
 --> statement-breakpoint
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS partner_chat_attachments (
   size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 1 AND 5242880),
   created_at TEXT NOT NULL
 );
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS partner_chat_attachments_message_idx ON partner_chat_attachments(message_id);
 --> statement-breakpoint
 
@@ -60,5 +62,7 @@ CREATE TABLE IF NOT EXISTS partner_chat_email_queue (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS partner_chat_email_queue_pending_idx
   ON partner_chat_email_queue(status,created_at);
+--> statement-breakpoint
