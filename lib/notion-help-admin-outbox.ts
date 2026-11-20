@@ -7,7 +7,7 @@ import type { ReconciliationValue } from "./notion-bulk-reconciliation";
 import type { NotionEventsHelpSyncBindings } from "./notion-events-help-sync";
 
 export type HelpNotionAgenda = "organizations" | "adoptions" | "help-cases" | "lost-found";
-export type HelpNotionWritebackState = "synced" | "pending" | "review" | "disabled" | "unlinked";
+export type HelpNotionWritebackState = "synced" | "pending" | "review" | "disabled" | "unlinked" | "setup";
 export type HelpNotionRetryBindings = NotionEventsHelpSyncBindings & {
   NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string;
 };
@@ -56,9 +56,12 @@ export async function readHelpNotionWritebackStatus(
     ).bind(agenda, entityId).first<{ status: string }>();
     if (!row) return "synced";
     return row.status === "REVIEW" ? "review" : "pending";
-  } catch {
-    // The additive D1 table has not been deployed; never show a false green.
-    return "pending";
+  } catch (error) {
+    // A schema rollout is not a successful sync, and an unrelated D1 outage
+    // must not be disguised as a missing migration.
+    if (error instanceof Error && /no such table: notion_help_admin_writeback_outbox/i.test(error.message))
+      return "setup";
+    throw error;
   }
 }
 
