@@ -1,4 +1,4 @@
-import { auditCanonicalIdentities, canonicalBreedIdsSql, canonicalBreedIdsForRead, type CanonicalIdentity } from './breed-canonical.ts';
+import { auditCanonicalIdentities, canonicalBreedIdsForRead, type CanonicalIdentity } from './breed-canonical.ts';
 import { breedSqlPrimaryEnabled, BREED_SQL_V2_READ_EXPRESSIONS } from './breed-sql-v2-primary-read.mjs';
 import { inspectBreedMeasurement, publicFciSectionName } from './breed-fci.ts';
 import { withAvailableBreedImages, type ImageBindings } from './breed-image.ts';
