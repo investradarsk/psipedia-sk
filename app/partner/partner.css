@@ -2256,6 +2256,11 @@
   .partner-shell--workspace .button {
     min-height: 44px;
   }
+  .partner-shell--workspace .partner-field input:not([type="checkbox"]):not([type="radio"]),
+  .partner-shell--workspace .partner-field select,
+  .partner-shell--workspace .partner-profile-check {
+    min-height: 44px;
+  }
   .partner-shell--workspace .partner-page-heading {
     margin-bottom: 12px;
   }
