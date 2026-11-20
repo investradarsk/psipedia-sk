@@ -50,14 +50,14 @@ async function setup() {
   const compiled=ts.transpileModule(code,{
     compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS},
   }).outputText;
-  const module={exports:{}};
+  const sandboxModule={exports:{}};
   runInNewContext(compiled,{
-    exports:module.exports,require(id){
+    exports:sandboxModule.exports,require(id){
       if(!h.mocks[id])throw Error("unexpected import: "+id);
       return h.mocks[id];
     },Date,JSON,Math,Object,Number,Set,String,
   });
-  return {...h,api:module.exports,bindings:{NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED:"true"}};
+  return {...h,api:sandboxModule.exports,bindings:{NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED:"true"}};
 }
 function queuedCount(sqlite) {
   return sqlite.prepare("SELECT COUNT(*) n FROM notion_help_admin_writeback_outbox").get().n;
