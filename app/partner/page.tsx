@@ -9,12 +9,13 @@ import { listPartnerHelpCreateSubmissions } from "@/lib/partner-help-create";
 import { listPartnerProfileChanges } from "@/lib/partner-profile-changes";
 import { buildPartnerDashboardSummary } from "@/lib/partner-dashboard";
 import { partnerResourceStatusLabel } from "@/lib/partner-ui-labels";
-import { listPartnerCanonicalDrafts } from "@/lib/partner-canonical-workflow";
+import { listPartnerCanonicalDrafts, type PartnerCanonicalType } from "@/lib/partner-canonical-workflow";
 import { getPartnerChatUnread,getPartnerNotificationPreferences } from "@/lib/partner-chat";
 
 export const dynamic = "force-dynamic";
 
-function resourceTypeLabel(type: PartnerManagedResource["entityType"]) {
+function resourceTypeLabel(type: PartnerManagedResource["entityType"] | PartnerCanonicalType) {
+  if (type === "DIRECTORY_PROFILE") return "Služba pre psov";
   if (type === "MANAGED_EVENT") return "Podujatie";
   if (type === "HELP_ORGANIZATION") return "Organizácia na pomoc psom";
   if (type === "ADOPTION_DOG") return "Adopcia";
@@ -96,9 +97,9 @@ export default async function PartnerHomePage() {
           <div className="partner-dashboard-record-grid">
             {canonicalDrafts.slice(0,12).map(draft=>(
               <article className="partner-dashboard-record" key={draft.id}>
-                <span className="partner-dashboard-type">{draft.resourceType.replaceAll("_"," ")}</span>
+                <span className="partner-dashboard-type">{resourceTypeLabel(draft.resourceType)}</span>
                 <h3>{draft.title}</h3>
-                <p>{draft.status==="DRAFT"?"Neodoslaný koncept":draft.status==="RETURNED"?"Vrátené na doplnenie":"Čaká na schválenie"}</p>
+                <p>{({DRAFT:"Rozpracované",RETURNED:"Na doplnenie",SUBMITTED:"Čaká na schválenie",PENDING_REVIEW:"Kontroluje sa",QUARANTINED:"Kontroluje sa",APPROVED:"Schválené",REJECTED:"Zamietnuté"} as Record<string,string>)[draft.status]??"Stav návrhu"}</p>
                 <Link className="button button--dark" href={draft.partnerHref}>Otvoriť a upraviť</Link>
               </article>
             ))}
