@@ -1,0 +1,105 @@
+name: Directory – cleanup SQL/Notion scalar JSON duplicates
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/directory-sql-notion-scalar-cleanup.mjs"
+      - "lib/directory-profile-metadata.ts"
+      - "scripts/production-directory-sql-notion-scalar-cleanup.mjs"
+      - "tests/directory-sql-notion-scalar-cleanup.test.mjs"
+      - ".github/workflows/production-directory-sql-notion-scalar-cleanup.yml"
+      - "docs/audits/DIRECTORY-SQL-NOTION-SCALAR-CLEANUP.md"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "audit (read only) or apply (remove only SQL-confirmed scalar aliases)"
+        type: choice
+        options:
+          - audit
+          - apply
+        default: audit
+        required: true
+      confirmation:
+        description: "AUDIT-DIRECTORY-SQL-SCALARS-psipedia-sk-db or APPLY-DIRECTORY-SQL-SCALARS-psipedia-sk-db"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('directory-scalar-cleanup-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  offline:
+    name: Check SQL/Notion scalar alias cleanup (offline)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Verify scalar source removal, public safety and lifecycle locks
+        run: node --experimental-strip-types --test tests/directory-sql-notion-scalar-cleanup.test.mjs
+
+  production:
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline
+    name: Protected owner-only D1 scalars cleanup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      DIRECTORY_SCALAR_CLEANUP_CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Enforce owner-dispatched main and exact confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          case "${{ inputs.mode }}" in
+            audit) expected="AUDIT-DIRECTORY-SQL-SCALARS-psipedia-sk-db" ;;
+            apply) expected="APPLY-DIRECTORY-SQL-SCALARS-psipedia-sk-db" ;;
+            *) exit 1 ;;
+          esac
+          test "$DIRECTORY_SCALAR_CLEANUP_CONFIRMATION" = "$expected"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Refuse stale main before production access
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - name: Install locked Wrangler
+        run: npm ci
+      - name: Bind validated Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id||"")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Audit or remove confirmed SQL/Notion scalar JSON duplicates
+        run: node scripts/production-directory-sql-notion-scalar-cleanup.mjs "${{ inputs.mode }}"
+      - name: Archive private audit, postflight and D1 recovery bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: directory-sql-notion-scalar-cleanup-${{ github.run_id }}
+          path: .directory-sql-notion-scalar-cleanup/report.json
+          if-no-files-found: ignore
+          retention-days: 30
