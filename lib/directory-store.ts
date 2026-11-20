@@ -2,6 +2,7 @@ import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { readDirectory0170EditorialFields } from "./directory-0170-editorial-read";
+import { readDirectory0173EditorialSql } from "./directory-0173-editorial-sql-read";
 import { env } from "cloudflare:workers";
 import {
   directoryLocationFacetStatement,
@@ -773,6 +774,53 @@ function parseSeo(value: string): EditableSeo {
   } catch {
     return {};
   }
+}
+
+/**
+ * Use the new D1 relational owner for detail/editor projections. This is a
+ * read model only; it neither changes the old JSON payload nor writes Notion.
+ * Missing sidecar rows retain an older untouched profile until the explicit
+ * per-profile final SQL-only cutover.
+ */
+async function withDirectory0173SqlPublic(
+  db: D1Database,
+  profile: PublicDirectoryProfile,
+): Promise<PublicDirectoryProfile> {
+  const sql=await readDirectory0173EditorialSql(db,profile.id);
+  const qualifications=sql.qualifications
+    ? directoryQualificationSections(sql.qualifications) : null;
+  const importData={
+    ...(profile.importData??{}),
+    ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
+  };
+  return {
+    ...profile,importData,
+    ...(qualifications??{}),
+    ...(sql.seo?{seo:sql.seo}:{}),
+    ...(sql.galleryUrls?{galleryUrls:sql.galleryUrls}:{}),
+  };
+}
+
+async function withDirectory0173SqlManaged(
+  db:D1Database,
+  profile:ManagedDirectoryProfile,
+):Promise<ManagedDirectoryProfile> {
+  const sql=await readDirectory0173EditorialSql(db,profile.id);
+  const qualityMetadata={...profile.qualityMetadata};
+  for(const entry of sql.quality){
+    qualityMetadata[entry.field]={status:entry.status,checkedAt:entry.checkedAt};
+  }
+  return {
+    ...profile,
+    importData:{
+      ...(profile.importData??{}),
+      ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
+    },
+    qualityMetadata,
+    ...(sql.qualifications?{qualifications:sql.qualifications}:{}),
+    ...(sql.seo?{seo:sql.seo}:{}),
+    ...(sql.galleryUrls?{galleryUrls:sql.galleryUrls}:{}),
+  };
 }
 
 function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile {
@@ -1807,6 +1855,15 @@ const getPublishedDirectoryProfileUncached = async (category: string, slug: stri
       error:error instanceof Error?error.name:"UNKNOWN",
     });
   }
+  try {
+    profile=await withDirectory0173SqlPublic(database,profile);
+  } catch (error) {
+    // Never turn a public detail into HTTP 500 because a supplemental SQL
+    // projection is temporarily unavailable. Keep the existing presentation.
+    console.error("Public directory SQL 0173 detail projection unavailable",{
+      profileId:profile.id,error:error instanceof Error?error.name:"UNKNOWN",
+    });
+  }
   // The detail page and its JSON-LD must reflect confirmed D1 choices even
   // when an earlier text/Notion projection failed. Keep old unmatched prose.
   // This optional read only runs for a published profile on a V3-enabled site.
@@ -1918,7 +1975,7 @@ export async function getManagedDirectoryProfileById(id: number, databaseInput?:
     .prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1")
     .bind(id)
     .first<DirectoryProfileRow>();
-  return row ? rowToManagedProfile(row) : null;
+  return row ? withDirectory0173SqlManaged(database,rowToManagedProfile(row)) : null;
 }
 
 export async function getManagedDirectoryProfileByCategorySlug(
@@ -1931,7 +1988,7 @@ export async function getManagedDirectoryProfileByCategorySlug(
     .prepare("SELECT * FROM directory_profiles WHERE category = ? AND slug = ? LIMIT 1")
     .bind(category, slug)
     .first<DirectoryProfileRow>();
-  return row ? rowToManagedProfile(row) : null;
+  return row ? withDirectory0173SqlManaged(database,rowToManagedProfile(row)) : null;
 }
 
 /**
