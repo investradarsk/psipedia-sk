@@ -132,7 +132,9 @@ test("review projection CAS guard aborts before a stale SQL row can be changed",
     // a SQL error rather than allowing a later sidecar upsert.
     assert.throws(()=>f.apply(stmt),/malformed JSON/);
     f.sqlite.prepare("UPDATE directory_profiles SET updated_at='T3' WHERE id=1").run();
-    assert.equal(f.apply(stmt).changes,0);
+    // node:sqlite returns connection change count metadata even for a SELECT
+    // after a prior UPDATE. Inspect actual review-row state instead.
+    f.apply(stmt);
     assert.equal(f.review(1),undefined);
   }finally{f.sqlite.close();}
 });
@@ -268,6 +270,10 @@ test("review writer paths are atomic and all legacy Notion lock predicates stay 
   assert.equal((partner.match(/partnerDirectoryReviewLockStatement\(/g)??[]).length,2);
   assert.match(lock,/isDirectoryReviewedSourceLocked\(row\.source_data_json\)/);
   assert.match(lock,/JOIN partner_memberships/);
-  assert.doesNotMatch(lock,/directory_profile_review_state/,
-    "SQL shadow cannot unlock historical reviewed JSON before audited backfill");
+  assert.match(lock,/directory_profile_review_state/);
+  assert.match(lock,/admin_record_tombstones/);
+  assert.match(lock,/legacyLocked \|\|/);
+  assert.match(lock,/Number\(row\.sql_unlock_pending\) === 1/);
+  // SQL may add protection, but must never override a historical JSON lock.
+  assert.match(lock,/Boolean\(row\.sql_reviewed_at\?\.trim\(\)\)/);
 });

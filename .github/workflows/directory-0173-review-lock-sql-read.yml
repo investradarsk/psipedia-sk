@@ -1,0 +1,31 @@
+name: Directory 0173 – SQL-first review lock regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/directory-reviewed-sync-lock.ts"
+      - "tests/directory-reviewed-sync-lock.test.mjs"
+      - "tests/partner-directory-review-lock.test.mjs"
+      - "tests/directory-sql-0173-reviewed-lock.test.mjs"
+      - ".github/workflows/directory-0173-review-lock-sql-read.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: directory-0173-review-lock-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  read-lock:
+    name: SQL-reviewed lock / partner / tombstone SQLite safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Offline read-only SQLite regression (no Notion/D1 production)
+        run: node --experimental-strip-types --test tests/directory-reviewed-sync-lock.test.mjs tests/partner-directory-review-lock.test.mjs tests/directory-sql-0173-reviewed-lock.test.mjs
