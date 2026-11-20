@@ -9,6 +9,7 @@ import { parseHelpResourceId } from "./partner-help-claims";
 import { adminAuditActorRef } from "./audit-identity";
 import { applyAtomicModerationTransition } from "./moderation-transition";
 import { adminNotificationEventStatement } from "./admin-notifications";
+import { invalidateVersionedPublicHtmlCacheUrl } from "./public-html-cache";
 
 export const lifecycleActions=["REQUEST_HIDE","REQUEST_ARCHIVE","REQUEST_RELEASE","REQUEST_DELETE_ACCOUNT"] as const;
 export type LifecycleAction=typeof lifecycleActions[number];
@@ -199,8 +200,40 @@ function closeAccountStatements(db:D1Database,row:Row,iso:string,actor:string){
       "AND subject_id=? AND revoked_at IS NULL").bind(iso,row.accountId),
   ];
 }
+async function invalidateLifecyclePublicCache(db:D1Database,row:Row,publicOrigin:string){
+  const type=row.resourceType as ProfileType,spec=specs[type],id=Number(row.subjectId);
+  if(!spec||!Number.isSafeInteger(id)||id<1)return;
+  const columns=type==="DIRECTORY_PROFILE"||type==="HELP_CASE"?"slug,category":
+    type==="LOST_FOUND_DOG"?"slug,type":"slug";
+  const record=await db.prepare("SELECT "+columns+" FROM "+spec.table+" WHERE id=? LIMIT 1")
+    .bind(id).first<{slug:string;category?:string;type?:string}>();
+  if(!record?.slug)return;
+  const slug=encodeURIComponent(record.slug),cat=encodeURIComponent(record.category??"");
+  const href=type==="DIRECTORY_PROFILE"?"/adresar/"+cat+"/"+slug:
+    type==="HELP_ORGANIZATION"?"/organizacie/"+slug:
+    type==="MANAGED_EVENT"?"/podujatia/"+slug:
+    type==="ADOPTION_DOG"?"/pomoc-psom/adopcia/"+slug:
+    type==="LOST_FOUND_DOG"?"/pomoc-psom/"+(record.type==="FOUND"?"najdene-psy":"stratene-psy")+"/"+slug:
+    "/pomoc-psom/"+cat+"/"+slug;
+  const paths=new Set<string>([href,
+    type==="DIRECTORY_PROFILE"?"/adresar":type==="MANAGED_EVENT"?"/podujatia":
+    type==="HELP_ORGANIZATION"?"/organizacie":"/pomoc-psom"]);
+  if(type==="DIRECTORY_PROFILE")paths.add("/adresar/"+cat);
+  if(type==="MANAGED_EVENT")paths.add("/podujatia/kalendar");
+  if(type==="ADOPTION_DOG")paths.add("/pomoc-psom/adopcia");
+  if(type==="LOST_FOUND_DOG")paths.add(record.type==="FOUND"?"/pomoc-psom/najdene-psy":"/pomoc-psom/stratene-psy");
+  if(type==="HELP_CASE")paths.add("/pomoc-psom/"+cat);
+  const version=(env as unknown as {CF_VERSION_METADATA?:{id?:string}}).CF_VERSION_METADATA?.id;
+  for(const path of paths){
+    try{await invalidateVersionedPublicHtmlCacheUrl(new URL(path,publicOrigin),version);}
+    catch(error){console.error("Partner lifecycle public HTML invalidation failed",{
+      canonicalId:id,type,path,error:error instanceof Error?error.message:"unknown",
+    });}
+  }
+}
 export async function decidePartnerLifecycleAdmin(input:{
   id:string;adminEmail:string;decision:"APPROVE"|"REJECT";note?:unknown;db?:D1Database;now?:Date;
+  publicOrigin?:string;
 }){
   const db=database(input.db),row=await getRequest(db,input.id);
   if(!["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(row.status))
@@ -242,6 +275,10 @@ export async function decidePartnerLifecycleAdmin(input:{
     if(error instanceof Error&&/malformed JSON|PARTNER_LIFECYCLE_CAS_CONFLICT|constraint failed/i.test(error.message))
       throw new PartnerLifecycleError("Stav záznamu alebo oprávnenia sa zmenili. Obnovte Admin.",409);
     throw error;
+  }
+  if(input.decision==="APPROVE"&&["REQUEST_HIDE","REQUEST_ARCHIVE"].includes(row.operation)&&input.publicOrigin){
+    try{await invalidateLifecyclePublicCache(db,row,input.publicOrigin);}
+    catch(error){console.error("Partner lifecycle cache sweep failed after committed approval",error);}
   }
   return {id:row.id,action:row.operation,status:input.decision==="APPROVE"?"APPROVED":"REJECTED"};
 }
