@@ -94,7 +94,7 @@ export default async function OrganizationAdminDetailPage({ params, searchParams
       {organization.status === "PUBLISHED" && organization.slug && <Link href={"/organizacie/" + organization.slug} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
       <Link href={returnHref}>← Späť na organizácie</Link>
     </>}>
-    <AdminPartnerCanonicalDraft resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /><AdminPartnerCanonicalAudit resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /><AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} />
+    <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /></Suspense><Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /></Suspense><AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} />
     <Suspense fallback={null}><OrganizationDuplicateWarning organizationId={organization.id} /></Suspense>
     <AdminOrganizationEditor organization={organization} initialLocations={locations}
       automationSuggestionsPromise={suggestionsPromise} returnHref={returnHref} />
