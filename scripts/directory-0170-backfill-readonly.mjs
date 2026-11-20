@@ -77,6 +77,142 @@ function normalizeFilter(id, value) {
   return ["yes","no","unknown"].includes(normalized) ? normalized : "INVALID";
 }
 
+/**
+ * SQL 0173 remains a shadow, not a proof of successful public/Notion cutover.
+ * Report issue classes and counts only; never return editorial values or URLs.
+ * Absence of a SQL row is NOT an independently verified explicit clear.
+ */
+function classifyDirectory0173Row(row, source, issue) {
+  // Older test fixtures may omit all 0173 fields. A production SELECT never does.
+  if (row.sql_qualifications === undefined) return;
+  const qualifications = parseArray(row.sql_qualifications);
+  const hours = parseArray(row.sql_hours);
+  const media = parseArray(row.sql_media);
+  const quality = parseArray(row.sql_quality);
+  const seo = row.sql_seo === null ? null : parseObject(row.sql_seo);
+  const review = row.sql_review === null ? null : parseObject(row.sql_review);
+  if (!qualifications || !hours || !media || !quality ||
+      (row.sql_seo !== null && !seo) || (row.sql_review !== null && !review)) {
+    issue("sql0173","invalid_relation_aggregate");
+    return;
+  }
+  const oldQualifications = parseArray(row.qualifications_json);
+  if (!oldQualifications || oldQualifications.some(value => typeof value !== "string") ||
+      qualifications.some(value => typeof value !== "string")) {
+    issue("qualification","invalid_list");
+  } else {
+    const legacy = oldQualifications.filter(v => v.trim());
+    if (legacy.length && !qualifications.length)
+      issue("qualification","legacy_only_unverified");
+    else if (JSON.stringify(legacy) !== JSON.stringify(qualifications))
+      issue("qualification","sql_mismatch_review");
+  }
+
+  const seenDays = new Set();
+  let sqlFreeText = "";
+  for (const entry of hours) {
+    if (!entry || !Number.isInteger(entry.day) || entry.day < 0 || entry.day > 7 ||
+        typeof entry.text !== "string" || !entry.text.trim() ||
+        seenDays.has(entry.day)) issue("hours","invalid_sql_row");
+    else {
+      seenDays.add(entry.day);
+      if (entry.day === 0) sqlFreeText = entry.text.trim();
+    }
+  }
+  // Real weekday rows are intentionally not reverse-engineered into legacy prose.
+  if ([...seenDays].some(day => day !== 0)) issue("hours","structured_weekdays_need_read_cutover_review");
+  if (source) {
+    const oldHours = ["Ordinačné hodiny","Otváracie hodiny","Otváracia doba",
+      "Ordinačná doba","Pracovná doba"].filter(key => own(source,key));
+    const historical = oldHours.length ? text(source[oldHours[0]]).trim() : "";
+    const alias = oldHours.slice(1).some(key => present(source[key]));
+    if (!historical && alias) issue("hours","legacy_alias_after_clear");
+    if (historical && !seenDays.has(0) && ![...seenDays].some(day => day !== 0))
+      issue("hours","legacy_only_unverified");
+    else if (historical && seenDays.has(0) && historical !== sqlFreeText)
+      issue("hours","sql_mismatch_review");
+    else if (!historical && seenDays.has(0))
+      issue("hours","sql_only_review");
+  }
+
+  const seenMedia = new Set();
+  const urls = [];
+  for (const entry of media) {
+    if (!entry || typeof entry.order !== "number" || !Number.isSafeInteger(entry.order) ||
+        entry.order < 0 || seenMedia.has(entry.order) ||
+        (typeof entry.url !== "string" && typeof entry.key !== "string")) {
+      issue("gallery","invalid_sql_row");
+      continue;
+    }
+    seenMedia.add(entry.order);
+    if (typeof entry.url === "string" && entry.url.trim()) urls.push(entry.url.trim());
+    else issue("gallery","sql_key_only_review");
+  }
+  if (media.length > 6) issue("gallery","more_than_six");
+  if (source) {
+    // The breeder gallery uses a different canonical compatibility key.
+    const key = row.category === "chovatelske-stanice"
+      ? "_psipedia_breeder_gallery_urls" : "_psipedia_profile_gallery_urls";
+    const old = source[key] === undefined ? [] : parseArray(source[key]);
+    if (!old || old.some(v => typeof v !== "string"))
+      issue("gallery","invalid_legacy_list");
+    else if (JSON.stringify(old.map(v => v.trim())) !== JSON.stringify(urls)) {
+      issue("gallery",urls.length ? "sql_mismatch_review":"legacy_only_unverified");
+    }
+  }
+
+  const seoLegacy = parseObject(row.seo_json);
+  if (!seoLegacy) issue("seo","invalid_legacy_json");
+  else {
+    const fields = [
+      ["title","title"],["description","description"],
+      ["focusKeyword","focus_keyword"],["canonicalUrl","canonical_url"],
+      ["ogTitle","og_title"],["ogDescription","og_description"],
+      ["ogImage","og_image_url"],["noindex","noindex"],
+    ];
+    const legacyIsSet = fields.some(([old]) => old === "noindex"
+      ? seoLegacy.noindex === true : present(seoLegacy[old]));
+    if (!seo) {
+      if (legacyIsSet) issue("seo","legacy_only_unverified");
+    } else {
+      for (const [old,sql] of fields) {
+        const expected = old === "noindex" ? (seoLegacy.noindex === true ? 1 : 0)
+          : text(seoLegacy[old]);
+        const actual = old === "noindex" ? Number(seo[sql]) : text(seo[sql]);
+        if (expected !== actual) issue("seo","sql_mismatch_review");
+      }
+    }
+  }
+
+  if (source) {
+    const reviewedAt = text(source._psipedia_profile_review_reviewed_at).trim();
+    const reviewedBy = text(source._psipedia_profile_review_reviewed_by).trim();
+    const pending = source._psipedia_profile_review_unlock_pending === "1" ? 1 : 0;
+    if (!review) {
+      if (reviewedAt || pending) issue("review","legacy_only_unverified");
+    } else if (text(review.reviewed_at) !== reviewedAt ||
+        text(review.reviewed_by) !== reviewedBy || Number(review.unlock_pending) !== pending) {
+      issue("review","sql_lock_mismatch");
+    }
+    const indexed = new Map();
+    for (const entry of quality) {
+      if (!entry || !["phone","email","website","image","address"].includes(entry.field) ||
+          !["DOES_NOT_EXIST","NOT_PUBLIC","NOT_APPLICABLE","NOT_FOUND"].includes(entry.status) ||
+          typeof entry.checked_at !== "string" || !entry.checked_at ||
+          indexed.has(entry.field)) issue("quality","invalid_sql_row");
+      else indexed.set(entry.field,entry);
+    }
+    for (const field of ["phone","email","website","image","address"]) {
+      const status = text(source["_psipedia_quality_"+field+"_status"]).trim();
+      const checkedAt = text(source["_psipedia_quality_"+field+"_checked_at"]).trim();
+      const sql = indexed.get(field);
+      if (status && !sql) issue("quality","legacy_only_unverified");
+      else if (sql && (!status || !checkedAt || status !== sql.status || checkedAt !== sql.checked_at))
+        issue("quality","sql_mismatch_review");
+    }
+  }
+}
+
 /** Pure, read-only classifier. Does NOT infer a last-write-wins winner. */
 export function classifyDirectory0170Row(row) {
   const issues = new Set();
@@ -225,6 +361,7 @@ export function classifyDirectory0170Row(row) {
     }
     if (filters.some(x => !definitions.some(def => def.id === x?.filter_id))) issue("filter","unknown_sql_id");
   }
+  classifyDirectory0173Row(row, source, issue);
   return {
     category: validCategory ? category : "unknown",
     mappedToNotion: Number(row.notion_mapped) === 1,
