@@ -132,7 +132,9 @@ test("review projection CAS guard aborts before a stale SQL row can be changed",
     // a SQL error rather than allowing a later sidecar upsert.
     assert.throws(()=>f.apply(stmt),/malformed JSON/);
     f.sqlite.prepare("UPDATE directory_profiles SET updated_at='T3' WHERE id=1").run();
-    assert.equal(f.apply(stmt).changes,0);
+    // node:sqlite returns connection change count metadata even for a SELECT
+    // after a prior UPDATE. Inspect actual review-row state instead.
+    f.apply(stmt);
     assert.equal(f.review(1),undefined);
   }finally{f.sqlite.close();}
 });
