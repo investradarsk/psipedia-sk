@@ -33,7 +33,7 @@ export default async function Page({ params }: { params: Promise<{ resourceId: s
             <Link href="/partner/ziadosti">Moje žiadosti</Link>
           </div>
         </div>
-        <PartnerLifecycleRequest resourceId={resourceId} />
+        
         <PartnerProfileEditForm
           resourceId={editor.resource.resourceId}
           fields={editor.fields}
@@ -43,6 +43,7 @@ export default async function Page({ params }: { params: Promise<{ resourceId: s
           directoryCategory={editor.resource.directoryCategory}
           currentImageUrl={editor.resource.imageUrl}
         />
+        <PartnerLifecycleRequest resourceId={resourceId} />
       </section>
     </PartnerShell>
   );
