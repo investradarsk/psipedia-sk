@@ -124,6 +124,10 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
           +(SELECT COUNT(*) FROM partner_resource_verifications v WHERE v.account_id=a.id AND v.status='PENDING_VERIFICATION')
           +(SELECT COUNT(*) FROM partner_commercial_interests i WHERE i.account_id=a.id AND i.status='NEW')
           +(SELECT COUNT(*) FROM partner_commercial_agreements g WHERE g.account_id=a.id AND g.status='OFFERED')
+          +(SELECT COUNT(*) FROM moderation_submissions s
+              WHERE s.submitter_type='PARTNER_ACCOUNT' AND s.submitter_ref=a.id
+                AND s.operation IN ('REQUEST_HIDE','REQUEST_ARCHIVE','REQUEST_RELEASE','REQUEST_DELETE_ACCOUNT')
+                AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
           AS pendingRequests,
           (SELECT COUNT(*) FROM partner_help_claims c WHERE c.account_id=a.id AND c.status='APPROVED') AS helpProfiles
         FROM partner_accounts a WHERE a.id IN (${placeholders})
