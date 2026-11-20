@@ -2,7 +2,7 @@ import Link from "next/link";
 import type {ReactNode} from "react";
 import { PartnerLogoutButton } from "@/components/partner-logout-button";
 
-const links=[["/partner","Prehľad"],["/partner/profily","Moje profily"],["/partner/podujatia","Moje podujatia"],["/partner/pomoc/nova","Pridať pomoc psom"],["/partner/ziadosti","Žiadosti a zmeny"],["/partner/prevziat","Požiadať o správu"],["/partner/propagacia","Propagácia"],["/partner/nastavenia","Nastavenia"]] as const;
+const links=[["/partner","Prehľad"],["/partner/profily","Moje profily"],["/partner/podujatia","Moje podujatia"],["/partner/pomoc/nova","Pridať pomoc psom"],["/partner/ziadosti","Žiadosti a zmeny"],["/partner/spravy","Správy"],["/partner/prevziat","Požiadať o správu"],["/partner/propagacia","Propagácia"],["/partner/nastavenia","Nastavenia"]] as const;
 
 export function PartnerShell({title,description,children}:{title:string;description:string;children:ReactNode}){
   return <main id="obsah" className="partner-shell">
