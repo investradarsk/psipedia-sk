@@ -809,6 +809,7 @@ async function withDirectory0173SqlPublic(
   const importData={
     ...(profile.importData??{}),
     ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
+    ...(presentation.trainerServicesText!==null?{[TRAINER_SERVICES_TEXT_METADATA_KEY]:presentation.trainerServicesText}:{}),
   };
   return {
     ...profile,importData,
@@ -852,6 +853,7 @@ async function withDirectory0173SqlManaged(
     importData:{
       ...(profile.importData??{}),
       ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
+      ...(presentation.trainerServicesText!==null?{[TRAINER_SERVICES_TEXT_METADATA_KEY]:presentation.trainerServicesText}:{}),
     },
     qualityMetadata,
     ...(sql.sqlCategoriesConfirmed?{
