@@ -2,6 +2,7 @@ import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror";
+import { planDirectoryExtraSqlTextMirror } from "./directory-extra-sql-mirror";
 import {
   directoryServicesSqlExpression,
   directoryImageSqlExpression,
@@ -2098,13 +2099,20 @@ export async function createManagedDirectoryProfile(
   });
   // Mirror new SQL owners alongside the canonical INSERT; no orphan or stale
   // sidecar values if another writer claims the same category/slug.
-  const presentationMirror = planDirectoryStep3PresentationSqlMirror({
+  const presentationMirror = [
+    ...planDirectoryStep3PresentationSqlMirror({
     identity: { kind: "category-slug", category: input.category, slug: input.slug,
       updatedAt: now, actor: editorEmail },
     services: input.services,
     thumbnailImageDisplay: input.thumbnailImageDisplay,
     detailImageDisplay: input.detailImageDisplay,
-  });
+    }),
+    ...planDirectoryExtraSqlTextMirror({
+      identity:{kind:"category-slug",category:input.category,slug:input.slug,updatedAt:now,actor:editorEmail},
+      fieldKey:TRAINER_SERVICES_TEXT_METADATA_KEY,
+      value:payload.trainerServicesText,
+    }),
+  ];
   let row: DirectoryProfileRow | null;
   if (sqlCategoryCreate) {
     const mirror = planDirectorySecondaryCategoryCreateSqlMirror({
@@ -2289,14 +2297,21 @@ export async function updateManagedDirectoryProfile(
   // image was explicitly supplied and actually differs from the old image.
   const imageChanged = payload.imageUrl !== undefined &&
     normalizedForMirrors.imageUrl !== existing.imageUrl;
-  const presentationMirror = planDirectoryStep3PresentationSqlMirror({
+  const presentationMirror = [
+    ...planDirectoryStep3PresentationSqlMirror({
     identity: { kind: "id", profileId: id, updatedAt: now, actor: editorEmail },
     services: payload.services !== undefined ? normalizedForMirrors.services : undefined,
     thumbnailImageDisplay: payload.thumbnailImageDisplay !== undefined
       ? normalizedForMirrors.thumbnailImageDisplay : imageChanged ? null : undefined,
     detailImageDisplay: payload.detailImageDisplay !== undefined
       ? normalizedForMirrors.detailImageDisplay : imageChanged ? null : undefined,
-  });
+    }),
+    ...planDirectoryExtraSqlTextMirror({
+      identity:{kind:"id",profileId:id,updatedAt:now,actor:editorEmail},
+      fieldKey:TRAINER_SERVICES_TEXT_METADATA_KEY,
+      value:payload.trainerServicesText,
+    }),
+  ];
   let row: DirectoryProfileRow | null;
   if (payload.additionalCategories !== undefined || editorialMirror.length > 0 || presentationMirror.length > 0) {
     // Owner-submitted category changes mirror JSON and 0170 SQL in the SAME
