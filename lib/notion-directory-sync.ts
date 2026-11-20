@@ -2738,6 +2738,9 @@ async function syncMappedPage(input: {
     ? reconcileProfileFields({
         baseline, notion: notionEditorial, psipedia: canonicalSnapshot, protectedFields,
         canonicalFieldsWin: true, authorities: fieldAuthorities,
+        // A verified common snapshot proves which side actually changed.
+        // Historic static "notion/admin" preferences cannot undo that one edit.
+        changedSideWins: true,
       })
     : reconcileProfileFieldsWithoutBaseline({
         notion: notionEditorial, psipedia: canonicalSnapshot, protectedFields,

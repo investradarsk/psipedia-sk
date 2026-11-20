@@ -45,6 +45,105 @@ test("same field modified on both sides conflicts regardless of record timestamp
   // Reversing nominal operation order cannot make up edit provenance.
   assert.equal(reconcile({ Popis: "Admin" }, { Popis: "Notion" }).kind, "CONFLICT");
 });
+test("Directory one-sided verified edits cannot be undone by historical source-priority flags",()=>{
+  const base={name:"Vet",description:"Original",city:"Nitra",status:"published"};
+  for(const authorities of [
+    {description:"notion"}, {description:"admin"},
+    {description:"latest"}, {description:"safe"},
+  ]) {
+    const adminChanged=reconcileProfileFields({
+      baseline:base, notion:base, psipedia:{...base,description:"Nové z Adminu"},
+      protectedFields:new Set(["status"]), authorities, changedSideWins:true,
+    });
+    assert.equal(adminChanged.kind,"MERGE");
+    assert.equal(adminChanged.merged.description,"Nové z Adminu",
+      "Unchanged Notion is NOT a newer edit");
+
+    const notionChanged=reconcileProfileFields({
+      baseline:base, notion:{...base,description:"Nové z Notionu"}, psipedia:base,
+      protectedFields:new Set(["status"]), authorities, changedSideWins:true,
+    });
+    assert.equal(notionChanged.kind,"MERGE");
+    assert.equal(notionChanged.merged.description,"Nové z Notionu",
+      "Unchanged Admin is NOT a newer edit");
+    assert.equal(notionChanged.merged.city,"Nitra");
+  }
+});
+test("Directory one-sided explicit clears still require a trusted human delete receipt",()=>{
+  const base={name:"Vet",description:"Pôvodný"};
+  for(const source of ["notion","psipedia"]){
+    const changed=source==="notion"
+      ?{notion:{...base,description:""},psipedia:base}
+      :{notion:base,psipedia:{...base,description:""}};
+    const policy={baseline:base,...changed,protectedFields:new Set(),
+      changedSideWins:true,authorities:{description:source==="notion"?"admin":"notion"}};
+    const blocked=reconcileProfileFields(policy);
+    assert.equal(blocked.kind,"CONFLICT");
+    assert.equal(blocked.conflicts[0].reason,"UNVERIFIED_DELETE");
+    const approved=reconcileProfileFields({
+      ...policy,verifiedDeletes:new Set([source+":description"]),
+    });
+    assert.equal(approved.kind,"MERGE");
+    assert.equal(approved.merged.description,"");
+  }
+});
+test("Latest same-field revisions choose only value-matched, UTC-authenticated field receipts",()=>{
+  const base={description:"Pôvodný",city:"Nitra"};
+  const notion={...base,description:"Nový Notion"};
+  const psipedia={...base,description:"Nový Admin"};
+  const input={baseline:base,notion,psipedia,
+    protectedFields:new Set(),changedSideWins:true,
+    authorities:{description:"latest"}};
+  const verified={
+    notion:{observedAt:"2026-11-20T00:00:00.200Z",editId:"signed-notion-ev-1",value:notion.description},
+    psipedia:{observedAt:"2026-11-20T00:00:00.100Z",editId:"verified-admin-ev-2",value:psipedia.description},
+  };
+  assert.equal(reconcileProfileFields(input).kind,"CONFLICT");
+  const notionWins=reconcileProfileFields({...input,verifiedFieldEdits:{description:verified}});
+  assert.equal(notionWins.kind,"MERGE");
+  assert.equal(notionWins.merged.description,notion.description);
+  const adminWins=reconcileProfileFields({...input,verifiedFieldEdits:{description:{
+    ...verified,psipedia:{...verified.psipedia,observedAt:"2026-11-20T00:00:00.300Z"},
+  }}});
+  assert.equal(adminWins.kind,"MERGE");
+  assert.equal(adminWins.merged.description,psipedia.description);
+  for(const bad of [
+    {...verified,notion:{...verified.notion,value:"Other Notion value"}},
+    {...verified,psipedia:{...verified.psipedia,observedAt:verified.notion.observedAt}},
+    {...verified,notion:{...verified.notion,observedAt:"2026-11-20 00:00:00"}},
+    {...verified,notion:{...verified.notion,editId:""}},
+    {...verified,notion:{...verified.notion,observedAt:"2026-02-30T00:00:00.100Z"}},
+  ]) {
+    const unresolved=reconcileProfileFields({...input,verifiedFieldEdits:{description:bad}});
+    assert.equal(unresolved.kind,"CONFLICT");
+    assert.equal(unresolved.conflicts[0].reason,"AMBIGUOUS_SAME_FIELD");
+  }
+});
+test("Field revision evidence cannot unlock Google Place / reviewed identities",()=>{
+  const base={city:"Nitra",status:"published",description:"Old"};
+  const changes={notion:{...base,city:"Bratislava",status:"draft"},
+    psipedia:{...base,city:"Trnava",status:"published"}};
+  const both={notion:{observedAt:"2026-11-20T00:00:03.000Z",editId:"notion",value:"Bratislava"},
+    psipedia:{observedAt:"2026-11-20T00:00:01.000Z",editId:"admin",value:"Trnava"}};
+  const result=reconcileProfileFields({
+    baseline:base,...changes,protectedFields:new Set(["city","status"]),
+    canonicalFieldsWin:true,authorities:{city:"latest",status:"latest"},
+    verifiedFieldEdits:{city:both},
+  });
+  assert.equal(result.merged.city,"Trnava");
+  assert.equal(result.merged.status,"published");
+  assert.equal(result.kind,"MERGE");
+});
+test("Directory sync actually opts into baseline-proven one-sided field precedence", async()=>{
+  const source=await readFile(new URL("../lib/notion-directory-sync.ts",import.meta.url),"utf8");
+  const start=source.indexOf("const resolution = baseline");
+  assert.ok(start>0);
+  const block=source.slice(start,start+650);
+  assert.match(block,/reconcileProfileFields\(\{/);
+  assert.match(block,/changedSideWins: true/);
+  assert.doesNotMatch(block,/updatedAt \> page\.last_edited_time/);
+});
+
 test("identical concurrent field edits converge safely", () => {
   assert.equal(reconcile({ Popis: "Same" }, { Popis: "Same" }).kind, "MERGE");
 });
