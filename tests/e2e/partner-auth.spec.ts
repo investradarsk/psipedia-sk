@@ -366,16 +366,21 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByRole("heading", { name: "Vytvoriť nový záznam" })).toBeVisible();
     const newDirectory = page.locator("form.partner-canonical-form");
     await expect(newDirectory.getByLabel("Druh záznamu")).toHaveValue("DIRECTORY_PROFILE");
+    await expect(page.getByText(/SEO a interné polia/)).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    // Scan the SSR form before editing it. Like onboarding, React hydration
+    // may otherwise reset inputs filled before the client event handlers attach.
+    const newDirectoryAccessibility = await new AxeBuilder({ page }).analyze();
+    expect(newDirectoryAccessibility.violations).toEqual([]);
     await newDirectory.getByLabel("Hlavná kategória *").selectOption("veterinari");
     await newDirectory.getByLabel("Názov", { exact: true }).fill("Partner E2E Nová Služba");
     await newDirectory.getByLabel("Krátky popis").fill("Nová testovacia služba pre Partner E2E.");
     const directoryWeb = newDirectory.getByLabel("Web", { exact: true });
     await expect(directoryWeb).toHaveAttribute("type", "text");
     await directoryWeb.fill("partner-new-e2e.example");
-    await expect(page.getByText(/SEO a interné polia/)).toBeVisible();
-    await expectNoHorizontalOverflow(page);
-    const newDirectoryAccessibility = await new AxeBuilder({ page }).analyze();
-    expect(newDirectoryAccessibility.violations).toEqual([]);
+    await expect(newDirectory.getByLabel("Hlavná kategória *")).toHaveValue("veterinari");
+    await expect(newDirectory.getByLabel("Názov", { exact: true })).toHaveValue("Partner E2E Nová Služba");
+    await expect(newDirectory.getByLabel("Krátky popis")).toHaveValue("Nová testovacia služba pre Partner E2E.");
     // Report the real server/HTML validation cause instead of an opaque redirect timeout.
     const createReply = page.waitForResponse(response =>
       new URL(response.url()).pathname === "/api/partner/canonical-drafts" &&
