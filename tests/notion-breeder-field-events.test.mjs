@@ -213,10 +213,10 @@ test("a trainer service description updates only its separate metadata field", a
     address: "", postalCode: "", street: "", houseNumber: "",
   };
   await exports.saveBreederEditorialValue(db, profile, before, "services");
-  assert.equal(queries.length, 3, "canonical write, CAS guard and one SQL extra field");
+  assert.equal(queries.length, 2, "canonical and SQL extra writes are bound; the CAS guard has no parameters");
   assert.match(queries[0].sql, /source_data_json = json_set/);
-  assert.match(queries[2].sql, /directory_profile_extra_fields/);
-  assert(queries[2].values.includes("Individuálne lekcie\\nNosework".replace("\\n","\n")));
+  assert.match(queries[1].sql, /directory_profile_extra_fields/);
+  assert(queries[1].values.includes("Individuálne lekcie\\nNosework".replace("\\n","\n")));
   assert.doesNotMatch(queries[0].sql, /services_json\s*=/);
   assert.equal(queries[0].values[0], "$._psipedia_trainer_services_text");
   assert.equal(queries[0].values[1], "Individuálne lekcie\nNosework");
