@@ -113,22 +113,24 @@ function statusLabel(status: string) {
   if (statuses.includes(status)) return "Čaká na kontrolu";
   if (status === "APPROVED") return "Schválené";
   if (status === "REJECTED") return "Zamietnuté";
+  if (status === "RETURNED") return "Vrátené na doplnenie";
+  if (status === "DRAFT") return "Rozpracovaný koncept";
   return "Stiahnuté";
 }
-type SubmissionRow = { id: string; resourceType: PartnerHelpCreateType; status: string; payload: string; riskFlags: string; createdAt: string; rejectionReasonCode: string | null; accountId: string };
+type SubmissionRow = { id: string; resourceType: PartnerHelpCreateType; status: string; subjectId: string | null; payload: string; riskFlags: string; createdAt: string; rejectionReasonCode: string | null; accountId: string };
 function hydrate(row: SubmissionRow) {
   let payload: Record<string, unknown> = {};
   try { payload = JSON.parse(row.payload) as Record<string, unknown>; } catch { /* Historic corrupt JSON must not crash the queue. */ }
   let risks: string[] = [];
   try { const parsed: unknown = JSON.parse(row.riskFlags); if (Array.isArray(parsed)) risks = parsed.filter((x): x is string => typeof x === "string"); } catch {}
-  return { id: row.id, resourceType: row.resourceType, accountId: row.accountId, title: summary(row.resourceType, payload), payload, status: row.status, statusLabel: statusLabel(row.status), risks, createdAt: row.createdAt, rejectionReasonCode: row.rejectionReasonCode, canWithdraw: statuses.includes(row.status) };
+  return { id: row.id, resourceType: row.resourceType, accountId: row.accountId, title: summary(row.resourceType, payload), payload, status: row.status, statusLabel: statusLabel(row.status), risks, createdAt: row.createdAt, rejectionReasonCode: row.rejectionReasonCode, canWithdraw: !row.subjectId && statuses.includes(row.status) };
 }
 export async function listPartnerHelpCreateSubmissions(accountId: string, database?: D1Database) {
   const result = await db(database).prepare(`
-    SELECT id,resource_type resourceType,status,proposed_patch_json payload,risk_flags_json riskFlags,
+    SELECT id,resource_type resourceType,status,subject_id subjectId,proposed_patch_json payload,risk_flags_json riskFlags,
       created_at createdAt,rejection_reason_code rejectionReasonCode,submitter_ref accountId
     FROM moderation_submissions
-    WHERE operation='CREATE' AND submitter_type='PARTNER_ACCOUNT' AND submitter_ref=?1
+    WHERE operation='CREATE' AND submitter_type='PARTNER_ACCOUNT' AND submitter_ref=?1 AND status<>'DRAFT'
       AND resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE')
     ORDER BY created_at DESC,id DESC LIMIT 200
   `).bind(accountId).all<SubmissionRow>();
@@ -136,10 +138,10 @@ export async function listPartnerHelpCreateSubmissions(accountId: string, databa
 }
 export async function listPartnerHelpCreateAdmin(database?: D1Database) {
   const result = await db(database).prepare(`
-    SELECT id,resource_type resourceType,status,proposed_patch_json payload,risk_flags_json riskFlags,
+    SELECT id,resource_type resourceType,status,subject_id subjectId,proposed_patch_json payload,risk_flags_json riskFlags,
       created_at createdAt,rejection_reason_code rejectionReasonCode,submitter_ref accountId
     FROM moderation_submissions
-    WHERE operation='CREATE' AND submitter_type='PARTNER_ACCOUNT'
+    WHERE operation='CREATE' AND submitter_type='PARTNER_ACCOUNT' AND status<>'DRAFT'
       AND resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE')
     ORDER BY CASE WHEN status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN 0 ELSE 1 END,
       created_at DESC,id DESC LIMIT 200
@@ -231,12 +233,13 @@ export async function withdrawPartnerHelpCreate(input: { accountId: string; id: 
   if (!/^[0-9a-f-]{36}$/i.test(input.id)) throw new PartnerHelpCreateError("Neplatný návrh.", 404);
   const database = db(input.database);
   const row = await database.prepare(`
-    SELECT status FROM moderation_submissions
+    SELECT status,subject_id subjectId FROM moderation_submissions
     WHERE id=?1 AND submitter_type='PARTNER_ACCOUNT' AND submitter_ref=?2
       AND resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE') AND operation='CREATE'
     LIMIT 1
-  `).bind(input.id, input.accountId).first<{status: string}>();
+  `).bind(input.id, input.accountId).first<{status: string;subjectId:string|null}>();
   if (!row) throw new PartnerHelpCreateError("Návrh sa nenašiel.", 404);
+  if (row.subjectId !== null) throw new PartnerHelpCreateError("Odoslaný kanonický koncept nemožno stiahnuť.",409);
   if (!isFoundationSubmissionStatus(row.status) || !canTransitionModerationSubmission(row.status, "WITHDRAWN")) {
     throw new PartnerHelpCreateError("Tento návrh už nemožno stiahnuť.", 409);
   }

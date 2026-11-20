@@ -1,3 +1,4 @@
+import { PartnerLifecycleRequest } from "@/components/partner-lifecycle-request";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PartnerShell } from "@/components/partner-shell";
@@ -23,6 +24,7 @@ export default async function Page({ params }: {params:Promise<{resourceId:strin
       <div className="partner-section-heading"><div><span className="eyebrow">{editor.entityType === "ADOPTION_DOG"?"Adopcia":editor.entityType === "LOST_FOUND_DOG"?"Stratené a nájdené psy":"Pomoc psom"}</span><h2>{editor.title}</h2></div>
         <div className="partner-request-links"><Link href="/partner/profily">Moje profily</Link>{editor.publicHref?<Link href={editor.publicHref} target="_blank" rel="noopener noreferrer">Verejný záznam ↗</Link>:null}</div>
       </div>
+      
       <PartnerHelpPublicEditorForm
         resourceId={editor.resourceId}
         entityType={editor.entityType}
@@ -32,6 +34,7 @@ export default async function Page({ params }: {params:Promise<{resourceId:strin
         imageUrl={editor.imageUrl}
         gallery={editor.gallery}
       />
+      <PartnerLifecycleRequest resourceId={resourceId} />
     </section>
   </PartnerShell>;
 }

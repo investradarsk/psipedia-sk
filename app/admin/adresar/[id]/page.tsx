@@ -1,3 +1,4 @@
+import { AdminPartnerCanonicalAudit } from "@/components/admin-partner-canonical-audit";
 import Link from "next/link";
 import { adminReturnHref } from "@/lib/admin-return-navigation";
 import { Suspense } from "react";
@@ -14,6 +15,7 @@ import { AdminRecordViewStats } from "@/components/admin-record-view-stats";
 import { AdminDirectoryNotionSyncStatus } from "@/components/admin-directory-notion-sync-status";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
+import { AdminPartnerCanonicalDraft } from "@/components/admin-partner-canonical-draft";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminGeoLocation } from "@/components/admin-geo-location";
 import { AdminShell } from "@/components/admin-shell";
@@ -131,6 +133,8 @@ export default async function EditDirectoryProfilePage({ params, searchParams }:
       <Link href={returnHref}>← Späť na adresár</Link>
       {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
     </>}>
+    <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="DIRECTORY_PROFILE" canonicalId={profile.id} /></Suspense>
+    <Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="DIRECTORY_PROFILE" canonicalId={profile.id} /></Suspense>
     <AdminGeminiOriginBadge agenda="directory" entityId={profile.id} />
     <Suspense fallback={null}><DirectoryDuplicateWarning id={profile.id} /></Suspense>
     <Suspense fallback={null}>

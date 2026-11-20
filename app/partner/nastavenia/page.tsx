@@ -1,3 +1,6 @@
+import { PartnerLifecycleRequest } from "@/components/partner-lifecycle-request";
+import { PartnerNotificationSettings } from "@/components/partner-notification-settings";
+import { getPartnerNotificationPreferences } from "@/lib/partner-chat";
 import { PartnerContactProfileForm } from "@/components/partner-contact-profile-form";
 import { PartnerSettingsActions } from "@/components/partner-settings-actions";
 import { PartnerSecuritySettings } from "@/components/partner-security-settings";
@@ -12,9 +15,10 @@ export const dynamic = "force-dynamic";
 
 export default async function PartnerSettingsPage() {
   const identity = await requirePartnerPageIdentity({ allowIncompleteOnboarding: true });
-  const [contactProfile, authMethods] = await Promise.all([
+  const [contactProfile, authMethods, preferences] = await Promise.all([
     getPartnerContactProfile(identity.accountId),
     getPartnerAuthMethodSummary(identity.accountId),
+    getPartnerNotificationPreferences({accountId:identity.accountId}),
   ]);
 
   return (
@@ -50,6 +54,8 @@ export default async function PartnerSettingsPage() {
         googleEnabled={isPartnerGoogleOAuthEnabled()}
       />
 
+      <PartnerNotificationSettings initial={preferences}/>
+      <PartnerLifecycleRequest account />
       <PartnerSettingsActions siteKey={getPartnerTurnstileSiteKey()} />
     </PartnerShell>
   );

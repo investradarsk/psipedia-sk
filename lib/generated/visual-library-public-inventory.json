@@ -424,6 +424,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/partner-canonical-draft-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/partner-claim-form.tsx",
       "coverage": "needs-preview"
     },
@@ -468,6 +472,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/partner-lifecycle-request.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/partner-logout-button.tsx",
       "coverage": "needs-preview"
     },
@@ -484,6 +492,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/partner-notification-settings.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/partner-password-auth-form.tsx",
       "coverage": "needs-preview"
     },
@@ -493,6 +505,10 @@
     },
     {
       "path": "components/partner-password-reset-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-private-chat.tsx",
       "coverage": "needs-preview"
     },
     {

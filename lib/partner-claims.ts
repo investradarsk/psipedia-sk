@@ -1,5 +1,6 @@
 import { getPartnerAccountById, getPartnerDatabase } from "./partner-auth-store";
 import { queuePartnerLifecycleNotification } from "./partner-email";
+import { enqueueAdminNotificationEvent } from "./admin-notifications";
 import { appendPartnerAuditEvent, type PartnerRole } from "./partner-platform";
 import { createPartnerHelpClaim, cancelPartnerHelpClaim, getPartnerHelpPreview, listPartnerHelpClaims, isPartnerHelpType } from "./partner-help-claims";
 

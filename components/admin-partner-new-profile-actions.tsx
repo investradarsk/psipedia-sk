@@ -19,7 +19,7 @@ type PendingResolution = {
   reasonCode?: string;
 };
 
-export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false }: { id: string; candidateIds: number[]; hasImage?:boolean }) {
+export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false, isCanonicalDraft=false }: { id: string; candidateIds: number[]; hasImage?:boolean; isCanonicalDraft?:boolean }) {
   const router=useRouter();
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
@@ -61,7 +61,7 @@ export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Rozhodnutie sa nepodarilo uložiť.");
       setMessage(decision.action === "CREATE_NEW"
-        ? "Nový profil bol vytvorený ako koncept."
+        ? isCanonicalDraft ? "Existujúci koncept bol schválený a publikovaný." : "Nový profil bol vytvorený ako koncept."
         : decision.action === "LINK_EXISTING"
           ? "Návrh bol prepojený s existujúcim profilom."
           : "Návrh bol zamietnutý.");
@@ -77,15 +77,17 @@ export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false
   return <>
     <section className="admin-form-card">
     <h2>Moderation resolution</h2>
-    <p className="admin-partner-hint">Create New vytvorí iba DRAFT. Link Existing nevytvorí nový canonical záznam. Verification zostáva samostatná.</p>
+    <p className="admin-partner-hint">{isCanonicalDraft
+      ? "Partner už vytvoril kanonický koncept. Schválením sa tento profil publikuje a pridelí sa správa partnerovi. Prepojenie na iný profil tu nie je možné."
+      : "Create New vytvorí iba DRAFT. Link Existing nevytvorí nový canonical záznam. Verification zostáva samostatná."}</p>
     <div className="admin-partner-button-row">
-      <button type="button" disabled={busy} onClick={()=>requestDecision("CREATE_NEW")}>Vytvoriť nový profil</button>
+      <button type="button" disabled={busy} onClick={()=>requestDecision("CREATE_NEW")}>{isCanonicalDraft?"Schváliť a publikovať":"Vytvoriť nový profil"}</button>
     </div>
-    <div className="admin-commercial-actions">
+    {!isCanonicalDraft&&<div className="admin-commercial-actions">
       <label>Canonical ID existujúceho profilu<input inputMode="numeric" value={canonicalId} onChange={(e)=>setCanonicalId(e.target.value)}/></label>
 {hasImage?<label className="admin-partner-checkbox"><input type="checkbox" checked={applyImage} onChange={e=>setApplyImage(e.target.checked)} disabled={busy}/><span>Použiť nahraný obrázok aj pre existujúci profil</span></label>:null}
       <button type="button" disabled={busy} onClick={()=>requestDecision("LINK_EXISTING")}>Prepojiť s existujúcim profilom</button>
-    </div>
+    </div>}
     <div className="admin-commercial-actions">
       <label>Dôvod zamietnutia<select value={reasonCode} onChange={(e)=>setReasonCode(e.target.value)}>{reasons.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
       <button type="button" className="is-danger" disabled={busy} onClick={()=>requestDecision("REJECT")}>Zamietnuť</button>
@@ -95,19 +97,19 @@ export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false
     <AdminDestructiveConfirmDialog
       open={pendingDecision !== null}
       title={pendingDecision?.action === "CREATE_NEW"
-        ? "Vytvoriť nový profil?"
+        ? isCanonicalDraft ? "Schváliť a publikovať profil?" : "Vytvoriť nový profil?"
         : pendingDecision?.action === "LINK_EXISTING"
           ? "Prepojiť existujúci profil?"
           : "Zamietnuť návrh?"}
       description={pendingDecision?.action === "CREATE_NEW"
-        ? "Vytvoriť nový canonical profil ako DRAFT?"
+        ? isCanonicalDraft ? "Publikovať už existujúci kanonický koncept a prideliť správu partnerovi?" : "Vytvoriť nový canonical profil ako DRAFT?"
         : pendingDecision?.action === "LINK_EXISTING"
           ? "Prepojiť návrh s existujúcim profilom bez vytvorenia duplikátu?"
           : "Zamietnuť návrh bez vytvorenia profilu?"}
       affectedCount={1}
       affectedLabel="návrh"
       confirmLabel={pendingDecision?.action === "CREATE_NEW"
-        ? "Vytvoriť koncept"
+        ? isCanonicalDraft ? "Schváliť a publikovať" : "Vytvoriť koncept"
         : pendingDecision?.action === "LINK_EXISTING"
           ? "Prepojiť profil"
           : "Zamietnuť"}

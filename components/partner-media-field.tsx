@@ -8,9 +8,9 @@ type UploadedMedia={
 };
 
 export function PartnerMediaField({
-  label,intent,currentImageUrl,onChange,disabled=false,directPublish=false,
+  label,intent,currentImageUrl,onChange,disabled=false,directPublish=false,privateDraft=false,
 }:{
-  label:string;intent:PartnerMediaIntent;currentImageUrl?:string|null;onChange:(mediaAssetId:string|null)=>void;disabled?:boolean;directPublish?:boolean;
+  label:string;intent:PartnerMediaIntent;currentImageUrl?:string|null;onChange:(mediaAssetId:string|null)=>void;disabled?:boolean;directPublish?:boolean;privateDraft?:boolean;
 }){
   const inputId=useId(),inputRef=useRef<HTMLInputElement>(null);
   const [media,setMedia]=useState<UploadedMedia|null>(null);
@@ -44,7 +44,7 @@ export function PartnerMediaField({
 
   return <section className="partner-media-field partner-field--wide">
     <div className="partner-media-heading"><div><strong>{label}</strong><small>{directPublish?"Bezpečne spracovaný obrázok sa uloží spolu so zmenami.":"Obrázok bude zverejnený až po kontrole."} JPG, PNG alebo WebP, max. 8 MB.</small></div></div>
-    {currentImageUrl?<div className="partner-media-current"><span>Aktuálny verejný obrázok</span><img src={currentImageUrl} alt="Aktuálny verejný obrázok"/></div>:null}
+    {currentImageUrl?<div className="partner-media-current"><span>{privateDraft?"Uložená fotografia súkromného konceptu":"Aktuálny verejný obrázok"}</span><img src={currentImageUrl} alt={privateDraft?"Súkromná fotografia konceptu":"Aktuálny verejný obrázok"}/></div>:null}
     {media?<div className="partner-media-preview"><span>Navrhovaný obrázok</span><img src={media.previewUrl} alt="Náhľad navrhovaného obrázka"/><small>{media.width} × {media.height} px · {(media.sizeBytes/1024/1024).toFixed(1)} MB</small></div>:null}
     <div className="partner-media-actions">
       <label className="button" htmlFor={inputId}>{media?"Nahradiť obrázok":"Vybrať obrázok"}</label>

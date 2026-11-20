@@ -9,6 +9,8 @@ const [
   header,
   partnerCss,
   newEventPage,
+  canonicalNewPage,
+  canonicalForm,
   editEventPage,
   worker,
   passwordField,
@@ -34,6 +36,8 @@ const [
   "components/site-header.tsx",
   "app/partner/partner.css",
   "app/partner/podujatia/nove/page.tsx",
+  "app/partner/koncepty/novy/page.tsx",
+  "components/partner-canonical-draft-form.tsx",
   "app/partner/podujatia/[resourceId]/upravit/page.tsx",
   "worker/index.ts",
   "components/partner-password-field.tsx",
@@ -101,11 +105,12 @@ test("Partner shell uses the measured sticky header height as shared scroll offs
   );
 });
 
-test("Partner event copy is external-facing and contains no internal canonical/admin jargon", () => {
-  assert.match(
-    newEventPage,
-    /Po schválení administrátorom sa podujatie uloží ako koncept\. Priložený obrázok prejde rovnakou moderátorskou kontrolou; SEO údaje a zverejnenie zostávajú redakčným krokom\./,
-  );
+test("Partner event creation redirects to shared editor with accurate private-draft copy", () => {
+  assert.match(newEventPage, /redirect\("\/partner\/koncepty\/novy\?typ=MANAGED_EVENT"\)/);
+  assert.match(canonicalNewPage, /PartnerCanonicalDraftForm/);
+  assert.match(canonicalNewPage, /Uložte si neverejný koncept alebo ho odošlite na prvé schválenie/);
+  assert.match(canonicalForm, /Kým záznam neodošlete a administrátor ho neschváli, nie je verejný/);
+  assert.match(canonicalForm, /Fotografie a galériu môžete nahrať po prvom uložení konceptu/);
   assert.doesNotMatch(newEventPage, /canonical|admin flow/i);
   assert.doesNotMatch(editEventPage, /canonical|admin flow|\bslug\b/i);
   assert.match(editEventPage, /Webová adresa a stav zverejnenia/);
