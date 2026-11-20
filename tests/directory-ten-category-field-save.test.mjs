@@ -34,6 +34,7 @@ function setup(category){
    exports:out,SYSTEM_ACTOR:"directory-sync-contract-test",
    directoryFilterRegistry:[],
    TRAINER_SERVICES_TEXT_METADATA_KEY:"_psipedia_trainer_services_text",
+   DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS:[],
    isDirectoryFieldEventCategory,isDirectoryEventPilotCategory,
    breederReadPath:(snapshot,path)=>path.split(".").reduce((v,key)=>v?.[key],snapshot),
    normalizeDirectorySearchText:value=>value,
