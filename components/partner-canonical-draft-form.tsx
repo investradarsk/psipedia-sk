@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMemo,useState } from "react";
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { PartnerGalleryField } from "@/components/partner-gallery-field";
@@ -281,7 +282,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
       </div>
       {duplicateReview&&!submitted&&<div role="alert" className="partner-form-message is-error">
         <p>Našli sme podobný profil. Pred odoslaním skontrolujte, či ho už nespravujete.
-          <a href="/partner/prevziat"> Požiadať o správu existujúceho profilu</a>.</p>
+          <Link href="/partner/prevziat"> Požiadať o správu existujúceho profilu</Link>.</p>
         <button type="button" className="button button--dark" disabled={busy}
           onClick={()=>void perform("SUBMIT",true)}>Skontroloval som to – napriek tomu odoslať</button>
       </div>}
