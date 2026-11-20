@@ -26,8 +26,12 @@ export type FciImportPreview = {
 
 export type FciImportResult = FciImportPreview & { success: boolean };
 
-async function existingBreeds(database: D1Database) {
-  const result = await database.prepare("SELECT id, slug, status, fci_number, import_key, editorial_json FROM managed_breeds").all<ExistingBreedRow>();
+async function existingBreeds(database: D1Database, sqlPrimary = false) {
+  // Preview needs only identities. SQL mode must not read dropped legacy JSON.
+  const editorial = sqlPrimary ? "'{}' AS editorial_json" : "editorial_json";
+  const result = await database.prepare(
+    `SELECT id, slug, status, fci_number, import_key, ${editorial} FROM managed_breeds`
+  ).all<ExistingBreedRow>();
   return result.results;
 }
 
@@ -75,9 +79,9 @@ function previewFrom(total:number,actions: ImportAction[], records: PreparedFciB
   };
 }
 
-export async function previewFciBreedImport(database: D1Database, payload: unknown): Promise<{ preview:FciImportPreview; actions:ImportAction[] }> {
+export async function previewFciBreedImport(database: D1Database, payload: unknown, options: {sqlPrimary?:boolean} = {}): Promise<{ preview:FciImportPreview; actions:ImportAction[] }> {
   const prepared = prepareFciBreedImport(payload);
-  const {actions,errors:identityErrors} = await resolveActions(prepared.records,await existingBreeds(database));
+  const {actions,errors:identityErrors} = await resolveActions(prepared.records,await existingBreeds(database,options.sqlPrimary===true));
   const errors = [...prepared.errors,...identityErrors];
   return {
     preview:previewFrom(prepared.total,actions,prepared.records,errors,{

@@ -94,15 +94,24 @@ test("all 33 current FCI text, URL, PDF fields stay individually writable as SQL
   }
 });
 
-test("existing breed JSON columns are categorized once, without premature deletion",()=>{
+test("after SQL-only cutover only six real JSON arrays remain in schema",()=>{
   const schema=readFileSync(path("db/schema.ts"),"utf8");
   const start=schema.indexOf("export const managedBreeds =");
   const end=schema.indexOf("export const breedArticleRelations =",start);
   assert.ok(start>=0&&end>start);
   const original=[...schema.slice(start,end).matchAll(
     /(?:text|integer)\("([a-z0-9_]+_json)"\)/g)].map(m=>m[1]);
-  assert.equal(original.length,10);
-  assert.deepEqual(original.sort(),Object.keys(BREED_JSON_COLUMN_DECISIONS).sort());
+  // After SQL-only cutover, only six genuine JSON-array columns remain.
+  const retained=Object.entries(BREED_JSON_COLUMN_DECISIONS)
+    .filter(([,decision])=>decision.action==="retain-json")
+    .map(([column])=>column);
+  const moved=Object.entries(BREED_JSON_COLUMN_DECISIONS)
+    .filter(([,decision])=>decision.action!=="retain-json")
+    .map(([column])=>column);
+  assert.equal(original.length,6);
+  assert.deepEqual(original.sort(),retained.sort());
+  assert.deepEqual(moved.sort(),
+    ["fci_standard_json","editorial_json","related_breeds_json","seo_json"].sort());
   const actions=Object.values(BREED_JSON_COLUMN_DECISIONS).reduce(
     (m,d)=>(m[d.action]=(m[d.action]??0)+1,m),{});
   assert.deepEqual(actions,{
