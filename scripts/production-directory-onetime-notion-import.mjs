@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { notionId, planNotionDirectoryImport } from "../lib/directory-notion-onetime-import.mjs";
 import {STEP2_TABLES, STEP2_INDEXES, step2Plan, step2Sql} from "../lib/directory-sql-step2-plan.mjs";
-import { directoryStep3Readiness } from "../lib/directory-sql-step3-readiness.mjs";
+import { directoryStep3Readiness, summarizeDirectoryStep3Issues } from "../lib/directory-sql-step3-readiness.mjs";
 
 const MODE=process.argv[2]??"";
 const ROOT=resolve(new URL("..",import.meta.url).pathname);
@@ -454,8 +454,18 @@ async function runStep3(){
   must(Number(before.n)===rows.size,"STEP3_CHANGED_SCAN");
   const receipts=await scanStep3Receipts();
   const readiness=directoryStep3Readiness([...rows.values()],receipts,pages);
+  const notionPages=new Map(pages.map(page=>[notionId(page),page]).filter(pair=>pair[0]));
+  const issues=[];
+  for(const row of rows.values()){
+    if(row.status==="archived"||Number(row.tombstone)>0)continue;
+    const page=notionPages.get(row.id);
+    const trusted=page&&planNotionDirectoryImport(page,row,SOURCE).ok===true;
+    const p=step2Plan(row,trusted?page:null,SOURCE);
+    issues.push({id:row.id,issues:p.ok?p.issues:[p.reason]});
+  }
+  const currentSourceIssues=summarizeDirectoryStep3Issues(issues);
   if(MODE==="step3-audit"){
-    report("STEP3_AUDIT_ONLY",{readiness,noCanonicalWrites:true,
+    report("STEP3_AUDIT_ONLY",{readiness,currentSourceIssues,noCanonicalWrites:true,
       next:"repair missing active profile, verify stale revisions and SQL parity"});
     return;
   }
@@ -463,7 +473,7 @@ async function runStep3(){
   // Refuse to auto-repair >30 missing active profiles; an incomplete sample
   // is diagnostic only, never a production write plan.
   must(readiness.missingActive===missing.size&&missing.size<=30,"STEP3_REPAIR_SCOPE");
-  const byId=new Map(pages.map(page=>[notionId(page),page]).filter(pair=>pair[0]));
+  const byId=notionPages;
   const candidates=[];
   for(const id of missing){
     const row=rows.get(id),page=byId.get(id);
@@ -517,7 +527,7 @@ async function runStep3(){
   const fk=(await select("SELECT COUNT(*) AS n FROM pragma_foreign_key_check"))[0];
   must(Number(fk.n)===0,"STEP3_FK");
   report("STEP3_MISSING_PROFILES_STAGED",{
-    readinessBefore:readiness,
+    readinessBefore:readiness,currentSourceIssues,
     repaired:counts.imported,canonicalRowsUnchanged:true,
     noRuntimeCutover:true,
     next:"repeat step3 audit; reconcile changed profiles and field-level parity",
