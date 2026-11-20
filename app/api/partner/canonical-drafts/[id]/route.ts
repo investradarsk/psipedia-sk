@@ -10,7 +10,8 @@ function failure(error:unknown){
   const status=error instanceof PartnerCanonicalWorkflowError||error instanceof PartnerSecurityError
     ?error.status:typeof (error as {status?:unknown})?.status==="number"?(error as {status:number}).status:503;
   if(status>=500)console.error("Partner canonical draft failed",error);
-  return Response.json({error:status>=500?"Údaje konceptu sa momentálne nepodarilo načítať alebo uložiť.":error instanceof Error?error.message:"Požiadavka zlyhala."},
+  return Response.json({error:status>=500?"Údaje konceptu sa momentálne nepodarilo načítať alebo uložiť.":error instanceof Error?error.message:"Požiadavka zlyhala.",
+    ...(error instanceof PartnerCanonicalWorkflowError?{code:error.code}:{})},
     {status,headers:{"Cache-Control":"private, no-store"}});
 }
 export async function GET(request:Request,{params}:Params){
@@ -38,9 +39,10 @@ export async function PATCH(request:Request,{params}:Params){
         throw new PartnerCanonicalWorkflowError("Neplatná aktualizácia konceptu.");
       draft=await savePartnerCanonicalDraft({accountId:identity.accountId,id,data:data.data,baseUpdatedAt:data.baseUpdatedAt,media:data.media});
     }else if(data.action==="SUBMIT"){
-      if(Object.keys(data).some(key=>key!=="action"))
+      if(Object.keys(data).some(key=>!["action","confirmDuplicate"].includes(key))||
+        (data.confirmDuplicate!==undefined&&typeof data.confirmDuplicate!=="boolean"))
         throw new PartnerCanonicalWorkflowError("Neplatné odoslanie konceptu.");
-      draft=await submitPartnerCanonicalDraft({accountId:identity.accountId,id});
+      draft=await submitPartnerCanonicalDraft({accountId:identity.accountId,id,confirmDuplicate:data.confirmDuplicate===true});
     }else throw new PartnerCanonicalWorkflowError("Neplatná akcia.");
     return Response.json({success:true,draft},{headers:{"Cache-Control":"private, no-store"}});
   }catch(error){return failure(error)}
