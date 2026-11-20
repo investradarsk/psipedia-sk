@@ -959,7 +959,9 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
     await page.goto("/admin/partners");
     await page.locator("[data-admin-partner-attention] summary").click();
-    await expect(page.getByRole("link",{name:"Overenia (3)"})).toBeVisible();
+    // A newly approved canonical draft grants an OWNER directly and does not
+    // create the legacy extra verification request.
+    await expect(page.getByRole("link",{name:"Overenia (2)"})).toBeVisible();
     await page.goto("/admin/partners/verifications?status=PENDING_VERIFICATION");
     const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]}).filter({hasText:"Partner E2E Veterina"});
     await expect(verificationRow).toContainText("Čaká na overenie");
@@ -999,7 +1001,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await page.goto("/admin/partners");
     await page.locator("[data-admin-partner-attention] summary").click();
     await expect(page.getByRole("link",{name:"Prevzatia (2)"})).toBeVisible();
-    await expect(page.getByRole("link",{name:"Overenia (3)"})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Overenia (2)"})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 });
