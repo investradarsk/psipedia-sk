@@ -496,7 +496,9 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     const newProfilesSection=page.locator("section.partner-requests-section").filter({
       has: page.getByRole("heading",{name:"Moje návrhy nových profilov"}),
     });
-    await expect(newProfilesSection.locator("article").filter({hasText:"Partner E2E Organizácia"})).toContainText("Čaká na kontrolu");
+    // The submitted canonical draft is the new organization, not the older
+    // manager-owned fixture referenced by the direct-edit assertion above.
+    await expect(newProfilesSection.locator("article").filter({hasText:"Partner E2E Nová Organizácia Mobile"})).toContainText("Čaká na kontrolu");
 
     await page.goto("/organizacie/partner-e2e-organizacia");
     await expect(page.getByRole("heading",{name:"Tento profil spravujete cez Partner účet."})).toBeVisible();
@@ -848,14 +850,14 @@ test("internal admin Partner overview and account detail are protected admin pag
       response.url().includes("/api/admin/partners/submissions/") &&
       response.request().method()==="PATCH" && response.ok(),
     );
-    await page.getByRole("button",{name:"Vytvoriť nový profil"}).click();
-    const createDialog=page.getByRole("dialog",{name:"Vytvoriť nový profil?"});
+    await page.getByRole("button",{name:"Schváliť a publikovať"}).click();
+    const createDialog=page.getByRole("dialog",{name:"Schváliť a publikovať profil?"});
     await expect(createDialog).toBeVisible();
     // Cancel stays read-only; the same action can be reopened and explicitly confirmed.
     await createDialog.getByRole("button",{name:"Zrušiť"}).click();
     await expect(createDialog).not.toBeVisible();
-    await page.getByRole("button",{name:"Vytvoriť nový profil"}).click();
-    await createDialog.getByRole("button",{name:"Vytvoriť koncept"}).click();
+    await page.getByRole("button",{name:"Schváliť a publikovať"}).click();
+    await createDialog.getByRole("button",{name:"Schváliť a publikovať"}).click();
     await createResponse;
     await expect(page.getByText("CREATED_NEW")).toBeVisible();
     const directoryResponse=await page.request.get("/api/admin/directory?limit=100");
@@ -871,23 +873,26 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(createdMembership).toContainText("Správca profilu");
     await page.goto("/admin/partners");
   }else{
-    const newRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Organizácia"});
+    const newRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Nová Organizácia Mobile"});
     await expect(newRow).toContainText("zhoda: Vysoká zhoda");
     await newRow.getByRole("link",{name:"Detail →"}).click();
     await expect(page.getByText("Rovnaká webová doména")).toBeVisible();
-    const linkResponse=page.waitForResponse((response)=>
+    // V2 creates its canonical D1 draft before submission. Linking it to
+    // a different existing profile is prohibited, so Admin publishes this draft.
+    await expect(page.getByRole("button",{name:"Prepojiť tento profil"})).toHaveCount(0);
+    const approveResponse=page.waitForResponse((response)=>
       response.url().includes("/api/admin/partners/submissions/") &&
       response.request().method()==="PATCH" && response.ok(),
     );
-    await page.getByRole("button",{name:"Prepojiť tento profil"}).first().click();
-    const linkDialog=page.getByRole("dialog",{name:"Prepojiť tento profil?"});
-    await expect(linkDialog).toBeVisible();
-    await linkDialog.getByRole("button",{name:"Prepojiť profil"}).click();
-    await linkResponse;
-    await expect(page.getByText("LINKED_EXISTING")).toBeVisible();
+    await page.getByRole("button",{name:"Schváliť a publikovať"}).click();
+    const approveDialog=page.getByRole("dialog",{name:"Schváliť a publikovať profil?"});
+    await expect(approveDialog).toBeVisible();
+    await approveDialog.getByRole("button",{name:"Schváliť a publikovať"}).click();
+    await approveResponse;
+    await expect(page.getByText("CREATED_NEW")).toBeVisible();
     await page.goto("/admin/partners/accounts/partner-e2e-mobile?tab=historia");
-    const linkedMembership=page.locator("section").filter({hasText:"História prístupov"}).locator("article").filter({hasText:"Partner E2E Organizácia"});
-    await expect(linkedMembership).toContainText("Správca profilu");
+    const createdMembership=page.locator("section").filter({hasText:"História prístupov"}).locator("article").filter({hasText:"Partner E2E Nová Organizácia Mobile"});
+    await expect(createdMembership).toContainText("Správca profilu");
     await page.goto("/admin/partners");
   }
 
