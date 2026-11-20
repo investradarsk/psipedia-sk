@@ -19,6 +19,6 @@ export default async function Page({params}:{params:Promise<{id:string}>}){
     <p><Link href="/partner/ziadosti">← Moje žiadosti</Link></p>
     <PartnerCanonicalDraftForm categories={directoryCategories.map(({slug,label})=>({slug,label}))} definitions={getPartnerCanonicalFormFields()}
       initial={{id:draft.id,resourceType:draft.resourceType,status:draft.status,
-        values:draft.values,baseUpdatedAt:String(draft.baseUpdatedAt),returnReason:draft.returnReason,media:draft.media,media:draft.media}} />
+        values:draft.values,baseUpdatedAt:String(draft.baseUpdatedAt),returnReason:draft.returnReason,media:draft.media}} />
   </PartnerShell>;
 }
