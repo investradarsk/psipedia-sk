@@ -118,6 +118,7 @@ test("partner overview counts pending requests from all current sources and appr
         ('change-1','PARTNER_ACCOUNT','partner-0007','UPDATE','DIRECTORY_PROFILE','PENDING_REVIEW'),
         ('event-1','PARTNER_ACCOUNT','partner-0007','CREATE','MANAGED_EVENT','QUARANTINED'),
         ('help-1','PARTNER_ACCOUNT','partner-0007','CREATE','ADOPTION_DOG','SUBMITTED'),
+        ('lifecycle-1','PARTNER_ACCOUNT','partner-0007','REQUEST_HIDE','DIRECTORY_PROFILE','SUBMITTED'),
         ('other-1','PARTNER_ACCOUNT','partner-0008','CREATE','HELP_CASE','SUBMITTED');
       INSERT INTO partner_new_profile_metadata VALUES ('new-1','partner-0007'),('new-old','partner-0007');
       INSERT INTO partner_profile_change_metadata VALUES ('change-1','partner-0007');
@@ -127,7 +128,7 @@ test("partner overview counts pending requests from all current sources and appr
       INSERT INTO partner_commercial_agreements VALUES ('partner-0007','OFFERED');
     `);
     const result=await listPartnerAccountsAdmin({q:"partner-0007",database,encryptionKey:key});
-    assert.equal(result.items[0].pendingRequestCount,9);
+    assert.equal(result.items[0].pendingRequestCount,10);
     assert.equal(result.items[0].managedProfileCount,3);
     const other=await listPartnerAccountsAdmin({q:"partner-0008",database,encryptionKey:key});
     assert.equal(other.items[0].pendingRequestCount,1);
