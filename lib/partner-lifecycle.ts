@@ -25,7 +25,8 @@ const specs:Record<ProfileType,Spec>={
 };
 const helpColumn=(type:ProfileType)=>type==="ADOPTION_DOG"?"adoption_dog_id":type==="LOST_FOUND_DOG"?"lost_found_report_id":"help_case_id";
 export class PartnerLifecycleError extends Error{
-  constructor(message:string,readonly status=400){super(message);this.name="PartnerLifecycleError";}
+  readonly status:number;
+  constructor(message:string,status=400){super(message);this.name="PartnerLifecycleError";this.status=status;}
 }
 function database(input?:D1Database){return getPartnerDatabase(input??(env as unknown as {DB?:D1Database}).DB);}
 function validAction(value:unknown):LifecycleAction{
