@@ -1,3 +1,4 @@
+import { PartnerLifecycleRequest } from "@/components/partner-lifecycle-request";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PartnerProfileEditForm } from "@/components/partner-profile-edit-form";
@@ -32,6 +33,7 @@ export default async function Page({ params }: { params: Promise<{ resourceId: s
             <Link href="/partner/ziadosti">Moje žiadosti</Link>
           </div>
         </div>
+        <PartnerLifecycleRequest resourceId={resourceId} />
         <PartnerProfileEditForm
           resourceId={editor.resource.resourceId}
           fields={editor.fields}
