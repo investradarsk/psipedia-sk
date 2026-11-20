@@ -1,6 +1,6 @@
 -- Adresár STEP 1/4: isolated SQL destination for Admin values (no JSON blobs).
 -- STEP 1/4 ONLY: schema, no data transfer, no runtime cutover, no deletes.
--- Isolated on purpose: 0175 belongs to Breeds and the generic migration
+-- Isolated on purpose: 0175 now belongs to Partner V2 and the generic migration
 -- ledger requires an unbroken sequence. This file is NEVER generic-applied.
 -- Existing profile scalar, contact, SEO, category, fact, filter, qualification,
 -- gallery, review, quality and relation tables stay authoritative.
