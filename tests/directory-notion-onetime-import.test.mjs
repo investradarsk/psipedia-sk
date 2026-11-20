@@ -20,7 +20,7 @@ function page(fields={}){
       "Kvalifikácie":text("Kurz A\nKurz B\nKurz A"),
       "Ordinačné hodiny":text("Po–Pi podľa dohody"),
       "Ďalšie kategórie":options(["Fyzioterapia"]),
-      "Filter · veterinari.emergency":select("Áno"),
+      "Návštevy doma":select("Áno"),
       "Kvalita · Telefón":select("Verejne nezverejnené"),
       "Kvalita skontrolované":{type:"date",date:{start:"2026-11-20"}},
       ...fields,
@@ -64,7 +64,7 @@ test("nonempty Notion fields own SQL, free text contacts have no URL/email valid
   assert.deepEqual(p.qualifications,["Kurz A","Kurz B"]);
   assert.equal(p.hoursText,"Po–Pi podľa dohody");
   assert.deepEqual(p.secondary,["fyzioterapia"]);
-  assert.deepEqual(p.filters,[{id:"veterinari.emergency",category:"veterinari",value:"yes"}]);
+  assert.deepEqual(p.filters,[{id:"veterinari.home_visits",category:"veterinari",value:"yes"}]);
   assert.deepEqual(p.quality,[{field:"phone",status:"NOT_PUBLIC",checkedAt:"2026-11-20"}]);
 });
 test("existing SQL/R2 main image and noindex are preserved while absent image can be filled",()=>{
@@ -97,6 +97,13 @@ test("confirmed Google Place blocks address overwrite but allows unrelated edito
   assert.equal(p.fields.address,undefined);
   assert.equal(p.fields.city,undefined);
   assert.equal(p.fields.excerpt,"New perex");
+});
+test("Notion property shared by fact/select stays a review case, not two SQL owners",()=>{
+  const p=planNotionDirectoryImport(page({"Pohotovosť":select("Áno")}),row(),SOURCE);
+  assert.equal(p.ok,true);
+  assert(p.issues.includes("filter_collision:veterinari.emergency"));
+  assert(!p.filters.some(f=>f.id==="veterinari.emergency"));
+  assert(!p.facts.some(f=>f.key==="Pohotovosť"));
 });
 test("Notion relation services and old gallery JSON never become fabricated values",()=>{
   const p=planNotionDirectoryImport(page({
