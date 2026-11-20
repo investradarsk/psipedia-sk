@@ -99,20 +99,27 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     id: 1017, category: "chovatelske-stanice", status: "published",
     updatedAt: "2026-11-07T12:00:00Z", publicEmail: "nonsense (unrelated)",
   };
+  const sidecarSql = [];
   const db = {
     prepare(sql) {
       return {
+        sql,
         bind(...values) {
-          queries.push({ sql, values });
-          return { async first() { return { id: 1017 }; } };
+          if(sql.startsWith("UPDATE directory_profiles SET")) queries.push({ sql, values });
+          else sidecarSql.push({ sql, values });
+          return { sql, values, async first() { return { id: 1017 }; } };
         },
       };
+    },
+    async batch(statements) {
+      return statements.map((_,index)=>({results:index===0?[{id:1017}]:[{verified:1}]}));
     },
   };
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [], directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory, breederReadPath: (v, p) => p.split(".")
       .reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
+    planDirectory0173EditorialSqlMirror: () => [{sql:"INSERT INTO directory_profile_seo",bindings:[]}],
     getManagedDirectoryProfileById: async () => current,
   });
   const desired = {
@@ -133,6 +140,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   await exports.saveBreederEditorialValue(db, current, desired, "seo.canonicalUrl");
   assert.match(queries[2].sql, /seo_json = json_set/);
   assert.equal(queries[2].values[1], "čistý ľubovoľný text");
+  assert(sidecarSql.some(({sql})=>sql.includes("directory_profile_seo")));
   for (const { sql } of queries) {
     assert.match(sql, /category = 'chovatelske-stanice'/);
     assert.match(sql, /updated_at = \?/);
