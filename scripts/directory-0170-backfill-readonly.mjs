@@ -17,7 +17,7 @@ const REPORT = resolve(DIR, "report.json");
 const CONFIG = resolve(DIR, "wrangler.json");
 const PAGE_SIZE = 75;
 const SAMPLE_LIMIT = 12;
-const CATEGORIES = [
+export const CATEGORIES = [
   "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
   "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
   "vencenie", "fyzioterapia", "dalsie-sluzby",
@@ -30,7 +30,7 @@ const CONTACTS = {
   facebook_url: ["Facebook"],
   instagram_url: ["Instagram"],
 };
-const FILTER_NAMES = {
+export const FILTER_NAMES = {
   veterinari: ["facility_type", "emergency", "home_visits"],
   treneri: ["individual_training", "group_training"],
   "kynologicke-kluby": ["trial_preparation", "group_training"],
@@ -42,7 +42,7 @@ const FILTER_NAMES = {
   fyzioterapia: ["hydrotherapy", "home_visits"],
   "dalsie-sluzby": ["pet_transport", "equipment_rental"],
 };
-const FACT_LABELS = {
+export const FACT_LABELS = {
   veterinari: ["Špecializácie", "Hospitalizácia", "RTG", "USG", "Laboratórium"],
   treneri: ["Výcvik šteniat", "Behaviorálne poradenstvo"],
   "kynologicke-kluby": ["Typ klubu", "Zameranie", "Výcvik šteniat", "Športová kynológia", "Obrany", "Stopy", "Agility", "Rally obedience", "Retriever / poľovnícka kynológia"],
