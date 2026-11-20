@@ -1,0 +1,92 @@
+name: Directory SQL step 2 of 4 (manual)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/production-directory-onetime-notion-import.mjs"
+      - "lib/directory-sql-step2-plan.mjs"
+      - "tests/directory-sql-step2.test.mjs"
+      - ".github/workflows/production-directory-sql-step2.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        required: true
+        default: audit
+        options: [audit, apply]
+      confirmation:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('directory-sql-step2-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/directory-sql-step2.test.mjs tests/directory-notion-onetime-import.test.mjs tests/directory-0176-sql-schema.test.mjs
+  execute:
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 180
+    env:
+      NOTION_ONE_TIME_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      AGENT_NOTION_ACCESS_TOKEN: ${{ secrets.GEMINI_AGENT_NOTION_TOKEN }}
+      NOTION_DIRECTORY_DATA_SOURCE_ID: ${{ vars.NOTION_DIRECTORY_DATA_SOURCE_ID }}
+    steps:
+      - name: Owner confirmation
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY" = investradarsk/psipedia-sk
+          case "$MODE" in
+            audit) test "$NOTION_ONE_TIME_CONFIRMATION" = AUDIT-DIRECTORY-SQL-STEP2-psipedia-sk-db ;;
+            apply) test "$NOTION_ONE_TIME_CONFIRMATION" = APPLY-DIRECTORY-SQL-STEP2-psipedia-sk-db ;;
+            *) exit 1 ;;
+          esac
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$AGENT_NOTION_ACCESS_TOKEN"
+          test -n "$NOTION_DIRECTORY_DATA_SOURCE_ID"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Reject stale main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - run: npm ci
+      - name: Bind canonical Cloudflare account
+        run: echo "CLOUDFLARE_ACCOUNT_ID=$(node -p 'require("./config/cloudflare-resources.json").account_id')" >> "$GITHUB_ENV"
+      - name: Owner-selected audit or staged SQL transfer
+        env:
+          MODE: ${{ inputs.mode }}
+        run: node scripts/production-directory-onetime-notion-import.mjs "step2-$MODE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: directory-step2-${{ github.run_id }}
+          path: .directory-notion-one-time/report.json
+          retention-days: 30
+          if-no-files-found: ignore
