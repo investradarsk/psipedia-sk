@@ -10,7 +10,7 @@ import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-
 import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
-import { DIRECTORY_ADDITIONAL_CATEGORIES_KEY, DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directorySecondaryCategoriesSqlConfirmed, normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
+import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-category-sql";
 import { isDirectoryPublicMetadataField, readDirectoryPublicMetadataValue } from "./directory-public-facts";
 import { DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS } from "./directory-detail-presentation";
