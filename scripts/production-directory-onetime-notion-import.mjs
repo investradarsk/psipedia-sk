@@ -349,14 +349,25 @@ async function runStep2(){
       if(fresh.id!==p.pageId||fresh.last_edited_time!==p.notionRevision||
         notionId(fresh)!==p.id){mark("notion_changed",p.id);continue;}
     }
-    const live=(await select("SELECT updated_at,status FROM directory_profiles WHERE id=?",[p.id]))[0];
-    if(!live||live.updated_at!==p.sourceRevision||live.status==="archived"){
-      mark("admin_changed",p.id);continue;
+    // Recheck ALL owner locks and exact Notion mapping immediately before
+    // staging. Partner/review changes may happen without touching updated_at.
+    const live=(await select(STEP2_PROFILE_SQL,[p.id-1]))[0];
+    const changed=!live||Number(live.id)!==p.id||
+      live.updated_at!==p.sourceRevision||live.status==="archived"||
+      Number(live.tombstone)>0;
+    const notionLocked=Boolean(p.notionRevision&&live&&(
+      Number(live.partner_active)>0||Number(live.sql_review_locked)>0||
+      Number(live.legacy_review_locked)>0||
+      String(live.notion_page_id??"").replaceAll("-","").toLowerCase()!==
+        String(p.pageId).replaceAll("-","").toLowerCase()));
+    if(changed||notionLocked){
+      mark(notionLocked?"owner_lock_changed":"admin_changed",p.id);continue;
     }
     const existing=(await select(
       "SELECT state FROM directory_profile_sql_cutover_state WHERE profile_id=?",[p.id]))[0];
     if(existing){mark(existing.state==="STAGED"?"already_staged":"already_verified",p.id);continue;}
-    const sql=step2Sql(p,new Date().toISOString(),"DIRECTORY_SQL_STEP2").map(s=>stmt(s.sql,s.params));
+    const sql=step2Sql(p,new Date().toISOString(),"DIRECTORY_SQL_STEP2").map(
+      item=>({sql:item.sql,params:item.params}));
     must(sql.length<150,"STEP2_LARGE_BATCH");
     try{
       const result=await d1(sql);
