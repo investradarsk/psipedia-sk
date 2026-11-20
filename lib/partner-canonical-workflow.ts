@@ -27,6 +27,7 @@ import { normalizePartnerGalleryMediaIds } from "./partner-profile-gallery-media
 import { publishSafeImage, type PrivateBucketLike } from "./private-media";
 import { directoryFilterRegistry } from "./directory-filter-contract";
 import { buildPartnerDraftRelationStatements, readPartnerDraftRelations } from "./partner-canonical-relations";
+import { parseCanonicalDraftMedia,planCanonicalDraftMediaSave,prepareCanonicalDraftMediaApproval } from "./partner-canonical-media";
 
 
 type Database = D1Database;
@@ -283,15 +284,16 @@ export async function getPartnerCanonicalDraft(input:{accountId:string;id:string
   const relations=await readPartnerDraftRelations({db,type:row.resourceType,id:row.canonicalId,
     category:String(values.category??"")});
   Object.assign(values,relations);
+  const media=parseCanonicalDraftMedia(row.proposedPatchJson);
   const note=await db.prepare("SELECT reason_code reason FROM moderation_events "+
     "WHERE submission_id=?1 AND to_status='RETURNED' ORDER BY created_at DESC LIMIT 1")
     .bind(row.id).first<{reason:string|null}>();
   return {id:row.id,resourceType:row.resourceType,canonicalId:row.canonicalId,
-    status:row.status,values,baseUpdatedAt:current.baseUpdatedAt,
+    status:row.status,values,baseUpdatedAt:current.baseUpdatedAt,media,
     returnReason:row.status==="RETURNED"?note?.reason??null:null};
 }
 export async function savePartnerCanonicalDraft(input:{
-  accountId:string;id:string;data:unknown;baseUpdatedAt:string;database?:D1Database;now?:Date;
+  accountId:string;id:string;data:unknown;baseUpdatedAt:string;media?:unknown;database?:D1Database;now?:Date;
 }){
   const db=database(input.database),row=await draftById(input.id,db);
   if(row.accountId!==input.accountId)throw new PartnerCanonicalWorkflowError("Koncept sa nenašiel.",404);
@@ -312,13 +314,18 @@ export async function savePartnerCanonicalDraft(input:{
   const nowCandidate=(input.now??new Date()).getTime(),previous=Date.parse(revision.updatedAt);
   const nowIso=new Date(Number.isFinite(previous)?Math.max(nowCandidate,previous+1):nowCandidate).toISOString();
   // Empty payload is a no-op. A client still receives the live canonical revision.
-  if(Object.keys(data).length===0)return getPartnerCanonicalDraft({accountId:input.accountId,id:input.id,database:db});
+  if(Object.keys(data).length===0&&input.media===undefined)
+    return getPartnerCanonicalDraft({accountId:input.accountId,id:input.id,database:db});
   const assignments=entries.map(([key],i)=>columns[key]+"=?"+(i+1));
   const bindings=entries.map(([key,value])=>Array.isArray(value)?JSON.stringify(value):typeof value==="boolean"?(value?1:0):value);
   const previousRecord=await getPartnerCanonicalDraft({accountId:input.accountId,id:input.id,database:db});
   const category=String(data.category??previousRecord.values.category??"");
   const relationStatements=buildPartnerDraftRelationStatements({
     db,type:row.resourceType,id:row.canonicalId,data,nowIso,actor:accountActor(input.accountId),category,
+  });
+  const mediaPlan=input.media===undefined?null:await planCanonicalDraftMediaSave({
+    db,submissionId:row.id,accountId:input.accountId,type:row.resourceType,
+    proposedPatchJson:row.proposedPatchJson,media:input.media,nowIso,
   });
   const updateSql="UPDATE "+tableFor(row.resourceType)+" SET "+assignments.join(",")+
     ",updated_at=?"+(entries.length+1)+
@@ -340,6 +347,7 @@ export async function savePartnerCanonicalDraft(input:{
         "WHERE id=?3 AND submitter_ref=?4 AND status IN ('DRAFT','SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED')")
         .bind(JSON.stringify(data),nowIso,row.id,input.accountId),
       guard(db),
+      ...(mediaPlan?.statements??[]),
       db.prepare("INSERT INTO moderation_events "+
         "(id,submission_id,resource_type,subject_id,action,actor_type,actor_ref,changed_fields_json,created_at) "+
         "VALUES(?1,?2,?3,?4,'DRAFT_EDITED','PARTNER',?5,?6,?7)")
@@ -485,8 +493,14 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
   const outcome=input.action==="APPROVE"?"APPROVED":input.action==="RETURN"?"RETURNED":"REJECTED";
   const extras:D1PreparedStatement[]=[];
   if(input.action==="APPROVE"){
+    // All R2 media remain private until this Admin decision. Safe public copies
+    // are made first; canonical URL attachment + asset state is atomic in D1.
+    const mediaStatements=await prepareCanonicalDraftMediaApproval({
+      db,type:row.resourceType,accountId:row.accountId,canonicalId:row.canonicalId,
+      proposedPatchJson:row.proposedPatchJson,nowIso,actorRef,
+    });
     extras.push(publication(db,row,nowIso,actorRef,revision.updatedAt),guard(db),
-      ...ownerStatements(db,row,nowIso,actorRef));
+      ...mediaStatements,...ownerStatements(db,row,nowIso,actorRef));
     const meta=approveMetadata(db,row,nowIso);if(meta)extras.push(meta);
     const action=row.resourceType==="MANAGED_EVENT"?"EVENT_CREATED":"NEW_PROFILE_CREATED";
     extras.push(db.prepare("INSERT INTO partner_audit_events "+
@@ -500,6 +514,12 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
       "VALUES(?1,?2,?3,?4,'PENDING',?5,0,?6,?6)")
       .bind(crypto.randomUUID(),row.accountId,notice,"partner-canonical-approved/"+row.id,
         new Date(Date.parse(nowIso)+30*86400000).toISOString(),nowIso));
+  }
+  if(input.action==="REJECT"){
+    const {coverId,galleryIds}=parseCanonicalDraftMedia(row.proposedPatchJson);
+    for(const id of [coverId,...galleryIds].filter((x):x is string=>Boolean(x)))
+      extras.push(db.prepare("UPDATE media_assets SET state='REJECTED',reviewed_at=? WHERE id=? AND owner_id=? AND state='ATTACHED'")
+        .bind(nowIso,id,row.accountId));
   }
   await applyAtomicModerationTransition(db,{
     id:row.id,expectedStatus:"PENDING_REVIEW",toStatus:outcome,actorType:"ADMIN",actorRef,
