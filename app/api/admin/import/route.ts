@@ -97,7 +97,18 @@ export async function POST(request: Request) {
       // This historical FCI importer writes legacy JSON without the SQL v2
       // CAS/shadow transaction. Never allow it to overwrite canonical SQL.
       // Preview remains available; edits must go through the breed Admin editor.
-      if ((env as RuntimeBindings & { BREED_SQL_V2_READ_MODE?: string }).BREED_SQL_V2_READ_MODE === "sql") {
+      const runtime = env as RuntimeBindings & {
+        BREED_SQL_V2_READ_MODE?: string;
+        PSIPEDIA_E2E_LOCAL_BOOTSTRAP?: string;
+        AUTH_MODE?: string;
+      };
+      const url = new URL(request.url);
+      // Strictly local disposable E2E fixture bootstrap. This is never set in
+      // the production Worker, and the public/admin production importer stays blocked.
+      const localFixtureImport = runtime.PSIPEDIA_E2E_LOCAL_BOOTSTRAP === "1"
+        && runtime.AUTH_MODE === "local-e2e-preview"
+        && url.protocol === "http:" && url.hostname === "localhost" && url.port === "5173";
+      if (runtime.BREED_SQL_V2_READ_MODE === "sql" && !localFixtureImport) {
         return Response.json({ error: "Import plemien je po prechode na SQL iba na náhľad. Na zmeny použi editor plemena v Admine." }, { status: 409 });
       }
       const result = await importFciBreeds(database, breedPayload, user.email);
