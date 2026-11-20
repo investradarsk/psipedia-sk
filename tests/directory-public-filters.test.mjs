@@ -93,8 +93,9 @@ test("parameterized SQLite queries match explicit values only; missing, unknown 
     } else {
       assert.deepEqual(where.bindings, [definition.category, definition.id, value]);
       assert.ok(where.clauses[0].includes("directory_profile_filter_values"));
-      assert.ok(where.clauses[0].includes("json_extract("));
-      assert.ok(where.clauses[0].endsWith("= ?"));
+      assert.doesNotMatch(where.clauses[0],/source_data_json|json_extract/);
+      sqlite.prepare("INSERT INTO directory_profile_filter_values VALUES(?,?,?,?)")
+        .run(matching,definition.category,definition.id,value);
     }
     const ids = sqlite
       .prepare(
@@ -126,6 +127,8 @@ test("explicit no differs from absent and unknown; select and tri-state facets c
   );
   sqlite.prepare("INSERT INTO service_profile_option_choices VALUES (?, ?, ?)")
     .run(row, "attr.vet.emergency", "no");
+  sqlite.prepare("INSERT INTO directory_profile_filter_values VALUES(?,?,?,?)")
+    .run(row,"veterinari",defs[0].id,"clinic");
   for (const value of ["no", "yes"]) {
     const condition = directoryPublicFacetSql("veterinari", {
       [defs[0].id]: "clinic",
@@ -152,7 +155,7 @@ test("explicit no differs from absent and unknown; select and tri-state facets c
   });
 });
 
-test("0170 provider facet prefers confirmed SQL, preserves legacy fallback and agrees across list/map aliases", () => {
+test("0170 provider facet uses SQL only and agrees across list/map aliases", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(
@@ -191,7 +194,7 @@ test("0170 provider facet prefers confirmed SQL, preserves legacy fallback and a
           where.clauses.join(" AND ") + " ORDER BY id",
         ).all(...where.bindings).map((row) => row.id);
       };
-      assert.deepEqual(query("clinic"), [3, 4, 5, 6, 7]);
+      assert.deepEqual(query("clinic"), [4, 5, 6]);
       assert.deepEqual(query("hospital"), [1]);
     }
     assert.throws(
@@ -321,7 +324,7 @@ test("approved desktop A and mobile B render a single canonical set of category 
   assert.doesNotMatch(component, /GoogleMap|GoogleMaps|fetch\(|\.prepare\(/);
 });
 
-test("facet predicates exclude malformed JSON instead of failing public COUNT/LIST and map queries", () => {
+test("facet predicates ignore malformed historical JSON and use SQL only", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(
@@ -336,6 +339,8 @@ test("facet predicates exclude malformed JSON instead of failing public COUNT/LI
     insert.run("veterinari", "[]");
     insert.run("veterinari", "null");
     insert.run("veterinari", JSON.stringify({ [key]: "unknown" }));
+    db.prepare("INSERT INTO directory_profile_filter_values VALUES(?,?,?,?)")
+      .run(2,"veterinari","veterinari.facility_type","clinic");
     for (const column of ["source_data_json", "d.source_data_json"]) {
       const where = directoryPublicFacetSql(
         "veterinari",
