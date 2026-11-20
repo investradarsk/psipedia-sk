@@ -434,6 +434,12 @@ const RELATION_SNAPSHOT = Object.freeze([
   ["directory_profile_filter_values", "value_text", "updated_at"],
   ["service_profile_option_choices", "choice", "updated_at"],
   ["directory_service_notion_relation_sync", "confirmed_ids_json", "synced_at"],
+  ["directory_profile_qualifications", "qualification_text", "updated_at"],
+  ["directory_profile_opening_hours", "hours_text", "updated_at"],
+  ["directory_profile_media", "image_url", "updated_at"],
+  ["directory_profile_seo", "title", "updated_at"],
+  ["directory_profile_review_state", "reviewed_by", "updated_at"],
+  ["directory_profile_quality_resolutions", "resolution_status", "updated_at"],
 ]);
 function relationalSnapshot() {
   // Aggregate fingerprints are SELECT-only and contain no personal values.
@@ -449,19 +455,25 @@ function relationalSnapshot() {
   }));
 }
 function state() {
-  const tables = select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('directory_profiles','directory_notion_sync','directory_profile_additional_categories','directory_profile_public_facts','directory_profile_filter_values','service_profile_option_choices','directory_service_notion_relation_sync')");
-  must(tables.length === 7, "MISSING_SCHEMA");
-  const columns = select("SELECT name FROM pragma_table_info('directory_profiles') WHERE name IN ('website_url','public_phone','public_email','facebook_url','instagram_url','source_data_json')");
-  must(columns.length === 6,"MISSING_COLUMNS");
+  const tables = select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('directory_profiles','directory_notion_sync','directory_profile_additional_categories','directory_profile_public_facts','directory_profile_filter_values','service_profile_option_choices','directory_service_notion_relation_sync','directory_profile_qualifications','directory_profile_opening_hours','directory_profile_media','directory_profile_seo','directory_profile_review_state','directory_profile_quality_resolutions')");
+  must(tables.length === 13, "MISSING_SCHEMA");
+  const columns = select("SELECT name FROM pragma_table_info('directory_profiles') WHERE name IN ('website_url','public_phone','public_email','facebook_url','instagram_url','source_data_json','seo_json','qualifications_json')");
+  must(columns.length === 8,"MISSING_COLUMNS");
   const row = select("SELECT COUNT(*) AS profiles,COALESCE(MAX(id),0) AS max_id,COALESCE(SUM(id),0) AS id_sum,COALESCE(SUM(length(source_data_json)),0) AS json_chars,COALESCE(MAX(updated_at),'') AS latest_update FROM directory_profiles")[0];
   must(row && Object.values({profiles:row.profiles,max_id:row.max_id,id_sum:row.id_sum,json_chars:row.json_chars}).every(x=>Number.isSafeInteger(Number(x))),"INVALID_BASELINE");
   return { ...row, relations:relationalSnapshot() };
 }
-const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_json,p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,"+
+const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_json,p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,p.qualifications_json,p.seo_json,"+
   "(SELECT json_group_array(category) FROM directory_profile_additional_categories WHERE profile_id=p.id) AS sql_categories,"+
   "(SELECT json_group_array(json_object('field_key',field_key,'value_text',value_text)) FROM directory_profile_public_facts WHERE profile_id=p.id) AS sql_facts,"+
   "(SELECT json_group_array(json_object('category',category,'filter_id',filter_id,'value_text',value_text)) FROM directory_profile_filter_values WHERE profile_id=p.id) AS sql_filters,"+
   "(SELECT json_group_array(json_object('option_id',option_id,'choice',choice,'version',version)) FROM service_profile_option_choices WHERE profile_id=p.id) AS sql_services,"+
+  "(SELECT json_group_array(x.qualification_text) FROM (SELECT qualification_text FROM directory_profile_qualifications WHERE profile_id=p.id ORDER BY item_order) x) AS sql_qualifications,"+
+  "(SELECT json_group_array(json_object('day',day_of_week,'text',hours_text)) FROM directory_profile_opening_hours WHERE profile_id=p.id) AS sql_hours,"+
+  "(SELECT json_group_array(json_object('order',item_order,'url',image_url,'key',image_key)) FROM directory_profile_media WHERE profile_id=p.id) AS sql_media,"+
+  "(SELECT json_object('title',title,'description',description,'focus_keyword',focus_keyword,'canonical_url',canonical_url,'og_title',og_title,'og_description',og_description,'og_image_url',og_image_url,'noindex',noindex) FROM directory_profile_seo WHERE profile_id=p.id) AS sql_seo,"+
+  "(SELECT json_object('reviewed_at',reviewed_at,'reviewed_by',reviewed_by,'unlock_pending',unlock_pending) FROM directory_profile_review_state WHERE profile_id=p.id) AS sql_review,"+
+  "(SELECT json_group_array(json_object('field',quality_field,'status',resolution_status,'checked_at',checked_at)) FROM directory_profile_quality_resolutions WHERE profile_id=p.id) AS sql_quality,"+
   "(SELECT confirmed_ids_json FROM directory_service_notion_relation_sync WHERE directory_profile_id=p.id) AS sql_service_baseline,"+
   "(SELECT notion_page_id FROM directory_service_notion_relation_sync WHERE directory_profile_id=p.id) AS sql_baseline_notion_page_id,"+
   "(SELECT notion_page_id FROM directory_notion_sync WHERE directory_profile_id=p.id) AS notion_page_id,"+
@@ -510,9 +522,10 @@ function run() {
     v3AndRelationalSnapshotStable:JSON.stringify(before.relations)===JSON.stringify(after.relations),
     scanned, baselineProfiles:Number(before.profiles), endProfiles:Number(after.profiles),
     byCategory,issues,issuesByCategory,sampleProfileIds,
-    v3CanonicalSqlAudited:true, additionalCategoryEmptyConfirmedSeparately:true,
+    v3CanonicalSqlAudited:true, sql0173ShadowAudited:true,
+    sql0173ReadCutoverApproved:false, additionalCategoryEmptyConfirmedSeparately:true,
     v3NotionBaselineIsReceiptOnly:true, legacyServicesTextNotEquivalent:true,
-    nextStep:"review 0170 category/fact/filter and V3 relation evidence; never infer backfill or SQL-only readiness from absent rows",
+    nextStep:"review 0170/V3 and 0173 qualification/hours/gallery/SEO/review/quality evidence; unproven empty SQL rows never authorize backfill or SQL-only reads",
   };
   writeFileSync(REPORT,JSON.stringify(report,null,2)+"\n");
   console.log(JSON.stringify({
