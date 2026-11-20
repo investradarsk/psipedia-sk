@@ -100,7 +100,7 @@ test("a failed eligibility check leaves D1 entirely unchanged after rollback",()
   ["partner-claim",db=>db.exec("INSERT INTO partner_help_claims(id,help_case_id) VALUES('p',1)")],
   ["missing-adoption",db=>db.exec("DELETE FROM adoption_dogs WHERE slug='adoption-1'")],
   ["draft-status",db=>db.exec("UPDATE help_cases SET status='draft' WHERE id=1")],
-  ["legacy-lost",db=>db.exec("INSERT INTO lost_found_dog_reports(id,slug) VALUES(1,'historic-lost')")],
+  ["legacy-lost",db=>db.exec("INSERT INTO help_cases(id,slug,title,category,status) VALUES(8001,'historic-lost','Historic lost','stratene-a-najdene','published')")],
   ["running-transfer",db=>db.exec("INSERT INTO notion_manual_transfer_items(notion_page_id,status) VALUES('adopt-page-1','RUNNING')")],
   ["shared-notion-page",db=>db.exec("INSERT INTO notion_agenda_sync(agenda,entity_id,notion_page_id) VALUES('adoptions',300,'adopt-page-1')")],
   ["renamed-shelter",db=>db.exec("UPDATE help_cases SET slug='unexpected-removed-shelter' WHERE id=1104")]
@@ -108,7 +108,7 @@ test("a failed eligibility check leaves D1 entirely unchanged after rollback",()
   const db=makeDb();
   mutate(db);
   assert.throws(()=>apply(db),/constraint|CHECK|FOREIGN KEY/i,name);
-  assert.equal(one(db,"SELECT COUNT(*) n FROM help_cases"),141);
+  assert.equal(one(db,"SELECT COUNT(*) n FROM help_cases"),name==="legacy-lost"?142:141);
   assert.equal(one(db,"SELECT COUNT(*) n FROM admin_record_tombstones"),0);
   assert.equal(one(db,"SELECT COUNT(*) n FROM notion_agenda_sync WHERE agenda='help-cases'"),
    name==="missing-mapping"?139:140);
