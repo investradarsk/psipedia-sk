@@ -105,3 +105,28 @@ test("auditor is connected to the owner-gated read-only step3 audit",()=>{
  assert.match(source,/summarizeDirectoryStep3SqlFieldParity\(/);
  assert.match(source,/report\("STEP3_AUDIT_ONLY",\{readiness,currentSourceIssues,sqlFieldParity,/);
 });
+
+test("encoded JSON null display is a default and SQL parity matches empty sidecars",()=>{
+ const row=profile({thumbnail_display_json:"null",detail_display_json:" null "});
+ const {db,result}=fixture(row);
+ try {
+  const r=result();
+  assert.equal(r.exactFieldMatches,1);
+  assert.equal(r.needsReview,0);
+  assert.equal(r.legacyDisplayStorage.thumbnail.json_null,1);
+  assert.equal(r.legacyDisplayStorage.detail.json_null,1);
+  assert.equal(r.issues.counts.invalid_legacy_thumbnail_display,undefined);
+  assert.equal(r.issues.counts.invalid_legacy_detail_display,undefined);
+ }finally{db.close();}
+});
+test("display storage diagnostics separate real corruption without disclosing raw values",()=>{
+ const row=profile({thumbnail_display_json:"{broken",detail_display_json:"null"});
+ const {db,result}=fixture(row);
+ try {
+  const r=result();
+  assert.equal(r.legacyDisplayStorage.thumbnail.invalid,1);
+  assert.equal(r.legacyDisplayStorage.detail.json_null,1);
+  assert.equal(r.issues.counts.invalid_legacy_thumbnail_display,1);
+  assert(!JSON.stringify(r).includes("{broken"));
+ }finally{db.close();}
+});
