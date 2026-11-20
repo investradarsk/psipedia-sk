@@ -44,7 +44,7 @@ function setup() {
     CREATE TABLE partner_commercial_interests (id TEXT PRIMARY KEY,account_id TEXT,status TEXT,created_at TEXT);
     CREATE TABLE partner_commercial_agreements (id TEXT PRIMARY KEY,account_id TEXT,status TEXT,created_at TEXT);
     CREATE TABLE partner_memberships (id TEXT PRIMARY KEY,account_id TEXT,resource_id TEXT,created_at TEXT,revoked_at TEXT);
-    CREATE TABLE partner_audit_events (id TEXT PRIMARY KEY,action TEXT,actor_type TEXT,actor_ref TEXT,target_type TEXT,target_id TEXT,created_at TEXT);
+    CREATE TABLE partner_audit_events (id TEXT PRIMARY KEY,action TEXT,actor_type TEXT,actor_ref TEXT,target_type TEXT,target_id TEXT,created_at TEXT,metadata_json TEXT NOT NULL DEFAULT '{}');
     INSERT INTO directory_profiles VALUES (1,'Psí hotel Mops','published');
     INSERT INTO help_organizations VALUES (2,'Útulok','PUBLISHED');
     INSERT INTO managed_events VALUES (3,'Výstava psov','published');
@@ -69,7 +69,7 @@ function setup() {
     INSERT INTO partner_commercial_agreements VALUES ('agreement-a','partner-a','OFFERED','2026-11-18T19:00:00Z');
     INSERT INTO partner_memberships VALUES ('membership-a','partner-a','r1','2026-11-15T10:00:00Z',NULL);
     INSERT INTO partner_memberships VALUES ('membership-old','partner-a','r3','2026-11-14T10:00:00Z','2026-11-15T10:00:00Z');
-    INSERT INTO partner_audit_events VALUES
+    INSERT INTO partner_audit_events (id,action,actor_type,actor_ref,target_type,target_id,created_at) VALUES
       ('audit-owner','MEMBERSHIP_CREATED','PARTNER','partner:partner-a','PARTNER_RESOURCE','r1','2026-11-15T10:00:00Z'),
       ('audit-admin','NEW_PROFILE_CREATED','ADMIN','admin:owner','MODERATION_SUBMISSION','new-a','2026-11-18T21:00:00Z'),
       ('audit-claim','CLAIM_APPROVED','ADMIN','admin:owner','PARTNER_HELP_CLAIM','help-a-approved','2026-11-18T22:00:00Z'),
@@ -198,5 +198,31 @@ test("dossier: malformed historical Help JSON must not hide the partner's other 
     const result=await listPartnerAccountDossierRequests("partner-a",db);
     assert.equal(result.total,10);
     assert.equal(result.items.find(row=>row.id==="help-create-a").title,"Nový záznam Pomoci psom");
+  }finally{sqlite.close();}
+});
+
+test("dossier: lifecycle requests are account-scoped, count as pending, and link to canonical editor",async()=>{
+  const {sqlite,db}=setup();
+  try{
+    sqlite.exec(`
+      INSERT INTO moderation_submissions VALUES
+        ('life-hide-a','DIRECTORY_PROFILE','SUBMITTED','2026-11-20T08:00:00Z',
+          '{"resourceId":"r1","reason":"Dočasne zatvorené"}','PARTNER_ACCOUNT','partner-a','1','REQUEST_HIDE'),
+        ('life-account-a','PARTNER_ACCOUNT','REJECTED','2026-11-20T09:00:00Z',
+          '{"reason":"Iná osoba"}','PARTNER_ACCOUNT','partner-a','partner-a','REQUEST_DELETE_ACCOUNT'),
+        ('life-other-b','DIRECTORY_PROFILE','SUBMITTED','2026-11-20T10:00:00Z',
+          '{}','PARTNER_ACCOUNT','partner-b','1','REQUEST_ARCHIVE');
+    `);
+    const a=await listPartnerAccountDossierRequests("partner-a",db);
+    assert.equal(a.total,12);
+    assert.equal(a.pending,9);
+    assert.equal(a.items.find(x=>x.id==="life-hide-a").editorHref,"/admin/adresar/1");
+    assert.equal(a.items.find(x=>x.id==="life-account-a").editorHref,null);
+    assert.equal(a.items.find(x=>x.id==="life-hide-a").requestHref,
+      "/admin/partners/accounts/partner-a?tab=ziadosti");
+    assert.ok(!a.items.some(x=>x.id==="life-other-b"));
+    const b=await listPartnerAccountDossierRequests("partner-b",db);
+    assert.equal(b.total,2);
+    assert.equal(b.pending,1);
   }finally{sqlite.close();}
 });
