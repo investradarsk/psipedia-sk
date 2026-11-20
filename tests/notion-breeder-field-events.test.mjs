@@ -187,10 +187,15 @@ test("a trainer service description updates only its separate metadata field", a
   const profile = { id: 543, category: "treneri", status: "published",
     updatedAt: "2026-11-08T00:00:00Z" };
   const queries = [];
-  const db = { prepare(sql) { return { bind(...values) {
-    queries.push({ sql, values });
-    return { async first() { return { id: 543 }; } };
-  } }; } };
+  const db = {
+    prepare(sql) { return { bind(...values) {
+      queries.push({ sql, values });
+      return { async first() { return { id: 543 }; } };
+    } }; },
+    async batch(statements) {
+      return statements.map((_,index)=>({results:index===0?[{id:543}]:[{verified:1}]}));
+    },
+  };
   const exports = {};
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [],
@@ -208,8 +213,10 @@ test("a trainer service description updates only its separate metadata field", a
     address: "", postalCode: "", street: "", houseNumber: "",
   };
   await exports.saveBreederEditorialValue(db, profile, before, "services");
-  assert.equal(queries.length, 1);
+  assert.equal(queries.length, 3, "canonical write, CAS guard and one SQL extra field");
   assert.match(queries[0].sql, /source_data_json = json_set/);
+  assert.match(queries[2].sql, /directory_profile_extra_fields/);
+  assert(queries[2].values.includes("Individuálne lekcie\\nNosework".replace("\\n","\n")));
   assert.doesNotMatch(queries[0].sql, /services_json\s*=/);
   assert.equal(queries[0].values[0], "$._psipedia_trainer_services_text");
   assert.equal(queries[0].values[1], "Individuálne lekcie\nNosework");
