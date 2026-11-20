@@ -25,7 +25,7 @@ test("0176 migration is schema-only and never edits, drops or copies existing pr
   assert.equal(sqlBlocks.length,sqlBlocks.filter(x=>/^--|^CREATE (TABLE|INDEX)/m.test(x)).length);
   assert.doesNotMatch(migration,/^\s*(?:INSERT|UPDATE|DELETE|DROP|ALTER|REPLACE)\s/im);
   for(const name of [
-    "directory_profile_extra_fields","directory_profile_extra_list_items",
+    "directory_profile_extra_fields","directory_profile_extra_list_state","directory_profile_extra_list_items",
     "directory_profile_service_texts","directory_profile_image_display_settings",
     "directory_profile_sql_cutover_state",
   ])assert.match(migration,new RegExp("CREATE TABLE "+name+"\\b"));
@@ -77,6 +77,10 @@ test("array metadata and service text are relational and preserve item order",()
   const db=setup();
   try{
     const add=db.prepare("INSERT INTO directory_profile_extra_list_items VALUES(?,?,?,?,?,?)");
+    db.exec("INSERT INTO directory_profile_extra_list_state VALUES(1,'_psipedia_trainer_breed_ids','2026-11-20','admin')");
+    db.exec("INSERT INTO directory_profile_extra_list_state VALUES(1,'_psipedia_empty_selection','2026-11-20','admin')");
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_extra_list_items WHERE field_key='_psipedia_empty_selection'").get().n,0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profile_extra_list_state WHERE field_key='_psipedia_empty_selection'").get().n,1);
     add.run(1,"_psipedia_trainer_breed_ids",0,"100","2026-11-20","admin");
     add.run(1,"_psipedia_trainer_breed_ids",1,"200","2026-11-20","admin");
     assert.deepEqual(db.prepare("SELECT item_text FROM directory_profile_extra_list_items ORDER BY item_order")
@@ -118,12 +122,13 @@ test("all new SQL rows are cleaned by their parent FK, leaving existing schema u
   const db=setup();
   try{
     db.exec("INSERT INTO directory_profile_extra_fields VALUES(1,'x','text','y',NULL,'date','actor')");
+    db.exec("INSERT INTO directory_profile_extra_list_state VALUES(1,'x','date','actor')");
     db.exec("INSERT INTO directory_profile_extra_list_items VALUES(1,'x',0,'value','date','actor')");
     db.exec("INSERT INTO directory_profile_service_texts VALUES(1,0,'service','date','actor')");
     db.exec("INSERT INTO directory_profile_image_display_settings VALUES(1,'detail','crop',50,50,1,'date','actor')");
     db.exec("INSERT INTO directory_profile_sql_cutover_state VALUES(1,'STAGED','date',NULL,0,0,NULL,NULL,'date')");
     db.exec("DELETE FROM directory_profiles WHERE id=1");
-    for(const table of ["directory_profile_extra_fields","directory_profile_extra_list_items",
+    for(const table of ["directory_profile_extra_fields","directory_profile_extra_list_state","directory_profile_extra_list_items",
       "directory_profile_service_texts","directory_profile_image_display_settings",
       "directory_profile_sql_cutover_state"])
       assert.equal(db.prepare("SELECT COUNT(*) AS n FROM "+table).get().n,0,table);
