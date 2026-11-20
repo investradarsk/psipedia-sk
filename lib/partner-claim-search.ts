@@ -35,15 +35,20 @@ export async function searchPartnerClaimableRecords(input: {
   entityType: unknown;
   query: unknown;
   database?: D1Database;
+  suggest?: boolean;
 }): Promise<PartnerClaimSearchItem[]> {
   if (!isPartnerClaimableResourceType(input.entityType)) return [];
   if (typeof input.query !== "string") return [];
-  if (isPartnerHelpType(input.entityType)) return searchPartnerHelpRecords(input.entityType,input.query,input.database);
+  if (isPartnerHelpType(input.entityType)) return searchPartnerHelpRecords(input.entityType,input.query,input.database,Boolean(input.suggest));
   const query = input.query.trim().replace(/\s+/g, " ").slice(0, 80);
-  if (query.length < 2) return [];
-  const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
+  if (query.length < (input.suggest ? 1 : 2)) return [];
+  const escaped=query.replace(/[\\%_]/g, "\\const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;");
+  const pattern = input.suggest && query.length===1 ? `${escaped}%` : `%${escaped}%`;
   const type=input.entityType as keyof typeof typeSpecs;
-  const rows = (await getPartnerDatabase(input.database).prepare(typeSpecs[type].sql)
+  const sql=input.suggest&&type==="MANAGED_EVENT"
+    ? typeSpecs[type].sql.replace("ORDER BY start_date DESC,id DESC","ORDER BY name COLLATE NOCASE,id")
+    : typeSpecs[type].sql;
+  const rows = (await getPartnerDatabase(input.database).prepare(sql)
     .bind(pattern).all<ClaimSearchRow>()).results;
   return rows.map((row) => ({
     entityType: input.entityType as PartnerClaimableResourceType,
