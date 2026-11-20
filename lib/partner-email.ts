@@ -5,6 +5,7 @@ import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { normalizePartnerReturnTo } from "@/lib/partner-return-to";
 import { getPartnerNotificationPreferences } from "@/lib/partner-chat";
 import { runPartnerChatEmailSweep } from "@/lib/partner-chat-email";
+import { sweepPartnerChatOrphans } from "@/lib/partner-chat-orphan-cleanup";
 
 const RESEND_EMAIL_ENDPOINT = "https://api.resend.com/emails";
 const RESEND_TIMEOUT_MS = 8_000;
@@ -17,6 +18,7 @@ export type PartnerEmailBindings = {
   PARTNER_FROM_EMAIL?: string;
   EDITORIAL_FROM_EMAIL?: string;
   PII_ENCRYPTION_KEY?: string;
+  BUCKET?: R2Bucket;
 };
 
 export const partnerNotificationTypes = [
@@ -469,5 +471,8 @@ export async function runPartnerNotificationSweep(
   // avoids rebuilding the production outbox CHECK constraint.
   try{await runPartnerChatEmailSweep({database,bindings,now});}
   catch(error){console.error("Partner chat e-mail sweep failed",error);}
+  // Bounded cleanup of crash-orphaned R2 objects; never touch linked messages.
+  try{await sweepPartnerChatOrphans({database,bucket:bindings.BUCKET,now});}
+  catch(error){console.error("Partner chat orphan sweep failed",error);}
   return summary;
 }
