@@ -1,0 +1,31 @@
+name: Directory 0173 – SQL-first profile detail read
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/directory-0173-editorial-sql-read.ts"
+      - "lib/directory-store.ts"
+      - "tests/directory-0173-editorial-sql-read.test.mjs"
+      - ".github/workflows/directory-0173-sql-detail-read.yml"
+      - "docs/audits/DIRECTORY-0173-SQL-FIRST-DETAIL-READ-20261120.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: directory-0173-read-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: SQLite sidecar / protected read regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Real SQLite + Node TS strip tests (no D1/Notion writes)
+        run: node --experimental-strip-types --test tests/directory-0173-editorial-sql-read.test.mjs
