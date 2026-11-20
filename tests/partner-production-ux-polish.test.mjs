@@ -258,7 +258,7 @@ test("Partner forms hide development vocabulary and translate stored choice code
   assert.doesNotMatch(requestsPage, /item.resourceType.replaceAll/);
 });
 
-test("Partner authenticated workspace is compact and uses the public design system", () => {
+test("Partner authenticated workspace is compact and uses the public design system", async () => {
   assert.match(partnerShell, /className="partner-shell partner-shell--workspace"/);
   assert.match(partnerCss, /\.partner-shell--workspace\s*\{/);
   for (const token of ["var(--ink)", "var(--forest)", "var(--line)", "var(--paper)", "var(--sage-light)"]) {
