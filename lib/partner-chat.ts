@@ -10,7 +10,8 @@ type Row={id:string;partnerAccountId:string;senderRole:Role;senderRef:string;bod
 export type ChatMessage=Row&{attachments:Array<{id:string;name:string;size:number}>};
 const MAX_FILE=5*1024*1024;
 export class PartnerChatError extends Error {
-  constructor(message:string,readonly status=400){super(message);this.name="PartnerChatError";}
+  readonly status:number;
+  constructor(message:string,status=400){super(message);this.name="PartnerChatError";this.status=status;}
 }
 function db(input?:D1Database){return getPartnerDatabase(input??(env as unknown as Bindings).DB);}
 function bucket(input?:R2Bucket){
