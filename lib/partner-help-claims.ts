@@ -55,10 +55,12 @@ export async function getPartnerHelpPreview(type: PartnerHelpType, id: number, d
   const row = await getPartnerDatabase(database).prepare(select(type)+" AND id=?1 LIMIT 1").bind(id).first<HelpRow>();
   return row ? { entityType: type, canonicalId: id, name: row.name, slug: row.slug, publicHref: href(type,row) } : null;
 }
-export async function searchPartnerHelpRecords(type: PartnerHelpType, query: string, database?: D1Database) {
+export async function searchPartnerHelpRecords(type: PartnerHelpType, query: string, database?: D1Database, suggest = false) {
   const trimmed = query.trim().replace(/\s+/g," ").slice(0,80);
-  if (trimmed.length<2) return [];
-  const pattern = `%${trimmed.replace(/[\\%_]/g,"\\$&")}%`;
+  if (trimmed.length<(suggest?1:2)) return [];
+  const escaped=trimmed.replace(/[\\%_]/g,"\\  if (trimmed.length<2) return [];
+  const pattern = `%${trimmed.replace(/[\\%_]/g,"\\$&")}%`;");
+  const pattern = suggest && trimmed.length===1 ? `${escaped}%` : `%${escaped}%`;
   const q = select(type) + " AND (name LIKE ?1 ESCAPE '\\' OR city LIKE ?1 ESCAPE '\\') ORDER BY name COLLATE NOCASE,id LIMIT 15";
   // Alias 'name' is not visible to WHERE in every SQLite derivative. Repeat the safe, fixed title expression.
   const sql = q.replace("name LIKE ?1", specs[type].title+" LIKE ?1");
