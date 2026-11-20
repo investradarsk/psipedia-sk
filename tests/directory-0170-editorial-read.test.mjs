@@ -103,7 +103,9 @@ test("D1 query reads existing per-profile SQL rows and leaves unedited legacy va
       "CREATE TABLE directory_profile_public_facts("+
         "profile_id INTEGER,field_key TEXT,value_text TEXT);"+
       "CREATE TABLE directory_profile_filter_values("+
-        "profile_id INTEGER,category TEXT,filter_id TEXT,value_text TEXT);"
+        "profile_id INTEGER,category TEXT,filter_id TEXT,value_text TEXT);"+
+      "CREATE TABLE directory_profile_extra_fields("+
+        "profile_id INTEGER,field_key TEXT,value_kind TEXT,text_value TEXT,number_value REAL);"
     );
     sql.prepare("INSERT INTO directory_profile_public_facts VALUES(?,?,?)")
       .run(42,"Ordinačné hodiny","Nové hodiny");
