@@ -97,6 +97,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
   function payload(){
     const data:Record<string,unknown>={};
     for(const field of definitions[type]){
+      if(field.categoryScope&&field.categoryScope!==values.category)continue;
       if(field.key==="galleryUrls"){data.galleryUrls=galleryUrls;continue;}
       if(field.key==="additionalCategories"){data.additionalCategories=additionalCategories;continue;}
       const raw=values[field.key];
