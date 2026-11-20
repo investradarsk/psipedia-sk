@@ -1,15 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { PartnerMediaIntent } from "@/lib/partner-media";
 
-type Uploaded = { id: string; previewUrl: string; originalMime: string; sizeBytes: number };
+type Uploaded = { id: string; previewUrl: string; originalMime: string; sizeBytes: number; persisted?: boolean };
 const LIMIT = 6;
 
 export function PartnerGalleryField({
-  initialUrls, onChangeUrls, onChangeMediaIds, disabled = false, mediaIntent = "PARTNER_PROFILE_UPDATE", directPublish = false,
+  initialUrls, initialUploads = [], onChangeUrls, onChangeMediaIds, disabled = false,
+  mediaIntent = "PARTNER_PROFILE_UPDATE", directPublish = false,
 }: {
   initialUrls: string[];
+  initialUploads?: Uploaded[];
   onChangeUrls: (urls: string[]) => void;
   onChangeMediaIds: (ids: string[]) => void;
   disabled?: boolean;
@@ -17,11 +19,12 @@ export function PartnerGalleryField({
   directPublish?: boolean;
 }) {
   const [urls, setUrls] = useState<string[]>(initialUrls);
-  const [uploads, setUploads] = useState<Uploaded[]>([]);
+  const [uploads, setUploads] = useState<Uploaded[]>(initialUploads);
   const [newUrl, setNewUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
   const total = urls.length + uploads.length;
 
   function changeUrls(next: string[]) {
@@ -93,8 +96,12 @@ export function PartnerGalleryField({
     const item = uploads[index];
     setBusy(true);
     try {
-      const res = await fetch(`/api/partner/media/${encodeURIComponent(item.id)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Fotografiu sa nepodarilo odstrániť.");
+      // Persisted media is ATTACHED to a draft. It is released by the draft's
+      // atomic SAVE, not by the API for unsubmitted PENDING uploads.
+      if(!item.persisted){
+        const res = await fetch(`/api/partner/media/${encodeURIComponent(item.id)}`, { method: "DELETE" });
+        if (!res.ok && res.status!==409) throw new Error("Fotografiu sa nepodarilo odstrániť.");
+      }
       changeUploads(uploads.filter((_, i) => i !== index));
       setMessage("");
     } catch (error) {
@@ -135,8 +142,8 @@ export function PartnerGalleryField({
         ))}
       </div>
       <div className="partner-media-actions" style={{ flexWrap: "wrap", gap: 8 }}>
-        <label className="button" htmlFor="partner-gallery-files">{busy ? "Nahrávam…" : "Pridať fotografie"}</label>
-        <input id="partner-gallery-files" ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp"
+        <label className="button" htmlFor={inputId}>{busy ? "Nahrávam…" : "Pridať fotografie"}</label>
+        <input id={inputId} ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp"
           className="partner-media-input" disabled={disabled || busy || total >= LIMIT}
           onChange={(event) => void upload(event.target.files)} />
         <input type="text" aria-label="URL fotografie" placeholder="https://… fotografia" value={newUrl}

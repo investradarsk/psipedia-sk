@@ -1,0 +1,16 @@
+.panel{margin:.7rem 0;padding:1rem;border:1px solid #d7e4d9;border-radius:12px;background:#f8fbf8}
+.heading{display:flex;align-items:start;justify-content:space-between;gap:1rem}
+.heading h2{margin:0 0 .3rem;font:inherit;font-weight:800;font-size:1rem;color:#214e38}
+.heading p{margin:0;color:#52675a;font-size:.84rem;line-height:1.5}
+.heading a{display:inline-flex;min-height:44px;align-items:center;color:#245b42;font-size:.82rem;font-weight:750;text-decoration:none}
+.actions{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-top:.7rem}
+.actions button{min-height:44px;border:1px solid #c3d6c9;border-radius:9px;padding:.55rem .75rem;background:#ecf5ee;color:#1d4e35;font:inherit;font-size:.84rem;font-weight:750;cursor:pointer}
+.actions button:first-child{background:#285e42;color:#fff}
+.actions button:disabled{opacity:.6;cursor:not-allowed}
+.actions button.danger{background:#fff7f4;color:#963e2d;border-color:#edcbc2}
+.note{display:grid;gap:.5rem;width:100%;margin:.2rem 0}
+.note label{font-size:.82rem;font-weight:750}
+.note textarea{width:100%;max-width:100%;box-sizing:border-box;border:1px solid #c3d6c9;border-radius:9px;padding:.55rem;font:inherit}
+.note button{justify-self:start}
+.error{width:100%;color:#9b3729;font-size:.85rem;margin:.2rem 0}
+@media(max-width:700px){.heading{flex-direction:column;gap:.4rem}.actions button{flex:1 1 auto}}

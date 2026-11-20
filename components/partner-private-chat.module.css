@@ -1,0 +1,27 @@
+.chat{display:grid;gap:.9rem;width:100%;min-width:0}
+.description{display:grid;gap:.15rem}
+.description strong{font-size:.96rem;color:#21543b}
+.description p{margin:0;color:#5b6e61;font-size:.85rem;line-height:1.5}
+.timeline{display:flex;flex-direction:column;gap:.65rem;min-height:180px;max-height:540px;overflow-y:auto;overscroll-behavior:contain;background:#f8faf8;border:1px solid #dae6dd;border-radius:12px;padding:1rem}
+.mine,.theirs{min-width:0;max-width:min(85%,640px);padding:.7rem .85rem;border-radius:12px;overflow-wrap:anywhere}
+.mine{align-self:flex-end;background:#e3efe6;border:1px solid #bfd6c5}
+.theirs{align-self:flex-start;background:#fff;border:1px solid #dfe8e1}
+.messageHeader{display:flex;align-items:baseline;justify-content:space-between;gap:.8rem;font-size:.75rem}
+.messageHeader strong{font-size:.79rem}
+.messageHeader time{color:#617464;font-variant-numeric:tabular-nums}
+.messageText{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:.5rem 0 0}
+.attachments{display:grid;gap:.3rem;margin-top:.65rem}
+.attachments a{color:#215c40;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere;font-size:.85rem}
+.attachments small{color:#617464}
+.composer{display:grid;gap:.45rem;padding:.75rem;background:#fff;border:1px solid #dfe8e1;border-radius:12px}
+.composer label{font-size:.82rem;font-weight:700}
+.composer textarea{width:100%;box-sizing:border-box;border:1px solid #c4d6cb;border-radius:9px;padding:.7rem;resize:vertical;min-height:94px;font:inherit;color:inherit}
+.composer input[type=file]{min-width:0;width:100%;font:inherit;font-size:.83rem}
+.sendRow{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem}
+.sendRow span{font-size:.78rem;color:#627569}
+.sendRow button,.older{min-height:44px;border-radius:9px;border:1px solid #235a41;background:#295d43;color:white;font:inherit;font-size:.85rem;font-weight:760;padding:.55rem .8rem;cursor:pointer}
+.older{justify-self:start;background:white;color:#295d43}
+.sendRow button:disabled,.older:disabled{opacity:.55;cursor:default}
+.error{color:#9c3329;margin:.2rem 0;font-size:.84rem}.success{color:#21653d;margin:.2rem 0;font-size:.84rem}
+.empty{align-self:center;color:#617464;text-align:center;margin:auto}
+@media(max-width:650px){.timeline{max-height:430px;padding:.65rem}.mine,.theirs{max-width:94%;padding:.6rem}.messageHeader{flex-wrap:wrap;gap:.25rem}}

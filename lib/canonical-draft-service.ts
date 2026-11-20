@@ -102,7 +102,7 @@ async function insertCanonicalRow(
 
 export async function createCanonicalDraft(
   input: CanonicalDraftInput,
-  options: { actor: string; createdAt: string },
+  options: { actor: string; createdAt: string; allowIncomplete?: boolean },
   database: CanonicalDraftDatabase,
 ) {
   const p = input.data;
@@ -112,7 +112,7 @@ export async function createCanonicalDraft(
   if (input.entityType === "EVENT") {
     const title = textValue(p.title);
     const startDate = textValue(p.startDate ?? p.start_date);
-    if (!title || !startDate) throw new CanonicalDraftValidationError("Nový koncept podujatia potrebuje názov a dátum začiatku.");
+    if ((!title || !startDate) && !options.allowIncomplete) throw new CanonicalDraftValidationError("Nový koncept podujatia potrebuje názov a dátum začiatku.");
     const after = {
       slug: canonicalDraftSlug(p.slug, title + "-" + startDate, input.slugSuffix),
       title,
@@ -167,7 +167,7 @@ export async function createCanonicalDraft(
 
   if (input.entityType === "ORGANIZATION") {
     const name = textValue(p.name);
-    if (!name) throw new CanonicalDraftValidationError("Nový koncept organizácie potrebuje názov.");
+    if (!name && !options.allowIncomplete) throw new CanonicalDraftValidationError("Nový koncept organizácie potrebuje názov.");
     const sourceData: Record<string, unknown> = {};
     for (const key of ["operatorName", "sourceApprovalNumber", "sourceActivity"]) {
       if (Object.prototype.hasOwnProperty.call(p, key)) sourceData[key] = p[key];
@@ -235,7 +235,7 @@ export async function createCanonicalDraft(
   if (input.entityType === "DIRECTORY") {
     const name = textValue(p.name);
     const category = textValue(p.category);
-    if (!name || !category) throw new CanonicalDraftValidationError("Nový koncept adresára potrebuje názov a kategóriu.");
+    if (!category || (!name && !options.allowIncomplete)) throw new CanonicalDraftValidationError("Nový koncept adresára potrebuje kategóriu.");
 
     const verifiedAddress = input.verifiedDirectoryAddress ?? null;
     const rawAddressFormat = textValue(verifiedAddress?.addressFormat ?? p.addressFormat ?? p.address_format);
@@ -334,7 +334,7 @@ export async function createCanonicalDraft(
 
   if (input.entityType === "ADOPTION") {
     const name = textValue(p.name);
-    if (!name) throw new CanonicalDraftValidationError("Nový koncept adopcie potrebuje meno psa.");
+    if (!name && !options.allowIncomplete) throw new CanonicalDraftValidationError("Nový koncept adopcie potrebuje meno psa.");
     const after = {
       name,
       slug: canonicalDraftSlug(p.slug, name, input.slugSuffix),
@@ -440,7 +440,7 @@ export async function createCanonicalDraft(
   const isFoster = input.entityType === "FOSTER";
   const title = textValue(p.title ?? p.name ?? p.dogName);
   const category = isFoster ? "docasna-opatera" : textValue(p.category);
-  if (!title || !category) throw new CanonicalDraftValidationError("Nový koncept Pomoc psom potrebuje názov a kategóriu.");
+  if (!category || (!title && !options.allowIncomplete)) throw new CanonicalDraftValidationError("Nový koncept Pomoc psom potrebuje kategóriu.");
   const after = {
     slug: canonicalDraftSlug(p.slug, title, input.slugSuffix),
     title,

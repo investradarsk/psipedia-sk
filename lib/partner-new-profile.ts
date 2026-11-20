@@ -661,6 +661,8 @@ function statusLabel(status: string) {
   if (status === "QUARANTINED") return "Vyžaduje dodatočnú kontrolu";
   if (status === "APPROVED") return "Schválené";
   if (status === "REJECTED") return "Zamietnuté";
+  if (status === "RETURNED") return "Vrátené na doplnenie";
+  if (status === "DRAFT") return "Rozpracovaný koncept";
   return "Zrušené";
 }
 
@@ -677,7 +679,7 @@ export async function listPartnerNewProfiles(accountId: string, dbInput?: D1Data
     JOIN moderation_submissions s ON s.id=m.submission_id
     LEFT JOIN directory_profiles d ON m.intended_resource_type='DIRECTORY_PROFILE' AND d.id=m.resolved_canonical_id
     LEFT JOIN help_organizations o ON m.intended_resource_type='HELP_ORGANIZATION' AND o.id=m.resolved_canonical_id
-    WHERE m.partner_account_id=?1
+    WHERE m.partner_account_id=?1 AND s.status<>'DRAFT'
     ORDER BY s.created_at DESC,s.id DESC LIMIT 200
   `).bind(accountId).all<{
     id:string;status:string;rejectionReasonCode:string|null;createdAt:string;updatedAt:string;
@@ -693,12 +695,14 @@ export async function listPartnerNewProfiles(accountId: string, dbInput?: D1Data
     duplicateWarning: row.duplicateConfidence === "HIGH"
       ? "Pri návrhu sa našiel silný možný existujúci profil."
       : row.duplicateConfidence === "MEDIUM" ? "Pri návrhu sa našiel možný podobný profil." : null,
-    canonicalHref: row.resolvedCanonicalId
-      ? row.resourceType === "DIRECTORY_PROFILE" && row.directorySlug && row.directoryCategory
+    // A canonical ID also exists for an unapproved Partner draft; never link its private URL as public.
+    canonicalHref: row.status==="APPROVED"&&row.resolvedCanonicalId
+      ? row.resourceType === "DIRECTORY_PROFILE" && row.canonicalStatus==="published" && row.directorySlug && row.directoryCategory
         ? `/adresar/${row.directoryCategory}/${row.directorySlug}`
-        : row.resourceType === "HELP_ORGANIZATION" && row.organizationSlug ? `/organizacie/${row.organizationSlug}` : null
+        : row.resourceType === "HELP_ORGANIZATION" && row.canonicalStatus==="PUBLISHED" && row.organizationSlug
+          ? `/organizacie/${row.organizationSlug}` : null
       : null,
-    canWithdraw: activeStatus(row.status),
+    canWithdraw: !row.resolvedCanonicalId && activeStatus(row.status),
   }));
 }
 
@@ -710,12 +714,13 @@ export async function withdrawPartnerNewProfile(input:{
 }) {
   const db=database(input.database);
   const row=await db.prepare(`
-    SELECT s.status,m.partner_account_id accountId
+    SELECT s.status,s.subject_id subjectId,m.partner_account_id accountId
     FROM moderation_submissions s
     JOIN partner_new_profile_metadata m ON m.submission_id=s.id
     WHERE s.id=?1 LIMIT 1
-  `).bind(input.id).first<{status:string;accountId:string}>();
+  `).bind(input.id).first<{status:string;accountId:string;subjectId:string|null}>();
   if(!row||row.accountId!==input.accountId)throw new PartnerNewProfileError("Návrh sa nenašiel.",404);
+  if(row.subjectId!==null)throw new PartnerNewProfileError("Odoslaný kanonický koncept nemožno stiahnuť.",409);
   if(!isFoundationSubmissionStatus(row.status)||!canTransitionModerationSubmission(row.status,"WITHDRAWN")){
     throw new PartnerNewProfileError("Tento návrh už nie je možné zrušiť.",409);
   }

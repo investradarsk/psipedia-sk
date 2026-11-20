@@ -19,6 +19,7 @@ import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
 import { assertSingleActivePartnerManager } from "@/lib/partner-single-manager";
+import { decidePartnerCanonicalDraftAdmin, PartnerCanonicalWorkflowError } from "@/lib/partner-canonical-workflow";
 
 type Bindings={DB?:D1Database;PII_ENCRYPTION_KEY?:string;CF_VERSION_METADATA?:{id?:string}};
 type AdminRow={
@@ -69,7 +70,7 @@ async function raw(id:string,database:D1Database){return database.prepare(SELECT
 export async function listPartnerEventsAdmin(input:{status?:string;operation?:string;eventType?:string;region?:string;dateFrom?:string;dateTo?:string;attention?:string;q?:string;database?:D1Database;encryptionKey?:string}={}){
   const database=db(input.database);
   const rows=(await database.prepare(SELECT+" ORDER BY CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN 0 ELSE 1 END,s.created_at ASC LIMIT 300").all<AdminRow>()).results;
-  let items=await Promise.all(rows.map(row=>hydrate(row,key(input.encryptionKey))));
+  let items=await Promise.all(rows.filter(row=>row.status!=="DRAFT").map(row=>hydrate(row,key(input.encryptionKey))));
   if(input.status&&input.status!=="all")items=input.status==="active"?items.filter(x=>x.active):items.filter(x=>x.status===input.status);
   if(input.operation&&input.operation!=="all")items=items.filter(x=>x.operation===input.operation);
   if(input.eventType&&input.eventType!=="all")items=items.filter(x=>x.eventType===input.eventType);
@@ -197,6 +198,10 @@ async function sideEffects(input:{eventId:number;slug:string;published:boolean;l
 
 export async function createPartnerEventAdmin(input:{id:string;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date;publicOrigin?:string;workerVersionId?:string}){
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);if(row.operation!=="CREATE")throw new PartnerEventError("Táto akcia je iba pre nové podujatie.",409);
+  if(row.subjectId){
+    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"APPROVE",database,now:input.now});
+    return getPartnerEventAdmin(input.id,{database});
+  }
   await assertEventIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);await pending(input.id,row.status,actorRef,database,input.requestId);row=await raw(input.id,database);if(!row||row.status!=="PENDING_REVIEW")throw new PartnerEventError("Stav návrhu sa zmenil.",409);
   const values=normalizePartnerEventCreate(json(row.proposedPatchJson,{}));const scan=await scanPartnerEventDuplicates(values,database);void scan;
@@ -221,6 +226,7 @@ export async function createPartnerEventAdmin(input:{id:string;adminEmail:string
 
 export async function linkPartnerEventAdmin(input:{id:string;canonicalId:number;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date;applyImage?:boolean}){
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);if(row.operation!=="CREATE")throw new PartnerEventError("Prepojenie je iba pre nový návrh.",409);
+  if(row.subjectId)throw new PartnerCanonicalWorkflowError("Tento návrh už má vlastný koncept. Otvorte jeho pôvodný editor.",409);
   const existing=await currentEvent(input.canonicalId,database);if(!existing)throw new PartnerEventError("Existujúce podujatie sa nenašlo.",404);
   const targetResource=await database.prepare("SELECT id FROM partner_resources WHERE managed_event_id=?1 LIMIT 1").bind(input.canonicalId).first<{id:string}>();
   if(targetResource)await assertSingleActivePartnerManager({database,resourceId:targetResource.id,accountId:row.accountId});
@@ -313,6 +319,10 @@ export const partnerEventRejectionReasons=["INCORRECT_INFORMATION","DUPLICATE","
 export async function rejectPartnerEventAdmin(input:{id:string;reasonCode:unknown;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date}){
   if(typeof input.reasonCode!=="string"||!(partnerEventRejectionReasons as readonly string[]).includes(input.reasonCode))throw new PartnerEventError("Vyberte platný dôvod zamietnutia.");
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);
+  if(row.subjectId&&row.operation==="CREATE"){
+    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"REJECT",database,now:input.now});
+    return getPartnerEventAdmin(input.id,{database});
+  }
   const actorRef=await adminAuditActorRef(input.adminEmail);await pending(input.id,row.status,actorRef,database,input.requestId);row=await raw(input.id,database);if(!row||row.status!=="PENDING_REVIEW")throw new PartnerEventError("Stav návrhu sa zmenil.",409);
   const now=input.now??new Date(),nowIso=now.toISOString(),changed=[...Object.keys(json<PartnerEventPatch>(row.proposedPatchJson,{})),...(row.mediaAssetId?["image"]:[])];
   await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"REJECTED",actorType:"ADMIN",actorRef,reasonCode:input.reasonCode,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(changed),now:nowIso,extraStatements:[
