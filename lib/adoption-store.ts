@@ -1,5 +1,5 @@
 import { readImageDisplayConfig } from "./image-display.ts";
-import { canonicalBreedIdsSql } from "./breed-canonical.ts";
+import { canonicalBreedIdsForRead } from "./breed-canonical.ts";
 import { env } from "cloudflare:workers";
 import {
   ADOPTION_ADMIN_PAGE_SIZE,
@@ -99,7 +99,7 @@ const PUBLIC_CARD_SELECT = `SELECT
     b.name AS breed_profile_name,
     o.name AS canonical_organization_name, o.slug AS canonical_organization_slug
   FROM adoption_dogs d
-  LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.id IN (${canonicalBreedIdsSql})
+  LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.id IN (${canonicalBreedIdsForRead(env)})
   LEFT JOIN help_organizations o ON o.id = d.organization_id`;
 
 function rowToPublicAdoptionCard(row: PublicAdoptionCardRow): PublicAdoptionCard {
@@ -142,7 +142,7 @@ export type PreparedAdoptionWrite = NormalizedAdoptionInput & {
 const PUBLIC_SELECT = `SELECT d.*, b.slug AS breed_slug, b.name AS breed_profile_name, b.fci_group AS breed_fci_group,
     o.name AS canonical_organization_name, o.slug AS canonical_organization_slug
   FROM adoption_dogs d
-  LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.id IN (${canonicalBreedIdsSql})
+  LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.id IN (${canonicalBreedIdsForRead(env)})
   LEFT JOIN help_organizations o ON o.id = d.organization_id`;
 const AGE_MONTHS_SQL = `COALESCE(d.approximate_age_months, CAST((julianday('now') - julianday(d.birth_date)) / 30.4375 AS INTEGER))`;
 const MUTABLE_COLUMNS = [
@@ -396,7 +396,9 @@ export async function getPublicAdoptionBySlug(slug: string, database?: AdoptionD
 }
 
 export async function listPublishedAdoptionBreedOptions(database?: AdoptionD1Database): Promise<AdoptionBreedOptionsResult> {
-  return readCanonicalBreedOptions(database ?? getD1Binding());
+  return readCanonicalBreedOptions(database ?? getD1Binding(),{
+    sqlPrimary:(env as {BREED_SQL_V2_READ_MODE?:string}).BREED_SQL_V2_READ_MODE==="sql",
+  });
 }
 
 export async function listPublicAdoptions(filters: AdoptionPublicQueryFilters = {}, database?: AdoptionD1Database) {

@@ -1,4 +1,4 @@
-import { canonicalBreedIdsSql } from "./breed-canonical.ts";
+import { canonicalBreedIdsSql, canonicalBreedIdsSqlV2 } from "./breed-canonical.ts";
 
 export const CANONICAL_BREED_OPTION_LIMIT = 2000;
 
@@ -31,6 +31,7 @@ type BreedOptionReadInput = {
   selected?: CanonicalBreedOption | null;
   selectedId?: number | null;
   limit?: number;
+  sqlPrimary?: boolean;
 };
 
 const slovakBreedCollator = new Intl.Collator("sk", {
@@ -81,7 +82,7 @@ export async function readCanonicalBreedOptions(
     const result = await database.prepare(
       `SELECT id, name
        FROM managed_breeds
-       WHERE id IN (${canonicalBreedIdsSql})
+       WHERE id IN (${input.sqlPrimary?canonicalBreedIdsSqlV2:canonicalBreedIdsSql})
        ORDER BY name COLLATE NOCASE ASC, id ASC
        LIMIT ?`,
     ).bind(limit).all<BreedOptionRow>();

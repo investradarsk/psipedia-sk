@@ -160,17 +160,18 @@ const breedRedirectCache = new Map<string, {
   pending: Promise<string | null>;
 }>();
 
-function cachedCanonicalBreedRedirect(database: D1Database, slug: string): Promise<string | null> {
+function cachedCanonicalBreedRedirect(database: D1Database, slug: string, sqlPrimary=false): Promise<string | null> {
+  const cacheKey=(sqlPrimary?"sql:":"legacy:")+slug;
   const now = Date.now();
-  const cached = breedRedirectCache.get(slug);
+  const cached = breedRedirectCache.get(cacheKey);
   if (cached && cached.expiresAt > now) return cached.pending;
 
-  const pending = canonicalBreedRedirect(database, slug).catch((error) => {
-    if (breedRedirectCache.get(slug)?.pending === pending) breedRedirectCache.delete(slug);
+  const pending = canonicalBreedRedirect(database, slug,sqlPrimary).catch((error) => {
+    if (breedRedirectCache.get(cacheKey)?.pending === pending) breedRedirectCache.delete(cacheKey);
     throw error;
   });
-  breedRedirectCache.delete(slug);
-  breedRedirectCache.set(slug, {
+  breedRedirectCache.delete(cacheKey);
+  breedRedirectCache.set(cacheKey, {
     expiresAt: now + BREED_REDIRECT_CACHE_TTL_MS,
     pending,
   });
@@ -345,7 +346,8 @@ const worker = {
 
     const breedMatch = url.pathname.match(/^\/plemena\/([a-z0-9-]+)(\/fci-standard)?\/?$/);
     if (breedMatch && env.DB) {
-      const target = await retryTransientPublicRead(() => cachedCanonicalBreedRedirect(env.DB, breedMatch[1]));
+      const target = await retryTransientPublicRead(() => cachedCanonicalBreedRedirect(env.DB, breedMatch[1],
+        (env as unknown as {BREED_SQL_V2_READ_MODE?:string}).BREED_SQL_V2_READ_MODE==="sql"));
       if (target) {
         url.pathname = target + (breedMatch[2] ?? "");
         return Response.redirect(url, 301);

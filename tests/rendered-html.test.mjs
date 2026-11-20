@@ -316,7 +316,7 @@ test("renders the portal homepage", async () => {
   assert.match(publishedSummariesQuery, /ORDER BY published_at DESC/);
   assert.match(publishedSummariesQuery, /LIMIT \?/);
   assert.doesNotMatch(publishedSummariesQuery, /SELECT \*/);
-  assert.match(featuredBreedsQuery, /canonicalBreedIdsSql/);
+  assert.match(featuredBreedsQuery, /canonicalBreedIdsForRuntime/);
   // Recommendations are stable within the local day and advance on the next day.
   assert.match(featuredBreedsQuery, /homepageRotationOffset\(bratislavaDateKey\(\), safeLimit\)/);
   assert.match(featuredBreedsQuery, /ROW_NUMBER\(\) OVER \(ORDER BY slug ASC\)/);

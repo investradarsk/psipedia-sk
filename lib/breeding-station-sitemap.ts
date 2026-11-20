@@ -8,7 +8,7 @@ import {
   getBreedingStationRegionBySlug,
   publicCanonicalBreedingStationSql,
 } from "@/lib/breeding-station-landings";
-import { canonicalBreedIdsSql } from "@/lib/breed-canonical";
+import { canonicalBreedIdsForRead } from "@/lib/breed-canonical";
 
 export type BreedingStationLandingSitemapRecord = {
   path: string;
@@ -56,7 +56,7 @@ export function buildBreedingStationLandingSitemapQueries() {
       FROM managed_breeds b
       JOIN breed_directory_relations r ON r.breed_id = b.id
       JOIN directory_profiles d ON d.id = r.profile_id
-      WHERE b.id IN (${canonicalBreedIdsSql})
+      WHERE b.id IN (${canonicalBreedIdsForRead(env)})
         AND ${publicCanonicalBreedingStationSql("d")}
       GROUP BY b.id, b.slug, b.updated_at
       HAVING COUNT(DISTINCT d.id) >= ?`,
@@ -90,7 +90,7 @@ export function buildBreedingStationLandingSitemapQueries() {
       FROM managed_breeds b
       JOIN breed_directory_relations r ON r.breed_id = b.id
       JOIN directory_profiles d ON d.id = r.profile_id
-      WHERE b.id IN (${canonicalBreedIdsSql})
+      WHERE b.id IN (${canonicalBreedIdsForRead(env)})
         AND ${publicCanonicalBreedingStationSql("d")}
         AND ${regionSlug} IS NOT NULL
       GROUP BY b.id, b.slug, b.updated_at, ${regionSlug}

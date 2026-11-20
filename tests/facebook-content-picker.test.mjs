@@ -127,7 +127,7 @@ test("Breed picker offers all canonical published FCI winners and deep links", (
   assert.match(route, /id: "breeds", label: "Plemená"/);
   assert.match(route, /"Všetky plemená"/);
   assert.match(route, /fciGroups\.map/);
-  assert.match(route, /canonicalBreedIdsSql/);
+  assert.match(route, /canonicalBreedIdsForRead\(env\)/);
   assert.match(route, /fci_group = \?/);
   assert.match(route, /breedProfileHref\(row\.slug, row\.fci_group\)/);
   assert.match(route, /ownedBreedImage\(profile\.image_url\)/);

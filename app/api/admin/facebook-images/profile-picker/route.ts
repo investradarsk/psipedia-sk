@@ -4,7 +4,7 @@ import { directoryCategories, directoryProfileHref, isDirectoryCategory, type Di
 import { helpCategories } from "@/lib/help";
 import { eventTypes, eventPortalCategory, eventHref, bratislavaDateKey, type EventType } from "@/lib/events";
 import { copyFacebookProfileImage } from "@/lib/facebook-profile-image";
-import { breedProfileHref, canonicalBreedIdsSql } from "@/lib/breed-canonical";
+import { breedProfileHref, canonicalBreedIdsForRead } from "@/lib/breed-canonical";
 import { fciGroups } from "@/lib/content";
 import { ownedBreedImage } from "@/lib/breed-image";
 import { facebookShareMarkerType, readFacebookShareMarkers } from "@/lib/facebook-content-share-marker";
@@ -70,7 +70,7 @@ function pickerSql(scope: ScopedCategory): PickerSql {
     return {
       select: "id, name AS title, slug, fci_group, ('FCI ' || fci_group || ' · ' || COALESCE(NULLIF(origin,''), 'Pôvod neuvedený')) AS detail, image_url",
       table: "managed_breeds",
-      where: "id IN (" + canonicalBreedIdsSql + ")" + (group === null ? "" : " AND fci_group = ?"),
+      where: "id IN (" + canonicalBreedIdsForRead(env) + ")" + (group === null ? "" : " AND fci_group = ?"),
       bindings: group === null ? [] : [group],
       searchExpression: "(name || ' ' || COALESCE(official_fci_name,''))",
       order: "name COLLATE NOCASE ASC, id ASC",

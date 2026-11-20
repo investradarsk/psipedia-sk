@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { breedProfileHref, canonicalBreedIdsSql } from "@/lib/breed-canonical";
+import { breedProfileHref, canonicalBreedIdsForRead } from "@/lib/breed-canonical";
 
 export const CONTENT_RELATION_MAX_ITEMS = 6;
 
@@ -90,7 +90,7 @@ export function buildArticleRelatedBreedsQuery(articleSlug: string, now = new Da
       JOIN managed_breeds b ON b.id = r.breed_id
       WHERE a.slug = ?
         AND ${publicArticleRelationTargetSql("a")}
-        AND b.id IN (${canonicalBreedIdsSql})
+        AND b.id IN (${canonicalBreedIdsForRead(env)})
       ORDER BY b.fci_group ASC, b.name COLLATE NOCASE ASC, b.id ASC
       LIMIT ?`,
     bindings: [safeSlug, now.toISOString(), safeLimit] as const,
@@ -119,7 +119,7 @@ export function buildDirectoryRelatedBreedsQuery(profileId: number, limit = 4) {
       JOIN managed_breeds b ON b.id = r.breed_id
       WHERE d.id = ?
         AND ${publicDirectoryRelationTargetSql("d")}
-        AND b.id IN (${canonicalBreedIdsSql})
+        AND b.id IN (${canonicalBreedIdsForRead(env)})
       ORDER BY b.fci_group ASC, b.name COLLATE NOCASE ASC, b.id ASC
       LIMIT ?`,
     bindings: [profileId, safeLimit] as const,

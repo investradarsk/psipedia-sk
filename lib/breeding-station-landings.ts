@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { canonicalBreedWinnerSql } from "@/lib/breed-canonical";
+import { canonicalBreedWinnerForRead } from "@/lib/breed-canonical";
 import { publicDirectoryRelationTargetSql } from "@/lib/content-relations";
 import type { PublicDirectoryProfile } from "@/lib/directory";
 import { attachBreederCardBreeds } from "@/lib/directory-breeder-card";
@@ -191,7 +191,7 @@ export function buildBreedingStationLandingQuery(selector: BreedingStationLandin
       JOIN breed_directory_relations r ON r.breed_id = b.id
       JOIN directory_profiles d ON d.id = r.profile_id
       WHERE b.slug = ?
-        AND ${canonicalBreedWinnerSql("b")}
+        AND ${canonicalBreedWinnerForRead("b",env)}
         AND ${publicCanonicalBreedingStationSql("d")}
         ${regionClause}
       GROUP BY
