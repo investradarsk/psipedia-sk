@@ -38,3 +38,7 @@
 .partnerChat .sendRow button,.partnerChat .older{background:var(--forest,#174b38);border-color:var(--forest,#174b38);border-radius:9px}
 .partnerChat .older{background:var(--paper,#fffdf8);color:var(--forest,#174b38)}
 @media(max-width:650px){.partnerChat .timeline{max-height:340px;padding:.6rem}.partnerChat .composer{padding:.6rem}.partnerChat .sendRow button{min-height:44px}}
+
+/* Read receipts come from the existing D1 per-participant read cursors. */
+.receipt{align-self:flex-end;margin:-.1rem .2rem .3rem;color:#52665d;font-size:.73rem;font-weight:650}
+.typing{align-self:flex-start;margin:0;padding:.52rem .8rem;border:1px solid #dae6dd;border-radius:12px;background:#edf3e9;color:#174b38;font-size:.83rem;font-style:italic}
