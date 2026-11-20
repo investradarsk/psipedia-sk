@@ -74,6 +74,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
       ?initial.values.additionalCategories.filter((v):v is string=>typeof v==="string"):[]);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const [duplicateReview,setDuplicateReview]=useState(false);
   const [success,setSuccess]=useState("");
   const [showPreview,setShowPreview]=useState(false);
   const [baseline,setBaseline]=useState(()=>jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories));
@@ -84,7 +85,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
   const submitted=!["DRAFT","RETURNED"].includes(status);
   function setField(key:string,value:string|boolean){
     setValues(previous=>({...previous,[key]:value}));
-    setSuccess("");
+    setSuccess("");setDuplicateReview(false);
   }
   function switchType(next:PartnerCanonicalType){
     if(dirty&&!window.confirm("Máte neuložené zmeny. Zmeniť druh záznamu a zahodiť ich?"))return;
@@ -92,7 +93,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
     const blank=initialValues(next,definitions);
     setValues(blank);setCoverId(null);setGalleryIds([]);setGalleryUrls([]);setAdditionalCategories([]);
     setBaseline(jsonSnapshot(blank,null,[],[],[]));
-    setError("");setSuccess("");
+    setError("");setSuccess("");setDuplicateReview(false);
   }
   function payload(){
     const data:Record<string,unknown>={};
@@ -121,8 +122,12 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
   type Saved={id:string;baseUpdatedAt:string;status:PartnerDraftStatus;media?:{coverId:string|null;galleryIds:string[]}};
   async function send(url:string,body:Record<string,unknown>,method="PATCH"){
     const response=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    const result=await response.json() as {error?:string;draft?:Saved};
-    if(!response.ok)throw new Error(result.error??"Zápis sa nepodarilo uložiť.");
+    const result=await response.json() as {error?:string;code?:string;draft?:Saved};
+    if(!response.ok){
+      const failure=new Error(result.error??"Zápis sa nepodarilo uložiť.") as Error&{code?:string};
+      failure.code=result.code;
+      throw failure;
+    }
     return result;
   }
   async function save(){
@@ -147,14 +152,14 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
     }
     return id;
   }
-  async function perform(action:"SAVE"|"SUBMIT"){
+  async function perform(action:"SAVE"|"SUBMIT",confirmDuplicate=false){
     if(busy||!editable)return;
     setBusy(true);setError("");setSuccess("");
     try{
       const draftId=await save();
       if(action==="SUBMIT"){
         if(submitted)throw new Error("Tento koncept už bol odoslaný.");
-        await send("/api/partner/canonical-drafts/"+encodeURIComponent(draftId),{action:"SUBMIT"});
+        await send("/api/partner/canonical-drafts/"+encodeURIComponent(draftId),{action:"SUBMIT",confirmDuplicate});
         setStatus("SUBMITTED");
         router.push("/partner/ziadosti");
         router.refresh();
@@ -163,7 +168,11 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
       setSuccess("Všetky zadané polia aj fotografie boli uložené do súkromného konceptu.");
       if(!initial)router.replace("/partner/koncepty/"+encodeURIComponent(draftId));
       router.refresh();
-    }catch(err){setError(err instanceof Error?err.message:"Uloženie zlyhalo.");}
+    }catch(err){
+      if(err instanceof Error&&"code" in err&&err.code==="DUPLICATE_CONFIRMATION_REQUIRED"){
+        setDuplicateReview(true);setError("");
+      }else setError(err instanceof Error?err.message:"Uloženie zlyhalo.");
+    }
     finally{setBusy(false);}
   }
   const first=display(values.name)||display(values.title)||display(values.dog_name)||display(values.dogName)||"Zatiaľ bez názvu";
@@ -270,6 +279,12 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
             onClick={()=>void perform("SUBMIT")}>Odoslať na schválenie</button>}
         </div>
       </div>
+      {duplicateReview&&!submitted&&<div role="alert" className="partner-form-message is-error">
+        <p>Našli sme podobný profil. Pred odoslaním skontrolujte, či ho už nespravujete.
+          <a href="/partner/prevziat"> Požiadať o správu existujúceho profilu</a>.</p>
+        <button type="button" className="button button--dark" disabled={busy}
+          onClick={()=>void perform("SUBMIT",true)}>Skontroloval som to – napriek tomu odoslať</button>
+      </div>}
       {error&&<p role="alert" className="partner-form-message is-error">{error}</p>}
       {success&&<p role="status" className="partner-form-message is-success">{success}</p>}
     </form>
