@@ -376,7 +376,22 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expectNoHorizontalOverflow(page);
     const newDirectoryAccessibility = await new AxeBuilder({ page }).analyze();
     expect(newDirectoryAccessibility.violations).toEqual([]);
+    // Report the real server/HTML validation cause instead of an opaque redirect timeout.
+    const createReply = page.waitForResponse(response =>
+      new URL(response.url()).pathname === "/api/partner/canonical-drafts" &&
+      response.request().method() === "POST", { timeout: 8_000 }).catch(() => null);
     await newDirectory.getByRole("button", { name: "Uložiť koncept" }).click();
+    const draftReply = await createReply;
+    if (!draftReply) {
+      const invalid = await newDirectory.locator(":invalid").evaluateAll(fields =>
+        fields.map(field => ({ tag: field.tagName, name: field.getAttribute("name"),
+          label: field.closest("label")?.textContent?.trim().slice(0, 100) })));
+      const alerts = await page.getByRole("alert").allTextContents();
+      throw new Error("Partner draft POST not issued; invalid=" + JSON.stringify(invalid) +
+        "; alerts=" + JSON.stringify(alerts));
+    }
+    expect(draftReply.status(),
+      "Partner draft POST: " + (await draftReply.text()).slice(0, 1_000)).toBe(201);
     await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
     await expect(page.getByText("Rozpracovaný súkromný koncept", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Odoslať na schválenie" }).click();
