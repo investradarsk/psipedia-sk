@@ -2384,19 +2384,18 @@ async function applyNotionAdditionalCategories(input: {
   const desired = normalizeAdditionalDirectoryCategories(notionSnapshot(page).additionalCategories ?? [], profile.category);
   // A signed Notion category edit confirms SQL membership even when it is
   // equal to a legacy JSON value. An explicit [] must remain authoritative.
-  if (JSON.stringify(profile.additionalCategories ?? []) === JSON.stringify(desired) &&
-      directorySecondaryCategoriesSqlConfirmed(profile.importData)) return false;
+  if (JSON.stringify(profile.additionalCategories ?? []) === JSON.stringify(desired))
+    return false;
   const now = new Date().toISOString();
+  // The current D1 SQL category relation is authoritative. Notion only
+  // triggers an explicit SQL edit; no JSON copy or confirmation flag.
   const canonical = input.database.prepare(`
     UPDATE directory_profiles
-    SET source_data_json = json_set(source_data_json,
-          '$."${DIRECTORY_ADDITIONAL_CATEGORIES_KEY}"', ?,
-          '$."${DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY}"', '1'),
-        updated_at = ?, updated_by = ?
+    SET updated_at = ?, updated_by = ?
     WHERE id = ? AND category = ? AND status <> 'archived'
-      AND updated_at = ? AND json_valid(source_data_json)
+      AND updated_at = ?
     RETURNING id
-  `).bind(JSON.stringify(desired), now, SYSTEM_ACTOR,
+  `).bind(now, SYSTEM_ACTOR,
     profile.id, profile.category, profile.updatedAt);
   const mirror = planDirectorySecondaryCategorySqlMirror({
     profileId:profile.id,primaryCategory:profile.category,submitted:desired,
