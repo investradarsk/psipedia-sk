@@ -785,12 +785,16 @@ test("internal admin Partner overview and account detail are protected admin pag
   // not a table. Filter to the seeded account before opening its details.
   await page.goto("/admin/partners?q=" + encodeURIComponent(AUTH_EMAILS[project]));
   await expect(page.getByRole("heading",{name:"Partneri",exact:true})).toBeVisible();
-  await expect(page.getByRole("link",{name:/Komerčné leady 1/})).toBeVisible();
-  const accountItem=page.getByRole("list",{name:"Partnerské účty"})
-    .getByRole("listitem").filter({hasText:AUTH_ACCOUNT_IDS[project]});
+  // Admin V2 keeps the legacy queues in a collapsed disclosure.
+  await page.locator("[data-admin-partner-attention] summary").click();
+  await expect(page.getByRole("link",{name:"Komerčné žiadosti (1)"})).toBeVisible();
+  // Account ID is a stable row attribute, not visible row text.
+  const accountItem=page.locator('[data-admin-partner-account="'+AUTH_ACCOUNT_IDS[project]+'"]');
   await expect(accountItem.getByText(AUTH_EMAILS[project])).toBeVisible();
-  await accountItem.getByRole("link",{name:"Detail →"}).click();
-  await expect(page.getByRole("heading",{name:AUTH_EMAILS[project]})).toBeVisible();
+  await accountItem.getByRole("link",{name:/Otvoriť partnera/}).click();
+  await expect(page.getByRole("region",{name:"Prehľad partnera"}).getByText(AUTH_EMAILS[project])).toBeVisible();
+  // Identity and security settings moved to the account tab.
+  await page.getByRole("navigation",{name:"Sekcie detailu partnera"}).getByRole("link",{name:"Účet"}).click();
   await expect(page.getByRole("heading",{name:"Kontakt"})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Prihlasovacie metódy"})).toBeVisible();
   await expect(page.getByText(project==="desktop-chromium"?"E2E Partner Desktop":"E2E Partner Mobile")).toBeVisible();
@@ -822,9 +826,10 @@ test("internal admin Partner overview and account detail are protected admin pag
   expect(updatedLeadResponse.request().postDataJSON()).toMatchObject({ status: "CONTACTED" });
   await expect(page.getByRole("status")).toContainText("Zmena bola uložená.");
   await page.goto("/admin/partners");
-  await expect(page.getByRole("link",{name:/Komerčné leady 0/})).toBeVisible();
-  await expect(page.getByRole("link",{name:/Nové profily 1/})).toBeVisible();
-  await page.getByRole("link",{name:/Nové profily 1/}).click();
+  await page.locator("[data-admin-partner-attention] summary").click();
+  await expect(page.getByRole("link",{name:"Komerčné žiadosti (0)"})).toBeVisible();
+  await expect(page.getByRole("link",{name:"Nové profily (1)"})).toBeVisible();
+  await page.getByRole("link",{name:"Nové profily (1)"}).click();
   await expect(page.getByRole("heading",{name:"Nové profily"})).toBeVisible();
 
   if(project==="desktop-chromium"){
@@ -851,7 +856,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     const directoryJson=await directoryResponse.json() as {items?:Array<{name?:string;status?:string}>;profiles?:Array<{name?:string;status?:string}>};
     const directoryItems=directoryJson.items??directoryJson.profiles??[];
     expect(directoryItems.find((item)=>item.name==="Partner E2E Nová Služba")?.status).toBe("draft");
-    await page.goto("/admin/partners/accounts/partner-e2e-desktop");
+    await page.goto("/admin/partners/accounts/partner-e2e-desktop?tab=historia");
     const createdMembership=page.locator("section").filter({hasText:"História prístupov"}).locator("article").filter({hasText:"Partner E2E Nová Služba"});
     await expect(createdMembership).toContainText("Správca profilu");
     await page.goto("/admin/partners");
@@ -870,7 +875,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await linkDialog.getByRole("button",{name:"Prepojiť profil"}).click();
     await linkResponse;
     await expect(page.getByText("LINKED_EXISTING")).toBeVisible();
-    await page.goto("/admin/partners/accounts/partner-e2e-mobile");
+    await page.goto("/admin/partners/accounts/partner-e2e-mobile?tab=historia");
     const linkedMembership=page.locator("section").filter({hasText:"História prístupov"}).locator("article").filter({hasText:"Partner E2E Organizácia"});
     await expect(linkedMembership).toContainText("Správca profilu");
     await page.goto("/admin/partners");
@@ -884,8 +889,9 @@ test("internal admin Partner overview and account detail are protected admin pag
   await page.goto("/admin/partners");
   // The old OWNER update is saved directly; only the new event and seeded
   // stale moderation fixture remain in the active admin queue.
-  await expect(page.getByRole("link",{name:/Podujatia 2/})).toBeVisible();
-  await page.getByRole("link",{name:/Podujatia 2/}).click();
+  await page.locator("[data-admin-partner-attention] summary").click();
+  await expect(page.getByRole("link",{name:"Podujatia (2)"})).toBeVisible();
+  await page.getByRole("link",{name:"Podujatia (2)"}).click();
   await expect(page.getByRole("heading",{name:"Podujatia"})).toBeVisible();
 
   const createEventRow=page.locator(".admin-commercial-list article").filter({hasText:eventCreateTitle});
@@ -932,20 +938,21 @@ test("internal admin Partner overview and account detail are protected admin pag
   // Canonical API assertions above prove the direct OWNER patch and publication-status preservation;
   // public route rendering is covered by the dedicated event/public E2E suites.
   await page.goto("/admin/partners");
-  await expect(page.getByRole("link",{name:/Podujatia 1/})).toBeVisible();
+  await page.locator("[data-admin-partner-attention] summary").click();
+  await expect(page.getByRole("link",{name:"Podujatia (1)"})).toBeVisible();
 
   if(project==="desktop-chromium"){
     // The seeded stale request is the only active moderation change; direct
     // profile edits must never require a second Admin approval.
-    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Návrhy úprav (1)"})).toBeVisible();
     await page.goto("/admin/partners/changes?status=active");
     const changeRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Veterina"});
     await expect(changeRow).toHaveCount(0);
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
     await page.goto("/admin/partners");
-
-    await expect(page.getByRole("link",{name:/Overenia 3/})).toBeVisible();
+    await page.locator("[data-admin-partner-attention] summary").click();
+    await expect(page.getByRole("link",{name:"Overenia (3)"})).toBeVisible();
     await page.goto("/admin/partners/verifications?status=PENDING_VERIFICATION");
     const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]}).filter({hasText:"Partner E2E Veterina"});
     await expect(verificationRow).toContainText("Čaká na overenie");
@@ -963,7 +970,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Overený správca")).toBeVisible();
   }else{
-    await expect(page.getByRole("link",{name:/Prevzatie profilov 2/})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Prevzatia (2)"})).toBeVisible();
     await page.goto("/admin/partners/claims?status=PENDING");
     const claimRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
     await expect(claimRow).toContainText("Konflikt správy profilu");
@@ -983,8 +990,9 @@ test("internal admin Partner overview and account detail are protected admin pag
     expect(blockedClaimResponse.status()).toBe(409);
     await expect(page.getByText("Tento záznam už spravuje iný partner. Najprv mu odoberte prístup.")).toBeVisible();
     await page.goto("/admin/partners");
-    await expect(page.getByRole("link",{name:/Prevzatie profilov 2/})).toBeVisible();
-    await expect(page.getByRole("link",{name:/Overenia 3/})).toBeVisible();
+    await page.locator("[data-admin-partner-attention] summary").click();
+    await expect(page.getByRole("link",{name:"Prevzatia (2)"})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Overenia (3)"})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 });
