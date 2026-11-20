@@ -1,26 +1,10 @@
-# Pomoc psom – bezpečné fyzické odstránenie historických SQL kópií
+# One-time Help legacy SQL removal, Notion unchanged
+After #1488, 36 old adoption and 104 shelter rows still exist in `help_cases`. The canonical tables already own the public data.
 
-**Pozor:** Ide o historické **SQL riadky**, nie o JSON súbory. Súborové JSON importy boli odstránené v #1488. Technické JSON stĺpce v D1 sa nemenia.
+This PR removes the temporary Admin "Historické kópie" page, API and Notion-trash lifecycle opt-in. **No Notion page is modified, archived or trashed.** All technical JSON stays.
 
-Kanonické tabuľky: `help_cases` (bežné prípady), `help_organizations` (útulky), `adoption_dogs` (adopcie), `lost_found_dog_reports` (stratené a nájdené).
+The one-off production GitHub Action runs only on the explicitly named merged main commit, inside the protected `production` environment; it can also be manually retried with exact confirmation `VYMAZAT LEN 140 SQL KOPII NOTION PONECHAT`. It submits **one atomic D1 /query batch** with strict in-transaction checks: 36 adoption +104 shelters +0 lost, 140 published unique slugs, 36 and 94 canonical pairs, 10 owner-approved absent shelters, 140 old Notion mappings, no canonical page-ID reuse, no partner claims, no other tombstones, and active deletion guard.
 
-## Overený read-only produkčný inventár (20. 11. 2026)
-- Historické `help_cases`: 36 `adopcia`, 104 `utulky`, 0 `stratene-a-najdene`.
-- Všetkých 36 adopcií má kanonické párovanie, 94 útulkov má pár a 10 je majiteľom **úmyselne odstránených** bez opätovného importu.
-- 140 historických riadkov má 140 väzieb `notion_agenda_sync` pre `help-cases`.
-- Audit nepreukazuje field-level Notion parity; preto sa zo starých dát **nič neimportuje ani neprepisuje**.
+The batch writes 140 SQL-only tombstones (Notion page IDs retained as anti-reimport evidence, explicitly marked `HISTORICAL_SQL_ONLY_NOTION_RETAINED`), stops old local transfer work, deletes only D1 obsolete sync links and 140 historic `help_cases` rows. The `admin_guarded_help_delete` trigger is not dropped. Every postcondition is checked in the **same batch**, and a failed CHECK rolls everything back.
 
-## Implementácia
-- V Admin / Pomoc psom / Historické kópie sa zobrazuje nevyhnutný read-only preflight.
-- Majiteľ musí napísať výslovné potvrdenie.
-- Každá požiadavka spracuje maximálne **jeden** starý SQL záznam.
-- Neexistuje automatické nasadenie, cron, SQL migrácia ani `DELETE` počas PR merge.
-- Režim používa existujúci `removeRecord()` lifecycle so striktne interným a explicitným povolením pre staré `adopcia/utulky`.
-- U každého záznamu: id/slug/kategória + kanonické párovanie + Notion mapping → tombstone → skryť → overiť a presunúť starú Notion stránku do koša → transakčné odstránenie väzby a `help_cases` riadku → tombstone `COMPLETE`.
-- Preflight blokuje neznáme počty, ďalšie staré stratené hlásenia, neznáme vymazané útulky, chýbajúce párovania, Notion mappingy, duplicity slugov, partner nároky, neočakávané stavy a konflikty tombstonov.
-- Prerušenie otvorenej stránky proces zastaví po aktuálnom zázname; uložené tombstones umožnia bezpečné opakovanie. Neúspešné presunutie Notion zastaví ďalší postup.
-- Triggery D1 z migrácie 0164 **zostávajú aktívne**. `partner_help_claims` s RESTRICT sa nemažú.
-- Žiadny existujúci verejný profil, kanonická adopcia, útulok, partner alebo technický JSON sa nemení.
-
-## Pred použitím
-PR musí prejsť celé CI. Po merge a nasadení sa otvorí /admin/pomoc/historicke, skontroluje pripravenosť a potvrdí sa fyzické mazanie. **Až úspešné dokončenie 140/140 je dôkazom vymazania.** V PR sa nič nemaže.
+No numbered SQL migration, no manual Admin form, no backup workflow. After confirmed 140/140 completion subsequent invocations are no-op. If actual counts differ, nothing is changed; user must inspect the source-of-truth discrepancy before retrying.
