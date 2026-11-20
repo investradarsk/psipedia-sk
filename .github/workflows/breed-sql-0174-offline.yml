@@ -57,6 +57,10 @@ jobs:
         run: node scripts/check-migration-safety.mjs
       - name: Verify full 90-field storage contract and SQL schema
         run: node --test tests/breed-storage-decision.test.mjs tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-bridge.test.mjs tests/breed-sql-v2-backfill.test.mjs tests/breed-sql-v2-cutover-gate.test.mjs
+      - name: Verify owner-only legacy cleanup, before/post DROP SQLite compatibility
+        run: |
+          node --check scripts/production-d1-breed-0175.mjs
+          node --test tests/breed-sql-v2-legacy-drop.test.mjs
       - name: Verify post-backfill shadow readiness and its SELECT-only runner
         run: |
           node --check scripts/production-breed-sql-v2-shadow-audit.mjs
