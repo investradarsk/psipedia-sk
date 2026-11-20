@@ -95,11 +95,12 @@ export async function lifecycleSchemaReady(db:D1Database) {
   for(const column of columns.results??[])required.delete(column.name);
   return required.size===0;
 }
-async function canonical(db:D1Database,kind:RecordKind,id:number):Promise<CanonicalRow|null> {
+async function canonical(db:D1Database,kind:RecordKind,id:number,allowLegacyHelp=false):Promise<CanonicalRow|null> {
   const spec=specs[kind];
   const row=await db.prepare("SELECT * FROM "+spec.table+" WHERE id=? LIMIT 1").bind(id).first<CanonicalRow>();
-  // Dedicated help domains have their own canonical tables and own delete operation.
-  if (kind==="help" && row && ["adopcia","utulky"].includes(clean(row.category))) return null;
+  // The ordinary editor/API must never delete dedicated-category historical copies.
+  // Only the separate owner-confirmed, identity-guarded cleanup path opts in.
+  if (kind==="help" && row && ["adopcia","utulky","stratene-a-najdene"].includes(clean(row.category)) && !allowLegacyHelp) return null;
   return row ?? null;
 }
 function identity(kind:RecordKind,row:CanonicalRow) {
@@ -592,7 +593,8 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
   await db.batch(statements);
 }
 export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number,
-  owner:string,localOnly:boolean,expected:{slug:string;name:string;category:string}) {
+  owner:string,localOnly:boolean,expected:{slug:string;name:string;category:string},
+  options?:{allowReviewedLegacyHelp?:boolean}) {
   // The owner confirmed the concrete name, category and slug rendered by the
   // preflight dialog. Never delete a renamed/reclassified entity based on a
   // stale confirmation, even when the numeric D1 ID still matches.
@@ -604,7 +606,9 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
       throw Error("RECORD_CONFIRMATION_MISMATCH");
     return {state:"COMPLETE",id,notionTrash:prior.notion_page_id?"confirmed":"unlinked",media:{removed:0,preserved:0}};
   }
-  const row=await canonical(db,kind,id);
+  // This switch is internal only; the dedicated cleanup checks the full
+  // immutable 36/104 cohort before it calls this lifecycle operation.
+  const row=await canonical(db,kind,id,kind==="help" && options?.allowReviewedLegacyHelp===true);
   if(!row)throw Error("RECORD_NOT_FOUND");
   const meta=identity(kind,row),now=new Date().toISOString();
   if(!matches(meta))throw Error("RECORD_CONFIRMATION_MISMATCH");
