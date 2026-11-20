@@ -226,3 +226,34 @@ test("Slovakia location selector is dependent, searchable and keyboard/screen-re
   assert.match(partnerCss, /\.partner-location-selector\s*\{[^}]*grid-column:\s*1\s*\/\s*-1\s*;[^}]*display:\s*grid\s*;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/);
   assert.match(partnerCss, /@media\s*\(max-width:\s*760px\)\s*\{\s*\.partner-location-selector\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*;/);
 });
+
+test("Partner forms hide development vocabulary and translate stored choice codes", async () => {
+  const optionLabels = await read("lib/partner-field-option-labels.ts");
+  for (const [raw, human] of [
+    ['UNKNOWN', 'Neviem'],
+    ['LOST', 'Stratený pes'],
+    ['FOUND', 'Nájdený pes'],
+    ['UP_TO_DATE', 'Aktuálne'],
+    ['ambulance', 'Ambulancia'],
+    ['docasna-opatera', 'Dočasná opatera'],
+  ]) {
+    assert.ok(optionLabels.includes(raw + ':"' + human + '"'), raw + " is not translated");
+  }
+  const editing = await Promise.all([
+    "components/partner-profile-edit-form.tsx",
+    "components/partner-help-public-editor-form.tsx",
+    "components/partner-event-form.tsx",
+    "app/partner/podujatia/[resourceId]/upravit/page.tsx",
+    "app/partner/pomoc/[resourceId]/upravit/page.tsx",
+  ].map(read));
+  for (const source of [canonicalForm, ...editing]) {
+    assert.doesNotMatch(source, /SEO a interné polia|SEO a stav publikovania|Interné a SEO polia|Nevznikne automatický claim/i);
+  }
+  assert.match(canonicalForm, /partnerFieldOptionLabel\(x\)/);
+  assert.match(editing[0], /partnerFieldOptionLabel\(option\)/);
+  assert.match(editing[1], /partnerFieldOptionLabel\(option\)/);
+  assert.match(editing[2], /partnerFieldOptionLabel\(option\)/);
+  assert.match(partnerHome, /resourceTypeLabel\(draft.resourceType\)/);
+  assert.doesNotMatch(partnerHome, /draft.resourceType.replaceAll/);
+  assert.doesNotMatch(requestsPage, /item.resourceType.replaceAll/);
+});
