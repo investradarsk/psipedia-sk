@@ -470,9 +470,9 @@ export async function runPartnerNotificationSweep(
   // Existing cron remains the only delivery entrypoint; chat-specific queue
   // avoids rebuilding the production outbox CHECK constraint.
   try{await runPartnerChatEmailSweep({database,bindings,now});}
-  catch(error){console.error("Partner chat e-mail sweep failed",error);}
+  catch { /* Chat delivery failures must not interrupt the authentication outbox. */ }
   // Bounded cleanup of crash-orphaned R2 objects; never touch linked messages.
   try{await sweepPartnerChatOrphans({database,bucket:bindings.BUCKET,now});}
-  catch(error){console.error("Partner chat orphan sweep failed",error);}
+  catch { /* Cleanup retries from its persisted cursor on the next sweep. */ }
   return summary;
 }
