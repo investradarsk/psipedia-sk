@@ -15,6 +15,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
       throw new PartnerLifecycleError("Vyberte schválenie alebo zamietnutie.");
     const result=await decidePartnerLifecycleAdmin({
       id,adminEmail:auth.user.email,decision:body.decision as "APPROVE"|"REJECT",note:body.note,
+      publicOrigin:new URL(request.url).origin,
     });
     return Response.json({success:true,result},{headers:{"Cache-Control":"private, no-store"}});
   }catch(error){
