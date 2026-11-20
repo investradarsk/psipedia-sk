@@ -89,7 +89,7 @@ export async function createPartnerLifecycleRequest(input:{
   const id=crypto.randomUUID(),now=input.now??new Date(),iso=now.toISOString();
   const resourceType=target?.type??"PARTNER_ACCOUNT",subject=String(target?.id??input.accountId);
   const data=JSON.stringify({resourceId:target?.resourceId??null,reason});
-  let entries:D1Result[];
+  let entries:Array<{meta?:{changes?:number}}> = [];
   try{entries=await db.batch([
     db.prepare("INSERT INTO moderation_submissions "+
       "(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,risk_flags_json,created_at,updated_at) "+
