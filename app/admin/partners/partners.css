@@ -437,3 +437,18 @@
   .admin-partner-v2-stats { grid-template-columns:minmax(0,1fr); }
   .admin-partner-v2-tabs { grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
+
+
+/* Partneri V2 step 5: lifecycle decisions and read-only, wrapped field diffs. */
+.admin-partner-lifecycle-actions{display:grid;gap:.5rem;min-width:min(290px,100%)}
+.admin-partner-lifecycle-actions button{min-height:40px;padding:.4rem .65rem;border:1px solid #c9dacd;border-radius:8px;background:#f4faf5;color:#24573c;font:inherit;font-size:.8rem;cursor:pointer}
+.admin-partner-lifecycle-actions button:disabled{opacity:.55;cursor:wait}
+.admin-partner-lifecycle-note{display:grid;gap:.25rem;font-size:.78rem}
+.admin-partner-lifecycle-note textarea{width:100%;min-height:64px;box-sizing:border-box;border:1px solid #cbdacc;border-radius:7px;padding:.45rem;font:inherit}
+.admin-partner-v2-audit-diff{margin-top:.6rem;width:100%;max-width:100%;font-size:.85rem}
+.admin-partner-v2-audit-diff summary{cursor:pointer;color:#246047;font-weight:750}
+.admin-partner-v2-audit-field{padding:.5rem 0;border-top:1px solid #d9e4dc}
+.admin-partner-v2-audit-before-after{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;margin-top:.3rem}
+.admin-partner-v2-audit-before-after>div{min-width:0}
+.admin-partner-v2-audit-before-after pre{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:inherit;margin:.2rem 0;padding:.5rem;background:#f7faf8;border:1px solid #edf2ed;border-radius:7px;max-height:280px;overflow:auto}
+@media(max-width:680px){.admin-partner-v2-audit-before-after{grid-template-columns:minmax(0,1fr)}.admin-partner-lifecycle-actions{width:100%;min-width:0}}
