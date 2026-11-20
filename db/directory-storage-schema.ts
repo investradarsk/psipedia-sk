@@ -113,7 +113,7 @@ export const directoryProfileQualityResolutions = sqliteTable(
 );
 
 /**
- * 0176: Remaining Admin fields with no existing canonical relational owner.
+ * Isolated Step 1: Remaining Admin fields with no existing canonical relational owner.
  * No legacy JSON is stored here. An explicit empty string is preserved,
  * and each row has a per-field revision for last-write-wins reconciliation.
  */
