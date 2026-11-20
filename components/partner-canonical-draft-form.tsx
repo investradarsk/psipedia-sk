@@ -7,6 +7,7 @@ import { PartnerGalleryField } from "@/components/partner-gallery-field";
 import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
 import type { PartnerCanonicalType,PartnerDraftStatus } from "@/lib/partner-canonical-workflow";
 import type { CanonicalFormField } from "@/lib/partner-canonical-form-fields";
+import { partnerFieldOptionLabel } from "@/lib/partner-field-option-labels";
 
 const types:ReadonlyArray<[PartnerCanonicalType,string]>=[
   ["DIRECTORY_PROFILE","Služba pre psov"],["HELP_ORGANIZATION","Organizácia"],
@@ -135,7 +136,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
     validate();
     if(!id){
       const result=await send("/api/partner/canonical-drafts",{resourceType:type,data:payload()},"POST");
-      if(!result.draft?.id)throw new Error("Server nevrátil identifikátor konceptu.");
+      if(!result.draft?.id)throw new Error("Koncept sa nepodarilo vytvoriť. Skúste to znova.");
       setId(result.draft.id);setRevision(result.draft.baseUpdatedAt);
       setStatus(result.draft.status);
       setBaseline(jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories));
@@ -146,7 +147,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
         action:"SAVE",data:payload(),baseUpdatedAt:revision,
         media:{coverId,galleryIds},
       });
-      if(!result.draft)throw new Error("Server nevrátil uložený koncept.");
+      if(!result.draft)throw new Error("Koncept sa nepodarilo uložiť. Skúste to znova.");
       setRevision(result.draft.baseUpdatedAt);
       setStatus(result.draft.status);
       setBaseline(jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories));
@@ -186,11 +187,11 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
   const subtitle=display(values.excerpt)||display(values.short_description)||display(values.shortDescription)||display(values.description);
   const place=[display(values.city),display(values.region)].filter(Boolean).join(", ");
   const category=type==="DIRECTORY_PROFILE"?
-    categories.find(c=>c.slug===values.category)?.label??"":display(values.category)||display(values.type);
+    categories.find(c=>c.slug===values.category)?.label??"":partnerFieldOptionLabel(display(values.category)||display(values.type));
   return <div className="partner-canonical-workspace">
     <div className="partner-canonical-intro">
-      <p>Vyplňte údaje, ktoré poznáte. Kým záznam neodošlete a administrátor ho neschváli, nie je verejný. SEO a interné polia tu nie sú dostupné.</p>
-      <span className="partner-canonical-status" role="status">{labels[status]??status}</span>
+      <p>Vyplňte údaje, ktoré poznáte. Koncept zostane súkromný a na stránke sa zobrazí až po schválení.</p>
+      <span className="partner-canonical-status" role="status">{labels[status]??"Stav návrhu"}</span>
       {initial?.returnReason&&status==="RETURNED"&&
         <p role="alert" className="partner-field-error">Na doplnenie: {initial.returnReason}</p>}
     </div>
@@ -221,7 +222,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
           const disabled=!editable||busy;
           const options=field.key==="category"&&type==="DIRECTORY_PROFILE"?
             categories.map(x=>[x.slug,x.label] as [string,string]):
-            field.options?.map(x=>[x,x] as [string,string])??[];
+            field.options?.map(x=>[x,partnerFieldOptionLabel(x)] as [string,string])??[];
           const className="partner-field"+(["textarea","list"].includes(field.kind)?" partner-field--wide":"");
           return <label key={field.key} className={className}>
             <span>{field.label}{field.required?" *":""}</span>
