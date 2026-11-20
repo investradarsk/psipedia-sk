@@ -26,8 +26,8 @@ export default async function PartnerFindExistingPage({ searchParams }: { search
   const raw = await searchParams;
   const type = typeof raw.type === "string" && isPartnerClaimableResourceType(raw.type) ? raw.type : "DIRECTORY_PROFILE";
   const q = typeof raw.q === "string" ? raw.q.trim().slice(0, 80) : "";
-  const records = await searchPartnerClaimableRecords({ entityType: type, query: q });
-  const searched = q.length >= 2;
+  const records = await searchPartnerClaimableRecords({ entityType: type, query: q, suggest: q.length === 1 });
+  const searched = q.length >= 1;
 
   return <PartnerShell
     title="Požiadať o správu"
