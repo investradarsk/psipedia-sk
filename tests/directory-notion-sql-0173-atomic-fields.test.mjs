@@ -70,7 +70,7 @@ test("Notion SEO title atomically updates sidecar while preserving other SQL SEO
     const next=h.desired();next.seo.title="Notion fresh title";
     await h.save(h.db,h.current,next,"seo.title");
     const s=h.sqlite.prepare("SELECT title,description,og_title,noindex FROM directory_profile_seo WHERE profile_id=84").get();
-    assert.deepEqual(s,{title:"Notion fresh title",description:"Keep description",og_title:"Keep OG",noindex:1});
+    assert.deepEqual({...s},{title:"Notion fresh title",description:"Keep description",og_title:"Keep OG",noindex:1});
     assert.equal(JSON.parse(h.sqlite.prepare("SELECT seo_json FROM directory_profiles WHERE id=84").get().seo_json).title,"Notion fresh title");
   }finally{h.sqlite.close()}
 });
@@ -81,7 +81,7 @@ test("Notion noindex=false updates SQL without changing other SEO",async()=>{
     const next=h.desired();next.seo.noindex=false;
     await h.save(h.db,h.current,next,"seo.noindex");
     const s=h.sqlite.prepare("SELECT title,noindex FROM directory_profile_seo WHERE profile_id=84").get();
-    assert.deepEqual(s,{title:"Old SEO",noindex:0});
+    assert.deepEqual({...s},{title:"Old SEO",noindex:0});
   }finally{h.sqlite.close()}
 });
 
