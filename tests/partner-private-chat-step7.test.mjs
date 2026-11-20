@@ -9,10 +9,10 @@ function setup(){
   db.exec("PRAGMA foreign_keys=ON; CREATE TABLE partner_accounts(id TEXT PRIMARY KEY,status TEXT NOT NULL,email_ciphertext TEXT);");
   db.prepare("INSERT INTO partner_accounts(id,status,email_ciphertext) VALUES(?,?,?)")
     .run("account-00000001","ACTIVE","test");
-  db.exec(read("drizzle/0190_partner_private_chat.sql").replaceAll("--> statement-breakpoint",""));
+  db.exec(read("drizzle/0175_partner_private_chat.sql").replaceAll("--> statement-breakpoint",""));
   return db;
 }
-test("0190 one conversation per account and attached message history is private and durable",()=>{
+test("0175 one conversation per account and attached message history is private and durable",()=>{
   const db=setup();
   try{
     db.prepare("INSERT INTO partner_conversations(partner_account_id,created_at,updated_at) VALUES(?,?,?)")
