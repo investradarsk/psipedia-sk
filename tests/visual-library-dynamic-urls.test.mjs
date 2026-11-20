@@ -14,7 +14,7 @@ test("concrete public URL browser enumerates nine canonical public detail source
   ]) assert.ok(service.includes(table), table);
   for (const category of ["directory","organizations","adoptions","help","lost-found","events","breeds","articles","eshops"])
     assert.ok(types.includes('id: "' + category + '"'), category);
-  assert.match(service, /canonicalBreedIdsSql/);
+  assert.match(service, /canonicalBreedIdsForRead\(env\)/);
   assert.match(service, /directoryProfileHref/);
   assert.match(service, /eventHref/);
   assert.match(service, /helpCaseHref/);
