@@ -261,5 +261,6 @@ test("SQL-only application code excludes four obsolete objects while preserving 
   assert.doesNotMatch(direct,/BREED_SQL_V2_WRITE_MODE\s*===\s*"off"/);
   assert.match(controlled,/breedSqlV2StructuredWritesEnabled/);
   const wrangler=readFileSync(new URL("../wrangler.jsonc",import.meta.url),"utf8");
-  assert.match(wrangler,/"BREED_SQL_V2_WRITE_MODE": "shadow"/);
+  assert.match(wrangler,/"BREED_SQL_V2_READ_MODE": "sql"/);
+  assert.match(wrangler,/"BREED_SQL_V2_WRITE_MODE": "sql"/);
 });
