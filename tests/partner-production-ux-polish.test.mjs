@@ -257,3 +257,19 @@ test("Partner forms hide development vocabulary and translate stored choice code
   assert.doesNotMatch(partnerHome, /draft.resourceType.replaceAll/);
   assert.doesNotMatch(requestsPage, /item.resourceType.replaceAll/);
 });
+
+test("Partner authenticated workspace is compact and uses the public design system", () => {
+  assert.match(partnerShell, /className="partner-shell partner-shell--workspace"/);
+  assert.match(partnerCss, /\.partner-shell--workspace\s*\{/);
+  for (const token of ["var(--ink)", "var(--forest)", "var(--line)", "var(--paper)", "var(--sage-light)"]) {
+    assert.ok(partnerCss.includes(token), "missing public brand token: "+token);
+  }
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-page-heading h1\s*\{[\s\S]*?clamp\(1\.55rem,\s*2\.6vw,\s*2\.1rem\)/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-dashboard-welcome-aside\s*\{\s*display:\s*none;/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-profile-edit-form\s*\{[\s\S]*?gap:\s*14px;/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-dashboard-header nav\s*\{[\s\S]*?scrollbar-width:\s*thin;/);
+  assert.match(partnerCss, /@media \(max-width: 640px\) \{[\s\S]*?\.partner-shell--workspace \.partner-dashboard-header nav a,[\s\S]*?min-height:\s*44px;/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-canonical-categories-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,minmax\(0,1fr\)\)/);
+  // Do not accidentally shrink controls on unauthenticated signup/login pages.
+  assert.doesNotMatch(partnerShell, /<main[^>]*partner-shell--centered/);
+});
