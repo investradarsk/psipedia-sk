@@ -833,9 +833,13 @@ async function withDirectory0173SqlManaged(
   db:D1Database,
   profile:ManagedDirectoryProfile,
 ):Promise<ManagedDirectoryProfile> {
-  const [sql,presentation]=await Promise.all([
+  const [sql,presentation,metadata]=await Promise.all([
     readDirectory0173EditorialSql(db,profile.id),
     readDirectoryPresentationSql(db,profile.id),
+    readDirectory0170EditorialFields(db,{
+      profileId:profile.id,category:profile.category,
+      source:null,audience:"admin",
+    }),
   ]);
   const qualityMetadata={...profile.qualityMetadata};
   for(const entry of sql.quality){
@@ -852,6 +856,7 @@ async function withDirectory0173SqlManaged(
     detailImageDisplay:presentation.detailImageDisplay,
     importData:{
       ...(profile.importData??{}),
+      ...(metadata??{}),
       ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
       ...(presentation.trainerServicesText!==null?{[TRAINER_SERVICES_TEXT_METADATA_KEY]:presentation.trainerServicesText}:{}),
     },
