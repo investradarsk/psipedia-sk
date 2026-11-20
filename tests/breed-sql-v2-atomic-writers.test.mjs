@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {
-  breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements,breedSqlV2NewBreedStatements,
+  breedSqlV2ShadowEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2StructuredWritesEnabled,
+  breedSqlV2FullSnapshotStatements,breedSqlV2NewBreedStatements,
   breedSqlV2DirectFieldStatements,breedSqlV2ControlledStatements,
   breedSqlV2CasGuard,
 } from "../lib/breed-sql-v2-writer.mjs";
@@ -59,6 +60,13 @@ test("shadow writes are opt-in; there is no accidental production cutover",()=>{
   assert.equal(breedSqlV2ShadowEnabled({}),false);
   assert.equal(breedSqlV2ShadowEnabled({BREED_SQL_V2_WRITE_MODE:"compare"}),false);
   assert.equal(breedSqlV2ShadowEnabled({BREED_SQL_V2_WRITE_MODE:"shadow"}),true);
+  assert.equal(breedSqlV2ShadowEnabled({BREED_SQL_V2_WRITE_MODE:"sql"}),false);
+  assert.throws(()=>breedSqlV2PrimaryWriteEnabled({BREED_SQL_V2_WRITE_MODE:"sql"}),/REQUIRES_SQL_READ/);
+  assert.equal(breedSqlV2PrimaryWriteEnabled({BREED_SQL_V2_WRITE_MODE:"sql",BREED_SQL_V2_READ_MODE:"sql"}),true);
+  assert.equal(breedSqlV2PrimaryWriteEnabled({BREED_SQL_V2_WRITE_MODE:"shadow"}),false);
+  assert.equal(breedSqlV2StructuredWritesEnabled({BREED_SQL_V2_WRITE_MODE:"sql",BREED_SQL_V2_READ_MODE:"sql"}),true);
+  assert.equal(breedSqlV2StructuredWritesEnabled({BREED_SQL_V2_WRITE_MODE:"shadow"}),true);
+  assert.equal(breedSqlV2StructuredWritesEnabled({}),false);
 });
 
 test("dirty Notion and Admin JSON field updates mirror one SQL cell transactionally",async()=>{
@@ -187,4 +195,71 @@ test("new-breed creation commits legacy row, FCI, editorial, SEO and related bre
     await assert.rejects(db.batch(invalid),/FOREIGN KEY/);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM managed_breeds WHERE slug='bad-breed'").get().n,0);
   }finally{sqlite.close()}
+});
+
+test("SQL-only Notion FCI and editorial edits preserve historical object JSON even on stale CAS", async()=>{
+  const {sqlite,db}=fixture();
+  try{
+    const sql="UPDATE managed_breeds SET updated_at=? WHERE id=? AND updated_at=? RETURNING id";
+    await db.batch([
+      db.prepare(sql).bind(newer,1,current),
+      breedSqlV2CasGuard(db),
+      ...breedSqlV2DirectFieldStatements(db,1,"fciStandard.oci","Hnedé"),
+      ...breedSqlV2DirectFieldStatements(db,1,"editorial.overview","Nový text"),
+    ]);
+    const record=sqlite.prepare("SELECT fci_standard_json,editorial_json FROM managed_breeds WHERE id=1").get();
+    assert.equal(record.fci_standard_json,"{}");
+    assert.equal(record.editorial_json,"{}");
+    assert.equal(sqlite.prepare("SELECT fci_oci FROM breed_fci_standard WHERE breed_id=1").get().fci_oci,"Hnedé");
+    assert.equal(sqlite.prepare("SELECT overview FROM breed_editorial_text WHERE breed_id=1").get().overview,"Nový text");
+    await assert.rejects(db.batch([
+      db.prepare(sql).bind("2026-11-19T18:00:02.000Z",1,current),
+      breedSqlV2CasGuard(db),
+      ...breedSqlV2DirectFieldStatements(db,1,"editorial.overview","ZASTARANÝ"),
+    ]),/malformed JSON/);
+    assert.equal(sqlite.prepare("SELECT overview FROM breed_editorial_text WHERE breed_id=1").get().overview,"Nový text");
+  }finally{sqlite.close()}
+});
+
+test("SQL-only Admin full save updates canonical SQL without touching historic object JSON",async()=>{
+  const {sqlite,db}=fixture();
+  try{
+    const value={fciStandard:{oci:"Čierne"},editorial:{overview:"Úplne nový opis"},
+      seo:{title:"SQL autorita",noindex:false},relatedBreedIds:[3,2]};
+    const updates=[
+      db.prepare("UPDATE managed_breeds SET updated_at=? WHERE id=? AND updated_at=? RETURNING id")
+        .bind(newer,1,current),
+      breedSqlV2CasGuard(db),
+      ...breedSqlV2FullSnapshotStatements(db,1,value),
+    ];
+    await db.batch(updates);
+    const row=sqlite.prepare("SELECT fci_standard_json,editorial_json,seo_json,related_breeds_json,seo_title FROM managed_breeds WHERE id=1").get();
+    assert.deepEqual([row.fci_standard_json,row.editorial_json,row.seo_json,row.related_breeds_json],["{}","{}","{}","[]"]);
+    assert.equal(row.seo_title,"SQL autorita");
+    assert.equal(sqlite.prepare("SELECT fci_oci FROM breed_fci_standard WHERE breed_id=1").get().fci_oci,"Čierne");
+    assert.equal(sqlite.prepare("SELECT overview FROM breed_editorial_text WHERE breed_id=1").get().overview,"Úplne nový opis");
+    assert.deepEqual(sqlite.prepare("SELECT related_breed_id FROM breed_related_breeds WHERE breed_id=1 ORDER BY position").all().map(x=>x.related_breed_id),[3,2]);
+  }finally{sqlite.close()}
+});
+
+test("SQL-only application code excludes four obsolete objects while preserving valid JSON lists",()=>{
+  const store=readFileSync(new URL("../lib/breed-store.ts",import.meta.url),"utf8");
+  const direct=readFileSync(new URL("../lib/notion-breed-workcopy-direct-field.ts",import.meta.url),"utf8");
+  const controlled=readFileSync(new URL("../lib/notion-breed-workcopy-controlled.ts",import.meta.url),"utf8");
+  const m=store.match(/const BREED_ROW_VALUE_COLUMNS="([^"]+)"/);
+  assert.ok(m,"explicit input order must be versioned");
+  const columns=m[1].split(",");
+  assert.equal(columns.length,49);
+  for(const old of ["fci_standard_json","editorial_json","related_breeds_json","seo_json"]) {
+    assert.ok(columns.includes(old));
+    assert.match(store,/function breedSqlOnlyUpdate\(/);
+  }
+  assert.match(store,/!Object\.hasOwn\(BREED_OLD_OBJECT_DEFAULTS,column\)/);
+  assert.match(store,/breedSqlV2StructuredWritesEnabled\(env\)/);
+  assert.match(direct,/sqlOnlyObjectField/);
+  assert.match(direct,/\[\.\.\.assignments,"updated_at=\?","updated_by=\?"\]/);
+  assert.doesNotMatch(direct,/BREED_SQL_V2_WRITE_MODE\s*===\s*"off"/);
+  assert.match(controlled,/breedSqlV2StructuredWritesEnabled/);
+  const wrangler=readFileSync(new URL("../wrangler.jsonc",import.meta.url),"utf8");
+  assert.match(wrangler,/"BREED_SQL_V2_WRITE_MODE": "shadow"/);
 });
