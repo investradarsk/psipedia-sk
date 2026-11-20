@@ -268,6 +268,10 @@ test("review writer paths are atomic and all legacy Notion lock predicates stay 
   assert.equal((partner.match(/partnerDirectoryReviewLockStatement\(/g)??[]).length,2);
   assert.match(lock,/isDirectoryReviewedSourceLocked\(row\.source_data_json\)/);
   assert.match(lock,/JOIN partner_memberships/);
-  assert.doesNotMatch(lock,/directory_profile_review_state/,
-    "SQL shadow cannot unlock historical reviewed JSON before audited backfill");
+  assert.match(lock,/directory_profile_review_state/);
+  assert.match(lock,/admin_record_tombstones/);
+  assert.match(lock,/legacyLocked \|\|/);
+  assert.match(lock,/Number\(row\.sql_unlock_pending\) === 1/);
+  // SQL may add protection, but must never override a historical JSON lock.
+  assert.match(lock,/Boolean\(row\.sql_reviewed_at\?\.trim\(\)\)/);
 });
