@@ -10,6 +10,7 @@ import { listPartnerProfileChanges } from "@/lib/partner-profile-changes";
 import { buildPartnerDashboardSummary } from "@/lib/partner-dashboard";
 import { partnerResourceStatusLabel } from "@/lib/partner-ui-labels";
 import { listPartnerCanonicalDrafts } from "@/lib/partner-canonical-workflow";
+import { getPartnerChatUnread,getPartnerNotificationPreferences } from "@/lib/partner-chat";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ function resourceEditHref(resource: PartnerManagedResource) {
 
 export default async function PartnerHomePage() {
   const identity = await requirePartnerPageIdentity();
-  const [resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions, canonicalDrafts] = await Promise.all([
+  const [resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions, canonicalDrafts, unreadMessages, alertPrefs] = await Promise.all([
     listPartnerResources(identity.accountId),
     listPartnerClaims(identity.accountId),
     listPartnerNewProfiles(identity.accountId),
@@ -40,6 +41,8 @@ export default async function PartnerHomePage() {
     listPartnerProfileChanges(identity.accountId),
     listPartnerHelpCreateSubmissions(identity.accountId),
     listPartnerCanonicalDrafts(identity.accountId),
+    getPartnerChatUnread({accountId:identity.accountId,viewer:"PARTNER"}),
+    getPartnerNotificationPreferences({accountId:identity.accountId}),
   ]);
   const summary = buildPartnerDashboardSummary({
     resources, claims, newProfiles, eventSubmissions, profileChanges, helpSubmissions,
@@ -47,6 +50,10 @@ export default async function PartnerHomePage() {
 
   return (
     <PartnerShell title="Prehľad" description="Všetky vaše profily, podujatia a žiadosti na jednom mieste.">
+      {alertPrefs.inAppEnabled&&unreadMessages>0&&<section className="partner-chat-alert" role="status">
+        <strong>Máte {unreadMessages} neprečítaných správ.</strong>
+        <Link href="/partner/spravy">Otvoriť súkromné správy</Link>
+      </section>}
       <section className="partner-dashboard-welcome" aria-labelledby="partner-welcome-title">
         <div className="partner-dashboard-welcome-copy">
           <span className="eyebrow">Váš priestor na Psipedii</span>
