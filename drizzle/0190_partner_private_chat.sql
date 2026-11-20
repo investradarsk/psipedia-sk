@@ -66,3 +66,11 @@ CREATE TABLE IF NOT EXISTS partner_chat_email_queue (
 CREATE INDEX IF NOT EXISTS partner_chat_email_queue_pending_idx
   ON partner_chat_email_queue(status,created_at);
 --> statement-breakpoint
+
+-- One persistent cursor for bounded orphan-R2 cleanup; same 0190 migration, not a new version.
+CREATE TABLE IF NOT EXISTS partner_chat_orphan_scan_state (
+  singleton INTEGER PRIMARY KEY NOT NULL CHECK(singleton=1),
+  cursor TEXT,
+  updated_at TEXT NOT NULL
+);
+--> statement-breakpoint
