@@ -62,7 +62,7 @@ export default async function Page() {
         <div className="partner-request-list">{lifecycle.map(item=>(
           <article key={item.id}>
             <div className="partner-request-title">
-              <div><span>{item.resourceType.replaceAll("_"," ")}</span>
+              <div><span>{({DIRECTORY_PROFILE:"Služba pre psov",HELP_ORGANIZATION:"Organizácia",MANAGED_EVENT:"Podujatie",ADOPTION_DOG:"Adopcia",LOST_FOUND_DOG:"Stratený alebo nájdený pes",HELP_CASE:"Pomoc psom",PARTNER_ACCOUNT:"Partnerský účet"} as Record<string,string>)[item.resourceType]??"Záznam"}</span>
                 <h3>{({
                   REQUEST_HIDE:"Dočasne skryť profil",
                   REQUEST_ARCHIVE:"Odstrániť profil (archivovať)",
@@ -73,7 +73,7 @@ export default async function Page() {
               <strong>{({
                 SUBMITTED:"Čaká na rozhodnutie",PENDING_REVIEW:"Kontroluje sa",
                 APPROVED:"Schválené",REJECTED:"Zamietnuté",
-              } as Record<string,string>)[item.status]??item.status}</strong>
+              } as Record<string,string>)[item.status]??"Stav žiadosti"}</strong>
             </div>
             <p>Odoslané {new Date(item.createdAt).toLocaleString("sk-SK")}</p>
             {item.reason&&<p>Dôvod: {item.reason}</p>}
@@ -121,7 +121,7 @@ export default async function Page() {
               <div><dt>Typ / kategória</dt><dd>{profileCategoryLabel(submission.resourceType, submission.categoryOrType)}</dd></div>
             </dl>
             {submission.duplicateWarning ? <p><strong>Kontrola duplicít:</strong> {submission.duplicateWarning}</p> : null}
-            {submission.resolutionType === "CREATED_NEW" ? <p>Profil bol vytvorený ako koncept a čaká na publikovanie.</p> : null}
+            {submission.resolutionType === "CREATED_NEW" ? <p>Profil bol vytvorený a pripravuje sa na zverejnenie.</p> : null}
             {submission.resolutionType === "LINKED_EXISTING" ? <p>Návrh bol prepojený s existujúcim profilom.</p> : null}
             {submission.rejectionReason ? <p><strong>Dôvod:</strong> {submission.rejectionReason}</p> : null}
             <div className="partner-request-links">
@@ -129,7 +129,7 @@ export default async function Page() {
               {submission.canWithdraw ? <PartnerNewProfileWithdrawButton id={submission.id} /> : null}
             </div>
           </article>
-        ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte návrh nového profilu</h2><p>Ak svoj profil na Psipedii nenájdete, môžete ho navrhnúť na moderátorskú kontrolu.</p></div>}
+        ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte návrh nového profilu</h2><p>Ak svoj profil na Psipedii nenájdete, môžete navrhnúť nový na schválenie.</p></div>}
       </section>
 
 
@@ -169,7 +169,7 @@ export default async function Page() {
               <div><dt>Odoslané</dt><dd>{new Date(submission.createdAt).toLocaleString("sk-SK")}</dd></div>
               <div><dt>Typ návrhu</dt><dd>{partnerEventOperationLabel(submission.operation)}</dd></div>
             </dl>
-            {submission.resolutionType === "CREATED_NEW" ? <p>Podujatie bolo vytvorené ako koncept a zatiaľ nemusí byť verejne publikované.</p> : null}
+            {submission.resolutionType === "CREATED_NEW" ? <p>Podujatie bolo vytvorené a pripravuje sa na zverejnenie.</p> : null}
             {submission.resolutionType === "LINKED_EXISTING" ? <p>Návrh bol prepojený s existujúcim podujatím.</p> : null}
             {submission.rejectionReason ? <p><strong>Dôvod:</strong> {submission.rejectionReason}</p> : null}
             <div className="partner-request-links">
@@ -182,7 +182,7 @@ export default async function Page() {
 
       <section className="partner-requests-section">
         <div className="partner-section-heading">
-          <div><span className="eyebrow">Moderované zmeny</span><h2>Úpravy profilov</h2></div>
+          <div><span className="eyebrow">Zmeny profilov</span><h2>Úpravy profilov</h2></div>
         </div>
         {profileChanges.length ? <div className="partner-request-list">{profileChanges.map((change) => (
           <article key={change.id}>
