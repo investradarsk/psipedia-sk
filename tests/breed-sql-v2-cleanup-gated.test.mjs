@@ -70,3 +70,12 @@ test("breed Admin full-save returns canonical SQL projection inside CAS batch", 
   assert.doesNotMatch(part,/database\.prepare\(`\$\{select\} WHERE id=\?`\)\.bind\(id\)/);
   assert.match(part,/breedSqlV2FullSnapshotStatements/);
 });
+
+test("legacy FCI importer cannot silently overwrite SQL-primary data", () => {
+  const route = readFileSync(new URL("../app/api/admin/import/route.ts", import.meta.url),"utf8");
+  const preview = route.indexOf("if (payload.preview === true)");
+  const gate = route.indexOf('BREED_SQL_V2_READ_MODE === "sql"');
+  const importCall = route.indexOf("const result = await importFciBreeds");
+  assert.ok(preview > 0 && preview < gate && gate < importCall);
+  assert.match(route.slice(gate,importCall), /status: 409/);
+});
