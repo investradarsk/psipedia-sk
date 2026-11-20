@@ -56,9 +56,9 @@ export default async function PartnerHomePage() {
             : "Vytvorte nový profil alebo požiadajte o správu už existujúceho. Po schválení sa vám zobrazí v tomto prehľade."}</p>
           <div className="partner-dashboard-welcome-actions">
             <Link className="button button--dark" href="/partner/koncepty/novy">+ Vytvoriť nový záznam</Link>
-            <Link href="/partner/profily/novy">Pôvodný formulár profilu</Link>
-            <Link className="button" href="/partner/podujatia/nove">Pridať podujatie</Link>
-            <Link className="button" href="/partner/pomoc/nova">Pridať pomoc psom</Link>
+            <Link className="button" href="/partner/koncepty/novy?typ=MANAGED_EVENT">+ Pridať podujatie</Link>
+            <Link className="button" href="/partner/koncepty/novy?typ=ADOPTION_DOG">+ Pridať pomoc psom</Link>
+            <Link href="/partner/prevziat">Požiadať o správu existujúceho záznamu</Link>
           </div>
         </div>
         <div className="partner-dashboard-welcome-aside" aria-hidden="true">
