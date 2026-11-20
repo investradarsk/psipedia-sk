@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import vm from "node:vm";
 import { mergeManagedBreedEdit, mergeNotionBreedInput } from "../lib/breed-sync-preservation.ts";
-import {breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements}
+import {breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements}
   from "../lib/breed-sql-v2-writer.mjs";
 
 // Execute the actual production SQL statement factory, including both kinds
@@ -38,7 +38,7 @@ const factories =
 const { buildManagedBreedUpdateStatements } = vm.runInNewContext(
   stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements})"),
   { JSON, Date, clean: (value) => value,
-    env: {},breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements },
+    env: {},breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements },
 );
 
 const stamp = "2026-10-15T09:00:00.000Z";
