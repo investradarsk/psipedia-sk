@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminPartnerAccountActions } from "@/components/admin-partner-account-actions";
+import { PartnerPrivateChat } from "@/components/partner-private-chat";
+import { getPartnerChatUnread,listPartnerChat } from "@/lib/partner-chat";
 import { AdminPartnerLifecycleDecision } from "@/components/admin-partner-lifecycle-decision";
 import { AdminPartnerAuditDiff } from "@/components/admin-partner-audit-diff";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -88,7 +90,11 @@ export default async function Page({
   const tab:Tab=tabs.some(item=>item.id===rawTab)?rawTab as Tab:"ziadosti";
   const rawPage=typeof options.page==="string"?Number(options.page):1;
   const page=Number.isSafeInteger(rawPage)&&rawPage>0?Math.min(rawPage,10000):1;
-  const dossier=await getPartnerAccountDossierAdmin({accountId:id,tab,page});
+  const [dossier,chatUnread,chatMessages]=await Promise.all([
+    getPartnerAccountDossierAdmin({accountId:id,tab,page}),
+    getPartnerChatUnread({accountId:id,viewer:"ADMIN"}),
+    tab==="spravy"?listPartnerChat({accountId:id}):Promise.resolve(null),
+  ]);
   const memberships=account.memberships as Membership[];
   const profile=account.contactProfile;
   const mainHref=`/admin/partners/accounts/${encodeURIComponent(id)}`;
@@ -129,7 +135,7 @@ export default async function Page({
           </Link>
           <Link href={tabHref("spravy")}>
             <span>Neprečítané správy</span>
-            <strong aria-label="Chat zatiaľ nie je dostupný">—</strong>
+            <strong aria-label="Neprečítané správy">{chatUnread}</strong>
           </Link>
         </div>
       </section>
@@ -199,10 +205,10 @@ export default async function Page({
         </section>
       )}
 
-      {tab==="spravy"&&(
+      {tab==="spravy"&&chatMessages&&(
         <section className="admin-form-card admin-partner-v2-panel" data-admin-partner-messages>
           <h2>Správy</h2>
-          <p>Súkromný rozhovor s týmto partnerom pripravujeme v kroku 7/8. Dovtedy sa správy nezobrazujú ani nepočítajú ako prečítané či neprečítané.</p>
+          <PartnerPrivateChat mode="ADMIN" accountId={id} initial={chatMessages}/>
         </section>
       )}
 
