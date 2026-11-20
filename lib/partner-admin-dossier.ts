@@ -187,34 +187,57 @@ const REQUEST_UNION = `
       AND s.operation IN ('REQUEST_HIDE','REQUEST_ARCHIVE','REQUEST_RELEASE','REQUEST_DELETE_ACCOUNT')
 `;
 
+// Cloudflare D1 rejects the original ten-way compound SELECT with
+// SQLITE_ERROR: too many terms in compound SELECT. Read bounded groups
+// separately and merge the globally sorted page in memory instead.
+// Each group has at most four SELECT terms; no extra SQL migration needed.
+const REQUEST_SHARDS = (() => {
+  const sources=REQUEST_UNION.trim().split(/\n\s*UNION ALL\n/);
+  const groups:string[]=[];
+  for(let i=0;i<sources.length;i+=4){
+    groups.push(sources.slice(i,i+4).join("\n  UNION ALL\n"));
+  }
+  return groups;
+})();
+
 export async function listPartnerAccountDossierRequests(accountId:string,database:D1Database,page=1) {
   const current=pageNumber(page);
-  const [totals,rows]=await Promise.all([
-    database.prepare(`SELECT COUNT(*) total,
-      COALESCE(SUM(CASE WHEN status IN ('PENDING','SUBMITTED','PENDING_REVIEW','QUARANTINED','PENDING_VERIFICATION','NEW','OFFERED') THEN 1 ELSE 0 END),0) pending
-      FROM (${REQUEST_UNION})`).bind(accountId).first<{total:number;pending:number}>(),
-    database.prepare(`SELECT * FROM (${REQUEST_UNION})
-      ORDER BY CASE WHEN status IN ('PENDING','SUBMITTED','PENDING_REVIEW','QUARANTINED','PENDING_VERIFICATION','NEW','OFFERED') THEN 0 ELSE 1 END,
-      createdAt DESC, id DESC LIMIT ?2 OFFSET ?3`)
-      .bind(accountId,PARTNER_REQUEST_PAGE_SIZE,(current-1)*PARTNER_REQUEST_PAGE_SIZE).all<RequestRow>(),
-  ]);
-  const items=rows.results.map(row=>({
-    ...row,
-    title:row.title?.trim()||"Záznam bez názvu",
-    pending:activeStatuses.has(row.status),
-    requestHref:row.kind.startsWith("REQUEST_")
-      ? "/admin/partners/accounts/"+encodeURIComponent(accountId)+"?tab=ziadosti"
-      : requestHref(row.kind,row.id),
-    editorHref:partnerDossierEditorHref(row.entityType,row.canonicalId),
+  const pageEnd=current*PARTNER_REQUEST_PAGE_SIZE;
+  // Every shard must supply at most the first pageEnd rows to build the
+  // correct page across all request types, including old historical records.
+  const shards=await Promise.all(REQUEST_SHARDS.map(async sql=>{
+    const [totals,rows]=await Promise.all([
+      database.prepare(`SELECT COUNT(*) total,
+        COALESCE(SUM(CASE WHEN status IN ('PENDING','SUBMITTED','PENDING_REVIEW','QUARANTINED','PENDING_VERIFICATION','NEW','OFFERED') THEN 1 ELSE 0 END),0) pending
+        FROM (${sql})`).bind(accountId).first<{total:number;pending:number}>(),
+      database.prepare(`SELECT * FROM (${sql})
+        ORDER BY CASE WHEN status IN ('PENDING','SUBMITTED','PENDING_REVIEW','QUARANTINED','PENDING_VERIFICATION','NEW','OFFERED') THEN 0 ELSE 1 END,
+        createdAt DESC,id DESC LIMIT ?2`)
+        .bind(accountId,pageEnd).all<RequestRow>(),
+    ]);
+    return {totals,rows:rows.results};
   }));
-  return {
-    items,
-    total:Number(totals?.total??0),
-    pending:Number(totals?.pending??0),
-    page:current,
-    pageSize:PARTNER_REQUEST_PAGE_SIZE,
-    totalPages:Math.max(1,Math.ceil(Number(totals?.total??0)/PARTNER_REQUEST_PAGE_SIZE)),
-  };
+  const total=shards.reduce((sum,shard)=>sum+Number(shard.totals?.total??0),0);
+  const pending=shards.reduce((sum,shard)=>sum+Number(shard.totals?.pending??0),0);
+  const offset=(current-1)*PARTNER_REQUEST_PAGE_SIZE;
+  const items=shards.flatMap(shard=>shard.rows)
+    .sort((a,b)=>
+      Number(activeStatuses.has(b.status))-Number(activeStatuses.has(a.status)) ||
+      b.createdAt.localeCompare(a.createdAt) ||
+      b.id.localeCompare(a.id) ||
+      b.kind.localeCompare(a.kind))
+    .slice(offset,offset+PARTNER_REQUEST_PAGE_SIZE)
+    .map(row=>({
+      ...row,
+      title:row.title?.trim()||"Záznam bez názvu",
+      pending:activeStatuses.has(row.status),
+      requestHref:row.kind.startsWith("REQUEST_")
+        ? "/admin/partners/accounts/"+encodeURIComponent(accountId)+"?tab=ziadosti"
+        : requestHref(row.kind,row.id),
+      editorHref:partnerDossierEditorHref(row.entityType,row.canonicalId),
+    }));
+  return {items,total,pending,page:current,pageSize:PARTNER_REQUEST_PAGE_SIZE,
+    totalPages:Math.max(1,Math.ceil(total/PARTNER_REQUEST_PAGE_SIZE))};
 }
 
 const PROFILE_UNION = `
