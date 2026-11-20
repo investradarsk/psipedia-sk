@@ -20,7 +20,7 @@ export function AdminHelpNotionStatus({ agenda, recordId, revision=0 }: {
 }) {
   const [state,setState]=useState<State|null>(null);
   useEffect(()=>{
-    if(!recordId){setState(null);return;}
+    if(!recordId)return;
     let active=true;
     async function refresh(){
       try{
