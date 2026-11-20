@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useMemo,useRef,useState } from "react";
+import { useMemo,useState } from "react";
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { PartnerGalleryField } from "@/components/partner-gallery-field";
 import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
@@ -76,9 +76,9 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
   const [error,setError]=useState("");
   const [success,setSuccess]=useState("");
   const [showPreview,setShowPreview]=useState(false);
-  const baseline=useRef(jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories));
-  const dirty=useMemo(()=>jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories)!==baseline.current,
-    [values,coverId,galleryIds,galleryUrls,additionalCategories]);
+  const [baseline,setBaseline]=useState(()=>jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories));
+  const dirty=useMemo(()=>jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories)!==baseline,
+    [values,coverId,galleryIds,galleryUrls,additionalCategories,baseline]);
   usePartnerUnsavedGuard(dirty);
   const editable=["DRAFT","RETURNED","SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(status);
   const submitted=!["DRAFT","RETURNED"].includes(status);
@@ -91,7 +91,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
     setType(next);
     const blank=initialValues(next,definitions);
     setValues(blank);setCoverId(null);setGalleryIds([]);setGalleryUrls([]);setAdditionalCategories([]);
-    baseline.current=jsonSnapshot(blank,null,[],[],[]);
+    setBaseline(jsonSnapshot(blank,null,[],[],[]));
     setError("");setSuccess("");
   }
   function payload(){
@@ -132,7 +132,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
       if(!result.draft?.id)throw new Error("Server nevrátil identifikátor konceptu.");
       setId(result.draft.id);setRevision(result.draft.baseUpdatedAt);
       setStatus(result.draft.status);
-      baseline.current=jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories);
+      setBaseline(jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories));
       return result.draft.id;
     }
     if(dirty){
@@ -143,7 +143,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
       if(!result.draft)throw new Error("Server nevrátil uložený koncept.");
       setRevision(result.draft.baseUpdatedAt);
       setStatus(result.draft.status);
-      baseline.current=jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories);
+      setBaseline(jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories));
     }
     return id;
   }
