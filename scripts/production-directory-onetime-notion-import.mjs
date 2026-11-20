@@ -3,6 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { notionId, planNotionDirectoryImport } from "../lib/directory-notion-onetime-import.mjs";
 
 const MODE=process.argv[2]??"";
@@ -116,7 +117,7 @@ async function scanNotion(){
   must(pages.length>0&&pages.length<10000,"NOTION_COUNT");
   return pages;
 }
-const PROFILE_SQL=[
+export const PROFILE_SQL=[
   "SELECT p.id,p.category,p.slug,p.status,p.updated_at,p.name,p.excerpt,p.description,",
   "p.region,p.district,p.city,p.address,p.postal_code,p.street,p.house_number,p.price_note,",
   "p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,p.internal_email,p.image_url,",
@@ -185,7 +186,7 @@ function recoveryBookmark(){
   must(hasBookmark(payload),"NO_BOOKMARK");
   bookmarked=true;
 }
-function buildBatch(p){
+export function buildBatch(p){
   const now=new Date().toISOString(),id=p.id;
   const cells=Object.entries(p.fields);
   const sets=cells.map(([column])=>column+"=?");
@@ -326,7 +327,7 @@ async function run(){
   report("POSTFLIGHT",{needsFinalSqlReadCutover:true,
     note:"No Notion write and no legacy JSON content source; unresolved protected profiles preserved"});
 }
-run().catch(error=>{
+if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) run().catch(error=>{
   const code=error instanceof Error&&/^NOTION_D1_IMPORT_[A-Z_]+$/.test(error.message)
     ?error.message:"NOTION_D1_IMPORT_FAILED";
   if(stage!=="FAILED_PARTIAL")report("FAILED",{error:code});
