@@ -31,9 +31,12 @@ export function buildPartnerDraftRelationStatements(input:Input):D1PreparedState
   const add=Object.hasOwn(data,"additionalCategories");
   if(add){
     const additional=normalizeAdditionalDirectoryCategories(data.additionalCategories,category);
-    const statements=planDirectorySecondaryCategorySqlMirror({
-      profileId:id,primaryCategory:category,submitted:additional,updatedAt:nowIso,actor,
-    });
+    if(additional.length>0&&!(serviceFilterCategories as readonly string[]).includes(category))
+      throw new Error("Ďalšie kategórie nie sú pre tento typ profilu dostupné.");
+    const statements=(serviceFilterCategories as readonly string[]).includes(category)
+      ?planDirectorySecondaryCategorySqlMirror({
+        profileId:id,primaryCategory:category,submitted:additional,updatedAt:nowIso,actor,
+      }):[];
     for(const statement of statements.slice(1))plans.push(sql(db,statement));
     plans.push(db.prepare("UPDATE directory_profiles SET source_data_json=json_set("+
       "CASE WHEN json_valid(source_data_json) THEN source_data_json ELSE '{}' END,"+
