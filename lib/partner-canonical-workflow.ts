@@ -42,27 +42,50 @@ const textFields = (names:string[]) => Object.fromEntries(names.map(name=>[
   name,name.replace(/[A-Z]/g,letter=>"_"+letter.toLowerCase())
 ])) as Record<string,string>;
 const kinds:Record<PartnerCanonicalType,DraftKind> = {
-  DIRECTORY_PROFILE:{table:"directory_profiles",type:"DIRECTORY",reviewType:"DIRECTORY",published:"published",
-    fields:{...textFields(["name","category","excerpt","description","city","district","region","address","priceNote",
-      "websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"]),
-      services:"services_json",qualifications:"qualifications_json"}},
-  HELP_ORGANIZATION:{table:"help_organizations",type:"ORGANIZATION",reviewType:"ORGANIZATION",published:"PUBLISHED",
+  DIRECTORY_PROFILE:{
+    table:"directory_profiles",type:"DIRECTORY",reviewType:"DIRECTORY",published:"published",
+    fields:{
+      ...textFields(["name","category","excerpt","description","city","district","region","address","priceNote",
+        "websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"]),
+      services:"services_json",qualifications:"qualifications_json",
+    },
+  },
+  HELP_ORGANIZATION:{
+    table:"help_organizations",type:"ORGANIZATION",reviewType:"ORGANIZATION",published:"PUBLISHED",
     fields:textFields(["name","type","legalName","shortDescription","description","publicEmail",
-      "publicPhone","websiteUrl","facebookUrl","instagramUrl","address","city","district","region","countryCode"])},
-  MANAGED_EVENT:{table:"managed_events",type:"EVENT",reviewType:"EVENT",published:"published",
-    fields:textFields(["title","excerpt","eventType","startDate","startTime","endDate","endTime","venue","city",
-      "region","address","organizer","description","practicalInfo","websiteUrl","registrationUrl"]),cancelled:"cancelled"}},
-  ADOPTION_DOG:{table:"adoption_dogs",type:"ADOPTION",reviewType:"ADOPTION",published:"ACTIVE",
-    fields:textFields(["name","sex","size","approximateAgeMonths","breedName","region","district","city",
-      "organizationName","shortDescription","description"]),
-      ...Object.fromEntries(helpEditorFields.ADOPTION_DOG.map(field=>[field.key,field.key]))}},
-  LOST_FOUND_DOG:{table:"lost_found_dog_reports",type:"LOST_FOUND",reviewType:"LOST_FOUND",published:"ACTIVE",
-    fields:textFields(["type","dogName","sex","breed","color","size","eventDate","region","district","city",
-      "locationDescription","description"]),
-      ...Object.fromEntries(helpEditorFields.LOST_FOUND_DOG.map(field=>[field.key,field.key]))}},
-  HELP_CASE:{table:"help_cases",type:"HELP_ITEM",reviewType:"HELP_CASE",published:"published",
-    fields:textFields(["title","category","excerpt","description","organization","city","region","actionLabel","contactNote"]),
-      ...Object.fromEntries(helpEditorFields.HELP_CASE.map(field=>[field.key,field.key]))}},
+      "publicPhone","websiteUrl","facebookUrl","instagramUrl","address","city","district","region","countryCode"]),
+  },
+  MANAGED_EVENT:{
+    table:"managed_events",type:"EVENT",reviewType:"EVENT",published:"published",
+    fields:{
+      ...textFields(["title","excerpt","eventType","startDate","startTime","endDate","endTime","venue","city",
+        "region","address","organizer","description","practicalInfo","websiteUrl","registrationUrl"]),
+      cancelled:"cancelled",
+    },
+  },
+  ADOPTION_DOG:{
+    table:"adoption_dogs",type:"ADOPTION",reviewType:"ADOPTION",published:"ACTIVE",
+    fields:{
+      ...textFields(["name","sex","size","approximateAgeMonths","breedName","region","district","city",
+        "organizationName","shortDescription","description"]),
+      ...Object.fromEntries(helpEditorFields.ADOPTION_DOG.map(field=>[field.key,field.key])),
+    },
+  },
+  LOST_FOUND_DOG:{
+    table:"lost_found_dog_reports",type:"LOST_FOUND",reviewType:"LOST_FOUND",published:"ACTIVE",
+    fields:{
+      ...textFields(["type","dogName","sex","breed","color","size","eventDate","region","district","city",
+        "locationDescription","description"]),
+      ...Object.fromEntries(helpEditorFields.LOST_FOUND_DOG.map(field=>[field.key,field.key])),
+    },
+  },
+  HELP_CASE:{
+    table:"help_cases",type:"HELP_ITEM",reviewType:"HELP_CASE",published:"published",
+    fields:{
+      ...textFields(["title","category","excerpt","description","organization","city","region","actionLabel","contactNote"]),
+      ...Object.fromEntries(helpEditorFields.HELP_CASE.map(field=>[field.key,field.key])),
+    },
+  },
 };
 const helpers:ReadonlySet<PartnerCanonicalType>=new Set(partnerCanonicalTypes);
 const pendingStates=["SUBMITTED","PENDING_REVIEW","QUARANTINED"];
