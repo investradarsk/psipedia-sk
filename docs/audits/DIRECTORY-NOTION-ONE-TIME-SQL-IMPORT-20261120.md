@@ -19,6 +19,19 @@ Vykoná iba:
 - porovnanie mapovania `Psipedia ID` + `directory_notion_sync.notion_page_id`, kategórie a ochrán;
 - sanitizovaný `report.json`: počty, typy nálezov, najviac 12 interných ID na príčinu, nikdy súkromné hodnoty.
 
+### Oprava po prvom zelenom audite (20. 11. 2026)
+Prvý reálny audit #44697423831 našiel **1 851 Notion profilov, 1 848 D1 profilov, 1 832 prípustných kandidátov** a **19 vynechaných** (6 bez ID, 8 zamknutých, 2 archivované, 2 kategórie, 1 Notion mapping). Táto prvá verzia importéra však omylom uvádzala `0 AS tombstone` namiesto skutočnej kontroly `admin_record_tombstones`. Zelený výstup preto **nebol dostatočnou ochranou pred obnovením zmazaných profilov** a **NESMIE sa použiť ako povolenie apply**.
+
+Oprava kontroluje fyzické tombstones podľa ID, slugu a Notion page ID:
+- v SELECT inventári pred zostavením kandidátov,
+- v samotnej D1 UPDATE podmienke bezprostredne pred zápisom (CAS).
+- ako samostatnú príčinu `tombstoned` v reporte, nie zamaskovanú ako obyčajný editor lock.
+- Existujúce SQL kategórie, kvalifikácie a text hodín sa najprv aktualizujú ne-deštruktívne cez UPSERT; zastarané hodnoty sa mažú až po vložení nových. Pôvodne predčasné `DELETE` nemá povolenie pred zápisom novej hodnoty.
+- Time Travel bookmark sa **uloží do súkromného GitHub artifact report.json**, nie do verejných logov.
+- SQLite integračné testy overujú skutočné vyhodnotenie SQL guardu pre ID, slug aj Notion identitu.
+
+**Po zlúčení opravy treba spustiť audit ešte raz na novom `main`, skontrolovať `tombstoned` a až potom osobitne potvrdiť apply.** V D1/Notione prvý audit nič nezmenil.
+
 ### 2. Apply
 Po kontrole auditného reportu nový, osobitne potvrdený manuálny beh:
 - `mode=apply`
