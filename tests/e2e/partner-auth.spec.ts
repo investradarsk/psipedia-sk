@@ -1014,7 +1014,9 @@ test("internal admin Partner overview and account detail are protected admin pag
     await page.goto("/admin/partners");
     await page.locator("[data-admin-partner-attention] summary").click();
     await expect(page.getByRole("link",{name:"Prevzatia (2)"})).toBeVisible();
-    await expect(page.getByRole("link",{name:"Overenia (2)"})).toBeVisible();
+    // Mobile's seeded self-verification is the sole remaining pending item.
+    // Approved canonical drafts do not create an extra verification request.
+    await expect(page.getByRole("link",{name:"Overenia (1)"})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 });
