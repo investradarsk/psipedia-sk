@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import {runInNewContext} from "node:vm";
 import ts from "typescript";
+import { planDirectory0173EditorialSqlMirror } from "../lib/directory-0173-editorial-sql-mirror.ts";
 import {DIRECTORY_FIELD_EVENT_CATEGORIES,isDirectoryFieldEventCategory,isDirectoryEventPilotCategory}
  from "../lib/notion-directory-field-event-scope.ts";
 
@@ -16,12 +17,18 @@ const js=ts.transpileModule(directory.slice(start,end)+
 }).outputText;
 
 function setup(category){
- const writes=[];
+ const writes=[],sidecarSql=[];
  const record={id:1826,category,status:"draft",updatedAt:"2026-11-12T12:00:00.000Z"};
- const db={prepare(sql){return {bind(...args){
-   writes.push({sql,args});
-   return {async first(){return {id:1826}}};
- }}}};
+ const db={
+   prepare(sql){return {sql,bind(...args){
+     if(sql.startsWith("UPDATE directory_profiles SET"))writes.push({sql,args});
+     else sidecarSql.push({sql,args});
+     return {sql,args,async first(){return {id:1826}}};
+   }}},
+   async batch(statements){
+     return statements.map((_,index)=>({results:index===0?[{id:1826}]:[{verified:1}]}));
+   },
+ };
  const out={};
  runInNewContext(js,{
    exports:out,SYSTEM_ACTOR:"directory-sync-contract-test",
@@ -30,9 +37,10 @@ function setup(category){
    isDirectoryFieldEventCategory,isDirectoryEventPilotCategory,
    breederReadPath:(snapshot,path)=>path.split(".").reduce((v,key)=>v?.[key],snapshot),
    normalizeDirectorySearchText:value=>value,
+   planDirectory0173EditorialSqlMirror,
    getManagedDirectoryProfileById:async()=>record,
  });
- return {record,writes,db,save:out.saveBreederEditorialValue};
+ return {record,writes,sidecarSql,db,save:out.saveBreederEditorialValue};
 }
 function desired(){
  return {
@@ -55,6 +63,8 @@ test("all ten Directory categories save Popis, SEO and contacts independently wi
    assert.equal(ctx.writes[0].args[0],"x");
    assert.match(ctx.writes[1].sql,/seo_json = json_set/);
    assert.equal(ctx.writes[1].args[1],"Test SEO");
+   assert(ctx.sidecarSql.some(row=>row.sql.includes("directory_profile_seo")),
+     category+" must also save SQL SEO");
    assert.match(ctx.writes[2].sql,/source_data_json = json_remove/);
    assert.match(ctx.writes[2].sql,/public_phone = \?/);
    assert.equal(ctx.writes[2].args[0],"0912345678");
