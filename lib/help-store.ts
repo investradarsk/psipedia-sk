@@ -528,7 +528,8 @@ export async function getPublishedHelpCaseCards(
 export async function getPublishedHelpCases(category?: HelpCategorySlug, limit = 250) {
   const database = getD1Binding();
   if (!database) return [] as HelpCase[];
-  if (category === "adopcia") return [] as HelpCase[];
+  // Dedicated adoption and lost/found listings must never fall back to old generic Help rows.
+  if (category === "adopcia" || category === "stratene-a-najdene") return [] as HelpCase[];
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
   const organizationDatabase = database as unknown as AdoptionD1Database;
   if (category === "utulky") {
@@ -545,17 +546,17 @@ export async function getPublishedHelpCases(category?: HelpCategorySlug, limit =
       .all<HelpCaseRow>();
     return result.results.map(rowToHelpCase);
   }
-  const [legacy, organizations] = await Promise.all([
+  const [genericRows, organizations] = await Promise.all([
     database
       .prepare(
-        "SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?",
+        "SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky', 'stratene-a-najdene') ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?",
       )
       .bind(safeLimit)
       .all<HelpCaseRow>(),
     listPublishedOrganizations(organizationDatabase, safeLimit),
   ]);
   return [
-    ...legacy.results.map(rowToHelpCase),
+    ...genericRows.results.map(rowToHelpCase),
     ...organizations.map(canonicalOrganizationToHelpCase),
   ]
     .sort(comparePublicHelpCases)
@@ -575,7 +576,7 @@ export async function getHomepageHighlightedHelpCasesWithImages(
     SELECT id, slug, title, category, status, city, image_url,
            thumbnail_display_json, urgent, resolved
     FROM help_cases
-    WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND ${activeHelpSql()}
+    WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky', 'stratene-a-najdene') AND ${activeHelpSql()}
       AND ${HOMEPAGE_REAL_IMAGE_SQL}
     ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?
   `,
@@ -604,7 +605,7 @@ export async function getHighlightedHelpCases(limit = 2) {
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const result = await database
     .prepare(
-      `SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND ${activeHelpSql()} ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?`,
+      `SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky', 'stratene-a-najdene') AND ${activeHelpSql()} ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?`,
     )
     .bind(safeLimit)
     .all<HelpCaseRow>();

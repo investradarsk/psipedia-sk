@@ -56,7 +56,7 @@ test("ORG-6D preserves canonical shelter compatibility while removing legacy run
   assert.match(helpStore, /category === "utulky"[\s\S]*listPublishedOrganizations/);
   assert.match(helpStore, /!database \|\| !isHelpCategory\(category\) \|\| category === "utulky"\) return null/);
   assert.doesNotMatch(helpStore, /getPublicOrganizationBySlug/);
-  assert.ok(helpStore.includes("category NOT IN ('adopcia', 'utulky')"));
+  assert.ok(helpStore.includes("category NOT IN ('adopcia', 'utulky', 'stratene-a-najdene')"));
   assert.match(organizationStore, /FROM help_organizations o/);
   assert.doesNotMatch(organizationStore, /help_cases/);
 

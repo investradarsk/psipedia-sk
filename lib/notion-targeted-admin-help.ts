@@ -56,6 +56,11 @@ export async function syncOneAdminHelpRecord(input: {
     // canonical record. That must not falsely report successful writeback.
     const confirmed = processed.unchanged + processed.pulledFromNotion +
       processed.pushedToNotion + processed.bootstrapped;
+    // A partner grant / Admin review can occur after the initial read.
+    // In that case the sweep may count a locked row as "unchanged", which
+    // must never be acknowledged as a successful editorial writeback.
+    if (await isAdminNotionSyncLocked(input.database,input.agenda,input.entityId))
+      return "disabled";
     return confirmed > 0 ? "synced" : "pending";
   } catch {
     // An already committed Admin edit cannot be rolled back by remote outage.

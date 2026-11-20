@@ -23,6 +23,8 @@ export const lostFoundDogReports = sqliteTable(
     chipped: text("chipped").notNull().default("UNKNOWN"),
     mainImage: text("main_image"),
     mainImageKey: text("main_image_key"),
+    thumbnailDisplayJson: text("thumbnail_display_json"),
+    detailDisplayJson: text("detail_display_json"),
     galleryJson: text("gallery_json").notNull().default("[]"),
     eventDate: text("event_date").notNull().default(""),
     lastSeenDateTime: text("last_seen_date_time"),
