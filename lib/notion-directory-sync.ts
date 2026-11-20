@@ -1680,44 +1680,39 @@ export async function savePilotDirectoryMetadataField(input: {
     if (matches) return current;
   }
   const now = new Date().toISOString();
-  const path = '$."' + input.field + '"';
-  const previousRaw = String(current.importData?.[input.field] ?? "");
+  // Explicit field-level D1 SQL write: the compatibility JSON must not be
+  // recreated by an Admin or Notion metadata edit after legacy retirement.
   const canonical = input.database.prepare(
-    "UPDATE directory_profiles SET source_data_json = json_set(" +
-      "COALESCE(source_data_json, '{}'), ?, ?), updated_at = ?, updated_by = ? " +
+    "UPDATE directory_profiles SET updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND category = ? AND status <> 'archived' " +
-      "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) " +
-      "AND COALESCE(CAST(json_extract(source_data_json, ?) AS TEXT), '') = ? RETURNING id"
-  ).bind(path, trimmed, now, SYSTEM_ACTOR,
-    input.profileId, input.category, current.updatedAt, path, previousRaw);
+    "AND updated_at = ? RETURNING id"
+  ).bind(now, SYSTEM_ACTOR,
+    input.profileId, input.category, current.updatedAt);
   const approved = approvedDirectoryFactSqlSlot(input.category as ServiceFilterCategory, input.field);
   const isHours = input.field === "Ordinačné hodiny";
-  if (approved || isHours) {
-    // Canonical CAS, existing 0170 public fact and 0173 hours sidecar must
-    // commit together. A missing field is never treated as an empty edit.
-    const factMirror = approved ? planDirectory0170FactSqlMirror({
-      profileId: input.profileId, category: input.category as ServiceFilterCategory,
-      field: input.field, value: trimmed, updatedAt: now, actor: SYSTEM_ACTOR,
-    }) : [];
-    const hoursMirror = isHours ? planDirectory0173EditorialSqlMirror({
-      identity: { kind: "id", profileId: input.profileId,
-        updatedAt: now, actor: SYSTEM_ACTOR },
-      openingHoursText: trimmed,
-    }) : [];
-    const guard = approved ? [] : [input.database.prepare(
-      "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', char(36)) END AS cas_ok"
-    )];
-    const response = await input.database.batch([
-      canonical, ...guard,
-      ...factMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
-      ...hoursMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
-    ]);
-    if (!(response[0]?.results?.[0] as { id?: number } | undefined)?.id)
-      throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
-  } else {
-    const saved = await canonical.first<{ id: number }>();
-    if (!saved) throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
-  }
+  const mirrorIdentity = {kind:"id" as const,profileId:input.profileId,
+    updatedAt:now,actor:SYSTEM_ACTOR};
+  const factMirror = approved ? planDirectory0170FactSqlMirror({
+    profileId: input.profileId, category: input.category as ServiceFilterCategory,
+    field: input.field, value: trimmed, updatedAt: now, actor: SYSTEM_ACTOR,
+  }) : [];
+  const hoursMirror = isHours ? planDirectory0173EditorialSqlMirror({
+    identity: mirrorIdentity, openingHoursText: trimmed,
+  }) : [];
+  const extraMirror = !approved && !isHours ? planDirectoryExtraSqlTextMirror({
+    identity:mirrorIdentity,fieldKey:input.field,value:trimmed,
+  }) : [];
+  const guard = factMirror.length ? [] : [input.database.prepare(
+    "SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', char(36)) END AS cas_ok"
+  )];
+  const response = await input.database.batch([
+    canonical, ...guard,
+    ...factMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
+    ...hoursMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
+    ...extraMirror.map(item => input.database.prepare(item.sql).bind(...item.bindings)),
+  ]);
+  if (!(response[0]?.results?.[0] as { id?: number } | undefined)?.id)
+    throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
   const next = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!next) throw new Error("DIRECTORY_PILOT_METADATA_RELOAD_FAILED");
   return next;
