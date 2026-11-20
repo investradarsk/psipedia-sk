@@ -79,7 +79,7 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
     }catch(e){setError(e instanceof Error?e.message:"Odoslanie sa nepodarilo.");}
     finally{setBusy(false);}
   }
-  return <section className={styles.chat} aria-label="Súkromné správy Partneri">
+  return <section className={mode==="PARTNER"?`${styles.chat} ${styles.partnerChat}`:styles.chat} aria-label="Súkromné správy Partneri">
     <div className={styles.description}>
       <strong>Súkromný rozhovor</strong>
       <p>Len vy a {mode==="ADMIN"?"tento partner":"administrátor Psipedie"}.
