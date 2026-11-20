@@ -37,9 +37,14 @@ test("organization bulk lifecycle keeps selection/version contract and safe canc
 test("Partner E2E confirms every moderation action with shared in-page dialogs", () => {
   const e2e = read("tests/e2e/partner-auth.spec.ts");
   const admin = e2e.slice(e2e.indexOf('test("internal admin Partner overview'), e2e.indexOf('for (const token of [', e2e.indexOf('test("internal admin Partner overview')));
-  for (const label of ["Vytvoriť nový profil?", "Prepojiť tento profil?", "Overiť správcu profilu?", "Schváliť správu záznamu?"]) {
+  for (const label of ["Schváliť a publikovať profil?", "Overiť správcu profilu?", "Schváliť správu záznamu?"]) {
     assert.ok(admin.includes('getByRole("dialog",{name:"' + label + '"})'), label);
   }
+  // A new canonical draft cannot be linked to an unrelated existing profile.
+  // Legacy no-subject-id proposals retain a separately confirmed link action.
+  assert.match(admin, /getByRole\("button",\{name:"Prepojiť tento profil"\}\)\.toHaveCount\(0\)/);
+  assert.match(read("components/admin-partner-new-profile-actions.tsx"), /title="Prepojiť tento profil\?"/);
+  assert.match(read("app/admin/partners/submissions/[id]/page.tsx"), /submission\.active&&!submission\.subjectId/);
   assert.match(admin, /await createDialog\.getByRole\("button",\{name:"Zrušiť"\}\)\.click\(\)/);
   // The Partner Events editor now uses the same safe modal as other admin actions.
   // Confirm that neither event action still accepts a native browser confirmation.
