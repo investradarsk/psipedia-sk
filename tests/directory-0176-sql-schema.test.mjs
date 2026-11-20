@@ -63,7 +63,7 @@ test("scalar fields distinguish null, blank text and numeric zero; reject invali
     statement.run(1,"Počet","number",null,0,"2026-11-20","admin");
     statement.run(1,"Poznámka","null",null,null,"2026-11-20","admin");
     assert.deepEqual(db.prepare("SELECT value_kind FROM directory_profile_extra_fields ORDER BY field_key")
-      .all().map(x=>x.value_kind),["number","null","text"]);
+      .all().map(x=>x.value_kind),["null","number","text"]);
     assert.throws(()=>statement.run(1,"Zlé","text",null,null,"2026-11-20","admin"));
     assert.throws(()=>statement.run(1,"Zlé","number","9",9,"2026-11-20","admin"));
     assert.throws(()=>statement.run(1,"Zlé","boolean","true",null,"2026-11-20","admin"));
