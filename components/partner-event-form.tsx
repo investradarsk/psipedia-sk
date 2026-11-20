@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { partnerEventFields, type PartnerEventPatch } from "@/lib/partner-event-fields";
+import { partnerFieldOptionLabel } from "@/lib/partner-field-option-labels";
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
 
@@ -61,7 +62,7 @@ export function PartnerEventForm({mode,resourceId,baseRevision,initial,currentIm
         const wide=field.kind==="textarea";
         if(field.kind==="select")return <label className={`partner-field ${wide?"partner-field--wide":""}`} key={field.key}><span>{field.label}</span>
           <select value={value} required={"required" in field ? field.required : false} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={state==="success"}>
-            <option value="">Vyberte…</option>{(field.options??[]).map(option=><option value={option} key={option}>{option}</option>)}
+            <option value="">Vyberte…</option>{(field.options??[]).map(option=><option value={option} key={option}>{partnerFieldOptionLabel(option)}</option>)}
           </select></label>;
         if(field.kind==="textarea")return <label className="partner-field partner-field--wide" key={field.key}><span>{field.label}</span>
           <textarea rows={field.key==="description"?9:field.key==="excerpt"?4:6} value={value} required={"required" in field ? field.required : false} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={state==="success"}/></label>;
@@ -71,8 +72,8 @@ export function PartnerEventForm({mode,resourceId,baseRevision,initial,currentIm
       {mode==="edit"?<label className="partner-profile-check partner-field--wide"><input type="checkbox" checked={cancelled} onChange={e=>setCancelled(e.target.checked)} disabled={state==="success"}/><span>Podujatie je zrušené</span></label>:null}
     </div>
     <PartnerMediaField label={mode==="create"?"Hlavný obrázok podujatia":"Zmeniť obrázok"} directPublish={mode==="edit"} intent={mode==="create"?"PARTNER_EVENT_CREATE":"PARTNER_EVENT_UPDATE"} currentImageUrl={mode==="edit"?currentImageUrl:null} onChange={setMediaAssetId} disabled={state==="success"}/>
-    {duplicate.length?<section className="partner-duplicate-panel is-high" role="alert"><div><span className="eyebrow">Kontrola duplicít</span><h2>Podobné podujatie už môže na Psipedii existovať.</h2><p>Ak ide o to isté podujatie, administrátor môže návrh prepojiť s existujúcim záznamom. Nevznikne automatický claim.</p></div><div className="partner-duplicate-list">{duplicate.slice(0,5).map(item=><article key={item.id}><div><strong>{item.title}</strong><span>{item.startDate} · {item.city}</span></div><p>{item.reasons.join(" · ")}</p></article>)}</div><strong>Ak ste údaje skontrolovali, odošlite formulár ešte raz.</strong></section>:null}
-    <div className="partner-profile-edit-submit"><div><strong>{mode==="create"?"Nový záznam podlieha schváleniu.":"Priame uloženie schváleného správcu."}</strong><p>{mode==="create"?"Po schválení administrátorom vznikne podujatie ako koncept. Publikovanie je samostatný redakčný krok.":"Zmenené verejné údaje sa uložia do existujúceho podujatia. SEO a stav publikovania zostávajú chránené."}</p></div>
+    {duplicate.length?<section className="partner-duplicate-panel is-high" role="alert"><div><span className="eyebrow">Kontrola duplicít</span><h2>Podobné podujatie už môže na Psipedii existovať.</h2><p>Ak ide o to isté podujatie, administrátor môže návrh prepojiť s existujúcim záznamom. Správa existujúceho podujatia sa tým automaticky nepridelí.</p></div><div className="partner-duplicate-list">{duplicate.slice(0,5).map(item=><article key={item.id}><div><strong>{item.title}</strong><span>{item.startDate} · {item.city}</span></div><p>{item.reasons.join(" · ")}</p></article>)}</div><strong>Ak ste údaje skontrolovali, odošlite formulár ešte raz.</strong></section>:null}
+    <div className="partner-profile-edit-submit"><div><strong>{mode==="create"?"Nové podujatie pred zverejnením skontrolujeme.":"Uložiť úpravy podujatia"}</strong><p>{mode==="create"?"Po odoslaní návrh skontrolujeme a rozhodneme o zverejnení.":"Upravené údaje sa po uložení zobrazia na stránke podujatia."}</p></div>
       <button className="button button--dark" type="submit" disabled={state==="sending"||state==="success"}>{state==="sending"?"Odosielam…":mode==="create"&&confirmDuplicate?"Potvrdiť a odoslať na kontrolu":mode==="create"?"Odoslať na kontrolu":"Uložiť zmeny"}</button>
     </div>
     {message?<p className={`partner-form-message ${state==="success"?"is-success":"is-error"}`} role="status">{message}{state==="success"?<> <Link href={mode==="create"?"/partner/ziadosti":"/partner/podujatia"}>{mode==="create"?"Zobraziť žiadosti →":"Moje podujatia →"}</Link></>:null}</p>:null}

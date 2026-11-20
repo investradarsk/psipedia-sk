@@ -20,7 +20,7 @@ export default async function Page({ params }: { params: Promise<{ resourceId: s
   return (
     <PartnerShell
       title="Upraviť údaje"
-      description="Schválený správca môže priamo upravovať verejné údaje profilu. Zápis kontroluje oprávnenia aj aktuálnu verziu."
+      description="Upravte informácie a fotografie svojho profilu a zmeny uložte."
     >
       <section className="partner-profile-editor">
         <div className="partner-section-heading">

@@ -56,7 +56,12 @@ export function selectVisualReviewRoutes(changedFiles, body = "") {
         break;
       }
     }
-    // Don't leave an unfamiliar visual screen silently unreviewed.
+    // Authenticated Partner screens are covered by the dedicated Partner E2E
+    // desktop/mobile workflow. The anonymous public screenshot harness cannot
+    // open these screens, so selecting "/" would capture an unrelated page
+    // and run unrelated public template baseline tests.
+    if (/^app\/partner\/|^components\/partner[-/]/.test(file)) continue;
+    // Don't leave an unfamiliar public visual screen silently unreviewed.
     if (/^app\/.*\.(tsx|jsx|css)$/.test(file) || /^components\/.*\.(tsx|jsx|css)$/.test(file)) {
       if (![...routeRules].some(([pattern]) => pattern.test(file)) && !globalChange) selected.add(file.startsWith("app/admin/") || file.startsWith("components/admin") ? "/admin" : "/");
     }

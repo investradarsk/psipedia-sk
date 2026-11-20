@@ -15,6 +15,12 @@ test("UI edits select a small, real set of affected pages without a PR marker", 
   assert.deepEqual(selectVisualReviewRoutes(["app/page.tsx", "components/event-calendar.tsx"]).routes,
     ["/", "/podujatia"]);
   assert.deepEqual(selectVisualReviewRoutes(["components/admin-shell.module.css", "app/admin/page.tsx"]).routes, ["/admin"]);
+  assert.deepEqual(selectVisualReviewRoutes(["app/partner/page.tsx", "components/partner-private-chat.tsx", "components/partner-private-chat.module.css"]).routes, [],
+    "authenticated Partner-only screens must use dedicated Partner E2E, not anonymous public screenshots");
+  assert.deepEqual(selectVisualReviewRoutes(["components/partner-private-chat.tsx", "app/podujatia/page.tsx"]).routes, ["/podujatia"],
+    "mixed Partner and public changes still capture the changed public route");
+  assert.deepEqual(selectVisualReviewRoutes(["app/partner/partner.css", "components/site-header.tsx"]).routes, ["/"],
+    "shared public UI changes continue to request visual evidence");
   assert.deepEqual(selectVisualReviewRoutes(["app/pomoc-psom/page.tsx"]).routes, ["/pomoc-psom"]);
   assert.deepEqual(selectVisualReviewRoutes(["app/design-system.css"]).routes, GLOBAL_ROUTES);
   assert.equal(MAX_VISUAL_ROUTES, 4);

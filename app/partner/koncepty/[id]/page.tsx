@@ -14,8 +14,8 @@ export default async function Page({params}:{params:Promise<{id:string}>}){
   let draft;
   try{draft=await getPartnerCanonicalDraft({accountId:identity.accountId,id});}
   catch(error){if(error instanceof PartnerCanonicalWorkflowError&&error.status===404)notFound();throw error;}
-  return <PartnerShell title="Upraviť partnerský koncept"
-    description="Zmeny môžete uložiť aj počas čakania na prvé schválenie. Publikovanie zostáva v rukách administrátora.">
+  return <PartnerShell title="Upraviť návrh"
+    description="Návrh môžete dopĺňať aj počas kontroly. Na stránke sa zobrazí až po schválení.">
     <p><Link href="/partner/ziadosti">← Moje žiadosti</Link></p>
     <PartnerCanonicalDraftForm categories={directoryCategories.map(({slug,label})=>({slug,label}))} definitions={getPartnerCanonicalFormFields()}
       initial={{id:draft.id,resourceType:draft.resourceType,status:draft.status,

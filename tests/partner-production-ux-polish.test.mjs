@@ -109,11 +109,11 @@ test("Partner event creation redirects to shared editor with accurate private-dr
   assert.match(newEventPage, /redirect\("\/partner\/koncepty\/novy\?typ=MANAGED_EVENT"\)/);
   assert.match(canonicalNewPage, /PartnerCanonicalDraftForm/);
   assert.match(canonicalNewPage, /Uložte si neverejný koncept alebo ho odošlite na prvé schválenie/);
-  assert.match(canonicalForm, /Kým záznam neodošlete a administrátor ho neschváli, nie je verejný/);
+  assert.match(canonicalForm, /Koncept zostane súkromný a na stránke sa zobrazí až po schválení/);
   assert.match(canonicalForm, /Fotografie a galériu môžete nahrať po prvom uložení konceptu/);
   assert.doesNotMatch(newEventPage, /canonical|admin flow/i);
   assert.doesNotMatch(editEventPage, /canonical|admin flow|\bslug\b/i);
-  assert.match(editEventPage, /Webová adresa a stav zverejnenia/);
+  assert.match(editEventPage, /Ak sa podujatie medzitým zmenilo/);
 });
 
 test("password controls are accessible and preserve password-manager semantics", () => {
@@ -225,4 +225,57 @@ test("Slovakia location selector is dependent, searchable and keyboard/screen-re
   assert.match(newProfileForm, /Kraj \/ región/);
   assert.match(partnerCss, /\.partner-location-selector\s*\{[^}]*grid-column:\s*1\s*\/\s*-1\s*;[^}]*display:\s*grid\s*;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/);
   assert.match(partnerCss, /@media\s*\(max-width:\s*760px\)\s*\{\s*\.partner-location-selector\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*;/);
+});
+
+test("Partner forms hide development vocabulary and translate stored choice codes", async () => {
+  const optionLabels = await read("lib/partner-field-option-labels.ts");
+  for (const [raw, human] of [
+    ['UNKNOWN', 'Neviem'],
+    ['LOST', 'Stratený pes'],
+    ['FOUND', 'Nájdený pes'],
+    ['UP_TO_DATE', 'Aktuálne'],
+    ['ambulance', 'Ambulancia'],
+    ['docasna-opatera', 'Dočasná opatera'],
+  ]) {
+    assert.ok(optionLabels.includes(raw + ':"' + human + '"') || optionLabels.includes('"' + raw + '":"' + human + '"'), raw + " is not translated");
+  }
+  const editing = await Promise.all([
+    "components/partner-profile-edit-form.tsx",
+    "components/partner-help-public-editor-form.tsx",
+    "components/partner-event-form.tsx",
+    "app/partner/podujatia/[resourceId]/upravit/page.tsx",
+    "app/partner/pomoc/[resourceId]/upravit/page.tsx",
+  ].map(read));
+  for (const source of [canonicalForm, ...editing]) {
+    assert.doesNotMatch(source, /SEO a interné polia|SEO a stav publikovania|Interné a SEO polia|Nevznikne automatický claim/i);
+  }
+  assert.match(canonicalForm, /partnerFieldOptionLabel\(x\)/);
+  assert.match(editing[0], /partnerFieldOptionLabel\(option\)/);
+  assert.match(editing[1], /partnerFieldOptionLabel\(option\)/);
+  assert.match(editing[2], /partnerFieldOptionLabel\(option\)/);
+  assert.match(partnerHome, /resourceTypeLabel\(draft.resourceType\)/);
+  assert.doesNotMatch(partnerHome, /draft.resourceType.replaceAll/);
+  assert.doesNotMatch(requestsPage, /item.resourceType.replaceAll/);
+});
+
+test("Partner authenticated workspace is compact and uses the public design system", async () => {
+  assert.match(partnerShell, /className="partner-shell partner-shell--workspace"/);
+  assert.match(partnerCss, /\.partner-shell--workspace\s*\{/);
+  for (const token of ["var(--ink)", "var(--forest)", "var(--line)", "var(--paper)", "var(--sage-light)"]) {
+    assert.ok(partnerCss.includes(token), "missing public brand token: "+token);
+  }
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-page-heading h1\s*\{[\s\S]*?clamp\(1\.55rem,\s*2\.6vw,\s*2\.1rem\)/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-dashboard-welcome-aside\s*\{\s*display:\s*none;/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-profile-edit-form\s*\{[\s\S]*?gap:\s*14px;/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-dashboard-header nav\s*\{[\s\S]*?scrollbar-width:\s*thin;/);
+  assert.match(partnerCss, /@media \(max-width: 640px\) \{[\s\S]*?\.partner-shell--workspace \.partner-dashboard-header nav a,[\s\S]*?min-height:\s*44px;/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-canonical-categories-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,minmax\(0,1fr\)\)/);
+  // Do not accidentally shrink controls on unauthenticated signup/login pages.
+  assert.doesNotMatch(partnerShell, /<main[^>]*partner-shell--centered/);
+  const chat = await read("components/partner-private-chat.tsx");
+  const chatCss = await read("components/partner-private-chat.module.css");
+  assert.match(chat, /styles.partnerChat/);
+  assert.match(chatCss, /\.partnerChat \.timeline/);
+  assert.match(chatCss, /max-height:390px/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-field select,[\s\S]*?min-height: 44px;/);
 });
