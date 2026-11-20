@@ -2,6 +2,11 @@ import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror";
+import {
+  directoryServicesSqlExpression,
+  directoryImageSqlExpression,
+  readDirectoryPresentationSql,
+} from "./directory-presentation-sql-read";
 import { readDirectory0170EditorialFields } from "./directory-0170-editorial-read";
 import { readDirectory0173EditorialSql } from "./directory-0173-editorial-sql-read";
 import { env } from "cloudflare:workers";
@@ -578,22 +583,27 @@ function directorySearchText(input: {
 }
 
 const DIRECTORY_PROFILE_COLUMNS = `
-  id, slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  id, slug, name, category, status, excerpt, description,
+  ${directoryServicesSqlExpression()} AS services_json, qualifications_json,
   city, district, region, address, online, price_note, website_url,
   public_phone, public_email, facebook_url, instagram_url, internal_email, image_url,
-  image_key, thumbnail_display_json, detail_display_json, import_key,
+  image_key,
+  ${directoryImageSqlExpression("thumbnail")} AS thumbnail_display_json,
+  ${directoryImageSqlExpression("detail")} AS detail_display_json, import_key,
   json_object('_psipedia_additional_categories', ${directoryAdditionalCategoryJsonSql()}) AS source_data_json,
   search_text, verified, featured, seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
 const DIRECTORY_CARD_COLUMNS = `
-  id, slug, name, category, status, excerpt, '' AS description, services_json,
+  id, slug, name, category, status, excerpt, '' AS description,
+  ${directoryServicesSqlExpression()} AS services_json,
   '[]' AS qualifications_json, city, district, region, '' AS address, online,
   price_note, website_url,
   NULL AS public_phone, NULL AS public_email, NULL AS facebook_url, NULL AS instagram_url,
   NULL AS internal_email, image_url, NULL AS image_key,
-  thumbnail_display_json, detail_display_json,
+  ${directoryImageSqlExpression("thumbnail")} AS thumbnail_display_json,
+  ${directoryImageSqlExpression("detail")} AS detail_display_json,
   import_key,
   CASE WHEN category = 'chovatelske-stanice' AND json_valid(source_data_json)
     THEN COALESCE(
@@ -789,7 +799,10 @@ async function withDirectory0173SqlPublic(
   db: D1Database,
   profile: PublicDirectoryProfile,
 ): Promise<PublicDirectoryProfile> {
-  const sql=await readDirectory0173EditorialSql(db,profile.id);
+  const [sql,presentation]=await Promise.all([
+    readDirectory0173EditorialSql(db,profile.id),
+    readDirectoryPresentationSql(db,profile.id),
+  ]);
   const qualifications=sql.qualifications
     ? directoryQualificationSections(sql.qualifications) : null;
   const importData={
@@ -798,6 +811,9 @@ async function withDirectory0173SqlPublic(
   };
   return {
     ...profile,importData,
+    services:presentation.services,
+    thumbnailImageDisplay:presentation.thumbnailImageDisplay,
+    detailImageDisplay:presentation.detailImageDisplay,
     // A confirmed SQL membership (even []) supersedes stale JSON. Notion's
     // one-time import confirmed secondary categories for eligible profiles.
     ...(sql.sqlCategoriesConfirmed?{
@@ -815,7 +831,10 @@ async function withDirectory0173SqlManaged(
   db:D1Database,
   profile:ManagedDirectoryProfile,
 ):Promise<ManagedDirectoryProfile> {
-  const sql=await readDirectory0173EditorialSql(db,profile.id);
+  const [sql,presentation]=await Promise.all([
+    readDirectory0173EditorialSql(db,profile.id),
+    readDirectoryPresentationSql(db,profile.id),
+  ]);
   const qualityMetadata={...profile.qualityMetadata};
   for(const entry of sql.quality){
     qualityMetadata[entry.field]={status:entry.status,checkedAt:entry.checkedAt};
@@ -826,6 +845,9 @@ async function withDirectory0173SqlManaged(
   const reviewedAt=sqlReviewedAt||profile.reviewedAt;
   return {
     ...profile,
+    services:presentation.services,
+    thumbnailImageDisplay:presentation.thumbnailImageDisplay,
+    detailImageDisplay:presentation.detailImageDisplay,
     importData:{
       ...(profile.importData??{}),
       ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
@@ -1928,7 +1950,9 @@ export async function listManagedDirectoryProfileSummaries(
   const listStatement = database
     .prepare(
       `
-    SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at
+    SELECT id, slug, name, category, status,
+      ${directoryServicesSqlExpression()} AS services_json,
+      city, district, region, image_url, verified, featured, updated_at
     FROM directory_profiles
     ${where}
     ORDER BY updated_at DESC, id DESC
