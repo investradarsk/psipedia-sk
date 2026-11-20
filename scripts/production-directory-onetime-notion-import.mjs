@@ -3,6 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { notionId, planNotionDirectoryImport } from "../lib/directory-notion-onetime-import.mjs";
 
 const MODE=process.argv[2]??"";
@@ -18,7 +19,7 @@ const fail=code=>{throw Error("NOTION_D1_IMPORT_"+code);};
 const must=(ok,code)=>{if(!ok)fail(code);};
 const counts={notion:0,linked:0,withoutId:0,d1:0,eligible:0,imported:0,
   skipped:{},writtenFields:{},samples:{}};
-let stage="START",bookmarked=false;
+let stage="START",bookmarked=false,recoveryBookmarkValue=null;
 const mark=(reason,id)=>{
   counts.skipped[reason]=(counts.skipped[reason]??0)+1;
   const ids=counts.samples[reason]??=[];
@@ -29,7 +30,8 @@ function report(status,more={}){
   stage=status;mkdirSync(WORK,{recursive:true});
   const data={phase:"DIRECTORY_NOTION_ONE_TIME_SQL",mode:MODE,status,readOnly:MODE==="audit",
     notionUnchanged:true,legacyJsonNotEditorialSource:true,deleteOldJson:false,
-    bookmarkCreated:bookmarked,counts,sourceCommit:process.env.GITHUB_SHA,...more};
+    bookmarkCreated:bookmarked,recoveryBookmark:recoveryBookmarkValue,
+    counts,sourceCommit:process.env.GITHUB_SHA,...more};
   writeFileSync(resolve(WORK,"report.json"),JSON.stringify(data,null,2)+"\n");
   console.log(JSON.stringify({phase:data.phase,mode:MODE,status,counts,bookmarkCreated:bookmarked}));
 }
@@ -116,7 +118,7 @@ async function scanNotion(){
   must(pages.length>0&&pages.length<10000,"NOTION_COUNT");
   return pages;
 }
-const PROFILE_SQL=[
+export const PROFILE_SQL=[
   "SELECT p.id,p.category,p.slug,p.status,p.updated_at,p.name,p.excerpt,p.description,",
   "p.region,p.district,p.city,p.address,p.postal_code,p.street,p.house_number,p.price_note,",
   "p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,p.internal_email,p.image_url,",
@@ -133,7 +135,11 @@ const PROFILE_SQL=[
   "CASE WHEN EXISTS(SELECT 1 FROM geo_points g WHERE g.directory_profile_id=p.id",
   "AND g.google_place_id IS NOT NULL AND g.google_place_source_fingerprint=g.source_fingerprint",
   "AND g.source_fingerprint IS NOT NULL) THEN 1 ELSE 0 END AS confirmed_google,",
-  "0 AS tombstone",
+  "CASE WHEN EXISTS(SELECT 1 FROM admin_record_tombstones tomb",
+  "WHERE tomb.kind='directory' AND (tomb.record_id=p.id OR tomb.record_slug=p.slug",
+  "OR (tomb.notion_page_id IS NOT NULL AND",
+  "REPLACE(LOWER(tomb.notion_page_id),'-','')=REPLACE(LOWER(m.notion_page_id),'-',''))))",
+  "THEN 1 ELSE 0 END AS tombstone",
   "FROM directory_profiles p LEFT JOIN directory_notion_sync m ON m.directory_profile_id=p.id",
   "WHERE p.id>? ORDER BY p.id LIMIT 200",
 ].join(" ");
@@ -159,7 +165,7 @@ async function schema(){
     "directory_profile_filter_values","directory_profile_qualifications",
     "directory_profile_opening_hours","directory_profile_seo",
     "directory_profile_quality_resolutions","directory_profile_review_state",
-    "partner_resources","partner_memberships"];
+    "partner_resources","partner_memberships","admin_record_tombstones"];
   const got=await select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+
     tables.map(()=>"?").join(",")+")",tables);
   must(got.length===tables.length,"MISSING_TABLES");
@@ -176,12 +182,17 @@ function recoveryBookmark(){
     env:{...process.env,WRANGLER_SEND_METRICS:"false",NO_UPDATE_NOTIFIER:"1"}});
   must(!result.error&&result.status===0,"TIME_TRAVEL_FAILED");
   let payload;try{payload=JSON.parse(result.stdout);}catch{fail("TIME_TRAVEL_JSON");}
-  const hasBookmark=x=>x&&typeof x==="object"&&(typeof x.bookmark==="string"&&x.bookmark||
-    Object.values(x).some(hasBookmark));
-  must(hasBookmark(payload),"NO_BOOKMARK");
+  const findBookmark=x=>{
+    if(!x||typeof x!=="object")return null;
+    if(typeof x.bookmark==="string"&&x.bookmark)return x.bookmark;
+    for(const v of Object.values(x)){const found=findBookmark(v);if(found)return found;}
+    return null;
+  };
+  recoveryBookmarkValue=findBookmark(payload);
+  must(Boolean(recoveryBookmarkValue),"NO_BOOKMARK");
   bookmarked=true;
 }
-function buildBatch(p){
+export function buildBatch(p){
   const now=new Date().toISOString(),id=p.id;
   const cells=Object.entries(p.fields);
   const sets=cells.map(([column])=>column+"=?");
@@ -200,6 +211,12 @@ function buildBatch(p){
     "AND NOT EXISTS(SELECT 1 FROM partner_resources r JOIN partner_memberships pm ON pm.resource_id=r.id",
     "WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=directory_profiles.id",
     "AND pm.revoked_at IS NULL)",
+    "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones tomb",
+    "WHERE tomb.kind='directory' AND (tomb.record_id=directory_profiles.id",
+    "OR tomb.record_slug=directory_profiles.slug OR",
+    "(tomb.notion_page_id IS NOT NULL AND EXISTS(SELECT 1 FROM directory_notion_sync tm",
+    "WHERE tm.directory_profile_id=directory_profiles.id AND",
+    "REPLACE(LOWER(tm.notion_page_id),'-','')=REPLACE(LOWER(tomb.notion_page_id),'-','')))))",
     "AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.directory_profile_id=directory_profiles.id",
     "AND REPLACE(LOWER(m.notion_page_id),'-','')=?)",
   ].join(" ");
@@ -209,20 +226,25 @@ function buildBatch(p){
     stmt("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('BAD_CAS','$.invalid') END AS verified"),
   ];
   if(p.secondary!==null){
-    statements.push(stmt("DELETE FROM directory_profile_additional_categories WHERE profile_id=?",[id]));
+    // Non-destructive first: add/update wanted memberships before removing stale
+    // SQL-only memberships. In a non-atomic partial execution, no existing
+    // membership disappears before all the Notion membership rows are staged.
     for(const name of p.secondary)statements.push(stmt(
-      "INSERT INTO directory_profile_additional_categories(profile_id,category,updated_at,updated_by) VALUES(?,?,?,?)",
+      "INSERT INTO directory_profile_additional_categories(profile_id,category,updated_at,updated_by) VALUES(?,?,?,?) "+
+      "ON CONFLICT(profile_id,category) DO UPDATE SET updated_at=excluded.updated_at,updated_by=excluded.updated_by",
       [id,name,now,ACTOR]));
   }
   if(p.qualifications?.length){
-    statements.push(stmt("DELETE FROM directory_profile_qualifications WHERE profile_id=?",[id]));
     for(const [position,value] of p.qualifications.entries())statements.push(stmt(
-      "INSERT INTO directory_profile_qualifications(profile_id,item_order,qualification_text,updated_at,updated_by) VALUES(?,?,?,?,?)",
+      "INSERT INTO directory_profile_qualifications(profile_id,item_order,qualification_text,updated_at,updated_by) VALUES(?,?,?,?,?) "+
+      "ON CONFLICT(profile_id,item_order) DO UPDATE SET qualification_text=excluded.qualification_text,"+
+      "updated_at=excluded.updated_at,updated_by=excluded.updated_by",
       [id,position,value,now,ACTOR]));
   }
   if(p.hoursText){
-    statements.push(stmt("DELETE FROM directory_profile_opening_hours WHERE profile_id=? AND day_of_week=0",[id]));
-    statements.push(stmt("INSERT INTO directory_profile_opening_hours(profile_id,day_of_week,hours_text,updated_at,updated_by) VALUES(?,0,?,?,?)",
+    statements.push(stmt("INSERT INTO directory_profile_opening_hours(profile_id,day_of_week,hours_text,updated_at,updated_by) VALUES(?,0,?,?,?) "+
+      "ON CONFLICT(profile_id,day_of_week) DO UPDATE SET hours_text=excluded.hours_text,"+
+      "updated_at=excluded.updated_at,updated_by=excluded.updated_by",
       [id,p.hoursText,now,ACTOR]));
   }
   if(Object.keys(p.seo).length||p.noindex!==null){
@@ -249,6 +271,18 @@ function buildBatch(p){
     "INSERT INTO directory_profile_quality_resolutions(profile_id,quality_field,resolution_status,checked_at,updated_at,updated_by) VALUES(?,?,?,?,?,?) "+
     "ON CONFLICT(profile_id,quality_field) DO UPDATE SET resolution_status=excluded.resolution_status,checked_at=excluded.checked_at,updated_at=excluded.updated_at,updated_by=excluded.updated_by",
     [id,q.field,q.status,q.checkedAt,now,ACTOR]));
+  // Prune only AFTER all additive statements. Every stale SQL category is
+  // removed ONLY when Notion has an explicitly present multi-select; an absent
+  // property never clears a relation. No wholesale delete before inserts.
+  if(p.secondary!==null){
+    const except=p.secondary.length?" AND category NOT IN ("+
+      p.secondary.map(()=>"?").join(",")+")":"";
+    statements.push(stmt("DELETE FROM directory_profile_additional_categories WHERE profile_id=?"+except,
+      [id,...p.secondary]));
+  }
+  if(p.qualifications?.length)statements.push(stmt(
+    "DELETE FROM directory_profile_qualifications WHERE profile_id=? AND item_order>=?",
+    [id,p.qualifications.length]));
   return statements;
 }
 async function run(){
@@ -302,7 +336,7 @@ async function run(){
   report("POSTFLIGHT",{needsFinalSqlReadCutover:true,
     note:"No Notion write and no legacy JSON content source; unresolved protected profiles preserved"});
 }
-run().catch(error=>{
+if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) run().catch(error=>{
   const code=error instanceof Error&&/^NOTION_D1_IMPORT_[A-Z_]+$/.test(error.message)
     ?error.message:"NOTION_D1_IMPORT_FAILED";
   if(stage!=="FAILED_PARTIAL")report("FAILED",{error:code});

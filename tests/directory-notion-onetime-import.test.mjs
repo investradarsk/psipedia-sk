@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+import { PROFILE_SQL, buildBatch } from "../scripts/production-directory-onetime-notion-import.mjs";
 import { planNotionDirectoryImport, notionId, notionText } from "../lib/directory-notion-onetime-import.mjs";
 const SOURCE="84e0664c-ca47-405f-9d54-31b20287bc8c";
 const pageId="a1111111-2222-3333-4444-555555555555";
@@ -44,10 +46,12 @@ test("source identity must match actual D1 and canonical notion mapping",()=>{
   assert.equal(planNotionDirectoryImport(page(),row({status:"archived"}),SOURCE).reason,"archived");
 });
 test("reviewed, pending unlock, partner and Notion checkbox stay protected",()=>{
-  for(const key of ["partner_active","sql_review_locked","legacy_review_locked","tombstone"]){
+  for(const key of ["partner_active","sql_review_locked","legacy_review_locked"]){
     assert.equal(planNotionDirectoryImport(page(),row({[key]:1}),SOURCE).reason,
       "protected_owner_or_review",key);
   }
+  assert.equal(planNotionDirectoryImport(page(),row({tombstone:1}),SOURCE).reason,
+    "tombstoned");
   assert.equal(planNotionDirectoryImport(page({"Odkontrolované":checked(true)}),row(),SOURCE)
     .reason,"protected_owner_or_review");
   assert.equal(planNotionDirectoryImport(page({"Odkontrolované":undefined}),row(),SOURCE)
@@ -133,4 +137,69 @@ test("source importer is owner-only, never patches Notion, never deletes profile
   assert.match(wf,/secrets.CLOUDFLARE_D1_API_TOKEN/);
   assert.match(wf,/secrets.GEMINI_AGENT_NOTION_TOKEN/);
   assert.match(wf,/mode:\s*\n\s*description:[^\n]*\n\s*type:\s*choice/);
+});
+
+
+function minimalImportD1() {
+  const db=new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY,category TEXT,slug TEXT,status TEXT,updated_at TEXT,updated_by TEXT,source_data_json TEXT,name TEXT,excerpt TEXT,description TEXT,region TEXT,district TEXT,city TEXT,address TEXT,postal_code TEXT,street TEXT,house_number TEXT,price_note TEXT,website_url TEXT,public_phone TEXT,public_email TEXT,facebook_url TEXT,instagram_url TEXT,internal_email TEXT,image_url TEXT)");
+  db.exec("CREATE TABLE directory_notion_sync(directory_profile_id INTEGER, notion_page_id TEXT)");
+  db.exec("CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER,record_slug TEXT,notion_page_id TEXT)");
+  db.exec("CREATE TABLE directory_profile_review_state(profile_id INTEGER,reviewed_at TEXT,unlock_pending INTEGER)");
+  db.exec("CREATE TABLE partner_resources(id TEXT,entity_type TEXT,directory_profile_id INTEGER)");
+  db.exec("CREATE TABLE partner_memberships(resource_id TEXT,revoked_at TEXT)");
+  db.exec("CREATE TABLE geo_points(directory_profile_id INTEGER,google_place_id TEXT,google_place_source_fingerprint TEXT,source_fingerprint TEXT)");
+  db.exec("INSERT INTO directory_profiles(id,category,slug,status,updated_at,source_data_json,name) VALUES(1810,'veterinari','vet-sk','published','2026-11-20T03:00:00Z','{}','Old Vet')");
+  db.prepare("INSERT INTO directory_notion_sync(directory_profile_id,notion_page_id) VALUES(?,?)").run(1810,pageId);
+  return db;
+}
+test("production inventory SQL observes record-ID, slug, and Notion-page tombstones independently",()=>{
+  for(const which of ["record_id","record_slug","notion_page_id"]){
+    const db=minimalImportD1();
+    assert.equal(db.prepare(PROFILE_SQL).get(0).tombstone,0);
+    db.prepare("INSERT INTO admin_record_tombstones(kind,record_id,record_slug,notion_page_id) VALUES('directory',?,?,?)")
+      .run(which==="record_id"?1810:999,which==="record_slug"?"vet-sk":"deleted-test",
+        which==="notion_page_id"?pageId:null);
+    assert.equal(db.prepare(PROFILE_SQL).get(0).tombstone,1,which);
+    db.close();
+  }
+});
+test("D1 write CAS rejects deleted/pending-delete IDs or slugs, not only preflight inventory",()=>{
+  const plan=planNotionDirectoryImport(page(),row(),SOURCE);
+  const batch=buildBatch(plan);
+  assert.equal(batch.length>1,true);
+  for(const which of ["record_id","record_slug","notion_page_id"]){
+    const db=minimalImportD1();
+    db.prepare("INSERT INTO admin_record_tombstones(kind,record_id,record_slug,notion_page_id) VALUES('directory',?,?,?)")
+      .run(which==="record_id"?1810:999,which==="record_slug"?"vet-sk":"other",
+        which==="notion_page_id"?pageId:null);
+    assert.equal(db.prepare(batch[0].sql).all(...batch[0].params).length,0,which);
+    assert.throws(()=>db.prepare(batch[1].sql).get(),/malformed JSON/i);
+    assert.equal(db.prepare("SELECT name FROM directory_profiles WHERE id=1810").get().name,"Old Vet");
+    db.close();
+  }
+});
+test("one-time import keeps the D1 Time Travel bookmark in the restricted JSON artifact",()=>{
+  const src=readFileSync(new URL("../scripts/production-directory-onetime-notion-import.mjs",import.meta.url),"utf8");
+  assert.match(src,/recoveryBookmark:recoveryBookmarkValue/);
+  assert.match(src,/recoveryBookmarkValue=findBookmark\(payload\)/);
+  assert.doesNotMatch(src,/console\.log\([^\n]*recoveryBookmarkValue/);
+});
+test("one-time import upserts Notion SQL relations before pruning only stale rows",()=>{
+  const plan=planNotionDirectoryImport(page(),row(),SOURCE);
+  assert.equal(plan.ok,true);
+  const batch=buildBatch(plan);
+  const sql=batch.map(x=>x.sql);
+  const categoryUpsert=sql.findIndex(s=>s.includes("INSERT INTO directory_profile_additional_categories"));
+  const categoryPrune=sql.findIndex(s=>s.includes("DELETE FROM directory_profile_additional_categories"));
+  const qualificationsUpsert=sql.findIndex(s=>s.includes("INSERT INTO directory_profile_qualifications"));
+  const qualificationsPrune=sql.findIndex(s=>s.includes("DELETE FROM directory_profile_qualifications"));
+  assert(categoryUpsert>1);
+  assert(categoryPrune>categoryUpsert);
+  assert.match(sql[categoryPrune],/category NOT IN/);
+  assert(qualificationsUpsert>1);
+  assert(qualificationsPrune>qualificationsUpsert);
+  assert.match(sql[qualificationsPrune],/item_order>=/);
+  assert(sql.some(s=>s.includes("INSERT INTO directory_profile_opening_hours") && s.includes("ON CONFLICT")));
+  assert(!sql.some(s=>s.includes("DELETE FROM directory_profile_opening_hours")));
 });
