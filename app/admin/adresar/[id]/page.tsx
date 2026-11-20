@@ -133,7 +133,9 @@ export default async function EditDirectoryProfilePage({ params, searchParams }:
       <Link href={returnHref}>← Späť na adresár</Link>
       {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
     </>}>
-    <AdminPartnerCanonicalDraft resourceType="DIRECTORY_PROFILE" canonicalId={profile.id} /><AdminPartnerCanonicalAudit resourceType="DIRECTORY_PROFILE" canonicalId={profile.id} /><AdminGeminiOriginBadge agenda="directory" entityId={profile.id} />
+    <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="DIRECTORY_PROFILE" canonicalId={profile.id} /></Suspense>
+    <Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="DIRECTORY_PROFILE" canonicalId={profile.id} /></Suspense>
+    <AdminGeminiOriginBadge agenda="directory" entityId={profile.id} />
     <Suspense fallback={null}><DirectoryDuplicateWarning id={profile.id} /></Suspense>
     <Suspense fallback={null}>
       <AdminRecordViewStats entityType="DIRECTORY_PROFILE" entityId={profile.id} />
