@@ -279,3 +279,51 @@ test("Partner authenticated workspace is compact and uses the public design syst
   assert.match(chatCss, /max-height:390px/);
   assert.match(partnerCss, /\.partner-shell--workspace \.partner-field select,[\s\S]*?min-height: 44px;/);
 });
+
+test("Partner UX: live alphabetical claim suggestions, prominent CTAs and fixed navigation", async () => {
+  const claimPage=await read("app/partner/prevziat/page.tsx");
+  const claimSearch=await read("lib/partner-claim-search.ts");
+  const claimHelp=await read("lib/partner-help-claims.ts");
+  const claimApi=await read("app/api/partner/claim-search/route.ts");
+  const claimForm=await read("components/partner-claim-search-form.tsx");
+  const messagePage=await read("app/partner/spravy/page.tsx");
+  assert.match(claimPage, /<PartnerClaimSearchForm/);
+  assert.match(claimForm, /role="combobox"/);
+  assert.match(claimForm, /aria-autocomplete="list"/);
+  assert.match(claimForm, /ArrowDown/);
+  assert.match(claimForm, /router\.push\(items\[active\]\.claimHref\)/);
+  assert.match(claimForm, /setTimeout\(async\(\)=>/);
+  assert.match(claimApi, /requirePartnerAccount/);
+  assert.match(claimApi, /isPartnerClaimableResourceType/);
+  assert.match(claimApi, /suggest:true/);
+  assert.match(claimSearch, /query\.length < \(input\.suggest \? 1 : 2\)/);
+  assert.match(claimSearch, /ORDER BY name COLLATE NOCASE/);
+  assert.match(claimHelp, /suggest \? 1 : 2|suggest\?1:2/);
+  assert.match(partnerHome, />\+ Pridať profil<\/Link>/);
+  assert.match(partnerHome, /button button--coral/);
+  assert.match(partnerHome, /Požiadať o správu profilu/);
+  assert.match(partnerCss, /position:\s*sticky/);
+  assert.match(partnerCss, /partner-canonical-categories-grid label input\[type="checkbox"\]/);
+  assert.match(partnerCss, /flex:\s*0 0 18px/);
+  assert.match(messagePage, /Späť na prehľad/);
+});
+
+test("Partner chat: authorized typing presence and real read receipts", async () => {
+  const service=await read("lib/partner-chat.ts");
+  const presence=await read("lib/partner-chat-presence.ts");
+  const chat=await read("components/partner-private-chat.tsx");
+  const partnerTyping=await read("app/api/partner/chat/typing/route.ts");
+  const adminTyping=await read("app/api/admin/partners/chat/[accountId]/typing/route.ts");
+  assert.match(service, /partner_last_read_at partnerLastReadAt/);
+  assert.match(service, /admin_last_read_at adminLastReadAt/);
+  assert.match(chat, /lastOwnRead/);
+  assert.match(chat, /Prečítané/);
+  assert.match(chat, /píše…/);
+  assert.match(presence, /quarantine\/partner-chat-presence\//);
+  assert.match(presence, /FRESH_MS=12_000/);
+  assert.match(presence, /R2Bucket/);
+  assert.match(partnerTyping, /requirePartnerAccount/);
+  assert.match(partnerTyping, /assertPartnerJsonMutation/);
+  assert.match(adminTyping, /getAdminApiUser/);
+  assert.match(adminTyping, /requirePartnerAdminMutation/);
+});
