@@ -27,7 +27,9 @@ const factories =
   section(store, "function values(", "export async function createManagedBreed(") +
   "\n" +
   section(store, "const select =", "export async function listManagedBreedSummaries(") +
-  "\n" +
+  // The standalone VM simulates rollback (env has no SQL flag). Production
+  // derives readSelect from the active mode; bind that alias in this fixture.
+  "\nconst readSelect = select;\n" +
   section(
     store,
     "export function buildManagedBreedUpdateStatements(",
