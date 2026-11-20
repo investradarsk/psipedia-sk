@@ -7,6 +7,7 @@ import { publishSafeImage, type PrivateBucketLike } from "@/lib/private-media";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import { planDirectorySecondaryCategorySqlMirror } from "@/lib/directory-secondary-category-sql";
+import { planDirectory0173EditorialSqlMirror } from "@/lib/directory-0173-editorial-sql-mirror";
 import {
   approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror,
   planDirectory0170FilterSqlMirror, type Directory0170SqlStatement,
@@ -109,12 +110,29 @@ export async function savePartnerManagedProfile(input: {
           updatedAt:nowIso,actor:actorRef})]
       );
     }
-    if(plans.length){
-      // Each planner starts with the same SQLite changes() guard. Run it
-      // exactly once, IMMEDIATELY after the profile CAS, before any mirror.
-      const guard=plans[0][0];
+    const hoursEdited=Object.hasOwn(effectivePatch,"openingHours");
+    const galleryEdited=Object.hasOwn(effectivePatch,"galleryUrls");
+    // Only explicit partner edits project to 0173; omitted fields are never
+    // cleared. This includes gallery additions from newly approved media.
+    const editorialMirror=hoursEdited || galleryEdited
+      ?planDirectory0173EditorialSqlMirror({
+        identity:{kind:"id",profileId:canonical.canonicalId,
+          updatedAt:nowIso,actor:actorRef},
+        ...(hoursEdited?{openingHoursText:String(effectivePatch.openingHours??"")}:{}),
+        ...(galleryEdited?{galleryUrls:effectivePatch.galleryUrls as readonly string[]}:{}),
+      }):[];
+    if(plans.length || editorialMirror.length){
+      // Exactly one canonical CAS assertion, immediately after the profile
+      // UPDATE and before ALL 0170/0173 projections. An absent field never
+      // clears a relation, even if another writer changed it meanwhile.
+      const guard=plans.length?plans[0][0]:{
+        sql:"SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('CAS_CONFLICT', char(36)) END AS cas_ok",
+        bindings:[] as string[],
+      };
       statements.push(database.prepare(guard.sql).bind(...guard.bindings));
       for(const plan of plans)for(const item of plan.slice(1))
+        statements.push(database.prepare(item.sql).bind(...item.bindings));
+      for(const item of editorialMirror)
         statements.push(database.prepare(item.sql).bind(...item.bindings));
     }
   }
