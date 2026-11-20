@@ -27,6 +27,18 @@ CREATE INDEX directory_profile_extra_fields_key_idx
   ON directory_profile_extra_fields(field_key, profile_id);
 --> statement-breakpoint
 
+-- A list has its own row even when its selection is an explicit [].
+-- Without this receipt, a deliberate clear could be confused with a missing
+-- SQL migration and a newer Notion edit might incorrectly resurrect values.
+CREATE TABLE directory_profile_extra_list_state (
+  profile_id INTEGER NOT NULL REFERENCES directory_profiles(id) ON DELETE CASCADE,
+  field_key TEXT NOT NULL CHECK (length(field_key) BETWEEN 1 AND 200),
+  updated_at TEXT NOT NULL,
+  updated_by TEXT NOT NULL,
+  PRIMARY KEY (profile_id, field_key)
+);
+--> statement-breakpoint
+
 -- Historic array-valued metadata (e.g. legacy linked IDs) must not be
 -- stored as JSON strings in the scalar table after cutover. Ordered atomic
 -- text items live here until they can be mapped to existing canonical relations.
