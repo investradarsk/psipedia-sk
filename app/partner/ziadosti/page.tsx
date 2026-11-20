@@ -5,6 +5,7 @@ import { PartnerNewProfileWithdrawButton } from "@/components/partner-new-profil
 import { PartnerEventWithdrawButton } from "@/components/partner-event-actions";
 import { PartnerHelpWithdrawButton } from "@/components/partner-help-create-form";
 import { PartnerShell } from "@/components/partner-shell";
+import { listPartnerLifecycleRequests } from "@/lib/partner-lifecycle";
 import { getDirectoryCategory } from "@/lib/directory";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 import { listPartnerClaims, listPartnerVerificationResources } from "@/lib/partner-claims";
@@ -42,17 +43,43 @@ function profileCategoryLabel(resourceType: "DIRECTORY_PROFILE" | "HELP_ORGANIZA
 
 export default async function Page() {
   const identity = await requirePartnerPageIdentity();
-  const [claims, resources, profileChanges, newProfiles, eventSubmissions, helpSubmissions] = await Promise.all([
+  const [claims, resources, profileChanges, newProfiles, eventSubmissions, helpSubmissions, lifecycle] = await Promise.all([
     listPartnerClaims(identity.accountId),
     listPartnerVerificationResources(identity.accountId),
     listPartnerProfileChanges(identity.accountId),
     listPartnerNewProfiles(identity.accountId),
     listPartnerEventSubmissions(identity.accountId),
     listPartnerHelpCreateSubmissions(identity.accountId),
+    listPartnerLifecycleRequests({accountId:identity.accountId}),
   ]);
 
   return (
     <PartnerShell title="Žiadosti a overenia" description="Sledujte prevzatie existujúcich profilov a samostatný stav overenia správcu.">
+      {lifecycle.length>0&&<section className="partner-requests-section">
+        <div className="partner-section-heading">
+          <div><span className="eyebrow">Správa a viditeľnosť</span><h2>Moje administratívne žiadosti</h2></div>
+        </div>
+        <div className="partner-request-list">{lifecycle.map(item=>(
+          <article key={item.id}>
+            <div className="partner-request-title">
+              <div><span>{item.resourceType.replaceAll("_"," ")}</span>
+                <h3>{({
+                  REQUEST_HIDE:"Dočasne skryť profil",
+                  REQUEST_ARCHIVE:"Odstrániť profil (archivovať)",
+                  REQUEST_RELEASE:"Vzdať sa správy",
+                  REQUEST_DELETE_ACCOUNT:"Zrušiť účet",
+                } as Record<string,string>)[item.action]}</h3>
+              </div>
+              <strong>{({
+                SUBMITTED:"Čaká na rozhodnutie",PENDING_REVIEW:"Kontroluje sa",
+                APPROVED:"Schválené",REJECTED:"Zamietnuté",
+              } as Record<string,string>)[item.status]??item.status}</strong>
+            </div>
+            <p>Odoslané {new Date(item.createdAt).toLocaleString("sk-SK")}</p>
+            {item.reason&&<p>Dôvod: {item.reason}</p>}
+          </article>
+        ))}</div>
+      </section>}
       <section className="partner-requests-section">
         <div className="partner-section-heading">
           <div><span className="eyebrow">Prevzatie profilov</span><h2>Moje žiadosti</h2></div>
