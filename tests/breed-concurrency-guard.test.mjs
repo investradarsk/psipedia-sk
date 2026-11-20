@@ -186,6 +186,31 @@ function adapter() {
   return { sqlite, row, articleLinks, directoryLinks, write };
 }
 
+test("SQL-only full save excludes four obsolete object JSON columns and still includes canonical snapshot",()=>{
+  const sqlMode=vm.runInNewContext(
+    stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements,breedSqlOnlyInsertValues})"),
+    {JSON,Date,clean:value=>value,
+      env:{BREED_SQL_V2_WRITE_MODE:"sql"},
+      breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements},
+  );
+  const dummy={prepare(sql){return {sql,bind(...args){return {sql,args}}};}};
+  const input=payload();
+  const inserted=sqlMode.breedSqlOnlyInsertValues(input);
+  assert.equal(inserted.length,49);
+  assert.deepEqual([inserted[14],inserted[15],inserted[17],inserted[48]],["{}","{}","[]","{}"]);
+  assert.notEqual(input.editorial.overview,"");
+  const statements=sqlMode.buildManagedBreedUpdateStatements(dummy,1,input,"admin",stamp,later);
+  const first=statements[0];
+  for(const field of ["fci_standard_json","editorial_json","related_breeds_json","seo_json"])
+    assert.doesNotMatch(first.sql,new RegExp(field+"\\\\s*="));
+  for(const field of ["gallery_json","sports_json","health_risks_json","good_for_json","sources_json"])
+    assert.match(first.sql,new RegExp(field+"\\\\s*="));
+  assert.equal((first.sql.match(/\\?/g)||[]).length,first.args.length,"SQL placeholders align with filtered values");
+  assert.ok(statements.some(x=>x.sql?.includes("INSERT INTO breed_fci_standard")));
+  assert.ok(statements.some(x=>x.sql?.includes("INSERT INTO breed_editorial_text")));
+  assert.ok(statements.some(x=>x.sql?.includes("INSERT INTO breed_related_breeds")));
+});
+
 test("concurrent editor writes: first full update wins, stale save rolls back fields, FCI, gallery and links", async () => {
   const f = adapter();
   try {
