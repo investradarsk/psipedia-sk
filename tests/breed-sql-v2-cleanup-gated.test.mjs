@@ -22,7 +22,7 @@ test("breed audit uses real SQL SEO/FCI even if legacy JSON is stale or malforme
       image_url,fci_group,fci_section_number,fci_section,size,height,weight,lifespan,
       seo_json,editorial_json,fci_standard_json,related_breeds_json)
       VALUES (1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .run("labrador-retriever","published",122,"fci-122","/images/labrador.webp",8,"1","Retrievery",
+      .run("labrador-retriever","Labradorský retriever","published",122,"fci-122","/images/labrador.webp",8,"1","Retrievery",
         "Veľké","48–51 cm","20–23 kg","10–12 rokov",
         "{broken legacy JSON", "{broken legacy JSON", "{broken legacy JSON", "[]");
     db.prepare("UPDATE managed_breeds SET seo_title=?,seo_noindex=?,seo_canonical_url=? WHERE id=1")
