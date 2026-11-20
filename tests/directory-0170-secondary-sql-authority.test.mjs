@@ -174,7 +174,7 @@ test("Admin, Notion and creation paths all have atomic SQL authority receipts",(
   assert.match(store,/payload\.additionalCategories !== undefined,/);
   assert.match(store,/sqlCategoriesConfirmed/);
   assert.match(store,/planDirectorySecondaryCategoryCreateSqlMirror/);
-  assert.match(notion,/DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY/);
+  assert.doesNotMatch(notion,/DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY/);
   assert.match(notion,/planDirectorySecondaryCategorySqlMirror\(/);
   assert.match(notion,/const results = await input\.database\.batch\(\[/);
 });
