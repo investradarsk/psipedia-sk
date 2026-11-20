@@ -96,8 +96,11 @@ const CAS_GUARD_SQL="SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('PART
 const accountActor=(id:string)=>"partner:"+id;
 function database(input?:D1Database){return getPartnerDatabase(input??(env as unknown as {DB?:D1Database}).DB);}
 export class PartnerCanonicalWorkflowError extends Error {
-  constructor(message:string,readonly status=400,readonly code="PARTNER_CANONICAL_WORKFLOW_INVALID"){
+  readonly status:number;
+  readonly code:string;
+  constructor(message:string,status=400,code="PARTNER_CANONICAL_WORKFLOW_INVALID"){
     super(message);this.name="PartnerCanonicalWorkflowError";
+    this.status=status;this.code=code;
   }
 }
 function typeOf(raw:unknown):PartnerCanonicalType {
