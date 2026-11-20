@@ -78,4 +78,13 @@ test("legacy FCI importer cannot silently overwrite SQL-primary data", () => {
   const importCall = route.indexOf("const result = await importFciBreeds");
   assert.ok(preview > 0 && preview < gate && gate < importCall);
   assert.match(route.slice(gate,importCall), /status: 409/);
+  const local = route.slice(route.indexOf("const localFixtureImport"),gate);
+  assert.match(local, /PSIPEDIA_E2E_LOCAL_BOOTSTRAP === "1"/);
+  assert.match(local, /AUTH_MODE === "local-e2e-preview"/);
+  assert.match(local, /url\.protocol === "http:" && url\.hostname === "localhost" && url\.port === "5173"/);
+  assert.match(route.slice(gate,importCall), /!localFixtureImport/);
+  const vite = readFileSync(new URL("../vite.config.ts", import.meta.url),"utf8");
+  assert.match(vite,/isExplicitLocalE2eBootstrap[\s\S]*?PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"/);
+  const production = readFileSync(new URL("../wrangler.jsonc", import.meta.url),"utf8");
+  assert.doesNotMatch(production,/PSIPEDIA_E2E_LOCAL_BOOTSTRAP/);
 });
