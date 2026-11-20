@@ -1,3 +1,4 @@
+import { getPartnerCanonicalFormFields } from "@/lib/partner-canonical-form-fields";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PartnerCanonicalDraftForm } from "@/components/partner-canonical-draft-form";
@@ -16,7 +17,7 @@ export default async function Page({params}:{params:Promise<{id:string}>}){
   return <PartnerShell title="Upraviť partnerský koncept"
     description="Zmeny môžete uložiť aj počas čakania na prvé schválenie. Publikovanie zostáva v rukách administrátora.">
     <p><Link href="/partner/ziadosti">← Moje žiadosti</Link></p>
-    <PartnerCanonicalDraftForm categories={directoryCategories.map(({slug,label})=>({slug,label}))}
+    <PartnerCanonicalDraftForm categories={directoryCategories.map(({slug,label})=>({slug,label}))} definitions={getPartnerCanonicalFormFields()}
       initial={{id:draft.id,resourceType:draft.resourceType,status:draft.status,
         values:draft.values,baseUpdatedAt:String(draft.baseUpdatedAt),returnReason:draft.returnReason}} />
   </PartnerShell>;
