@@ -87,6 +87,80 @@ test("Directory one-sided explicit clears still require a trusted human delete r
     assert.equal(approved.merged.description,"");
   }
 });
+test("Directory never treats historical Notion/Admin priority as proof of which simultaneous edit was newer",()=>{
+  const baseline={name:"Vet",description:"Spoločný",city:"Nitra"};
+  const notion={...baseline,description:"Nová Notion hodnota"};
+  const psipedia={...baseline,description:"Nová Admin hodnota"};
+  for(const mode of ["safe","notion","admin","latest"]){
+    const result=reconcileProfileFields({
+      baseline,notion,psipedia,
+      protectedFields:new Set(),changedSideWins:true,
+      authorities:{description:mode},
+    });
+    assert.equal(result.kind,"CONFLICT",mode);
+    assert.deepEqual(result.conflicts,[{
+      field:"description",reason:"AMBIGUOUS_SAME_FIELD",
+    }]);
+    assert.equal(result.merged.description,"Nová Admin hodnota");
+  }
+});
+test("Directory never accepts unverified deletion, even from legacy preferred Admin side",()=>{
+  const baseline={description:"Pôvodný",publicPhone:"0900"};
+  const emptyAdmin={...baseline,description:""};
+  const emptyNotion={...baseline,publicPhone:""};
+  for(const {notion,psipedia,key,side} of [
+    {notion:baseline,psipedia:emptyAdmin,key:"description",side:"psipedia"},
+    {notion:emptyNotion,psipedia:baseline,key:"publicPhone",side:"notion"},
+  ]){
+    for(const mode of ["admin","notion","safe","latest"]){
+      const input={baseline,notion,psipedia,protectedFields:new Set(),
+        changedSideWins:true,authorities:{[key]:mode}};
+      const rejected=reconcileProfileFields(input);
+      assert.equal(rejected.kind,"CONFLICT",key+":"+mode);
+      assert.equal(rejected.conflicts[0].reason,"UNVERIFIED_DELETE");
+      const confirmed=reconcileProfileFields({
+        ...input,verifiedDeletes:new Set([side+":"+key]),
+      });
+      assert.equal(confirmed.kind,"MERGE",key+":"+mode);
+      assert.equal(confirmed.merged[key],"");
+      assert.equal(confirmed.merged[key==="description"?"publicPhone":"description"],
+        baseline[key==="description"?"publicPhone":"description"]);
+    }
+  }
+});
+test("Directory newest authenticated human event can win a two-sided field edit independently of old source priority",()=>{
+  const baseline={description:"Old",city:"Nitra"};
+  const notion={...baseline,description:"Changed in Notion"};
+  const psipedia={...baseline,description:"Changed in Admin"};
+  const trusted={
+    notion:{editId:"notion-field-11",observedAt:"2026-11-20T03:00:01.000Z",value:notion.description},
+    psipedia:{editId:"admin-field-11",observedAt:"2026-11-20T03:00:02.000Z",value:psipedia.description},
+  };
+  for(const mode of ["safe","notion","admin","latest"]){
+    const input={baseline,notion,psipedia,changedSideWins:true,
+      protectedFields:new Set(),authorities:{description:mode}};
+    const winner=reconcileProfileFields({...input,verifiedFieldEdits:{description:trusted}});
+    assert.equal(winner.kind,"MERGE",mode);
+    assert.equal(winner.merged.description,psipedia.description,mode);
+    const reversed=reconcileProfileFields({...input,verifiedFieldEdits:{
+      description:{...trusted,notion:{...trusted.notion,observedAt:"2026-11-20T03:00:03.000Z"}},
+    }});
+    assert.equal(reversed.kind,"MERGE");
+    assert.equal(reversed.merged.description,notion.description);
+  }
+});
+test("Directory equal concurrent edits converge, not a false conflict, across all legacy modes",()=>{
+  const baseline={name:"Vet",description:"Old"};
+  for(const mode of ["safe","notion","admin","latest"]){
+    const updated={...baseline,description:"Same"};
+    const resolution=reconcileProfileFields({
+      baseline,notion:updated,psipedia:updated,
+      protectedFields:new Set(),changedSideWins:true,authorities:{description:mode},
+    });
+    assert.equal(resolution.kind,"MERGE",mode);
+    assert.equal(resolution.merged.description,"Same");
+  }
+});
 test("Latest same-field revisions choose only value-matched, UTC-authenticated field receipts",()=>{
   const base={description:"Pôvodný",city:"Nitra"};
   const notion={...base,description:"Nový Notion"};

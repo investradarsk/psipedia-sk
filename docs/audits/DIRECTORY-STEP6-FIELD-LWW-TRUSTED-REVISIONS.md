@@ -10,6 +10,12 @@ Existujúci `reconcileProfileFields` podporuje historické módy `admin`, `notio
 - Chýbajúci či neplatný receipt, rovnaký čas, nesúlad hodnoty alebo pokus určiť poradie z globálneho `directory_profiles.updated_at` či `Notion.last_edited_time` **neautorizuje nič** – ostáva `AMBIGUOUS_SAME_FIELD`.
 - Chránené polia (identita, publikovanie, potvrdená Google Place adresa, `Odkontrolované`) ostávajú uzamknuté. Explicitný clear je stále odlíšený od absent a potrebuje overenú ľudskú akciu.
 
+## Doplnková ochrana proti historickej priorite
+- Pri `changedSideWins=true` (**len Adresár s overeným spoločným baseline**) sa aj pri **dvoch rôznych úpravách toho istého poľa** ignoruje stará voľba `admin` alebo `notion`; bez **dvoch dôveryhodných event receiptov** sa oznámi konflikt.
+- Povinná kontrola výslovného vymazania prebieha **pred** akýmkoľvek rozhodnutím podľa historického nastavenia priority. Prázdna hodnota bez potvrdenej ľudskej akcie sa nikdy neprevezme do D1 ani do Notionu.
+- Dve identické aktuálne hodnoty sa zhodnú bez potreby určiť poradie. Skutočne jednoznačná jednostranná zmena má stále prednosť.
+- Iné agendy bez `changedSideWins=true` používajú pôvodnú politiku; tento doplnok nezavádza neoverené celosystémové prepisovanie.
+
 ## Výslovné hranice
 - Tento PR **nepredstiera**, že už existujú overené per-field timestamps pre obidve strany. Zatiaľ nepridáva žiadne `verifiedFieldEdits` do bežného synchronizačného volania; len zavádza bezpečný vstup pre ich budúce využitie a opravuje vyššie uvedené reálne chyby jednostranných zmien.
 - Existujúci systém zatiaľ **nemá kompletný trvalý per-field human event ledger**. Bez takého dôkazu sa dvojstranné konflikty nebudú automaticky vyriešovať.
