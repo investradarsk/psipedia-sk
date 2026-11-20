@@ -10,6 +10,9 @@ import {
 function fixture(){
   const sqlite=new DatabaseSync(":memory:");
   sqlite.exec([
+    "CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,source_data_json TEXT NOT NULL)",
+    "CREATE TABLE directory_profile_additional_categories(profile_id INTEGER,category TEXT)",
+    "CREATE TABLE directory_profile_review_state(profile_id INTEGER,reviewed_at TEXT,reviewed_by TEXT,unlock_pending INTEGER)",
     "CREATE TABLE directory_profile_qualifications(profile_id INTEGER,item_order INTEGER,qualification_text TEXT)",
     "CREATE TABLE directory_profile_seo(profile_id INTEGER,title TEXT,description TEXT,focus_keyword TEXT,canonical_url TEXT,og_title TEXT,og_description TEXT,og_image_url TEXT,noindex INTEGER)",
     "CREATE TABLE directory_profile_opening_hours(profile_id INTEGER,day_of_week INTEGER,hours_text TEXT)",
@@ -80,4 +83,51 @@ test("invalid profile IDs are rejected before any D1 query",async()=>{
   const {d1}=fixture();
   await assert.rejects(readDirectory0173EditorialSql(d1,0),/INVALID_ID/);
   await assert.rejects(readDirectory0173EditorialSql(d1,-1),/INVALID_ID/);
+});
+
+test("explicit Notion-confirmed SQL categories override old JSON, including []",async()=>{
+  const {sqlite,d1}=fixture();
+  try{
+    const marker=JSON.stringify({_psipedia_additional_categories_sql_confirmed:"1"});
+    sqlite.prepare("INSERT INTO directory_profiles VALUES(?,?)").run(10,marker);
+    sqlite.prepare("INSERT INTO directory_profiles VALUES(?,?)").run(11,marker);
+    sqlite.prepare("INSERT INTO directory_profiles VALUES(?,?)").run(12,"{}");
+    sqlite.exec("INSERT INTO directory_profile_additional_categories VALUES(10,'treneri'),(10,'vencenie'),(12,'fyzioterapia')");
+    const full=await readDirectory0173EditorialSql(d1,10);
+    assert.equal(full.sqlCategoriesConfirmed,true);
+    assert.deepEqual(full.additionalCategories,["treneri","vencenie"]);
+    const empty=await readDirectory0173EditorialSql(d1,11);
+    assert.equal(empty.sqlCategoriesConfirmed,true);
+    assert.deepEqual(empty.additionalCategories,[],"confirmed Notion [] is authoritative");
+    const unconfirmed=await readDirectory0173EditorialSql(d1,12);
+    assert.equal(unconfirmed.sqlCategoriesConfirmed,false,
+      "unconfirmed SQL rows cannot override historical membership");
+    assert.deepEqual(unconfirmed.additionalCategories,["fyzioterapia"]);
+  }finally{sqlite.close()}
+});
+test("SQL review state is independently available to Admin",async()=>{
+  const {sqlite,d1}=fixture();
+  try{
+    sqlite.prepare("INSERT INTO directory_profiles VALUES(?,?)").run(17,"{}");
+    sqlite.prepare("INSERT INTO directory_profile_review_state VALUES(?,?,?,?)").run(
+      17,"2026-11-20T12:00:00Z","owner",0);
+    assert.deepEqual((await readDirectory0173EditorialSql(d1,17)).review,{
+      reviewedAt:"2026-11-20T12:00:00Z",reviewedBy:"owner",unlockPending:false,
+    });
+    assert.equal((await readDirectory0173EditorialSql(d1,18)).review,null);
+  }finally{sqlite.close()}
+});
+test("corrupt SQL review/category projections fail closed",()=>{
+  const row={categories_confirmed:1,secondary_categories_json:'["treneri"]',
+    review_json:JSON.stringify({reviewedAt:"2026",reviewedBy:"owner",unlockPending:0}),
+    qualifications_json:"[]",seo_json:null,hours_text:null,quality_json:"[]",media_json:"[]"};
+  assert.throws(()=>parseDirectory0173SqlProjection({
+    ...row,review_json:'{"reviewedAt":"2026","unlockPending":2}',
+  }),/INVALID_REVIEW/);
+  assert.throws(()=>parseDirectory0173SqlProjection({
+    ...row,secondary_categories_json:'["fake-category"]',
+  }),/INVALID_SECONDARY/);
+  assert.throws(()=>parseDirectory0173SqlProjection({
+    ...row,categories_confirmed:4,
+  }),/INVALID_CATEGORY_MARKER/);
 });

@@ -580,6 +580,8 @@ export const helpCases = sqliteTable(
     raisedAmount: integer("raised_amount"),
     imageUrl: text("image_url"),
     imageKey: text("image_key"),
+    thumbnailDisplayJson: text("thumbnail_display_json"),
+    detailDisplayJson: text("detail_display_json"),
     verified: integer("verified").notNull().default(0),
     urgent: integer("urgent").notNull().default(0),
     resolved: integer("resolved").notNull().default(0),

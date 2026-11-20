@@ -26,6 +26,8 @@ export const helpOrganizations = sqliteTable(
     countryCode: text("country_code").notNull().default("SK"),
     imageUrl: text("image_url"),
     imageKey: text("image_key"),
+    thumbnailDisplayJson: text("thumbnail_display_json"),
+    detailDisplayJson: text("detail_display_json"),
     directoryProfileId: integer("directory_profile_id").references(() => directoryProfiles.id, { onDelete: "set null" }),
     importKey: text("import_key"),
     sourceUrl: text("source_url"),

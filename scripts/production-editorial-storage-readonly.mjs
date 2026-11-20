@@ -11,6 +11,7 @@ import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { helpLegacyCoverageQueries, helpLegacyFieldCandidateQueries, helpLegacyLostFoundCoverageQuery, helpApprovedShelterRemovalsQuery } from "../lib/help-sql-reviewed-backfill.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const DB_NAME = "psipedia-sk-db";
@@ -263,6 +264,100 @@ async function main() {
         orphans.push({scope:item.spec.scope,count:data[0].orphans});
       }
     }
+    // Additional Help step-3 counts only: compare legacy adoption/shelter slugs
+    // against the existing canonical SQL owners. No individual IDs, URLs,
+    // names, source field values or private contacts leave the D1 query.
+    const helpLegacyCoverage = [];
+    for (const item of helpLegacyCoverageQueries()) {
+      const owner = item.category === "adopcia" ? "adoption_dogs" : "help_organizations";
+      if (!existing.has("help_cases") || !existing.has(owner)) {
+        helpLegacyCoverage.push({category:item.category,status:"missing_table",
+          legacyTotal:null,matched:null,unmatched:null});
+        continue;
+      }
+      const rows = query(assertReadOnlySelect(item.sql+";"),wranglerConfig);
+      if (rows.length !== 1 ||
+          ["legacy_total","matched","unmatched"].some(key=>naturalCount(rows[0][key])===null) ||
+          rows[0].matched + rows[0].unmatched !== rows[0].legacy_total) {
+        throw new Error("HELP_BACKFILL_LEGACY_COVERAGE_UNREADABLE");
+      }
+      helpLegacyCoverage.push({category:item.category,status:"aggregate_only",
+        legacyTotal:rows[0].legacy_total,matched:rows[0].matched,
+        unmatched:rows[0].unmatched});
+    }
+    // Owner-approved exact-slug removal exceptions, not a blanket count waiver.
+    let helpLegacyApprovedRemovals = {
+      status:"missing_table",approvedUnmatched:null,
+      approvedDistinct:null,unexpectedUnmatched:null,
+    };
+    if (existing.has("help_cases") && existing.has("help_organizations")) {
+      const rows = query(assertReadOnlySelect(helpApprovedShelterRemovalsQuery()+";"),wranglerConfig);
+      if (rows.length!==1 ||
+          ["approved_unmatched","approved_distinct","unexpected_unmatched"].some(
+            key=>naturalCount(rows[0][key])===null))
+        throw new Error("HELP_APPROVED_REMOVALS_AUDIT_UNREADABLE");
+      const shelter = helpLegacyCoverage.find(row=>row.category==="utulky");
+      if (!shelter || shelter.unmatched!==
+          rows[0].approved_unmatched+rows[0].unexpected_unmatched)
+        throw new Error("HELP_APPROVED_REMOVALS_COVERAGE_MISMATCH");
+      helpLegacyApprovedRemovals={
+        status:"exact_slug_audit",approvedUnmatched:rows[0].approved_unmatched,
+        approvedDistinct:rows[0].approved_distinct,
+        unexpectedUnmatched:rows[0].unexpected_unmatched,
+      };
+    }
+    // Unmatched legacy rows are NEVER permission to insert new canonical
+    // entities. Identity/provenance/manual approval are separate safety gates.
+    // A legacy lost/found Help row cannot safely be linked by slug alone:
+    // canonical reports require LOST or FOUND type. Measure count buckets
+    // without emitting any individual report or Help case identifier.
+    let helpLegacyLostFoundCoverage = {
+      status: "missing_table", legacyTotal: null, noSlugMatch: null,
+      needsTypeReview: null, ambiguousTypeMatch: null,
+    };
+    if (existing.has("help_cases") && existing.has("lost_found_dog_reports")) {
+      const [row, ...extra] = query(
+        assertReadOnlySelect(helpLegacyLostFoundCoverageQuery() + ";"), wranglerConfig,
+      );
+      if (extra.length || !row ||
+          ["legacy_total", "no_slug_match", "needs_type_review", "ambiguous_type_match"].some(
+            key => naturalCount(row[key]) === null,
+          ) || row.no_slug_match + row.needs_type_review +
+            row.ambiguous_type_match !== row.legacy_total) {
+        throw new Error("HELP_LEGACY_LOST_FOUND_COVERAGE_UNREADABLE");
+      }
+      helpLegacyLostFoundCoverage = {
+        status: "requires_manual_type_review", legacyTotal: row.legacy_total,
+        noSlugMatch: row.no_slug_match, needsTypeReview: row.needs_type_review,
+        ambiguousTypeMatch: row.ambiguous_type_match,
+      };
+    }
+    const helpLegacyFieldCandidates = [];
+    for (const item of helpLegacyFieldCandidateQueries()) {
+      const owner = item.agenda === "adoptions" ? "adoption_dogs" : "help_organizations";
+      if (!existing.has("help_cases") || !existing.has(owner)) {
+        helpLegacyFieldCandidates.push({agenda:item.agenda,field:item.field,
+          status:"missing_table",joinedPairs:null,potentialMissing:null,
+          differentNonempty:null});
+        continue;
+      }
+      const rows = query(assertReadOnlySelect(item.sql+";"),wranglerConfig);
+      if (rows.length !== 1 ||
+          ["joined_pairs","potential_missing","different_nonempty"].some(key=>
+            naturalCount(rows[0][key])===null) ||
+          rows[0].potential_missing + rows[0].different_nonempty >
+            rows[0].joined_pairs) {
+        throw new Error("HELP_BACKFILL_FIELD_CANDIDATE_UNREADABLE");
+      }
+      helpLegacyFieldCandidates.push({
+        agenda:item.agenda,field:item.field,status:"candidate_counts_only",
+        joinedPairs:rows[0].joined_pairs,
+        potentialMissing:rows[0].potential_missing,
+        differentNonempty:rows[0].different_nonempty,
+      });
+    }
+    // Values are never selected from D1 here; all candidate decisions must
+    // still be reviewed against Notion and revision/identity provenance.
     const supportCounts = [];
     for (const table of plan.supporting) {
       const data = query(assertReadOnlySelect("SELECT COUNT(*) AS records FROM " + table + ";"),wranglerConfig);
@@ -291,12 +386,16 @@ async function main() {
       database:DB_NAME,readOnly:true,
       scope:"directory, eshops, help (5 agendas), events, service catalog V3",
       missingTables:plan.missing,supportCounts,orphanMappings:orphans,byCategory:groups,
+      helpLegacyCoverage,helpLegacyFieldCandidates,helpLegacyLostFoundCoverage,
+      helpLegacyApprovedRemovals,
       notes:[
         "Notion mapping count is not proof of synchronized field values or enabled runtime.",
         "Missing mapping table yields notionMapped=null; it is NOT an assertion of zero links.",
         "Nonempty source JSON may contain active technical values; never delete it based on this count.",
         "This report does not compare Notion property values, Admin output or public pages.",
         "No production data was changed; no migration or cleanup was performed.",
+        "Help legacy coverage is an aggregate identity hint, not a field-level parity or backfill authorization.",
+        "Lost-found historic Help slug matches are never canonical LOST/FOUND identity proof; review type and public URLs first.",
       ],
     };
     await mkdir(outputDir,{recursive:true});

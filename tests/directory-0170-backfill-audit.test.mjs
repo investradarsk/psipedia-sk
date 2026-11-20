@@ -203,6 +203,17 @@ test("step 5 audit distinguishes confirmed SQL [] from historical absent categor
   }));
   assert(!confirmed.issues.includes("category:sql_membership_unconfirmed"));
   assert(!confirmed.issues.includes("category:confirmed_empty_missing_source_evidence"));
+  // One-time Notion import reads the actual multi-select and sets the SQL
+  // confirmation marker even when historic JSON had no category list.
+  // This is valid proof of a deliberately empty set, not 1,821 errors.
+  const notionConfirmedEmpty=classifyDirectory0170Row(row({
+    source_data_json:JSON.stringify({
+      _psipedia_additional_categories_sql_confirmed:"1",
+    }),
+    sql_categories:"[]",
+  }));
+  assert(!notionConfirmedEmpty.issues.some(x=>x.startsWith("category:")),
+    "a Notion-verified empty multi-select must not count as missing evidence");
 });
 test("read-only audit includes real V3 SQL selection and notion relation receipts",()=>{
   const source=readFileSync(new URL("../scripts/directory-0170-backfill-readonly.mjs",import.meta.url),"utf8");

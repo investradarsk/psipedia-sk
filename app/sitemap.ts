@@ -190,7 +190,7 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
 
   const helpCandidates = runSitemapStageSync("build-help-candidates", () => helpCases.map((item) => {
     const path = helpCaseHref(item);
-    const representedElsewhere = item.category === "adopcia" || item.category === "utulky";
+    const representedElsewhere = item.category === "adopcia" || item.category === "utulky" || item.category === "stratene-a-najdene";
     const selfCanonical = isSelfCanonical(item.seo, path);
     const indexable = !representedElsewhere && selfCanonical;
     return {
