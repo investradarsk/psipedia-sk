@@ -1,0 +1,89 @@
+name: Production D1 Breeds legacy 0175 (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Audit = read-only; Apply = remove exactly four old breed JSON object columns"
+        type: choice
+        required: true
+        default: audit
+        options: [audit, apply]
+      confirmation:
+        description: "AUDIT-BREEDS-0175-FOUR or APPLY-BREEDS-0175-FOUR"
+        type: string
+        required: true
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-breeds:
+    name: SQL-only integrity + exact owner-triggered cleanup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: production
+    env:
+      BREED_0175_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Verify owner-dispatched main and confirmation
+        env:
+          MODE: ${{ inputs.mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY" = investradarsk/psipedia-sk
+          test -n "$CLOUDFLARE_API_TOKEN"
+          case "$MODE" in
+            audit) test "$BREED_0175_CONFIRMATION" = AUDIT-BREEDS-0175-FOUR ;;
+            apply) test "$BREED_0175_CONFIRMATION" = APPLY-BREEDS-0175-FOUR ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Must be latest main to touch production database
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - run: npm ci
+      - name: Verify offline D1 compatibility and migration safety
+        run: |
+          node --check scripts/production-d1-breed-0175.mjs
+          node --test tests/breed-sql-v2-legacy-drop.test.mjs
+          npm run db:check-migrations
+      - name: Select canonical Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CLOUDFLARE_ACCOUNT_ID=$(node -p 'require("./config/cloudflare-resources.json").account_id')" >> "$GITHUB_ENV"
+      - name: Verify current SQL-only production integrity
+        env:
+          BREED_V2_SHADOW_CONFIRMATION: AUDIT-BREEDS-V2-SHADOW-347
+        run: node scripts/production-breed-sql-v2-shadow-audit.mjs
+      - name: Audit or apply four exact legacy column removals
+        env:
+          MODE: ${{ inputs.mode }}
+        run: node scripts/production-d1-breed-0175.mjs "$MODE"
+      - name: Upload sanitized results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: breed-d1-0175-${{ github.run_id }}
+          path: .production-d1-breed-0175/report.json
+          retention-days: 30
+          if-no-files-found: ignore
