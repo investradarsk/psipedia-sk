@@ -8,6 +8,7 @@ import {
 import { approvedDirectoryFactSqlSlot, directoryNotionFacetRequiresSqlMirror, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror";
+import { planDirectoryExtraSqlTextMirror } from "./directory-extra-sql-mirror";
 import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
@@ -1478,6 +1479,7 @@ async function saveBreederEditorialValue(
   const params: string[] = [];
   let editedQualifications: string[] | undefined;
   let editedServices: string[] | undefined;
+  let editedTrainerServicesText: string | undefined;
   const scalar = breederScalarColumns[path];
   const contact = breederContactJsonNames[path];
   const seoKey = breederSeoJsonNames[path];
@@ -1492,6 +1494,7 @@ async function saveBreederEditorialValue(
       : value;
     assignments.push("source_data_json = json_set(COALESCE(source_data_json, '{}'), ?, ?)");
     params.push("$." + TRAINER_SERVICES_TEXT_METADATA_KEY, text);
+    editedTrainerServicesText = text;
   } else if (path === "services" || path === "qualifications") {
     // Breeders store free-text service lines; qualifications also remain text. 
     const items = Array.isArray(raw)
@@ -1580,6 +1583,11 @@ async function saveBreederEditorialValue(
       ? planDirectoryStep3PresentationSqlMirror({
         identity:mirrorIdentity,services:editedServices,
       }) : []),
+    ...planDirectoryExtraSqlTextMirror({
+      identity:mirrorIdentity,
+      fieldKey:TRAINER_SERVICES_TEXT_METADATA_KEY,
+      value:editedTrainerServicesText,
+    }),
   ];
   let saved:{id:number}|null = null;
   if(mirror.length){
