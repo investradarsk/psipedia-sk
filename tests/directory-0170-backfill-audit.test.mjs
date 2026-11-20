@@ -10,7 +10,9 @@ function row(extra={}) {
     facebook_url:null, instagram_url:null,
     sql_categories:"[]",sql_facts:"[]",sql_filters:"[]",
     sql_services:"[]",sql_service_baseline:null,
-    notion_page_id:"notion-page-1",sql_baseline_notion_page_id:null,...extra,
+    notion_page_id:"notion-page-1",sql_baseline_notion_page_id:null,
+    qualifications_json:"[]",seo_json:"{}",sql_qualifications:"[]",sql_hours:"[]",
+    sql_media:"[]",sql_seo:null,sql_review:null,sql_quality:"[]",...extra,
   };
 }
 test("legacy-only contact is unverified, not automatically safe to copy",()=>{
@@ -64,7 +66,7 @@ test("read-only inventory queries require website SQL column as one of five cont
   const code = readFileSync(new URL("../scripts/directory-0170-backfill-readonly.mjs",import.meta.url),"utf8");
   assert.match(code,/p\.source_data_json,p\.website_url,p\.public_phone/);
   assert.match(code,/\x27website_url\x27,\x27public_phone\x27,\x27public_email\x27,\x27facebook_url\x27,\x27instagram_url\x27/);
-  assert.match(code,/must\(columns\.length === 6,"MISSING_COLUMNS"\)/);
+  assert.match(code,/must\(columns\.length === 8,"MISSING_COLUMNS"\)/);
 });
 
 test("secondary categories, facts and filters get independent review findings",()=>{
@@ -231,4 +233,94 @@ test("audit script contains no database write commands or Notion API calls",()=>
   assert.match(content,/SELECT_ONLY/);
   assert.doesNotMatch(content,/["'](?:d1 migrations apply|d1 time-travel restore)["']/);
   assert.doesNotMatch(content,/fetch\(\s*["']https:\/\/api\.notion/);
+});
+
+test("step 7 audits identical SQL 0173 qualifications, gallery, hours, SEO, review lock and quality without raw values",()=>{
+  const source={
+    "Ordinačné hodiny":"Po–Pi podľa dohody",
+    _psipedia_profile_gallery_urls:JSON.stringify(["/media/directory/one.webp"]),
+    _psipedia_profile_review_reviewed_at:"2026-11-19T22:10:00.000Z",
+    _psipedia_profile_review_reviewed_by:"owner",
+    _psipedia_quality_phone_status:"NOT_PUBLIC",
+    _psipedia_quality_phone_checked_at:"2026-11-19T11:00:00Z",
+  };
+  const result=classifyDirectory0170Row(row({
+    qualifications_json:JSON.stringify(["Certifikát 1","Kurz 2"]),
+    sql_qualifications:JSON.stringify(["Certifikát 1","Kurz 2"]),
+    seo_json:JSON.stringify({title:"SEO title",description:"private description",noindex:true}),
+    sql_seo:JSON.stringify({title:"SEO title",description:"private description",focus_keyword:"",
+      canonical_url:"",og_title:"",og_description:"",og_image_url:"",noindex:1}),
+    source_data_json:JSON.stringify(source),
+    sql_hours:JSON.stringify([{day:0,text:"Po–Pi podľa dohody"}]),
+    sql_media:JSON.stringify([{order:0,url:"/media/directory/one.webp",key:null}]),
+    sql_review:JSON.stringify({reviewed_at:source._psipedia_profile_review_reviewed_at,
+      reviewed_by:"owner",unlock_pending:0}),
+    sql_quality:JSON.stringify([{field:"phone",status:"NOT_PUBLIC",
+      checked_at:"2026-11-19T11:00:00Z"}]),
+  }));
+  assert(!result.issues.some(issue=>/^(qualification|hours|gallery|seo|review|quality|sql0173):/.test(issue)),
+    result.issues.join(","));
+  for(const sensitive of ["private description","Certifikát 1","/media/directory/one.webp","owner"])
+    assert(!JSON.stringify(result).includes(sensitive));
+});
+test("step 7 SQL 0173 detects missing qualifications, conflicting SEO and stale review lock",()=>{
+  const result=classifyDirectory0170Row(row({
+    qualifications_json:JSON.stringify(["Unmirrored certificate"]),
+    seo_json:JSON.stringify({title:"New profile title"}),
+    source_data_json:JSON.stringify({
+      _psipedia_profile_review_unlock_pending:"1",
+    }),
+    sql_review:JSON.stringify({reviewed_at:null,reviewed_by:null,unlock_pending:0}),
+  }));
+  assert(result.issues.includes("qualification:legacy_only_unverified"));
+  assert(result.issues.includes("seo:legacy_only_unverified"));
+  assert(result.issues.includes("review:sql_lock_mismatch"));
+  assert(!JSON.stringify(result).includes("Unmirrored certificate"));
+});
+test("step 7 SQL 0173 shows gallery drift, explicit hours clear and orphaned quality row",()=>{
+  const result=classifyDirectory0170Row(row({
+    source_data_json:JSON.stringify({
+      "Ordinačné hodiny":"",
+      "Otváracie hodiny":"Old hours cannot resurrect",
+      _psipedia_breeder_gallery_urls:JSON.stringify(["/media/old.webp"]),
+    }),
+    category:"chovatelske-stanice",
+    sql_hours:JSON.stringify([{day:0,text:"Confirmed hours"}]),
+    sql_media:JSON.stringify([{order:0,url:"/media/current.webp",key:null}]),
+    sql_quality:JSON.stringify([{field:"email",status:"NOT_PUBLIC",checked_at:"2026-11-19T10:00:00Z"}]),
+  }));
+  for(const issue of ["hours:legacy_alias_after_clear","hours:sql_only_review",
+    "gallery:sql_mismatch_review","quality:sql_mismatch_review"])
+    assert(result.issues.includes(issue),issue);
+  assert(!JSON.stringify(result).includes("/media/current.webp"));
+});
+test("step 7 SQL 0173 invalid rows and structured weekday hours remain review-only",()=>{
+  const r=classifyDirectory0170Row(row({
+    sql_qualifications:"not-json",
+    sql_hours:JSON.stringify([{day:1,text:"08:00–12:00"},{day:1,text:"12:00–16:00"}]),
+    sql_media:JSON.stringify([{order:0,url:"/media/a.webp"},{order:0,url:"/media/b.webp"}]),
+    sql_quality:"[]",
+  }));
+  assert(r.issues.includes("sql0173:invalid_relation_aggregate"));
+  const clean=classifyDirectory0170Row(row({
+    sql_hours:JSON.stringify([{day:1,text:"08:00–12:00"}]),
+  }));
+  assert(clean.issues.includes("hours:structured_weekdays_need_read_cutover_review"));
+  assert(!clean.issues.includes("hours:legacy_only_unverified"));
+});
+test("step 7 SQL 0173 audit selects all six relation tables, requires deployed schema and stable snapshot",()=>{
+  const source=readFileSync(new URL("../scripts/directory-0170-backfill-readonly.mjs",import.meta.url),"utf8");
+  const relations=["directory_profile_qualifications","directory_profile_opening_hours",
+    "directory_profile_media","directory_profile_seo",
+    "directory_profile_review_state","directory_profile_quality_resolutions"];
+  for(const table of relations) {
+    assert(source.includes('["'+table+'",'),table+" snapshot");
+    assert(source.includes("FROM "+table+" WHERE profile_id=p.id"),table+" query");
+  }
+  assert.match(source,/must\(tables\.length === 13, "MISSING_SCHEMA"\)/);
+  assert.match(source,/must\(columns\.length === 8,"MISSING_COLUMNS"\)/);
+  assert.match(source,/sql0173ShadowAudited:true/);
+  assert.match(source,/sql0173ReadCutoverApproved:false/);
+  assert.match(source,/select\(profileSelect\(cursor\)\)/);
+  assert.match(source,/SELECT_ONLY/);
 });
