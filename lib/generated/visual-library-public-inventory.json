@@ -432,6 +432,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/partner-claim-search-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/partner-commercial-panel.tsx",
       "coverage": "needs-preview"
     },

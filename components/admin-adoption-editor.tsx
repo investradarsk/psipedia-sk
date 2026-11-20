@@ -1,5 +1,6 @@
 "use client";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
+import { AdminHelpNotionStatus } from "@/components/admin-help-notion-status";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
@@ -66,6 +67,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [syncRevision,setSyncRevision]=useState(0);
   const [error, setError] = useState("");
   const [activeAdoptionSection, setActiveAdoptionSection] = useState<string>(ADOPTION_SECTIONS[0].id);
   const activeAdoptionIndex = ADOPTION_SECTIONS.findIndex((section) => section.id === activeAdoptionSection);
@@ -167,6 +169,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
       else navigation.markSavedBeforeRedirect();
       setVersion(body.item.updatedAt); setStatus(body.item.status); setPersistedStatus(body.item.status);
       setMessage("Adopčný profil bol bezpečne uložený.");
+      setSyncRevision(v=>v+1);
       if (!item) window.location.assign(`/admin/adopcie/${body.item.id}?vytvorene=1`);
     } catch (saveError) {
       const details = saveError instanceof Error ? saveError.message : "Adopčný profil sa nepodarilo uložiť.";
@@ -218,7 +221,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
     </AdminEditorSectionVisibility.Provider>
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
     {navigation.dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
-    <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
+<AdminHelpNotionStatus agenda="adoptions" recordId={item?.id} revision={syncRevision} />    <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
       {item && <AdminRecordLifecycleActions kind="adoptions" recordId={item.id} status={persistedStatus} disabled={saving || uploading || galleryUploading} returnHref={returnHref} onUnpublished={(_next,updatedAt)=>{setStatus("DRAFT");setPersistedStatus("DRAFT");if(updatedAt)setVersion(updatedAt);}} />}
       <div className="admin-editor-actions"><Link href={returnHref}>Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
     </AdminEditorFooter>
