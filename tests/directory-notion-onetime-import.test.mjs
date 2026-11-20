@@ -60,12 +60,20 @@ test("nonempty Notion fields own SQL, free text contacts have no URL/email valid
   assert.equal(p.fields.website_url,"www.nevalidovana.sk");
   assert.equal(p.fields.description,"Nový obsah");
   assert.equal(p.seo.title,"SEO názov");
-  assert.equal(p.noindex,false);
+  assert.equal(p.noindex,null); // indexed state remains protected Admin policy
   assert.deepEqual(p.qualifications,["Kurz A","Kurz B"]);
   assert.equal(p.hoursText,"Po–Pi podľa dohody");
   assert.deepEqual(p.secondary,["fyzioterapia"]);
   assert.deepEqual(p.filters,[{id:"veterinari.emergency",category:"veterinari",value:"yes"}]);
   assert.deepEqual(p.quality,[{field:"phone",status:"NOT_PUBLIC",checkedAt:"2026-11-20"}]);
+});
+test("existing SQL/R2 main image and noindex are preserved while absent image can be filled",()=>{
+  const fromNotion=page({"Hlavný obrázok URL":{type:"url",url:"https://notion.example/sk.webp"}});
+  const existing=planNotionDirectoryImport(fromNotion,row({image_url:"/media/existing.webp"}),SOURCE);
+  assert.equal(existing.fields.image_url,undefined);
+  assert.equal(existing.noindex,null);
+  const absent=planNotionDirectoryImport(fromNotion,row({image_url:""}),SOURCE);
+  assert.equal(absent.fields.image_url,"https://notion.example/sk.webp");
 });
 test("missing/blank Notion properties never implicitly erase an existing SQL value",()=>{
   const p=planNotionDirectoryImport(page({
