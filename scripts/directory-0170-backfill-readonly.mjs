@@ -309,12 +309,12 @@ export function classifyDirectory0170Row(row) {
   }
   if (source && categories) {
     const key = "_psipedia_additional_categories";
-    // The SQL empty set is ambiguous until an explicit checkbox save confirms
-    // it. Never treat identical [] / [] as proof of completed SQL cutover.
+    // The marker is transactionally written ONLY on an explicit Admin edit
+    // or verified Notion multi-select import, including a confirmed empty [].
+    // No historical JSON list is required once that SQL confirmation exists.
+    // Missing marker still means unverified and retains the protective warning.
     const sqlConfirmed = source._psipedia_additional_categories_sql_confirmed === "1";
     if (!sqlConfirmed) issue("category","sql_membership_unconfirmed");
-    if (sqlConfirmed && categories.length === 0 && source[key] === undefined)
-      issue("category","confirmed_empty_missing_source_evidence");
     let old = [];
     if (own(source,key)) {
       const parsed = typeof source[key] === "string" ? parseArray(source[key]) : null;

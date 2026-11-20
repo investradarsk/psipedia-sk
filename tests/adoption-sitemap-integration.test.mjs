@@ -101,7 +101,7 @@ test("sitemap source contains the catalog and indexable new details without dupl
   assert.match(sitemap, /getPublishedHelpSitemapRecords\(\)/);
   assert.equal((sitemap.match(/getPublishedHelpSitemapRecords\(\)/g) ?? []).length, 1);
   assert.doesNotMatch(sitemap, /getPublishedHelpCases\(\)/);
-  assert.match(sitemap, /const representedElsewhere = item\.category === "adopcia" \|\| item\.category === "utulky"/);
+  assert.match(sitemap, /const representedElsewhere = item\.category === "adopcia" \|\| item\.category === "utulky" \|\| item\.category === "stratene-a-najdene"/);
   assert.match(sitemap, /exclusionReason: representedElsewhere/);
   assert.match(sitemap, /runSitemapStageSync\("global-validation", \(\) => assertValidSitemap\(entries\)\)/);
 });
@@ -110,9 +110,9 @@ test("public help, homepage and portal search no longer source legacy adoption r
   const helpStore = read("../lib/help-store.ts");
   const helpRoot = read("../app/pomoc-psom/page.tsx");
   const portalSearch = read("../lib/portal-search.ts");
-  assert.match(helpStore, /status = 'published' AND category NOT IN \('adopcia', 'utulky'\)/);
-  assert.match(helpStore, /category === "adopcia"\) return \[\]/);
-  assert.match(helpStore, /category NOT IN \('adopcia', 'utulky'\) AND \$\{activeHelpSql\(\)\}/);
+  assert.match(helpStore, /status = 'published' AND category NOT IN \('adopcia', 'utulky', 'stratene-a-najdene'\)/);
+  assert.match(helpStore, /category === "adopcia" \|\| category === "stratene-a-najdene"\) return \[\]/);
+  assert.match(helpStore, /category NOT IN \('adopcia', 'utulky', 'stratene-a-najdene'\) AND \$\{activeHelpSql\(\)\}/);
   const lifecycleSql = read("../lib/help-lifecycle.ts");
   assert.match(lifecycleSql, /resolved = 0 AND NOT/);
   assert.match(lifecycleSql, /category = 'zbierky'/);

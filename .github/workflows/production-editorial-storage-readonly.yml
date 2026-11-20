@@ -4,6 +4,14 @@ on:
   pull_request:
     paths:
       - "scripts/production-editorial-storage-readonly.mjs"
+      - "lib/help-sql-reviewed-backfill.mjs"
+      - "tests/help-sql-reviewed-backfill.test.mjs"
+      - "tests/help-sql-legacy-public-cutover-step5.test.mjs"
+      - "lib/help-store.ts"
+      - "lib/visual-library-dynamic-urls.ts"
+      - "tests/help-sql-canonical-sync-step4.test.mjs"
+      - "lib/help-sql-schema-preflight.mjs"
+      - "tests/help-sql-schema-preflight.test.mjs"
       - "tests/production-editorial-storage-readonly.test.mjs"
       - "tests/directory-sql-unification-phase2.test.mjs"
       - "tests/directory-sql-0170-schema.test.mjs"
@@ -51,7 +59,7 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Run SQLite fixture and safety tests (no secrets or D1)
-        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-0170-schema.test.mjs tests/production-d1-directory-0170.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs tests/editorial-cleanup-readiness-phase4.test.mjs tests/editorial-legacy-reader-inventory-phase4.test.mjs
+        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-0170-schema.test.mjs tests/production-d1-directory-0170.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs tests/editorial-cleanup-readiness-phase4.test.mjs tests/editorial-legacy-reader-inventory-phase4.test.mjs tests/help-sql-schema-preflight.test.mjs tests/help-sql-reviewed-backfill.test.mjs tests/help-sql-legacy-public-cutover-step5.test.mjs
 
   production-readonly:
     name: Count D1 sources and Notion mappings (no writes)
