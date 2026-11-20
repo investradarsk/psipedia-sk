@@ -2332,3 +2332,131 @@
     padding: 12px;
   }
 }
+
+
+/* Partner V2 polish: persistent local navigation, readable multi-categories, and search suggestions. */
+.partner-shell--workspace .partner-dashboard-header {
+  position: sticky;
+  top: var(--psipedia-sticky-header-height, 0px);
+  z-index: 35;
+  padding: 9px 12px;
+  margin: 0 -12px 20px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 3px 12px rgba(23,53,43,.05);
+}
+.partner-shell--workspace .partner-dashboard-header nav {
+  overflow-y: hidden;
+}
+.partner-shell--workspace .partner-canonical-categories-grid {
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 6px 12px;
+}
+.partner-shell--workspace .partner-canonical-categories-grid label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 8px;
+  font-size: .85rem;
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.partner-shell--workspace .partner-canonical-categories-grid label input[type="checkbox"] {
+  display: block;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  border-radius: 4px;
+  accent-color: var(--forest);
+}
+.partner-shell--workspace .partner-canonical-categories-grid label span {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.partner-shell--workspace .partner-dashboard-welcome-actions .button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 9px 16px;
+  font-weight: 800;
+  color: #fff;
+}
+.partner-shell--workspace .partner-dashboard-welcome-actions .button--coral {
+  color: var(--ink);
+}
+.partner-shell--workspace .partner-chat-back {
+  margin: 0 0 10px;
+}
+.partner-shell--workspace .partner-claim-autosuggest {
+  position: relative;
+  min-width: 0;
+}
+.partner-shell--workspace .partner-claim-suggestions {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  margin: 0;
+  padding: 5px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+}
+.partner-shell--workspace .partner-claim-suggestions li {
+  margin: 0;
+}
+.partner-shell--workspace .partner-claim-suggestions a {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.partner-shell--workspace .partner-claim-suggestions a:hover,
+.partner-shell--workspace .partner-claim-suggestions a:focus-visible,
+.partner-shell--workspace .partner-claim-suggestions a[aria-selected="true"] {
+  background: var(--sage-light);
+  outline: 2px solid var(--forest);
+  outline-offset: -2px;
+}
+.partner-shell--workspace .partner-claim-suggestions small {
+  color: var(--muted);
+  font-size: .77rem;
+}
+.partner-shell--workspace .partner-claim-suggest-note {
+  margin: 5px 0 0;
+  font-size: .76rem;
+  color: var(--muted);
+}
+@media(max-width:760px) {
+  .partner-shell--workspace .partner-dashboard-header {
+    top: var(--psipedia-sticky-header-height, 0px);
+    margin: 0 -5px 12px;
+    padding: 7px 8px;
+  }
+  .partner-shell--workspace .partner-dashboard-header nav {
+    overflow-x: auto;
+  }
+  .partner-shell--workspace .partner-canonical-categories-grid {
+    grid-template-columns: minmax(0,1fr);
+  }
+  .partner-shell--workspace .partner-dashboard-welcome-actions .button {
+    flex: 1 1 100%;
+  }
+}

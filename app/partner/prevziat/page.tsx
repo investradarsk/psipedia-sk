@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PartnerShell } from "@/components/partner-shell";
+import { PartnerClaimSearchForm } from "@/components/partner-claim-search-form";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 import { searchPartnerClaimableRecords } from "@/lib/partner-claim-search";
 import {
@@ -25,8 +26,8 @@ export default async function PartnerFindExistingPage({ searchParams }: { search
   const raw = await searchParams;
   const type = typeof raw.type === "string" && isPartnerClaimableResourceType(raw.type) ? raw.type : "DIRECTORY_PROFILE";
   const q = typeof raw.q === "string" ? raw.q.trim().slice(0, 80) : "";
-  const records = await searchPartnerClaimableRecords({ entityType: type, query: q });
-  const searched = q.length >= 2;
+  const records = await searchPartnerClaimableRecords({ entityType: type, query: q, suggest: q.length === 1 });
+  const searched = q.length >= 1;
 
   return <PartnerShell
     title="Požiadať o správu"
@@ -36,21 +37,8 @@ export default async function PartnerFindExistingPage({ searchParams }: { search
       <div className="partner-section-heading">
         <div><span className="eyebrow">Existujúci záznam</span><h2>Čo chcete spravovať?</h2></div>
       </div>
-      <form method="get" action="/partner/prevziat" role="search" className="partner-claim-search-form">
-        <label className="partner-field">
-          <span>Oblasť</span>
-          <select name="type" defaultValue={type}>
-            {typeChoices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
-          </select>
-        </label>
-        <label className="partner-field">
-          <span>Názov záznamu alebo mesto</span>
-          <input name="q" type="search" minLength={2} maxLength={80} defaultValue={q}
-            placeholder="Zadajte aspoň 2 znaky" autoComplete="off" />
-        </label>
-        <button className="button button--dark" type="submit">Vyhľadať</button>
-      </form>
-      {!searched ? <p className="partner-claim-discovery-note">Zadajte názov alebo mesto. Zobrazené budú iba verejne dostupné záznamy.</p> : records.length ? (
+      <PartnerClaimSearchForm choices={typeChoices} initialType={type} initialQuery={q} />
+      {!searched ? <p className="partner-claim-discovery-note">Začnite písať názov alebo mesto. Návrhy sa zobrazia priebežne, aj po prvom písmene.</p> : records.length ? (
         <div className="partner-claim-search-results" aria-live="polite">
           <p role="status">Nájdených: {records.length}{records.length === 15 ? " (zobrazujeme prvých 15)" : ""}</p>
           <ul>

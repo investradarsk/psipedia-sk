@@ -96,7 +96,8 @@ test("claim discovery is linked from dashboard, Partner shell, resource listings
   const [page, dashboard, shell, profiles, events, adminPage, admin, claims] = files;
   assert.match(page, /requirePartnerPageIdentity/);
   assert.match(page, /searchPartnerClaimableRecords/);
-  assert.match(page, /role="search"/);
+  assert.match(page, /<PartnerClaimSearchForm/);
+  assert.match(await read("components/partner-claim-search-form.tsx"), /role="search"/);
   assert.match(page, /Požiadať o správu/);
   assert.match(dashboard, /\/partner\/prevziat/);
   assert.match(shell, /\/partner\/prevziat/);

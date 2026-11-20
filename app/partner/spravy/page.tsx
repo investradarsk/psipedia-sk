@@ -8,7 +8,7 @@ export default async function Page(){
   const identity=await requirePartnerPageIdentity();
   const messages=await listPartnerChat({accountId:identity.accountId});
   return <PartnerShell title="Správy" description="Súkromný rozhovor s administrátorom Psipedie.">
-    <p><Link href="/partner">← Moje profily</Link></p>
+    <p className="partner-chat-back"><Link className="button button--dark" href="/partner">← Späť na prehľad</Link></p>
     <PartnerPrivateChat mode="PARTNER" initial={messages}/>
   </PartnerShell>;
 }
