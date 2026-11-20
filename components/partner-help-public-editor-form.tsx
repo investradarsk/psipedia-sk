@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import type { HelpEditorField, HelpEditorType, HelpEditorValue } from "@/lib/partner-help-editor-fields";
 import { PartnerMediaField } from "@/components/partner-media-field";
+import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
 import { PartnerGalleryField } from "@/components/partner-gallery-field";
 
 type Props = {
@@ -38,6 +39,9 @@ export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,origin
   const [galleryUrls,setGalleryUrls] = useState<string[]>(gallery);
   const [galleryMediaIds,setGalleryMediaIds] = useState<string[]>([]);
 
+  const dirty=JSON.stringify(values)!==JSON.stringify(baseline)
+    ||Boolean(mediaAssetId)||galleryMediaIds.length>0||JSON.stringify(galleryUrls)!==JSON.stringify(gallery);
+  usePartnerUnsavedGuard(dirty,state!=="success");
   async function submit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if(state==="sending")return;
