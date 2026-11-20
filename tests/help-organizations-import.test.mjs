@@ -4,7 +4,6 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
-const data = JSON.parse(read("../data/imports/help-organizations-ready-2026-09-10.json"));
 const foundation = read("../drizzle/0036_help_organizations_foundation.sql");
 const migration = read("../drizzle/0037_import_ready_help_organizations.sql");
 
@@ -26,13 +25,31 @@ function database() {
   return db;
 }
 
-test("checked-in source contains exactly 106 READY rows and excludes the 10 reviewed HOLD rows", () => {
-  assert.equal(data.readyCount, 106);
-  assert.equal(data.holdCount, 10);
-  assert.equal(data.organizations.length, 106);
-  assert.equal(data.excludedHoldSlugs.length, 10);
-  const imported = new Set(data.organizations.map((row) => row.slug));
-  for (const slug of data.excludedHoldSlugs) assert.equal(imported.has(slug), false, `HOLD row imported: ${slug}`);
+const excludedHoldSlugs = [
+  "pomoc-kvetoslava-slana",
+  "pomoc-labka-pomoci-o-z",
+  "pomoc-mesto-banska-bystrica",
+  "pomoc-oz-horsky-ranc",
+  "pomoc-oz-majme-srdce",
+  "pomoc-mesto-roznava",
+  "pomoc-zivot-je-pes-o-z",
+  "pomoc-mvdr-ivan-institoris",
+  "pomoc-rc-sloboda-zvierat-nitra",
+  "pomoc-labky-v-nudzi-odchytove-koterce-samorin"
+];
+
+test("immutable SQL contains 106 canonical READY organizations and excludes 10 HOLD slugs", () => {
+  const db = database();
+  db.exec(migration);
+  const rows = db.prepare("SELECT slug,status,published_at,import_key FROM help_organizations").all();
+  assert.equal(rows.length, 106);
+  assert.equal(new Set(rows.map(row => row.slug)).size, 106);
+  assert.equal(new Set(rows.map(row => row.import_key)).size, 106);
+  assert.ok(rows.every(row => row.status === "DRAFT" && row.published_at === null));
+  const imported = new Set(rows.map(row => row.slug));
+  assert.equal(excludedHoldSlugs.length, 10);
+  for (const slug of excludedHoldSlugs) assert.equal(imported.has(slug), false, `HOLD row imported: ${slug}`);
+  db.close();
 });
 
 test("canonical import is draft-only, unpublished, unique and idempotent", () => {

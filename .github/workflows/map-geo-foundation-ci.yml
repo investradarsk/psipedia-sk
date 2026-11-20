@@ -39,7 +39,8 @@ permissions:
 jobs:
   geo-foundation:
     name: Geo schema, privacy, build and admin E2E
-    runs-on: ubuntu-latest
+    # Playwright's pinned browser-dependency set is not yet compatible with Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
       E2E_BASE_URL: http://localhost:5173

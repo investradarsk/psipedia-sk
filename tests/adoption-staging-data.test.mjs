@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
+import { getReviewedAdoptionManifest } from "./fixtures/adoption-sql-migration-fixture.mjs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
-const manifest = JSON.parse(read("../data/imports/adoptions-ready-2026-09-13.json"));
+const manifest = getReviewedAdoptionManifest();
 const adoptionFoundation = read("../drizzle/0034_adoption_dogs_foundation.sql");
 const organizationFoundation = read("../drizzle/0036_help_organizations_foundation.sql");
 const organizationImport = read("../drizzle/0037_import_ready_help_organizations.sql");

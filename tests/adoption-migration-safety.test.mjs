@@ -11,9 +11,10 @@ import {
   transformAdoptionSex,
 } from "../lib/adoption-migration-safety.ts";
 import { adoptionPublicationErrors } from "../lib/adoption.ts";
+import { getReviewedAdoptionManifest } from "./fixtures/adoption-sql-migration-fixture.mjs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
-const manifest = JSON.parse(read("../data/imports/adoptions-ready-2026-09-13.json"));
+const manifest = getReviewedAdoptionManifest();
 const legacy = manifest.ready.map((row, index) => ({
   category: "adopcia",
   slug: row.slug,
@@ -31,7 +32,7 @@ const organizations = Object.values(ADOPTION_ORGANIZATION_IDENTITIES).map((ident
   name: identity.name,
 }));
 
-test("authoritative manifest contains exactly 36 READY and 4 denied HOLD records", () => {
+test("immutable SQL staging contains exactly 36 READY and 4 denied HOLD records", () => {
   assert.equal(manifest.readyCount, 36);
   assert.equal(manifest.ready.length, 36);
   assert.equal(manifest.holdCount, 4);

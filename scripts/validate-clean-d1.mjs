@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getReviewedAdoptionManifest } from "../tests/fixtures/adoption-sql-migration-fixture.mjs";
 import { fileURLToPath } from "node:url";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import * as schema from "../db/schema.ts";
@@ -120,9 +121,7 @@ function query(sqlText) {
 }
 
 async function writeLegacyAdoptionBootstrap() {
-  const manifest = JSON.parse(
-    await fs.readFile(path.join(root, "data", "imports", "adoptions-ready-2026-09-13.json"), "utf8"),
-  );
+  const manifest = getReviewedAdoptionManifest();
   assert.equal(manifest.readyCount, 36, "adoption bootstrap manifest must declare 36 READY rows");
   assert.equal(manifest.ready.length, 36, "adoption bootstrap manifest must contain 36 READY rows");
   assert.equal(new Set(manifest.ready.map((row) => row.slug)).size, 36, "adoption bootstrap slugs must be unique");
