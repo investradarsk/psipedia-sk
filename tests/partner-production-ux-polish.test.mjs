@@ -237,7 +237,7 @@ test("Partner forms hide development vocabulary and translate stored choice code
     ['ambulance', 'Ambulancia'],
     ['docasna-opatera', 'Dočasná opatera'],
   ]) {
-    assert.ok(optionLabels.includes(raw + ':"' + human + '"'), raw + " is not translated");
+    assert.ok(optionLabels.includes(raw + ':"' + human + '"') || optionLabels.includes('"' + raw + '":"' + human + '"'), raw + " is not translated");
   }
   const editing = await Promise.all([
     "components/partner-profile-edit-form.tsx",
