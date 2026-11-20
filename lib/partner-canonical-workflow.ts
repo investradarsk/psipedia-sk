@@ -26,6 +26,7 @@ import { getPartnerMediaAsset, normalizePartnerMediaId } from "./partner-media";
 import { normalizePartnerGalleryMediaIds } from "./partner-profile-gallery-media";
 import { publishSafeImage, type PrivateBucketLike } from "./private-media";
 import { directoryFilterRegistry } from "./directory-filter-contract";
+import { buildPartnerDraftRelationStatements, readPartnerDraftRelations } from "./partner-canonical-relations";
 
 
 type Database = D1Database;
@@ -201,8 +202,22 @@ export async function createPartnerCanonicalDraft(input:{
   const name=String(data.name??data.title??data.dogName??"");
   const category=String(data.category??data.type??"");
   const meta=metadataStatement(db,{id,accountId:input.accountId,type,name,category,nowIso,canonicalId});
+  // createCanonicalDraft writes the base canonical record. Fill all public
+  // fields unknown to the generic importer in the very same batch as moderation
+  // registration and structured relations; never create a shadow profile.
+  const entries=Object.entries(data).filter(([key])=>Object.hasOwn(kinds[type].fields,key));
+  const columns=entries.map(([key])=>kinds[type].fields[key]);
+  const values=entries.map(([key,value])=>(Array.isArray(value)?JSON.stringify(value):typeof value==="boolean"?(value?1:0):value));
+  const fullWrite=entries.length?db.prepare("UPDATE "+tableFor(type)+" SET "+
+    columns.map(column=>column+"=?").join(",")+
+    " WHERE id=? AND updated_at=? AND status IN ('draft','DRAFT')")
+    .bind(...values,canonicalId,nowIso):null;
+  const relations=buildPartnerDraftRelationStatements({db,type,id:canonicalId,data,nowIso,actor,
+    category:String(data.category??"")});
   try{
     await db.batch([
+      ...(fullWrite?[fullWrite,guard(db)]:[]),
+      ...relations,
       db.prepare("INSERT INTO moderation_submissions "+
         "(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,created_at,updated_at) "+
         "VALUES (?1,?2,?3,'CREATE','DRAFT','PARTNER_ACCOUNT',?4,?5,?6,?6)")
@@ -248,7 +263,7 @@ export async function getPartnerCanonicalDraft(input:{accountId:string;id:string
   const db=database(input.database),row=await draftById(input.id,db);
   if(row.accountId!==input.accountId)throw new PartnerCanonicalWorkflowError("Koncept sa nenašiel.",404);
   const mapping=kinds[row.resourceType].fields,fields=Object.entries(mapping)
-    .map(([name,column])=>column+" AS "+name).join(",");
+    .map(([name,column])=>column+" AS \""+name+"\"").join(",");
   const current=await db.prepare("SELECT "+fields+",updated_at baseUpdatedAt,status FROM "+tableFor(row.resourceType)+" WHERE id=?1")
     .bind(row.canonicalId).first<Record<string,unknown>>();
   if(!current)throw new PartnerCanonicalWorkflowError("Kanonický koncept chýba.",409);
@@ -257,8 +272,17 @@ export async function getPartnerCanonicalDraft(input:{accountId:string;id:string
     const v=current[key];
     if(key==="services"||key==="qualifications"){
       try{values[key]=JSON.parse(String(v??"[]"))}catch{values[key]=[]}
-    }else values[key]=v??"";
+    }else{
+      const def=helpFieldDefinitions[row.resourceType]?.[key];
+      if(def?.kind==="checkbox"||key==="cancelled")values[key]=Boolean(v);
+      else if(def?.kind==="nullableBoolean")values[key]=v===null?null:Boolean(v);
+      else if(def?.kind==="number"||key==="approximateAgeMonths")values[key]=v===null?null:Number(v);
+      else values[key]=v??"";
+    }
   }
+  const relations=await readPartnerDraftRelations({db,type:row.resourceType,id:row.canonicalId,
+    category:String(values.category??"")});
+  Object.assign(values,relations);
   const note=await db.prepare("SELECT reason_code reason FROM moderation_events "+
     "WHERE submission_id=?1 AND to_status='RETURNED' ORDER BY created_at DESC LIMIT 1")
     .bind(row.id).first<{reason:string|null}>();
@@ -283,12 +307,19 @@ export async function savePartnerCanonicalDraft(input:{
   const revision=await canonicalRevision(row,db);
   if(!revision||!["draft","DRAFT"].includes(revision.status)||revision.updatedAt!==input.baseUpdatedAt)
     throw new PartnerCanonicalWorkflowError("Koncept sa medzičasom zmenil. Obnovte údaje.",409,"STALE_CANONICAL_DRAFT");
-  const columns=kinds[row.resourceType].fields,entries=Object.entries(data);
-  const nowIso=(input.now??new Date()).toISOString();
+  const columns=kinds[row.resourceType].fields;
+  const entries=Object.entries(data).filter(([key])=>Object.hasOwn(columns,key));
+  const nowCandidate=(input.now??new Date()).getTime(),previous=Date.parse(revision.updatedAt);
+  const nowIso=new Date(Number.isFinite(previous)?Math.max(nowCandidate,previous+1):nowCandidate).toISOString();
   // Empty payload is a no-op. A client still receives the live canonical revision.
-  if(entries.length===0)return getPartnerCanonicalDraft({accountId:input.accountId,id:input.id,database:db});
+  if(Object.keys(data).length===0)return getPartnerCanonicalDraft({accountId:input.accountId,id:input.id,database:db});
   const assignments=entries.map(([key],i)=>columns[key]+"=?"+(i+1));
-  const bindings=entries.map(([key,value])=>(key==="services"||key==="qualifications")?JSON.stringify(value):value);
+  const bindings=entries.map(([key,value])=>Array.isArray(value)?JSON.stringify(value):typeof value==="boolean"?(value?1:0):value);
+  const previousRecord=await getPartnerCanonicalDraft({accountId:input.accountId,id:input.id,database:db});
+  const category=String(data.category??previousRecord.values.category??"");
+  const relationStatements=buildPartnerDraftRelationStatements({
+    db,type:row.resourceType,id:row.canonicalId,data,nowIso,actor:accountActor(input.accountId),category,
+  });
   const updateSql="UPDATE "+tableFor(row.resourceType)+" SET "+assignments.join(",")+
     ",updated_at=?"+(entries.length+1)+
     (row.resourceType==="LOST_FOUND_DOG"?"":",updated_by=?"+(entries.length+2))+
@@ -304,6 +335,7 @@ export async function savePartnerCanonicalDraft(input:{
     await db.batch([
       db.prepare(updateSql).bind(...params),
       guard(db),
+      ...relationStatements,
       db.prepare("UPDATE moderation_submissions SET proposed_patch_json=json_patch(COALESCE(proposed_patch_json,'{}'),?1),updated_at=?2 "+
         "WHERE id=?3 AND submitter_ref=?4 AND status IN ('DRAFT','SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED')")
         .bind(JSON.stringify(data),nowIso,row.id,input.accountId),
