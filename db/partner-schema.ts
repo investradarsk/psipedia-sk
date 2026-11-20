@@ -343,7 +343,7 @@ export const partnerAuditEvents = sqliteTable("partner_audit_events", {
   index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt),
 ]);
 
-/** 0190: one private chat per registered Partner account; history is not deleted with a profile. */
+/** 0175: one private chat per registered Partner account; history is not deleted with a profile. */
 export const partnerConversations=sqliteTable("partner_conversations",{
   partnerAccountId:text("partner_account_id").primaryKey().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
   createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
