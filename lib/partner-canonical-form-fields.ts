@@ -6,12 +6,13 @@ import { getPartnerEditableFields } from "./partner-profile-changes";
 import { partnerEventFields } from "./partner-event-fields";
 import { helpEditorFields } from "./partner-help-editor-fields";
 import { directoryCategories } from "./directory";
+import { directoryFilterRegistry } from "./directory-filter-contract";
 import type { PartnerCanonicalType } from "./partner-canonical-workflow";
 
 export type CanonicalFieldKind="text"|"textarea"|"select"|"url"|"date"|"time"|"number"|"checkbox"|"nullableBoolean"|"list";
 export type CanonicalFormField={
   key:string;label:string;kind:CanonicalFieldKind;
-  required:boolean;options?:string[];max?:number;minimum?:number;maximum?:number;
+  required:boolean;options?:string[];max?:number;minimum?:number;maximum?:number;categoryScope?:string;
 };
 const make=(key:string,label:string,kind:CanonicalFieldKind="text",options?:readonly string[]):CanonicalFormField=>
   ({key,label,kind,required:false,...(options?{options:[...options]}:{})});
@@ -35,6 +36,8 @@ export function getPartnerCanonicalFormFields():Record<PartnerCanonicalType,Cano
     DIRECTORY_PROFILE:[
       {...make("category","Hlavná kategória","select",directoryCategories.map(item=>item.slug)),required:true},
       ...copy("DIRECTORY_PROFILE"),
+      ...directoryFilterRegistry.map(filter=>({key:filter.id,label:filter.label,kind:"select" as const,required:false,
+        options:[...filter.allowedValues],categoryScope:filter.category})),
     ],
     HELP_ORGANIZATION:copy("HELP_ORGANIZATION").map(field=>
       field.key==="type"?{...field,required:true}:field),
