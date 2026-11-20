@@ -327,8 +327,8 @@ export async function savePartnerCanonicalDraft(input:{
     db,submissionId:row.id,accountId:input.accountId,type:row.resourceType,
     proposedPatchJson:row.proposedPatchJson,media:input.media,nowIso,
   });
-  const updateSql="UPDATE "+tableFor(row.resourceType)+" SET "+assignments.join(",")+
-    ",updated_at=?"+(entries.length+1)+
+  const updateSql="UPDATE "+tableFor(row.resourceType)+" SET "+(assignments.length?assignments.join(",")+",":"")+
+    "updated_at=?"+(entries.length+1)+
     (row.resourceType==="LOST_FOUND_DOG"?"":",updated_by=?"+(entries.length+2))+
     " WHERE id=?"+(entries.length+(row.resourceType==="LOST_FOUND_DOG"?2:3))+
     " AND status IN ('draft','DRAFT') AND updated_at=?"+(entries.length+(row.resourceType==="LOST_FOUND_DOG"?3:4))+
