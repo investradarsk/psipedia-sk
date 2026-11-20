@@ -1845,3 +1845,12 @@
   .partner-claim-search-actions { flex: 0 1 auto; justify-content: flex-start; }
   .partner-claim-search-actions .button { flex: 1; justify-content: center; }
 }
+
+
+/* Partneri V2 step 5: approved lifecycle requests, never direct destructive actions. */
+.partner-lifecycle-actions{margin:1.2rem 0;padding:1rem;border:1px solid #d9e5dc;border-radius:12px;background:#fbfdfb;display:grid;gap:.7rem}
+.partner-lifecycle-actions h3{font:inherit;font-size:1rem;font-weight:800;color:#21543c;margin:0}
+.partner-lifecycle-actions p{margin:0;font-size:.85rem;line-height:1.5}
+.partner-lifecycle-actions .partner-field{display:grid;gap:.35rem}
+.partner-lifecycle-actions textarea,.partner-lifecycle-actions select{width:100%;min-height:42px;box-sizing:border-box;border:1px solid #cedbd1;border-radius:8px;padding:.55rem;background:#fff;color:inherit;font:inherit}
+.partner-lifecycle-actions button{justify-self:start;min-height:44px}
