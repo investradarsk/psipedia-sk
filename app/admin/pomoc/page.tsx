@@ -40,7 +40,7 @@ export default async function AdminHelpPage({ searchParams }: { searchParams: Pr
     eyebrow="Pomoc psom"
     title="Prípady a výzvy"
     description="Spravuj dočasnú opateru, zbierky a dobrovoľnícke výzvy. Adopcie, stratené a nájdené psy aj organizácie nájdeš v samostatných sekciách."
-    actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/pomoc/novy">+ Nová výzva</Link>}
+    actions={<><Link href="/admin/pomoc/historicke">Historické kópie</Link><Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/pomoc/novy">+ Nová výzva</Link></>}
   >
     <AdminDirectoryModuleNav active="help" />
     <Suspense fallback={<AdminDataLoading label="Pomoc psom" />}>
