@@ -26,7 +26,12 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
   const [focused,setFocused]=useState(false);
   const typingSent=useRef(false);
   const lastTypingSignal=useRef(0);
-  const bottom=useRef<HTMLDivElement>(null);
+  const timeline=useRef<HTMLDivElement>(null);
+  const lastInputAt=useRef(0);
+  const scrollDown=useCallback((smooth=false)=>{
+    const element=timeline.current;
+    if(element)element.scrollTo({top:element.scrollHeight,behavior:smooth?"smooth":"auto"});
+  },[]);
   const input=useRef<HTMLInputElement>(null);
   const scrollOnce=useRef(false);
   const signalTyping=useCallback((typing:boolean)=>{
@@ -40,8 +45,10 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
   },[typingUrl]);
   useEffect(()=>{
     if(!body.trim()||!focused){signalTyping(false);return;}
-    signalTyping(true);
-    const timer=window.setInterval(()=>{if(!document.hidden)signalTyping(true);},5000);
+    if(Date.now()-lastInputAt.current<6000)signalTyping(true);
+    const timer=window.setInterval(()=>{
+      if(!document.hidden)signalTyping(Date.now()-lastInputAt.current<6000);
+    },3000);
     return ()=>window.clearInterval(timer);
   },[body,focused,signalTyping]);
   useEffect(()=>{
@@ -74,16 +81,16 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
           a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
       });
       setPeerReadAt(mode==="PARTNER"?result.adminLastReadAt??null:result.partnerLastReadAt??null);
-      if(!scrollOnce.current){scrollOnce.current=true;bottom.current?.scrollIntoView({block:"end"});}
+      if(!scrollOnce.current){scrollOnce.current=true;scrollDown();}
       await ack();
     }catch{/* Polling is best effort, never silently discards an unsent draft. */}
-  },[base,ack,mode]);
+  },[base,ack,mode,scrollDown]);
   useEffect(()=>{
     void ack();
-    bottom.current?.scrollIntoView({block:"end"});
+    scrollDown();
     const timer=window.setInterval(()=>{if(!document.hidden)void refresh();},7000);
     return ()=>window.clearInterval(timer);
-  },[ack,refresh]);
+  },[ack,refresh,scrollDown]);
   async function loadOlder(){
     if(!before||moreBusy)return;
     setMoreBusy(true);setError("");
@@ -112,7 +119,7 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
       setBody("");setFocused(false);signalTyping(false);
       setFiles([]);if(input.current)input.current.value="";
       await refresh();
-      bottom.current?.scrollIntoView({block:"end",behavior:"smooth"});
+      scrollDown(true);
       setNotice("Správa bola odoslaná.");
     }catch(e){setError(e instanceof Error?e.message:"Odoslanie sa nepodarilo.");}
     finally{setBusy(false);}
@@ -128,7 +135,7 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
     {before&&<button type="button" className={styles.older} onClick={()=>void loadOlder()} disabled={moreBusy}>
       {moreBusy?"Načítavam…":"Načítať staršie správy"}
     </button>}
-    <div className={styles.timeline} role="log" aria-live="polite" aria-relevant="additions">
+    <div ref={timeline} className={styles.timeline} role="log" aria-live="polite" aria-relevant="additions">
       {!items.length&&<p className={styles.empty}>Zatiaľ žiadne správy. Napíšte prvú správu.</p>}
       {items.map(item=>{
         const own=item.senderRole===mode;
@@ -152,14 +159,14 @@ export function PartnerPrivateChat({mode,accountId,initial}:Props){
       {peerTyping&&<p className={styles.typing} role="status">
         {mode==="PARTNER"?"Psipedia":"Partner"} píše…
       </p>}
-      <div ref={bottom}/>
+
     </div>
     <form onSubmit={event=>void send(event)} className={styles.composer}>
       <label htmlFor={mode==="PARTNER"?"partner-chat-text":"admin-chat-text"}>Nová správa</label>
       <textarea id={mode==="PARTNER"?"partner-chat-text":"admin-chat-text"}
         value={body} maxLength={4000} rows={3} disabled={busy}
         onFocus={()=>setFocused(true)} onBlur={()=>{setFocused(false);signalTyping(false);}}
-        onChange={event=>setBody(event.target.value)} placeholder="Napíšte správu…"/>
+        onChange={event=>{lastInputAt.current=Date.now();setBody(event.target.value);}} placeholder="Napíšte správu…"/>
       <label htmlFor={mode==="PARTNER"?"partner-chat-files":"admin-chat-files"}>Prílohy (JPG, PNG, WebP, PDF)</label>
       <input id={mode==="PARTNER"?"partner-chat-files":"admin-chat-files"} ref={input}
         disabled={busy} type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf"
