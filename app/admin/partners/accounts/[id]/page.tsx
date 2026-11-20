@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminPartnerAccountActions } from "@/components/admin-partner-account-actions";
+import { AdminPartnerLifecycleDecision } from "@/components/admin-partner-lifecycle-decision";
+import { AdminPartnerAuditDiff } from "@/components/admin-partner-audit-diff";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getPartnerAccountAdmin, getPartnerAccountDossierAdmin } from "@/lib/partner-admin-store";
 import { partnerAdminStatusLabel, partnerAdminResourceLabel, partnerAdminRoleLabel } from "@/lib/admin-partner-labels";
@@ -36,6 +38,10 @@ const requestKinds: Record<string,string> = {
   VERIFICATION:"Overenie správcu",
   COMMERCIAL_INTEREST:"Komerčná žiadosť",
   COMMERCIAL_AGREEMENT:"Komerčná dohoda",
+  REQUEST_HIDE:"Dočasné skrytie profilu",
+  REQUEST_ARCHIVE:"Odstránenie profilu – archivácia",
+  REQUEST_RELEASE:"Vzdanie sa správy profilu",
+  REQUEST_DELETE_ACCOUNT:"Žiadosť o zrušenie účtu",
 };
 const auditActions: Record<string,string> = {
   ACCOUNT_CREATED:"Registrácia účtu",
@@ -55,7 +61,7 @@ const auditActions: Record<string,string> = {
   EVENT_SUBMITTED:"Odoslané podujatie",
   EVENT_CREATED:"Vytvorenie podujatia",
   EVENT_REJECTED:"Zamietnutie podujatia",
-  PROFILE_CHANGE_APPROVED:"Schválenie úpravy",
+  PROFILE_CHANGE_APPROVED:"Úprava profilu",
   CONTACT_PROFILE_COMPLETED:"Doplnenie kontaktu",
   CONTACT_PROFILE_UPDATED:"Zmena kontaktu",
 };
@@ -151,7 +157,9 @@ export default async function Page({
                   </div>
                   <div className="admin-partner-v2-record-actions">
                     <span className={item.pending?"is-pending":undefined}>{localizedStatus(item.status)}</span>
-                    <Link href={item.requestHref}>Otvoriť žiadosť</Link>
+                    {item.kind.startsWith("REQUEST_")&&item.pending
+                      ?<AdminPartnerLifecycleDecision id={item.id} kind={item.kind}/>
+                      :!item.kind.startsWith("REQUEST_")?<Link href={item.requestHref}>Otvoriť žiadosť</Link>:null}
                     {item.editorHref&&<Link href={item.editorHref}>Otvoriť editor</Link>}
                   </div>
                 </article>
@@ -241,6 +249,7 @@ export default async function Page({
                     <h3>{auditActions[item.action]??item.action.replaceAll("_"," ").toLocaleLowerCase("sk")}</h3>
                     <p>{new Date(item.createdAt).toLocaleString("sk-SK")}</p>
                     <small>{item.actorType==="PARTNER"?"Partner":item.actorType==="ADMIN"?"Administrátor":"Systém"}</small>
+                    <AdminPartnerAuditDiff metadataJson={item.metadataJson} />
                   </div>
                 </article>
               ))}
@@ -256,7 +265,7 @@ export default async function Page({
               </article>
             )):<p>Žiadny prístup zatiaľ nebol pridelený.</p>}
           </div>
-          <p className="admin-partner-v2-audit-note">Podrobné rozdiely pred/po jednotlivých úpravách doplníme v kroku 5/8.</p>
+          <p className="admin-partner-v2-audit-note">Priame partnerské úpravy zobrazujú pôvodné a nové hodnoty. História je iba na čítanie – bez automatického návratu zmien.</p>
         </section>
       )}
     </AdminShell>
