@@ -19,7 +19,7 @@ Dátum: 20. novembra 2026. **Iba štruktúra + testy. Žiadny produkčný presun
 | Výsledky kontroly kvality | `directory_profile_quality_resolutions` |
 | Katalóg Služby V3, výber plemien a klubov, partnerstvo a adresa Google Place | Samostatné existujúce relácie |
 
-## Čo dopĺňa migrácia 0176
+## Čo dopĺňa izolovaná SQL schéma
 
 | Nové úložisko | Účel |
 | --- | --- |
