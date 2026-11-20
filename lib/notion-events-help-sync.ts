@@ -250,7 +250,7 @@ function plainText(value: unknown) {
   )).join("").trim();
 }
 
-function pageProperty(page: NotionPage, name: string): ReconciliationValue {
+export function pageProperty(page: NotionPage, name: string): ReconciliationValue {
   const property = page.properties?.[name];
   if (!property || typeof property !== "object") return "";
   const record = property as Record<string, unknown>;
