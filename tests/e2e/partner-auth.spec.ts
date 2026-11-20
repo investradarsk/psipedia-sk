@@ -797,8 +797,9 @@ test("internal admin Partner overview and account detail are protected admin pag
   await page.getByRole("navigation",{name:"Sekcie detailu partnera"}).getByRole("link",{name:"Účet"}).click();
   await expect(page.getByRole("heading",{name:"Kontakt"})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Prihlasovacie metódy"})).toBeVisible();
-  await expect(page.getByText(project==="desktop-chromium"?"E2E Partner Desktop":"E2E Partner Mobile")).toBeVisible();
-  await expect(page.getByText(project==="desktop-chromium"?"E2E manažér aktualizovaný":"E2E správca aktualizovaný")).toBeVisible();
+  const accountOverview=page.getByRole("region",{name:"Prehľad partnera"});
+  await expect(accountOverview.getByText(project==="desktop-chromium"?"E2E Partner Desktop":"E2E Partner Mobile")).toBeVisible();
+  await expect(accountOverview.getByText(project==="desktop-chromium"?"E2E manažér aktualizovaný":"E2E správca aktualizovaný")).toBeVisible();
   await expect(page.getByRole("heading",{name:"Bezpečnostné akcie"})).toBeVisible();
   await page.goto("/admin/partners/commercial?status=NEW");
   await expect(page.getByRole("heading",{name:"Komerčné leady"})).toBeVisible();
