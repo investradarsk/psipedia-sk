@@ -8,6 +8,7 @@ export type DirectoryPresentationSqlRead = {
   services: string[];
   thumbnailImageDisplay: ImageDisplayConfig | null;
   detailImageDisplay: ImageDisplayConfig | null;
+  trainerServicesText: string | null;
 };
 
 const servicesSql=(alias:string)=>
@@ -41,7 +42,9 @@ export const DIRECTORY_PRESENTATION_SQL = [
   "WHERE profile_id=?1 AND display_context='thumbnail') AS thumbnail,",
   "(SELECT json_object('mode',display_mode,'x',focus_x,'y',focus_y,'zoom',zoom)",
   "FROM directory_profile_image_display_settings",
-  "WHERE profile_id=?1 AND display_context='detail') AS detail",
+  "WHERE profile_id=?1 AND display_context='detail') AS detail,",
+  "(SELECT text_value FROM directory_profile_extra_fields",
+  "WHERE profile_id=?1 AND field_key='_psipedia_trainer_services_text') AS trainer_text",
 ].join(" ");
 
 function parse(value:string|null):unknown {
@@ -63,7 +66,7 @@ function image(value:unknown,ctx:"thumbnail"|"detail"):ImageDisplayConfig|null {
   return v as ImageDisplayConfig;
 }
 export function parseDirectoryPresentationSqlRead(row:{
-  services:string|null;thumbnail:string|null;detail:string|null;
+  services:string|null;thumbnail:string|null;detail:string|null;trainer_text?:string|null;
 }):DirectoryPresentationSqlRead {
   const items=parse(row.services);
   if(!Array.isArray(items)||items.length>100||
@@ -73,6 +76,7 @@ export function parseDirectoryPresentationSqlRead(row:{
     services:items as string[],
     thumbnailImageDisplay:image(parse(row.thumbnail),"thumbnail"),
     detailImageDisplay:image(parse(row.detail),"detail"),
+    trainerServicesText:row.trainer_text??null,
   };
 }
 export async function readDirectoryPresentationSql(
