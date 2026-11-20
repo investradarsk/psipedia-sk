@@ -95,7 +95,14 @@ test("every Notion inbound sweep honors unpublished guards and pre-migration wor
   const breeds = source("lib/notion-breed-workcopy-sync.ts");
   assert.match(breeds, /await notionPageIsTombstoned\(args.database,link.work_notion_page_id\)/);
   assert.doesNotMatch(breeds, /notionPageMustSkipInboundSync\(/);
-  assert.match(breeds, /status: canonical.status/);
+  // Work-copy now writes one explicitly mapped field instead of resaving a
+  // complete breed: publication must remain D1-owned, never overwritten.
+  assert.match(breeds, /await saveBreedNotionField\(\{/);
+  const directField = source("lib/notion-breed-workcopy-direct-field.ts");
+  const fieldSql = source("lib/notion-breed-workcopy-field-sql.mjs");
+  assert.match(directField, /"UPDATE managed_breeds SET "\+patch\.assignments\.join\(","\)/);
+  assert.match(fieldSql, /throw Error\("BREED_EVENT_D1_FIELD_NOT_MAPPED"\)/);
+  assert.doesNotMatch(fieldSql, /^\s*status\s*:/m);
   for (const mapping of ["directory_notion_sync","event_notion_sync","breed_notion_sync",
     "breed_notion_workcopy_links","article_notion_sync","notion_agenda_sync"]) {
     assert.ok(core.includes(mapping), "guard must recognize " + mapping);
