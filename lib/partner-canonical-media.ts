@@ -107,7 +107,7 @@ export async function prepareCanonicalDraftMediaApproval(input:{
     type==="ADOPTION_DOG"?"adoption_dogs":type==="LOST_FOUND_DOG"?"lost_found_dog_reports":"help_cases";
   const cover=media.coverId?approved.get(media.coverId)!:null;
   const mediaColumn=type==="ADOPTION_DOG"||type==="LOST_FOUND_DOG"?"main_image":"image_url";
-  const keyColumn=type==="ADOPTION_DOG"?null:type==="LOST_FOUND_DOG"?"main_image_key":"image_key";
+  const keyColumn=type==="ADOPTION_DOG"?null:type==="LOST_FOUND_DOG"?"main_image_key":type==="HELP_CASE"?null:"image_key";
   const statements:D1PreparedStatement[]=[];
   if(cover){
     const sql="UPDATE "+table+" SET "+mediaColumn+"=?"+(keyColumn?","+keyColumn+"=?":"")+
