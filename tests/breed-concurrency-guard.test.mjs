@@ -190,7 +190,7 @@ test("SQL-only full save excludes four obsolete object JSON columns and still in
   const sqlMode=vm.runInNewContext(
     stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements,breedSqlOnlyInsertValues})"),
     {JSON,Date,clean:value=>value,
-      env:{BREED_SQL_V2_WRITE_MODE:"sql"},
+      env:{BREED_SQL_V2_WRITE_MODE:"sql",BREED_SQL_V2_READ_MODE:"sql"},
       breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements},
   );
   const dummy={prepare(sql){return {sql,bind(...args){return {sql,args}}};}};
