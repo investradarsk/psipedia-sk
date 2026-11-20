@@ -856,7 +856,10 @@ test("internal admin Partner overview and account detail are protected admin pag
     expect(directoryResponse.ok()).toBeTruthy();
     const directoryJson=await directoryResponse.json() as {items?:Array<{name?:string;status?:string}>;profiles?:Array<{name?:string;status?:string}>};
     const directoryItems=directoryJson.items??directoryJson.profiles??[];
-    expect(directoryItems.find((item)=>item.name==="Partner E2E Nová Služba")?.status).toBe("draft");
+    // This request already owns a canonical D1 draft (subject_id is set).
+    // Admin APPROVE intentionally publishes that existing row; only the
+    // historical no-subject-id CREATE path creates an unpublished draft.
+    expect(directoryItems.find((item)=>item.name==="Partner E2E Nová Služba")?.status).toBe("published");
     await page.goto("/admin/partners/accounts/partner-e2e-desktop?tab=historia");
     const createdMembership=page.locator("section").filter({hasText:"História prístupov"}).locator("article").filter({hasText:"Partner E2E Nová Služba"});
     await expect(createdMembership).toContainText("Správca profilu");
