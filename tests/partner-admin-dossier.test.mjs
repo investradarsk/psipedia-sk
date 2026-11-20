@@ -14,7 +14,7 @@ function fakeD1(sqlite) {
     prepare(query) {
       // Emulate the conservative compound-SELECT budget used by D1.
       // The former ten-way request UNION crashed the real Admin detail page.
-      const compoundTerms=1+(query.match(/\\bUNION ALL\\b/g)??[]).length;
+      const compoundTerms=query.split("UNION ALL").length;
       assert.ok(compoundTerms<=4,`D1-safe dossier query exceeded four SELECT terms: ${compoundTerms}`);
       const stmt=sqlite.prepare(query);
       return {
