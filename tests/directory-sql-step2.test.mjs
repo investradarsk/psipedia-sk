@@ -48,3 +48,15 @@ test("isolated 0176 schema accepts idempotent STAGED only",()=>{
   assert.equal(db.prepare("SELECT COUNT(*) n FROM directory_profile_extra_list_items").get().n,0);
   db.close();
 });
+
+test("encoded JSON null image override is an intentional default, not invalid display",()=>{
+  for(const value of [null,"null"," null ",""]){
+    const p=step2Plan(row({thumbnail_display_json:value,detail_display_json:value}),page(),sid);
+    assert.equal(p.ok,true);
+    assert.equal(p.displays.length,0);
+    assert.equal(p.issues.includes("invalid_display"),false);
+  }
+  const bad=step2Plan(row({thumbnail_display_json:"{broken",detail_display_json:'{"mode":"bad"}'}),page(),sid);
+  assert.equal(bad.ok,true);
+  assert.equal(bad.issues.includes("invalid_display"),true);
+});
