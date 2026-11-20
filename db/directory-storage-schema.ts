@@ -6,7 +6,8 @@
  * readers/writers. Until explicit cutover, current JSON-backed features
  * and reviewed-profile guards remain functional.
  */
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 import { directoryProfiles } from "./schema";
 
 export const directoryProfileQualifications = sqliteTable(
@@ -108,5 +109,107 @@ export const directoryProfileQualityResolutions = sqliteTable(
   table => [
     primaryKey({ columns: [table.profileId, table.qualityField] }),
     index("directory_profile_quality_resolutions_checked_idx").on(table.qualityField, table.checkedAt),
+  ],
+);
+
+/**
+ * Isolated Step 1: Remaining Admin fields with no existing canonical relational owner.
+ * No legacy JSON is stored here. An explicit empty string is preserved,
+ * and each row has a per-field revision for last-write-wins reconciliation.
+ */
+export const directoryProfileExtraFields = sqliteTable(
+  "directory_profile_extra_fields",
+  {
+    profileId: integer("profile_id").notNull().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    fieldKey: text("field_key").notNull(),
+    valueKind: text("value_kind", { enum: ["text", "number", "null"] }).notNull(),
+    textValue: text("text_value"),
+    numberValue: real("number_value"),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  table => [
+    primaryKey({ columns: [table.profileId, table.fieldKey] }),
+    check("directory_profile_extra_fields_key_check", sql`length(${table.fieldKey}) BETWEEN 1 AND 200`),
+    index("directory_profile_extra_fields_key_idx").on(table.fieldKey, table.profileId),
+  ],
+);
+
+/** One SQL row per list, including deliberately cleared empty lists. */
+export const directoryProfileExtraListState = sqliteTable(
+  "directory_profile_extra_list_state",
+  {
+    profileId: integer("profile_id").notNull().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    fieldKey: text("field_key").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  table => [
+    primaryKey({ columns: [table.profileId, table.fieldKey] }),
+  ],
+);
+
+export const directoryProfileExtraListItems = sqliteTable(
+  "directory_profile_extra_list_items",
+  {
+    profileId: integer("profile_id").notNull().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    fieldKey: text("field_key").notNull(),
+    itemOrder: integer("item_order").notNull(),
+    itemText: text("item_text").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  table => [
+    primaryKey({ columns: [table.profileId, table.fieldKey, table.itemOrder] }),
+    index("directory_profile_extra_list_items_key_idx").on(table.fieldKey, table.profileId, table.itemOrder),
+  ],
+);
+
+export const directoryProfileServiceTexts = sqliteTable(
+  "directory_profile_service_texts",
+  {
+    profileId: integer("profile_id").notNull().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    itemOrder: integer("item_order").notNull(),
+    serviceText: text("service_text").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  table => [
+    primaryKey({ columns: [table.profileId, table.itemOrder] }),
+  ],
+);
+
+export const directoryProfileImageDisplaySettings = sqliteTable(
+  "directory_profile_image_display_settings",
+  {
+    profileId: integer("profile_id").notNull().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    displayContext: text("display_context", { enum: ["thumbnail", "detail"] }).notNull(),
+    displayMode: text("display_mode", { enum: ["auto", "crop", "blur", "natural"] }).notNull(),
+    focusX: real("focus_x").notNull(),
+    focusY: real("focus_y").notNull(),
+    zoom: real("zoom").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  table => [
+    primaryKey({ columns: [table.profileId, table.displayContext] }),
+  ],
+);
+
+export const directoryProfileSqlCutoverState = sqliteTable(
+  "directory_profile_sql_cutover_state",
+  {
+    profileId: integer("profile_id").primaryKey().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    state: text("state", { enum: ["STAGED", "VERIFIED", "SQL_ONLY"] }).notNull(),
+    sourceRevision: text("source_revision").notNull(),
+    notionRevision: text("notion_revision"),
+    stagedFields: integer("staged_fields").notNull(),
+    stagedLists: integer("staged_lists").notNull(),
+    verifiedAt: text("verified_at"),
+    cutoverAt: text("cutover_at"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  table => [
+    index("directory_profile_sql_cutover_state_state_idx").on(table.state, table.profileId),
   ],
 );
