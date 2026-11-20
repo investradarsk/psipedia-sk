@@ -35,7 +35,7 @@ test("exact SQLite 0175 DROP preserves canonical arrays, existing rows and typed
       "VALUES (?,?,?,?,?)").run("labrador",'["one"]','["two"]',"SQL title","2026-11-20");
     db.prepare("INSERT INTO breed_fci_standard (breed_id,description) VALUES (1,?)")
       .run("SQL FCI");
-    db.exec(read("../drizzle/0175_breeds_remove_legacy_object_json.sql")
+    db.exec(read("../scripts/sql/breeds_drop_four_legacy_objects.sql")
       .replace(/--> statement-breakpoint/g,""));
     const columns=db.prepare("SELECT name FROM pragma_table_info('managed_breeds')")
       .all().map(row=>row.name);
