@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import vm from "node:vm";
 import { mergeManagedBreedEdit, mergeNotionBreedInput } from "../lib/breed-sync-preservation.ts";
-import {breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements}
+import {breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements}
   from "../lib/breed-sql-v2-writer.mjs";
 
 // Execute the actual production SQL statement factory, including both kinds
@@ -27,7 +27,9 @@ const factories =
   section(store, "function values(", "export async function createManagedBreed(") +
   "\n" +
   section(store, "const select =", "export async function listManagedBreedSummaries(") +
-  "\n" +
+  // The standalone VM simulates rollback (env has no SQL flag). Production
+  // derives readSelect from the active mode; bind that alias in this fixture.
+  "\nconst readSelect = select;\n" +
   section(
     store,
     "export function buildManagedBreedUpdateStatements(",
@@ -36,7 +38,7 @@ const factories =
 const { buildManagedBreedUpdateStatements } = vm.runInNewContext(
   stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements})"),
   { JSON, Date, clean: (value) => value,
-    env: {},breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements },
+    env: {},breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements },
 );
 
 const stamp = "2026-10-15T09:00:00.000Z";
@@ -183,6 +185,31 @@ function adapter() {
     );
   return { sqlite, row, articleLinks, directoryLinks, write };
 }
+
+test("SQL-only full save excludes four obsolete object JSON columns and still includes canonical snapshot",()=>{
+  const sqlMode=vm.runInNewContext(
+    stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements,breedSqlOnlyInsertValues})"),
+    {JSON,Date,clean:value=>value,
+      env:{BREED_SQL_V2_WRITE_MODE:"sql",BREED_SQL_V2_READ_MODE:"sql"},
+      breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements},
+  );
+  const dummy={prepare(sql){return {sql,bind(...args){return {sql,args}}};}};
+  const input=payload();
+  const inserted=sqlMode.breedSqlOnlyInsertValues(input);
+  assert.equal(inserted.length,49);
+  assert.deepEqual([inserted[14],inserted[15],inserted[17],inserted[48]],["{}","{}","[]","{}"]);
+  assert.notEqual(input.editorial.overview,"");
+  const statements=sqlMode.buildManagedBreedUpdateStatements(dummy,1,input,"admin",stamp,later);
+  const first=statements[0];
+  for(const field of ["fci_standard_json","editorial_json","related_breeds_json","seo_json"])
+    assert.equal(first.sql.includes(field+"="),false,field+" is legacy and must not be written");
+  for(const field of ["gallery_json","sports_json","health_risks_json","good_for_json","sources_json"])
+    assert.equal(first.sql.includes(field+"="),true,field+" is canonical list and must be written");
+  assert.equal(first.sql.split("?").length-1,first.args.length,"SQL placeholders align with filtered values");
+  assert.ok(statements.some(x=>x.sql?.includes("INSERT INTO breed_fci_standard")));
+  assert.ok(statements.some(x=>x.sql?.includes("INSERT INTO breed_editorial_text")));
+  assert.ok(statements.some(x=>x.sql?.includes("INSERT INTO breed_related_breeds")));
+});
 
 test("concurrent editor writes: first full update wins, stale save rolls back fields, FCI, gallery and links", async () => {
   const f = adapter();

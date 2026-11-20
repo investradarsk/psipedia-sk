@@ -1,4 +1,5 @@
-import { auditCanonicalIdentities, canonicalBreedIdsSql, type CanonicalIdentity } from './breed-canonical.ts';
+import { auditCanonicalIdentities, canonicalBreedIdsForRead, type CanonicalIdentity } from './breed-canonical.ts';
+import { breedSqlPrimaryEnabled, BREED_SQL_V2_READ_EXPRESSIONS } from './breed-sql-v2-primary-read.mjs';
 import { inspectBreedMeasurement, publicFciSectionName } from './breed-fci.ts';
 import { withAvailableBreedImages, type ImageBindings } from './breed-image.ts';
 
@@ -14,6 +15,19 @@ export const breedAuditRowsSql = `SELECT id,slug,name,status,fci_number,import_k
     'vyska_suka_cm',json_extract(${standard},'$.vyska_suka_cm'),
     'hmotnost_pes_kg',json_extract(${standard},'$.hmotnost_pes_kg'),
     'hmotnost_suka_kg',json_extract(${standard},'$.hmotnost_suka_kg')) AS fci_measurements_json
+  FROM managed_breeds ORDER BY id`;
+
+/** SQL mode Admin audit must not read the legacy breed SEO or FCI blobs.
+ * Project only four FCI scalar measurements from the canonical 0174 table. */
+export const breedAuditRowsSqlV2 = `SELECT id,slug,name,status,fci_number,import_key,
+  ${BREED_SQL_V2_READ_EXPRESSIONS.seo_json} AS seo_json,image_url,
+  fci_group,fci_section_number,fci_section,size,height,weight,lifespan,
+  json_object(
+    'vyska_pes_cm',(SELECT f.fci_vyska_pes_cm FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id),
+    'vyska_suka_cm',(SELECT f.fci_vyska_suka_cm FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id),
+    'hmotnost_pes_kg',(SELECT f.fci_hmotnost_pes_kg FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id),
+    'hmotnost_suka_kg',(SELECT f.fci_hmotnost_suka_kg FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)
+  ) AS fci_measurements_json
   FROM managed_breeds ORDER BY id`;
 
 export function auditBreedRows(rows:BreedAuditRow[]) {
@@ -40,9 +54,9 @@ export function auditBreedRows(rows:BreedAuditRow[]) {
   return issues;
 }
 
-export async function auditPublishedBreeds(database:D1Database,bindings:ImageBindings){
-  const rows=(await database.prepare(breedAuditRowsSql).all<BreedAuditRow>()).results;
-  const canonical=(await database.prepare(canonicalBreedIdsSql).all<{id:number}>()).results;
+export async function auditPublishedBreeds(database:D1Database,bindings:ImageBindings & {BREED_SQL_V2_READ_MODE?:string}){
+  const rows=(await database.prepare(breedSqlPrimaryEnabled(bindings)?breedAuditRowsSqlV2:breedAuditRowsSql).all<BreedAuditRow>()).results;
+  const canonical=(await database.prepare(canonicalBreedIdsForRead(bindings)).all<{id:number}>()).results;
   const canonicalIds=new Set(canonical.map(row=>row.id));
   const images=await withAvailableBreedImages(rows.filter(row=>canonicalIds.has(row.id)).map(row=>({id:row.id,slug:row.slug,image:row.image_url})),bindings);
   const issues=auditBreedRows(rows);

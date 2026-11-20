@@ -5,7 +5,7 @@
  */
 import { getManagedBreed } from "@/lib/breed-store";
 import {
-  breedSqlV2ShadowEnabled,breedSqlV2ControlledStatements,breedSqlV2CasGuard,
+  breedSqlV2StructuredWritesEnabled,breedSqlV2ControlledStatements,breedSqlV2CasGuard,
 } from "@/lib/breed-sql-v2-writer.mjs";
 import { notionRequest, notionFlagEnabled, notionRichTextProperty,
   type NotionPage, type NotionSyncBindings } from "@/lib/notion-sync-shared";
@@ -116,7 +116,7 @@ async function seed(database:D1Database,link:Link,page:NotionPage,bindings:Contr
   const parsed=readBreedControlledNotionPage(page);
   const values=parseBreedControlledValues({...emptyBreedControlledValues(),...parsed.values});
   const json=JSON.stringify(values);
-  if(breedSqlV2ShadowEnabled(bindings)){
+  if(breedSqlV2StructuredWritesEnabled(bindings)){
     const previous=await database.prepare("SELECT updated_at FROM managed_breeds WHERE id=?")
       .bind(link.breed_id).first<{updated_at:string}>();
     if(!previous)throw Error("BREED_CONTROLLED_BREED_MISSING");
@@ -202,7 +202,7 @@ export async function receiveBreedControlledNotionEdit(args:{
       notion[key]=value;
     }
     if (!modified) return {updated:false,invalidKeys:parsed.errors.map((e:{key:string})=>e.key)};
-    if(breedSqlV2ShadowEnabled(args.bindings)){
+    if(breedSqlV2StructuredWritesEnabled(args.bindings)){
       const changed=Object.fromEntries(Object.entries(parsed.values)
         .filter(([key,value])=>!eq(parseBreedControlledValues(row!.values_json)[key],value)));
       try{
@@ -279,7 +279,7 @@ export async function saveBreedControlledFromAdmin(args:{
     !changed.includes(key) && !eq(values[key],notion[key]));
   if (!changed.length && !retry.length) return {...state(row),rejectedKeys};
   if (changed.length) {
-    if(breedSqlV2ShadowEnabled(args.bindings)){
+    if(breedSqlV2StructuredWritesEnabled(args.bindings)){
       await commitControlledShadow({
         database:args.database,breedId:args.breedId,row,values,notion,
         changes:Object.fromEntries(changed.map(key=>[key,values[key]])),

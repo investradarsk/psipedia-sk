@@ -45,7 +45,7 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
   if (!database) throw new Error("SEO quality audit vyžaduje pripojenú D1 databázu.");
 
   const filters = normalizeFilters(input);
-  const entities = await loadPublishedSeoQualityEntities(database);
+  const entities = await loadPublishedSeoQualityEntities(database, env);
   const audited = entities.map((entity): AdminSeoQualityItem => {
     const findings = auditSeoQualityEntity(entity);
     const customGapCount = findings.filter((finding) => finding.scope === "custom").length;
