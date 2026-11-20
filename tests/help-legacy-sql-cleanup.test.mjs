@@ -95,23 +95,23 @@ test("removes exactly 140 historical SQL-only copies, not current Help or canoni
  db.close();
 });
 test("a failed eligibility check leaves D1 entirely unchanged after rollback",()=>{
- for(const mutate of [
-  db=>db.exec("DELETE FROM notion_agenda_sync WHERE agenda='help-cases' AND entity_id=1"),
-  db=>db.exec("INSERT INTO partner_help_claims(id,help_case_id) VALUES('p',1)"),
-  db=>db.exec("DELETE FROM adoption_dogs WHERE slug='adoption-1'"),
-  db=>db.exec("UPDATE help_cases SET status='draft' WHERE id=1"),
-  db=>db.exec("INSERT INTO lost_found_dog_reports(id,slug) VALUES(1,'historic-lost')"),
-  db=>db.exec("INSERT INTO notion_manual_transfer_items(notion_page_id,status) VALUES('adopt-page-1','RUNNING')"),
-  db=>db.exec("INSERT INTO notion_agenda_sync(agenda,entity_id,notion_page_id) VALUES('adoptions',300,'adopt-page-1')"),
-  db=>db.exec("UPDATE help_cases SET slug='unexpected-removed-shelter' WHERE id=1104")
+ for(const [name,mutate] of [
+  ["missing-mapping",db=>db.exec("DELETE FROM notion_agenda_sync WHERE agenda='help-cases' AND entity_id=1")],
+  ["partner-claim",db=>db.exec("INSERT INTO partner_help_claims(id,help_case_id) VALUES('p',1)")],
+  ["missing-adoption",db=>db.exec("DELETE FROM adoption_dogs WHERE slug='adoption-1'")],
+  ["draft-status",db=>db.exec("UPDATE help_cases SET status='draft' WHERE id=1")],
+  ["legacy-lost",db=>db.exec("INSERT INTO lost_found_dog_reports(id,slug) VALUES(1,'historic-lost')")],
+  ["running-transfer",db=>db.exec("INSERT INTO notion_manual_transfer_items(notion_page_id,status) VALUES('adopt-page-1','RUNNING')")],
+  ["shared-notion-page",db=>db.exec("INSERT INTO notion_agenda_sync(agenda,entity_id,notion_page_id) VALUES('adoptions',300,'adopt-page-1')")],
+  ["renamed-shelter",db=>db.exec("UPDATE help_cases SET slug='unexpected-removed-shelter' WHERE id=1104")]
  ]) {
   const db=makeDb();
   mutate(db);
-  assert.throws(()=>apply(db),/constraint|CHECK|FOREIGN KEY/i);
+  assert.throws(()=>apply(db),/constraint|CHECK|FOREIGN KEY/i,name);
   assert.equal(one(db,"SELECT COUNT(*) n FROM help_cases"),141);
   assert.equal(one(db,"SELECT COUNT(*) n FROM admin_record_tombstones"),0);
   assert.equal(one(db,"SELECT COUNT(*) n FROM notion_agenda_sync WHERE agenda='help-cases'"),
-   mutate.toString().includes("DELETE FROM notion_agenda_sync")?139:140);
+   name==="missing-mapping"?139:140);
   db.close();
  }
 });
