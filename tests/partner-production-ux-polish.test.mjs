@@ -109,11 +109,11 @@ test("Partner event creation redirects to shared editor with accurate private-dr
   assert.match(newEventPage, /redirect\("\/partner\/koncepty\/novy\?typ=MANAGED_EVENT"\)/);
   assert.match(canonicalNewPage, /PartnerCanonicalDraftForm/);
   assert.match(canonicalNewPage, /Uložte si neverejný koncept alebo ho odošlite na prvé schválenie/);
-  assert.match(canonicalForm, /Kým záznam neodošlete a administrátor ho neschváli, nie je verejný/);
+  assert.match(canonicalForm, /Koncept zostane súkromný a na stránke sa zobrazí až po schválení/);
   assert.match(canonicalForm, /Fotografie a galériu môžete nahrať po prvom uložení konceptu/);
   assert.doesNotMatch(newEventPage, /canonical|admin flow/i);
   assert.doesNotMatch(editEventPage, /canonical|admin flow|\bslug\b/i);
-  assert.match(editEventPage, /Webová adresa a stav zverejnenia/);
+  assert.match(editEventPage, /Ak sa podujatie medzitým zmenilo/);
 });
 
 test("password controls are accessible and preserve password-manager semantics", () => {
