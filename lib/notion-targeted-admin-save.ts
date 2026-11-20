@@ -17,7 +17,7 @@ export type TargetedNotionSaveBindings =
     NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string;
   };
 
-export type TargetedNotionSaveStatus = "disabled" | "unlinked" | "synced" | "pending" | "review";
+export type TargetedNotionSaveStatus = "disabled" | "unlinked" | "synced" | "pending" | "review" | "setup";
 
 
 type HelpSnapshot = Record<string, ReconciliationValue>;
@@ -97,10 +97,24 @@ export async function syncSavedNotionRecord(input: {
       }
       // This D1 receipt is committed BEFORE the Notion request.
       // Both direct saves and the minute cron use the identical guarded retry.
-      const queued=await queueHelpNotionAdminChange({
-        database:bindings.DB,agenda,entityId,
-        before:input.beforeHelpSnapshot,after:afterHelpSnapshot,fields:changedHelpFields,
-      });
+      let queued: TargetedNotionSaveStatus;
+      try {
+        queued=await queueHelpNotionAdminChange({
+          database:bindings.DB,agenda,entityId,
+          before:input.beforeHelpSnapshot,after:afterHelpSnapshot,fields:changedHelpFields,
+        });
+      } catch (error) {
+        // Deploys may temporarily have the old schema: preserve the existing
+        // direct Admin -> Notion behavior until the additive outbox is installed.
+        // Never claim queued retry before there is a durable D1 receipt.
+        if (error instanceof Error &&
+            /no such table: notion_help_admin_writeback_outbox/i.test(error.message)) {
+          return await syncOneAdminHelpRecord({
+            database:bindings.DB,bindings,agenda,entityId,changedHelpFields,
+          });
+        }
+        throw error;
+      }
       if (queued==="unlinked") return "unlinked";
       return await retryOneHelpNotionWriteback({
         database:bindings.DB,bindings,agenda,entityId,
