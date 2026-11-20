@@ -1,0 +1,84 @@
+name: Directory – eight historical SQL review locks (owner only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/directory-0173-review-lock-bridge.mjs"
+      - "scripts/production-directory-0173-review-lock-bridge.mjs"
+      - "tests/directory-0173-review-lock-bridge.test.mjs"
+      - ".github/workflows/directory-0173-review-lock-bridge.yml"
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        type: string
+        required: true
+        description: "APPLY-DIRECTORY-REVIEW-0173-psipedia-sk-db"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: SQLite bridge / eight locks fail-closed
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - run: node --test tests/directory-0173-review-lock-bridge.test.mjs
+
+  production:
+    if: github.event_name == 'workflow_dispatch'
+    needs: contract
+    name: Add only missing historical SQL review locks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      DIRECTORY_REVIEW_BRIDGE_CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Reject non-owner or unconfirmed request
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$DIRECTORY_REVIEW_BRIDGE_CONFIRMATION" = "APPLY-DIRECTORY-REVIEW-0173-psipedia-sk-db"
+          test -n "$CLOUDFLARE_API_TOKEN"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Require current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Use exact configured Cloudflare account
+        shell: bash
+        run: |
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Project at most eight historical SQL review locks
+        run: node scripts/production-directory-0173-review-lock-bridge.mjs
+      - name: Audit output, aggregate counts only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: directory-review-lock-bridge-${{ github.run_id }}
+          path: .directory-review-0173-bridge/report.json
+          if-no-files-found: ignore
+          retention-days: 30
