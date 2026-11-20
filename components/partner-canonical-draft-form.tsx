@@ -1,208 +1,276 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { PartnerCanonicalType, PartnerDraftStatus } from "@/lib/partner-canonical-workflow";
+import { useMemo,useRef,useState } from "react";
+import { PartnerMediaField } from "@/components/partner-media-field";
+import { PartnerGalleryField } from "@/components/partner-gallery-field";
+import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
+import type { PartnerCanonicalType,PartnerDraftStatus } from "@/lib/partner-canonical-workflow";
+import type { CanonicalFormField } from "@/lib/partner-canonical-form-fields";
 
-type Field={key:string;label:string;multiline?:boolean;options?:readonly [string,string][];list?:boolean};
-const t=(key:string,label:string,multiline=false):Field=>({key,label,multiline});
 const types:ReadonlyArray<[PartnerCanonicalType,string]>=[
   ["DIRECTORY_PROFILE","Služba pre psov"],["HELP_ORGANIZATION","Organizácia"],
   ["MANAGED_EVENT","Podujatie"],["ADOPTION_DOG","Adopcia"],
   ["LOST_FOUND_DOG","Stratený / nájdený pes"],["HELP_CASE","Pomoc psom"],
 ];
-const commonContacts:Field[]=[t("publicPhone","Telefón"),t("publicEmail","E-mail"),
-  t("websiteUrl","Web"),t("facebookUrl","Facebook"),t("instagramUrl","Instagram")];
-const address:Field[]=[t("region","Kraj"),t("district","Okres"),t("city","Mesto/obec"),t("address","Adresa")];
-const fields:Record<PartnerCanonicalType,Field[]>={
-  DIRECTORY_PROFILE:[
-    t("name","Názov"),{key:"category",label:"Kategória"},
-    t("excerpt","Krátky popis",true),t("description","Opis",true),
-    {key:"services",label:"Služby – po riadkoch",list:true,multiline:true},
-    {key:"qualifications",label:"Kvalifikácie – po riadkoch",list:true,multiline:true},
-    ...address,t("priceNote","Cena / poznámka k cene"),...commonContacts,
-  ],
-  HELP_ORGANIZATION:[
-    t("name","Názov"),{key:"type",label:"Typ organizácie",
-      options:[["SHELTER","Útulok"],["CIVIC_ASSOCIATION","Občianske združenie"],
-        ["RESCUE_ORGANIZATION","Záchranná organizácia"],["MUNICIPAL_ORGANIZATION","Mestská organizácia"],
-        ["NONPROFIT","Nezisková organizácia"],["OTHER","Iné"]]},
-    t("legalName","Právny názov"),
-    t("shortDescription","Krátky popis",true),t("description","Opis",true),
-    ...address,t("countryCode","Kód krajiny"),...commonContacts,
-  ],
-  MANAGED_EVENT:[
-    t("title","Názov"),t("excerpt","Krátky popis",true),t("eventType","Druh podujatia"),
-    t("startDate","Dátum začiatku (RRRR-MM-DD)"),t("startTime","Začiatok (HH:MM)"),
-    t("endDate","Dátum konca"),t("endTime","Koniec"),
-    t("venue","Miesto"),t("city","Mesto"),t("region","Kraj"),t("address","Adresa"),
-    t("organizer","Organizátor"),t("description","Opis",true),
-    t("practicalInfo","Praktické informácie",true),t("websiteUrl","Web"),t("registrationUrl","Registrácia"),
-  ],
-  ADOPTION_DOG:[
-    t("name","Meno psa"),{key:"sex",label:"Pohlavie",options:[["UNKNOWN","Neznáme"],["MALE","Pes"],["FEMALE","Sučka"]]},
-    {key:"size",label:"Veľkosť",options:[["UNKNOWN","Neznáme"],["SMALL","Malý"],["MEDIUM","Stredný"],["LARGE","Veľký"],["GIANT","Obrovský"]]},
-    t("approximateAgeMonths","Vek v mesiacoch"),t("breedName","Plemeno"),
-    t("region","Kraj"),t("district","Okres"),t("city","Mesto"),
-    t("organizationName","Organizácia"),t("shortDescription","Krátky popis",true),t("description","Opis",true),
-  ],
-  LOST_FOUND_DOG:[
-    {key:"type",label:"Typ hlásenia",options:[["LOST","Stratený pes"],["FOUND","Nájdený pes"]]},
-    t("dogName","Meno psa"),{key:"sex",label:"Pohlavie",options:[["UNKNOWN","Neznáme"],["MALE","Pes"],["FEMALE","Sučka"]]},
-    t("breed","Plemeno"),t("color","Farba"),
-    {key:"size",label:"Veľkosť",options:[["UNKNOWN","Neznáme"],["SMALL","Malý"],["MEDIUM","Stredný"],["LARGE","Veľký"],["GIANT","Obrovský"]]},
-    t("eventDate","Dátum udalosti"),t("region","Kraj"),t("district","Okres"),t("city","Mesto"),
-    t("locationDescription","Miesto",true),t("description","Opis",true),
-  ],
-  HELP_CASE:[
-    t("title","Názov"),
-    {key:"category",label:"Kategória",options:[["docasna-opatera","Dočasná opatera"],
-      ["zbierky","Zbierka"],["dobrovolnictvo","Dobrovoľníctvo"],["urgentne-pripady","Urgentný prípad"]]},
-    t("excerpt","Krátky popis",true),t("description","Opis",true),
-    t("organization","Organizácia"),t("city","Mesto"),t("region","Kraj"),
-    t("actionLabel","Text výzvy"),t("contactNote","Kontakt / poznámka",true),
-  ],
+const labels:Record<string,string>={
+  DRAFT:"Rozpracovaný súkromný koncept",RETURNED:"Vrátené na doplnenie",
+  SUBMITTED:"Čaká na prvé schválenie",PENDING_REVIEW:"Kontroluje sa",
+  QUARANTINED:"Vyžaduje ďalšiu kontrolu",APPROVED:"Schválené",REJECTED:"Zamietnuté",
 };
-const initialValues=(type:PartnerCanonicalType)=>{
-  const val:Record<string,string>={};
-  for(const field of fields[type])val[field.key]=
-    field.key==="countryCode"?"SK":field.options?.[0]?.[0]??"";
-  return val;
+type Draft={
+  id:string;resourceType:PartnerCanonicalType;status:PartnerDraftStatus;
+  values:Record<string,unknown>;baseUpdatedAt:string;returnReason?:string|null;
+  media?:{coverId:string|null;galleryIds:string[]};
 };
-type Draft={id:string;resourceType:PartnerCanonicalType;status:PartnerDraftStatus;
-  values:Record<string,unknown>;baseUpdatedAt:string;returnReason?:string|null};
-function toDisplay(type:PartnerCanonicalType,values:Record<string,unknown>){
-  const defaults=initialValues(type);
-  for(const field of fields[type]){
-    const v=values[field.key];
-    if(field.list&&Array.isArray(v))defaults[field.key]=v.join("\n");
-    else if(v!==undefined&&v!==null)defaults[field.key]=String(v);
-  }
-  return defaults;
-}
-export function PartnerCanonicalDraftForm({
-  categories,initial,initialType="DIRECTORY_PROFILE",
-}:{
+type Props={
   categories:ReadonlyArray<{slug:string;label:string}>;
+  definitions:Record<PartnerCanonicalType,CanonicalFormField[]>;
   initial?:Draft;initialType?:PartnerCanonicalType;
-}){
+};
+function initialValues(type:PartnerCanonicalType,definitions:Props["definitions"],from:Record<string,unknown>={}){
+  const values:Record<string,string|boolean>={};
+  for(const field of definitions[type]){
+    const value=from[field.key];
+    if(field.key==="galleryUrls"||field.key==="additionalCategories")continue;
+    if(field.kind==="checkbox")values[field.key]=value===true||value===1;
+    else if(field.kind==="nullableBoolean")
+      values[field.key]=value===null||value===""||value===undefined?"UNKNOWN":value===true||value===1?"YES":"NO";
+    else if(field.kind==="list")
+      values[field.key]=Array.isArray(value)?value.map(String).join("\n"):typeof value==="string"?value:"";
+    else if(value!==null&&value!==undefined)values[field.key]=String(value);
+    else if(field.key==="countryCode")values[field.key]="SK";
+    else if(field.required&&field.options?.length&&field.key!=="category")values[field.key]=field.options[0];
+    else values[field.key]="";
+  }
+  return values;
+}
+function jsonSnapshot(values:Record<string,string|boolean>,coverId:string|null,galleryIds:string[],
+  galleryUrls:string[],additionalCategories:string[]){
+  return JSON.stringify({values,coverId,galleryIds,galleryUrls,additionalCategories});
+}
+function display(value:string|boolean|undefined){return typeof value==="string"?value:"";}
+function isGallery(type:PartnerCanonicalType){
+  return ["DIRECTORY_PROFILE","HELP_ORGANIZATION","ADOPTION_DOG","LOST_FOUND_DOG"].includes(type);
+}
+function mediaIntent(type:PartnerCanonicalType){
+  return type==="MANAGED_EVENT"?"PARTNER_EVENT_CREATE" as const:
+    type==="DIRECTORY_PROFILE"||type==="HELP_ORGANIZATION"?"PARTNER_PROFILE_CREATE" as const:
+    "PARTNER_HELP_UPDATE" as const;
+}
+export function PartnerCanonicalDraftForm({categories,definitions,initial,initialType="DIRECTORY_PROFILE"}:Props){
   const router=useRouter();
   const [type,setType]=useState<PartnerCanonicalType>(initial?.resourceType??initialType);
-  const [values,setValues]=useState<Record<string,string>>(()=>toDisplay(
-    initial?.resourceType??initialType,initial?.values??{}));
-  const [id,setId]=useState(initial?.id??null);
+  const [values,setValues]=useState<Record<string,string|boolean>>(
+    ()=>initialValues(initial?.resourceType??initialType,definitions,initial?.values));
+  const [id,setId]=useState<string|null>(initial?.id??null);
   const [revision,setRevision]=useState(initial?.baseUpdatedAt??"");
   const [status,setStatus]=useState<PartnerDraftStatus>(initial?.status??"DRAFT");
+  const [coverId,setCoverId]=useState<string|null>(initial?.media?.coverId??null);
+  const [galleryIds,setGalleryIds]=useState<string[]>(initial?.media?.galleryIds??[]);
+  const [galleryUrls,setGalleryUrls]=useState<string[]>(
+    Array.isArray(initial?.values.galleryUrls)?initial.values.galleryUrls.filter((v):v is string=>typeof v==="string"):[]);
+  const [additionalCategories,setAdditionalCategories]=useState<string[]>(
+    Array.isArray(initial?.values.additionalCategories)
+      ?initial.values.additionalCategories.filter((v):v is string=>typeof v==="string"):[]);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   const [success,setSuccess]=useState("");
-  const baseline=useRef(JSON.stringify(values));
-  const dirty=useMemo(()=>JSON.stringify(values)!==baseline.current,[values]);
-  useEffect(()=>{
-    if(!dirty)return;
-    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
-    window.addEventListener("beforeunload",warn);
-    return ()=>window.removeEventListener("beforeunload",warn);
-  },[dirty]);
+  const [showPreview,setShowPreview]=useState(false);
+  const baseline=useRef(jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories));
+  const dirty=useMemo(()=>jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories)!==baseline.current,
+    [values,coverId,galleryIds,galleryUrls,additionalCategories]);
+  usePartnerUnsavedGuard(dirty);
   const editable=["DRAFT","RETURNED","SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(status);
-  const body=()=>{
+  const submitted=!["DRAFT","RETURNED"].includes(status);
+  function setField(key:string,value:string|boolean){
+    setValues(previous=>({...previous,[key]:value}));
+    setSuccess("");
+  }
+  function switchType(next:PartnerCanonicalType){
+    if(dirty&&!window.confirm("Máte neuložené zmeny. Zmeniť druh záznamu a zahodiť ich?"))return;
+    setType(next);
+    const blank=initialValues(next,definitions);
+    setValues(blank);setCoverId(null);setGalleryIds([]);setGalleryUrls([]);setAdditionalCategories([]);
+    baseline.current=jsonSnapshot(blank,null,[],[],[]);
+    setError("");setSuccess("");
+  }
+  function payload(){
     const data:Record<string,unknown>={};
-    for(const field of fields[type]){
-      const value=values[field.key]??"";
-      data[field.key]=field.list?value.split("\n").map(s=>s.trim()).filter(Boolean):
-        field.key==="approximateAgeMonths"?(value.trim()?Number(value):null):value;
+    for(const field of definitions[type]){
+      if(field.key==="galleryUrls"){data.galleryUrls=galleryUrls;continue;}
+      if(field.key==="additionalCategories"){data.additionalCategories=additionalCategories;continue;}
+      const raw=values[field.key];
+      if(field.kind==="list")data[field.key]=display(raw).split("\n").map(x=>x.trim()).filter(Boolean);
+      else if(field.kind==="number")data[field.key]=display(raw).trim()===""?null:Number(raw);
+      else if(field.kind==="nullableBoolean")data[field.key]=raw==="UNKNOWN"?null:raw==="YES";
+      else if(field.kind==="checkbox")data[field.key]=raw===true;
+      else data[field.key]=display(raw);
     }
+    if(type==="DIRECTORY_PROFILE")data.category=display(values.category);
+    if(isGallery(type))data.galleryUrls=galleryUrls;
     return data;
-  };
-  async function send(url:string,payload:Record<string,unknown>,method="PATCH"){
-    const response=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    const result=await response.json() as {error?:string;draft?:{id:string;baseUpdatedAt?:string;status:PartnerDraftStatus};success?:boolean};
-    if(!response.ok)throw new Error(result.error??"Záznam sa nepodarilo uložiť.");
+  }
+  function validate(){
+    const technical=type==="DIRECTORY_PROFILE"?"category":
+      type==="HELP_ORGANIZATION"||type==="LOST_FOUND_DOG"?"type":
+      type==="HELP_CASE"?"category":null;
+    if(technical&&!display(values[technical]).trim())throw new Error("Vyberte kategóriu alebo typ záznamu.");
+    if(galleryUrls.length+galleryIds.length>6)throw new Error("Galéria môže mať najviac 6 fotografií.");
+  }
+  type Saved={id:string;baseUpdatedAt:string;status:PartnerDraftStatus;media?:{coverId:string|null;galleryIds:string[]}};
+  async function send(url:string,body:Record<string,unknown>,method="PATCH"){
+    const response=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const result=await response.json() as {error?:string;draft?:Saved};
+    if(!response.ok)throw new Error(result.error??"Zápis sa nepodarilo uložiť.");
     return result;
   }
   async function save(){
-    if(!editable)throw new Error("Tento koncept už nie je možné upravovať.");
+    validate();
     if(!id){
-      const result=await send("/api/partner/canonical-drafts",{resourceType:type,data:body()},"POST");
-      if(!result.draft)throw new Error("Server nevrátil ID konceptu.");
-      setId(result.draft.id);
-      setRevision(result.draft.baseUpdatedAt??"");
+      const result=await send("/api/partner/canonical-drafts",{resourceType:type,data:payload()},"POST");
+      if(!result.draft?.id)throw new Error("Server nevrátil identifikátor konceptu.");
+      setId(result.draft.id);setRevision(result.draft.baseUpdatedAt);
       setStatus(result.draft.status);
-      baseline.current=JSON.stringify(values);
-      return {id:result.draft.id,revision:result.draft.baseUpdatedAt??""};
+      baseline.current=jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories);
+      return result.draft.id;
     }
     if(dirty){
-      const result=await send("/api/partner/canonical-drafts/"+encodeURIComponent(id),
-        {action:"SAVE",data:body(),baseUpdatedAt:revision});
-      if(!result.draft)throw new Error("Server nevrátil nový stav konceptu.");
-      setRevision(result.draft.baseUpdatedAt??revision);
-      baseline.current=JSON.stringify(values);
-      return {id,revision:result.draft.baseUpdatedAt??revision};
+      const result=await send("/api/partner/canonical-drafts/"+encodeURIComponent(id),{
+        action:"SAVE",data:payload(),baseUpdatedAt:revision,
+        media:{coverId,galleryIds},
+      });
+      if(!result.draft)throw new Error("Server nevrátil uložený koncept.");
+      setRevision(result.draft.baseUpdatedAt);
+      setStatus(result.draft.status);
+      baseline.current=jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories);
     }
-    return {id,revision};
+    return id;
   }
   async function perform(action:"SAVE"|"SUBMIT"){
-    if(busy)return;
+    if(busy||!editable)return;
     setBusy(true);setError("");setSuccess("");
     try{
-      const saved=await save();
+      const draftId=await save();
       if(action==="SUBMIT"){
-        if(!["DRAFT","RETURNED"].includes(status))throw new Error("Žiadosť už bola odoslaná na schválenie.");
-        await send("/api/partner/canonical-drafts/"+encodeURIComponent(saved.id),{action:"SUBMIT"});
+        if(submitted)throw new Error("Tento koncept už bol odoslaný.");
+        await send("/api/partner/canonical-drafts/"+encodeURIComponent(draftId),{action:"SUBMIT"});
         setStatus("SUBMITTED");
         router.push("/partner/ziadosti");
         router.refresh();
-      }else{
-        setSuccess("Koncept je uložený v Psipedii.");
-        if(!initial)router.replace("/partner/koncepty/"+encodeURIComponent(saved.id));
-        router.refresh();
+        return;
       }
-    }catch(e){setError(e instanceof Error?e.message:"Zmeny nebolo možné uložiť.");}
+      setSuccess("Všetky zadané polia aj fotografie boli uložené do súkromného konceptu.");
+      if(!initial)router.replace("/partner/koncepty/"+encodeURIComponent(draftId));
+      router.refresh();
+    }catch(err){setError(err instanceof Error?err.message:"Uloženie zlyhalo.");}
     finally{setBusy(false);}
   }
-  return <div className="partner-profile-edit-form">
-    {initial?.returnReason&&status==="RETURNED"&&
-      <p role="status" className="partner-field-error">Vrátené na doplnenie: {initial.returnReason}</p>}
-    <p>Vyplňte len údaje, ktoré poznáte. Ostatné verejné polia môžete doplniť neskôr.
-      Záznam zostane neverejný, kým ho administrátor neschváli.</p>
-    <label className="partner-field"><span>Druh záznamu</span>
-      <select value={type} disabled={Boolean(id)} onChange={event=>{
-        const next=event.target.value as PartnerCanonicalType;
-        setType(next);setValues(initialValues(next));baseline.current=JSON.stringify(initialValues(next));
-      }}>
-        {types.map(([value,label])=><option value={value} key={value}>{label}</option>)}
-      </select>
-    </label>
-    <div className="partner-form-grid">
-      {fields[type].map(field=>{
-        const value=values[field.key]??"";
-        const change=(next:string)=>setValues(previous=>({...previous,[field.key]:next}));
-        const options=field.key==="category"&&type==="DIRECTORY_PROFILE"
-          ?categories.map(c=>[c.slug,c.label] as [string,string]):field.options;
-        const required=field.key==="category"||field.key==="type"&&
-          (type==="HELP_ORGANIZATION"||type==="LOST_FOUND_DOG");
-        return <label key={field.key} className="partner-field">
-          <span>{field.label}{required?" *":""}</span>
-          {options?<select value={value} disabled={!editable} onChange={e=>change(e.target.value)}>
-            {required&&field.key==="category"&&<option value="">Vybrať kategóriu</option>}
-            {options.map(([v,label])=><option value={v} key={v}>{label}</option>)}
-          </select>:
-          field.multiline?<textarea rows={field.key==="description"?6:3}
-            disabled={!editable} value={value} onChange={e=>change(e.target.value)} />:
-          <input value={value} disabled={!editable} maxLength={20000}
-            onChange={e=>change(e.target.value)} />}
-        </label>;
-      })}
+  const first=display(values.name)||display(values.title)||display(values.dog_name)||display(values.dogName)||"Zatiaľ bez názvu";
+  const subtitle=display(values.excerpt)||display(values.short_description)||display(values.shortDescription)||display(values.description);
+  const place=[display(values.city),display(values.region)].filter(Boolean).join(", ");
+  const category=type==="DIRECTORY_PROFILE"?
+    categories.find(c=>c.slug===values.category)?.label??"":display(values.category)||display(values.type);
+  return <div className="partner-canonical-workspace">
+    <div className="partner-canonical-intro">
+      <p>Vyplňte údaje, ktoré poznáte. Kým záznam neodošlete a administrátor ho neschváli, nie je verejný. SEO a interné polia tu nie sú dostupné.</p>
+      <span className="partner-canonical-status" role="status">{labels[status]??status}</span>
+      {initial?.returnReason&&status==="RETURNED"&&
+        <p role="alert" className="partner-field-error">Na doplnenie: {initial.returnReason}</p>}
     </div>
-    <div className="partner-form-actions">
-      <button type="button" disabled={busy||!editable} onClick={()=>perform("SAVE")}>
-        {busy?"Ukladám…":"Uložiť koncept"}
-      </button>
-      <button type="button" disabled={busy||!editable||Boolean(id&&status!=="DRAFT"&&status!=="RETURNED")}
-        onClick={()=>perform("SUBMIT")}>
-        Odoslať na schválenie
-      </button>
-    </div>
-    {success&&<p role="status">{success}</p>}
-    {error&&<p role="alert" className="partner-field-error">{error}</p>}
+    <form onSubmit={event=>{event.preventDefault();void perform("SAVE");}} className="partner-profile-edit-form partner-canonical-form">
+      <label className="partner-field"><span>Druh záznamu</span>
+        <select value={type} disabled={Boolean(id)||busy} onChange={event=>switchType(event.target.value as PartnerCanonicalType)}>
+          {types.map(([value,label])=><option key={value} value={value}>{label}</option>)}
+        </select>
+      </label>
+      <div className="partner-profile-edit-grid">
+        {definitions[type].filter(field=>field.categoryScope===undefined||field.categoryScope===values.category)
+          .map(field=>{
+          if(field.key==="galleryUrls")return null;
+          if(field.key==="additionalCategories"){
+            if(type!=="DIRECTORY_PROFILE")return null;
+            return <fieldset key={field.key} className="partner-field partner-field--wide partner-canonical-categories" disabled={!editable||busy}>
+              <legend>Ďalšie kategórie profilu</legend>
+              <div className="partner-canonical-categories-grid">
+                {categories.filter(item=>item.slug!==values.category).map(item=><label key={item.slug}>
+                  <input type="checkbox" checked={additionalCategories.includes(item.slug)}
+                    onChange={e=>setAdditionalCategories(old=>e.target.checked?[...old,item.slug]:old.filter(x=>x!==item.slug))}/>
+                  <span>{item.label}</span>
+                </label>)}
+              </div>
+            </fieldset>;
+          }
+          const value=values[field.key]??"";
+          const disabled=!editable||busy;
+          const options=field.key==="category"&&type==="DIRECTORY_PROFILE"?
+            categories.map(x=>[x.slug,x.label] as [string,string]):
+            field.options?.map(x=>[x,x] as [string,string])??[];
+          const className="partner-field"+(["textarea","list"].includes(field.kind)?" partner-field--wide":"");
+          return <label key={field.key} className={className}>
+            <span>{field.label}{field.required?" *":""}</span>
+            {field.kind==="checkbox"?
+              <span className="partner-profile-check"><input type="checkbox" checked={value===true}
+                disabled={disabled} onChange={event=>setField(field.key,event.target.checked)}/><span>Áno</span></span>:
+            field.kind==="nullableBoolean"?
+              <select value={display(value)} disabled={disabled} onChange={e=>setField(field.key,e.target.value)}>
+                <option value="UNKNOWN">Neviem</option><option value="YES">Áno</option><option value="NO">Nie</option>
+              </select>:
+            field.kind==="select"?
+              <select value={display(value)} required={field.required} disabled={disabled} onChange={e=>setField(field.key,e.target.value)}>
+                <option value="">Vyberte…</option>
+                {options.map(([opt,label])=><option key={opt} value={opt}>{label}</option>)}
+              </select>:
+            field.kind==="textarea"||field.kind==="list"?
+              <textarea rows={field.kind==="list"?4:field.key==="description"?7:4}
+                maxLength={field.max??20000} value={display(value)} disabled={disabled}
+                onChange={e=>setField(field.key,e.target.value)}/>:
+              <input value={display(value)} disabled={disabled} type={field.kind==="date"?"date":field.kind==="time"?"time":
+                  field.kind==="number"?"number":"text"}
+                min={field.minimum} max={field.maximum} step={field.kind==="number"?"any":undefined}
+                maxLength={field.max??20000} onChange={e=>setField(field.key,e.target.value)}/>}
+            {field.kind==="list"&&<small>Každú položku zadajte na samostatný riadok.</small>}
+          </label>;
+        })}
+      </div>
+      <div className="partner-canonical-media">
+        {id?<><PartnerMediaField key={type} label="Hlavná fotografia" intent={mediaIntent(type)}
+          privateDraft currentImageUrl={coverId?"/api/partner/media/"+encodeURIComponent(coverId):null}
+          onChange={setCoverId} disabled={!editable||busy}/>
+          {coverId&&<button className="button button--ghost" type="button" disabled={!editable||busy}
+            onClick={()=>setCoverId(null)}>Odstrániť hlavnú fotografiu z konceptu</button>}
+          {isGallery(type)&&<PartnerGalleryField key={id} initialUrls={galleryUrls}
+            initialUploads={initial?.media?.galleryIds.map(mediaId=>({
+              id:mediaId,previewUrl:"/api/partner/media/"+encodeURIComponent(mediaId),
+              originalMime:"image/webp",sizeBytes:0,persisted:true,
+            }))??[]}
+            mediaIntent={mediaIntent(type)}
+            onChangeUrls={setGalleryUrls} onChangeMediaIds={setGalleryIds}
+            disabled={!editable||busy}/>}
+        </>:<p className="partner-canonical-media-help">Fotografie a galériu môžete nahrať po prvom uložení konceptu. Najprv kliknite na „Uložiť koncept“.</p>}
+      </div>
+      <div className="partner-canonical-preview-toggle">
+        <button type="button" className="button button--ghost" onClick={()=>setShowPreview(x=>!x)}>
+          {showPreview?"Skryť súkromný náhľad":"Zobraziť súkromný náhľad"}
+        </button>
+      </div>
+      {showPreview&&<section className="partner-canonical-preview" aria-label="Súkromný náhľad záznamu">
+        <small>Súkromný náhľad – nikto na verejnom webe ho nevidí</small>
+        {coverId&&<img src={"/api/partner/media/"+encodeURIComponent(coverId)} alt="Hlavná fotografia návrhu"/>}
+        <h2>{first}</h2>{category&&<p>{category}</p>}{place&&<p>{place}</p>}
+        {subtitle&&<p>{subtitle.slice(0,1200)}</p>}
+        <small>{galleryUrls.length+galleryIds.length} fotografií v galérii</small>
+      </section>}
+      <div className="partner-profile-edit-submit partner-canonical-actions">
+        <div><strong>{dirty?"Máte neuložené zmeny.":"Všetky uložené údaje zostávajú súkromné."}</strong>
+          <p>Po odoslaní môžete koncept dopĺňať, kým o ňom administrátor nerozhodne.</p></div>
+        <div className="partner-canonical-buttons">
+          <button type="submit" className="button" disabled={!editable||busy}>{busy?"Ukladám…":"Uložiť koncept"}</button>
+          {!submitted&&<button type="button" className="button button--dark" disabled={!editable||busy}
+            onClick={()=>void perform("SUBMIT")}>Odoslať na schválenie</button>}
+        </div>
+      </div>
+      {error&&<p role="alert" className="partner-form-message is-error">{error}</p>}
+      {success&&<p role="status" className="partner-form-message is-success">{success}</p>}
+    </form>
   </div>;
 }
