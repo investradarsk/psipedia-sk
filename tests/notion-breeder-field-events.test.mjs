@@ -7,6 +7,8 @@ import {
   breederApplyNotionChanges, breederPreserveUneditedFields,
 } from "../lib/notion-breeder-field-events.ts";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "../lib/notion-directory-field-event-scope.ts";
+import { planDirectoryExtraSqlTextMirror } from "../lib/directory-extra-sql-mirror.ts";
+import { planDirectoryStep3PresentationSqlMirror } from "../lib/directory-sql-step3-live-mirror.ts";
 
 test("signed Notion property IDs select only the breeder field actually edited", () => {
   const properties = {
@@ -119,6 +121,8 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     exports, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [], directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory, breederReadPath: (v, p) => p.split(".")
       .reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
+    TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
+    planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
     planDirectory0173EditorialSqlMirror: () => [{sql:"INSERT INTO directory_profile_seo",bindings:[]}],
     getManagedDirectoryProfileById: async () => current,
   });
@@ -194,6 +198,7 @@ test("a trainer service description updates only its separate metadata field", a
     directoryFilterRegistry: [], isDirectoryEventPilotCategory: () => false, isDirectoryFieldEventCategory,
     breederReadPath: (v, p) => p.split(".").reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
+    planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
     getManagedDirectoryProfileById: async () => profile,
   });
   const before = {
