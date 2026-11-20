@@ -12,6 +12,8 @@ test("live external owner blocks Notion even if older profile had no reviewed ma
     CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY, status TEXT, source_data_json TEXT);
     CREATE TABLE partner_resources(id TEXT PRIMARY KEY, entity_type TEXT, directory_profile_id INTEGER);
     CREATE TABLE partner_memberships(id TEXT PRIMARY KEY, resource_id TEXT, revoked_at TEXT);
+    CREATE TABLE directory_profile_review_state(profile_id INTEGER PRIMARY KEY,reviewed_at TEXT,unlock_pending INTEGER);
+    CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER);
     INSERT INTO directory_profiles VALUES(101,'published','{}');
     INSERT INTO partner_resources VALUES('res-101','DIRECTORY_PROFILE',101);
   `);
@@ -30,6 +32,17 @@ test("live external owner blocks Notion even if older profile had no reviewed ma
     assert.equal(await directoryProfileNotionSyncLocked(database, 101), true);
     sqlite.prepare("UPDATE partner_memberships SET revoked_at=? WHERE id=?").run("2026-11-19", "member-101");
     assert.equal(await directoryProfileNotionSyncLocked(database, 101), false);
+    sqlite.prepare("INSERT INTO directory_profile_review_state VALUES(?,?,?)")
+      .run(101,"2026-11-19",0);
+    assert.equal(await directoryProfileNotionSyncLocked(database,101),true,
+      "SQL owner review must block Notion even if legacy JSON is blank");
+    sqlite.prepare("UPDATE directory_profile_review_state SET reviewed_at=NULL WHERE profile_id=101").run();
+    assert.equal(await directoryProfileNotionSyncLocked(database,101),false,
+      "explicit SQL-clear and revoked partner should allow Notion");
+    sqlite.prepare("INSERT INTO admin_record_tombstones VALUES(?,?)").run("directory",101);
+    assert.equal(await directoryProfileNotionSyncLocked(database,101),true,
+      "pending owner deletion must never be overwritten by Notion");
+    sqlite.prepare("DELETE FROM admin_record_tombstones WHERE kind='directory' AND record_id=101").run();
     sqlite.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=101")
       .run(JSON.stringify({ _psipedia_profile_review_reviewed_at:"2026-11-19T19:00:00.000Z" }));
     assert.equal(await directoryProfileNotionSyncLocked(database, 101), true,
