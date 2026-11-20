@@ -306,7 +306,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
   // Step 2: both desktop and mobile show real self-service destinations.
   const dashboardActions = page.locator(".partner-dashboard-welcome");
-  await expect(dashboardActions.getByRole("link", { name: "Vytvoriť nový záznam" })).toHaveAttribute("href", "/partner/koncepty/novy");
+  await expect(dashboardActions.getByRole("link", { name: "+ Pridať profil", exact: true })).toHaveAttribute("href", "/partner/koncepty/novy?typ=DIRECTORY_PROFILE");
   await expect(dashboardActions.getByRole("link", { name: "Pridať podujatie" })).toHaveAttribute("href", "/partner/koncepty/novy?typ=MANAGED_EVENT");
   await expect(dashboardActions.getByRole("link", { name: "Pridať pomoc psom" })).toHaveAttribute("href", "/partner/koncepty/novy?typ=ADOPTION_DOG");
   await expect(page.locator(".partner-dashboard-stat")).toHaveCount(3);
