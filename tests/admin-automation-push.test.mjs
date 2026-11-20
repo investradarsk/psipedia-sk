@@ -224,3 +224,13 @@ test("Notion run receipts stay in operational history, not workspace alerts or p
   assert.match(read("lib/notion-sync-run-receipts.ts"), /FROM admin_notification_events/);
   assert.match(read("app/admin/operations/automaticke-udalosti/page.tsx"), /e.source_type = 'AUTOMATION_RUN'/);
 });
+
+test("approved Partner edits notify Admin via existing profile-proposal channel",()=>{
+  for(const eventType of ["partner_profile_direct_edit","partner_event_direct_edit","partner_help_direct_edit"]){
+    assert.equal(adminPushEventKey(eventType,"PARTNER_PUBLIC_EDIT"),"PROFILE_PROPOSAL");
+    assert.equal(isAdminPushEventAllowed(["PROFILE_PROPOSAL"],eventType,"PARTNER_PUBLIC_EDIT"),true);
+    assert.equal(isAdminPushEventAllowed([],eventType,"PARTNER_PUBLIC_EDIT"),false);
+  }
+  assert.equal(adminPushEventKey("partner_lifecycle_requested","PARTNER_LIFECYCLE"),"PARTNER_REQUEST");
+  assert.equal(isAdminPushEventAllowed(["PARTNER_REQUEST"],"partner_lifecycle_requested","PARTNER_LIFECYCLE"),true);
+});
