@@ -7,6 +7,8 @@ import { publishSafeImage, type PrivateBucketLike } from "@/lib/private-media";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import { planDirectorySecondaryCategorySqlMirror } from "@/lib/directory-secondary-category-sql";
+import { adminNotificationEventStatement } from "@/lib/admin-notifications";
+import { partnerFieldDiff } from "@/lib/partner-audit-diff";
 import {
   approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror,
   planDirectory0170FilterSqlMirror, type Directory0170SqlStatement,
@@ -129,8 +131,13 @@ export async function savePartnerManagedProfile(input: {
   }
   const eventId=crypto.randomUUID();
   const changedFields=[...new Set([...Object.keys(effectivePatch),...(main?["image"]:[])])];
+  const changeLog=partnerFieldDiff(canonical.values as Record<string,unknown>,effectivePatch);
+  if(main)changeLog.image={old:canonical.imageUrl,new:main.url};
   const batchResults=await database.batch([
-    ...statements,
+    statements[0],
+    // Fail closed: audit and admin notice must never commit if the profile CAS failed.
+    database.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('PARTNER_EDIT_CAS_CONFLICT',char(36)) END"),
+    ...statements.slice(1),
     ...images.map(image=>database.prepare(`UPDATE media_assets SET state='APPROVED',public_key=?1,
       published_at=?2,reviewed_at=?2
       WHERE id=?3 AND owner_id=?4 AND owner_type='PARTNER_PROFILE_UPDATE'
@@ -143,8 +150,17 @@ export async function savePartnerManagedProfile(input: {
       WHERE EXISTS (SELECT 1 FROM ${table} WHERE id=?6 AND updated_at=?5)`)
       .bind(eventId,actorRef,input.resourceId,JSON.stringify({
         mode:"DIRECT_PUBLIC_SAVE",entityType:canonical.entityType,fields:changedFields,
-        baseUpdatedAt:canonical.updatedAt,
+        baseUpdatedAt:canonical.updatedAt,changes:changeLog,
       }),nowIso,canonical.canonicalId),
+    adminNotificationEventStatement(database,{
+      eventType:"partner_profile_direct_edit",sourceType:"PARTNER_PUBLIC_EDIT",
+      resourceType:"partner_profile",resourceRef:input.resourceId,
+      actorType:"PARTNER",actorRef,
+      targetUrl:(canonical.entityType==="DIRECTORY_PROFILE"?"/admin/adresar/":"/admin/organizacie/")+canonical.canonicalId,
+      title:"Partner upravil profil",
+      body:canonical.name+" · "+changedFields.length+" upravených polí",
+      tag:"partner-profile-edit",dedupeKey:"partner-direct-profile/"+eventId,
+    },nowIso),
   ]);
   if(Number(batchResults[0]?.meta?.changes??0)!==1)
     throw new PartnerProfileChangeError("Profil bol medzitým upravený alebo bol odobratý prístup. Obnovte editor.",409);
