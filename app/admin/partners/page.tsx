@@ -119,9 +119,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
               <div data-label="Profily" className="admin-partner-v2-count">
                 <strong>{a.managedProfileCount}</strong>
               </div>
-              <div data-label="Správy" className="admin-partner-v2-messages" title="Súkromný chat pribudne v kroku 7/8">
-                <span aria-label="Správy zatiaľ nie sú dostupné">—</span>
-                <small>Pripravujeme</small>
+              <div data-label="Správy" className="admin-partner-v2-messages">
+                <strong className={a.unreadMessageCount?"admin-partner-v2-alert":""}>
+                  {a.unreadMessageCount}
+                </strong>
+                <Link href={"/admin/partners/accounts/"+encodeURIComponent(a.id)+"?tab=spravy"}>
+                  Otvoriť správy
+                </Link>
               </div>
               <Link href={`/admin/partners/accounts/${a.id}`} aria-label={`Otvoriť partnera ${a.contactName || a.email}`}>
                 Otvoriť
