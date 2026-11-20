@@ -51,15 +51,26 @@ test("Help targeted Notion save refuses a missing AFTER snapshot rather than tre
   assert.equal(pushes, 0);
 });
 
-test("Help targeted Notion save forwards ONLY actual SQL before/after field deltas", async () => {
+test("Help targeted Notion save queues ONLY actual SQL before/after field deltas and triggers immediate retry", async () => {
   const source = await read("lib/notion-targeted-admin-save.ts");
-  const outgoing = [];
+  const queued = [], retried = [];
   const sync = exportedFunction(source, "syncSavedNotionRecord", {
     isHelpFieldEventAgenda: () => true,
+    isAdminNotionSyncLocked: async () => false,
     currentHelpSnapshot: async () => ({ Meno: "Luna", Popis: "Bez zmeny" }),
     changedAdminHelpFields: (_agenda, before, after) =>
       Object.keys(after).filter(key => before[key] !== after[key]),
-    syncOneAdminHelpRecord: async data => { outgoing.push(data); return "synced"; },
+    queueHelpNotionAdminChange: async payload => {
+      queued.push(payload);
+      return "pending";
+    },
+    retryOneHelpNotionWriteback: async payload => {
+      retried.push(payload);
+      return "synced";
+    },
+    syncOneAdminHelpRecord: async () => {
+      throw Error("must not bypass the durable queue");
+    },
   });
   const beforeHelpSnapshot = { Meno: "Luna staré", Popis: "Bez zmeny" };
   const response = await sync({
@@ -67,10 +78,15 @@ test("Help targeted Notion save forwards ONLY actual SQL before/after field delt
     agenda: "adoptions", entityId: 72, beforeHelpSnapshot,
   });
   assert.equal(response, "synced");
-  assert.equal(outgoing.length, 1);
-  assert.deepEqual(Array.from(outgoing[0].changedHelpFields), ["Meno"]);
-  assert.equal(outgoing[0].agenda, "adoptions");
-  assert.equal(outgoing[0].entityId, 72);
+  assert.equal(queued.length, 1);
+  assert.deepEqual(Array.from(queued[0].fields), ["Meno"]);
+  assert.equal(queued[0].before.Meno, "Luna staré");
+  assert.equal(queued[0].after.Meno, "Luna");
+  assert.equal(queued[0].agenda, "adoptions");
+  assert.equal(queued[0].entityId, 72);
+  assert.equal(retried.length, 1);
+  assert.equal(retried[0].agenda, "adoptions");
+  assert.equal(retried[0].entityId, 72);
 });
 
 test("Help targeted Notion runner refuses a FALSE synced result when a partner takes ownership during sweep", async () => {
