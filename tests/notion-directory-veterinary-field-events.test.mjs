@@ -198,7 +198,7 @@ test("hours, sources, alt text, organization and focus are independently synced 
   assert.doesNotMatch(block, /importNotionServiceChoices|syncProfileCatalogRelation|prepareNotionMainImage/);
 });
 
-test("explicit blank Admin and Notion edits clear a single JSON field without touching siblings", async () => {
+test("explicit blank Admin and Notion edits clear only the targeted SQL field", async () => {
   const ts = await import("typescript");
   const source = await get("../lib/notion-directory-sync.ts");
   const start = source.indexOf("export const PILOT_DIRECTORY_METADATA_FIELDS =");
@@ -244,17 +244,16 @@ test("explicit blank Admin and Notion edits clear a single JSON field without to
     database, profileId: 1653, category: "fyzioterapia",
     field: "Ordinačné hodiny", value: "",
   });
-  assert.equal(logs.length, 4);
-  assert.match(logs[0].sql, /source_data_json = json_set/);
-  assert.match(logs[1].sql, /changes\(\)=1/);
-  assert.match(logs[2].sql, /directory_profile_public_facts/);
-  assert.ok(logs[2].args.includes("Ordinačné hodiny"));
-  assert.ok(logs[2].args.includes(""), "explicit clear is mirrored as blank SQL text");
-  assert.match(logs[3].sql, /DELETE FROM directory_profile_opening_hours/);
-  assert.equal(logs[3].args.includes(profile.id), true);
-  assert.ok(logs[0].args.includes('$."Ordinačné hodiny"'));
-  assert.ok(logs[0].args.includes(""), "empty edit is persisted as empty, not silently skipped");
-  assert.equal(logs[0].args.includes('$."Zdroj dát"'), false, "unrelated sources are untouched");
+  assert.equal(logs.length, 3, "CAS guard is a prepared statement without bindings");
+  assert.doesNotMatch(logs[0].sql,/source_data_json/);
+  assert.match(logs[0].sql,/updated_at = \\?/);
+  assert.match(logs[1].sql,/directory_profile_public_facts/);
+  assert.ok(logs[1].args.includes("Ordinačné hodiny"));
+  assert.ok(logs[1].args.includes(""),"explicit clear is stored in SQL");
+  assert.match(logs[2].sql,/DELETE FROM directory_profile_opening_hours/);
+  assert.equal(logs[2].args.includes(profile.id),true);
+  assert.equal(logs.some(item=>item.args.includes('$."Zdroj dát"')),false,
+    "unrelated fields are untouched");
   assert.ok(source.includes("Only fields explicitly reported as changed by the Notion webhook are written."));
   assert.ok(!source.includes("if (!value) continue;"), "explicit empty Notion webhook edits are deletions");
 });
