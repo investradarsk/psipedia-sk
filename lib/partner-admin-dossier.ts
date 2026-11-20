@@ -187,19 +187,6 @@ const REQUEST_UNION = `
       AND s.operation IN ('REQUEST_HIDE','REQUEST_ARCHIVE','REQUEST_RELEASE','REQUEST_DELETE_ACCOUNT')
 `;
 
-// Cloudflare D1 rejects the original ten-way compound SELECT with
-// SQLITE_ERROR: too many terms in compound SELECT. Read bounded groups
-// separately and merge the globally sorted page in memory instead.
-// Each group has at most four SELECT terms; no extra SQL migration needed.
-const REQUEST_SHARDS = (() => {
-  const sources=REQUEST_UNION.trim().split(/\n\s*UNION ALL\n/);
-  const groups:string[]=[];
-  for(let i=0;i<sources.length;i+=4){
-    groups.push(sources.slice(i,i+4).join("\n  UNION ALL\n"));
-  }
-  return groups;
-})();
-
 // D1/SQLite can hit its compound-SELECT limit when the fully expanded
 // Partner request union is planned. Query each request family independently,
 // then merge the globally ordered page in memory; do not execute REQUEST_UNION.
