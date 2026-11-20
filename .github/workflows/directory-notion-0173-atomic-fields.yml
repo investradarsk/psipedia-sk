@@ -1,0 +1,36 @@
+name: Directory – Notion field events write SQL 0173 atomically
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/notion-directory-sync.ts"
+      - "lib/directory-0173-editorial-sql-mirror.ts"
+      - "tests/directory-notion-sql-0173-atomic-fields.test.mjs"
+      - "tests/notion-breeder-field-events.test.mjs"
+      - "tests/directory-ten-category-field-save.test.mjs"
+      - ".github/workflows/directory-notion-0173-atomic-fields.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: directory-notion-0173-atomic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sql-atomic:
+    name: Signed Notion field writes / SQLite atomic SQL mirror
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - run: npm ci
+      - name: Field event SQL transaction and existing per-field regressions
+        run: |
+          node --experimental-strip-types --test tests/directory-notion-sql-0173-atomic-fields.test.mjs
+          node --experimental-strip-types --test tests/notion-breeder-field-events.test.mjs tests/directory-ten-category-field-save.test.mjs tests/notion-directory-veterinary-field-events.test.mjs
