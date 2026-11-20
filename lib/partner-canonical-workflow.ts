@@ -5,6 +5,8 @@
  */
 import { env } from "cloudflare:workers";
 import { createCanonicalDraft } from "./canonical-draft-service";
+import { scanPartnerNewProfileDuplicates, partnerSafeDuplicateCandidate } from "./partner-new-profile";
+import type { PartnerProfilePatch } from "./partner-profile-changes";
 import { getPartnerDatabase } from "./partner-auth-store";
 import { applyAtomicModerationTransition } from "./moderation-transition";
 import { assertIndependentOwnershipApprover } from "./partner-ownership-approval";
@@ -384,7 +386,7 @@ export async function savePartnerCanonicalDraft(input:{
   }
   return getPartnerCanonicalDraft({accountId:input.accountId,id:input.id,database:db});
 }
-export async function submitPartnerCanonicalDraft(input:{accountId:string;id:string;database?:D1Database;now?:Date}){
+export async function submitPartnerCanonicalDraft(input:{accountId:string;id:string;confirmDuplicate?:boolean;database?:D1Database;now?:Date}){
   const db=database(input.database),row=await draftById(input.id,db);
   if(row.accountId!==input.accountId)throw new PartnerCanonicalWorkflowError("Koncept sa nenašiel.",404);
   await assertActiveAccount(input.accountId,db);
@@ -393,12 +395,35 @@ export async function submitPartnerCanonicalDraft(input:{accountId:string;id:str
   const current=await canonicalRevision(row,db);
   if(!current||!["draft","DRAFT"].includes(current.status))
     throw new PartnerCanonicalWorkflowError("Koncept už nie je neverejný.",409);
+  // The old new-profile page now redirects here. Preserve its HIGH-duplicate
+  // confirmation gate, and never match the draft against its own canonical row.
+  const duplicateStatements:D1PreparedStatement[]=[];
+  if(row.resourceType==="DIRECTORY_PROFILE"||row.resourceType==="HELP_ORGANIZATION"){
+    const draft=await getPartnerCanonicalDraft({accountId:input.accountId,id:row.id,database:db});
+    const scan=await scanPartnerNewProfileDuplicates({
+      resourceType:row.resourceType,
+      displayName:String(draft.values.name??""),
+      categoryOrType:String(draft.values.category??draft.values.type??""),
+      values:draft.values as PartnerProfilePatch,
+    },db);
+    const candidates=scan.candidates.filter(candidate=>candidate.canonicalId!==row.canonicalId);
+    const confidence=candidates.some(candidate=>candidate.confidence==="HIGH")?"HIGH":
+      candidates.some(candidate=>candidate.confidence==="MEDIUM")?"MEDIUM":"NONE";
+    if(confidence==="HIGH"&&input.confirmDuplicate!==true)
+      throw new PartnerCanonicalWorkflowError(
+        "Našli sme podobný profil. Skontrolujte, či už neexistuje, alebo výslovne potvrďte odoslanie.",
+        409,"DUPLICATE_CONFIRMATION_REQUIRED");
+    duplicateStatements.push(db.prepare("UPDATE partner_new_profile_metadata SET duplicate_confidence=?1,duplicate_candidates_json=?2 "+
+      "WHERE submission_id=?3 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?3 AND status='SUBMITTED')")
+      .bind(confidence,JSON.stringify(candidates.map(partnerSafeDuplicateCandidate)),row.id));
+  }
   const now=input.now??new Date(),nowIso=now.toISOString();
   await applyAtomicModerationTransition(db,{
     id:row.id,expectedStatus:row.status,toStatus:"SUBMITTED",actorType:"PARTNER",
     actorRef:accountActor(input.accountId),eventId:crypto.randomUUID(),changedFieldsJson:'["status"]',now:nowIso,
     transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+" WHERE id=? AND status IN ('draft','DRAFT'))",
       bindings:[row.canonicalId]},
+    extraStatements:duplicateStatements,
   });
   // Notifications must never accidentally expose a still-unsubmitted draft.
   try{
