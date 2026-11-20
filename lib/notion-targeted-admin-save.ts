@@ -5,6 +5,8 @@ import { loadNotionBulkOrganizations, loadNotionBulkAdoptions, loadNotionBulkHel
 import type { ReconciliationValue } from "./notion-bulk-reconciliation.ts";
 import { runNotionEshopSyncSweep, type NotionEshopSyncBindings } from "./notion-eshop-sync.ts";
 import { syncOneAdminHelpRecord } from "./notion-targeted-admin-help.ts";
+import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
+import { queueHelpNotionAdminChange, retryOneHelpNotionWriteback, readHelpNotionWritebackStatus } from "./notion-help-admin-outbox";
 import type { NotionEventsHelpSyncBindings } from "./notion-events-help-sync.ts";
 import type { BidirectionalAgendaKey } from "./notion-events-help-adapters.ts";
 import type { EventNotionField } from "./notion-event-field-contract.ts";
@@ -15,7 +17,7 @@ export type TargetedNotionSaveBindings =
     NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string;
   };
 
-export type TargetedNotionSaveStatus = "disabled" | "unlinked" | "synced" | "pending";
+export type TargetedNotionSaveStatus = "disabled" | "unlinked" | "synced" | "pending" | "review";
 
 
 type HelpSnapshot = Record<string, ReconciliationValue>;
@@ -82,19 +84,31 @@ export async function syncSavedNotionRecord(input: {
     // save must not degrade to a whole-record Notion reconciliation. That
     // could re-import a stale Notion field over a just-committed D1 change.
     // New/unmapped records remain the existing bootstrap sweep's job.
-    let changedHelpFields: readonly string[] | undefined;
     if (isHelpFieldEventAgenda(agenda)) {
+      if (await isAdminNotionSyncLocked(bindings.DB,agenda,entityId)) return "disabled";
       if (!input.beforeHelpSnapshot) return "pending";
       const afterHelpSnapshot = await currentHelpSnapshot(bindings.DB, agenda, entityId);
       if (!afterHelpSnapshot) return "pending";
-      changedHelpFields = changedAdminHelpFields(
+      const changedHelpFields = changedAdminHelpFields(
         agenda, input.beforeHelpSnapshot, afterHelpSnapshot,
       );
+      if (!changedHelpFields.length) {
+        return await readHelpNotionWritebackStatus(bindings.DB,bindings,agenda,entityId);
+      }
+      // This D1 receipt is committed BEFORE the Notion request.
+      // Both direct saves and the minute cron use the identical guarded retry.
+      const queued=await queueHelpNotionAdminChange({
+        database:bindings.DB,agenda,entityId,
+        before:input.beforeHelpSnapshot,after:afterHelpSnapshot,fields:changedHelpFields,
+      });
+      if (queued==="unlinked") return "unlinked";
+      return await retryOneHelpNotionWriteback({
+        database:bindings.DB,bindings,agenda,entityId,
+      });
     }
     return await syncOneAdminHelpRecord({
       database: bindings.DB, bindings, agenda, entityId,
       changedEventFields: input.changedEventFields,
-      changedHelpFields,
     });
   } catch {
     // Admin edit must never be rolled back because a remote mirror failed.
