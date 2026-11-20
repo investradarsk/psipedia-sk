@@ -372,7 +372,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     const directoryWeb = newDirectory.getByLabel("Web", { exact: true });
     await expect(directoryWeb).toHaveAttribute("type", "text");
     await directoryWeb.fill("partner-new-e2e.example");
-    await expect(newDirectory.getByText(/SEO a interné polia/)).toBeVisible();
+    await expect(page.getByText(/SEO a interné polia/)).toBeVisible();
     await expectNoHorizontalOverflow(page);
     const newDirectoryAccessibility = await new AxeBuilder({ page }).analyze();
     expect(newDirectoryAccessibility.violations).toEqual([]);
