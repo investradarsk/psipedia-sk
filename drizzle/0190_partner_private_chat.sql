@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS partner_conversations (
   partner_last_read_at TEXT,
   admin_last_read_at TEXT
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS partner_chat_messages (
   id TEXT PRIMARY KEY NOT NULL,
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS partner_chat_messages (
 );
 CREATE INDEX IF NOT EXISTS partner_chat_messages_account_created_idx
   ON partner_chat_messages(partner_account_id,created_at DESC,id DESC);
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS partner_chat_attachments (
   id TEXT PRIMARY KEY NOT NULL,
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS partner_chat_attachments (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS partner_chat_attachments_message_idx ON partner_chat_attachments(message_id);
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS partner_notification_preferences (
   partner_account_id TEXT PRIMARY KEY NOT NULL REFERENCES partner_accounts(id) ON DELETE RESTRICT,
@@ -40,6 +43,7 @@ CREATE TABLE IF NOT EXISTS partner_notification_preferences (
   in_app_enabled INTEGER NOT NULL DEFAULT 1 CHECK(in_app_enabled IN (0,1)),
   updated_at TEXT NOT NULL
 );
+--> statement-breakpoint
 
 -- Chat notice email cannot be stored in partner_notification_outbox:
 -- its existing notification_type CHECK does not allow CHAT_MESSAGE.
