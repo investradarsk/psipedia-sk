@@ -60,7 +60,7 @@ jobs:
       - name: Verify owner-only legacy cleanup, before/post DROP SQLite compatibility
         run: |
           node --check scripts/production-d1-breed-0175.mjs
-          node --test tests/breed-sql-v2-legacy-drop.test.mjs
+          node --test tests/breed-sql-v2-legacy-drop.test.mjs tests/breed-json-legacy-audit.test.mjs
       - name: Verify post-backfill shadow readiness and its SELECT-only runner
         run: |
           node --check scripts/production-breed-sql-v2-shadow-audit.mjs
