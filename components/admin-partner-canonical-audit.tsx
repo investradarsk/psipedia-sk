@@ -16,21 +16,26 @@ export async function AdminPartnerCanonicalAudit({resourceType,canonicalId}:{
   let targetId:string|null=null,targetType="PARTNER_RESOURCE";
   if(resourceType in cols){
     const col=cols[resourceType as keyof typeof cols];
-    const res=await database.prepare("SELECT id FROM partner_resources WHERE "+col+"=? LIMIT 1")
-      .bind(canonicalId).first<{id:string}>();
-    targetId=res?.id??null;
+    try {
+      const res=await database.prepare("SELECT id FROM partner_resources WHERE "+col+"=? LIMIT 1")
+        .bind(canonicalId).first<{id:string}>();
+      targetId=res?.id??null;
+    } catch { return <p role="status">História partnerských úprav sa momentálne nepodarila načítať.</p>; }
   }else{
     targetType="PARTNER_HELP_CLAIM";
     targetId="help-record-"+resourceType+"-"+canonicalId;
   }
   if(!targetId)return null;
-  const data=await database.prepare(
-    "SELECT id,actor_ref actorRef,created_at createdAt,metadata_json metadataJson "+
-    "FROM partner_audit_events WHERE target_type=? AND target_id=? "+
-    "AND json_valid(metadata_json) "+
-    "AND json_extract(metadata_json,'$.mode')='DIRECT_PUBLIC_SAVE' "+
-    "ORDER BY created_at DESC,id DESC LIMIT 50"
-  ).bind(targetType,targetId).all<{id:string;actorRef:string;createdAt:string;metadataJson:string}>();
+  let data:D1Result<{id:string;actorRef:string;createdAt:string;metadataJson:string}>;
+  try {
+    data=await database.prepare(
+      "SELECT id,actor_ref actorRef,created_at createdAt,metadata_json metadataJson "+
+      "FROM partner_audit_events WHERE target_type=? AND target_id=? "+
+      "AND json_valid(metadata_json) "+
+      "AND json_extract(metadata_json,'$.mode')='DIRECT_PUBLIC_SAVE' "+
+      "ORDER BY created_at DESC,id DESC LIMIT 50"
+    ).bind(targetType,targetId).all<{id:string;actorRef:string;createdAt:string;metadataJson:string}>();
+  } catch { return <p role="status">História partnerských úprav sa momentálne nepodarila načítať.</p>; }
   if(data.results.length===0)return null;
   return <section className="admin-form-card admin-partner-v2-panel" aria-label="História partnerských úprav">
     <div className="admin-partner-v2-panel-heading">
