@@ -32,3 +32,6 @@ plemená a per-field LWW synchronizáciu.
 Nie sú potrebné žiadne generické migrácie, jednorazový import z Notion,
 ďalší backfill ani mazanie záznamov. Po DROP sú staré off/shadow fallback
 režimy iba historická testovacia cesta a v produkcii sa nesmú zapínať.
+
+Presné DROP SQL je úmyselne uložené v `scripts/sql/` mimo číslovaného
+`drizzle/` reťazca: nezavádza novú migráciu ani kolíziu čísla 0175.
