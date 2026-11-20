@@ -42,7 +42,7 @@ export async function searchPartnerClaimableRecords(input: {
   if (isPartnerHelpType(input.entityType)) return searchPartnerHelpRecords(input.entityType,input.query,input.database,Boolean(input.suggest));
   const query = input.query.trim().replace(/\s+/g, " ").slice(0, 80);
   if (query.length < (input.suggest ? 1 : 2)) return [];
-  const escaped=query.replace(/[\\%_]/g, "\\const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;");
+  const escaped=query.replace(/[\\%_]/g, "\\$&");
   const pattern = input.suggest && query.length===1 ? `${escaped}%` : `%${escaped}%`;
   const type=input.entityType as keyof typeof typeSpecs;
   const sql=input.suggest&&type==="MANAGED_EVENT"
