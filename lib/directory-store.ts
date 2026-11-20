@@ -581,7 +581,9 @@ const DIRECTORY_PROFILE_COLUMNS = `
   id, slug, name, category, status, excerpt, description, services_json, qualifications_json,
   city, district, region, address, online, price_note, website_url,
   public_phone, public_email, facebook_url, instagram_url, internal_email, image_url,
-  image_key, thumbnail_display_json, detail_display_json, import_key, source_data_json, search_text, verified, featured, seo_json,
+  image_key, thumbnail_display_json, detail_display_json, import_key,
+  json_object('_psipedia_additional_categories', ${directoryAdditionalCategoryJsonSql()}) AS source_data_json,
+  search_text, verified, featured, seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
