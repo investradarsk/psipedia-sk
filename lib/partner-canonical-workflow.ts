@@ -17,6 +17,16 @@ import { directoryCategories } from "./directory";
 import { organizationPublicationTypes } from "./help-organization-publication";
 import { partnerHelpCaseCategories } from "./partner-help-create";
 import { enqueueAdminNotificationEvent } from "./admin-notifications";
+import { helpEditorFields } from "./partner-help-editor-fields";
+import { normalizeProfileGalleryUrls, mergeProfileGallery, readProfileGallery } from "./partner-profile-gallery";
+import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
+import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-category-sql";
+import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
+import { getPartnerMediaAsset, normalizePartnerMediaId } from "./partner-media";
+import { normalizePartnerGalleryMediaIds } from "./partner-profile-gallery-media";
+import { publishSafeImage, type PrivateBucketLike } from "./private-media";
+import { directoryFilterRegistry } from "./directory-filter-contract";
+
 
 type Database = D1Database;
 export const partnerCanonicalTypes = [
@@ -39,15 +49,18 @@ const kinds:Record<PartnerCanonicalType,DraftKind> = {
       "publicPhone","websiteUrl","facebookUrl","instagramUrl","address","city","district","region","countryCode"])},
   MANAGED_EVENT:{table:"managed_events",type:"EVENT",reviewType:"EVENT",published:"published",
     fields:textFields(["title","excerpt","eventType","startDate","startTime","endDate","endTime","venue","city",
-      "region","address","organizer","description","practicalInfo","websiteUrl","registrationUrl"])},
+      "region","address","organizer","description","practicalInfo","websiteUrl","registrationUrl"]),cancelled:"cancelled"}},
   ADOPTION_DOG:{table:"adoption_dogs",type:"ADOPTION",reviewType:"ADOPTION",published:"ACTIVE",
     fields:textFields(["name","sex","size","approximateAgeMonths","breedName","region","district","city",
-      "organizationName","shortDescription","description"])},
+      "organizationName","shortDescription","description"]),
+      ...Object.fromEntries(helpEditorFields.ADOPTION_DOG.map(field=>[field.key,field.key]))}},
   LOST_FOUND_DOG:{table:"lost_found_dog_reports",type:"LOST_FOUND",reviewType:"LOST_FOUND",published:"ACTIVE",
     fields:textFields(["type","dogName","sex","breed","color","size","eventDate","region","district","city",
-      "locationDescription","description"])},
+      "locationDescription","description"]),
+      ...Object.fromEntries(helpEditorFields.LOST_FOUND_DOG.map(field=>[field.key,field.key]))}},
   HELP_CASE:{table:"help_cases",type:"HELP_ITEM",reviewType:"HELP_CASE",published:"published",
-    fields:textFields(["title","category","excerpt","description","organization","city","region","actionLabel","contactNote"])},
+    fields:textFields(["title","category","excerpt","description","organization","city","region","actionLabel","contactNote"]),
+      ...Object.fromEntries(helpEditorFields.HELP_CASE.map(field=>[field.key,field.key]))}},
 };
 const helpers:ReadonlySet<PartnerCanonicalType>=new Set(partnerCanonicalTypes);
 const pendingStates=["SUBMITTED","PENDING_REVIEW","QUARANTINED"];
@@ -79,27 +92,60 @@ function inputObject(raw:unknown):Record<string,unknown>{
   if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new PartnerCanonicalWorkflowError("Údaje profilu musia byť objekt.");
   return raw as Record<string,unknown>;
 }
+const draftDirectoryRelations=new Set(["additionalCategories","openingHours","galleryUrls"]);
+const draftOrganizationRelations=new Set(["galleryUrls"]);
+const helpFieldDefinitions=Object.fromEntries(
+  Object.entries(helpEditorFields).map(([type,fields])=>[type,Object.fromEntries(fields.map(field=>[field.key,field]))])
+) as Record<string,Record<string,(typeof helpEditorFields.ADOPTION_DOG)[number]>>;
+function relationField(type:PartnerCanonicalType,key:string){
+  return type==="DIRECTORY_PROFILE"&&draftDirectoryRelations.has(key)
+    ||type==="HELP_ORGANIZATION"&&draftOrganizationRelations.has(key);
+}
 function cleanFields(type:PartnerCanonicalType,raw:unknown){
   const data=inputObject(raw),mapping=kinds[type].fields;
   for(const key of Object.keys(data)){
-    if(!Object.prototype.hasOwnProperty.call(mapping,key))
+    if(!Object.prototype.hasOwnProperty.call(mapping,key)&&!relationField(type,key)&&
+       !(type==="DIRECTORY_PROFILE"&&directoryFilterRegistry.some(field=>field.id===key)))
       throw new PartnerCanonicalWorkflowError("Pole "+key+" nie je partnerským verejným údajom.");
   }
   const clean:Record<string,unknown>={};
   for(const [key,value] of Object.entries(data)){
-    if(key==="services"||key==="qualifications"){
-      if(!Array.isArray(value)||value.length>100||value.some(v=>typeof v!=="string"||v.length>500))
-        throw new PartnerCanonicalWorkflowError("Zoznam služieb alebo kvalifikácií je neplatný.");
-      clean[key]=value.map(v=>(v as string).trim());
-    }else if(key==="approximateAgeMonths"){
-      if(value===null||value==="")clean[key]=null;
-      else if(typeof value==="number"&&Number.isSafeInteger(value)&&value>=0&&value<=360)clean[key]=value;
-      else throw new PartnerCanonicalWorkflowError("Vek musí byť celé číslo od 0 do 360.");
-    }else{
-      if(typeof value!=="string"||value.length>20000||/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value))
-        throw new PartnerCanonicalWorkflowError("Pole "+key+" obsahuje neplatnú hodnotu.");
-      clean[key]=value.trim();
+    if(["services","qualifications","additionalCategories","galleryUrls"].includes(key)){
+      if(!Array.isArray(value)||value.length>(key==="galleryUrls"?6:100)
+        ||value.some(v=>typeof v!=="string"||v.length>2048))
+        throw new PartnerCanonicalWorkflowError("Zoznam "+key+" je neplatný.");
+      clean[key]=value.map(v=>(v as string).trim()).filter(Boolean);
+      if(key==="galleryUrls")clean[key]=normalizeProfileGalleryUrls(clean[key]);
+      if(key==="additionalCategories")
+        clean[key]=normalizeAdditionalDirectoryCategories(clean[key] as string[],String(data.category??""));
+      continue;
     }
+    const detail=helpFieldDefinitions[type]?.[key];
+    if(key==="cancelled"||detail?.kind==="checkbox"||detail?.kind==="nullableBoolean"){
+      if(typeof value!=="boolean"&&!(detail?.kind==="nullableBoolean"&&value===null))
+        throw new PartnerCanonicalWorkflowError("Neplatná hodnota: "+key);
+      clean[key]=value;continue;
+    }
+    if(key==="approximateAgeMonths"||detail?.kind==="number"){
+      if(value===null||value===""){clean[key]=null;continue;}
+      const max=detail?.maximum??360;
+      if(typeof value!=="number"||!Number.isFinite(value)||value<0||value>max)
+        throw new PartnerCanonicalWorkflowError("Neplatné číslo: "+key);
+      clean[key]=value;continue;
+    }
+    if(typeof value!=="string"||value.length>20000||/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value))
+      throw new PartnerCanonicalWorkflowError("Pole "+key+" obsahuje neplatnú hodnotu.");
+    const text=value.trim();
+    if(detail?.kind==="select"&&text&&!(detail.options??[]).includes(text))
+      throw new PartnerCanonicalWorkflowError("Neplatná možnosť: "+key);
+    if(detail?.kind==="date"&&text&&!/^\d{4}-\d{2}-\d{2}$/.test(text))
+      throw new PartnerCanonicalWorkflowError("Neplatný dátum: "+key);
+    if(type==="DIRECTORY_PROFILE"&&directoryFilterRegistry.some(f=>f.id===key)){
+      const f=directoryFilterRegistry.find(f=>f.id===key)!;
+      if(text&&!f.allowedValues.includes(text))
+        throw new PartnerCanonicalWorkflowError("Neplatný filter: "+key);
+    }
+    clean[key]=text;
   }
   return clean;
 }
