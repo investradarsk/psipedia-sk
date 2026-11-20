@@ -784,7 +784,7 @@ test("internal admin Partner overview and account detail are protected admin pag
   // The partner account overview is a server-paginated accessible list,
   // not a table. Filter to the seeded account before opening its details.
   await page.goto("/admin/partners?q=" + encodeURIComponent(AUTH_EMAILS[project]));
-  await expect(page.getByRole("heading",{name:"Partneri"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Partneri",exact:true})).toBeVisible();
   await expect(page.getByRole("link",{name:/Komerčné leady 1/})).toBeVisible();
   const accountItem=page.getByRole("list",{name:"Partnerské účty"})
     .getByRole("listitem").filter({hasText:AUTH_ACCOUNT_IDS[project]});
