@@ -162,12 +162,18 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
         if(submitted)throw new Error("Tento koncept už bol odoslaný.");
         await send("/api/partner/canonical-drafts/"+encodeURIComponent(draftId),{action:"SUBMIT",confirmDuplicate});
         setStatus("SUBMITTED");
+        // Navigation loads the destination afresh. Refreshing the old route
+        // immediately after push can cancel this transition (vinext/Next).
         router.push("/partner/ziadosti");
-        router.refresh();
         return;
       }
       setSuccess("Všetky zadané polia aj fotografie boli uložené do súkromného konceptu.");
-      if(!initial)router.replace("/partner/koncepty/"+encodeURIComponent(draftId));
+      if(!initial){
+        // Do not refresh the creating route while replace is still pending:
+        // that loses the successful transition despite HTTP 201 from D1.
+        router.replace("/partner/koncepty/"+encodeURIComponent(draftId));
+        return;
+      }
       router.refresh();
     }catch(err){
       if(err instanceof Error&&"code" in err&&err.code==="DUPLICATE_CONFIRMATION_REQUIRED"){
