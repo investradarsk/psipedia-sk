@@ -17,7 +17,7 @@ import {
   directoryLegacyDistrictSql,
 } from "./directory-public-source-contract";
 import { cache } from "react";
-import { DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
+import { DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY, directoryAdditionalCategoryJsonSql, directoryCategoryMembershipSql, mergeAdditionalDirectoryCategories, normalizeAdditionalDirectoryCategories, readAdditionalDirectoryCategories } from "./directory-multi-category";
 import { planDirectorySecondaryCategorySqlMirror, planDirectorySecondaryCategoryCreateSqlMirror } from "./directory-secondary-category-sql";
 import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery, readDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
@@ -795,6 +795,13 @@ async function withDirectory0173SqlPublic(
   };
   return {
     ...profile,importData,
+    // A confirmed SQL membership (even []) supersedes stale JSON. Notion's
+    // one-time import confirmed secondary categories for eligible profiles.
+    ...(sql.sqlCategoriesConfirmed?{
+      additionalCategories:normalizeAdditionalDirectoryCategories(
+        sql.additionalCategories,profile.category,
+      ),
+    }:{}),
     ...(qualifications??{}),
     ...(sql.seo?{seo:sql.seo}:{}),
     ...(sql.galleryUrls?{galleryUrls:sql.galleryUrls}:{}),
@@ -810,6 +817,10 @@ async function withDirectory0173SqlManaged(
   for(const entry of sql.quality){
     qualityMetadata[entry.field]={status:entry.status,checkedAt:entry.checkedAt};
   }
+  const sqlReviewedAt=sql.review?.reviewedAt?.trim()??"";
+  // A historical JSON review never unlocks simply because SQL has no row.
+  // A SQL review likewise stays visible even if old JSON omitted the flag.
+  const reviewedAt=sqlReviewedAt||profile.reviewedAt;
   return {
     ...profile,
     importData:{
@@ -817,6 +828,14 @@ async function withDirectory0173SqlManaged(
       ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
     },
     qualityMetadata,
+    ...(sql.sqlCategoriesConfirmed?{
+      additionalCategories:normalizeAdditionalDirectoryCategories(
+        sql.additionalCategories,profile.category,
+      ),
+    }:{}),
+    reviewed:Boolean(reviewedAt),
+    reviewedAt,
+    reviewedBy:sqlReviewedAt?(sql.review?.reviewedBy??""):profile.reviewedBy,
     ...(sql.qualifications?{qualifications:sql.qualifications}:{}),
     ...(sql.seo?{seo:sql.seo}:{}),
     ...(sql.galleryUrls?{galleryUrls:sql.galleryUrls}:{}),
@@ -1939,10 +1958,17 @@ export async function listManagedDirectoryProfileSummaries(
     const reviewRows = await database
       .prepare(
         `
-      SELECT id,
-        COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
-      FROM directory_profiles
-      WHERE id IN (${placeholders})
+      SELECT p.id,
+        COALESCE(
+          NULLIF(TRIM(s.reviewed_at),''),
+          CASE WHEN json_valid(p.source_data_json) THEN
+            COALESCE(json_extract(p.source_data_json,
+              '$._psipedia_profile_review_reviewed_at'),'')
+          ELSE '' END
+        ) AS reviewed_at
+      FROM directory_profiles p
+      LEFT JOIN directory_profile_review_state s ON s.profile_id=p.id
+      WHERE p.id IN (${placeholders})
     `,
       )
       .bind(...rows.map((row) => row.id))
