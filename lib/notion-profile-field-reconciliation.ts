@@ -157,10 +157,39 @@ export function reconcileProfileFields(input: {
       continue;
     }
     const authority = input.authorities?.[path] ?? "safe";
-    // When one side is hash-proven unchanged, an old preferred-source setting
-    // cannot turn a newer edit from the other side back into the baseline.
-    const singleSideWins = input.changedSideWins === true && n !== p;
-    if (authority === "admin" && !(singleSideWins && n)) continue;
+    if (input.changedSideWins === true) {
+      // Directory: the verified baseline, not historic Notion/Admin priority,
+      // identifies a genuine one-sided field change. Both-sided divergence
+      // needs two value-bound human edit receipts, regardless of old mode.
+      // Never skip deletion validation just because the legacy mode is "admin".
+      if ((n && !blank(base[path]) && blank(remote[path])
+           && !input.verifiedDeletes?.has(`notion:${path}`))
+        || (p && !blank(base[path]) && blank(local[path])
+           && !input.verifiedDeletes?.has(`psipedia:${path}`))) {
+        conflicts.push({ field: path, reason: "UNVERIFIED_DELETE" });
+        continue;
+      }
+      if (n !== p) {
+        if (n) setLeaf(merged, path, remote[path]);
+        // When only Admin changed, preserve it: Notion did not edit the field.
+        continue;
+      }
+      if (equal(path, remote[path], local[path])) {
+        // Both independently chose the same value. Converge without ordering.
+        setLeaf(merged, path, remote[path]);
+        continue;
+      }
+      const winner = verifiedLatestWinner(
+        input.verifiedFieldEdits?.[path], remote[path], local[path],
+      );
+      if (winner === "notion") setLeaf(merged, path, remote[path]);
+      else if (!winner) conflicts.push({ field: path, reason: "AMBIGUOUS_SAME_FIELD" });
+      continue;
+    }
+
+    // Existing behavior for non-Directory callers remains unchanged.
+    // A static authority is not a verified field edit receipt.
+    if (authority === "admin") continue;
     if ((n && !blank(base[path]) && blank(remote[path]) && !input.verifiedDeletes?.has(`notion:${path}`))
       || (p && !blank(base[path]) && blank(local[path]) && !input.verifiedDeletes?.has(`psipedia:${path}`))) {
       conflicts.push({ field: path, reason: "UNVERIFIED_DELETE" });
@@ -180,10 +209,7 @@ export function reconcileProfileFields(input: {
         continue;
       }
     }
-    // Only the actually changed side wins when the caller supplies a verified
-    // baseline. Never pull the unchanged Notion value over a new Admin edit.
-    if (n || (authority === "notion" && p && !singleSideWins))
-      setLeaf(merged, path, remote[path]);
+    if (n || (authority === "notion" && p)) setLeaf(merged, path, remote[path]);
   }
   return {
     kind: conflicts.length ? "CONFLICT" : notionFields.length || psipediaFields.length ? "MERGE" : "UNCHANGED",
