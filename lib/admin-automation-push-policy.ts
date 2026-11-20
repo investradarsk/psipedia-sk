@@ -39,7 +39,8 @@ export function adminPushEventKey(eventType:string, sourceType = "", system = ""
   if(eventType==="partner_account_registered")return "PARTNER_REGISTRATION";
   if(eventType==="profile_review_submitted" || sourceType==="PROFILE_REVIEW_MODERATION")return "PROFILE_REVIEW";
   if(eventType==="partner_claim_submitted" || sourceType==="PARTNER_CLAIM_REVIEW"
-    || eventType==="partner_lifecycle_requested")return "PARTNER_REQUEST";
+    || eventType==="partner_lifecycle_requested"
+    || eventType==="partner_private_message" || sourceType==="PARTNER_MESSAGE")return "PARTNER_REQUEST";
   // Each directly saved Partner change is a first-class Admin alert, under the
   // existing default-enabled proposal category (no new subscription migration).
   if(["partner_profile_direct_edit","partner_event_direct_edit","partner_help_direct_edit"].includes(eventType))
