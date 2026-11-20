@@ -1,3 +1,4 @@
+import { PartnerLifecycleRequest } from "@/components/partner-lifecycle-request";
 import { PartnerContactProfileForm } from "@/components/partner-contact-profile-form";
 import { PartnerSettingsActions } from "@/components/partner-settings-actions";
 import { PartnerSecuritySettings } from "@/components/partner-security-settings";
@@ -50,6 +51,7 @@ export default async function PartnerSettingsPage() {
         googleEnabled={isPartnerGoogleOAuthEnabled()}
       />
 
+      <PartnerLifecycleRequest account />
       <PartnerSettingsActions siteKey={getPartnerTurnstileSiteKey()} />
     </PartnerShell>
   );
