@@ -32,10 +32,10 @@ Workflow v chránenom prostredí `production`:
 5. Overí úspešný D1 zápis a na konci nezmenené ID/počty D1 profilov. Pri chybe skončí s označením čiastočného priebehu; dáta sa nesmú slepo prepisovať ani resetovať.
 
 ### Obsahové SQL polia
-- `directory_profiles`: názov, perex, popis, lokalita bez potvrdeného Google Place, cena, hlavný obrázok URL a **voľné textové** kontakty.
+- `directory_profiles`: názov, perex, popis, lokalita bez potvrdeného Google Place, cena, URL hlavného obrázka iba ak SQL obrázok chýba a **voľné textové** kontakty.
 - `directory_profile_qualifications`: riadky kvalifikácií podľa poradia.
 - `directory_profile_opening_hours`: pôvodný voľný text do dňa 0 (riadky dní 1–7 sa nemažú).
-- `directory_profile_seo`: SEO title/popisy/kľúčové slovo/OG/canonical/noindex; nevyplnené texty neprepíšu existujúci SQL údaj.
+- `directory_profile_seo`: SEO title/popisy/kľúčové slovo/OG/canonical; ochranný `noindex` zostáva plne pod Adminom; nevyplnené texty neprepíšu existujúci SQL údaj.
 - `directory_profile_public_facts` a `directory_profile_filter_values`: výslovne známe Notion polia podľa existujúceho category registry.
 - `directory_profile_additional_categories`: priamo z Notion `Ďalšie kategórie`, vrátane explicitného prázdneho zoznamu; dočasne uloží **iba technický príznak SQL potvrdenia** do `source_data_json`, lebo aktuálny verejný reader inak nerozozná SQL `[]` od starého fallbacku.
 - `directory_profile_quality_resolutions`: iba platné uvedené hodnoty s časom kontroly.
