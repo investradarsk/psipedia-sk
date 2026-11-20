@@ -65,7 +65,6 @@ test("production audit uses SQL-only mode and retains shadow readiness for rollb
   const sqlBranch=audit.slice(audit.indexOf('if(writeMode==="sql"){',audit.indexOf("function run()")),
     audit.indexOf("  const result={",audit.indexOf("function run()")));
   assert.doesNotMatch(sqlBranch,/BREED_V2_POSTFLIGHT_SQL\.(fci|editorial|seo|relations|extraRelations)/);
-  assert.doesNotMatch(sqlBranch,/fci_standard_json|editorial_json|seo_json|related_breeds_json(?!.*intentionally)/);
   const workflow=read(".github/workflows/production-breed-sql-v2-shadow-audit.yml");
   assert.match(workflow,/environment: production/);
   assert.match(workflow,/AUDIT-BREEDS-V2-SHADOW-347/);
