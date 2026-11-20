@@ -19,7 +19,7 @@ const fail=code=>{throw Error("NOTION_D1_IMPORT_"+code);};
 const must=(ok,code)=>{if(!ok)fail(code);};
 const counts={notion:0,linked:0,withoutId:0,d1:0,eligible:0,imported:0,
   skipped:{},writtenFields:{},samples:{}};
-let stage="START",bookmarked=false;
+let stage="START",bookmarked=false,recoveryBookmarkValue=null;
 const mark=(reason,id)=>{
   counts.skipped[reason]=(counts.skipped[reason]??0)+1;
   const ids=counts.samples[reason]??=[];
@@ -30,7 +30,8 @@ function report(status,more={}){
   stage=status;mkdirSync(WORK,{recursive:true});
   const data={phase:"DIRECTORY_NOTION_ONE_TIME_SQL",mode:MODE,status,readOnly:MODE==="audit",
     notionUnchanged:true,legacyJsonNotEditorialSource:true,deleteOldJson:false,
-    bookmarkCreated:bookmarked,counts,sourceCommit:process.env.GITHUB_SHA,...more};
+    bookmarkCreated:bookmarked,recoveryBookmark:recoveryBookmarkValue,
+    counts,sourceCommit:process.env.GITHUB_SHA,...more};
   writeFileSync(resolve(WORK,"report.json"),JSON.stringify(data,null,2)+"\n");
   console.log(JSON.stringify({phase:data.phase,mode:MODE,status,counts,bookmarkCreated:bookmarked}));
 }
@@ -181,9 +182,14 @@ function recoveryBookmark(){
     env:{...process.env,WRANGLER_SEND_METRICS:"false",NO_UPDATE_NOTIFIER:"1"}});
   must(!result.error&&result.status===0,"TIME_TRAVEL_FAILED");
   let payload;try{payload=JSON.parse(result.stdout);}catch{fail("TIME_TRAVEL_JSON");}
-  const hasBookmark=x=>x&&typeof x==="object"&&(typeof x.bookmark==="string"&&x.bookmark||
-    Object.values(x).some(hasBookmark));
-  must(hasBookmark(payload),"NO_BOOKMARK");
+  const findBookmark=x=>{
+    if(!x||typeof x!=="object")return null;
+    if(typeof x.bookmark==="string"&&x.bookmark)return x.bookmark;
+    for(const v of Object.values(x)){const found=findBookmark(v);if(found)return found;}
+    return null;
+  };
+  recoveryBookmarkValue=findBookmark(payload);
+  must(Boolean(recoveryBookmarkValue),"NO_BOOKMARK");
   bookmarked=true;
 }
 export function buildBatch(p){
@@ -207,7 +213,10 @@ export function buildBatch(p){
     "AND pm.revoked_at IS NULL)",
     "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones tomb",
     "WHERE tomb.kind='directory' AND (tomb.record_id=directory_profiles.id",
-    "OR tomb.record_slug=directory_profiles.slug))",
+    "OR tomb.record_slug=directory_profiles.slug OR",
+    "(tomb.notion_page_id IS NOT NULL AND EXISTS(SELECT 1 FROM directory_notion_sync tm",
+    "WHERE tm.directory_profile_id=directory_profiles.id AND",
+    "REPLACE(LOWER(tm.notion_page_id),'-','')=REPLACE(LOWER(tomb.notion_page_id),'-','')))))",
     "AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.directory_profile_id=directory_profiles.id",
     "AND REPLACE(LOWER(m.notion_page_id),'-','')=?)",
   ].join(" ");
