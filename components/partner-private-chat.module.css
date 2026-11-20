@@ -25,3 +25,16 @@
 .error{color:#9c3329;margin:.2rem 0;font-size:.84rem}.success{color:#21653d;margin:.2rem 0;font-size:.84rem}
 .empty{align-self:center;color:#617464;text-align:center;margin:auto}
 @media(max-width:650px){.timeline{max-height:430px;padding:.65rem}.mine,.theirs{max-width:94%;padding:.6rem}.messageHeader{flex-wrap:wrap;gap:.25rem}}
+
+
+/* Compact partner-only conversation; admin chat retains its original dimensions. */
+.partnerChat{gap:.65rem}
+.partnerChat .description p{line-height:1.4}
+.partnerChat .timeline{gap:.5rem;min-height:130px;max-height:390px;padding:.75rem;background:var(--paper,#fffdf8);border-color:var(--line,#dfe3d9)}
+.partnerChat .mine,.partnerChat .theirs{padding:.55rem .75rem;border-radius:10px}
+.partnerChat .mine{background:var(--sage-light,#edf3e9)}
+.partnerChat .composer{gap:.4rem;padding:.7rem;background:var(--paper,#fffdf8);border-color:var(--line,#dfe3d9)}
+.partnerChat .composer textarea{min-height:78px;border-color:#c9d5ce}
+.partnerChat .sendRow button,.partnerChat .older{background:var(--forest,#174b38);border-color:var(--forest,#174b38);border-radius:9px}
+.partnerChat .older{background:var(--paper,#fffdf8);color:var(--forest,#174b38)}
+@media(max-width:650px){.partnerChat .timeline{max-height:340px;padding:.6rem}.partnerChat .composer{padding:.6rem}.partnerChat .sendRow button{min-height:44px}}

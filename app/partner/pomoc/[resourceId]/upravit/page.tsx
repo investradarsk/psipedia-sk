@@ -19,7 +19,7 @@ export default async function Page({ params }: {params:Promise<{resourceId:strin
     throw error;
   }
   return <PartnerShell title="Upraviť záznam Pomoci psom"
-    description="Verejné údaje svojho schváleného záznamu môžete upraviť. SEO, interné údaje a vlastníctvo zostávajú chránené.">
+    description="Upravte informácie a fotografie svojho záznamu. Zmeny uložíte tlačidlom na konci formulára.">
     <section className="partner-profile-editor">
       <div className="partner-section-heading"><div><span className="eyebrow">{editor.entityType === "ADOPTION_DOG"?"Adopcia":editor.entityType === "LOST_FOUND_DOG"?"Stratené a nájdené psy":"Pomoc psom"}</span><h2>{editor.title}</h2></div>
         <div className="partner-request-links"><Link href="/partner/profily">Moje profily</Link>{editor.publicHref?<Link href={editor.publicHref} target="_blank" rel="noopener noreferrer">Verejný záznam ↗</Link>:null}</div>

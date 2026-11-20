@@ -366,7 +366,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByRole("heading", { name: "Vytvoriť nový záznam" })).toBeVisible();
     const newDirectory = page.locator("form.partner-canonical-form");
     await expect(newDirectory.getByLabel("Druh záznamu")).toHaveValue("DIRECTORY_PROFILE");
-    await expect(page.getByText(/SEO a interné polia/)).toBeVisible();
+    await expect(page.getByText(/Koncept zostane súkromný/)).toBeVisible();
     await expectNoHorizontalOverflow(page);
     // Scan the SSR form before editing it. Like onboarding, React hydration
     // may otherwise reset inputs filled before the client event handlers attach.
@@ -532,7 +532,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=MANAGED_EVENT$/);
   await expect(page.getByRole("heading",{name:"Vytvoriť nový záznam"})).toBeVisible();
   await expect(page.getByLabel("Druh záznamu")).toHaveValue("MANAGED_EVENT");
-  await expect(page.getByText("Kým záznam neodošlete a administrátor ho neschváli, nie je verejný.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Koncept zostane súkromný a na stránke sa zobrazí až po schválení.", { exact: false })).toBeVisible();
   const partnerLayout = await page.evaluate(() => {
     const stickyHeader = document.querySelector<HTMLElement>(".site-header");
     const heading = document.querySelector<HTMLElement>(".partner-page-heading h1");
