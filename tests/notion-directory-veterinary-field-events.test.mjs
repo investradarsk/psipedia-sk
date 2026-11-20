@@ -102,6 +102,7 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
       breederReadPath: (data, path) => path.split(".").reduce((v, k) => v?.[k], data),
       normalizeDirectorySearchText: str => str,
       planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
+      TRAINER_SERVICES_TEXT_METADATA_KEY:"_psipedia_trainer_services_text",
       getManagedDirectoryProfileById: async () => profile,
     });
     const desired = {
