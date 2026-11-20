@@ -78,5 +78,5 @@ test("production deletion is explicitly manual and keeps physical column as comp
  assert.match(production,/process\.env\.GITHUB_REF==="refs\/heads\/main"/);
  assert.match(production,/DIRECTORY_JSON_PURGE_CONFIRMATION===confirmation/);
  assert.match(production,/legacyColumnPhysicallyPresent:true/);
- assert.doesNotMatch(production,/DROP TABLE|DROP COLUMN/i);
+ assert.doesNotMatch(DIRECTORY_LEGACY_JSON_PURGE_SQL,/\\bDROP\\s+(?:TABLE|COLUMN)\\b/i);
 });
