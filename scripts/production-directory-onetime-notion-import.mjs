@@ -30,7 +30,7 @@ const mark=(reason,id)=>{
 const inc=(key)=>{counts.writtenFields[key]=(counts.writtenFields[key]??0)+1;};
 function report(status,more={}){
   stage=status;mkdirSync(WORK,{recursive:true});
-  const data={phase:"DIRECTORY_NOTION_ONE_TIME_SQL",mode:MODE,status,readOnly:MODE==="audit",
+  const data={phase:"DIRECTORY_NOTION_ONE_TIME_SQL",mode:MODE,status,readOnly:MODE==="audit"||MODE==="step2-audit"||MODE==="step3-audit",
     notionUnchanged:true,legacyJsonNotEditorialSource:true,deleteOldJson:false,
     bookmarkCreated:bookmarked,recoveryBookmark:recoveryBookmarkValue,
     counts,sourceCommit:process.env.GITHUB_SHA,...more};
@@ -431,8 +431,8 @@ function step3RepairGate(plan){
       "WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=p.id "+
       "AND pm.revoked_at IS NULL) "+
       "AND json_valid(p.source_data_json) "+
-      "AND COALESCE(json_extract(p.source_data_json,'$.\\\"_psipedia_profile_review_reviewed_at\\\"'),'')='' "+
-      "AND COALESCE(json_extract(p.source_data_json,'$.\\\"_psipedia_profile_review_unlock_pending\\\"'),'')<>'1' "+
+      "AND COALESCE(json_extract(p.source_data_json,'$._psipedia_profile_review_reviewed_at'),'')='' "+
+      "AND COALESCE(json_extract(p.source_data_json,'$._psipedia_profile_review_unlock_pending'),'')<>'1' "+
       ") THEN 1 ELSE json_extract('STEP3_CAS_FAILED','$.invalid') END AS allowed",
     params:[plan.id,plan.sourceRevision,
       String(plan.pageId).replaceAll("-","").toLowerCase()],
