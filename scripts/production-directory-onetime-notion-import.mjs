@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { notionId, planNotionDirectoryImport } from "../lib/directory-notion-onetime-import.mjs";
+import {STEP2_TABLES, STEP2_INDEXES, step2Plan, step2Sql} from "../lib/directory-sql-step2-plan.mjs";
 
 const MODE=process.argv[2]??"";
 const ROOT=resolve(new URL("..",import.meta.url).pathname);
@@ -36,16 +37,20 @@ function report(status,more={}){
   console.log(JSON.stringify({phase:data.phase,mode:MODE,status,counts,bookmarkCreated:bookmarked}));
 }
 function authorize(){
-  must(["audit","apply"].includes(MODE),"INVALID_MODE");
+  must(["audit","apply","step2-audit","step2-apply"].includes(MODE),"INVALID_MODE");
   must(process.env.GITHUB_EVENT_NAME==="workflow_dispatch","MANUAL_ONLY");
   must(process.env.GITHUB_REF==="refs/heads/main","MAIN_ONLY");
   must(process.env.GITHUB_REPOSITORY==="investradarsk/psipedia-sk","REPOSITORY");
   must(process.env.CLOUDFLARE_ACCOUNT_ID===ACCOUNT,"ACCOUNT");
   must(norm(process.env.NOTION_DIRECTORY_DATA_SOURCE_ID)===norm(SOURCE),"SOURCE");
   must(Boolean(process.env.CLOUDFLARE_API_TOKEN&&process.env.AGENT_NOTION_ACCESS_TOKEN),"MISSING_TOKEN");
-  must(process.env.NOTION_ONE_TIME_CONFIRMATION===(MODE==="audit"
-    ?"AUDIT-NOTION-DIRECTORY-ONE-TIME-psipedia-sk-db"
-    :"APPLY-NOTION-DIRECTORY-ONE-TIME-psipedia-sk-db"),"CONFIRMATION");
+  const confirmations={
+    audit:"AUDIT-NOTION-DIRECTORY-ONE-TIME-psipedia-sk-db",
+    apply:"APPLY-NOTION-DIRECTORY-ONE-TIME-psipedia-sk-db",
+    "step2-audit":"AUDIT-DIRECTORY-SQL-STEP2-psipedia-sk-db",
+    "step2-apply":"APPLY-DIRECTORY-SQL-STEP2-psipedia-sk-db",
+  };
+  must(process.env.NOTION_ONE_TIME_CONFIRMATION===confirmations[MODE],"CONFIRMATION");
   const config=JSON.parse(readFileSync(resolve(ROOT,"config/cloudflare-resources.json"),"utf8"));
   must(config.account_id===ACCOUNT&&config.d1?.database_id===DB_ID&&
     config.d1?.database_name===DB,"DATABASE");
@@ -122,6 +127,7 @@ export const PROFILE_SQL=[
   "SELECT p.id,p.category,p.slug,p.status,p.updated_at,p.name,p.excerpt,p.description,",
   "p.region,p.district,p.city,p.address,p.postal_code,p.street,p.house_number,p.price_note,",
   "p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,p.internal_email,p.image_url,",
+  "p.services_json,p.source_data_json,p.thumbnail_display_json,p.detail_display_json,",
   "m.notion_page_id,",
   "CASE WHEN json_valid(p.source_data_json) AND",
   "(COALESCE(json_extract(p.source_data_json,'$.\"_psipedia_profile_review_reviewed_at\"'),'')<>'' OR",
@@ -285,7 +291,90 @@ export function buildBatch(p){
     [id,p.qualifications.length]));
   return statements;
 }
+
+async function step2SchemaState(){
+  const names=[...STEP2_TABLES,...STEP2_INDEXES];
+  const found=await select("SELECT name,type FROM sqlite_master WHERE name IN ("+
+    names.map(()=>"?").join(",")+")",names);
+  must(found.length===0||found.length===names.length,"STEP2_PARTIAL_SCHEMA");
+  const mapping=new Map(found.map(x=>[x.name,x.type]));
+  if(found.length)must(STEP2_TABLES.every(x=>mapping.get(x)==="table")&&
+    STEP2_INDEXES.every(x=>mapping.get(x)==="index"),"STEP2_OBJECT_TYPES");
+  return found.length===names.length;
+}
+async function runStep2(){
+  authorize();
+  await schema();
+  let installed=await step2SchemaState();
+  if(MODE==="step2-apply"&&!installed){
+    recoveryBookmark();
+    const result=spawnSync("npx",["--no-install","wrangler","d1","execute",DB,
+      "--remote","--config",resolve(WORK,"wrangler.json"),
+      "--file",resolve(ROOT,"db/isolated/directory_admin_sql_completion.sql")],{
+      cwd:ROOT,encoding:"utf8",maxBuffer:8000000,
+      env:{...process.env,WRANGLER_SEND_METRICS:"false",NO_UPDATE_NOTIFIER:"1"}});
+    must(!result.error&&result.status===0,"STEP2_SCHEMA_APPLY");
+    installed=await step2SchemaState();
+    must(installed,"STEP2_SCHEMA_VERIFY");
+  }
+  const before=await baseline(),pages=await scanNotion(),rows=await scanD1();
+  must(Number(before.n)===rows.size,"STEP2_CHANGED_SCAN");
+  const byId=new Map(pages.map(p=>[notionId(p),p]).filter(x=>x[0]));
+  const candidates=[];
+  for(const row of rows.values()){
+    const page=byId.get(row.id);
+    const trusted=page&&planNotionDirectoryImport(page,row,SOURCE).ok===true;
+    const p=step2Plan(row,trusted?page:null,SOURCE);
+    if(!p.ok){mark(p.reason,row.id);continue;}
+    if(page&&!trusted)mark("notion_protected_or_ambiguous",row.id);
+    if(p.issues.length)mark("needs_parity_review",row.id);
+    candidates.push(p);counts.eligible++;
+  }
+  if(MODE==="step2-audit"){
+    report("STEP2_AUDIT_ONLY",{schemaInstalled:installed,planned:candidates.length,
+      noCanonicalWrites:true});
+    return;
+  }
+  must(installed,"STEP2_MISSING_SCHEMA");
+  if(!bookmarked)recoveryBookmark();
+  for(const p of candidates){
+    if(p.notionRevision){
+      const fresh=await notion("/pages/"+p.pageId);
+      if(fresh.id!==p.pageId||fresh.last_edited_time!==p.notionRevision||
+        notionId(fresh)!==p.id){mark("notion_changed",p.id);continue;}
+    }
+    const live=(await select("SELECT updated_at,status FROM directory_profiles WHERE id=?",[p.id]))[0];
+    if(!live||live.updated_at!==p.sourceRevision||live.status==="archived"){
+      mark("admin_changed",p.id);continue;
+    }
+    const existing=(await select(
+      "SELECT state FROM directory_profile_sql_cutover_state WHERE profile_id=?",[p.id]))[0];
+    if(existing){mark(existing.state==="STAGED"?"already_staged":"already_verified",p.id);continue;}
+    const sql=step2Sql(p,new Date().toISOString(),"DIRECTORY_SQL_STEP2").map(s=>stmt(s.sql,s.params));
+    must(sql.length<150,"STEP2_LARGE_BATCH");
+    try{
+      const result=await d1(sql);
+      must(Number(result.at(-1)?.[0]?.profile_id)===p.id,"STEP2_CAS");
+    }catch{
+      mark("step2_batch_failure",p.id);
+      report("FAILED_PARTIAL",{lastFailedProfileId:p.id});
+      fail("STEP2_WRITE_FAILED");
+    }
+    counts.imported++;
+    if(counts.imported%50===0)report("STEP2_APPLYING");
+    await sleep(370);
+  }
+  const after=await baseline();
+  must(String(before.n)===String(after.n)&&String(before.sum_id)===String(after.sum_id)&&
+    String(before.max_id)===String(after.max_id),"STEP2_IDENTITY_DRIFT");
+  const foreignKeys=(await select("SELECT COUNT(*) AS n FROM pragma_foreign_key_check"))[0];
+  must(Number(foreignKeys.n)===0,"STEP2_FK");
+  report("STEP2_STAGED",{schemaInstalled:true,canonicalRowsUnchanged:true,
+    next:"3/4 verify field parity before any SQL_ONLY cutover"});
+}
+
 async function run(){
+  if(MODE.startsWith("step2-"))return runStep2();
   authorize();await schema();
   const before=await baseline(),pages=await scanNotion(),rows=await scanD1();
   must(Number(before.n)===rows.size,"D1_CHANGED_DURING_SCAN");
