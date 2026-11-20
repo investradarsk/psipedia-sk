@@ -61,7 +61,8 @@ test("shadow writes are opt-in; there is no accidental production cutover",()=>{
   assert.equal(breedSqlV2ShadowEnabled({BREED_SQL_V2_WRITE_MODE:"compare"}),false);
   assert.equal(breedSqlV2ShadowEnabled({BREED_SQL_V2_WRITE_MODE:"shadow"}),true);
   assert.equal(breedSqlV2ShadowEnabled({BREED_SQL_V2_WRITE_MODE:"sql"}),false);
-  assert.equal(breedSqlV2PrimaryWriteEnabled({BREED_SQL_V2_WRITE_MODE:"sql"}),true);
+  assert.throws(()=>breedSqlV2PrimaryWriteEnabled({BREED_SQL_V2_WRITE_MODE:"sql"}),/REQUIRES_SQL_READ/);
+  assert.equal(breedSqlV2PrimaryWriteEnabled({BREED_SQL_V2_WRITE_MODE:"sql",BREED_SQL_V2_READ_MODE:"sql"}),true);
   assert.equal(breedSqlV2PrimaryWriteEnabled({BREED_SQL_V2_WRITE_MODE:"shadow"}),false);
   assert.equal(breedSqlV2StructuredWritesEnabled({BREED_SQL_V2_WRITE_MODE:"sql"}),true);
   assert.equal(breedSqlV2StructuredWritesEnabled({BREED_SQL_V2_WRITE_MODE:"shadow"}),true);
