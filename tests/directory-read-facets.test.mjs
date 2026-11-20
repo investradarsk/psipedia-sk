@@ -46,6 +46,19 @@ function fixture(size = 1100) {
   sqlite.exec(
     "CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, name TEXT, status TEXT, category TEXT, region TEXT, district TEXT, city TEXT, services_json TEXT, source_data_json TEXT, search_text TEXT, featured INTEGER, published_at TEXT)",
   );
+  sqlite.exec(`
+    CREATE TABLE directory_profile_public_facts (
+      profile_id INTEGER,field_key TEXT,value_text TEXT,
+      PRIMARY KEY(profile_id,field_key)
+    );
+    CREATE TABLE directory_profile_extra_fields (
+      profile_id INTEGER,field_key TEXT,text_value TEXT,
+      PRIMARY KEY(profile_id,field_key)
+    );
+  `);
+  const addFact=sqlite.prepare(
+    "INSERT INTO directory_profile_public_facts(profile_id,field_key,value_text) VALUES(?,?,?)",
+  );
   const insert = sqlite.prepare(
     "INSERT INTO directory_profiles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
@@ -78,6 +91,14 @@ function fixture(size = 1100) {
       id % 9 === 0 ? 1 : 0,
       "2026-10-" + String(1 + (id % 12)).padStart(2, "0"),
     );
+    // Relational fields are now the only source. Preserve the fixture's
+    // canonical editorial values without inserting legacy JSON aliases.
+    for (const [key,value] of [
+      ["Plemeno",data.Plemeno],["FCI skupina",data["FCI skupina"]],
+      ["Organizácia",data["Organizácia"]],["Typ služby",data["Typ služby"]],
+    ]) {
+      if(typeof value==="string" && value) addFact.run(id,key,value);
+    }
   }
   // Non-published and NULL-rich cases must not pollute source or location facets.
   insert.run(
@@ -482,6 +503,8 @@ test("production-hot canonical breeder options and source facets preserve SQL re
     sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, status TEXT, category TEXT, source_data_json TEXT)");
     sqlite.exec("CREATE TABLE directory_profile_additional_categories (profile_id INTEGER, category TEXT, updated_at TEXT, updated_by TEXT, PRIMARY KEY(profile_id,category))");
     sqlite.exec("CREATE TABLE breed_directory_relations (profile_id INTEGER, breed_id INTEGER)");
+    sqlite.exec("CREATE TABLE directory_profile_public_facts (profile_id INTEGER, field_key TEXT, value_text TEXT, PRIMARY KEY(profile_id,field_key))");
+    sqlite.exec("CREATE TABLE directory_profile_extra_fields (profile_id INTEGER, field_key TEXT, text_value TEXT, PRIMARY KEY(profile_id,field_key))");
     const breedInsert = sqlite.prepare("INSERT INTO managed_breeds VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     for (const row of [
       [1,"published",101,"A","alpha","Alfa",1,"{}"],
@@ -504,6 +527,8 @@ test("production-hot canonical breeder options and source facets preserve SQL re
       [14,"published","veterinari",extras(["chovatelske-stanice"])],
       [15,"published","chovatelske-stanice",extras([])],
     ]) profileInsert.run(...row);
+    for(const id of [10,11,12,13,14,15])
+      sqlite.prepare("INSERT INTO directory_profile_public_facts VALUES(?,?,?)").run(id,"Plemeno","Legacy");
     const link = sqlite.prepare("INSERT INTO breed_directory_relations VALUES (?, ?)");
     for (const pair of [[10,1],[10,4],[11,2],[11,6],[12,3],[12,5],[13,5],[14,3],[15,7]]) link.run(...pair);
     const database = {
