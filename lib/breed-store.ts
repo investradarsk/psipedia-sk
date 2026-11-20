@@ -46,7 +46,8 @@ import { compareBreedSqlV2Detail } from "./breed-sql-v2-preview";
 import {breedSqlPrimaryEnabled,breedSqlPrimaryProjection}
   from "./breed-sql-v2-primary-read.mjs";
 import {
-  breedSqlV2ShadowEnabled,breedSqlV2FullSnapshotStatements,
+  breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,
+  breedSqlV2FullSnapshotStatements,
   breedSqlV2NewBreedStatements,
 } from "./breed-sql-v2-writer.mjs";
 
@@ -1581,6 +1582,31 @@ function values(value: ReturnType<typeof clean>) {
   ];
 }
 
+/** The four historic JSON object columns are NOT NULL until the final guarded
+ * D1 schema cleanup. SQL-primary UPDATE leaves them unchanged; new rows
+ * only receive empty placeholders, never duplicate canonical SQL values. */
+const BREED_ROW_VALUE_COLUMNS="slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json".split(",");
+const BREED_OLD_OBJECT_DEFAULTS:Record<string,string>={
+  fci_standard_json:"{}",editorial_json:"{}",related_breeds_json:"[]",seo_json:"{}",
+};
+function breedValueEntries(value:ReturnType<typeof clean>){
+  const raw=values(value);
+  if(raw.length!==BREED_ROW_VALUE_COLUMNS.length)throw Error("BREED_SQL_ONLY_VALUE_ORDER_MISMATCH");
+  return BREED_ROW_VALUE_COLUMNS.map((column,index)=>({column,value:raw[index]}));
+}
+function breedSqlOnlyInsertValues(value:ReturnType<typeof clean>){
+  return breedValueEntries(value).map(({column,value})=>
+    Object.hasOwn(BREED_OLD_OBJECT_DEFAULTS,column)?BREED_OLD_OBJECT_DEFAULTS[column]:value);
+}
+function breedSqlOnlyUpdate(value:ReturnType<typeof clean>){
+  const active=breedValueEntries(value).filter(({column})=>
+    !Object.hasOwn(BREED_OLD_OBJECT_DEFAULTS,column));
+  return {
+    sql:"UPDATE managed_breeds SET "+active.map(({column})=>column+"=?").join(",")+
+      ",updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=? AND updated_at=? RETURNING id",
+    params:active.map(({value:cell})=>cell),
+  };
+}
 function breedRelationStatements(
   database: D1Database,
   breedId: number,
@@ -1624,11 +1650,12 @@ export async function createManagedBreed(input: ManagedBreedInput, user: string)
   const value = clean(input);
   const now = new Date().toISOString();
   const placeholders = Array.from({ length: 54 }, () => "?").join(",");
+  const insertValues=breedSqlV2PrimaryWriteEnabled(env)?breedSqlOnlyInsertValues(value):values(value);
   const insert = database.prepare(
       `INSERT INTO managed_breeds (slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json,created_at,updated_at,published_at,created_by,updated_by) VALUES (${placeholders})`,
-    ).bind(...values(value), now, now, value.status === "published" ? now : null, user, user);
-  const shadow=breedSqlV2ShadowEnabled(env);
-  const result=shadow
+    ).bind(...insertValues, now, now, value.status === "published" ? now : null, user, user);
+  const structured=breedSqlV2StructuredWritesEnabled(env);
+  const result=structured
     ?(await database.batch([
         insert,...breedSqlV2NewBreedStatements(database,value.slug,value),
       ]))[0]
@@ -1662,8 +1689,11 @@ export function buildManagedBreedUpdateStatements(
   // invalid values. All Admin edits continue to use strict validation.
   const fromNotion = user === "notion-breed-sync@psipedia.sk";
   const value = clean(input, fromNotion ? preserved : undefined, fromNotion);
+  const sqlOnly=breedSqlV2PrimaryWriteEnabled(env)?breedSqlOnlyUpdate(value):null;
   return [
-    database
+    (sqlOnly
+      ?database.prepare(sqlOnly.sql).bind(...sqlOnly.params,nextUpdatedAt,value.status,nextUpdatedAt,user,id,expectedUpdatedAt)
+      :database
       .prepare(
         `UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_number=?,fci_group=?,fci_section=?,fci_section_number=?,official_fci_name=?,valid_standard_date=?,working_trial=?,import_key=?,fci_standard_json=?,editorial_json=?,sports_json=?,related_breeds_json=?,search_text=?,editorial_complete=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=? AND updated_at=? RETURNING id`,
       )
@@ -1675,14 +1705,15 @@ export function buildManagedBreedUpdateStatements(
         user,
         id,
         expectedUpdatedAt,
-      ),
+      )
+    ),
     database.prepare(
       "SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('BREED_UPDATE_CONFLICT', '$') END AS breed_update_guard",
     ),
     ...breedRelationStatements(database, id, value, user),
     // Shadow every newly edited FCI/editorial/SEO/relation cell in the SAME
     // CAS-guarded transaction. A stale full form cannot rewrite new SQL.
-    ...(breedSqlV2ShadowEnabled(env)
+    ...(breedSqlV2StructuredWritesEnabled(env)
       ?breedSqlV2FullSnapshotStatements(database,id,value):[]),
     // Read the exact committed version and relations before the batch commits.
     // A later writer must not leak its version into this caller's editor.
