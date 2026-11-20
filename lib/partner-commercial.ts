@@ -1,5 +1,6 @@
 import {appendPartnerAuditEvent, requirePartnerPermission} from "./partner-platform";
 import {getPartnerAccountById, getPartnerDatabase} from "./partner-auth-store";
+import {enqueueAdminNotificationEvent} from "./admin-notifications";
 
 export const partnerCommercialInterestTypes=["PREMIUM_PROFILE","PROMOTED_PROFILE","AD_CAMPAIGN","OTHER"] as const;
 export type PartnerCommercialInterestType=(typeof partnerCommercialInterestTypes)[number];
