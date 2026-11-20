@@ -272,4 +272,10 @@ test("Partner authenticated workspace is compact and uses the public design syst
   assert.match(partnerCss, /\.partner-shell--workspace \.partner-canonical-categories-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,minmax\(0,1fr\)\)/);
   // Do not accidentally shrink controls on unauthenticated signup/login pages.
   assert.doesNotMatch(partnerShell, /<main[^>]*partner-shell--centered/);
+  const chat = await read("components/partner-private-chat.tsx");
+  const chatCss = await read("components/partner-private-chat.module.css");
+  assert.match(chat, /styles.partnerChat/);
+  assert.match(chatCss, /\.partnerChat \.timeline/);
+  assert.match(chatCss, /max-height:390px/);
+  assert.match(partnerCss, /\.partner-shell--workspace \.partner-field select,[\s\S]*?min-height: 44px;/);
 });
