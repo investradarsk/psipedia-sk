@@ -21,8 +21,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: production-d1-migration
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('help-legacy-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   offline:
     name: Offline safety — 140-row rollback
