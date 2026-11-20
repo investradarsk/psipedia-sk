@@ -3,8 +3,8 @@
  * every row points at the existing claim/submission and, where present,
  * the original canonical Admin editor.
  *
- * SQL uses bound account ids. The union is paginated across ALL request kinds,
- * not with separate per-type caps that could hide older submissions.
+ * SQL uses bound account ids. Request families are queried separately to avoid
+ * SQLite compound-SELECT limits, then merged with exact global pagination.
  */
 export type PartnerDossierRequest = {
   id: string;
@@ -200,44 +200,58 @@ const REQUEST_SHARDS = (() => {
   return groups;
 })();
 
+// D1/SQLite can hit its compound-SELECT limit when the fully expanded
+// Partner request union is planned. Query each request family independently,
+// then merge the globally ordered page in memory; do not execute REQUEST_UNION.
+const REQUEST_BRANCHES = REQUEST_UNION.trim().split(/\n  UNION ALL\n/);
+const REQUEST_PENDING_SQL = "status IN ('PENDING','SUBMITTED','PENDING_REVIEW','QUARANTINED','PENDING_VERIFICATION','NEW','OFFERED')";
+const REQUEST_PAGE_ORDER = `ORDER BY CASE WHEN ${REQUEST_PENDING_SQL} THEN 0 ELSE 1 END, createdAt DESC, id DESC`;
+
+function compareRequestRows(left:RequestRow,right:RequestRow){
+  const leftPending=activeStatuses.has(left.status),rightPending=activeStatuses.has(right.status);
+  if(leftPending!==rightPending)return leftPending?-1:1;
+  if(left.createdAt!==right.createdAt)return left.createdAt>right.createdAt?-1:1;
+  return left.id===right.id?0:left.id>right.id?-1:1;
+}
+
 export async function listPartnerAccountDossierRequests(accountId:string,database:D1Database,page=1) {
   const current=pageNumber(page);
-  const pageEnd=current*PARTNER_REQUEST_PAGE_SIZE;
-  // Every shard must supply at most the first pageEnd rows to build the
-  // correct page across all request types, including old historical records.
-  const shards=await Promise.all(REQUEST_SHARDS.map(async sql=>{
-    const [totals,rows]=await Promise.all([
-      database.prepare(`SELECT COUNT(*) total,
-        COALESCE(SUM(CASE WHEN status IN ('PENDING','SUBMITTED','PENDING_REVIEW','QUARANTINED','PENDING_VERIFICATION','NEW','OFFERED') THEN 1 ELSE 0 END),0) pending
-        FROM (${sql})`).bind(accountId).first<{total:number;pending:number}>(),
-      database.prepare(`SELECT * FROM (${sql})
-        ORDER BY CASE WHEN status IN ('PENDING','SUBMITTED','PENDING_REVIEW','QUARANTINED','PENDING_VERIFICATION','NEW','OFFERED') THEN 0 ELSE 1 END,
-        createdAt DESC,id DESC LIMIT ?2`)
-        .bind(accountId,pageEnd).all<RequestRow>(),
-    ]);
-    return {totals,rows:rows.results};
-  }));
-  const total=shards.reduce((sum,shard)=>sum+Number(shard.totals?.total??0),0);
-  const pending=shards.reduce((sum,shard)=>sum+Number(shard.totals?.pending??0),0);
+  // Each branch has one SELECT, so none can exceed SQLite's compound
+  // SELECT limit. Counts cover all records, not only the visible page.
+  const summaries=await Promise.all(REQUEST_BRANCHES.map(branch=>
+    database.prepare(`SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN ${REQUEST_PENDING_SQL} THEN 1 ELSE 0 END),0) pending
+      FROM (${branch})`).bind(accountId).first<{total:number;pending:number}>()
+  ));
+  const total=summaries.reduce((count,row)=>count+Number(row?.total??0),0);
+  const pending=summaries.reduce((count,row)=>count+Number(row?.pending??0),0);
   const offset=(current-1)*PARTNER_REQUEST_PAGE_SIZE;
-  const items=shards.flatMap(shard=>shard.rows)
-    .sort((a,b)=>
-      Number(activeStatuses.has(b.status))-Number(activeStatuses.has(a.status)) ||
-      b.createdAt.localeCompare(a.createdAt) ||
-      b.id.localeCompare(a.id) ||
-      b.kind.localeCompare(a.kind))
-    .slice(offset,offset+PARTNER_REQUEST_PAGE_SIZE)
+  if(offset>=total)return {
+    items:[],total,pending,page:current,pageSize:PARTNER_REQUEST_PAGE_SIZE,
+    totalPages:Math.max(1,Math.ceil(total/PARTNER_REQUEST_PAGE_SIZE)),
+  };
+
+  // Any branch can supply the entire requested global prefix; requesting up
+  // to (offset + page size) from each guarantees exact cross-kind pagination.
+  const take=offset+PARTNER_REQUEST_PAGE_SIZE;
+  const groups=await Promise.all(REQUEST_BRANCHES.map(branch=>
+    database.prepare(`SELECT * FROM (${branch}) ${REQUEST_PAGE_ORDER} LIMIT ?2`)
+      .bind(accountId,take).all<RequestRow>()
+  ));
+  const items=groups.flatMap(group=>group.results)
+    .sort(compareRequestRows).slice(offset,offset+PARTNER_REQUEST_PAGE_SIZE)
     .map(row=>({
       ...row,
       title:row.title?.trim()||"Záznam bez názvu",
       pending:activeStatuses.has(row.status),
       requestHref:row.kind.startsWith("REQUEST_")
-        ? "/admin/partners/accounts/"+encodeURIComponent(accountId)+"?tab=ziadosti"
-        : requestHref(row.kind,row.id),
+        ?"/admin/partners/accounts/"+encodeURIComponent(accountId)+"?tab=ziadosti"
+        :requestHref(row.kind,row.id),
       editorHref:partnerDossierEditorHref(row.entityType,row.canonicalId),
     }));
-  return {items,total,pending,page:current,pageSize:PARTNER_REQUEST_PAGE_SIZE,
-    totalPages:Math.max(1,Math.ceil(total/PARTNER_REQUEST_PAGE_SIZE))};
+  return {
+    items,total,pending,page:current,pageSize:PARTNER_REQUEST_PAGE_SIZE,
+    totalPages:Math.max(1,Math.ceil(total/PARTNER_REQUEST_PAGE_SIZE)),
+  };
 }
 
 const PROFILE_UNION = `
