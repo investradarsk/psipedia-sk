@@ -75,7 +75,7 @@ export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,origin
       {fields.map(field=><label className={`partner-field ${field.kind==="textarea"?"partner-field--wide":""}`} key={field.key}>
         <span>{field.label}{field.required?" *":""}</span>
         {field.kind==="checkbox"?<span className="partner-profile-check"><input type="checkbox" checked={values[field.key]===true}
-          onChange={e=>{setValues(v=>({...v,[field.key]:e.target.checked}));if(state!=="success")setState("idle");}}/>{field.label}</span>:
+          onChange={e=>{setValues(v=>({...v,[field.key]:e.target.checked}));if(state!=="success")setState("idle");}}/></span>:
         field.kind==="nullableBoolean"?<select value={String(values[field.key]??"UNKNOWN")}
           onChange={e=>{setValues(v=>({...v,[field.key]:e.target.value}));if(state!=="success")setState("idle");}}>
           <option value="UNKNOWN">Neviem</option><option value="YES">Áno</option><option value="NO">Nie</option>
