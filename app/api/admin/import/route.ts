@@ -94,6 +94,12 @@ export async function POST(request: Request) {
         const { preview } = await previewFciBreedImport(database, breedPayload);
         return Response.json({ success: preview.errors.length === 0, preview });
       }
+      // This historical FCI importer writes legacy JSON without the SQL v2
+      // CAS/shadow transaction. Never allow it to overwrite canonical SQL.
+      // Preview remains available; edits must go through the breed Admin editor.
+      if ((env as RuntimeBindings & { BREED_SQL_V2_READ_MODE?: string }).BREED_SQL_V2_READ_MODE === "sql") {
+        return Response.json({ error: "Import plemien je po prechode na SQL iba na náhľad. Na zmeny použi editor plemena v Admine." }, { status: 409 });
+      }
       const result = await importFciBreeds(database, breedPayload, user.email);
       return Response.json({ success: result.success, imported: { breeds: result }, preview: result }, { status: result.success ? 200 : 400 });
     }
