@@ -1,5 +1,6 @@
 "use client";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
+import { AdminHelpNotionStatus } from "@/components/admin-help-notion-status";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
@@ -106,6 +107,7 @@ export function AdminOrganizationEditor({
   const [uploading, setUploading] = useState(false);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [syncRevision,setSyncRevision]=useState(0);
   const [error, setError] = useState("");
   const [activeOrganizationSection, setActiveOrganizationSection] = useState("organization-general");
   const archived = organization?.status === "ARCHIVED" || Boolean(organization?.archivedAt);
@@ -198,6 +200,7 @@ export function AdminOrganizationEditor({
         // Do not overwrite a newer automation change accepted during the request.
         setDraft((current) => JSON.stringify(current) === submittedSnapshot ? persistedDraft : current);
         organizationSaved = true;
+      setSyncRevision(v=>v+1);
       }
 
       if (addressChanged) {
@@ -355,7 +358,7 @@ export function AdminOrganizationEditor({
     {imageEditorOpen && draft.imageUrl && <ImageDisplayEditor src={draft.imageUrl} alt={draft.name || "Organizácia"} title={draft.name} excerpt={draft.shortDescription} entityLabel="organizácie" thumbnailAspectRatio="4 / 3"
        thumbnail={draft.thumbnailImageDisplay ?? null} detail={draft.detailImageDisplay ?? null} onCancel={() => setImageEditorOpen(false)}
        onSave={(thumbnail, detail) => { patch({ thumbnailImageDisplay: thumbnail, detailImageDisplay: detail }); setImageEditorOpen(false); }} />}
-    <AdminEditorFooter dirty={dirty} pending={saving}>
+<AdminHelpNotionStatus agenda="organizations" recordId={organization?.id} revision={syncRevision} />    <AdminEditorFooter dirty={dirty} pending={saving}>
       {organization && <AdminRecordLifecycleActions kind="organizations" recordId={organization.id} status={organization.status} disabled={!hydrated || saving || uploading} returnHref={returnHref} />}
       <div className="admin-editor-actions">
       <div><Link href={returnHref}>← Späť na organizácie</Link></div>
