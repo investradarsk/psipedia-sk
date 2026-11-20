@@ -1,8 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { getReviewedAdoptionManifest } from "../fixtures/adoption-sql-migration-fixture.mjs";
 
-const migrationManifest = JSON.parse(readFileSync("data/imports/adoptions-ready-2026-09-13.json", "utf8")) as { ready: Array<{ slug: string; dogName: string }> };
+const migrationManifest = getReviewedAdoptionManifest();
 
 test.beforeEach(async ({ page }) => {
   // The catalogue journeys intentionally test adoption, not undecided cookies.

@@ -6,7 +6,7 @@ on:
     paths:
       - "drizzle/**"
       - "db/**"
-      - "data/imports/adoptions-ready-2026-09-13.json"
+      - "tests/fixtures/adoption-sql-migration-fixture.mjs"
       - "scripts/check-migration-safety.mjs"
       - "scripts/validate-clean-d1.mjs"
       - "scripts/production-d1-migrate.mjs"
