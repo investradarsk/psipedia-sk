@@ -7,6 +7,7 @@ import {
 } from "./directory-reviewed-sync-lock";
 import { approvedDirectoryFactSqlSlot, directoryNotionFacetRequiresSqlMirror, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
+import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror";
 import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
@@ -1476,6 +1477,7 @@ async function saveBreederEditorialValue(
   const assignments: string[] = [];
   const params: string[] = [];
   let editedQualifications: string[] | undefined;
+  let editedServices: string[] | undefined;
   const scalar = breederScalarColumns[path];
   const contact = breederContactJsonNames[path];
   const seoKey = breederSeoJsonNames[path];
@@ -1498,6 +1500,7 @@ async function saveBreederEditorialValue(
     assignments.push(path === "services" ? "services_json = ?" : "qualifications_json = ?");
     params.push(JSON.stringify(items));
     if (path === "qualifications") editedQualifications = items;
+    if (path === "services") editedServices = items;
   } else if (path === "addressFormat") {
     // A storage format is a technical enum, not editorial prose.
     if (!["", "STREET", "MUNICIPALITY_NUMBER"].includes(value))
@@ -1565,13 +1568,19 @@ async function saveBreederEditorialValue(
     if(path==="seo.noindex") nextSeo.noindex=raw as boolean;
     else if(seoKey) (nextSeo as Record<string,string|boolean|undefined>)[seoKey]=value;
   }
-  const mirror = editedQualifications!==undefined
-    ? planDirectory0173EditorialSqlMirror({
-      identity:mirrorIdentity,qualifications:editedQualifications,
-    })
-    : nextSeo ? planDirectory0173EditorialSqlMirror({
-      identity:mirrorIdentity,seo:nextSeo,
-    }) : [];
+  const mirror = [
+    ...(editedQualifications!==undefined
+      ? planDirectory0173EditorialSqlMirror({
+        identity:mirrorIdentity,qualifications:editedQualifications,
+      })
+      : nextSeo ? planDirectory0173EditorialSqlMirror({
+        identity:mirrorIdentity,seo:nextSeo,
+      }) : []),
+    ...(editedServices!==undefined
+      ? planDirectoryStep3PresentationSqlMirror({
+        identity:mirrorIdentity,services:editedServices,
+      }) : []),
+  ];
   let saved:{id:number}|null = null;
   if(mirror.length){
     // A stale CAS must abort the entire D1 batch, including sidecar writes.
