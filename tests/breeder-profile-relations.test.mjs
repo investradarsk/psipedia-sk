@@ -19,7 +19,7 @@ test("canonical breed relation is reused and club selection is stored in SQL", a
   assert.match(store, /category='chovatelske-kluby'/);
   assert.doesNotMatch(store, /json_set\(source_data_json/);
   assert.match(store, /directory_breeder_club_relations/);
-  assert.match(store, /canonicalBreedIdsForRead/);
+  assert.match(store, /canonicalBreedIdsSql/);
   assert.match(store, /category='chovatelske-stanice'/);
   const metadata = await readFile(new URL("../lib/directory-profile-metadata.ts", import.meta.url), "utf8");
   assert.match(metadata, /BREEDER_CLUB_IDS_METADATA_KEY/); // Retained only as historical migration metadata, never as live relations.
