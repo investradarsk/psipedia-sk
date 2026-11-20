@@ -322,7 +322,7 @@ test("PUBLIC-POLISH-2 event cards preserve photo display and accessible fallback
     assert.match(eventCard, /data-event-has-image=\{ownImage \? "true" : "false"\}/);
     assert.match(
       eventCard,
-      /<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\} mode=\{event\.imageDisplay\}/,
+      /<EventImage\s+imageUrl=\{event\.imageUrl\}\s+eventId=\{event\.id\}\s+eventType=\{event\.eventType\}\s+mode=\{event\.imageDisplay\}\s+config=\{event\.thumbnailImageDisplay\}/,
     );
     assert.match(eventImage, /getEventFallbackImage\(eventType\)/);
     assert.match(eventImage, /return real \? \(\s*<ImageDisplay/);
