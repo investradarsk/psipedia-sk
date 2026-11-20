@@ -9,7 +9,7 @@ import {
   directoryRemainingFieldOwner,
 } from "../lib/directory-admin-sql-field-owners.mjs";
 
-const migration=readFileSync(new URL("../drizzle/0176_directory_admin_sql_complete.sql",import.meta.url),"utf8");
+const migration=readFileSync(new URL("../db/isolated/directory_admin_sql_completion.sql",import.meta.url),"utf8");
 const sqlBlocks=migration.split("--> statement-breakpoint").map(s=>s.trim()).filter(Boolean);
 
 function setup(){
