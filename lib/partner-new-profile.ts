@@ -695,10 +695,12 @@ export async function listPartnerNewProfiles(accountId: string, dbInput?: D1Data
     duplicateWarning: row.duplicateConfidence === "HIGH"
       ? "Pri návrhu sa našiel silný možný existujúci profil."
       : row.duplicateConfidence === "MEDIUM" ? "Pri návrhu sa našiel možný podobný profil." : null,
-    canonicalHref: row.resolvedCanonicalId
-      ? row.resourceType === "DIRECTORY_PROFILE" && row.directorySlug && row.directoryCategory
+    // A canonical ID also exists for an unapproved Partner draft; never link its private URL as public.
+    canonicalHref: row.status==="APPROVED"&&row.resolvedCanonicalId
+      ? row.resourceType === "DIRECTORY_PROFILE" && row.canonicalStatus==="published" && row.directorySlug && row.directoryCategory
         ? `/adresar/${row.directoryCategory}/${row.directorySlug}`
-        : row.resourceType === "HELP_ORGANIZATION" && row.organizationSlug ? `/organizacie/${row.organizationSlug}` : null
+        : row.resourceType === "HELP_ORGANIZATION" && row.canonicalStatus==="PUBLISHED" && row.organizationSlug
+          ? `/organizacie/${row.organizationSlug}` : null
       : null,
     canWithdraw: !row.resolvedCanonicalId && activeStatus(row.status),
   }));
