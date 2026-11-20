@@ -166,7 +166,7 @@ test("dossier: five navigation tabs, account-scoped loaders and safe placeholder
   assert.match(page,/Otvoriť žiadosť/);
   assert.match(page,/Otvoriť editor/);
   assert.match(page,/AdminPartnerAccountActions/);
-  assert.match(page,/chat zatiaľ|Chat zatiaľ|Súkromný rozhovor/);
+  assert.match(page,/PartnerPrivateChat/,"Partner dossier must show the actual private chat");
   assert.match(store,/listPartnerAccountDossierRequests/);
   assert.match(store,/listPartnerAccountDossierProfiles/);
   assert.match(store,/listPartnerAccountDossierHistory/);
