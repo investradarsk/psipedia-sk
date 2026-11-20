@@ -4,6 +4,12 @@ import test from "node:test";
 import { pathToFileURL } from "node:url";
 
 const root = new URL("../", import.meta.url);
+const [canonicalNewPage,canonicalForm,canonicalWorkflow,canonicalApi] = await Promise.all([
+  fs.readFile(new URL("../app/partner/koncepty/novy/page.tsx",import.meta.url),"utf8"),
+  fs.readFile(new URL("../components/partner-canonical-draft-form.tsx",import.meta.url),"utf8"),
+  fs.readFile(new URL("../lib/partner-canonical-workflow.ts",import.meta.url),"utf8"),
+  fs.readFile(new URL("../app/api/partner/canonical-drafts/[id]/route.ts",import.meta.url),"utf8"),
+]);
 const read = (path) => fs.readFile(new URL("../" + path, import.meta.url), "utf8");
 const importTs = (path) => import(pathToFileURL(new URL(path, root).pathname).href);
 
@@ -642,7 +648,14 @@ test("HIGH duplicate requires explicit Partner confirmation and server rescans o
   );
   assert.match(domain, /DUPLICATE_CONFIRMATION_REQUIRED/);
   assert.match(domain, /Rovnaký\s*návrh\s*nového\s*profilu\s*už\s*čaká/);
-  assert.match(newPage, /PartnerNewProfileForm/);
+  assert.match(newPage, /redirect\("\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE"\)/);
+  assert.match(canonicalNewPage,/PartnerCanonicalDraftForm/);
+  assert.match(canonicalWorkflow,/scanPartnerNewProfileDuplicates/);
+  assert.match(canonicalWorkflow,/candidate\.canonicalId!==row\.canonicalId/);
+  assert.match(canonicalWorkflow,/confidence==="HIGH"&&input\.confirmDuplicate!==true/);
+  assert.match(canonicalWorkflow,/DUPLICATE_CONFIRMATION_REQUIRED/);
+  assert.match(canonicalApi,/confirmDuplicate:data\.confirmDuplicate===true/);
+  assert.match(canonicalForm,/Skontroloval som to – napriek tomu odoslať/);
 });
 
 test("admin CREATE resolution is atomic, DRAFT-only and reuses canonical create primitives", () => {
@@ -770,7 +783,9 @@ test("Partner UX exposes new profile, history and claim-existing handoff", () =>
   assert.match(profilesPage, /Spravujete\s*tento\s*profil\?/);
   assert.match(requestsPage, /Moje\s*návrhy\s*nových\s*profilov/);
   assert.match(requestsPage, /PartnerNewProfileWithdrawButton/);
-  assert.match(newPage, /Pridať\s*nový\s*profil/);
+  assert.match(newPage, /redirect\("\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE"\)/);
+  assert.match(canonicalNewPage,/Vytvoriť nový záznam/);
+  assert.match(canonicalNewPage,/PartnerCanonicalDraftForm/);
 });
 
 test("notifications and Partner audit cover complete 3B lifecycle", () => {

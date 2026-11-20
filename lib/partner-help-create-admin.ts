@@ -5,6 +5,7 @@ import { slugifyArticleTitle } from "@/lib/article-store";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { normalizePartnerHelpCreate, type PartnerHelpCreateType } from "@/lib/partner-help-create";
 import { assertIndependentOwnershipApprover } from "@/lib/partner-ownership-approval";
+import { decidePartnerCanonicalDraftAdmin, PartnerCanonicalWorkflowError } from "@/lib/partner-canonical-workflow";
 import {
   applyAtomicModerationTransition,
   type FoundationSubmissionStatus,
@@ -194,6 +195,12 @@ export async function createPartnerHelpDraftAdmin(input:{
   database?:D1Database;now?:Date;
 }){
   const database=db(input.database),original=await submission(input.id,database);
+  if(original.subjectId){
+    if(input.editedPayload!==undefined)
+      throw new PartnerCanonicalWorkflowError("Úpravy vykonajte v existujúcom kanonickom Admin editore.",409);
+    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"APPROVE",database,now:input.now});
+    return getPartnerHelpCreateAdmin(input.id,database);
+  }
   if(!["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(original.status))
     throw new PartnerHelpReviewError("Návrh už bol vybavený.",409);
   await checkAccount(original.accountId,database);
@@ -246,6 +253,7 @@ export async function linkPartnerHelpCreateAdmin(input:{
   if(!Number.isSafeInteger(input.canonicalId)||input.canonicalId<1)
     throw new PartnerHelpReviewError("Vyberte platné ID existujúceho záznamu.");
   const database=db(input.database),original=await submission(input.id,database);
+  if(original.subjectId)throw new PartnerCanonicalWorkflowError("Koncept už existuje v kanonickom editore.",409);
   if(!["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(original.status))
     throw new PartnerHelpReviewError("Návrh už bol vybavený.",409);
   await checkAccount(original.accountId,database);
@@ -300,6 +308,10 @@ export async function rejectPartnerHelpCreateAdmin(input:{
   if(typeof input.reasonCode!=="string"||!(allowedRejections as readonly string[]).includes(input.reasonCode))
     throw new PartnerHelpReviewError("Vyberte platný dôvod zamietnutia.");
   const database=db(input.database),original=await submission(input.id,database);
+  if(original.subjectId){
+    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"REJECT",database,now:input.now});
+    return getPartnerHelpCreateAdmin(input.id,database);
+  }
   if(!["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(original.status))
     throw new PartnerHelpReviewError("Návrh už bol vybavený.",409);
   const actorRef=await adminAuditActorRef(input.adminEmail);

@@ -308,11 +308,11 @@ export async function submitPartnerEventUpdate(input:{accountId:string;resourceI
   return {id,operation:"UPDATE" as const,status:"SUBMITTED" as const,resourceId:input.resourceId,title:editor.resource.title,changedFields:changed};
 }
 
-function statusLabel(status:string){return status==="APPROVED"?"Schválené":status==="REJECTED"?"Zamietnuté":status==="WITHDRAWN"?"Zrušené":status==="QUARANTINED"?"Vyžaduje dodatočnú kontrolu":status==="PENDING_REVIEW"?"Kontroluje sa":"Čaká na kontrolu";}
+function statusLabel(status:string){return status==="RETURNED"?"Vrátené na doplnenie":status==="APPROVED"?"Schválené":status==="REJECTED"?"Zamietnuté":status==="WITHDRAWN"?"Zrušené":status==="QUARANTINED"?"Vyžaduje dodatočnú kontrolu":status==="PENDING_REVIEW"?"Kontroluje sa":"Čaká na kontrolu";}
 function parse<T>(value:string,fallback:T):T{try{return JSON.parse(value) as T}catch{return fallback}}
 export async function listPartnerEventSubmissions(accountId:string,dbInput?:D1Database){
   const rows=(await database(dbInput).prepare(`
-    SELECT s.id,s.operation,s.status,s.proposed_patch_json proposedPatchJson,s.rejection_reason_code rejectionReason,s.created_at createdAt,s.updated_at updatedAt,
+    SELECT s.id,s.operation,s.status,s.subject_id subjectId,s.proposed_patch_json proposedPatchJson,s.rejection_reason_code rejectionReason,s.created_at createdAt,s.updated_at updatedAt,
       m.partner_resource_id resourceId,m.resolution_type resolutionType,m.resolved_event_id resolvedEventId,
       COALESCE(e.title,re.title,'Podujatie') canonicalTitle,COALESCE(e.slug,re.slug) slug,COALESCE(e.status,re.status) canonicalStatus
     FROM partner_event_submission_metadata m
@@ -320,15 +320,16 @@ export async function listPartnerEventSubmissions(accountId:string,dbInput?:D1Da
     LEFT JOIN partner_resources r ON r.id=m.partner_resource_id
     LEFT JOIN managed_events e ON e.id=r.managed_event_id
     LEFT JOIN managed_events re ON re.id=m.resolved_event_id
-    WHERE m.partner_account_id=?1 ORDER BY s.created_at DESC LIMIT 200
-  `).bind(accountId).all<{id:string;operation:PartnerEventOperation;status:string;proposedPatchJson:string;rejectionReason:string|null;createdAt:string;updatedAt:string;resourceId:string|null;resolutionType:string|null;resolvedEventId:number|null;canonicalTitle:string;slug:string|null;canonicalStatus:string|null}>()).results;
-  return rows.map(row=>{const patch=parse<PartnerEventPatch>(row.proposedPatchJson,{});return {...row,title:typeof patch.title==="string"?patch.title:row.canonicalTitle,statusLabel:statusLabel(row.status),changedFields:Object.keys(patch),canWithdraw:["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(row.status),canonicalHref:row.slug&&row.canonicalStatus==="published"?`/podujatia/${row.slug}`:null};});
+    WHERE m.partner_account_id=?1 AND s.status<>'DRAFT' ORDER BY s.created_at DESC LIMIT 200
+  `).bind(accountId).all<{id:string;operation:PartnerEventOperation;status:string;proposedPatchJson:string;rejectionReason:string|null;createdAt:string;updatedAt:string;resourceId:string|null;resolutionType:string|null;resolvedEventId:number|null;canonicalTitle:string;slug:string|null;canonicalStatus:string|null;subjectId:string|null}>()).results;
+  return rows.map(row=>{const patch=parse<PartnerEventPatch>(row.proposedPatchJson,{});return {...row,title:typeof patch.title==="string"?patch.title:row.canonicalTitle,statusLabel:statusLabel(row.status),changedFields:Object.keys(patch),canWithdraw:!row.subjectId&&["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(row.status),canonicalHref:row.slug&&row.canonicalStatus==="published"?`/podujatia/${row.slug}`:null};});
 }
 
 export async function withdrawPartnerEventSubmission(input:{accountId:string;id:string;database?:D1Database;now?:Date}){
   const db=database(input.database);
-  const row=await db.prepare(`SELECT s.status,m.partner_account_id accountId FROM moderation_submissions s JOIN partner_event_submission_metadata m ON m.submission_id=s.id WHERE s.id=?1 LIMIT 1`).bind(input.id).first<{status:string;accountId:string}>();
+  const row=await db.prepare(`SELECT s.status,s.subject_id subjectId,m.partner_account_id accountId FROM moderation_submissions s JOIN partner_event_submission_metadata m ON m.submission_id=s.id WHERE s.id=?1 LIMIT 1`).bind(input.id).first<{status:string;accountId:string;subjectId:string|null}>();
   if(!row||row.accountId!==input.accountId)throw new PartnerEventError("Návrh podujatia sa nenašiel.",404);
+  if(row.subjectId!==null)throw new PartnerEventError("Odoslaný kanonický koncept nemožno stiahnuť.",409);
   if(!isFoundationSubmissionStatus(row.status)||!canTransitionModerationSubmission(row.status,"WITHDRAWN"))throw new PartnerEventError("Tento návrh už nie je možné zrušiť.",409);
   const nowIso=(input.now??new Date()).toISOString(),actorRef=`partner:${input.accountId}`;
   await applyAtomicModerationTransition(db,{id:input.id,expectedStatus:row.status as FoundationSubmissionStatus,toStatus:"WITHDRAWN",actorType:"PARTNER",actorRef,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(["status"]),now:nowIso,extraStatements:[terminalPartnerMediaStatement({database:db,submissionId:input.id,state:"ORPHANED",nowIso,actorRef}),

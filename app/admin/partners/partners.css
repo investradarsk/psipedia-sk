@@ -308,3 +308,147 @@
   .admin-partner-actions .admin-partner-picker > button { width: 100%; }
   .admin-partner-actions .admin-partner-membership { grid-template-columns: minmax(0,1fr); }
 }
+
+
+/* Partneri V2 – account-first overview. Scope to this page; old moderation grids stay intact. */
+.admin-partner-v2-workspace { min-width: 0; }
+.admin-partner-v2-heading { display:flex; justify-content:space-between; align-items:start; gap:1rem; margin-bottom:1rem; }
+.admin-partner-v2-heading h2 { margin:0 0 .35rem; font-family:inherit; font-size:1.1rem; }
+.admin-partner-v2-heading p { margin:0; font-size:.85rem; line-height:1.5; color:var(--admin-ui-muted,#607568); }
+.admin-partner-v2-total { white-space:nowrap; font-variant-numeric:tabular-nums; }
+.admin-partner-v2-total strong { color:var(--admin-ui-heading,#173f2d); }
+.admin-partner-search.admin-partner-v2-search { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:.6rem; }
+.admin-partner-v2-search > label { grid-column:1; }
+.admin-partner-v2-search > button { grid-column:2; }
+.admin-partner-v2-filters { grid-column:1 / -1; grid-row:2; }
+.admin-partner-v2-filters summary { cursor:pointer; font-size:.84rem; font-weight:750; color:#245d47; width:max-content; min-height:32px; }
+.admin-partner-v2-filter-grid { margin-top:.55rem; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; }
+.admin-partner-v2-filter-grid label { display:grid; gap:.3rem; min-width:0; }
+.admin-partner-v2-filter-grid select { width:100%; background:#fff; }
+.admin-partner-table.admin-partner-v2-table { gap:.25rem; }
+.admin-partner-v2-columns,
+.admin-partner-table.admin-partner-v2-table article {
+  display:grid;
+  grid-template-columns:minmax(145px,1.2fr) minmax(180px,1.5fr) minmax(75px,.5fr) minmax(75px,.5fr) minmax(85px,.7fr) minmax(102px,.65fr);
+  align-items:center;
+  gap:.7rem;
+}
+.admin-partner-v2-columns { padding:.45rem .75rem; color:var(--admin-ui-muted,#607568); font-size:.75rem; font-weight:800; }
+.admin-partner-table.admin-partner-v2-table article { padding:.65rem .75rem; }
+.admin-partner-table.admin-partner-v2-table article > * { min-width:0; overflow-wrap:anywhere; }
+.admin-partner-table.admin-partner-v2-table .admin-partner-v2-partner strong { font-size:.88rem; }
+.admin-partner-v2-partner small { margin-top:.22rem; font-size:.73rem; }
+.admin-partner-v2-email { font-size:.85rem; }
+.admin-partner-v2-count strong { font-size:1rem; font-variant-numeric:tabular-nums; }
+.admin-partner-v2-count .admin-partner-v2-alert { color:#a34b22; }
+.admin-partner-v2-messages { color:var(--admin-ui-muted,#607568); font-variant-numeric:tabular-nums; }
+.admin-partner-v2-messages small { margin-top:.18rem; font-size:.68rem; }
+.admin-partner-v2-empty { padding:1rem .5rem; font-size:.88rem; color:var(--admin-ui-muted,#607568); }
+.admin-partner-v2-legacy { margin-top:.65rem; color:var(--admin-ui-muted,#607568); font-size:.83rem; }
+.admin-partner-v2-legacy details { padding:.4rem .65rem; }
+.admin-partner-v2-legacy summary { width:max-content; max-width:100%; cursor:pointer; font-weight:750; color:#245d47; }
+.admin-partner-v2-legacy p { margin:.6rem 0; }
+.admin-partner-v2-legacy .admin-partner-pending { margin-top:.6rem; }
+@media (max-width:1100px) {
+  .admin-partner-v2-columns,
+  .admin-partner-table.admin-partner-v2-table article {
+    grid-template-columns:minmax(125px,1.1fr) minmax(155px,1.3fr) repeat(3,minmax(63px,.6fr)) minmax(91px,.7fr);
+    gap:.45rem;
+  }
+  .admin-partner-v2-filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:760px) {
+  .admin-partner-v2-heading { flex-direction:column; gap:.45rem; }
+  .admin-partner-search.admin-partner-v2-search { grid-template-columns:minmax(0,1fr) auto; }
+  .admin-partner-v2-search > label { grid-column:1 / -1; }
+  .admin-partner-v2-search > button { grid-column:1 / -1; grid-row:3; width:100%; }
+  .admin-partner-v2-filters { grid-row:2; }
+  .admin-partner-v2-columns { display:none; }
+  .admin-partner-table.admin-partner-v2-table article { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Partner"],
+  .admin-partner-table.admin-partner-v2-table article > [data-label="E-mail"],
+  .admin-partner-table.admin-partner-v2-table article > a { grid-column:1 / -1; }
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Žiadosti"],
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Profily"],
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Správy"] { display:flex; align-items:center; gap:.4rem; }
+  .admin-partner-table.admin-partner-v2-table article > [data-label]:not([data-label="Partner"])::before {
+    content:attr(data-label); color:var(--admin-ui-muted,#607568); font-size:.75rem; font-weight:700;
+  }
+  .admin-partner-table.admin-partner-v2-table article > [data-label="Správy"] { grid-column:1 / -1; }
+  .admin-partner-v2-messages small { display:inline; margin:0; }
+  .admin-partner-v2-filter-grid { grid-template-columns:minmax(0,1fr); }
+}
+.admin-partner-table.admin-partner-v2-table article+article { margin-top: 0; }
+
+
+/* Partneri V2 – partner detail; no global Admin styles are changed. */
+.admin-partner-v2-back { margin:0 0 .65rem; }
+.admin-partner-v2-back a { color:#245d47; font-size:.85rem; font-weight:750; text-decoration:none; }
+.admin-partner-v2-summary { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,2fr); gap:1rem; align-items:center; }
+.admin-partner-v2-contact h2 { margin:0 0 .45rem; font-family:inherit; font-size:1.05rem; }
+.admin-partner-v2-contact p { margin:.2rem 0; font-size:.85rem; overflow-wrap:anywhere; color:var(--admin-ui-muted,#607568); }
+.admin-partner-v2-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
+.admin-partner-v2-stats a { display:grid; gap:.2rem; padding:.65rem .75rem; min-height:80px; border:1px solid #dce5df; border-radius:12px; background:#f8fbf8; text-decoration:none; color:#234d3a; }
+.admin-partner-v2-stats a:focus-visible,
+.admin-partner-v2-tabs a:focus-visible,
+.admin-partner-v2-record-actions a:focus-visible { outline:3px solid var(--admin-ui-focus,#a26a1b); outline-offset:2px; }
+.admin-partner-v2-stats span { font-size:.74rem; font-weight:650; color:#607568; }
+.admin-partner-v2-stats strong { font-size:1.45rem; font-variant-numeric:tabular-nums; line-height:1.25; }
+.admin-partner-v2-tabs { display:flex; gap:.35rem; flex-wrap:wrap; margin:.75rem 0; padding:.25rem; background:#f2f6f2; border:1px solid #e0e8e1; border-radius:12px; }
+.admin-partner-v2-tabs a { display:inline-flex; justify-content:center; align-items:center; padding:.55rem .78rem; min-height:44px; border-radius:9px; color:#456756; text-decoration:none; font-size:.86rem; font-weight:750; }
+.admin-partner-v2-tabs a.is-active { background:#fff; color:#194d34; box-shadow:0 1px 4px rgba(27,61,43,.09); }
+.admin-partner-v2-panel { min-width:0; }
+.admin-partner-v2-panel-heading { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:.5rem; margin-bottom:.8rem; }
+.admin-partner-v2-panel h2 { margin:0 0 .5rem; font-family:inherit; font-size:1.05rem; }
+.admin-partner-v2-panel-heading h2 { margin:0; }
+.admin-partner-v2-panel-heading > span { color:#607568; font-size:.78rem; font-variant-numeric:tabular-nums; }
+.admin-partner-v2-records { display:grid; gap:.4rem; }
+.admin-partner-v2-records > article { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1rem; align-items:center; padding:.7rem .8rem; border:1px solid #dfe8e0; border-radius:10px; background:#fff; margin:0!important; }
+.admin-partner-v2-records h3 { font-family:inherit; font-size:.9rem; margin:.3rem 0; font-weight:800; overflow-wrap:anywhere; }
+.admin-partner-v2-records p { margin:0; font-size:.77rem; color:#607568; }
+.admin-partner-v2-records small { color:#607568; font-size:.72rem; overflow-wrap:anywhere; }
+.admin-partner-v2-record-actions { display:flex; align-items:center; justify-content:flex-end; gap:.45rem; flex-wrap:wrap; }
+.admin-partner-v2-record-actions > span { color:#486456; font-size:.76rem; font-weight:750; }
+.admin-partner-v2-record-actions > span.is-pending { color:#a15323; }
+.admin-partner-v2-record-actions a { display:inline-flex; align-items:center; min-height:44px; padding:.45rem .7rem; border-radius:9px; border:1px solid #d5dfd7; color:#205741; background:#f5faf6; font-size:.78rem; font-weight:750; text-decoration:none; }
+.admin-partner-v2-panel .admin-partner-pagination { align-items:center; }
+.admin-partner-v2-panel .admin-partner-pagination > span { color:#607568; font-size:.76rem; }
+.admin-partner-v2-history-memberships { border-top:1px solid #e2e8e4; margin-top:1rem; padding-top:1rem; }
+.admin-partner-v2-history-memberships h3 { margin:0 0 .5rem; font-size:.95rem; }
+.admin-partner-v2-history-memberships article { display:grid; padding:.45rem 0; margin:0!important; }
+.admin-partner-v2-history-memberships article+article { border-top:1px solid #e7ece8; }
+.admin-partner-v2-history-memberships article strong { font-size:.85rem; }
+.admin-partner-v2-history-memberships article span { font-size:.76rem; color:#607568; }
+.admin-partner-v2-audit-note { margin:1rem 0 0; color:#607568; font-size:.78rem; }
+@media (max-width:1050px) {
+  .admin-partner-v2-summary { grid-template-columns:minmax(0,1fr); }
+}
+@media (max-width:760px) {
+  .admin-partner-v2-stats { grid-template-columns:repeat(3,minmax(0,1fr)); gap:.35rem; }
+  .admin-partner-v2-stats a { padding:.5rem; min-height:72px; }
+  .admin-partner-v2-stats span { font-size:.69rem; }
+  .admin-partner-v2-stats strong { font-size:1.25rem; }
+  .admin-partner-v2-tabs { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.15rem; }
+  .admin-partner-v2-tabs a { padding:.45rem .22rem; font-size:.73rem; }
+  .admin-partner-v2-records > article { grid-template-columns:minmax(0,1fr); gap:.6rem; }
+  .admin-partner-v2-record-actions { justify-content:flex-start; }
+}
+@media (max-width:390px) {
+  .admin-partner-v2-stats { grid-template-columns:minmax(0,1fr); }
+  .admin-partner-v2-tabs { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+
+
+/* Partneri V2 step 5: lifecycle decisions and read-only, wrapped field diffs. */
+.admin-partner-lifecycle-actions{display:grid;gap:.5rem;min-width:min(290px,100%)}
+.admin-partner-lifecycle-actions button{min-height:40px;padding:.4rem .65rem;border:1px solid #c9dacd;border-radius:8px;background:#f4faf5;color:#24573c;font:inherit;font-size:.8rem;cursor:pointer}
+.admin-partner-lifecycle-actions button:disabled{opacity:.55;cursor:wait}
+.admin-partner-lifecycle-note{display:grid;gap:.25rem;font-size:.78rem}
+.admin-partner-lifecycle-note textarea{width:100%;min-height:64px;box-sizing:border-box;border:1px solid #cbdacc;border-radius:7px;padding:.45rem;font:inherit}
+.admin-partner-v2-audit-diff{margin-top:.6rem;width:100%;max-width:100%;font-size:.85rem}
+.admin-partner-v2-audit-diff summary{cursor:pointer;color:#246047;font-weight:750}
+.admin-partner-v2-audit-field{padding:.5rem 0;border-top:1px solid #d9e4dc}
+.admin-partner-v2-audit-before-after{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;margin-top:.3rem}
+.admin-partner-v2-audit-before-after>div{min-width:0}
+.admin-partner-v2-audit-before-after pre{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:inherit;margin:.2rem 0;padding:.5rem;background:#f7faf8;border:1px solid #edf2ed;border-radius:7px;max-height:280px;overflow:auto}
+@media(max-width:680px){.admin-partner-v2-audit-before-after{grid-template-columns:minmax(0,1fr)}.admin-partner-lifecycle-actions{width:100%;min-width:0}}

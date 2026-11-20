@@ -727,6 +727,7 @@ test("production D1 targets account for every canonical migration, including una
     "0172_partner_help_claim_ownership.sql",
     "0173_directory_structured_sql_foundation.sql",
     "0174_breeds_sql_json_foundation.sql",
+    "0175_partner_private_chat.sql",
   ]);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0157_facebook_weekly_plan_marks.sql");
   for (const target of UNACTIVATED_PRODUCTION_TARGETS) {

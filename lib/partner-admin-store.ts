@@ -8,6 +8,7 @@ import { getPartnerContactProfile } from "./partner-contact-profile";
 import { getPartnerAuthMethodSummary } from "./partner-auth-methods";
 import { assertSingleActivePartnerManager } from "./partner-single-manager";
 import { ensurePartnerDirectoryReviewLock } from "./partner-directory-review";
+import { listPartnerAccountDossierRequests, listPartnerAccountDossierProfiles, listPartnerAccountDossierHistory } from "./partner-admin-dossier";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 function db(database?: D1Database) { return getPartnerDatabase(database ?? (env as unknown as Bindings).DB); }
@@ -15,7 +16,15 @@ function piiKey(key?: string) { const value=key ?? (env as unknown as Bindings).
 function validId(value:string){return /^[0-9a-f-]{20,64}$/i.test(value);}
 function auditActor(email:string){return `admin:${email.trim().toLowerCase()}`;}
 
-type AccountRow={id:string;emailCiphertext:string;status:PartnerAccountStatus;emailVerifiedAt:string|null;createdAt:string};
+type AccountRow={id:string;emailCiphertext:string;contactNameCiphertext:string|null;status:PartnerAccountStatus;emailVerifiedAt:string|null;createdAt:string};
+
+async function revealPartnerAccount(row:AccountRow,encryptionKey:string) {
+  const [email,contactName]=await Promise.all([
+    decryptPii(row.emailCiphertext,encryptionKey),
+    row.contactNameCiphertext?decryptPii(row.contactNameCiphertext,encryptionKey):Promise.resolve(null),
+  ]);
+  return {...row,email,contactName};
+}
 type PartnerAccountAdminFilters={q?:string;page?:number;pageSize?:number;status?:string;verified?:string;access?:string;database?:D1Database;encryptionKey?:string};
 const ACCOUNT_PAGE_SIZE=25;
 const ACCOUNT_MAX_PAGE_SIZE=100;
@@ -44,23 +53,23 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
   if(filters.status){conditions.push("a.status=?");values.push(filters.status);}
   if(filters.verified==="VERIFIED")conditions.push("a.email_verified_at IS NOT NULL");
   if(filters.verified==="UNVERIFIED")conditions.push("a.email_verified_at IS NULL");
-  if(filters.access==="LINKED")conditions.push("EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL)");
-  if(filters.access==="UNLINKED")conditions.push("NOT EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL)");
+  if(filters.access==="LINKED")conditions.push("(EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL) OR EXISTS (SELECT 1 FROM partner_help_claims h WHERE h.account_id=a.id AND h.status='APPROVED'))");
+  if(filters.access==="UNLINKED")conditions.push("(NOT EXISTS (SELECT 1 FROM partner_memberships m WHERE m.account_id=a.id AND m.revoked_at IS NULL) AND NOT EXISTS (SELECT 1 FROM partner_help_claims h WHERE h.account_id=a.id AND h.status='APPROVED'))");
   const where=conditions.length?" WHERE "+conditions.join(" AND "):"";
-  const select="SELECT a.id,a.email_ciphertext emailCiphertext,a.status,a.email_verified_at emailVerifiedAt,a.created_at createdAt FROM partner_accounts a";
+  const select="SELECT a.id,a.email_ciphertext emailCiphertext,p.contact_name_ciphertext contactNameCiphertext,a.status,a.email_verified_at emailVerifiedAt,a.created_at createdAt FROM partner_accounts a LEFT JOIN partner_account_profiles p ON p.account_id=a.id";
   const order=" ORDER BY a.created_at DESC,a.id DESC";
   const offset=(filters.page-1)*filters.pageSize;
   const normalizedQuery=filters.q.toLocaleLowerCase("sk");
 
   let total=0;
-  let pageRows:Array<AccountRow & {email:string}>=[];
+  let pageRows:Array<AccountRow & {email:string;contactName:string|null}>=[];
   if(!normalizedQuery){
     const [count,rows]=await Promise.all([
       database.prepare("SELECT COUNT(*) total FROM partner_accounts a"+where).bind(...values).first<{total:number}>(),
       database.prepare(select+where+order+" LIMIT ? OFFSET ?").bind(...values,filters.pageSize,offset).all<AccountRow>(),
     ]);
     total=Number(count?.total??0);
-    pageRows=await Promise.all(rows.results.map(async row=>({...row,email:await decryptPii(row.emailCiphertext,key)})));
+    pageRows=await Promise.all(rows.results.map(row=>revealPartnerAccount(row,key)));
   }else{
     // Email is AES-GCM encrypted: substring searches cannot run against SQL ciphertext
     // or the exact-match HMAC email_hash. Scan *all* filtered accounts on the server
@@ -74,9 +83,9 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
       const batch=(await database.prepare(select+where+predicate+order+" LIMIT ?")
         .bind(...params,ACCOUNT_SCAN_BATCH_SIZE).all<AccountRow>()).results;
       if(!batch.length)break;
-      const decrypted=await Promise.all(batch.map(async row=>({...row,email:await decryptPii(row.emailCiphertext,key)})));
+      const decrypted=await Promise.all(batch.map(row=>revealPartnerAccount(row,key)));
       for(const item of decrypted){
-        if(item.id.toLowerCase().includes(normalizedQuery)||item.email.toLocaleLowerCase("sk").includes(normalizedQuery)){
+        if(item.id.toLowerCase().includes(normalizedQuery)||item.email.toLocaleLowerCase("sk").includes(normalizedQuery)||item.contactName?.toLocaleLowerCase("sk").includes(normalizedQuery)){
           if(total>=offset&&pageRows.length<filters.pageSize)pageRows.push(item);
           total++;
         }
@@ -87,17 +96,64 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
     }
   }
 
-  // Membership aggregation is limited to the selected page, not every scanned account.
-  const counts=new Map<string,number>();
+  // Aggregate only visible accounts. Never count completed claims or proposals as pending.
+  // Help ownership is stored separately from partner_memberships.
+  const memberships=new Map<string,number>();
+  const pending=new Map<string,{requests:number;helpProfiles:number}>();
+  const unreadMessages=new Map<string,number>();
   if(pageRows.length){
     const placeholders=pageRows.map(()=>"?").join(",");
-    const memberships=(await database.prepare(
-      "SELECT account_id accountId,COUNT(*) activeMembershipCount FROM partner_memberships WHERE revoked_at IS NULL AND account_id IN ("+placeholders+") GROUP BY account_id"
-    ).bind(...pageRows.map(row=>row.id)).all<{accountId:string;activeMembershipCount:number}>()).results;
-    for(const item of memberships)counts.set(item.accountId,Number(item.activeMembershipCount));
+    const ids=pageRows.map(row=>row.id);
+    const [membershipRows,requestRows,chatRows]=await Promise.all([
+      database.prepare(
+        "SELECT account_id accountId,COUNT(*) activeMembershipCount FROM partner_memberships WHERE revoked_at IS NULL AND account_id IN ("+placeholders+") GROUP BY account_id"
+      ).bind(...ids).all<{accountId:string;activeMembershipCount:number}>(),
+      database.prepare(`
+        SELECT a.id accountId,
+          (SELECT COUNT(*) FROM partner_claims c WHERE c.account_id=a.id AND c.status='PENDING')
+          +(SELECT COUNT(*) FROM partner_help_claims c WHERE c.account_id=a.id AND c.status='PENDING')
+          +(SELECT COUNT(*) FROM moderation_submissions s JOIN partner_new_profile_metadata m ON m.submission_id=s.id
+              WHERE m.partner_account_id=a.id AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
+          +(SELECT COUNT(*) FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id
+              WHERE m.partner_account_id=a.id AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
+          +(SELECT COUNT(*) FROM moderation_submissions s JOIN partner_event_submission_metadata m ON m.submission_id=s.id
+              WHERE m.partner_account_id=a.id AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
+          +(SELECT COUNT(*) FROM moderation_submissions s WHERE s.submitter_type='PARTNER_ACCOUNT'
+              AND s.submitter_ref=a.id AND s.operation='CREATE'
+              AND s.resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE')
+              AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
+          +(SELECT COUNT(*) FROM partner_resource_verifications v WHERE v.account_id=a.id AND v.status='PENDING_VERIFICATION')
+          +(SELECT COUNT(*) FROM partner_commercial_interests i WHERE i.account_id=a.id AND i.status='NEW')
+          +(SELECT COUNT(*) FROM partner_commercial_agreements g WHERE g.account_id=a.id AND g.status='OFFERED')
+          +(SELECT COUNT(*) FROM moderation_submissions s
+              WHERE s.submitter_type='PARTNER_ACCOUNT' AND s.submitter_ref=a.id
+                AND s.operation IN ('REQUEST_HIDE','REQUEST_ARCHIVE','REQUEST_RELEASE','REQUEST_DELETE_ACCOUNT')
+                AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
+          AS pendingRequests,
+          (SELECT COUNT(*) FROM partner_help_claims c WHERE c.account_id=a.id AND c.status='APPROVED') AS helpProfiles
+        FROM partner_accounts a WHERE a.id IN (${placeholders})
+      `).bind(...ids).all<{accountId:string;pendingRequests:number;helpProfiles:number}>(),
+      database.prepare(
+        "SELECT m.partner_account_id accountId,COUNT(*) unread FROM partner_chat_messages m "+
+        "LEFT JOIN partner_conversations c ON c.partner_account_id=m.partner_account_id "+
+        "WHERE m.sender_role='PARTNER' AND (c.admin_last_read_at IS NULL OR m.created_at>c.admin_last_read_at) "+
+        "AND m.partner_account_id IN ("+placeholders+") GROUP BY m.partner_account_id"
+      ).bind(...ids).all<{accountId:string;unread:number}>(),
+    ]);
+    for(const item of membershipRows.results)memberships.set(item.accountId,Number(item.activeMembershipCount));
+    for(const item of chatRows.results)unreadMessages.set(item.accountId,Number(item.unread));
+    for(const item of requestRows.results)pending.set(item.accountId,{
+      requests:Number(item.pendingRequests),helpProfiles:Number(item.helpProfiles),
+    });
   }
   return {
-    items:pageRows.map(({emailCiphertext,...row})=>({...row,activeMembershipCount:counts.get(row.id)??0})),
+    items:pageRows.map(({emailCiphertext,contactNameCiphertext,...row})=>({
+      ...row,
+      pendingRequestCount:pending.get(row.id)?.requests??0,
+      unreadMessageCount:unreadMessages.get(row.id)??0,
+      activeMembershipCount:memberships.get(row.id)??0,
+      managedProfileCount:(memberships.get(row.id)??0)+(pending.get(row.id)?.helpProfiles??0),
+    })),
     total,
     page:filters.page,
     pageSize:filters.pageSize,
@@ -153,6 +209,20 @@ export async function getPartnerAccountAdmin(id:string,input:{database?:D1Databa
   return {...account,email:await decryptPii(account.emailCiphertext,key),contactProfile,authMethods,memberships:memberships.results,audit:audit.results,sessions:sessions??{total:0,active:0,lastCreatedAt:null}};
 }
 
+/** Unified read-only account dossier. Every list is scoped to this exact account. */
+export async function getPartnerAccountDossierAdmin(input:{
+  accountId:string;tab:"ziadosti"|"profily"|"spravy"|"ucet"|"historia";page?:number;database?:D1Database;
+}) {
+  const database=db(input.database);
+  const activePage=input.page??1;
+  const [requests,profiles,history]=await Promise.all([
+    listPartnerAccountDossierRequests(input.accountId,database,input.tab==="ziadosti"?activePage:1),
+    listPartnerAccountDossierProfiles(input.accountId,database,input.tab==="profily"?activePage:1),
+    input.tab==="historia"?listPartnerAccountDossierHistory(input.accountId,database,activePage):Promise.resolve(null),
+  ]);
+  return {requests,profiles,history};
+}
+
 export async function setPartnerAccountStatusAdmin(input:{accountId:string;action:"SUSPEND"|"REACTIVATE"|"DEACTIVATE"|"REVOKE_SESSIONS";adminEmail:string;database?:D1Database;now?:Date}){
   const database=db(input.database),account=await getPartnerAccountById(input.accountId,database); if(!account)throw new Error("Partner účet neexistuje.");
   const now=(input.now??new Date()).toISOString(),actor=auditActor(input.adminEmail);
@@ -168,6 +238,21 @@ export async function setPartnerAccountStatusAdmin(input:{accountId:string;actio
       database.prepare(`UPDATE partner_accounts SET status=?,${column}=?,updated_at=? WHERE id=?`).bind(status,now,now,input.accountId),
       database.prepare("UPDATE resource_management_sessions SET revoked_at=? WHERE resource_type='PARTNER_ACCOUNT' AND subject_id=? AND revoked_at IS NULL").bind(now,input.accountId),
       database.prepare("UPDATE resource_access_tokens SET revoked_at=? WHERE resource_type='PARTNER_ACCOUNT' AND subject_id=? AND used_at IS NULL AND revoked_at IS NULL").bind(now,input.accountId),
+      // Suspension retains ownership. Deactivation permanently revokes management
+      // without archiving or deleting any published canonical profile.
+      ...(input.action==="DEACTIVATE"?[
+        database.prepare("UPDATE partner_memberships SET revoked_at=?,revoked_by=?,updated_at=? WHERE account_id=? AND revoked_at IS NULL").bind(now,actor,now,input.accountId),
+        database.prepare("UPDATE partner_help_claims SET status='REVOKED',revoked_at=?,revoked_by=?,updated_at=? WHERE account_id=? AND status='APPROVED'").bind(now,actor,now,input.accountId),
+        database.prepare("UPDATE partner_claims SET status='CANCELLED',updated_at=? WHERE account_id=? AND status='PENDING'").bind(now,input.accountId),
+        database.prepare("UPDATE partner_help_claims SET status='CANCELLED',cancelled_at=?,updated_at=? WHERE account_id=? AND status='PENDING'").bind(now,now,input.accountId),
+        database.prepare("UPDATE moderation_submissions SET status='WITHDRAWN',updated_at=? WHERE submitter_type='PARTNER_ACCOUNT' AND submitter_ref=? AND status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED')").bind(now,input.accountId),
+        database.prepare("UPDATE partner_new_profile_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(input.accountId),
+        database.prepare("UPDATE partner_event_submission_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(input.accountId),
+        database.prepare("UPDATE partner_profile_change_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(input.accountId),
+        database.prepare("UPDATE partner_resource_verifications SET status='REJECTED',updated_at=?,reviewed_at=?,reviewed_by=?,review_note='Uzavreté po deaktivácii účtu' WHERE account_id=? AND status='PENDING_VERIFICATION'").bind(now,now,actor,input.accountId),
+        database.prepare("UPDATE partner_commercial_interests SET status='CLOSED',updated_at=?,status_updated_at=?,status_updated_by=? WHERE account_id=? AND status='NEW'").bind(now,now,actor,input.accountId),
+        database.prepare("UPDATE partner_commercial_agreements SET status='CANCELLED',updated_at=?,updated_by=? WHERE account_id=? AND status='OFFERED'").bind(now,actor,input.accountId),
+      ]:[]),
     ]); action=input.action==="SUSPEND"?"ACCOUNT_SUSPENDED":"ACCOUNT_DEACTIVATED";
   }else{
     await database.prepare("UPDATE resource_management_sessions SET revoked_at=? WHERE resource_type='PARTNER_ACCOUNT' AND subject_id=? AND revoked_at IS NULL").bind(now,input.accountId).run(); action="SESSIONS_REVOKED";
