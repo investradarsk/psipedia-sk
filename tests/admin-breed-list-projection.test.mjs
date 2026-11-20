@@ -7,7 +7,9 @@ const source = readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "
 const start = source.indexOf("export async function listManagedBreedSummaries");
 const end = source.indexOf("export async function listPublishedBreedIndex", start);
 const fn = source.slice(start, end);
-const found = fn.match(new RegExp("database\\s*\\.prepare\\(\\s*\\x60([\\s\\S]*?)\\x60"));
+const found = source.match(/const legacyBreedSummarySql = `([\s\S]*?)`;/);
+const sqlRead = source.match(/const sqlBreedSummarySql = `([\s\S]*?)`;/);
+if (!sqlRead) throw Error("SQL-primary admin summary statement is missing.");
 if (!found) throw Error("Admin breed summary statement is missing.");
 
 test("breed list queries only scalar overview and FCI references, not full JSON bodies", () => {
@@ -19,7 +21,13 @@ test("breed list queries only scalar overview and FCI references, not full JSON 
   assert.match(found[1], /sports_json/);
   assert.match(found[1], /article_relation_count/);
   assert.match(found[1], /directory_relation_count/);
-  assert.match(fn, /ORDER\s*BY\s*fci_group,\s*name\s*LIMIT\s*\?/);
+  assert.match(found[1], /ORDER\s*BY\s*fci_group,\s*name\s*LIMIT\s*\?/);
+  assert.match(sqlRead[1], /AS\s*editorial_overview/);
+  assert.match(sqlRead[1], /AS\s*fci_standard_pdf/);
+  assert.match(sqlRead[1], /AS\s*fci_nomenklatura_url/);
+  assert.match(sqlRead[1], /breed_editorial_text/);
+  assert.match(sqlRead[1], /breed_fci_standard/);
+  assert.doesNotMatch(sqlRead[1], /json_extract\(editorial_json|json_valid\(fci_standard_json/);
   assert.match(fn, /result\s*\.results\s*\.map\(\s*fromSummaryRow\s*\)/);
 });
 

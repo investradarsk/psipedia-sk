@@ -42,7 +42,7 @@ test("atlas projection avoids full FCI and SEO blobs while retaining canonical i
   const end = store.indexOf("export type BreedSitemapIndexItem", start);
   assert.ok(start >= 0 && end > start);
   const part = store.slice(start, end);
-  assert.match(part, /canonicalBreedIdsSql/);
+  assert.match(part, /canonicalBreedIdsForRuntime/);
   assert.match(part, /ORDER BY fci_group,name/);
   // Public HTML must not wait for R2 HEAD/list subrequests per card.
   assert.match(part, /image:\s*ownedBreedImage\(row\.image_url\)/);
@@ -65,7 +65,13 @@ test("atlas SQL scalar FCI projections preserve measurement fallbacks, reject ma
   assert.match(part, /retryTransientPublicRead\(\(\) => database\s*\.prepare\(/);
   const raw = part.match(/\.prepare\(\s*`([\s\S]*?)`\s*,?\s*\)\s*\.all<BreedAtlasCardRow>\(\)/)?.[1];
   assert.ok(raw, "dedicated SQL projection exists");
-  const sql = raw.replace("$" + "{canonicalBreedIdsSql}", "SELECT id FROM managed_breeds WHERE status = 'published'");
+  // This query is a runtime template: resolve both SQL-primary and rollback
+  // scalar projections before executing it against the isolated SQLite fixture.
+  const projectionBranch = /\$\{sqlPrimary\?"([^"]+)":\s*`([^`]+)`\}/g;
+  assert.equal([...raw.matchAll(projectionBranch)].length, 4, "four FCI scalar projections");
+  const queryForMode = (sqlPrimary) => raw
+    .replace(projectionBranch, (_match, sqlV2, legacySql) => sqlPrimary ? sqlV2 : legacySql)
+    .replace("${canonicalBreedIdsForRuntime}", "SELECT id FROM managed_breeds WHERE status = 'published'");
   const db = new DatabaseSync(":memory:");
   try {
     db.exec("CREATE TABLE managed_breeds (" +
@@ -73,6 +79,10 @@ test("atlas SQL scalar FCI projections preserve measurement fallbacks, reject ma
       "fci_section_number TEXT, origin TEXT, group_name TEXT, official_fci_name TEXT," +
       "accent TEXT, height TEXT, weight TEXT, intro TEXT, energy INTEGER, trainability INTEGER," +
       "family INTEGER, search_text TEXT, editorial_complete INTEGER, fci_standard_json TEXT, status TEXT)");
+    db.exec("CREATE TABLE breed_fci_standard (" +
+      "breed_id INTEGER PRIMARY KEY, fci_vyska_pes_cm TEXT, fci_vyska_suka_cm TEXT," +
+      "fci_hmotnost_pes_kg TEXT, fci_hmotnost_suka_kg TEXT)");
+    db.prepare("INSERT INTO breed_fci_standard VALUES (?,?,?,?,?)").run(1, "48–51", "45–48", "20–23", "17–20");
     const insert = db.prepare("INSERT INTO managed_breeds VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
     const basics = (id, height, weight, standard, status="published") => [
       id, "breed-"+id, "Breed "+id, "", 8, "Retrievers", "1",
@@ -84,18 +94,22 @@ test("atlas SQL scalar FCI projections preserve measurement fallbacks, reject ma
     })));
     insert.run(...basics(2, "52–62 cm", "25–30 kg", "invalid-json"));
     insert.run(...basics(3, "", "", "{}", "draft"));
-    const rows = db.prepare(sql).all();
-    assert.equal(rows.length, 2);
-    const item = rows.find(row => row.slug === "breed-1");
-    assert.equal(publicBreedMeasurement(item.height,"height",
-      combinedFciMeasurement([item.standard_dog_height??undefined,item.standard_bitch_height??undefined],"cm")),"45–51 cm");
-    assert.equal(publicBreedMeasurement(item.weight,"weight",
-      combinedFciMeasurement([item.standard_dog_weight??undefined,item.standard_bitch_weight??undefined],"kg")),"17–23 kg");
-    const corrupt = rows.find(row => row.slug === "breed-2");
-    assert.equal(corrupt.standard_dog_height,null);
-    assert.equal(publicBreedMeasurement(corrupt.height,"height",
-      combinedFciMeasurement([corrupt.standard_dog_height??undefined,corrupt.standard_bitch_height??undefined],"cm")),"52–62 cm");
-    assert.equal(publicBreedMeasurement(corrupt.weight,"weight",
-      combinedFciMeasurement([corrupt.standard_dog_weight??undefined,corrupt.standard_bitch_weight??undefined],"kg")),"25–30 kg");
+    for (const sqlPrimary of [false, true]) {
+      const sql = queryForMode(sqlPrimary);
+      assert.doesNotMatch(sql, /\$\{/, "all runtime interpolations are resolved");
+      const rows = db.prepare(sql).all();
+      assert.equal(rows.length, 2, sqlPrimary ? "SQL-primary mode" : "rollback mode");
+      const item = rows.find(row => row.slug === "breed-1");
+      assert.equal(publicBreedMeasurement(item.height, "height",
+        combinedFciMeasurement([item.standard_dog_height ?? undefined, item.standard_bitch_height ?? undefined], "cm")), "45–51 cm");
+      assert.equal(publicBreedMeasurement(item.weight, "weight",
+        combinedFciMeasurement([item.standard_dog_weight ?? undefined, item.standard_bitch_weight ?? undefined], "kg")), "17–23 kg");
+      const corrupt = rows.find(row => row.slug === "breed-2");
+      assert.equal(corrupt.standard_dog_height, null);
+      assert.equal(publicBreedMeasurement(corrupt.height, "height",
+        combinedFciMeasurement([corrupt.standard_dog_height ?? undefined, corrupt.standard_bitch_height ?? undefined], "cm")), "52–62 cm");
+      assert.equal(publicBreedMeasurement(corrupt.weight, "weight",
+        combinedFciMeasurement([corrupt.standard_dog_weight ?? undefined, corrupt.standard_bitch_weight ?? undefined], "kg")), "25–30 kg");
+    }
   } finally { db.close(); }
 });

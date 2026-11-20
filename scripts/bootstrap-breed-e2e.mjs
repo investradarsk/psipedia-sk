@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { brotliDecompressSync } from 'node:zlib';
+import { BREED_V2_BACKFILL_STATEMENTS } from '../lib/breed-sql-v2-backfill.mjs';
 
 const REQUIRED_FLAG = 'PSIPEDIA_E2E_LOCAL_BOOTSTRAP';
 const DEFAULT_BASE_URL = 'http://localhost:5173';
@@ -306,6 +307,12 @@ async function seed() {
   if (!result.success || imported?.total !== EXPECTED_IDENTITIES || imported?.published !== EXPECTED_PUBLISHED || imported?.draft !== 1) {
     fail(`Import result mismatch: ${JSON.stringify(imported).slice(0, 1200)}.`);
   }
+
+  // This disposable local bootstrap imports the historical fixture through
+  // the legacy bulk importer. Mirror the production 0174 SQL backfill so the
+  // public SQL-primary reader sees genuine structured FCI/editorial/SEO data.
+  // The script is guarded by PSIPEDIA_E2E_LOCAL_BOOTSTRAP and localhost only.
+  for (const statement of BREED_V2_BACKFILL_STATEMENTS) runLocalD1(statement);
 
   runLocalD1(`UPDATE managed_breeds SET image_url='${LOCAL_IMAGE_PATH}' WHERE fci_number=${WHITE_SWISS_FCI} AND slug='${WHITE_SWISS_SLUG}';`);
 
