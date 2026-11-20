@@ -17,13 +17,11 @@ export function PartnerClaimSearchForm({choices,initialType,initialQuery}:Props)
   const [items,setItems]=useState<PartnerClaimSearchItem[]>([]);
   const [open,setOpen]=useState(false);
   const [active,setActive]=useState(-1);
-  const [loading,setLoading]=useState(false);
+  const [loading,setLoading]=useState(Boolean(initialQuery.trim()));
   const listId=useId();
   useEffect(()=>{
     const clean=query.trim();
-    if(!clean){setItems([]);setLoading(false);setOpen(false);return;}
-    setLoading(true);
-    setItems([]);
+    if(!clean)return;
     const controller=new AbortController();
     let current=true;
     const timeout=setTimeout(async()=>{
