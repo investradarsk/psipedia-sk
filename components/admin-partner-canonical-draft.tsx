@@ -7,7 +7,11 @@ import styles from "./admin-partner-canonical-draft.module.css";
 export async function AdminPartnerCanonicalDraft({
   resourceType,canonicalId,
 }:{resourceType:PartnerCanonicalType;canonicalId:number}){
-  const draft=await getPendingPartnerCanonicalDraft({resourceType,canonicalId});
+  // Partner panels are optional; a missing or lagging partner schema must never
+  // prevent the canonical Admin editor from rendering.
+  let draft:Awaited<ReturnType<typeof getPendingPartnerCanonicalDraft>>;
+  try { draft=await getPendingPartnerCanonicalDraft({resourceType,canonicalId}); }
+  catch { return <p role="status">Partnerský koncept sa momentálne nepodarilo načítať.</p>; }
   if(!draft)return null;
   const submitted=["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(draft.status);
   return (
