@@ -89,7 +89,8 @@ export async function createPartnerLifecycleRequest(input:{
   const id=crypto.randomUUID(),now=input.now??new Date(),iso=now.toISOString();
   const resourceType=target?.type??"PARTNER_ACCOUNT",subject=String(target?.id??input.accountId);
   const data=JSON.stringify({resourceId:target?.resourceId??null,reason});
-  const entries=await db.batch([
+  let entries:D1Result[];
+  try{entries=await db.batch([
     db.prepare("INSERT INTO moderation_submissions "+
       "(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,risk_flags_json,created_at,updated_at) "+
       "SELECT ?,?,?,?,'SUBMITTED','PARTNER_ACCOUNT',?,?,'[]',?,? "+
@@ -109,7 +110,14 @@ export async function createPartnerLifecycleRequest(input:{
       title:"Nová žiadosť partnera",body:target?target.name+" · "+action:"Žiadosť o zrušenie účtu",
       tag:"partner-lifecycle",dedupeKey:"partner-lifecycle/"+id,
     },now),
-  ]);
+  ]);}catch(error){
+    const previous=await db.prepare("SELECT 1 found FROM moderation_submissions "+
+      "WHERE submitter_type='PARTNER_ACCOUNT' AND submitter_ref=? AND operation=? "+
+      "AND subject_id=? AND status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') LIMIT 1")
+      .bind(input.accountId,action,subject).first();
+    if(previous)throw new PartnerLifecycleError("Táto žiadosť už čaká na kontrolu.",409);
+    throw error;
+  }
   if(Number(entries[0]?.meta?.changes??0)!==1)throw new PartnerLifecycleError("Táto žiadosť už čaká na kontrolu.",409);
   return {id,action,status:"SUBMITTED" as const,resourceType,canonicalId:target?.id??null};
 }
@@ -209,7 +217,8 @@ export async function decidePartnerLifecycleAdmin(input:{
     if(row.operation==="REQUEST_DELETE_ACCOUNT")statements.push(...closeAccountStatements(db,row,iso,actor));
     else statements.push(...profileStatements(db,row,iso,actor,resourceId));
   }
-  const action=row.operation==="REQUEST_DELETE_ACCOUNT"&&input.decision==="APPROVE"?"ACCOUNT_DEACTIVATED":
+  const action=input.decision==="REJECT"?"CLAIM_REJECTED":
+    row.operation==="REQUEST_DELETE_ACCOUNT"?"ACCOUNT_DEACTIVATED":
     row.operation==="REQUEST_RELEASE"&&input.decision==="APPROVE"?"MEMBERSHIP_REVOKED":"CLAIM_APPROVED";
   statements.push(db.prepare("INSERT INTO partner_audit_events "+
     "(id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at) "+
@@ -217,11 +226,17 @@ export async function decidePartnerLifecycleAdmin(input:{
     .bind(crypto.randomUUID(),actor,action,row.id,
       JSON.stringify({lifecycleAction:row.operation,decision:input.decision,accountId:row.accountId,
         resourceType:row.resourceType,subjectId:row.subjectId,note}),iso));
-  await applyAtomicModerationTransition(db,{
-    id:row.id,expectedStatus:"PENDING_REVIEW",toStatus:input.decision==="APPROVE"?"APPROVED":"REJECTED",
-    actorType:"ADMIN",actorRef:actor,eventId:crypto.randomUUID(),changedFieldsJson:'["status"]',
-    reasonCode:input.decision==="REJECT"?"OTHER":null,now:iso,extraStatements:statements,
-  });
+  try{
+    await applyAtomicModerationTransition(db,{
+      id:row.id,expectedStatus:"PENDING_REVIEW",toStatus:input.decision==="APPROVE"?"APPROVED":"REJECTED",
+      actorType:"ADMIN",actorRef:actor,eventId:crypto.randomUUID(),changedFieldsJson:'["status"]',
+      reasonCode:input.decision==="REJECT"?"OTHER":null,now:iso,extraStatements:statements,
+    });
+  }catch(error){
+    if(error instanceof Error&&/malformed JSON|PARTNER_LIFECYCLE_CAS_CONFLICT|constraint failed/i.test(error.message))
+      throw new PartnerLifecycleError("Stav záznamu alebo oprávnenia sa zmenili. Obnovte Admin.",409);
+    throw error;
+  }
   return {id:row.id,action:row.operation,status:input.decision==="APPROVE"?"APPROVED":"REJECTED"};
 }
 export async function listPartnerLifecycleRequests(input:{accountId:string;db?:D1Database;limit?:number}){
