@@ -389,3 +389,7 @@ export const partnerChatEmailQueue=sqliteTable("partner_chat_email_queue",{
   check("partner_chat_mail_status_check",sql`${table.status} IN ('PENDING','SENDING','SENT','FAILED','EXPIRED')`),
   index("partner_chat_email_queue_pending_idx").on(table.status,table.createdAt),
 ]);
+
+export const partnerChatOrphanScanState=sqliteTable("partner_chat_orphan_scan_state",{
+  singleton:integer("singleton").primaryKey(),cursor:text("cursor"),updatedAt:text("updated_at").notNull(),
+},table=>[check("partner_chat_orphan_singleton_check",sql`${table.singleton}=1`)]);
