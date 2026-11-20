@@ -925,7 +925,10 @@ test("internal admin Partner overview and account detail are protected admin pag
   const canonicalAfterCreate=await page.request.get("/api/admin/events");
   expect(canonicalAfterCreate.ok()).toBeTruthy();
   const canonicalAfterCreateJson=await canonicalAfterCreate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
-  expect(canonicalAfterCreateJson.events?.find(item=>item.title===eventCreateTitle)?.status).toBe("draft");
+  // A current Partner CREATE request already owns a canonical D1 draft.
+  // Admin APPROVE publishes that same event; only legacy requests without
+  // subject_id create a new, unpublished DRAFT on approval.
+  expect(canonicalAfterCreateJson.events?.find(item=>item.title===eventCreateTitle)?.status).toBe("published");
 
   await page.goto("/admin/partners/events?status=active");
   // An approved OWNER's direct save must not queue an UPDATE moderation job.
