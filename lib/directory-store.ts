@@ -1550,7 +1550,8 @@ export async function listPublishedDirectoryProfiles(options: {
   }
   if (options.filters.service) {
     baseClauses.push(
-      "EXISTS (SELECT 1 FROM json_each(directory_profiles.services_json) service_item WHERE trim(CAST(service_item.value AS TEXT)) = ?)",
+      "EXISTS (SELECT 1 FROM directory_profile_service_texts svc " +
+      "WHERE svc.profile_id=directory_profiles.id AND trim(svc.service_text)=?)",
     );
     baseBindings.push(options.filters.service);
   }
