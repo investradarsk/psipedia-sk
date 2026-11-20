@@ -1,3 +1,4 @@
+import { AdminPartnerCanonicalAudit } from "@/components/admin-partner-canonical-audit";
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -44,7 +45,7 @@ export default async function EditEventPage({ params }: Props) {
       <Suspense fallback={null}><EventReviewAction id={event.id} /></Suspense>
       {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Otvoriť verejné podujatie ↗</Link>}
     </>}>
-    <AdminPartnerCanonicalDraft resourceType="MANAGED_EVENT" canonicalId={event.id} /><AdminGeminiOriginBadge agenda="events" entityId={event.id} />
+    <AdminPartnerCanonicalDraft resourceType="MANAGED_EVENT" canonicalId={event.id} /><AdminPartnerCanonicalAudit resourceType="MANAGED_EVENT" canonicalId={event.id} /><AdminGeminiOriginBadge agenda="events" entityId={event.id} />
     <Suspense fallback={null}><EventDuplicateWarning id={event.id} /></Suspense>
     <AdminEventEditor event={event} initialInternalNotes={await getManagedEventInternalNotesById(event.id)} />
     {event.status === "draft" && <AdminCanonicalDraftDelete entityType="EVENT" canonicalEntityId={event.id} returnHref="/admin/podujatia" />}
