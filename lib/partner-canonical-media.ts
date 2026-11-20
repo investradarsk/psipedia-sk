@@ -9,6 +9,7 @@ import { normalizePartnerGalleryMediaIds } from "./partner-profile-gallery-media
 import { publishSafeImage, type PrivateBucketLike } from "./private-media";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { normalizeProfileGalleryUrls } from "./partner-profile-gallery";
+import { readPartnerDraftRelations } from "./partner-canonical-relations";
 import type { PartnerCanonicalType } from "./partner-canonical-workflow";
 
 type Stored={coverId:string|null;galleryIds:string[]};
@@ -113,7 +114,19 @@ export async function prepareCanonicalDraftMediaApproval(input:{
       " WHERE id=? AND updated_at=?";
     statements.push(db.prepare(sql).bind(cover.url,...(keyColumn?[cover.key]:[]),canonicalId,nowIso));
   }
-  const galleryUrls=media.galleryIds.map(id=>approved.get(id)!.url);
+  let existing:string[]=[];
+  if(type==="DIRECTORY_PROFILE"||type==="HELP_ORGANIZATION"){
+    const values=await readPartnerDraftRelations({db,type,id:canonicalId});
+    existing=Array.isArray(values.galleryUrls)?values.galleryUrls as string[]:[];
+  }else if(type==="ADOPTION_DOG"||type==="LOST_FOUND_DOG"){
+    const raw=await db.prepare("SELECT gallery_json value FROM "+table+" WHERE id=?")
+      .bind(canonicalId).first<{value:string|null}>();
+    try{
+      const parsed:unknown=JSON.parse(raw?.value??"[]");
+      if(Array.isArray(parsed))existing=parsed.filter((x):x is string=>typeof x==="string");
+    }catch{}
+  }
+  const galleryUrls=normalizeProfileGalleryUrls([...existing,...media.galleryIds.map(id=>approved.get(id)!.url)]);
   if(media.galleryIds.length){
     if(type==="DIRECTORY_PROFILE"){
       for(const statement of planDirectory0173EditorialSqlMirror({
