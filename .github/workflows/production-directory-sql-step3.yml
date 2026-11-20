@@ -7,6 +7,8 @@ on:
       - "scripts/production-directory-onetime-notion-import.mjs"
       - "lib/directory-sql-step3-readiness.mjs"
       - "tests/directory-sql-step3.test.mjs"
+      - "tests/directory-sql-step3-field-parity.test.mjs"
+      - "lib/directory-sql-step3-field-parity.mjs"
       - ".github/workflows/production-directory-sql-step3.yml"
   workflow_dispatch:
     inputs:
@@ -34,7 +36,7 @@ jobs:
           node-version: "24.18.0"
           cache: npm
       - run: npm ci
-      - run: node --test tests/directory-sql-step3.test.mjs tests/directory-sql-step2.test.mjs tests/directory-notion-onetime-import.test.mjs
+      - run: node --test tests/directory-sql-step3.test.mjs tests/directory-sql-step3-field-parity.test.mjs tests/directory-sql-step2.test.mjs tests/directory-notion-onetime-import.test.mjs
   execute:
     if: github.event_name == 'workflow_dispatch'
     needs: verify
