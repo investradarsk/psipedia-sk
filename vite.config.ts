@@ -42,6 +42,9 @@ const localBindingConfig = {
     ? {
         vars: {
           AUTH_MODE: "local-e2e-preview",
+          // This binding exists only in explicitly bootstrapped local Miniflare,
+          // never in production wrangler.jsonc.
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1",
           MAP_UI_TEST_RENDERER: process.env.MAP_UI_TEST_RENDERER ?? "",
         },
       }
