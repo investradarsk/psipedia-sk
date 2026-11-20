@@ -319,6 +319,9 @@ test("Partner chat: authorized typing presence and real read receipts", async ()
   assert.match(chat, /lastOwnRead/);
   assert.match(chat, /Prečítané/);
   assert.match(chat, /píše…/);
+  assert.match(chat, /lastInputAt/);
+  assert.match(chat, /timeline.current/);
+  assert.doesNotMatch(chat, /scrollIntoView/);
   assert.match(presence, /quarantine\/partner-chat-presence\//);
   assert.match(presence, /FRESH_MS=12_000/);
   assert.match(presence, /R2Bucket/);
