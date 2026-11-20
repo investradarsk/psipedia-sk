@@ -6,7 +6,7 @@ import {resolve} from "node:path";
 
 const mode=process.argv[2],repo="investradarsk/psipedia-sk";
 const resource=JSON.parse(readFileSync("config/cloudflare-resources.json","utf8"));
-const name="psipedia-sk-db",file="drizzle/0175_breeds_remove_legacy_object_json.sql";
+const name="psipedia-sk-db",file="scripts/sql/breeds_drop_four_legacy_objects.sql";
 const legacy=["fci_standard_json","editorial_json","related_breeds_json","seo_json"];
 const dir=resolve(".production-d1-breed-0175"),config=resolve(dir,"wrangler.json");
 const output=resolve(dir,"report.json");
