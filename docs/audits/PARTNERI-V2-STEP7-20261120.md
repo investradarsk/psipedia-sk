@@ -28,7 +28,7 @@ PR: #1467, stav Draft, **nemergovať/nedeployovať**.
 
 ### Jedna jediná migrácia pre tento krok
 
-\`drizzle/0190_partner_private_chat.sql\` — **nové**:
+\`drizzle/0175_partner_private_chat.sql\` — **nové**:
 - \`partner_conversations\`
 - \`partner_chat_messages\`
 - \`partner_chat_attachments\`
@@ -37,7 +37,7 @@ PR: #1467, stav Draft, **nemergovať/nedeployovať**.
 
 Sú to additívne SQL objekty s FK, unikátnosťou konverzácie, checkmi pre prílohy, role, veľkosť správ a zapínanie kanálov. **Žiadne existujúce články, profily, Notion lock, údaje partnera ani staré migračné verzie sa nemenia.**
 
-Migrations 0171/0172 sú už produkčne nasadené; 0173/0174 patria iným agendám. **Číslo 0190 treba pri kroku 8 preveriť voči aktuálnemu \`main\` a produkčnému D1 migration ledger, pretože v iných vetvách súčasne vznikajú SQL zmeny.** V tejto fáze sa migrácia iba pridala do Draft PR. Neaplikovať ju automaticky s obvyklým migračným backlogom.
+Migrations 0171/0172 sú už produkčne nasadené; 0173/0174 patria iným agendám. **Číslo 0175 treba pri kroku 8 preveriť voči aktuálnemu \`main\` a produkčnému D1 migration ledger, pretože v iných vetvách súčasne vznikajú SQL zmeny.** V tejto fáze sa migrácia iba pridala do Draft PR. Neaplikovať ju automaticky s obvyklým migračným backlogom.
 
 ## Zmenené/nové hlavné súbory
 
@@ -48,15 +48,15 @@ Migrations 0171/0172 sú už produkčne nasadené; 0173/0174 patria iným agend�
 - \`app/api/partner/chat\`, \`app/api/admin/partners/chat/[accountId]\`, read a download route, \`app/api/partner/notification-preferences\`
 - \`app/partner/spravy\`, \`app/partner/upozornenia\`, \`app/partner/nastavenia\`, \`app/partner/page.tsx\`, \`components/partner-shell.tsx\`
 - \`app/admin/partners/accounts/[id]/page.tsx\`, \`app/admin/partners/page.tsx\`, \`lib/partner-admin-store.ts\`
-- \`db/partner-schema.ts\` a \`drizzle/0190_partner_private_chat.sql\`.
+- \`db/partner-schema.ts\` a \`drizzle/0175_partner_private_chat.sql\`.
 
 ## Release blockers do 8/8
 
 **Používateľ nechce priebežne čakať na testy**; v tomto kroku boli len zapracované súbory a pridané \`tests/partner-private-chat-step7.test.mjs\`. **Žiadne úspešne dokončené CI / build / staging / R2 / produkčné D1 overenie teraz nevyhlasujeme.**
 
 Pred spojením PR #1467:
-1. Zosúladiť vetvu s aktuálnym \`main\` (v čase kroku 7 divergovala; cca 53 commitov za main). Overiť migračné číslo 0190 na main a v D1 ledger aj presnú schému.
-2. Chránenou jednorazovou migráciou nasadiť iba 0190 **pred** nasadením kódu, bez prehrávania historických migrácií.
+1. Zosúladiť vetvu s aktuálnym \`main\` (v čase kroku 7 divergovala; cca 53 commitov za main). Overiť migračné číslo 0175 na main a v D1 ledger aj presnú schému.
+2. Chránenou jednorazovou migráciou nasadiť iba 0175 **pred** nasadením kódu, bez prehrávania historických migrácií.
 3. Testovať izoláciu account A/B, spoofovaný sender, odcudzený attachment UUID, priamu verejnú \`/media/quarantine/partner-chat/...\` cestu (404), Admin/Partner auth, CSP/headers, limity, MIME spoofing, rollback R2 pri D1 konflikte, rate limiting a manuálne revokované účty.
 4. Otestovať všetky notifikácie: oba default ON; vypnúť e-mail a ponechať in-app, vypnúť in-app a ponechať e-mail, oba vypnúť, zachovať login/reset, Resend retry+idempotencia, oddelenie vlastného prečítania od Admin.
 5. Nezamlčať riziko: R2 upload a D1 INSERT nie sú spoločnou transakciou; D1 konflikty odstraňujú R2 kľúče, no pri náhlom páde Workeru môžu vzniknúť osirelé objekty. Zaviesť cleanup/retenciu podľa bezpečnostnej politiky pred nasadením.
