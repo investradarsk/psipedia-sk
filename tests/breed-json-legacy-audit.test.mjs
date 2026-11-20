@@ -5,12 +5,11 @@ import {
   auditBreedJsonSources,auditCurrentRepo,
 } from "../scripts/audit-breed-json-legacy.mjs";
 
-test("live breed JSON columns are all still referenced in production code",()=>{
+test("only six canonical breed JSON list columns remain mapped after SQL-only cutover",()=>{
   const report=auditCurrentRepo();
   const expected=[
-    "gallery_json","fci_standard_json","editorial_json","sports_json",
-    "related_breeds_json","health_risks_json","good_for_json",
-    "consider_json","sources_json","seo_json",
+    "gallery_json","sports_json","health_risks_json",
+    "good_for_json","consider_json","sources_json",
   ];
   assert.deepEqual(report.liveSqlJsonColumns.map(x=>x.column).sort(),expected.sort());
   for(const column of report.liveSqlJsonColumns){

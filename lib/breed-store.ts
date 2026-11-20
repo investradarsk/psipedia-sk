@@ -45,6 +45,8 @@ import { cleanBreedCoatDescription, cleanBreedEditorialList } from "./breed-long
 import { compareBreedSqlV2Detail } from "./breed-sql-v2-preview";
 import {breedSqlPrimaryEnabled,breedSqlPrimaryProjection}
   from "./breed-sql-v2-primary-read.mjs";
+import {BREED_LEGACY_OBJECT_COLUMNS,breedSqlV2InsertColumns}
+  from "./breed-sql-v2-legacy-drop.mjs";
 import {
   breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,
   breedSqlV2FullSnapshotStatements,
@@ -1649,11 +1651,31 @@ export async function createManagedBreed(input: ManagedBreedInput, user: string)
   await ensure(database);
   const value = clean(input);
   const now = new Date().toISOString();
-  const placeholders = Array.from({ length: 54 }, () => "?").join(",");
-  const insertValues=breedSqlV2PrimaryWriteEnabled(env)?breedSqlOnlyInsertValues(value):values(value);
-  const insert = database.prepare(
-      `INSERT INTO managed_breeds (slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json,created_at,updated_at,published_at,created_by,updated_by) VALUES (${placeholders})`,
-    ).bind(...insertValues, now, now, value.status === "published" ? now : null, user, user);
+  // Schema-aware SQL INSERT: before the manual DROP the four NOT NULL
+  // placeholders still exist; after the DROP none may appear in INSERT.
+  const sqlOnly=breedSqlV2PrimaryWriteEnabled(env);
+  const legacyCount=sqlOnly
+    ?(await database.prepare(
+      "SELECT COUNT(*) AS n FROM pragma_table_info('managed_breeds') WHERE name IN ('fci_standard_json','editorial_json','seo_json','related_breeds_json')"
+    ).first<{n:number}>())?.n
+    :4;
+  if(!Number.isSafeInteger(legacyCount))throw Error("BREED_LEGACY_SCHEMA_UNREADABLE");
+  const insertColumns=sqlOnly
+    ?breedSqlV2InsertColumns(BREED_ROW_VALUE_COLUMNS,legacyCount)
+    :BREED_ROW_VALUE_COLUMNS;
+  const insertValues=sqlOnly
+    ?legacyCount===4?breedSqlOnlyInsertValues(value)
+      :breedValueEntries(value)
+        .filter(({column})=>!BREED_LEGACY_OBJECT_COLUMNS.includes(column))
+        .map(({value:cell})=>cell)
+    :values(value);
+  if(insertColumns.length!==insertValues.length)
+    throw Error("BREED_SQL_ONLY_INSERT_COLUMNS_MISMATCH");
+  const columns=[...insertColumns,"created_at","updated_at","published_at","created_by","updated_by"];
+  const placeholders=Array.from({length:columns.length},()=>"?").join(",");
+  const insert=database.prepare(
+    `INSERT INTO managed_breeds (${columns.join(",")}) VALUES (${placeholders})`,
+  ).bind(...insertValues,now,now,value.status==="published"?now:null,user,user);
   const structured=breedSqlV2StructuredWritesEnabled(env);
   const result=structured
     ?(await database.batch([

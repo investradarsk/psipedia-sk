@@ -91,7 +91,9 @@ export async function POST(request: Request) {
     if (payload.breeds !== undefined) {
       const breedPayload = { breeds: payload.breeds };
       if (payload.preview === true) {
-        const { preview } = await previewFciBreedImport(database, breedPayload);
+        const { preview } = await previewFciBreedImport(database, breedPayload, {
+          sqlPrimary:(env as RuntimeBindings & {BREED_SQL_V2_READ_MODE?:string}).BREED_SQL_V2_READ_MODE==="sql",
+        });
         return Response.json({ success: preview.errors.length === 0, preview });
       }
       // This historical FCI importer writes legacy JSON without the SQL v2
