@@ -67,9 +67,10 @@ Používame existujúce TEXT operačné hodnoty v \`moderation_submissions\`, re
 2. Treba vykonať staging/test-D1 funkčný scenár každého typu: request, approve, reject, 409 pri stale owner, priebeh skrytia/re-publish, archivácia/revoke, bez Notion návratu, pending account cleanup, kontrola \`PRAGMA foreign_key_check\`.
 3. Otestovať serializáciu starého/nového auditu vrátane obrázkov a kolízií v rámci \`batch\`, overiť či Admin notification feed aj mobilné push dostanú každú jednu uloženú zmenu.
 4. Detailné OLD/NEW údaje pred prvým nasadením kroku 5 historicky neexistujú a **nedajú sa spätne spoľahlivo zrekonštruovať**.
-5. Pôvodné UI cesty a prvá generická forma pre \`4/8\` zatiaľ nemajú úplnú paritu public polí, médií a galérií – doplniť v kroku 6.
-6. Budúci krok 8 musí prekryť súbežné zmeny \`main\` (súčasne prebiehajú Adresár/Pomoc psom SQL migrácie), overiť, že bežný Admin editor nemôže omylom zverejniť nevybavený partnerský CREATE mimo workflow a že cache na verejnom webe sa invaliduje pri skrytí/archivácii.
-7. Pri schvaľovaní obsahových operácií z kapitoly 4 je stále potrebná skutočná integračná verifikácia transakcií, cache a Notion uzamknutia – nemergovať po samotnom kroku 5.
+5. Skrytie a archivácia po D1 commit volajú `invalidateVersionedPublicHtmlCacheUrl` na detail aj listing. Reálne zneplatnenie HTML cache treba potvrdiť na stagingu.
+6. Pôvodné UI cesty a prvá generická forma pre \`4/8\` zatiaľ nemajú úplnú paritu public polí, médií a galérií – doplniť v kroku 6.
+7. Budúci krok 8 musí prekryť súbežné zmeny \`main\` (súčasne prebiehajú Adresár/Pomoc psom SQL migrácie), overiť, že bežný Admin editor nemôže omylom zverejniť nevybavený partnerský CREATE mimo workflow a že invalidácia cache na verejnom webe pri skrytí/archivácii prebehne aj naozaj.
+8. Pri schvaľovaní obsahových operácií z kapitoly 4 je stále potrebná skutočná integračná verifikácia transakcií, cache a Notion uzamknutia – nemergovať po samotnom kroku 5.
 
 ## Stav
 
