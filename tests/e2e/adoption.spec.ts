@@ -170,6 +170,11 @@ test("missing canonical adoption never falls back to an existing published legac
 test("all 36 activated migration profiles resolve to canonical detail", async ({ request }) => {
   expect(migrationManifest.ready).toHaveLength(36);
   for (const dog of migrationManifest.ready) {
+    // SQLite exposes generic SQL value types; validate the expected text
+    // columns before passing them to Playwright's string-only assertions.
+    if (typeof dog.slug !== "string" || typeof dog.dogName !== "string") {
+      throw new Error("Invalid immutable SQL adoption fixture");
+    }
     const response = await request.get(`${catalogPath}/${dog.slug}`);
     expect(response.status(), dog.slug).toBe(200);
     const html = await response.text();
