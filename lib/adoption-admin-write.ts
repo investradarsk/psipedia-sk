@@ -74,7 +74,9 @@ export async function listAdoptionAdminBreedOptions(
 ): Promise<AdoptionAdminBreedOptionsResult> {
   const bound = (env as unknown as RuntimeBindings).DB;
   const db = database ?? (bound && typeof bound.prepare === "function" ? bound : null);
-  return readCanonicalBreedOptions(db, { selected, selectedId });
+  return readCanonicalBreedOptions(db, { selected, selectedId,
+    sqlPrimary:(env as {BREED_SQL_V2_READ_MODE?:string}).BREED_SQL_V2_READ_MODE==="sql",
+  });
 }
 
 export async function listAdoptionAdminOrganizationOptions(database?: AdoptionD1Database) {

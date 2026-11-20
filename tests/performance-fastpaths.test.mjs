@@ -54,9 +54,9 @@ test("partner session is memoized for one React request, and directory detail ov
 test("breed redirects deduplicate D1 lookups with a short bounded isolate cache", () => {
   assert.match(worker, /BREED_REDIRECT_CACHE_TTL_MS = 15_000/);
   assert.match(worker, /BREED_REDIRECT_CACHE_MAX_ENTRIES = 400/);
-  assert.match(worker, /cachedCanonicalBreedRedirect\(env\.DB,\s*breedMatch\[1\]\)/);
-  assert.match(worker, /breedRedirectCache\.delete\(slug\)/);
-  assert.match(worker, /canonicalBreedRedirect\(database, slug\)/);
+  assert.match(worker, /cachedCanonicalBreedRedirect\(env\.DB,\s*breedMatch\[1\],\s*\(env as unknown as \{BREED_SQL_V2_READ_MODE\?:string\}\)\.BREED_SQL_V2_READ_MODE==="sql"\)/);
+  assert.match(worker, /breedRedirectCache\.delete\(cacheKey\)/);
+  assert.match(worker, /canonicalBreedRedirect\(database, slug,sqlPrimary\)/);
 });
 
 const fs = readFileSync;

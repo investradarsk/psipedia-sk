@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
+import { removeAdminRecordFromList, adminListRemovalMessage } from "@/lib/admin-record-list-delete";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminRecordTable } from "@/components/admin-record-table";
@@ -258,14 +259,12 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
     setBusy(true);
     setMessage("");
     try {
-      const response = await fetch(`/api/admin/events/${deleteTarget.id}`, { method: "DELETE" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Podujatie sa nepodarilo odstrániť.");
+      const result = await removeAdminRecordFromList("events", deleteTarget.id, deleteTarget.title);
       setDeleteTarget(null);
       const refreshed = await reload();
       setMessage(refreshed
-        ? "Podujatie bolo odstránené."
-        : "Podujatie bolo odstránené, ale zoznam sa nepodarilo obnoviť; použi „Skúsiť znova“.");
+        ? adminListRemovalMessage(result, "Podujatie")
+        : adminListRemovalMessage(result, "Podujatie") + " Zoznam sa nepodarilo obnoviť; použi „Skúsiť znova“.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Odstránenie zlyhalo.");
     } finally {

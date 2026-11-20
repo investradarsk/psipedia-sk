@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
+import { removeAdminRecordFromList, adminListRemovalMessage } from "@/lib/admin-record-list-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
@@ -140,16 +141,14 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
     setBusy(true);
     setMessage("");
     try {
-      const response = await fetch(`/api/admin/breeds/${deleteTarget.id}`, { method: "DELETE" });
-      const data = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(data.error || "Plemeno sa nepodarilo odstrániť.");
+      const result = await removeAdminRecordFromList("breeds", deleteTarget.id, deleteTarget.name);
       setBreeds((items) => items.filter((item) => item.id !== deleteTarget.id));
       setSelected((current) => {
         const next = new Set(current);
         next.delete(deleteTarget.id);
         return next;
       });
-      setMessage("Plemeno bolo odstránené.");
+      setMessage(adminListRemovalMessage(result, "Plemeno"));
       setDeleteTarget(null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Plemeno sa nepodarilo odstrániť.");

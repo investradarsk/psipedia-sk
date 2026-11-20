@@ -178,7 +178,7 @@ test("homepage breed cards read only presentation fields, not the editor's full 
   const fn = store.slice(start, end);
   assert.match(fn, /SELECT slug,name,image_url,intro,fci_group FROM candidates/);
   assert.match(fn, /FROM managed_breeds/);
-  assert.match(fn, /WHERE id IN \(\$\{canonicalBreedIdsSql\}\)/);
+  assert.match(fn, /WHERE id IN \(\$\{canonicalBreedIdsForRuntime\}\)/);
   // Homepage rotates eligible breeds once per local calendar day, keeping projection small.
   assert.match(fn, /ROW_NUMBER\(\) OVER \(ORDER BY slug ASC\)/);
   assert.match(fn, /ORDER BY[\s\S]*rotation_index[\s\S]*LIMIT \?/);

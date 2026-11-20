@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { articleReadHourBucket } from "@/lib/article-popularity";
 import { contentAnalyticsWindowStart, type ContentAnalyticsWindow } from "@/lib/content-analytics";
-import { breedProfileHref, canonicalBreedIdsSql } from "@/lib/breed-canonical";
+import { breedProfileHref, canonicalBreedIdsForRead } from "@/lib/breed-canonical";
 import { allDirectoryCategories, directoryProfileHref, type DirectoryCategorySlug } from "@/lib/directory";
 import { eventTypes, eventTypePortalHref, type EventType } from "@/lib/events";
 import { allHelpCategories } from "@/lib/help";
@@ -236,7 +236,7 @@ export async function loadSiteCategoryReport(input: {
       ).all<EventRow>(),
       database.prepare(
         "SELECT slug, name, fci_group FROM managed_breeds WHERE id IN (" +
-        canonicalBreedIdsSql + ") ORDER BY name COLLATE NOCASE",
+        canonicalBreedIdsForRead(env) + ") ORDER BY name COLLATE NOCASE",
       ).all<BreedRow>(),
       database.prepare(
         "SELECT '/pomoc-psom/' || category || '/' || slug AS path FROM help_cases " +

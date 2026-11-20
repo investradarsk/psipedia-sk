@@ -55,7 +55,7 @@ test("Domain-specific upload and rich-text persistence formats remain intentiona
   const markdown = read("components/admin-event-markdown-editor.tsx");
   assert.match(fb, /uploadAdminImage\(file,"facebook-images"\)/);
   assert.match(fb, /"image\/jpeg","image\/png","image\/webp"/);
-  assert.match(fb, /accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.match(fb, /accept="image\/jpeg,image\/png,image\/webp,video\/mp4,video\/quicktime,\.mov,\.mp4"/);
   // Article rich text was intentionally migrated to Tiptap; this test
   // protects the canonical storage contract, not the old editor brand.
   assert.match(article, /<AdminTiptapRichTextEditor/);

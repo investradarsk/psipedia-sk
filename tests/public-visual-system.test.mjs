@@ -320,12 +320,10 @@ test("PUBLIC-POLISH-2 event cards preserve photo display and accessible fallback
     const eventImage = read("components/event-image.tsx");
     assert.match(eventCard, /const ownImage = getEventOwnImage\(event\.imageUrl\)/);
     assert.match(eventCard, /data-event-has-image=\{ownImage \? "true" : "false"\}/);
-    // Both grid and list cards use the same canonical photo crop settings.
-    // Verify the actual JSX props irrespective of harmless line wrapping.
-    const renderedEventImages = [...eventCard.matchAll(
+    const renderedEventImages = eventCard.match(
       /<EventImage\s+imageUrl=\{event\.imageUrl\}\s+eventId=\{event\.id\}\s+eventType=\{event\.eventType\}\s+mode=\{event\.imageDisplay\}\s+config=\{event\.thumbnailImageDisplay\}/g,
-    )];
-    assert.equal(renderedEventImages.length, 2);
+    ) ?? [];
+    assert.equal(renderedEventImages.length, 2, "grid and list EventImage keep the full photo display contract");
     assert.match(eventImage, /getEventFallbackImage\(eventType\)/);
     assert.match(eventImage, /return real \? \(\s*<ImageDisplay/);
     assert.match(eventImage, /legacyMode=\{mode\}/);

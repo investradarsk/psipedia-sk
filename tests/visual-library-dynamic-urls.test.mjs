@@ -14,7 +14,7 @@ test("concrete public URL browser enumerates nine canonical public detail source
   ]) assert.ok(service.includes(table), table);
   for (const category of ["directory","organizations","adoptions","help","lost-found","events","breeds","articles","eshops"])
     assert.ok(types.includes('id: "' + category + '"'), category);
-  assert.match(service, /canonicalBreedIdsSql/);
+  assert.match(service, /canonicalBreedIdsForRead\(env\)/);
   assert.match(service, /directoryProfileHref/);
   assert.match(service, /eventHref/);
   assert.match(service, /helpCaseHref/);
@@ -43,7 +43,7 @@ test("public-only states exclude drafts and respect canonical breed winners", ()
   assert.match(service, /r\.published_at IS NOT NULL AND r\.duplicate_of_id IS NULL/);
   assert.match(service, /r\.status IN \('ACTIVE','RESOLVED','EXPIRED','ARCHIVED'\)/);
   assert.match(service, /e\.status='published'/);
-  assert.match(service, /b\.id IN \(\$\{canonicalBreedIdsSql\}\)/);
+  assert.match(service, /b\.id IN \(\$\{canonicalBreedIdsForRead\(env\)\}\)/);
   assert.match(service, /a\.status='published' OR \(a\.status='scheduled' AND a\.published_at<=\?\)/);
   assert.match(service, /shop\.status='published' AND shop\.published_at IS NOT NULL/);
 });

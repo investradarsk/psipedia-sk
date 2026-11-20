@@ -1,0 +1,101 @@
+name: Directory – one-time Notion to D1 (owner only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/production-directory-onetime-notion-import.mjs"
+      - "lib/directory-notion-onetime-import.mjs"
+      - "scripts/directory-0170-backfill-readonly.mjs"
+      - "tests/directory-notion-onetime-import.test.mjs"
+      - ".github/workflows/production-directory-onetime-notion-import.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "audit (read only) or apply (one-time SQL write)"
+        type: choice
+        required: true
+        options: [audit, apply]
+        default: audit
+      confirmation:
+        description: "Exact audit/apply confirmation; never auto-apply"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('directory-notion-import-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  offline-test:
+    name: Notion source map / owner lock tests (no external access)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - run: node --test tests/directory-notion-onetime-import.test.mjs
+
+  owner-import:
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline-test
+    name: Production Notion → SQL (manual, guarded)
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 180
+    env:
+      NOTION_ONE_TIME_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      AGENT_NOTION_ACCESS_TOKEN: ${{ secrets.GEMINI_AGENT_NOTION_TOKEN }}
+      NOTION_DIRECTORY_DATA_SOURCE_ID: ${{ vars.NOTION_DIRECTORY_DATA_SOURCE_ID }}
+    steps:
+      - name: Check owner intent and current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          if [ "${{ inputs.mode }}" = "audit" ]; then
+            test "$NOTION_ONE_TIME_CONFIRMATION" = "AUDIT-NOTION-DIRECTORY-ONE-TIME-psipedia-sk-db"
+          elif [ "${{ inputs.mode }}" = "apply" ]; then
+            test "$NOTION_ONE_TIME_CONFIRMATION" = "APPLY-NOTION-DIRECTORY-ONE-TIME-psipedia-sk-db"
+          else
+            exit 1
+          fi
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$AGENT_NOTION_ACCESS_TOKEN"
+          test -n "$NOTION_DIRECTORY_DATA_SOURCE_ID"
+      - uses: actions/checkout@v4
+      - name: Reject stale main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Bind configured Cloudflare account
+        shell: bash
+        run: |
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Run one-time Notion source SQL job
+        run: node scripts/production-directory-onetime-notion-import.mjs "${{ inputs.mode }}"
+      - name: Upload sanitized report only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: directory-notion-one-time-${{ github.run_id }}
+          path: .directory-notion-one-time/report.json
+          if-no-files-found: ignore
+          retention-days: 30

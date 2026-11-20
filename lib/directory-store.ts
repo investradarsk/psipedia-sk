@@ -22,7 +22,7 @@ import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery, readDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
 import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card";
-import { canonicalBreedIdsSql, readCanonicalBreedIds } from "./breed-canonical";
+import { canonicalBreedIdsForRead, readCanonicalBreedIds } from "./breed-canonical";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import {
   parsePublicDirectoryFacets,
@@ -612,7 +612,7 @@ const DIRECTORY_HAS_CANONICAL_BREEDS = `EXISTS (
   SELECT 1 FROM breed_directory_relations linked
   JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
   WHERE linked.profile_id = directory_profiles.id
-    AND linked_breed.id IN (${canonicalBreedIdsSql})
+    AND linked_breed.id IN (${canonicalBreedIdsForRead(env)})
 )`;
 const DIRECTORY_SOURCE_FACETS = {
   ...DIRECTORY_PUBLIC_SOURCE_FACETS,
@@ -1439,7 +1439,8 @@ export async function listPublishedDirectoryProfiles(options: {
     .prepare("SELECT COUNT(*) AS total FROM sqlite_schema WHERE type='table' AND name IN ('breed_directory_relations','managed_breeds')")
     .first<{ total: number }>();
   const breedRelationsReady = Number(breedRelationTables?.total ?? 0) === 2;
-  const canonicalBreedIds = breedRelationsReady ? await readCanonicalBreedIds(database) : [];
+  const canonicalBreedIds = breedRelationsReady ? await readCanonicalBreedIds(database,
+    (env as {BREED_SQL_V2_READ_MODE?:string}).BREED_SQL_V2_READ_MODE==="sql") : [];
   const canonicalBreedIdsJson = JSON.stringify(canonicalBreedIds);
   const baseClauses = ["status = 'published'"];
   const baseBindings: unknown[] = [];
@@ -1477,7 +1478,7 @@ export async function listPublishedDirectoryProfiles(options: {
         SELECT 1 FROM breed_directory_relations linked
         JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
         WHERE linked.profile_id = directory_profiles.id
-          AND linked_breed.id IN (${canonicalBreedIdsSql})
+          AND linked_breed.id IN (${canonicalBreedIdsForRead(env)})
           AND linked_breed.name = ?
       )) OR (
         (directory_profiles.category NOT IN ('chovatelske-stanice','chovatelske-kluby') OR NOT ${DIRECTORY_HAS_CANONICAL_BREEDS})

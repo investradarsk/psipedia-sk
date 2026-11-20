@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { breedProfileHref, canonicalBreedIdsSql } from "@/lib/breed-canonical";
+import { breedProfileHref, canonicalBreedIdsForRead } from "@/lib/breed-canonical";
 import { directoryProfileHref, isDirectoryCategory } from "@/lib/directory";
 import { eventHref } from "@/lib/events";
 import { helpCaseHref, isHelpCategory } from "@/lib/help";
@@ -69,7 +69,7 @@ const SOURCES: Record<DynamicUrlKind, { from: string; where: string; label: stri
   },
   breeds: {
     from: "managed_breeds b",
-    where: `b.id IN (${canonicalBreedIdsSql})`,
+    where: `b.id IN (${canonicalBreedIdsForRead(env)})`,
     label: "b.name", slug: "b.slug", category: "b.fci_group",
   },
   articles: {

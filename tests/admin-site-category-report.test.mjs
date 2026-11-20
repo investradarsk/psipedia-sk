@@ -112,7 +112,7 @@ test("categorical analytics is read-only and does not add migrations, tokens or 
   const sql = readFileSync("lib/admin-site-category-report.ts", "utf8");
   const ui = readFileSync("components/admin-site-category-panel.tsx", "utf8");
   assert.match(sql, /site_analytics_pages_hourly/);
-  assert.match(sql, /canonicalBreedIdsSql/);
+  assert.match(sql, /canonicalBreedIdsForRead/);
   assert.match(sql, /status = 'published'/);
   assert.match(sql, /helpPaths/);
   assert.doesNotMatch(sql, /INSERT INTO|UPDATE site_analytics|DELETE FROM|cookie|uniqueVisitors|sessionId/);
