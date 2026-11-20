@@ -127,7 +127,6 @@ export const PROFILE_SQL=[
   "SELECT p.id,p.category,p.slug,p.status,p.updated_at,p.name,p.excerpt,p.description,",
   "p.region,p.district,p.city,p.address,p.postal_code,p.street,p.house_number,p.price_note,",
   "p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,p.internal_email,p.image_url,",
-  "p.services_json,p.source_data_json,p.thumbnail_display_json,p.detail_display_json,",
   "m.notion_page_id,",
   "CASE WHEN json_valid(p.source_data_json) AND",
   "(COALESCE(json_extract(p.source_data_json,'$.\"_psipedia_profile_review_reviewed_at\"'),'')<>'' OR",
@@ -149,10 +148,17 @@ export const PROFILE_SQL=[
   "FROM directory_profiles p LEFT JOIN directory_notion_sync m ON m.directory_profile_id=p.id",
   "WHERE p.id>? ORDER BY p.id LIMIT 200",
 ].join(" ");
-async function scanD1(){
+// Only the new 2/4 staging inventory reads technical columns.
+// Keep the original one-time importer inventory/fixture contract unchanged.
+const STEP2_PROFILE_SQL=PROFILE_SQL.replace(
+  "p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,p.internal_email,p.image_url,",
+  "p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,p.internal_email,p.image_url,"+
+  "p.services_json,p.source_data_json,p.thumbnail_display_json,p.detail_display_json,"
+);
+async function scanD1(sql=PROFILE_SQL){
   const found=[];let last=0;
   while(true){
-    const rows=await select(PROFILE_SQL,[last]);
+    const rows=await select(sql,[last]);
     must(rows.length<=200,"D1_PAGE_SIZE");
     if(!rows.length)break;
     for(const row of rows){
@@ -317,7 +323,7 @@ async function runStep2(){
     installed=await step2SchemaState();
     must(installed,"STEP2_SCHEMA_VERIFY");
   }
-  const before=await baseline(),pages=await scanNotion(),rows=await scanD1();
+  const before=await baseline(),pages=await scanNotion(),rows=await scanD1(STEP2_PROFILE_SQL);
   must(Number(before.n)===rows.size,"STEP2_CHANGED_SCAN");
   const byId=new Map(pages.map(p=>[notionId(p),p]).filter(x=>x[0]));
   const candidates=[];
