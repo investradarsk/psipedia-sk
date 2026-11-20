@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { notionId, planNotionDirectoryImport } from "../lib/directory-notion-onetime-import.mjs";
 import {STEP2_TABLES, STEP2_INDEXES, step2Plan, step2Sql} from "../lib/directory-sql-step2-plan.mjs";
+import { directoryStep3Readiness } from "../lib/directory-sql-step3-readiness.mjs";
 
 const MODE=process.argv[2]??"";
 const ROOT=resolve(new URL("..",import.meta.url).pathname);
@@ -37,7 +38,7 @@ function report(status,more={}){
   console.log(JSON.stringify({phase:data.phase,mode:MODE,status,counts,bookmarkCreated:bookmarked}));
 }
 function authorize(){
-  must(["audit","apply","step2-audit","step2-apply"].includes(MODE),"INVALID_MODE");
+  must(["audit","apply","step2-audit","step2-apply","step3-audit","step3-repair"].includes(MODE),"INVALID_MODE");
   must(process.env.GITHUB_EVENT_NAME==="workflow_dispatch","MANUAL_ONLY");
   must(process.env.GITHUB_REF==="refs/heads/main","MAIN_ONLY");
   must(process.env.GITHUB_REPOSITORY==="investradarsk/psipedia-sk","REPOSITORY");
@@ -49,6 +50,8 @@ function authorize(){
     apply:"APPLY-NOTION-DIRECTORY-ONE-TIME-psipedia-sk-db",
     "step2-audit":"AUDIT-DIRECTORY-SQL-STEP2-psipedia-sk-db",
     "step2-apply":"APPLY-DIRECTORY-SQL-STEP2-psipedia-sk-db",
+    "step3-audit":"AUDIT-DIRECTORY-SQL-STEP3-psipedia-sk-db",
+    "step3-repair":"REPAIR-DIRECTORY-SQL-STEP3-psipedia-sk-db",
   };
   must(process.env.NOTION_ONE_TIME_CONFIRMATION===confirmations[MODE],"CONFIRMATION");
   const config=JSON.parse(readFileSync(resolve(ROOT,"config/cloudflare-resources.json"),"utf8"));
@@ -390,7 +393,139 @@ async function runStep2(){
     next:"3/4 verify field parity before any SQL_ONLY cutover"});
 }
 
+
+/** Read only, paginated SQL receipts. Never infer verification from STAGED. */
+async function scanStep3Receipts(){
+  const out=[];
+  let last=0;
+  while(true){
+    const rows=await select(
+      "SELECT profile_id,state,source_revision,notion_revision "+
+      "FROM directory_profile_sql_cutover_state WHERE profile_id>? "+
+      "ORDER BY profile_id LIMIT 200",[last]);
+    if(!rows.length)break;
+    for(const row of rows){
+      must(Number.isSafeInteger(row.profile_id)&&row.profile_id>last,"STEP3_RECEIPT_SORT");
+      last=row.profile_id;
+      out.push(row);
+    }
+    if(rows.length<200)break;
+  }
+  return out;
+}
+
+/** Fail closed inside the same D1 batch as the additive SQL writes. */
+function step3RepairGate(plan){
+  return {
+    sql:"SELECT CASE WHEN EXISTS(SELECT 1 FROM directory_profiles p "+
+      "JOIN directory_notion_sync m ON m.directory_profile_id=p.id "+
+      "WHERE p.id=? AND p.updated_at=? AND p.status<>'archived' "+
+      "AND REPLACE(LOWER(m.notion_page_id),'-','')=? "+
+      "AND NOT EXISTS(SELECT 1 FROM directory_profile_sql_cutover_state c WHERE c.profile_id=p.id) "+
+      "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones t WHERE t.kind='directory' "+
+      "AND (t.record_id=p.id OR t.record_slug=p.slug)) "+
+      "AND NOT EXISTS(SELECT 1 FROM directory_profile_review_state s WHERE s.profile_id=p.id "+
+      "AND (s.reviewed_at IS NOT NULL OR s.unlock_pending=1)) "+
+      "AND NOT EXISTS(SELECT 1 FROM partner_resources r "+
+      "JOIN partner_memberships pm ON pm.resource_id=r.id "+
+      "WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=p.id "+
+      "AND pm.revoked_at IS NULL) "+
+      "AND json_valid(p.source_data_json) "+
+      "AND COALESCE(json_extract(p.source_data_json,'$.\\\"_psipedia_profile_review_reviewed_at\\\"'),'')='' "+
+      "AND COALESCE(json_extract(p.source_data_json,'$.\\\"_psipedia_profile_review_unlock_pending\\\"'),'')<>'1' "+
+      ") THEN 1 ELSE json_extract('STEP3_CAS_FAILED','$.invalid') END AS allowed",
+    params:[plan.id,plan.sourceRevision,
+      String(plan.pageId).replaceAll("-","").toLowerCase()],
+  };
+}
+
+/**
+ * Step 3 reconciliation is tightly scoped: stage previously un-staged active
+ * profiles only. Stale existing receipts need a field-by-field parity review;
+ * never erase/reseed a concurrently edited SQL sidecar from an old snapshot.
+ */
+async function runStep3(){
+  authorize();
+  await schema();
+  must(await step2SchemaState(),"STEP3_MISSING_SCHEMA");
+  const before=await baseline();
+  const pages=await scanNotion();
+  const rows=await scanD1(STEP2_PROFILE_SQL);
+  must(Number(before.n)===rows.size,"STEP3_CHANGED_SCAN");
+  const receipts=await scanStep3Receipts();
+  const readiness=directoryStep3Readiness([...rows.values()],receipts,pages);
+  if(MODE==="step3-audit"){
+    report("STEP3_AUDIT_ONLY",{readiness,noCanonicalWrites:true,
+      next:"repair missing active profile, verify stale revisions and SQL parity"});
+    return;
+  }
+  const missing=new Set(readiness.samples.missingActive);
+  // Refuse to auto-repair >30 missing active profiles; an incomplete sample
+  // is diagnostic only, never a production write plan.
+  must(readiness.missingActive===missing.size&&missing.size<=30,"STEP3_REPAIR_SCOPE");
+  const byId=new Map(pages.map(page=>[notionId(page),page]).filter(pair=>pair[0]));
+  const candidates=[];
+  for(const id of missing){
+    const row=rows.get(id),page=byId.get(id);
+    if(!row||!page){mark("step3_missing_linked_notion",id);continue;}
+    if(!planNotionDirectoryImport(page,row,SOURCE).ok){
+      mark("step3_notion_protected",id);continue;
+    }
+    const candidate=step2Plan(row,page,SOURCE);
+    if(!candidate.ok){mark(candidate.reason,id);continue;}
+    candidates.push(candidate);
+  }
+  if(!candidates.length){
+    report("STEP3_NO_ELIGIBLE_REPAIRS",{readiness,canonicalRowsUnchanged:true});
+    return;
+  }
+  recoveryBookmark();
+  for(const candidate of candidates){
+    const page=await notion("/pages/"+candidate.pageId);
+    if(page.id!==candidate.pageId||
+      page.last_edited_time!==candidate.notionRevision||
+      notionId(page)!==candidate.id){
+      mark("step3_notion_changed",candidate.id);continue;
+    }
+    const live=(await select(STEP2_PROFILE_SQL,[candidate.id-1]))[0];
+    if(!live||live.id!==candidate.id||
+      live.updated_at!==candidate.sourceRevision||
+      live.status==="archived"||Number(live.tombstone)>0||
+      Number(live.partner_active)>0||
+      Number(live.sql_review_locked)>0||
+      Number(live.legacy_review_locked)>0){
+      mark("step3_admin_or_lock_changed",candidate.id);continue;
+    }
+    const batch=[step3RepairGate(candidate),
+      ...step2Sql(candidate,new Date().toISOString(),"DIRECTORY_SQL_STEP3_REPAIR")];
+    must(batch.length<150,"STEP3_LARGE_BATCH");
+    try{
+      const result=await d1(batch);
+      must(Number(result[0]?.[0]?.allowed)===1&&
+        Number(result.at(-1)?.[0]?.profile_id)===candidate.id,"STEP3_RECEIPT_MISSING");
+    }catch{
+      mark("step3_repair_failed",candidate.id);
+      report("FAILED_PARTIAL",{lastFailedProfileId:candidate.id});
+      fail("STEP3_REPAIR_WRITE_FAILED");
+    }
+    counts.imported++;
+  }
+  const after=await baseline();
+  must(String(before.n)===String(after.n)&&
+    String(before.sum_id)===String(after.sum_id)&&
+    String(before.max_id)===String(after.max_id),"STEP3_IDENTITY_DRIFT");
+  const fk=(await select("SELECT COUNT(*) AS n FROM pragma_foreign_key_check"))[0];
+  must(Number(fk.n)===0,"STEP3_FK");
+  report("STEP3_MISSING_PROFILES_STAGED",{
+    readinessBefore:readiness,
+    repaired:counts.imported,canonicalRowsUnchanged:true,
+    noRuntimeCutover:true,
+    next:"repeat step3 audit; reconcile changed profiles and field-level parity",
+  });
+}
+
 async function run(){
+  if(MODE.startsWith("step3-"))return runStep3();
   if(MODE.startsWith("step2-"))return runStep2();
   authorize();await schema();
   const before=await baseline(),pages=await scanNotion(),rows=await scanD1();
