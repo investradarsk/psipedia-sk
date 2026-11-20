@@ -1686,7 +1686,9 @@ export function buildManagedBreedUpdateStatements(
       ?breedSqlV2FullSnapshotStatements(database,id,value):[]),
     // Read the exact committed version and relations before the batch commits.
     // A later writer must not leak its version into this caller's editor.
-    database.prepare(`${select} WHERE id=?`).bind(id),
+    // Return the same canonical SQL projection read by getManagedBreed, never
+    // a stale legacy JSON snapshot after the atomic SQL + JSON shadow save.
+    database.prepare(`${readSelect} WHERE id=?`).bind(id),
     database
       .prepare(
         "SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id",
