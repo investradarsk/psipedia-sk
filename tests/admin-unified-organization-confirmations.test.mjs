@@ -42,7 +42,7 @@ test("Partner E2E confirms every moderation action with shared in-page dialogs",
   }
   // A new canonical draft cannot be linked to an unrelated existing profile.
   // Legacy no-subject-id proposals retain a separately confirmed link action.
-  assert.match(admin, /getByRole\("button",\{name:"Prepojiť tento profil"\}\)\.toHaveCount\(0\)/);
+  assert.match(admin, /expect\(page\.getByRole\("button",\{name:"Prepojiť tento profil"\}\)\)\.toHaveCount\(0\)/);
   assert.match(read("components/admin-partner-new-profile-actions.tsx"), /title="Prepojiť tento profil\?"/);
   assert.match(read("app/admin/partners/submissions/[id]/page.tsx"), /submission\.active&&!submission\.subjectId/);
   assert.match(admin, /await createDialog\.getByRole\("button",\{name:"Zrušiť"\}\)\.click\(\)/);
