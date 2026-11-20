@@ -38,7 +38,12 @@ export function adminPushEventKey(eventType:string, sourceType = "", system = ""
   if(eventType.startsWith("gemini_run_"))return "GEMINI_ACTIVITY";
   if(eventType==="partner_account_registered")return "PARTNER_REGISTRATION";
   if(eventType==="profile_review_submitted" || sourceType==="PROFILE_REVIEW_MODERATION")return "PROFILE_REVIEW";
-  if(eventType==="partner_claim_submitted" || sourceType==="PARTNER_CLAIM_REVIEW")return "PARTNER_REQUEST";
+  if(eventType==="partner_claim_submitted" || sourceType==="PARTNER_CLAIM_REVIEW"
+    || eventType==="partner_lifecycle_requested")return "PARTNER_REQUEST";
+  // Each directly saved Partner change is a first-class Admin alert, under the
+  // existing default-enabled proposal category (no new subscription migration).
+  if(["partner_profile_direct_edit","partner_event_direct_edit","partner_help_direct_edit"].includes(eventType))
+    return "PROFILE_PROPOSAL";
   // Evaluate specific adoption events before the generic moderation event:
   // a moderation_submission_actionable for adoption_dog must not become PROFILE_PROPOSAL.
   if (
