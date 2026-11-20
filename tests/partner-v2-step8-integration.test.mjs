@@ -14,7 +14,7 @@ test("Partneri step 8 preserves SQL 0173 mirror and atomic Admin audit/notice",(
 test("private R2 chat attachments stay outside public media",()=>{
   assert.match(read("lib/partner-chat.ts"),/quarantine\/partner-chat\//);
   assert.match(read("app/media/[...key]/route.ts"),/segments\[0\] === "quarantine"/);
-  assert.match(read("drizzle/0190_partner_private_chat.sql"),/CREATE TABLE IF NOT EXISTS partner_chat_attachments/);
+  assert.match(read("drizzle/0175_partner_private_chat.sql"),/CREATE TABLE IF NOT EXISTS partner_chat_attachments/);
 });
 
 test("old private R2 uploads are cleaned only when absent from canonical SQL",()=>{
@@ -24,5 +24,5 @@ test("old private R2 uploads are cleaned only when absent from canonical SQL",()
   assert.match(source,/page\.truncated/);
   assert.match(source,/known\.has\(item\.key\)/);
   assert.match(read("lib/partner-email.ts"),/sweepPartnerChatOrphans/);
-  assert.match(read("drizzle/0190_partner_private_chat.sql"),/partner_chat_orphan_scan_state/);
+  assert.match(read("drizzle/0175_partner_private_chat.sql"),/partner_chat_orphan_scan_state/);
 });
