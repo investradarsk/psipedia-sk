@@ -135,6 +135,20 @@ export const directoryProfileExtraFields = sqliteTable(
   ],
 );
 
+/** One SQL row per list, including deliberately cleared empty lists. */
+export const directoryProfileExtraListState = sqliteTable(
+  "directory_profile_extra_list_state",
+  {
+    profileId: integer("profile_id").notNull().references(() => directoryProfiles.id, { onDelete: "cascade" }),
+    fieldKey: text("field_key").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  table => [
+    primaryKey({ columns: [table.profileId, table.fieldKey] }),
+  ],
+);
+
 export const directoryProfileExtraListItems = sqliteTable(
   "directory_profile_extra_list_items",
   {
