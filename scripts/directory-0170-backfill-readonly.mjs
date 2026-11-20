@@ -151,7 +151,8 @@ function classifyDirectory0173Row(row, source, issue) {
   if (media.length > 6) issue("gallery","more_than_six");
   if (source) {
     // The breeder gallery uses a different canonical compatibility key.
-    const key = row.category === "chovatelske-stanice"
+    const key = row.category === "chovatelske-stanice" &&
+      source._psipedia_breeder_gallery_urls !== undefined
       ? "_psipedia_breeder_gallery_urls" : "_psipedia_profile_gallery_urls";
     const old = source[key] === undefined ? [] : parseArray(source[key]);
     if (!old || old.some(v => typeof v !== "string"))
@@ -470,7 +471,7 @@ const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_j
   "(SELECT json_group_array(json_object('option_id',option_id,'choice',choice,'version',version)) FROM service_profile_option_choices WHERE profile_id=p.id) AS sql_services,"+
   "(SELECT json_group_array(x.qualification_text) FROM (SELECT qualification_text FROM directory_profile_qualifications WHERE profile_id=p.id ORDER BY item_order) x) AS sql_qualifications,"+
   "(SELECT json_group_array(json_object('day',day_of_week,'text',hours_text)) FROM directory_profile_opening_hours WHERE profile_id=p.id) AS sql_hours,"+
-  "(SELECT json_group_array(json_object('order',item_order,'url',image_url,'key',image_key)) FROM directory_profile_media WHERE profile_id=p.id) AS sql_media,"+
+  "(SELECT json_group_array(json_object('order',x.item_order,'url',x.image_url,'key',x.image_key)) FROM (SELECT item_order,image_url,image_key FROM directory_profile_media WHERE profile_id=p.id ORDER BY item_order) x) AS sql_media,"+
   "(SELECT json_object('title',title,'description',description,'focus_keyword',focus_keyword,'canonical_url',canonical_url,'og_title',og_title,'og_description',og_description,'og_image_url',og_image_url,'noindex',noindex) FROM directory_profile_seo WHERE profile_id=p.id) AS sql_seo,"+
   "(SELECT json_object('reviewed_at',reviewed_at,'reviewed_by',reviewed_by,'unlock_pending',unlock_pending) FROM directory_profile_review_state WHERE profile_id=p.id) AS sql_review,"+
   "(SELECT json_group_array(json_object('field',quality_field,'status',resolution_status,'checked_at',checked_at)) FROM directory_profile_quality_resolutions WHERE profile_id=p.id) AS sql_quality,"+
