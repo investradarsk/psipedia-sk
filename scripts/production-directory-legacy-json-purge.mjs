@@ -55,6 +55,23 @@ function number(row,key) {
 }
 async function main() {
   authorized();
+  // Explicit cleanup approval does not authorize deploying a broken web.
+  // The legacy column is still named by Notion review, partner/admin, and
+  // public compatibility SQL. Fail before touching production D1 until
+  // those runtime references have been replaced with typed SQL owners.
+  const legacyRuntimeFiles=[
+    "lib/directory-store.ts",
+    "lib/notion-directory-sync.ts",
+    "lib/directory-notion-reviewed-sync.ts",
+    "lib/directory-reviewed-sync-lock.ts",
+    "lib/partner-directory-review.ts",
+    "lib/directory-0173-editorial-sql-mirror.ts",
+  ];
+  const offenders=legacyRuntimeFiles.filter(path=>
+    readFileSync(new URL("../"+path,import.meta.url),"utf8")
+      .includes("source_data_json"));
+  requireOk(offenders.length===0,"LIVE_JSON_RUNTIME_DEPENDENCIES");
+
   const names=(await query(
     "SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+
     "'directory_profiles','directory_profile_extra_fields',"+
