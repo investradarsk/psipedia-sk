@@ -137,15 +137,22 @@ jobs:
           mkdir -p .e2e-artifacts/partner-auth
           nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/partner-auth/server.log 2>&1 &
           echo $! > .e2e-artifacts/partner-auth/server.pid
+          # Cold Vite dependency optimization can exceed 90 seconds on hosted
+          # runners. Check actual HTTP readiness, not just the process startup.
           ready=0
-          for attempt in $(seq 1 90); do
-            if curl --silent --fail http://localhost:5173/partner/prihlasenie >/dev/null; then
+          for attempt in $(seq 1 240); do
+            if curl --silent --fail --connect-timeout 3 --max-time 10 http://localhost:5173/partner/prihlasenie >/dev/null; then
               ready=1
+              break
+            fi
+            if ! kill -0 "$(cat .e2e-artifacts/partner-auth/server.pid)" 2>/dev/null; then
+              echo "Local app process stopped before HTTP readiness"
               break
             fi
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then
+            echo "Partner E2E local app was not HTTP-ready; showing Vite server logs"
             tail -200 .e2e-artifacts/partner-auth/server.log
             exit 1
           fi

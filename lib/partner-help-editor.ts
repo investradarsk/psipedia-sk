@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import { helpSearchIndexAssignment } from "@/lib/partner-help-search-index";
+import { adminNotificationEventStatement } from "@/lib/admin-notifications";
+import { partnerFieldDiff } from "@/lib/partner-audit-diff";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { getPartnerMediaAsset, normalizePartnerMediaId } from "@/lib/partner-media";
 import { normalizePartnerGalleryMediaIds } from "@/lib/partner-profile-gallery-media";
@@ -92,7 +94,8 @@ export async function updatePartnerHelpPublic(input: {
   if (!parsed) throw new PartnerHelpEditorError("Neplatný záznam Pomoci psom.",404);
   const database = getPartnerDatabase(input.database);
   await requirePartnerPermission(input.accountId, input.resourceId, "HELP_EDIT_PUBLIC", database);
-  const oldPublicHref = input.publicOrigin ? (await getPartnerHelpEditor(input.accountId,input.resourceId,database)).publicHref : null;
+  const originalEditor=await getPartnerHelpEditor(input.accountId,input.resourceId,database);
+  const oldPublicHref=input.publicOrigin?originalEditor.publicHref:null;
   const baseRevision = input.baseRevision;
   if (typeof baseRevision !== "string" || baseRevision.length < 10 || baseRevision.length > 64)
     throw new PartnerHelpEditorError("Chýba verzia záznamu.");
@@ -198,8 +201,14 @@ export async function updatePartnerHelpPublic(input: {
     ...(mediaReady.length?[...mediaIds,input.accountId,mediaReady.length]:[]),
   ];
   const eventId = crypto.randomUUID();
+  const changeLog=partnerFieldDiff(originalEditor.values as Record<string,unknown>,patch as Record<string,unknown>);
+  if(newMain)changeLog.image={old:originalEditor.imageUrl,new:newMain.url};
+  if(hasGalleryEdit)changeLog.gallery={
+    old:originalEditor.gallery,new:[...externalGallery,...galleryPublished.map(item=>item.url)],
+  };
   const result = await database.batch([
     database.prepare(updateSql).bind(...args),
+    database.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('PARTNER_HELP_CAS_CONFLICT',char(36)) END"),
     ...mediaReady.map(item=>database.prepare(`UPDATE media_assets SET state='APPROVED',public_key=?1,
       reviewed_at=?2,published_at=?2
       WHERE id=?3 AND owner_id=?4 AND owner_type='PARTNER_HELP_UPDATE' AND state='PENDING'
@@ -213,8 +222,18 @@ export async function updatePartnerHelpPublic(input: {
         SELECT 1 FROM ${target.table} WHERE id=?6 AND updated_at=?5
       )`)
       .bind(eventId,actor,input.resourceId,
-        JSON.stringify({mode:"DIRECT_PUBLIC_SAVE",entityType:parsed.entityType,fields:[...keys,...(newMain?["image"]:[]),...(hasGalleryEdit?["gallery"]:[])],fromRevision:baseRevision}),
+        JSON.stringify({mode:"DIRECT_PUBLIC_SAVE",entityType:parsed.entityType,fields:[...keys,...(newMain?["image"]:[]),...(hasGalleryEdit?["gallery"]:[])],fromRevision:baseRevision,changes:changeLog}),
         nowIso,parsed.canonicalId),
+    adminNotificationEventStatement(database,{
+      eventType:"partner_help_direct_edit",sourceType:"PARTNER_PUBLIC_EDIT",
+      resourceType:"partner_help",resourceRef:input.resourceId,
+      actorType:"PARTNER",actorRef:actor,
+      targetUrl:(parsed.entityType==="ADOPTION_DOG"?"/admin/adopcie/":
+        parsed.entityType==="LOST_FOUND_DOG"?"/admin/stratene-najdene/":"/admin/pomoc/")+parsed.canonicalId,
+      title:"Partner upravil záznam",
+      body:originalEditor.title+" · "+(keys.length+(newMain?1:0)+(hasGalleryEdit?1:0))+" upravených polí",
+      tag:"partner-help-edit",dedupeKey:"partner-direct-help/"+eventId,
+    },nowIso),
   ]);
   if (Number(result[0]?.meta?.changes ?? 0) !== 1) throw new PartnerHelpEditorError("Záznam sa medzitým zmenil alebo už nemáte oprávnenie. Obnovte stránku.",409);
   if(input.publicOrigin){

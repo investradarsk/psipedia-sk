@@ -51,12 +51,12 @@ export default async function Page({params}:{params:Promise<{id:string}>}){
         <div><strong>{candidate.name}</strong><span>{partnerAdminDuplicateLabel(candidate.confidence)} · ID {candidate.canonicalId}</span></div>
         <dl><div><dt>Typ / kategória</dt><dd>{candidate.categoryOrType}</dd></div><div><dt>Mesto</dt><dd>{candidate.city||"—"}</dd></div><div><dt>Adresa</dt><dd>{candidate.address||"—"}</dd></div><div><dt>Web</dt><dd>{candidate.websiteUrl||"—"}</dd></div><div><dt>Telefón</dt><dd>{candidate.publicPhone||"—"}</dd></div><div><dt>E-mail</dt><dd>{candidate.publicEmail||"—"}</dd></div></dl>
         <p>{candidate.reasons.join(" · ")}</p>
-        <div className="admin-partner-button-row">{candidate.publicHref?<Link href={candidate.publicHref} target="_blank">Verejný profil ↗</Link>:null}{submission.active?<AdminPartnerNewProfileCandidateLinkButton id={submission.id} canonicalId={candidate.canonicalId}/>:null}</div>
+        <div className="admin-partner-button-row">{candidate.publicHref?<Link href={candidate.publicHref} target="_blank">Verejný profil ↗</Link>:null}{submission.active&&!submission.subjectId?<AdminPartnerNewProfileCandidateLinkButton id={submission.id} canonicalId={candidate.canonicalId}/>:null}</div>
       </article>)}</div>:<p>Nenašiel sa možný duplicitný profil.</p>}
     </section>
 
     <section className="admin-form-card"><h2>História rozhodnutí</h2><div className="admin-audit-list">{submission.moderation.length?submission.moderation.map((event)=><article key={String((event as {id?:unknown}).id)}><strong>{String((event as {action?:unknown}).action??"")}</strong><span>{String((event as {fromStatus?:unknown}).fromStatus??"—")} → {String((event as {toStatus?:unknown}).toStatus??"—")}</span><small>{new Date(String((event as {createdAt?:unknown}).createdAt)).toLocaleString("sk-SK")}</small></article>):<p>Bez udalostí.</p>}</div></section>
 
-    {submission.active?<AdminPartnerNewProfileActions id={submission.id} candidateIds={submission.duplicateCandidates.map((candidate)=>candidate.canonicalId)} hasImage={Boolean(submission.media)}/>:<section className="admin-form-card"><h2>Výsledok</h2><p>{submission.statusLabel}</p>{submission.rejectionReason?<p>Dôvod: {submission.rejectionReason}</p>:null}</section>}
+    {submission.active?<AdminPartnerNewProfileActions id={submission.id} candidateIds={submission.duplicateCandidates.map((candidate)=>candidate.canonicalId)} hasImage={Boolean(submission.media)} isCanonicalDraft={Boolean(submission.subjectId)}/>:<section className="admin-form-card"><h2>Výsledok</h2><p>{submission.statusLabel}</p>{submission.rejectionReason?<p>Dôvod: {submission.rejectionReason}</p>:null}</section>}
   </AdminShell>;
 }

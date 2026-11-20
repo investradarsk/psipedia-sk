@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { partnerEventFields, type PartnerEventPatch } from "@/lib/partner-event-fields";
 import { PartnerMediaField } from "@/components/partner-media-field";
+import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
 
 type DuplicateCandidate={id:number;title:string;startDate:string;city:string;confidence:string;reasons:string[]};
 type Props={mode:"create"|"edit";resourceId?:string;baseRevision?:string;initial?:PartnerEventPatch;currentImageUrl?:string|null};
@@ -20,6 +21,9 @@ export function PartnerEventForm({mode,resourceId,baseRevision,initial,currentIm
   const [confirmDuplicate,setConfirmDuplicate]=useState(false);
   const [mediaAssetId,setMediaAssetId]=useState<string|null>(null);
 
+  const dirty=JSON.stringify(draft)!==JSON.stringify(original)
+    ||cancelled!==(initial?.cancelled===true)||Boolean(mediaAssetId);
+  usePartnerUnsavedGuard(dirty,state!=="success");
   async function submit(event:React.FormEvent){
     event.preventDefault();if(state==="sending"||state==="success")return;
     setState("sending");setMessage("");

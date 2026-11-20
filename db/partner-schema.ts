@@ -342,3 +342,54 @@ export const partnerAuditEvents = sqliteTable("partner_audit_events", {
   check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','COMMERCIAL_AGREEMENT_CREATED','COMMERCIAL_AGREEMENT_UPDATED','COMMERCIAL_PAYMENT_MARKED_PAID','ENTITLEMENT_ACTIVATED','ENTITLEMENT_PAUSED','ENTITLEMENT_CANCELLED','ENTITLEMENT_EXPIRED','COMMERCIAL_PROMOTION_LINKED','COMMERCIAL_CAMPAIGN_LINKED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_WITHDRAWN','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_WITHDRAWN','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CHANGE_SUBMITTED','EVENT_WITHDRAWN','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED','CONTACT_PROFILE_COMPLETED','CONTACT_PROFILE_UPDATED','PASSWORD_SET','PASSWORD_CHANGED','PASSWORD_RESET_COMPLETED','GOOGLE_IDENTITY_LINKED')`),
   index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt),
 ]);
+
+/** 0175: one private chat per registered Partner account; history is not deleted with a profile. */
+export const partnerConversations=sqliteTable("partner_conversations",{
+  partnerAccountId:text("partner_account_id").primaryKey().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
+  lastMessageAt:text("last_message_at"),partnerLastReadAt:text("partner_last_read_at"),adminLastReadAt:text("admin_last_read_at"),
+});
+export const partnerChatMessages=sqliteTable("partner_chat_messages",{
+  id:text("id").primaryKey(),
+  partnerAccountId:text("partner_account_id").notNull().references(()=>partnerConversations.partnerAccountId,{onDelete:"restrict"}),
+  senderRole:text("sender_role").notNull(),senderRef:text("sender_ref").notNull(),
+  body:text("body").notNull().default(""),attachmentCount:integer("attachment_count").notNull().default(0),
+  createdAt:text("created_at").notNull(),
+},table=>[
+  check("partner_chat_sender_role_check",sql`${table.senderRole} IN ('PARTNER','ADMIN')`),
+  check("partner_chat_attachment_count_check",sql`${table.attachmentCount} BETWEEN 0 AND 3`),
+  check("partner_chat_body_check",sql`length(${table.body})<=4000 AND (length(trim(${table.body}))>0 OR ${table.attachmentCount}>0)`),
+  index("partner_chat_messages_account_created_idx").on(table.partnerAccountId,table.createdAt,table.id),
+]);
+export const partnerChatAttachments=sqliteTable("partner_chat_attachments",{
+  id:text("id").primaryKey(),messageId:text("message_id").notNull().references(()=>partnerChatMessages.id,{onDelete:"restrict"}),
+  privateKey:text("private_key").notNull().unique(),originalName:text("original_name").notNull(),
+  contentType:text("content_type").notNull(),sizeBytes:integer("size_bytes").notNull(),createdAt:text("created_at").notNull(),
+},table=>[
+  check("partner_chat_attach_type_check",sql`${table.contentType} IN ('image/jpeg','image/png','image/webp','application/pdf')`),
+  check("partner_chat_attach_size_check",sql`${table.sizeBytes} BETWEEN 1 AND 5242880`),
+  index("partner_chat_attachments_message_idx").on(table.messageId),
+]);
+export const partnerNotificationPreferences=sqliteTable("partner_notification_preferences",{
+  partnerAccountId:text("partner_account_id").primaryKey().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  emailEnabled:integer("email_enabled").notNull().default(1),
+  inAppEnabled:integer("in_app_enabled").notNull().default(1),
+  updatedAt:text("updated_at").notNull(),
+},table=>[
+  check("partner_notify_email_check",sql`${table.emailEnabled} IN (0,1)`),
+  check("partner_notify_inapp_check",sql`${table.inAppEnabled} IN (0,1)`),
+]);
+export const partnerChatEmailQueue=sqliteTable("partner_chat_email_queue",{
+  messageId:text("message_id").primaryKey().references(()=>partnerChatMessages.id,{onDelete:"restrict"}),
+  partnerAccountId:text("partner_account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  status:text("status").notNull().default("PENDING"),attempts:integer("attempts").notNull().default(0),
+  lastAttemptAt:text("last_attempt_at"),providerMessageId:text("provider_message_id"),
+  lastError:text("last_error"),sentAt:text("sent_at"),createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
+},table=>[
+  check("partner_chat_mail_status_check",sql`${table.status} IN ('PENDING','SENDING','SENT','FAILED','EXPIRED')`),
+  index("partner_chat_email_queue_pending_idx").on(table.status,table.createdAt),
+]);
+
+export const partnerChatOrphanScanState=sqliteTable("partner_chat_orphan_scan_state",{
+  singleton:integer("singleton").primaryKey(),cursor:text("cursor"),updatedAt:text("updated_at").notNull(),
+},table=>[check("partner_chat_orphan_singleton_check",sql`${table.singleton}=1`)]);

@@ -132,6 +132,15 @@ function createAdminMockDatabase() {
         quality_json: "[]", media_json: "[]",
       }];
     }
+    // A successful SQL-first 0173 detail read returns an empty, *present*
+    // projection for this lightweight fixture. Missing rows are a production
+    // error and must not be disguised by changing the application read path.
+    if (/AS qualifications_json/i.test(normalized) &&
+        /AS seo_json/i.test(normalized) && /AS quality_json/i.test(normalized) &&
+        /AS media_json/i.test(normalized)) {
+      return [{ qualifications_json: "[]", seo_json: null, hours_text: null,
+        quality_json: "[]", media_json: "[]" }];
+    }
     // SQL 0170 editorial detail always performs one fail-closed facts/filters
     // projection. This fixture models an applied but empty 0170 sidecar schema.
     if (/FROM directory_profile_public_facts WHERE profile_id=\?1/i.test(normalized) &&

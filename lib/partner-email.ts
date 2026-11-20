@@ -3,6 +3,9 @@ import { SITE_URL } from "@/config/public-site";
 import { decryptPii, encryptPii } from "@/lib/pii-crypto";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { normalizePartnerReturnTo } from "@/lib/partner-return-to";
+import { getPartnerNotificationPreferences } from "@/lib/partner-chat";
+import { runPartnerChatEmailSweep } from "@/lib/partner-chat-email";
+import { sweepPartnerChatOrphans } from "@/lib/partner-chat-orphan-cleanup";
 
 const RESEND_EMAIL_ENDPOINT = "https://api.resend.com/emails";
 const RESEND_TIMEOUT_MS = 8_000;
@@ -15,6 +18,7 @@ export type PartnerEmailBindings = {
   PARTNER_FROM_EMAIL?: string;
   EDITORIAL_FROM_EMAIL?: string;
   PII_ENCRYPTION_KEY?: string;
+  BUCKET?: R2Bucket;
 };
 
 export const partnerNotificationTypes = [
@@ -400,6 +404,18 @@ export async function processPartnerNotificationOutboxItem(
   ).bind(id).first<OutboxRow>();
   if (!existing) return { status: "missing" as const };
   if (existing.status === "SENT") return { status: "sent" as const };
+  // Auth and security emails must always work. All optional Partner updates
+  // respect the single account-level email channel toggle, even when older
+  // call sites insert directly into the legacy outbox.
+  if(!["AUTH_MAGIC_LINK","PASSWORD_RESET"].includes(existing.notification_type)){
+    const prefs=await getPartnerNotificationPreferences({
+      accountId:existing.partner_account_id,database,
+    });
+    if(!prefs.emailEnabled){
+      await expireOutboxItem(database,id,nowIso);
+      return {status:"expired" as const};
+    }
+  }
   if (Date.parse(existing.expires_at) <= now.getTime()) {
     await expireOutboxItem(database, id, nowIso);
     return { status: "expired" as const };
@@ -451,5 +467,12 @@ export async function runPartnerNotificationSweep(
     else if (result.status === "expired") summary.expired += 1;
     else summary.skipped += 1;
   }
+  // Existing cron remains the only delivery entrypoint; chat-specific queue
+  // avoids rebuilding the production outbox CHECK constraint.
+  try{await runPartnerChatEmailSweep({database,bindings,now});}
+  catch { /* Chat delivery failures must not interrupt the authentication outbox. */ }
+  // Bounded cleanup of crash-orphaned R2 objects; never touch linked messages.
+  try{await sweepPartnerChatOrphans({database,bucket:bindings.BUCKET,now});}
+  catch { /* Cleanup retries from its persisted cursor on the next sweep. */ }
   return summary;
 }

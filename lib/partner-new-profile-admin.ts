@@ -34,6 +34,7 @@ import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError 
 import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { assertSingleActivePartnerManager } from "@/lib/partner-single-manager";
+import { decidePartnerCanonicalDraftAdmin, PartnerCanonicalWorkflowError } from "@/lib/partner-canonical-workflow";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 type Resolution = "CREATED_NEW" | "LINKED_EXISTING";
@@ -43,6 +44,7 @@ type AdminRow = {
   resourceType:PartnerNewProfileResourceType;
   status:string;
   submitterRef:string|null;
+  subjectId:string|null;
   proposedPatchJson:string;
   riskFlagsJson:string;
   duplicateResourceType:string|null;
@@ -108,7 +110,7 @@ function safeCandidates(value:string){
   ).slice(0,8);
 }
 const BASE=`
-  SELECT s.id,s.resource_type resourceType,s.status,s.submitter_ref submitterRef,
+  SELECT s.id,s.resource_type resourceType,s.status,s.submitter_ref submitterRef,s.subject_id subjectId,
     s.proposed_patch_json proposedPatchJson,s.risk_flags_json riskFlagsJson,
     s.media_asset_id mediaAssetId,ma.original_mime mediaMime,ma.size_bytes mediaSizeBytes,ma.width mediaWidth,ma.height mediaHeight,
     s.duplicate_resource_type duplicateResourceType,s.duplicate_subject_id duplicateSubjectId,
@@ -135,7 +137,11 @@ async function hydrate(row:AdminRow,key:string){
     email:await decryptPii(row.emailCiphertext,key),
     duplicateCandidates:safeCandidates(row.duplicateCandidatesJson),
     riskFlags:safeJson<string[]>(row.riskFlagsJson,[]).filter((item)=>typeof item==="string"),
-    proposedProfile:normalizePartnerNewProfile(
+    // Linked drafts are already canonical and may intentionally have empty public fields.
+    proposedProfile:row.subjectId?{
+      resourceType:row.resourceType,displayName:row.displayName,
+      categoryOrType:row.categoryOrType,values:safeJson(row.proposedPatchJson,{}),
+    }:normalizePartnerNewProfile(
       row.resourceType,
       row.resourceType==="DIRECTORY_PROFILE"
         ? withoutLegacyDirectoryOnline(safeJson(row.proposedPatchJson,{}))
@@ -161,7 +167,7 @@ export async function listPartnerNewProfilesAdmin(input:{
       CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN s.created_at END ASC,
       s.updated_at DESC LIMIT 300
   `).all<AdminRow>()).results;
-  let items=await Promise.all(rows.map((row)=>hydrate(row,piiKey(input.encryptionKey))));
+  let items=await Promise.all(rows.filter(row=>row.status!=="DRAFT").map((row)=>hydrate(row,piiKey(input.encryptionKey))));
   if(input.status&&input.status!=="all"){
     if(input.status==="active")items=items.filter((item)=>item.active);
     else if(input.status==="history")items=items.filter((item)=>!item.active);
@@ -395,6 +401,10 @@ export async function createPartnerNewProfileAdmin(input:{
   let row=await raw(input.id,database);
   if(!row)throw new PartnerNewProfileError("Návrh sa nenašiel.",404);
   if(row.status==="APPROVED"&&row.resolutionType)return getPartnerNewProfileAdmin(input.id,{database});
+  if(row.subjectId){
+    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"APPROVE",database,now:input.now});
+    return getPartnerNewProfileAdmin(input.id,{database});
+  }
   await assertNewProfileIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);
   await ensurePendingReview(input.id,row.status,actorRef,database,input.requestId);
@@ -532,6 +542,7 @@ export async function linkPartnerNewProfileAdmin(input:{
   let row=await raw(input.id,database);
   if(!row)throw new PartnerNewProfileError("Návrh sa nenašiel.",404);
   if(row.status==="APPROVED"&&row.resolutionType)return getPartnerNewProfileAdmin(input.id,{database});
+  if(row.subjectId)throw new PartnerCanonicalWorkflowError("Tento návrh už má vlastný kanonický koncept. Otvorte jeho editor.",409);
   const canonical=await canonicalExists(row.resourceType,input.canonicalId,database);
   if(!canonical)throw new PartnerNewProfileError("Existujúci canonical profil sa nenašiel alebo je archivovaný.",404);
   const account=await database.prepare("SELECT status FROM partner_accounts WHERE id=?1 LIMIT 1").bind(row.accountId).first<{status:string}>();
@@ -616,6 +627,10 @@ export async function rejectPartnerNewProfileAdmin(input:{
   let row=await raw(input.id,database);
   if(!row)throw new PartnerNewProfileError("Návrh sa nenašiel.",404);
   if(row.status==="REJECTED")return getPartnerNewProfileAdmin(input.id,{database});
+  if(row.subjectId){
+    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"REJECT",database,now:input.now});
+    return getPartnerNewProfileAdmin(input.id,{database});
+  }
   const actorRef=await adminAuditActorRef(input.adminEmail);
   await ensurePendingReview(input.id,row.status,actorRef,database,input.requestId);
   row=await raw(input.id,database);

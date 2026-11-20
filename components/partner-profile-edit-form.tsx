@@ -3,6 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import type { PartnerProfileChangeResourceType, PartnerProfileEditableValue, PartnerProfileFieldDefinition } from "@/lib/partner-profile-changes";
 import { PartnerMediaField } from "@/components/partner-media-field";
+import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
 import { PartnerGalleryField } from "@/components/partner-gallery-field";
 import { directoryCategories } from "@/lib/directory";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
@@ -53,6 +54,11 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
   const [galleryUrls, setGalleryUrls] = useState<string[]>(Array.isArray(values.galleryUrls) ? values.galleryUrls : []);
   const [galleryMediaIds, setGalleryMediaIds] = useState<string[]>([]);
   const [additionalCategories, setAdditionalCategories] = useState<string[]>(Array.isArray(values.additionalCategories) ? values.additionalCategories : []);
+  const dirty=JSON.stringify(draft)!==JSON.stringify(initial)
+    ||Object.keys(filterChanges).length>0||Boolean(mediaAssetId)||galleryMediaIds.length>0
+    ||JSON.stringify(galleryUrls)!==JSON.stringify(Array.isArray(values.galleryUrls)?values.galleryUrls:[])
+    ||JSON.stringify(additionalCategories)!==JSON.stringify(Array.isArray(values.additionalCategories)?values.additionalCategories:[]);
+  usePartnerUnsavedGuard(dirty,state!=="success");
   const useSlovakLocation = resourceType === "DIRECTORY_PROFILE"
     || (resourceType === "HELP_ORGANIZATION" && String(draft.countryCode ?? "").trim().toUpperCase() === "SK");
 

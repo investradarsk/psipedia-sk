@@ -5,6 +5,8 @@ import { getPartnerMediaAsset, normalizePartnerMediaId } from "@/lib/partner-med
 import { publishSafeImage, type PrivateBucketLike } from "@/lib/private-media";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
+import { adminNotificationEventStatement } from "@/lib/admin-notifications";
+import { partnerFieldDiff } from "@/lib/partner-audit-diff";
 
 const COLUMNS: Record<string,string> = {
   title:"title",excerpt:"excerpt",eventType:"event_type",startDate:"start_date",
@@ -71,8 +73,12 @@ export async function savePartnerManagedEvent(input:{
   values.push(id,editor.baseUpdatedAt,input.resourceId,input.accountId);
   if(image)values.push(image.id,input.accountId);
   const changes=[...keys,...(image?["image"]:[])];
+  const changeLog=partnerFieldDiff(editor.values as Record<string,unknown>,patch);
+  if(image)changeLog.image={old:editor.resource.imageUrl,new:image.url};
+  const auditId=crypto.randomUUID();
   const results=await database.batch([
     database.prepare(sql).bind(...values),
+    database.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('PARTNER_EVENT_CAS_CONFLICT',char(36)) END"),
     ...(image?[database.prepare(`UPDATE media_assets SET state='APPROVED',public_key=?1,
       published_at=?2,reviewed_at=?2
       WHERE id=?3 AND owner_id=?4 AND owner_type='PARTNER_EVENT_UPDATE'
@@ -89,8 +95,17 @@ export async function savePartnerManagedEvent(input:{
       (id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at)
       SELECT ?1,'PARTNER',?2,'EVENT_CHANGE_APPROVED','PARTNER_RESOURCE',?3,?4,?5
       WHERE EXISTS(SELECT 1 FROM managed_events WHERE id=?6 AND updated_at=?5)`)
-      .bind(crypto.randomUUID(),actorRef,input.resourceId,
-        JSON.stringify({mode:"DIRECT_PUBLIC_SAVE",fields:changes,baseUpdatedAt:editor.baseUpdatedAt}),nowIso,id),
+      .bind(auditId,actorRef,input.resourceId,
+        JSON.stringify({mode:"DIRECT_PUBLIC_SAVE",fields:changes,baseUpdatedAt:editor.baseUpdatedAt,changes:changeLog}),nowIso,id),
+    adminNotificationEventStatement(database,{
+      eventType:"partner_event_direct_edit",sourceType:"PARTNER_PUBLIC_EDIT",
+      resourceType:"partner_event",resourceRef:input.resourceId,
+      actorType:"PARTNER",actorRef,
+      targetUrl:"/admin/podujatia/"+id,
+      title:"Partner upravil podujatie",
+      body:editor.resource.title+" · "+changes.length+" upravených polí",
+      tag:"partner-event-edit",dedupeKey:"partner-direct-event/"+auditId,
+    },nowIso),
   ]);
   if(Number(results[0]?.meta?.changes??0)!==1)
     throw new PartnerEventError("Podujatie sa medzitým zmenilo alebo už nemáte oprávnenie. Obnovte editor.",409);

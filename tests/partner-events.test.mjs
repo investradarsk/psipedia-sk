@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 const root=new URL("../",import.meta.url);
 const read=(path)=>fs.readFile(new URL("../"+path,import.meta.url),"utf8");
 const importTs=(path)=>import(pathToFileURL(new URL(path,root).pathname).href);
+const canonicalNewPage=await read("app/partner/koncepty/novy/page.tsx");
 
 const [migration,domain,admin,partnerApi,updateApi,withdrawApi,adminApi,attention,attentionStore,partnerAttention,email,platform,eventsPage,requestsPage,newPage,editPage]=await Promise.all([
  "drizzle/0067_partner_events.sql","lib/partner-events.ts","lib/partner-events-admin.ts","app/api/partner/events/route.ts",
@@ -159,7 +160,10 @@ test("Partner event Attention has stable key, direct review deep-link, lifecycle
 
 test("Partner UX exposes dashboard, create, edit, history and withdraw",()=>{
  assert.match(eventsPage,/Pridať podujatie/);assert.match(eventsPage,/pendingChange/);assert.match(eventsPage,/Upraviť/);
- assert.match(newPage,/PartnerEventForm mode="create"/);assert.match(editPage,/PartnerEventForm mode="edit"/);
+ assert.match(newPage,/redirect\("\/partner\/koncepty\/novy\?typ=MANAGED_EVENT"\)/);
+ assert.match(canonicalNewPage,/PartnerCanonicalDraftForm/);
+ assert.match(canonicalNewPage,/MANAGED_EVENT/);
+ assert.match(editPage,/PartnerEventForm mode="edit"/);
  assert.match(requestsPage,/Návrhy podujatí/);assert.match(requestsPage,/PartnerEventWithdrawButton/);
 });
 
