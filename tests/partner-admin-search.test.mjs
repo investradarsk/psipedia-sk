@@ -38,6 +38,8 @@ async function setup(){
     CREATE TABLE partner_resource_verifications(account_id TEXT NOT NULL,status TEXT NOT NULL);
     CREATE TABLE partner_commercial_interests(account_id TEXT NOT NULL,status TEXT NOT NULL);
     CREATE TABLE partner_commercial_agreements(account_id TEXT NOT NULL,status TEXT NOT NULL);
+    CREATE TABLE partner_conversations(partner_account_id TEXT PRIMARY KEY,admin_last_read_at TEXT,partner_last_read_at TEXT);
+    CREATE TABLE partner_chat_messages(id TEXT PRIMARY KEY,partner_account_id TEXT,sender_role TEXT,created_at TEXT);
   `);
   const insert=sql.prepare("INSERT INTO partner_accounts VALUES (?,?,?,?,?)");
   const member=sql.prepare("INSERT INTO partner_memberships VALUES (?,?,?)");
@@ -233,7 +235,7 @@ test("Partneri V2 opens on registered accounts with six useful columns and prese
   assert.match(page,/a\.pendingRequestCount/);
   assert.match(page,/a\.managedProfileCount/);
   assert.match(page,/a\.contactName/);
-  assert.match(page,/Pripravujeme/,"chat unread counts must not be invented");
+  assert.match(page,/unreadMessageCount/,"Admin list must show actual unread Partner messages");
   assert.match(page,/\/admin\/partners\/accounts\/\$\{a\.id\}/);
   assert.doesNotMatch(page,/className="admin-partner-stats"/,"old eight-stat dashboard removed");
   assert.match(css,/\.admin-partner-table\.admin-partner-v2-table/);
