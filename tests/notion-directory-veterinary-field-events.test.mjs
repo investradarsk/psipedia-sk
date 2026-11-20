@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror } from "../lib/directory-0170-editorial-sql-mirror.ts";
 import { planDirectory0173EditorialSqlMirror } from "../lib/directory-0173-editorial-sql-mirror.ts";
+import { planDirectoryExtraSqlTextMirror } from "../lib/directory-extra-sql-mirror.ts";
+import { planDirectoryStep3PresentationSqlMirror } from "../lib/directory-sql-step3-live-mirror.ts";
 import {
   isDirectoryEventPilotCategory,
   isDirectoryFieldEventCategory,
@@ -99,6 +101,7 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
       exports, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [], directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
       breederReadPath: (data, path) => path.split(".").reduce((v, k) => v?.[k], data),
       normalizeDirectorySearchText: str => str,
+      planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
       getManagedDirectoryProfileById: async () => profile,
     });
     const desired = {
