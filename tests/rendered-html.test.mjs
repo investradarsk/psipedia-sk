@@ -119,12 +119,14 @@ function createAdminMockDatabase() {
 
   function rowsFor(sql) {
     const normalized = sql.replace(/\s+/g, " ").trim();
-    // SQL 0173 detail read is one scalar projection. Model the installed but
-    // empty companion tables so the real fail-closed parser receives the same
-    // non-null row that SQLite returns even with no matching sidecar entries.
+    // The detail loader now requires canonical 0173 SQL-backed qualifications,
+    // SEO, quality and media. Simulate an applied, empty sidecar schema instead
+    // of returning null (which correctly fails closed in production).
     if (/FROM directory_profile_qualifications/i.test(normalized) &&
-        /AS qualifications_json/i.test(normalized) &&
-        /AS media_json/i.test(normalized)) {
+        /FROM directory_profile_seo/i.test(normalized) &&
+        /FROM directory_profile_opening_hours/i.test(normalized) &&
+        /FROM directory_profile_quality_resolutions/i.test(normalized) &&
+        /FROM directory_profile_media/i.test(normalized)) {
       return [{
         qualifications_json: "[]", seo_json: null, hours_text: null,
         quality_json: "[]", media_json: "[]",
