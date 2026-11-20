@@ -191,6 +191,10 @@ const REQUEST_UNION = `
 // Partner request union is planned. Query each request family independently,
 // then merge the globally ordered page in memory; do not execute REQUEST_UNION.
 const REQUEST_BRANCHES = REQUEST_UNION.trim().split(/\n  UNION ALL\n/);
+// Only the first UNION arm declares output aliases; give every independent
+// branch the same seven column names before filtering or ordering in SQLite.
+const requestBranchCte=(branch:string)=>
+  `WITH dossier_branch(kind,id,entityType,title,status,createdAt,canonicalId) AS (${branch})`;
 const REQUEST_PENDING_SQL = "status IN ('PENDING','SUBMITTED','PENDING_REVIEW','QUARANTINED','PENDING_VERIFICATION','NEW','OFFERED')";
 const REQUEST_PAGE_ORDER = `ORDER BY CASE WHEN ${REQUEST_PENDING_SQL} THEN 0 ELSE 1 END, createdAt DESC, id DESC`;
 
@@ -206,8 +210,8 @@ export async function listPartnerAccountDossierRequests(accountId:string,databas
   // Each branch has one SELECT, so none can exceed SQLite's compound
   // SELECT limit. Counts cover all records, not only the visible page.
   const summaries=await Promise.all(REQUEST_BRANCHES.map(branch=>
-    database.prepare(`SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN ${REQUEST_PENDING_SQL} THEN 1 ELSE 0 END),0) pending
-      FROM (${branch})`).bind(accountId).first<{total:number;pending:number}>()
+    database.prepare(`${requestBranchCte(branch)} SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN ${REQUEST_PENDING_SQL} THEN 1 ELSE 0 END),0) pending
+      FROM dossier_branch`).bind(accountId).first<{total:number;pending:number}>()
   ));
   const total=summaries.reduce((count,row)=>count+Number(row?.total??0),0);
   const pending=summaries.reduce((count,row)=>count+Number(row?.pending??0),0);
@@ -221,7 +225,7 @@ export async function listPartnerAccountDossierRequests(accountId:string,databas
   // to (offset + page size) from each guarantees exact cross-kind pagination.
   const take=offset+PARTNER_REQUEST_PAGE_SIZE;
   const groups=await Promise.all(REQUEST_BRANCHES.map(branch=>
-    database.prepare(`SELECT * FROM (${branch}) ${REQUEST_PAGE_ORDER} LIMIT ?2`)
+    database.prepare(`${requestBranchCte(branch)} SELECT * FROM dossier_branch ${REQUEST_PAGE_ORDER} LIMIT ?2`)
       .bind(accountId,take).all<RequestRow>()
   ));
   const items=groups.flatMap(group=>group.results)
