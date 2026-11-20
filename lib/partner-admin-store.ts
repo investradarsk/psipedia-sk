@@ -229,6 +229,18 @@ export async function setPartnerAccountStatusAdmin(input:{accountId:string;actio
       database.prepare(`UPDATE partner_accounts SET status=?,${column}=?,updated_at=? WHERE id=?`).bind(status,now,now,input.accountId),
       database.prepare("UPDATE resource_management_sessions SET revoked_at=? WHERE resource_type='PARTNER_ACCOUNT' AND subject_id=? AND revoked_at IS NULL").bind(now,input.accountId),
       database.prepare("UPDATE resource_access_tokens SET revoked_at=? WHERE resource_type='PARTNER_ACCOUNT' AND subject_id=? AND used_at IS NULL AND revoked_at IS NULL").bind(now,input.accountId),
+      // Suspension retains ownership. Deactivation permanently revokes management
+      // without archiving or deleting any published canonical profile.
+      ...(input.action==="DEACTIVATE"?[
+        database.prepare("UPDATE partner_memberships SET revoked_at=?,revoked_by=?,updated_at=? WHERE account_id=? AND revoked_at IS NULL").bind(now,actor,now,input.accountId),
+        database.prepare("UPDATE partner_help_claims SET status='REVOKED',revoked_at=?,revoked_by=?,updated_at=? WHERE account_id=? AND status='APPROVED'").bind(now,actor,now,input.accountId),
+        database.prepare("UPDATE partner_claims SET status='CANCELLED',updated_at=? WHERE account_id=? AND status='PENDING'").bind(now,input.accountId),
+        database.prepare("UPDATE partner_help_claims SET status='CANCELLED',cancelled_at=?,updated_at=? WHERE account_id=? AND status='PENDING'").bind(now,now,input.accountId),
+        database.prepare("UPDATE moderation_submissions SET status='WITHDRAWN',updated_at=? WHERE submitter_type='PARTNER_ACCOUNT' AND submitter_ref=? AND status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED')").bind(now,input.accountId),
+        database.prepare("UPDATE partner_new_profile_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(input.accountId),
+        database.prepare("UPDATE partner_event_submission_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(input.accountId),
+        database.prepare("UPDATE partner_profile_change_metadata SET dedupe_active=0 WHERE partner_account_id=?").bind(input.accountId),
+      ]:[]),
     ]); action=input.action==="SUSPEND"?"ACCOUNT_SUSPENDED":"ACCOUNT_DEACTIVATED";
   }else{
     await database.prepare("UPDATE resource_management_sessions SET revoked_at=? WHERE resource_type='PARTNER_ACCOUNT' AND subject_id=? AND revoked_at IS NULL").bind(now,input.accountId).run(); action="SESSIONS_REVOKED";
