@@ -34,9 +34,9 @@ export async function PATCH(request:Request,{params}:Params){
     const data=body as Record<string,unknown>;
     let draft;
     if(data.action==="SAVE"){
-      if(Object.keys(data).some(key=>!["action","data","baseUpdatedAt"].includes(key))||typeof data.baseUpdatedAt!=="string")
+      if(Object.keys(data).some(key=>!["action","data","baseUpdatedAt","media"].includes(key))||typeof data.baseUpdatedAt!=="string")
         throw new PartnerCanonicalWorkflowError("Neplatná aktualizácia konceptu.");
-      draft=await savePartnerCanonicalDraft({accountId:identity.accountId,id,data:data.data,baseUpdatedAt:data.baseUpdatedAt});
+      draft=await savePartnerCanonicalDraft({accountId:identity.accountId,id,data:data.data,baseUpdatedAt:data.baseUpdatedAt,media:data.media});
     }else if(data.action==="SUBMIT"){
       if(Object.keys(data).some(key=>key!=="action"))
         throw new PartnerCanonicalWorkflowError("Neplatné odoslanie konceptu.");
