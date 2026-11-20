@@ -5,6 +5,7 @@ import type { PartnerProfileChangeResourceType, PartnerProfileEditableValue, Par
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
 import { PartnerGalleryField } from "@/components/partner-gallery-field";
+import { partnerFieldOptionLabel } from "@/lib/partner-field-option-labels";
 import { directoryCategories } from "@/lib/directory";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 import { DirectoryCategoryFilterFields } from "@/components/directory-category-filter-fields";
@@ -151,7 +152,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
                   onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
                   disabled={state === "success"}
                 >
-                  {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+                  {(field.options ?? []).map((option) => <option key={option} value={option}>{partnerFieldOptionLabel(option)}</option>)}
                 </select>
               </label>
             );
@@ -218,8 +219,8 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
         disabled={state==="success" || state==="sending"} />
       <div className="partner-profile-edit-submit">
         <div>
-          <strong>Priame uloženie schváleného správcu.</strong>
-          <p>Menia sa iba upravené verejné polia a fotografie. SEO a interné nastavenia zostávajú chránené.</p>
+          <strong>Uložiť úpravy profilu</strong>
+          <p>Upravené informácie a fotografie sa po uložení zobrazia vo vašom profile.</p>
         </div>
         <button className="button button--dark" type="submit" disabled={state === "sending" || state === "success"}>
           {state === "sending" ? "Ukladám…" : "Uložiť zmeny"}
