@@ -49,15 +49,28 @@ export function buildDirectoryLegacyCutoverCandidatesSql() {
       "(" + present(canonical) + ") AND " + value(canonical) + " <> '' AND " +
       older + " <> '' AND " + value(canonical) + " <> " + older, 1]);
   }
-  // All literals are fixed in this source code; no dynamic SQL parameters.
-  // Do not add contact columns or the source_data_json payload to this output.
-  const selects = checks.map(([field, canonicalKey, issue, where, priority]) =>
-    "SELECT id AS psipedia_id, category, status, '" + field +
-    "' AS field, '" + canonicalKey + "' AS canonical_key, '" + issue +
-    "' AS issue, " + priority + " AS priority FROM directory_profiles WHERE " + where);
+  // One SELECT with a fixed JSON rule table instead of a UNION ALL of one
+  // SELECT per rule. Cloudflare D1 has a stricter compound-SELECT limit.
+  // Every rule/label is a code literal; profile values, names and contacts are
+  // never included in the output. The SQL still only reads directory_profiles.
+  const ruleLabels = checks.map(([field, canonicalKey, issue, , priority]) => ({
+    field, canonical_key: canonicalKey, issue, priority,
+  }));
+  const staticLabels = JSON.stringify(ruleLabels).replaceAll("'", "''");
+  const conditions = checks.map(([, , , where], index) =>
+    "WHEN " + index + " THEN (" + where + ")").join("\n    ");
   return "SELECT psipedia_id, category, status, field, canonical_key, issue\n" +
-    "FROM (\n" + selects.join("\nUNION ALL\n") +
-    "\n)\nORDER BY priority, category, psipedia_id, field, issue LIMIT 500;";
+    "FROM (\n" +
+    "  SELECT p.id AS psipedia_id, p.category, p.status,\n" +
+    "    json_extract(rule.value, '$.field') AS field,\n" +
+    "    json_extract(rule.value, '$.canonical_key') AS canonical_key,\n" +
+    "    json_extract(rule.value, '$.issue') AS issue,\n" +
+    "    CAST(json_extract(rule.value, '$.priority') AS INTEGER) AS priority\n" +
+    "  FROM directory_profiles AS p\n" +
+    "  CROSS JOIN json_each('" + staticLabels + "') AS rule\n" +
+    "  WHERE CASE CAST(rule.key AS INTEGER)\n    " + conditions +
+    "\n    ELSE 0 END\n" +
+    ")\nORDER BY priority, category, psipedia_id, field, issue LIMIT 500;";
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
