@@ -138,7 +138,7 @@ test("exact-slug read-only audit rejects unknown, changed-state or duplicate she
     const sql=helpApprovedShelterRemovalsQuery();
     assert.match(sql,/^SELECT /);
     const audit=()=>db.prepare(sql).get();
-    assert.deepEqual(audit(),{
+    assert.deepEqual({...audit()},{
       approved_unmatched:10,approved_distinct:10,unexpected_unmatched:0,
     });
     insert.run("unknown-rescue","utulky","published");
