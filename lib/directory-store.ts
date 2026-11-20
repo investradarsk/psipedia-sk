@@ -1,6 +1,7 @@
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { overlayDirectorySqlContacts } from "./directory-sql-contacts";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
+import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror";
 import { readDirectory0170EditorialFields } from "./directory-0170-editorial-read";
 import { readDirectory0173EditorialSql } from "./directory-0173-editorial-sql-read";
 import { env } from "cloudflare:workers";
@@ -2067,6 +2068,15 @@ export async function createManagedDirectoryProfile(
     ...(payload.galleryUrls !== undefined && input.category === "chovatelske-stanice"
       ? { galleryUrls: readDirectoryBreederGallery(input.sourceData) } : {}),
   });
+  // Mirror new SQL owners alongside the canonical INSERT; no orphan or stale
+  // sidecar values if another writer claims the same category/slug.
+  const presentationMirror = planDirectoryStep3PresentationSqlMirror({
+    identity: { kind: "category-slug", category: input.category, slug: input.slug,
+      updatedAt: now, actor: editorEmail },
+    services: input.services,
+    thumbnailImageDisplay: input.thumbnailImageDisplay,
+    detailImageDisplay: input.detailImageDisplay,
+  });
   let row: DirectoryProfileRow | null;
   if (sqlCategoryCreate) {
     const mirror = planDirectorySecondaryCategoryCreateSqlMirror({
@@ -2077,12 +2087,14 @@ export async function createManagedDirectoryProfile(
       canonical,
       ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
       ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+      ...presentationMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
     ]);
     row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   } else {
     const responses = await database.batch([
       canonical,
       ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+      ...presentationMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
     ]);
     row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   }
@@ -2214,6 +2226,10 @@ export async function updateManagedDirectoryProfile(
   const existing = existingProfile ?? (await getManagedDirectoryProfileById(id, database));
   if (!existing) return null;
   const now = new Date().toISOString();
+  const normalizedForMirrors = normalizeManagedDirectoryProfileInput(payload, existing.importData, {
+    currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
+    legacyAddress: existing.address,
+  });
   const canonicalStatement = buildManagedDirectoryProfileUpdateStatement(
     database,
     id,
@@ -2229,10 +2245,7 @@ export async function updateManagedDirectoryProfile(
   const editorialMirror = planDirectory0173EditorialSqlMirror({
     identity: { kind: "id", profileId: id, updatedAt: now, actor: editorEmail },
     ...(payload.qualifications !== undefined ? {
-      qualifications: normalizeManagedDirectoryProfileInput(payload, existing.importData, {
-        currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
-        legacyAddress: existing.address,
-      }).qualifications,
+      qualifications: normalizedForMirrors.qualifications,
     } : {}),
     ...(payload.seo !== undefined ? { seo: payload.seo } : {}),
     qualityFields: directoryQualityMirrorFields(payload),
@@ -2243,8 +2256,21 @@ export async function updateManagedDirectoryProfile(
             "chovatelske-stanice", payload.galleryUrls),
         ) } : {}),
   });
+  // An unrelated Admin/Notion event must never clear sidecar values.
+  // Changing the primary image resets saved crop settings only when that
+  // image was explicitly supplied and actually differs from the old image.
+  const imageChanged = payload.imageUrl !== undefined &&
+    normalizedForMirrors.imageUrl !== existing.imageUrl;
+  const presentationMirror = planDirectoryStep3PresentationSqlMirror({
+    identity: { kind: "id", profileId: id, updatedAt: now, actor: editorEmail },
+    services: payload.services !== undefined ? normalizedForMirrors.services : undefined,
+    thumbnailImageDisplay: payload.thumbnailImageDisplay !== undefined
+      ? normalizedForMirrors.thumbnailImageDisplay : imageChanged ? null : undefined,
+    detailImageDisplay: payload.detailImageDisplay !== undefined
+      ? normalizedForMirrors.detailImageDisplay : imageChanged ? null : undefined,
+  });
   let row: DirectoryProfileRow | null;
-  if (payload.additionalCategories !== undefined || editorialMirror.length > 0) {
+  if (payload.additionalCategories !== undefined || editorialMirror.length > 0 || presentationMirror.length > 0) {
     // Owner-submitted category changes mirror JSON and 0170 SQL in the SAME
     // D1 transaction. An omitted field must never clear SQL membership.
     // The initial UPDATE is the authority/CAS and the planner fails closed
@@ -2261,6 +2287,7 @@ export async function updateManagedDirectoryProfile(
       canonicalStatement,
       ...mirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
       ...editorialMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
+      ...presentationMirror.map(item => database.prepare(item.sql).bind(...item.bindings)),
     ]);
     row = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
   } else {
