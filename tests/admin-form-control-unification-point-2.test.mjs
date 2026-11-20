@@ -5,14 +5,14 @@ import test from "node:test";
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const noNativeConfirm = path => assert.doesNotMatch(read(path), /window\.confirm\s*\(/, path);
 
-test("Help case deletion requires the shared cancellation-first modal before original DELETE", () => {
+test("Help case deletion requires the shared cancellation-first modal and guarded permanent lifecycle", () => {
   const src = read("components/admin-help-dashboard.tsx");
   assert.match(src, /setPendingDelete\(item\)/);
   assert.match(src, /<AdminDestructiveConfirmDialog/);
   assert.match(src, /onConfirm=\{\(\) => \{ if \(pendingDelete\) void removeItem\(pendingDelete\); \}\}/);
   assert.match(src, /pending=\{deletingId !== null\}/);
-  assert.match(src, /method: "DELETE"/);
-  assert.match(src, /\/api\/admin\/help\/\$\{item.id\}/);
+  assert.match(src, /removeAdminRecordFromList\("help", item\.id, item\.title\)/);
+  assert.doesNotMatch(src, /method: "DELETE"/);
   assert.match(src, /setPendingDelete\(null\)/);
   noNativeConfirm("components/admin-help-dashboard.tsx");
 });

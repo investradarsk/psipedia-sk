@@ -77,6 +77,143 @@ function normalizeFilter(id, value) {
   return ["yes","no","unknown"].includes(normalized) ? normalized : "INVALID";
 }
 
+/**
+ * SQL 0173 remains a shadow, not a proof of successful public/Notion cutover.
+ * Report issue classes and counts only; never return editorial values or URLs.
+ * Absence of a SQL row is NOT an independently verified explicit clear.
+ */
+function classifyDirectory0173Row(row, source, issue) {
+  // Older test fixtures may omit all 0173 fields. A production SELECT never does.
+  if (row.sql_qualifications === undefined) return;
+  const qualifications = parseArray(row.sql_qualifications);
+  const hours = parseArray(row.sql_hours);
+  const media = parseArray(row.sql_media);
+  const quality = parseArray(row.sql_quality);
+  const seo = row.sql_seo === null ? null : parseObject(row.sql_seo);
+  const review = row.sql_review === null ? null : parseObject(row.sql_review);
+  if (!qualifications || !hours || !media || !quality ||
+      (row.sql_seo !== null && !seo) || (row.sql_review !== null && !review)) {
+    issue("sql0173","invalid_relation_aggregate");
+    return;
+  }
+  const oldQualifications = parseArray(row.qualifications_json);
+  if (!oldQualifications || oldQualifications.some(value => typeof value !== "string") ||
+      qualifications.some(value => typeof value !== "string")) {
+    issue("qualification","invalid_list");
+  } else {
+    const legacy = oldQualifications.filter(v => v.trim());
+    if (legacy.length && !qualifications.length)
+      issue("qualification","legacy_only_unverified");
+    else if (JSON.stringify(legacy) !== JSON.stringify(qualifications))
+      issue("qualification","sql_mismatch_review");
+  }
+
+  const seenDays = new Set();
+  let sqlFreeText = "";
+  for (const entry of hours) {
+    if (!entry || !Number.isInteger(entry.day) || entry.day < 0 || entry.day > 7 ||
+        typeof entry.text !== "string" || !entry.text.trim() ||
+        seenDays.has(entry.day)) issue("hours","invalid_sql_row");
+    else {
+      seenDays.add(entry.day);
+      if (entry.day === 0) sqlFreeText = entry.text.trim();
+    }
+  }
+  // Real weekday rows are intentionally not reverse-engineered into legacy prose.
+  if ([...seenDays].some(day => day !== 0)) issue("hours","structured_weekdays_need_read_cutover_review");
+  if (source) {
+    const oldHours = ["Ordinačné hodiny","Otváracie hodiny","Otváracia doba",
+      "Ordinačná doba","Pracovná doba"].filter(key => own(source,key));
+    const historical = oldHours.length ? text(source[oldHours[0]]).trim() : "";
+    const alias = oldHours.slice(1).some(key => present(source[key]));
+    if (!historical && alias) issue("hours","legacy_alias_after_clear");
+    if (historical && !seenDays.has(0) && ![...seenDays].some(day => day !== 0))
+      issue("hours","legacy_only_unverified");
+    else if (historical && seenDays.has(0) && historical !== sqlFreeText)
+      issue("hours","sql_mismatch_review");
+    else if (!historical && seenDays.has(0))
+      issue("hours","sql_only_review");
+  }
+
+  const seenMedia = new Set();
+  const urls = [];
+  for (const entry of media) {
+    if (!entry || typeof entry.order !== "number" || !Number.isSafeInteger(entry.order) ||
+        entry.order < 0 || seenMedia.has(entry.order) ||
+        (typeof entry.url !== "string" && typeof entry.key !== "string")) {
+      issue("gallery","invalid_sql_row");
+      continue;
+    }
+    seenMedia.add(entry.order);
+    if (typeof entry.url === "string" && entry.url.trim()) urls.push(entry.url.trim());
+    else issue("gallery","sql_key_only_review");
+  }
+  if (media.length > 6) issue("gallery","more_than_six");
+  if (source) {
+    // The breeder gallery uses a different canonical compatibility key.
+    const key = row.category === "chovatelske-stanice" &&
+      source._psipedia_breeder_gallery_urls !== undefined
+      ? "_psipedia_breeder_gallery_urls" : "_psipedia_profile_gallery_urls";
+    const old = source[key] === undefined ? [] : parseArray(source[key]);
+    if (!old || old.some(v => typeof v !== "string"))
+      issue("gallery","invalid_legacy_list");
+    else if (JSON.stringify(old.map(v => v.trim())) !== JSON.stringify(urls)) {
+      issue("gallery",urls.length ? "sql_mismatch_review":"legacy_only_unverified");
+    }
+  }
+
+  const seoLegacy = parseObject(row.seo_json);
+  if (!seoLegacy) issue("seo","invalid_legacy_json");
+  else {
+    const fields = [
+      ["title","title"],["description","description"],
+      ["focusKeyword","focus_keyword"],["canonicalUrl","canonical_url"],
+      ["ogTitle","og_title"],["ogDescription","og_description"],
+      ["ogImage","og_image_url"],["noindex","noindex"],
+    ];
+    const legacyIsSet = fields.some(([old]) => old === "noindex"
+      ? seoLegacy.noindex === true : present(seoLegacy[old]));
+    if (!seo) {
+      if (legacyIsSet) issue("seo","legacy_only_unverified");
+    } else {
+      for (const [old,sql] of fields) {
+        const expected = old === "noindex" ? (seoLegacy.noindex === true ? 1 : 0)
+          : text(seoLegacy[old]);
+        const actual = old === "noindex" ? Number(seo[sql]) : text(seo[sql]);
+        if (expected !== actual) issue("seo","sql_mismatch_review");
+      }
+    }
+  }
+
+  if (source) {
+    const reviewedAt = text(source._psipedia_profile_review_reviewed_at).trim();
+    const reviewedBy = text(source._psipedia_profile_review_reviewed_by).trim();
+    const pending = source._psipedia_profile_review_unlock_pending === "1" ? 1 : 0;
+    if (!review) {
+      if (reviewedAt || pending) issue("review","legacy_only_unverified");
+    } else if (text(review.reviewed_at) !== reviewedAt ||
+        text(review.reviewed_by) !== reviewedBy || Number(review.unlock_pending) !== pending) {
+      issue("review","sql_lock_mismatch");
+    }
+    const indexed = new Map();
+    for (const entry of quality) {
+      if (!entry || !["phone","email","website","image","address"].includes(entry.field) ||
+          !["DOES_NOT_EXIST","NOT_PUBLIC","NOT_APPLICABLE","NOT_FOUND"].includes(entry.status) ||
+          typeof entry.checked_at !== "string" || !entry.checked_at ||
+          indexed.has(entry.field)) issue("quality","invalid_sql_row");
+      else indexed.set(entry.field,entry);
+    }
+    for (const field of ["phone","email","website","image","address"]) {
+      const status = text(source["_psipedia_quality_"+field+"_status"]).trim();
+      const checkedAt = text(source["_psipedia_quality_"+field+"_checked_at"]).trim();
+      const sql = indexed.get(field);
+      if (status && !sql) issue("quality","legacy_only_unverified");
+      else if (sql && (!status || !checkedAt || status !== sql.status || checkedAt !== sql.checked_at))
+        issue("quality","sql_mismatch_review");
+    }
+  }
+}
+
 /** Pure, read-only classifier. Does NOT infer a last-write-wins winner. */
 export function classifyDirectory0170Row(row) {
   const issues = new Set();
@@ -225,6 +362,7 @@ export function classifyDirectory0170Row(row) {
     }
     if (filters.some(x => !definitions.some(def => def.id === x?.filter_id))) issue("filter","unknown_sql_id");
   }
+  classifyDirectory0173Row(row, source, issue);
   return {
     category: validCategory ? category : "unknown",
     mappedToNotion: Number(row.notion_mapped) === 1,
@@ -297,6 +435,12 @@ const RELATION_SNAPSHOT = Object.freeze([
   ["directory_profile_filter_values", "value_text", "updated_at"],
   ["service_profile_option_choices", "choice", "updated_at"],
   ["directory_service_notion_relation_sync", "confirmed_ids_json", "synced_at"],
+  ["directory_profile_qualifications", "qualification_text", "updated_at"],
+  ["directory_profile_opening_hours", "hours_text", "updated_at"],
+  ["directory_profile_media", "image_url", "updated_at"],
+  ["directory_profile_seo", "title", "updated_at"],
+  ["directory_profile_review_state", "reviewed_by", "updated_at"],
+  ["directory_profile_quality_resolutions", "resolution_status", "updated_at"],
 ]);
 function relationalSnapshot() {
   // Aggregate fingerprints are SELECT-only and contain no personal values.
@@ -312,19 +456,25 @@ function relationalSnapshot() {
   }));
 }
 function state() {
-  const tables = select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('directory_profiles','directory_notion_sync','directory_profile_additional_categories','directory_profile_public_facts','directory_profile_filter_values','service_profile_option_choices','directory_service_notion_relation_sync')");
-  must(tables.length === 7, "MISSING_SCHEMA");
-  const columns = select("SELECT name FROM pragma_table_info('directory_profiles') WHERE name IN ('website_url','public_phone','public_email','facebook_url','instagram_url','source_data_json')");
-  must(columns.length === 6,"MISSING_COLUMNS");
+  const tables = select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('directory_profiles','directory_notion_sync','directory_profile_additional_categories','directory_profile_public_facts','directory_profile_filter_values','service_profile_option_choices','directory_service_notion_relation_sync','directory_profile_qualifications','directory_profile_opening_hours','directory_profile_media','directory_profile_seo','directory_profile_review_state','directory_profile_quality_resolutions')");
+  must(tables.length === 13, "MISSING_SCHEMA");
+  const columns = select("SELECT name FROM pragma_table_info('directory_profiles') WHERE name IN ('website_url','public_phone','public_email','facebook_url','instagram_url','source_data_json','seo_json','qualifications_json')");
+  must(columns.length === 8,"MISSING_COLUMNS");
   const row = select("SELECT COUNT(*) AS profiles,COALESCE(MAX(id),0) AS max_id,COALESCE(SUM(id),0) AS id_sum,COALESCE(SUM(length(source_data_json)),0) AS json_chars,COALESCE(MAX(updated_at),'') AS latest_update FROM directory_profiles")[0];
   must(row && Object.values({profiles:row.profiles,max_id:row.max_id,id_sum:row.id_sum,json_chars:row.json_chars}).every(x=>Number.isSafeInteger(Number(x))),"INVALID_BASELINE");
   return { ...row, relations:relationalSnapshot() };
 }
-const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_json,p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,"+
+const profileSelect = cursor => "SELECT p.id,p.category,p.status,p.source_data_json,p.website_url,p.public_phone,p.public_email,p.facebook_url,p.instagram_url,p.qualifications_json,p.seo_json,"+
   "(SELECT json_group_array(category) FROM directory_profile_additional_categories WHERE profile_id=p.id) AS sql_categories,"+
   "(SELECT json_group_array(json_object('field_key',field_key,'value_text',value_text)) FROM directory_profile_public_facts WHERE profile_id=p.id) AS sql_facts,"+
   "(SELECT json_group_array(json_object('category',category,'filter_id',filter_id,'value_text',value_text)) FROM directory_profile_filter_values WHERE profile_id=p.id) AS sql_filters,"+
   "(SELECT json_group_array(json_object('option_id',option_id,'choice',choice,'version',version)) FROM service_profile_option_choices WHERE profile_id=p.id) AS sql_services,"+
+  "(SELECT json_group_array(x.qualification_text) FROM (SELECT qualification_text FROM directory_profile_qualifications WHERE profile_id=p.id ORDER BY item_order) x) AS sql_qualifications,"+
+  "(SELECT json_group_array(json_object('day',day_of_week,'text',hours_text)) FROM directory_profile_opening_hours WHERE profile_id=p.id) AS sql_hours,"+
+  "(SELECT json_group_array(json_object('order',x.item_order,'url',x.image_url,'key',x.image_key)) FROM (SELECT item_order,image_url,image_key FROM directory_profile_media WHERE profile_id=p.id ORDER BY item_order) x) AS sql_media,"+
+  "(SELECT json_object('title',title,'description',description,'focus_keyword',focus_keyword,'canonical_url',canonical_url,'og_title',og_title,'og_description',og_description,'og_image_url',og_image_url,'noindex',noindex) FROM directory_profile_seo WHERE profile_id=p.id) AS sql_seo,"+
+  "(SELECT json_object('reviewed_at',reviewed_at,'reviewed_by',reviewed_by,'unlock_pending',unlock_pending) FROM directory_profile_review_state WHERE profile_id=p.id) AS sql_review,"+
+  "(SELECT json_group_array(json_object('field',quality_field,'status',resolution_status,'checked_at',checked_at)) FROM directory_profile_quality_resolutions WHERE profile_id=p.id) AS sql_quality,"+
   "(SELECT confirmed_ids_json FROM directory_service_notion_relation_sync WHERE directory_profile_id=p.id) AS sql_service_baseline,"+
   "(SELECT notion_page_id FROM directory_service_notion_relation_sync WHERE directory_profile_id=p.id) AS sql_baseline_notion_page_id,"+
   "(SELECT notion_page_id FROM directory_notion_sync WHERE directory_profile_id=p.id) AS notion_page_id,"+
@@ -373,9 +523,10 @@ function run() {
     v3AndRelationalSnapshotStable:JSON.stringify(before.relations)===JSON.stringify(after.relations),
     scanned, baselineProfiles:Number(before.profiles), endProfiles:Number(after.profiles),
     byCategory,issues,issuesByCategory,sampleProfileIds,
-    v3CanonicalSqlAudited:true, additionalCategoryEmptyConfirmedSeparately:true,
+    v3CanonicalSqlAudited:true, sql0173ShadowAudited:true,
+    sql0173ReadCutoverApproved:false, additionalCategoryEmptyConfirmedSeparately:true,
     v3NotionBaselineIsReceiptOnly:true, legacyServicesTextNotEquivalent:true,
-    nextStep:"review 0170 category/fact/filter and V3 relation evidence; never infer backfill or SQL-only readiness from absent rows",
+    nextStep:"review 0170/V3 and 0173 qualification/hours/gallery/SEO/review/quality evidence; unproven empty SQL rows never authorize backfill or SQL-only reads",
   };
   writeFileSync(REPORT,JSON.stringify(report,null,2)+"\n");
   console.log(JSON.stringify({

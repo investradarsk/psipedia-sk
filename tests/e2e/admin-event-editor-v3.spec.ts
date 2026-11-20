@@ -287,7 +287,11 @@ test("Existing published event: PUT preserves payload, save changes and unpublis
   });
   const root = await openEditor(page, "published");
   await expect(root.getByRole("button", { name: "Uložiť zmeny", exact: true })).toBeVisible();
-  await expect(root.getByRole("button", { name: "Stiahnuť z webu", exact: true })).toBeVisible();
+  // Destructive and publication-lifecycle actions live in the collapsed More actions panel.
+  const extraActions = root.locator("[data-editor-actionbar] [data-admin-event-more-actions]");
+  await extraActions.locator("summary").click();
+  await expect(extraActions).toHaveAttribute("open", "");
+  await expect(extraActions.getByRole("button", { name: "Stiahnuť z webu", exact: true })).toBeVisible();
   await expect(root.getByRole("button", { name: "Uložiť koncept", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Späť na podujatia", exact: true })).toHaveCount(1);
   await root.getByLabel("Názov podujatia").fill("Upravená klubová výstava");
@@ -410,8 +414,12 @@ for (const width of [1440, 390, 320]) {
     const root = await openEditor(page, "published");
     await checkNoHorizontalOverflow(page);
     const footer = root.locator("[data-editor-actionbar]");
+    const extraActions = footer.locator("[data-admin-event-more-actions]");
+    await extraActions.locator("summary").click();
+    await expect(extraActions).toHaveAttribute("open", "");
     for (const label of ["Stiahnuť z webu", "Uložiť zmeny"]) {
       const button = footer.getByRole("button", { name: label, exact: true });
+      await button.scrollIntoViewIfNeeded();
       await expect(button).toBeInViewport({ ratio: 0.5 });
       const box = await button.boundingBox();
       expect(box?.width ?? 0).toBeGreaterThan(30);

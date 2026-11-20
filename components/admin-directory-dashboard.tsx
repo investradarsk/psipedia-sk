@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
+import { removeAdminRecordFromList, adminListRemovalMessage } from "@/lib/admin-record-list-delete";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -44,6 +45,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
     filters.city || filters.verification !== "all" || filters.media !== "all",
   ));
   const [deleteTarget, setDeleteTarget] = useState<ManagedDirectoryProfileSummary | null>(null);
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<ManagedDirectoryProfileSummary | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [reviewingId, setReviewingId] = useState<number | null>(null);
   const [reviewedOverrides, setReviewedOverrides] = useState<Record<number, boolean>>({});
@@ -120,6 +122,22 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
       setMessage(error instanceof Error ? error.message : "Stav kontroly sa nepodarilo uložiť.");
     } finally {
       setReviewingId(null);
+    }
+  }
+
+  async function permanentlyRemoveProfile(profile: ManagedDirectoryProfileSummary) {
+    if (deletingId !== null) return;
+    setDeletingId(profile.id); setMessage("");
+    try {
+      const result = await removeAdminRecordFromList("directory", profile.id, profile.name);
+      setMessage(adminListRemovalMessage(result, "Profil"));
+      setHardDeleteTarget(null);
+      bulkSelection.clear();
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Profil sa nepodarilo odstrániť.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -268,6 +286,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                   <AdminDirectoryEditorLink className="admin-row-edit" returnHref={listReturnHref} profileId={profile.id}>Detail</AdminDirectoryEditorLink>
                   {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Web ↗</Link>}
                   {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
+                  <button type="button" disabled={deletingId !== null} onClick={() => setHardDeleteTarget(profile)}>Odstrániť</button>
                 </div> },
               ]}
             />
@@ -276,6 +295,17 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
         <AdminPagination pagination={pagination} basePath={directoryAdminHref({ ...filters, page: 1 }).replace("/admin/adresar", basePath)} />
       </section>
 
+      <AdminDestructiveConfirmDialog
+        open={Boolean(hardDeleteTarget)}
+        title="Natrvalo odstrániť profil?"
+        description={hardDeleteTarget ? `Profil „${hardDeleteTarget.name}“ sa odstráni z kanonickej D1. Prepojený Notion sa po overení presunie do koša. Ak existujú chránené partnerské alebo kontrolné väzby, operácia zostane nedokončená a nebude hlásiť úspech.` : undefined}
+        affectedCount={hardDeleteTarget ? 1 : 0}
+        affectedLabel="profil"
+        confirmLabel="Natrvalo odstrániť"
+        pending={deletingId !== null}
+        onCancel={() => { if (deletingId === null) setHardDeleteTarget(null); }}
+        onConfirm={() => { if (hardDeleteTarget) void permanentlyRemoveProfile(hardDeleteTarget); }}
+      />
       <AdminDestructiveConfirmDialog
         open={Boolean(deleteTarget)}
         title="Archivovať profil?"
