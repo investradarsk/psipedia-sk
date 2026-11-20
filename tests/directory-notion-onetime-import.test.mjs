@@ -168,15 +168,22 @@ test("D1 write CAS rejects deleted/pending-delete IDs or slugs, not only preflig
   const plan=planNotionDirectoryImport(page(),row(),SOURCE);
   const batch=buildBatch(plan);
   assert.equal(batch.length>1,true);
-  for(const which of ["record_id","record_slug"]){
+  for(const which of ["record_id","record_slug","notion_page_id"]){
     const db=minimalImportD1();
-    db.prepare("INSERT INTO admin_record_tombstones(kind,record_id,record_slug) VALUES('directory',?,?)")
-      .run(which==="record_id"?1810:999,which==="record_slug"?"vet-sk":"other");
+    db.prepare("INSERT INTO admin_record_tombstones(kind,record_id,record_slug,notion_page_id) VALUES('directory',?,?,?)")
+      .run(which==="record_id"?1810:999,which==="record_slug"?"vet-sk":"other",
+        which==="notion_page_id"?pageId:null);
     assert.equal(db.prepare(batch[0].sql).all(...batch[0].params).length,0,which);
     assert.throws(()=>db.prepare(batch[1].sql).get(),/malformed JSON/i);
     assert.equal(db.prepare("SELECT name FROM directory_profiles WHERE id=1810").get().name,"Old Vet");
     db.close();
   }
+});
+test("one-time import keeps the D1 Time Travel bookmark in the restricted JSON artifact",()=>{
+  const src=readFileSync(new URL("../scripts/production-directory-onetime-notion-import.mjs",import.meta.url),"utf8");
+  assert.match(src,/recoveryBookmark:recoveryBookmarkValue/);
+  assert.match(src,/recoveryBookmarkValue=findBookmark\(payload\)/);
+  assert.doesNotMatch(src,/console\.log\([^\n]*recoveryBookmarkValue/);
 });
 test("one-time import upserts Notion SQL relations before pruning only stale rows",()=>{
   const plan=planNotionDirectoryImport(page(),row(),SOURCE);
