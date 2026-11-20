@@ -100,10 +100,11 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
   // Help ownership is stored separately from partner_memberships.
   const memberships=new Map<string,number>();
   const pending=new Map<string,{requests:number;helpProfiles:number}>();
+  const unreadMessages=new Map<string,number>();
   if(pageRows.length){
     const placeholders=pageRows.map(()=>"?").join(",");
     const ids=pageRows.map(row=>row.id);
-    const [membershipRows,requestRows]=await Promise.all([
+    const [membershipRows,requestRows,chatRows]=await Promise.all([
       database.prepare(
         "SELECT account_id accountId,COUNT(*) activeMembershipCount FROM partner_memberships WHERE revoked_at IS NULL AND account_id IN ("+placeholders+") GROUP BY account_id"
       ).bind(...ids).all<{accountId:string;activeMembershipCount:number}>(),
@@ -132,8 +133,15 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
           (SELECT COUNT(*) FROM partner_help_claims c WHERE c.account_id=a.id AND c.status='APPROVED') AS helpProfiles
         FROM partner_accounts a WHERE a.id IN (${placeholders})
       `).bind(...ids).all<{accountId:string;pendingRequests:number;helpProfiles:number}>(),
+      database.prepare(
+        "SELECT m.partner_account_id accountId,COUNT(*) unread FROM partner_chat_messages m "+
+        "LEFT JOIN partner_conversations c ON c.partner_account_id=m.partner_account_id "+
+        "WHERE m.sender_role='PARTNER' AND (c.admin_last_read_at IS NULL OR m.created_at>c.admin_last_read_at) "+
+        "AND m.partner_account_id IN ("+placeholders+") GROUP BY m.partner_account_id"
+      ).bind(...ids).all<{accountId:string;unread:number}>(),
     ]);
     for(const item of membershipRows.results)memberships.set(item.accountId,Number(item.activeMembershipCount));
+    for(const item of chatRows.results)unreadMessages.set(item.accountId,Number(item.unread));
     for(const item of requestRows.results)pending.set(item.accountId,{
       requests:Number(item.pendingRequests),helpProfiles:Number(item.helpProfiles),
     });
@@ -142,6 +150,7 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
     items:pageRows.map(({emailCiphertext,contactNameCiphertext,...row})=>({
       ...row,
       pendingRequestCount:pending.get(row.id)?.requests??0,
+      unreadMessageCount:unreadMessages.get(row.id)??0,
       activeMembershipCount:memberships.get(row.id)??0,
       managedProfileCount:(memberships.get(row.id)??0)+(pending.get(row.id)?.helpProfiles??0),
     })),
