@@ -133,7 +133,11 @@ const PROFILE_SQL=[
   "CASE WHEN EXISTS(SELECT 1 FROM geo_points g WHERE g.directory_profile_id=p.id",
   "AND g.google_place_id IS NOT NULL AND g.google_place_source_fingerprint=g.source_fingerprint",
   "AND g.source_fingerprint IS NOT NULL) THEN 1 ELSE 0 END AS confirmed_google,",
-  "0 AS tombstone",
+  "CASE WHEN EXISTS(SELECT 1 FROM admin_record_tombstones tomb",
+  "WHERE tomb.kind='directory' AND (tomb.record_id=p.id OR tomb.record_slug=p.slug",
+  "OR (tomb.notion_page_id IS NOT NULL AND",
+  "REPLACE(LOWER(tomb.notion_page_id),'-','')=REPLACE(LOWER(m.notion_page_id),'-',''))))",
+  "THEN 1 ELSE 0 END AS tombstone",
   "FROM directory_profiles p LEFT JOIN directory_notion_sync m ON m.directory_profile_id=p.id",
   "WHERE p.id>? ORDER BY p.id LIMIT 200",
 ].join(" ");
@@ -159,7 +163,7 @@ async function schema(){
     "directory_profile_filter_values","directory_profile_qualifications",
     "directory_profile_opening_hours","directory_profile_seo",
     "directory_profile_quality_resolutions","directory_profile_review_state",
-    "partner_resources","partner_memberships"];
+    "partner_resources","partner_memberships","admin_record_tombstones"];
   const got=await select("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+
     tables.map(()=>"?").join(",")+")",tables);
   must(got.length===tables.length,"MISSING_TABLES");
@@ -200,6 +204,9 @@ function buildBatch(p){
     "AND NOT EXISTS(SELECT 1 FROM partner_resources r JOIN partner_memberships pm ON pm.resource_id=r.id",
     "WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=directory_profiles.id",
     "AND pm.revoked_at IS NULL)",
+    "AND NOT EXISTS(SELECT 1 FROM admin_record_tombstones tomb",
+    "WHERE tomb.kind='directory' AND (tomb.record_id=directory_profiles.id",
+    "OR tomb.record_slug=directory_profiles.slug))",
     "AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.directory_profile_id=directory_profiles.id",
     "AND REPLACE(LOWER(m.notion_page_id),'-','')=?)",
   ].join(" ");
