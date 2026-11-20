@@ -47,7 +47,7 @@ export const DIRECTORY_0173_DETAIL_READ_SQL = [
   "(SELECT json_object('reviewedAt',COALESCE(reviewed_at,''),",
   "'reviewedBy',COALESCE(reviewed_by,''),'unlockPending',unlock_pending)",
   "FROM directory_profile_review_state WHERE profile_id=?1) AS review_json,",
-  "(SELECT json_group_array(qualification_text) FROM
+  "(SELECT json_group_array(qualification_text) FROM",
   "(SELECT qualification_text FROM directory_profile_qualifications",
   "WHERE profile_id=?1 ORDER BY item_order)) AS qualifications_json,",
   "(SELECT json_object('title',title,'description',description,",
