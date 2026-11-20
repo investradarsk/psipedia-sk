@@ -1,5 +1,6 @@
 "use client";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
+import { AdminHelpNotionStatus } from "@/components/admin-help-notion-status";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
@@ -67,7 +68,7 @@ const transitionLabel: Record<LostFoundStatus, string> = {
 };
 
 export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [], returnHref = "/admin/stratene-najdene" }: { report?: AdminDogReport; breeds: BreedOption[]; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
-  const [state,setState]=useState(()=>initial(report)); const [saving,setSaving]=useState(false); const [uploading,setUploading]=useState(false); const [message,setMessage]=useState(""); const [error,setError]=useState(""); const formRef=useRef<HTMLFormElement|null>(null);
+  const [state,setState]=useState(()=>initial(report)); const [syncRevision,setSyncRevision]=useState(0); const [saving,setSaving]=useState(false); const [uploading,setUploading]=useState(false); const [message,setMessage]=useState(""); const [error,setError]=useState(""); const formRef=useRef<HTMLFormElement|null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [activeLostFoundSection, setActiveLostFoundSection] = useState<string>(LOST_FOUND_SECTIONS[0].id);
@@ -110,6 +111,7 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
       const res=await fetch(report?`/api/admin/lost-found/${report.id}`:"/api/admin/lost-found",{method:report?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
       const data=await res.json() as {report?:AdminDogReport;error?:string};
       if(!res.ok||!data.report)throw new Error(data.error||"Uloženie zlyhalo.");
+      setSyncRevision(v=>v+1);
       lastPersistedStateRef.current = initial(data.report);
       const hasNewerEdits = navigation.getRevision() !== submittedRevision;
       if (report) navigation.markSavedIfUnchanged(submittedRevision);
@@ -201,7 +203,7 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
     </AdminEditorSectionVisibility.Provider>
     {report && state.status === "ACTIVE" && publicHref && <AdminShareToFacebook title={state.dogName || state.breed || "Pes"} publicPath={publicHref} />}
     {imageEditorOpen && state.mainImage && <ImageDisplayEditor src={state.mainImage} alt={state.dogName||"Pes"} title={state.dogName} entityLabel="strateného alebo nájdeného psa" thumbnailAspectRatio="4 / 3" thumbnail={state.thumbnailImageDisplay} detail={state.detailImageDisplay} onCancel={()=>setImageEditorOpen(false)} onSave={(thumbnail,detail)=>{navigation.markDirty();setState(s=>({...s,thumbnailImageDisplay:thumbnail,detailImageDisplay:detail}));setImageEditorOpen(false)}}/>}
-    <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
+<AdminHelpNotionStatus agenda="lost-found" recordId={report?.id} revision={syncRevision} />    <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
       {report && <AdminRecordLifecycleActions kind="lost-found" recordId={report.id} status={state.status} disabled={saving || uploading || galleryUploading} returnHref={returnHref} onUnpublished={()=>setState(current=>({...current,status:"DRAFT"}))} />}
       <div className={styles.actions}><Link className={styles.secondary} href={returnHref}>← Späť</Link><div><button type="submit" className={styles.primary} disabled={saving||uploading||galleryUploading}>{saving?"Ukladám…":report?"Uložiť":"Vytvoriť koncept"}</button>{report&&allowedTransitions.map((status)=><button key={status} type="button" className={status==="ACTIVE"?styles.primary:styles.secondary} disabled={saving||uploading||galleryUploading} onClick={()=>void save(status)}>{transitionLabel[status]}</button>)}</div></div></AdminEditorFooter>
   </form>;

@@ -1,5 +1,6 @@
 "use client";
 import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
+import { AdminHelpNotionStatus } from "@/components/admin-help-notion-status";
 import { useProfileEditorHydrated, useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
@@ -142,6 +143,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [], returnHref =
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [syncRevision,setSyncRevision]=useState(0);
   const [error, setError] = useState("");
   const [activeHelpSection, setActiveHelpSection] = useState<string>(HELP_SECTIONS[0].id);
   const activeHelpIndex = HELP_SECTIONS.findIndex((section) => section.id === activeHelpSection);
@@ -226,6 +228,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [], returnHref =
       });
       const data = await response.json() as { item?: HelpCase; error?: string };
       if (!response.ok || !data.item) throw new Error(data.error || "Prípad sa nepodarilo uložiť.");
+      setSyncRevision(v=>v+1);
       if (item) navigation.markSavedIfUnchanged(submittedRevision);
       else navigation.markSavedBeforeRedirect();
       setStatus(data.item.status); setMessage(nextStatus === "published" ? "Prípad je publikovaný v sekcii Pomoc psom." : "Koncept je bezpečne uložený.");
@@ -316,6 +319,6 @@ export function AdminHelpEditor({ item, automationSuggestions = [], returnHref =
     </nav>
   </div><aside className="admin-event-preview admin-help-preview"><span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overené" : ""}</span><h2>{title || "Názov prípadu"}</h2><p>{excerpt || "Krátky popis prípadu sa zobrazí tu."}</p><dl><div><dt>Lokalita</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Zodpovedá</dt><dd>{organization || "Organizácia"}</dd></div><div><dt>Publikovanie</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Vybavenie</dt><dd>{resolved ? "Vybavené" : urgent ? "Aktívne · urgentné" : "Aktívne"}</dd></div></dl></aside></div></div></div></AdminEditorSectionVisibility.Provider>{imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={title || "Pomoc psom"} title={title} excerpt={excerpt} entityLabel="prípadu pomoci" thumbnailAspectRatio="4 / 3"
     thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
-    onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}{navigation.dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}<AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading}>
+    onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}{navigation.dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}<AdminHelpNotionStatus agenda="help-cases" recordId={item?.id} revision={syncRevision} /><AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading}>
       <div className="admin-editor-actions"><div><Link href={returnHref}>← Späť na prípady</Link></div><div>{item && <AdminRecordLifecycleActions kind="help" recordId={item.id} status={status} disabled={saving || uploading} returnHref={returnHref} onUnpublished={(next) => setStatus(next as HelpCaseStatus)} />}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Uložiť koncept"}</button>{status !== "published" && <button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať prípad"}</button>}</div></div></AdminEditorFooter></fieldset></form>;
 }

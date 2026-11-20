@@ -27,6 +27,7 @@ import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
 import { runSimpleServiceCatalogSync } from "../lib/service-catalog-simple-sync.ts";
 import { notionSyncHealth, notionAgendaHealth } from "../lib/notion-sync-health.ts";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
+import { runHelpNotionWritebackRetrySweep } from "../lib/notion-help-admin-outbox";
 import { dispatchNotionPageChange } from "../lib/notion-webhook-dispatch";
 import { runNotionWebhookInboxSweep } from "../lib/notion-webhook-inbox";
 import { runManualTransferQueueBatch } from "../lib/notion-manual-transfer-queue";
@@ -92,6 +93,7 @@ interface Env {
   NOTION_MANUAL_TRANSFER_ENABLED?: string;
   NOTION_EVENT_SYNC_ENABLED?: string;
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
+  NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string;
   NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED?: string;
   NOTION_GEMINI_22_PRIORITY_A_ENABLED?: string;
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -498,6 +500,17 @@ const worker = {
           event:"notion_manual_transfer_sweep",...summary,
         }))).catch(()=>console.error(JSON.stringify({
           event:"notion_manual_transfer_sweep",result:"failed",
+        }))));
+      }
+      // Existing minute cron retries saved Admin -> Notion field deltas.
+      // No whole-profile replay, new cron trigger or Notion-only auth bypass.
+      if (pushTaskEnabled(env.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED)) {
+        _ctx.waitUntil(runHelpNotionWritebackRetrySweep({
+          database:env.DB,bindings:env,limit:3,
+        }).then(result=>console.info(JSON.stringify({
+          event:"notion_help_admin_outbox_retry",...result,
+        }))).catch(()=>console.error(JSON.stringify({
+          event:"notion_help_admin_outbox_retry",result:"failed",
         }))));
       }
       if (pushTaskEnabled(env.NOTION_WEBHOOK_SYNC_ENABLED) && pushTaskEnabled(env.NOTION_WEBHOOK_INBOX_ENABLED)) {
