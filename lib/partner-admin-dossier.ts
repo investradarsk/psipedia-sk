@@ -35,6 +35,7 @@ export type PartnerDossierHistory = {
   actorType: string;
   actorRef: string;
   createdAt: string;
+  metadataJson: string;
 };
 
 export const PARTNER_REQUEST_PAGE_SIZE = 50;
@@ -164,6 +165,26 @@ const REQUEST_UNION = `
   SELECT 'COMMERCIAL_AGREEMENT',g.id,'COMMERCIAL',
     'Komerčná dohoda',g.status,g.created_at,NULL
     FROM partner_commercial_agreements g WHERE g.account_id=?1
+  UNION ALL
+  SELECT s.operation,s.id,s.resource_type,
+    CASE s.operation WHEN 'REQUEST_HIDE' THEN 'Dočasné skrytie profilu'
+      WHEN 'REQUEST_ARCHIVE' THEN 'Odstránenie profilu (archivácia)'
+      WHEN 'REQUEST_RELEASE' THEN 'Vzdanie sa správy profilu'
+      ELSE 'Zrušenie partnerského účtu' END ||
+    CASE WHEN s.resource_type='PARTNER_ACCOUNT' THEN '' ELSE ' · ' ||
+      COALESCE(d.name,o.name,e.title,a.name,l.dog_name,h.title,'Profil') END,
+    s.status,s.created_at,
+    CASE WHEN s.resource_type='PARTNER_ACCOUNT' THEN NULL
+      ELSE CAST(s.subject_id AS INTEGER) END
+    FROM moderation_submissions s
+    LEFT JOIN directory_profiles d ON s.resource_type='DIRECTORY_PROFILE' AND d.id=CAST(s.subject_id AS INTEGER)
+    LEFT JOIN help_organizations o ON s.resource_type='HELP_ORGANIZATION' AND o.id=CAST(s.subject_id AS INTEGER)
+    LEFT JOIN managed_events e ON s.resource_type='MANAGED_EVENT' AND e.id=CAST(s.subject_id AS INTEGER)
+    LEFT JOIN adoption_dogs a ON s.resource_type='ADOPTION_DOG' AND a.id=CAST(s.subject_id AS INTEGER)
+    LEFT JOIN lost_found_dog_reports l ON s.resource_type='LOST_FOUND_DOG' AND l.id=CAST(s.subject_id AS INTEGER)
+    LEFT JOIN help_cases h ON s.resource_type='HELP_CASE' AND h.id=CAST(s.subject_id AS INTEGER)
+    WHERE s.submitter_type='PARTNER_ACCOUNT' AND s.submitter_ref=?1
+      AND s.operation IN ('REQUEST_HIDE','REQUEST_ARCHIVE','REQUEST_RELEASE','REQUEST_DELETE_ACCOUNT')
 `;
 
 export async function listPartnerAccountDossierRequests(accountId:string,database:D1Database,page=1) {
@@ -181,7 +202,9 @@ export async function listPartnerAccountDossierRequests(accountId:string,databas
     ...row,
     title:row.title?.trim()||"Záznam bez názvu",
     pending:activeStatuses.has(row.status),
-    requestHref:requestHref(row.kind,row.id),
+    requestHref:row.kind.startsWith("REQUEST_")
+      ? "/admin/partners/accounts/"+encodeURIComponent(accountId)+"?tab=ziadosti"
+      : requestHref(row.kind,row.id),
     editorHref:partnerDossierEditorHref(row.entityType,row.canonicalId),
   }));
   return {
@@ -254,7 +277,7 @@ export async function listPartnerAccountDossierHistory(accountId:string,database
     ))`;
   const [totalRow,rows]=await Promise.all([
     database.prepare("SELECT COUNT(*) total "+query).bind(`partner:${accountId}`,accountId).first<{total:number}>(),
-    database.prepare("SELECT a.id,a.action,a.actor_type actorType,a.actor_ref actorRef,a.created_at createdAt "+query+
+    database.prepare("SELECT a.id,a.action,a.actor_type actorType,a.actor_ref actorRef,a.metadata_json metadataJson,a.created_at createdAt "+query+
       " ORDER BY a.created_at DESC,a.id DESC LIMIT ?3 OFFSET ?4")
       .bind(`partner:${accountId}`,accountId,PARTNER_REQUEST_PAGE_SIZE,(current-1)*PARTNER_REQUEST_PAGE_SIZE).all<PartnerDossierHistory>(),
   ]);
