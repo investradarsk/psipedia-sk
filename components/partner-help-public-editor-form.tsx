@@ -6,6 +6,7 @@ import type { HelpEditorField, HelpEditorType, HelpEditorValue } from "@/lib/par
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
 import { PartnerGalleryField } from "@/components/partner-gallery-field";
+import { partnerFieldOptionLabel } from "@/lib/partner-field-option-labels";
 
 type Props = {
   resourceId: string;
@@ -69,7 +70,6 @@ export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,origin
       setMessage("Zmeny sú uložené. Pred ďalšou úpravou obnovte editor, aby ste pracovali s aktuálnou verziou.");
     }catch(error){setState("error");setMessage(error instanceof Error?error.message:"Uloženie zlyhalo.");}
   }
-  const optionLabel=(value:string)=>({UNKNOWN:"Neviem",MALE:"Pes",FEMALE:"Suka",SMALL:"Malý",MEDIUM:"Stredný",LARGE:"Veľký",GIANT:"Obrovský",YES:"Áno",NO:"Nie",CONDITIONAL:"Podmienečne",LOW:"Nízka",HIGH:"Vysoká",VERY_HIGH:"Veľmi vysoká",NONE:"Žiadne",PARTIAL:"Čiastočné",UP_TO_DATE:"Aktuálne",MUNICIPALITY:"Mesto / obec",NEIGHBORHOOD:"Štvrť",APPROXIMATE:"Približná oblasť","docasna-opatera":"Dočasná opatera",zbierky:"Zbierky",dobrovolnictvo:"Dobrovoľníctvo","urgentne-pripady":"Urgentný prípad"} as Record<string,string>)[value]??value;
   return <form className="partner-profile-edit-form" onSubmit={submit}>
     <div className="partner-profile-edit-grid">
       {fields.map(field=><label className={`partner-field ${field.kind==="textarea"?"partner-field--wide":""}`} key={field.key}>
@@ -82,7 +82,7 @@ export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,origin
         </select>:
         field.kind==="select"?<select value={String(values[field.key]??"")} required={field.required}
           onChange={e=>{setValues(v=>({...v,[field.key]:e.target.value}));setState("idle");}}>
-          {(field.options??[]).map(option=><option key={option} value={option}>{optionLabel(option)}</option>)}
+          {(field.options??[]).map(option=><option key={option} value={option}>{partnerFieldOptionLabel(option)}</option>)}
         </select>:
         field.kind==="textarea"?<textarea rows={5} maxLength={field.max} required={field.required}
           value={String(values[field.key]??"")} onChange={e=>{setValues(v=>({...v,[field.key]:e.target.value}));setState("idle");}}/>:
@@ -101,8 +101,8 @@ export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,origin
       onChangeMediaIds={setGalleryMediaIds}
       mediaIntent="PARTNER_HELP_UPDATE" directPublish
       disabled={state==="sending"||state==="success"}/> : null}
-    <div className="partner-profile-edit-submit"><div><strong>Priame uloženie verejných údajov</strong>
-      <p>Úpravy sa ukladajú do existujúceho záznamu. Interné a SEO polia zostávajú nedotknuté.</p></div>
+    <div className="partner-profile-edit-submit"><div><strong>Uložiť úpravy záznamu</strong>
+      <p>Zmenené údaje sa po uložení zobrazia na stránke vášho záznamu.</p></div>
       <button type="submit" className="button button--dark" disabled={state==="sending"||state==="success"}>{state==="sending"?"Ukladám…":"Uložiť zmeny"}</button>
     </div>
     {message?<p role="status" className={`partner-form-message ${state==="success"?"is-success":"is-error"}`}>{message}
