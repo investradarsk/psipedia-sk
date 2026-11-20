@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { directoryStep3Readiness } from "../lib/directory-sql-step3-readiness.mjs";
+import { directoryStep3Readiness, summarizeDirectoryStep3Issues } from "../lib/directory-sql-step3-readiness.mjs";
 import { step3RepairGate } from "../scripts/production-directory-onetime-notion-import.mjs";
 
 const page = (id, revision = "2026-11-20T10:00:00Z") => ({
@@ -99,4 +99,17 @@ test("repair gate refuses stale D1 timestamps and reviewed records", () => {
     db.prepare(q.sql).get(...q.params);
   }, /malformed JSON/);
   db.close();
+});
+
+test("current source warnings count affected profiles once per reason", () => {
+  const result=summarizeDirectoryStep3Issues([
+    { id: 1, issues: ["missing_notion_field","missing_notion_field"] },
+    { id: 2, issues: ["missing_notion_field","service_field_revision_ambiguous"] },
+    { id: 3, issues: [] },
+  ]);
+  assert.deepEqual(result.counts, {
+    missing_notion_field: 2,
+    service_field_revision_ambiguous: 1,
+  });
+  assert.deepEqual(result.samples.missing_notion_field, [1,2]);
 });
