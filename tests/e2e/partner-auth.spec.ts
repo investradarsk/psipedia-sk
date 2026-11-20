@@ -306,8 +306,9 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
   // Step 2: both desktop and mobile show real self-service destinations.
   const dashboardActions = page.locator(".partner-dashboard-welcome");
-  await expect(dashboardActions.getByRole("link", { name: "Pridať nový profil" })).toHaveAttribute("href", "/partner/profily/novy");
-  await expect(dashboardActions.getByRole("link", { name: "Pridať podujatie" })).toHaveAttribute("href", "/partner/podujatia/nove");
+  await expect(dashboardActions.getByRole("link", { name: "Vytvoriť nový záznam" })).toHaveAttribute("href", "/partner/koncepty/novy");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať podujatie" })).toHaveAttribute("href", "/partner/koncepty/novy?typ=MANAGED_EVENT");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať pomoc psom" })).toHaveAttribute("href", "/partner/koncepty/novy?typ=ADOPTION_DOG");
   await expect(page.locator(".partner-dashboard-stat")).toHaveCount(3);
   await expect(page.getByRole("heading", { name: "Čo spravujete" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -359,57 +360,29 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByText("Správca profilu")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
 
+    // The old new-profile page now redirects to the shared private canonical editor.
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
-    await expect(page.getByRole("heading", { name: "Pridať nový profil" })).toBeVisible();
-    await expect(page.getByText("Polia označené", { exact: false })).toBeVisible();
-    await expect(page.getByText("Vyplňte aspoň jeden: e-mail, telefón alebo web.", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
-    await expect(page.getByRole("alert")).toContainText("Skontrolujte označené polia.");
-    await expect(page.getByLabel(/^Názov/)).toBeFocused();
-    await expect(page.getByText("Názov je povinný.", { exact: true })).toBeVisible();
-    await page.getByLabel(/^Názov/).fill("Partner E2E Nová Služba");
-    await page.getByLabel("Kategória").selectOption("veterinari");
-    const directoryExcerpt = page.getByLabel("Krátky popis");
-    await directoryExcerpt.fill("Nová testovacia služba pre Partner E2E.");
-    await expect(page.getByText(/\/ 700$/)).toBeVisible();
-    await expect(page.getByText("Max. 20 000 znakov", { exact: true })).toBeVisible();
-    await page.getByLabel(/^Kraj/).selectOption("Nitriansky kraj");
-    await page.getByLabel(/^Okres/).selectOption("Nitra");
-    const newDirectoryMunicipality = page.getByRole("combobox", { name: "Obec / mesto" });
-    await newDirectoryMunicipality.fill("nitra");
-    await newDirectoryMunicipality.press("ArrowDown");
-    await newDirectoryMunicipality.press("Enter");
-    await expect(newDirectoryMunicipality).toHaveValue("Nitra");
-
-    await page.getByLabel(/^Kraj/).selectOption("Žilinský kraj");
-    await expect(page.getByLabel(/^Okres/)).toHaveValue("");
-    await expect(newDirectoryMunicipality).toHaveValue("");
-
-    await page.getByLabel(/^Okres/).selectOption("Martin");
-    await newDirectoryMunicipality.fill("martin");
-    await newDirectoryMunicipality.press("ArrowDown");
-    await newDirectoryMunicipality.press("Enter");
-    await expect(newDirectoryMunicipality).toHaveValue("Martin");
-
-    await page.getByLabel(/^Okres/).selectOption("Žilina");
-    await expect(newDirectoryMunicipality).toHaveValue("");
-    await newDirectoryMunicipality.fill("zilina");
-    await newDirectoryMunicipality.press("ArrowDown");
-    await newDirectoryMunicipality.press("Enter");
-    await expect(newDirectoryMunicipality).toHaveValue("Žilina");
-    await page.getByLabel("Adresa").fill("Unikátna 123");
-    // Directory web is free-form editorial text. Clickability is evaluated
-    // on the public profile, never as a blocking Partner form constraint.
-    const newDirectoryWeb = page.getByLabel("Web");
-    await expect(newDirectoryWeb).toHaveAttribute("type", "text");
-    await newDirectoryWeb.fill("partner-new-e2e.example");
-    await expect(newDirectoryWeb).toHaveValue("partner-new-e2e.example");
+    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE$/);
+    await expect(page.getByRole("heading", { name: "Vytvoriť nový záznam" })).toBeVisible();
+    const newDirectory = page.locator("form.partner-canonical-form");
+    await expect(newDirectory.getByLabel("Druh záznamu")).toHaveValue("DIRECTORY_PROFILE");
+    await newDirectory.getByLabel("Hlavná kategória *").selectOption("veterinari");
+    await newDirectory.getByLabel("Názov", { exact: true }).fill("Partner E2E Nová Služba");
+    await newDirectory.getByLabel("Krátky popis").fill("Nová testovacia služba pre Partner E2E.");
+    const directoryWeb = newDirectory.getByLabel("Web", { exact: true });
+    await expect(directoryWeb).toHaveAttribute("type", "text");
+    await directoryWeb.fill("partner-new-e2e.example");
+    await expect(newDirectory.getByText(/SEO a interné polia/)).toBeVisible();
     await expectNoHorizontalOverflow(page);
     const newDirectoryAccessibility = await new AxeBuilder({ page }).analyze();
     expect(newDirectoryAccessibility.violations).toEqual([]);
-    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
-    await expect(page.getByRole("status")).toContainText("Adresu sa nepodarilo jednoznačne overiť. Profil môžete odoslať; adresu skontroluje redakcia.");
-
+    await newDirectory.getByRole("button", { name: "Uložiť koncept" }).click();
+    await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
+    await expect(page.getByText("Rozpracovaný súkromný koncept", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Odoslať na schválenie" }).click();
+    await expect(page).toHaveURL(/\/partner\/ziadosti$/);
+    await page.goto("/partner");
+    await expect(page.locator(".partner-dashboard-record").filter({ hasText: "Partner E2E Nová Služba" })).toContainText("Čaká na schválenie");
     await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
@@ -450,32 +423,25 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
-    await page.getByRole("radio", { name: /Organizácia na pomoc psom/ }).check();
-    await expect(page.getByText("Polia označené", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
-    await expect(page.getByRole("alert")).toContainText("Skontrolujte označené polia.");
-    await expect(page.getByLabel(/^Názov/)).toBeFocused();
-    await page.getByLabel(/^Názov/).fill("Partner E2E Organizácia");
-    await page.getByLabel("Typ organizácie").selectOption("CIVIC_ASSOCIATION");
-    await page.getByLabel("Adresa").fill("Hlavná 1");
-    await page.getByLabel("Verejný telefón").fill("+421900111222");
-    await page.getByLabel("Web").fill("https://example.sk");
-    await page.getByLabel(/^Kraj/).selectOption("Nitriansky kraj");
-    await page.getByLabel(/^Okres/).selectOption("Zlaté Moravce");
-    const organizationMunicipality = page.getByRole("combobox", { name: "Obec / mesto" });
-    await organizationMunicipality.fill("tesarske");
-    await organizationMunicipality.press("ArrowDown");
-    await organizationMunicipality.press("Enter");
-    await expect(organizationMunicipality).toHaveValue("Tesárske Mlyňany");
+    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE$/);
+    await page.getByLabel("Druh záznamu").selectOption("HELP_ORGANIZATION");
+    const newOrganization = page.locator("form.partner-canonical-form");
+    await expect(newOrganization.getByLabel("Druh záznamu")).toHaveValue("HELP_ORGANIZATION");
+    await newOrganization.getByLabel("Názov", { exact: true }).fill("Partner E2E Nová Organizácia Mobile");
+    await newOrganization.getByLabel("Typ organizácie *").selectOption("CIVIC_ASSOCIATION");
+    await newOrganization.getByLabel("Verejný telefón").fill("+421900111222");
+    await newOrganization.getByLabel("Web", { exact: true }).fill("partner-org-e2e.example");
+    await expect(newOrganization.getByLabel("Web", { exact: true })).toHaveAttribute("type", "text");
     await expectNoHorizontalOverflow(page);
-    const locationAccessibility = await new AxeBuilder({ page }).analyze();
-    expect(locationAccessibility.violations).toEqual([]);
-    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
-    await expect(page.getByRole("heading", { name: "Našli sme profil, ktorý môže patriť vám." })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Spravujete tento profil?" })).toHaveAttribute("href", "/partner/prevziat-profil/HELP_ORGANIZATION/990002");
-    await page.getByRole("button", { name: "Nie je to môj profil — pokračovať" }).click();
-    await expect(page.getByRole("status")).toContainText("Návrh nového profilu sme prijali a čaká na kontrolu.");
-
+    const organizationAccessibility = await new AxeBuilder({ page }).analyze();
+    expect(organizationAccessibility.violations).toEqual([]);
+    await newOrganization.getByRole("button", { name: "Uložiť koncept" }).click();
+    await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
+    await expect(page.getByText("Rozpracovaný súkromný koncept", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Odoslať na schválenie" }).click();
+    await expect(page).toHaveURL(/\/partner\/ziadosti$/);
+    await page.goto("/partner");
+    await expect(page.locator(".partner-dashboard-record").filter({ hasText: "Partner E2E Nová Organizácia Mobile" })).toContainText("Čaká na schválenie");
     await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
@@ -529,17 +495,19 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   if (project === "mobile-chromium") {
     await page.setViewportSize({ width: 390, height: 844 });
   }
+  // New events are saved as unpublished canonical drafts, not legacy pending-only proposals.
   await page.getByRole("link",{name:"Pridať podujatie"}).first().click();
-  await expect(page.getByRole("heading",{name:"Pridať podujatie"})).toBeVisible();
-  await expect(page.getByText("Po schválení administrátorom sa podujatie uloží ako koncept. Priložený obrázok prejde rovnakou moderátorskou kontrolou; SEO údaje a zverejnenie zostávajú redakčným krokom.")).toBeVisible();
+  await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=MANAGED_EVENT$/);
+  await expect(page.getByRole("heading",{name:"Vytvoriť nový záznam"})).toBeVisible();
+  await expect(page.getByLabel("Druh záznamu")).toHaveValue("MANAGED_EVENT");
+  await expect(page.getByText("Kým záznam neodošlete a administrátor ho neschváli, nie je verejný.", { exact: false })).toBeVisible();
   const partnerLayout = await page.evaluate(() => {
     const stickyHeader = document.querySelector<HTMLElement>(".site-header");
     const heading = document.querySelector<HTMLElement>(".partner-page-heading h1");
-    const intro = document.querySelector<HTMLElement>(".partner-new-profile-intro");
+    const intro = document.querySelector<HTMLElement>(".partner-canonical-intro");
     if (!stickyHeader || !heading || !intro) return null;
-    const headerBox = stickyHeader.getBoundingClientRect();
     return {
-      headerBottom: headerBox.bottom,
+      headerBottom: stickyHeader.getBoundingClientRect().bottom,
       headingTop: heading.getBoundingClientRect().top,
       introTop: intro.getBoundingClientRect().top,
       viewportWidth: window.innerWidth,
@@ -549,34 +517,35 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   expect(partnerLayout!.headingTop).toBeGreaterThanOrEqual(partnerLayout!.headerBottom - 1);
   expect(partnerLayout!.introTop).toBeGreaterThanOrEqual(partnerLayout!.headerBottom - 1);
   if (project === "mobile-chromium") expect(partnerLayout!.viewportWidth).toBe(390);
+  const newEventForm = page.locator("form.partner-canonical-form");
+  await newEventForm.getByLabel("Názov",{exact:true}).fill(newEventTitle);
+  await newEventForm.getByLabel("Krátky popis").fill("Nové moderované Partner podujatie pre izolovaný E2E scenár.");
+  await newEventForm.getByLabel("Typ podujatia").selectOption("Seminár");
+  await newEventForm.getByLabel("Dátum začiatku").fill(project==="desktop-chromium"?"2099-12-01":"2099-12-02");
+  await newEventForm.getByLabel("Čas začiatku").fill("10:00");
+  await newEventForm.getByLabel("Dátum konca").fill(project==="desktop-chromium"?"2099-12-01":"2099-12-02");
+  await newEventForm.getByLabel("Čas konca").fill("16:00");
+  await newEventForm.getByLabel("Miesto").fill(project==="desktop-chromium"?"E2E Nový Areál Desktop":"E2E Nový Areál Mobile");
+  await newEventForm.getByLabel("Mesto / Online").fill(project==="desktop-chromium"?"Nitra":"Trnava");
+  await newEventForm.getByLabel("Kraj").selectOption(project==="desktop-chromium"?"Nitriansky kraj":"Trnavský kraj");
+  await newEventForm.getByLabel("Organizátor").fill("Psipedia Partner E2E");
+  await newEventForm.getByLabel("Popis",{exact:true}).fill("Toto je dostatočne dlhý opis nového Partner podujatia, ktoré musí prejsť moderáciou.");
+  await newEventForm.getByLabel("Web",{exact:true}).fill("partner-event-e2e.example");
+  await expect(newEventForm.getByLabel("Web",{exact:true})).toHaveAttribute("type","text");
   await expectNoHorizontalOverflow(page);
-  await page.getByLabel("Názov",{exact:true}).fill(newEventTitle);
-  await page.getByLabel("Krátky popis").fill("Nové moderované Partner podujatie pre izolovaný E2E scenár.");
-  await page.getByLabel("Typ podujatia").selectOption("Seminár");
-  await page.getByLabel("Dátum začiatku").fill(project==="desktop-chromium"?"2099-12-01":"2099-12-02");
-  await page.getByLabel("Čas začiatku").fill("10:00");
-  await page.getByLabel("Dátum konca").fill(project==="desktop-chromium"?"2099-12-01":"2099-12-02");
-  await page.getByLabel("Čas konca").fill("16:00");
-  await page.getByLabel("Miesto").fill(project==="desktop-chromium"?"E2E Nový Areál Desktop":"E2E Nový Areál Mobile");
-  await page.getByLabel("Mesto / Online").fill(project==="desktop-chromium"?"Nitra":"Trnava");
-  await page.getByLabel("Kraj").selectOption(project==="desktop-chromium"?"Nitriansky kraj":"Trnavský kraj");
-  await page.getByLabel("Adresa").fill("E2E Eventová 1");
-  await page.getByLabel("Organizátor").fill("Psipedia Partner E2E");
-  await page.getByLabel("Popis",{exact:true}).fill("Toto je dostatočne dlhý opis nového Partner podujatia, ktoré musí prejsť moderáciou.");
-  await page.getByLabel("Praktické informácie").fill("Registrácia je povinná.");
-  await page.getByLabel("Web").fill(project==="desktop-chromium"?"https://example.sk/new-event-desktop":"https://example.sk/new-event-mobile");
-  await page.getByRole("textbox",{name:"Registrácia",exact:true}).fill(project==="desktop-chromium"?"https://example.sk/new-event-desktop/register":"https://example.sk/new-event-mobile/register");
-  await expectNoHorizontalOverflow(page);
-  const createAccessibility=await new AxeBuilder({page}).analyze();
+  const createAccessibility = await new AxeBuilder({page}).analyze();
   expect(createAccessibility.violations).toEqual([]);
-  await page.getByRole("button",{name:"Odoslať na kontrolu"}).click();
-  await expect(page.getByRole("status")).toContainText("Podujatie sme prijali a čaká na kontrolu.");
-
-  const canonicalBeforeCreate=await page.request.get("/api/admin/events");
-  expect(canonicalBeforeCreate.ok()).toBeTruthy();
-  const canonicalBeforeCreateJson=await canonicalBeforeCreate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
-  expect(canonicalBeforeCreateJson.events?.find(item=>item.title===newEventTitle)).toBeUndefined();
-
+  await newEventForm.getByRole("button",{name:"Uložiť koncept"}).click();
+  await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
+  await expect(page.getByText("Rozpracovaný súkromný koncept",{exact:true})).toBeVisible();
+  const canonicalBeforeApproval=await page.request.get("/api/admin/events");
+  expect(canonicalBeforeApproval.ok()).toBeTruthy();
+  const unpublishedEvents=await canonicalBeforeApproval.json() as {events?:Array<{title?:string;status?:string}>};
+  expect(unpublishedEvents.events?.find(item=>item.title===newEventTitle)?.status).not.toBe("published");
+  await page.getByRole("button",{name:"Odoslať na schválenie"}).click();
+  await expect(page).toHaveURL(/\/partner\/ziadosti$/);
+  await page.goto("/partner");
+  await expect(page.locator(".partner-dashboard-record").filter({hasText:newEventTitle})).toContainText("Čaká na schválenie");
   await page.goto("/partner/podujatia");
   const editCard=page.locator("article.partner-resource-card").filter({hasText:ownedEventTitle});
   await editCard.getByRole("link",{name:"Upraviť"}).click();
@@ -599,10 +568,9 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   expect(savedEvent?.venue).toBe(changedVenue);
   expect(savedEvent?.status).toBe(project==="desktop-chromium"?"published":"draft");
 
-  await page.goto("/partner/ziadosti");
-  const eventRequests=page.locator("section.partner-requests-section").filter({has:page.getByRole("heading",{name:"Návrhy podujatí"})});
-  await expect(eventRequests.locator("article").filter({hasText:newEventTitle})).toContainText("Čaká na kontrolu");
-  await expect(eventRequests.locator("article").filter({hasText:ownedEventTitle})).toHaveCount(0);
+  // V2 submissions are tracked with their canonical drafts on the dashboard.
+  await page.goto("/partner");
+  await expect(page.locator(".partner-dashboard-record").filter({hasText:newEventTitle})).toContainText("Čaká na schválenie");
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/partner/ziadosti");
