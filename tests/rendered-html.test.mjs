@@ -119,6 +119,19 @@ function createAdminMockDatabase() {
 
   function rowsFor(sql) {
     const normalized = sql.replace(/\s+/g, " ").trim();
+    // The detail loader now requires canonical 0173 SQL-backed qualifications,
+    // SEO, quality and media. Simulate an applied, empty sidecar schema instead
+    // of returning null (which correctly fails closed in production).
+    if (/FROM directory_profile_qualifications/i.test(normalized) &&
+        /FROM directory_profile_seo/i.test(normalized) &&
+        /FROM directory_profile_opening_hours/i.test(normalized) &&
+        /FROM directory_profile_quality_resolutions/i.test(normalized) &&
+        /FROM directory_profile_media/i.test(normalized)) {
+      return [{
+        qualifications_json: "[]", seo_json: null, hours_text: null,
+        quality_json: "[]", media_json: "[]",
+      }];
+    }
     // SQL 0170 editorial detail always performs one fail-closed facts/filters
     // projection. This fixture models an applied but empty 0170 sidecar schema.
     if (/FROM directory_profile_public_facts WHERE profile_id=\?1/i.test(normalized) &&
