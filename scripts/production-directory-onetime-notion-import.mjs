@@ -415,7 +415,7 @@ async function scanStep3Receipts(){
 }
 
 /** Fail closed inside the same D1 batch as the additive SQL writes. */
-function step3RepairGate(plan){
+export function step3RepairGate(plan){
   return {
     sql:"SELECT CASE WHEN EXISTS(SELECT 1 FROM directory_profiles p "+
       "JOIN directory_notion_sync m ON m.directory_profile_id=p.id "+
