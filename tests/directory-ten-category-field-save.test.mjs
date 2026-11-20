@@ -4,6 +4,8 @@ import {readFile} from "node:fs/promises";
 import {runInNewContext} from "node:vm";
 import ts from "typescript";
 import { planDirectory0173EditorialSqlMirror } from "../lib/directory-0173-editorial-sql-mirror.ts";
+import { planDirectoryExtraSqlTextMirror } from "../lib/directory-extra-sql-mirror.ts";
+import { planDirectoryStep3PresentationSqlMirror } from "../lib/directory-sql-step3-live-mirror.ts";
 import {DIRECTORY_FIELD_EVENT_CATEGORIES,isDirectoryFieldEventCategory,isDirectoryEventPilotCategory}
  from "../lib/notion-directory-field-event-scope.ts";
 
@@ -38,7 +40,8 @@ function setup(category){
    isDirectoryFieldEventCategory,isDirectoryEventPilotCategory,
    breederReadPath:(snapshot,path)=>path.split(".").reduce((v,key)=>v?.[key],snapshot),
    normalizeDirectorySearchText:value=>value,
-   planDirectory0173EditorialSqlMirror,
+   planDirectory0173EditorialSqlMirror,planDirectoryExtraSqlTextMirror,
+   planDirectoryStep3PresentationSqlMirror,
    getManagedDirectoryProfileById:async()=>record,
  });
  return {record,writes,sidecarSql,db,save:out.saveBreederEditorialValue};
