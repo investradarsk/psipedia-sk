@@ -38,6 +38,10 @@ function makeDb() {
    WHEN NOT EXISTS(SELECT 1 FROM admin_record_tombstones
     WHERE kind='help' AND record_id=OLD.id AND state='READY_LOCAL')
    BEGIN SELECT RAISE(ABORT,'USE_VERIFIED_LIFECYCLE_DELETE'); END;
+ CREATE TRIGGER admin_deleted_help_insert BEFORE INSERT ON help_cases
+   WHEN EXISTS(SELECT 1 FROM admin_record_tombstones
+    WHERE kind='help' AND record_slug=NEW.slug)
+   BEGIN SELECT RAISE(ABORT,'RECORD_TOMBSTONED'); END;
  INSERT INTO notion_agenda_targets(agenda,data_source_id)
   VALUES('help-cases','one-historic-notion-database');
  INSERT INTO help_cases(id,slug,title,category,status)
