@@ -585,7 +585,8 @@ function directorySearchText(input: {
 const DIRECTORY_PROFILE_COLUMNS = `
   id, slug, name, category, status, excerpt, description,
   ${directoryServicesSqlExpression()} AS services_json, qualifications_json,
-  city, district, region, address, online, price_note, website_url,
+  city, district, region, address, postal_code, street, house_number,
+  address_format, service_address_confirmation, online, price_note, website_url,
   public_phone, public_email, facebook_url, instagram_url, internal_email, image_url,
   image_key,
   ${directoryImageSqlExpression("thumbnail")} AS thumbnail_display_json,
@@ -1885,7 +1886,7 @@ const getPublishedDirectoryProfileUncached = async (category: string, slug: stri
   if (!database || !isDirectoryCategory(category)) return null;
   const row = await retryTransientPublicRead(() => database
     .prepare(
-      "SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1",
+      `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1`,
     )
     .bind(category, slug)
     .first<DirectoryProfileRow>());
@@ -2026,7 +2027,7 @@ export async function getManagedDirectoryProfileById(id: number, databaseInput?:
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
   const row = await database
-    .prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1")
+    .prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? LIMIT 1`)
     .bind(id)
     .first<DirectoryProfileRow>();
   return row ? withDirectory0173SqlManaged(database,rowToManagedProfile(row)) : null;
@@ -2039,7 +2040,7 @@ export async function getManagedDirectoryProfileByCategorySlug(
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
   const row = await database
-    .prepare("SELECT * FROM directory_profiles WHERE category = ? AND slug = ? LIMIT 1")
+    .prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE category = ? AND slug = ? LIMIT 1`)
     .bind(category, slug)
     .first<DirectoryProfileRow>();
   return row ? withDirectory0173SqlManaged(database,rowToManagedProfile(row)) : null;
