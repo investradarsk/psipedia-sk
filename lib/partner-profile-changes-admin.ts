@@ -6,6 +6,7 @@ import { adminAuditActorRef } from "@/lib/audit-identity";
 import { decryptPii } from "@/lib/pii-crypto";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { planDirectory0173EditorialSqlMirror } from "@/lib/directory-0173-editorial-sql-mirror";
+import { planDirectoryStep3PresentationSqlMirror } from "@/lib/directory-sql-step3-live-mirror";
 import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
 import { planDirectorySecondaryCategorySqlMirror } from "@/lib/directory-secondary-category-sql";
 import {
@@ -358,13 +359,22 @@ export async function approvePartnerProfileChangeAdmin(input:{
         updatedAt:nowIso,actor:actorRef,
       }));
     const galleryEdited=Object.hasOwn(effectivePatch,"galleryUrls");
-    const editorialMirror=hoursEdited || galleryEdited
+    const servicesEdited=Object.hasOwn(effectivePatch,"services");
+    const qualificationsEdited=Object.hasOwn(effectivePatch,"qualifications");
+    const mirrorIdentity={kind:"id" as const,profileId:canonical.canonicalId,
+      updatedAt:nowIso,actor:actorRef};
+    const presentationMirror=servicesEdited
+      ?planDirectoryStep3PresentationSqlMirror({
+        identity:mirrorIdentity,services:effectivePatch.services as string[],
+      }):[];
+    const editorialMirror=hoursEdited || galleryEdited || qualificationsEdited
       ?planDirectory0173EditorialSqlMirror({
         identity:{kind:"id",profileId:canonical.canonicalId,updatedAt:nowIso,actor:actorRef},
         ...(hoursEdited?{openingHoursText:String(effectivePatch.openingHours??"")}:{}),
         ...(galleryEdited?{galleryUrls:effectivePatch.galleryUrls as readonly string[]}:{}),
+        ...(qualificationsEdited?{qualifications:effectivePatch.qualifications as string[]}:{}),
       }):[];
-    if(plans.length || editorialMirror.length){
+    if(plans.length || presentationMirror.length || editorialMirror.length){
       // One changes() check immediately after the canonical UPDATE. Repeat
       // guards between mirrors would read DELETE/INSERT and fail incorrectly.
       const guard=plans.length?plans[0][0]:{
@@ -373,6 +383,8 @@ export async function approvePartnerProfileChangeAdmin(input:{
       };
       canonicalStatements.push(database.prepare(guard.sql).bind(...guard.bindings));
       for(const plan of plans)for(const item of plan.slice(1))
+        canonicalStatements.push(database.prepare(item.sql).bind(...item.bindings));
+      for(const item of presentationMirror)
         canonicalStatements.push(database.prepare(item.sql).bind(...item.bindings));
       for(const item of editorialMirror)
         canonicalStatements.push(database.prepare(item.sql).bind(...item.bindings));
