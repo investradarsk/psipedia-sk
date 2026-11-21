@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   getAvailableAffiliateOriginalBanners,
   nextAffiliateRotation,
+  type AffiliateBannerFormat,
   type AffiliateBannerPlacement,
 } from "@/lib/affiliate-banner-rotation";
 import styles from "./affiliate-rotating-banner.module.css";
@@ -14,7 +15,8 @@ let nextBannerIndex: number | null = null;
 
 /**
  * Renders only original merchant artwork supplied by Dognet.
- * Never substitutes a self-designed card, headline, logo or CTA.
+ * A horizontal slot selects square artwork on phones; tall images stay in
+ * article sidebars. Original image aspect ratios are preserved.
  */
 export function AffiliateRotatingBanner({
   placement = "horizontal",
@@ -22,17 +24,35 @@ export function AffiliateRotatingBanner({
   placement?: AffiliateBannerPlacement;
 }) {
   const pathname = usePathname();
-  const banners = getAvailableAffiliateOriginalBanners(placement);
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [selection, setSelection] = useState<{ key: string; index: number } | null>(null);
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const lastSelectionKey = useRef<string | null>(null);
-  const selectionKey = `${pathname ?? ""}:${placement}`;
+
+  useEffect(() => {
+    if (placement !== "horizontal") return;
+    const media = window.matchMedia("(max-width: 680px)");
+    const sync = () => setIsMobile(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, [placement]);
+
+  const format: AffiliateBannerFormat | null = placement === "sidebar"
+    ? "sidebar"
+    : isMobile === null
+      ? null
+      : isMobile
+        ? "mobile"
+        : "horizontal";
+  const banners = format ? getAvailableAffiliateOriginalBanners(format) : [];
+  const selectionKey = `${pathname ?? ""}:${format ?? placement}`;
   const selected = selection?.key === selectionKey ? banners[selection.index] : null;
   const original = selected?.creative;
   const imageAvailable = original && failedImage !== original.src;
 
   useEffect(() => {
-    if (!pathname || !banners.length || lastSelectionKey.current === selectionKey) return;
+    if (!pathname || !format || !banners.length || lastSelectionKey.current === selectionKey) return;
     lastSelectionKey.current = selectionKey;
     const initialIndex = nextBannerIndex === null
       ? Math.floor(Math.random() * banners.length)
@@ -41,9 +61,9 @@ export function AffiliateRotatingBanner({
     nextBannerIndex = rotation.next;
     setSelection({ key: selectionKey, index: rotation.selected });
     setFailedImage(null);
-  }, [pathname, selectionKey, banners.length]);
+  }, [pathname, format, selectionKey, banners.length]);
 
-  if (!banners.length) return null;
+  if (format && !banners.length) return null;
 
   return (
     <aside
