@@ -8,7 +8,7 @@ import {
   directoryImageSqlExpression,
   readDirectoryPresentationSql,
 } from "./directory-presentation-sql-read";
-import { readDirectory0170EditorialFields } from "./directory-0170-editorial-read";
+import { readDirectory0170EditorialFields, withoutLegacyDirectoryFacetValues } from "./directory-0170-editorial-read";
 import { readDirectory0173EditorialSql } from "./directory-0173-editorial-sql-read";
 import { env } from "cloudflare:workers";
 import {
@@ -803,7 +803,7 @@ async function withDirectory0173SqlPublic(
   const qualifications=sql.qualifications
     ? directoryQualificationSections(sql.qualifications) : null;
   const importData={
-    ...(profile.importData??{}),
+    ...(withoutLegacyDirectoryFacetValues(profile.importData)??{}),
     ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
     ...(presentation.trainerServicesText!==null?{[TRAINER_SERVICES_TEXT_METADATA_KEY]:presentation.trainerServicesText}:{}),
   };
@@ -850,7 +850,7 @@ async function withDirectory0173SqlManaged(
     thumbnailImageDisplay:presentation.thumbnailImageDisplay,
     detailImageDisplay:presentation.detailImageDisplay,
     importData:{
-      ...(profile.importData??{}),
+      ...(withoutLegacyDirectoryFacetValues(profile.importData)??{}),
       ...(metadata??{}),
       ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
       ...(presentation.trainerServicesText!==null?{[TRAINER_SERVICES_TEXT_METADATA_KEY]:presentation.trainerServicesText}:{}),
