@@ -1284,6 +1284,8 @@ export function buildManagedDirectoryProfileCreateStatement(
   nowIso: string,
   guard?: { submissionId: string; actorRef: string },
 ) {
+  // The still-NOT-NULL legacy column gets only a technical empty placeholder.
+  // New public fields are written exclusively to SQL owners and sidecar tables.
   const columns = `slug, name, category, status, excerpt, description, services_json, qualifications_json,
     city, district, region, address, postal_code, street, house_number, address_format, service_address_confirmation,
     online, price_note, website_url, public_phone, public_email, facebook_url, instagram_url,
@@ -1318,7 +1320,7 @@ export function buildManagedDirectoryProfileCreateStatement(
     input.imageKey,
     input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
     input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
-    JSON.stringify(omitDirectorySqlContactAliases(input.sourceData, input)),
+    "{}",
     input.verified ? 1 : 0,
     input.featured ? 1 : 0,
     JSON.stringify(input.seo),
@@ -1355,7 +1357,7 @@ export function buildManagedDirectoryProfileCreateStatement(
       input.imageKey,
       input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
       input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
-      JSON.stringify(omitDirectorySqlContactAliases(input.sourceData, input)),
+      "{}",
       input.verified ? 1 : 0,
       input.featured ? 1 : 0,
       JSON.stringify(input.seo),
