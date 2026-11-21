@@ -386,8 +386,8 @@ test("HOTFIX DIRECTORY parser-to-canonical-draft preserves contacts and keeps so
   assert.equal(row.service_address_confirmation, "LEGACY_UNCONFIRMED");
   assert.equal(row.published_at, null);
 
-  const importData = JSON.parse(row.source_data_json);
-  assert.deepEqual(readDirectorySqlBackedContacts(importData, row), {
+  assert.equal(Object.hasOwn(row, "source_data_json"), false);
+  assert.deepEqual(readDirectorySqlBackedContacts({}, row), {
     phone: "+421 903 494 000",
     email: "info@spektravet.sk",
     website: "https://spektravet.sk/sk",
@@ -397,8 +397,8 @@ test("HOTFIX DIRECTORY parser-to-canonical-draft preserves contacts and keeps so
   assert.equal(row.public_phone, "+421 903 494 000");
   assert.equal(row.public_email, "info@spektravet.sk");
   assert.equal(row.website_url, "https://spektravet.sk/sk");
-  for (const alias of ["Telefón","Telefon","phone","E-mail","Email","email","Web","Webstránka"])
-    assert.equal(Object.hasOwn(importData,alias),false,alias+" must not survive in JSON");
+  // No obsolete source payload is created: contacts live exclusively in SQL.
+  assert.equal(Object.hasOwn(row, "source_data_json"), false);
 });
 
 test("generic DIRECTORY parser extracts only explicit schema data and fails closed", () => {

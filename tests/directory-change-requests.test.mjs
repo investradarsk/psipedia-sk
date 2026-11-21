@@ -67,7 +67,10 @@ function createDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, name TEXT NOT NULL, category TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'draft', excerpt TEXT NOT NULL, description TEXT NOT NULL,
       services_json TEXT NOT NULL DEFAULT '[]', qualifications_json TEXT NOT NULL DEFAULT '[]', city TEXT NOT NULL,
-      district TEXT NOT NULL DEFAULT '', region TEXT NOT NULL, address TEXT NOT NULL DEFAULT '', online INTEGER NOT NULL DEFAULT 0,
+      district TEXT NOT NULL DEFAULT '', region TEXT NOT NULL, address TEXT NOT NULL DEFAULT '',
+      postal_code TEXT NOT NULL DEFAULT '', street TEXT NOT NULL DEFAULT '', house_number TEXT NOT NULL DEFAULT '',
+      address_format TEXT NOT NULL DEFAULT '', service_address_confirmation TEXT NOT NULL DEFAULT 'LEGACY_UNCONFIRMED',
+      online INTEGER NOT NULL DEFAULT 0,
       price_note TEXT NOT NULL DEFAULT '', website_url TEXT,
       public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT,
       internal_email TEXT, image_url TEXT, image_key TEXT,
@@ -93,6 +96,16 @@ function createDatabase() {
       .filter(Boolean))
       sqlite.exec(sql);
   }
+  // The public Directory now requires canonical 0170 and step-1 SQL sidecars.
+  // Apply the production schema definitions instead of emulating old JSON reads.
+  const canonical = readFileSync(new URL("../drizzle/0170_directory_canonical_sql_slots.sql", import.meta.url), "utf8");
+  for (const chunk of canonical.split("--> statement-breakpoint").map(value => value.trim()).filter(Boolean)) {
+    const sql = chunk.replace(/^--[^\n]*\n/gm, "").trim();
+    if (/^CREATE (?:TABLE|INDEX)\b/i.test(sql)) sqlite.exec(sql);
+  }
+  const presentation = readFileSync(new URL("../db/isolated/directory_admin_sql_completion.sql", import.meta.url), "utf8");
+  for (const sql of presentation.split("--> statement-breakpoint").map(value => value.trim()).filter(Boolean))
+    sqlite.exec(sql);
   const insert = sqlite.prepare(`
     INSERT INTO directory_profiles (
       slug, name, category, status, excerpt, description, services_json, qualifications_json, city, district, region,
@@ -216,8 +229,8 @@ function createDatabase() {
       { "Typ služby": "Fotograf", Pokrytie: "Celé Slovensko", "Celoslovenská dostupnosť": "Áno" },
     ],
   ];
-  for (const profile of profiles)
-    insert.run(
+  for (const profile of profiles) {
+    const created = insert.run(
       profile[0],
       profile[1],
       profile[2],
@@ -238,6 +251,18 @@ function createDatabase() {
       now,
       now,
     );
+    const profileId = Number(created.lastInsertRowid);
+    const services = sqlite.prepare(`INSERT INTO directory_profile_service_texts
+      (profile_id,item_order,service_text,updated_at,updated_by) VALUES (?,?,?,?,?)`);
+    for (const [index,service] of profile[5].entries())
+      services.run(profileId,index,service,now,"seed@psipedia.sk");
+    const storedContacts = profile[15];
+    sqlite.prepare(`UPDATE directory_profiles SET
+      public_phone=?,public_email=?,facebook_url=? WHERE id=?`).run(
+      storedContacts["Telefón"] ?? null,storedContacts["E-mail"] ?? null,
+      storedContacts["Facebook"] ?? null,profileId,
+    );
+  }
   return { sqlite, d1: createD1Adapter(sqlite), profiles };
 }
 

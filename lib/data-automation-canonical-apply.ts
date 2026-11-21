@@ -2,7 +2,6 @@ import { env } from "cloudflare:workers";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { sha256Hex, stableJson } from "./data-automation";
 import { getAutomationPossibleMatchReviewDetail } from "./data-automation-match-review";
-import { omitDirectorySqlContactAliases } from "./directory-profile-metadata";
 import { readDirectorySqlBackedContacts } from "./directory-sql-contacts";
 
 type Database = Pick<D1Database, "prepare" | "batch">;
@@ -231,7 +230,7 @@ async function canonicalRow(target: CanonicalTarget, db: Database) {
 
 function canonicalFieldValue(entityType: EntityType, fieldName: string, row: Record<string,unknown>) {
   if (entityType === "DIRECTORY") {
-    const contacts = readDirectorySqlBackedContacts(parseObject(row.source_data_json) as Record<string,string|number|null>, row);
+    const contacts = readDirectorySqlBackedContacts({}, row);
     switch (fieldName) {
       case "name": return row.name ?? "";
       case "category": return row.category ?? "";
@@ -242,9 +241,11 @@ function canonicalFieldValue(entityType: EntityType, fieldName: string, row: Rec
       case "phone": return contacts.phone;
       case "email": return contacts.email;
       case "domain": return row.website_url ?? "";
-      case "ico": return parseObject(row.source_data_json)["IČO"] ?? "";
-      case "registryId": return parseObject(row.source_data_json)["Registry ID"] ?? "";
-      case "registryNamespace": return parseObject(row.source_data_json)["Registry namespace"] ?? "";
+      // No D1 directory JSON authority remains for these historic metadata labels.
+      // They are unsupported by this retired G5 apply flow.
+      case "ico":
+      case "registryId":
+      case "registryNamespace": return null;
       case "active":
       case "status": return row.status ?? "";
       default: return null;
@@ -272,9 +273,8 @@ function canonicalFieldName(entityType: EntityType, fieldName: string) {
   if (entityType === "DIRECTORY") {
     return ({
       name:"name",category:"category",municipality:"city",street:"street",houseNumber:"house_number",
-      postalCode:"postal_code",phone:"source_data_json.Telefón",email:"source_data_json.E-mail",
-      domain:"website_url",ico:"source_data_json.IČO",registryId:"source_data_json.Registry ID",
-      registryNamespace:"source_data_json.Registry namespace",
+      postalCode:"postal_code",phone:"public_phone",email:"public_email",
+      domain:"website_url",
     } as Record<string,string>)[fieldName] ?? null;
   }
   return ({
@@ -455,7 +455,8 @@ function buildMutation(
   const before:Record<string,unknown>={};
   const after:Record<string,unknown>={};
   const provenance:Array<Record<string,unknown>>=[];
-  let sourceData=parseObject(current.source_data_json);
+  // Only the Help organization has a legacy JSON payload in this retired G5 flow.
+  const sourceData=preview.entityType==="ORGANIZATION" ? parseObject(current.source_data_json) : {};
   let sourceDataChanged=false;
 
   for(const choice of selected){
@@ -487,26 +488,19 @@ function buildMutation(
         case "domain": {
           const url=safeWebsite(raw,field.normalizedValue);
           assignments.push("website_url=?");args.push(url);
-          sourceData=omitDirectorySqlContactAliases(
-            sourceData as Record<string,string|number|null>,{websiteUrl:url});
-          sourceDataChanged=true;appliedValue=url;break;
+          appliedValue=url;break;
         }
         case "phone":
         case "email": {
           const value=text(raw);
           const phone=field.fieldName==="phone";
           assignments.push(phone?"public_phone=?":"public_email=?");args.push(value);
-          sourceData=omitDirectorySqlContactAliases(
-            sourceData as Record<string,string|number|null>,
-            phone?{publicPhone:value}:{publicEmail:value});
-          sourceDataChanged=true;appliedValue=value;break;
+          appliedValue=value;break;
         }
-        case "ico": {
-          const ico=normalizeIco(raw); if(!ico) throw new CanonicalApplyUnsupportedError("IČO musí mať 8 číslic.");
-          setSourceMetadata(sourceData,"IČO",ico);sourceDataChanged=true;appliedValue=ico;break;
-        }
-        case "registryId": setSourceMetadata(sourceData,"Registry ID",text(raw));sourceDataChanged=true;appliedValue=text(raw);break;
-        case "registryNamespace": setSourceMetadata(sourceData,"Registry namespace",text(raw));sourceDataChanged=true;appliedValue=text(raw);break;
+        case "ico":
+        case "registryId":
+        case "registryNamespace":
+          throw new CanonicalApplyUnsupportedError("Adresár používa SQL; tento historický G5 metadata zápis je vyradený.");
         default: throw new CanonicalApplyUnsupportedError(`Pole ${field.fieldName} nie je bezpečne mapované.`);
       }
     } else {
@@ -539,7 +533,9 @@ function buildMutation(
     });
   }
 
-  if(sourceDataChanged){assignments.push("source_data_json=?");args.push(JSON.stringify(sourceData));}
+  if(sourceDataChanged && preview.entityType==="ORGANIZATION"){
+    assignments.push("source_data_json=?");args.push(JSON.stringify(sourceData));
+  }
   if(!appliedFields.length) throw new CanonicalApplyUnsupportedError("Vyber aspoň jedno pole APPLY_INCOMING.");
 
   assignments.push("updated_at=?","updated_by=?");

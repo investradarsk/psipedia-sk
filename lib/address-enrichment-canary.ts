@@ -89,8 +89,7 @@ function db(input?: DB) {
 function s(v: unknown) { return typeof v === "string" ? v.trim() : ""; }
 function h(v: string) { try { return new URL(v).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; } }
 function target(row: Row): DirectoryEnrichmentTarget {
-  const meta = (() => { try { return JSON.parse(s(row.source_data_json)) as Record<string, string | number | null>; } catch { return {}; } })();
-  const contacts = readDirectorySqlBackedContacts(meta, row);
+  const contacts = readDirectorySqlBackedContacts({}, row);
   return {
     id: Number(row.id), name: s(row.name), category: s(row.category), status: s(row.status),
     region: s(row.region), district: s(row.district), city: s(row.city), postalCode: s(row.postal_code),

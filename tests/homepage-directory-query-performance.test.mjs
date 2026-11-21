@@ -3,24 +3,20 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { homepageDirectoryGroupedSql } from "../lib/homepage-directory-query.ts";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "../lib/homepage-media.ts";
+import { directoryImageSqlExpression } from "../lib/directory-presentation-sql-read.ts";
 
-// Reference query from before step 5. Keep parity under multiple rotations.
-function legacySql(categoryCount) {
+// SQL-only reference: keep parity of published profiles and daily rotations.
+function referenceSql(categoryCount) {
   const placeholders = Array(categoryCount).fill("?").join(", ");
   return `WITH candidates AS (
-    SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
+    SELECT id, slug, name, category, city, district, image_url,
       featured,
-      CASE WHEN json_valid(source_data_json)
-        AND json_type(source_data_json, '$."Okres"') IN ('text', 'integer', 'real')
-        THEN CAST(json_extract(source_data_json, '$."Okres"') AS TEXT)
-        ELSE NULL END AS fallback_district,
       ROW_NUMBER() OVER (PARTITION BY category, featured ORDER BY name ASC, id ASC) - 1 AS rotation_index,
       COUNT(*) OVER (PARTITION BY category, featured) AS rotation_count
     FROM directory_profiles
     WHERE status = 'published' AND category IN (${placeholders}) AND ${HOMEPAGE_REAL_IMAGE_SQL}
   ), ranked AS (
-    SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
-      fallback_district,
+    SELECT id, slug, name, category, city, district, image_url,
       ROW_NUMBER() OVER (
         PARTITION BY category
         ORDER BY featured DESC,
@@ -28,24 +24,34 @@ function legacySql(categoryCount) {
       ) AS card_rank
     FROM candidates
   )
-  SELECT id, slug, name, category, city, district, image_url,
-    thumbnail_display_json, fallback_district
-  FROM ranked
-  WHERE card_rank <= ?
-  ORDER BY category ASC, card_rank ASC`;
+  SELECT p.id, p.slug, p.name, p.category, p.city, p.district, p.image_url,
+    ${directoryImageSqlExpression("thumbnail","p")} AS thumbnail_display_json,
+    NULL AS fallback_district
+  FROM ranked AS r
+  JOIN directory_profiles AS p ON p.id=r.id
+  WHERE r.card_rank <= ?
+  ORDER BY p.category ASC, r.card_rank ASC`;
 }
 
 function fixture() {
   const db = new DatabaseSync(":memory:");
   db.exec(`CREATE TABLE directory_profiles (
     id INTEGER PRIMARY KEY, slug TEXT, name TEXT, category TEXT, city TEXT,
-    district TEXT, image_url TEXT, image_key TEXT, thumbnail_display_json TEXT,
-    featured INTEGER, status TEXT, source_data_json TEXT
+    district TEXT, image_url TEXT, image_key TEXT,
+    featured INTEGER, status TEXT
+  );
+  CREATE TABLE directory_profile_image_display_settings (
+    profile_id INTEGER NOT NULL, display_context TEXT NOT NULL,
+    display_mode TEXT NOT NULL, focus_x REAL NOT NULL, focus_y REAL NOT NULL,
+    zoom REAL NOT NULL, PRIMARY KEY (profile_id, display_context)
   )`);
   const insert = db.prepare(`INSERT INTO directory_profiles
     (id, slug, name, category, city, district, image_url, image_key,
-     thumbnail_display_json, featured, status, source_data_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+     featured, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const insertDisplay = db.prepare(`INSERT INTO directory_profile_image_display_settings
+    (profile_id,display_context,display_mode,focus_x,focus_y,zoom)
+    VALUES (?,'thumbnail','crop',?,?,?)`);
   let id = 0;
   for (const category of ["veterinari", "treneri", "salony", "ine"]) {
     for (let index = 0; index < 35; index++) {
@@ -53,27 +59,22 @@ function fixture() {
       const key = index % 12 === 0 ? "safe/not-public.webp" : `directory/${category}/${index}.webp`;
       const image = index % 11 === 0 ? "/images/fallback.webp" : `/media/${key}`;
       const status = index % 13 === 0 ? "draft" : "published";
-      const data = index % 8 === 0 ? "invalid json"
-        : index % 7 === 0 ? '{"Okres":["invalid"]}'
-        : index % 6 === 0 ? '{"Okres":17}'
-        : index % 5 === 0 ? '{"Okres":"Nitra"}'
-        : null;
-      insert.run(
+       insert.run(
         id, `profile-${id}`, "Zariadenie " + String(index % 10).padStart(2, "0"),
         category, "Mesto", index % 3 ? "" : "Okres", image, key,
-        JSON.stringify({ mode: "crop", x: index }), index % 5 === 0 ? 1 : 0,
-        status, data,
+        index % 5 === 0 ? 1 : 0, status,
       );
+      if (index % 3 !== 0) insertDisplay.run(id, index % 101, 50, 1);
     }
   }
   return db;
 }
 
-test("optimized homepage directory query matches legacy profiles, order, rotations and JSON fallback", () => {
+test("optimized homepage directory query matches SQL-only reference profiles and daily rotations", () => {
   const db = fixture();
   try {
     for (const categories of [["veterinari", "treneri"], ["treneri"], ["salony", "ine"]]) {
-      const original = db.prepare(legacySql(categories.length));
+      const original = db.prepare(referenceSql(categories.length));
       const optimized = db.prepare(homepageDirectoryGroupedSql(categories.length));
       for (const offset of [0, 1, 8, 16, 144]) {
         for (const limit of [1, 3, 8, 12]) {
@@ -100,7 +101,8 @@ test("window ranking uses only lightweight columns; public eligibility and LIMIT
     assert.doesNotMatch(source, /source_data_json|thumbnail_display_json/);
   assert.match(selection, /WHERE card_rank <= \?/);
   assert.match(sql, /INNER JOIN directory_profiles AS profile ON profile\.id = selected\.id/);
-  assert.ok(sql.indexOf("json_valid(profile.source_data_json)") > sql.indexOf("selected AS"));
+  assert.ok(sql.indexOf("directory_profile_image_display_settings") > sql.indexOf("selected AS"));
+  assert.doesNotMatch(sql, /source_data_json|json_valid/);
   assert.throws(() => homepageDirectoryGroupedSql(0), RangeError);
   assert.throws(() => homepageDirectoryGroupedSql(13), RangeError);
 });

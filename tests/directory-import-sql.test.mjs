@@ -26,8 +26,8 @@ test("directory profile importer keeps columns, placeholders and binds aligned",
   const values = insert[2].split(",").map((value) => value.trim()).filter(Boolean);
   const placeholders = sql.match(/\?/g) ?? [];
 
-  assert.equal(columns.length, 28);
-  assert.equal(values.length, 28);
+  assert.equal(columns.length, 27);
+  assert.equal(values.length, 27);
 
   const database = new DatabaseSync(":memory:");
   database.exec(`
@@ -51,7 +51,6 @@ test("directory profile importer keeps columns, placeholders and binds aligned",
       image_url TEXT,
       image_key TEXT,
       import_key TEXT UNIQUE,
-      source_data_json TEXT NOT NULL,
       search_text TEXT NOT NULL DEFAULT '',
       verified INTEGER NOT NULL,
       featured INTEGER NOT NULL,
@@ -83,7 +82,6 @@ test("directory profile importer keeps columns, placeholders and binds aligned",
     null,
     null,
     "veterinari:vet-test",
-    JSON.stringify({ PSČ: "953 01", Stav: "Overené" }),
     "reprezentativny veterinar zlate moravce",
     1,
     0,
@@ -94,8 +92,8 @@ test("directory profile importer keeps columns, placeholders and binds aligned",
     "import:veterinari",
   ];
 
-  assert.equal(placeholders.length, 27);
-  assert.equal(binds.length, 27);
+  assert.equal(placeholders.length, 26);
+  assert.equal(binds.length, 26);
   database.prepare(sql).run(...binds);
 
   const row = database.prepare(`

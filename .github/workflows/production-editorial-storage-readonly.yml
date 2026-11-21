@@ -23,6 +23,8 @@ on:
       - "db/schema.ts"
       - "tests/directory-sql-cutover-parity-phase3.test.mjs"
       - "tests/directory-sql-cutover-write-phase3.test.mjs"
+      - "tests/directory-step4-drop-source-json.test.mjs"
+      - "db/isolated/directory_step4_drop_source_data_json.sql"
       - "tests/editorial-cleanup-readiness-phase4.test.mjs"
       - "scripts/production-editorial-cleanup-readiness.mjs"
       - "scripts/editorial-legacy-reader-inventory.mjs"
@@ -59,7 +61,7 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Run SQLite fixture and safety tests (no secrets or D1)
-        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-0170-schema.test.mjs tests/production-d1-directory-0170.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs tests/editorial-cleanup-readiness-phase4.test.mjs tests/editorial-legacy-reader-inventory-phase4.test.mjs tests/help-sql-schema-preflight.test.mjs tests/help-sql-reviewed-backfill.test.mjs tests/help-sql-legacy-public-cutover-step5.test.mjs
+        run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-0170-schema.test.mjs tests/production-d1-directory-0170.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs tests/directory-step4-drop-source-json.test.mjs tests/editorial-cleanup-readiness-phase4.test.mjs tests/editorial-legacy-reader-inventory-phase4.test.mjs tests/help-sql-schema-preflight.test.mjs tests/help-sql-reviewed-backfill.test.mjs tests/help-sql-legacy-public-cutover-step5.test.mjs
 
   production-readonly:
     name: Count D1 sources and Notion mappings (no writes)

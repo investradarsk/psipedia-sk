@@ -1,0 +1,15 @@
+-- ADRESÁR 4/4 – one-time physical removal of the retired source JSON column.
+-- DO NOT include in automatic D1 migration discovery or run against production
+-- before the SQL-only application version from PR #1505 is fully deployed.
+-- No Notion import, field comparison, or data copy is performed.
+--
+-- Before running, inspect only schema dependencies (not profile values):
+-- SELECT type,name FROM sqlite_schema
+-- WHERE type IN ('trigger','view','index') AND sql IS NOT NULL
+-- AND lower(sql) LIKE '%directory_profiles%'
+-- AND lower(sql) LIKE '%source_data_json%';
+-- A nonempty result must be resolved before this SQL is executed.
+--
+-- SQLite executes DROP COLUMN atomically and preserves all other columns.
+-- Run ONCE via Cloudflare D1 SQL console or a separately approved maintenance action.
+ALTER TABLE directory_profiles DROP COLUMN source_data_json;

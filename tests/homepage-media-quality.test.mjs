@@ -3,7 +3,7 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { readFile } from "node:fs/promises";
 import { hasHomepageRealImage, HOMEPAGE_REAL_IMAGE_SQL } from "../lib/homepage-media.ts";
-import { directoryLegacyDistrictSql } from "../lib/directory-public-source-contract.ts";
+import { directoryLegacyDistrictSql, directoryEffectiveDistrictSql } from "../lib/directory-public-source-contract.ts";
 
 const repoFile = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -147,7 +147,8 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
   assert.match(groupedSql, /SELECT id, name, category, featured/);
   assert.match(groupedSql, /SELECT id, category, card_rank FROM ranked WHERE card_rank <= \?/);
   assert.match(groupedSql, /INNER JOIN directory_profiles AS profile ON profile\.id = selected\.id/);
-  assert.match(groupedSql, /profile\.thumbnail_display_json/);
+  assert.match(groupedSql, /directoryImageSqlExpression\("thumbnail","profile"\)/);
+  assert.doesNotMatch(groupedSql, /profile\.thumbnail_display_json|profile\.source_data_json/);
   // The projection is composed by the canonical source contract, not inlined here.
   assert.match(groupedSql, /directoryLegacyDistrictSql\("profile"\)/);
   assert.match(groupedSql, /AS fallback_district/);
@@ -294,38 +295,34 @@ test("homepage cards use projected SQL rather than fetching full profile and eve
   }
 });
 
-test("homepage directory cards preserve legacy district fallback with validated metadata", async () => {
+test("homepage directory cards preserve SQL district and do not restore retired JSON fallback", async () => {
   const source = await repoFile("lib/directory-store.ts");
   const start = source.indexOf("export async function getHomepageDirectoryProfilesWithImages");
   const part = source.slice(start).split("\nexport async function ")[0];
   assert.match(part, /directoryLegacyDistrictSql\(\)/);
   const sourceContract = await repoFile("lib/directory-public-source-contract.ts");
-  assert.match(sourceContract, /function safeSourceJson\(/);
-  assert.match(sourceContract, /json_valid\(/);
-  assert.match(sourceContract, /json_type\(/);
+  assert.doesNotMatch(sourceContract, /function safeSourceJson\(|json_valid\(|json_type\(/);
+  assert.match(sourceContract, /directoryEffectiveDistrictSql/);
   assert.match(part, /fallback_district/);
   assert.doesNotMatch(part, /rowToPublicProfile|safeImportData|SELECT\s+\*/);
 
   const db = new DatabaseSync(":memory:");
   try {
-    db.exec("CREATE TABLE d (source_data_json TEXT)");
-    for (const value of [
-      '{"Okres":"Nitra"}',
-      "corrupt-json",
-      '{"Okres":["not-scalar"]}',
-      '{"Okres":17}',
-    ]) {
-      db.prepare("INSERT INTO d VALUES (?)").run(value);
-    }
-    // Execute the real shared SQL expression against valid, malformed and scalar JSON.
-    const sql = `SELECT ${directoryLegacyDistrictSql()} AS district FROM d`;
-    assert.deepEqual(
-      db
-        .prepare(sql)
-        .all()
-        .map((row) => row.district),
-      ["Nitra", null, null, "17"],
-    );
+    db.exec("CREATE TABLE d (id INTEGER PRIMARY KEY, district TEXT, source_data_json TEXT)");
+    const insert = db.prepare("INSERT INTO d (district,source_data_json) VALUES (?,?)");
+    insert.run("Nitra", '{"Okres":"Starý okres"}');
+    insert.run("", '{"Okres":"Starý okres"}');
+    insert.run("Bratislava", "corrupt-json");
+    // The obsolete JSON field must never rescue a blank SQL district.
+    const sql = `SELECT ${directoryEffectiveDistrictSql("d")} AS district,
+      ${directoryLegacyDistrictSql()} AS fallback_district FROM d ORDER BY id`;
+    assert.deepEqual(db.prepare(sql).all().map(row => ({
+      district: row.district, fallback: row.fallback_district,
+    })), [
+      { district: "Nitra", fallback: null },
+      { district: "", fallback: null },
+      { district: "Bratislava", fallback: null },
+    ]);
   } finally {
     db.close();
   }
