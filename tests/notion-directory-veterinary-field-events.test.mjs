@@ -244,14 +244,15 @@ test("explicit blank Admin and Notion edits clear only the targeted SQL field", 
     database, profileId: 1653, category: "fyzioterapia",
     field: "Ordinačné hodiny", value: "",
   });
-  assert.equal(logs.length, 3, "CAS guard is a prepared statement without bindings");
+  assert.equal(logs.length,4,"canonical UPDATE, CAS receipt, SQL fact and hours clear");
   assert.doesNotMatch(logs[0].sql,/source_data_json/);
   assert.match(logs[0].sql,/updated_at = \\?/);
-  assert.match(logs[1].sql,/directory_profile_public_facts/);
-  assert.ok(logs[1].args.includes("Ordinačné hodiny"));
-  assert.ok(logs[1].args.includes(""),"explicit clear is stored in SQL");
-  assert.match(logs[2].sql,/DELETE FROM directory_profile_opening_hours/);
-  assert.equal(logs[2].args.includes(profile.id),true);
+  assert.match(logs[1].sql,/changes\\(\\)=1/);
+  assert.match(logs[2].sql,/directory_profile_public_facts/);
+  assert.ok(logs[2].args.includes("Ordinačné hodiny"));
+  assert.ok(logs[2].args.includes(""),"explicit clear is stored in SQL");
+  assert.match(logs[3].sql,/DELETE FROM directory_profile_opening_hours/);
+  assert.equal(logs[3].args.includes(profile.id),true);
   assert.equal(logs.some(item=>item.args.includes('$."Zdroj dát"')),false,
     "unrelated fields are untouched");
   assert.ok(source.includes("Only fields explicitly reported as changed by the Notion webhook are written."));
