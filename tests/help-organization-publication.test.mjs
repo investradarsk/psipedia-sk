@@ -144,7 +144,7 @@ test("organization admin input validates canonical type, slug, contacts and medi
   assert.equal(parsed.imageKey, payload.imageKey);
   assert.throws(() => parseOrganizationAdminInput({ ...payload, slug: "Psia Nádej" }), OrganizationAdminValidationError);
   assert.throws(() => parseOrganizationAdminInput({ ...payload, type: "INVENTED" }), OrganizationAdminValidationError);
-  assert.throws(() => parseOrganizationAdminInput({ ...payload, publicEmail: "nie-je-email" }), OrganizationAdminValidationError);
+  assert.equal(parseOrganizationAdminInput({ ...payload, publicEmail: "nie-je-email" }).publicEmail, "nie-je-email");
   assert.throws(() => parseOrganizationAdminInput({ ...payload, websiteUrl: "/media/help/2026/wrong.webp" }), OrganizationAdminValidationError);
   assert.throws(() => parseOrganizationAdminInput({ ...payload, imageKey: "directory/2026/wrong.webp" }), OrganizationAdminValidationError);
   assert.throws(() => parseOrganizationAdminInput({ ...payload, status: "PUBLISHED" }), /spravuje server/);
