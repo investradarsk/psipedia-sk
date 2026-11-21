@@ -1,4 +1,4 @@
-import { breedProfileHref, canonicalBreedIdsSql } from "./breed-canonical.ts";
+import { breedProfileHref, canonicalBreedIdsSqlV2 } from "./breed-canonical.ts";
 import type { PublicRelatedBreed } from "./content-relations";
 
 /**
@@ -60,7 +60,7 @@ export async function getBreederRelationSelection(
 export async function listBreederRelationOptions(database: Database) {
   const [breeds, clubs] = await database.batch([
     database.prepare(
-      `SELECT id,name,slug,status FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY name COLLATE NOCASE LIMIT 500`,
+      `SELECT id,name,slug,status FROM managed_breeds WHERE id IN (${canonicalBreedIdsSqlV2}) ORDER BY name COLLATE NOCASE LIMIT 500`,
     ),
     database.prepare(
       "SELECT id,name,slug,city,status FROM directory_profiles WHERE category='chovatelske-kluby' AND status IN ('draft','published') ORDER BY name COLLATE NOCASE LIMIT 1000",
@@ -160,7 +160,7 @@ export async function listPublicBreederBreedLinks(
     `SELECT DISTINCT b.id,b.name,b.slug,b.image_url,b.fci_group
      FROM breed_directory_relations r
      JOIN managed_breeds b ON b.id=r.breed_id
-     WHERE r.profile_id=? AND b.id IN (${canonicalBreedIdsSql})
+     WHERE r.profile_id=? AND b.id IN (${canonicalBreedIdsSqlV2})
      ORDER BY b.fci_group,b.name COLLATE NOCASE LIMIT 40`,
   ).bind(profileId).all<{
     id: number; name: string; slug: string; image_url: string | null; fci_group: number;
