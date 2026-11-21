@@ -89,19 +89,19 @@ function createDatabase() {
   )`);
   return db;
 }
-function params(source, extras = {}) {
+function params(_retiredSourceJson, extras = {}) {
   return [
     extras.slug ?? "vet-1", "Vet", "veterinari", "draft",
     extras.excerpt ?? "", extras.description ?? "",
     extras.services ?? "[]", "[]", "Nitra", "",
     "Nitriansky kraj", "", 0, "", extras.websiteUrl ?? null,
     null, null, extras.importKey ?? "vet-key",
-    source, "vet nitra", 0, 0, "2026-10-01", "2026-10-13",
+    "vet nitra", 0, 0, "2026-10-01", "2026-10-13",
     null, "importer", "importer",
   ];
 }
 
-test("SQL inserts a new draft without updating an existing edited draft", () => {
+test("SQL inserts a draft without restoring retired JSON or overwriting an edited draft", () => {
   const db = createDatabase();
   try {
     const imported = JSON.stringify({
@@ -113,16 +113,10 @@ test("SQL inserts a new draft without updating an existing edited draft", () => 
     })).changes, 1);
 
     // Mimic an editor save that happened AFTER the original historical import.
-    const live = JSON.stringify({
-      [emergency.d1.key]: "yes",
-      "Legacy": "aktuálna ručná úprava",
-      Web: "https://admin.sk",
-      "_psipedia_breeder_gallery_urls": ["https://media.psipedia.sk/photo.jpg"],
-    });
     db.prepare(`UPDATE directory_profiles SET
-      description=?, excerpt=?, website_url=?, source_data_json=?, updated_at=?, updated_by=?
+      description=?, excerpt=?, website_url=?, updated_at=?, updated_by=?
       WHERE import_key=?`).run(
-      "Najnovší popis v Admine", "Nový perex", "https://admin.sk", live,
+      "Najnovší popis v Admine", "Nový perex", "https://admin.sk",
       "2026-11-15T08:00:00Z", "admin@example.sk", "vet-key",
     );
     const before = db.prepare("SELECT * FROM directory_profiles WHERE import_key=?").get("vet-key");
@@ -138,7 +132,8 @@ test("SQL inserts a new draft without updating an existing edited draft", () => 
     })).changes, 0);
     const after = db.prepare("SELECT * FROM directory_profiles WHERE import_key=?").get("vet-key");
     assert.deepEqual(after, before);
-    assert.equal(after.source_data_json, live);
+    assert.equal(Object.hasOwn(after, "source_data_json"), false);
+    assert.equal(after.website_url, "https://admin.sk");
     assert.equal(after.updated_by, "admin@example.sk");
   } finally {
     db.close();
@@ -162,7 +157,7 @@ test("SQL refuses every existing identity, whether draft or published", () => {
     db.prepare("UPDATE directory_profiles SET status='published' WHERE import_key='vet-key'").run();
     assert.equal(statement.run(...params("{}")).changes, 0);
     const final = db.prepare("SELECT * FROM directory_profiles WHERE import_key='vet-key'").get();
-    assert.equal(final.source_data_json, initial);
+    assert.equal(Object.hasOwn(final, "source_data_json"), false);
     assert.equal(final.slug, "vet-1");
     assert.equal(final.status, "published");
     assert.equal(db.prepare("SELECT count(*) AS total FROM directory_profiles").get().total, 1);
