@@ -255,25 +255,25 @@ test("Notion legacy unlock finalizer mirrors SQL only after verified remote owne
     finalizer.indexOf("input.database.batch("));
 });
 
-test("review writer paths are atomic and all legacy Notion lock predicates stay active",()=>{
+test("owner review writes SQL atomically and every Notion lock reads SQL",()=>{
   const store=load("lib/directory-store.ts");
   const notion=load("lib/directory-notion-reviewed-sync.ts");
   const partner=load("lib/partner-new-profile-admin.ts");
   const lock=load("lib/directory-reviewed-sync-lock.ts");
   const adminWriter=store.slice(store.indexOf("export async function setManagedDirectoryProfileReviewed("),
     store.indexOf("export async function archiveManagedDirectoryProfile("));
-  assert.match(adminWriter,/database\.batch\(\[[\s\S]*?canonical, directory0173ReviewCasGuardStatement\(database\), reviewMirror/);
-  assert.match(adminWriter,/source_data_json = \?/);
+  assert.match(adminWriter,/database\.batch\(\[[\s\S]*?canonical, directory0173ReviewCasGuardStatement\(database\), sqlReview/);
+  assert.match(adminWriter,/INSERT INTO directory_profile_review_state/);
+  assert.doesNotMatch(adminWriter,/SET source_data_json/);
   assert.match(adminWriter,/AND \(\?=1 OR NOT EXISTS \(SELECT 1 FROM partner_resources/);
-  assert.match(notion,/input\.database\.batch\(\[[\s\S]*?canonical, directory0173ReviewCasGuardStatement\(input\.database\), reviewMirror/);
+  assert.match(notion,/LEFT JOIN directory_profile_review_state/);
+  assert.doesNotMatch(notion,/SET source_data_json/);
   assert.match(partner,/partnerDirectory0173ReviewSqlMirrorStatement/);
   assert.equal((partner.match(/partnerDirectoryReviewLockStatement\(/g)??[]).length,2);
-  assert.match(lock,/isDirectoryReviewedSourceLocked\(row\.source_data_json\)/);
+  assert.doesNotMatch(lock,/isDirectoryReviewedSourceLocked\(row\.source_data_json\)/);
   assert.match(lock,/JOIN partner_memberships/);
   assert.match(lock,/directory_profile_review_state/);
   assert.match(lock,/admin_record_tombstones/);
-  assert.match(lock,/legacyLocked \|\|/);
   assert.match(lock,/Number\(row\.sql_unlock_pending\) === 1/);
-  // SQL may add protection, but must never override a historical JSON lock.
   assert.match(lock,/Boolean\(row\.sql_reviewed_at\?\.trim\(\)\)/);
 });
