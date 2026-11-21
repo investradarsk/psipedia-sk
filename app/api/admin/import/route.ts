@@ -182,6 +182,11 @@ export async function POST(request: Request) {
       const sourcePlan = plan.profileSources[index];
       if (!sourcePlan) throw new Error("Profil neprešiel validáciou importných filtrov.");
       const rawSourceData = sourcePlan.mergedSourceJson;
+      // The old catch-all JSON column is retired. Do not silently discard
+      // unmapped import fields: these require the canonical SQL editor path.
+      if (rawSourceData.trim() !== "{}") {
+        throw new Error(`Profil ${name} má historické importné polia bez SQL mapovania. Použi editor Adresára.`);
+      }
       const searchText = normalizeDirectorySearchText([name, excerpt, description, services.join(" "), qualifications.join(" "), city, district, region, address].join(" "));
       directoryProfilesToReconcile.push({ importKey, category, slug });
       profileStatementIndexes.push(statements.length);
@@ -189,16 +194,16 @@ export async function POST(request: Request) {
         INSERT INTO directory_profiles (
           slug, name, category, status, excerpt, description, services_json, qualifications_json,
           city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
-          import_key, source_data_json, search_text, verified, featured, created_at, updated_at, published_at, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          import_key, search_text, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         -- The generic historical import is INSERT-ONLY. A conflicting
         -- import_key OR category+slug is an existing Admin-owned profile:
-        -- never resurrect source JSON or overwrite a saved draft.
+        -- never overwrite a saved draft or reconstruct old JSON.
         ON CONFLICT DO NOTHING
       `).bind(
         slug, name, category, status, excerpt, description, JSON.stringify(services), JSON.stringify(qualifications),
         city, district, region, address, 0, importedText(row, ["priceNote", "Cena"]), websiteUrl,
-        internalEmail, migratedImage(row), importKey, rawSourceData, searchText,
+        internalEmail, migratedImage(row), importKey, searchText,
         bool(valueFrom(row, "verified", "Overené")) || importedText(row, ["Stav"]) === "Overené",
         bool(row.featured), createdAt, updatedAt, publishedAt,
         text(row.createdBy, user.email), text(row.updatedBy, `import:${category}`),
