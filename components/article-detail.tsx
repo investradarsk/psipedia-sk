@@ -18,7 +18,7 @@ import { ArticleListItem } from "@/components/article-list-item";
 import { ShareButton } from "@/components/share-button";
 import { RelatedBreedList } from "@/components/related-entity-list";
 import { AdSlot } from "@/components/ad-slot";
-import { DognetTestBanner } from "@/components/dognet-test-banner";
+import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import type { Article } from "@/lib/content";
 import type { ArticleMagazineData } from "@/lib/article-magazine";
 import type { ArticleDiscoveryData } from "@/lib/article-discovery";
@@ -406,7 +406,7 @@ export function ArticleDetail({
                   />
                 </div>
               ) : null}
-              <DognetTestBanner format="vertical" />
+              <AffiliateRotatingBanner placement="sidebar" />
             </div>
           </aside>
         ) : null}

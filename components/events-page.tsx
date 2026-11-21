@@ -1,5 +1,6 @@
 import type { EventListingFilters } from "@/lib/event-listing";
 import Link from "next/link";
+import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import homeStyles from "@/app/home-v2.module.css";
 import { calendarMonthDays, resolveCalendarMonth } from "@/lib/event-calendar-view";
@@ -182,6 +183,8 @@ export async function EventsPage({
             />
           </UnifiedSectionHeroShell>
         </div>
+
+        <AffiliateRotatingBanner placement="horizontal" />
 
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">

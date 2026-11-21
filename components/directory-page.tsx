@@ -1,5 +1,6 @@
 import { PublicFilterLayout, PublicFilterPanel } from "@/components/public-filters";
 import Link from "next/link";
+import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
@@ -164,6 +165,8 @@ export async function DirectoryPage({
             }
           />
         </UnifiedSectionHeroShell>
+
+        <AffiliateRotatingBanner placement="horizontal" />
 
         <section className={styles.resultsSection} aria-label="Adresár služieb pre psov">
           <PublicContentShell variant="listing" className={styles.resultsShell}>

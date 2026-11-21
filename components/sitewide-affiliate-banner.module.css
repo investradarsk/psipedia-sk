@@ -1,0 +1,15 @@
+.wrapper {
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--line, #e3e7de);
+  background: var(--cream, #faf9f5);
+}
+
+.wrapper :global([data-affiliate-rotating-banner="horizontal"]) {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+/* A 404 renders through the normal root layout but is not advertising inventory. */
+:global(body:has([data-psipedia-not-found])) .wrapper {
+  display: none;
+}

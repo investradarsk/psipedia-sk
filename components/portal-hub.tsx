@@ -1,5 +1,6 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
+import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { ArticleCard } from "@/components/article-card";
 import { EventCard } from "@/components/event-card";
 import { EditorialSectionHub } from "@/components/editorial-section";
@@ -335,6 +336,8 @@ export async function PortalHub({
       </UnifiedSectionHeroShell>
 
       {showSectionTabs && <PortalSectionTabs section={section} />}
+
+      <AffiliateRotatingBanner placement="horizontal" />
 
       {isReviews && (
         <section className="shell public-shell review-trust" aria-labelledby="review-trust-heading">
