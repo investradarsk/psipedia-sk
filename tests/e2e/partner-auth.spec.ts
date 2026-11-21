@@ -180,7 +180,11 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
 });
 
 test("public header exposes Partner login as a utility action without overflow", async ({ page }, testInfo) => {
-  await page.goto("/");
+  // The isolated Partner E2E D1 fixture does not seed Homepage-only visual tables.
+  // Exercise the same shared public header on a static public page instead.
+  const response = await page.goto("/kontakt");
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Ako ti môžeme pomôcť?" })).toBeVisible();
   await dismissCookieConsent(page);
   if(testInfo.project.name==="mobile-chromium"){
     await openMobileMenu(page);

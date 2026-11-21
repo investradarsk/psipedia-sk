@@ -116,6 +116,8 @@ test("0170 SQL first public filters, secondary categories and contact clears are
   // The partner editor loads canonical SQL contacts from directory-store and
   // never copies them back to the retired source_data_json column.
   assert.match(writer,/getManagedDirectoryProfileById\(resource\.canonicalId, db\)/);
+  // Preserve the main-branch regression for the retired physical JSON column.
+  assert.match(writer,/sourceDataJson: null/);
   assert.match(writer,/readDirectoryPublicContacts\(sourceData, profile\.websiteUrl \?\? ""\)/);
   const directoryWriter = writer.slice(writer.indexOf("export function buildDirectoryApplyStatement("),
     writer.indexOf("export function buildHelpApplyStatements("));
