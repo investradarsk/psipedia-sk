@@ -269,24 +269,14 @@ export async function partnerNewProfileIdentityFingerprint(profile: PartnerNewPr
 }
 
 type DirectoryCandidateRow = {
-  id:number;name:string;category:string;city:string;address:string;websiteUrl:string|null;sourceDataJson:string;
-  status:string;slug:string;
+  id:number;name:string;category:string;city:string;address:string;websiteUrl:string|null;
+  website_url:string|null;public_phone:string|null;public_email:string|null;
+  facebook_url:string|null;instagram_url:string|null;status:string;slug:string;
 };
 type HelpCandidateRow = {
   id:number;name:string;type:string;city:string;address:string;websiteUrl:string|null;publicPhone:string|null;
   publicEmail:string|null;registrationNumber:string|null;status:string;slug:string;publishedAt:string|null;
 };
-
-function safeSourceData(value: string) {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as Record<string, string | number | null>
-      : {};
-  } catch {
-    return {};
-  }
-}
 
 export function evaluatePartnerDuplicateCandidate(input: {
   resourceType: PartnerNewProfileResourceType;
@@ -379,13 +369,13 @@ export async function scanPartnerNewProfileDuplicates(
   const items: PartnerDuplicateCandidate[] = [];
   if (profile.resourceType === "DIRECTORY_PROFILE") {
     const rows = await db.prepare(`
-      SELECT id,name,category,city,address,website_url websiteUrl,website_url,public_phone,public_email,facebook_url,instagram_url,source_data_json sourceDataJson,status,slug
+      SELECT id,name,category,city,address,website_url websiteUrl,website_url,public_phone,public_email,facebook_url,instagram_url,status,slug
       FROM directory_profiles
       WHERE status<>'archived'
       ORDER BY id DESC
     `).all<DirectoryCandidateRow>();
     for (const row of rows.results) {
-      const contacts = readDirectorySqlBackedContacts(safeSourceData(row.sourceDataJson), row);
+      const contacts = readDirectorySqlBackedContacts(null, row);
       const candidate = evaluatePartnerDuplicateCandidate({
         resourceType: "DIRECTORY_PROFILE",
         incoming: profile.values,
