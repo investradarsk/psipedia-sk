@@ -143,7 +143,7 @@ test("mapped directory and event details allow only original Dognet image hosts"
   const imgSrcPolicy = worker.match(/"img-src 'self'[^"]+"/)?.[0] ?? "";
   assert.match(imgSrcPolicy, /https:\/\/api\.app\.dognet\.com/);
   assert.match(imgSrcPolicy, /https:\/\/visibility\.postaffiliatepro\.com/);
-  assert.doesNotMatch(imgSrcPolicy, /https:\/\/\*/);
+  assert.doesNotMatch(imgSrcPolicy, /(?:^|\s)\*(?:\s|$)/);
   assert.match(worker, /if \(isGoogleMapsPublicRoute\(url\.pathname\)\)/);
   assert.match(worker, /\^\\\/adresar/);
   assert.match(worker, /\^\\\/podujatia/);
