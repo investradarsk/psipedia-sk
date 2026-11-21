@@ -115,9 +115,9 @@ test("the canonical Admin SQL create/update never persist edited contacts to imp
     store.indexOf("export function buildManagedDirectoryProfileCreateStatement("),
     store.indexOf("export async function getPublishedDirectoryProfiles("),
   );
-  assert.doesNotMatch(createBlock,/JSON\\.stringify\\(omitDirectorySqlContactAliases\\(input\\.sourceData, input\\)\\)/);
+  assert.equal(createBlock.includes("JSON.stringify(omitDirectorySqlContactAliases(input.sourceData, input))"),false);
   assert.match(createBlock,/source_data_json, verified/);
-  assert.equal((createBlock.match(/"\\{\\}"/g)??[]).length,2);
+  assert.equal(createBlock.split('"{}"').length-1,2);
   const updateBlock=store.slice(store.indexOf("export function buildManagedDirectoryProfileUpdateStatement("),store.indexOf("export async function updateManagedDirectoryProfile("));
   assert.doesNotMatch(updateBlock, /source_data_json = \?/);
   const start = notion.indexOf("async function saveBreederEditorialValue(");
