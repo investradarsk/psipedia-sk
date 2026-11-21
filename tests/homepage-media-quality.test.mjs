@@ -301,10 +301,10 @@ test("homepage directory cards preserve SQL district and do not restore retired 
   const part = source.slice(start).split("\nexport async function ")[0];
   assert.match(part, /directoryLegacyDistrictSql\(\)/);
   const sourceContract = await repoFile("lib/directory-public-source-contract.ts");
-  assert.doesNotMatch(sourceContract, /function safeSourceJson\\(|json_valid\\(|json_type\\(/);
+  assert.doesNotMatch(sourceContract, /function safeSourceJson\(|json_valid\(|json_type\(/);
   assert.match(sourceContract, /directoryEffectiveDistrictSql/);
   assert.match(part, /fallback_district/);
-  assert.doesNotMatch(part, /rowToPublicProfile|safeImportData|SELECT\\s+\\*/);
+  assert.doesNotMatch(part, /rowToPublicProfile|safeImportData|SELECT\s+\*/);
 
   const db = new DatabaseSync(":memory:");
   try {
