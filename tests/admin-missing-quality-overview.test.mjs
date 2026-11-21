@@ -39,7 +39,9 @@ test("all nine missing-data categories have independent counters and drill-down"
   assert.match(source,/RAW_MISSING_PHONE_SQL/);
   assert.match(source,/RAW_MISSING_EMAIL_SQL/);
   assert.match(source,/RAW_MISSING_WEBSITE_SQL/);
-  assert.match(source,/json_valid/);
+  assert.match(source,/facebook_url/);
+  assert.match(source,/instagram_url/);
+  assert.doesNotMatch(source,/source_data_json|json_valid/);
   assert.match(source,/incompleteProfiles:/);
   assert.match(page,/result\.summary\.byField\[group\.id\]/);
   assert.match(page,/result\.items\.map/);
