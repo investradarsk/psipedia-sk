@@ -51,3 +51,9 @@ test("geo unavailable is explicit and no fake empty-map fallback exists", () => 
   assert.match(route, /status: 503/);
   assert.doesNotMatch(route, /MapGeoUnavailableError[\s\S]{0,400}status: 200/);
 });
+
+test("map directory search uses SQL service text rows, never retired services_json", () => {
+  assert.match(query, /DIRECTORY_MAP_SERVICE_TEXT_SQL/);
+  assert.match(query, /group_concat\(service_text, ' '\) FROM directory_profile_service_texts WHERE profile_id=d\.id/);
+  assert.doesNotMatch(query, /d\.services_json/);
+});

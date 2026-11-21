@@ -143,7 +143,7 @@ test("existing CAS, publication, Notion, and extra endpoint guards are still pre
   assert.match(read("articles/[id]/route.ts"), /writeBackPublishedArticleToNotion/);
   assert.match(read("events/[id]/route.ts"), /writeBackPublishedEventToNotion/);
   assert.match(read("events/[id]/route.ts"), /request\.headers\.get\("origin"\)/);
-  assert.match(read("directory/[id]/route.ts"), /source_data_json=\?6/);
+  assert.match(read("directory/[id]/route.ts"), /WHERE id=\?3 AND category=\?4 AND updated_at=\?5/);
   assert.match(read("organizations/[id]/route.ts"), /expectedUpdatedAt/);
   assert.match(read("organizations/[id]/google-place/route.ts"), /sameOriginJson\(request\)/);
 });

@@ -4,7 +4,6 @@ import {
   DEFAULT_OUTREACH_BODY,
   DEFAULT_OUTREACH_SUBJECT,
   buildOutreachDryRun,
-  directoryOutreachEmailValues,
   filterOutreachHistory,
   maskOutreachEmail,
   normalizeOutreachEmail,
@@ -203,11 +202,11 @@ function publicOrganizationUrl(slug: string) {
 
 async function loadDirectoryCandidates(database: D1Database, selection: OutreachSelection) {
   const rows = await database.prepare(
-    "SELECT id, slug, name, category, status, city, region, source_data_json, verified " +
+    "SELECT id, slug, name, category, status, city, region, public_email, verified " +
     "FROM directory_profiles ORDER BY id ASC LIMIT 1500",
   ).all<{
     id: number; slug: string; name: string; category: string; status: string; city: string;
-    region: string; source_data_json: string; verified: number;
+    region: string; public_email: string | null; verified: number;
   }>();
   const output: OutreachEntityCandidate[] = [];
   for (const row of rows.results) {
@@ -215,7 +214,7 @@ async function loadDirectoryCandidates(database: D1Database, selection: Outreach
     if (!regionMatches(row.region, selection)) continue;
     const verified = Boolean(row.verified);
     if (!verificationMatches(verified, selection)) continue;
-    for (const email of directoryOutreachEmailValues(row.source_data_json)) {
+    for (const email of splitOutreachEmails(row.public_email)) {
       output.push({
         entityType: "DIRECTORY_PROFILE",
         entityId: String(row.id),

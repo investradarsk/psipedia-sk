@@ -1,5 +1,4 @@
-import { partnerDirectoryReviewLockStatement } from "./partner-directory-review";
-import { partnerDirectory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
+import { partnerDirectoryReviewLockStatement } from "./partner-directory-review-sql";
 import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
 import { env } from "cloudflare:workers";
 import { slugifyArticleTitle } from "@/lib/article-store";
@@ -478,11 +477,7 @@ export async function createPartnerNewProfileAdmin(input:{
     canonicalStatements.push(partnerDirectoryReviewLockStatement({
       database,canonicalSql,accountId:row.accountId,actorRef,nowIso,
     }));
-    // The membership, legacy JSON lock and 0173 review-state projection
-    // must commit in the same protected moderation transaction.
-    canonicalStatements.push(partnerDirectory0173ReviewSqlMirrorStatement({
-      database,canonicalSql,accountId:row.accountId,actorRef,nowIso,
-    }));
+    // Membership and the SQL review lock commit in one moderation batch.
   }else if(row.resourceType==="HELP_ORGANIZATION"){
     // The organization owner grant and permanent Notion review lock must
     // commit in the same moderation transaction, just like Help and Events.
@@ -579,7 +574,6 @@ export async function linkPartnerNewProfileAdmin(input:{
     ...(row.resourceType==="DIRECTORY_PROFILE"
       ? [
           partnerDirectoryReviewLockStatement({database,canonicalSql,accountId:row.accountId,actorRef,nowIso}),
-          partnerDirectory0173ReviewSqlMirrorStatement({database,canonicalSql,accountId:row.accountId,actorRef,nowIso}),
         ]
       : []),
     ...(row.resourceType==="HELP_ORGANIZATION"

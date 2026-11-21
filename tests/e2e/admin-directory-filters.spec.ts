@@ -277,7 +277,7 @@ test.describe("admin directory v2", () => {
     );
   });
 
-  test("editor safely edits contacts/media, preserves relation metadata and keeps trust separate from publication", async ({ page }, testInfo) => {
+  test("editor safely edits contacts/media, preserves SQL public facts and keeps trust separate from publication", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "load" });
     await waitForDirectoryTableLayout(page);
@@ -338,8 +338,11 @@ test.describe("admin directory v2", () => {
     expect(profile.importData["Telefón"]).toBe("+421 900 333 444");
     expect(profile.importData["E-mail"]).toBe("updated-public@example.invalid");
     expect(profile.internalEmail).toBe("internal-fixture@example.invalid");
-    expect(profile.importData["Plemeno"]).toBe("Labradorský retriever");
-    expect(profile.importData["Organizácia"]).toBe("Fixture klub");
+    // Coverage is a trainer-owned SQL public fact and survives a contact/media save.
+    expect(profile.importData["Pokrytie"]).toBe("Nitra a okolie");
+    // Historical JSON-only breed/organization labels do not invent canonical relations.
+    expect(profile.importData["Plemeno"]).toBeUndefined();
+    expect(profile.importData["Organizácia"]).toBeUndefined();
 
     const publicResponse = await page.goto("/adresar/treneri/directory-admin-editor-fixture", { waitUntil: "domcontentloaded" });
     expect(publicResponse?.status()).toBe(200);

@@ -1,11 +1,4 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
-import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
-import {
-  mergeDirectoryProfileReviewMetadata,
-  readDirectoryProfileReviewMetadata,
-  type DirectoryImportData,
-} from "./directory-profile-metadata";
-import { planDirectoryReviewSync } from "./directory-review-sync-policy";
 import { notionDirectoryPageBelongsToSource, NotionDirectoryUnsafeTargetError } from "./notion-directory-update-safety";
 import {
   notionFlagEnabled,
@@ -15,8 +8,12 @@ import {
   type NotionSyncBindings,
 } from "./notion-sync-shared";
 
+/**
+ * The Admin/D1 SQL checkbox is the sole authority. Notion mirrors this flag
+ * but never writes it back to D1, and the historical source_data_json is not
+ * read or updated by this isolated synchronization path.
+ */
 export const DIRECTORY_REVIEW_NOTION_PROPERTY = "Odkontrolované";
-const REVIEW_SYNC_BASELINE_KEY = "_psipedia_profile_review_notion_synced";
 
 type DirectoryReviewBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -32,9 +29,11 @@ type DirectoryReviewPage = {
 };
 
 type DirectoryReviewRow = {
-  source_data_json: string;
   status: string;
   updated_at: string;
+  reviewed_at: string;
+  unlock_pending: number;
+  review_updated_at: string;
 };
 
 export type DirectoryReviewSyncResult =
@@ -42,9 +41,7 @@ export type DirectoryReviewSyncResult =
   | "unmapped"
   | "skipped"
   | "unchanged"
-  | "acknowledged"
-  | "pushed"
-  | "pulled";
+  | "pushed";
 
 function reviewedInNotion(page: DirectoryReviewPage): boolean {
   const value = notionPropertyRecord(page, DIRECTORY_REVIEW_NOTION_PROPERTY)?.checkbox;
@@ -54,75 +51,18 @@ function reviewedInNotion(page: DirectoryReviewPage): boolean {
   return value;
 }
 
-function sourceDataFromRow(row: DirectoryReviewRow): Record<string, unknown> {
-  let value: unknown;
-  try {
-    value = JSON.parse(row.source_data_json);
-  } catch {
-    throw new Error("DIRECTORY_REVIEW_SOURCE_JSON_INVALID");
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("DIRECTORY_REVIEW_SOURCE_JSON_INVALID");
-  }
-  return value as Record<string, unknown>;
-}
+const REVIEW_SQL = [
+  "SELECT p.status,p.updated_at,",
+  "COALESCE(s.reviewed_at,'') AS reviewed_at,",
+  "COALESCE(s.unlock_pending,0) AS unlock_pending,",
+  "COALESCE(s.updated_at,'') AS review_updated_at",
+  "FROM directory_profiles p",
+  "LEFT JOIN directory_profile_review_state s ON s.profile_id=p.id",
+  "WHERE p.id=? LIMIT 1",
+].join(" ");
 
-function storedReviewBaseline(source: Record<string, unknown>): boolean | null {
-  if (source[REVIEW_SYNC_BASELINE_KEY] === "1") return true;
-  if (source[REVIEW_SYNC_BASELINE_KEY] === "0") return false;
-  return null;
-}
-
-async function loadSourceRow(database: D1Database, profileId: number) {
-  return database.prepare(
-    "SELECT source_data_json, status, updated_at FROM directory_profiles WHERE id=? LIMIT 1",
-  ).bind(profileId).first<DirectoryReviewRow>();
-}
-
-async function saveReviewedAndBaseline(input: {
-  database: D1Database;
-  profileId: number;
-  row: DirectoryReviewRow;
-  source: Record<string, unknown>;
-  reviewed: boolean;
-  changedByNotion: boolean;
-}) {
-  // A metadata-only CAS prevents this field mirror from overwriting a
-  // concurrent Admin editor save or another Notion field-event patch.
-  const next = input.changedByNotion
-    ? mergeDirectoryProfileReviewMetadata(
-        input.source as DirectoryImportData,
-        input.reviewed,
-        "notion-directory-sync@psipedia.sk",
-      )
-    : { ...input.source };
-  next[REVIEW_SYNC_BASELINE_KEY] = input.reviewed ? "1" : "0";
-  const activateLock = input.changedByNotion && input.reviewed;
-  const projectedAt = new Date().toISOString();
-  const projectedBy = "notion-directory-sync@psipedia.sk";
-  const nextSourceJson = JSON.stringify(next);
-  const profileUpdatedAt = activateLock ? projectedAt : input.row.updated_at;
-  const sql = "UPDATE directory_profiles SET source_data_json=?" +
-    (activateLock ? ", updated_at=?, updated_by=?" : "") +
-    " WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id";
-  const values = activateLock
-    ? [nextSourceJson, projectedAt,
-        projectedBy, input.profileId,
-        input.row.source_data_json, input.row.updated_at]
-    : [nextSourceJson, input.profileId, input.row.source_data_json, input.row.updated_at];
-  // Acknowledging the checkbox baseline also projects the *current* owner
-  // lock; an outdated Notion checkbox is not allowed to unlock a profile.
-  const canonical = input.database.prepare(sql).bind(...values);
-  const reviewMirror = directory0173ReviewSqlMirrorStatement({
-    database: input.database, profileId: input.profileId,
-    sourceDataJson: nextSourceJson, profileUpdatedAt,
-    projectedAt, projectedBy,
-  });
-  const responses = await input.database.batch([
-    canonical, directory0173ReviewCasGuardStatement(input.database), reviewMirror,
-  ]);
-  if (!(responses[0]?.results?.[0] as { id?: number } | undefined)?.id)
-    throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
+async function loadReviewRow(database: D1Database, profileId: number) {
+  return database.prepare(REVIEW_SQL).bind(profileId).first<DirectoryReviewRow>();
 }
 
 async function fetchReviewPage(bindings: DirectoryReviewBindings, pageId: string) {
@@ -145,11 +85,16 @@ function verifyReviewPage(input: {
   reviewedInNotion(input.page);
 }
 
+function sameReviewRevision(left: DirectoryReviewRow, right: DirectoryReviewRow): boolean {
+  return left.updated_at === right.updated_at &&
+    left.review_updated_at === right.review_updated_at &&
+    left.reviewed_at === right.reviewed_at &&
+    Number(left.unlock_pending) === Number(right.unlock_pending);
+}
+
 /**
- * Reconcile ONLY the review checkbox of one already mapped directory profile.
- * This never touches editorial hashes, unrelated profile values or Sync stav.
- * Admin is the sole authority for locking/unlocking. This isolated
- * checkbox mirror remains permitted even after the editorial sync lock.
+ * Mirror one mapped profile's Admin-controlled review flag from SQL to Notion.
+ * No data import, old JSON baseline, editorial hash, or D1 content write.
  */
 export async function syncDirectoryReviewedWithNotion(input: {
   database: D1Database;
@@ -165,6 +110,7 @@ export async function syncDirectoryReviewedWithNotion(input: {
   if (!Number.isSafeInteger(input.profileId) || input.profileId <= 0) {
     throw new Error("DIRECTORY_REVIEW_PROFILE_ID_INVALID");
   }
+
   const mapping = await input.database.prepare(
     "SELECT notion_page_id FROM directory_notion_sync WHERE directory_profile_id=? LIMIT 1",
   ).bind(input.profileId).first<{ notion_page_id: string }>();
@@ -173,48 +119,27 @@ export async function syncDirectoryReviewedWithNotion(input: {
     return "skipped";
   }
 
-  const row = await loadSourceRow(input.database, input.profileId);
-  if (!row) return "skipped";
-  if (row.status === "archived") return "skipped";
-  const source = sourceDataFromRow(row);
-  const adminReviewed = readDirectoryProfileReviewMetadata(source as DirectoryImportData).reviewed;
-  const baseline = storedReviewBaseline(source);
-
+  const state = await loadReviewRow(input.database, input.profileId);
+  if (!state || state.status === "archived" || Number(state.unlock_pending) === 1) {
+    return "skipped";
+  }
+  const adminReviewed = Boolean(state.reviewed_at?.trim());
   const page = input.page ?? await fetchReviewPage(input.bindings, mapping.notion_page_id);
   verifyReviewPage({
     page, pageId: mapping.notion_page_id, profileId: input.profileId, sourceId,
   });
-  const notionReviewed = reviewedInNotion(page);
-  const plan = planDirectoryReviewSync({ adminReviewed, notionReviewed, baseline });
-  if (plan === "unchanged") return "unchanged";
+  if (reviewedInNotion(page) === adminReviewed) return "unchanged";
 
-  if (plan === "acknowledge") {
-    await saveReviewedAndBaseline({
-      database: input.database, profileId: input.profileId, row, source,
-      reviewed: adminReviewed, changedByNotion: false,
-    });
-    return "acknowledged";
-  }
-
-  // Refresh a stale scan/webhook page before applying either direction.
+  // Refetch both sides to avoid applying a stale webhook or Admin snapshot.
   const latest = await fetchReviewPage(input.bindings, mapping.notion_page_id);
   verifyReviewPage({
     page: latest, pageId: mapping.notion_page_id, profileId: input.profileId, sourceId,
   });
-  if (reviewedInNotion(latest) !== notionReviewed) {
-    throw new Error("DIRECTORY_REVIEW_NOTION_VALUE_CHANGED");
-  }
-  const beforeWrite = await loadSourceRow(input.database, input.profileId);
-  if (!beforeWrite || beforeWrite.source_data_json !== row.source_data_json) {
+  if (reviewedInNotion(latest) === adminReviewed) return "unchanged";
+  const current = await loadReviewRow(input.database, input.profileId);
+  if (!current || current.status === "archived" ||
+      Number(current.unlock_pending) === 1 || !sameReviewRevision(state, current)) {
     throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
-  }
-
-  if (plan === "pull") {
-    await saveReviewedAndBaseline({
-      database: input.database, profileId: input.profileId, row, source,
-      reviewed: notionReviewed, changedByNotion: true,
-    });
-    return "pulled";
   }
 
   const echo = await notionRequest<DirectoryReviewPage>(
@@ -226,14 +151,11 @@ export async function syncDirectoryReviewedWithNotion(input: {
       }),
     },
   );
-  if (echo.id !== mapping.notion_page_id ||
-      !notionDirectoryPageBelongsToSource(echo, sourceId) ||
-      reviewedInNotion(echo) !== adminReviewed) {
+  verifyReviewPage({
+    page: echo, pageId: mapping.notion_page_id, profileId: input.profileId, sourceId,
+  });
+  if (reviewedInNotion(echo) !== adminReviewed) {
     throw new Error("DIRECTORY_REVIEW_NOTION_ECHO_MISMATCH");
   }
-  await saveReviewedAndBaseline({
-    database: input.database, profileId: input.profileId, row, source,
-    reviewed: adminReviewed, changedByNotion: false,
-  });
   return "pushed";
 }

@@ -63,7 +63,8 @@ test("trainer free text is separate from Services V3 and persisted without touch
   ]);
   // Inbound Notion text writes only a trainer metadata key, not the service list.
   assert.match(sync, /path === "services" && current\.category === "treneri"/);
-  assert.match(sync, /TRAINER_SERVICES_TEXT_METADATA_KEY, text/);
+  assert.match(sync, /editedTrainerServicesText = text/);
+  assert.match(sync, /planDirectoryExtraSqlTextMirror/);
   assert.match(sync, /current = await saveBreederEditorialValue\(database, current, desired, path\)/);
   assert.doesNotMatch(sync.slice(sync.indexOf("async function syncBreederEvent"), sync.indexOf("export async function mirrorBreederCategoryFiltersToNotion")), /Trainers retain their existing validator/);
   assert.match(sync, /path !== "services" \|\| !isDirectoryEventPilotCategory\(input\.profile\.category\)/);

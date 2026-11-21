@@ -66,33 +66,19 @@ export function mergeAdditionalDirectoryCategories(
   return source;
 }
 
-/** Safe even for legacy invalid/missing source JSON and malformed category metadata. */
+/** Canonical SQL-only category membership. Old profile JSON is retired. */
 export function directoryAdditionalCategoryJsonSql(alias = "directory_profiles") {
   if (!/^[a-z_][a-z0-9_]*$/i.test(alias)) throw new Error("Invalid SQL table alias");
-  const raw = `CASE WHEN json_valid(${alias}.source_data_json) THEN
-    json_extract(${alias}.source_data_json, '$."${DIRECTORY_ADDITIONAL_CATEGORIES_KEY}"')
-    ELSE NULL END`;
-  return `CASE WHEN json_valid(${raw}) THEN ${raw} ELSE '[]' END`;
+  return `COALESCE((SELECT json_group_array(c.category)
+    FROM (SELECT category FROM directory_profile_additional_categories
+      WHERE profile_id=${alias}.id ORDER BY category) AS c), '[]')`;
 }
 
-/**
- * Two bound values, as before. Confirmed SQL rows win even for explicit [].
- * Legacy JSON is consulted ONLY when that profile has no confirmed SQL write.
- * Keep the query correlated to the passed SQL alias for public lists, linked
- * breeders and Admin counts; an indexed subquery reads only that profile.
- */
+/** Both bound values are still required; no JSON aliases or marker fallback. */
 export function directoryCategoryMembershipSql(alias = "directory_profiles") {
   if (!/^[a-z_][a-z0-9_]*$/i.test(alias)) throw new Error("Invalid SQL table alias");
-  const marker = `CASE WHEN json_valid(${alias}.source_data_json) THEN
-    json_extract(${alias}.source_data_json,
-      '$."${DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY}"')
-    ELSE NULL END`;
-  const secondary = `CASE WHEN (${marker}) = '1' THEN
-    COALESCE((SELECT json_group_array(secondary.category)
-      FROM directory_profile_additional_categories AS secondary
-      WHERE secondary.profile_id = ${alias}.id), '[]')
-    ELSE ${directoryAdditionalCategoryJsonSql(alias)} END`;
   return `(${alias}.category = ? OR EXISTS (
-    SELECT 1 FROM json_each(${secondary}) AS extra WHERE extra.value = ?
+    SELECT 1 FROM directory_profile_additional_categories AS secondary
+    WHERE secondary.profile_id = ${alias}.id AND secondary.category = ?
   ))`;
 }

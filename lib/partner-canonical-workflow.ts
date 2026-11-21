@@ -12,8 +12,7 @@ import { applyAtomicModerationTransition } from "./moderation-transition";
 import { assertIndependentOwnershipApprover } from "./partner-ownership-approval";
 import { adminAuditActorRef } from "./audit-identity";
 import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
-import { partnerDirectoryReviewLockStatement } from "./partner-directory-review";
-import { partnerDirectory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
+import { partnerDirectoryReviewLockStatement } from "./partner-directory-review-sql";
 import { deterministicCanonicalResourceId } from "./canonical-resource";
 import { directoryCategories } from "./directory";
 import { organizationPublicationTypes } from "./help-organization-publication";
@@ -478,7 +477,6 @@ function ownerStatements(db:Database,row:DraftRow,nowIso:string,actorRef:string)
         .bind(crypto.randomUUID(),row.accountId,resourceId,nowIso,actorRef),
       ...(type==="DIRECTORY_PROFILE"?[
         partnerDirectoryReviewLockStatement({database:db,canonicalSql,accountId:row.accountId,actorRef,nowIso}),
-        partnerDirectory0173ReviewSqlMirrorStatement({database:db,canonicalSql,accountId:row.accountId,actorRef,nowIso}),
       ]:[partnerAdminReviewStatement(db,{type:type==="MANAGED_EVENT"?"EVENT":"ORGANIZATION",
         entitySql:canonicalSql,nowIso,actorRef})]),
       ...(type==="MANAGED_EVENT"?[

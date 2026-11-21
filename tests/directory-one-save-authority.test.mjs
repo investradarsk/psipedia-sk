@@ -125,12 +125,10 @@ test("Real SQLite canonical UPDATE: Save all Test, change Facebook only, retain 
       ).first();
       assert.ok(saved, "D1 update must succeed with matching revision");
       row = read();
-      // The persisted SQL columns are now the sole contact owner. JSON keeps
-      // only untouched legacy metadata, not duplicated saved contact values.
+      // SQL owns the saved contacts. Old JSON is left untouched until the
+      // separate physical retirement, never rewritten as a mirror.
       const persisted = JSON.parse(row.source_data_json);
-      for (const key of ["Telefón","Telefon","phone","E-mail","Email","email",
-        "Web","Webstránka","Facebook","Instagram"])
-        assert.equal(Object.hasOwn(persisted,key),false,key + " must not be duplicated");
+      assert.deepEqual(persisted,historical);
       return readDirectoryPublicContacts(
         overlayDirectorySqlContacts(persisted,row),
         row.website_url ?? "",

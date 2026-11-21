@@ -14,7 +14,8 @@ const candidate={
 function database(input={}) {
   const writes=[];
   const row={id:13,category:"veterinari",name:"Klinika Nitra",
-    city:"Nitra",website_url:"https://klinika.sk/",source_data_json:"{}",...input.row};
+    city:"Nitra",website_url:"https://klinika.sk/",public_phone:null,public_email:null,
+    facebook_url:null,instagram_url:null,source_data_json:"{}",...input.row};
   return {writes,db:{prepare(sql){
     let bind=[];
     const s={bind(...args){bind=args;return s},
@@ -22,7 +23,7 @@ function database(input={}) {
         if(input.error)throw Error("D1_OFFLINE_ERROR");
         if(sql.includes("FROM gemini_manual_background_jobs"))
           return input.missingJob?null:{stable_key:"directory.veterinari",status:"RUNNING",error_code:"EXT_MANUAL"};
-        if(sql.includes("SELECT id,category,name,city,website_url,public_phone,public_email,facebook_url,instagram_url,source_data_json"))
+        if(sql.includes("SELECT id,category,name,city,website_url,public_phone,public_email,facebook_url,instagram_url"))
           return input.missingRow?null:row;
         return null;
       },

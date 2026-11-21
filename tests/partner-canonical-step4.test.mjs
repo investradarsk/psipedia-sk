@@ -93,7 +93,7 @@ test("partner V2 has dedicated same-origin authenticated API and reusable canoni
   assert.match(workflow,/applyAtomicModerationTransition/);
   assert.match(workflow,/STALE_CANONICAL_DRAFT/);
   assert.match(workflow,/partnerDirectoryReviewLockStatement/);
-  assert.match(workflow,/partnerDirectory0173ReviewSqlMirrorStatement/);
+  assert.doesNotMatch(workflow,/partnerDirectory0173ReviewSqlMirrorStatement/);
   assert.match(workflow,/partnerAdminReviewStatement/);
   assert.match(workflow,/INSERT INTO partner_memberships/);
   assert.match(workflow,/INSERT INTO partner_help_claims/);

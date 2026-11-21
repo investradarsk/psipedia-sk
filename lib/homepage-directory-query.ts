@@ -1,5 +1,6 @@
 import { directoryLegacyDistrictSql } from "./directory-public-source-contract.ts";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "./homepage-media.ts";
+import { directoryImageSqlExpression } from "./directory-presentation-sql-read.ts";
 
 /**
  * Load multiple homepage directory categories in one D1 roundtrip, retaining
@@ -35,7 +36,7 @@ export function homepageDirectoryGroupedSql(categoryCount: number): string {
   -- ranking/limiting. One D1 roundtrip, identical featured-first daily ordering.
   SELECT selected.id, profile.slug, profile.name, selected.category,
     profile.city, profile.district, profile.image_url,
-    profile.thumbnail_display_json,
+    ${directoryImageSqlExpression("thumbnail","profile")} AS thumbnail_display_json,
     ${directoryLegacyDistrictSql("profile")} AS fallback_district
   FROM selected
   INNER JOIN directory_profiles AS profile ON profile.id = selected.id

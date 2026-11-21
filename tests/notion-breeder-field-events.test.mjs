@@ -7,6 +7,8 @@ import {
   breederApplyNotionChanges, breederPreserveUneditedFields,
 } from "../lib/notion-breeder-field-events.ts";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "../lib/notion-directory-field-event-scope.ts";
+import { planDirectoryExtraSqlTextMirror } from "../lib/directory-extra-sql-mirror.ts";
+import { planDirectoryStep3PresentationSqlMirror } from "../lib/directory-sql-step3-live-mirror.ts";
 
 test("signed Notion property IDs select only the breeder field actually edited", () => {
   const properties = {
@@ -119,6 +121,8 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     exports, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [], directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory, breederReadPath: (v, p) => p.split(".")
       .reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
+    TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
+    planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
     planDirectory0173EditorialSqlMirror: () => [{sql:"INSERT INTO directory_profile_seo",bindings:[]}],
     getManagedDirectoryProfileById: async () => current,
   });
@@ -134,7 +138,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.doesNotMatch(queries[0].sql, /public_email|internal_email|website_url/);
   assert.equal(queries[0].values[0], "Voľný opis");
   await exports.saveBreederEditorialValue(db, current, desired, "publicEmail");
-  assert.match(queries[1].sql, /source_data_json = json_remove/);
+  assert.doesNotMatch(queries[1].sql, /source_data_json/);
   assert.match(queries[1].sql, /public_email = \?/);
   assert.equal(queries[1].values[0], "blaljdljflajsdlfa");
   await exports.saveBreederEditorialValue(db, current, desired, "seo.canonicalUrl");
@@ -183,10 +187,15 @@ test("a trainer service description updates only its separate metadata field", a
   const profile = { id: 543, category: "treneri", status: "published",
     updatedAt: "2026-11-08T00:00:00Z" };
   const queries = [];
-  const db = { prepare(sql) { return { bind(...values) {
-    queries.push({ sql, values });
-    return { async first() { return { id: 543 }; } };
-  } }; } };
+  const db = {
+    prepare(sql) { return { bind(...values) {
+      queries.push({ sql, values });
+      return { async first() { return { id: 543 }; } };
+    } }; },
+    async batch(statements) {
+      return statements.map((_,index)=>({results:index===0?[{id:543}]:[{verified:1}]}));
+    },
+  };
   const exports = {};
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [],
@@ -194,6 +203,7 @@ test("a trainer service description updates only its separate metadata field", a
     directoryFilterRegistry: [], isDirectoryEventPilotCategory: () => false, isDirectoryFieldEventCategory,
     breederReadPath: (v, p) => p.split(".").reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
+    planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
     getManagedDirectoryProfileById: async () => profile,
   });
   const before = {
@@ -203,11 +213,12 @@ test("a trainer service description updates only its separate metadata field", a
     address: "", postalCode: "", street: "", houseNumber: "",
   };
   await exports.saveBreederEditorialValue(db, profile, before, "services");
-  assert.equal(queries.length, 1);
-  assert.match(queries[0].sql, /source_data_json = json_set/);
+  assert.equal(queries.length, 2, "canonical and SQL extra writes are bound; the CAS guard has no parameters");
+  assert.doesNotMatch(queries[0].sql, /source_data_json|services_json/);
+  assert.match(queries[1].sql, /directory_profile_extra_fields/);
+  assert(queries[1].values.includes("Individuálne lekcie\\nNosework".replace("\\n","\n")));
   assert.doesNotMatch(queries[0].sql, /services_json\s*=/);
-  assert.equal(queries[0].values[0], "$._psipedia_trainer_services_text");
-  assert.equal(queries[0].values[1], "Individuálne lekcie\nNosework");
+  assert.equal(queries[1].values.includes("Individuálne lekcie\nNosework"), true);
 });
 
 test("Notion tri-state filters and operational alerts stay separate from V3 services", async () => {
@@ -218,7 +229,7 @@ test("Notion tri-state filters and operational alerts stay separate from V3 serv
   assert.match(directory, /chovatelske-stanice\.health_testing_information/);
   assert.match(directory, /breederChangedNotionFacets/);
   assert.match(directory, /mirrorBreederCategoryFiltersToNotion/);
-  assert.match(directory, /mergeDirectoryFilterValues/);
+  assert.match(directory, /directoryNotionFacetRequiresSqlMirror/);
   assert.match(route, /action === "set-category-filters"/);
   assert.match(route, /mirrorBreederCategoryFiltersToNotion/);
   assert.match(operations, /loadDirectoryNotionAlerts/);

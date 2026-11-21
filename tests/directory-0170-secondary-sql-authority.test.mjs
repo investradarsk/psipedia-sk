@@ -43,7 +43,7 @@ function setup() {
   return {db,legacy,add,select};
 }
 
-test("SQL category membership wins only when confirmed, including an explicit []",()=>{
+test("SQL category membership reads current SQL regardless of a historical JSON marker",()=>{
   const f=setup();
   try {
     f.add(1,"treneri",["fyzioterapia"]); // historic JSON only
@@ -55,22 +55,22 @@ test("SQL category membership wins only when confirmed, including an explicit []
     // A stale SQL shadow without the marker NEVER overrides old JSON.
     f.db.prepare("INSERT INTO directory_profile_additional_categories VALUES(?,?,?,?)")
       .run(4,"vencenie","2026-11-18T20:00:00Z","test");
-    assert.deepEqual(f.select("fyzioterapia"),[1]);
-    assert.deepEqual(f.select("vencenie"),[3]);
-    assert.deepEqual(f.select("hotely-a-opatrovanie"),[4]);
+    assert.deepEqual(f.select("fyzioterapia"),[]);
+    assert.deepEqual(f.select("vencenie"),[3,4]);
+    assert.deepEqual(f.select("hotely-a-opatrovanie"),[]);
     assert.deepEqual(f.select("veterinari"),[3,4]);
     assert.deepEqual(f.select("treneri"),[1,2]);
   } finally {f.db.close();}
 });
 
-test("confirmed SQL marker must be exact; legacy and invalid JSON never expose stale SQL",()=>{
+test("SQL categories remain authoritative even with invalid historical JSON",()=>{
   const f=setup();
   try {
     f.add(1,"treneri",["vencenie"]);
     f.db.prepare("UPDATE directory_profiles SET source_data_json='not json' WHERE id=1").run();
     f.db.prepare("INSERT INTO directory_profile_additional_categories VALUES(?,?,?,?)")
       .run(1,"vencenie","2026-11-18T20:00:00Z","test");
-    assert.deepEqual(f.select("vencenie"),[]);
+    assert.deepEqual(f.select("vencenie"),[1]);
     assert.deepEqual(f.select("treneri"),[1]);
     assert.equal(directorySecondaryCategoriesSqlConfirmed(null),false);
     assert.equal(directorySecondaryCategoriesSqlConfirmed({
@@ -174,7 +174,7 @@ test("Admin, Notion and creation paths all have atomic SQL authority receipts",(
   assert.match(store,/payload\.additionalCategories !== undefined,/);
   assert.match(store,/sqlCategoriesConfirmed/);
   assert.match(store,/planDirectorySecondaryCategoryCreateSqlMirror/);
-  assert.match(notion,/DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY/);
+  assert.doesNotMatch(notion,/DIRECTORY_ADDITIONAL_CATEGORIES_SQL_CONFIRMED_KEY/);
   assert.match(notion,/planDirectorySecondaryCategorySqlMirror\(/);
   assert.match(notion,/const results = await input\.database\.batch\(\[/);
 });

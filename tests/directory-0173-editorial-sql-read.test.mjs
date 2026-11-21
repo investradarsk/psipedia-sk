@@ -100,8 +100,8 @@ test("explicit Notion-confirmed SQL categories override old JSON, including []",
     assert.equal(empty.sqlCategoriesConfirmed,true);
     assert.deepEqual(empty.additionalCategories,[],"confirmed Notion [] is authoritative");
     const unconfirmed=await readDirectory0173EditorialSql(d1,12);
-    assert.equal(unconfirmed.sqlCategoriesConfirmed,false,
-      "unconfirmed SQL rows cannot override historical membership");
+    assert.equal(unconfirmed.sqlCategoriesConfirmed,true,
+      "SQL rows remain authoritative without a historical JSON marker");
     assert.deepEqual(unconfirmed.additionalCategories,["fyzioterapia"]);
   }finally{sqlite.close()}
 });

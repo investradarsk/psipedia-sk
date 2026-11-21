@@ -51,6 +51,8 @@ test("review queue includes ONLY linked DIRECTORY drafts; non-Gemini drafts neve
   const f = fixture();
   try {
     f.add(1, 1, { sourceData: { "Telefón": "0905123456", "E-mail": "test@example.sk", "Facebook": "https://facebook.com/profile" } });
+    f.sqlite.prepare("UPDATE directory_profiles SET public_phone=?,public_email=?,facebook_url=? WHERE id=1")
+      .run("0905123456","test@example.sk","https://facebook.com/profile");
     f.add(2, 2, { status: "published" });
     f.add(3, 3, { status: "archived" });
     f.add(4, 4, { bridge: "NOTION_UNCERTAIN" });

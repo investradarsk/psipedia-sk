@@ -51,8 +51,8 @@ function setup() {
   } };
   const add = ({ name = base.name, city = "Nitra", website = "https://zivypes.sk/",
     phone = "", email = "", status = "published", category = "treneri", data = null } = {}) =>
-    sqlite.prepare("INSERT INTO directory_profiles (name,city,website_url,source_data_json,status,category) VALUES (?,?,?,?,?,?)")
-      .run(name, city, website, JSON.stringify(data ?? { "Telefón": phone, "E-mail": email }), status, category).lastInsertRowid;
+    sqlite.prepare("INSERT INTO directory_profiles (name,city,website_url,public_phone,public_email,source_data_json,status,category) VALUES (?,?,?,?,?,?,?,?)")
+      .run(name,city,website,phone,email,JSON.stringify(data??{"Telefón":"stale JSON phone","E-mail":"stale@example.invalid"}),status,category).lastInsertRowid;
   return { db, sqlite, executed, add, close() { sqlite.close(); } };
 }
 test("name, city, URL, diacritics and non-www/subdomains deterministic identity", () => {

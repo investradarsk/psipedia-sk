@@ -31,7 +31,6 @@ type TargetRow = {
   online: number;
   address: string;
   website_url: string | null;
-  source_data_json: string;
   updated_at: string;
 };
 
@@ -57,15 +56,6 @@ function database(input?: Database) {
   throw new Error("Address enrichment nemá pripojenú databázu.");
 }
 
-function parseObject(value: string) {
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
-}
-
 function parseRaw(value: string) {
   try {
     const parsed = JSON.parse(value);
@@ -76,7 +66,7 @@ function parseRaw(value: string) {
 }
 
 function targetFromRow(row: TargetRow): DirectoryEnrichmentTarget {
-  const contacts = readDirectorySqlBackedContacts(parseObject(row.source_data_json) as Record<string, string | number | null>, row);
+  const contacts = readDirectorySqlBackedContacts(null,row);
   return {
     id: Number(row.id),
     name: String(row.name ?? ""),
@@ -153,7 +143,7 @@ export async function auditDirectoryAddressInventory(dbInput?: Database): Promis
 async function loadTargets(limit: number, db: Database) {
   const rows = await db.prepare(`SELECT
       id,name,category,status,region,district,city,postal_code,street,house_number,address_format,
-      service_address_confirmation,online,address,website_url,public_phone,public_email,facebook_url,instagram_url,source_data_json,updated_at
+      service_address_confirmation,online,address,website_url,public_phone,public_email,facebook_url,instagram_url,updated_at
     FROM directory_profiles
     WHERE status <> 'archived'
     ORDER BY

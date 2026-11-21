@@ -1,8 +1,8 @@
 /**
  * 0170 editorial SQL shadow for explicit, validated field edits.
  *
- * The existing directory_profiles UPDATE is still the JSON/read-model owner.
- * Its first-row CAS and the mirror statements must run IN ONE D1.batch.
+ * The directory_profiles revision UPDATE and relational statements must
+ * run IN ONE D1.batch; no source JSON is read or written for filter edits.
  * Missing fields never create a SQL value, and an intentional filter clear
  * removes only the selected filter ID.
  *
@@ -71,20 +71,14 @@ export function planDirectory0170FactSqlMirror(input: {
 
 
 /**
- * A signed Notion filter edit is a no-op only when BOTH storage projections
- * already agree with it. The public provider facet may read 0170 SQL first,
- * so comparing just the historic JSON can leave a stale SQL choice visible.
- * For a deliberate clear, absence in both places is required.
+ * A signed Notion edit is a no-op only if its selected value matches the
+ * existing SQL filter row. Legacy JSON is not consulted after the cutover.
  */
 export function directoryNotionFacetRequiresSqlMirror(input: {
-  source: Record<string, unknown>;
-  key: string;
   sqlValue: string | null;
   selected: string | null;
 }): boolean {
-  if (input.selected === null)
-    return Object.hasOwn(input.source, input.key) || input.sqlValue !== null;
-  return input.source[input.key] !== input.selected || input.sqlValue !== input.selected;
+  return input.sqlValue !== input.selected;
 }
 
 export function planDirectory0170FilterSqlMirror(input: {

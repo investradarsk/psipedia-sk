@@ -14,10 +14,6 @@ import { organizationPublicationTypes } from "./help-organization-publication.ts
 import { dogSexes, dogSizes } from "./lost-found-dogs.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { normalizeDirectorySearchText } from "./directory-store.ts";
-import {
-  omitDirectorySqlContactAliases,
-  type DirectoryImportData,
-} from "./directory-profile-metadata.ts";
 import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 
 export type AutomationUpdateOrigin = "DIRECT_ENTITY" | "FEED_SOURCE";
@@ -392,7 +388,7 @@ function valuesEqual(spec: FieldSpec | null, a: unknown, b: unknown) {
 function currentValue(row: Record<string, unknown>, entityType: AutomationEntityType, field: string, spec: FieldSpec | null) {
   if (!spec) return null;
   if (entityType === "DIRECTORY" && spec.directoryContact) {
-    const contacts = readDirectorySqlBackedContacts(parseRecord(row.source_data_json) as DirectoryImportData, row);
+    const contacts = readDirectorySqlBackedContacts(null,row);
     if (spec.directoryContact === "phone") return contacts.phone;
     if (spec.directoryContact === "email") return contacts.email;
     if (spec.directoryContact === "facebook") return contacts.facebook;
@@ -1070,34 +1066,24 @@ async function writeCanonicalFieldAndDecision(input: {
   let updateStatement: D1PreparedStatement;
 
   if (input.suggestion.entity_type === "DIRECTORY" && input.spec.directoryContact) {
-    const currentData = parseRecord(input.row.source_data_json) as DirectoryImportData;
     const contact = {
-      phone: ["publicPhone", "public_phone"],
-      email: ["publicEmail", "public_email"],
-      facebook: ["facebookUrl", "facebook_url"],
-      instagram: ["instagramUrl", "instagram_url"],
+      phone:"public_phone",email:"public_email",facebook:"facebook_url",instagram:"instagram_url",
     } as const;
-    const [field, column] = contact[input.spec.directoryContact];
-    const value = String(input.value ?? "");
-    const nextData = omitDirectorySqlContactAliases(currentData, { [field]: value });
-    // Approval writes the SQL value and removes ONLY its legacy alias in the
-    // same guarded statement; a stale suggestion cannot overwrite newer D1.
-    updateStatement = db.prepare(`UPDATE directory_profiles
-      SET ${column}=?,source_data_json=?,updated_at=?,updated_by=?
+    const column=contact[input.spec.directoryContact];
+    const value=String(input.value??"");
+    // Canonical SQL column owns the approved contact. Keep the same optimistic
+    // revision guard and decision transaction, without a parallel JSON write.
+    updateStatement=db.prepare(`UPDATE directory_profiles
+      SET ${column}=?,updated_at=?,updated_by=?
       WHERE id=? AND updated_at=?`).bind(
-        value, JSON.stringify(nextData), input.at, input.actor,
-        input.suggestion.canonical_entity_id, expectedUpdatedAt,
+        value,input.at,input.actor,input.suggestion.canonical_entity_id,expectedUpdatedAt,
       );
-  } else if (input.suggestion.entity_type === "DIRECTORY" &&
-             input.spec.column === "website_url") {
-    const value = String(input.value ?? "");
-    const currentData = parseRecord(input.row.source_data_json) as DirectoryImportData;
-    const nextData = omitDirectorySqlContactAliases(currentData, { websiteUrl: value });
-    updateStatement = db.prepare(`UPDATE directory_profiles
-      SET website_url=?,source_data_json=?,updated_at=?,updated_by=?
+  } else if(input.suggestion.entity_type==="DIRECTORY"&&input.spec.column==="website_url"){
+    const value=String(input.value??"");
+    updateStatement=db.prepare(`UPDATE directory_profiles
+      SET website_url=?,updated_at=?,updated_by=?
       WHERE id=? AND updated_at=?`).bind(
-        value, JSON.stringify(nextData), input.at, input.actor,
-        input.suggestion.canonical_entity_id, expectedUpdatedAt,
+        value,input.at,input.actor,input.suggestion.canonical_entity_id,expectedUpdatedAt,
       );
   } else {
     if (!input.spec.column) throw new AutomationUpdateReviewUnsupportedError();

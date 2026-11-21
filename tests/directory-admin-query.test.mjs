@@ -34,6 +34,9 @@ function fixture() {
     id INTEGER PRIMARY KEY, slug TEXT, name TEXT, excerpt TEXT, category TEXT, status TEXT, services_json TEXT,
     city TEXT, district TEXT, region TEXT, image_url TEXT, verified INTEGER, featured INTEGER,
     updated_at TEXT, source_data_json TEXT
+  );
+  CREATE TABLE directory_profile_review_state(
+    profile_id INTEGER PRIMARY KEY,reviewed_at TEXT
   )`);
   const insert = sqlite.prepare("INSERT INTO directory_profiles (id,slug,name,category,status,services_json,city,district,region,image_url,verified,featured,updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)");
   for (let i = 1; i <= 127; i++) {
@@ -55,7 +58,7 @@ function fixture() {
   }
   insert.run(128, "trener-bratislava", "EduDog", "treneri", "draft", JSON.stringify(["Poslušnosť"]), "Bratislava", "Bratislava I", "Bratislavský kraj", null, 1, "128");
   insert.run(129, "salon-trnava", "Psí salón", "salony-a-sluzby", "published", JSON.stringify(["Kúpanie"]), "Trnava", "Trnava", "Trnavský kraj", "https://example.test/salon.jpg", 0, "129");
-  sqlite.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 27").run(JSON.stringify({ _psipedia_profile_review_reviewed_at: "2026-10-23T08:00:00Z" }));
+  sqlite.prepare("INSERT INTO directory_profile_review_state(profile_id,reviewed_at) VALUES (?,?)").run(27,"2026-10-23T08:00:00Z");
   const db = {
     prepare(query) {
       return {
@@ -92,7 +95,7 @@ test("directory category listing reuses totals and reads only three D1 statement
   const result = await queryDirectoryAdmin(tracked, filters({ category: "veterinari", page: 3 }), categories);
   assert.equal(statements.length, 3, "category totals also serve as filtered count; combined locations and bounded page");
   assert.equal(statements.some(sql => /SELECT COUNT\(\*\) AS count FROM directory_profiles/.test(sql)), false);
-  assert.match(statements.at(-1), /json_extract\(source_data_json/);
+  assert.match(statements.at(-1), /FROM directory_profile_review_state s/);
   assert.match(statements.at(-1), /AS reviewed_at/);
   assert.equal(statements.filter((sql) => /SELECT DISTINCT label.kind AS kind/.test(sql)).length, 1);
   assert.equal(result.page, 3);

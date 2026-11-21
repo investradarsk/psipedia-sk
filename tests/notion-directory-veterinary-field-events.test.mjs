@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror } from "../lib/directory-0170-editorial-sql-mirror.ts";
 import { planDirectory0173EditorialSqlMirror } from "../lib/directory-0173-editorial-sql-mirror.ts";
+import { planDirectoryExtraSqlTextMirror } from "../lib/directory-extra-sql-mirror.ts";
+import { planDirectoryStep3PresentationSqlMirror } from "../lib/directory-sql-step3-live-mirror.ts";
 import {
   isDirectoryEventPilotCategory,
   isDirectoryFieldEventCategory,
@@ -99,6 +101,8 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
       exports, SYSTEM_ACTOR: "sync", DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS: [], directoryFilterRegistry: [], isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
       breederReadPath: (data, path) => path.split(".").reduce((v, k) => v?.[k], data),
       normalizeDirectorySearchText: str => str,
+      planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
+      TRAINER_SERVICES_TEXT_METADATA_KEY:"_psipedia_trainer_services_text",
       getManagedDirectoryProfileById: async () => profile,
     });
     const desired = {
@@ -170,7 +174,8 @@ test("hours, sources, alt text, organization and focus are independently synced 
   const editor = await get("../components/admin-directory-editor.tsx");
   for (const field of ["Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka", "Organizácia", "Zameranie"])
     assert.ok(source.includes('"' + field + '"'));
-  assert.match(source, /source_data_json = json_set/);
+  assert.match(source, /planDirectory0170FactSqlMirror/);
+  assert.match(source, /directory_profile_extra_fields/);
   assert.match(source, /pilotChangedNotionMetadataFields\(page, input\.changedPropertyIds\)/);
   assert.doesNotMatch(source, /DIRECTORY_PILOT_METADATA_EMPTY_NOT_A_DELETE/);
   assert.match(source, /Object\.hasOwn\(input\.changed, field\)/);
@@ -194,7 +199,7 @@ test("hours, sources, alt text, organization and focus are independently synced 
   assert.doesNotMatch(block, /importNotionServiceChoices|syncProfileCatalogRelation|prepareNotionMainImage/);
 });
 
-test("explicit blank Admin and Notion edits clear a single JSON field without touching siblings", async () => {
+test("explicit blank Admin and Notion edits clear only the targeted SQL field", async () => {
   const ts = await import("typescript");
   const source = await get("../lib/notion-directory-sync.ts");
   const start = source.indexOf("export const PILOT_DIRECTORY_METADATA_FIELDS =");
@@ -240,17 +245,17 @@ test("explicit blank Admin and Notion edits clear a single JSON field without to
     database, profileId: 1653, category: "fyzioterapia",
     field: "Ordinačné hodiny", value: "",
   });
-  assert.equal(logs.length, 4);
-  assert.match(logs[0].sql, /source_data_json = json_set/);
-  assert.match(logs[1].sql, /changes\(\)=1/);
-  assert.match(logs[2].sql, /directory_profile_public_facts/);
+  assert.equal(logs.length,4,"canonical UPDATE, CAS receipt, SQL fact and hours clear");
+  assert.doesNotMatch(logs[0].sql,/source_data_json/);
+  assert.match(logs[0].sql,/updated_at = \?/);
+  assert.match(logs[1].sql,/changes\(\)=1/);
+  assert.match(logs[2].sql,/directory_profile_public_facts/);
   assert.ok(logs[2].args.includes("Ordinačné hodiny"));
-  assert.ok(logs[2].args.includes(""), "explicit clear is mirrored as blank SQL text");
-  assert.match(logs[3].sql, /DELETE FROM directory_profile_opening_hours/);
-  assert.equal(logs[3].args.includes(profile.id), true);
-  assert.ok(logs[0].args.includes('$."Ordinačné hodiny"'));
-  assert.ok(logs[0].args.includes(""), "empty edit is persisted as empty, not silently skipped");
-  assert.equal(logs[0].args.includes('$."Zdroj dát"'), false, "unrelated sources are untouched");
+  assert.ok(logs[2].args.includes(""),"explicit clear is stored in SQL");
+  assert.match(logs[3].sql,/DELETE FROM directory_profile_opening_hours/);
+  assert.equal(logs[3].args.includes(profile.id),true);
+  assert.equal(logs.some(item=>item.args.includes('$."Zdroj dát"')),false,
+    "unrelated fields are untouched");
   assert.ok(source.includes("Only fields explicitly reported as changed by the Notion webhook are written."));
   assert.ok(!source.includes("if (!value) continue;"), "explicit empty Notion webhook edits are deletions");
 });

@@ -2,11 +2,9 @@
  * Directory profiles explicitly reviewed in Admin are frozen against Notion
  * editorial writes in either direction. The Admin checkbox is the ONLY unlock.
  *
- * SQL 0173 review state is now read for every lock decision. The historical
- * source_data_json review state stays as an independent protective OR until
- * a separate audited complete backfill confirms SQL-only lock parity.
- * Missing SQL rows, mismatched reviews, or a live partner must never unlock
- * an old reviewed profile.
+ * The structured SQL review state is authoritative after the one-time import.
+ * Missing SQL rows are unchecked, while active partners and pending deletions
+ * remain independent, fail-closed locks.
  */
 import { readDirectoryProfileReviewMetadata } from "./directory-profile-metadata.ts";
 
@@ -36,15 +34,11 @@ export function isDirectoryReviewedSourceLocked(sourceJson: string): boolean {
 }
 
 /**
- * One indexed, read-only D1 statement. Checking SQL review, legacy pending,
- * partner membership and pending deletion from one snapshot avoids observing
- * a revoked/incomplete partner state across separate queries.
- *
- * The SQL row can be absent on older profiles. That must never be interpreted
- * as permission to override a historical review lock.
+ * One indexed, read-only D1 statement. SQL review, partner membership and
+ * pending deletion are checked in one database snapshot, without JSON reads.
  */
 export const DIRECTORY_REVIEW_LOCK_SQL = [
-  "SELECT p.source_data_json,p.status,",
+  "SELECT p.status,",
   "s.reviewed_at AS sql_reviewed_at,s.unlock_pending AS sql_unlock_pending,",
   "EXISTS (SELECT 1 FROM partner_resources r",
   "JOIN partner_memberships m ON m.resource_id=r.id",
@@ -58,7 +52,6 @@ export const DIRECTORY_REVIEW_LOCK_SQL = [
 ].join(" ");
 
 type DirectoryReviewLockRow = {
-  source_data_json: string;
   status: string;
   sql_reviewed_at: string | null;
   sql_unlock_pending: number | null;
@@ -67,15 +60,12 @@ type DirectoryReviewLockRow = {
 };
 
 /**
- * Safety invariant: a lock from ANY still-supported authority is sufficient
- * to block Notion. An empty or missing sidecar may not clear a JSON lock.
+ * Only SQL review state and operational SQL locks decide whether a profile
+ * can synchronize. An archived or missing profile still fails closed.
  */
 export function directoryReviewLockedFromProjection(row: DirectoryReviewLockRow | null): boolean {
   if (!row || row.status === "archived") return true;
-  // Fail closed on corrupt JSON, even if SQL appears clear.
-  const legacyLocked = isDirectoryReviewedSourceLocked(row.source_data_json);
-  return legacyLocked ||
-    Boolean(row.sql_reviewed_at?.trim()) ||
+  return Boolean(row.sql_reviewed_at?.trim()) ||
     Number(row.sql_unlock_pending) === 1 ||
     Number(row.partner_active) === 1 ||
     Number(row.deletion_pending) === 1;

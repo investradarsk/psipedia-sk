@@ -5,7 +5,7 @@ import { readDirectorySqlShadowParity } from "@/lib/directory-sql-cutover-parity
 import { readDirectory0170EditorialFields } from "@/lib/directory-0170-editorial-read";
 import { planDirectory0170FilterSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
 import { validateDirectoryFullProfileSave } from "@/lib/directory-full-profile-save";
-import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, unconfirmedDirectoryCategoryFilters, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import { DIRECTORY_FILTER_CONTRACT_VERSION, getDirectoryFilterDefinition, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
@@ -95,21 +95,11 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const projected = await getManagedDirectoryProfileById(id);
     if (!projected) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-    // ManagedDirectoryProfile.importData intentionally projects only primitives.
-    // Passing that projection to the normal store save would silently discard
-    // nested legacy metadata. Supply the full stored JSON as its merge baseline.
+    // SQL is the only public-field baseline. A malformed historical JSON
+    // payload must not veto an otherwise valid Admin save.
     const db = (env as unknown as { DB?: D1Database }).DB;
     if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
-    const raw = await db.prepare("SELECT source_data_json FROM directory_profiles WHERE id=?1 LIMIT 1")
-      .bind(id).first<{ source_data_json: string }>();
-    if (!raw) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-    let completeSource: unknown;
-    try { completeSource = JSON.parse(raw.source_data_json); }
-    catch { return Response.json({ error: "Pôvodné metadáta profilu nie sú platné; ukladanie je zablokované." }, { status: 409 }); }
-    if (!completeSource || typeof completeSource !== "object" || Array.isArray(completeSource)) {
-      return Response.json({ error: "Pôvodné metadáta profilu nie sú platné; ukladanie je zablokované." }, { status: 409 });
-    }
-    const before = { ...projected, importData: completeSource as typeof projected.importData };
+    const before = projected;
     const rawBody = await request.json() as ManagedDirectoryProfileInput & {
       numberlessLocalityConfirmed?: unknown;
       breederEditedPaths?: unknown;
@@ -261,21 +251,17 @@ export async function PUT(request: Request, { params }: Props) {
       submittedBody.category === before.category && before.status !== "archived";
     // An explicit empty contact field is a deletion, not an omitted field in
     // an old editor. Only whitelisted, expressly edited contacts qualify.
-    const contactAliases = {
-      websiteUrl: ["Web", "Webstránka"],
-      publicPhone: ["Telefón", "Telefon", "phone"],
-      publicEmail: ["E-mail", "Email", "email"],
-      facebookUrl: ["Facebook"],
-      instagramUrl: ["Instagram"],
-    } as const;
-    type ClearableContact = keyof typeof contactAliases;
+    const clearableContactKeys = new Set([
+      "websiteUrl", "publicPhone", "publicEmail", "facebookUrl", "instagramUrl",
+    ] as const);
+    type ClearableContact = "websiteUrl" | "publicPhone" | "publicEmail" | "facebookUrl" | "instagramUrl";
     // The editor's dirty diff alone is never permission to clear D1. A
     // deletion additionally requires a real input-interaction receipt.
     const explicitlyClearedContacts: ClearableContact[] =
       !fullProfileSave && Array.isArray(rawExplicitlyClearedContacts) && editedPaths
         ? [...new Set(rawExplicitlyClearedContacts.filter(
             (field): field is ClearableContact => {
-              if (typeof field !== "string" || !Object.hasOwn(contactAliases, field) ||
+              if (typeof field !== "string" || !clearableContactKeys.has(field as ClearableContact) ||
                   !editedPaths.includes(field as BreederEditorialField)) return false;
               const interacted = Array.isArray(rawContactEditedFields) &&
                 rawContactEditedFields.includes(field);
@@ -440,49 +426,14 @@ export async function PUT(request: Request, { params }: Props) {
       error: "Profil sa medzitým zmenil v databáze. Obnov ho a zopakuj svoju úpravu.",
     }, { status: 409, headers: { "cache-control": "no-store" } });
 
-    // Verify clear requests against BOTH representations of public contacts:
-    // website_url and legacy aliases in source_data_json. A stale alias must
-    // never resurrect an explicitly deleted website on a public profile.
-    const contactClearWarnings: string[] = [];
-    if (explicitlyClearedContacts.length) {
-      const aliasNames = [...new Set(explicitlyClearedContacts.flatMap(
-        field => [...contactAliases[field]],
-      ))];
-      const paths = aliasNames.map(name => '$."' + name + '"');
-      const setParts = [
-        ...(explicitlyClearedContacts.includes("websiteUrl") ? ["website_url = NULL"] : []),
-        "source_data_json = json_remove(COALESCE(source_data_json, '{}'), " +
-          paths.map(() => "?").join(", ") + ")",
-        "updated_at = ?", "updated_by = ?",
-      ];
-      try {
-        const saved = await db.prepare(
-          "UPDATE directory_profiles SET " + setParts.join(", ") +
-          " WHERE id = ? AND category = ? AND status <> 'archived' " +
-          "AND updated_at = ? AND json_valid(COALESCE(source_data_json, '{}')) RETURNING id",
-        ).bind(...paths, new Date().toISOString(), user.email,
-          id, profile.category, profile.updatedAt).first<{ id: number }>();
-        if (!saved) throw new Error("EXPLICIT_CONTACT_CLEAR_CONFLICT");
-        const refreshed = await getManagedDirectoryProfileById(id, db);
-        if (!refreshed || explicitlyClearedContacts.some(field =>
-          (field === "websiteUrl" && Boolean(refreshed.websiteUrl)) ||
-          contactAliases[field].some(name => Boolean(refreshed.importData?.[name]))
-        )) throw new Error("EXPLICIT_CONTACT_CLEAR_NOT_PERSISTED");
-        profile = refreshed;
-      } catch (error) {
-        console.error("DIRECTORY_EXPLICIT_CONTACT_CLEAR_FAILED", id,
-          error instanceof Error ? error.message : "UNKNOWN");
-        contactClearWarnings.push("Vymazanie nepovinného kontaktu sa nepotvrdilo. Ostatné zmeny zostali uložené.");
-      }
-    }
-    // Do not let a successful Facebook save silently remove an unrelated
-    // contact, and never export a corrupt D1 snapshot to Notion.
+    // Compare the submitted contact values to the SQL-backed reload, never
+    // to historic source_data_json aliases or a stale form snapshot.
     const expectedContactValues = {
-      websiteUrl: typeof payload.websiteUrl === "string" ? payload.websiteUrl : "",
-      publicPhone: payload.publicPhone ?? "",
-      publicEmail: payload.publicEmail ?? "",
-      facebookUrl: payload.facebookUrl ?? "",
-      instagramUrl: payload.instagramUrl ?? "",
+      websiteUrl: body.websiteUrl ?? "",
+      publicPhone: body.publicPhone ?? "",
+      publicEmail: body.publicEmail ?? "",
+      facebookUrl: body.facebookUrl ?? "",
+      instagramUrl: body.instagramUrl ?? "",
     };
     const postD1Contacts = readDirectoryPublicContacts(profile.importData, profile.websiteUrl ?? "");
     const contactLossBeforeNotion = directoryContactValueMismatches(expectedContactValues, {
@@ -536,7 +487,7 @@ export async function PUT(request: Request, { params }: Props) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
     }
     // Pilot metadata stays separate from profile normalization and V3 relations.
-    const metadataWarnings: string[] = [...optionalWarnings, ...contactClearWarnings];
+    const metadataWarnings: string[] = [...optionalWarnings];
     const changedPilotMetadata: Partial<Record<PilotDirectoryMetadataField, string>> = {};
     if ((isDirectoryEventPilotCategory(profile.category) || serviceFilterCategories.includes(profile.category as ServiceFilterCategory)) && rawPilotMetadataFields &&
         typeof rawPilotMetadataFields === "object" && !Array.isArray(rawPilotMetadataFields)) {
@@ -997,29 +948,43 @@ export async function PATCH(request: Request, { params }: Props) {
       }
       const db = (env as unknown as { DB?: D1Database }).DB;
       if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
-      const row = await db.prepare("SELECT category,status,source_data_json,updated_at FROM directory_profiles WHERE id=?1 LIMIT 1")
-        .bind(id).first<{ category: string; status: string; source_data_json: string; updated_at: string }>();
+      const row = await db.prepare("SELECT category,status,updated_at FROM directory_profiles WHERE id=?1 LIMIT 1")
+        .bind(id).first<{ category: string; status: string; updated_at: string }>();
       if (!row) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
       if (row.status === "archived") return Response.json({ error: "Archivovaný profil nie je možné upravovať." }, { status: 409 });
       if (row.category !== requested.category) {
         return Response.json({ error: "Kategória profilu sa zmenila. Obnovte stránku." }, { status: 409 });
       }
-      // This helper validates every registry ID and value, rejects out-of-category keys,
-      // and retains arbitrary legacy metadata. Never write the client's full JSON snapshot.
-      const next = mergeDirectoryFilterValues(row.source_data_json, row.category as ServiceFilterCategory, requested.updates as Record<string, unknown>);
-      if (Object.keys(requested.updates).length) {
+      // Validate only the explicitly changed filter IDs. No old JSON is read,
+      // compared, or rewritten: SQL rows own the category filter choices.
+      const requestedValues = requested.updates as Record<string, unknown>;
+      const normalizedValues: Record<string, string | null> = {};
+      for (const [filterId, value] of Object.entries(requestedValues)) {
+        const definition = getDirectoryFilterDefinition(filterId);
+        if (!definition || definition.category !== row.category) {
+          return Response.json({ error: "Neplatný filter kategórie: " + filterId }, { status: 400 });
+        }
+        if (value === null) {
+          normalizedValues[filterId] = null;
+        } else {
+          const normalized = normalizeDirectoryFilterValue(definition, value);
+          if (normalized.status !== "known")
+            return Response.json({ error: "Neplatná hodnota filtra: " + filterId }, { status: 400 });
+          normalizedValues[filterId] = normalized.value;
+        }
+      }
+      if (Object.keys(normalizedValues).length) {
         const now = new Date().toISOString();
         const canonical = db.prepare(`UPDATE directory_profiles
-          SET source_data_json=?1,updated_at=?2,updated_by=?3
-          WHERE id=?4 AND category=?5 AND source_data_json=?6 AND updated_at=?7 RETURNING id`)
-          .bind(next, now, user.email, id, row.category, row.source_data_json, row.updated_at);
-        // Exactly the explicitly selected filter IDs are mirrored to SQL.
-        // Never backfill untouched historical values and never change V3 choices.
+          SET updated_at=?1,updated_by=?2
+          WHERE id=?3 AND category=?4 AND updated_at=?5 AND status<>'archived' RETURNING id`)
+          .bind(now, user.email, id, row.category, row.updated_at);
         const mirror = planDirectory0170FilterSqlMirror({
           profileId: id, category: row.category as ServiceFilterCategory,
-          values: requested.updates as Record<string, string>,
+          values: normalizedValues,
           updatedAt: now, actor: user.email,
         });
+        // The revision CAS and only the changed filter rows commit together.
         const results = await db.batch([
           canonical, ...mirror.map(item=>db.prepare(item.sql).bind(...item.bindings)),
         ]);
@@ -1051,29 +1016,24 @@ export async function PATCH(request: Request, { params }: Props) {
           await recordDirectoryNotionAlert(db, id, "resolved", "", "ADMIN_TO_NOTION");
         }
       }
-      // The PATCH is only successful when the exact selected values survive
-      // D1 storage and any synchronous side effects. In particular, a selected
-      // "Neznáme" must not be mistaken for an absent/missing key.
+      // Confirm only the just-saved SQL values; an explicit "unknown" remains
+      // a real choice, while null means that single SQL row was deleted.
       const committed = await db.prepare(
-        "SELECT category,source_data_json FROM directory_profiles WHERE id=?1 LIMIT 1",
-      ).bind(id).first<{ category: string; source_data_json: string }>();
-      let committedData: Record<string, unknown> | null = null;
-      if (committed) {
-        try {
-          const parsed: unknown = JSON.parse(committed.source_data_json);
-          if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
-            committedData = parsed as Record<string, unknown>;
-        } catch { /* A malformed D1 source must never be reported as success. */ }
-      }
-      const unconfirmed = unconfirmedDirectoryCategoryFilters(
-        requested.category as ServiceFilterCategory, committedData,
-        requested.updates as Record<string, string>,
+        "SELECT category,status FROM directory_profiles WHERE id=?1 LIMIT 1",
+      ).bind(id).first<{ category: string; status: string }>();
+      const filterRows = await db.prepare(
+        "SELECT filter_id,value_text FROM directory_profile_filter_values WHERE profile_id=? AND category=?",
+      ).bind(id, requested.category).all<{ filter_id: string; value_text: string }>();
+      const saved = new Map(filterRows.results.map(row => [row.filter_id,row.value_text]));
+      const unconfirmed = Object.entries(normalizedValues).flatMap(([filterId, expected]) =>
+        (saved.get(filterId) ?? null) === expected ? [] : [filterId],
       );
-      if (!committed || committed.category !== requested.category || unconfirmed.length) {
+      if (!committed || committed.status === "archived" ||
+          committed.category !== requested.category || unconfirmed.length) {
         console.warn("DIRECTORY_CATEGORY_FILTERS_D1_NOT_CONFIRMED", id, unconfirmed);
         return Response.json({
           error: "Kategóriové filtre sa v D1 nepotvrdili (" +
-            (unconfirmed.join(", ") || "kategória") + "). Výber zostáva neuložený; obnovte profil a skúste znova.",
+            (unconfirmed.join(", ") || "kategória") + "). Obnovte profil a skúste znova.",
         }, { status: 409, headers: { "cache-control": "no-store" } });
       }
       const confirmedProfile = await getManagedDirectoryProfileById(id, db);

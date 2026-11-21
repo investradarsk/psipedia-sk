@@ -56,16 +56,15 @@ test("Admin create/update and Notion field events use 0170 columns in one D1 sta
   assert.match(notion,/assignments\.push\(column \+ " = \?"\)/);
 });
 
-test("marking Odkontrolované adopts only NULL contacts into SQL and bumps revision",()=>{
+test("marking Odkontrolované changes only SQL review state and bumps revision",()=>{
   const store=readFileSync("lib/directory-store.ts","utf8");
   const start=store.indexOf("export async function setManagedDirectoryProfileReviewed(");
   const end=store.indexOf("export async function archiveManagedDirectoryProfile(",start);
   const review=store.slice(start,end);
-  assert.match(review,/public_phone = CASE WHEN \?=1 THEN COALESCE\(public_phone, \?\) ELSE public_phone END/);
-  assert.match(review,/public_email = CASE WHEN \?=1 THEN COALESCE\(public_email, \?\) ELSE public_email END/);
-  assert.match(review,/facebook_url = CASE WHEN \?=1 THEN COALESCE\(facebook_url, \?\) ELSE facebook_url END/);
-  assert.match(review,/instagram_url = CASE WHEN \?=1 THEN COALESCE\(instagram_url, \?\) ELSE instagram_url END/);
-  assert.match(review,/AND updated_at = \? /);
+  assert.match(review,/INSERT INTO directory_profile_review_state/);
+  assert.match(review,/directory0173ReviewCasGuardStatement/);
+  assert.doesNotMatch(review,/SET source_data_json/);
+  assert.doesNotMatch(review,/COALESCE\(public_phone/);
   assert.match(review,/m\.revoked_at IS NULL/);
   assert.match(review,/reviewed \? 1 : 0/);
 });
@@ -112,12 +111,19 @@ test("untouched SQL-NULL contacts keep legacy data until their backfill is confi
 test("the canonical Admin SQL create/update never persist edited contacts to import JSON", () => {
   const store = readFileSync("lib/directory-store.ts", "utf8");
   const notion = readFileSync("lib/notion-directory-sync.ts", "utf8");
-  assert.match(store, /JSON\.stringify\(omitDirectorySqlContactAliases\(input\.sourceData, input\)\)/);
-  assert.match(store, /JSON\.stringify\(omitDirectorySqlContactAliases\(input\.sourceData, payload\)\)/);
+  const createBlock=store.slice(
+    store.indexOf("export function buildManagedDirectoryProfileCreateStatement("),
+    store.indexOf("export async function getPublishedDirectoryProfiles("),
+  );
+  assert.equal(createBlock.includes("JSON.stringify(omitDirectorySqlContactAliases(input.sourceData, input))"),false);
+  assert.match(createBlock,/source_data_json, verified/);
+  assert.equal(createBlock.split('"{}"').length-1,2);
+  const updateBlock=store.slice(store.indexOf("export function buildManagedDirectoryProfileUpdateStatement("),store.indexOf("export async function updateManagedDirectoryProfile("));
+  assert.doesNotMatch(updateBlock, /source_data_json = \?/);
   const start = notion.indexOf("async function saveBreederEditorialValue(");
   const finish = notion.indexOf("  } else if (path === \"seo.noindex\")", start);
   const branch = notion.slice(start, finish);
-  assert.match(branch, /source_data_json = \" \+ removed/);
+  assert.doesNotMatch(branch, /source_data_json = \" \+ removed/);
   assert.doesNotMatch(branch, /source_data_json = json_set\(\" \+ removed/);
   assert.match(branch, /assignments\.push\(column \+ \" = \?\"\)/);
 });

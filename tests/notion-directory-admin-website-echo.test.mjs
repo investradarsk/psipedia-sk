@@ -38,18 +38,18 @@ test("targeted Notion writeback confirms field echoes before marking synchroniza
   assert.match(sync, /DIRECTORY_TARGETED_NOTION_SYNC_FAILED/);
 });
 
-test("explicit contact clears survive form baselines and remove old D1 aliases", () => {
+test("explicit contact clears use the SQL baseline without legacy alias repair", () => {
   const editor = source("components/admin-directory-editor.tsx");
   const route = source("app/api/admin/directory/[id]/route.ts");
   assert.match(editor, /explicitlyClearedContacts = \(breederChangedPaths \?\? \[\]\)/);
   assert.match(editor, /explicitlyClearedContacts \} : \{\}/);
   assert.match(route, /editedPaths\.includes\(field as BreederEditorialField\)/);
   assert.match(route, /safeOptionalFields\.websiteUrl = null/);
-  assert.match(route, /source_data_json = json_remove/);
-  assert.match(route, /website_url = NULL/);
-  assert.match(route, /AND updated_at = \?/);
-  assert.match(route, /EXPLICIT_CONTACT_CLEAR_NOT_PERSISTED/);
-  assert.match(route, /contactClearWarnings/);
+  assert.match(route, /const before = projected/);
+  assert.match(route, /safeOptionalFields\.websiteUrl = null/);
+  assert.match(route, /const contactLossBeforeNotion =/);
+  const save=route.slice(route.indexOf("export async function PUT("),route.indexOf("export async function PATCH("));
+  assert.doesNotMatch(save, /source_data_json = json_remove|EXPLICIT_CONTACT_CLEAR_NOT_PERSISTED|contactClearWarnings/);
 });
 
 test("legacy Web and Telefon survive a Facebook-only full form save", () => {

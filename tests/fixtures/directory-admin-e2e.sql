@@ -279,3 +279,70 @@ INSERT INTO directory_profiles (
   '2026-09-18T18:11:00.000Z', '2026-09-18T18:11:00.000Z', '2026-09-18T18:11:00.000Z',
   'fixture@psipedia.local', 'fixture@psipedia.local'
 );
+
+-- This fixture intentionally seeds both the historical profile columns and
+-- their current relational SQL owner. Public Directory reads service lines
+-- from directory_profile_service_texts after SQL cutover, never services_json.
+-- Only local E2E fixture profiles are included; no production transfer.
+INSERT INTO directory_profile_service_texts
+  (profile_id, item_order, service_text, updated_at, updated_by)
+SELECT profile.id, CAST(item.key AS INTEGER), item.value,
+       profile.updated_at, profile.updated_by
+FROM directory_profiles AS profile
+JOIN json_each(profile.services_json) AS item
+WHERE (
+  profile.slug LIKE 'e2e-directory-%'
+  OR profile.slug LIKE 'e2e-services-detail-%'
+  OR profile.slug LIKE 'health-fixture-%'
+  OR profile.slug IN (
+    'directory-admin-editor-fixture',
+    'bulk-fixture-draft', 'bulk-fixture-published'
+  )
+)
+  AND item.type = 'text'
+  AND trim(item.value) <> ''
+ON CONFLICT (profile_id, item_order) DO UPDATE SET
+  service_text = excluded.service_text,
+  updated_at = excluded.updated_at,
+  updated_by = excluded.updated_by;
+
+
+-- SQL-only public/profile fixtures after Directory 0170/0173 cutover.
+-- Keep the legacy source JSON untouched on purpose: these assertions must
+-- pass using ONLY canonical SQL, not historical contact/fact fallbacks.
+UPDATE directory_profiles SET
+  public_phone = '+421 900 123 456',
+  public_email = 'detail-e2e@example.invalid',
+  facebook_url = 'https://facebook.com/example',
+  instagram_url = 'https://instagram.com/example'
+WHERE slug = 'e2e-services-detail-long';
+
+UPDATE directory_profiles SET
+  public_phone = '+421 900 111 222',
+  public_email = 'public-fixture@example.invalid',
+  facebook_url = 'https://facebook.com/original-fixture',
+  instagram_url = 'https://instagram.com/original-fixture'
+WHERE slug = 'directory-admin-editor-fixture';
+
+-- D1's SQLite runtime rejects compound SELECTs over its small term limit.
+-- VALUES is not a compound SELECT; editorial facts use canonical SQL.
+WITH facts(slug, field_key, value_text) AS (
+  VALUES
+    ('health-fixture-vet-rich', 'Špecializácie', 'Interná medicína, chirurgia'),
+    ('health-fixture-vet-rich', 'Hospitalizácia', 'Áno'),
+    ('health-fixture-vet-rich', 'RTG', 'Digitálne RTG'),
+    ('health-fixture-vet-rich', 'USG', 'Áno'),
+    ('health-fixture-vet-rich', 'Laboratórium', 'Interné laboratórium'),
+    ('e2e-services-detail-long', 'Pokrytie', 'Nitra a okolie'),
+    ('directory-admin-editor-fixture', 'Pokrytie', 'Nitra a okolie')
+)
+INSERT INTO directory_profile_public_facts
+  (profile_id, field_key, value_text, updated_at, updated_by)
+SELECT p.id, f.field_key, f.value_text, p.updated_at, p.updated_by
+FROM directory_profiles p
+JOIN facts f ON f.slug = p.slug;
+
+INSERT INTO directory_profile_filter_values
+  (profile_id, category, filter_id, value_text, updated_at, updated_by)
+SELECT id, 'veterinari', 'veterinari.emergency', 'yes', updated_at, updated_by
+FROM directory_profiles WHERE slug = 'health-fixture-vet-rich';

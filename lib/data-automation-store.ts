@@ -316,7 +316,9 @@ function sourceIdFromJson(value: unknown) {
 }
 
 function commonCandidate(row: Record<string, unknown>, key: string): AutomationMatchCandidate {
-  const sourceData = parseJson<Record<string, unknown>>(String(row.source_data_json ?? ""), {});
+  // DIRECTORY provenance is tracked relationally; do not inspect retired JSON.
+  const sourceData = key.startsWith("directory:")
+    ? {} : parseJson<Record<string, unknown>>(String(row.source_data_json ?? ""), {});
   return {
     id: Number(row.id),
     key,
@@ -379,8 +381,7 @@ function organizationBefore(row: Record<string, unknown>) {
 }
 
 function directoryBefore(row: Record<string, unknown>) {
-  const sourceData = parseJson<Record<string, string | number | null>>(String(row.source_data_json ?? "{}"), {});
-  const contacts = readDirectorySqlBackedContacts(sourceData, row);
+  const contacts = readDirectorySqlBackedContacts({}, row);
   return {
     slug: row.slug, name: row.name, category: row.category, status: row.status, excerpt: row.excerpt,
     description: row.description, services: parseJson(String(row.services_json ?? "[]"), []),
@@ -392,15 +393,10 @@ function directoryBefore(row: Record<string, unknown>) {
     websiteUrl: row.website_url, importKey: row.import_key, verified: bool(row.verified),
     publicPhone: contacts.phone, publicEmail: contacts.email,
     facebookUrl: contacts.facebook, instagramUrl: contacts.instagram,
-    ico: sourceData.ico ?? sourceData.companyId ?? sourceData.company_id ?? null,
-    facilityRegistryId:
-      sourceData.facilityRegistryId ?? sourceData.facility_registry_id ?? sourceData.registryId ?? sourceData.registry_id ?? null,
-    facilityRegistryNamespace:
-      sourceData.facilityRegistryNamespace
-      ?? sourceData.facility_registry_namespace
-      ?? sourceData.registryNamespace
-      ?? sourceData.registry_namespace
-      ?? null,
+    // No fallback to legacy JSON; absent relational values stay unknown.
+    ico: row.ico ?? null,
+    facilityRegistryId: row.facility_registry_id ?? null,
+    facilityRegistryNamespace: row.facility_registry_namespace ?? null,
   };
 }
 

@@ -87,11 +87,7 @@ export type OverviewResult={
 };
 type ReadDb=Pick<D1Database,"prepare">;
 const empty=(col:string)=>"trim(COALESCE("+col+",''))=''";
-const contactJSON="CASE WHEN json_valid(COALESCE(source_data_json,'')) THEN source_data_json ELSE '{}' END";
-const missingAliases=(keys:readonly string[]) =>
-  "COALESCE("+keys.map(k=>"NULLIF(trim(CAST(json_extract("+contactJSON+", '$.\""+k+"\"') AS TEXT)),'')").join(",")+",'')=''";
-const socialMissing="("+missingAliases(["Facebook","facebook","Facebook URL"])+
-  " OR "+missingAliases(["Instagram","instagram","Instagram URL"])+")";
+const socialMissing="("+empty("facebook_url")+" OR "+empty("instagram_url")+")";
 
 /** Trusted static SQL only; user filters appear solely as bound values. */
 type KindSpec={

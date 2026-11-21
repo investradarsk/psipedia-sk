@@ -312,48 +312,31 @@ test("all 10 category facet patches are allowlisted and unchanged saves are empt
   assert.throws(() => normalizePartnerProfilePatch("HELP_ORGANIZATION",
     { "veterinari.emergency": "yes" }, {}, false, null), /nie je možné upravovať/);
 
-  // One moderated approval changes only the permitted facet and a contact;
-  // all other facets and nested legacy metadata survive the atomic statement.
-  const sourceDataJson = JSON.stringify({
-    "_audit": { reviewed: true, notes: ["legacy"] }, "Typ služby": "veterinár",
-    "_psipedia_filter_v1_veterinari_emergency": "no",
-    "_psipedia_filter_v1_veterinari_home_visits": "yes",
-    "_psipedia_filter_v1_treneri_group_training": "unknown",
-  });
+  // Partner moderation owns the SQL contact columns. The category filter is
+  // written by the relational planner in the same atomic approval batch.
   const prepared = { prepare(sql) { return { bind(...bindings) { return { sql, bindings }; } }; } };
   const canonical = {
-    canonicalId: 123, directoryCategory: "veterinari", sourceDataJson,
-    sourceData: JSON.parse(sourceDataJson),
-    values: { name: "Vet", excerpt: "Bez zmeny", publicEmail: "old@example.sk", publicPhone: "",
-      websiteUrl: "", facebookUrl: "", instagramUrl: "" },
+    canonicalId: 123, directoryCategory: "veterinari", sourceDataJson: null,
+    sourceData: {}, values: { name: "Vet", excerpt: "Bez zmeny", publicEmail: "old@example.sk" },
   };
   const statement = buildDirectoryApplyStatement(prepared, canonical,
     { "veterinari.emergency": "yes", publicEmail: "new@example.sk" },
     "partner:test", "2026-10-13T20:00:00.000Z", "submission-test");
   const columns = statement.sql.slice(statement.sql.indexOf("SET ") + 4, statement.sql.indexOf(" WHERE "))
-    .split(",").map((item) => item.split("=")[0]);
-  assert.equal(columns.filter((item) => item === "source_data_json").length, 1);
-  const updatedSource = JSON.parse(statement.bindings[columns.indexOf("source_data_json")]);
-  assert.deepEqual(updatedSource._audit, { reviewed: true, notes: ["legacy"] });
-  assert.equal(updatedSource["Typ služby"], "veterinár");
-  assert.equal(updatedSource._psipedia_filter_v1_veterinari_emergency, "yes");
-  assert.equal(updatedSource._psipedia_filter_v1_veterinari_home_visits, "yes");
-  assert.equal(updatedSource._psipedia_filter_v1_treneri_group_training, "unknown");
-  assert.equal(Object.hasOwn(updatedSource, "E-mail"), false,
-    "approved contact must not be duplicated in legacy JSON");
-  assert.equal(columns.filter((item) => item === "public_email").length, 1);
-  assert.equal(statement.bindings[columns.indexOf("public_email")], "new@example.sk",
-    "approved contact must be stored in canonical SQL");
+    .split(",").map(item=>item.split("=")[0]);
+  assert.equal(columns.includes("source_data_json"),false);
+  assert.equal(columns.filter(item=>item==="public_email").length,1);
+  assert.equal(statement.bindings[columns.indexOf("public_email")],"new@example.sk");
+  assert.match(statement.sql,/moderation_submissions WHERE id=\?/);
+  const broken=buildDirectoryApplyStatement(prepared,{...canonical,sourceDataJson:"broken"},
+    {"veterinari.emergency":"no"},"partner:test","2026-10-13T20:00:00.000Z");
+  assert.doesNotMatch(broken.sql,/source_data_json/);
 
-  assert.match(statement.sql, /moderation_submissions WHERE id=\?/);
-  assert.throws(() => buildDirectoryApplyStatement(prepared,
-    { ...canonical, sourceDataJson: "broken" }, { "veterinari.emergency": "no" },
-    "partner:test", "2026-10-13T20:00:00.000Z"), /Invalid source_data_json/);
 });
 
 test("partner filter-only change uses permission gate, revision and moderation; no direct write", () => {
   assert.match(domain, /serviceFiltersForCategory\(row\.category\)/);
-  assert.match(domain, /sourceDataJson: row\.source_data_json/);
+  assert.match(domain, /sourceDataJson: null/);
   assert.match(domain, /directoryCategory: canonical\.directoryCategory/);
   assert.match(domain, /normalizePartnerProfilePatch\(canonical\.entityType, input\.patch, canonical\.values, Boolean\(mediaAssetId \|\| galleryMediaIds\.length\), canonical\.directoryCategory\)/);
   assert.match(domain, /requirePartnerPermission\(input\.accountId, input\.resourceId, "PROFILE_SUBMIT_CHANGE", db\)/);

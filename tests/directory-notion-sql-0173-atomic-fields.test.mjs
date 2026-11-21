@@ -5,6 +5,8 @@ import {DatabaseSync} from "node:sqlite";
 import {runInNewContext} from "node:vm";
 import ts from "typescript";
 import {planDirectory0173EditorialSqlMirror} from "../lib/directory-0173-editorial-sql-mirror.ts";
+import {planDirectoryExtraSqlTextMirror} from "../lib/directory-extra-sql-mirror.ts";
+import {planDirectoryStep3PresentationSqlMirror} from "../lib/directory-sql-step3-live-mirror.ts";
 import {isDirectoryEventPilotCategory,isDirectoryFieldEventCategory} from "../lib/notion-directory-field-event-scope.ts";
 
 const source=readFileSync(new URL("../lib/notion-directory-sync.ts",import.meta.url),"utf8");
@@ -57,6 +59,7 @@ function setup(category="veterinari"){
     isDirectoryEventPilotCategory,isDirectoryFieldEventCategory,
     breederReadPath:(data,path)=>path.split(".").reduce((v,k)=>v?.[k],data),
     normalizeDirectorySearchText:v=>v,planDirectory0173EditorialSqlMirror,
+    planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
     getManagedDirectoryProfileById:async()=>current});
   const desired=()=>({name:"Test",excerpt:"",description:"",services:[],
     qualifications:[],region:"",district:"",city:"",address:"",postalCode:"",

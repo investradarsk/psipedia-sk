@@ -1,17 +1,19 @@
 /**
  * 0170 SQL-first read-through for one Directory detail/profile editor.
  *
- * A SQL fact/filter row exists ONLY after an explicit edit was mirrored in the
- * canonical writer. This adapter never backfills legacy values. A missing row
- * keeps the historical JSON for records awaiting the owner's review.
+ * Category filter choices are SQL-authoritative. A missing SQL row means
+ * no selected filter, never a fallback to a retired JSON value. Other
+ * editorial metadata remains available during the staged cutover.
  *
  * It intentionally does NOT switch category listing membership, secondary
  * categories or public faceted filtering. Those require a separate, complete
  * producer/read contract (notably Notion category changes and explicit []).
  */
 import { proposedDirectorySqlPlacement } from "./directory-sql-cutover-contract.ts";
+import { isDirectoryPublicMetadataField, directoryPublicFactLabels } from "./directory-public-facts.ts";
 import {
   getDirectoryFilterDefinition,
+  directoryFilterRegistry,
   normalizeDirectoryFilterValue,
   serviceFilterCategories,
   type ServiceFilterCategory,
@@ -21,21 +23,51 @@ export type Directory0170FactRow = Readonly<{field_key:string;value_text:string}
 export type Directory0170FilterRow = Readonly<{
   category:string;filter_id:string;value_text:string;
 }>;
+export type Directory0170ExtraRow = Readonly<{
+  field_key:string;value_kind:"text"|"number"|"null";
+  text_value:string|null;number_value:number|null;
+}>;
 type EditorialSource = Record<string, string | number | null>;
+
+/**
+ * Strip every retired JSON filter projection before merging SQL values.
+ * A deleted SQL filter row must NEVER resurrect a stale JSON choice.
+ */
+export function withoutLegacyDirectoryFacetValues(
+  source: EditorialSource | null | undefined,
+): EditorialSource | null {
+  if (!source) return null;
+  const result: EditorialSource = { ...source };
+  for (const definition of directoryFilterRegistry) delete result[definition.d1.key];
+  return result;
+}
 
 export function overlayDirectory0170EditorialFields(input: {
   category: string;
   source: EditorialSource | null | undefined;
   facts: readonly Directory0170FactRow[];
   filters: readonly Directory0170FilterRow[];
+  extras?: readonly Directory0170ExtraRow[];
   /** Public importData must not expose internal, underscore-prefixed filters. */
   audience: "public" | "admin";
 }): EditorialSource | null {
-  const {category, source, facts, filters, audience} = input;
+  const {category, source, facts, filters, extras, audience} = input;
   if (!(serviceFilterCategories as readonly string[]).includes(category))
     return source ? {...source} : null;
-  const sourceCopy:EditorialSource = {...(source ?? {})};
+  const sourceCopy:EditorialSource = withoutLegacyDirectoryFacetValues(source) ?? {};
   const typedCategory=category as ServiceFilterCategory;
+  for(const extra of extras??[]) {
+    if(!extra || typeof extra.field_key!=="string" ||
+       !["text","number","null"].includes(extra.value_kind))continue;
+    // Unknown and internal technical identifiers must never appear publicly.
+    if(audience==="public" && !isDirectoryPublicMetadataField(extra.field_key))continue;
+    if(extra.field_key.length>200)continue;
+    if(extra.value_kind==="text" && typeof extra.text_value==="string")
+      sourceCopy[extra.field_key]=extra.text_value;
+    else if(extra.value_kind==="number" && typeof extra.number_value==="number")
+      sourceCopy[extra.field_key]=extra.number_value;
+    else if(extra.value_kind==="null")sourceCopy[extra.field_key]=null;
+  }
 
   for (const entry of facts) {
     if (!entry || typeof entry.field_key !== "string" ||
@@ -47,6 +79,23 @@ export function overlayDirectory0170EditorialFields(input: {
     // Including '' is essential. It must suppress historical JSON aliases.
     sourceCopy[entry.field_key]=entry.value_text;
   }
+  if (audience === "public") {
+    // Some approved Notion selects deliberately share a visible text label
+    // (e.g. veterinarian emergency). The relational filter is the only
+    // authority; expose its translated value on detail, not the old JSON.
+    const visible = new Set(directoryPublicFactLabels(typedCategory));
+    for (const entry of filters) {
+      if (!entry || entry.category !== category) continue;
+      const definition = getDirectoryFilterDefinition(entry.filter_id);
+      if (!definition || definition.category !== category ||
+          definition.valueType !== "tri_state" ||
+          !visible.has(definition.notion.property)) continue;
+      const normalized = normalizeDirectoryFilterValue(definition,entry.value_text);
+      if (normalized.status !== "known") continue;
+      sourceCopy[definition.notion.property] =
+        normalized.value === "yes" ? "Áno" : normalized.value === "no" ? "Nie" : "";
+    }
+  }
   if (audience === "admin") {
     for(const entry of filters) {
       if (!entry || entry.category !== category) continue;
@@ -57,12 +106,13 @@ export function overlayDirectory0170EditorialFields(input: {
       sourceCopy[definition.d1.key]=normalized.value;
     }
   }
-  return Object.keys(sourceCopy).length ? sourceCopy : source ? {...source} : null;
+  return Object.keys(sourceCopy).length ? sourceCopy : source ? sourceCopy : null;
 }
 
 type EditorialQueryRow = {
   facts_json: string | null;
   filters_json: string | null;
+  extra_json?: string | null;
 };
 function parseRows(value: string | null): unknown[] {
   if(value===null)return [];
@@ -93,16 +143,22 @@ export async function readDirectory0170EditorialFields(
     ") AS facts_json, ("+
       "SELECT json_group_array(json_object('category',category,'filter_id',filter_id,'value_text',value_text)) "+
       "FROM directory_profile_filter_values WHERE profile_id=?1"+
-    ") AS filters_json"
+    ") AS filters_json, ("+
+      "SELECT json_group_array(json_object('field_key',field_key,"+
+        "'value_kind',value_kind,'text_value',text_value,'number_value',number_value)) "+
+      "FROM directory_profile_extra_fields WHERE profile_id=?1"+
+    ") AS extra_json"
   ).bind(input.profileId).first<EditorialQueryRow>();
   if(!data)throw Error("DIRECTORY_0170_READ_MISSING_ROW");
   const facts=parseRows(data.facts_json);
   const filters=parseRows(data.filters_json);
+  const extras=parseRows(data.extra_json??null);
   return overlayDirectory0170EditorialFields({
     category:input.category,
     source:input.source,
     facts:facts as Directory0170FactRow[],
     filters:filters as Directory0170FilterRow[],
+    extras:extras as Directory0170ExtraRow[],
     audience:input.audience,
   });
 }

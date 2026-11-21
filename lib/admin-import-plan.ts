@@ -146,7 +146,7 @@ export function normalizeGeneralImportPayload(value: unknown): GeneralImportPayl
 }
 
 type StatusRow = { slug: string; status: string };
-type ProfileRow = { import_key: string | null; category: string; slug: string; status: string; source_data_json: string; updated_at: string };
+type ProfileRow = { import_key: string | null; category: string; slug: string; status: string; updated_at: string };
 type LegalRow = { id: number };
 
 function emptyDomain(received: number): ImportDomainPreview {
@@ -219,7 +219,7 @@ export async function buildGeneralImportPlan(database: D1Database, rawPayload: u
       ? database.prepare("SELECT slug,status FROM managed_events").all<StatusRow>()
       : Promise.resolve({ results: [] as StatusRow[] }),
     payload.profiles.length
-      ? database.prepare("SELECT import_key,category,slug,status,source_data_json,updated_at FROM directory_profiles").all<ProfileRow>()
+      ? database.prepare("SELECT import_key,category,slug,status,updated_at FROM directory_profiles").all<ProfileRow>()
       : Promise.resolve({ results: [] as ProfileRow[] }),
     payload.legal
       ? database.prepare("SELECT id FROM legal_settings WHERE id=1").all<LegalRow>()

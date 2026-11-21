@@ -60,15 +60,14 @@ const catalogFacetMap = new Map(
 
 /** SQL identifiers originate only from this static registry; all user values are bound.
  * Public listings and map search must read the SAME V3 choice as the Admin editor.
- * Old source_data_json remains intact for history but cannot override the choice.
+ * Legacy source JSON no longer contributes to public filters.
  */
-export function directoryPublicFacetSql(category: string, facets: DirectoryPublicFacets = {}, column = "source_data_json") {
-  // Both callers are fixed SQL read paths; never interpolate an arbitrary alias.
-  if (column !== "source_data_json" && column !== "d.source_data_json")
+export function directoryPublicFacetSql(category: string, facets: DirectoryPublicFacets = {}, profileIdColumn = "directory_profiles.id") {
+  // Only these statically known SQL id expressions may be used.
+  if (profileIdColumn !== "directory_profiles.id" && profileIdColumn !== "d.id")
     throw new Error("DIRECTORY_PUBLIC_FACET_INVALID_COLUMN");
   const clauses: string[] = [];
   const bindings: string[] = [];
-  const profileIdColumn = column === "d.source_data_json" ? "d.id" : "directory_profiles.id";
   for (const definition of serviceFiltersForCategory(category)) {
     const value = facets[definition.id];
     if (!publicDirectoryFacetOptions(definition).includes(value)) continue;
@@ -82,20 +81,12 @@ export function directoryPublicFacetSql(category: string, facets: DirectoryPubli
       bindings.push(catalogId, value);
       continue;
     }
-    // Only unmapped provider facets use this legacy/0170 read-through.
-    // An explicitly edited SQL row overrides the historical JSON, including
-    // 'unknown' (which must not match any public yes/no/select request).
-    // A missing SQL row retains the original JSON for unreviewed profiles.
-    // Other 20 facets continue to read Services V3 and never consult this row.
-    const path = '$."' + definition.d1.key + '"';
-    const legacyValue =
-      "json_extract(CASE WHEN json_valid(" + column + ") THEN " +
-      column + " ELSE '{}' END, '" + path + "')";
+    // Unmapped provider facets are SQL-only; missing is deliberately unknown.
     clauses.push(
-      "COALESCE((SELECT sql_filter.value_text FROM directory_profile_filter_values AS sql_filter " +
+      "EXISTS (SELECT 1 FROM directory_profile_filter_values AS sql_filter " +
       "WHERE sql_filter.profile_id = " + profileIdColumn +
-      " AND sql_filter.category = ? AND sql_filter.filter_id = ?), " +
-      legacyValue + ") = ?",
+      " AND sql_filter.category = ? AND sql_filter.filter_id = ? " +
+      "AND sql_filter.value_text = ?)",
     );
     bindings.push(definition.category, definition.id, value);
   }

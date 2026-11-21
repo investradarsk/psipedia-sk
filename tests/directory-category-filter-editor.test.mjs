@@ -119,8 +119,9 @@ test("shared UI is accessible, callback-only, responsive and mounted in both edi
   assert.match(source("app/partner/profily/[resourceId]/upravit/page.tsx"), /directoryCategory=\{editor\.resource\.directoryCategory\}/);
   const api = source("app/api/admin/directory/[id]/route.ts");
   assert.match(api, /getAdminApiUser\(\)/);
-  assert.match(api, /mergeDirectoryFilterValues/);
-  assert.match(api, /source_data_json=\?6/);
+  assert.match(api, /planDirectory0170FilterSqlMirror/);
+  assert.match(api, /SET updated_at=\?1,updated_by=\?2/);
+  assert.doesNotMatch(api.slice(api.indexOf('if (body.action === "set-category-filters")'),api.indexOf('if (body.action === "set-reviewed")')),/SET source_data_json/);
   assert.match(api, /row\.category !== requested\.category/);
 });
 
@@ -161,7 +162,8 @@ test("Admin facet editor never clears choices from a partial or unconfirmed PATC
   assert.match(editor, /setFilterSourceData\(savedProfile\.importData \?\? \{\}\)/);
   assert.match(api, /DIRECTORY_CATEGORY_FILTERS_D1_NOT_CONFIRMED/);
   assert.match(api, /const committed = await db\.prepare\(/);
-  assert.match(api, /unconfirmedDirectoryCategoryFilters\(/);
+  assert.match(api, /const filterRows = await db\.prepare\(/);
+  assert.match(api, /const unconfirmed = Object\.entries\(normalizedValues\)/);
   assert.match(api, /status: 409, headers: \{ "cache-control": "no-store" \}/);
 });
 

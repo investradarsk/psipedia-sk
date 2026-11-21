@@ -9,7 +9,6 @@ import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-c
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { normalizeProfileGalleryUrls } from "./partner-profile-gallery";
-import { DIRECTORY_BREEDER_GALLERY_KEY } from "./directory-breeder-gallery";
 import type { PartnerCanonicalType } from "./partner-canonical-workflow";
 
 type Allowed=string|number|null|boolean|string[];
@@ -38,10 +37,6 @@ export function buildPartnerDraftRelationStatements(input:Input):D1PreparedState
         profileId:id,primaryCategory:category,submitted:additional,updatedAt:nowIso,actor,
       }):[];
     for(const statement of statements.slice(1))plans.push(sql(db,statement));
-    plans.push(db.prepare("UPDATE directory_profiles SET source_data_json=json_set("+
-      "CASE WHEN json_valid(source_data_json) THEN source_data_json ELSE '{}' END,"+
-      "'$._psipedia_additional_categories',?,'$._psipedia_additional_categories_sql_confirmed','1') "+
-      "WHERE id=? AND updated_at=?").bind(JSON.stringify(additional),id,nowIso));
   }
   const hours=Object.hasOwn(data,"openingHours")?String(data.openingHours??""):undefined;
   const gallery=Object.hasOwn(data,"galleryUrls")?normalizeProfileGalleryUrls(data.galleryUrls):undefined;
@@ -53,19 +48,6 @@ export function buildPartnerDraftRelationStatements(input:Input):D1PreparedState
       ...(gallery!==undefined?{galleryUrls:gallery}:{}),
       ...(qualifications!==undefined?{qualifications}:{}),
     }))plans.push(sql(db,item));
-    if(hours!==undefined){
-      plans.push(db.prepare("UPDATE directory_profiles SET source_data_json=json_set("+
-        "CASE WHEN json_valid(source_data_json) THEN source_data_json ELSE '{}' END,"+
-        "'$.\"Ordinačné hodiny\"',?) WHERE id=? AND updated_at=?")
-        .bind(hours,id,nowIso));
-    }
-    if(gallery!==undefined){
-      const key=category==="chovatelske-stanice"?DIRECTORY_BREEDER_GALLERY_KEY:"_psipedia_profile_gallery_urls";
-      plans.push(db.prepare("UPDATE directory_profiles SET source_data_json=json_set("+
-        "CASE WHEN json_valid(source_data_json) THEN source_data_json ELSE '{}' END,"+
-        "'$.\""+key+"\"',?) WHERE id=? AND updated_at=?")
-        .bind(JSON.stringify(gallery),id,nowIso));
-    }
   }
   const facets=Object.entries(data).filter(([key])=>directoryFilterRegistry.some(f=>f.id===key));
   if(facets.length){
@@ -80,52 +62,43 @@ export function buildPartnerDraftRelationStatements(input:Input):D1PreparedState
     for(const item of planDirectory0170FilterSqlMirror({
       profileId:id,category:category as ServiceFilterCategory,values:selections,updatedAt:nowIso,actor,
     }).slice(1))plans.push(sql(db,item));
-    for(const [key,value] of facets){
-      const def=directoryFilterRegistry.find(f=>f.id===key)!;
-      plans.push(db.prepare("UPDATE directory_profiles SET source_data_json=json_set("+
-        "CASE WHEN json_valid(source_data_json) THEN source_data_json ELSE '{}' END,?,?) "+
-        "WHERE id=? AND updated_at=?")
-        .bind('$."'+def.d1.key+'"',value||null,id,nowIso));
-    }
   }
   return plans;
 }
-export async function readPartnerDraftRelations(input:{db:D1Database;type:PartnerCanonicalType;id:number;category?:string}){
+export async function readPartnerDraftRelations(input:{
+  db:D1Database;type:PartnerCanonicalType;id:number;category?:string
+}){
   const {db,type,id}=input,values:Record<string,Allowed>={};
   if(type!=="DIRECTORY_PROFILE"&&type!=="HELP_ORGANIZATION")return values;
-  const table=type==="DIRECTORY_PROFILE"?"directory_profiles":"help_organizations";
-  const row=await db.prepare("SELECT source_data_json source FROM "+table+" WHERE id=?")
-    .bind(id).first<{source:string|null}>();
-  let source:Record<string,unknown>={};
-  try{const x=JSON.parse(row?.source??"{}");if(x&&typeof x==="object"&&!Array.isArray(x))source=x;}catch{}
-  const list=(key:string)=>{
-    try{const v=JSON.parse(String(source[key]??"[]"));return Array.isArray(v)?v.filter((x):x is string=>typeof x==="string"):[];}catch{return [];}
-  };
   if(type==="HELP_ORGANIZATION"){
-    values.galleryUrls=list("_psipedia_profile_gallery_urls");
+    // Help organizations have their own independent storage lifecycle.
+    const row=await db.prepare("SELECT source_data_json source FROM help_organizations WHERE id=?")
+      .bind(id).first<{source:string|null}>();
+    try{
+      const raw=JSON.parse(row?.source??"{}") as Record<string,unknown>;
+      const gallery=JSON.parse(String(raw?._psipedia_profile_gallery_urls??"[]"));
+      values.galleryUrls=Array.isArray(gallery)?gallery.filter((v):v is string=>typeof v==="string"):[];
+    }catch{values.galleryUrls=[];}
     return values;
   }
-  // Public relations are SQL-first. Existing JSON is a compatibility fallback
-  // only for installations not yet cut over to 0173.
+  // Directory relations are SQL-only. A missing migration is a real error,
+  // not permission to surface an obsolete JSON fallback.
   const category=input.category??"";
-  try{
-    const [additional,gallery,hours]=await Promise.all([
-      db.prepare("SELECT category FROM directory_profile_additional_categories WHERE profile_id=? ORDER BY category").bind(id).all<{category:string}>(),
-      db.prepare("SELECT image_url url FROM directory_profile_media WHERE profile_id=? ORDER BY item_order").bind(id).all<{url:string}>(),
-      db.prepare("SELECT hours_text hours FROM directory_profile_opening_hours WHERE profile_id=? ORDER BY day_of_week").bind(id).all<{hours:string}>(),
-    ]);
-    values.additionalCategories=additional.results.map(x=>x.category);
-    values.galleryUrls=gallery.results.map(x=>x.url);
-    values.openingHours=hours.results.map(x=>x.hours).join("\n");
-  }catch{
-    values.additionalCategories=list("_psipedia_additional_categories");
-    values.galleryUrls=list(category==="chovatelske-stanice"?DIRECTORY_BREEDER_GALLERY_KEY:"_psipedia_profile_gallery_urls");
-    values.openingHours=String(source["Ordinačné hodiny"]??"");
-  }
-  try{
-    const all=await db.prepare("SELECT filter_id id,value_text val FROM directory_profile_filter_values WHERE profile_id=?").bind(id)
-      .all<{id:string;val:string}>();
-    for(const f of all.results)if(directoryFilterRegistry.some(def=>def.id===f.id&&def.category===category))values[f.id]=f.val;
-  }catch{}
+  const [additional,gallery,hours,filters]=await Promise.all([
+    db.prepare("SELECT category FROM directory_profile_additional_categories WHERE profile_id=? ORDER BY category")
+      .bind(id).all<{category:string}>(),
+    db.prepare("SELECT image_url url FROM directory_profile_media WHERE profile_id=? ORDER BY item_order")
+      .bind(id).all<{url:string}>(),
+    db.prepare("SELECT hours_text hours FROM directory_profile_opening_hours WHERE profile_id=? ORDER BY day_of_week")
+      .bind(id).all<{hours:string}>(),
+    db.prepare("SELECT filter_id id,value_text val FROM directory_profile_filter_values WHERE profile_id=?")
+      .bind(id).all<{id:string;val:string}>(),
+  ]);
+  values.additionalCategories=additional.results.map(x=>x.category);
+  values.galleryUrls=gallery.results.map(x=>x.url);
+  values.openingHours=hours.results.map(x=>x.hours).join("\n");
+  for(const filter of filters.results)
+    if(directoryFilterRegistry.some(def=>def.id===filter.id&&def.category===category))
+      values[filter.id]=filter.val;
   return values;
 }

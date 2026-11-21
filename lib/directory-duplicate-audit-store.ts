@@ -8,8 +8,6 @@ import {
 // The hard ceiling must be surfaced as INCOMPLETE rather than silently
 // treating an unseen part of D1 as free of duplicates.
 const MAX_ROWS = 5000;
-const safeSource = "CASE WHEN json_valid(source_data_json) THEN source_data_json ELSE '{}' END";
-const sourceText = (key: string) => `NULLIF(TRIM(CAST(json_extract(${safeSource}, '$."${key}"') AS TEXT)), '')`;
 
 export async function getDirectoryDuplicateAudit() {
   const database = (env as unknown as { DB?: D1Database }).DB;
@@ -17,9 +15,10 @@ export async function getDirectoryDuplicateAudit() {
   const rows = await database.prepare(`
     SELECT
       id, name, category, status, city, website_url,
-      COALESCE(${sourceText("Telefón")}, ${sourceText("Telefon")}, ${sourceText("phone")}) AS phone,
-      COALESCE(${sourceText("E-mail")}, ${sourceText("Email")}, ${sourceText("email")}) AS email,
-      ${sourceText("_psipedia_additional_categories")} AS additional_categories_json
+      public_phone AS phone, public_email AS email,
+      (SELECT json_group_array(secondary.category)
+       FROM directory_profile_additional_categories secondary
+       WHERE secondary.profile_id=directory_profiles.id) AS additional_categories_json
     FROM directory_profiles
     WHERE status IN ('published', 'draft')
     ORDER BY id ASC

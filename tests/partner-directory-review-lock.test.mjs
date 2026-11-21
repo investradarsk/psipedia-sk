@@ -45,13 +45,14 @@ test("live external owner blocks Notion even if older profile had no reviewed ma
     sqlite.prepare("DELETE FROM admin_record_tombstones WHERE kind='directory' AND record_id=101").run();
     sqlite.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=101")
       .run(JSON.stringify({ _psipedia_profile_review_reviewed_at:"2026-11-19T19:00:00.000Z" }));
-    assert.equal(await directoryProfileNotionSyncLocked(database, 101), true,
-      "explicit review remains locked after revocation");
+    assert.equal(await directoryProfileNotionSyncLocked(database, 101), false,
+      "obsolete JSON review cannot relock a revoked partner's SQL profile");
   } finally { sqlite.close(); }
 });
 
 test("all directory partner grants activate the existing reviewed flag", () => {
   const lock=read("lib/partner-directory-review.ts");
+  const sqlLock=read("lib/partner-directory-review-sql.ts");
   const owner=read("lib/partner-admin-store.ts");
   const moderation=read("lib/partner-new-profile-admin.ts");
   const claim=read("lib/partner-claims-admin.ts");
@@ -60,10 +61,11 @@ test("all directory partner grants activate the existing reviewed flag", () => {
   assert.equal((moderation.match(/partnerDirectoryReviewLockStatement\(/g)??[]).length,2,
     "both create and link-existing moderation paths are protected");
   assert.match(lock,/setManagedDirectoryProfileReviewed\(/);
-  assert.match(lock,/json_remove\(source_data_json, '\$\._psipedia_profile_review_unlock_pending'\)/);
-  assert.match(lock,/m\.revoked_at IS NULL/);
-  assert.match(lock,/COALESCE\(json_extract\(source_data_json/);
-  assert.match(lock,/WHERE id=\(\$\{input\.canonicalSql\}\)/);
+  assert.match(lock,/FROM directory_profile_review_state s/);
+  assert.match(sqlLock,/INSERT INTO directory_profile_review_state/);
+  assert.match(sqlLock,/m\.revoked_at IS NULL/);
+  assert.match(sqlLock,/ON CONFLICT\(profile_id\) DO UPDATE SET/);
+  assert.match(sqlLock,/WHERE p.id=\(\{CANONICAL_SQL\}\)/);
 });
 
 test("Admin identifies actual owner and cannot uncheck reviewed while partner access exists", () => {

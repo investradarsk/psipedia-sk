@@ -141,63 +141,59 @@ test("invalid values and prohibited fields fail before preparing writes",()=>{
 });
 
 
-test("signed Notion filter events repair stale SQL, even when legacy JSON already matches", () => {
+test("signed Notion filter events update only SQL, including explicit clear", () => {
   const f=fixture();
   try {
     const id="veterinari.facility_type";
-    const key="_psipedia_filter_v1_veterinari_facility_type";
-    const source={ [key]:"clinic", "Zdroj dát":"untouched" };
-    f.db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=1")
-      .run(JSON.stringify(source));
+    const oldJson=JSON.stringify({ "Zdroj dát":"untouched", oldFilter:"do not copy" });
+    f.db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=1").run(oldJson);
     f.db.prepare("INSERT INTO directory_profile_filter_values VALUES (?,?,?,?,?,?)")
       .run(1,"veterinari",id,"hospital",before,"admin");
     assert.equal(directoryNotionFacetRequiresSqlMirror({
-      source,key,sqlValue:"hospital",selected:"clinic",
+      sqlValue:"hospital",selected:"clinic",
     }),true);
     assert.equal(directoryNotionFacetRequiresSqlMirror({
-      source,key,sqlValue:"clinic",selected:"clinic",
+      sqlValue:"clinic",selected:"clinic",
     }),false);
     assert.equal(directoryNotionFacetRequiresSqlMirror({
-      source,key,sqlValue:null,selected:"clinic",
-    }),true,"Notion's explicit change establishes SQL authority");
+      sqlValue:null,selected:"clinic",
+    }),true);
     const plan=planDirectory0170FilterSqlMirror({
       profileId:1,category:"veterinari",values:{[id]:"clinic"},updatedAt:after,actor:"admin",
     });
     f.run("veterinari",plan);
     assert.equal(f.filter(1,id),"clinic");
 
-    // The mirror must also delete a stale SQL row after an explicit clear
-    // even when historic JSON already lacks the selected filter key.
-    f.db.prepare("UPDATE directory_profiles SET source_data_json=?,updated_at=? WHERE id=1")
-      .run(JSON.stringify({"Zdroj dát":"untouched"}),before);
-    const cleared={"Zdroj dát":"untouched"};
+    // A signed clear deletes only the selected relational row. Historic
+    // JSON remains completely untouched by either SQL operation.
+    f.db.prepare("UPDATE directory_profiles SET updated_at=? WHERE id=1").run(before);
     assert.equal(directoryNotionFacetRequiresSqlMirror({
-      source:cleared,key,sqlValue:"clinic",selected:null,
+      sqlValue:"clinic",selected:null,
     }),true);
     assert.equal(directoryNotionFacetRequiresSqlMirror({
-      source:cleared,key,sqlValue:null,selected:null,
+      sqlValue:null,selected:null,
     }),false);
-    assert.equal(directoryNotionFacetRequiresSqlMirror({
-      source,key,sqlValue:null,selected:null,
-    }),true);
     const clear=planDirectory0170FilterSqlMirror({
       profileId:1,category:"veterinari",values:{[id]:null},updatedAt:after,actor:"admin",
     });
     f.run("veterinari",clear);
     assert.equal(f.filter(1,id),undefined);
-    assert.equal(JSON.parse(f.db.prepare(
-      "SELECT source_data_json FROM directory_profiles WHERE id=1",
-    ).get().source_data_json)["Zdroj dát"],"untouched");
     assert.equal(f.filter(2,id),undefined,"other profiles unchanged");
+    assert.equal(f.db.prepare(
+      "SELECT source_data_json FROM directory_profiles WHERE id=1",
+    ).get().source_data_json,oldJson);
   } finally {f.db.close();}
 });
 
-test("signed Notion event compares both stored projections before skipping SQL",()=>{
+test("signed Notion events compare the SQL filter row before saving",()=>{
   const source=readFileSync(new URL("../lib/notion-directory-sync.ts",import.meta.url),"utf8");
   assert.match(source,/AS sql_filter_value/);
   assert.match(source,/directoryNotionFacetRequiresSqlMirror\(\{/);
   assert.match(source,/sqlValue: row\.sql_filter_value/);
-  assert.doesNotMatch(source,/if \(source\[def\.d1\.key\] === normalized!\.value\) continue;/);
+  const start=source.indexOf("// SQL is the only filter owner");
+  const end=source.indexOf("// Trainer trust checkboxes",start);
+  assert.ok(start>0 && end>start);
+  assert.doesNotMatch(source.slice(start,end),/source_data_json|mergeDirectoryFilterValues/);
 });
 
 test("both Admin and Notion writers batch SQL mirror with canonical update",()=>{
