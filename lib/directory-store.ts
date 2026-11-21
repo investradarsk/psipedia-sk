@@ -2143,7 +2143,11 @@ export async function createManagedDirectoryProfile(
     },
     database,
   );
-  return rowToManagedProfile(row);
+  // Return the relational SQL projection, including secondary memberships and
+  // structured editorial fields created in the same transaction.
+  const created = await getManagedDirectoryProfileById(row.id, database);
+  if (!created) throw new Error("DIRECTORY_CREATE_SQL_RELOAD_FAILED");
+  return created;
 }
 
 export function buildManagedDirectoryProfileUpdateStatement(
