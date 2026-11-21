@@ -132,7 +132,9 @@ test("Admin and Notion reviewed sync write no old JSON or wholesale profile data
   assert.doesNotMatch(writer,/SET source_data_json/);
   assert.match(mirror,/LEFT JOIN directory_profile_review_state/);
   assert.doesNotMatch(mirror,/UPDATE directory_profiles/);
-  assert.doesNotMatch(notion,/completeDirectoryReviewedOwnerUnlock|ownerUnlock/);
+  assert.match(notion,/completeDirectoryReviewedOwnerUnlock/);
+  assert.match(notion,/directoryProfileOwnerUnlockPending/);
+  assert.doesNotMatch(notion,/isDirectoryReviewUnlockPendingSource/);
   assert.equal((partner.match(/partnerDirectoryReviewLockStatement\(/g)??[]).length,2);
   assert.match(canonical,/partnerDirectoryReviewLockStatement/);
   assert.doesNotMatch(canonical,/partnerDirectory0173ReviewSqlMirrorStatement/);
