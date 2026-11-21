@@ -41,7 +41,7 @@ export async function attachBreederCardBreeds(
   if (!breederIds.length) return profiles;
 
   try {
-    const canonicalBreedIds = preloadedCanonicalBreedIds ?? await readCanonicalBreedIds(database);
+    const canonicalBreedIds = preloadedCanonicalBreedIds ?? await readCanonicalBreedIds(database, true);
     if (!canonicalBreedIds.length) return profiles;
     const result = await database.prepare(`
       SELECT DISTINCT r.profile_id AS profileId, b.name AS breedName
