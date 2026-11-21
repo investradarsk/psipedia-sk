@@ -33,6 +33,7 @@ on:
       - "tests/d1-canonical-breed-cost.test.mjs"
       - "tests/directory-read-facets.test.mjs"
       - "tests/directory-breeder-preview-step3.test.mjs"
+      - "tests/breeder-sql-only-legacy-drop.test.mjs"
       - "tests/trainer-breed-unification.test.mjs"
       - "scripts/d1-trainer-breed-links-preflight.sql"
       - "scripts/d1-trainer-breed-links-backfill.sql"
@@ -64,4 +65,4 @@ jobs:
       - name: Historical trainer relation migration regression (not a production instruction)
         run: node --experimental-strip-types --test tests/trainer-breed-unification.test.mjs
       - name: Breeder-card canonical links and safe fallback
-        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-breeder-preview-step3.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-breeder-preview-step3.test.mjs tests/breeder-sql-only-legacy-drop.test.mjs
