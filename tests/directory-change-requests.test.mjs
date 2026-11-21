@@ -253,8 +253,9 @@ function createDatabase() {
     );
     const profileId = Number(created.lastInsertRowid);
     const services = sqlite.prepare(`INSERT INTO directory_profile_service_texts
-      (profile_id,item_order,service_text) VALUES (?,?,?)`);
-    for (const [index,service] of profile[5].entries()) services.run(profileId,index,service);
+      (profile_id,item_order,service_text,updated_at,updated_by) VALUES (?,?,?,?,?)`);
+    for (const [index,service] of profile[5].entries())
+      services.run(profileId,index,service,now,"seed@psipedia.sk");
     const storedContacts = profile[15];
     sqlite.prepare(`UPDATE directory_profiles SET
       public_phone=?,public_email=?,facebook_url=? WHERE id=?`).run(
