@@ -305,3 +305,40 @@ ON CONFLICT (profile_id, item_order) DO UPDATE SET
   service_text = excluded.service_text,
   updated_at = excluded.updated_at,
   updated_by = excluded.updated_by;
+
+
+-- SQL-only public/profile fixtures after Directory 0170/0173 cutover.
+-- Keep the legacy source JSON untouched on purpose: these assertions must
+-- pass using ONLY canonical SQL, not historical contact/fact fallbacks.
+UPDATE directory_profiles SET
+  public_phone = '+421 900 123 456',
+  public_email = 'detail-e2e@example.invalid',
+  facebook_url = 'https://facebook.com/example',
+  instagram_url = 'https://instagram.com/example'
+WHERE slug = 'e2e-services-detail-long';
+
+UPDATE directory_profiles SET
+  public_phone = '+421 900 111 222',
+  public_email = 'public-fixture@example.invalid',
+  facebook_url = 'https://facebook.com/original-fixture',
+  instagram_url = 'https://instagram.com/original-fixture'
+WHERE slug = 'directory-admin-editor-fixture';
+
+INSERT INTO directory_profile_public_facts
+  (profile_id, field_key, value_text, updated_at, updated_by)
+SELECT p.id, f.field_key, f.value_text, p.updated_at, p.updated_by
+FROM directory_profiles p
+JOIN (
+  SELECT 'health-fixture-vet-rich' slug, 'Špecializácie' field_key,
+    'Interná medicína, chirurgia' value_text
+  UNION ALL SELECT 'health-fixture-vet-rich', 'Hospitalizácia', 'Áno'
+  UNION ALL SELECT 'health-fixture-vet-rich', 'RTG', 'Digitálne RTG'
+  UNION ALL SELECT 'health-fixture-vet-rich', 'USG', 'Áno'
+  UNION ALL SELECT 'health-fixture-vet-rich', 'Laboratórium', 'Interné laboratórium'
+  UNION ALL SELECT 'e2e-services-detail-long', 'Pokrytie', 'Nitra a okolie'
+) f ON f.slug = p.slug;
+
+INSERT INTO directory_profile_filter_values
+  (profile_id, category, filter_id, value_text, updated_at, updated_by)
+SELECT id, 'veterinari', 'veterinari.emergency', 'yes', updated_at, updated_by
+FROM directory_profiles WHERE slug = 'health-fixture-vet-rich';
