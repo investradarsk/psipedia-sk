@@ -243,7 +243,7 @@ export async function queryDirectoryAdmin<T>(
     ? filters.direction : sort === "updated" ? "desc" : "asc";
   const sortSql = orderBy[sort]?.[direction] ?? orderBy.updated.desc;
   const loadPage = (page: number) => database.prepare(`SELECT id, slug, name, excerpt, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,
-      COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
+      COALESCE((SELECT NULLIF(TRIM(s.reviewed_at),'') FROM directory_profile_review_state s WHERE s.profile_id=directory_profiles.id), '') AS reviewed_at
     FROM directory_profiles${filteredWhere} ORDER BY ${sortSql} LIMIT ? OFFSET ?`)
     .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();
   const [totals, count, locations, requestedResult] = await Promise.all([
