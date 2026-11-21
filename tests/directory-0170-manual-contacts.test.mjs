@@ -112,7 +112,8 @@ test("the canonical Admin SQL create/update never persist edited contacts to imp
   const store = readFileSync("lib/directory-store.ts", "utf8");
   const notion = readFileSync("lib/notion-directory-sync.ts", "utf8");
   assert.match(store, /JSON\.stringify\(omitDirectorySqlContactAliases\(input\.sourceData, input\)\)/);
-  assert.match(store, /JSON\.stringify\(omitDirectorySqlContactAliases\(input\.sourceData, payload\)\)/);
+  const updateBlock=store.slice(store.indexOf("export function buildManagedDirectoryProfileUpdateStatement("),store.indexOf("export async function updateManagedDirectoryProfile("));
+  assert.doesNotMatch(updateBlock, /source_data_json = \?/);
   const start = notion.indexOf("async function saveBreederEditorialValue(");
   const finish = notion.indexOf("  } else if (path === \"seo.noindex\")", start);
   const branch = notion.slice(start, finish);
