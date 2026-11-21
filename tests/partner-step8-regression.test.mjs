@@ -113,8 +113,10 @@ test("0170 SQL first public filters, secondary categories and contact clears are
   assert.match(direct,/planDirectorySecondaryCategorySqlMirror/);
   assert.match(direct,/const guard=plans\.length\?plans\[0\]\[0\]:\{/);
   assert.match(direct,/statements\.push\(database\.prepare\(guard\.sql\)/);
-  assert.match(writer,/omitDirectorySqlContactAliases/);
-  assert.match(writer,/readDirectorySqlBackedContacts/);
+  // Directory SQL-only cutover retired the legacy JSON alias helpers.
+  // Partner reads the canonical managed profile and never rewrites contact JSON.
+  assert.match(writer,/getManagedDirectoryProfileById\(resource\.canonicalId, db\)/);
+  assert.match(writer,/sourceDataJson: null/);
   assert.match(writer,/\["publicPhone", "public_phone"\]/);
   assert.match(writer,/String\(patch\[field\] \?\? ""\)/);
   assert.match(overlay,/empty string is an intentional clear/);
