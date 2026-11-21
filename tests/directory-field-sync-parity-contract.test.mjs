@@ -156,7 +156,7 @@ test("category select fields use one registry for all ten categories and explici
  }
  assert.match(sync,/\.\.\.Object\.fromEntries\(directoryFilterRegistry\.map\(def => \[def\.id, def\.notion\.property\]\)\)/);
  assert.match(sync,/const facetFields = isDirectoryFieldEventCategory\(input\.profile\.category\)/);
- assert.match(sync,/delete source\[def\.d1\.key\]/);
+ assert.match(sync,/directoryNotionFacetRequiresSqlMirror/);
  assert.match(sync,/!Object\.hasOwn\(page\.properties \?\? \{\}, key\)/);
  assert.match(sync,/\[key\]: expectedLabel \? select\(expectedLabel\) : \{ select: null \}/);
  assert.match(sync,/for \(const id of new Set\(input\.fields\)\)/);
@@ -173,7 +173,8 @@ test("Services V3 remains independent of prose, trust, GEO and editorial webhook
  const editorial=sync.slice(sync.indexOf("async function syncBreederEvent("),
   sync.indexOf("export async function mirrorBreederCategoryFiltersToNotion("));
  assert.doesNotMatch(editorial,/syncProfileCatalogRelation\(|importNotionServiceIds\(/);
- assert.match(sync,/TRAINER_SERVICES_TEXT_METADATA_KEY, text/);
+ assert.match(sync,/editedTrainerServicesText = text/);
+ assert.match(sync,/planDirectoryExtraSqlTextMirror/);
  assert.match(sync,/DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY/);
  assert.match(store,/_psipedia_trainer_services_text/);
  assert.match(v3,/directory_service_notion_relation_sync/);
