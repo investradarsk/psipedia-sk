@@ -1410,8 +1410,8 @@ async function saveBreederEditorialValue(
     const text = Array.isArray(raw)
       ? raw.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).join("\n")
       : value;
-    assignments.push("source_data_json = json_set(COALESCE(source_data_json, '{}'), ?, ?)");
-    params.push("$." + TRAINER_SERVICES_TEXT_METADATA_KEY, text);
+    // The value belongs only to directory_profile_extra_fields.
+    // The SQL mirror below commits it in the same batch as profile revision.
     editedTrainerServicesText = text;
   } else if (path === "services" || path === "qualifications") {
     // Breeders store free-text service lines; qualifications also remain text. 
@@ -1429,14 +1429,8 @@ async function saveBreederEditorialValue(
     assignments.push("address_format = ?");
     params.push(value);
   } else if (contact) {
-    // One signed Notion contact edit has exactly one SQL value authority.
-    // Remove ONLY the edited field's historical JSON aliases so they cannot
-    // resurrect a cleared value. Never write a second editorial JSON copy.
-    const aliases = breederContactAliases[path];
-    if (!aliases?.length) throw new Error("DIRECTORY_CONTACT_ALIAS_MAPPING_MISSING");
-    const removed = "json_remove(COALESCE(source_data_json, '{}'), " +
-      aliases.map(alias => `'$."${alias}"'`).join(", ") + ")";
-    assignments.push("source_data_json = " + removed);
+    // Contact edits change only the canonical SQL contact column.
+    // Legacy aliases are no longer read by the live SQL-first profile adapter.
     if (path === "websiteUrl") {
       assignments.push("website_url = ?");
       params.push(value);
@@ -1472,8 +1466,9 @@ async function saveBreederEditorialValue(
     ? "category = 'chovatelske-stanice'" : "category = ?";
   const categoryArg = current.category === "chovatelske-stanice" ? [] : [current.category];
   const canonical = database.prepare(
-    "UPDATE directory_profiles SET " + assignments.join(", ") +
-    ", updated_at = ?, updated_by = ? " +
+    "UPDATE directory_profiles SET " +
+    (assignments.length ? assignments.join(", ") + ", " : "") +
+    "updated_at = ?, updated_by = ? " +
     "WHERE id = ? AND " + guardedCategory + " AND status <> 'archived' " +
     "AND updated_at = ? RETURNING id",
   ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt);
