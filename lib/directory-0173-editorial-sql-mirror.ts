@@ -1,9 +1,8 @@
 /**
  * 0173 Directory relational editorial mirror.
  *
- * Transitional dual-write plan only. The legacy profile JSON columns remain
- * the active readers until a separate, checked SQL-read cutover. Any explicit
- * empty value is a valid SQL write; an omitted field never clears a SQL row.
+ * SQL-only companion writes for explicit field edits. A deliberate empty
+ * value clears only its own SQL row; omitted fields leave the row untouched.
  *
  * The row-existence predicate ties every companion operation to the same
  * successful canonical INSERT/UPDATE in the caller's D1 transaction.
@@ -32,12 +31,11 @@ export type Directory0173MirrorInput = {
   galleryUrls?: readonly string[];
   /** Explicit hours edit; losslessly stored as day 0 until a reviewed day-row cutover. */
   openingHoursText?: string;
-  /**
-   * Only fields explicitly edited in the profile, or invalidated by a related
-   * contact/location edit. Values are read from the just-updated compatibility
-   * JSON in the very same D1 batch to avoid clock/normalization divergence.
-   */
-  qualityFields?: readonly Directory0173QualityField[];
+  /** Explicit normalized SQL quality values; null deliberately clears one field. */
+  qualityResolutions?: Partial<Record<Directory0173QualityField, {
+    status: "DOES_NOT_EXIST" | "NOT_PUBLIC" | "NOT_APPLICABLE" | "NOT_FOUND";
+    checkedAt: string;
+  } | null>>;
 };
 
 export type Directory0173SqlStatement = { sql: string; bindings: Array<string | number> };
@@ -145,33 +143,32 @@ export function planDirectory0173EditorialSqlMirror(input: Directory0173MirrorIn
     });
   }
 
-  if (input.qualityFields !== undefined) {
-    if (!Array.isArray(input.qualityFields) ||
-        input.qualityFields.some(field => !DIRECTORY_0173_QUALITY_FIELDS.includes(field)) ||
-        new Set(input.qualityFields).size !== input.qualityFields.length)
+  if (input.qualityResolutions !== undefined) {
+    if (!input.qualityResolutions || typeof input.qualityResolutions !== "object" ||
+        Array.isArray(input.qualityResolutions) ||
+        Object.keys(input.qualityResolutions).some(
+          field => !DIRECTORY_0173_QUALITY_FIELDS.includes(field as Directory0173QualityField)))
       throw new Error("DIRECTORY_0173_INVALID_QUALITY_FIELDS");
 
-    for (const field of input.qualityFields) {
-      const statusPath = '$."_psipedia_quality_' + field + '_status"';
-      const checkedAtPath = '$."_psipedia_quality_' + field + '_checked_at"';
-      // Zero or one SQL resolution per field. Only the precisely edited field
-      // may be cleared; a missing qualityFields property is a complete no-op.
+    for (const [field, resolution] of Object.entries(input.qualityResolutions)) {
+      if (resolution !== null) {
+        if (!resolution || typeof resolution !== "object" ||
+            !["DOES_NOT_EXIST", "NOT_PUBLIC", "NOT_APPLICABLE", "NOT_FOUND"].includes(resolution.status) ||
+            typeof resolution.checkedAt !== "string" ||
+            !resolution.checkedAt.trim() ||
+            !Number.isFinite(Date.parse(resolution.checkedAt)))
+          throw new Error("DIRECTORY_0173_INVALID_QUALITY_RESOLUTION");
+      }
       statements.push({
         sql: "DELETE FROM directory_profile_quality_resolutions WHERE quality_field=? " +
           "AND profile_id IN (SELECT p.id FROM directory_profiles p WHERE " + where + ")",
         bindings: [field, ...guardValues],
       });
-      statements.push({
+      if (resolution !== null) statements.push({
         sql: "INSERT INTO directory_profile_quality_resolutions " +
           "(profile_id,quality_field,resolution_status,checked_at,updated_at,updated_by) " +
-          "SELECT p.id,?,json_extract(p.source_data_json,?),json_extract(p.source_data_json,?),?,? " +
-          "FROM directory_profiles p WHERE " + where +
-          " AND json_valid(COALESCE(p.source_data_json,'{}')) " +
-          "AND json_extract(p.source_data_json,?) IN " +
-          "('DOES_NOT_EXIST','NOT_PUBLIC','NOT_APPLICABLE','NOT_FOUND') " +
-          "AND NULLIF(TRIM(CAST(json_extract(p.source_data_json,?) AS TEXT)),'') IS NOT NULL",
-        bindings: [field, statusPath, checkedAtPath, updatedAt, actor,
-          ...guardValues, statusPath, checkedAtPath],
+          "SELECT p.id,?,?,?,?,? FROM directory_profiles p WHERE " + where,
+        bindings: [field, resolution.status, resolution.checkedAt, updatedAt, actor, ...guardValues],
       });
     }
   }
