@@ -605,12 +605,9 @@ const DIRECTORY_CARD_COLUMNS = `
   ${directoryImageSqlExpression("thumbnail")} AS thumbnail_display_json,
   ${directoryImageSqlExpression("detail")} AS detail_display_json,
   import_key,
-  CASE WHEN category = 'chovatelske-stanice' AND json_valid(source_data_json)
-    THEN COALESCE(
-      NULLIF(TRIM(CAST(json_extract(source_data_json, '$."Plemená"') AS TEXT)), ''),
-      NULLIF(TRIM(CAST(json_extract(source_data_json, '$."Plemeno"') AS TEXT)), ''),
-      '')
-    ELSE '' END AS breeder_breed_source,
+  -- Breeder card names are resolved from the published SQL breed relations.
+  -- Historic source_data_json names are not a public fallback.
+  '' AS breeder_breed_source,
   -- Listing cards need only category membership, not the entire editorial/source payload.
   -- Preserve a minimal, valid JSON shape for rowToPublicProfile on both paged
   -- results and category previews (and never expose private source metadata).
