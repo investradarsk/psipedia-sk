@@ -24,6 +24,10 @@
       "coverage": "page-composite"
     },
     {
+      "path": "components/affiliate-rotating-banner.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/article-blocks.tsx",
       "coverage": "page-composite"
     },
@@ -733,6 +737,10 @@
     },
     {
       "path": "components/site-header.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/sitewide-affiliate-banner.tsx",
       "coverage": "needs-preview"
     },
     {
