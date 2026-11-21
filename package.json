@@ -70,7 +70,7 @@
     "test:image-editor-2": "node --experimental-strip-types --test tests/image-editor-2.test.mjs tests/admin-media-loading-performance.test.mjs",
     "test:article-promo": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/article-promo.test.mjs",
     "test:name-days": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/dog-name-days.test.mjs tests/dog-name-day-import.test.mjs tests/name-day-admin-contract.test.mjs",
-    "test:monetization": "node --experimental-strip-types --test tests/monetization-foundation.test.mjs tests/internal-traffic.test.mjs",
+    "test:monetization": "node --experimental-strip-types --test tests/monetization-foundation.test.mjs tests/internal-traffic.test.mjs tests/sitewide-dognet-banner.test.mjs",
     "test:help-source": "node --test tests/help-source-daily.test.mjs tests/help-source-quick-actions.test.mjs",
     "test:admin-d1-step5": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-d1-reads-step5.test.mjs tests/adoption-admin-list.test.mjs",
     "test:admin-react-step6": "node --experimental-strip-types --test tests/admin-react-performance-step6.test.mjs tests/admin-record-table-selection.test.mjs",
