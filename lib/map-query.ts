@@ -169,6 +169,10 @@ const GEO_PUBLIC_WHERE = `
   AND g.source_fingerprint = g.resolved_source_fingerprint
 `;
 
+// Directory free-text services are owned by the SQL relation, not services_json.
+const DIRECTORY_MAP_SERVICE_TEXT_SQL =
+  "(SELECT group_concat(service_text, ' ') FROM directory_profile_service_texts WHERE profile_id=d.id)";
+
 const D1_LIKE_PATTERN_MAX_BYTES = 50;
 const D1_LIKE_WILDCARD_BYTES = 2;
 
@@ -225,7 +229,7 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database, builtinOverri
     query,
     `
     coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
-    coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
+    coalesce(${DIRECTORY_MAP_SERVICE_TEXT_SQL}, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
     coalesce(d.region, '')
   `,
   );
@@ -241,7 +245,7 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database, builtinOverri
       g.google_place_id, g.google_place_source_fingerprint,
       d.city, d.district, d.region, d.address,
       (coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
-        coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
+        coalesce(${DIRECTORY_MAP_SERVICE_TEXT_SQL}, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
         coalesce(d.region, '')) AS search_text,
       d.verified, d.featured, NULL AS location_role,
       NULL AS event_start_date, NULL AS event_start_time, NULL AS event_end_date, NULL AS event_end_time,
@@ -404,7 +408,7 @@ function scopedDirectoryStatement(entityId: number, db: MapD1Database) {
       g.google_place_id, g.google_place_source_fingerprint,
       d.city, d.district, d.region, d.address,
       (coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
-        coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
+        coalesce(${DIRECTORY_MAP_SERVICE_TEXT_SQL}, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
         coalesce(d.region, '')) AS search_text,
       d.verified, d.featured, NULL AS location_role,
       NULL AS event_start_date, NULL AS event_start_time, NULL AS event_end_date, NULL AS event_end_time,
