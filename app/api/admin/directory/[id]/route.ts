@@ -426,6 +426,16 @@ export async function PUT(request: Request, { params }: Props) {
       error: "Profil sa medzitým zmenil v databáze. Obnov ho a zopakuj svoju úpravu.",
     }, { status: 409, headers: { "cache-control": "no-store" } });
 
+    // Compare the submitted contact values to the SQL-backed reload, never
+    // to historic source_data_json aliases or a stale form snapshot.
+    const expectedContactValues = {
+      websiteUrl: body.websiteUrl ?? "",
+      publicPhone: body.publicPhone ?? "",
+      publicEmail: body.publicEmail ?? "",
+      facebookUrl: body.facebookUrl ?? "",
+      instagramUrl: body.instagramUrl ?? "",
+    };
+    const postD1Contacts = readDirectoryPublicContacts(profile.importData, profile.websiteUrl ?? "");
     const contactLossBeforeNotion = directoryContactValueMismatches(expectedContactValues, {
       websiteUrl: postD1Contacts.website, publicPhone: postD1Contacts.phone,
       publicEmail: postD1Contacts.email, facebookUrl: postD1Contacts.facebook,
