@@ -197,7 +197,6 @@ export const directoryProfiles = sqliteTable(
     imageUrl: text("image_url"),
     imageKey: text("image_key"),
     importKey: text("import_key"),
-    sourceDataJson: text("source_data_json").notNull().default("{}"),
     searchText: text("search_text").notNull().default(""),
     verified: integer("verified").notNull().default(0),
     featured: integer("featured").notNull().default(0),

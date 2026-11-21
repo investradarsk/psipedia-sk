@@ -315,7 +315,6 @@ export async function createCanonicalDraft(
       facebook_url: after.facebookUrl,
       instagram_url: after.instagramUrl,
       import_key: after.importKey,
-      source_data_json: JSON.stringify(after.sourceData),
       verified: after.verified ? 1 : 0,
       featured: 0,
       district: after.district,
