@@ -9,7 +9,7 @@ import {
 } from "@/lib/affiliate-banner-rotation";
 import styles from "./affiliate-rotating-banner.module.css";
 
-// Memory-only rotation: no cookies, sessionStorage or third-party requests.
+// Memory-only rotation: no cookies, browser storage or third-party requests.
 let nextBannerIndex: number | null = null;
 
 /**
