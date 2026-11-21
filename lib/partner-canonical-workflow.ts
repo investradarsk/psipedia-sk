@@ -12,7 +12,7 @@ import { applyAtomicModerationTransition } from "./moderation-transition";
 import { assertIndependentOwnershipApprover } from "./partner-ownership-approval";
 import { adminAuditActorRef } from "./audit-identity";
 import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
-import { partnerDirectoryReviewLockStatement } from "./partner-directory-review";
+import { partnerDirectoryReviewLockStatement } from "./partner-directory-review-sql";
 import { deterministicCanonicalResourceId } from "./canonical-resource";
 import { directoryCategories } from "./directory";
 import { organizationPublicationTypes } from "./help-organization-publication";
