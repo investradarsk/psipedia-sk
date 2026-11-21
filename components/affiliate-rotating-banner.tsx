@@ -9,12 +9,14 @@ import {
 } from "@/lib/affiliate-banner-rotation";
 import styles from "./affiliate-rotating-banner.module.css";
 
-const ROTATION_KEY = "psipedia-affiliate-banner-next-v1";
+// Memory-only rotation: no cookies, sessionStorage or third-party requests.
+let nextBannerIndex: number | null = null;
 
 /**
  * Rotates one merchant per placement/page load. Does not animate or switch while
  * a visitor reads: this avoids distraction, interrupted clicks and extra requests.
  * Layout space is reserved before hydration to avoid shifting page content.
+ * Rotation counter exists only in page memory, so no storage/consent is needed.
  */
 export function AffiliateRotatingBanner({
   placement = "horizontal",
@@ -33,18 +35,12 @@ export function AffiliateRotatingBanner({
     if (!pathname || lastSelectionKey.current === selectionKey) return;
     lastSelectionKey.current = selectionKey;
 
-    let index = 0;
-    try {
-      const saved = window.sessionStorage.getItem(ROTATION_KEY);
-      const number = saved === null ? null : Number(saved);
-      const rotation = nextAffiliateRotation(number);
-      index = rotation.selected;
-      window.sessionStorage.setItem(ROTATION_KEY, String(rotation.next));
-    } catch {
-      // Even with storage disabled, rotate on a new page view.
-      index = Math.floor(Math.random() * AFFILIATE_BANNER_PARTNERS.length);
-    }
-    setSelection({ key: selectionKey, index });
+    const initialIndex = nextBannerIndex === null
+      ? Math.floor(Math.random() * AFFILIATE_BANNER_PARTNERS.length)
+      : nextBannerIndex;
+    const rotation = nextAffiliateRotation(initialIndex);
+    nextBannerIndex = rotation.next;
+    setSelection({ key: selectionKey, index: rotation.selected });
   }, [pathname, selectionKey]);
 
   return (
