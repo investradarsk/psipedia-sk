@@ -18,7 +18,6 @@ function fixture() {
   for (const sql of statements) db.exec(sql);
   db.prepare("INSERT INTO directory_profiles VALUES (1,'veterinari','prvy','T1','admin','[\"old\"]','{\"title\":\"Old\"}')").run();
   db.prepare("INSERT INTO directory_profiles VALUES (2,'veterinari','druhy','T1','admin','[]','{}')").run();
-  db.exec("ALTER TABLE directory_profiles ADD COLUMN source_data_json TEXT NOT NULL DEFAULT '{}'");
   return db;
 }
 function apply(db, input) {
@@ -169,63 +168,55 @@ test("Admin, Notion and moderated partner hours all use 0173 SQL without switchi
 });
 
 
-test("0173 quality mirror only updates explicit fields with lossless checked_at",()=>{
+test("0173 quality saves SQL statuses directly without a legacy JSON column",()=>{
  const db=fixture();
  try {
   const who={kind:"id",profileId:1,updatedAt:"T1",actor:"admin"};
   const checked="2026-11-19T17:12:00.000Z";
-  db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=1").run(JSON.stringify({
-    _psipedia_quality_phone_status:"NOT_PUBLIC",
-    _psipedia_quality_phone_checked_at:checked,
-    _psipedia_quality_website_status:"NOT_FOUND",
-    _psipedia_quality_website_checked_at:checked,
-  }));
-  apply(db,{identity:who,qualityFields:["phone","website"]});
-  const records=db.prepare("SELECT quality_field,resolution_status,checked_at,updated_by FROM directory_profile_quality_resolutions WHERE profile_id=1 ORDER BY quality_field").all();
-  assert.deepEqual(records.map(x=>[x.quality_field,x.resolution_status,x.checked_at,x.updated_by]),
+  apply(db,{identity:who,qualityResolutions:{
+    phone:{status:"NOT_PUBLIC",checkedAt:checked},
+    website:{status:"NOT_FOUND",checkedAt:checked},
+  }});
+  const rows=db.prepare("SELECT quality_field,resolution_status,checked_at,updated_by FROM directory_profile_quality_resolutions WHERE profile_id=1 ORDER BY quality_field").all();
+  assert.deepEqual(rows.map(x=>[x.quality_field,x.resolution_status,x.checked_at,x.updated_by]),
     [["phone","NOT_PUBLIC",checked,"admin"],["website","NOT_FOUND",checked,"admin"]]);
-  // A later unrelated edit must not delete or refresh quality records.
   apply(db,{identity:who,seo:{title:"Unrelated"}});
   assert.equal(db.prepare("SELECT COUNT(*) n FROM directory_profile_quality_resolutions WHERE profile_id=1").get().n,2);
-  // Removing one JSON status during an explicit contact edit deletes only that SQL resolution.
-  db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=1").run(JSON.stringify({
-    _psipedia_quality_website_status:"NOT_FOUND",
-    _psipedia_quality_website_checked_at:checked,
-  }));
-  apply(db,{identity:who,qualityFields:["phone"]});
+  apply(db,{identity:who,qualityResolutions:{phone:null}});
   assert.deepEqual(db.prepare("SELECT quality_field FROM directory_profile_quality_resolutions WHERE profile_id=1").all().map(x=>x.quality_field),["website"]);
-  // Stale actor cannot clear another profile or an updated row.
-  apply(db,{identity:{...who,actor:"notion"},qualityFields:["website"]});
+  apply(db,{identity:{...who,actor:"notion"},qualityResolutions:{website:null}});
   assert.equal(db.prepare("SELECT resolution_status FROM directory_profile_quality_resolutions WHERE profile_id=1").get().resolution_status,"NOT_FOUND");
   assert.equal(db.prepare("SELECT COUNT(*) n FROM directory_profile_quality_resolutions WHERE profile_id=2").get().n,0);
- } finally {db.close()}
+ }finally{db.close()}
 });
-test("Quality SQL shadow rejects invalid fields, ignores absent values and invalid timestamp",()=>{
+test("0173 quality patch rejects unknown fields, statuses and timestamps",()=>{
  const db=fixture();
  try {
   const who={kind:"category-slug",category:"veterinari",slug:"druhy",updatedAt:"T1",actor:"admin"};
-  db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=2").run(JSON.stringify({
-    _psipedia_quality_address_status:"NOT_APPLICABLE",
-    _psipedia_quality_address_checked_at:"2026-11-19T10:00:00Z",
-  }));
-  apply(db,{identity:who,qualityFields:["address"]});
+  apply(db,{identity:who,qualityResolutions:{address:{
+    status:"NOT_APPLICABLE",checkedAt:"2026-11-19T10:00:00Z",
+  }}});
   assert.equal(db.prepare("SELECT resolution_status FROM directory_profile_quality_resolutions WHERE profile_id=2").get().resolution_status,"NOT_APPLICABLE");
-  for(const bad of [["phone","phone"],["unapproved"],[42],null]) assert.throws(
-    ()=>planDirectory0173EditorialSqlMirror({identity:who,qualityFields:bad}),
+  for(const bad of [{unknown:null},[],null]) assert.throws(
+    ()=>planDirectory0173EditorialSqlMirror({identity:who,qualityResolutions:bad}),
     /DIRECTORY_0173_INVALID_QUALITY_FIELDS/
   );
-  db.prepare("UPDATE directory_profiles SET source_data_json=? WHERE id=2").run(JSON.stringify({
-    _psipedia_quality_address_status:"NOT_FOUND",
-    _psipedia_quality_address_checked_at:"",
-  }));
-  apply(db,{identity:who,qualityFields:["address"]});
+  for(const bad of [
+    {status:"INVALID",checkedAt:"2026-11-19T10:00:00Z"},
+    {status:"NOT_FOUND",checkedAt:""},
+    {status:"NOT_FOUND",checkedAt:"invalid"},
+  ]) assert.throws(
+    ()=>planDirectory0173EditorialSqlMirror({identity:who,qualityResolutions:{address:bad}}),
+    /DIRECTORY_0173_INVALID_QUALITY_RESOLUTION/
+  );
+  apply(db,{identity:who,qualityResolutions:{address:null}});
   assert.equal(db.prepare("SELECT COUNT(*) n FROM directory_profile_quality_resolutions WHERE profile_id=2").get().n,0);
  }finally{db.close()}
 });
 test("Canonical D1 profile writer atomically mirrors touched quality resolutions in create/update",()=>{
  const source=readFileSync(new URL("../lib/directory-store.ts",import.meta.url),"utf8");
  assert.match(source,/directoryQualityMirrorFields\(payload\)/);
- assert.match(source,/qualityFields: directoryQualityMirrorFields\(payload\)/);
+ assert.match(source,/qualityResolutions: directoryQualitySqlPatch\(payload,/);
  assert.match(source,/canonicalStatement,[\s\S]*\.\.\.editorialMirror\.map/);
  assert.match(source,/canonical,[\s\S]*\.\.\.editorialMirror\.map/);
 });
