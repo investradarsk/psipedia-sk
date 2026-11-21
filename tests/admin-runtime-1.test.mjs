@@ -32,6 +32,15 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
       service_address_confirmation TEXT,
       source_data_json TEXT
     );
+    CREATE TABLE directory_profile_quality_resolutions (
+      profile_id INTEGER NOT NULL,
+      quality_field TEXT NOT NULL,
+      resolution_status TEXT NOT NULL,
+      checked_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT NOT NULL,
+      PRIMARY KEY(profile_id,quality_field)
+    );
     CREATE TABLE managed_events (
       id INTEGER PRIMARY KEY,
       title TEXT NOT NULL,
@@ -197,26 +206,19 @@ test("current profile quality resolutions suppress legitimate missing fields and
   const fixture = d1Fixture();
   useDb(fixture.db);
   const now = new Date().toISOString();
-  const currentQuality = JSON.stringify({
-    _psipedia_quality_phone_status: "NOT_PUBLIC",
-    _psipedia_quality_phone_checked_at: now,
-    _psipedia_quality_email_status: "NOT_FOUND",
-    _psipedia_quality_email_checked_at: now,
-  });
-  await fixture.db.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 1").bind(currentQuality).run();
+  for(const [field,status] of [["phone","NOT_PUBLIC"],["email","NOT_FOUND"]]){
+    await fixture.db.prepare(`INSERT INTO directory_profile_quality_resolutions
+      (profile_id,quality_field,resolution_status,checked_at,updated_at,updated_by)
+      VALUES(1,?,?,?,?,?)`).bind(field,status,now,now,"fixture").run();
+  }
 
   const current = await quality.loadDataQualityDashboard();
   assert.equal(current.summary.profilesWithIssues, 1199);
   assert.equal(current.summary.missingPhone, 1199);
   assert.equal(current.summary.missingEmail, 1199);
 
-  const staleQuality = JSON.stringify({
-    _psipedia_quality_phone_status: "NOT_PUBLIC",
-    _psipedia_quality_phone_checked_at: "2000-01-01T00:00:00.000Z",
-    _psipedia_quality_email_status: "NOT_FOUND",
-    _psipedia_quality_email_checked_at: "2000-01-01T00:00:00.000Z",
-  });
-  await fixture.db.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 1").bind(staleQuality).run();
+  await fixture.db.prepare("UPDATE directory_profile_quality_resolutions SET checked_at=? WHERE profile_id=1")
+    .bind("2000-01-01T00:00:00.000Z").run();
 
   const stale = await quality.loadDataQualityDashboard();
   assert.equal(stale.summary.profilesWithIssues, 1200);
