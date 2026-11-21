@@ -225,7 +225,7 @@ export async function loadNotionBulkEvents(database: D1Database, targetId?: numb
 
 export async function loadNotionBulkOrganizations(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT o.id,o.name,o.slug,o.legal_name,o.registration_number,o.type,o.status,o.short_description,o.description,
-    o.website_url,o.facebook_url,o.instagram_url,
+    o.public_email,o.public_phone,o.website_url,o.facebook_url,o.instagram_url,
     COALESCE(NULLIF(loc.city,''),o.city) AS city,
     COALESCE(NULLIF(loc.district,''),o.district) AS district,
     COALESCE(NULLIF(loc.region,''),o.region) AS region,
@@ -275,6 +275,8 @@ export async function loadNotionBulkOrganizations(database: D1Database, targetId
       "IČO / registračné číslo": s(row.registration_number),
       "Krátky popis": s(row.short_description),
       "Popis": s(row.description),
+      "Verejný e-mail": s(row.public_email),
+      "Verejný telefón": s(row.public_phone),
       "Web": s(row.website_url),
       "Facebook": s(row.facebook_url),
       "Instagram": s(row.instagram_url),
