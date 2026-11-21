@@ -30,7 +30,7 @@ test("malformed metadata never silently unlocks Notion sync", () => {
   assert.throws(() => isDirectoryReviewedSourceLocked("[]"), /DIRECTORY_REVIEW_LOCK_INVALID_JSON/);
 });
 
-test("single SQL-first lock query protects reviewed, partner, tombstone and legacy states", async () => {
+test("SQL-only lock query protects reviewed, partner and tombstone states", async () => {
   const sqlite=new DatabaseSync(":memory:");
   sqlite.exec([
     "CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,status TEXT,source_data_json TEXT)",
@@ -60,7 +60,7 @@ test("single SQL-first lock query protects reviewed, partner, tombstone and lega
     },
   };
   try {
-    assert.equal(await directoryProfileNotionSyncLocked(db,1),true,"legacy reviewed");
+    assert.equal(await directoryProfileNotionSyncLocked(db,1),false,"legacy JSON cannot override SQL");
     assert.equal(await directoryProfileNotionSyncLocked(db,2),true,"archived");
     assert.equal(await directoryProfileNotionSyncLocked(db,3),false,"unlocked");
     assert.equal(await directoryProfileNotionSyncLocked(db,4),true,"missing");
@@ -68,7 +68,7 @@ test("single SQL-first lock query protects reviewed, partner, tombstone and lega
     assert.equal(await directoryProfileNotionSyncLocked(db,6),true,"SQL reviewed with blank JSON");
     assert.equal(await directoryProfileNotionSyncLocked(db,7),true,"SQL unlock pending");
     assert.equal(await directoryProfileNotionSyncLocked(db,8),true,"pending deletion");
-    assert.equal(await directoryProfileNotionSyncLocked(db,9),true,"SQL clear never overrides legacy pending");
+    assert.equal(await directoryProfileNotionSyncLocked(db,9),false,"SQL clear overrides obsolete JSON pending");
     sqlite.exec("UPDATE directory_profile_review_state SET reviewed_at=NULL,unlock_pending=0 WHERE profile_id=6");
     assert.equal(await directoryProfileNotionSyncLocked(db,6),false,"explicit SQL unlock");
     sqlite.exec("UPDATE partner_memberships SET revoked_at='2026-11-20' WHERE id='m-5'");
@@ -79,16 +79,16 @@ test("single SQL-first lock query protects reviewed, partner, tombstone and lega
   } finally { sqlite.close(); }
 });
 
-test("SQL-first lock predicate fails closed on corrupt JSON instead of accidental unlock",()=>{
-  assert.throws(()=>directoryReviewLockedFromProjection({
-    source_data_json:"{",status:"published",sql_reviewed_at:null,
+test("SQL lock ignores obsolete JSON metadata and still fails closed for missing profiles",()=>{
+  assert.equal(directoryReviewLockedFromProjection({
+    status:"published",sql_reviewed_at:"2026-11-19",
     sql_unlock_pending:0,partner_active:0,deletion_pending:0,
-  }),/DIRECTORY_REVIEW_LOCK_INVALID_JSON/);
+  }),true);
   assert.equal(directoryReviewLockedFromProjection(null),true);
   assert.equal(directoryReviewLockedFromProjection({
-    source_data_json:"{}",status:"published",sql_reviewed_at:null,
+    status:"published",sql_reviewed_at:null,
     sql_unlock_pending:null,partner_active:0,deletion_pending:0,
-  }),false,"missing SQL row can retain a truly open legacy profile");
+  }),false,"missing SQL review state means unchecked after import");
 });
 
 test("Notion sweep gates targeted, signed event, catalog and legacy paths",()=>{
@@ -119,7 +119,7 @@ test("explicit uncheck removes pending lock without whole-profile Notion rebasel
   const end = route.indexOf('if (body.action !== "restore")', start);
   assert.ok(start > 0 && end > start);
   const toggle = route.slice(start, end);
-  assert.match(store, /delete sourceData\["_psipedia_profile_review_unlock_pending"\]/);
+  assert.match(store, /unlock_pending=0/);
   assert.doesNotMatch(store, /markNotionUnlockPending|alreadyPending/);
   assert.match(toggle, /setManagedDirectoryProfileReviewed\(/);
   assert.match(toggle, /syncDirectoryReviewedWithNotion\(/);
@@ -204,12 +204,12 @@ test("Admin review toggle mirrors only checkbox and never waits for editorial ha
   assert.doesNotMatch(toggle, /markNotionUnlockPending|ownerUnlock|targetProfileId/);
 });
 
-test("repeated owner uncheck clears a legacy pending marker", () => {
+test("repeated owner uncheck clears the SQL pending lock", () => {
   const store = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
   const begin = store.indexOf("export async function setManagedDirectoryProfileReviewed(");
   const finish = store.indexOf("export async function archiveManagedDirectoryProfile(", begin);
   const writer = store.slice(begin, finish);
-  assert.match(writer, /delete sourceData\["_psipedia_profile_review_unlock_pending"\]/);
+  assert.match(writer, /unlock_pending=0/);
   assert.doesNotMatch(writer, /alreadyPending|markNotionUnlockPending/);
   const pending = JSON.stringify({
     "_psipedia_profile_review_unlock_pending": "1",
