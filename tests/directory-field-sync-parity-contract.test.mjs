@@ -80,7 +80,8 @@ test("legacy trainer services are independent of canonical V3 and veterinary pil
   assert.equal(isDirectoryEventPilotCategory("treneri"), false);
   assert.equal(isDirectoryEventPilotCategory("veterinari"), true);
   assert.match(sync, /path === "services" && current\.category === "treneri"/);
-  assert.match(sync, /TRAINER_SERVICES_TEXT_METADATA_KEY, text/);
+  assert.match(sync, /editedTrainerServicesText = text/);
+  assert.match(sync, /planDirectoryExtraSqlTextMirror/);
   assert.match(sync, /DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY/);
   assert.match(sync, /const relationChanged = changedIds\.some/);
   assert.match(store, /_psipedia_trainer_services_text/);
