@@ -18,7 +18,7 @@ import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public
 import { PawMark, SparkIcon } from "@/components/icons";
 import { LazyDogAgeCalculator } from "@/components/lazy-dog-age-calculator";
 import { AdSlot } from "@/components/ad-slot";
-import { DognetTestBanner } from "@/components/dognet-test-banner";
+import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { listHomepageFeaturedBreeds } from "@/lib/breed-store";
 import { directoryProfileHref } from "@/lib/directory";
@@ -158,7 +158,7 @@ async function HomeBelowHero({
           </HomeMagazineSidebar>
         }
       />
-      <DognetTestBanner format="horizontal" />
+      <AffiliateRotatingBanner placement="horizontal" />
       <div className="home-desktop-interlude">
         <PublicHelpPhotoBanner
           promo={lostFoundSubmitPromo}
