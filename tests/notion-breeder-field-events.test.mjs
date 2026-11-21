@@ -138,7 +138,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.doesNotMatch(queries[0].sql, /public_email|internal_email|website_url/);
   assert.equal(queries[0].values[0], "Voľný opis");
   await exports.saveBreederEditorialValue(db, current, desired, "publicEmail");
-  assert.match(queries[1].sql, /source_data_json = json_remove/);
+  assert.doesNotMatch(queries[1].sql, /source_data_json/);
   assert.match(queries[1].sql, /public_email = \?/);
   assert.equal(queries[1].values[0], "blaljdljflajsdlfa");
   await exports.saveBreederEditorialValue(db, current, desired, "seo.canonicalUrl");
@@ -214,12 +214,11 @@ test("a trainer service description updates only its separate metadata field", a
   };
   await exports.saveBreederEditorialValue(db, profile, before, "services");
   assert.equal(queries.length, 2, "canonical and SQL extra writes are bound; the CAS guard has no parameters");
-  assert.match(queries[0].sql, /source_data_json = json_set/);
+  assert.doesNotMatch(queries[0].sql, /source_data_json|services_json/);
   assert.match(queries[1].sql, /directory_profile_extra_fields/);
   assert(queries[1].values.includes("Individuálne lekcie\\nNosework".replace("\\n","\n")));
   assert.doesNotMatch(queries[0].sql, /services_json\s*=/);
-  assert.equal(queries[0].values[0], "$._psipedia_trainer_services_text");
-  assert.equal(queries[0].values[1], "Individuálne lekcie\nNosework");
+  assert.equal(queries[1].values.includes("Individuálne lekcie\nNosework"), true);
 });
 
 test("Notion tri-state filters and operational alerts stay separate from V3 services", async () => {
