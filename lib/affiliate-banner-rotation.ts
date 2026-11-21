@@ -20,40 +20,61 @@ export const AFFILIATE_BANNER_PARTNERS = [
 export type AffiliateBannerPlacement = "horizontal" | "sidebar";
 
 /**
- * Only genuine, source-verified merchant artwork belongs here.
- * These two originals already exist in the repository's Dognet trial.
- * Dognet banner IDs and tracking links alone are not image URLs.
+ * Original banner images from Dognet. Never rebuild a merchant ad from
+ * custom text, colors or logos; use only the publisher-provided <img> src.
+ * Different image aspect ratios must not be cropped.
  *
- * ABC-ZOO / Fera remain excluded until the original image URLs are exported
- * from Dognet and verified, then they can join the rotation automatically.
+ * ABC-ZOO: original image URLs were supplied as Dognet embed HTML.
+ * Zoohit: legacy original GIF sources were already in DognetTestBanner.
+ * Fera: no confirmed original image URL yet, so it remains excluded.
  */
+export type AffiliateBannerFormat = AffiliateBannerPlacement | "mobile";
 export type OriginalAffiliateCreative = {
   src: string;
   width: number;
   height: number;
 };
+
 export const AFFILIATE_BANNER_ORIGINAL_CREATIVES: Partial<
-  Record<(typeof AFFILIATE_BANNER_PARTNERS)[number]["id"], Partial<Record<AffiliateBannerPlacement, OriginalAffiliateCreative>>>
+  Record<(typeof AFFILIATE_BANNER_PARTNERS)[number]["id"], Partial<Record<AffiliateBannerFormat, readonly OriginalAffiliateCreative[]>>>
 > = {
   zoohit: {
-    horizontal: {
+    horizontal: [{
       src: "https://visibility.postaffiliatepro.com/accounts/default1/banners/3a047bf8.gif",
       width: 468,
       height: 60,
-    },
-    sidebar: {
+    }],
+    sidebar: [{
       src: "https://visibility.postaffiliatepro.com/accounts/default1/banners/8cfd4fa0.gif",
       width: 120,
       height: 600,
-    },
+    }],
+  },
+  "abc-zoo": {
+    mobile: [{
+      src: "https://api.app.dognet.com/files/t/a4f/a4f633806f17fbe0b73988aa2f02eadd1eef84f1.png",
+      width: 1080,
+      height: 1080,
+    }],
+    sidebar: [{
+      src: "https://api.app.dognet.com/files/t/00f/00fd437025798c026a889b20e1f19ec0f6bf45f8.png",
+      width: 1080,
+      height: 1350,
+    }, {
+      src: "https://api.app.dognet.com/files/t/027/027698d3980d5d99f5d9dab9e67530ead4c2cbcd.png",
+      width: 1080,
+      height: 1920,
+    }],
   },
 };
 
-export function getAvailableAffiliateOriginalBanners(placement: AffiliateBannerPlacement) {
-  return AFFILIATE_BANNER_PARTNERS.flatMap((partner) => {
-    const creative = AFFILIATE_BANNER_ORIGINAL_CREATIVES[partner.id]?.[placement];
-    return creative ? [{ ...partner, creative }] : [];
-  });
+export function getAvailableAffiliateOriginalBanners(placement: AffiliateBannerFormat) {
+  return AFFILIATE_BANNER_PARTNERS.flatMap((partner) =>
+    (AFFILIATE_BANNER_ORIGINAL_CREATIVES[partner.id]?.[placement] ?? []).map((creative) => ({
+      ...partner,
+      creative,
+    })),
+  );
 }
 
 const PRIVATE_PREFIXES = [
