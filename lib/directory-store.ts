@@ -2479,8 +2479,10 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
       },
       database,
     );
+    const canonical = await getManagedDirectoryProfileById(row.id, database);
+    if (!canonical) throw new Error("GOOGLE_SQL_PROFILE_RELOAD_FAILED");
     return {
-      ...rowToManagedProfile(row),
+      ...canonical,
       googleConfirmationGeoRevision: geoReconciliation.point?.updatedAt ?? null,
     };
   } catch (cause) {
@@ -2590,7 +2592,7 @@ export async function archiveManagedDirectoryProfile(
     },
     database,
   );
-  return rowToManagedProfile(row);
+  return getManagedDirectoryProfileById(row.id, database);
 }
 
 export async function restoreManagedDirectoryProfile(
@@ -2627,7 +2629,7 @@ export async function restoreManagedDirectoryProfile(
     },
     database,
   );
-  return rowToManagedProfile(row);
+  return getManagedDirectoryProfileById(row.id, database);
 }
 
 export function isDirectoryProfileConflict(error: unknown) {
