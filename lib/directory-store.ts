@@ -84,6 +84,8 @@ import {
   readDirectoryProfileReviewMetadata,
   readDirectoryPublicContacts,
   readDirectoryQualityMetadata,
+  directoryQualityStatusSourceKey,
+  directoryQualityCheckedAtSourceKey,
   type DirectoryQualityResolutionInput,
 } from "@/lib/directory-profile-metadata";
 import { directory0173ReviewCasGuardStatement } from "./directory-0173-review-state-sql";
@@ -2048,8 +2050,8 @@ export async function getManagedDirectoryProfileByCategorySlug(
 
 /**
  * Quality fields whose SQL row may change during this explicit save.
- * The actual normalized status and checked_at are taken from the committed
- * compatibility JSON by the 0173 planner, never re-computed independently.
+ * Their statuses come from the normalized in-memory patch and the current SQL
+ * quality state; neither the physical JSON column nor its old values are read.
  */
 function directoryQualityMirrorFields(payload: ManagedDirectoryProfileInput) {
   return directoryQualityFields.filter(field => {
@@ -2063,6 +2065,34 @@ function directoryQualityMirrorFields(payload: ManagedDirectoryProfileInput) {
       "street", "houseNumber", "addressFormat", "confirmServiceAddress",
       "clearServiceAddressConfirmation"].some(key => Object.hasOwn(payload, key));
   });
+}
+
+/** Rehydrate the normalizer exclusively from the authoritative SQL quality rows. */
+function directoryQualitySqlSource(profile: ManagedDirectoryProfile) {
+  const source = { ...(profile.importData ?? {}) };
+  for (const field of directoryQualityFields) {
+    const statusKey = directoryQualityStatusSourceKey(field);
+    const checkedAtKey = directoryQualityCheckedAtSourceKey(field);
+    delete source[statusKey];
+    delete source[checkedAtKey];
+    const saved = profile.qualityMetadata?.[field];
+    if (saved) {
+      source[statusKey] = saved.status;
+      source[checkedAtKey] = saved.checkedAt;
+    }
+  }
+  return source;
+}
+
+function directoryQualitySqlPatch(
+  payload: ManagedDirectoryProfileInput,
+  sourceData: Record<string, string | number | null>,
+) {
+  const normalized = readDirectoryQualityMetadata(sourceData);
+  return Object.fromEntries(directoryQualityMirrorFields(payload).map(field => {
+    const value = normalized[field];
+    return [field, value?.checkedAt?.trim() ? value : null];
+  }));
 }
 
 export async function createManagedDirectoryProfile(
@@ -2092,7 +2122,7 @@ export async function createManagedDirectoryProfile(
       updatedAt: now, actor: editorEmail },
     qualifications: input.qualifications,
     seo: input.seo,
-    qualityFields: directoryQualityMirrorFields(payload),
+    qualityResolutions: directoryQualitySqlPatch(payload, input.sourceData),
     ...(payload.galleryUrls !== undefined && input.category === "chovatelske-stanice"
       ? { galleryUrls: readDirectoryBreederGallery(input.sourceData) } : {}),
   });
@@ -2264,7 +2294,7 @@ export async function updateManagedDirectoryProfile(
   const existing = existingProfile ?? (await getManagedDirectoryProfileById(id, database));
   if (!existing) return null;
   const now = new Date().toISOString();
-  const normalizedForMirrors = normalizeManagedDirectoryProfileInput(payload, existing.importData, {
+  const normalizedForMirrors = normalizeManagedDirectoryProfileInput(payload, directoryQualitySqlSource(existing), {
     currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
     legacyAddress: existing.address,
   });
@@ -2286,7 +2316,7 @@ export async function updateManagedDirectoryProfile(
       qualifications: normalizedForMirrors.qualifications,
     } : {}),
     ...(payload.seo !== undefined ? { seo: payload.seo } : {}),
-    qualityFields: directoryQualityMirrorFields(payload),
+    qualityResolutions: directoryQualitySqlPatch(payload, normalizedForMirrors.sourceData),
     ...(payload.galleryUrls !== undefined &&
       (payload.category ?? existing.category) === "chovatelske-stanice"
       ? { galleryUrls: readDirectoryBreederGallery(
