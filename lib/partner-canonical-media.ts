@@ -133,11 +133,7 @@ export async function prepareCanonicalDraftMediaApproval(input:{
         identity:{kind:"id",profileId:canonicalId,updatedAt:nowIso,actor:actorRef},
         galleryUrls,
       }))statements.push(db.prepare(statement.sql).bind(...statement.bindings));
-      // Temporary compatibility reader only; canonical structured gallery is SQL.
-      statements.push(db.prepare("UPDATE directory_profiles SET source_data_json=json_set("+
-        "CASE WHEN json_valid(source_data_json) THEN source_data_json ELSE '{}' END,"+
-        "'$._psipedia_profile_gallery_urls',?) WHERE id=? AND updated_at=?")
-        .bind(JSON.stringify(galleryUrls),canonicalId,nowIso));
+      // Gallery has a single SQL owner; no Directory JSON dual write.
     }else if(type==="HELP_ORGANIZATION"){
       statements.push(db.prepare("UPDATE help_organizations SET source_data_json=json_set("+
         "CASE WHEN json_valid(source_data_json) THEN source_data_json ELSE '{}' END,"+
