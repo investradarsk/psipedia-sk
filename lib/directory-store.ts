@@ -2212,7 +2212,6 @@ export function buildManagedDirectoryProfileUpdateStatement(
         ? (existing.detailImageDisplay ?? null)
         : (input.detailImageDisplay ?? null),
     ),
-    JSON.stringify(omitDirectorySqlContactAliases(input.sourceData, payload)),
     input.verified ? 1 : 0,
     input.featured ? 1 : 0,
     JSON.stringify(input.seo),
@@ -2238,7 +2237,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
       public_email = CASE WHEN ?=1 THEN ? ELSE public_email END,
       facebook_url = CASE WHEN ?=1 THEN ? ELSE facebook_url END,
       instagram_url = CASE WHEN ?=1 THEN ? ELSE instagram_url END,
-      internal_email = ?, image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, archived_at = CASE WHEN ?=1 THEN NULL ELSE archived_at END, updated_by = ?
+      internal_email = ?, image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, archived_at = CASE WHEN ?=1 THEN NULL ELSE archived_at END, updated_by = ?
     WHERE id = ?${updatedAtGuard}${reviewGuard} RETURNING *
   `,
     )
@@ -2310,10 +2309,10 @@ export async function updateManagedDirectoryProfile(
   ];
   let row: DirectoryProfileRow | null;
   if (payload.additionalCategories !== undefined || editorialMirror.length > 0 || presentationMirror.length > 0) {
-    // Owner-submitted category changes mirror JSON and 0170 SQL in the SAME
+    // Owner-submitted category changes commit relational SQL in the SAME
     // D1 transaction. An omitted field must never clear SQL membership.
     // The initial UPDATE is the authority/CAS and the planner fails closed
-    // if it affected no row. This does NOT switch public/Notion reads yet.
+    // if it affected no row. Old source JSON is never rewritten.
     const mirror = payload.additionalCategories === undefined ? [] :
       planDirectorySecondaryCategorySqlMirror({
         profileId: id,
@@ -2342,7 +2341,8 @@ export async function updateManagedDirectoryProfile(
     },
     database,
   );
-  return rowToManagedProfile(row);
+  // Return the SQL-authoritative detail after the relational writes committed.
+  return getManagedDirectoryProfileById(row.id, database);
 }
 
 export async function updateManagedDirectoryProfileLocationFromGooglePlace(
