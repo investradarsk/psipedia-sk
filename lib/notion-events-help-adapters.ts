@@ -241,10 +241,14 @@ function eventInput(
     excerpt: s(values["Perex"]),
     description: s(values["Popis"]),
     practicalInfo: s(values["Praktické info"]),
-    // Missing or blank Notion values never delete existing D1 contact data.
-    contactPhone: s(values["Telefón organizátora"]) || existing?.contactPhone || null,
-    contactEmail: s(values["E-mail organizátora"]) || existing?.contactEmail || null,
-    admissionFee: s(values["Vstupné"]) || existing?.admissionFee || "",
+    // Missing fields retain D1 values; explicitly present empty values clear
+    // only that field (including in the still-active manual import path).
+    contactPhone: Object.hasOwn(values, "Telefón organizátora")
+      ? s(values["Telefón organizátora"]) || null : existing?.contactPhone ?? null,
+    contactEmail: Object.hasOwn(values, "E-mail organizátora")
+      ? s(values["E-mail organizátora"]) || null : existing?.contactEmail ?? null,
+    admissionFee: Object.hasOwn(values, "Vstupné")
+      ? s(values["Vstupné"]) : existing?.admissionFee ?? "",
     websiteUrl: s(values["Web"]) || null,
     registrationUrl: s(values["Registrácia"]) || null,
     imageUrl,
