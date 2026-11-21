@@ -43,6 +43,8 @@ cleanup() {
 }
 trap cleanup EXIT
 npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+# Baseline must have the same isolated SQL directory sidecar as the PR preview.
+npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file "$GITHUB_WORKSPACE/db/isolated/directory_admin_sql_completion.sql"
 npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
 node scripts/bootstrap-breed-e2e.mjs prepare
 
