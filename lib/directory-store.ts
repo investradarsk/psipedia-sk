@@ -593,7 +593,7 @@ const DIRECTORY_PROFILE_COLUMNS = `
   image_key,
   ${directoryImageSqlExpression("thumbnail")} AS thumbnail_display_json,
   ${directoryImageSqlExpression("detail")} AS detail_display_json, import_key,
-  json_object('_psipedia_additional_categories', ${directoryAdditionalCategoryJsonSql()}) AS source_data_json,
+  json_object('_psipedia_additional_categories', (${directoryAdditionalCategoryJsonSql()}) || '') AS source_data_json,
   search_text, verified, featured, seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
@@ -614,7 +614,7 @@ const DIRECTORY_CARD_COLUMNS = `
   -- Listing cards need only category membership, not the entire editorial/source payload.
   -- Preserve a minimal, valid JSON shape for rowToPublicProfile on both paged
   -- results and category previews (and never expose private source metadata).
-  json_object('_psipedia_additional_categories', ${directoryAdditionalCategoryJsonSql()}) AS source_data_json,
+  json_object('_psipedia_additional_categories', (${directoryAdditionalCategoryJsonSql()}) || '') AS source_data_json,
   search_text, verified, featured, '{}' AS seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
