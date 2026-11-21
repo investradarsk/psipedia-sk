@@ -34,6 +34,7 @@
   height: auto;
   max-width: 100%;
   object-fit: contain;
+  max-height: 600px;
 }
 
 .horizontal {
@@ -63,6 +64,10 @@
 
   .horizontal .creative,
   .horizontal .placeholder {
-    min-height: 100px;
+    min-height: 300px;
+  }
+
+  .horizontal .image {
+    max-height: 300px;
   }
 }
