@@ -119,6 +119,13 @@ function createAdminMockDatabase() {
 
   function rowsFor(sql) {
     const normalized = sql.replace(/\s+/g, " ").trim();
+    // The admin editor requires the canonical SQL-only services/image
+    // projection; missing sidecar data is an empty but present response.
+    if (/FROM directory_profile_service_texts/i.test(normalized) &&
+        /FROM directory_profile_image_display_settings/i.test(normalized) &&
+        /AS services/i.test(normalized) && /AS thumbnail/i.test(normalized)) {
+      return [{ services: "[]", thumbnail: null, detail: null, trainer_text: null }];
+    }
     // The detail loader now requires canonical 0173 SQL-backed qualifications,
     // SEO, quality and media. Simulate an applied, empty sidecar schema instead
     // of returning null (which correctly fails closed in production).
