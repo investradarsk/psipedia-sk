@@ -57,6 +57,13 @@ try {
     .flatMap(name => splitSqlStatements(readFileSync('drizzle/' + name, 'utf8')));
   // Reuse existing schema declarations, excluding all migration data writes.
   for (const sql of statements) if (/^CREATE TABLE\b/i.test(sql)) database.exec(sql.replace(/^CREATE TABLE(?! IF NOT EXISTS)/i,'CREATE TABLE IF NOT EXISTS'));
+  // Directory sidecar is intentionally isolated from generic migrations, but
+  // homepage render in this events suite reads it; create it locally only.
+  const directorySidecar = splitSqlStatements(readFileSync('db/isolated/directory_admin_sql_completion.sql', 'utf8'));
+  for (const sql of directorySidecar) if (/^CREATE TABLE\b/i.test(sql))
+    database.exec(sql.replace(/^CREATE TABLE(?! IF NOT EXISTS)/i, 'CREATE TABLE IF NOT EXISTS'));
+  for (const sql of directorySidecar) if (/^CREATE INDEX\b/i.test(sql))
+    database.exec(sql.replace(/^CREATE INDEX(?! IF NOT EXISTS)/i, 'CREATE INDEX IF NOT EXISTS'));
   for (const sql of statements) if (/^ALTER TABLE\b[\s\S]*\bADD\b/i.test(sql)) {
     try { database.exec(sql); } catch (error) { if (!String(error).includes('duplicate column name')) throw error; }
   }
