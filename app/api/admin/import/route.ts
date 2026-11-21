@@ -124,6 +124,12 @@ export async function POST(request: Request) {
     if (payload.confirmed !== true) {
       throw new Error("Pred importom je povinný Preview a explicitné potvrdenie.");
     }
+    // The retired bulk Directory importer cannot atomically create the
+    // relational services, facts and contacts required by the SQL-only model.
+    // Refuse instead of silently publishing incomplete records after DROP COLUMN.
+    if (profiles.some((_profile, index) => plan.actions.profiles[index] !== "skipped")) {
+      throw new Error("Hromadný import Adresára je po prechode na SQL pozastavený. Nové profily vytváraj v Admine.");
+    }
 
     const statements: D1PreparedStatement[] = [];
     const profileStatementIndexes: number[] = [];
