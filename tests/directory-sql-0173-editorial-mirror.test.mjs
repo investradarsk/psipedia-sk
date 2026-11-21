@@ -236,7 +236,7 @@ test("Approved partner direct edits also mirror exact 0173 free-text hours under
  assert.match(source,/Object\.hasOwn\(effectivePatch,"openingHours"\)/);
  assert.match(source,/Object\.hasOwn\(effectivePatch,"galleryUrls"\)/);
  assert.match(source,/planDirectory0173EditorialSqlMirror/);
- assert.match(source,/if\(plans\.length \|\| editorialMirror\.length\)/);
+ assert.match(source,/if\(plans\.length \|\| presentationMirror\.length \|\| editorialMirror\.length\)/);
  assert.match(source,/const guard=plans\.length\?plans\[0\]\[0\]:\{/);
  assert.match(source,/statements\.push\(database\.prepare\(guard\.sql\)\.bind/);
  assert.match(source,/openingHoursText:String\(effectivePatch\.openingHours\?\?""\)/);
