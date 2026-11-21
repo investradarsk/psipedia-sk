@@ -2502,9 +2502,15 @@ export async function setManagedDirectoryProfileReviewed(
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
   const row = await database.prepare(
-    "SELECT id, updated_at FROM directory_profiles WHERE id=? LIMIT 1",
-  ).bind(id).first<{ id: number; updated_at: string }>();
+    "SELECT p.id,p.updated_at,s.reviewed_at,s.unlock_pending " +
+    "FROM directory_profiles p LEFT JOIN directory_profile_review_state s ON s.profile_id=p.id " +
+    "WHERE p.id=? LIMIT 1",
+  ).bind(id).first<{ id: number; updated_at: string; reviewed_at: string | null; unlock_pending: number | null }>();
   if (!row) return null;
+  // A previously reviewed profile must remain locked while its current SQL
+  // snapshot is being exported to the mapped Notion page. Retries stay pending.
+  const pendingUnlock = !reviewed &&
+    (Boolean(row.reviewed_at?.trim()) || Number(row.unlock_pending) === 1);
   if (!reviewed) {
     const manager = await database.prepare(`
       SELECT 1 AS active FROM partner_resources r
@@ -2529,18 +2535,20 @@ export async function setManagedDirectoryProfileReviewed(
     INSERT INTO directory_profile_review_state
       (profile_id,reviewed_at,reviewed_by,unlock_pending,
        unlock_requested_at,unlock_requested_by,updated_at,updated_by)
-    SELECT p.id,?,?,0,NULL,NULL,?,?
+    SELECT p.id,?,?,?,?,?,?,?
     FROM directory_profiles p WHERE p.id=? AND p.updated_at=?
     ON CONFLICT(profile_id) DO UPDATE SET
       reviewed_at=excluded.reviewed_at,
       reviewed_by=excluded.reviewed_by,
-      unlock_pending=0,
-      unlock_requested_at=NULL,
-      unlock_requested_by=NULL,
+      unlock_pending=excluded.unlock_pending,
+      unlock_requested_at=excluded.unlock_requested_at,
+      unlock_requested_by=excluded.unlock_requested_by,
       updated_at=excluded.updated_at,
       updated_by=excluded.updated_by
   `).bind(
     reviewed ? timestamp : null, reviewed ? editorEmail : null,
+    pendingUnlock ? 1 : 0,
+    pendingUnlock ? timestamp : null, pendingUnlock ? editorEmail : null,
     timestamp, editorEmail, id, timestamp,
   );
   const responses = await database.batch([

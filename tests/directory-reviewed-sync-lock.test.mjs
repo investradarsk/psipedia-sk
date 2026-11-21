@@ -112,18 +112,18 @@ test("old pending metadata remains a lock until an explicit owner action", () =>
   assert.equal(isDirectoryReviewUnlockPendingSource("{}"), false);
 });
 
-test("explicit uncheck removes pending lock without whole-profile Notion rebaseline", () => {
+test("explicit uncheck creates SQL pending state before exporting the D1 profile", () => {
   const store = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
   const route = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
   const start = route.indexOf('if (body.action === "set-reviewed")');
   const end = route.indexOf('if (body.action !== "restore")', start);
   assert.ok(start > 0 && end > start);
   const toggle = route.slice(start, end);
-  assert.match(store, /unlock_pending=0/);
-  assert.doesNotMatch(store, /markNotionUnlockPending|alreadyPending/);
+  assert.match(store, /const pendingUnlock = !reviewed/);
+  assert.match(store, /pendingUnlock \? 1 : 0/);
   assert.match(toggle, /setManagedDirectoryProfileReviewed\(/);
-  assert.match(toggle, /syncDirectoryReviewedWithNotion\(/);
-  assert.doesNotMatch(toggle, /runNotionDirectorySyncSweep|deferUnlock|stillPending/);
+  assert.match(toggle, /completeDirectoryReviewedOwnerUnlock\(/);
+  assert.match(toggle, /notionReviewSync = unlock === "unlocked" \? "pushed" : "pending"/);
 });
 
 test("standalone Notion GEO and services relation adapters obey the directory review lock", () => {
@@ -166,10 +166,16 @@ test("a legacy pending marker remains locked until explicitly cleared", () => {
   assert.equal(isDirectoryReviewUnlockPendingSource("{}"), false);
 });
 
-test("Notion no longer has a legacy JSON owner-unlock bypass", () => {
+test("owner unlock is SQL-only, rebaselines the Notion page, then releases pending", () => {
   const sync = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(sync, /completeDirectoryReviewedOwnerUnlock/);
-  assert.doesNotMatch(sync, /ownerUnlock/);
+  assert.match(sync, /export async function completeDirectoryReviewedOwnerUnlock/);
+  assert.match(sync, /directoryProfileOwnerUnlockPending/);
+  assert.match(sync, /writeProfileToNotion\(\{/);
+  assert.match(sync, /ownerUnlock: true/);
+  assert.match(sync, /UPDATE directory_profile_review_state/);
+  assert.match(sync, /AND updated_at=\?/);
+  assert.match(sync, /AND p.updated_at=\?/);
+  assert.match(sync, /AND n.notion_page_id=\?/);
   assert.doesNotMatch(sync, /isDirectoryReviewUnlockPendingSource/);
   assert.match(sync, /directoryProfileNotionSyncLocked\(input.database, input.profile.id\)/);
 });
@@ -183,29 +189,28 @@ test("additional Notion writers cannot bypass reviewed profile lock", () => {
   assert.match(media, /directoryProfileNotionSyncLocked\(input\.database, input\.row\.entityId\)/);
 });
 
-test("Admin review toggle mirrors only checkbox and never waits for editorial hash", () => {
+test("Admin checks mirror only the checkbox; unchecks trigger full Notion export", () => {
   const route = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
   const start = route.indexOf('if (body.action === "set-reviewed")');
   const end = route.indexOf('if (body.action !== "restore")', start);
   const toggle = route.slice(start, end);
   assert.match(toggle, /notionReviewSync = await syncDirectoryReviewedWithNotion/);
-  assert.match(toggle, /return Response.json\(\{ profile, notionReviewSync \}\)/);
-  assert.doesNotMatch(toggle, /markNotionUnlockPending|ownerUnlock|targetProfileId/);
+  assert.match(toggle, /completeDirectoryReviewedOwnerUnlock/);
+  assert.match(toggle, /SELECT unlock_pending FROM directory_profile_review_state/);
+  assert.match(toggle, /return Response.json\(\{ profile: confirmed \?\? profile, notionReviewSync \}\)/);
 });
 
-test("repeated owner uncheck clears the SQL pending lock", () => {
+test("repeated owner uncheck retains SQL pending state until the echo succeeds", () => {
   const store = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
   const begin = store.indexOf("export async function setManagedDirectoryProfileReviewed(");
   const finish = store.indexOf("export async function archiveManagedDirectoryProfile(", begin);
   const writer = store.slice(begin, finish);
-  assert.match(writer, /unlock_pending=0/);
-  assert.doesNotMatch(writer, /alreadyPending|markNotionUnlockPending/);
-  const pending = JSON.stringify({
-    "_psipedia_profile_review_unlock_pending": "1",
-    "_psipedia_profile_review_reviewed_at": "",
-  });
+  assert.match(writer, /Number\(row.unlock_pending\) === 1/);
+  assert.match(writer, /unlock_pending=excluded.unlock_pending/);
+  assert.match(writer, /pendingUnlock \? 1 : 0/);
+  const sync = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  assert.match(sync, /DIRECTORY_OWNER_UNLOCK_SCHEDULED_RETRY_FAILED/);
+  assert.match(sync, /profileId: row.profile_id/);
+  const pending = JSON.stringify({ [DIRECTORY_REVIEW_UNLOCK_PENDING_KEY]: "1" });
   assert.equal(isDirectoryReviewedSourceLocked(pending), true);
-  const source = JSON.parse(pending);
-  delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY];
-  assert.equal(isDirectoryReviewedSourceLocked(JSON.stringify(source)), false);
 });
