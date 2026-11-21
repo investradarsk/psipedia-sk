@@ -246,8 +246,8 @@ test("explicit blank Admin and Notion edits clear only the targeted SQL field", 
   });
   assert.equal(logs.length,4,"canonical UPDATE, CAS receipt, SQL fact and hours clear");
   assert.doesNotMatch(logs[0].sql,/source_data_json/);
-  assert.match(logs[0].sql,/updated_at = \\?/);
-  assert.match(logs[1].sql,/changes\\(\\)=1/);
+  assert.match(logs[0].sql,/updated_at = \?/);
+  assert.match(logs[1].sql,/changes\(\)=1/);
   assert.match(logs[2].sql,/directory_profile_public_facts/);
   assert.ok(logs[2].args.includes("Ordinačné hodiny"));
   assert.ok(logs[2].args.includes(""),"explicit clear is stored in SQL");
