@@ -3,7 +3,7 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { directory0173ReviewCasGuardStatement } from "../lib/directory-0173-review-state-sql.ts";
-import { partnerDirectoryReviewLockStatement } from "../lib/partner-directory-review.ts";
+import { partnerDirectoryReviewLockStatement } from "../lib/partner-directory-review-sql.ts";
 import { directoryReviewLockedFromProjection } from "../lib/directory-reviewed-sync-lock.ts";
 
 const load = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
