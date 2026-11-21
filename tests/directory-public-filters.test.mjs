@@ -159,24 +159,15 @@ test("0170 provider facet uses SQL only and agrees across list/map aliases", () 
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(
-      "CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, source_data_json TEXT);" +
+      "CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT);" +
       "CREATE TABLE directory_profile_filter_values (" +
         "profile_id INTEGER, category TEXT, filter_id TEXT, value_text TEXT);",
     );
     const def = serviceFiltersForCategory("veterinari")
       .find((item) => item.id === "veterinari.facility_type");
     assert.ok(def);
-    const insert = db.prepare(
-      "INSERT INTO directory_profiles (id,category,source_data_json) VALUES (?,'veterinari',?)",
-    );
-    insert.run(1, JSON.stringify({ [def.d1.key]: "clinic" }));
-    insert.run(2, JSON.stringify({ [def.d1.key]: "clinic" }));
-    insert.run(3, JSON.stringify({ [def.d1.key]: "clinic" }));
-    insert.run(4, "{broken");
-    insert.run(5, "{}");
-    insert.run(6, JSON.stringify({ [def.d1.key]: "hospital" }));
-    insert.run(7, JSON.stringify({ [def.d1.key]: "clinic" }));
-    insert.run(8, "{}");
+    const insert = db.prepare("INSERT INTO directory_profiles (id,category) VALUES (?,'veterinari')");
+    for (let id = 1; id <= 8; id++) insert.run(id);
     const sql = db.prepare("INSERT INTO directory_profile_filter_values VALUES (?,?,?,?)");
     sql.run(1, "veterinari", def.id, "hospital");
     sql.run(2, "veterinari", def.id, "unknown");
@@ -185,10 +176,10 @@ test("0170 provider facet uses SQL only and agrees across list/map aliases", () 
     sql.run(6, "veterinari", def.id, "clinic");
     // Wrong-category rows must not gain authority over a primary vet profile.
     sql.run(7, "treneri", def.id, "hospital");
-    for (const column of ["source_data_json", "d.source_data_json"]) {
-      const alias = column === "d.source_data_json" ? " d" : "";
+    for (const idExpr of ["directory_profiles.id", "d.id"]) {
+      const alias = idExpr === "d.id" ? " d" : "";
       const query = (selected) => {
-        const where = directoryPublicFacetSql("veterinari", { [def.id]: selected }, column);
+        const where = directoryPublicFacetSql("veterinari", { [def.id]: selected }, idExpr);
         return db.prepare(
           "SELECT id FROM directory_profiles" + alias + " WHERE category = 'veterinari' AND " +
           where.clauses.join(" AND ") + " ORDER BY id",
