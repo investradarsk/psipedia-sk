@@ -123,7 +123,8 @@ function createAdminMockDatabase() {
     // projection; missing sidecar data is an empty but present response.
     if (/FROM directory_profile_service_texts/i.test(normalized) &&
         /FROM directory_profile_image_display_settings/i.test(normalized) &&
-        /AS services/i.test(normalized) && /AS thumbnail/i.test(normalized)) {
+        /AS services\s*,/i.test(normalized) && /AS thumbnail\s*,/i.test(normalized) &&
+        !/FROM directory_profiles\b/i.test(normalized)) {
       return [{ services: "[]", thumbnail: null, detail: null, trainer_text: null }];
     }
     // The detail loader now requires canonical 0173 SQL-backed qualifications,
