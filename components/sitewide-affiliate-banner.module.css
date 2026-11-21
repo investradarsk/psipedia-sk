@@ -13,3 +13,14 @@
 :global(body:has([data-psipedia-not-found])) .wrapper {
   display: none;
 }
+
+/*
+ * Article detail places the same original creative after the introduction on
+ * phones. Hide the global footer copy there to avoid two ads in one mobile read.
+ * Other public pages keep their existing sitewide footer placement.
+ */
+@media (max-width: 767px) {
+  :global(body:has([data-article-layout])) .wrapper {
+    display: none;
+  }
+}
