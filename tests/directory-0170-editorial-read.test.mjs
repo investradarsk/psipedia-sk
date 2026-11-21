@@ -149,6 +149,18 @@ test("D1 query reads existing per-profile SQL rows and leaves unedited legacy va
   }finally{sql.close();}
 });
 
+test("canonical profile detail SQL includes address fields and never selects the raw legacy JSON column",()=>{
+  const store=readFileSync(new URL("../lib/directory-store.ts",import.meta.url),"utf8");
+  const select=store.slice(
+    store.indexOf("const DIRECTORY_PROFILE_COLUMNS ="),
+    store.indexOf("const DIRECTORY_CARD_COLUMNS ="),
+  );
+  for(const column of ["postal_code","street","house_number","address_format","service_address_confirmation"])
+    assert.match(select,new RegExp("\\b"+column+"\\b"));
+  assert.match(select,/json_object\('_psipedia_additional_categories'/);
+  assert.doesNotMatch(store,/SELECT \* FROM directory_profiles/);
+});
+
 test("SQL-first public single detail and fail-closed Admin editor GET use same resolver",()=>{
   const store=readFileSync(new URL("../lib/directory-store.ts",import.meta.url),"utf8");
   const route=readFileSync(new URL("../app/api/admin/directory/[id]/route.ts",import.meta.url),"utf8");
