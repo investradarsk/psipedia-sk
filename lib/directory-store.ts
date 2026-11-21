@@ -77,7 +77,6 @@ import type { EditableSeo } from "@/lib/content-seo";
 import {
   isDirectoryInternalMetadataKey,
   TRAINER_SERVICES_TEXT_METADATA_KEY,
-  mergeDirectoryProfileReviewMetadata,
   mergeDirectoryPublicContactData,
   omitDirectorySqlContactAliases,
   mergeDirectoryQualityMetadata,
@@ -87,7 +86,7 @@ import {
   readDirectoryQualityMetadata,
   type DirectoryQualityResolutionInput,
 } from "@/lib/directory-profile-metadata";
-import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
+import { directory0173ReviewCasGuardStatement } from "./directory-0173-review-state-sql";
 import { directoryQualificationSections } from "./directory-public-copy.ts";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
@@ -846,9 +845,8 @@ async function withDirectory0173SqlManaged(
     qualityMetadata[entry.field]={status:entry.status,checkedAt:entry.checkedAt};
   }
   const sqlReviewedAt=sql.review?.reviewedAt?.trim()??"";
-  // A historical JSON review never unlocks simply because SQL has no row.
-  // A SQL review likewise stays visible even if old JSON omitted the flag.
-  const reviewedAt=sqlReviewedAt||profile.reviewedAt;
+  // The SQL review row is authoritative, including an explicit owner uncheck.
+  const reviewedAt=sqlReviewedAt;
   return {
     ...profile,
     services:presentation.services,
@@ -868,7 +866,7 @@ async function withDirectory0173SqlManaged(
     }:{}),
     reviewed:Boolean(reviewedAt),
     reviewedAt,
-    reviewedBy:sqlReviewedAt?(sql.review?.reviewedBy??""):profile.reviewedBy,
+    reviewedBy:sqlReviewedAt?(sql.review?.reviewedBy??""):"",
     ...(sql.qualifications?{qualifications:sql.qualifications}:{}),
     ...(sql.seo?{seo:sql.seo}:{}),
     ...(sql.galleryUrls?{galleryUrls:sql.galleryUrls}:{}),
@@ -1996,13 +1994,7 @@ export async function listManagedDirectoryProfileSummaries(
       .prepare(
         `
       SELECT p.id,
-        COALESCE(
-          NULLIF(TRIM(s.reviewed_at),''),
-          CASE WHEN json_valid(p.source_data_json) THEN
-            COALESCE(json_extract(p.source_data_json,
-              '$._psipedia_profile_review_reviewed_at'),'')
-          ELSE '' END
-        ) AS reviewed_at
+        COALESCE(NULLIF(TRIM(s.reviewed_at),''),'') AS reviewed_at
       FROM directory_profiles p
       LEFT JOIN directory_profile_review_state s ON s.profile_id=p.id
       WHERE p.id IN (${placeholders})
@@ -2475,10 +2467,9 @@ export async function setManagedDirectoryProfileReviewed(
 ) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
-  const row = await database
-    .prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1")
-    .bind(id)
-    .first<DirectoryProfileRow>();
+  const row = await database.prepare(
+    "SELECT id, updated_at FROM directory_profiles WHERE id=? LIMIT 1",
+  ).bind(id).first<{ id: number; updated_at: string }>();
   if (!row) return null;
   if (!reviewed) {
     const manager = await database.prepare(`
@@ -2489,56 +2480,42 @@ export async function setManagedDirectoryProfileReviewed(
     `).bind(id).first<{ active: number }>();
     if (manager) throw new Error("DIRECTORY_PARTNER_MANAGED_REVIEW_LOCK");
   }
-  const importData = safeImportData(row.source_data_json, true);
-  const sourceData = mergeDirectoryProfileReviewMetadata(
-    importData,
-    reviewed,
-    editorEmail,
-    now.toISOString(),
-  );
-  // An explicit owner checkbox action always updates the D1 review lock.
-  // A previous failed Notion full-profile echo must not keep it locked.
-  // No editorial/profile field changes as part of this action.
-  delete sourceData["_psipedia_profile_review_unlock_pending"];
-  // The owner reviewed the displayed contact values. On that explicit action,
-  // adopt ONLY still-NULL SQL contact slots; an earlier SQL clear ('') wins.
-  // No bulk backfill or automatic promotion on ordinary Notion/Admin reads.
-  const visibleContacts = readDirectoryPublicContacts(
-    overlayDirectorySqlContacts(safeImportData(row.source_data_json, true), row),
-    row.website_url ?? "",
-  );
   const timestamp = now.toISOString();
-  const nextSourceJson = JSON.stringify(sourceData);
-  const canonical = database
-    .prepare("UPDATE directory_profiles SET source_data_json = ?, updated_at = ?, updated_by = ?, " +
-      "public_phone = CASE WHEN ?=1 THEN COALESCE(public_phone, ?) ELSE public_phone END, " +
-      "public_email = CASE WHEN ?=1 THEN COALESCE(public_email, ?) ELSE public_email END, " +
-      "facebook_url = CASE WHEN ?=1 THEN COALESCE(facebook_url, ?) ELSE facebook_url END, " +
-      "instagram_url = CASE WHEN ?=1 THEN COALESCE(instagram_url, ?) ELSE instagram_url END " +
-      "WHERE id = ? AND source_data_json = ? AND updated_at = ? " +
-      "AND (?=1 OR NOT EXISTS (SELECT 1 FROM partner_resources r " +
-      "JOIN partner_memberships m ON m.resource_id=r.id " +
-      "WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=directory_profiles.id " +
-      "AND m.revoked_at IS NULL)) RETURNING *")
-    .bind(nextSourceJson, timestamp, editorEmail,
-      reviewed ? 1 : 0, visibleContacts.phone,
-      reviewed ? 1 : 0, visibleContacts.email,
-      reviewed ? 1 : 0, visibleContacts.facebook,
-      reviewed ? 1 : 0, visibleContacts.instagram,
-      id, row.source_data_json, row.updated_at, reviewed ? 1 : 0);
-  // The review checkbox and its 0173 SQL projection commit or fail together.
-  // The old JSON/partner Notion lock stays authoritative until audited cutover.
-  const reviewMirror = directory0173ReviewSqlMirrorStatement({
-    database, profileId: id, sourceDataJson: nextSourceJson,
-    profileUpdatedAt: timestamp, projectedAt: timestamp, projectedBy: editorEmail,
-  });
+  // Only the review state changes: never copy contact aliases or old JSON.
+  // D1.batch commits the profile revision and SQL review row atomically.
+  const canonical = database.prepare(
+    "UPDATE directory_profiles SET updated_at=?, updated_by=? " +
+    "WHERE id=? AND updated_at=? " +
+    "AND (?=1 OR NOT EXISTS (SELECT 1 FROM partner_resources r " +
+    "JOIN partner_memberships m ON m.resource_id=r.id " +
+    "WHERE r.entity_type='DIRECTORY_PROFILE' AND r.directory_profile_id=directory_profiles.id " +
+    "AND m.revoked_at IS NULL)) RETURNING id",
+  ).bind(timestamp, editorEmail, id, row.updated_at, reviewed ? 1 : 0);
+  const sqlReview = database.prepare(`
+    INSERT INTO directory_profile_review_state
+      (profile_id,reviewed_at,reviewed_by,unlock_pending,
+       unlock_requested_at,unlock_requested_by,updated_at,updated_by)
+    SELECT p.id,?,?,0,NULL,NULL,?,?
+    FROM directory_profiles p WHERE p.id=? AND p.updated_at=?
+    ON CONFLICT(profile_id) DO UPDATE SET
+      reviewed_at=excluded.reviewed_at,
+      reviewed_by=excluded.reviewed_by,
+      unlock_pending=0,
+      unlock_requested_at=NULL,
+      unlock_requested_by=NULL,
+      updated_at=excluded.updated_at,
+      updated_by=excluded.updated_by
+  `).bind(
+    reviewed ? timestamp : null, reviewed ? editorEmail : null,
+    timestamp, editorEmail, id, timestamp,
+  );
   const responses = await database.batch([
-    canonical, directory0173ReviewCasGuardStatement(database), reviewMirror,
+    canonical, directory0173ReviewCasGuardStatement(database), sqlReview,
   ]);
-  const updated = (responses[0]?.results?.[0] ?? null) as DirectoryProfileRow | null;
-  // Never lose a concurrent editor/Notion write while setting the lock.
-  if (!updated) throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
-  return rowToManagedProfile(updated);
+  if (!(responses[0]?.results?.[0] as { id?: number } | undefined)?.id) {
+    throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
+  }
+  return getManagedDirectoryProfileById(id, database);
 }
 
 export async function archiveManagedDirectoryProfile(
