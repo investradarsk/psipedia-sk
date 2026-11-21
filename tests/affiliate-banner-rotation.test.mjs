@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   AFFILIATE_BANNER_PARTNERS,
+  AFFILIATE_BANNER_ORIGINAL_CREATIVES,
+  getAvailableAffiliateOriginalBanners,
   canShowGlobalAffiliateBanner,
   nextAffiliateRotation,
 } from "../lib/affiliate-banner-rotation.ts";
@@ -57,10 +59,27 @@ test("ads have fixed mobile/desktop geometry, label and sponsored link", () => {
   assert.doesNotMatch(component, /sessionStorage|localStorage|setInterval/);
   assert.match(component, /nextAffiliateRotation/);
   assert.match(css, /min-height: 100px/);
-  assert.match(css, /min-height: 250px/);
+  assert.match(css, /min-height: 600px/);
   assert.match(css, /max-width: 680px/);
   assert.match(component, /let nextBannerIndex/);
+  assert.match(component, /<img[\s\S]*src=\{original\.src\}/);
+  assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
   assert.match(source("app/layout.tsx"), /<SitewideAffiliateBanner\s*\/>/);
   assert.match(source("app/page.tsx"), /<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
   assert.match(source("components/article-detail.tsx"), /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+});
+
+test("only existing Dognet merchant images can appear, without guessed creatives", () => {
+  const horizontal = getAvailableAffiliateOriginalBanners("horizontal");
+  const sidebar = getAvailableAffiliateOriginalBanners("sidebar");
+  assert.deepEqual(horizontal.map((item) => item.id), ["zoohit"]);
+  assert.deepEqual(sidebar.map((item) => item.id), ["zoohit"]);
+  assert.equal(AFFILIATE_BANNER_ORIGINAL_CREATIVES["abc-zoo"], undefined);
+  assert.equal(AFFILIATE_BANNER_ORIGINAL_CREATIVES.fera, undefined);
+  for (const item of [...horizontal, ...sidebar]) {
+    assert.match(item.creative.src, /^https:\/\/visibility\.postaffiliatepro\.com\/accounts\/default1\/banners\//);
+    assert.ok(item.creative.width > 0);
+    assert.ok(item.creative.height > 0);
+  }
+  assert.deepEqual(nextAffiliateRotation(0, 1), { selected: 0, next: 0 });
 });
