@@ -108,7 +108,8 @@ export const agendaEditableFields: Record<BidirectionalAgendaKey, readonly strin
   ],
   organizations: [
     "Názov", "Slug", "Stav", "Typ", "Právny názov", "IČO / registračné číslo",
-    "Krátky popis", "Popis", "Web", "Facebook", "Instagram", "Mesto", "Okres", "Kraj",
+    "Krátky popis", "Popis", "Verejný e-mail", "Verejný telefón",
+    "Web", "Facebook", "Instagram", "Mesto", "Okres", "Kraj",
     "Hlavný obrázok URL", "Zdroj dát",
   ],
   adoptions: [
@@ -367,8 +368,12 @@ function organizationPayload(
     type: s(values["Typ"]),
     shortDescription: s(values["Krátky popis"]),
     description: s(values["Popis"]),
-    publicEmail: existing?.publicEmail ?? null,
-    publicPhone: existing?.publicPhone ?? null,
+    // An omitted Notion field preserves SQL; an explicit empty value clears
+    // only that contact. The fields are editorial text, not validated URLs.
+    publicEmail: Object.hasOwn(values, "Verejný e-mail")
+      ? s(values["Verejný e-mail"]) || null : existing?.publicEmail ?? null,
+    publicPhone: Object.hasOwn(values, "Verejný telefón")
+      ? s(values["Verejný telefón"]) || null : existing?.publicPhone ?? null,
     websiteUrl: s(values["Web"]) || null,
     facebookUrl: s(values["Facebook"]) || null,
     instagramUrl: s(values["Instagram"]) || null,

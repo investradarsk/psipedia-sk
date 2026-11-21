@@ -75,12 +75,8 @@ function nullableUrl(object: Record<string, unknown>, key: string, label: string
 }
 
 function nullableEmail(object: Record<string, unknown>) {
-  const value = nullableString(object, "publicEmail", "Verejný e-mail", 320);
-  if (!value) return null;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-    throw new OrganizationAdminValidationError("Verejný e-mail nemá platný formát.");
-  }
-  return value;
+  // A public contact is editorial text, not a validated login address.
+  return nullableString(object, "publicEmail", "Verejný e-mail", 320);
 }
 
 function nullableImageKey(object: Record<string, unknown>) {
