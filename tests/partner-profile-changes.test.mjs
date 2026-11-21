@@ -335,7 +335,7 @@ test("all 10 category facet patches are allowlisted and unchanged saves are empt
 });
 
 test("partner filter-only change uses permission gate, revision and moderation; no direct write", () => {
-  assert.match(domain, /serviceFiltersForCategory\(row\.category\)/);
+  assert.match(domain, /serviceFiltersForCategory\(profile\.category\)/);
   assert.match(domain, /sourceDataJson: null/);
   assert.match(domain, /directoryCategory: canonical\.directoryCategory/);
   assert.match(domain, /normalizePartnerProfilePatch\(canonical\.entityType, input\.patch, canonical\.values, Boolean\(mediaAssetId \|\| galleryMediaIds\.length\), canonical\.directoryCategory\)/);
