@@ -1,3 +1,4 @@
+import "./partner-directory-sql-fields.test.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
