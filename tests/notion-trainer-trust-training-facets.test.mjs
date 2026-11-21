@@ -115,7 +115,7 @@ test("webhook, Admin edit and filter PATCH use explicit scoped field transport",
   assert.match(sync, /mirrorTrainerTrustFieldsToNotion/);
   assert.match(sync, /"treneri\.individual_training": "Individuálny výcvik"/);
   assert.match(sync, /"treneri\.group_training": "Skupinový výcvik"/);
-  assert.match(sync, /row\.source_data_json, current\.category as ServiceFilterCategory/);
+  assert.match(sync, /sqlValue: row\.sql_filter_value, selected: desired/);
   assert.match(route, /trainerTrustEditedPaths: rawTrainerTrustEditedPaths/);
   assert.match(route, /preserveUneditedTrainerTrust\(before, submittedBody, trainerTrustEditedPaths\)/);
   assert.match(route, /changedTrainerTrustAdminFields\(before, profile\)/);
