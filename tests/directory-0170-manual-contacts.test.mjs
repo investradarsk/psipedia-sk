@@ -111,7 +111,13 @@ test("untouched SQL-NULL contacts keep legacy data until their backfill is confi
 test("the canonical Admin SQL create/update never persist edited contacts to import JSON", () => {
   const store = readFileSync("lib/directory-store.ts", "utf8");
   const notion = readFileSync("lib/notion-directory-sync.ts", "utf8");
-  assert.match(store, /JSON\.stringify\(omitDirectorySqlContactAliases\(input\.sourceData, input\)\)/);
+  const createBlock=store.slice(
+    store.indexOf("export function buildManagedDirectoryProfileCreateStatement("),
+    store.indexOf("export async function getPublishedDirectoryProfiles("),
+  );
+  assert.doesNotMatch(createBlock,/JSON\\.stringify\\(omitDirectorySqlContactAliases\\(input\\.sourceData, input\\)\\)/);
+  assert.match(createBlock,/source_data_json, verified/);
+  assert.equal((createBlock.match(/"\\{\\}"/g)??[]).length,2);
   const updateBlock=store.slice(store.indexOf("export function buildManagedDirectoryProfileUpdateStatement("),store.indexOf("export async function updateManagedDirectoryProfile("));
   assert.doesNotMatch(updateBlock, /source_data_json = \?/);
   const start = notion.indexOf("async function saveBreederEditorialValue(");
