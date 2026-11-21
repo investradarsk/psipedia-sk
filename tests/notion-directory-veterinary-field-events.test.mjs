@@ -174,7 +174,8 @@ test("hours, sources, alt text, organization and focus are independently synced 
   const editor = await get("../components/admin-directory-editor.tsx");
   for (const field of ["Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka", "Organizácia", "Zameranie"])
     assert.ok(source.includes('"' + field + '"'));
-  assert.match(source, /source_data_json = json_set/);
+  assert.match(source, /planDirectory0170FactSqlMirror/);
+  assert.match(source, /directory_profile_extra_fields/);
   assert.match(source, /pilotChangedNotionMetadataFields\(page, input\.changedPropertyIds\)/);
   assert.doesNotMatch(source, /DIRECTORY_PILOT_METADATA_EMPTY_NOT_A_DELETE/);
   assert.match(source, /Object\.hasOwn\(input\.changed, field\)/);
