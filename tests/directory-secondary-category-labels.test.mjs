@@ -21,7 +21,7 @@ test("compact directory cards retain only category membership metadata", () => {
   assert.match(cardColumns, /json_object\('_psipedia_additional_categories',\s*\$\{directoryAdditionalCategoryJsonSql\(\)\}\) AS source_data_json/);
   assert.doesNotMatch(cardColumns, /'\{\}' AS source_data_json/);
 
-  // Exercise the actual expression copied from the lightweight SELECT template.
+  // The lightweight projection synthesizes a JSON-shaped response from SQL relations only.
   const expression = cardColumns
     .slice(cardColumns.indexOf("json_object("), cardColumns.indexOf(" AS source_data_json") + " AS source_data_json".length)
     .replace("${directoryAdditionalCategoryJsonSql()}", directoryAdditionalCategoryJsonSql());
@@ -29,26 +29,24 @@ test("compact directory cards retain only category membership metadata", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(`
-      CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, status TEXT, source_data_json TEXT);
-      -- 0170 canonical relation exists even when this fixture exercises legacy JSON fallback.
+      -- Physical legacy JSON was removed: membership is owned by SQL.
+      CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, status TEXT);
       CREATE TABLE directory_profile_additional_categories (
         profile_id INTEGER NOT NULL REFERENCES directory_profiles(id) ON DELETE CASCADE,
         category TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL,
         PRIMARY KEY (profile_id, category)
       );
     `);
-    const insert = db.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?)");
-    insert.run(1, "vencenie", "published", JSON.stringify({
-      [DIRECTORY_ADDITIONAL_CATEGORIES_KEY]: JSON.stringify(["veterinari"]),
-      "Interný e-mail": "private@example.invalid",
-    }));
-    insert.run(2, "vencenie", "published", JSON.stringify({
-      [DIRECTORY_ADDITIONAL_CATEGORIES_KEY]: "not-a-json-array",
-    }));
-    insert.run(3, "vencenie", "published", "{broken JSON");
-    insert.run(4, "vencenie", "draft", JSON.stringify({
-      [DIRECTORY_ADDITIONAL_CATEGORIES_KEY]: JSON.stringify(["veterinari"]),
-    }));
+    const insert = db.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?)");
+    insert.run(1, "vencenie", "published");
+    insert.run(2, "vencenie", "published");
+    insert.run(3, "vencenie", "published");
+    insert.run(4, "vencenie", "draft");
+    const additional = db.prepare(
+      "INSERT INTO directory_profile_additional_categories VALUES (?, ?, ?, ?)"
+    );
+    additional.run(1, "veterinari", "2026-11-21T00:00:00Z", "test");
+    additional.run(4, "veterinari", "2026-11-21T00:00:00Z", "test");
 
     const rows = db.prepare(`SELECT id, category, ${expression}
       FROM directory_profiles WHERE status = 'published'
