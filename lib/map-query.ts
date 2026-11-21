@@ -205,7 +205,7 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database, builtinOverri
   const publicFacets = directoryPublicFacetSql(
     query.subcategory ?? "",
     query.facets,
-    "d.source_data_json",
+    "d.id",
   );
   const canonicalPublicEnabled =
     (env as unknown as { SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?: string })
