@@ -1,7 +1,6 @@
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
-import { readDirectorySqlShadowParity } from "@/lib/directory-sql-cutover-parity";
 import { readDirectory0170EditorialFields } from "@/lib/directory-0170-editorial-read";
 import { planDirectory0170FilterSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
 import { validateDirectoryFullProfileSave } from "@/lib/directory-full-profile-save";
@@ -52,19 +51,9 @@ function errorResponse(error: unknown) {
 export async function GET(_request: Request, { params }: Props) {
   const user = await getAdminApiUser(); if (!user) return unauthorizedAdminResponse();
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
-  // Explicit operator-only parity probe. It never swaps the live Admin/public
-  // data source, mutates D1, calls Notion or exposes contact/source values.
+  // SQL is already the authoritative source; the old JSON comparison route is retired.
   if (new URL(_request.url).searchParams.get("sqlParity") === "1") {
-    const db = (env as unknown as { DB?: D1Database }).DB;
-    if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
-    try {
-      const sqlParity = await readDirectorySqlShadowParity(db, id);
-      return Response.json({ sqlParity }, { headers: { "cache-control": "no-store" } });
-    } catch {
-      return Response.json({
-        error: "Kontrola SQL parity sa nepodarila. Údaje profilu zostali nezmenené.",
-      }, { status: 503, headers: { "cache-control": "no-store" } });
-    }
+    return Response.json({ error: "Historická JSON kontrola bola po prechode na SQL odstránená." }, { status: 410 });
   }
   const profile = await getManagedDirectoryProfileById(id);
   if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
