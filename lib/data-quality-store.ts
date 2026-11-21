@@ -330,17 +330,6 @@ function database() {
   return db;
 }
 
-function parseImportData(value: string | null) {
-  try {
-    const parsed = JSON.parse(value ?? "");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as Record<string, string | number | null>
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 function safePage(value: number | undefined) {
   return Number.isSafeInteger(value) && Number(value) > 0 ? Number(value) : 1;
 }
