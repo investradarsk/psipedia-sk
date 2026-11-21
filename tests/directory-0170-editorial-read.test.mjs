@@ -40,8 +40,8 @@ test("confirmed SQL fact is authoritative, INCLUDING a deliberate blank; legacy 
   assert.equal(result["Pohotovosť"],"Legacy text");
   assert.equal(result["Plemená"],"Retriever");
   assert.equal(result["Zdroj dát"],"Source provenance");
-  assert.equal(result["_psipedia_filter_v1_veterinari_emergency"],"yes",
-    "public response never projects internal SQL filter keys");
+  assert.equal(result["_psipedia_filter_v1_veterinari_emergency"],undefined,
+    "public response cannot expose retired JSON filter keys");
   assert.equal(base["Ordinačné hodiny"],"Staré hodiny","input is immutable");
 });
 
@@ -55,6 +55,14 @@ test("Admin sees SQL filter value, preserving unrelated keys and secondary membe
   assert.equal(result["_psipedia_filter_v1_fyzioterapia_hydrotherapy"],undefined);
 });
 
+test("an explicit SQL filter deletion suppresses a stale historical selected value",()=> {
+  const result=overlayDirectory0170EditorialFields({
+    category:"veterinari",source:base,facts:[],filters:[],audience:"admin",
+  });
+  assert.equal(result?.["_psipedia_filter_v1_veterinari_emergency"],undefined);
+  assert.equal(result?.["Zdroj dát"],"Source provenance");
+});
+
 test("unknown explicit tri-state is not the same as a missing SQL row",()=>{
   const source={...base};
   const result=overlayDirectory0170EditorialFields({
@@ -63,14 +71,17 @@ test("unknown explicit tri-state is not the same as a missing SQL row",()=>{
     audience:"admin",
   });
   assert.equal(result?.["_psipedia_filter_v1_veterinari_home_visits"],"unknown");
-  assert.equal(result?.["_psipedia_filter_v1_veterinari_emergency"],"yes");
+  assert.equal(result?.["_psipedia_filter_v1_veterinari_emergency"],undefined,
+    "an absent SQL value must not resurrect old yes");
 });
 
-test("no SQL rows preserves entire historical source and missing source remains missing",()=>{
+test("no SQL rows preserve unrelated historical facts but discard retired filter keys",()=>{
   const result=overlayDirectory0170EditorialFields({
     category:"veterinari",source:base,facts:[],filters:[],audience:"admin",
   });
-  assert.deepEqual(result,base);
+  assert.deepEqual(result, Object.fromEntries(
+    Object.entries(base).filter(([key])=>!key.startsWith("_psipedia_filter_v1_"))
+  ));
   assert.notStrictEqual(result,base);
   const empty=overlayDirectory0170EditorialFields({
     category:"veterinari",source:null,facts:[],filters:[],audience:"public",
@@ -93,7 +104,7 @@ test("invalid or mismatched SQL records cannot be promoted to editable or public
   });
   assert.equal(result?.["Ordinačné hodiny"],"");
   assert.equal(result?.["Služby"],undefined);
-  assert.equal(result?.["_psipedia_filter_v1_veterinari_emergency"],"yes");
+  assert.equal(result?.["_psipedia_filter_v1_veterinari_emergency"],undefined);
 });
 
 test("D1 query reads existing per-profile SQL rows and leaves unedited legacy values intact",async()=>{
