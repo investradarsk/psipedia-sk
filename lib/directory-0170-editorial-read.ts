@@ -1,9 +1,9 @@
 /**
  * 0170 SQL-first read-through for one Directory detail/profile editor.
  *
- * A SQL fact/filter row exists ONLY after an explicit edit was mirrored in the
- * canonical writer. This adapter never backfills legacy values. A missing row
- * keeps the historical JSON for records awaiting the owner's review.
+ * Category filter choices are SQL-authoritative. A missing SQL row means
+ * no selected filter, never a fallback to a retired JSON value. Other
+ * editorial metadata remains available during the staged cutover.
  *
  * It intentionally does NOT switch category listing membership, secondary
  * categories or public faceted filtering. Those require a separate, complete
@@ -13,6 +13,7 @@ import { proposedDirectorySqlPlacement } from "./directory-sql-cutover-contract.
 import { isDirectoryPublicMetadataField } from "./directory-public-facts.ts";
 import {
   getDirectoryFilterDefinition,
+  directoryFilterRegistry,
   normalizeDirectoryFilterValue,
   serviceFilterCategories,
   type ServiceFilterCategory,
@@ -28,6 +29,19 @@ export type Directory0170ExtraRow = Readonly<{
 }>;
 type EditorialSource = Record<string, string | number | null>;
 
+/**
+ * Strip every retired JSON filter projection before merging SQL values.
+ * A deleted SQL filter row must NEVER resurrect a stale JSON choice.
+ */
+export function withoutLegacyDirectoryFacetValues(
+  source: EditorialSource | null | undefined,
+): EditorialSource | null {
+  if (!source) return null;
+  const result: EditorialSource = { ...source };
+  for (const definition of directoryFilterRegistry) delete result[definition.d1.key];
+  return result;
+}
+
 export function overlayDirectory0170EditorialFields(input: {
   category: string;
   source: EditorialSource | null | undefined;
@@ -40,7 +54,7 @@ export function overlayDirectory0170EditorialFields(input: {
   const {category, source, facts, filters, extras, audience} = input;
   if (!(serviceFilterCategories as readonly string[]).includes(category))
     return source ? {...source} : null;
-  const sourceCopy:EditorialSource = {...(source ?? {})};
+  const sourceCopy:EditorialSource = withoutLegacyDirectoryFacetValues(source) ?? {};
   const typedCategory=category as ServiceFilterCategory;
   for(const extra of extras??[]) {
     if(!extra || typeof extra.field_key!=="string" ||
@@ -75,7 +89,7 @@ export function overlayDirectory0170EditorialFields(input: {
       sourceCopy[definition.d1.key]=normalized.value;
     }
   }
-  return Object.keys(sourceCopy).length ? sourceCopy : source ? {...source} : null;
+  return Object.keys(sourceCopy).length ? sourceCopy : source ? sourceCopy : null;
 }
 
 type EditorialQueryRow = {
