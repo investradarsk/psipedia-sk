@@ -37,12 +37,22 @@ test("confirmed SQL fact is authoritative, INCLUDING a deliberate blank; legacy 
   assert.deepEqual(readDirectoryPublicMetadataSource(result,"Ordinačné hodiny"),{
     sourceKey:"Ordinačné hodiny",value:"",
   });
-  assert.equal(result["Pohotovosť"],"Legacy text");
+  assert.equal(result["Pohotovosť"],"Nie", "public detail reads the SQL select, not legacy free text");
   assert.equal(result["Plemená"],"Retriever");
   assert.equal(result["Zdroj dát"],"Source provenance");
   assert.equal(result["_psipedia_filter_v1_veterinari_emergency"],undefined,
     "public response cannot expose retired JSON filter keys");
   assert.equal(base["Ordinačné hodiny"],"Staré hodiny","input is immutable");
+});
+
+test("public detail renders a SQL emergency choice as a translated fact",()=> {
+  const result=overlayDirectory0170EditorialFields({
+    category:"veterinari",source:base,facts:[],
+    filters:[{category:"veterinari",filter_id:"veterinari.emergency",value_text:"yes"}],
+    audience:"public",
+  });
+  assert.equal(result?.["Pohotovosť"],"Áno");
+  assert.equal(result?.["_psipedia_filter_v1_veterinari_emergency"],undefined);
 });
 
 test("Admin sees SQL filter value, preserving unrelated keys and secondary membership",()=>{
