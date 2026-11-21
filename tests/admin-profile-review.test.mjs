@@ -11,21 +11,21 @@ const dashboard = readFileSync(new URL("../components/admin-directory-dashboard.
 const editor = readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
 const detailPage = readFileSync(new URL("../app/admin/adresar/[id]/page.tsx", import.meta.url), "utf8");
 
-test("profile review is private admin metadata and does not need a schema migration", () => {
+test("profile review uses the existing structured SQL state without a new migration", () => {
   assert.match(metadata, /profileReviewKeyPrefix = "_psipedia_profile_review_"/);
   assert.match(metadata, /readDirectoryProfileReviewMetadata/);
   assert.match(metadata, /mergeDirectoryProfileReviewMetadata/);
   assert.match(metadata, /key\.startsWith\(profileReviewKeyPrefix\)/);
-  assert.match(store, /UPDATE directory_profiles SET source_data_json = \? WHERE id = \? RETURNING \*/);
+  assert.match(store, /INSERT INTO directory_profile_review_state/);
 });
 
 test("managed profile reads and admin lists expose reviewed state without bloating the light list query", () => {
   assert.match(store, /reviewed: reviewMetadata\.reviewed/);
   assert.match(store, /reviewedAt: reviewMetadata\.reviewedAt/);
   assert.doesNotMatch(adminQuery, /source_data_json/);
-  assert.match(adminStore, /json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\)/);
+  assert.match(adminQuery, /FROM directory_profile_review_state s WHERE s.profile_id=directory_profiles.id/);
   assert.match(adminStore, /reviewed: Boolean\(reviewedAt\)/);
-  assert.match(store, /json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\)/);
+  assert.match(store, /COALESCE\(NULLIF\(TRIM\(s.reviewed_at\)/);
 });
 
 test("review checkbox can be changed from both list and detail", () => {
