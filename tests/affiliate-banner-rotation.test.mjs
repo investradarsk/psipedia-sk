@@ -137,3 +137,25 @@ test("mobile article shows one original banner after introduction, not at footer
   assert.match(footerCSS, /display:\s*none;/);
   assert.match(article, /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
 });
+
+test("mapped directory and event details allow only original Dognet image hosts", () => {
+  const worker = source("worker/index.ts");
+  const imgSrcPolicy = worker.match(/"img-src 'self'[^"]+"/)?.[0] ?? "";
+  assert.match(imgSrcPolicy, /https:\/\/api\.app\.dognet\.com/);
+  assert.match(imgSrcPolicy, /https:\/\/visibility\.postaffiliatepro\.com/);
+  assert.doesNotMatch(imgSrcPolicy, /https:\/\/\*/);
+  assert.match(worker, /if \(isGoogleMapsPublicRoute\(url\.pathname\)\)/);
+  assert.match(worker, /\^\\\/adresar/);
+  assert.match(worker, /\^\\\/podujatia/);
+});
+
+test("an unavailable external artwork never leaves a blank affiliate label", () => {
+  const component = source("components/affiliate-rotating-banner.tsx");
+  const css = source("components/affiliate-rotating-banner.module.css");
+  assert.match(component, /failedImage === original\.src\) return null/);
+  assert.match(component, /onLoad=\{\(\) => setLoadedImage\(original\.src\)\}/);
+  assert.match(component, /onError=\{\(\) => setFailedImage\(original\.src\)\}/);
+  assert.match(component, /styles\.pending/);
+  assert.match(css, /\.pending\s*\{\s*visibility:\s*hidden;/);
+  assert.doesNotMatch(component, /styles\.placeholder/);
+});
