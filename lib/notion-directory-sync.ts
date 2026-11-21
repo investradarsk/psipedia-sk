@@ -14,7 +14,7 @@ import { DIRECTORY_LEGACY_PUBLIC_EDITABLE_KEYS } from "./directory-detail-presen
 import { directoryCategories } from "./directory";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear,directoryEditorialEventMayClearError} from "./directory-sync-recovery-policy";
-import { directoryFilterRegistry, getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import { directoryFilterRegistry, getDirectoryFilterDefinition, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
 import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
@@ -1855,46 +1855,30 @@ async function syncBreederEvent(input: {
         continue;
       }
       try {
-        // Read the SAME profile's confirmed SQL filter alongside its legacy
-        // JSON. A Notion event is no-op only when BOTH copies agree; otherwise
-        // an old SQL value could override an apparently unchanged JSON value
-        // in the public provider filter after #1440.
+        // SQL is the only filter owner: a signed Notion event changes only
+        // the selected filter row, without parsing or rewriting historic JSON.
         const row = await database.prepare(`
-          SELECT source_data_json,updated_at,
+          SELECT updated_at,
             (SELECT f.value_text FROM directory_profile_filter_values f
              WHERE f.profile_id=directory_profiles.id
                AND f.category=? AND f.filter_id=?) AS sql_filter_value
           FROM directory_profiles WHERE id=? LIMIT 1
         `).bind(current.category, id, current.id).first<{
-          source_data_json: string; updated_at: string; sql_filter_value: string | null;
+          updated_at: string; sql_filter_value: string | null;
         }>();
         if (!row) throw new Error("DIRECTORY_FACET_PROFILE_MISSING");
-        const source = JSON.parse(row.source_data_json) as Record<string, unknown>;
         const desired = selected ? normalized!.value : null;
         if (!directoryNotionFacetRequiresSqlMirror({
-          source, key: def.d1.key, sqlValue: row.sql_filter_value, selected: desired,
+          sqlValue: row.sql_filter_value, selected: desired,
         })) continue;
-        let merged: string;
-        if (!selected) {
-          delete source[def.d1.key];
-          merged = JSON.stringify(source);
-        } else {
-          merged = mergeDirectoryFilterValues(
-            row.source_data_json, current.category as ServiceFilterCategory,
-            { [id]: normalized!.value },
-          );
-        }
         const now = new Date().toISOString();
         const canonical = database.prepare(`UPDATE directory_profiles
-          SET source_data_json=?, updated_at=?, updated_by=?
-          WHERE id=? AND category=? AND source_data_json=? AND updated_at=? RETURNING id`)
-          .bind(merged, now, SYSTEM_ACTOR,
-            current.id, current.category, row.source_data_json, row.updated_at);
-        // Signed Notion clear removes ONLY this SQL filter row. The JSON
-        // mutation above remains authoritative until the coordinated read cutover.
+          SET updated_at=?, updated_by=?
+          WHERE id=? AND category=? AND updated_at=? AND status<>'archived' RETURNING id`)
+          .bind(now, SYSTEM_ACTOR, current.id, current.category, row.updated_at);
         const mirror = planDirectory0170FilterSqlMirror({
           profileId: current.id, category: current.category as ServiceFilterCategory,
-          values: { [id]: selected ? normalized!.value : null },
+          values: { [id]: desired },
           updatedAt: now, actor: SYSTEM_ACTOR,
         });
         const response = await database.batch([
