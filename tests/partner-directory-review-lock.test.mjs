@@ -61,10 +61,10 @@ test("all directory partner grants activate the existing reviewed flag", () => {
     "both create and link-existing moderation paths are protected");
   assert.match(lock,/setManagedDirectoryProfileReviewed\(/);
   assert.match(lock,/FROM directory_profile_review_state s/);
-  assert.match(lock,/json_remove\(source_data_json, '\$\._psipedia_profile_review_unlock_pending'\)/);
+  assert.match(lock,/INSERT INTO directory_profile_review_state/);
   assert.match(lock,/m\.revoked_at IS NULL/);
-  assert.match(lock,/COALESCE\(json_extract\(source_data_json/);
-  assert.match(lock,/WHERE id=\(\$\{input\.canonicalSql\}\)/);
+  assert.match(lock,/ON CONFLICT\(profile_id\) DO UPDATE SET/);
+  assert.match(lock,/WHERE p.id=\(\{CANONICAL_SQL\}\)/);
 });
 
 test("Admin identifies actual owner and cannot uncheck reviewed while partner access exists", () => {
