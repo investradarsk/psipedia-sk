@@ -54,12 +54,12 @@ test("ads have fixed mobile/desktop geometry, label and sponsored link", () => {
   const css = source("components/affiliate-rotating-banner.module.css");
   assert.match(component, /Reklama · affiliate/);
   assert.match(component, /nofollow sponsored noopener noreferrer/);
-  assert.match(component, /sessionStorage/);
+  assert.doesNotMatch(component, /sessionStorage|localStorage|setInterval/);
   assert.match(component, /nextAffiliateRotation/);
   assert.match(css, /min-height: 100px/);
   assert.match(css, /min-height: 250px/);
   assert.match(css, /max-width: 680px/);
-  assert.doesNotMatch(component, /setInterval/);
+  assert.match(component, /let nextBannerIndex/);
   assert.match(source("app/layout.tsx"), /<SitewideAffiliateBanner\s*\/>/);
   assert.match(source("app/page.tsx"), /<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
   assert.match(source("components/article-detail.tsx"), /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
