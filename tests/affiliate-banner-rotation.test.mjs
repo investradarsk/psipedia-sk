@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   AFFILIATE_BANNER_PARTNERS,
+  AFFILIATE_BANNER_ORIGINAL_CREATIVES,
+  getAvailableAffiliateOriginalBanners,
   canShowGlobalAffiliateBanner,
   nextAffiliateRotation,
 } from "../lib/affiliate-banner-rotation.ts";
@@ -57,10 +59,65 @@ test("ads have fixed mobile/desktop geometry, label and sponsored link", () => {
   assert.doesNotMatch(component, /sessionStorage|localStorage|setInterval/);
   assert.match(component, /nextAffiliateRotation/);
   assert.match(css, /min-height: 100px/);
-  assert.match(css, /min-height: 250px/);
+  assert.match(css, /min-height: 600px/);
   assert.match(css, /max-width: 680px/);
   assert.match(component, /let nextBannerIndex/);
+  assert.match(component, /<img[\s\S]*src=\{original\.src\}/);
+  assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
   assert.match(source("app/layout.tsx"), /<SitewideAffiliateBanner\s*\/>/);
   assert.match(source("app/page.tsx"), /<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
   assert.match(source("components/article-detail.tsx"), /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+});
+
+test("only original Dognet images appear in compatible placements", () => {
+  const horizontal = getAvailableAffiliateOriginalBanners("horizontal");
+  const mobile = getAvailableAffiliateOriginalBanners("mobile");
+  const sidebar = getAvailableAffiliateOriginalBanners("sidebar");
+
+  assert.deepEqual(horizontal.map((item) => item.id), ["zoohit"]);
+  assert.deepEqual(mobile.map((item) => item.id), ["abc-zoo"]);
+  assert.deepEqual(sidebar.map((item) => item.id), ["zoohit", "abc-zoo", "abc-zoo"]);
+  assert.equal(AFFILIATE_BANNER_ORIGINAL_CREATIVES.fera, undefined);
+
+  assert.deepEqual(
+    [...mobile, ...sidebar.filter((item) => item.id === "abc-zoo")].map((item) => item.creative),
+    [
+      {
+        src: "https://api.app.dognet.com/files/t/a4f/a4f633806f17fbe0b73988aa2f02eadd1eef84f1.png",
+        width: 1080, height: 1080,
+      },
+      {
+        src: "https://api.app.dognet.com/files/t/00f/00fd437025798c026a889b20e1f19ec0f6bf45f8.png",
+        width: 1080, height: 1350,
+      },
+      {
+        src: "https://api.app.dognet.com/files/t/027/027698d3980d5d99f5d9dab9e67530ead4c2cbcd.png",
+        width: 1080, height: 1920,
+      },
+    ],
+  );
+
+  for (const item of [...horizontal, ...mobile, ...sidebar]) {
+    const url = new URL(item.creative.src);
+    assert.ok(
+      url.hostname === "api.app.dognet.com" || url.hostname === "visibility.postaffiliatepro.com",
+      "original image must originate from an existing Dognet creative host",
+    );
+    assert.ok(item.creative.width > 0);
+    assert.ok(item.creative.height > 0);
+  }
+  assert.deepEqual(nextAffiliateRotation(0, 1), { selected: 0, next: 0 });
+  assert.deepEqual(nextAffiliateRotation(0, 3), { selected: 0, next: 1 });
+  assert.deepEqual(nextAffiliateRotation(2, 3), { selected: 2, next: 0 });
+});
+
+test("mobile uses square originals and sidebar uses tall originals", () => {
+  const component = source("components/affiliate-rotating-banner.tsx");
+  const css = source("components/affiliate-rotating-banner.module.css");
+  assert.match(component, /matchMedia/);
+  assert.match(component, /"mobile"/);
+  assert.match(component, /getAvailableAffiliateOriginalBanners\(format\)/);
+  assert.match(css, /min-height: 300px/);
+  assert.match(css, /object-fit: contain/);
+  assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
 });

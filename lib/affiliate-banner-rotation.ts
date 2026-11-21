@@ -1,32 +1,81 @@
-/**
- * Partner destinations copied from the owner's Dognet banners (channel PW4rE4bS).
- * These are tracked links, not creative-image URLs.
- */
+/** Merchant destinations use the publisher's approved Dognet tracking channel. */
 export const AFFILIATE_BANNER_PARTNERS = [
   {
     id: "zoohit",
     name: "Zoohit.sk",
-    title: "Všetko, čo potrebuje váš pes",
-    description: "Krmivo, maškrty a výbava pre psov.",
     href: "https://go.dognet.com/?chid=PW4rE4bS&url=https%3A%2F%2Fwww.zoohit.sk%2F",
   },
   {
     id: "abc-zoo",
     name: "ABC-ZOO.sk",
-    title: "Výbava na každý deň so psom",
-    description: "Krmivo, hračky a potreby pre psov.",
     href: "https://go.dognet.com/?chid=PW4rE4bS&url=https%3A%2F%2Fabc-zoo.sk%2F",
   },
   {
     id: "fera",
     name: "Fera.sk",
-    title: "Starostlivosť aj zábava pre psov",
-    description: "Krmivo, maškrty a doplnky pre psov.",
     href: "https://go.dognet.com/?chid=PW4rE4bS&url=https%3A%2F%2Ffera.sk%2F",
   },
 ] as const;
 
 export type AffiliateBannerPlacement = "horizontal" | "sidebar";
+
+/**
+ * Original banner images from Dognet. Never rebuild a merchant ad from
+ * custom text, colors or logos; use only the publisher-provided <img> src.
+ * Different image aspect ratios must not be cropped.
+ *
+ * ABC-ZOO: original image URLs were supplied as Dognet embed HTML.
+ * Zoohit: legacy original GIF sources were already in DognetTestBanner.
+ * Fera: no confirmed original image URL yet, so it remains excluded.
+ */
+export type AffiliateBannerFormat = AffiliateBannerPlacement | "mobile";
+export type OriginalAffiliateCreative = {
+  src: string;
+  width: number;
+  height: number;
+};
+
+export const AFFILIATE_BANNER_ORIGINAL_CREATIVES: Partial<
+  Record<(typeof AFFILIATE_BANNER_PARTNERS)[number]["id"], Partial<Record<AffiliateBannerFormat, readonly OriginalAffiliateCreative[]>>>
+> = {
+  zoohit: {
+    horizontal: [{
+      src: "https://visibility.postaffiliatepro.com/accounts/default1/banners/3a047bf8.gif",
+      width: 468,
+      height: 60,
+    }],
+    sidebar: [{
+      src: "https://visibility.postaffiliatepro.com/accounts/default1/banners/8cfd4fa0.gif",
+      width: 120,
+      height: 600,
+    }],
+  },
+  "abc-zoo": {
+    mobile: [{
+      src: "https://api.app.dognet.com/files/t/a4f/a4f633806f17fbe0b73988aa2f02eadd1eef84f1.png",
+      width: 1080,
+      height: 1080,
+    }],
+    sidebar: [{
+      src: "https://api.app.dognet.com/files/t/00f/00fd437025798c026a889b20e1f19ec0f6bf45f8.png",
+      width: 1080,
+      height: 1350,
+    }, {
+      src: "https://api.app.dognet.com/files/t/027/027698d3980d5d99f5d9dab9e67530ead4c2cbcd.png",
+      width: 1080,
+      height: 1920,
+    }],
+  },
+};
+
+export function getAvailableAffiliateOriginalBanners(placement: AffiliateBannerFormat) {
+  return AFFILIATE_BANNER_PARTNERS.flatMap((partner) =>
+    (AFFILIATE_BANNER_ORIGINAL_CREATIVES[partner.id]?.[placement] ?? []).map((creative) => ({
+      ...partner,
+      creative,
+    })),
+  );
+}
 
 const PRIVATE_PREFIXES = [
   "/admin",
@@ -61,8 +110,10 @@ export function canShowGlobalAffiliateBanner(pathname: string | null | undefined
   return true;
 }
 
-export function nextAffiliateRotation(current: number | null | undefined) {
-  const length = AFFILIATE_BANNER_PARTNERS.length;
+export function nextAffiliateRotation(current: number | null | undefined, availableCount: number = AFFILIATE_BANNER_PARTNERS.length) {
+  const length = Number.isSafeInteger(availableCount) && availableCount > 0
+    ? availableCount
+    : AFFILIATE_BANNER_PARTNERS.length;
   if (current == null || !Number.isSafeInteger(current) || current < 0) {
     return { selected: 0, next: 1 % length };
   }
