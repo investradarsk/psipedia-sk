@@ -113,8 +113,13 @@ test("0170 SQL first public filters, secondary categories and contact clears are
   assert.match(direct,/planDirectorySecondaryCategorySqlMirror/);
   assert.match(direct,/const guard=plans\.length\?plans\[0\]\[0\]:\{/);
   assert.match(direct,/statements\.push\(database\.prepare\(guard\.sql\)/);
-  assert.match(writer,/omitDirectorySqlContactAliases/);
-  assert.match(writer,/readDirectorySqlBackedContacts/);
+  // The partner editor loads canonical SQL contacts from directory-store and
+  // never copies them back to the retired source_data_json column.
+  assert.match(writer,/getManagedDirectoryProfileById\(resource\.canonicalId, db\)/);
+  assert.match(writer,/readDirectoryPublicContacts\(sourceData, profile\.websiteUrl \?\? ""\)/);
+  const directoryWriter = writer.slice(writer.indexOf("export function buildDirectoryApplyStatement("),
+    writer.indexOf("export function buildHelpApplyStatements("));
+  assert.doesNotMatch(directoryWriter,/source_data_json\s*[,=]/);
   assert.match(writer,/\["publicPhone", "public_phone"\]/);
   assert.match(writer,/String\(patch\[field\] \?\? ""\)/);
   assert.match(overlay,/empty string is an intentional clear/);
