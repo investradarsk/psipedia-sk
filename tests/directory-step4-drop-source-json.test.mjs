@@ -23,7 +23,7 @@ test("step 4 physically drops only directory source_data_json and keeps existing
     db.exec(dropSql);
     const cols = db.prepare("PRAGMA table_info(directory_profiles)").all().map(x => x.name);
     assert.deepEqual(cols, ["id", "slug", "status"]);
-    assert.deepEqual(db.prepare("SELECT id,slug,status FROM directory_profiles").all(), [
+    assert.deepEqual(db.prepare("SELECT id,slug,status FROM directory_profiles").all().map(row => ({ id: row.id, slug: row.slug, status: row.status })), [
       { id: 1, slug: "sql-only-fixture", status: "published" },
     ]);
     db.prepare("INSERT INTO directory_profiles (slug,status) VALUES (?,?)").run("new-sql-only","draft");
@@ -57,5 +57,5 @@ test("step 4 code no longer inserts directory source_data_json or declares it in
   assert.doesNotMatch(draftDirectory, /source_data_json/);
   const importDirectory = importer.slice(importer.indexOf("for (const [index, row] of profiles.entries())"),
     importer.indexOf("for (const [index, row] of events.entries())"));
-  assert.doesNotMatch(importDirectory, /INSERT INTO directory_profiles[\\s\\S]*?source_data_json/);
+  assert.doesNotMatch(importDirectory, /INSERT INTO directory_profiles[\s\S]*?source_data_json/);
 });
