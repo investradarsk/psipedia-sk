@@ -14,10 +14,6 @@ import { organizationPublicationTypes } from "./help-organization-publication.ts
 import { dogSexes, dogSizes } from "./lost-found-dogs.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { normalizeDirectorySearchText } from "./directory-store.ts";
-import {
-  omitDirectorySqlContactAliases,
-  type DirectoryImportData,
-} from "./directory-profile-metadata.ts";
 import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 
 export type AutomationUpdateOrigin = "DIRECT_ENTITY" | "FEED_SOURCE";
