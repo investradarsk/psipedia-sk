@@ -324,19 +324,22 @@ UPDATE directory_profiles SET
   instagram_url = 'https://instagram.com/original-fixture'
 WHERE slug = 'directory-admin-editor-fixture';
 
+-- D1's SQLite runtime rejects compound SELECTs over its small term limit.
+-- VALUES is not a compound SELECT; all six SQL facts remain unchanged.
+WITH facts(slug, field_key, value_text) AS (
+  VALUES
+    ('health-fixture-vet-rich', 'Špecializácie', 'Interná medicína, chirurgia'),
+    ('health-fixture-vet-rich', 'Hospitalizácia', 'Áno'),
+    ('health-fixture-vet-rich', 'RTG', 'Digitálne RTG'),
+    ('health-fixture-vet-rich', 'USG', 'Áno'),
+    ('health-fixture-vet-rich', 'Laboratórium', 'Interné laboratórium'),
+    ('e2e-services-detail-long', 'Pokrytie', 'Nitra a okolie')
+)
 INSERT INTO directory_profile_public_facts
   (profile_id, field_key, value_text, updated_at, updated_by)
 SELECT p.id, f.field_key, f.value_text, p.updated_at, p.updated_by
 FROM directory_profiles p
-JOIN (
-  SELECT 'health-fixture-vet-rich' slug, 'Špecializácie' field_key,
-    'Interná medicína, chirurgia' value_text
-  UNION ALL SELECT 'health-fixture-vet-rich', 'Hospitalizácia', 'Áno'
-  UNION ALL SELECT 'health-fixture-vet-rich', 'RTG', 'Digitálne RTG'
-  UNION ALL SELECT 'health-fixture-vet-rich', 'USG', 'Áno'
-  UNION ALL SELECT 'health-fixture-vet-rich', 'Laboratórium', 'Interné laboratórium'
-  UNION ALL SELECT 'e2e-services-detail-long', 'Pokrytie', 'Nitra a okolie'
-) f ON f.slug = p.slug;
+JOIN facts f ON f.slug = p.slug;
 
 INSERT INTO directory_profile_filter_values
   (profile_id, category, filter_id, value_text, updated_at, updated_by)
