@@ -52,6 +52,7 @@ test("live external owner blocks Notion even if older profile had no reviewed ma
 
 test("all directory partner grants activate the existing reviewed flag", () => {
   const lock=read("lib/partner-directory-review.ts");
+  const sqlLock=read("lib/partner-directory-review-sql.ts");
   const owner=read("lib/partner-admin-store.ts");
   const moderation=read("lib/partner-new-profile-admin.ts");
   const claim=read("lib/partner-claims-admin.ts");
@@ -61,10 +62,10 @@ test("all directory partner grants activate the existing reviewed flag", () => {
     "both create and link-existing moderation paths are protected");
   assert.match(lock,/setManagedDirectoryProfileReviewed\(/);
   assert.match(lock,/FROM directory_profile_review_state s/);
-  assert.match(lock,/INSERT INTO directory_profile_review_state/);
-  assert.match(lock,/m\.revoked_at IS NULL/);
-  assert.match(lock,/ON CONFLICT\(profile_id\) DO UPDATE SET/);
-  assert.match(lock,/WHERE p.id=\(\{CANONICAL_SQL\}\)/);
+  assert.match(sqlLock,/INSERT INTO directory_profile_review_state/);
+  assert.match(sqlLock,/m\.revoked_at IS NULL/);
+  assert.match(sqlLock,/ON CONFLICT\(profile_id\) DO UPDATE SET/);
+  assert.match(sqlLock,/WHERE p.id=\(\{CANONICAL_SQL\}\)/);
 });
 
 test("Admin identifies actual owner and cannot uncheck reviewed while partner access exists", () => {
