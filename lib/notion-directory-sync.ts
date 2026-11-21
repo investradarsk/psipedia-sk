@@ -1,15 +1,10 @@
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
 import { syncDirectoryReviewedWithNotion } from "./directory-notion-reviewed-sync";
-import {
-  DIRECTORY_REVIEW_UNLOCK_PENDING_KEY,
-  directoryProfileNotionSyncLocked,
-  isDirectoryReviewUnlockPendingSource,
-} from "./directory-reviewed-sync-lock";
+import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
 import { approvedDirectoryFactSqlSlot, directoryNotionFacetRequiresSqlMirror, planDirectory0170FactSqlMirror, planDirectory0170FilterSqlMirror } from "./directory-0170-editorial-sql-mirror";
 import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
 import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror";
 import { planDirectoryExtraSqlTextMirror } from "./directory-extra-sql-mirror";
-import { directory0173ReviewCasGuardStatement, directory0173ReviewSqlMirrorStatement } from "./directory-0173-review-state-sql";
 import { directoryNotionFullMirrorMismatches } from "./directory-notion-full-mirror";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
@@ -737,20 +732,12 @@ async function writeProfileToNotion(input: {
   profile: ManagedDirectoryProfile;
   pageId?: string | null;
   singleAttemptCreate?: boolean;
-  /** Only the owner-initiated unlock finalizer may rebaseline while locked. */
-  ownerUnlock?: boolean;
 }) {
   // Ordinary writers are never allowed through a reviewed or pending lock.
   // An owner unlock may write only after its dedicated D1 pending marker exists.
   async function assertWritePermitted() {
-    const locked = await directoryProfileNotionSyncLocked(input.database, input.profile.id);
-    if (!locked) return;
-    if (!input.ownerUnlock) throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
-    const state = await input.database.prepare(
-      "SELECT source_data_json FROM directory_profiles WHERE id=? LIMIT 1",
-    ).bind(input.profile.id).first<{ source_data_json: string }>();
-    if (!state || !isDirectoryReviewUnlockPendingSource(state.source_data_json)) {
-      throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_UNLOCK_NOT_PENDING");
+    if (await directoryProfileNotionSyncLocked(input.database, input.profile.id)) {
+      throw new NotionDirectoryUnsafeTargetError("DIRECTORY_REVIEW_LOCKED");
     }
   }
   await assertWritePermitted();
@@ -822,75 +809,6 @@ async function writeProfileToNotion(input: {
  * D1 snapshot has been acknowledged by its mapped Notion page. Never use
  * old Notion values or its last-edited timestamp to reopen this profile.
  */
-async function completeDirectoryReviewedOwnerUnlock(input: {
-  database: D1Database;
-  bindings: NotionDirectorySyncBindings;
-  dataSourceId: string;
-  profileId: number;
-}): Promise<boolean> {
-  if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED)) {
-    return false;
-  }
-  const state = await input.database.prepare(
-    "SELECT source_data_json, updated_at, status FROM directory_profiles WHERE id=? LIMIT 1",
-  ).bind(input.profileId).first<{
-    source_data_json: string;
-    updated_at: string;
-    status: string;
-  }>();
-  if (!state || !isDirectoryReviewUnlockPendingSource(state.source_data_json)) return false;
-  if (state.status === "archived") throw new Error("DIRECTORY_REVIEW_UNLOCK_ARCHIVED");
-  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  const mapping = await loadMappingByProfile(input.database, input.profileId);
-  if (!profile || profile.reviewed || !mapping) {
-    throw new Error("DIRECTORY_REVIEW_UNLOCK_MAPPING_MISSING");
-  }
-
-  // Mirror the control flag first. Editorial sync must never reopen if Notion
-  // still says reviewed or its independent checkbox write could not be verified.
-  const remote = await fetchNotionPage(input.bindings, mapping.notion_page_id);
-  if (remote.id !== mapping.notion_page_id ||
-      !notionDirectoryPageBelongsToSource(remote, input.dataSourceId) ||
-      propertyText(remote, "Psipedia ID") !== String(input.profileId) ||
-      !Object.hasOwn(remote.properties ?? {}, "Odkontrolované") ||
-      propertyCheckbox(remote, "Odkontrolované")) {
-    throw new Error("DIRECTORY_REVIEW_UNLOCK_CONTROL_NOT_CONFIRMED");
-  }
-
-  // The only owner-authorized exception to the normal editorial freeze.
-  await writeProfileToNotion({
-    database: input.database, bindings: input.bindings,
-    dataSourceId: input.dataSourceId, profile,
-    pageId: mapping.notion_page_id, ownerUnlock: true,
-  });
-  let source: Record<string, unknown>;
-  try { source = JSON.parse(state.source_data_json) as Record<string, unknown>; }
-  catch { throw new Error("DIRECTORY_REVIEW_UNLOCK_SOURCE_INVALID"); }
-  delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY];
-  // The finalizer is an exceptional owner-authorized operation. Its legacy
-  // JSON lock stays authoritative until this exact CAS succeeds; then 0173
-  // must reflect that very same committed snapshot, not an old pending flag.
-  const projectedAt = new Date().toISOString();
-  const nextSourceJson = JSON.stringify(source);
-  const canonical = input.database.prepare(
-    "UPDATE directory_profiles SET source_data_json=? " +
-    "WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id",
-  ).bind(nextSourceJson, input.profileId, state.source_data_json, state.updated_at);
-  const mirror = directory0173ReviewSqlMirrorStatement({
-    database: input.database, profileId: input.profileId,
-    sourceDataJson: nextSourceJson, profileUpdatedAt: state.updated_at,
-    projectedAt, projectedBy: SYSTEM_ACTOR,
-  });
-  // A stale D1 revision fails closed with a SQL error: neither the source
-  // lock nor its SQL projection is partially committed.
-  const responses = await input.database.batch([
-    canonical, directory0173ReviewCasGuardStatement(input.database), mirror,
-  ]);
-  if (!(responses[0]?.results?.[0] as { id?: number } | undefined)?.id)
-    throw new Error("DIRECTORY_REVIEW_UNLOCK_CONCURRENT_CHANGE");
-  return true;
-}
-
 function fullProfileInput(
   desired: EditableDirectorySnapshot,
   current: ManagedDirectoryProfile,
@@ -3210,25 +3128,11 @@ export async function runNotionDirectorySyncSweep(input: {
         database: input.database, bindings: input.bindings,
         profileId: input.targetProfileId,
       });
-      if (reviewed === "pulled") summary.pulledFromNotion++;
-      if (reviewed === "pushed") summary.pushedToNotion++;
+            if (reviewed === "pushed") summary.pushedToNotion++;
     } catch (error) {
       // The new checkbox must never prevent unrelated editorial sync.
       summary.failed++;
       console.warn("DIRECTORY_REVIEW_NOTION_TARGET_SYNC_FAILED", input.targetProfileId,
-        error instanceof Error ? error.message : String(error));
-    }
-    try {
-      if (await completeDirectoryReviewedOwnerUnlock({
-        database: input.database, bindings: input.bindings,
-        dataSourceId, profileId: input.targetProfileId,
-      })) {
-        summary.pushedToNotion++;
-        return summary;
-      }
-    } catch (error) {
-      summary.failed++;
-      console.warn("DIRECTORY_REVIEW_OWNER_UNLOCK_PENDING", input.targetProfileId,
         error instanceof Error ? error.message : String(error));
     }
     if (await directoryProfileNotionSyncLocked(input.database, input.targetProfileId)) {
@@ -3348,19 +3252,11 @@ export async function runNotionDirectorySyncSweep(input: {
               database: input.database, bindings: input.bindings,
               profileId: mapped.directory_profile_id, page: candidate,
             });
-            if (reviewed === "pulled") summary.pulledFromNotion++;
-            if (reviewed === "pushed") summary.pushedToNotion++;
+                        if (reviewed === "pushed") summary.pushedToNotion++;
           } catch (error) {
             summary.failed++;
             console.warn("DIRECTORY_REVIEW_NOTION_EVENT_SYNC_FAILED", mapped.directory_profile_id,
               error instanceof Error ? error.message : String(error));
-          }
-          if (await completeDirectoryReviewedOwnerUnlock({
-            database: input.database, bindings: input.bindings,
-            dataSourceId, profileId: mapped.directory_profile_id,
-          })) {
-            summary.pushedToNotion++;
-            continue;
           }
           if (await directoryProfileNotionSyncLocked(input.database,mapped.directory_profile_id)) {
             summary.unchanged++;
@@ -3543,21 +3439,13 @@ export async function runNotionDirectorySyncSweep(input: {
             database: input.database, bindings: input.bindings,
             profileId: mapping.directory_profile_id, page,
           });
-          if (reviewed === "pulled") summary.pulledFromNotion++;
-          if (reviewed === "pushed") summary.pushedToNotion++;
+                    if (reviewed === "pushed") summary.pushedToNotion++;
         } catch (error) {
           // Do not block other per-field events when review needs retry.
           summary.failed++;
           console.warn("DIRECTORY_REVIEW_NOTION_PAGE_SYNC_FAILED", mapping.directory_profile_id,
             error instanceof Error ? error.message : String(error));
         }
-      }
-      if (await completeDirectoryReviewedOwnerUnlock({
-        database: input.database, bindings: input.bindings,
-        dataSourceId, profileId: mapping.directory_profile_id,
-      })) {
-        summary.pushedToNotion++;
-        continue;
       }
       if (await directoryProfileNotionSyncLocked(input.database,mapping.directory_profile_id)) {
         summary.unchanged++;
@@ -3741,19 +3629,6 @@ export async function runNotionDirectorySyncSweep(input: {
     if (attemptedMappedProfileIds.has(profileId)) continue;
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping || await notionPageMustSkipInboundSync(input.database,mapping.notion_page_id)) continue;
-    try {
-      if (await completeDirectoryReviewedOwnerUnlock({
-        database: input.database, bindings: input.bindings,
-        dataSourceId, profileId,
-      })) {
-        summary.pushedToNotion++;
-        continue;
-      }
-    } catch (error) {
-      summary.failed++;
-      console.warn("DIRECTORY_REVIEW_UNLOCK_SWEEP_PENDING", profileId,
-        error instanceof Error ? error.message : String(error));
-    }
     if (await directoryProfileNotionSyncLocked(input.database,profileId)) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
     if (changedProfile?.reviewed || (changedProfile && isDirectoryFieldEventCategory(changedProfile.category))) continue;
