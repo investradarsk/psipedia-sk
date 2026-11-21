@@ -95,21 +95,11 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const projected = await getManagedDirectoryProfileById(id);
     if (!projected) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-    // ManagedDirectoryProfile.importData intentionally projects only primitives.
-    // Passing that projection to the normal store save would silently discard
-    // nested legacy metadata. Supply the full stored JSON as its merge baseline.
+    // SQL is the only public-field baseline. A malformed historical JSON
+    // payload must not veto an otherwise valid Admin save.
     const db = (env as unknown as { DB?: D1Database }).DB;
     if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
-    const raw = await db.prepare("SELECT source_data_json FROM directory_profiles WHERE id=?1 LIMIT 1")
-      .bind(id).first<{ source_data_json: string }>();
-    if (!raw) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-    let completeSource: unknown;
-    try { completeSource = JSON.parse(raw.source_data_json); }
-    catch { return Response.json({ error: "Pôvodné metadáta profilu nie sú platné; ukladanie je zablokované." }, { status: 409 }); }
-    if (!completeSource || typeof completeSource !== "object" || Array.isArray(completeSource)) {
-      return Response.json({ error: "Pôvodné metadáta profilu nie sú platné; ukladanie je zablokované." }, { status: 409 });
-    }
-    const before = { ...projected, importData: completeSource as typeof projected.importData };
+    const before = projected;
     const rawBody = await request.json() as ManagedDirectoryProfileInput & {
       numberlessLocalityConfirmed?: unknown;
       breederEditedPaths?: unknown;
@@ -261,21 +251,17 @@ export async function PUT(request: Request, { params }: Props) {
       submittedBody.category === before.category && before.status !== "archived";
     // An explicit empty contact field is a deletion, not an omitted field in
     // an old editor. Only whitelisted, expressly edited contacts qualify.
-    const contactAliases = {
-      websiteUrl: ["Web", "Webstránka"],
-      publicPhone: ["Telefón", "Telefon", "phone"],
-      publicEmail: ["E-mail", "Email", "email"],
-      facebookUrl: ["Facebook"],
-      instagramUrl: ["Instagram"],
-    } as const;
-    type ClearableContact = keyof typeof contactAliases;
+    const clearableContactKeys = new Set([
+      "websiteUrl", "publicPhone", "publicEmail", "facebookUrl", "instagramUrl",
+    ] as const);
+    type ClearableContact = "websiteUrl" | "publicPhone" | "publicEmail" | "facebookUrl" | "instagramUrl";
     // The editor's dirty diff alone is never permission to clear D1. A
     // deletion additionally requires a real input-interaction receipt.
     const explicitlyClearedContacts: ClearableContact[] =
       !fullProfileSave && Array.isArray(rawExplicitlyClearedContacts) && editedPaths
         ? [...new Set(rawExplicitlyClearedContacts.filter(
             (field): field is ClearableContact => {
-              if (typeof field !== "string" || !Object.hasOwn(contactAliases, field) ||
+              if (typeof field !== "string" || !clearableContactKeys.has(field as ClearableContact) ||
                   !editedPaths.includes(field as BreederEditorialField)) return false;
               const interacted = Array.isArray(rawContactEditedFields) &&
                 rawContactEditedFields.includes(field);
@@ -440,51 +426,6 @@ export async function PUT(request: Request, { params }: Props) {
       error: "Profil sa medzitým zmenil v databáze. Obnov ho a zopakuj svoju úpravu.",
     }, { status: 409, headers: { "cache-control": "no-store" } });
 
-    // Verify clear requests against BOTH representations of public contacts:
-    // website_url and legacy aliases in source_data_json. A stale alias must
-    // never resurrect an explicitly deleted website on a public profile.
-    const contactClearWarnings: string[] = [];
-    if (explicitlyClearedContacts.length) {
-      const aliasNames = [...new Set(explicitlyClearedContacts.flatMap(
-        field => [...contactAliases[field]],
-      ))];
-      const paths = aliasNames.map(name => '$."' + name + '"');
-      const setParts = [
-        ...(explicitlyClearedContacts.includes("websiteUrl") ? ["website_url = NULL"] : []),
-        "source_data_json = json_remove(COALESCE(source_data_json, '{}'), " +
-          paths.map(() => "?").join(", ") + ")",
-        "updated_at = ?", "updated_by = ?",
-      ];
-      try {
-        const saved = await db.prepare(
-          "UPDATE directory_profiles SET " + setParts.join(", ") +
-          " WHERE id = ? AND category = ? AND status <> 'archived' " +
-          "AND updated_at = ? AND json_valid(COALESCE(source_data_json, '{}')) RETURNING id",
-        ).bind(...paths, new Date().toISOString(), user.email,
-          id, profile.category, profile.updatedAt).first<{ id: number }>();
-        if (!saved) throw new Error("EXPLICIT_CONTACT_CLEAR_CONFLICT");
-        const refreshed = await getManagedDirectoryProfileById(id, db);
-        if (!refreshed || explicitlyClearedContacts.some(field =>
-          (field === "websiteUrl" && Boolean(refreshed.websiteUrl)) ||
-          contactAliases[field].some(name => Boolean(refreshed.importData?.[name]))
-        )) throw new Error("EXPLICIT_CONTACT_CLEAR_NOT_PERSISTED");
-        profile = refreshed;
-      } catch (error) {
-        console.error("DIRECTORY_EXPLICIT_CONTACT_CLEAR_FAILED", id,
-          error instanceof Error ? error.message : "UNKNOWN");
-        contactClearWarnings.push("Vymazanie nepovinného kontaktu sa nepotvrdilo. Ostatné zmeny zostali uložené.");
-      }
-    }
-    // Do not let a successful Facebook save silently remove an unrelated
-    // contact, and never export a corrupt D1 snapshot to Notion.
-    const expectedContactValues = {
-      websiteUrl: typeof payload.websiteUrl === "string" ? payload.websiteUrl : "",
-      publicPhone: payload.publicPhone ?? "",
-      publicEmail: payload.publicEmail ?? "",
-      facebookUrl: payload.facebookUrl ?? "",
-      instagramUrl: payload.instagramUrl ?? "",
-    };
-    const postD1Contacts = readDirectoryPublicContacts(profile.importData, profile.websiteUrl ?? "");
     const contactLossBeforeNotion = directoryContactValueMismatches(expectedContactValues, {
       websiteUrl: postD1Contacts.website, publicPhone: postD1Contacts.phone,
       publicEmail: postD1Contacts.email, facebookUrl: postD1Contacts.facebook,
@@ -536,7 +477,7 @@ export async function PUT(request: Request, { params }: Props) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
     }
     // Pilot metadata stays separate from profile normalization and V3 relations.
-    const metadataWarnings: string[] = [...optionalWarnings, ...contactClearWarnings];
+    const metadataWarnings: string[] = [...optionalWarnings];
     const changedPilotMetadata: Partial<Record<PilotDirectoryMetadataField, string>> = {};
     if ((isDirectoryEventPilotCategory(profile.category) || serviceFilterCategories.includes(profile.category as ServiceFilterCategory)) && rawPilotMetadataFields &&
         typeof rawPilotMetadataFields === "object" && !Array.isArray(rawPilotMetadataFields)) {
