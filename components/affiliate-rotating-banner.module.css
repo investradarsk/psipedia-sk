@@ -1,6 +1,6 @@
 .banner {
   box-sizing: border-box;
-  width: min(100% - 32px, 750px);
+  width: min(calc(100% - 32px), 750px);
   max-width: 100%;
   margin: 22px auto 26px;
   color: var(--forest-dark, #18392e);
