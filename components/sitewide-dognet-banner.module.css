@@ -1,0 +1,21 @@
+.placement {
+  box-sizing: border-box;
+  padding: 24px 16px 28px;
+  border-top: 1px solid var(--line, #e6e9e2);
+  background: var(--cream, #f9f8f4);
+}
+
+.placement :global([data-dognet-test-banner="horizontal"]) {
+  margin: 0 auto;
+}
+
+/* The shared root layout also wraps 404 output: never advertise on a not-found page. */
+:global(body:has([data-psipedia-not-found])) .placement {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .placement {
+    padding: 16px 10px 20px;
+  }
+}
