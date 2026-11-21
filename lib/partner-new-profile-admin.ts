@@ -1,4 +1,4 @@
-import { partnerDirectoryReviewLockStatement } from "./partner-directory-review";
+import { partnerDirectoryReviewLockStatement } from "./partner-directory-review-sql";
 import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
 import { env } from "cloudflare:workers";
 import { slugifyArticleTitle } from "@/lib/article-store";
