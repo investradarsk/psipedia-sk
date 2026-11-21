@@ -69,17 +69,55 @@ test("ads have fixed mobile/desktop geometry, label and sponsored link", () => {
   assert.match(source("components/article-detail.tsx"), /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
 });
 
-test("only existing Dognet merchant images can appear, without guessed creatives", () => {
+test("only original Dognet images appear in compatible placements", () => {
   const horizontal = getAvailableAffiliateOriginalBanners("horizontal");
+  const mobile = getAvailableAffiliateOriginalBanners("mobile");
   const sidebar = getAvailableAffiliateOriginalBanners("sidebar");
+
   assert.deepEqual(horizontal.map((item) => item.id), ["zoohit"]);
-  assert.deepEqual(sidebar.map((item) => item.id), ["zoohit"]);
-  assert.equal(AFFILIATE_BANNER_ORIGINAL_CREATIVES["abc-zoo"], undefined);
+  assert.deepEqual(mobile.map((item) => item.id), ["abc-zoo"]);
+  assert.deepEqual(sidebar.map((item) => item.id), ["zoohit", "abc-zoo", "abc-zoo"]);
   assert.equal(AFFILIATE_BANNER_ORIGINAL_CREATIVES.fera, undefined);
-  for (const item of [...horizontal, ...sidebar]) {
-    assert.match(item.creative.src, /^https:\/\/visibility\.postaffiliatepro\.com\/accounts\/default1\/banners\//);
+
+  assert.deepEqual(
+    [...mobile, ...sidebar.filter((item) => item.id === "abc-zoo")].map((item) => item.creative),
+    [
+      {
+        src: "https://api.app.dognet.com/files/t/a4f/a4f633806f17fbe0b73988aa2f02eadd1eef84f1.png",
+        width: 1080, height: 1080,
+      },
+      {
+        src: "https://api.app.dognet.com/files/t/00f/00fd437025798c026a889b20e1f19ec0f6bf45f8.png",
+        width: 1080, height: 1350,
+      },
+      {
+        src: "https://api.app.dognet.com/files/t/027/027698d3980d5d99f5d9dab9e67530ead4c2cbcd.png",
+        width: 1080, height: 1920,
+      },
+    ],
+  );
+
+  for (const item of [...horizontal, ...mobile, ...sidebar]) {
+    const url = new URL(item.creative.src);
+    assert.ok(
+      url.hostname === "api.app.dognet.com" || url.hostname === "visibility.postaffiliatepro.com",
+      "original image must originate from an existing Dognet creative host",
+    );
     assert.ok(item.creative.width > 0);
     assert.ok(item.creative.height > 0);
   }
   assert.deepEqual(nextAffiliateRotation(0, 1), { selected: 0, next: 0 });
+  assert.deepEqual(nextAffiliateRotation(0, 3), { selected: 0, next: 1 });
+  assert.deepEqual(nextAffiliateRotation(2, 3), { selected: 2, next: 0 });
+});
+
+test("mobile uses square originals and sidebar uses tall originals", () => {
+  const component = source("components/affiliate-rotating-banner.tsx");
+  const css = source("components/affiliate-rotating-banner.module.css");
+  assert.match(component, /matchMedia/);
+  assert.match(component, /"mobile"/);
+  assert.match(component, /getAvailableAffiliateOriginalBanners\(format\)/);
+  assert.match(css, /min-height: 300px/);
+  assert.match(css, /object-fit: contain/);
+  assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
 });
