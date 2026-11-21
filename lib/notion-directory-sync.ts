@@ -1323,15 +1323,6 @@ const breederContactJsonNames: Partial<Record<BreederEditorialField, string>> = 
   publicPhone: "Telefón", publicEmail: "E-mail",
   websiteUrl: "Web", facebookUrl: "Facebook", instagramUrl: "Instagram",
 };
-// Historical import spellings are read for compatibility, but an explicit
-// field edit must retire every competing spelling of THAT contact only.
-const breederContactAliases: Partial<Record<BreederEditorialField, readonly string[]>> = {
-  publicPhone: ["Telefón", "Telefon", "phone"],
-  publicEmail: ["E-mail", "Email", "email"],
-  websiteUrl: ["Web", "Webstránka"],
-  facebookUrl: ["Facebook"],
-  instagramUrl: ["Instagram"],
-};
 const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
   "seo.title": "title", "seo.description": "description",
   "seo.focusKeyword": "focusKeyword", "seo.canonicalUrl": "canonicalUrl",
