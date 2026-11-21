@@ -237,22 +237,13 @@ test("stale owner-unlock CAS rolls back SQL and keeps pending lock, never report
   }finally{f.sqlite.close();}
 });
 
-test("Notion legacy unlock finalizer mirrors SQL only after verified remote owner writeback",()=>{
+test("Notion review unlock no longer writes historical JSON",()=>{
   const notion=load("lib/notion-directory-sync.ts");
-  const start=notion.indexOf("async function completeDirectoryReviewedOwnerUnlock(");
-  const end=notion.indexOf("function fullProfileInput(",start);
-  const finalizer=notion.slice(start,end);
-  assert(start>0 && end>start);
-  assert.match(finalizer,/await writeProfileToNotion\(\{/);
-  assert.match(finalizer,/ownerUnlock: true/);
-  assert.match(finalizer,/directory0173ReviewSqlMirrorStatement\(\{/);
-  assert.match(finalizer,/directory0173ReviewCasGuardStatement\(input\.database\)/);
-  assert.match(finalizer,/input\.database\.batch\(\[/);
-  assert.match(finalizer,/AND source_data_json=\? AND updated_at=\? RETURNING id/);
-  assert.ok(finalizer.indexOf("await writeProfileToNotion(") <
-    finalizer.indexOf("delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY]"));
-  assert.ok(finalizer.indexOf("delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY]") <
-    finalizer.indexOf("input.database.batch("));
+  const mirror=load("lib/directory-notion-reviewed-sync.ts");
+  assert.doesNotMatch(notion,/completeDirectoryReviewedOwnerUnlock/);
+  assert.doesNotMatch(notion,/ownerUnlock/);
+  assert.doesNotMatch(mirror,/SET source_data_json/);
+  assert.match(mirror,/LEFT JOIN directory_profile_review_state/);
 });
 
 test("owner review writes SQL atomically and every Notion lock reads SQL",()=>{
