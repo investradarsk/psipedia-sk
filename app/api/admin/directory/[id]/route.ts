@@ -5,7 +5,7 @@ import { readDirectorySqlShadowParity } from "@/lib/directory-sql-cutover-parity
 import { readDirectory0170EditorialFields } from "@/lib/directory-0170-editorial-read";
 import { planDirectory0170FilterSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
 import { validateDirectoryFullProfileSave } from "@/lib/directory-full-profile-save";
-import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, unconfirmedDirectoryCategoryFilters, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import { DIRECTORY_FILTER_CONTRACT_VERSION, getDirectoryFilterDefinition, normalizeDirectoryFilterValue, serviceFilterCategories, unconfirmedDirectoryCategoryFilters, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
@@ -997,29 +997,43 @@ export async function PATCH(request: Request, { params }: Props) {
       }
       const db = (env as unknown as { DB?: D1Database }).DB;
       if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
-      const row = await db.prepare("SELECT category,status,source_data_json,updated_at FROM directory_profiles WHERE id=?1 LIMIT 1")
-        .bind(id).first<{ category: string; status: string; source_data_json: string; updated_at: string }>();
+      const row = await db.prepare("SELECT category,status,updated_at FROM directory_profiles WHERE id=?1 LIMIT 1")
+        .bind(id).first<{ category: string; status: string; updated_at: string }>();
       if (!row) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
       if (row.status === "archived") return Response.json({ error: "Archivovaný profil nie je možné upravovať." }, { status: 409 });
       if (row.category !== requested.category) {
         return Response.json({ error: "Kategória profilu sa zmenila. Obnovte stránku." }, { status: 409 });
       }
-      // This helper validates every registry ID and value, rejects out-of-category keys,
-      // and retains arbitrary legacy metadata. Never write the client's full JSON snapshot.
-      const next = mergeDirectoryFilterValues(row.source_data_json, row.category as ServiceFilterCategory, requested.updates as Record<string, unknown>);
-      if (Object.keys(requested.updates).length) {
+      // Validate only the explicitly changed filter IDs. No old JSON is read,
+      // compared, or rewritten: SQL rows own the category filter choices.
+      const requestedValues = requested.updates as Record<string, unknown>;
+      const normalizedValues: Record<string, string | null> = {};
+      for (const [filterId, value] of Object.entries(requestedValues)) {
+        const definition = getDirectoryFilterDefinition(filterId);
+        if (!definition || definition.category !== row.category) {
+          return Response.json({ error: "Neplatný filter kategórie: " + filterId }, { status: 400 });
+        }
+        if (value === null) {
+          normalizedValues[filterId] = null;
+        } else {
+          const normalized = normalizeDirectoryFilterValue(definition, value);
+          if (normalized.status !== "known")
+            return Response.json({ error: "Neplatná hodnota filtra: " + filterId }, { status: 400 });
+          normalizedValues[filterId] = normalized.value;
+        }
+      }
+      if (Object.keys(normalizedValues).length) {
         const now = new Date().toISOString();
         const canonical = db.prepare(`UPDATE directory_profiles
-          SET source_data_json=?1,updated_at=?2,updated_by=?3
-          WHERE id=?4 AND category=?5 AND source_data_json=?6 AND updated_at=?7 RETURNING id`)
-          .bind(next, now, user.email, id, row.category, row.source_data_json, row.updated_at);
-        // Exactly the explicitly selected filter IDs are mirrored to SQL.
-        // Never backfill untouched historical values and never change V3 choices.
+          SET updated_at=?1,updated_by=?2
+          WHERE id=?3 AND category=?4 AND updated_at=?5 AND status<>'archived' RETURNING id`)
+          .bind(now, user.email, id, row.category, row.updated_at);
         const mirror = planDirectory0170FilterSqlMirror({
           profileId: id, category: row.category as ServiceFilterCategory,
-          values: requested.updates as Record<string, string>,
+          values: normalizedValues,
           updatedAt: now, actor: user.email,
         });
+        // The revision CAS and only the changed filter rows commit together.
         const results = await db.batch([
           canonical, ...mirror.map(item=>db.prepare(item.sql).bind(...item.bindings)),
         ]);
@@ -1051,29 +1065,24 @@ export async function PATCH(request: Request, { params }: Props) {
           await recordDirectoryNotionAlert(db, id, "resolved", "", "ADMIN_TO_NOTION");
         }
       }
-      // The PATCH is only successful when the exact selected values survive
-      // D1 storage and any synchronous side effects. In particular, a selected
-      // "Neznáme" must not be mistaken for an absent/missing key.
+      // Confirm only the just-saved SQL values; an explicit "unknown" remains
+      // a real choice, while null means that single SQL row was deleted.
       const committed = await db.prepare(
-        "SELECT category,source_data_json FROM directory_profiles WHERE id=?1 LIMIT 1",
-      ).bind(id).first<{ category: string; source_data_json: string }>();
-      let committedData: Record<string, unknown> | null = null;
-      if (committed) {
-        try {
-          const parsed: unknown = JSON.parse(committed.source_data_json);
-          if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
-            committedData = parsed as Record<string, unknown>;
-        } catch { /* A malformed D1 source must never be reported as success. */ }
-      }
-      const unconfirmed = unconfirmedDirectoryCategoryFilters(
-        requested.category as ServiceFilterCategory, committedData,
-        requested.updates as Record<string, string>,
+        "SELECT category,status FROM directory_profiles WHERE id=?1 LIMIT 1",
+      ).bind(id).first<{ category: string; status: string }>();
+      const filterRows = await db.prepare(
+        "SELECT filter_id,value_text FROM directory_profile_filter_values WHERE profile_id=? AND category=?",
+      ).bind(id, requested.category).all<{ filter_id: string; value_text: string }>();
+      const saved = new Map(filterRows.results.map(row => [row.filter_id,row.value_text]));
+      const unconfirmed = Object.entries(normalizedValues).flatMap(([filterId, expected]) =>
+        (saved.get(filterId) ?? null) === expected ? [] : [filterId],
       );
-      if (!committed || committed.category !== requested.category || unconfirmed.length) {
+      if (!committed || committed.status === "archived" ||
+          committed.category !== requested.category || unconfirmed.length) {
         console.warn("DIRECTORY_CATEGORY_FILTERS_D1_NOT_CONFIRMED", id, unconfirmed);
         return Response.json({
           error: "Kategóriové filtre sa v D1 nepotvrdili (" +
-            (unconfirmed.join(", ") || "kategória") + "). Výber zostáva neuložený; obnovte profil a skúste znova.",
+            (unconfirmed.join(", ") || "kategória") + "). Obnovte profil a skúste znova.",
         }, { status: 409, headers: { "cache-control": "no-store" } });
       }
       const confirmedProfile = await getManagedDirectoryProfileById(id, db);
