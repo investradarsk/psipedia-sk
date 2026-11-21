@@ -89,7 +89,7 @@ export function canShowGlobalAffiliateBanner(pathname: string | null | undefined
   return true;
 }
 
-export function nextAffiliateRotation(current: number | null | undefined, availableCount = AFFILIATE_BANNER_PARTNERS.length) {
+export function nextAffiliateRotation(current: number | null | undefined, availableCount: number = AFFILIATE_BANNER_PARTNERS.length) {
   const length = Number.isSafeInteger(availableCount) && availableCount > 0
     ? availableCount
     : AFFILIATE_BANNER_PARTNERS.length;
