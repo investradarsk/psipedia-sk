@@ -40,14 +40,6 @@ function jsonObject(value: unknown) {
   }
 }
 
-function importData(value: unknown) {
-  const parsed = jsonObject(value);
-  if (!parsed) return null;
-  return Object.fromEntries(Object.entries(parsed).filter(([, item]) => (
-    item === null || typeof item === "string" || typeof item === "number"
-  ))) as Record<string, string | number | null>;
-}
-
 function list(value: unknown) {
   if (typeof value !== "string" || !value.trim()) return [] as string[];
   try {
@@ -99,11 +91,11 @@ async function rows(database: D1Database, sql: string, targetId?: number) {
 export async function loadNotionBulkServices(database: D1Database) {
   const sourceRows = await rows(database, `SELECT id,slug,name,category,status,excerpt,description,services_json,qualifications_json,
     city,district,region,address,postal_code,street,house_number,address_format,service_address_confirmation,price_note,
-    website_url,public_phone,public_email,facebook_url,instagram_url,internal_email,image_url,image_key,source_data_json,verified,featured,created_at,updated_at,published_at,archived_at,seo_json
+    website_url,public_phone,public_email,facebook_url,instagram_url,internal_email,image_url,image_key,verified,featured,created_at,updated_at,published_at,archived_at,seo_json
     FROM directory_profiles ORDER BY id ASC`);
 
   return sourceRows.map((row) => {
-    const contacts = readDirectorySqlBackedContacts(importData(row.source_data_json), row);
+    const contacts = readDirectorySqlBackedContacts(null, row);
     const seo = jsonObject(row.seo_json) ?? {};
     const url = `${SITE_URL}/adresar/${s(row.category)}/${s(row.slug)}`;
     return source(row.id, row.name, url, {
