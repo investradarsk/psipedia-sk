@@ -27,6 +27,7 @@ export function AffiliateRotatingBanner({
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [selection, setSelection] = useState<{ key: string; index: number } | null>(null);
   const [failedImage, setFailedImage] = useState<string | null>(null);
+  const [loadedImage, setLoadedImage] = useState<string | null>(null);
   const lastSelectionKey = useRef<string | null>(null);
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export function AffiliateRotatingBanner({
   const selectionKey = `${pathname ?? ""}:${format ?? placement}`;
   const selected = selection?.key === selectionKey ? banners[selection.index] : null;
   const original = selected?.creative;
-  const imageAvailable = original && failedImage !== original.src;
+  const imageLoaded = Boolean(original && loadedImage === original.src);
 
   useEffect(() => {
     if (!pathname || !format || !banners.length || lastSelectionKey.current === selectionKey) return;
@@ -63,18 +64,19 @@ export function AffiliateRotatingBanner({
     setFailedImage(null);
   }, [pathname, format, selectionKey, banners.length]);
 
-  if (format && !banners.length) return null;
+  // Never display a blank ad frame or an affiliate label without a real image.
+  // Image decoding and CSP/network errors must not leave empty promotional UI.
+  if (!selected || !original || failedImage === original.src) return null;
 
   return (
     <aside
       aria-label="Reklama"
-      className={`${styles.banner} ${placement === "sidebar" ? styles.sidebar : styles.horizontal}`}
+      className={`${styles.banner} ${placement === "sidebar" ? styles.sidebar : styles.horizontal} ${imageLoaded ? "" : styles.pending}`}
       data-affiliate-rotating-banner={placement}
-      data-affiliate-shop={imageAvailable ? selected?.id : undefined}
+      data-affiliate-shop={imageLoaded ? selected.id : undefined}
     >
       <span className={styles.label}>Reklama · affiliate</span>
-      {selected && original && imageAvailable ? (
-        <a
+      <a
           className={styles.creative}
           href={selected.href}
           rel="nofollow sponsored noopener noreferrer"
@@ -89,12 +91,10 @@ export function AffiliateRotatingBanner({
             height={original.height}
             loading="lazy"
             decoding="async"
+            onLoad={() => setLoadedImage(original.src)}
             onError={() => setFailedImage(original.src)}
           />
         </a>
-      ) : (
-        <div className={styles.placeholder} aria-hidden="true" />
-      )}
     </aside>
   );
 }
