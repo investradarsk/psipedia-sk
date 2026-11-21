@@ -136,6 +136,10 @@ function database() {
   // thumbnail/detail configuration; omitting 0118 makes the fixture invalid.
   applyMigration(sqlite, "../drizzle/0118_event_image_display.sql");
   applyMigration(sqlite, "../drizzle/0122_entity_image_display_config.sql");
+  // Homepage Directory now reads per-profile image presentation from the
+  // isolated SQL sidecar, not from thumbnail_display_json. Without the schema
+  // its content promise rejects and the homepage breed section never renders.
+  applyMigration(sqlite, "../db/isolated/directory_admin_sql_completion.sql");
   return { sqlite, d1: createD1Adapter(sqlite) };
 }
 
