@@ -284,7 +284,7 @@ test("public source mounts wire map/sql facets, while admin, Notion and editor p
   assert.match(store, /baseClauses\.push\(\.\.\.publicFacets\.clauses\)/);
   assert.match(
     map,
-    /directoryPublicFacetSql\(\s*query\.subcategory \?\? "",\s*query\.facets,\s*"d\.source_data_json",?\s*\)/,
+    /directoryPublicFacetSql\(\s*query\.subcategory \?\? "",\s*query\.facets,\s*"d\.id",?\s*\)/,
   );
   assert.match(page, /facets: filters\.facets/);
   assert.match(category, /parseDirectoryFilters\(rawSearchParams, category\.slug\)/);
@@ -324,38 +324,29 @@ test("approved desktop A and mobile B render a single canonical set of category 
   assert.doesNotMatch(component, /GoogleMap|GoogleMaps|fetch\(|\.prepare\(/);
 });
 
-test("facet predicates ignore malformed historical JSON and use SQL only", () => {
+test("facet predicates use SQL relations without any legacy source JSON column", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(
-      "CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, source_data_json TEXT);" +
+      "CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT);" +
       "CREATE TABLE directory_profile_filter_values (profile_id INTEGER,category TEXT,filter_id TEXT,value_text TEXT)",
     );
-    const insert = db.prepare("INSERT INTO directory_profiles (category,source_data_json) VALUES (?, ?)");
-    const key = serviceFiltersForCategory("veterinari").find((d) => d.id === "veterinari.facility_type")
-      .d1.key;
-    insert.run("veterinari", "{broken");
-    insert.run("veterinari", JSON.stringify({ [key]: "clinic" }));
-    insert.run("veterinari", "[]");
-    insert.run("veterinari", "null");
-    insert.run("veterinari", JSON.stringify({ [key]: "unknown" }));
+    const insert = db.prepare("INSERT INTO directory_profiles (category) VALUES (?)");
+    for (let i = 0; i < 5; i++) insert.run("veterinari");
     db.prepare("INSERT INTO directory_profile_filter_values VALUES(?,?,?,?)")
       .run(2,"veterinari","veterinari.facility_type","clinic");
-    for (const column of ["source_data_json", "d.source_data_json"]) {
+    for (const idExpr of ["directory_profiles.id", "d.id"]) {
       const where = directoryPublicFacetSql(
         "veterinari",
         { "veterinari.facility_type": "clinic" },
-        column,
+        idExpr,
       );
-      const from = column === "d.source_data_json" ? "directory_profiles d" : "directory_profiles";
+      const from = idExpr === "d.id" ? "directory_profiles d" : "directory_profiles";
       const sql =
-        "SELECT rowid AS id FROM " + from + " WHERE category = 'veterinari' AND " +
+        "SELECT id FROM " + from + " WHERE category = 'veterinari' AND " +
         where.clauses.join(" AND ");
       assert.deepEqual(
-        db
-          .prepare(sql)
-          .all(...where.bindings)
-          .map((row) => Number(row.id)),
+        db.prepare(sql).all(...where.bindings).map((row) => Number(row.id)),
         [2],
       );
     }
