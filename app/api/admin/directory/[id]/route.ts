@@ -8,7 +8,7 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, getDirectoryFilterDefinition, normal
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, mirrorDirectoryMainImageToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, mirrorDirectoryAdditionalCategoriesToNotion, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
+import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, mirrorDirectoryMainImageToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, completeDirectoryReviewedOwnerUnlock, mirrorDirectoryAdditionalCategoriesToNotion, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
 import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_TRUST_FIELDS, type TrainerTrustField } from "@/lib/notion-trainer-trust-fields";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { syncDirectoryReviewedWithNotion, type DirectoryReviewSyncResult } from "@/lib/directory-notion-reviewed-sync";
@@ -1040,9 +1040,8 @@ export async function PATCH(request: Request, { params }: Props) {
       if (!database) {
         return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
       }
-      // The Admin checkbox is authoritative. Saving an explicit uncheck
-      // releases even an older failed unlock; do not require a whole-profile
-      // D1 -> Notion echo/hash before opening normal per-field sync.
+      // A previously reviewed profile stays SQL-locked on uncheck. Only a
+      // verified current D1 -> mapped Notion full export can clear pending.
       const profile = await setManagedDirectoryProfileReviewed(
         id, body.reviewed, user.email, new Date(), database,
       );
@@ -1051,19 +1050,33 @@ export async function PATCH(request: Request, { params }: Props) {
       }
 
       let notionReviewSync: DirectoryReviewSyncResult | "pending" = "disabled";
+      const state = !body.reviewed ? await database.prepare(
+        "SELECT unlock_pending FROM directory_profile_review_state WHERE profile_id=?",
+      ).bind(id).first<{ unlock_pending: number }>() : null;
       try {
-        // Mirror ONLY the checkbox. A Notion outage cannot re-lock D1.
-        notionReviewSync = await syncDirectoryReviewedWithNotion({
-          database,
-          bindings: env as Parameters<typeof syncDirectoryReviewedWithNotion>[0]["bindings"],
-          profileId: id,
-        });
+        if (!body.reviewed && Number(state?.unlock_pending) === 1) {
+          const unlock = await completeDirectoryReviewedOwnerUnlock({
+            database,
+            bindings: env as Parameters<typeof completeDirectoryReviewedOwnerUnlock>[0]["bindings"],
+            profileId: id,
+          });
+          notionReviewSync = unlock === "unlocked" ? "pushed" : "pending";
+        } else {
+          // Checked profiles mirror ONLY the checkbox while editorial data
+          // remains locked. Never let a Notion failure undo a D1 review.
+          notionReviewSync = await syncDirectoryReviewedWithNotion({
+            database,
+            bindings: env as Parameters<typeof syncDirectoryReviewedWithNotion>[0]["bindings"],
+            profileId: id,
+          });
+        }
       } catch (error) {
         notionReviewSync = "pending";
         console.warn("DIRECTORY_REVIEW_NOTION_WRITEBACK_PENDING", id,
           error instanceof Error ? error.message : String(error));
       }
-      return Response.json({ profile, notionReviewSync });
+      const confirmed = await getManagedDirectoryProfileById(id, database);
+      return Response.json({ profile: confirmed ?? profile, notionReviewSync });
     }
     if (body.action !== "restore") return Response.json({ error: "Nepodporovaná lifecycle akcia." }, { status: 400 });
     const profile = await restoreManagedDirectoryProfile(id, user.email);

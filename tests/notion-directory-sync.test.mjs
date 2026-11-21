@@ -460,7 +460,8 @@ test("mapped Directory pages must belong to the configured Notion data source", 
 
 test("Directory hourly sweep never processes a mapped profile twice", () => {
   const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
-  assert.match(sweep, /const attemptedMappedProfileIds = new Set<number>\(\)/);
+  assert.match(sweep, /const attemptedMappedProfileIds = new Set<number>\(completedOwnerUnlockIds\)/);
+  assert.match(sweep, /completedOwnerUnlockIds\.add\(row\.profile_id\)/);
   const pageAttempt = sweep.indexOf("attemptedMappedProfileIds.add(mapping.directory_profile_id)");
   const reconcile = sweep.indexOf("const result = await syncMappedPage({");
   const fastPath = sweep.indexOf("propertyText(page, \"Sync hash\") === mapping.content_hash");

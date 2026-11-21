@@ -82,3 +82,21 @@ export async function directoryProfileNotionSyncLocked(
     .bind(profileId).first<DirectoryReviewLockRow>();
   return directoryReviewLockedFromProjection(row);
 }
+
+/**
+ * An Admin-initiated unlock is allowed to export only its pending SQL review
+ * state. An active partner, archive or deletion is never bypassed.
+ */
+export async function directoryProfileOwnerUnlockPending(
+  database: D1Database,
+  profileId: number,
+): Promise<boolean> {
+  if (!Number.isSafeInteger(profileId) || profileId <= 0) {
+    throw new Error("DIRECTORY_REVIEW_LOCK_INVALID_ID");
+  }
+  const row = await database.prepare(DIRECTORY_REVIEW_LOCK_SQL)
+    .bind(profileId).first<DirectoryReviewLockRow>();
+  return Boolean(row && row.status !== "archived" &&
+    !row.sql_reviewed_at?.trim() && Number(row.sql_unlock_pending) === 1 &&
+    Number(row.partner_active) !== 1 && Number(row.deletion_pending) !== 1);
+}
