@@ -16,7 +16,7 @@ let nextBannerIndex: number | null = null;
  * Rotates one merchant per placement/page load. Does not animate or switch while
  * a visitor reads: this avoids distraction, interrupted clicks and extra requests.
  * Layout space is reserved before hydration to avoid shifting page content.
- * Rotation counter exists only in page memory, so no storage/consent is needed.
+ * Rotation counter exists only in page memory; there is no client storage.
  */
 export function AffiliateRotatingBanner({
   placement = "horizontal",
