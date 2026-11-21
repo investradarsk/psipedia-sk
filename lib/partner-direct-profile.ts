@@ -10,6 +10,7 @@ import { planDirectorySecondaryCategorySqlMirror } from "@/lib/directory-seconda
 import { adminNotificationEventStatement } from "@/lib/admin-notifications";
 import { partnerFieldDiff } from "@/lib/partner-audit-diff";
 import { planDirectory0173EditorialSqlMirror } from "@/lib/directory-0173-editorial-sql-mirror";
+import { planDirectoryStep3PresentationSqlMirror } from "@/lib/directory-sql-step3-live-mirror";
 import {
   approvedDirectoryFactSqlSlot, planDirectory0170FactSqlMirror,
   planDirectory0170FilterSqlMirror, type Directory0170SqlStatement,
@@ -114,16 +115,25 @@ export async function savePartnerManagedProfile(input: {
     }
     const hoursEdited=Object.hasOwn(effectivePatch,"openingHours");
     const galleryEdited=Object.hasOwn(effectivePatch,"galleryUrls");
-    // Only explicit partner edits project to 0173; omitted fields are never
+    const servicesEdited=Object.hasOwn(effectivePatch,"services");
+    const qualificationsEdited=Object.hasOwn(effectivePatch,"qualifications");
+    const mirrorIdentity={kind:"id" as const,profileId:canonical.canonicalId,
+      updatedAt:nowIso,actor:actorRef};
+    const presentationMirror=servicesEdited
+      ?planDirectoryStep3PresentationSqlMirror({
+        identity:mirrorIdentity,services:effectivePatch.services as string[],
+      }):[];
+    // Only explicit partner edits project to SQL; omitted fields are never
     // cleared. This includes gallery additions from newly approved media.
-    const editorialMirror=hoursEdited || galleryEdited
+    const editorialMirror=hoursEdited || galleryEdited || qualificationsEdited
       ?planDirectory0173EditorialSqlMirror({
         identity:{kind:"id",profileId:canonical.canonicalId,
           updatedAt:nowIso,actor:actorRef},
         ...(hoursEdited?{openingHoursText:String(effectivePatch.openingHours??"")}:{}),
         ...(galleryEdited?{galleryUrls:effectivePatch.galleryUrls as readonly string[]}:{}),
+        ...(qualificationsEdited?{qualifications:effectivePatch.qualifications as string[]}:{}),
       }):[];
-    if(plans.length || editorialMirror.length){
+    if(plans.length || presentationMirror.length || editorialMirror.length){
       // Exactly one canonical CAS assertion, immediately after the profile
       // UPDATE and before ALL 0170/0173 projections. An absent field never
       // clears a relation, even if another writer changed it meanwhile.
@@ -133,6 +143,8 @@ export async function savePartnerManagedProfile(input: {
       };
       statements.push(database.prepare(guard.sql).bind(...guard.bindings));
       for(const plan of plans)for(const item of plan.slice(1))
+        statements.push(database.prepare(item.sql).bind(...item.bindings));
+      for(const item of presentationMirror)
         statements.push(database.prepare(item.sql).bind(...item.bindings));
       for(const item of editorialMirror)
         statements.push(database.prepare(item.sql).bind(...item.bindings));
