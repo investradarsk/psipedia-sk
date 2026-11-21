@@ -2,7 +2,6 @@ import { env } from "cloudflare:workers";
 import { TavilyAutomationSearchProvider } from "./data-automation-search-tavily.ts";
 import { AutomationSearchProviderError } from "./data-automation-discovery.ts";
 import { isSafeAutomationSourceUrl, normalizeAutomationIdentity } from "./data-automation.ts";
-import { omitDirectorySqlContactAliases, type DirectoryImportData } from "./directory-profile-metadata.ts";
 import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 import { buildQualityTavilyQuery, qualityMayResearch, qualityTodayInSlovakia } from "./data-quality-tavily-query.ts";
 
@@ -72,16 +71,13 @@ const AREA_KINDS: Record<QualityArea,Kind[]> = {
 };
 const AREA_LABELS:Record<QualityArea,string> = {services:"Služby pre psov",events:"Podujatia",help:"Pomoc psom"};
 function missing(value: unknown) { return value === null || value === undefined || (typeof value === "string" && !value.trim()); }
-function sourceData(value:unknown): DirectoryImportData {
-  try { return JSON.parse(typeof value==="string"?value:"{}") as DirectoryImportData; } catch { return {}; }
-}
 function fieldValue(kind:Kind,row:Row,f:Field) {
   if(kind==="DIRECTORY"&&f.key==="websiteUrl") {
-    const contacts=readDirectorySqlBackedContacts(sourceData(row.source_data_json),row);
+    const contacts=readDirectorySqlBackedContacts(null,row);
     return contacts.website;
   }
   if(kind==="DIRECTORY"&&f.contact){
-    const contacts=readDirectorySqlBackedContacts(sourceData(row.source_data_json),row);
+    const contacts=readDirectorySqlBackedContacts(null,row);
     return contacts[f.contact];
   }
   return f.column ? row[f.column] : null;
@@ -561,8 +557,9 @@ async function attachCurrentQualityValues(db:Database, proposals:MissingQualityP
         if(!f) continue;
         if(f.column) columns.add(f.column);
         if(kind==="DIRECTORY"&&(f.contact||f.key==="websiteUrl")) {
-          columns.add("source_data_json");
-          columns.add("website_url");
+          const names={websiteUrl:"website_url",phone:"public_phone",
+            email:"public_email",facebook:"facebook_url",instagram:"instagram_url"} as const;
+          columns.add(f.key==="websiteUrl"?names.websiteUrl:names[f.contact!]);
         }
       }
     }
@@ -722,12 +719,11 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
       websiteUrl:"website_url",publicPhone:"public_phone",publicEmail:"public_email",
       facebookUrl:"facebook_url",instagramUrl:"instagram_url",
     } as const)[key];
-    // Only this explicitly approved contact is changed. SQL becomes the sole
-    // value; unrelated JSON fields and SQL-NULL legacy contacts are preserved.
-    const data=omitDirectorySqlContactAliases(sourceData(row.source_data_json),{[key]:approvedValue});
-    update=db.prepare(`UPDATE directory_profiles SET ${column}=?,source_data_json=?,updated_at=?,updated_by=?
+    // The approved value is committed only to its canonical SQL column.
+    // No JSON write, no interference with other contacts.
+    update=db.prepare(`UPDATE directory_profiles SET ${column}=?,updated_at=?,updated_by=?
       WHERE id=? AND updated_at=? AND EXISTS (SELECT 1 FROM quality_missing_proposals WHERE id=? AND status='OPEN')`)
-      .bind(approvedValue,JSON.stringify(data),at,actor,p.entity_id,updatedAt,p.id);
+      .bind(approvedValue,at,actor,p.entity_id,updatedAt,p.id);
   }else{
     if(!f.column)throw new Error("Chýba mapovanie poľa.");
     // Field column is always from the static allowlist above, never from user input.
