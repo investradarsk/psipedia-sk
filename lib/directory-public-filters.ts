@@ -62,13 +62,12 @@ const catalogFacetMap = new Map(
  * Public listings and map search must read the SAME V3 choice as the Admin editor.
  * Legacy source JSON no longer contributes to public filters.
  */
-export function directoryPublicFacetSql(category: string, facets: DirectoryPublicFacets = {}, column = "source_data_json") {
-  // Both callers are fixed SQL read paths; never interpolate an arbitrary alias.
-  if (column !== "source_data_json" && column !== "d.source_data_json")
+export function directoryPublicFacetSql(category: string, facets: DirectoryPublicFacets = {}, profileIdColumn = "directory_profiles.id") {
+  // Only these statically known SQL id expressions may be used.
+  if (profileIdColumn !== "directory_profiles.id" && profileIdColumn !== "d.id")
     throw new Error("DIRECTORY_PUBLIC_FACET_INVALID_COLUMN");
   const clauses: string[] = [];
   const bindings: string[] = [];
-  const profileIdColumn = column === "d.source_data_json" ? "d.id" : "directory_profiles.id";
   for (const definition of serviceFiltersForCategory(category)) {
     const value = facets[definition.id];
     if (!publicDirectoryFacetOptions(definition).includes(value)) continue;
