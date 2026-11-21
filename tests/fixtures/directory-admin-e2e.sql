@@ -279,3 +279,29 @@ INSERT INTO directory_profiles (
   '2026-09-18T18:11:00.000Z', '2026-09-18T18:11:00.000Z', '2026-09-18T18:11:00.000Z',
   'fixture@psipedia.local', 'fixture@psipedia.local'
 );
+
+-- This fixture intentionally seeds both the historical profile columns and
+-- their current relational SQL owner. Public Directory reads service lines
+-- from directory_profile_service_texts after SQL cutover, never services_json.
+-- Only local E2E fixture profiles are included; no production transfer.
+INSERT INTO directory_profile_service_texts
+  (profile_id, item_order, service_text, updated_at, updated_by)
+SELECT profile.id, CAST(item.key AS INTEGER), item.value,
+       profile.updated_at, profile.updated_by
+FROM directory_profiles AS profile
+JOIN json_each(profile.services_json) AS item
+WHERE (
+  profile.slug LIKE 'e2e-directory-%'
+  OR profile.slug LIKE 'e2e-services-detail-%'
+  OR profile.slug LIKE 'health-fixture-%'
+  OR profile.slug IN (
+    'directory-admin-editor-fixture',
+    'bulk-fixture-draft', 'bulk-fixture-published'
+  )
+)
+  AND item.type = 'text'
+  AND trim(item.value) <> ''
+ON CONFLICT (profile_id, item_order) DO UPDATE SET
+  service_text = excluded.service_text,
+  updated_at = excluded.updated_at,
+  updated_by = excluded.updated_by;
