@@ -5,7 +5,7 @@ import { readDirectorySqlShadowParity } from "@/lib/directory-sql-cutover-parity
 import { readDirectory0170EditorialFields } from "@/lib/directory-0170-editorial-read";
 import { planDirectory0170FilterSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
 import { validateDirectoryFullProfileSave } from "@/lib/directory-full-profile-save";
-import { DIRECTORY_FILTER_CONTRACT_VERSION, getDirectoryFilterDefinition, normalizeDirectoryFilterValue, serviceFilterCategories, unconfirmedDirectoryCategoryFilters, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import { DIRECTORY_FILTER_CONTRACT_VERSION, getDirectoryFilterDefinition, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
