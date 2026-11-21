@@ -102,7 +102,6 @@ function createClubDatabase() {
       postal_code TEXT NOT NULL DEFAULT '', street TEXT NOT NULL DEFAULT '',
       house_number TEXT NOT NULL DEFAULT '', address_format TEXT NOT NULL DEFAULT '',
       service_address_confirmation TEXT NOT NULL DEFAULT 'LEGACY_UNCONFIRMED',
-      search_text TEXT NOT NULL DEFAULT '',
       online INTEGER NOT NULL DEFAULT 0,
       price_note TEXT NOT NULL DEFAULT '',
       website_url TEXT,
