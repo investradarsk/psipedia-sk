@@ -50,9 +50,11 @@ test("shelter grid rejects lifecycle, type, slug, address, media, unknown or par
   assert.throws(() => organizationInputWithShelterInlineChanges({ ...item, archivedAt: "2026-11-02" }, changes), /nie je upraviteľný/);
 });
 
-test("canonical per-field validation rejects bad contacts and oversized text without touching legacy data", () => {
+test("canonical per-field validation preserves public email as text and rejects unsafe URLs or oversized text", () => {
   assert.throws(() => organizationInputWithShelterInlineChanges(item, { ...changes, name: "" }), /povinný údaj/);
-  assert.throws(() => organizationInputWithShelterInlineChanges(item, { ...changes, publicEmail: "bad@" }), /platný formát/);
+  // Public contact values are editorial text (not account/login identifiers).
+  assert.equal(organizationInputWithShelterInlineChanges(item, { ...changes, publicEmail: "bad@" }).publicEmail, "bad@");
+  assert.throws(() => organizationInputWithShelterInlineChanges(item, { ...changes, publicEmail: "x".repeat(321) }), /najviac 320/);
   assert.throws(() => organizationInputWithShelterInlineChanges(item, { ...changes, websiteUrl: "javascript:alert(1)" }), /http alebo https/);
   assert.throws(() => organizationInputWithShelterInlineChanges(item, { ...changes, shortDescription: "A".repeat(701) }), /najviac 700/);
   assert.throws(() => organizationInputWithShelterInlineChanges(item, { ...changes, websiteUrl: 123 }), /Neplatný údaj/);
