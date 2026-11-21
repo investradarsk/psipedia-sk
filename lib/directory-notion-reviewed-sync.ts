@@ -101,6 +101,8 @@ export async function syncDirectoryReviewedWithNotion(input: {
   bindings: DirectoryReviewBindings;
   profileId: number;
   page?: DirectoryReviewPage;
+  /** Only the authenticated Admin unlock finalizer may mirror while pending. */
+  ownerUnlock?: boolean;
 }): Promise<DirectoryReviewSyncResult> {
   if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED)) return "disabled";
   const sourceId = input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() ?? "";
@@ -120,8 +122,12 @@ export async function syncDirectoryReviewedWithNotion(input: {
   }
 
   const state = await loadReviewRow(input.database, input.profileId);
-  if (!state || state.status === "archived" || Number(state.unlock_pending) === 1) {
+  if (!state || state.status === "archived" ||
+      (Number(state.unlock_pending) === 1 && !input.ownerUnlock)) {
     return "skipped";
+  }
+  if (input.ownerUnlock && (Number(state.unlock_pending) !== 1 || Boolean(state.reviewed_at?.trim()))) {
+    throw new Error("DIRECTORY_OWNER_UNLOCK_NOT_PENDING");
   }
   const adminReviewed = Boolean(state.reviewed_at?.trim());
   const page = input.page ?? await fetchReviewPage(input.bindings, mapping.notion_page_id);
@@ -138,7 +144,8 @@ export async function syncDirectoryReviewedWithNotion(input: {
   if (reviewedInNotion(latest) === adminReviewed) return "unchanged";
   const current = await loadReviewRow(input.database, input.profileId);
   if (!current || current.status === "archived" ||
-      Number(current.unlock_pending) === 1 || !sameReviewRevision(state, current)) {
+      (Number(current.unlock_pending) === 1 && !input.ownerUnlock) ||
+      !sameReviewRevision(state, current)) {
     throw new Error("DIRECTORY_REVIEW_CONCURRENT_CHANGE");
   }
 
