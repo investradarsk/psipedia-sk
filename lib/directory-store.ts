@@ -1287,13 +1287,13 @@ export function buildManagedDirectoryProfileCreateStatement(
   nowIso: string,
   guard?: { submissionId: string; actorRef: string },
 ) {
-  // The still-NOT-NULL legacy column gets only a technical empty placeholder.
   // New public fields are written exclusively to SQL owners and sidecar tables.
+  // A retired directory JSON column must not be required to create profiles.
   const columns = `slug, name, category, status, excerpt, description, services_json, qualifications_json,
     city, district, region, address, postal_code, street, house_number, address_format, service_address_confirmation,
     online, price_note, website_url, public_phone, public_email, facebook_url, instagram_url,
     internal_email, image_url, image_key, thumbnail_display_json, detail_display_json,
-    source_data_json, verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by`;
+    verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by`;
   const commonValues = [
     input.slug,
     input.name,
@@ -1323,7 +1323,6 @@ export function buildManagedDirectoryProfileCreateStatement(
     input.imageKey,
     input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
     input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
-    "{}",
     input.verified ? 1 : 0,
     input.featured ? 1 : 0,
     JSON.stringify(input.seo),
@@ -1360,7 +1359,6 @@ export function buildManagedDirectoryProfileCreateStatement(
       input.imageKey,
       input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
       input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
-      "{}",
       input.verified ? 1 : 0,
       input.featured ? 1 : 0,
       JSON.stringify(input.seo),
@@ -1384,7 +1382,7 @@ export function buildManagedDirectoryProfileCreateStatement(
     "?",
     "?",
     "'draft'",
-    ...Array.from({ length: 32 }, () => "?"),
+    ...Array.from({ length: 31 }, () => "?"),
     "NULL",
     "?",
     "?",
