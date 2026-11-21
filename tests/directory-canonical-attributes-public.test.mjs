@@ -45,21 +45,20 @@ test("public directory, admin and partner editor share only the canonical V3 con
 test("public listing and map facet predicates read the V3 choice rather than a stale duplicate", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    db.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, source_data_json TEXT)");
+    db.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT)");
     db.exec("CREATE TABLE service_profile_option_choices (profile_id INTEGER, option_id TEXT, choice TEXT)");
-    const key = "_psipedia_filter_v1_chovatelske_stanice_visits_by_appointment";
-    db.prepare("INSERT INTO directory_profiles VALUES (1, ?, ?)").run("chovatelske-stanice", JSON.stringify({ [key]: "no" }));
-    db.prepare("INSERT INTO directory_profiles VALUES (2, ?, ?)").run("chovatelske-stanice", JSON.stringify({ [key]: "yes" }));
+    db.prepare("INSERT INTO directory_profiles VALUES (1, ?)").run("chovatelske-stanice");
+    db.prepare("INSERT INTO directory_profiles VALUES (2, ?)").run("chovatelske-stanice");
     db.prepare("INSERT INTO service_profile_option_choices VALUES (1, ?, 'yes')")
       .run("attr.kennel.visits_by_appointment");
     db.prepare("INSERT INTO service_profile_option_choices VALUES (2, ?, 'no')")
       .run("attr.kennel.visits_by_appointment");
-    for (const column of ["source_data_json", "d.source_data_json"]) {
+    for (const column of ["directory_profiles.id", "d.id"]) {
       const where = directoryPublicFacetSql("chovatelske-stanice",
         { "chovatelske-stanice.visits_by_appointment": "yes" }, column);
       assert.equal(where.clauses.length, 1);
       assert.deepEqual(where.bindings, ["attr.kennel.visits_by_appointment", "yes"]);
-      const from = column === "d.source_data_json" ? "directory_profiles d" : "directory_profiles";
+      const from = column === "d.id" ? "directory_profiles d" : "directory_profiles";
       const rows = db.prepare("SELECT id FROM " + from + " WHERE " + where.clauses[0])
         .all(...where.bindings);
       assert.deepEqual(rows.map((row) => row.id), [1]);
