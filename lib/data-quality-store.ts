@@ -7,15 +7,13 @@ import {
 } from "@/lib/admin-automation-reliability";
 import {
   DIRECTORY_QUALITY_RECHECK_DAYS,
-  directoryQualityCheckedAtSourceKey,
+  directoryQualityFields,
   directoryQualityResolutionStatuses,
-  directoryQualityStatusSourceKey,
   isDirectoryQualityResolutionCurrent,
-  readDirectoryQualityMetadata,
+  type DirectoryQualityMetadata,
   type DirectoryQualityField,
 } from "@/lib/directory-profile-metadata";
 import { directoryCategories } from "@/lib/directory";
-import { readDirectorySqlBackedContacts } from "@/lib/directory-sql-contacts";
 import { RAW_MISSING_PHONE_SQL, RAW_MISSING_EMAIL_SQL, RAW_MISSING_WEBSITE_SQL } from "@/lib/data-quality-contact-sql";
 import {
   listMediaSourceIssues,
@@ -49,7 +47,7 @@ type DirectoryQualityRow = {
   district: string | null;
   region: string | null;
   service_address_confirmation: string | null;
-  source_data_json: string | null;
+  quality_resolutions_json: string | null;
   google_maps_not_required: number | null;
 };
 
@@ -135,8 +133,6 @@ export const dataQualityMediaStatusOptions = [
 
 export type DataQualityMediaStatus = (typeof dataQualityMediaStatusOptions)[number]["value"];
 
-const VALID_SOURCE_DATA_SQL =
-  "CASE WHEN json_valid(COALESCE(source_data_json, '')) THEN source_data_json ELSE '{}' END";
 const MISSING_DESCRIPTION_SQL = "trim(COALESCE(description, '')) = ''";
 const RAW_MISSING_IMAGE_SQL = "trim(COALESCE(image_url, '')) = ''";
 const GOOGLE_MAPS_NOT_REQUIRED_SQL = `EXISTS (
@@ -163,16 +159,15 @@ const RAW_INCOMPLETE_ADDRESS_SQL = `COALESCE(online, 0) = 0 AND (
 )`;
 
 function qualityResolutionCurrentSql(field: DirectoryQualityField) {
-  const statusKey = directoryQualityStatusSourceKey(field).replaceAll('"', '""');
-  const checkedAtKey = directoryQualityCheckedAtSourceKey(field).replaceAll('"', '""');
-  const statuses = directoryQualityResolutionStatuses.map((status) => `'${status}'`).join(",");
-  return `(
-    COALESCE(
-      CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."${statusKey}"') AS TEXT) IN (${statuses})
-      AND datetime(CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."${checkedAtKey}"') AS TEXT))
-        >= datetime('now', '-${DIRECTORY_QUALITY_RECHECK_DAYS} days'),
-      0
-    ) = 1
+  // The five quality statuses live in one indexed SQL relation. Never read
+  // retired _psipedia_quality_* aliases from historic source JSON.
+  const statuses = directoryQualityResolutionStatuses.map(status=>`'${status}'`).join(",");
+  return `EXISTS (
+    SELECT 1 FROM directory_profile_quality_resolutions qr
+    WHERE qr.profile_id=directory_profiles.id
+      AND qr.quality_field='${field}'
+      AND qr.resolution_status IN (${statuses})
+      AND datetime(qr.checked_at) >= datetime('now', '-${DIRECTORY_QUALITY_RECHECK_DAYS} days')
   )`;
 }
 
@@ -362,10 +357,31 @@ function emptyPagination(page: number, pageSize: number) {
   return pagination(page, pageSize, 0);
 }
 
+function readDirectorySqlQualityResolutions(value:string|null):DirectoryQualityMetadata {
+  const result:DirectoryQualityMetadata={};
+  let rows:unknown;
+  try{rows=JSON.parse(value??"[]");}catch{return result;}
+  if(!Array.isArray(rows))return result;
+  for(const item of rows){
+    if(!item || typeof item!=="object")continue;
+    const row=item as {field?:unknown;status?:unknown;checkedAt?:unknown};
+    if(typeof row.field!=="string" || !directoryQualityFields.includes(row.field as DirectoryQualityField) ||
+      typeof row.status!=="string" || !directoryQualityResolutionStatuses.includes(row.status as typeof directoryQualityResolutionStatuses[number]))continue;
+    result[row.field as DirectoryQualityField]={
+      status:row.status as typeof directoryQualityResolutionStatuses[number],
+      checkedAt:typeof row.checkedAt==="string"?row.checkedAt:"",
+    };
+  }
+  return result;
+}
+
 function directoryIssues(row: DirectoryQualityRow) {
-  const importData = parseImportData(row.source_data_json);
-  const contacts = readDirectorySqlBackedContacts(importData, row);
-  const quality = readDirectoryQualityMetadata(importData);
+  const contacts = {
+    phone:row.public_phone?.trim()??"",
+    email:row.public_email?.trim()??"",
+    website:row.website_url?.trim()??"",
+  };
+  const quality = readDirectorySqlQualityResolutions(row.quality_resolutions_json);
   const issues: DirectoryQualityItem["issues"] = [];
   if (!row.description?.trim()) issues.push({ key: "description", label: "Chýba popis" });
   if (!contacts.phone && !isDirectoryQualityResolutionCurrent(quality, "phone")) {
@@ -579,7 +595,11 @@ async function loadProfileQualityPage(
   const pageCount = resultCount === 0 ? 0 : loadAllMatches ? Math.ceil(resultCount / pageSize) : 1;
   const loadPage = (offset: number) => db.prepare(`
       SELECT id, slug, name, category, status, description, website_url, public_phone, public_email, facebook_url, instagram_url, image_url, image_key,
-             address, online, city, district, region, service_address_confirmation, source_data_json,
+             address, online, city, district, region, service_address_confirmation,
+             (SELECT json_group_array(json_object('field', qr.quality_field,
+                'status', qr.resolution_status, 'checkedAt', qr.checked_at))
+              FROM directory_profile_quality_resolutions qr
+              WHERE qr.profile_id=directory_profiles.id) AS quality_resolutions_json,
              CASE WHEN ${GOOGLE_MAPS_NOT_REQUIRED_SQL} THEN 1 ELSE 0 END AS google_maps_not_required
       FROM directory_profiles
       WHERE status <> 'archived'${resultFilter.clause}
