@@ -230,7 +230,7 @@ test("Notion tri-state filters and operational alerts stay separate from V3 serv
   assert.match(directory, /chovatelske-stanice\.health_testing_information/);
   assert.match(directory, /breederChangedNotionFacets/);
   assert.match(directory, /mirrorBreederCategoryFiltersToNotion/);
-  assert.match(directory, /mergeDirectoryFilterValues/);
+  assert.match(directory, /directoryNotionFacetRequiresSqlMirror/);
   assert.match(route, /action === "set-category-filters"/);
   assert.match(route, /mirrorBreederCategoryFiltersToNotion/);
   assert.match(operations, /loadDirectoryNotionAlerts/);
