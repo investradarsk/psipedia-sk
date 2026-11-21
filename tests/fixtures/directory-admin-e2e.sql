@@ -325,7 +325,7 @@ UPDATE directory_profiles SET
 WHERE slug = 'directory-admin-editor-fixture';
 
 -- D1's SQLite runtime rejects compound SELECTs over its small term limit.
--- VALUES is not a compound SELECT; all six SQL facts remain unchanged.
+-- VALUES is not a compound SELECT; editorial facts use canonical SQL.
 WITH facts(slug, field_key, value_text) AS (
   VALUES
     ('health-fixture-vet-rich', 'Špecializácie', 'Interná medicína, chirurgia'),
@@ -333,7 +333,8 @@ WITH facts(slug, field_key, value_text) AS (
     ('health-fixture-vet-rich', 'RTG', 'Digitálne RTG'),
     ('health-fixture-vet-rich', 'USG', 'Áno'),
     ('health-fixture-vet-rich', 'Laboratórium', 'Interné laboratórium'),
-    ('e2e-services-detail-long', 'Pokrytie', 'Nitra a okolie')
+    ('e2e-services-detail-long', 'Pokrytie', 'Nitra a okolie'),
+    ('directory-admin-editor-fixture', 'Pokrytie', 'Nitra a okolie')
 )
 INSERT INTO directory_profile_public_facts
   (profile_id, field_key, value_text, updated_at, updated_by)
