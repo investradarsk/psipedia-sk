@@ -18,7 +18,14 @@ test("compact directory cards retain only category membership metadata", () => {
   const end = store.indexOf("`;", start);
   assert.ok(start >= 0 && end > start);
   const cardColumns = store.slice(start, end);
-  assert.match(cardColumns, /json_object\('_psipedia_additional_categories',\s*\$\{directoryAdditionalCategoryJsonSql\(\)\}\) AS source_data_json/);
+  // json_group_array has SQLite's JSON subtype; force TEXT in json_object
+  // so readAdditionalDirectoryCategories can parse the relational array.
+  const projectedSqlPattern = /json_object\('_psipedia_additional_categories',\s*\(\$\{directoryAdditionalCategoryJsonSql\(\)\}\) \|\| ''\) AS source_data_json/;
+  assert.match(cardColumns, projectedSqlPattern);
+  const detailStart = store.indexOf("const DIRECTORY_PROFILE_COLUMNS = `");
+  const detailEnd = store.indexOf("`;", detailStart);
+  assert.ok(detailStart >= 0 && detailEnd > detailStart);
+  assert.match(store.slice(detailStart, detailEnd), projectedSqlPattern);
   assert.doesNotMatch(cardColumns, /'\{\}' AS source_data_json/);
 
   // The lightweight projection synthesizes a JSON-shaped response from SQL relations only.
@@ -54,6 +61,8 @@ test("compact directory cards retain only category membership metadata", () => {
     assert.deepEqual(rows.map((row) => row.id), [1]);
     const projected = JSON.parse(rows[0].source_data_json);
     assert.deepEqual(Object.keys(projected), [DIRECTORY_ADDITIONAL_CATEGORIES_KEY]);
+    assert.equal(typeof projected[DIRECTORY_ADDITIONAL_CATEGORIES_KEY], "string");
+    assert.deepEqual(JSON.parse(projected[DIRECTORY_ADDITIONAL_CATEGORIES_KEY]), ["veterinari"]);
     assert.equal(rows[0].source_data_json.includes("private@example.invalid"), false);
     assert.deepEqual(readAdditionalDirectoryCategories(projected, rows[0].category), ["veterinari"]);
 
