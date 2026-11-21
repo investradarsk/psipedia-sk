@@ -69,7 +69,7 @@ test("all ten Directory categories save Popis, SEO and contacts independently wi
    assert.equal(ctx.writes[1].args[1],"Test SEO");
    assert(ctx.sidecarSql.some(row=>row.sql.includes("directory_profile_seo")),
      category+" must also save SQL SEO");
-   assert.match(ctx.writes[2].sql,/source_data_json = json_remove/);
+   assert.doesNotMatch(ctx.writes[2].sql,/source_data_json/);
    assert.match(ctx.writes[2].sql,/public_phone = \?/);
    assert.equal(ctx.writes[2].args[0],"0912345678");
    for(const write of ctx.writes){
@@ -101,8 +101,9 @@ test("legacy free-text service writes never reach V3 and pilot categories reject
      assert.equal(ctx.writes.length,1,category);
      assert.doesNotMatch(ctx.writes[0].sql,/directory_service_notion_relation_sync|service_profile_option_choices/);
      if(category==="treneri"){
-       assert.match(ctx.writes[0].sql,/source_data_json = json_set/);
-       assert.equal(ctx.writes[0].args[1],"Individuálny výcvik");
+       assert.doesNotMatch(ctx.writes[0].sql,/source_data_json/);
+       assert(ctx.sidecarSql.some(row=>row.sql.includes("directory_profile_extra_fields")));
+       assert(ctx.sidecarSql.some(row=>row.args.includes("Individuálny výcvik")));
        assert.doesNotMatch(ctx.writes[0].sql,/services_json\s*=/);
      }else{
        assert.match(ctx.writes[0].sql,/services_json = \?/);
@@ -141,8 +142,7 @@ test("explicit Notion contact edit stores SQL only and removes edited-field JSON
     await ctx.save(ctx.db, ctx.record, { ...desired(), [change.field]: change.value }, change.field);
     assert.equal(ctx.writes.length, 1, change.field);
     const { sql, args } = ctx.writes[0];
-    assert.match(sql, /source_data_json = json_remove\(/, change.field);
-    assert.doesNotMatch(sql, /source_data_json = json_set\(/, change.field);
+    assert.doesNotMatch(sql, /source_data_json/, change.field);
     assert.match(sql, /AND updated_at = \?/, change.field);
     const sqlite = new DatabaseSync(":memory:");
     try {
@@ -174,10 +174,8 @@ test("explicit Notion contact edit stores SQL only and removes edited-field JSON
       const row = sqlite.prepare("SELECT source_data_json,website_url FROM directory_profiles WHERE id=?")
         .get(ctx.record.id);
       const after = JSON.parse(row.source_data_json);
-      // Value lives in SQL; no parallel edited-field copy survives in JSON.
-      for (const alias of change.aliases) {
-        assert.equal(Object.hasOwn(after, alias), false, change.field + ": " + alias);
-      }
+      // Historical JSON is immutable; the canonical SQL column is authoritative.
+      assert.deepEqual(after,before,change.field + ": JSON must stay untouched");
       if (change.field === "websiteUrl") assert.equal(row.website_url, change.value);
       else assert.equal(row.website_url, "https://old.example.sk");
       const sqlColumn = ({
@@ -205,8 +203,7 @@ test("explicit Notion contact deletion cannot resurrect a historical alias", asy
   const ctx = setup("veterinari");
   await ctx.save(ctx.db, ctx.record, { ...desired(), websiteUrl: "" }, "websiteUrl");
   const { sql, args } = ctx.writes[0];
-  assert.match(sql, /source_data_json = json_remove\(/);
-  assert.doesNotMatch(sql, /source_data_json = json_set\(/);
+  assert.doesNotMatch(sql, /source_data_json/);
   assert.equal(args[0], "", "website_url is explicitly cleared");
   const sqlite = new DatabaseSync(":memory:");
   try {
@@ -229,8 +226,8 @@ test("explicit Notion contact deletion cannot resurrect a historical alias", asy
       .get(ctx.record.id);
     const after = JSON.parse(row.source_data_json);
     assert.equal(row.website_url, "");
-    assert.equal(Object.hasOwn(after, "Web"), false);
-    assert.equal(Object.hasOwn(after, "Webstránka"), false);
+    assert.equal(after.Web, "https://old.example.sk");
+    assert.equal(after["Webstránka"], "https://ghost.example.sk");
     assert.equal(after.Telefón, "0900 555 555");
     assert.equal(after._psipedia_some_future_metadata, "preserve");
   } finally {
