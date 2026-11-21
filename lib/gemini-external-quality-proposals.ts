@@ -115,16 +115,16 @@ export async function submitGeminiDirectoryQualityProposal(input:{
       candidate:asCandidate(key,candidate),
     });
     if(match.status!=="DUPLICATE"||!match.matchedEntityId)return blocked();
-    const row=await input.db.prepare("SELECT id,category,name,city,website_url,public_phone,public_email,facebook_url,instagram_url,source_data_json FROM directory_profiles WHERE id=? LIMIT 1")
+    const row=await input.db.prepare("SELECT id,category,name,city,website_url,public_phone,public_email,facebook_url,instagram_url FROM directory_profiles WHERE id=? LIMIT 1")
       .bind(match.matchedEntityId).first<{
-        id:number;category:string;name:string;city:string;website_url:string|null;public_phone:string|null;public_email:string|null;facebook_url:string|null;instagram_url:string|null;source_data_json:string|null;
+        id:number;category:string;name:string;city:string;website_url:string|null;public_phone:string|null;public_email:string|null;facebook_url:string|null;instagram_url:string|null;
       }>();
     // Rebrands, category shifts, branch changes and unknown locations require
     // manual identity review; never attach proposals to an uncertain profile.
     if(!row||row.category!==category.subcategory||
       !normalize(row.name)||normalize(row.name)!==normalize(candidate.name)||
       !normalize(row.city)||normalize(row.city)!==normalize(candidate.city))return blocked();
-    const current=readDirectorySqlBackedContacts(JSON.parse(row.source_data_json||"{}"),row);
+    const current=readDirectorySqlBackedContacts(null,row);
     const before:Record<string,unknown>={
       websiteUrl:row.website_url||current.website||null,
       publicPhone:current.phone||null,publicEmail:current.email||null,
