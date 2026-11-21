@@ -121,3 +121,19 @@ test("mobile uses square originals and sidebar uses tall originals", () => {
   assert.match(css, /object-fit: contain/);
   assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
 });
+
+test("mobile article shows one original banner after introduction, not at footer", () => {
+  const article = source("components/article-detail.tsx");
+  const articleCSS = source("components/article-detail.module.css");
+  const footerCSS = source("components/sitewide-affiliate-banner.module.css");
+  const intro = article.indexOf('keyPrefix="article-intro"');
+  const inline = article.indexOf('data-article-mobile-affiliate-banner');
+  const takeaway = article.indexOf('showTakeaway ? (');
+  assert.ok(intro !== -1 && inline > intro && inline < takeaway);
+  assert.match(article, /data-article-mobile-affiliate-banner>[\s\S]*?<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
+  assert.match(articleCSS, /\.mobileAffiliateBanner\s*\{\s*display:\s*none;/);
+  assert.match(articleCSS, /@media\s*\(max-width:\s*767px\)[\s\S]*?\.mobileAffiliateBanner\s*\{\s*display:\s*block;/);
+  assert.match(footerCSS, /@media\s*\(max-width:\s*767px\)[\s\S]*?body:has\(\[data-article-layout\]\)/);
+  assert.match(footerCSS, /display:\s*none;/);
+  assert.match(article, /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+});
