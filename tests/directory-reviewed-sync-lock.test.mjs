@@ -166,23 +166,12 @@ test("a legacy pending marker remains locked until explicitly cleared", () => {
   assert.equal(isDirectoryReviewUnlockPendingSource("{}"), false);
 });
 
-test("legacy owner-unlock finalizer remains fail-closed if invoked outside checkbox action", () => {
+test("Notion no longer has a legacy JSON owner-unlock bypass", () => {
   const sync = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
-  const start = sync.indexOf("async function completeDirectoryReviewedOwnerUnlock(");
-  const end = sync.indexOf("\nfunction fullProfileInput(", start);
-  assert.ok(start > 0 && end > start, "owner unlock finalizer exists");
-  const finalizer = sync.slice(start, end);
-  assert.match(finalizer, /isDirectoryReviewUnlockPendingSource/);
-  assert.match(finalizer, /propertyCheckbox\(remote, "Odkontrolované"\)/);
-  assert.match(finalizer, /await writeProfileToNotion\(\{/);
-  assert.match(finalizer, /ownerUnlock: true/);
-  assert.match(finalizer, /delete source\[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY\]/);
-  assert.match(finalizer, /WHERE id=\? AND source_data_json=\? AND updated_at=\? RETURNING id/);
-  assert.ok(finalizer.indexOf("await writeProfileToNotion(") <
-    finalizer.indexOf("delete source[DIRECTORY_REVIEW_UNLOCK_PENDING_KEY]"),
-    "never remove pending lock before canonical Notion writeback");
-  assert.match(sync, /if \(await directoryProfileNotionSyncLocked\(input\.database,input\.profile\.id\)\)/);
-  assert.match(sync, /if \(await completeDirectoryReviewedOwnerUnlock\(\{/);
+  assert.doesNotMatch(sync, /completeDirectoryReviewedOwnerUnlock/);
+  assert.doesNotMatch(sync, /ownerUnlock/);
+  assert.doesNotMatch(sync, /isDirectoryReviewUnlockPendingSource/);
+  assert.match(sync, /directoryProfileNotionSyncLocked\(input.database, input.profile.id\)/);
 });
 
 test("additional Notion writers cannot bypass reviewed profile lock", () => {
