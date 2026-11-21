@@ -1,45 +1,18 @@
 /**
- * SQL counterpart to readDirectoryPublicContacts() in directory-profile-metadata.
- *
- * A blank contact alias MUST NOT hide a nonblank fallback alias or website_url.
- * This affects Data Quality issue counts, filters, priorities and pagination.
- * Read-only fragments use fixed server-owned JSON property names.
+ * Directory Data Quality: canonical SQL contacts only. The one-time Notion
+ * import already populated SQL; no legacy source_data_json read is allowed.
+ * SQL NULL and intentionally cleared empty strings both count as missing.
  */
-const validSourceJson =
-  "CASE WHEN json_valid(COALESCE(source_data_json, '')) THEN source_data_json ELSE '{}' END";
-
 type ContactField = "phone" | "email" | "website";
-
-const aliases: Record<ContactField, readonly string[]> = {
-  phone: ["Telefón", "Telefon", "phone"],
-  email: ["E-mail", "Email", "email"],
-  website: ["Web", "Webstránka"],
+const columns: Record<ContactField,string> = {
+  phone:"public_phone",email:"public_email",website:"website_url",
 };
-
-// SQLite trim() removes only U+0020 by default. Match String.trim() used by
-// the canonical reader, including pasted line breaks and Unicode spaces.
-const contactWhitespaceSql = "char(9,10,11,12,13,32,160,5760,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8232,8233,8239,8287,12288,65279)";
-
-function normalizedContact(expression: string): string {
-  return `NULLIF(trim(CAST(${expression} AS TEXT), ${contactWhitespaceSql}), '')`;
+// SQLite's ordinary trim ignores several Unicode whitespace characters.
+const whitespace = "char(9,10,11,12,13,32,160,5760,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8232,8233,8239,8287,12288,65279)";
+export function missingDirectoryContactSql(field:ContactField):string {
+  const column=columns[field];
+  return `NULLIF(trim(CAST(${column} AS TEXT), ${whitespace}), '') IS NULL`;
 }
-
-function normalizedJsonContact(key: string): string {
-  // No user-provided names; match JS contact reading of nonblank alias values.
-  return normalizedContact(`json_extract(${validSourceJson}, '$."${key}"')`);
-}
-
-export function missingDirectoryContactSql(field: ContactField): string {
-  // Populated (including intentionally cleared '') SQL is authoritative.
-  // Legacy JSON is consulted ONLY when the SQL column is NULL/unmigrated.
-  // Match overlayDirectorySqlContacts/readDirectorySqlBackedContacts.
-  const column = field === "phone" ? "public_phone" :
-    field === "email" ? "public_email" : "website_url";
-  const legacy = "COALESCE(" + aliases[field].map(normalizedJsonContact).join(", ") + ", '') = ''";
-  return "(CASE WHEN " + column + " IS NOT NULL THEN " +
-    normalizedContact(column) + " IS NULL ELSE " + legacy + " END)";
-}
-
-export const RAW_MISSING_PHONE_SQL = missingDirectoryContactSql("phone");
-export const RAW_MISSING_EMAIL_SQL = missingDirectoryContactSql("email");
-export const RAW_MISSING_WEBSITE_SQL = missingDirectoryContactSql("website");
+export const RAW_MISSING_PHONE_SQL=missingDirectoryContactSql("phone");
+export const RAW_MISSING_EMAIL_SQL=missingDirectoryContactSql("email");
+export const RAW_MISSING_WEBSITE_SQL=missingDirectoryContactSql("website");
