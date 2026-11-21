@@ -1,0 +1,88 @@
+name: Production Help Organizations – remove historical JSON contacts
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/production-help-org-contact-json-cleanup.yml"
+      - "scripts/production-help-org-contact-json-cleanup.mjs"
+      - "tests/help-org-contact-json-cleanup.test.mjs"
+      - "lib/partner-profile-changes.ts"
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Only AFTER SQL-only Help Organizations code is live: DEPLOYED-SQL-HELP-ORGANIZATIONS-CLEANUP-psipedia-sk-db"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('help-org-contacts-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  offline:
+    name: Verify SQL-owned contacts and one-keyset cleanup (offline only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - run: node --test tests/help-org-contact-json-cleanup.test.mjs
+
+  production:
+    name: Explicit owner-only JSON contact cleanup
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      HELP_ORG_CONTACT_CLEANUP_CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Reject unexpected context or premature cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$HELP_ORG_CONTACT_CLEANUP_CONFIRMATION" = "DEPLOYED-SQL-HELP-ORGANIZATIONS-CLEANUP-psipedia-sk-db"
+          test -n "$CLOUDFLARE_API_TOKEN"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Reject stale main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - name: Install pinned Wrangler
+        run: npm ci
+      - name: Bind exact Cloudflare account from repository configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -p 'require("./config/cloudflare-resources.json").account_id')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Remove only publicEmailsRaw and publicPhonesRaw from help_organizations
+        run: node scripts/production-help-org-contact-json-cleanup.mjs
+      - name: Archive aggregate-only postflight result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: help-org-contact-json-cleanup-${{ github.run_id }}
+          path: .production-help-org-contact-json-cleanup/report.json
+          if-no-files-found: warn
+          retention-days: 14
