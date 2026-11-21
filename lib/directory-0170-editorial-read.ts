@@ -10,7 +10,7 @@
  * producer/read contract (notably Notion category changes and explicit []).
  */
 import { proposedDirectorySqlPlacement } from "./directory-sql-cutover-contract.ts";
-import { isDirectoryPublicMetadataField } from "./directory-public-facts.ts";
+import { isDirectoryPublicMetadataField, directoryPublicFactLabels } from "./directory-public-facts.ts";
 import {
   getDirectoryFilterDefinition,
   directoryFilterRegistry,
@@ -78,6 +78,23 @@ export function overlayDirectory0170EditorialFields(input: {
         "directory_profile_public_facts") continue;
     // Including '' is essential. It must suppress historical JSON aliases.
     sourceCopy[entry.field_key]=entry.value_text;
+  }
+  if (audience === "public") {
+    // Some approved Notion selects deliberately share a visible text label
+    // (e.g. veterinarian emergency). The relational filter is the only
+    // authority; expose its translated value on detail, not the old JSON.
+    const visible = new Set(directoryPublicFactLabels(typedCategory));
+    for (const entry of filters) {
+      if (!entry || entry.category !== category) continue;
+      const definition = getDirectoryFilterDefinition(entry.filter_id);
+      if (!definition || definition.category !== category ||
+          definition.valueType !== "tri_state" ||
+          !visible.has(definition.notion.property)) continue;
+      const normalized = normalizeDirectoryFilterValue(definition,entry.value_text);
+      if (normalized.status !== "known") continue;
+      sourceCopy[definition.notion.property] =
+        normalized.value === "yes" ? "Áno" : normalized.value === "no" ? "Nie" : "";
+    }
   }
   if (audience === "admin") {
     for(const entry of filters) {
