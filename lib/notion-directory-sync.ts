@@ -3183,6 +3183,24 @@ export async function runNotionDirectorySyncSweep(input: {
       throw new Error("NOTION_TARGET_PROFILE_INVALID");
     const mapping = await loadMappingByProfile(input.database, input.targetProfileId);
     if (!mapping) return summary;
+    // Never run the ordinary (potentially inbound) merge while an owner
+    // unlock still needs its authoritative full D1 -> Notion rebaseline.
+    if (await directoryProfileOwnerUnlockPending(input.database, input.targetProfileId)) {
+      try {
+        const completed = await completeDirectoryReviewedOwnerUnlock({
+          database: input.database, bindings: input.bindings, profileId: input.targetProfileId,
+        });
+        if (completed === "unlocked") {
+          summary.pushedToNotion++;
+          await recordDirectoryTransfer(input.database, input.targetProfileId, "ADMIN_TO_NOTION");
+        } else summary.failed++;
+      } catch (error) {
+        summary.failed++;
+        console.warn("DIRECTORY_OWNER_UNLOCK_TARGET_RETRY_FAILED", input.targetProfileId,
+          error instanceof Error ? error.message : String(error));
+      }
+      return summary;
+    }
     try {
       const reviewed = await syncDirectoryReviewedWithNotion({
         database: input.database, bindings: input.bindings,
@@ -3249,6 +3267,37 @@ export async function runNotionDirectorySyncSweep(input: {
     return summary;
   }
 
+  // Pending unlocks have no live Notion baseline until the D1 snapshot has
+  // been acknowledged. Retry independently of updated_at and category; the
+  // normal changed-profile queue deliberately excludes several categories.
+  const completedOwnerUnlockIds = new Set<number>();
+  if (!input.targetPageId) {
+    const pending = await input.database.prepare(`
+      SELECT s.profile_id FROM directory_profile_review_state s
+      JOIN directory_profiles p ON p.id=s.profile_id
+      WHERE s.unlock_pending=1 AND COALESCE(TRIM(s.reviewed_at),'')=''
+        AND p.status<>'archived'
+      ORDER BY s.updated_at ASC, s.profile_id ASC LIMIT 10
+    `).all<{profile_id: number}>();
+    for (const row of pending.results) {
+      if (!await directoryProfileOwnerUnlockPending(input.database, row.profile_id)) continue;
+      try {
+        const completed = await completeDirectoryReviewedOwnerUnlock({
+          database: input.database, bindings: input.bindings, profileId: row.profile_id,
+        });
+        if (completed === "unlocked") {
+          completedOwnerUnlockIds.add(row.profile_id);
+          summary.pushedToNotion++;
+          await recordDirectoryTransfer(input.database, row.profile_id, "ADMIN_TO_NOTION");
+        } else summary.failed++;
+      } catch (error) {
+        summary.failed++;
+        console.warn("DIRECTORY_OWNER_UNLOCK_SCHEDULED_RETRY_FAILED", row.profile_id,
+          error instanceof Error ? error.message : String(error));
+      }
+    }
+  }
+
   let pages: NotionPage[];
   if (input.targetPageId !== undefined) {
     if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(input.targetPageId))
@@ -3296,7 +3345,7 @@ export async function runNotionDirectorySyncSweep(input: {
   // twice for the same mapped profile in one sweep. A fast-path page with no
   // actual reconcile is deliberately NOT marked, so a pending D1 change can
   // still be exported via changedProfileIds below.
-  const attemptedMappedProfileIds = new Set<number>();
+  const attemptedMappedProfileIds = new Set<number>(completedOwnerUnlockIds);
 
   for (const candidate of pages) {
     if (await notionPageMustSkipInboundSync(input.database,candidate.id)) continue;
