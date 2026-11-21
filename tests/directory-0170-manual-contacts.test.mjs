@@ -116,7 +116,7 @@ test("the canonical Admin SQL create/update never persist edited contacts to imp
   const start = notion.indexOf("async function saveBreederEditorialValue(");
   const finish = notion.indexOf("  } else if (path === \"seo.noindex\")", start);
   const branch = notion.slice(start, finish);
-  assert.match(branch, /source_data_json = \" \+ removed/);
+  assert.doesNotMatch(branch, /source_data_json = \" \+ removed/);
   assert.doesNotMatch(branch, /source_data_json = json_set\(\" \+ removed/);
   assert.match(branch, /assignments\.push\(column \+ \" = \?\"\)/);
 });
