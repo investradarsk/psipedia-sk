@@ -28,20 +28,14 @@ export async function ensurePartnerDirectoryReviewLock(input: {
     "SELECT directory_profile_id AS profileId FROM partner_resources WHERE id=?1 AND entity_type='DIRECTORY_PROFILE' LIMIT 1",
   ).bind(input.resourceId).first<{ profileId: number }>();
   if (!resource) return;
-  const result = await input.database.prepare(
-    "SELECT source_data_json FROM directory_profiles WHERE id=?1 LIMIT 1",
-  ).bind(resource.profileId).first<{ source_data_json: string }>();
+  const result = await input.database.prepare(`
+    SELECT EXISTS(
+      SELECT 1 FROM directory_profile_review_state s
+      WHERE s.profile_id=p.id AND NULLIF(TRIM(s.reviewed_at),'') IS NOT NULL
+    ) AS reviewed FROM directory_profiles p WHERE p.id=?1 LIMIT 1
+  `).bind(resource.profileId).first<{ reviewed: number }>();
   if (!result) throw new Error("PARTNER_DIRECTORY_PROFILE_NOT_FOUND");
-  let value: Record<string, unknown>;
-  try {
-    const parsed: unknown = JSON.parse(result.source_data_json);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
-    value = parsed as Record<string, unknown>;
-  } catch {
-    throw new Error("PARTNER_DIRECTORY_REVIEW_INVALID_JSON");
-  }
-  if (typeof value._psipedia_profile_review_reviewed_at === "string" &&
-      value._psipedia_profile_review_reviewed_at.trim()) return;
+  if (result.reviewed) return;
   await setManagedDirectoryProfileReviewed(
     resource.profileId, true, `admin:${input.adminEmail.trim().toLowerCase()}`,
     input.now ?? new Date(), input.database,
