@@ -29,6 +29,9 @@ done
 npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
 restore_migrations
 trap - EXIT
+# The Directory runtime reads services/image display from the isolated SQL
+# sidecar. Keep the local DS-0B fixture aligned with production D1 schema.
+npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql
 npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/public-regression-ci.sql
 nohup npm exec vite -- --host 127.0.0.1 --port 5173 --strictPort > .e2e-artifacts/public-regression/server.log 2>&1 &
 server_pid=$!
