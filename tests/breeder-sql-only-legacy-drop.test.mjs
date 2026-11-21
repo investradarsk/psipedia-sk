@@ -11,7 +11,7 @@ import {
 import { attachBreederCardBreeds } from "../lib/directory-breeder-card.ts";
 import { formatBreederRelationText, resolveBreederRelationText } from "../lib/breeder-relation-text.ts";
 
-const removedColumns = /\\b(?:fci_standard_json|editorial_json|related_breeds_json|seo_json)\\b/;
+const removedColumns = /\b(?:fci_standard_json|editorial_json|related_breeds_json|seo_json)\b/;
 
 function fixtureWithoutLegacyBreedJson() {
   const sqlite = new DatabaseSync(":memory:");
@@ -141,12 +141,12 @@ test("Admin selection and Notion name reconciliation use the same SQL-only optio
 
     const route = readFileSync("app/api/admin/directory/[id]/breeder-relations/route.ts", "utf8");
     const sync = readFileSync("lib/notion-directory-sync.ts", "utf8");
-    assert.match(route, /const options = await listBreederRelationOptions\\(database\\)/);
+    assert.match(route, /const options = await listBreederRelationOptions\(database\)/);
     assert.match(route, /mirrorBreederRelationNamesToNotion/);
-    assert.match(sync, /const options = await listBreederRelationOptions\\(database\\)/);
-    assert.match(sync, /resolveBreederRelationText\\(text/);
-    assert.match(sync, /saveBreederRelationSelection\\(database, input\\.profile\\.id/);
-    assert.match(sync, /formatBreederRelationText\\(selected\\[field\\]/);
+    assert.match(sync, /const options = await listBreederRelationOptions\(database\)/);
+    assert.match(sync, /resolveBreederRelationText\(text/);
+    assert.match(sync, /saveBreederRelationSelection\(database, input\.profile\.id/);
+    assert.match(sync, /formatBreederRelationText\(selected\[field\]/);
   } finally {
     sqlite.close();
   }
