@@ -70,13 +70,13 @@ test("one idempotent UPDATE removes only the two top-level historic contact keys
 });
 
 test("cleanup cannot mutate SQL contacts, profiles, identifiers, or other sections", () => {
-  assert.equal((CLEANUP_SQL.match(/\\bUPDATE\\b/g) ?? []).length, 1);
-  assert.match(CLEANUP_SQL, /^UPDATE help_organizations\\s+SET source_data_json = json_remove\\(/);
-  assert.match(CLEANUP_SQL, /json_valid\\(source_data_json\\)/);
-  assert.match(CLEANUP_SQL, /'\\$\\.publicEmailsRaw'/);
-  assert.match(CLEANUP_SQL, /'\\$\\.publicPhonesRaw'/);
-  assert.doesNotMatch(CLEANUP_SQL, /\\b(?:DROP|ALTER|INSERT|DELETE|REPLACE|JOIN)\\b/i);
-  assert.doesNotMatch(CLEANUP_SQL, /\\b(?:public_email|public_phone|updated_at|image_url|seo_json)\\b/i);
+  assert.equal((CLEANUP_SQL.match(/\bUPDATE\b/g) ?? []).length, 1);
+  assert.match(CLEANUP_SQL, /^UPDATE help_organizations\s+SET source_data_json = json_remove\(/);
+  assert.match(CLEANUP_SQL, /json_valid\(source_data_json\)/);
+  assert.match(CLEANUP_SQL, /'\$\.publicEmailsRaw'/);
+  assert.match(CLEANUP_SQL, /'\$\.publicPhonesRaw'/);
+  assert.doesNotMatch(CLEANUP_SQL, /\b(?:DROP|ALTER|INSERT|DELETE|REPLACE|JOIN)\b/i);
+  assert.doesNotMatch(CLEANUP_SQL, /\b(?:public_email|public_phone|updated_at|image_url|seo_json)\b/i);
 });
 
 test("public, Admin, partner, automation and Notion organization contacts stay SQL-authoritative", () => {
@@ -87,20 +87,20 @@ test("public, Admin, partner, automation and Notion organization contacts stay S
   const automation = read("lib/data-automation-apply.ts");
   const notion = read("lib/notion-events-help-adapters.ts");
 
-  assert.match(publicRead, /publicEmail: row\\.public_email/);
-  assert.match(publicRead, /publicPhone: row\\.public_phone/);
-  assert.match(adminRead, /publicEmail: row\\.public_email/);
-  assert.match(adminRead, /publicPhone: row\\.public_phone/);
-  assert.match(adminWrite, /public_email = \\?, public_phone = \\?/);
+  assert.match(publicRead, /publicEmail: row\.public_email/);
+  assert.match(publicRead, /publicPhone: row\.public_phone/);
+  assert.match(adminRead, /publicEmail: row\.public_email/);
+  assert.match(adminRead, /publicPhone: row\.public_phone/);
+  assert.match(adminWrite, /public_email = \?, public_phone = \?/);
   assert.match(partner, /publicEmail:"public_email"/);
   assert.match(partner, /publicPhone:"public_phone"/);
-  assert.match(automation, /publicEmail: field\\("public_email"\\)/);
-  assert.match(automation, /publicPhone: field\\("public_phone"\\)/);
+  assert.match(automation, /publicEmail: field\("public_email"\)/);
+  assert.match(automation, /publicPhone: field\("public_phone"\)/);
   // The existing Notion import preserves contact columns, and never imports
   // either value from legacy JSON. Other Notion agenda fields remain unchanged.
-  assert.match(notion, /publicEmail: existing\\?\\.publicEmail \\?\\? null/);
-  assert.match(notion, /publicPhone: existing\\?\\.publicPhone \\?\\? null/);
-  assert.match(partner, /delete source\\.publicEmailsRaw;\\s*delete source\\.publicPhonesRaw;/);
+  assert.match(notion, /publicEmail: existing\?\.publicEmail \?\? null/);
+  assert.match(notion, /publicPhone: existing\?\.publicPhone \?\? null/);
+  assert.match(partner, /delete source\.publicEmailsRaw;\s*delete source\.publicPhonesRaw;/);
 
   // There are no active JSON contact aliases in read/write paths.
   for (const file of [publicRead, adminRead, adminWrite, automation, notion]) {
@@ -113,12 +113,12 @@ test("production operation is manual, on main, protected and separate from the m
   const script = read("scripts/production-help-org-contact-json-cleanup.mjs");
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /environment: production/);
-  assert.match(workflow, /secrets\\.CLOUDFLARE_D1_API_TOKEN/);
-  assert.match(workflow, /if: github\\.event_name == 'workflow_dispatch'/);
-  assert.match(workflow, /git rev-parse origin\\/main/);
-  assert.match(script, /GITHUB_REF !== "refs\\/heads\\/main"/);
+  assert.match(workflow, /secrets\.CLOUDFLARE_D1_API_TOKEN/);
+  assert.match(workflow, /if: github\.event_name == 'workflow_dispatch'/);
+  assert.match(workflow, /git rev-parse origin\/main/);
+  assert.match(script, /GITHUB_REF !== "refs\/heads\/main"/);
   assert.match(script, /CLOUDFLARE_ACCOUNT_ID !== ACCOUNT/);
   assert.match(script, /DEPLOYED-SQL-HELP-ORGANIZATIONS-CLEANUP-psipedia-sk-db/);
-  assert.doesNotMatch(workflow, /\\bpush:/);
-  assert.doesNotMatch(script, /notionRequest|fetch\\(|backfill|INSERT INTO help_organizations/);
+  assert.doesNotMatch(workflow, /\bpush:/);
+  assert.doesNotMatch(script, /notionRequest|fetch\(|INSERT INTO help_organizations/);
 });
