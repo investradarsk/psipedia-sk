@@ -46,17 +46,13 @@ test("candidate shortcut uses the shared confirmation but keeps its own payload"
   assert.doesNotMatch(candidate, /applyImage/);
 });
 
-test("Directory proposals confirm review without mutating public profile", () => {
+test("retired Directory proposals are read-only; Partner reviews retain separate confirmation", () => {
   const src = read("components/admin-directory-change-requests.tsx");
-  assert.match(src, /pendingReview/);
-  assert.match(src, /if \(!decision \|\| busyId !== null\) return/);
-  assert.match(src, /setPendingReview\(\{ item, nextStatus: "approved" \}\)/);
-  assert.match(src, /setPendingReview\(\{ item, nextStatus: "rejected" \}\)/);
-  assert.match(src, /confirmVariant=\{pendingReview\?\.nextStatus === "approved" \? "primary" : "destructive"\}/);
-  assert.match(src, /onCancel=\{\(\) => \{ if \(busyId === null\) setPendingReview\(null\); \}\}/);
-  assert.match(src, /onConfirm=\{\(\) => void review\(\)\}/);
-  assert.match(src, /method: "PUT"/);
-  assert.match(src, /body: JSON\.stringify\(\{ status: nextStatus \}\)/);
-  assert.match(src, /Profil sa automaticky nezmení/);
+  const route = read("app/api/admin/profile-change-requests/[id]/route.ts");
+  assert.match(src, /Historické návrhy – iba na čítanie/);
+  assert.match(src, /admin-change-diff/);
+  assert.doesNotMatch(src, /pendingReview|setPendingReview|AdminDestructiveConfirmDialog|method: "PUT"/);
+  assert.match(route, /status: 410/);
+  assert.doesNotMatch(route, /reviewDirectoryProfileChangeRequest/);
   assert.doesNotMatch(src, /window\.confirm/);
 });
