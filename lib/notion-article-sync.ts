@@ -1016,6 +1016,7 @@ export function notionPageToManagedArticleInput(
   existing?: ExistingNotionArticlePlacement,
   confirmedPrevious?: ArticleSeoRemoteValues | null,
   explicitlyEditedSeo?: ReadonlySet<ArticleNotionSeoKey>,
+  explicitlyEditedPhotoCredit = false,
 ): ManagedArticleInput {
   const title = titleProperty(page, "Názov");
   const slug = richTextProperty(page, "Slug");
@@ -1028,9 +1029,14 @@ export function notionPageToManagedArticleInput(
     ? richTextProperty(page, "Popis na sociálne siete")
     : (existing && "socialCaption" in existing ? (existing as { socialCaption?: string }).socialCaption ?? "" : "");
   const imageCreditUrl = urlProperty(page, "Zdroj obrázka") || existing?.imageCreditUrl || "";
-  const imageCredit = richTextProperty(page, "Kredit fotografie")
-    || existing?.imageCredit
-    || photoCreditFromNotionAttribution(photoAttributionNote(blocks));
+  const notionImageCredit = richTextProperty(page, "Kredit fotografie");
+  // An explicit Notion field edit, including clearing it, is authoritative.
+  // For unrelated updates, keep existing attribution or infer it from legacy
+  // editorial notes rather than accidentally erasing the required license.
+  const imageCredit = explicitlyEditedPhotoCredit
+    ? notionImageCredit
+    : notionImageCredit || existing?.imageCredit
+      || photoCreditFromNotionAttribution(photoAttributionNote(blocks));
   const { intro, introRichText, blocks: articleBlocks } = convertBodyBlocks(
     blocks, hasCompletePublicPhotoCredit(imageCredit, imageCreditUrl),
   );
@@ -1058,7 +1064,7 @@ export function notionPageToManagedArticleInput(
     sections: [],
     blocks: articleBlocks,
     sources: [],
-    imageCredit: imageCredit || undefined,
+    imageCredit: explicitlyEditedPhotoCredit ? (imageCredit || null) : (imageCredit || undefined),
     imageCreditUrl: imageCreditUrl || undefined,
     readingMinutes: estimateReadingMinutes(intro, articleBlocks),
     publishedAt: null,
@@ -1972,7 +1978,7 @@ async function findUnmappedCanonicalArticle(
 
 const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [
   "title","excerpt","intro","blocks","seoTitle","metaDescription","socialCaption","focusKeyword",
-  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl",
+  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl","imageCredit",
 ] as const;
 type ArticleAuthorityKey=(typeof ARTICLE_EDITABLE_AUTHORITY_FIELDS)[number];
 /**
@@ -1991,6 +1997,7 @@ function articleSignedNotionFields(
   const changed = new Set<ArticleAuthorityKey>();
   const direct = {
     title: "Názov", socialCaption: "Popis na sociálne siete",
+    imageCredit: "Kredit fotografie",
   } as const;
   for (const [field, name] of Object.entries(direct)) {
     const prop = propertyRecord(page, name);
@@ -2183,7 +2190,10 @@ async function syncOneNotionPage(
   // correct fallback; do not parse a mapped page without that context.
   const explicitSeo = signedFields
     ? articleSeoSignedChangedFields(page, changedPropertyIds ?? []) : undefined;
-  const proposed = notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo);
+  const proposed = notionPageToManagedArticleInput(
+    page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo,
+    signedFields?.has("imageCredit") ?? false,
+  );
   const existing: ManagedArticle | null = mappedExisting
     ?? (mapping ? null : await findUnmappedCanonicalArticle(database, page, proposed));
   if (mapping && !existing) {
@@ -2199,7 +2209,10 @@ async function syncOneNotionPage(
   if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
   validateSyncGate(page, existing?.status === "published" || dueScheduledPublishedMapping);
 
-  const sourcePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined, previousSeo, explicitSeo);
+  const sourcePayload = notionPageToManagedArticleInput(
+    page, blocks, existing ?? undefined, previousSeo, explicitSeo,
+    signedFields?.has("imageCredit") ?? false,
+  );
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
   const authorityPayload = existing && mapping && signedFields === null
