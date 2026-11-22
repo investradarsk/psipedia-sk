@@ -46,3 +46,21 @@ test("controlled import reports four actions and applies only when error-free", 
   assert.match(store, /VALUES \(\?, \?, \?, \?, 'draft'/);
   assert.match(store, /database\.batch\(statements\)/);
 });
+
+test("public name-day D1 reads retry transient connection errors only, without modifying admin writes", async () => {
+  const store = await read("../lib/dog-name-day-store.ts");
+  const retries = store.match(/retryTransientPublicRead\(\(\) => database\.prepare\(/g) ?? [];
+  assert.equal(retries.length, 3, "public month, today and search each retry only the read-only SELECT");
+  const sections = [
+    store.split("export async function searchPublishedDogNameDays")[1].split("export async function getPublishedDogNameDaysForDate")[0],
+    store.split("export async function getPublishedDogNameDaysForDate")[1].split("export async function listDogNameDayRecords")[0],
+    store.split("export async function getPublishedDogNameDaysForMonth")[1],
+  ];
+  for (const section of sections) {
+    assert.match(section, /retryTransientPublicRead\(\(\) => database\.prepare\(/);
+    assert.match(section, /WHERE status = 'published'/);
+    assert.match(section, /catch \(error\)/, "persistent failures retain the existing fail-closed fallback");
+  }
+  const admin = store.split("export async function listDogNameDayRecords")[1].split("/** Read-only public month lookup")[0];
+  assert.doesNotMatch(admin, /retryTransientPublicRead/, "admin reads and all writes must not retry");
+});
