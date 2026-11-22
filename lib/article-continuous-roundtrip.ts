@@ -5,7 +5,7 @@
  */
 import type { ArticleBlock } from "@/lib/article-blocks";
 import {
-  editorialRichTextPlainText, legacyRichTextToDocument,
+  editorialRichTextPlainText, legacyRichTextToDocument, normalizeEditorialRichText,
   type EditorialRichTextDocument,
 } from "@/lib/editorial-content";
 import {
@@ -48,17 +48,23 @@ function nodeContent(node: TiptapEditorialNode): string {
   return (node.content ?? []).map(child =>
     child.type === "text" ? child.text ?? "" : child.type === "hardBreak" ? "\n" : "").join("");
 }
-function stableProseNode(node: TiptapEditorialNode): TiptapEditorialNode {
-  const { type, content, marks, attrs } = node;
-  if (type === "heading") return { type, attrs: { level: attrs?.level }, ...(content ? { content } : {}) };
-  if (type === "psipediaCallout") return { type, attrs: { tone: attrs?.tone }, ...(content ? { content } : {}) };
-  return { type, ...(content ? { content } : {}), ...(marks ? { marks } : {}) };
+/** Compare supported editorial semantics instead of ProseMirror JSON decoration
+ * (links add target/rel attrs and list nodes may add default attributes).
+ * Untouched legacy raw markdown and future metadata must remain byte-for-byte.
+ */
+function sameEditorialContent(
+  expected: EditorialRichTextDocument,
+  actual: EditorialRichTextDocument,
+): boolean {
+  const original = normalizeEditorialRichText(expected);
+  const converted = normalizeEditorialRichText(actual);
+  return Boolean(original && converted)
+    && JSON.stringify(original!.content) === JSON.stringify(converted!.content);
 }
 function sameRichText(original: ArticleBlock, nodes: TiptapEditorialNode[]): boolean {
   if (original.type !== "text") return false;
   const source = original.richText ?? legacyRichTextToDocument(original.content);
-  return JSON.stringify(editorialToTiptap(source).content)
-    === JSON.stringify(nodes.map(stableProseNode));
+  return sameEditorialContent(source, proseDocument(nodes));
 }
 
 type PendingProse = { key: string; original: ArticleBlock | null; nodes: TiptapEditorialNode[] };
@@ -95,9 +101,8 @@ export function continuousDocumentToArticleFields(
   const introNodes = nodes.slice(0, boundary);
   const parsedIntro = proseDocument(introNodes);
   const originalIntro = options.originalIntro;
-  const originalIntroNodes = originalIntro ? editorialToTiptap(originalIntro.introRichText).content : null;
-  const keepOriginalIntro = !!originalIntroNodes && JSON.stringify(introNodes.map(stableProseNode))
-    === JSON.stringify(originalIntroNodes.length ? originalIntroNodes : [{ type: "paragraph", content: [] }]);
+  const keepOriginalIntro = Boolean(originalIntro)
+    && sameEditorialContent(originalIntro!.introRichText, parsedIntro);
   const introRichText = keepOriginalIntro ? snapshot(originalIntro!.introRichText) : parsedIntro;
   const takeawayRichText = record(takeawayNode.attrs?.document, "To najdôležitejšie") as EditorialRichTextDocument;
   editorialToTiptap(takeawayRichText);
