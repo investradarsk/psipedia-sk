@@ -239,6 +239,14 @@ async function loadWriter(h) {
       encodeArticleSeoReceipt: hash => hash,
     },
     "./admin-record-lifecycle": { notionPageMustSkipInboundSync: async () => false },
+    "@/lib/article-effective-status": {
+    effectiveArticleStatus(status, publishedAt, now = Date.now()) {
+      if (status !== "scheduled" || !publishedAt) return status;
+      const due = Date.parse(publishedAt);
+      const clock = now instanceof Date ? now.getTime() : typeof now === "string" ? Date.parse(now) : now;
+      return Number.isFinite(due) && Number.isFinite(clock) && due <= clock ? "published" : "scheduled";
+    },
+  },
     "@/lib/notion-field-authority": {readNotionFieldAuthorities:async()=>({})},
     "@/lib/notion-transfer-audit": {recordNotionTransfer:async()=>{}},
     "@/lib/article-store": {},
