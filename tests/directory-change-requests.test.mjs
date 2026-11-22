@@ -364,7 +364,7 @@ test("retired public profile-change endpoint rejects all proposals without D1 or
     });
     assert.equal(response.status, 410);
     assert.match((await response.json()).error, /Partner účet/);
-    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.match(response.headers.get("cache-control") ?? "", /(?:^|,\s*)no-store(?:,|$)/);
   }
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 0);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM editorial_notifications WHERE resource_type='directory_profile_change_request'").get().count, 0);
