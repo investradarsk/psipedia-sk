@@ -10,6 +10,7 @@ import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContextBanner,
   PublicContentShell,
+  PublicCategorySection,
   PublicActionLink,
   PublicSubcategoryNavigator,
   PublicFoundation,
@@ -184,11 +185,31 @@ export async function EventsPage({
           </UnifiedSectionHeroShell>
         </div>
 
+        <section className={styles.calendarOrganizer} aria-label="Pre organizátorov">
+          <PublicContentShell variant="listing">
+            <PublicContextBanner
+              eyebrow="PRE ORGANIZÁTOROV"
+              title="Organizujete podujatie?"
+              text="Pridajte výstavu, preteky, tréning alebo inú kynologickú akciu do kalendára Psipedie."
+              ctaLabel="Pridať podujatie"
+              ctaHref="/podujatia/pridat-podujatie"
+              tone="coral"
+              inline
+            />
+          </PublicContentShell>
+        </section>
+
         <AffiliateRotatingBanner placement="horizontal" />
 
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">
             <div className={styles.eventCategoryNavigator} data-event-category-navigation>
+              <PublicCategorySection
+                eyebrow="Kategórie podujatí"
+                title="Vyberte, čo vás zaujíma"
+                description="Výstavy, preteky, semináre, tréningy a stretnutia so psami."
+                id="events-categories-heading"
+              >
               {!isMainListing ? (
                 <div className={styles.eventAllLink}>
                   <PublicActionLink href="/podujatia" variant="tertiary">
@@ -207,6 +228,7 @@ export async function EventsPage({
                   current: initialType === type,
                 }))}
               />
+              </PublicCategorySection>
             </div>
             <EventCalendar
               key={listingIdentity}
@@ -223,19 +245,6 @@ export async function EventsPage({
               initialQuery={initialQuery}
               initialRegion={initialRegion}
               initialMonth={initialMonth}
-              afterCalendar={
-                <section className={styles.calendarOrganizer} aria-label="Pre organizátorov">
-                  <PublicContextBanner
-                    eyebrow="PRE ORGANIZÁTOROV"
-                    title="Organizujete podujatie?"
-                    text="Pridajte výstavu, preteky, tréning alebo inú kynologickú akciu do kalendára Psipedie."
-                    ctaLabel="Pridať podujatie"
-                    ctaHref="/podujatia/pridat-podujatie"
-                    tone="coral"
-                    inline
-                  />
-                </section>
-              }
             />
           </PublicContentShell>
         </section>
