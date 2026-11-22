@@ -40,6 +40,8 @@ type Props = {
   onUploadingChange: (uploading: boolean) => void;
   onMessage: (message: string) => void;
   onError: (message: string) => void;
+  /** In one continuous document, render only native widget fields, not another list editor. */
+  inlineWidgetMode?: boolean;
 };
 
 const blockTypes = Object.keys(articleBlockLabels) as ArticleBlock["type"][];
@@ -126,7 +128,7 @@ export function RichTextInput({
   );
 }
 
-export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, promoUtcDay, onUploadingChange, onMessage, onError }: Props) {
+export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, promoUtcDay, onUploadingChange, onMessage, onError, inlineWidgetMode = false }: Props) {
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
@@ -137,11 +139,12 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
   const [uploadingSingleId,setUploadingSingleId]=useState<string|null>(null);
 
   useEffect(() => {
+    if (inlineWidgetMode && blocks.every(block => block.type !== "related")) return;
     fetch("/api/admin/articles?limit=100")
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: { articles?: ManagedArticleSummary[] }) => setArticles((data.articles ?? []).filter((item) => item.id !== currentArticleId && item.status === "published")))
       .catch(() => undefined);
-  }, [currentArticleId]);
+  }, [currentArticleId, inlineWidgetMode, blocks]);
 
   function update(id: string, updater: (block: ArticleBlock) => ArticleBlock) {
     onChange(blocks.map((block) => block.id === id ? updater(block) : block));
@@ -263,18 +266,18 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
         {blocks.length === 0 && <div className="admin-block-empty"><strong>Článok zatiaľ nemá obsahové bloky.</strong><p>Začni textom alebo nadpisom H2.</p></div>}
         {blocks.map((block, index) => (
           <Fragment key={block.id}>
-          {insertControl(index)}
+          {!inlineWidgetMode && insertControl(index)}
           <section
             id={`admin-editor-block-${block.id}`}
             tabIndex={-1}
             className={`admin-block-card ${navStyles.editorTarget} ${dragIndex === index ? "is-dragging" : ""}`}
-            draggable
-            onDragStart={() => setDragIndex(index)}
+            draggable={!inlineWidgetMode}
+            onDragStart={() => { if (!inlineWidgetMode) setDragIndex(index); }}
             onDragEnd={() => setDragIndex(null)}
             onDragOver={(event) => event.preventDefault()}
             onDrop={() => drop(index)}
           >
-            <header className="admin-block-head">
+            {!inlineWidgetMode && <header className="admin-block-head">
               <div><button type="button" className="admin-block-grip" title="Potiahni a presuň" aria-label={`Presunúť blok ${articleBlockLabels[block.type]}`}>⠿</button><strong>{articleBlockLabels[block.type]}</strong><span>Blok {index + 1}</span></div>
               <div>
                 <button type="button" onClick={() => move(index, -1)} disabled={index === 0} aria-label="Presunúť hore">↑</button>
@@ -289,7 +292,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
                   <button type="button" className="is-danger" onClick={() => setPendingDeleteId(block.id)} aria-label="Odstrániť blok">×</button>
                 )}
               </div>
-            </header>
+            </header>}
 
             {block.type === "text" && <RichTextInput
               id={`block-${block.id}`}
@@ -441,12 +444,12 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
         ))}
       </div>
 
-      <div className="admin-block-add">
+      {!inlineWidgetMode && <div className="admin-block-add">
         <button type="button" className="admin-block-add-button" aria-expanded={pickerIndex === blocks.length} onClick={() => setPickerIndex(pickerIndex === blocks.length ? null : blocks.length)}>+ Pridať blok na koniec</button>
         {pickerIndex === blocks.length && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type, blocks.length)}><span>{blockIcon(type)}</span>{articleBlockLabels[type]}</button>)}</div>}
-      </div>
+      </div>}
 
-      <details className="admin-block-preview"><summary>Náhľad blokov</summary><ArticleBlocks blocks={blocks} preview /></details>
+      {!inlineWidgetMode && <details className="admin-block-preview"><summary>Náhľad blokov</summary><ArticleBlocks blocks={blocks} preview /></details>}
     </>
   );
 }
