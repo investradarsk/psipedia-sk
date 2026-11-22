@@ -194,3 +194,16 @@
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > div > div {
   color: var(--ps-bnr-body) !important;
 }
+
+@media (min-width: 721px) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"] [data-public-banner-content] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"] [data-public-banner-content] > a {
+    justify-self: start;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="medium"] [data-public-banner-content],
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="large"] [data-public-banner-content] {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
