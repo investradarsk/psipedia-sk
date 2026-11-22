@@ -467,3 +467,23 @@ test("legacy Ready error retry only acknowledges identical published article con
   assert.match(syncSource, /if \(legacyUnapprovedReady\) \{[\s\S]*?await updateNotionSyncState\(bindings, page\.id, \{/);
   assert.match(syncSource, /state: "Synchronizované", articleId: existing\.id, syncedAt: now/);
 });
+
+test("Notion image-credit cell updates, including explicit clears, are mapped to Admin/D1 without importing private notes", () => {
+  const fields = syncSource.slice(
+    syncSource.indexOf("const ARTICLE_EDITABLE_AUTHORITY_FIELDS = ["),
+    syncSource.indexOf("] as const;", syncSource.indexOf("const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [")) + "] as const;".length,
+  );
+  assert.match(fields, /"imageCredit"/);
+  assert.match(syncSource, /imageCredit: "Kredit fotografie"/);
+  assert.match(syncSource, /signedFields\?\.has\("imageCredit"\) \?\? false/);
+  assert.match(syncSource, /const imageCredit = explicitlyEditedPhotoCredit[\s\S]*?\? notionImageCredit/);
+  assert.match(syncSource, /imageCredit: explicitlyEditedPhotoCredit \? \(imageCredit \|\| null\) : \(imageCredit \|\| undefined\)/);
+  assert.match(syncSource, /if \(mappedExisting && signedFields && signedFields\.size === 0\) return "unchanged"/);
+  assert.match(syncSource, /imageCreditUrl = urlProperty\(page, "Zdroj obrázka"\)/);
+  assert.match(syncSource, /hasCompletePublicPhotoCredit\(imageCredit, imageCreditUrl\)/);
+  // Other property events and body-only webhooks must keep the canonical credit.
+  assert.match(syncSource, /eventType === "page\.content_updated"[\s\S]*?\["intro", "blocks", "excerpt"\]/);
+  assert.match(syncSource, /if \(edited\.has\(key\)\) continue/);
+  assert.match(syncSource, /\(next as Record<string, unknown>\)\[key\] = articleCurrentField\(existing, key\)/);
+  assert.match(articleStoreSource, /const canonicalBlocks = publicArticleBlocks\(normalizeArticleBlocks\(payload\.blocks/);
+});
