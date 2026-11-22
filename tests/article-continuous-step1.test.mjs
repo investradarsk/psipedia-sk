@@ -81,7 +81,7 @@ test("CONTINUOUS STEP 1: UI is opt-in and cannot save a new article document", (
   const viewer = readFileSync("components/admin-article-continuous-readonly.tsx", "utf8");
   const adapter = readFileSync("lib/article-continuous-readonly.ts", "utf8");
   assert.match(admin, /data-article-continuous-toggle/);
-  assert.match(admin, /<div hidden=\{continuousReadOnlyOpen\}>/);
+  assert.match(admin, /!continuousReadOnlyOpen && !continuousEditableOpen/);
   assert.match(admin, /<AdminArticleBlockEditor/);
   assert.match(viewer, /editable: false/);
   assert.match(viewer, /ReactNodeViewRenderer\(ReadOnlyWidget\)/);
