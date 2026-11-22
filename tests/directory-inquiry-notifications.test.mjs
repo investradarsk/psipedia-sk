@@ -88,7 +88,6 @@ function createDatabase() {
   sqlite.exec(migration);
   sqlite.exec(readFileSync(new URL("../drizzle/0035_editorial_notification_outbox.sql", import.meta.url), "utf8"));
   sqlite.exec(`
-    CREATE TABLE directory_profile_change_requests (id INTEGER PRIMARY KEY);
     CREATE TABLE news_tips (id INTEGER PRIMARY KEY);
     CREATE TABLE article_feedback (id INTEGER PRIMARY KEY, helpful INTEGER NOT NULL DEFAULT 0);
     -- Match the inbox acknowledgement contract from migration 0146. The
