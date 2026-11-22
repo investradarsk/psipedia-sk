@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { directoryCategoryLabel, type DirectoryInquiry, type DirectoryProfileChangeRequest } from "@/lib/directory";
+import { directoryCategoryLabel, type DirectoryInquiry } from "@/lib/directory";
 import { newsTipTopicLabel, type NewsTip } from "@/lib/news-tip";
 import type { ArticleFeedback } from "@/lib/article-feedback-store";
 import type { AutomationFindingNotification } from "@/lib/data-automation";
@@ -135,23 +135,6 @@ export async function sendEditorialEmail(message: EditorialMessage) {
     }));
   }
   return result.ok;
-}
-
-export function notifyDirectoryProfileChangeRequest(request: DirectoryProfileChangeRequest, options: EditorialEmailOptions = {}) {
-  return sendEditorialEmailDetailed({
-    subject: `[Návrh profilu] ${request.profileName}`,
-    lines: [
-      line("Profil", request.profileName),
-      line("Kategória", directoryCategoryLabel(request.profileCategory)),
-      line("Navrhovateľ", request.requesterName),
-      line("E-mail", request.requesterEmail),
-      line("Telefón", request.requesterPhone),
-      line("Vzťah k službe", request.requesterRole),
-      line("Poznámka", request.note),
-      line("Dátum", formatDate(request.createdAt)),
-      line("Admin", `${ADMIN_ORIGIN}/admin/adresar/navrhy#navrh-${request.id}`),
-    ],
-  }, options);
 }
 
 export function notifyDirectoryInquiry(
