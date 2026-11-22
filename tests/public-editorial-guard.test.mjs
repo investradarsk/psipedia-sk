@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   hasCompletePublicPhotoCredit,
+  isInternalArticleInstructionText,
   isInternalBreedSportNote,
   isNotionOnlySocialDraftHeading,
   isPhotoAttributionHeading,
@@ -98,4 +99,13 @@ test("generic social-media headings stay public unless they contain both interna
   assert.match(articleBlocks, /socialDraft = isNotionOnlySocialDraftHeading\(block\.text, subsections\)/);
   assert.match(notionSync, /isNotionSocialDraftSection\(blocks, index\)/);
   assert.match(notionSync, /return isNotionOnlySocialDraftHeading\(blockText\(headingBlock\), subsections\)/);
+});
+
+test("Notion template instructions are dropped without truncating real article paragraphs", () => {
+  const leaked = "Táto sekcia je zdrojom obsahu pre synchronizáciu do Psipedia.sk. Synchronizácia má vytvoriť iba DRAFT článok.";
+  assert.equal(isInternalArticleInstructionText(leaked), true);
+  assert.equal(isInternalArticleInstructionText("ODTIAĽTO AŽ PO KONIEC STRÁNKY PATRÍ IBA VEREJNÝ TEXT ČLÁNKU."), true);
+  assert.equal(isInternalArticleInstructionText("Pes potrebuje pravidelné čistenie zubov a pokojný tréning."), false);
+  assert.match(read("lib/article-blocks.ts"), /isInternalArticleInstructionText\(block\.content\)/);
+  assert.match(read("lib/notion-article-sync.ts"), /!isInternalArticleInstructionText\(blockText\(block\)\)/);
 });
