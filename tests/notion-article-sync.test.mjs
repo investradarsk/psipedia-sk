@@ -191,6 +191,27 @@ test("care subsection taxonomy covers hygiene, senior, nutrition and behaviour",
   assert.match(taxonomySource, /portalSubpage === "vycvik"\) return "Výcvik"/);
 });
 
+test("Admin-aligned Všeobecné články preserves existing /clanky routes and categories", () => {
+  const start = syncSource.indexOf("function mapNotionPlacement(");
+  const end = syncSource.indexOf("\nfunction isStartHeading(", start);
+  assert.ok(start >= 0 && end > start);
+  const fn = syncSource.slice(start, end);
+  assert.match(fn, /notionCategory === "Všeobecné články"/);
+  assert.match(fn, /existing\?\.portalSection === "clanky" \? existing\.category : "Život so psom"/);
+  assert.match(fn, /portalSection: "clanky"/);
+  assert.match(fn, /portalSubpage: null/);
+  assert.match(fn, /contentType === "Aktuálna novinka" \|\| contentType === "Recenzia"/);
+  assert.ok(fn.indexOf('if (notionSubsection) {') < fn.indexOf('if (notionCategory === "Všeobecné články")'),
+    "a non-empty canonical subsection must fail before generic fallback");
+
+  // Existing Notion legacy buckets remain readable until every source row
+  // has been remapped and the old select options are removed.
+  assert.match(syncSource, /"Pomoc psom": \{/);
+  assert.match(syncSource, /"Bezpečnosť": \{/);
+  assert.match(syncSource, /"Plemená": \{/);
+  assert.match(syncSource, /"Zaujímavosti": \{/);
+});
+
 test("legacy articles without Podsekcia keep only safe compatibility behaviour", () => {
   assert.match(syncSource, /LEGACY_UNAMBIGUOUS_CATEGORY_PLACEMENTS/);
   assert.match(syncSource, /"Výživa": \{[\s\S]*portalSubpage: "vyziva"/);
