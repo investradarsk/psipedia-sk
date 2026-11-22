@@ -65,8 +65,8 @@ function createMock(counts = {}, { unavailable = [], malformed = false, rawCount
   return { database, calls, counts };
 }
 
-test("header summary issues exactly three D1 read statements for fifteen distinct sources", async () => {
-  assert.equal(adminAttentionQueueSourceTypes.length, 15);
+test("header summary issues exactly three D1 read statements for fourteen distinct sources", async () => {
+  assert.equal(adminAttentionQueueSourceTypes.length, 14);
   assert.equal(ADMIN_ATTENTION_SUMMARY_GROUP_SIZE, 5);
   assert.equal(ADMIN_ATTENTION_SUMMARY_QUERY_COUNT, 3);
   const values = Object.fromEntries(adminAttentionQueueSourceTypes.map((source, index) => [source, index + 1]));
@@ -75,7 +75,7 @@ test("header summary issues exactly three D1 read statements for fifteen distinc
   assert.equal(calls.length, 3);
   assert.deepEqual(calls.map((call) => call.group), expectedGroups);
   assert.equal(result.availability, "OK");
-  assert.equal(result.active, 120);
+  assert.equal(result.active, 105);
   assert.deepEqual(result.bySource, values);
   assert.deepEqual(result.unavailableSources, []);
   for (const call of calls) {
@@ -90,7 +90,7 @@ test("zero rows are exact zeros, not missing or partially available sources", as
   assert.equal(calls.length, 3);
   assert.equal(result.active, 0);
   assert.equal(result.availability, "OK");
-  assert.equal(Object.values(result.bySource).filter((count) => count === 0).length, 15);
+  assert.equal(Object.values(result.bySource).filter((count) => count === 0).length, 14);
 });
 
 test("one source failure falls back only within its group and retains partial source identity", async () => {
@@ -114,7 +114,7 @@ test("one source failure falls back only within its group and retains partial so
   assert.equal(result.availability, "PARTIAL");
   assert.deepEqual(result.unavailableSources, ["NEWS_TIP"]);
   assert.equal(result.bySource.NEWS_TIP, null);
-  assert.equal(result.active, 28);
+  assert.equal(result.active, 26);
   assert.equal(result.bySource.MODERATION_SUBMISSION, 2);
   assert.equal(result.bySource.PROFILE_REVIEW_MODERATION, 2);
 });
@@ -129,10 +129,10 @@ test("a malformed group response retries rather than silently dropping source co
   } finally {
     console.warn = oldWarn;
   }
-  assert.equal(calls.length, 18, "3 invalid grouped statements + 15 per-source reads");
+  assert.equal(calls.length, 17, "3 invalid grouped statements + 14 per-source reads");
   assert.equal(result.availability, "OK");
   assert.equal(result.active, 0);
-  assert.equal(calls.filter((call) => call.group.length === 1).length, 15);
+  assert.equal(calls.filter((call) => call.group.length === 1).length, 14);
   assert.deepEqual(result.unavailableSources, []);
 });
 
@@ -150,7 +150,7 @@ test("group fallback keeps unread counts even when total active queue items diff
   }
   assert.equal(result.availability, "PARTIAL");
   assert.deepEqual(result.unavailableSources, ["NEWS_TIP"]);
-  assert.equal(result.active, 14, "read or snoozed queue entries must not inflate unread badge");
+  assert.equal(result.active, 13, "read or snoozed queue entries must not inflate unread badge");
   assert.equal(result.bySource.MODERATION_SUBMISSION, 1);
   assert.equal(calls.filter((call) => call.group.length === 1).length, 5);
   assert.ok(calls.every(({ sql }) => sql.includes("admin_attention_ack")));
@@ -165,10 +165,10 @@ test("requests run concurrently, without global caching or stale counts", async 
   );
   const elapsedMs = performance.now() - start;
   assert.equal(mock.calls.length, 4 * ADMIN_ATTENTION_SUMMARY_QUERY_COUNT);
-  assert.deepEqual(results.map((result) => result.active), [15, 15, 15, 15]);
+  assert.deepEqual(results.map((result) => result.active), [14, 14, 14, 14]);
   counts.NEWS_TIP = 5;
   const fresh = await loadExactAdminAttentionSummary(mock.database, NOW);
-  assert.equal(fresh.active, 19);
+  assert.equal(fresh.active, 18);
   assert.equal(mock.calls.length, 15);
   // Diagnostic only: mocked read latency is not representative of Cloudflare D1.
   assert.ok(Number.isFinite(elapsedMs) && elapsedMs >= 0);

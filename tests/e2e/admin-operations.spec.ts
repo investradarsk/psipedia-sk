@@ -114,7 +114,7 @@ test("retired automation alerts cannot be selected or counted in the active queu
   await expectAxeClean(page);
 });
 
-test("Attention pagination reaches items beyond the former source cap and distinguishes empty from unavailable", async ({ page }, testInfo) => {
+test("Attention pagination reaches items beyond the former source cap and ignores retired sources", async ({ page }, testInfo) => {
   if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
   let response = await page.goto("/admin/operations?source=NEWS_TIP", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
@@ -183,10 +183,13 @@ test("Attention pagination reaches items beyond the former source cap and distin
   expect(response?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: "Zvolený zdroj nemá otvorené položky" })).toBeVisible();
 
+  // An old bookmarked source is no longer selectable and must not query the retired table.
   response = await page.goto("/admin/operations?source=DIRECTORY_CHANGE_REQUEST", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
-  await expect(page.getByRole("heading", { name: "Zvolený zdroj je momentálne nedostupný" })).toBeVisible();
-  await expect(page.getByRole("alert").filter({ hasText: "Výsledky nie sú úplné" })).toBeVisible();
+  const retiredFilter = page.getByRole("search", { name: "Filtrovať upozornenia" }).getByLabel("Zdroj");
+  await expect(retiredFilter).toHaveValue("all");
+  await expect(retiredFilter.locator('option[value="DIRECTORY_CHANGE_REQUEST"]')).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Aktívne upozornenia", exact: true })).toBeVisible();
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);

@@ -163,7 +163,6 @@ const communitySources: Array<{ title: string; source: AdminAttentionQueueSource
   { title: "Moderácia podaní", source: "MODERATION_SUBMISSION" },
   { title: "Profilové recenzie", source: "PROFILE_REVIEW_MODERATION" },
   { title: "Tipy pre redakciu", source: "NEWS_TIP" },
-  { title: "Návrhy úprav", source: "DIRECTORY_CHANGE_REQUEST" },
   { title: "Dopyty", source: "DIRECTORY_INQUIRY" },
   { title: "Hodnotenia článkov", source: "ARTICLE_FEEDBACK" },
   { title: "Žiadosti o správu profilu", source: "PARTNER_CLAIM_REVIEW" },
