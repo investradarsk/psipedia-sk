@@ -8,7 +8,7 @@ import {
 
 const view = readFileSync("components/article-detail.tsx", "utf8");
 
-test("an existing standalone Notion disclosure moves to the common footer", () => {
+test("standalone Notion disclaimer is hidden but cannot trigger the footer by itself", () => {
   const blocks = [
     { id: "product", type: "text", content: "Drevená hračka na aport." },
     { id: "legacy-note", type: "text", content: "Obsahuje reklamné odkazy." },
@@ -16,7 +16,7 @@ test("an existing standalone Notion disclosure moves to the common footer", () =
   ];
   const result = prepareArticlePartnerDisclosure(blocks);
   assert.deepEqual(result.blocks.map((block) => block.id), ["product", "sources"]);
-  assert.equal(result.showDisclosure, true);
+  assert.equal(result.showDisclosure, false);
   assert.deepEqual(blocks.map((block) => block.id), ["product", "legacy-note", "sources"], "notion and D1 are not mutated");
   assert.equal(ARTICLE_PARTNER_DISCLOSURE, "Článok obsahuje partnerské odkazy.");
 });
@@ -36,6 +36,40 @@ test("partner link in a Notion rich-text mark triggers the footer without an inl
   const result = prepareArticlePartnerDisclosure(blocks);
   assert.equal(result.showDisclosure, true);
   assert.equal(result.blocks.length, 1);
+});
+
+test("Dognet link triggers the footer even when a legacy sentence is also present", () => {
+  const blocks = [
+    { id: "manual", type: "text", content: "Obsahuje reklamné odkazy." },
+    {
+      id: "product", type: "text", content: "Odporúčaná hračka",
+      richText: {
+        version: 2, type: "doc", content: [{
+          type: "paragraph", content: [{
+            type: "text", text: "Hračka",
+            marks: [{ type: "link", href: "https://go.dognet.com/?campaign=123" }],
+          }],
+        }],
+      },
+    },
+  ];
+  const result = prepareArticlePartnerDisclosure(blocks);
+  assert.equal(result.showDisclosure, true);
+  assert.deepEqual(result.blocks.map((block) => block.id), ["product"]);
+});
+
+test("Dognet link within rich-text introduction is detected", () => {
+  const intro = {
+    version: 2, type: "doc", content: [{
+      type: "paragraph", content: [{
+        type: "text", text: "Pomôcka", marks: [{
+          type: "link", href: "https://go.dognet.com/?cid=1",
+        }],
+      }],
+    }],
+  };
+  const result = prepareArticlePartnerDisclosure([], intro);
+  assert.equal(result.showDisclosure, true);
 });
 
 test("editorial articles without affiliate links retain their body and no disclaimer", () => {
