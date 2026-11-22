@@ -655,7 +655,7 @@ test("remaining editorial tip and feedback flows retry once without retired publ
   assert.equal(sentRequests.length, 2, "sent notifications must not be delivered twice");
   assert.equal(
     sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-    1,
+    0,
   );
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
