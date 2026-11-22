@@ -79,7 +79,7 @@ export default async function ContactPage({
           <Link className={styles.routeCard} data-contact-route="directory-change" data-contact-action href="/adresar">
             <span className={styles.routeKicker}>Údaje profilu</span>
             <h3>Zmena existujúceho profilu</h3>
-            <p>Nájdi profil svojej služby. Opravu údajov môžeš navrhnúť priamo na profile; o jeho správu požiadaš cez Partner účet.</p>
+            <p>Nájdi profil svojej služby. Ak zastupuješ poskytovateľa služby, požiadaj o správu jeho profilu cez Partner účet a údaje upravíš tam.</p>
             <strong className={styles.routeAction}>Nájsť profil →</strong>
           </Link>
 
