@@ -26,3 +26,19 @@ export function isInternalBreedSportNote(value: string): boolean {
   const note = normalizedEditorialText(value);
   return /\b(?:redakcne hodnotenie|redakcna kontrola|redakcny audit|finalny audit|finalne overit|finalna kontrola|pred publikovanim|overit pred publikovanim|overit zdroje)\b/.test(note);
 }
+
+/** Extract a photo license only when author, source and a known license are explicit. */
+export function photoCreditFromNotionAttribution(value: string): string {
+  const author = value.match(/\bautor\s*:\s*([^;\n]+)/i)?.[1]?.trim() ?? "";
+  const source = value.match(/\bzdroj\s*:\s*([^;\n]+)/i)?.[1]?.trim() ?? "";
+  let license = value.match(/\blicencia\s*:\s*([^;\n]+)/i)?.[1]?.trim() ?? "";
+  license = license.split(/\.\s+(?=[A-ZÁČĎÉÍĽŇÓÔŔŠŤÚÝŽ])/u, 1)[0].replace(/[.;\s]+$/, "");
+  if (!author || !source || !license || !/(?:creative commons|cc\s*by|public domain)/i.test(license)) return "";
+  return [author, source, license].join(" · ").slice(0, 240);
+}
+
+/** The free-form credit may be partial. Do not hide the original license paragraph. */
+export function hasCompletePublicPhotoCredit(credit: string | null | undefined, sourceUrl: string | null | undefined): boolean {
+  return Boolean(credit?.trim() && /^https?:\/\//i.test(sourceUrl ?? "")
+    && /(?:creative commons|cc\s*by|public domain|©|vlastn[áa] fotografia)/i.test(credit));
+}
