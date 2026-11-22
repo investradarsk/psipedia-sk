@@ -231,6 +231,16 @@ test("new inquiry sends one safe idempotent notification and duplicate submissio
   assert.equal(resendRequests.length, 1);
 });
 
+test("public inquiry form generates a new key only for edited content", () => {
+  const form = readFileSync(new URL("../components/directory-contact-form.tsx", import.meta.url), "utf8");
+  assert.match(form, /fingerprint = JSON\.stringify\(payload\)/);
+  assert.match(form, /submissionKey\.current\.fingerprint !== fingerprint/);
+  assert.match(form, /key: crypto\.randomUUID\(\), fingerprint/);
+  assert.match(form, /submissionKey: submissionKey\.current\.key/);
+  assert.match(form, /response\.status === 409/);
+  assert.match(form, /submissionKey\.current = null/);
+});
+
 test("edited inquiry cannot silently succeed with an old idempotency key", async () => {
   const { sqlite, d1 } = createDatabase();
   const deliveries = [];
