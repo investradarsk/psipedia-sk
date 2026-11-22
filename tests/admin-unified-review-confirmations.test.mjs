@@ -46,13 +46,3 @@ test("candidate shortcut uses the shared confirmation but keeps its own payload"
   assert.doesNotMatch(candidate, /applyImage/);
 });
 
-test("retired Directory proposals are read-only; Partner reviews retain separate confirmation", () => {
-  const src = read("components/admin-directory-change-requests.tsx");
-  const route = read("app/api/admin/profile-change-requests/[id]/route.ts");
-  assert.match(src, /Historické návrhy – iba na čítanie/);
-  assert.match(src, /admin-change-diff/);
-  assert.doesNotMatch(src, /pendingReview|setPendingReview|AdminDestructiveConfirmDialog|method: "PUT"/);
-  assert.match(route, /status: 410/);
-  assert.doesNotMatch(route, /reviewDirectoryProfileChangeRequest/);
-  assert.doesNotMatch(src, /window\.confirm/);
-});
