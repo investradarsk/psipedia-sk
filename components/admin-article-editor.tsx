@@ -244,6 +244,7 @@ export function AdminArticleEditor({
       if (window.localStorage.getItem("psipedia-article-editor-mode") === "legacy") {
         lastNonPreviewMode.current = "legacy";
         setContinuousEditableOpen(false);
+        setActiveArticleSection("article-publish");
       }
     } catch { /* Storage can be unavailable in privacy modes. Keep the new default. */ }
   }, []);
@@ -260,7 +261,7 @@ export function AdminArticleEditor({
       .map(section => section.id === "article-blocks"
         ? { ...section, label: "Editor článku" } : section)
     : editorNavigation;
-  const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
+  const [activeArticleSection, setActiveArticleSection] = useState<string>("article-blocks");
   const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string } | null>(null);
   const [dirty, setDirtyState] = useState(false);
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
