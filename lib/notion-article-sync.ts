@@ -1310,8 +1310,10 @@ function notionArticlePageMatchesPlacement(
   const sectionValue = selectProperty(page, "Sekcia portálu");
   return selectProperty(page, "Kategória") === placement.category
     && selectProperty(page, "Podsekcia") === (placement.subsection ?? "")
-    && (!propertyRecord(page, "Sekcia portálu") ||
-      (allowBlankSection && !sectionValue) || sectionValue === placement.portalSection);
+    // Sekcia portálu is legacy advisory metadata. The canonical preimage
+    // is Kategória + Podsekcia, even if older rows kept a stale section.
+    && (allowBlankSection || !propertyRecord(page, "Sekcia portálu") ||
+      sectionValue === placement.portalSection);
 }
 
 async function notionArticlePageContentHash(
