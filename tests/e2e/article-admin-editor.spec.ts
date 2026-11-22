@@ -120,6 +120,35 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     expect(mutations).toEqual([]);
   });
 
+  test("CONTINUOUS-STEP3: edit a body paragraph in one Tiptap canvas and return to legacy without losing it", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await fillMinimumArticle(page, "Jednotný editor – overenie úprav");
+    const blockSection = page.locator("#article-blocks");
+    await blockSection.locator("[data-article-continuous-edit-toggle]").click();
+
+    const document = blockSection.locator('[data-article-continuous-document="editable"]');
+    await expect(document).toHaveCount(1);
+    await expect(document).toContainText("Toto je bezpečný úvod článku");
+    await expect(document).toContainText("Toto je obsahový blok upravovaný");
+
+    const paragraph = document.locator("p").filter({ hasText: "Toto je obsahový blok upravovaný" });
+    await paragraph.click();
+    await page.keyboard.press("End");
+    await page.keyboard.type(" NOVA-SUVISLA-VERZIA");
+    await expect(document).toContainText("NOVA-SUVISLA-VERZIA");
+    await expect(blockSection.locator('[data-article-tiptap-invalid="true"]')).toHaveCount(0);
+
+    await blockSection.locator("[data-article-legacy-toggle]").click();
+    const original = blockSection.locator("[data-admin-rich-text-editor]");
+    await expect(original).toBeVisible();
+    await expect(original.last().locator('[contenteditable="true"]')).toContainText("NOVA-SUVISLA-VERZIA");
+
+    await blockSection.locator("[data-article-continuous-edit-toggle]").click();
+    await expect(document).toContainText("NOVA-SUVISLA-VERZIA");
+    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
+  });
+
   test("mobile article editor has one save action, compact navigation and searchable breeds", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
