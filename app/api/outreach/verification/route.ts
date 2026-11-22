@@ -1,20 +1,13 @@
-import { submitOutreachVerification } from "@/lib/outreach-store";
-import { assertOutreachJsonMutation } from "@/lib/outreach-security";
-
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
-  try {
-    assertOutreachJsonMutation(request);
-    const body = await request.json() as Record<string, unknown>;
-    const token = typeof body.token === "string" ? body.token : "";
-    if (!token) throw new Error("Chýba overovací token.");
-    const result = await submitOutreachVerification(token, body);
-    return Response.json({ result });
-  } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Návrh sa nepodarilo odoslať." },
-      { status: 400 },
-    );
-  }
+/**
+ * Retired after switching profile corrections to authorized Partner accounts.
+ * Fail closed even when an old client or bookmarked email POSTs directly.
+ * Historic outreach tokens remain valid for read-only guidance and opt-out.
+ */
+export async function POST() {
+  return Response.json(
+    { error: "Verejné návrhy úprav už neprijímame. Na správu profilu použite Partner účet." },
+    { status: 410, headers: { "Cache-Control": "no-store" } },
+  );
 }

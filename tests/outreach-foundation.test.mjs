@@ -110,31 +110,56 @@ test("claim tokens use opaque hashing; tampered and expired tokens are rejected"
   assert.doesNotMatch(migrationSource, /token text/);
 });
 
-test("public verification and unsubscribe mutations are token-rate-limited without PII identifiers", () => {
+test("unsubscribe mutations remain token-rate-limited without PII identifiers", () => {
   assert.match(outreachSource, /createD1RateLimitStore/);
   assert.match(outreachSource, /"outreach-token:" \+ purpose \+ ":" \+ tokenHash/);
   assert.match(outreachSource, /12,[\s\S]{0,80}60 \* 60/);
-  assert.match(outreachSource, /enforceOutreachTokenRateLimit\(db, token, "VERIFY"\)/);
   assert.match(outreachSource, /enforceOutreachTokenRateLimit\(db, token, "UNSUBSCRIBE"\)/);
 });
 
-test("recipient cannot submit a change for an unrelated entity", () => {
-  assert.match(outreachSource, /const allowed = new Map\(entities\.map/);
-  assert.match(outreachSource, /const entity = allowed\.get\(entityType \+ ":" \+ entityId\)/);
-  assert.match(verificationRoute, /submitOutreachVerification\(token, body\)/);
+test("retired email verification route rejects anonymous writes and preserves Partner guidance", async () => {
+  const page = await fs.readFile(new URL("../app/overenie-profilu/[token]/page.tsx", import.meta.url), "utf8");
+  assert.match(verificationRoute, /export async function POST\(\)/);
+  assert.match(verificationRoute, /status: 410/);
+  assert.match(verificationRoute, /"Cache-Control": "no-store"/);
+  assert.doesNotMatch(verificationRoute, /submitOutreachVerification|request\.json|moderation_submissions/);
+  assert.doesNotMatch(outreachSource, /submitOutreachVerification|INSERT INTO moderation_submissions/);
+  assert.doesNotMatch(page, /OutreachVerificationForm|Odoslať návrh/);
+  assert.match(page, /getOutreachVerificationContext\(token\)/);
+  assert.match(page, /outreachPartnerClaimHref\(entity\.entityType, entity\.entityId\)/);
+  assert.match(page, /href="\/partner\/profily"/);
+  // The old email can be opened without granting editing rights.
+  assert.match(page, /Samotný e-mailový odkaz vám/);
 });
 
-test("verification submissions enter human review and never update canonical entity tables", () => {
-  const start = outreachSource.indexOf("export async function submitOutreachVerification");
-  const end = outreachSource.indexOf("export async function getOutreachUnsubscribeContext", start);
-  const body = outreachSource.slice(start, end);
-  assert.match(body, /INSERT INTO moderation_submissions/);
-  assert.match(body, /'SUBMITTED','OUTREACH_RECIPIENT'/);
-  assert.doesNotMatch(body, /UPDATE directory_profiles/);
-  assert.doesNotMatch(body, /UPDATE help_organizations/);
-  const reviewStart = outreachSource.indexOf("export async function reviewOutreachResponse");
-  const reviewBody = outreachSource.slice(reviewStart, outreachSource.indexOf("export async function getOutreachAdminData", reviewStart));
-  assert.match(reviewBody, /Deliberately no canonical UPDATE/);
+test("Partner claim links reject unknown types and unsafe IDs", async () => {
+  const { outreachPartnerClaimHref } = await importTs("lib/outreach.ts");
+  for (const type of ["DIRECTORY_PROFILE", "HELP_ORGANIZATION", "MANAGED_EVENT", "HELP_CASE"]) {
+    assert.equal(outreachPartnerClaimHref(type, "101"), "/partner/prevziat-profil/" + type + "/101");
+  }
+  for (const [type, id] of [["DIRECTORY_PROFILE", "../admin"], ["DIRECTORY_PROFILE", "0"], ["INVALID", "12"], ["DIRECTORY_PROFILE", "Infinity"], ["DIRECTORY_PROFILE", "1?redirect=outside"]]) {
+    assert.equal(outreachPartnerClaimHref(type, id), "/partner/registracia");
+  }
+});
+
+test("old saved email copy is rewritten at send time; unsubscribe link remains unchanged", async () => {
+  const { renderOutreachText } = await importTs("lib/outreach.ts");
+  const email = renderOutreachText({
+    subjectTemplate: "Kontrola",
+    bodyTemplate: [
+      "Prosíme o krátku kontrolu údajov. Opravy alebo chýbajúce informácie môžete navrhnúť cez tento bezpečný odkaz:",
+      "{verification_url}",
+      "Návrh nič automaticky neprepíše ani nezverejní. Každú zmenu najprv skontroluje redakcia Psipedia.",
+      "{unsubscribe_url}",
+    ].join("\n"),
+    entities: [{ entityName: "Veterina", profileUrl: "https://psipedia.sk/adresar/veterinari/veterina" }],
+    verificationUrl: "https://psipedia.sk/overenie-profilu/old-token",
+    unsubscribeUrl: "https://psipedia.sk/odhlasenie-osloveni/old-optout-token",
+  });
+  assert.match(email.text, /Partner účet/);
+  assert.doesNotMatch(email.text, /Opravy alebo chýbajúce informácie môžete navrhnúť|Návrh nič automaticky neprepíše/);
+  assert.match(email.text, /https:\/\/psipedia\.sk\/overenie-profilu\/old-token/);
+  assert.match(email.text, /https:\/\/psipedia\.sk\/odhlasenie-osloveni\/old-optout-token/);
 });
 
 test("webhook processing is authenticated, idempotent and stores no raw payload", () => {

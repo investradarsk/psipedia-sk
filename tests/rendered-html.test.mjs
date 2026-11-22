@@ -1092,8 +1092,10 @@ test("filters a directory category on the server and keeps verification data pri
     assert.doesNotMatch(detailHtml, /href="\/adresar\/kynologicke-kluby\/kraj\/bratislavsky"/); // one mock profile stays below the clean-landing index threshold
     assert.match(detailHtml, /Bratislavský kraj/);
     assert.match(detailHtml, /Spravujete tento profil\?/);
-    // Public edit-proposal flow was retired; no obsolete CTA should remain.
-    assert.doesNotMatch(detailHtml, /Navrhnúť opravu údajov/);
+    // Since public correction form retirement (step 1/10), only Partner
+    // management is available; anonymous edits must not be offered.
+    assert.doesNotMatch(detailHtml, /Navrhnúť opravu údajov|partner-profile-correction-heading/);
+    assert.match(detailHtml, /Spravovať tento profil/);
     assert.match(detailHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/adresar\/kynologicke-kluby\/testovaci-klub"/);
     assert.match(detailHtml, /"BreadcrumbList"/);
     assert.match(detailHtml, /"@type":"Organization"/);
