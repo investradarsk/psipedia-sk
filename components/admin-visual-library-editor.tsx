@@ -231,14 +231,14 @@ export function AdminVisualLibraryEditor({
             <label className={styles.publishConfirm}>
               <input type="checkbox" checked={confirmed} disabled={busy || loading}
                 onChange={(event) => setConfirmed(event.target.checked)}/>
-              Potvrdzujem textové a farebné zmeny iba na uvedenej URL a iba pre desktop.
+              Potvrdzujem textové a vizuálne zmeny iba na uvedenej URL a iba pre desktop.
             </label>
             <div className={styles.editorActions}>
               <button type="button" className={styles.editorSave} disabled={busy || loading || !confirmed || !publishAllowed}
-                onClick={() => void release("publish")}>Publikovať texty a farby na desktope</button>
+                onClick={() => void release("publish")}>Publikovať texty, vizuál a veľkosť</button>
               {server?.published && (
                 <button type="button" className={styles.moreButton} disabled={busy || loading || !confirmed}
-                  onClick={() => void release("revert")}>Vrátiť publikované texty a farby</button>
+                  onClick={() => void release("revert")}>Vrátiť publikované zmeny</button>
               )}
             </div>
           </>
