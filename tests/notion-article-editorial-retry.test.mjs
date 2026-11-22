@@ -255,6 +255,8 @@ async function loadWriter(h) {
       hasCompletePublicPhotoCredit: () => false,
       isPhotoAttributionHeading: () => false,
       isPrivateEditorialArticleHeading: () => false,
+      isNotionOnlySocialDraftHeading: () => false,
+      isInternalArticleInstructionText: () => false,
       photoCreditFromNotionAttribution: () => "",
     },
     "@/lib/article-promo": {},

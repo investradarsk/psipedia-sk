@@ -167,7 +167,7 @@ test("automatic related candidates are no longer injected into the article body"
   assert.doesNotMatch(detail, /SÚVISIACI ČLÁNOK|className=\{styles\.midRelated\}/);
   assert.match(
     detail,
-    /const contentBlocks = blocks\.filter\(\(block\) => block\.type !== "source"\)/,
+    /const \{ contentBlocks, sourceBlocks, hasManualSourceSection \} = planArticleSourceDisplay\(blocks\)/,
   );
   assert.match(
     detail,
@@ -177,11 +177,11 @@ test("automatic related candidates are no longer injected into the article body"
   assert.match(blocks, /block\.type === "related"/);
 });
 test("editor-authored related blocks stay in body flow while sources remain at the article end", () => {
-  assert.match(detail, /block\.type !== "source"\)/);
+  assert.match(detail, /planArticleSourceDisplay\(blocks\)/);
   assert.doesNotMatch(detail, /block\.type !== "source" && block\.type !== "related"/);
   assert.match(
     detail,
-    /const sourceBlocks = blocks\.filter\(\(block\) => block\.type === "source"\)/,
+    /sourceHeading=\{hasManualSourceSection/,
   );
   const body = indexOfOrFail(
     detail,
@@ -190,7 +190,7 @@ test("editor-authored related blocks stay in body flow while sources remain at t
   );
   const sources = indexOfOrFail(
     detail,
-    "<ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} />",
+    "<ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay}",
     "sources are missing",
   );
   assert.ok(body < sources);

@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   hasCompletePublicPhotoCredit,
+  isInternalArticleInstructionText,
   isInternalBreedSportNote,
+  isNotionOnlySocialDraftHeading,
   isPhotoAttributionHeading,
   isPrivateEditorialArticleHeading,
   photoCreditFromNotionAttribution,
@@ -67,4 +69,43 @@ test("unpublished breed suitability audit notes are not displayed, legitimate no
   ]) assert.equal(isInternalBreedSportNote(note), true, note);
   assert.equal(isInternalBreedSportNote("Vhodný šport pre skúseného psovoda."), false);
   assert.match(read("app/plemena/[slug]/page.tsx"), /!isInternalBreedSportNote\(sport\.note\)/);
+});
+
+test("CC0, Pexels and Unsplash photo credits are complete only with a source URL", () => {
+  const origin = "https://commons.wikimedia.org/wiki/File:Dog.jpg";
+  for (const credit of [
+    "BunbunYU / Wikimedia Commons · CC0 1.0",
+    "Blue Bird / Pexels · Pexels License",
+    "Photographer / Unsplash · Unsplash License",
+    "Autor / Wikimedia Commons · verejná doména",
+    "Autor / Wikimedia Commons · CC BY-SA 4.0",
+  ]) {
+    assert.equal(hasCompletePublicPhotoCredit(credit, origin), true, credit);
+    assert.equal(hasCompletePublicPhotoCredit(credit, ""), false, credit);
+  }
+  assert.equal(hasCompletePublicPhotoCredit("License not verified", origin), false);
+  assert.equal(hasCompletePublicPhotoCredit("Adelaide University / Original content", origin), false);
+  assert.equal(photoCreditFromNotionAttribution("Autor: Tester; zdroj: Wikimedia Commons; licencia: CC0 1.0."), "Tester · Wikimedia Commons · CC0 1.0");
+});
+
+test("generic social-media headings stay public unless they contain both internal post drafts", () => {
+  assert.equal(isPrivateEditorialArticleHeading("Sociálne siete"), false);
+  assert.equal(isNotionOnlySocialDraftHeading("Sociálne siete", ["Facebook", "Instagram"]), true);
+  assert.equal(isNotionOnlySocialDraftHeading("Sociálne siete", ["Prečo uverejniť nález psa", "Bezpečnosť"]), false);
+  assert.equal(isNotionOnlySocialDraftHeading("Sociálne siete", ["Facebook"]), false);
+  assert.equal(isNotionOnlySocialDraftHeading("Socializácia", ["Facebook", "Instagram"]), false);
+  const articleBlocks = read("lib/article-blocks.ts");
+  const notionSync = read("lib/notion-article-sync.ts");
+  assert.match(articleBlocks, /socialDraft = isNotionOnlySocialDraftHeading\(block\.text, subsections\)/);
+  assert.match(notionSync, /isNotionSocialDraftSection\(blocks, index\)/);
+  assert.match(notionSync, /return isNotionOnlySocialDraftHeading\(blockText\(headingBlock\), subsections\)/);
+});
+
+test("Notion template instructions are dropped without truncating real article paragraphs", () => {
+  const leaked = "Táto sekcia je zdrojom obsahu pre synchronizáciu do Psipedia.sk. Synchronizácia má vytvoriť iba DRAFT článok.";
+  assert.equal(isInternalArticleInstructionText(leaked), true);
+  assert.equal(isInternalArticleInstructionText("ODTIAĽTO AŽ PO KONIEC STRÁNKY PATRÍ IBA VEREJNÝ TEXT ČLÁNKU."), true);
+  assert.equal(isInternalArticleInstructionText("Pes potrebuje pravidelné čistenie zubov a pokojný tréning."), false);
+  assert.match(read("lib/article-blocks.ts"), /isInternalArticleInstructionText\(block\.content\)/);
+  assert.match(read("lib/notion-article-sync.ts"), /!isInternalArticleInstructionText\(blockText\(block\)\)/);
 });
