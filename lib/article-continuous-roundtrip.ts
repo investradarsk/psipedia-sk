@@ -10,7 +10,7 @@ import {
 } from "@/lib/editorial-content";
 import {
   editorialToTiptap, tiptapToEditorial,
-  type TiptapEditorialDocument, type TiptapEditorialNode,
+  type TiptapEditorialNode,
 } from "@/lib/tiptap-editorial-bridge";
 
 export type ContinuousArticleFields = {
@@ -70,8 +70,11 @@ type PendingProse = { key: string; original: ArticleBlock | null; nodes: TiptapE
  * rich-text marks cause a visible error rather than a partial save.
  */
 export function continuousDocumentToArticleFields(
-  value: TiptapEditorialDocument,
-  options: { requiredNativeBlockIds?: string[] } = {},
+  value: unknown,
+  options: {
+    requiredNativeBlockIds?: string[];
+    originalIntro?: { intro: string; introRichText: EditorialRichTextDocument };
+  } = {},
 ): ContinuousArticleFields {
   const doc = record(value, "Tiptap dokument");
   if (doc.type !== "doc" || !Array.isArray(doc.content)) throw new Error("Neplatný dokument článku.");
@@ -88,7 +91,13 @@ export function continuousDocumentToArticleFields(
   if (nodes.slice(0, boundary).some(node => node.type === "psipediaArticleWidget")) {
     throw new Error("V úvode je nepodporovaný vložený blok.");
   }
-  const introRichText = proseDocument(nodes.slice(0, boundary));
+  const introNodes = nodes.slice(0, boundary);
+  const parsedIntro = proseDocument(introNodes);
+  const originalIntro = options.originalIntro;
+  const originalIntroNodes = originalIntro ? editorialToTiptap(originalIntro.introRichText).content : null;
+  const keepOriginalIntro = !!originalIntroNodes && JSON.stringify(introNodes.map(stableProseNode))
+    === JSON.stringify(originalIntroNodes.length ? originalIntroNodes : [{ type: "paragraph", content: [] }]);
+  const introRichText = keepOriginalIntro ? snapshot(originalIntro!.introRichText) : parsedIntro;
   const takeawayRichText = record(takeawayNode.attrs?.document, "To najdôležitejšie") as EditorialRichTextDocument;
   editorialToTiptap(takeawayRichText);
   const takeaway = typeof takeawayNode.attrs?.rawTakeaway === "string"
@@ -152,7 +161,7 @@ export function continuousDocumentToArticleFields(
     if (!encounteredNative.includes(id)) throw new Error(`Chýba pôvodný vložený blok ${id}. Uloženie bolo zastavené.`);
   }
   return {
-    intro: editorialRichTextPlainText(introRichText), introRichText,
+    intro: keepOriginalIntro ? originalIntro!.intro : editorialRichTextPlainText(introRichText), introRichText,
     takeaway, takeawayRichText, blocks,
   };
 }
