@@ -146,6 +146,22 @@ test("CONTINUOUS STEP 4: breakage, unconfirmed deletions and unsupported content
   assert.throws(() => convert(unsafe, input), /Unsupported Tiptap mark/);
 });
 
+test("CONTINUOUS STEP 4: duplicated historic native IDs cannot hide an accidental widget deletion", () => {
+  const input = fixture();
+  input.blocks.push({ ...structuredClone(input.blocks[2]), caption: "Duplicated ID / separate source position" });
+  const doc = articleToCanonicalContinuousDocument(input);
+  const keys = input.blocks.flatMap((block, index) =>
+    ["text", "h2", "h3"].includes(block.type) ? [] : [index + ":" + block.id]);
+  assert.equal(keys.at(-1), "8:img");
+  assert.equal(convert(doc, input, undefined).blocks.length, input.blocks.length);
+  const missing = structuredClone(doc);
+  missing.content = missing.content.filter(node => node.attrs?.sourceBlockIndex !== 8);
+  assert.throws(() => continuousDocumentToArticleFields(missing, {
+    originalIntro: { intro: input.intro, introRichText: input.introRichText },
+    requiredNativeBlockKeys: keys,
+  }), /Chýba pôvodný vložený blok 8:img/);
+});
+
 test("CONTINUOUS STEPS 3–5: editable workspace exists without a new storage or Notion write path", () => {
   const ui = readFileSync("components/admin-article-continuous-editor.tsx", "utf8");
   const parent = readFileSync("components/admin-article-editor.tsx", "utf8");
