@@ -407,9 +407,9 @@ export function AdminTiptapArticleScope({ children, activeSectionId, readOnlyPre
   const visible = !readOnlyPreview && active && (active.id.startsWith("block-")
     ? activeSectionId === "article-blocks"
     : activeSectionId === "article-basics") ? active : null;
-  const formattingSection = !readOnlyPreview && (activeSectionId === "article-basics" || activeSectionId === "article-blocks");
+  const formattingSection = activeSectionId === "article-basics" || activeSectionId === "article-blocks";
   return <ScopeContext.Provider value={scope}>
-    {formattingSection && <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible} />}
+    {formattingSection && !readOnlyPreview && <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible} />}
     {children}
   </ScopeContext.Provider>;
 }
