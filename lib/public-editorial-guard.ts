@@ -1,7 +1,7 @@
 /**
- * Public editorial hygiene: the Notion body may contain private publishing notes
- * after the reader-facing article. Keep these headings out of public rendering and
- * out of future Notion article imports. Never mutate persisted source blocks here.
+ * Shared boundary between publishable article content and Notion-only work notes.
+ * Photo license attribution is handled separately: it must never disappear
+ * unless the public article has an equivalent image-credit field.
  */
 function normalizedEditorialText(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -13,10 +13,15 @@ function normalizedEditorialText(value: string): string {
 
 export function isPrivateEditorialArticleHeading(value: string): boolean {
   const heading = normalizedEditorialText(value);
-  return /^(?:fotografia a licencia|socialne siete(?:\s*-\s*interny navrh)?|redakcne poznamky|redakcne prvky pre administraciu|redakcne prvky pre psipedia admin|psipedia bloky)$/.test(heading);
+  return /^(?:psipedia bloky|pred publikovanim|synchronizacny manifest(?: psipedia bloky)?|socialne siete\s*-\s*(?:interny|redakcny) navrh|redakcne (?:poznamky|pokyny|podklady|instrukcie)(?:\s*-.*)?|redakcne prvky pre (?:administraciu|psipedia admin)|interne redakcne poznamky|technicke poznamky pre administraciu)$/.test(heading);
 }
 
-/** A legacy breed sport note can combine a valid note with an unpublished review directive. */
+export function isPhotoAttributionHeading(value: string): boolean {
+  const heading = normalizedEditorialText(value);
+  return heading === "fotografia a licencia" || heading === "fotografia - licencia";
+}
+
+/** Prevent unpublished review directives in old breed-sport notes from leaking. */
 export function isInternalBreedSportNote(value: string): boolean {
   const note = normalizedEditorialText(value);
   return /\b(?:redakcne hodnotenie|redakcna kontrola|redakcny audit|finalny audit|finalne overit|finalna kontrola|pred publikovanim|overit pred publikovanim|overit zdroje)\b/.test(note);
