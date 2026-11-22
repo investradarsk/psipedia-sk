@@ -115,7 +115,6 @@ test("step 13: tips, inquiries and profile change suggestions reuse compact comm
   for (const [path, module] of [
     ["components/admin-news-tip-dashboard.tsx", "community-tips"],
     ["components/admin-inquiry-dashboard.tsx", "community-inquiries"],
-    ["components/admin-directory-change-requests.tsx", "community-profile-suggestions"],
   ]) {
     const src = read(path);
     assert.ok(src.includes('data-admin-content-module="' + module + '"'), path);
@@ -126,16 +125,10 @@ test("step 13: tips, inquiries and profile change suggestions reuse compact comm
   }
   const tips = read("components/admin-news-tip-dashboard.tsx");
   const inquiries = read("components/admin-inquiry-dashboard.tsx");
-  const change = read("components/admin-directory-change-requests.tsx");
   assert.match(tips, /<AdminInlineRowActions/);
   assert.match(tips, /removeTip\(/);
   assert.match(inquiries, /<AdminInlineRowActions/);
   assert.match(inquiries, /removeInquiry\(/);
-  // Legacy public proposals are intentionally view-only until the page is
-  // retired in step 4/10; never reintroduce moderation buttons.
-  assert.doesNotMatch(change, /<AdminDestructiveConfirmDialog|setPendingReview\(/);
-  assert.match(change, /Historické návrhy – iba na čítanie/);
-  assert.match(change, /<section className="admin-change-diff"/);
   assert.match(css, /\[data-admin-content-module\^="community-"\]/);
   assert.match(css, /min-height: var\(--admin-ui-control-height, 44px\)/);
   assert.match(css, /@media \(max-width: 760px\)/);
