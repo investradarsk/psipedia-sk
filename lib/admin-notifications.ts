@@ -126,29 +126,10 @@ export async function enqueuePartnerAccountRegistrationAdminNotification(
 
 export async function enqueueEditorialReferenceAdminNotification(
   database: Pick<D1Database, "prepare">,
-  resourceType: "directory_profile_change_request" | "news_tip" | "article_feedback",
+  resourceType: "news_tip" | "article_feedback",
   resourceId: number,
   now: Date = new Date(),
 ) {
-  if (resourceType === "directory_profile_change_request") {
-    const row = await database.prepare(
-      "SELECT profile_name profileName,status FROM directory_profile_change_requests WHERE id=? LIMIT 1",
-    ).bind(resourceId).first<{ profileName: string; status: string }>();
-    if (!row || row.status !== "new") return { created: false };
-    return enqueueAdminNotificationEvent(database, {
-      eventType: "directory_profile_change_submitted",
-      sourceType: "DIRECTORY_CHANGE_REQUEST",
-      resourceType,
-      resourceRef: resourceId,
-      actorType: "PUBLIC",
-      targetUrl: `/admin/adresar/navrhy#navrh-${resourceId}`,
-      title: "Nový návrh úpravy profilu",
-      body: `Prišiel návrh pre ${row.profileName}.`,
-      tag: `profile-change-${resourceId}`,
-      dedupeKey: `directory-profile-change/${resourceId}`,
-    }, now);
-  }
-
   if (resourceType === "news_tip") {
     const row = await database.prepare(
       "SELECT title,status FROM news_tips WHERE id=? LIMIT 1",

@@ -8,7 +8,12 @@ test.describe("MAP-1B admin geo foundation", () => {
       : { width: 1280, height: 900 });
 
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "domcontentloaded" });
-    await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
+    // This test covers the geo editor, not the responsive table's click handling.
+    // Use the real profile link destination to avoid mobile row overlays
+    // swallowing a pointer click before the editor route can load.
+    const profileHref = await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).getAttribute("href");
+    expect(profileHref?.startsWith("/admin/adresar/")).toBe(true);
+    await page.goto(profileHref!, { waitUntil: "domcontentloaded" });
 
     // The shared editor renders one section at a time. Open the location
     // section using its accessible desktop navigation / mobile selector.

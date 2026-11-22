@@ -833,7 +833,7 @@ test("GEO, legacy and commercial invariants stay intact while Partner media rema
     /premium_entitlement|sponsored_entitlement|stripe|billing|payments|subscriptions/i,
   );
   assert.doesNotMatch(combined, /latitude|longitude|lat\b|lng\b|geocoder/i);
-  assert.match(legacyDirectory, /createDirectoryProfileChangeRequest/);
+  assert.doesNotMatch(legacyDirectory, /createDirectoryProfileChangeRequest/);
   assert.match(legacyDirectory, /archived_at/);
 });
 

@@ -85,7 +85,7 @@ test("workspace inbox excludes read receipts and canonically completed work befo
   assert.match(feed, /WHEN e\.source_type='PROFILE_REVIEW_MODERATION'[\s\S]*?p\.status='PENDING_REVIEW'/);
   assert.match(feed, /WHEN e\.source_type='PARTNER_CLAIM_REVIEW'[\s\S]*?p\.status='PENDING'/);
   assert.match(feed, /WHEN e\.source_type='NEWS_TIP'[\s\S]*?n\.status IN \('new','reviewing'\)/);
-  assert.match(feed, /WHEN e\.source_type='DIRECTORY_CHANGE_REQUEST'[\s\S]*?d\.status='new'/);
+  assert.doesNotMatch(feed, /directory_profile_change_requests|WHEN e\\.source_type='DIRECTORY_CHANGE_REQUEST'/);
   assert.match(feed, /WHEN e\.source_type='ARTICLE_FEEDBACK'[\s\S]*?a\.status IN \('new','reviewing'\)/);
   assert.match(feed, /WHEN e\.source_type='QUALITY_MISSING'[\s\S]*?q\.status='OPEN'/);
   assert.match(feed, /WHEN e\.source_type='FACEBOOK_IMAGE'[\s\S]*?f\.status<>'published'/);

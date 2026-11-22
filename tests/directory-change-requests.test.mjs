@@ -343,102 +343,33 @@ test("old public correction URLs redirect to profiles without revealing an anony
   }
 });
 
-test("server validation stores a separate request and never changes the profile", async () => {
+test("retired public profile-change endpoint rejects all proposals without D1 or email writes", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
-  const resendRequests = [];
-  Object.assign(runtimeEnv, {
-    DB: d1,
-    ADMIN_EMAILS: "admin@psipedia.sk",
-    EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk",
-    RESEND_API_KEY: "re_test_key",
-  });
-  delete runtimeEnv.EDITORIAL_EMAIL;
-  globalThis.fetch = async (url, init) => {
-    assert.equal(
-      sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-      resendRequests.length + 1,
-      "Resend is called only after INSERT",
-    );
-    resendRequests.push({ url: String(url), init, body: JSON.parse(String(init.body)) });
-    return Response.json({ id: "email-test-1" }, { status: 200 });
-  };
+  Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk", RESEND_API_KEY: "re_test_key" });
+  const outbound = [];
+  globalThis.fetch = async (...args) => { outbound.push(args); throw new Error("Retired endpoint must not send mail"); };
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("change-submit", String(Date.now()));
+  workerUrl.searchParams.set("retired-proposal-post", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
-  const before = sqlite.prepare("SELECT * FROM directory_profiles WHERE id = 1").get();
+  const before = sqlite.prepare("SELECT * FROM directory_profiles WHERE id=1").get();
 
-  for (const [label, body] of [
-    ["required authorization", proposal({ authorized: false })],
-    ["invalid requester email", proposal({ requesterEmail: "zly-email" })],
-    [
-      "invalid URL",
-      proposal({ proposedData: { ...proposal().proposedData, website: "javascript:alert(1)" } }),
-    ],
-    ["missing profile", proposal({ profileId: 99999 })],
-    [
-      "legacy online field",
-      proposal({ proposedData: { ...proposal().proposedData, online: true } }),
-    ],
+  for (const body of [
+    proposal(),
+    proposal({ requesterEmail: "another@example.sk" }),
+    proposal({ profileId: 99999 }),
   ]) {
     const response = await request(worker, d1, "/api/directory/profile-change-requests", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
     });
-    assert.equal(response.status, 400, label);
+    assert.equal(response.status, 410);
+    assert.match((await response.json()).error, /Partner účet/);
+    assert.match(response.headers.get("cache-control") ?? "", /(?:^|,\s*)no-store(?:,|$)/);
   }
-  assert.equal(resendRequests.length, 0, "validation errors must not send email");
-
-  const success = await request(worker, d1, "/api/directory/profile-change-requests", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(proposal()),
-  });
-  assert.equal(success.status, 201);
-  assert.deepEqual(await success.json(), { success: true });
-  assert.equal(
-    sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-    1,
-  );
-  const stored = sqlite.prepare("SELECT * FROM directory_profile_change_requests").get();
-  assert.equal(stored.profile_id, 1);
-  assert.equal(stored.profile_name, "Veterina Test");
-  assert.equal(stored.profile_slug, "veterinar-test");
-  assert.equal(stored.profile_category, "veterinari");
-  assert.equal(stored.status, "new");
-  assert.equal(JSON.parse(stored.proposed_data_json).phone, "+421911222333");
-  assert.deepEqual(sqlite.prepare("SELECT * FROM directory_profiles WHERE id = 1").get(), before);
-  assert.equal(resendRequests.length, 1);
-  assert.equal(resendRequests[0].url, "https://api.resend.com/emails");
-  assert.equal(resendRequests[0].init.method, "POST");
-  assert.equal(resendRequests[0].init.headers.authorization, "Bearer re_test_key");
-  assert.equal(resendRequests[0].body.from, "redakcia@psipedia.sk");
-  assert.equal(resendRequests[0].body.to, "psipedia.sk@gmail.com");
-  assert.match(resendRequests[0].body.subject, /^\[Návrh profilu\] Veterina Test$/);
-  assert.match(resendRequests[0].body.text, /Veterina Test/);
-  assert.match(
-    resendRequests[0].body.text,
-    /https:\/\/psipedia\.sk\/admin\/adresar\/navrhy#navrh-1/,
-  );
-  assert.doesNotMatch(resendRequests[0].body.text, /proposed_data_json|Navrhované údaje/i);
-
-  const unexpectedField = await request(worker, d1, "/api/directory/profile-change-requests", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      ...proposal({ requesterEmail: "autofill@example.sk" }),
-      company: "Autofill Company",
-    }),
-  });
-  assert.equal(unexpectedField.status, 201);
-  assert.deepEqual(await unexpectedField.json(), { success: true });
-  assert.equal(
-    sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-    2,
-    "unexpected client fields must never produce a false-success without storing the request",
-  );
-  assert.equal(resendRequests.length, 2);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 0);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM editorial_notifications WHERE resource_type='directory_profile_change_request'").get().count, 0);
+  assert.deepEqual(sqlite.prepare("SELECT * FROM directory_profiles WHERE id=1").get(), before);
+  assert.equal(outbound.length, 0);
 });
 
 test("editorial notifications follow successful inserts and email failures never undo stored data", async () => {
@@ -628,7 +559,7 @@ test("editorial notifications follow successful inserts and email failures never
   }
 });
 
-test("all three legacy editorial flows persist failed outbox entries and scheduled retry sends each exactly once", async () => {
+test("remaining editorial tip and feedback flows retry once without retired public proposal writes", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
   Object.assign(runtimeEnv, {
@@ -646,11 +577,6 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
   workerUrl.searchParams.set("editorial-outbox", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
 
-  const change = await request(worker, d1, "/api/directory/profile-change-requests", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(proposal({ requesterEmail: "outbox-change@example.sk" })),
-  });
   const tip = await request(worker, d1, "/api/news-tips", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -673,27 +599,27 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
     }),
   });
   assert.deepEqual(
-    [change.status, tip.status, negative.status],
-    [201, 201, 201],
+    [tip.status, negative.status],
+    [201, 201],
     "Resend failure must not fail saved submissions",
   );
   assert.equal(
     sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-    1,
+    0,
   );
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
   const failed = sqlite
     .prepare("SELECT * FROM editorial_notifications ORDER BY resource_type")
     .all();
-  assert.equal(failed.length, 3);
+  assert.equal(failed.length, 2);
   for (const row of failed) {
     assert.equal(row.status, "failed");
     assert.equal(row.attempts, 1);
     assert.equal(row.last_error, "resend_http_503");
     assert.equal(row.provider_message_id, null);
   }
-  assert.equal(failedRequests.length, 3);
+  assert.equal(failedRequests.length, 2);
   const firstAttemptKeys = failedRequests
     .map((entry) => entry.init.headers["Idempotency-Key"])
     .sort();
@@ -710,11 +636,10 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
   };
   Object.assign(runtimeEnv, scheduledEnv);
   await worker.scheduled({}, scheduledEnv, { waitUntil() {}, passThroughOnException() {} });
-  assert.equal(sentRequests.length, 3);
+  assert.equal(sentRequests.length, 2);
   const keys = sentRequests.map((entry) => entry.init.headers["Idempotency-Key"]).sort();
   assert.deepEqual(keys, [
     "editorial/article_feedback/new/1",
-    "editorial/directory_profile_change_request/new/1",
     "editorial/news_tip/new/1",
   ]);
   assert.deepEqual(keys, firstAttemptKeys, "retry must reuse the original Resend idempotency keys");
@@ -727,115 +652,32 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
     assert.equal(row.last_error, null);
   }
   await worker.scheduled({}, scheduledEnv, { waitUntil() {}, passThroughOnException() {} });
-  assert.equal(sentRequests.length, 3, "sent notifications must not be delivered twice");
+  assert.equal(sentRequests.length, 2, "sent notifications must not be delivered twice");
   assert.equal(
     sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-    1,
+    0,
   );
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
 });
 
-test("admin endpoints are protected and review uses the safe manual workflow", async () => {
+test("retired Admin proposal page and API are gone; Partner workflow stays separate", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
-  Object.assign(runtimeEnv, {
-    DB: d1,
-    ADMIN_EMAILS: "admin@psipedia.sk",
-    EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk",
-    RESEND_API_KEY: "re_test_key",
-  });
-  delete runtimeEnv.EDITORIAL_EMAIL;
-  globalThis.fetch = async () => Response.json({ id: "email-admin-test" }, { status: 200 });
+  Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk" });
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("change-admin", String(Date.now()));
+  workerUrl.searchParams.set("removed-proposal-admin", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
-  for (const [email, profileId] of [
-    ["approve@example.sk", 1],
-    ["reject@example.sk", 2],
-  ]) {
-    const body = proposal({
-      profileId,
-      requesterEmail: email,
-      proposedData: {
-        ...proposal().proposedData,
-        name: profileId === 1 ? "Veterina nový názov" : "Tréner nový názov",
-        region: profileId === 1 ? "Nitriansky kraj" : "Bratislavský kraj",
-      },
-    });
-    const response = await request(worker, d1, "/api/directory/profile-change-requests", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    assert.equal(response.status, 201);
+  const mutation = {
+    method: "PUT", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ status: "approved" }),
+  };
+  for (const path of ["/api/admin/profile-change-requests", "/admin/adresar/navrhy"]) {
+    const response = await request(worker, d1, path, {}, true);
+    assert.equal(response.status, 404, path);
   }
-  const profilesBefore = sqlite.prepare("SELECT * FROM directory_profiles ORDER BY id").all();
-  assert.equal((await request(worker, d1, "/api/admin/profile-change-requests")).status, 401);
-  assert.equal(
-    (
-      await request(worker, d1, "/api/admin/profile-change-requests/1", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: "approved" }),
-      })
-    ).status,
-    401,
-  );
-
-  const adminPage = await request(worker, d1, "/admin/adresar/navrhy", {}, true);
-  assert.equal(adminPage.status, 200);
-  const html = await adminPage.text();
-  assert.match(html, /Návrhy úprav profilov/);
-  assert.match(html, /Rozdiely/);
-  assert.match(html, /Veterina nový názov/);
-  assert.match(html, /Schváliť návrh/);
-
-  const approved = await request(
-    worker,
-    d1,
-    "/api/admin/profile-change-requests/1",
-    {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: "approved" }),
-    },
-    true,
-  );
-  assert.equal(approved.status, 200);
-  assert.equal((await approved.json()).request.status, "approved");
-  const rejected = await request(
-    worker,
-    d1,
-    "/api/admin/profile-change-requests/2",
-    {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: "rejected" }),
-    },
-    true,
-  );
-  assert.equal(rejected.status, 200);
-  assert.equal((await rejected.json()).request.status, "rejected");
-  assert.deepEqual(
-    sqlite.prepare("SELECT * FROM directory_profiles ORDER BY id").all(),
-    profilesBefore,
-  );
-  assert.equal(
-    sqlite.prepare("SELECT reviewed_by FROM directory_profile_change_requests WHERE id = 1").get()
-      .reviewed_by,
-    "admin@psipedia.sk",
-  );
-});
-
-test("change request layout stacks safely on mobile", () => {
-  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(
-    css,
-    /@media \(max-width: 720px\)[\s\S]*?\.directory-change-grid\s*\{\s*grid-template-columns: 1fr;\s*\}/,
-  );
-  assert.match(css, /\.directory-change-form input:not\(\[type="checkbox"\]\)[\s\S]*?width: 100%/);
-  assert.match(css, /\.directory-change-submit button\s*\{\s*width: 100%;/);
+  assert.equal((await request(worker, d1, "/api/admin/profile-change-requests/1", mutation, true)).status, 404);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 0);
 });
 
 test("public contact and Resend transport stay restricted to the editorial inbox", () => {

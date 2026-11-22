@@ -15,7 +15,7 @@ test("step 10: services and directory use one category navigator with accessible
   assert.match(nav, /href=\{"\/admin\/sluzby-pre-psov\?category=" \+ category.slug\}/);
   assert.match(nav, /<details className=\{styles.tools\} data-admin-directory-tools>/);
   assert.match(nav, /href="\/admin\/sluzby-pre-psov\/katalog"/);
-  assert.match(nav, /href="\/admin\/adresar\/navrhy"/);
+  assert.doesNotMatch(nav, /href="\/admin\/adresar\/navrhy"/);
   assert.match(services, /<AdminDirectoryCategoryNav selected=\{filters.category\}/);
   assert.match(directory, /<AdminDirectoryCategoryNav selected=\{filters.category\}/);
   assert.match(styles, /\.categories a\s*\{[^}]*min-height: var\(--admin-ui-control-height, 44px\)/);

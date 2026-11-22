@@ -59,7 +59,7 @@ function describeSql(sql) {
   const operation = /^\s*(select|insert|update|delete|replace|pragma|explain|create|alter|drop)\b/i.exec(shape)?.[1]?.toUpperCase()
     ?? (/^\s*with\b/.test(shape) ? (/\b(insert|update|delete|replace)\b/i.exec(shape)?.[1]?.toUpperCase() ?? "SELECT") : "OTHER");
   // Classification deliberately uses known canonical production table names, not user literals.
-  const directory = /\b(directory_profiles|directory_inquiries|directory_profile_change_requests)\b/i.test(shape);
+  const directory = /\b(directory_profiles|directory_inquiries)\b/i.test(shape);
   const event = /\b(managed_events|event_registrations|event_organizations)\b/i.test(shape);
   const category = directory && event ? "ostatné" : directory ? "adresár" : event ? "podujatia" : "ostatné";
   return { fingerprint, operation, category };

@@ -1,17 +1,13 @@
-import { createDirectoryProfileChangeRequest, DirectoryRateLimitError, type DirectoryProfileChangeRequestInput } from "@/lib/directory-store";
-import { processEditorialNotification } from "@/lib/editorial-notifications";
-
 export const dynamic = "force-dynamic";
-export async function POST(request: Request) {
-  if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) return Response.json({ error: "Neplatný formát návrhu." }, { status: 415 });
-  try {
-    const payload = await request.json() as DirectoryProfileChangeRequestInput;
-    const saved = await createDirectoryProfileChangeRequest(payload);
-    await processEditorialNotification("directory_profile_change_request", saved, { mirrorAdminPush: true }).catch(() => {
-      console.error(JSON.stringify({ event: "editorial_notification", resourceType: "directory_profile_change_request", resourceId: saved.id, result: "failed", error: "outbox_processing_failed" }));
-    });
-    return Response.json({ success: true }, { status: 201 });
-  } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Návrh sa nepodarilo odoslať." }, { status: error instanceof DirectoryRateLimitError ? 429 : 400 });
-  }
+
+/**
+ * Public correction proposals were retired in step 1/10. Fail closed for
+ * bookmarked clients and direct API callers. The Partner claim/edit workflow
+ * is the only supported route to changing a public service profile.
+ */
+export async function POST() {
+  return Response.json(
+    { error: "Verejné návrhy úprav už neprijímame. O správu profilu požiadajte cez Partner účet." },
+    { status: 410, headers: { "Cache-Control": "no-store" } },
+  );
 }

@@ -13,8 +13,6 @@ const partnerNewForm = read("components/partner-new-profile-form.tsx");
 const publicCard = read("components/directory-card.tsx");
 const publicList = read("components/directory-page.tsx");
 const publicDetail = read("components/directory-profile-detail.tsx");
-const changeForm = read("components/directory-profile-change-form.tsx");
-const changeAdmin = read("components/admin-directory-change-requests.tsx");
 const notion = read("lib/notion-directory-sync.ts");
 const directoryDiff = read("lib/data-automation-directory-diff.ts");
 const automationApply = read("lib/data-automation-apply.ts");
@@ -46,12 +44,6 @@ test("D/E public directory card, listing and detail contain no system online bad
   for (const source of [publicCard, publicList, publicDetail]) {
     assert.doesNotMatch(source, /profile\.online|presentation\.online|Služba dostupná aj online|Osobne aj online|aj online/);
   }
-});
-
-test("F public and admin change-request surfaces do not expose online field", () => {
-  assert.doesNotMatch(changeForm, /Služba je dostupná aj online|update\("online"/);
-  assert.doesNotMatch(changeAdmin, /Dostupnosť online|\["online"/);
-  assert.match(store, /Pole online už nie je podporované pre profily služieb/);
 });
 
 test("G Notion DIRECTORY sync neither reads nor writes Online property", () => {

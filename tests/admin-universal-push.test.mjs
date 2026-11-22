@@ -110,7 +110,7 @@ test("public, review, automation and geo actionable events have push coverage",(
   assert.match(inquiry,/notificationType === "new"/);
 
   const editorial=read("lib/admin-notifications.ts");
-  assert.match(editorial,/directory_profile_change_submitted/);
+  assert.doesNotMatch(editorial,/directory_profile_change_submitted/);
   assert.match(editorial,/news_tip_submitted/);
   assert.match(editorial,/negative_article_feedback_submitted/);
   assert.match(editorial,/Boolean\(row\.helpful\)/);
@@ -164,11 +164,14 @@ test("live intake mirrors push while retry and reminder sweeps cannot replay his
 
   for(const path of [
     "app/api/article-feedback/route.ts",
-    "app/api/directory/profile-change-requests/route.ts",
     "app/api/news-tips/route.ts",
   ]){
     assert.match(read(path),/mirrorAdminPush: true/);
   }
+  // Retired anonymous profile proposals must never create push events.
+  const retired = read("app/api/directory/profile-change-requests/route.ts");
+  assert.match(retired, /status: 410/);
+  assert.doesNotMatch(retired, /mirrorAdminPush|processEditorialNotification|createDirectoryProfileChangeRequest/);
   assert.match(read("app/api/directory/inquiries/route.ts"),/mirrorAdminPush: saved\.created/);
 
   const worker=read("worker/index.ts");

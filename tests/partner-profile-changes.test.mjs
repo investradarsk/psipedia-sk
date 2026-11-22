@@ -269,10 +269,8 @@ test("Partner and admin UX expose edit, history, OLD NEW diff and no direct-save
   assert.match(adminApi, /REJECT/);
 });
 
-test("legacy public Directory correction flow remains present and independent", () => {
-  assert.match(legacyDirectory, /createDirectoryProfileChangeRequest/);
-  assert.match(legacyDirectory, /INSERT INTO directory_profile_change_requests/);
-  assert.match(legacyDirectory, /reviewDirectoryProfileChangeRequest/);
+test("removed public Directory correction flow cannot interfere with Partner changes", () => {
+  assert.doesNotMatch(legacyDirectory, /createDirectoryProfileChangeRequest|INSERT INTO directory_profile_change_requests|reviewDirectoryProfileChangeRequest/);
   assert.doesNotMatch(domain, /directory_profile_change_requests/);
 });
 

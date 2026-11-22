@@ -52,9 +52,6 @@ export async function loadAdminWorkspaceFeed(email:string,db=database()):Promise
             WHEN e.source_type='NEWS_TIP'
               THEN EXISTS (SELECT 1 FROM news_tips n
                 WHERE n.id=CAST(e.resource_ref AS INTEGER) AND n.status IN ('new','reviewing'))
-            WHEN e.source_type='DIRECTORY_CHANGE_REQUEST'
-              THEN EXISTS (SELECT 1 FROM directory_profile_change_requests d
-                WHERE d.id=CAST(e.resource_ref AS INTEGER) AND d.status='new')
             WHEN e.source_type='DIRECTORY_INQUIRY'
               THEN EXISTS (SELECT 1 FROM directory_inquiries d
                 WHERE d.id=CAST(e.resource_ref AS INTEGER) AND d.status IN ('new','read'))
