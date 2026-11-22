@@ -104,6 +104,11 @@ jobs:
           mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
           trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      # Directory service-text and image presentation tables are intentionally
+      # outside the generic migration chain. Both review E2E fixtures use them.
+      # Apply only to isolated --local D1, never to production.
+      - name: Apply isolated Directory SQL presentation schema
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql
       - name: Seed isolated review submission fixtures
         run: |
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
