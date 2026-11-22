@@ -1,4 +1,5 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
+import { effectiveArticleStatus } from "@/lib/article-effective-status";
 import { ARTICLE_NOTION_SEO_PROPERTIES as SEO, articleSeoFromNotion, articleSeoExplicitClears, articleSeoSignedChangedFields, type ArticleSeoRemoteValues, type ArticleNotionSeoKey } from "./notion-article-seo-properties";
 import { decodeArticleSeoReceipt, encodeArticleSeoReceipt } from "./notion-article-seo-receipt";
 import { articleSeoChangedFields, articleSeoUnacknowledgedRemoteFields, planArticleSeoIndependentWriteback, projectArticleSeoConfirmedBaseline, verifyArticleSeoPatch, type ArticleSeoFieldFailure } from "./notion-article-seo-writeback";
@@ -2104,6 +2105,15 @@ async function syncOneNotionPage(
   const previousSeo = mapping ? decodeArticleSeoReceipt(mapping.content_hash).seo : null;
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
   if (mappedExisting && signedFields && signedFields.size === 0) return "unchanged";
+  // A past-due scheduled article is already public, but stays "scheduled" in
+  // D1. The publication reconciliation owns its Notion publication metadata.
+  // Never import editorial changes or report a valid schedule as a sync error.
+  if (mappedExisting?.status === "scheduled"
+    && effectiveArticleStatus(mappedExisting.status, mappedExisting.publishedAt) === "published"
+    && selectProperty(page, "Stav") === "Publikované"
+    && richTextProperty(page, "Psipedia ID") === String(mappedExisting.id)) {
+    return "unchanged";
+  }
   // Unapproved legacy Ready rows must never create a new draft or publish.
   if (legacyUnapprovedReady && (!mapping || mappedExisting?.status !== "published")) {
     return "unchanged";
