@@ -875,14 +875,32 @@ async function mirrorEshopSystemFields(input: {
   ];
   const desired = Object.fromEntries(names.filter(name =>
     Object.hasOwn(page.properties ?? {}, name)).map(name => [name, all[name]]));
+  // Only clear an error produced by this system mirror. An unrelated
+  // editorial/field-event failure belongs to its own retry flow.
+  if (notionRichTextProperty(page, "Sync chyba").startsWith("ESHOP_SYSTEM_MIRROR_ECHO_MISMATCH")) {
+    for (const [name, value] of Object.entries({
+      "Sync stav": select("Synchronizované"),
+      "Sync chyba": notionTextValue(""),
+      "Posledný sync": all["Posledný sync"],
+    })) {
+      if (Object.hasOwn(page.properties ?? {}, name)) desired[name] = value;
+    }
+  }
   const patch = selectiveNotionProperties(page.properties ?? {}, desired);
   if (patch) {
     const updated = await patchPage(input.bindings, page.id, patch);
-    const checked = updated.properties ? updated : await fetchPage(input.bindings, page.id);
-    if (checked.id !== page.id || !notionPageBelongsToDataSource(checked, input.dataSourceId) ||
-        Object.entries(patch).some(([name, value]) =>
-          !sameNotionProperty(checked.properties?.[name], value)))
-      throw new Error("ESHOP_SYSTEM_MIRROR_ECHO_MISMATCH");
+    // PATCH can return an incomplete/stale echo. Confirm against one fresh
+    // GET before rejecting the write, but never acknowledge a real mismatch.
+    const mismatchedFields = (candidate: NotionPage) => {
+      if (candidate.id !== page.id || !notionPageBelongsToDataSource(candidate, input.dataSourceId))
+        throw new Error("ESHOP_SYSTEM_MIRROR_ECHO_MISMATCH (identity)");
+      return Object.entries(patch).filter(([name, value]) =>
+        !sameNotionProperty(candidate.properties?.[name], value)).map(([name]) => name);
+    };
+    let mismatches = mismatchedFields(updated.properties ? updated : await fetchPage(input.bindings, page.id));
+    if (mismatches.length) mismatches = mismatchedFields(await fetchPage(input.bindings, page.id));
+    if (mismatches.length)
+      throw new Error("ESHOP_SYSTEM_MIRROR_ECHO_MISMATCH (" + mismatches.join(", ") + ")");
   }
   // This is a last-observed timestamp, NOT a synthetic shared editorial hash.
   await input.database.prepare(
