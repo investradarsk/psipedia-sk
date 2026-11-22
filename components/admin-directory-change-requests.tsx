@@ -36,10 +36,18 @@ export function AdminDirectoryChangeRequests({ initialRequests }: { initialReque
   const [requests, setRequests] = useState(initialRequests);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<"all" | DirectoryProfileChangeRequest["status"]>("all");
+  const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [pendingReview, setPendingReview] = useState<{ item: DirectoryProfileChangeRequest; nextStatus: "approved" | "rejected" } | null>(null);
-  const visible = useMemo(() => requests.filter((item) => status === "all" || item.status === status), [requests, status]);
+  const visible = useMemo(() => {
+    const search = query.trim().toLocaleLowerCase("sk");
+    return requests.filter((item) =>
+      (status === "all" || item.status === status) &&
+      (!search || [item.profileName, item.requesterName, item.note, item.profileSlug]
+        .some((value) => (value ?? "").toLocaleLowerCase("sk").includes(search)))
+    );
+  }, [requests, status, query]);
 
   async function review() {
     const decision = pendingReview;
@@ -59,7 +67,12 @@ export function AdminDirectoryChangeRequests({ initialRequests }: { initialReque
 
   return <>
     <section className="admin-stats" aria-label="Stav návrhov" data-admin-community-metrics><div><span>Všetky návrhy</span><strong>{requests.length}</strong></div><div><span>Nové</span><strong>{requests.filter((item) => item.status === "new").length}</strong></div><div><span>Schválené</span><strong>{requests.filter((item) => item.status === "approved").length}</strong></div><div><span>Zamietnuté</span><strong>{requests.filter((item) => item.status === "rejected").length}</strong></div></section>
-    <section className="admin-panel" data-admin-content-module="community-profile-suggestions"><div className="admin-toolbar"><div className="admin-status-filter" aria-label="Filtrovať návrhy podľa stavu">{([['all','Všetky'],['new','Nové'],['approved','Schválené'],['rejected','Zamietnuté']] as const).map(([value,label]) => <button type="button" className={status === value ? "is-active" : ""} onClick={() => { setStatus(value); setPage(1); }} key={value}>{label}</button>)}</div></div>
+    <section className="admin-panel" data-admin-content-module="community-profile-suggestions"><div className="admin-toolbar">
+      <label>Hľadať profil alebo navrhovateľa
+        <input type="search" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }}
+          placeholder="Napr. MyJoy" aria-label="Hľadať návrhy úprav" />
+      </label>
+      <div className="admin-status-filter" aria-label="Filtrovať návrhy podľa stavu">{([['all','Všetky'],['new','Nové'],['approved','Schválené'],['rejected','Zamietnuté']] as const).map(([value,label]) => <button type="button" className={status === value ? "is-active" : ""} onClick={() => { setStatus(value); setPage(1); }} key={value}>{label}</button>)}</div></div>
       {message && <p className="admin-flash" role="status">{message}</p>}
       {visible.length ? <div className="admin-change-list" data-admin-community-list>{visible.slice((Math.min(page, Math.max(1, Math.ceil(visible.length / COMMUNITY_PAGE_SIZE))) - 1) * COMMUNITY_PAGE_SIZE, Math.min(page, Math.max(1, Math.ceil(visible.length / COMMUNITY_PAGE_SIZE))) * COMMUNITY_PAGE_SIZE).map((item) => {
         const current = fields(item.currentData);
