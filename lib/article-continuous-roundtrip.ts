@@ -51,6 +51,7 @@ function nodeContent(node: TiptapEditorialNode): string {
 function stableProseNode(node: TiptapEditorialNode): TiptapEditorialNode {
   const { type, content, marks, attrs } = node;
   if (type === "heading") return { type, attrs: { level: attrs?.level }, ...(content ? { content } : {}) };
+  if (type === "psipediaCallout") return { type, attrs: { tone: attrs?.tone }, ...(content ? { content } : {}) };
   return { type, ...(content ? { content } : {}), ...(marks ? { marks } : {}) };
 }
 function sameRichText(original: ArticleBlock, nodes: TiptapEditorialNode[]): boolean {
@@ -117,7 +118,10 @@ export function continuousDocumentToArticleFields(
       if (level !== 2 && level !== 3) throw new Error("Nepodporovaná úroveň nadpisu.");
       const text = nodeContent(content[0]);
       const id = original?.id ?? makeId();
-      blocks.push({ id, type: level === 2 ? "h2" : "h3", text });
+      blocks.push({
+        ...(original && (original.type === "h2" || original.type === "h3") ? original : {}),
+        id, type: level === 2 ? "h2" : "h3", text,
+      });
     } else {
       const id = original?.id ?? makeId();
       const inherited = original?.type === "text" ? original : null;
