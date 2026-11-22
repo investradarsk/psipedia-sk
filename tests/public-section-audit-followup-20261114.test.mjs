@@ -21,11 +21,12 @@ test("article tags resolve their editorial section and archive remains the all-a
   assert.match(archive, /<UnifiedSectionHero\s+contentSource="route"/);
 });
 
-test("news guide is collapsible and date disclaimer depends on the visible update", () => {
+test("news categories list articles immediately without unnecessary explanatory blocks", () => {
   const news = read("components/news-hub.tsx");
   const detail = read("components/article-detail.tsx");
-  assert.match(news, /<details className=\{styles\.guidance\} data-news-category-guidance>/);
-  assert.match(news, /<summary>Čo tu nájdeš<\/summary>/);
+  assert.doesNotMatch(news, /data-news-category-guidance|Čo tu nájdeš|getNewsCategoryGuidance/);
+  assert.match(news, /<PublicContentList/);
+  assert.match(news, /<ArticleListItem/);
   assert.match(detail, /\$\{showUpdated \? " Dátum poslednej úpravy je uvedený pri titulku\." : ""\}/);
 });
 

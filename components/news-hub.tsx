@@ -12,7 +12,6 @@ import {
 import type { Article } from "@/lib/content";
 import {
   getNewsCategory,
-  getNewsCategoryGuidance,
   newsCategories,
   type NewsCategorySlug,
 } from "@/lib/news";
@@ -35,7 +34,6 @@ export function NewsHub({
   landingPath?: "/novinky" | "/clanky";
 }) {
   const category = activeCategory ? getNewsCategory(activeCategory) : null;
-  const guidance = category ? getNewsCategoryGuidance(category.slug) : null;
   const allNews = articles.filter((article) => articlePortalSection(article) === "novinky");
   const newsArticles = category
     ? allNews.filter((article) => article.newsCategory === category.slug)
@@ -112,21 +110,6 @@ export function NewsHub({
               items={categoryItems}
             />
           </div>
-
-          {guidance ? (
-            <details className={styles.guidance} data-news-category-guidance>
-              <summary>Čo tu nájdeš</summary>
-              <div className={styles.guidanceContent}>
-                <h3>{guidance.title}</h3>
-                <p>{guidance.text}</p>
-                <ul>
-                  {guidance.items.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            </details>
-          ) : null}
 
           {newsArticles.length ? (
             <PublicContentList label={category ? `Novinky: ${category.label}` : "Všetky novinky"}>
