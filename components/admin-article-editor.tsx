@@ -5,7 +5,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
-import { ChangeEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Blocks, BookOpen, CalendarDays, Camera, CheckCircle2, ChevronDown, Clock3, Eye, PawPrint, Search, Settings2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
@@ -59,6 +59,24 @@ function slugify(value: string, maxLength = 90) {
 
 function dateTimeValue(value?: string | null) {
   return formatArticleLocalDateTime(value);
+}
+
+const articleEditorModeKey = "psipedia-article-editor-mode";
+const articleEditorModeEvent = "psipedia-article-editor-mode-change";
+type ArticleEditorMode = "continuous" | "legacy";
+const articleEditorServerMode = (): ArticleEditorMode => "continuous";
+function articleEditorBrowserMode(): ArticleEditorMode {
+  try {
+    return window.localStorage.getItem(articleEditorModeKey) === "legacy" ? "legacy" : "continuous";
+  } catch { return "continuous"; }
+}
+function subscribeArticleEditorMode(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(articleEditorModeEvent, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(articleEditorModeEvent, onStoreChange);
+  };
 }
 
 const editorNavigation = [
@@ -235,25 +253,25 @@ export function AdminArticleEditor({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
   const [continuousReadOnlyOpen, setContinuousReadOnlyOpen] = useState(false);
-  // New editor is the default; the classic version stays available as a rollback.
-  // Legacy E2E fixtures can request the old editor with the same explicit preference.
-  const [continuousEditableOpen, setContinuousEditableOpen] = useState(true);
-  const lastNonPreviewMode = useRef<"continuous" | "legacy">("continuous");
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem("psipedia-article-editor-mode") === "legacy") {
-        lastNonPreviewMode.current = "legacy";
-        setContinuousEditableOpen(false);
-        setActiveArticleSection("article-publish");
-      }
-    } catch { /* Storage can be unavailable in privacy modes. Keep the new default. */ }
-  }, []);
-  function selectArticleEditorMode(mode: "continuous" | "legacy" | "preview") {
-    if (mode !== "preview") lastNonPreviewMode.current = mode;
-    try {
-      if (mode !== "preview") window.localStorage.setItem("psipedia-article-editor-mode", mode);
-    } catch { /* Editing must remain usable even without localStorage. */ }
-    setContinuousEditableOpen(mode === "continuous");
+  // During SSR the default is continuous. Hydration reads the saved choice with
+  // useSyncExternalStore, avoiding state updates inside effects and hydration drift.
+  const savedEditorMode = useSyncExternalStore(
+    subscribeArticleEditorMode, articleEditorBrowserMode, articleEditorServerMode,
+  );
+  const [manualMode, setManualMode] = useState<ArticleEditorMode | null>(null);
+  const continuousEditableOpen = (manualMode ?? savedEditorMode) === "continuous";
+  const lastNonPreviewMode = useRef<ArticleEditorMode>("continuous");
+  function selectArticleEditorMode(mode: ArticleEditorMode | "preview") {
+    if (mode === "preview") {
+      lastNonPreviewMode.current = continuousEditableOpen ? "continuous" : "legacy";
+    } else {
+      lastNonPreviewMode.current = mode;
+      setManualMode(mode);
+      try {
+        window.localStorage.setItem(articleEditorModeKey, mode);
+        window.dispatchEvent(new Event(articleEditorModeEvent));
+      } catch { /* Storage may be blocked; local state still changes. */ }
+    }
     setContinuousReadOnlyOpen(mode === "preview");
   }
   const articleEditorNavigation = continuousEditableOpen
