@@ -167,7 +167,7 @@ test("automatic related candidates are no longer injected into the article body"
   assert.doesNotMatch(detail, /SÚVISIACI ČLÁNOK|className=\{styles\.midRelated\}/);
   assert.match(
     detail,
-    /const \{ contentBlocks, sourceBlocks, hasManualSourceSection \} = planArticleSourceDisplay\(blocks\)/,
+    /const \{ contentBlocks, sourceBlocks, hasManualSourceSection \} = planArticleSourceDisplay\(publicBlocks\)/,
   );
   assert.match(
     detail,
@@ -177,7 +177,7 @@ test("automatic related candidates are no longer injected into the article body"
   assert.match(blocks, /block\.type === "related"/);
 });
 test("editor-authored related blocks stay in body flow while sources remain at the article end", () => {
-  assert.match(detail, /planArticleSourceDisplay\(blocks\)/);
+  assert.match(detail, /planArticleSourceDisplay\(publicBlocks\)/);
   assert.doesNotMatch(detail, /block\.type !== "source" && block\.type !== "related"/);
   assert.match(
     detail,
@@ -470,7 +470,7 @@ test("save and share remain available in header and at article end", () => {
 });
 
 test("TOC stays deterministic, H2-only, collapsible and accessible with anchor links", () => {
-  assert.match(detail, /articleBlockHeadings\(blocks\)/);
+  assert.match(detail, /articleBlockHeadings\(publicBlocks\)/);
   assert.match(
     detail,
     /const tocHeadings = headings\.filter\(\(heading\) => heading\.level === 2\)/,
@@ -484,7 +484,7 @@ test("TOC stays deterministic, H2-only, collapsible and accessible with anchor l
   assert.match(detail, /<nav aria-label="Obsah článku">/);
   assert.doesNotMatch(detail, /<details className=\{styles\.toc\} open/);
   assert.match(detail, /className=\{styles\.tocTitle\}/);
-  assert.match(blocks, /const headingIds = new Map\(\s*articleBlockHeadings\(blocks\)/);
+  assert.match(blocks, /const headingIds = new Map\(\s*articleBlockHeadings\(publicBlocks\)/);
   assert.match(blocks, /<h2\s+id=\{headingIds\.get\(block\.id\)\}/);
   assert.match(styles, /scroll-margin-top:\s*calc\(var\(--psipedia-sticky-header-height,/);
   assert.match(styles, /\.tocTitle\s*\{/);
