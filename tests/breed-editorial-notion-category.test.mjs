@@ -36,3 +36,30 @@ test("existing published article URLs are permanently redirected after explicit 
   assert.match(formerSection, /canonical !== `\/\$\{section\}\/\$\{slug\}`\) permanentRedirect\(canonical\)/);
   assert.match(formerArchive, /canonical !== `\/clanky\/\$\{slug\}`\) permanentRedirect\(canonical\)/);
 });
+
+
+test("Admin saves write changed breed categories back into Notion, with verified metadata", () => {
+  const api = read("app/api/admin/articles/[id]/route.ts");
+  const mapping = read("lib/notion-article-breed-placement.ts");
+  assert.match(api, /writeBackArticleBreedCategoryToNotion/);
+  assert.match(api, /isBreedArticlePlacementChange\(before, article\)/);
+  assert.match(notion, /export async function writeBackArticleBreedCategoryToNotion/);
+  assert.match(mapping, /category: article\.category === "Plemená" \? "Plemená" : "Všeobecné články"/);
+  assert.match(notion, /"Kategória": \{ select: \{ name: desiredPlacement\.category \} \}/);
+  assert.match(notion, /"Podsekcia": \{ select: desiredPlacement\.subsection/);
+  assert.match(notion, /"Sekcia portálu": \{ select: \{ name: desiredPlacement\.portalSection \} \}/);
+  assert.match(notion, /NOTION_ARTICLE_CATEGORY_REMOTE_CONFLICT/);
+  assert.match(notion, /NOTION_ARTICLE_CATEGORY_ECHO_MISMATCH/);
+  assert.match(notion, /NOTION_ARTICLE_CATEGORY_MAPPING_CONFLICT/);
+});
+
+test("Explicit Notion category edits can reclassify mapped articles without changing body or publication", () => {
+  assert.match(notion, /category: "Kategória"/);
+  assert.match(notion, /signedFields\?\.has\("category"\)/);
+  assert.match(notion, /explicitBreedPlacementChange \? basePayload\.category : existing\.category/);
+  assert.match(notion, /NOTION_ARTICLE_CATEGORY_EXPLICIT_CHANGE_REQUIRED/);
+  assert.match(notion, /next\.category = incoming\.category/);
+  assert.match(notion, /next\.portalSection = incoming\.portalSection/);
+  assert.match(notion, /status: existing\.status/);
+  assert.match(notion, /publishedAt: existing\.publishedAt/);
+});
