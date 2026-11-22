@@ -2472,6 +2472,12 @@ async function syncOneNotionPage(
     signedFields?.has("category") &&
     isBreedArticlePlacementChange(existing, proposed) &&
     notionArticleBreedPlacement(existing) && notionArticleBreedPlacement(proposed));
+  // An hourly poll is not evidence that a human intentionally changed placement.
+  // Without a signed category edit, never acknowledge a mismatched breed category.
+  if (existing && isBreedArticlePlacementChange(existing, proposed) &&
+      !explicitBreedPlacementChange) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_EXPLICIT_CHANGE_REQUIRED");
+  }
   if (existing && (existing.slug !== proposed.slug ||
       (existing.portalSection !== proposed.portalSection && !explicitBreedPlacementChange))) {
     throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED");
