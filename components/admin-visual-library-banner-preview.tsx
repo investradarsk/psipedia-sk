@@ -1,5 +1,6 @@
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import type { VisualBanner } from "@/lib/visual-library-banners";
+import type { PublicBannerVisual, PublicBannerSize } from "./public-visual-system/public-banner-frame";
 
 /**
  * The only mapping between a visual-library banner preset and its real public
@@ -19,14 +20,20 @@ export function AdminVisualLibraryBannerPreview({
   banner,
   testId,
   copy,
+  visual,
+  size,
 }: {
   banner: VisualBanner;
   testId: string;
   copy?: AdminBannerPreviewCopy;
+  visual?: PublicBannerVisual;
+  size?: PublicBannerSize;
 }) {
   return (
     <PublicMagazineBanner
       compact={banner.group === "clanky"}
+      visual={visual}
+      size={size}
       photoTone={banner.photoTone}
       testId={testId}
       eyebrow={copy?.eyebrow ?? banner.eyebrow}
