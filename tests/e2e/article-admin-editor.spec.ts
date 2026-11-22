@@ -86,6 +86,40 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
   });
 
+  test("CONTINUOUS-STEP1: one read-only Tiptap document displays unsaved prose and original block editor stays intact", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await fillMinimumArticle(page, "Skúška súvislého náhľadu");
+
+    const blockSection = page.locator("#article-blocks");
+    const original = blockSection.locator("[data-admin-rich-text-editor]");
+    await expect(original).toBeVisible();
+    await expect(original.locator('[contenteditable="true"]')).toContainText("Toto je obsahový blok upravovaný");
+
+    const mutations: string[] = [];
+    page.on("request", (request) => {
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) && /\/api\/admin\/(?:articles|clanky)/.test(request.url())) {
+        mutations.push(request.url());
+      }
+    });
+
+    await blockSection.locator("[data-article-continuous-toggle]").click();
+    const paper = blockSection.locator("[data-article-continuous-readonly]");
+    const document = paper.locator('[data-article-continuous-document="read-only"]');
+    await expect(document).toHaveCount(1);
+    await expect(document).toContainText("Toto je bezpečný úvod článku");
+    await expect(document).toContainText("Toto je obsahový blok upravovaný");
+    await expect(document).toHaveAttribute("contenteditable", "false");
+    await expect(original).toBeHidden();
+    await expect(page.locator("[data-admin-tiptap-toolbar]")).toHaveCount(0);
+    expect(mutations).toEqual([]);
+
+    await blockSection.locator("[data-article-continuous-toggle]").click();
+    await expect(original).toBeVisible();
+    await expect(original.locator('[contenteditable="true"]')).toContainText("Toto je obsahový blok upravovaný");
+    expect(mutations).toEqual([]);
+  });
+
   test("mobile article editor has one save action, compact navigation and searchable breeds", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
