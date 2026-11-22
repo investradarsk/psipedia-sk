@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { CalendarDays, Flag, BookOpen, Dumbbell, UsersRound, LayoutGrid } from "lucide-react";
 import type { EventListingFilters } from "@/lib/event-listing";
 import Link from "next/link";
@@ -45,7 +46,7 @@ const eventCategoryIcons = {
   "Tréning": <Dumbbell size={18} />,
   "Stretnutie": <UsersRound size={18} />,
   "Iné": <LayoutGrid size={18} />,
-} satisfies Record<EventType, React.ReactElement>;
+} satisfies Record<EventType, ReactElement>;
 
 export async function EventsPage({
   events,
