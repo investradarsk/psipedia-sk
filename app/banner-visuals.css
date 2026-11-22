@@ -152,3 +152,45 @@
   background: transparent;
   color: var(--ps-bnr-ink);
 }
+
+/* A published owner change still affects desktop only, preserving the existing
+ * independent mobile copy and the protected per-placement release workflow. */
+@media (min-width: 621px) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-visual="light"] {
+    --ps-bnr-bg: #eaf0e7;
+    --ps-bnr-ink: #17352b;
+    --ps-bnr-body: #425d4c;
+    --ps-bnr-kicker: #a74d3c;
+    --ps-bnr-button-bg: #20543e;
+    --ps-bnr-button-text: #fff;
+    border-color: rgba(23, 53, 43, 0.17);
+    border-left-color: #b44939;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-visual="dark"] {
+    --ps-bnr-bg: #173d2e;
+    --ps-bnr-ink: #fff;
+    --ps-bnr-body: #e3eee5;
+    --ps-bnr-kicker: #f3b9a4;
+    --ps-bnr-button-bg: #fff;
+    --ps-bnr-button-text: #17352b;
+    border-color: rgba(23, 53, 43, 0.3);
+    border-left-color: #b44939;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"] {
+    --ps-bnr-padding: 14px 16px;
+    --ps-bnr-title-size: 1.15rem;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="medium"] {
+    --ps-bnr-padding: 18px 22px;
+    --ps-bnr-title-size: clamp(1.3rem, 1.9vw, 1.7rem);
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="large"] {
+    --ps-bnr-padding: clamp(24px, 3.8vw, 36px);
+    --ps-bnr-title-size: clamp(1.65rem, 3vw, 2.15rem);
+  }
+}
+/* The shared copy adapter uses generated CSS-module class names. Target the
+ * semantic child structure, never guessed hashes, so the dark body is readable. */
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > div > div {
+  color: var(--ps-bnr-body) !important;
+}
