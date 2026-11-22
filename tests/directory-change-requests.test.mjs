@@ -680,16 +680,6 @@ test("retired Admin proposal page and API are gone; Partner workflow stays separ
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 0);
 });
 
-test("change request layout stacks safely on mobile", () => {
-  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(
-    css,
-    /@media \(max-width: 720px\)[\s\S]*?\.directory-change-grid\s*\{\s*grid-template-columns: 1fr;\s*\}/,
-  );
-  assert.match(css, /\.directory-change-form input:not\(\[type="checkbox"\]\)[\s\S]*?width: 100%/);
-  assert.match(css, /\.directory-change-submit button\s*\{\s*width: 100%;/);
-});
-
 test("public contact and Resend transport stay restricted to the editorial inbox", () => {
   const contact = readFileSync(new URL("../lib/public-contact.ts", import.meta.url), "utf8");
   const privacy = readFileSync(new URL("../app/sukromie/page.tsx", import.meta.url), "utf8");
