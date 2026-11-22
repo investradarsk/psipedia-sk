@@ -1,0 +1,31 @@
+.paper {
+  max-width: 790px;
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2.5rem);
+  background: #fff;
+  color: #182d20;
+  border: 1px solid #d8e2dc;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgb(24 45 32 / 5%);
+}
+.prose { font-size: 1rem; line-height: 1.76; overflow-wrap: anywhere; }
+.prose :global(.ProseMirror) { outline: none; white-space: pre-wrap; }
+.prose :global(.ProseMirror p) { margin: 0 0 1rem; }
+.prose :global(.ProseMirror h2) { font-size: 1.5rem; line-height: 1.35; margin: 1.7rem 0 .75rem; }
+.prose :global(.ProseMirror h3) { font-size: 1.2rem; line-height: 1.4; margin: 1.4rem 0 .65rem; }
+.prose :global(.ProseMirror ol),
+.prose :global(.ProseMirror ul) { padding-inline-start: 1.6rem; margin: .7rem 0 1rem; }
+.prose :global(.ProseMirror blockquote) { border-left: 3px solid #1f4a3a; padding-left: 1rem; margin: 1.2rem 0; }
+.prose :global(.ProseMirror aside[data-psipedia-callout]) { border-left: 3px solid #b4513d; background: #fff6ee; padding: .75rem 1rem; margin: 1rem 0; }
+.widget { margin: 1rem 0; }
+.widget :global(.article-blocks) { margin: 0; }
+.widget :global(.article-blocks > *) { max-width: 100%; }
+.widget :global(img), .widget :global(iframe) { max-width: 100%; }
+.widget :global(iframe) { width: 100%; }
+.takeaway { border-left: 4px solid #b4513d; padding: .75rem 1rem; background: #fdf5eb; border-radius: 6px; }
+.takeaway strong { display: block; margin-bottom: .4rem; }
+.error { padding: 1rem; color: #a92c26; background: #fff7f5; border: 1px solid #edd0c7; border-radius: 10px; }
+@media (max-width: 700px) {
+  .paper { padding: 1rem .85rem; border-radius: 8px; }
+  .prose { font-size: .96rem; line-height: 1.68; }
+}
