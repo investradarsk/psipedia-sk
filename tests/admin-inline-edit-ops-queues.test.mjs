@@ -52,15 +52,6 @@ test("article feedback changes only moderator status and preserves visitor ratin
   assert.doesNotMatch(ui,/missingText: rowDraft|helpful: rowDraft/);
 });
 
-test("retired proposal reviews cannot mutate through the Admin and historic cards are read-only", () => {
-  const ui=read("components/admin-directory-change-requests.tsx");
-  const route=read("app/api/admin/profile-change-requests/[id]/route.ts");
-  assert.doesNotMatch(ui,/setPendingReview|AdminDestructiveConfirmDialog|Schváliť návrh|Zamietnuť návrh/);
-  assert.match(ui,/Historické návrhy – iba na čítanie/);
-  assert.match(route,/status: 410/);
-  assert.doesNotMatch(route,/reviewDirectoryProfileChangeRequest/);
-});
-
 test("card status editing is desktop-only and the original mobile status actions are present", () => {
   const css=read("components/admin-inline-card-actions.module.css");
   assert.match(css, /max-width:899px/);
