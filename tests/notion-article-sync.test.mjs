@@ -30,9 +30,9 @@ test("past-due scheduled articles import editorial changes only through verified
   const bodyLoad = syncSource.indexOf("  const blocks = await getPageBlocks(bindings, page.id);", start);
   assert.ok(start >= 0 && end > start && bodyLoad > end, "the identity gate must run before parsing article content");
   const guard = syncSource.slice(start, end);
-  assert.match(guard, /effectiveArticleStatus\\(mappedExisting\\.status, mappedExisting\\.publishedAt\\) === "published"/);
-  assert.match(guard, /selectProperty\\(page, "Stav"\\) === "Publikované"/);
-  assert.match(guard, /richTextProperty\\(page, "Psipedia ID"\\) === String\\(mappedExisting\\.id\\)/);
+  assert.match(guard, /effectiveArticleStatus\(mappedExisting\.status, mappedExisting\.publishedAt\) === "published"/);
+  assert.match(guard, /selectProperty\(page, "Stav"\) === "Publikované"/);
+  assert.match(guard, /richTextProperty\(page, "Psipedia ID"\) === String\(mappedExisting\.id\)/);
   assert.doesNotMatch(guard, /return "unchanged"|updateManagedArticle|upsertMapping|updateNotionSyncState/);
 
   const verified = runInNewContext(`(function (mappedExisting, page) {
@@ -55,19 +55,19 @@ test("past-due scheduled articles import editorial changes only through verified
   assert.equal(verified({ ...stored, status: "draft" }, remote), false);
   assert.equal(verified(null, remote), false);
 
-  assert.match(syncSource, /existing\\.status !== "draft" && existing\\.status !== "published"[\\s\\S]*?!dueScheduledPublishedMapping/);
-  assert.match(syncSource, /if \\(existing\\.status === "published" \\|\\| dueScheduledPublishedMapping\\)/);
-  assert.match(syncSource, /status: existing\\.status,[\\s\\S]*?publishedAt: existing\\.publishedAt/);
-  assert.match(syncSource, /status: dueScheduledPublishedMapping \\? "scheduled" : undefined/);
+  assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"[\s\S]*?!dueScheduledPublishedMapping/);
+  assert.match(syncSource, /if \(existing\.status === "published" \|\| dueScheduledPublishedMapping\)/);
+  assert.match(syncSource, /status: existing\.status,[\s\S]*?publishedAt: existing\.publishedAt/);
+  assert.match(syncSource, /status: dueScheduledPublishedMapping \? "scheduled" : undefined/);
   assert.match(syncSource, /allowPastDueScheduledContentEdit: dueScheduledPublishedMapping/);
-  assert.match(articleStoreSource, /schedulingPrecondition\\?\\.allowPastDueScheduledContentEdit === true/);
-  assert.match(articleStoreSource, /schedulingPrecondition\\.status === "scheduled"/);
-  assert.match(articleStoreSource, /existing\\.status === "scheduled"/);
-  assert.match(articleStoreSource, /payload\\.status === "scheduled"/);
-  assert.match(articleStoreSource, /payload\\.publishedAt === existing\\.publishedAt/);
-  assert.match(articleStoreSource, /Date\\.parse\\(existing\\.publishedAt\\) <= Date\\.now\\(\\)/);
-  assert.match(articleStoreSource, /allowPastDueScheduledContentEdit\\)\\)\\)/);
-  assert.match(articleStoreSource, /AND \\(\\? IS NULL OR status = \\?\\)/);
+  assert.match(articleStoreSource, /schedulingPrecondition\?\.allowPastDueScheduledContentEdit === true/);
+  assert.match(articleStoreSource, /schedulingPrecondition\.status === "scheduled"/);
+  assert.match(articleStoreSource, /existing\.status === "scheduled"/);
+  assert.match(articleStoreSource, /payload\.status === "scheduled"/);
+  assert.match(articleStoreSource, /payload\.publishedAt === existing\.publishedAt/);
+  assert.match(articleStoreSource, /Date\.parse\(existing\.publishedAt\) <= Date\.now\(\)/);
+  assert.match(articleStoreSource, /allowPastDueScheduledContentEdit\)\)\)/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR status = \?\)/);
 });
 
 test("published articles preserve identity and media while importing mapped SEO fields", () => {
