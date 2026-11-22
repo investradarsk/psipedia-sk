@@ -9,10 +9,17 @@ test("manifest declares standalone admin identity and required icon sizes", () =
   const manifest = read("../app/manifest.ts");
   assert.match(manifest, /start_url:\s*"\/admin"/);
   assert.match(manifest, /display:\s*"standalone"/);
-  assert.match(manifest, /scope:\s*"\/admin\/"/);
+  assert.match(manifest, /scope:\s*"\/admin"/);
   assert.match(manifest, /192x192/);
   assert.match(manifest, /512x512/);
   assert.match(manifest, /purpose:\s*"maskable"/);
+  // A manifest start URL outside its scope can break installation/standalone
+  // launch. /admin is the canonical dashboard without a trailing slash.
+  const start = manifest.match(/start_url:\s*"([^"]+)"/)?.[1];
+  const scope = manifest.match(/scope:\s*"([^"]+)"/)?.[1];
+  assert.ok(start && scope);
+  assert.equal(start.startsWith(scope), true);
+  assert.equal("/admin/operations".startsWith(scope), true);
   for (const path of [
     "../public/pwa/icon-192.png",
     "../public/pwa/icon-512.png",

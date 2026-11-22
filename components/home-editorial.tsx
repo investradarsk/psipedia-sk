@@ -48,12 +48,20 @@ function HomeArticleFeatureLayout({ articles, testId }: { articles: Article[]; t
   );
 }
 
-function HomeMagazineColumns({ children, sidebar }: { children: ReactNode; sidebar?: ReactNode }) {
+function HomeMagazineColumns({
+  children,
+  sidebar,
+  sidebarLabel,
+}: {
+  children: ReactNode;
+  sidebar?: ReactNode;
+  sidebarLabel: string;
+}) {
   return (
     <div className={sidebar ? "home-magazine-grid" : "home-magazine-grid home-magazine-grid--wide"}>
       <div className="home-magazine-main">{children}</div>
       {sidebar ? (
-        <aside className="home-magazine-side" aria-label="Súvisiace informácie">
+        <aside className="home-magazine-side" aria-label={sidebarLabel}>
           {sidebar}
         </aside>
       ) : null}
@@ -170,7 +178,7 @@ export function HomeLatestArticles({
           <p>Najnovšie články, odborné rady a správy zo všetkých rubrík Psipedie.</p>
         </div>
       </div>
-      <HomeMagazineColumns sidebar={sidebar}>
+      <HomeMagazineColumns sidebar={sidebar} sidebarLabel="Súvisiace podujatia k najnovším článkom">
         {articles.length ? (
           <HomeArticleFeatureLayout articles={articles} testId="latest" />
         ) : (
@@ -295,7 +303,7 @@ export function HomeEditorialSection({
           <p>{description}</p>
         </div>
       </div>
-      <HomeMagazineColumns sidebar={sidebar}>
+      <HomeMagazineColumns sidebar={sidebar} sidebarLabel={`Súvisiace k sekcii ${title}`}>
         {feature ??
           (articles.length ? (
             <HomeArticleFeatureLayout articles={articles} testId={testId} />
