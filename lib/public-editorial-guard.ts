@@ -16,6 +16,14 @@ export function isPrivateEditorialArticleHeading(value: string): boolean {
   return /^(?:psipedia bloky|pred publikovanim|synchronizacny manifest(?: psipedia bloky)?|socialne siete\s*-\s*(?:interny|redakcny) navrh|redakcne (?:poznamky|pokyny|podklady|instrukcie)(?:\s*-.*)?|redakcne prvky pre (?:administraciu|psipedia admin)|interne redakcne poznamky|technicke poznamky pre administraciu)$/.test(heading);
 }
 
+/** A generic "Sociálne siete" can be real article prose. Treat it as an
+ * internal proposal only when its H3 subsections are Facebook AND Instagram. */
+export function isNotionOnlySocialDraftHeading(value: string, subsections: readonly string[]): boolean {
+  if (normalizedEditorialText(value) !== "socialne siete") return false;
+  const normalized = new Set(subsections.map(normalizedEditorialText));
+  return normalized.has("facebook") && normalized.has("instagram");
+}
+
 export function isPhotoAttributionHeading(value: string): boolean {
   const heading = normalizedEditorialText(value);
   return heading === "fotografia a licencia" || heading === "fotografia - licencia";
@@ -33,12 +41,12 @@ export function photoCreditFromNotionAttribution(value: string): string {
   const source = value.match(/\bzdroj\s*:\s*([^;\n]+)/i)?.[1]?.trim() ?? "";
   let license = value.match(/\blicencia\s*:\s*([^;\n]+)/i)?.[1]?.trim() ?? "";
   license = license.split(/\.\s+(?=[A-ZÁČĎÉÍĽŇÓÔŔŠŤÚÝŽ])/u, 1)[0].replace(/[.;\s]+$/, "");
-  if (!author || !source || !license || !/(?:creative commons|cc\s*by|public domain)/i.test(license)) return "";
+  if (!author || !source || !license || !/(?:creative commons|cc\s*0|cc\s*by|public domain|verejn[áa]\s+dom[ée]na|pexels license|unsplash license)/i.test(license)) return "";
   return [author, source, license].join(" · ").slice(0, 240);
 }
 
 /** The free-form credit may be partial. Do not hide the original license paragraph. */
 export function hasCompletePublicPhotoCredit(credit: string | null | undefined, sourceUrl: string | null | undefined): boolean {
   return Boolean(credit?.trim() && /^https?:\/\//i.test(sourceUrl ?? "")
-    && /(?:creative commons|cc\s*by|public domain|vlastn[áa] fotografia)/i.test(credit));
+    && /(?:creative commons|cc\s*0|cc\s*by|public domain|verejn[áa]\s+dom[ée]na|pexels license|unsplash license|vlastn[áa] fotografia)/i.test(credit));
 }
