@@ -242,7 +242,7 @@ test("article routes reject collisions with subsection landing slugs", () => {
 test("mapped Draft is loaded before placement resolution so a legacy missing subsection can preserve a valid route", () => {
   const mappingLoad = syncSource.indexOf("const mapping = await loadMapping");
   const existingLoad = syncSource.indexOf("const mappedExisting = mapping ?", mappingLoad);
-  const payloadBuild = syncSource.indexOf("notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo)", existingLoad);
+  const payloadBuild = syncSource.indexOf("const proposed = notionPageToManagedArticleInput(", existingLoad);
   assert.ok(mappingLoad >= 0 && existingLoad > mappingLoad && payloadBuild > existingLoad);
   assert.match(syncSource, /existing\.status !== "draft"/);
 });
