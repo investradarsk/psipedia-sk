@@ -35,13 +35,16 @@ test("Notion-only sections never enter the public article body", () => {
   assert.match(publicDetail, /const blocks = publicArticleBlocks\(/);
   assert.match(publicDetail, /articleBlockHeadings\(blocks\)/);
   assert.match(publicDetail, /articleBlockPlainText\(blocks\)/);
-  assert.match(articleBlocks, /if \(isPrivateEditorialArticleHeading\(block\.text\)\) privateTail = true/);
-  assert.match(articleBlocks, /return !privateTail && !photoCreditSection/);
+  assert.match(articleBlocks, /isPrivateEditorialArticleHeading\(block\.text\)/);
+  assert.match(articleBlocks, /return !privateTail/);
   assert.match(articleStore, /const canonicalBlocks = publicArticleBlocks\(normalizeArticleBlocks\(payload\.blocks/);
   assert.match(articleStore, /const blocks = canonicalBlocks/);
   assert.match(notionSync, /isPrivateEditorialArticleHeading\(heading\)/);
   assert.match(notionSync, /hasCompletePublicPhotoCredit\(imageCredit, imageCreditUrl\)/);
   assert.match(notionSync, /Kredit fotografie/);
+  assert.match(notionSync, /selectNotionArticleBodyBlocks\(remoteBlocks,/);
+  assert.match(notionSync, /selectNotionArticleBodyBlocks\(blocks,/);
+  assert.match(read("lib/notion-article-content-plan.ts"), /fields\.push\(\["Kredit fotografie"/);
 });
 
 test("real Wikimedia photo attribution moves to the Admin credit field losslessly", () => {
