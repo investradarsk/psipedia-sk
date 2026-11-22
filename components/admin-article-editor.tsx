@@ -238,14 +238,17 @@ export function AdminArticleEditor({
   // New editor is the default; the classic version stays available as a rollback.
   // Legacy E2E fixtures can request the old editor with the same explicit preference.
   const [continuousEditableOpen, setContinuousEditableOpen] = useState(true);
+  const lastNonPreviewMode = useRef<"continuous" | "legacy">("continuous");
   useEffect(() => {
     try {
       if (window.localStorage.getItem("psipedia-article-editor-mode") === "legacy") {
+        lastNonPreviewMode.current = "legacy";
         setContinuousEditableOpen(false);
       }
     } catch { /* Storage can be unavailable in privacy modes. Keep the new default. */ }
   }, []);
   function selectArticleEditorMode(mode: "continuous" | "legacy" | "preview") {
+    if (mode !== "preview") lastNonPreviewMode.current = mode;
     try {
       if (mode !== "preview") window.localStorage.setItem("psipedia-article-editor-mode", mode);
     } catch { /* Editing must remain usable even without localStorage. */ }
@@ -464,7 +467,9 @@ export function AdminArticleEditor({
             : firstBlocker?.field === "title" || firstBlocker?.field === "excerpt" ? "article-basics"
               : firstBlocker?.field.startsWith("sources") || firstBlocker?.field.startsWith("blocks") ? "article-blocks"
                 : firstBlocker?.field === "intro" ? "article-content" : "article-publish";
-          const visibleTargetId = targetId === "article-content" ? "article-basics" : targetId;
+          const targetSectionId = targetId === "article-content" ? "article-basics" : targetId;
+          const visibleTargetId = continuousEditableOpen && targetSectionId === "article-basics"
+            ? "article-blocks" : targetSectionId;
           chooseArticleSection(visibleTargetId);
           setQaFocusRequest({ sectionId: visibleTargetId });
         }
@@ -1033,7 +1038,7 @@ export function AdminArticleEditor({
                   if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]:not([data-article-continuous-initial-error="true"])')) {
                     setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
                   }
-                  if (continuousReadOnlyOpen) selectArticleEditorMode("legacy");
+                  if (continuousReadOnlyOpen) selectArticleEditorMode(lastNonPreviewMode.current);
                   else selectArticleEditorMode("preview");
                 }}>
                 Súvislý náhľad
