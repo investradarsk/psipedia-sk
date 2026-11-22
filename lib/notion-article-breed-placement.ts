@@ -14,6 +14,7 @@ export type BreedArticlePlacement = {
 export type NotionArticleBreedPlacement = {
   category: string;
   subsection: string | null;
+  portalSection: string;
 };
 
 export function notionArticleBreedPlacement(
@@ -23,13 +24,15 @@ export function notionArticleBreedPlacement(
     return {
       category: article.category === "Plemená" ? "Plemená" : "Všeobecné články",
       subsection: null,
+      portalSection: "clanky",
     };
   }
   const match = canonicalArticleSubsectionOptions().find(
     (entry) => entry.portalSection === article.portalSection &&
       entry.portalSubpage === article.portalSubpage,
   );
-  return match ? { category: match.section, subsection: match.subsection } : null;
+  return match ? { category: match.section, subsection: match.subsection,
+    portalSection: match.portalSection } : null;
 }
 
 /** Only explicit moves into or out of Plemená are part of this feature. */
