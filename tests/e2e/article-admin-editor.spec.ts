@@ -778,7 +778,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await rail.getByRole("button", { name: "Otvoriť nastavenia publikovania" }).click();
     await expect(page.locator("#article-publish")).toBeVisible();
     await page.locator("#article-published-at").fill("2026-12-10T18:00");
-    await expect(rail.locator("[data-article-publication-summary]")).toContainText("10T18:00");
+    await expect(rail.locator("[data-article-publication-summary]")).toContainText("2026-12-10 18:00");
     await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
     const seo = rail.locator("[data-article-rail-seo]");
     await seo.locator("summary").click();
