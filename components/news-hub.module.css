@@ -44,7 +44,6 @@
   padding-inline: 0;
 }
 
-.guidance,
 .trust {
   display: grid;
   gap: 8px;
@@ -55,59 +54,18 @@
   background: #fff;
 }
 
-.guidance summary {
-  cursor: pointer;
-  font-weight: 800;
-  color: var(--forest-dark);
-  list-style-position: inside;
-}
-.guidance summary:focus-visible {
-  outline: 2px solid var(--forest);
-  outline-offset: 3px;
-}
-.guidanceContent {
-  display: grid;
-  gap: 8px;
-  padding-top: 10px;
-}
-@media (min-width: 901px) {
-  .guidance {
-    margin-bottom: 14px;
-    padding: 10px 14px;
-    border-radius: 11px;
-  }
-}
-.guidance h3,
 .trust h2 {
   margin: 0;
   line-height: 1.18;
-}
-
-.guidance h3 {
-  font-size: clamp(1.2rem, 2vw, 1.5rem);
-}
-
-.trust h2 {
   font-size: clamp(1.3rem, 2.2vw, 1.75rem);
 }
 
-.guidance p,
 .trust p {
   max-width: 70ch;
   margin: 0;
   color: var(--muted);
   font-size: 0.86rem;
   line-height: 1.55;
-}
-
-.guidance ul {
-  display: grid;
-  gap: 5px;
-  margin: 2px 0 0;
-  padding-left: 1.15rem;
-  color: var(--ink-2);
-  font-size: 0.82rem;
-  line-height: 1.5;
 }
 
 .trust {
