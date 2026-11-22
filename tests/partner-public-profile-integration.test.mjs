@@ -154,7 +154,7 @@ test("state lookup is account-specific, active-membership-only and uses current 
   assert.match(publicStateSource, /verification\.status='VERIFIED'/);
 });
 
-test("public UI has one coherent management and correction block with state-dependent copy", () => {
+test("public UI exposes Partner management without anonymous correction actions", () => {
   for (const copy of [
     "Spravujete tento profil?",
     "Spravovať tento profil",
@@ -163,20 +163,18 @@ test("public UI has one coherent management and correction block with state-depe
     "Predchádzajúca žiadosť bola zamietnutá.",
     "Upraviť profil",
     "Otvoriť Partner účet",
-    "Našli ste nesprávny údaj?",
-    "Navrhnúť opravu údajov",
   ])
     assert.ok(publicOwnership.includes(copy), copy);
 
   assert.match(publicOwnership, /const Wrapper = embedded \? "div" : "aside"/);
-  assert.match(publicOwnership, /aria-label=\{embedded \? undefined : "Správa a oprava profilu"\}/);
+  assert.match(publicOwnership, /aria-label=\{embedded \? undefined : "Správa profilu"\}/);
   assert.match(publicOwnership, /partner-profile-management-heading/);
-  assert.match(publicOwnership, /partner-profile-correction-heading/);
+  assert.doesNotMatch(publicOwnership, /partner-profile-correction-heading|correctionHref|Navrhnúť opravu údajov/);
   assert.doesNotMatch(directoryDetail, /Ste majiteľom tohto profilu\?/);
   assert.doesNotMatch(directoryDetail, /Navrhnúť úpravu profilu/);
 });
 
-test("Directory and Help Organization profiles share the same server-side state model and keep corrections separate", () => {
+test("Directory and Help Organization profiles share the same Partner management state model", () => {
   for (const page of [directoryPage, organizationPage]) {
     assert.match(page, /PARTNER_SESSION_COOKIE/);
     assert.match(page, /getPublicPartnerProfileManagementState/);
@@ -191,9 +189,10 @@ test("Directory and Help Organization profiles share the same server-side state 
   assert.match(organizationPage, /await cookies\(\)/);
   assert.match(organizationPage, /getPartnerSession\(\{ token: partnerToken \}\)/);
   assert.match(directoryPage, /entityType: "DIRECTORY_PROFILE"/);
-  assert.match(directoryPage, /correctionHref=\{correctionHref\}/);
   assert.match(organizationPage, /entityType: "HELP_ORGANIZATION"/);
-  assert.match(organizationPage, /correctionHref="\/opravy-a-podnety"/);
+  for (const page of [directoryPage, organizationPage]) {
+    assert.doesNotMatch(page, /correctionHref|Navrhnúť opravu údajov/);
+  }
 });
 
 test("anonymous management flow preserves the exact profile through the existing safe returnTo contract", () => {

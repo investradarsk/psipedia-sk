@@ -203,7 +203,7 @@ test("public header exposes Partner login as a utility action without overflow",
   await expectNoHorizontalOverflow(page);
 });
 
-test("anonymous Directory profile separates management from public correction and preserves returnTo", async ({ page }, testInfo) => {
+test("anonymous Directory profile offers Partner claim only and retires legacy correction URL", async ({ page }, testInfo) => {
   if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/adresar/veterinari/partner-e2e-veterina");
   await expect(page.getByRole("heading", { name: "Spravujete tento profil?" })).toBeVisible();
@@ -213,10 +213,11 @@ test("anonymous Directory profile separates management from public correction an
   const claimPath="/partner/prevziat-profil/DIRECTORY_PROFILE/990001";
   const claimLink=page.getByRole("link",{name:"Spravovať tento profil"});
   await expect(claimLink).toHaveAttribute("href","/partner/prihlasenie?returnTo="+encodeURIComponent(claimPath));
-  await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toHaveAttribute(
-    "href",
-    "/adresar/veterinari/partner-e2e-veterina/upravit",
-  );
+  await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toHaveCount(0);
+  // Existing bookmarks must not serve the retired anonymous correction form.
+  await page.goto("/adresar/veterinari/partner-e2e-veterina/upravit");
+  await expect(page).toHaveURL(/\/adresar\/veterinari\/partner-e2e-veterina$/);
+  await expect(page.getByRole("link",{name:"Spravovať tento profil"})).toBeVisible();
   if (testInfo.project.name === "desktop-chromium") {
     await expect(page.getByText("Overený správca")).toHaveCount(0);
   }
@@ -291,7 +292,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByRole("heading",{name:"Spravujete tento profil?"})).toBeVisible();
     const requestManagement=page.getByRole("link",{name:"Požiadať o správu profilu"});
     await expect(requestManagement).toHaveAttribute("href","/partner/prevziat-profil/DIRECTORY_PROFILE/990001");
-    await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toHaveCount(0);
     await requestManagement.click();
     await expect(page.getByRole("heading",{name:"Požiadať o správu záznamu"})).toBeVisible();
     await page.getByLabel(/Aký je váš vzťah k tomuto záznamu/).fill("E2E poverený správca");
@@ -443,7 +444,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     );
     await expect(page.getByRole("link",{name:"Spravovať tento profil"})).toHaveCount(0);
     await expect(page.getByRole("link",{name:"Požiadať o správu profilu"})).toHaveCount(0);
-    await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
   } else {
     await expect(page.getByRole("heading", { name: "Partner E2E Organizácia" })).toBeVisible();
@@ -511,7 +512,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
       "/partner/profily/partner-resource-e2e-organization/upravit",
     );
     await expect(page.getByRole("link",{name:"Otvoriť Partner účet"})).toHaveAttribute("href","/partner/profily");
-    await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toHaveAttribute("href","/opravy-a-podnety");
+    await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toHaveCount(0);
     await expect(page.getByRole("link",{name:"Požiadať o správu profilu"})).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
   }
