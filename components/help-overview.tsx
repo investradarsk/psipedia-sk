@@ -19,6 +19,7 @@ import {
   PublicContentShell,
   PublicFoundation,
   PublicLandingSectionHeading,
+  PublicCategorySection,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
@@ -158,19 +159,19 @@ export async function HelpOverview({
 
         <section className={styles.overviewCategoryBlock} aria-labelledby="help-categories-heading">
           <PublicContentShell variant="landing">
-            <PublicLandingSectionHeading
+            <PublicCategorySection
               eyebrow="Kategórie pomoci"
               title="Vyberte, čo chcete riešiť"
               description="Vyberte typ pomoci a prejdite na úplný prehľad."
               id="help-categories-heading"
-            />
-
-            <PublicHelpCategoryNav items={sections.map((section) => ({
-              slug: section.slug,
-              label: section.label,
-              count: section.count,
-              href: section.href,
-            }))} />
+            >
+              <PublicHelpCategoryNav items={sections.map((section) => ({
+                slug: section.slug,
+                label: section.label,
+                count: section.count,
+                href: section.href,
+              }))} />
+            </PublicCategorySection>
           </PublicContentShell>
         </section>
 
