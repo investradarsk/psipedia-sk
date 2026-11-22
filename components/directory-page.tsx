@@ -5,6 +5,7 @@ import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicContentShell,
+  PublicCategorySection,
   PublicFoundation,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
@@ -170,7 +171,14 @@ export async function DirectoryPage({
 
         <section className={styles.resultsSection} aria-label="Adresár služieb pre psov">
           <PublicContentShell variant="listing" className={styles.resultsShell}>
-            <DirectoryCategoryNavigation items={categoryItems} />
+            <PublicCategorySection
+              eyebrow="Kategórie služieb"
+              title="Vyberte, akú službu hľadáte"
+              description="Veterinári, tréneri, salóny a ďalšie služby pre psov."
+              id="directory-categories-heading"
+            >
+              <DirectoryCategoryNavigation items={categoryItems} />
+            </PublicCategorySection>
 
             <PublicFilterLayout extra className={styles.directoryColumns} data-directory-columns>
               <PublicFilterPanel
