@@ -400,14 +400,14 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   );
 }
 
-export function AdminTiptapArticleScope({ children, activeSectionId }: { children: ReactNode; activeSectionId: string }) {
+export function AdminTiptapArticleScope({ children, activeSectionId, readOnlyPreview = false }: { children: ReactNode; activeSectionId: string; readOnlyPreview?: boolean }) {
   const [active, setActive] = useState<ActiveEditor | null>(null);
   const scope = useMemo(() => ({ active, setActive }), [active]);
   // Switching left-hand panels must not edit a hidden, previously focused field.
-  const visible = active && (active.id.startsWith("block-")
+  const visible = !readOnlyPreview && active && (active.id.startsWith("block-")
     ? activeSectionId === "article-blocks"
     : activeSectionId === "article-basics") ? active : null;
-  const formattingSection = activeSectionId === "article-basics" || activeSectionId === "article-blocks";
+  const formattingSection = !readOnlyPreview && (activeSectionId === "article-basics" || activeSectionId === "article-blocks");
   return <ScopeContext.Provider value={scope}>
     {formattingSection && <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible} />}
     {children}
