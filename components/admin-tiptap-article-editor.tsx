@@ -407,9 +407,10 @@ export function AdminTiptapArticleScope({ children, activeSectionId, readOnlyPre
   const visible = !readOnlyPreview && active && (active.id.startsWith("block-")
     ? activeSectionId === "article-blocks"
     : activeSectionId === "article-basics") ? active : null;
-  const formattingSection = activeSectionId === "article-basics" || activeSectionId === "article-blocks";
+  // The read-only preview exists only in the blocks section; intro editing is unchanged.
+  const formattingSection = activeSectionId === "article-basics" || activeSectionId === "article-blocks" && !readOnlyPreview;
   return <ScopeContext.Provider value={scope}>
-    {formattingSection && !readOnlyPreview && <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible} />}
+    {formattingSection && <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible} />}
     {children}
   </ScopeContext.Provider>;
 }
