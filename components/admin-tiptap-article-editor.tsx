@@ -71,7 +71,7 @@ const PsipediaHighlight = Mark.create({
   renderHTML({ HTMLAttributes }) { return ["mark", HTMLAttributes, 0]; },
 });
 
-const extensions = [
+export const articleTiptapExtensions = [
   StarterKit.configure({
     heading: { levels: [2, 3] },
     code: false,
@@ -438,7 +438,7 @@ export function AdminTiptapRichTextEditor({
   const [error, setError] = useState("");
   useEffect(() => { callback.current = onChange; scopeRef.current = scope; }, [onChange, scope]);
   const editor = useEditor({
-    extensions,
+    extensions: articleTiptapExtensions,
     content: editorialToTiptap(initial || { version: 1, type: "doc", content: [] }),
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
