@@ -661,35 +661,22 @@ test("remaining editorial tip and feedback flows retry once without retired publ
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
 });
 
-test("historic admin proposals remain read-only; nobody can moderate through retired API", async () => {
+test("retired Admin proposal page and API are gone; Partner workflow stays separate", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
   Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk" });
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("retired-proposal-admin", String(Date.now()));
+  workerUrl.searchParams.set("removed-proposal-admin", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
   const mutation = {
     method: "PUT", headers: { "content-type": "application/json" },
     body: JSON.stringify({ status: "approved" }),
   };
-
-  assert.equal((await request(worker, d1, "/api/admin/profile-change-requests")).status, 401);
-  assert.equal((await request(worker, d1, "/api/admin/profile-change-requests/1", mutation)).status, 401);
-
-  const history = await request(worker, d1, "/api/admin/profile-change-requests", {}, true);
-  assert.equal(history.status, 200);
-  assert.deepEqual((await history.json()).requests, []);
-
-  const adminPage = await request(worker, d1, "/admin/adresar/navrhy", {}, true);
-  assert.equal(adminPage.status, 200);
-  const html = await adminPage.text();
-  assert.match(html, /Historické návrhy/);
-  assert.doesNotMatch(html, />Schváliť návrh<|>Zamietnuť<|>Zamietnuť návrh</);
-
-  const retired = await request(worker, d1, "/api/admin/profile-change-requests/1", mutation, true);
-  assert.equal(retired.status, 410);
-  assert.match((await retired.json()).error, /Partner účet/);
-  assert.equal(retired.headers.get("cache-control"), "no-store");
+  for (const path of ["/api/admin/profile-change-requests", "/admin/adresar/navrhy"]) {
+    const response = await request(worker, d1, path, {}, true);
+    assert.equal(response.status, 404, path);
+  }
+  assert.equal((await request(worker, d1, "/api/admin/profile-change-requests/1", mutation, true)).status, 404);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 0);
 });
 
