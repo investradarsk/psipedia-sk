@@ -24,20 +24,20 @@ test("Ready Notion articles auto-flow into Psipedia as draft only", () => {
   assert.doesNotMatch(syncSource, /SEO skontrolované/);
 });
 
-test("past-due scheduled publications never re-enter inbound editorial sync", () => {
-  const start = syncSource.indexOf('  if (mappedExisting?.status === "scheduled"');
+test("past-due scheduled articles import editorial changes only through verified published mappings", () => {
+  const start = syncSource.indexOf('  const dueScheduledPublishedMapping = Boolean(');
   const end = syncSource.indexOf("  // Unapproved legacy Ready rows", start);
   const bodyLoad = syncSource.indexOf("  const blocks = await getPageBlocks(bindings, page.id);", start);
-  assert.ok(start >= 0 && end > start && bodyLoad > end, "guard must run before parsing article content");
+  assert.ok(start >= 0 && end > start && bodyLoad > end, "the identity gate must run before parsing article content");
   const guard = syncSource.slice(start, end);
-  assert.match(guard, /effectiveArticleStatus\(mappedExisting\.status, mappedExisting\.publishedAt\) === "published"/);
-  assert.match(guard, /selectProperty\(page, "Stav"\) === "Publikované"/);
-  assert.match(guard, /richTextProperty\(page, "Psipedia ID"\) === String\(mappedExisting\.id\)/);
-  assert.doesNotMatch(guard, /updateManagedArticle|upsertMapping|updateNotionSyncState/);
+  assert.match(guard, /effectiveArticleStatus\\(mappedExisting\\.status, mappedExisting\\.publishedAt\\) === "published"/);
+  assert.match(guard, /selectProperty\\(page, "Stav"\\) === "Publikované"/);
+  assert.match(guard, /richTextProperty\\(page, "Psipedia ID"\\) === String\\(mappedExisting\\.id\\)/);
+  assert.doesNotMatch(guard, /return "unchanged"|updateManagedArticle|upsertMapping|updateNotionSyncState/);
 
-  const skip = runInNewContext(`(function (mappedExisting, page) {
+  const verified = runInNewContext(`(function (mappedExisting, page) {
     ${guard}
-    return "continue";
+    return dueScheduledPublishedMapping;
   })`, {
     effectiveArticleStatus: (status, publishedAt) => (
       status === "scheduled" && publishedAt && Date.parse(publishedAt) <= Date.parse("2026-11-22T17:00:00Z")
@@ -46,13 +46,28 @@ test("past-due scheduled publications never re-enter inbound editorial sync", ()
     selectProperty: (page, property) => property === "Stav" ? page.status : "",
     richTextProperty: (page, property) => property === "Psipedia ID" ? page.articleId : "",
   }, { timeout: 500 });
-  const stored = { id: 2341, status: "scheduled", publishedAt: "2026-11-19T16:00:00.000Z" };
-  const remote = { status: "Publikované", articleId: "2341" };
-  assert.equal(skip(stored, remote), "unchanged");
-  assert.equal(skip({ ...stored, publishedAt: "2026-12-19T16:00:00.000Z" }, remote), "continue");
-  assert.equal(skip(stored, { ...remote, status: "Ready" }), "continue");
-  assert.equal(skip(stored, { ...remote, articleId: "other" }), "continue");
-  assert.equal(skip({ ...stored, status: "draft" }, remote), "continue");
+  const stored = { id: 2272, status: "scheduled", publishedAt: "2026-11-21T08:00:00.000Z" };
+  const remote = { status: "Publikované", articleId: "2272" };
+  assert.equal(verified(stored, remote), true);
+  assert.equal(verified({ ...stored, publishedAt: "2026-12-19T16:00:00.000Z" }, remote), false);
+  assert.equal(verified(stored, { ...remote, status: "Ready" }), false);
+  assert.equal(verified(stored, { ...remote, articleId: "other" }), false);
+  assert.equal(verified({ ...stored, status: "draft" }, remote), false);
+  assert.equal(verified(null, remote), false);
+
+  assert.match(syncSource, /existing\\.status !== "draft" && existing\\.status !== "published"[\\s\\S]*?!dueScheduledPublishedMapping/);
+  assert.match(syncSource, /if \\(existing\\.status === "published" \\|\\| dueScheduledPublishedMapping\\)/);
+  assert.match(syncSource, /status: existing\\.status,[\\s\\S]*?publishedAt: existing\\.publishedAt/);
+  assert.match(syncSource, /status: dueScheduledPublishedMapping \\? "scheduled" : undefined/);
+  assert.match(syncSource, /allowPastDueScheduledContentEdit: dueScheduledPublishedMapping/);
+  assert.match(articleStoreSource, /schedulingPrecondition\\?\\.allowPastDueScheduledContentEdit === true/);
+  assert.match(articleStoreSource, /schedulingPrecondition\\.status === "scheduled"/);
+  assert.match(articleStoreSource, /existing\\.status === "scheduled"/);
+  assert.match(articleStoreSource, /payload\\.status === "scheduled"/);
+  assert.match(articleStoreSource, /payload\\.publishedAt === existing\\.publishedAt/);
+  assert.match(articleStoreSource, /Date\\.parse\\(existing\\.publishedAt\\) <= Date\\.now\\(\\)/);
+  assert.match(articleStoreSource, /allowPastDueScheduledContentEdit\\)\\)\\)/);
+  assert.match(articleStoreSource, /AND \\(\\? IS NULL OR status = \\?\\)/);
 });
 
 test("published articles preserve identity and media while importing mapped SEO fields", () => {
