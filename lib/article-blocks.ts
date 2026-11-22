@@ -1,4 +1,4 @@
-import { isPhotoAttributionHeading, isPrivateEditorialArticleHeading } from "@/lib/public-editorial-guard";
+import { isNotionOnlySocialDraftHeading, isPhotoAttributionHeading, isPrivateEditorialArticleHeading } from "@/lib/public-editorial-guard";
 import type { ArticleSection, ArticleSource } from "@/lib/content";
 import {
   editorialRichTextPlainText,
@@ -238,11 +238,24 @@ export function publicArticleBlocks(
   options: { hasImageCredit?: boolean } = {},
 ): ArticleBlock[] {
   let privateTail = false;
-  return blocks.filter((block) => {
-    if (block.type === "h2" && (
-      isPrivateEditorialArticleHeading(block.text)
-      || (options.hasImageCredit && isPhotoAttributionHeading(block.text))
-    )) privateTail = true;
+  return blocks.filter((block, index) => {
+    if (block.type === "h2" || block.type === "h3") {
+      let socialDraft = false;
+      if (block.type === "h2") {
+        const subsections: string[] = [];
+        for (let cursor = index + 1; cursor < blocks.length; cursor += 1) {
+          const next = blocks[cursor];
+          if (next.type === "h2") break;
+          if (next.type === "h3") subsections.push(next.text);
+        }
+        socialDraft = isNotionOnlySocialDraftHeading(block.text, subsections);
+      }
+      if (
+        isPrivateEditorialArticleHeading(block.text)
+        || socialDraft
+        || (options.hasImageCredit && isPhotoAttributionHeading(block.text))
+      ) privateTail = true;
+    }
     return !privateTail;
   });
 }
