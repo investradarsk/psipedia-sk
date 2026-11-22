@@ -31,6 +31,11 @@ test("events hero has the approved copy and a single event-only GET search", asy
   await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toHaveValue(
     "pes",
   );
+  // The search is a native GET navigation. Wait until the newly rendered
+  // calendar has hydrated before exercising its in-place month navigation.
+  const calendar = page.locator("[data-public-calendar]");
+  await expect(calendar).toHaveAttribute("data-calendar-ready", "true");
+  await expect(calendar).toHaveAttribute("aria-busy", "false");
   await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
   await expect(page).toHaveURL(
     (url) => url.searchParams.get("q") === "pes" && url.searchParams.get("kalendar") === "2026-11",

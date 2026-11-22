@@ -450,6 +450,7 @@ export function EventCalendar({
       aria-busy={pending || pendingDay}
     >
       <div className={styles.resultBar}>
+        <p className={styles.periodLabel}>Obdobie podujatí</p>
         <PublicSubcategoryNavigator
           mode="compact"
           mobileLayout="grid"
