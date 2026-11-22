@@ -238,15 +238,12 @@ export function publicArticleBlocks(
   options: { hasImageCredit?: boolean } = {},
 ): ArticleBlock[] {
   let privateTail = false;
-  let photoCreditSection = false;
   return blocks.filter((block) => {
-    if (block.type === "h2") {
-      if (isPrivateEditorialArticleHeading(block.text)) privateTail = true;
-      if (!privateTail) {
-        photoCreditSection = Boolean(options.hasImageCredit && isPhotoAttributionHeading(block.text));
-      }
-    }
-    return !privateTail && !photoCreditSection;
+    if (block.type === "h2" && (
+      isPrivateEditorialArticleHeading(block.text)
+      || (options.hasImageCredit && isPhotoAttributionHeading(block.text))
+    )) privateTail = true;
+    return !privateTail;
   });
 }
 
