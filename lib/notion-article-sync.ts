@@ -17,6 +17,12 @@ import {
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
+import {
+  hasCompletePublicPhotoCredit,
+  isPhotoAttributionHeading,
+  isPrivateEditorialArticleHeading,
+  photoCreditFromNotionAttribution,
+} from "@/lib/public-editorial-guard";
 import { preserveArticlePromoBlocks } from "@/lib/article-promo";
 import { notionArticleMainImageSource } from "@/lib/notion-article-image-source";
 import { assertPublishedRelatedBlocks } from "@/lib/notion-article-related-publication";
@@ -586,7 +592,7 @@ type NotionArticlePlacement = {
 type ExistingNotionArticlePlacement = Pick<
   ManagedArticle,
   "category" | "portalSection" | "portalSubpage" | "newsCategory"
-> & Partial<Pick<ManagedArticle, "seo" | "ogImageKey">>;
+> & Partial<Pick<ManagedArticle, "seo" | "ogImageKey" | "imageCredit" | "imageCreditUrl">>;
 
 const LEGACY_UNAMBIGUOUS_CATEGORY_PLACEMENTS: Record<string, NotionArticlePlacement> = {
   "Výživa": {
@@ -726,6 +732,19 @@ function isStopHeading(value: string) {
   return normalizeText(value).toLocaleLowerCase("sk") === "seo";
 }
 
+function photoAttributionNote(blocks: NotionBlock[]): string {
+  const start = blocks.findIndex((block) =>
+    block.type === "heading_2" && isPhotoAttributionHeading(blockText(block)));
+  if (start < 0) return "";
+  const parts: string[] = [];
+  for (let index = start + 1; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    if (block.type === "heading_2") break;
+    if (block.type === "paragraph") parts.push(blockText(block));
+  }
+  return parts.join("\n");
+}
+
 function isAdminManifestHeading(value: string) {
   const normalized = normalizeText(value).toLocaleLowerCase("sk");
   return normalized === "psipedia bloky"
@@ -837,7 +856,7 @@ function placeManifestBlocks(articleBlocks: ArticleBlock[], directives: NotionMa
 // The Editorial Hub also contains complete, markerless articles. Accept them
 // only when the page clearly starts with article prose and has a real H2 outline.
 // Never import editorial-only notes, SEO fields or Admin block manifests as prose.
-function selectNotionArticleBodyBlocks(blocks: NotionBlock[]) {
+function selectNotionArticleBodyBlocks(blocks: NotionBlock[], hasPhotoCredit = false) {
   const markerIndex = blocks.findIndex((block) =>
     block.type === "heading_2" && isStartHeading(blockText(block))
   );
@@ -845,11 +864,13 @@ function selectNotionArticleBodyBlocks(blocks: NotionBlock[]) {
   let until = blocks.length;
   for (let index = from; index < blocks.length; index += 1) {
     const block = blocks[index];
-    if (block.type !== "heading_2") continue;
+    if (block.type !== "heading_2" && block.type !== "heading_3") continue;
     const heading = blockText(block);
     if (
       isStopHeading(heading)
       || isAdminManifestHeading(heading)
+      || isPrivateEditorialArticleHeading(heading)
+      || (hasPhotoCredit && isPhotoAttributionHeading(heading))
       || normalizeText(heading).toLocaleLowerCase("sk") === "pred publikovaním"
     ) {
       until = index;
@@ -867,8 +888,8 @@ function selectNotionArticleBodyBlocks(blocks: NotionBlock[]) {
   return selected;
 }
 
-function convertBodyBlocks(blocks: NotionBlock[]) {
-  const selected = selectNotionArticleBodyBlocks(blocks);
+function convertBodyBlocks(blocks: NotionBlock[], hasPhotoCredit = false) {
+  const selected = selectNotionArticleBodyBlocks(blocks, hasPhotoCredit);
 
   let intro = "";
   let introRichText: EditorialRichTextDocument | null = null;
@@ -1006,7 +1027,13 @@ export function notionPageToManagedArticleInput(
   const socialCaption = propertyRecord(page, "Popis na sociálne siete")
     ? richTextProperty(page, "Popis na sociálne siete")
     : (existing && "socialCaption" in existing ? (existing as { socialCaption?: string }).socialCaption ?? "" : "");
-  const { intro, introRichText, blocks: articleBlocks } = convertBodyBlocks(blocks);
+  const imageCreditUrl = urlProperty(page, "Zdroj obrázka") || existing?.imageCreditUrl || "";
+  const imageCredit = richTextProperty(page, "Kredit fotografie")
+    || existing?.imageCredit
+    || photoCreditFromNotionAttribution(photoAttributionNote(blocks));
+  const { intro, introRichText, blocks: articleBlocks } = convertBodyBlocks(
+    blocks, hasCompletePublicPhotoCredit(imageCredit, imageCreditUrl),
+  );
 
   if (!title) throw new Error("Doplň v Notione názov článku.");
   if (!slug) throw new Error("Doplň v Notione slug článku.");
@@ -1031,6 +1058,8 @@ export function notionPageToManagedArticleInput(
     sections: [],
     blocks: articleBlocks,
     sources: [],
+    imageCredit: imageCredit || undefined,
+    imageCreditUrl: imageCreditUrl || undefined,
     readingMinutes: estimateReadingMinutes(intro, articleBlocks),
     publishedAt: null,
     showUpdated: false,
@@ -1605,6 +1634,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     ogDescription: article.seo?.ogDescription ?? "",
     image: mirroredHero,
     imageAlt: article.imageAlt ?? "",
+    imageCredit: article.imageCredit ?? "",
     imageCreditUrl: article.imageCreditUrl ?? "",
   };
   // A mapping alone does not authorize writes to a page whose canonical
@@ -1651,7 +1681,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if (decodeArticleSeoReceipt(mapping.content_hash).hash !== currentContentHash) {
       throw new Error("NOTION_EDITORIAL_REMOTE_CONFLICT");
     }
-    const selected = selectNotionArticleBodyBlocks(remoteBlocks);
+    const selected = selectNotionArticleBodyBlocks(remoteBlocks,
+      hasCompletePublicPhotoCredit(current.imageCredit, current.imageCreditUrl));
     plan = buildNotionEditorialPlan({
       article: editorProjection, remoteBlocks: selected as RemoteArticleBlock[],
       pageProperties: page.properties ?? {}, siteUrl: SITE_URL,
@@ -1711,7 +1742,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if (JSON.stringify(identities) !== JSON.stringify(plan.fullBlockOrder)) {
       throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     }
-    const selected = selectNotionArticleBodyBlocks(blocks);
+    const selected = selectNotionArticleBodyBlocks(blocks,
+      hasCompletePublicPhotoCredit(editorProjection.imageCredit, editorProjection.imageCreditUrl));
     if (selected.length !== plan.blockSnapshots.length) {
       throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     }

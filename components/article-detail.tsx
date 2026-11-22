@@ -3,6 +3,7 @@ import { PublicHeading } from "@/components/public-heading";
 import { articleCategoryHref } from "@/lib/article-category-routes";
 import { ArticleBlocks } from "@/components/article-blocks";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
+import { hasCompletePublicPhotoCredit } from "@/lib/public-editorial-guard";
 import { AUTOMATIC_ARTICLE_PROMO_ANCHOR } from "@/lib/visual-library-anchors";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
@@ -45,6 +46,7 @@ import {
   articleBlockHeadings,
   articleBlockPlainText,
   legacyArticleBlocks,
+  publicArticleBlocks,
 } from "@/lib/article-blocks";
 import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/editorial-content";
 import { AD_PLACEMENTS } from "@/lib/monetization";
@@ -116,9 +118,11 @@ export function ArticleDetail({
   const showAuthorRole = Boolean(
     authorRole && !authorName.toLocaleLowerCase("sk").includes(authorRole.toLocaleLowerCase("sk")),
   );
-  const blocks = article.blocks?.length
+  const blocks = publicArticleBlocks(article.blocks?.length
     ? article.blocks
-    : legacyArticleBlocks(article.sections, article.sources);
+    : legacyArticleBlocks(article.sections, article.sources), {
+    hasImageCredit: hasCompletePublicPhotoCredit(article.imageCredit, article.imageCreditUrl),
+  });
   const contentBlocks = blocks.filter((block) => block.type !== "source");
   const sourceBlocks = blocks.filter((block) => block.type === "source");
   const introDocument = article.introRichText ?? legacyRichTextToDocument(article.intro);

@@ -27,6 +27,7 @@ import {
   type FciStandard,
 } from "@/lib/breed-fci";
 import { normalizeBreedSports, textParagraphs } from "@/lib/breed-profile";
+import { isInternalBreedSportNote } from "@/lib/public-editorial-guard";
 import { readPublicBreedControlledValues } from "@/lib/breed-public-controlled";
 import { resolvePublicBreedFacts } from "@/lib/breed-public-facts.mjs";
 import {
@@ -783,7 +784,7 @@ export default async function BreedDetailPage({ params }: Props) {
                     <div key={sport.key} data-sport-key={sport.key}>
                       <div>
                         <strong>{sport.label}</strong>
-                        {sport.note ? <p>{sport.note}</p> : null}
+                        {sport.note && !isInternalBreedSportNote(sport.note) ? <p>{sport.note}</p> : null}
                       </div>
                       <span aria-label={`hodnotenie ${sport.rating} z 5`}>{sport.rating}/5</span>
                     </div>

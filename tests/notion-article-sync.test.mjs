@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
+import { isPhotoAttributionHeading, isPrivateEditorialArticleHeading } from "../lib/public-editorial-guard.ts";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -121,6 +122,8 @@ test("markerless Editorial Hub articles keep complete prose without importing ad
     isStartHeading: (value) => ["článok — draft", "osnova článku"].includes(value.toLowerCase()),
     isStopHeading: (value) => value.toLowerCase() === "seo",
     isAdminManifestHeading: (value) => value.toLowerCase() === "psipedia bloky",
+    isPrivateEditorialArticleHeading,
+    isPhotoAttributionHeading,
     normalizeText: (value) => value.replace(/\s+/g, " ").trim(),
   }, { timeout: 500 });
   const paragraph = (text) => ({ type: "paragraph", text });

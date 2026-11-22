@@ -454,7 +454,10 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const suffix = projectSuffix(testInfo.project.name);
     await page.goto("/admin/novy?sekcia=novinky", { waitUntil: "domcontentloaded" });
     await fillMinimumArticle(page, `ARTICLE ADMIN Novinky optional source ${suffix}`);
-    await expect(page.getByText("Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných.")).toBeVisible();
+    await showArticleSection(page, "article-blocks");
+    await page.locator("[data-article-source-help] summary").click();
+    await expect(page.locator("[data-article-source-help] p"))
+      .toContainText("Odborné zdroje sú nepovinné aj pri zdravotných článkoch.");
     await showArticleSection(page, "article-publish");
     await publicationAction(page, "Publikovať novinku").click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
@@ -775,7 +778,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await rail.getByRole("button", { name: "Otvoriť nastavenia publikovania" }).click();
     await expect(page.locator("#article-publish")).toBeVisible();
     await page.locator("#article-published-at").fill("2026-12-10T18:00");
-    await expect(rail.locator("[data-article-publication-summary]")).toContainText("10T18:00");
+    await expect(rail.locator("[data-article-publication-summary]")).toContainText("2026-12-10 18:00");
     await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
     const seo = rail.locator("[data-article-rail-seo]");
     await seo.locator("summary").click();
@@ -834,7 +837,10 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       }));
       expect(positions.every(item => item.height > 43 && item.height < 100 && item.width > 0)).toBe(true);
       for (let i = 1; i < positions.length; i++) {
-        expect(positions[i].top - positions[i - 1].top, "Filters cannot reserve vertical desktop flex-basis").toBeLessThan(110);
+        // Compare the empty space below the previous field, not the distance between
+        // row tops (which legitimately includes the full height of the field).
+        const emptyGap = positions[i].top - (positions[i - 1].top + positions[i - 1].height);
+        expect(emptyGap, "Filters cannot reserve a giant empty vertical gap").toBeLessThan(110);
       }
       const height = await toolbar.evaluate(element => element.getBoundingClientRect().height);
       expect(height, "Filter toolbar must fit without giant blank spaces").toBeLessThan(width === 390 ? 490 : 650);

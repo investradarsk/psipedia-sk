@@ -1,3 +1,4 @@
+import { isPhotoAttributionHeading, isPrivateEditorialArticleHeading } from "@/lib/public-editorial-guard";
 import type { ArticleSection, ArticleSource } from "@/lib/content";
 import {
   editorialRichTextPlainText,
@@ -225,6 +226,25 @@ export function articleBlockSources(blocks: ArticleBlock[]) {
 
 function headingSlug(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70) || "cast";
+}
+
+/**
+ * Hide Notion-only trailing sections in every public projection (body, TOC,
+ * word count and JSON-LD). A photo-credit section is public attribution unless
+ * the Admin image-credit and source URL are populated. Never modify the DB here.
+ */
+export function publicArticleBlocks(
+  blocks: ArticleBlock[],
+  options: { hasImageCredit?: boolean } = {},
+): ArticleBlock[] {
+  let privateTail = false;
+  return blocks.filter((block) => {
+    if (block.type === "h2" && (
+      isPrivateEditorialArticleHeading(block.text)
+      || (options.hasImageCredit && isPhotoAttributionHeading(block.text))
+    )) privateTail = true;
+    return !privateTail;
+  });
 }
 
 export function articleBlockHeadings(blocks: ArticleBlock[]) {
