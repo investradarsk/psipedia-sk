@@ -5,6 +5,9 @@
  * security headers alone cannot cover every response.
  */
 export function ensureNoSniffHeader(response: Response): Response {
+  // Opaque/network-error and WebSocket upgrade responses cannot safely be
+  // reconstructed as a normal Response and are never browser document assets.
+  if (response.status === 0 || response.status === 101) return response;
   if (response.headers.get("x-content-type-options")?.trim().toLowerCase() === "nosniff") {
     return response;
   }
