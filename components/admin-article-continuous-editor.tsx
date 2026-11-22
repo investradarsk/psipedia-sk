@@ -196,6 +196,10 @@ export function AdminArticleContinuousEditor(props: Props) {
       try {
         const fields = continuousDocumentToArticleFields(updated.getJSON(), {
           requiredNativeBlockIds: [...requiredNativeIds.current],
+          originalIntro: {
+            intro: props.intro ?? editorialRichTextPlainText(props.introRichText),
+            introRichText: props.introRichText,
+          },
         });
         setInvalid("");
         callbackRef.current(fields);
