@@ -1,3 +1,4 @@
+import { ensureNoSniffHeader } from "../lib/http-response-security";
 import { retryTransientPublicRead } from "../lib/public-read-retry.ts";
 import {runRecordLifecycleRetrySweep} from "../lib/admin-record-lifecycle-retry.ts";
 import { recordNotionTransfer } from "../lib/notion-transfer-audit.ts";
@@ -1057,4 +1058,14 @@ function isAccessJwk(value: unknown): value is AccessJwk {
   return isRecord(value) && typeof value.kty === "string" && typeof value.kid === "string";
 }
 
-export default worker;
+// Apply the header *after* the original Worker routing, so every response
+// path is covered: redirects, cache HITs, media, Access errors and SSR.
+// The original Worker retains sole ownership of cache and authentication.
+const securedWorker = {
+  ...worker,
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return ensureNoSniffHeader(await worker.fetch(request, env, ctx));
+  },
+};
+
+export default securedWorker;

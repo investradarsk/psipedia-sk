@@ -7,7 +7,10 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Psipedia",
     description: "Redakčná aplikácia Psipedia.sk",
     start_url: "/admin",
-    scope: "/admin/",
+    // The dashboard lives at /admin (without a trailing slash).
+    // Manifest scope must include that start URL as well as /admin/* routes.
+    // The service worker stays separately restricted to /admin/.
+    scope: "/admin",
     display: "standalone",
     background_color: "#fffdf8",
     theme_color: "#174b38",
