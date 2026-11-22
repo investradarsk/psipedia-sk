@@ -3,6 +3,7 @@ import { PublicHeading } from "@/components/public-heading";
 import { articleCategoryHref } from "@/lib/article-category-routes";
 import { ArticleBlocks } from "@/components/article-blocks";
 import { planArticleSourceDisplay } from "@/lib/article-source-dedup";
+import { ARTICLE_PARTNER_DISCLOSURE, prepareArticlePartnerDisclosure } from "@/lib/article-affiliate-disclosure";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { hasCompletePublicPhotoCredit } from "@/lib/public-editorial-guard";
 import { AUTOMATIC_ARTICLE_PROMO_ANCHOR } from "@/lib/visual-library-anchors";
@@ -124,18 +125,20 @@ export function ArticleDetail({
     : legacyArticleBlocks(article.sections, article.sources), {
     hasImageCredit: hasCompletePublicPhotoCredit(article.imageCredit, article.imageCreditUrl),
   });
-  const { contentBlocks, sourceBlocks, hasManualSourceSection } = planArticleSourceDisplay(blocks);
   const introDocument = article.introRichText ?? legacyRichTextToDocument(article.intro);
   const takeawayDocument = article.takeawayRichText ?? legacyRichTextToDocument(article.takeaway);
+  // Remove legacy inline disclosure from the public article only. Notion/D1 remain unchanged.
+  const { blocks: publicBlocks, showDisclosure } = prepareArticlePartnerDisclosure(blocks, introDocument, takeawayDocument);
+  const { contentBlocks, sourceBlocks, hasManualSourceSection } = planArticleSourceDisplay(publicBlocks);
   const showTakeaway = editorialRichTextPlainText(takeawayDocument).length > 0;
-  const headings = articleBlockHeadings(blocks);
+  const headings = articleBlockHeadings(publicBlocks);
   const tocHeadings = headings.filter((heading) => heading.level === 2);
   const showTableOfContents = tocHeadings.length >= 3;
   const showUpdated = article.showUpdated ?? article.updatedDateIso !== article.dateIso;
   const wordCount = [
     editorialRichTextPlainText(introDocument),
     editorialRichTextPlainText(takeawayDocument),
-    articleBlockPlainText(blocks),
+    articleBlockPlainText(publicBlocks),
   ]
     .join(" ")
     .trim()
@@ -380,9 +383,12 @@ export function ArticleDetail({
                     ? `Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme.${showUpdated ? " Dátum poslednej úpravy je uvedený pri titulku." : ""}`
                     : `Správu pri ďalšom vývoji udalosti priebežne aktualizujeme.${showUpdated ? " Dátum poslednej úpravy je uvedený pri titulku." : ""}`
                   : section === "recenzie"
-                    ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze."
+                    ? "Recenzie a testy majú informačný charakter."
                     : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."}{" "}
                 <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link>
+                {showDisclosure ? (
+                  <span className={styles.partnerDisclosure} data-article-partner-disclosure>{ARTICLE_PARTNER_DISCLOSURE}</span>
+                ) : null}
               </p>
               <div className={styles.endActions} id="zdielat-clanok">
                 <ShareButton title={article.title} label={shareLabel} url={canonical} />
