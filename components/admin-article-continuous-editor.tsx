@@ -29,7 +29,7 @@ type Props = ContinuousArticleInput & {
 
 type WidgetActions = Pick<Props, "onUploadingChange" | "onMessage" | "onError"> & {
   currentArticleId?: number;
-  onRemoveNative: (id: string) => void;
+  onRemoveNative: (id: string, originalIndex: number) => void;
 };
 const WidgetContext = createContext<WidgetActions | null>(null);
 
@@ -92,7 +92,7 @@ function InlineWidget({ node, updateAttributes, deleteNode }: NodeViewProps) {
           </button>
           <button type="button" className={styles.removeWidget} onClick={() => {
             if (!window.confirm("Odstrániť tento vložený prvok z článku?")) return;
-            actions?.onRemoveNative(block.id);
+            actions?.onRemoveNative(block.id, Number(node.attrs.sourceBlockIndex));
             deleteNode();
           }}>Odstrániť</button>
         </div>
@@ -160,9 +160,9 @@ export function AdminArticleContinuousEditor(props: Props) {
   const scope = useArticleTiptapScope();
   const scopeRef = useRef(scope);
   const callbackRef = useRef(props.onChange);
-  const requiredNativeIds = useRef(new Set(props.blocks
-    .filter(block => block.type !== "text" && block.type !== "h2" && block.type !== "h3")
-    .map(block => block.id)));
+  const requiredNativeKeys = useRef(new Set(props.blocks
+    .flatMap((block, index) => block.type === "text" || block.type === "h2" || block.type === "h3"
+      ? [] : [index + ":" + block.id])));
 
   useEffect(() => { scopeRef.current = scope; callbackRef.current = props.onChange; }, [scope, props.onChange]);
   // A damaged/unsupported article must never blank the entire Admin screen.
@@ -208,7 +208,7 @@ export function AdminArticleContinuousEditor(props: Props) {
       if (prepared.initialError) return;
       try {
         const fields = continuousDocumentToArticleFields(updated.getJSON(), {
-          requiredNativeBlockIds: [...requiredNativeIds.current],
+          requiredNativeBlockKeys: [...requiredNativeKeys.current],
           originalIntro: {
             intro: props.intro ?? editorialRichTextPlainText(props.introRichText),
             introRichText: props.introRichText,
@@ -249,7 +249,7 @@ export function AdminArticleContinuousEditor(props: Props) {
     onUploadingChange: props.onUploadingChange,
     onMessage: props.onMessage,
     onError: props.onError,
-    onRemoveNative: id => { requiredNativeIds.current.delete(id); },
+    onRemoveNative: (id, index) => { requiredNativeKeys.current.delete(index + ":" + id); },
   }), [props.currentArticleId, props.onUploadingChange, props.onMessage, props.onError]);
 
   return <WidgetContext.Provider value={widgetActions}>
