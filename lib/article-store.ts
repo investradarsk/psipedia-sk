@@ -15,6 +15,7 @@ import {
   articleBlockSources,
   legacyArticleBlocks,
   normalizeArticleBlocks,
+  publicArticleBlocks,
   type ArticleBlock,
 } from "@/lib/article-blocks";
 import {
@@ -607,7 +608,12 @@ async function normalizeInput(
   const introRichText = suppliedIntroRichText ?? legacyRichTextToDocument(intro);
   const takeawayRichText = suppliedTakeawayRichText ?? legacyRichTextToDocument(takeaway);
   const status: ArticleStatus = payload.status === "published" ? "published" : payload.status === "scheduled" ? "scheduled" : "draft";
-  const staticQaIssues = assessArticleContentQa(payload);
+  // On any canonical Admin/Notion write, keep D1 free of Notion-only prose.
+  // Photo credits are retained until a complete public attribution exists.
+  const canonicalBlocks = publicArticleBlocks(normalizeArticleBlocks(payload.blocks ?? []), {
+    hasImageCredit: Boolean(payload.imageCredit?.trim() && payload.imageCreditUrl?.trim()),
+  });
+  const staticQaIssues = assessArticleContentQa({ ...payload, blocks: canonicalBlocks });
   const portalSection: ArticlePortalSection = payload.portalSection && isArticlePortalSection(payload.portalSection)
     ? payload.portalSection
     : "clanky";
@@ -640,7 +646,7 @@ async function normalizeInput(
       tip: section.tip?.trim() || undefined,
     }))
     .filter((section) => section.heading || section.paragraphs.length || section.bullets?.length || section.tip);
-  const blocks = normalizeArticleBlocks(payload.blocks ?? []);
+  const blocks = canonicalBlocks;
   const relatedBreedIds=[...new Set((payload.relatedBreedIds??[]).map(Number).filter((id)=>Number.isSafeInteger(id)&&id>0))].slice(0,50);
   const blockSources = articleBlockSources(blocks);
   const sources = (blockSources.length ? blockSources : payload.sources ?? [])
