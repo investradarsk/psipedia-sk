@@ -725,7 +725,7 @@ function photoAttributionNote(blocks: NotionBlock[]): string {
     if (block.type === "heading_2") break;
     if (block.type === "paragraph") parts.push(blockText(block));
   }
-  return parts.join("\\n");
+  return parts.join("\n");
 }
 
 function isAdminManifestHeading(value: string) {
