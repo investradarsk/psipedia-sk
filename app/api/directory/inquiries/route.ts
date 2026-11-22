@@ -1,6 +1,7 @@
 import {
   createDirectoryInquiry,
   DirectoryRateLimitError,
+  DirectorySubmissionKeyConflictError,
   type DirectoryInquiryInput,
 } from "@/lib/directory-inquiry-store";
 import { processDirectoryInquiryNotification } from "@/lib/directory-inquiry-notifications";
@@ -33,6 +34,8 @@ export async function POST(request: Request) {
     return Response.json({ success: true }, { status: saved.created ? 201 : 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Dopyt sa nepodarilo odoslať.";
-    return Response.json({ error: message }, { status: error instanceof DirectoryRateLimitError ? 429 : 400 });
+    const status = error instanceof DirectoryRateLimitError ? 429
+      : error instanceof DirectorySubmissionKeyConflictError ? 409 : 400;
+    return Response.json({ error: message }, { status });
   }
 }
