@@ -42,7 +42,7 @@ test("Admin saves write changed breed categories back into Notion, with verified
   const api = read("app/api/admin/articles/[id]/route.ts");
   const mapping = read("lib/notion-article-breed-placement.ts");
   assert.match(api, /writeBackArticleBreedCategoryToNotion/);
-  assert.match(api, /isBreedArticlePlacementChange\(before, article\)/);
+  assert.match(api, /isBreedArticleNotionChange\(before, article\)/);
   assert.match(notion, /export async function writeBackArticleBreedCategoryToNotion/);
   assert.match(mapping, /category: article\.category === "Plemená" \? "Plemená" : "Všeobecné články"/);
   assert.match(notion, /"Kategória": \{ select: \{ name: desiredPlacement\.category \} \}/);
@@ -62,4 +62,15 @@ test("Explicit Notion category edits can reclassify mapped articles without chan
   assert.match(notion, /next\.portalSection = incoming\.portalSection/);
   assert.match(notion, /status: existing\.status/);
   assert.match(notion, /publishedAt: existing\.publishedAt/);
+});
+
+test("Breed relation writeback uses only ACTIVE work-copy IDs and verifies remote relation", () => {
+  const mapping = read("lib/notion-article-breed-placement.ts");
+  assert.match(mapping, /export function isBreedArticleNotionChange/);
+  assert.match(notion, /NOTION_BREEDS_WORK_DATA_SOURCE_ID/);
+  assert.match(notion, /FROM breed_notion_workcopy_links/);
+  assert.match(notion, /status = 'ACTIVE'/);
+  assert.match(notion, /"Prepojené plemená": \{ relation: desiredRelationIds\.map/);
+  assert.match(notion, /NOTION_ARTICLE_BREED_RELATION_ECHO_MISMATCH/);
+  assert.match(notion, /NOTION_ARTICLE_BREED_RELATION_REMOTE_CONFLICT/);
 });
