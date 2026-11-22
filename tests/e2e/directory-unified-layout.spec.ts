@@ -120,14 +120,14 @@ test("SERVICES-V2 long desktop filter remains sticky with one independently scro
   const actionsVisible = await panel.evaluate((element) => {
     const viewport = element.getBoundingClientRect();
     const submit = element.querySelector('button[type="submit"]')!.getBoundingClientRect();
-    const reset = element.querySelector('a[href]')!;
+    const reset = element.querySelector('[data-directory-filter-form] a[href]')?.getBoundingClientRect();
     return {
       submitVisible: submit.top >= viewport.top && submit.bottom <= viewport.bottom,
-      resetFound: Boolean(reset),
+      resetVisible: Boolean(reset && reset.top >= viewport.top && reset.bottom <= viewport.bottom),
     };
   });
   expect(actionsVisible.submitVisible).toBe(true);
-  expect(actionsVisible.resetFound).toBe(true);
+  expect(actionsVisible.resetVisible).toBe(true);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(panel).toHaveCSS("position", "static");
