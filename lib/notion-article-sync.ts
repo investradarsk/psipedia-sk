@@ -2282,7 +2282,11 @@ async function syncOneNotionPage(
     page, blocks, existing ?? undefined, previousSeo, explicitSeo,
     signedFields?.has("imageCredit") ?? false,
   );
-  sourcePayload.relatedBreedIds = await resolveNotionArticleBreedIds(database, page, existing?.relatedBreedIds);
+  const relatedBreedIdsFromNotion = await resolveNotionArticleBreedIds(database, page, existing?.relatedBreedIds);
+  // An unrelated Notion body or metadata sweep must not erase Admin's existing relations.
+  // Explicit relation webhook edits (including clearing the relation) remain authoritative.
+  sourcePayload.relatedBreedIds = existing?.relatedBreedIds.length && !signedFields?.has("relatedBreedIds")
+    ? existing.relatedBreedIds : relatedBreedIdsFromNotion;
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
   const authorityPayload = existing && mapping && signedFields === null
