@@ -343,102 +343,33 @@ test("old public correction URLs redirect to profiles without revealing an anony
   }
 });
 
-test("server validation stores a separate request and never changes the profile", async () => {
+test("retired public profile-change endpoint rejects all proposals without D1 or email writes", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
-  const resendRequests = [];
-  Object.assign(runtimeEnv, {
-    DB: d1,
-    ADMIN_EMAILS: "admin@psipedia.sk",
-    EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk",
-    RESEND_API_KEY: "re_test_key",
-  });
-  delete runtimeEnv.EDITORIAL_EMAIL;
-  globalThis.fetch = async (url, init) => {
-    assert.equal(
-      sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-      resendRequests.length + 1,
-      "Resend is called only after INSERT",
-    );
-    resendRequests.push({ url: String(url), init, body: JSON.parse(String(init.body)) });
-    return Response.json({ id: "email-test-1" }, { status: 200 });
-  };
+  Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk", RESEND_API_KEY: "re_test_key" });
+  const outbound = [];
+  globalThis.fetch = async (...args) => { outbound.push(args); throw new Error("Retired endpoint must not send mail"); };
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("change-submit", String(Date.now()));
+  workerUrl.searchParams.set("retired-proposal-post", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
-  const before = sqlite.prepare("SELECT * FROM directory_profiles WHERE id = 1").get();
+  const before = sqlite.prepare("SELECT * FROM directory_profiles WHERE id=1").get();
 
-  for (const [label, body] of [
-    ["required authorization", proposal({ authorized: false })],
-    ["invalid requester email", proposal({ requesterEmail: "zly-email" })],
-    [
-      "invalid URL",
-      proposal({ proposedData: { ...proposal().proposedData, website: "javascript:alert(1)" } }),
-    ],
-    ["missing profile", proposal({ profileId: 99999 })],
-    [
-      "legacy online field",
-      proposal({ proposedData: { ...proposal().proposedData, online: true } }),
-    ],
+  for (const body of [
+    proposal(),
+    proposal({ requesterEmail: "another@example.sk" }),
+    proposal({ profileId: 99999 }),
   ]) {
     const response = await request(worker, d1, "/api/directory/profile-change-requests", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
     });
-    assert.equal(response.status, 400, label);
+    assert.equal(response.status, 410);
+    assert.match((await response.json()).error, /Partner účet/);
+    assert.equal(response.headers.get("cache-control"), "no-store");
   }
-  assert.equal(resendRequests.length, 0, "validation errors must not send email");
-
-  const success = await request(worker, d1, "/api/directory/profile-change-requests", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(proposal()),
-  });
-  assert.equal(success.status, 201);
-  assert.deepEqual(await success.json(), { success: true });
-  assert.equal(
-    sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-    1,
-  );
-  const stored = sqlite.prepare("SELECT * FROM directory_profile_change_requests").get();
-  assert.equal(stored.profile_id, 1);
-  assert.equal(stored.profile_name, "Veterina Test");
-  assert.equal(stored.profile_slug, "veterinar-test");
-  assert.equal(stored.profile_category, "veterinari");
-  assert.equal(stored.status, "new");
-  assert.equal(JSON.parse(stored.proposed_data_json).phone, "+421911222333");
-  assert.deepEqual(sqlite.prepare("SELECT * FROM directory_profiles WHERE id = 1").get(), before);
-  assert.equal(resendRequests.length, 1);
-  assert.equal(resendRequests[0].url, "https://api.resend.com/emails");
-  assert.equal(resendRequests[0].init.method, "POST");
-  assert.equal(resendRequests[0].init.headers.authorization, "Bearer re_test_key");
-  assert.equal(resendRequests[0].body.from, "redakcia@psipedia.sk");
-  assert.equal(resendRequests[0].body.to, "psipedia.sk@gmail.com");
-  assert.match(resendRequests[0].body.subject, /^\[Návrh profilu\] Veterina Test$/);
-  assert.match(resendRequests[0].body.text, /Veterina Test/);
-  assert.match(
-    resendRequests[0].body.text,
-    /https:\/\/psipedia\.sk\/admin\/adresar\/navrhy#navrh-1/,
-  );
-  assert.doesNotMatch(resendRequests[0].body.text, /proposed_data_json|Navrhované údaje/i);
-
-  const unexpectedField = await request(worker, d1, "/api/directory/profile-change-requests", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      ...proposal({ requesterEmail: "autofill@example.sk" }),
-      company: "Autofill Company",
-    }),
-  });
-  assert.equal(unexpectedField.status, 201);
-  assert.deepEqual(await unexpectedField.json(), { success: true });
-  assert.equal(
-    sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-    2,
-    "unexpected client fields must never produce a false-success without storing the request",
-  );
-  assert.equal(resendRequests.length, 2);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 0);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM editorial_notifications WHERE resource_type='directory_profile_change_request'").get().count, 0);
+  assert.deepEqual(sqlite.prepare("SELECT * FROM directory_profiles WHERE id=1").get(), before);
+  assert.equal(outbound.length, 0);
 });
 
 test("editorial notifications follow successful inserts and email failures never undo stored data", async () => {
