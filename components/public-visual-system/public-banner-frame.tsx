@@ -5,11 +5,9 @@ export type PublicBannerSize = "small" | "medium" | "large";
 
 /**
  * Single semantic root for every public promotional or contextual banner.
- * Keeps the exact section/aside markup and existing per-variant CSS classes;
- * this component owns only the shared frame class and identification.
- *
- * Do not set banner geometry here: the established design tokens own that,
- * and individual variants retain their approved desktop/mobile composition.
+ * Preserves semantic section/aside markup while exposing the shared two-theme,
+ * three-size presentation contract to all public editorial banner adapters.
+ * Appearance is defined once in app/banner-visuals.css; content and links stay local.
  */
 export function PublicBannerFrame({
   as: Element = "aside",
