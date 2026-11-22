@@ -150,11 +150,28 @@ export async function listPartnerProfileChangesAdmin(input:{
   encryptionKey?:string;
 }={}){
   const database=db(input.database);
-  const rows=(await database.prepare(BASE_SELECT+`
+  const q=(input.q??"").trim().toLocaleLowerCase("sk").slice(0,120);
+  const order=`
     ORDER BY CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN 0 ELSE 1 END,
       CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN s.created_at END ASC,
       s.updated_at DESC LIMIT 300
-  `).all<AdminRow>()).results;
+  `;
+  // Keep the bounded recent list for the existing encrypted-email search.
+  // A name/ID search must additionally run in SQL BEFORE its LIMIT: otherwise
+  // approved/older proposals such as a historical company edit disappear from
+  // searches as soon as 300 newer proposals exist.
+  const recent=(await database.prepare(BASE_SELECT+order).all<AdminRow>()).results;
+  let rows=recent;
+  if(q){
+    // Literal search: %, _ and ! in user text must never become LIKE wildcards.
+    const pattern="%"+q.replace(/[!%_]/g,character=>"!"+character)+"%";
+    const matched=(await database.prepare(BASE_SELECT+`
+      WHERE lower(COALESCE(d.name,o.name,'')) LIKE ?1 ESCAPE '!'
+         OR lower(s.id) LIKE ?1 ESCAPE '!'
+         OR lower(m.partner_account_id) LIKE ?1 ESCAPE '!'
+    `+order).bind(pattern).all<AdminRow>()).results;
+    rows=[...new Map([...matched,...recent].map(row=>[row.id,row])).values()];
+  }
   let items=await Promise.all(rows.map(row=>hydrate(row,encryptionKey(input.encryptionKey))));
   if(input.status&&input.status!=="all"){
     if(input.status==="active")items=items.filter(item=>item.active);
@@ -166,7 +183,6 @@ export async function listPartnerProfileChangesAdmin(input:{
     items=items.filter(item=>item.resourceType===input.resourceType);
   }
   if(input.risk&&input.risk!=="all")items=items.filter(item=>item.riskFlags.includes(input.risk!));
-  const q=(input.q??"").trim().toLocaleLowerCase("sk");
   if(q)items=items.filter(item=>[item.email,item.accountId,item.resourceName,item.id].some(v=>v.toLocaleLowerCase("sk").includes(q)));
   return items;
 }
