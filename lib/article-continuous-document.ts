@@ -11,6 +11,7 @@ import { legacyRichTextToDocument, type EditorialRichTextDocument } from "@/lib/
 import { editorialToTiptap, type TiptapEditorialDocument, type TiptapEditorialNode } from "@/lib/tiptap-editorial-bridge";
 
 export type ContinuousArticleInput = {
+  intro?: string;
   introRichText: EditorialRichTextDocument;
   takeawayRichText: EditorialRichTextDocument;
   takeaway: string;
@@ -76,8 +77,11 @@ export function articleBlocksToContinuousNodes(
  */
 export function articleToCanonicalContinuousDocument(input: ContinuousArticleInput): TiptapEditorialDocument {
   if (!input || typeof input.takeaway !== "string") throw new Error("Neplatný vstup editora článku.");
-  const intro = editorialToTiptap(input.introRichText).content.map((node, sourceNodeIndex) =>
-    withOrigin(node, { sourceField: "intro", sourceNodeIndex }));
+  const introNodes = editorialToTiptap(input.introRichText).content;
+  // An empty intro still needs a writable paragraph before the protected boundary.
+  const intro = (introNodes.length ? introNodes : [{ type: "paragraph", content: [] }])
+    .map((node, sourceNodeIndex) =>
+      withOrigin(node, { sourceField: "intro", sourceNodeIndex }));
   editorialToTiptap(input.takeawayRichText); // validate independently of the plain-text field
   return { type: "doc", content: [
     ...intro,
