@@ -2154,15 +2154,13 @@ async function syncOneNotionPage(
   const previousSeo = mapping ? decodeArticleSeoReceipt(mapping.content_hash).seo : null;
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
   if (mappedExisting && signedFields && signedFields.size === 0) return "unchanged";
-  // A past-due scheduled article is already public, but stays "scheduled" in
-  // D1. The publication reconciliation owns its Notion publication metadata.
-  // Never import editorial changes or report a valid schedule as a sync error.
-  if (mappedExisting?.status === "scheduled"
+  // A past-due scheduled article is public but intentionally remains "scheduled"
+  // in D1. Permit inbound editorial edits only for its verified published Notion
+  // mapping; publication metadata stays owned by publish reconciliation.
+  const dueScheduledPublishedMapping = Boolean(mappedExisting?.status === "scheduled"
     && effectiveArticleStatus(mappedExisting.status, mappedExisting.publishedAt) === "published"
     && selectProperty(page, "Stav") === "Publikované"
-    && richTextProperty(page, "Psipedia ID") === String(mappedExisting.id)) {
-    return "unchanged";
-  }
+    && richTextProperty(page, "Psipedia ID") === String(mappedExisting.id));
   // Unapproved legacy Ready rows must never create a new draft or publish.
   if (legacyUnapprovedReady && (!mapping || mappedExisting?.status !== "published")) {
     return "unchanged";
@@ -2194,11 +2192,12 @@ async function syncOneNotionPage(
   if (existing && (existing.slug !== proposed.slug || existing.portalSection !== proposed.portalSection)) {
     throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED");
   }
-  if (existing && existing.status !== "draft" && existing.status !== "published") {
+  if (existing && existing.status !== "draft" && existing.status !== "published"
+    && !dueScheduledPublishedMapping) {
     throw new Error("ARTICLE_STATUS_REVIEW_REQUIRED");
   }
   if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
-  validateSyncGate(page, existing?.status === "published");
+  validateSyncGate(page, existing?.status === "published" || dueScheduledPublishedMapping);
 
   const sourcePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined, previousSeo, explicitSeo);
   const articleModes = existing && mapping
@@ -2287,8 +2286,8 @@ async function syncOneNotionPage(
 
     // A locally edited draft belongs to the editor, not to the next Notion sweep.
     // Hash-only checks cannot detect admin edits after the previous import.
-    if (existing.status === "published") {
-      // The article remains published with its original URL, assets, topic
+    if (existing.status === "published" || dueScheduledPublishedMapping) {
+      // The article remains public with its original URL, assets, topic
       // relations, author and moderation state. Only Notion editorial fields
       // (body, intro, title, excerpt, SEO and social caption) flow inbound.
       if (mapping && existing.updatedBy !== SYNC_ACTOR
@@ -2323,6 +2322,10 @@ async function syncOneNotionPage(
       };
       const updated = await updateManagedArticle(existing.id, publishedPayload, SYNC_ACTOR, existing, {
         updatedAt: existing.updatedAt,
+        // Guard the stored lifecycle as well as updated_at. Past-due scheduled
+        // content edits must not turn into a reschedule or an accidental publish.
+        status: dueScheduledPublishedMapping ? "scheduled" : undefined,
+        allowPastDueScheduledContentEdit: dueScheduledPublishedMapping,
       });
       if (!updated) throw new Error("ARTICLE_PUBLISHED_UPDATE_FAILED");
       await upsertMapping(database, page, updated.id, contentHash, now);
