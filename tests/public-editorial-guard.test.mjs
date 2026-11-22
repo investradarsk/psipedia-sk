@@ -17,6 +17,9 @@ test("Notion-only sections never enter the public article body", () => {
   for (const heading of [
     "Sociálne siete – interný návrh",
     "Sociálne siete — redakčný návrh",
+    "Sociálne siete — interné návrhy, nezverejňovať",
+    "Sociálne siete – interné návrhy",
+    "Sociálne siete — redakčné návrhy",
     "Redakčné prvky pre administráciu",
     "Redakčné poznámky",
     "Redakčné poznámky – pre Admin",
