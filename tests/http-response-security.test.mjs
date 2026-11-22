@@ -50,3 +50,17 @@ test("already protected responses are returned without rewriting", () => {
   });
   assert.equal(ensureNoSniffHeader(protectedResponse), protectedResponse);
 });
+
+test("network error responses are not reconstructed into invalid HTTP status 0", () => {
+  const failed = Response.error();
+  assert.equal(ensureNoSniffHeader(failed), failed);
+});
+
+test("no-body 304 responses remain valid when security header is attached", () => {
+  const notModified = new Response(null, { status: 304, headers: { ETag: '"unchanged"' } });
+  const guarded = ensureNoSniffHeader(notModified);
+  assert.equal(guarded.status, 304);
+  assert.equal(guarded.body, null);
+  assert.equal(guarded.headers.get("ETag"), '"unchanged"');
+  assert.equal(guarded.headers.get("X-Content-Type-Options"), "nosniff");
+});
