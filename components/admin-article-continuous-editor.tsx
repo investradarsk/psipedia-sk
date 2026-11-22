@@ -165,10 +165,22 @@ export function AdminArticleContinuousEditor(props: Props) {
     .map(block => block.id)));
 
   useEffect(() => { scopeRef.current = scope; callbackRef.current = props.onChange; }, [scope, props.onChange]);
-  const initial = useMemo(() => articleToCanonicalContinuousDocument(props), []);
+  // A damaged/unsupported article must never blank the entire Admin screen.
+  // Render an explicit error and keep the classic editor available.
+  const [prepared] = useState(() => {
+    try {
+      return { document: articleToCanonicalContinuousDocument(props), initialError: "" };
+    } catch (error) {
+      return {
+        document: { type: "doc", content: [{ type: "paragraph" }] },
+        initialError: error instanceof Error ? error.message : "Článok sa nepodarilo previesť.",
+      };
+    }
+  });
   const editor = useEditor({
     extensions: editableExtensions,
-    content: initial,
+    content: prepared.document,
+    editable: !prepared.initialError,
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
     editorProps: {
@@ -193,6 +205,7 @@ export function AdminArticleContinuousEditor(props: Props) {
       });
     },
     onUpdate({ editor: updated }) {
+      if (prepared.initialError) return;
       try {
         const fields = continuousDocumentToArticleFields(updated.getJSON(), {
           requiredNativeBlockIds: [...requiredNativeIds.current],
@@ -240,7 +253,13 @@ export function AdminArticleContinuousEditor(props: Props) {
   }), [props.currentArticleId, props.onUploadingChange, props.onMessage, props.onError]);
 
   return <WidgetContext.Provider value={widgetActions}>
-    <div className={styles.editableWorkspace} data-article-continuous-editable data-article-tiptap-invalid={invalid ? "true" : "false"}>
+    <div className={styles.editableWorkspace} data-article-continuous-editable
+      data-article-continuous-initial-error={prepared.initialError ? "true" : "false"}
+      data-article-tiptap-invalid={invalid || prepared.initialError ? "true" : "false"}>
+      {prepared.initialError ? <p role="alert" className={styles.error}>
+        Súvislý editor nie je pre tento článok dostupný: {prepared.initialError}
+        Pôvodný obsah zostal bez zmeny. Použi tlačidlo Pôvodný editor.
+      </p> : <>
       <div className={styles.insertBar}>
         <button type="button" onClick={() => setPickerOpen(open => !open)} aria-expanded={pickerOpen}>
           + Vložiť prvok do článku
@@ -257,6 +276,7 @@ export function AdminArticleContinuousEditor(props: Props) {
       {invalid && <p role="alert" className={styles.error}>
         Uloženie je zastavené: {invalid} Obsah zostáva otvorený v editore.
       </p>}
+      </>}
     </div>
   </WidgetContext.Provider>;
 }
