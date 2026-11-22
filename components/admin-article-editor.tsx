@@ -549,7 +549,7 @@ export function AdminArticleEditor({
         mode="page"
         title={article ? "Upraviť článok" : "Nový článok"}
         articleLayout
-        sections={editorNavigation}
+        sections={articleEditorNavigation}
         sectionMode="switch"
         activeSectionId={activeArticleSection}
         onSectionChange={setActiveArticleSection}
@@ -991,7 +991,7 @@ export function AdminArticleEditor({
           </div>
         </section>
 
-        <section id="article-basics" hidden={activeArticleSection !== "article-basics"} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" ? "true" : "false"} data-admin-editor-section className={`admin-form-card admin-form-card--intro ${editorStyles.introCard}`}>
+        <section id="article-basics" hidden={activeArticleSection !== "article-basics" && !(continuousEditableOpen && activeArticleSection === "article-blocks")} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" || (continuousEditableOpen && activeArticleSection === "article-blocks") ? "true" : "false"} data-admin-editor-section className={`admin-form-card admin-form-card--intro ${editorStyles.introCard}`}>
           <div className="admin-card-heading"><div><span>07</span><div><h2>Úvod a obsah</h2><p>Základné informácie o článku a jeho úvod.</p></div></div></div>
           <div className="admin-field admin-field--title">
             <label htmlFor="article-title">Názov {portalSection === "novinky" ? "novinky" : "článku"}</label>
@@ -1018,13 +1018,13 @@ export function AdminArticleEditor({
 
         <section id="article-blocks" hidden={activeArticleSection !== "article-blocks"} tabIndex={activeArticleSection === "article-blocks" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-blocks" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
           <div className="admin-card-heading">
-            <div><span>08</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
+            <div><span>08</span><div><h2>{continuousEditableOpen ? "Editor článku" : "Blokový obsah článku"}</h2><p>{continuousEditableOpen ? "Píš text priamo ako jeden dokument. Ostatné prvky upravuj na ich mieste." : "Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí."}</p></div></div>
           </div>
           <div className="admin-field" data-article-continuous-step1>
             <div className="admin-editor-mode-switch" role="group" aria-label="Režim editora článku">
               <button type="button" className="admin-secondary-button" data-article-continuous-edit-toggle
                 aria-pressed={continuousEditableOpen}
-                onClick={() => { setContinuousEditableOpen(true); setContinuousReadOnlyOpen(false); }}>
+                onClick={() => selectArticleEditorMode("continuous")}>
                 Súvislý editor (Word štýl)
               </button>
               <button type="button" className="admin-secondary-button" data-article-continuous-toggle
@@ -1033,7 +1033,8 @@ export function AdminArticleEditor({
                   if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]:not([data-article-continuous-initial-error="true"])')) {
                     setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
                   }
-                  setContinuousEditableOpen(false); setContinuousReadOnlyOpen(open => !open);
+                  if (continuousReadOnlyOpen) selectArticleEditorMode("legacy");
+                  else selectArticleEditorMode("preview");
                 }}>
                 Súvislý náhľad
               </button>
@@ -1043,7 +1044,7 @@ export function AdminArticleEditor({
                   if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]:not([data-article-continuous-initial-error="true"])')) {
                     setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
                   }
-                  setContinuousEditableOpen(false); setContinuousReadOnlyOpen(false);
+                  selectArticleEditorMode("legacy");
                 }}>
                 Pôvodný editor
               </button>
