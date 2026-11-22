@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
-import { isPhotoAttributionHeading, isPrivateEditorialArticleHeading } from "../lib/public-editorial-guard.ts";
+import { isInternalArticleInstructionText, isNotionOnlySocialDraftHeading, isPhotoAttributionHeading, isPrivateEditorialArticleHeading } from "../lib/public-editorial-guard.ts";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -139,6 +139,14 @@ test("markerless Editorial Hub articles keep complete prose without importing ad
     isAdminManifestHeading: (value) => value.toLowerCase() === "psipedia bloky",
     isPrivateEditorialArticleHeading,
     isPhotoAttributionHeading,
+    isInternalArticleInstructionText,
+    isNotionSocialDraftSection: (blocks, index) => {
+      if (blocks[index]?.type !== "heading_2") return false;
+      const subsections = [];
+      for (let i = index + 1; i < blocks.length && blocks[i].type !== "heading_2"; i += 1)
+        if (blocks[i].type === "heading_3") subsections.push(blocks[i].text);
+      return isNotionOnlySocialDraftHeading(blocks[index].text, subsections);
+    },
     normalizeText: (value) => value.replace(/\s+/g, " ").trim(),
   }, { timeout: 500 });
   const paragraph = (text) => ({ type: "paragraph", text });
@@ -155,6 +163,12 @@ test("markerless Editorial Hub articles keep complete prose without importing ad
   assert.deepEqual(Array.from(select([intro, a, b, notes, paragraph("Interné poznámky")])), [intro, a, b]);
   assert.deepEqual(Array.from(select([intro, a, b, manifest, paragraph("JSON manifest")])), [intro, a, b]);
   assert.deepEqual(Array.from(select([heading("Článok — draft"), intro, a, body, seo])), [intro, a, body]);
+  const social = heading("Sociálne siete");
+  const facebook = { type: "heading_3", text: "Facebook" };
+  const instagram = { type: "heading_3", text: "Instagram" };
+  assert.deepEqual(Array.from(select([intro, a, body, b, social, facebook, instagram])), [intro, a, body, b]);
+  const instruction = { type: "callout", text: "Táto sekcia je zdrojom obsahu pre synchronizáciu do Psipedia.sk." };
+  assert.deepEqual(Array.from(select([heading("Článok — draft"), instruction, intro, a, body, b])), [intro, a, body, b]);
   assert.throws(() => select([intro, a]), /aspoň dva obsahové nadpisy/);
   assert.throws(() => select([heading("Redakčné pokyny"), intro, a, b]), /bezpečný úvod/);
   assert.throws(() => select([paragraph("krátky"), a, b]), /bezpečný úvod/);
