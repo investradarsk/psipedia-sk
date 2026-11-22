@@ -275,7 +275,7 @@ type RuntimeBindings = {
   DB?: D1Database;
 };
 
-const ARTICLE_CATEGORIES = ["Výcvik", "Zdravie", "Výživa", "Život so psom"] as const;
+const ARTICLE_CATEGORIES = ["Výcvik", "Zdravie", "Výživa", "Život so psom", "Plemená"] as const;
 const ARTICLE_ACCENTS = ["forest", "coral", "gold", "blue"] as const;
 
 function getD1Binding() {
