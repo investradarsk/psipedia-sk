@@ -95,14 +95,16 @@ test("CONTINUOUS STEP 2: explicit intro boundary and takeaway anchor survive emp
   input.takeawayRichText = legacyRichTextToDocument("");
   input.blocks = [{ id: "same", type: "text", content: "" }, { id: "same", type: "text", content: "Druhý blok" }];
   const doc = articleToCanonicalContinuousDocument(input);
-  assert.equal(doc.content[0]?.attrs?.kind, "boundary");
-  assert.equal(doc.content[0]?.attrs?.sourceField, "intro-end");
-  assert.equal(doc.content[1]?.attrs?.kind, "takeaway");
-  assert.equal(doc.content[1]?.attrs?.rawTakeaway, "");
-  assert.deepEqual(doc.content.slice(2).map(node => node.attrs?.sourceBlockIndex), [0, 1]);
-  assert.equal(doc.content[2].type, "paragraph");
-  assert.equal(doc.content[2].attrs.sourceBlockId, "same");
+  assert.equal(doc.content[0]?.type, "paragraph", "empty intro needs an editable anchor");
+  assert.equal(doc.content[0]?.attrs?.sourceField, "intro");
+  assert.equal(doc.content[1]?.attrs?.kind, "boundary");
+  assert.equal(doc.content[1]?.attrs?.sourceField, "intro-end");
+  assert.equal(doc.content[2]?.attrs?.kind, "takeaway");
+  assert.equal(doc.content[2]?.attrs?.rawTakeaway, "");
+  assert.deepEqual(doc.content.slice(3).map(node => node.attrs?.sourceBlockIndex), [0, 1]);
+  assert.equal(doc.content[3].type, "paragraph");
   assert.equal(doc.content[3].attrs.sourceBlockId, "same");
+  assert.equal(doc.content[4].attrs.sourceBlockId, "same");
   assert.equal(JSON.stringify(JSON.parse(JSON.stringify(doc))).includes('"intro-end"'), true);
 });
 
