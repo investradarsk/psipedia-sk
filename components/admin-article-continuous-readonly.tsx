@@ -21,6 +21,9 @@ const ArticleOrigin = Extension.create({
       attributes: {
         sourceField: { default: null, renderHTML: () => ({}) },
         sourceBlockId: { default: null, renderHTML: () => ({}) },
+        sourceBlockIndex: { default: null, renderHTML: () => ({}) },
+        sourceNodeIndex: { default: null, renderHTML: () => ({}) },
+        sourceNodeCount: { default: null, renderHTML: () => ({}) },
         sourceBlock: { default: null, renderHTML: () => ({}) },
       },
     }];
@@ -62,6 +65,13 @@ const ArticleWidget = Node.create({
   addAttributes() {
     return {
       kind: { default: null },
+      sourceField: { default: null, renderHTML: () => ({}) },
+      sourceBlockId: { default: null, renderHTML: () => ({}) },
+      sourceBlockIndex: { default: null, renderHTML: () => ({}) },
+      sourceNodeIndex: { default: null, renderHTML: () => ({}) },
+      sourceNodeCount: { default: null, renderHTML: () => ({}) },
+      sourceBlock: { default: null, renderHTML: () => ({}) },
+      rawTakeaway: { default: null, renderHTML: () => ({}) },
       block: { default: null },
       blocks: { default: null },
       document: { default: null },
