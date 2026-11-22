@@ -28,9 +28,8 @@ export function AdminDirectoryCategoryNav({ selected }: { selected: string }) {
     <details className={styles.tools} data-admin-directory-tools>
       <summary>Ďalšie nástroje adresára</summary>
       <div className={styles.toolsContent}>
-        <p>Katalóg služieb a návrhy úprav profilu.</p>
+        <p>Katalóg služieb a vlastností profilov.</p>
         <Link prefetch={false} href="/admin/sluzby-pre-psov/katalog">Katalóg služieb a vlastností</Link>
-        <Link prefetch={false} href="/admin/adresar/navrhy">Návrhy úprav</Link>
       </div>
     </details>
   </section>;
