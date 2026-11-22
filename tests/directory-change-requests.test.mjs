@@ -559,7 +559,7 @@ test("editorial notifications follow successful inserts and email failures never
   }
 });
 
-test("all three legacy editorial flows persist failed outbox entries and scheduled retry sends each exactly once", async () => {
+test("remaining editorial tip and feedback flows retry once without retired public proposal writes", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
   Object.assign(runtimeEnv, {
@@ -577,11 +577,6 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
   workerUrl.searchParams.set("editorial-outbox", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
 
-  const change = await request(worker, d1, "/api/directory/profile-change-requests", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(proposal({ requesterEmail: "outbox-change@example.sk" })),
-  });
   const tip = await request(worker, d1, "/api/news-tips", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -604,27 +599,27 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
     }),
   });
   assert.deepEqual(
-    [change.status, tip.status, negative.status],
-    [201, 201, 201],
+    [tip.status, negative.status],
+    [201, 201],
     "Resend failure must not fail saved submissions",
   );
   assert.equal(
     sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
-    1,
+    0,
   );
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
   const failed = sqlite
     .prepare("SELECT * FROM editorial_notifications ORDER BY resource_type")
     .all();
-  assert.equal(failed.length, 3);
+  assert.equal(failed.length, 2);
   for (const row of failed) {
     assert.equal(row.status, "failed");
     assert.equal(row.attempts, 1);
     assert.equal(row.last_error, "resend_http_503");
     assert.equal(row.provider_message_id, null);
   }
-  assert.equal(failedRequests.length, 3);
+  assert.equal(failedRequests.length, 2);
   const firstAttemptKeys = failedRequests
     .map((entry) => entry.init.headers["Idempotency-Key"])
     .sort();
@@ -641,11 +636,10 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
   };
   Object.assign(runtimeEnv, scheduledEnv);
   await worker.scheduled({}, scheduledEnv, { waitUntil() {}, passThroughOnException() {} });
-  assert.equal(sentRequests.length, 3);
+  assert.equal(sentRequests.length, 2);
   const keys = sentRequests.map((entry) => entry.init.headers["Idempotency-Key"]).sort();
   assert.deepEqual(keys, [
     "editorial/article_feedback/new/1",
-    "editorial/directory_profile_change_request/new/1",
     "editorial/news_tip/new/1",
   ]);
   assert.deepEqual(keys, firstAttemptKeys, "retry must reuse the original Resend idempotency keys");
@@ -658,7 +652,7 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
     assert.equal(row.last_error, null);
   }
   await worker.scheduled({}, scheduledEnv, { waitUntil() {}, passThroughOnException() {} });
-  assert.equal(sentRequests.length, 3, "sent notifications must not be delivered twice");
+  assert.equal(sentRequests.length, 2, "sent notifications must not be delivered twice");
   assert.equal(
     sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
     1,
