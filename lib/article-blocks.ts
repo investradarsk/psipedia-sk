@@ -229,11 +229,6 @@ function headingSlug(value: string) {
 }
 
 /**
- * Sanitize only the public projection. The Admin editor still receives the raw
- * content, allowing an editor to inspect and correct it. A new H2 resets the
- * section boundary so unrelated public sections are not discarded.
- */
-/**
  * Hide Notion-only trailing sections in every public projection (body, TOC,
  * word count and JSON-LD). A photo-credit section is public attribution unless
  * the Admin image-credit and source URL are populated. Never modify the DB here.
