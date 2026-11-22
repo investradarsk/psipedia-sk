@@ -15,7 +15,7 @@ import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from
 import { articleBlockImageKeys } from "@/lib/article-blocks";
 import { orphanedArticleMediaKeys } from "@/lib/article-media-key-preservation";
 import { articleSeoChangedFields } from "@/lib/notion-article-seo-writeback";
-import { isBreedArticlePlacementChange } from "@/lib/notion-article-breed-placement";
+import { isBreedArticleNotionChange } from "@/lib/notion-article-breed-placement";
 import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 import {
   writeBackPublishedArticleToNotion,
@@ -166,7 +166,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       };
       // Category/section moves to/from Plemená must be mirrored before the SEO
       // and draft editorial writers use the acknowledged Notion receipt.
-      if (isBreedArticlePlacementChange(before, article)) {
+      if (isBreedArticleNotionChange(before, article)) {
         try {
           report(await writeBackArticleBreedCategoryToNotion({
             database: bindings.DB, bindings, before, article,
