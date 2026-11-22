@@ -24,6 +24,7 @@ type EditorScope = {
   setActive: (next: ActiveEditor | null) => void;
 };
 const ScopeContext = createContext<EditorScope | null>(null);
+export function useArticleTiptapScope() { return useContext(ScopeContext); }
 
 const PsipediaCallout = Node.create({
   name: "psipediaCallout",
@@ -339,7 +340,7 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   return (
     <div ref={toolbarRef} className={styles.toolbar} role="toolbar" aria-label="Spoločná lišta formátovania článku" data-admin-tiptap-toolbar>
       <div className={styles.tools} role="group" tabIndex={0} aria-label="Posúvateľná lišta nástrojov formátovania">
-        <span className={styles.activeLabel} aria-live="polite">{active ? "Upravuješ: " + (active.id.startsWith("block-") ? "textový blok" : active.id === "article-intro" ? "úvod" : "to najdôležitejšie") : "Klikni do textu"}</span>
+        <span className={styles.activeLabel} aria-live="polite">{active ? "Upravuješ: " + (active.id === "article-continuous" ? "celý článok" : active.id.startsWith("block-") ? "textový blok" : active.id === "article-intro" ? "úvod" : "to najdôležitejšie") : "Klikni do textu"}</span>
         {action("B", "Tučné (Ctrl+B)", () => toggleInlineMark("bold"), Boolean(editor?.isActive("bold")))}
         {action("I", "Kurzíva (Ctrl+I)", () => toggleInlineMark("italic"), Boolean(editor?.isActive("italic")))}
         {action("Odkaz", "Vložiť alebo upraviť odkaz", () => {
@@ -404,9 +405,11 @@ export function AdminTiptapArticleScope({ children, activeSectionId, readOnlyPre
   const [active, setActive] = useState<ActiveEditor | null>(null);
   const scope = useMemo(() => ({ active, setActive }), [active]);
   // Switching left-hand panels must not edit a hidden, previously focused field.
-  const visible = !readOnlyPreview && active && (active.id.startsWith("block-")
-    ? activeSectionId === "article-blocks"
-    : activeSectionId === "article-basics") ? active : null;
+  const visible = !readOnlyPreview && active && (
+    active.id === "article-continuous" || active.id === "article-continuous-takeaway" || active.id.startsWith("block-")
+      ? activeSectionId === "article-blocks"
+      : activeSectionId === "article-basics"
+  ) ? active : null;
   // The read-only preview exists only in the blocks section; intro editing is unchanged.
   const formattingSection = activeSectionId === "article-basics" || activeSectionId === "article-blocks" && !readOnlyPreview;
   return <ScopeContext.Provider value={scope}>
