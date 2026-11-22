@@ -1,4 +1,5 @@
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
+import { reportDirectoryPublicReadFailure } from "@/lib/public-directory-read-diagnostics";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { DirectoryPage } from "@/components/directory-page";
@@ -35,7 +36,8 @@ export default async function DirectoryHomePage({ searchParams }: Props) {
   const cleanedUrl = directoryEmptyQueryRedirect("/adresar", rawSearchParams, filters);
   if (cleanedUrl) redirect(cleanedUrl);
   // Only one listing is rendered on the root; avoid unused overview/count queries.
-  const result = await retryTransientPublicRead(() => listPublishedDirectoryProfiles({ filters }));
+  const result = await retryTransientPublicRead(() => listPublishedDirectoryProfiles({ filters }))
+    .catch((error) => reportDirectoryPublicReadFailure("listing", error));
   if (policy.kind === "pagination" && policy.page! > result.totalPages) {
     redirect(result.totalPages > 1 ? `/adresar?page=${result.totalPages}` : "/adresar");
   }
