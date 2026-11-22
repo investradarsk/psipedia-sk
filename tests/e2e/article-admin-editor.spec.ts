@@ -126,7 +126,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     expect(mutations).toEqual([]);
   });
 
-  test("CONTINUOUS-STEP6: new article uses single editor navigation and canvas by default", async ({ page }) => {
+  test("CONTINUOUS-STEP6: new article uses one editor and persists content through canonical save", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
@@ -139,6 +139,27 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(page.locator("#article-excerpt")).toHaveCount(1);
     await expect(page.locator('[data-article-continuous-document="editable"]')).toHaveCount(1);
     await expect(page.locator('[data-article-legacy-toggle]')).toHaveAttribute("aria-pressed", "false");
+
+    // Exercise actual Admin save, not only the in-memory Tiptap converter.
+    await page.locator("#article-title").fill("CONTINUOUS SAVE " + projectSuffix(testInfo.project.name));
+    await page.getByLabel("Krátky úvod na karte").fill("Automatický test jediného redakčného editora a bezpečného uloženia konceptu.");
+    const editor = page.locator('[data-article-continuous-document="editable"]');
+    const paragraphs = editor.locator(":scope > p");
+    await expect(paragraphs).toHaveCount(2);
+    await paragraphs.first().click();
+    await page.keyboard.type("Úvod súvislého článku s dostatočne jasným kontextom.");
+    await paragraphs.last().click();
+    await page.keyboard.type("Telo súvislého článku s vlastným textovým blokom.");
+    await expect(editor).toContainText("Úvod súvislého článku");
+    await expect(editor).toContainText("Telo súvislého článku");
+    await expect(page.locator('[data-article-tiptap-invalid="true"]')).toHaveCount(0);
+
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
+    await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
+    await expect(editor).toContainText("Telo súvislého článku");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator('[data-article-continuous-document="editable"]')).toContainText("Úvod súvislého článku");
+    await expect(page.locator('[data-article-continuous-document="editable"]')).toContainText("Telo súvislého článku");
   });
 
   test("CONTINUOUS-STEP3: edit a body paragraph in one Tiptap canvas and return to legacy without losing it", async ({ page }) => {
