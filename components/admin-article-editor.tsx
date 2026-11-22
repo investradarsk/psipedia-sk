@@ -638,7 +638,7 @@ export function AdminArticleEditor({
           </>}
         />}
       >
-      <AdminTiptapArticleScope activeSectionId={activeArticleSection}>
+      <AdminTiptapArticleScope activeSectionId={activeArticleSection} readOnlyPreview={activeArticleSection === "article-blocks" && continuousReadOnlyOpen}>
       <form id="article-canonical-editor-form" noValidate className={`admin-editor-form ${editorStyles.articleForm}`} onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); submitArticleForm(); }}>
         {(message || error || saving) && <div ref={resultRef} tabIndex={-1}>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
