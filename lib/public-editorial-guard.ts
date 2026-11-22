@@ -13,7 +13,7 @@ function normalizedEditorialText(value: string): string {
 
 export function isPrivateEditorialArticleHeading(value: string): boolean {
   const heading = normalizedEditorialText(value);
-  return /^(?:psipedia bloky|pred publikovanim|synchronizacny manifest(?: psipedia bloky)?|socialne siete\s*-\s*(?:interny|redakcny) navrh|redakcne (?:poznamky|pokyny|podklady|instrukcie)(?:\s*-.*)?|redakcne prvky pre (?:administraciu|psipedia admin)|interne redakcne poznamky|technicke poznamky pre administraciu)$/.test(heading);
+  return /^(?:psipedia bloky|pred publikovanim|synchronizacny manifest(?: psipedia bloky)?|socialne siete\s*-\s*(?:(?:interny|redakcny) navrh|(?:interne|redakcne) navrhy(?:\s*,.*)?)|redakcne (?:poznamky|pokyny|podklady|instrukcie)(?:\s*-.*)?|redakcne prvky pre (?:administraciu|psipedia admin)|interne redakcne poznamky|technicke poznamky pre administraciu)$/.test(heading);
 }
 
 /** A generic "Sociálne siete" can be real article prose. Treat it as an
