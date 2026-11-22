@@ -125,11 +125,13 @@ export function ArticleBlocks({
   preview = false,
   promoUtcDay,
   onNavigateBlock,
+  sourceHeading = "Odborné zdroje",
 }: {
   blocks: ArticleBlock[];
   preview?: boolean;
   promoUtcDay?: string;
   onNavigateBlock?: (id: string) => void;
+  sourceHeading?: string;
 }) {
   const headingIds = new Map(
     articleBlockHeadings(blocks).map((heading) => [heading.blockId, heading.id]),
@@ -299,7 +301,7 @@ export function ArticleBlocks({
             if (block.id !== firstSourceId) return null;
             return (
               <aside className="article-block-source article-block-sources" key={block.id}>
-                <strong>Odborné zdroje</strong>
+                <strong>{sourceHeading}</strong>
                 <ul>
                   {sources.map((source) => {
                     const href = safeHref(source.url);
