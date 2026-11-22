@@ -604,3 +604,22 @@ test("anonymous reviewer session returns null without touching D1", async () => 
   assert.equal(await auth.getReviewAuthorSession({ database }), null);
   assert.equal(await auth.getReviewAuthorSession({ cookieHeader: "other_cookie=1", database }), null);
 });
+
+test("both reviewer browser workflows bootstrap the isolated Directory SQL sidecar before seeding fixtures", async () => {
+  const schema = await fs.readFile(new URL("db/isolated/directory_admin_sql_completion.sql", root), "utf8");
+  assert.match(schema, /CREATE TABLE directory_profile_service_texts\s*\(/);
+
+  for (const [path, fixture] of [
+    [".github/workflows/review-author-auth-ci.yml", "review-author-auth-e2e.sql"],
+    [".github/workflows/profile-review-submission-ci.yml", "profile-review-submission-e2e.sql"],
+  ]) {
+    const workflow = await fs.readFile(new URL(path, root), "utf8");
+    const migrations = workflow.indexOf("- name: Apply migrations to isolated local D1");
+    const sidecar = workflow.indexOf("- name: Apply isolated Directory SQL presentation schema");
+    const fixtures = workflow.indexOf("- name: Seed isolated ");
+    assert.ok(migrations >= 0 && migrations < sidecar && sidecar < fixtures, path + " has the required D1 preparation order");
+    assert.match(workflow, /d1 execute DB --local --config dist\/server\/wrangler\.json --persist-to \.wrangler\/state --file db\/isolated\/directory_admin_sql_completion\.sql/);
+    assert.ok(workflow.includes("--file tests/fixtures/" + fixture), path + " retains the review fixture");
+    assert.doesNotMatch(workflow, /d1 execute DB --remote.*directory_admin_sql_completion/);
+  }
+});
