@@ -222,25 +222,25 @@ export async function EventsPage({
                 description="Výstavy, preteky, semináre, tréningy a stretnutia so psami."
                 id="events-categories-heading"
               >
-              {!isMainListing ? (
-                <div className={styles.eventAllLink}>
-                  <PublicActionLink href="/podujatia" variant="tertiary">
-                    Všetky podujatia
-                  </PublicActionLink>
-                </div>
-              ) : null}
-              <PublicSubcategoryNavigator
-                mode="compact"
-                mobileLayout="grid"
-                columns={6}
-                label="Kategórie podujatí"
-                items={eventTypes.map((type) => ({
-                  href: eventTypePortalHref(type) ?? "/podujatia",
-                  title: eventTypePresentation[type].label,
-                  icon: eventCategoryIcons[type],
-                  current: initialType === type,
-                }))}
-              />
+                {!isMainListing ? (
+                  <div className={styles.eventAllLink}>
+                    <PublicActionLink href="/podujatia" variant="tertiary">
+                      Všetky podujatia
+                    </PublicActionLink>
+                  </div>
+                ) : null}
+                <PublicSubcategoryNavigator
+                  mode="compact"
+                  mobileLayout="grid"
+                  columns={6}
+                  label="Kategórie podujatí"
+                  items={eventTypes.map((type) => ({
+                    href: eventTypePortalHref(type) ?? "/podujatia",
+                    title: eventTypePresentation[type].label,
+                    icon: eventCategoryIcons[type],
+                    current: initialType === type,
+                  }))}
+                />
               </PublicCategorySection>
             </div>
             <EventCalendar
