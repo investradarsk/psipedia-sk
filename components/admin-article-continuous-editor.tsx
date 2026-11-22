@@ -226,9 +226,8 @@ export function AdminArticleContinuousEditor(props: Props) {
     const from = editor.state.selection.from;
     const insertAt = Math.max(from, boundaryEnd);
     editor.chain().focus().insertContentAt(insertAt, nodes).run();
-    if (type !== "text" && type !== "h2" && type !== "h3") {
-      requiredNativeIds.current.add(block.id);
-    }
+    // Only pre-existing native blocks need removal confirmation. An undo after
+    // inserting a brand-new widget must remain possible without a false error.
     setPickerOpen(false);
   };
 
