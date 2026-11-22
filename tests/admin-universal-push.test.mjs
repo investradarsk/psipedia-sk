@@ -110,7 +110,7 @@ test("public, review, automation and geo actionable events have push coverage",(
   assert.match(inquiry,/notificationType === "new"/);
 
   const editorial=read("lib/admin-notifications.ts");
-  assert.match(editorial,/directory_profile_change_submitted/);
+  assert.doesNotMatch(editorial,/directory_profile_change_submitted/);
   assert.match(editorial,/news_tip_submitted/);
   assert.match(editorial,/negative_article_feedback_submitted/);
   assert.match(editorial,/Boolean\(row\.helpful\)/);
