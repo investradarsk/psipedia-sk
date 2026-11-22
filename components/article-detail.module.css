@@ -609,6 +609,11 @@
   background: color-mix(in srgb, var(--brand-accent) 7%, white);
 }
 
+/* The in-reading affiliate slot exists only on phones; desktop retains sidebar placement. */
+.mobileAffiliateBanner {
+  display: none;
+}
+
 .sidebar {
   min-width: 0;
   align-self: stretch;
@@ -706,6 +711,15 @@
 }
 
 @media (max-width: 767px) {
+  .mobileAffiliateBanner {
+    display: block;
+    margin: 22px 0 26px;
+  }
+
+  .mobileAffiliateBanner :global([data-affiliate-rotating-banner]) {
+    margin-block: 0;
+  }
+
   .readingProgress {
     height: 2px;
   }

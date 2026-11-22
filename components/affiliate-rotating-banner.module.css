@@ -5,6 +5,11 @@
   text-align: center;
 }
 
+/* Hide the label and image together until the original artwork actually loads. */
+.pending {
+  visibility: hidden;
+}
+
 .label {
   display: block;
   margin-bottom: 7px;

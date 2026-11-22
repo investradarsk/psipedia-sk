@@ -121,3 +121,41 @@ test("mobile uses square originals and sidebar uses tall originals", () => {
   assert.match(css, /object-fit: contain/);
   assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
 });
+
+test("mobile article shows one original banner after introduction, not at footer", () => {
+  const article = source("components/article-detail.tsx");
+  const articleCSS = source("components/article-detail.module.css");
+  const footerCSS = source("components/sitewide-affiliate-banner.module.css");
+  const intro = article.indexOf('keyPrefix="article-intro"');
+  const inline = article.indexOf('data-article-mobile-affiliate-banner');
+  const takeaway = article.indexOf('showTakeaway ? (');
+  assert.ok(intro !== -1 && inline > intro && inline < takeaway);
+  assert.match(article, /data-article-mobile-affiliate-banner>[\s\S]*?<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
+  assert.match(articleCSS, /\.mobileAffiliateBanner\s*\{\s*display:\s*none;/);
+  assert.match(articleCSS, /@media\s*\(max-width:\s*767px\)[\s\S]*?\.mobileAffiliateBanner\s*\{\s*display:\s*block;/);
+  assert.match(footerCSS, /@media\s*\(max-width:\s*767px\)[\s\S]*?body:has\(\[data-article-layout\]\)/);
+  assert.match(footerCSS, /display:\s*none;/);
+  assert.match(article, /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+});
+
+test("mapped directory and event details allow only original Dognet image hosts", () => {
+  const worker = source("worker/index.ts");
+  const imgSrcPolicy = worker.match(/"img-src 'self'[^"]+"/)?.[0] ?? "";
+  assert.match(imgSrcPolicy, /https:\/\/api\.app\.dognet\.com/);
+  assert.match(imgSrcPolicy, /https:\/\/visibility\.postaffiliatepro\.com/);
+  assert.doesNotMatch(imgSrcPolicy, /(?:^|\s)\*(?:\s|$)/);
+  assert.match(worker, /if \(isGoogleMapsPublicRoute\(url\.pathname\)\)/);
+  assert.match(worker, /\^\\\/adresar/);
+  assert.match(worker, /\^\\\/podujatia/);
+});
+
+test("an unavailable external artwork never leaves a blank affiliate label", () => {
+  const component = source("components/affiliate-rotating-banner.tsx");
+  const css = source("components/affiliate-rotating-banner.module.css");
+  assert.match(component, /failedImage === original\.src\) return null/);
+  assert.match(component, /onLoad=\{\(\) => setLoadedImage\(original\.src\)\}/);
+  assert.match(component, /onError=\{\(\) => setFailedImage\(original\.src\)\}/);
+  assert.match(component, /styles\.pending/);
+  assert.match(css, /\.pending\s*\{\s*visibility:\s*hidden;/);
+  assert.doesNotMatch(component, /styles\.placeholder/);
+});
