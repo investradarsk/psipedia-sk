@@ -296,19 +296,6 @@ async function describeNotification(database: D1Database, resourceType: string, 
     };
   }
 
-  if (resourceType === "directory_profile_change_request") {
-    const row = await database.prepare(
-      "SELECT profile_name, status FROM directory_profile_change_requests WHERE id = ? LIMIT 1",
-    ).bind(resourceId).first<Record<string, unknown>>();
-    if (!row || !["new", "reviewing"].includes(String(row.status))) return null;
-    return {
-      title: "Psipedia — návrh na úpravu profilu",
-      body: `Prišiel nový návrh pre ${String(row.profile_name).slice(0, 100)}.`,
-      url: `/admin/adresar/navrhy#navrh-${resourceId}`,
-      tag: `profile-change-${resourceId}`,
-    };
-  }
-
   if (resourceType === "article_feedback") {
     const row = await database.prepare(
       "SELECT article_title, helpful, status FROM article_feedback WHERE id = ? LIMIT 1",
