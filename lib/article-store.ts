@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { normalizeSmartImageMode, normalizeImageFocus, type SmartImageMode } from "@/lib/smart-image";
+import { hasCompletePublicPhotoCredit } from "@/lib/public-editorial-guard";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
 import { articles as seedArticles, type Article, type ArticleSection, type ArticleSource } from "@/lib/content";
 import {
@@ -611,7 +612,7 @@ async function normalizeInput(
   // On any canonical Admin/Notion write, keep D1 free of Notion-only prose.
   // Photo credits are retained until a complete public attribution exists.
   const canonicalBlocks = publicArticleBlocks(normalizeArticleBlocks(payload.blocks ?? []), {
-    hasImageCredit: Boolean(payload.imageCredit?.trim() && payload.imageCreditUrl?.trim()),
+    hasImageCredit: hasCompletePublicPhotoCredit(payload.imageCredit, payload.imageCreditUrl),
   });
   const staticQaIssues = assessArticleContentQa({ ...payload, blocks: canonicalBlocks });
   const portalSection: ArticlePortalSection = payload.portalSection && isArticlePortalSection(payload.portalSection)
