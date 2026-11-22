@@ -1010,7 +1010,7 @@ export function AdminArticleEditor({
                   if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]')) {
                     setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
                   }
-                  setContinuousEditableOpen(false); setContinuousReadOnlyOpen(true);
+                  setContinuousEditableOpen(false); setContinuousReadOnlyOpen(open => !open);
                 }}>
                 Súvislý náhľad
               </button>
