@@ -6,6 +6,16 @@ export const OUTREACH_ENTITY_TYPES = [
 ] as const;
 
 export type OutreachEntityType = (typeof OUTREACH_ENTITY_TYPES)[number];
+
+/** A scoped outreach link is informational only; actual edits require Partner authorization. */
+export function outreachPartnerClaimHref(entityType: string, entityId: string): string {
+  const id = Number(entityId);
+  if (!(OUTREACH_ENTITY_TYPES as readonly string[]).includes(entityType)
+      || !Number.isSafeInteger(id) || id < 1 || String(id) !== entityId) {
+    return "/partner/registracia";
+  }
+  return `/partner/prevziat-profil/${entityType}/${id}`;
+}
 export type OutreachCampaignStatus =
   | "DRAFT"
   | "READY"
@@ -66,10 +76,10 @@ export const DEFAULT_OUTREACH_BODY = [
   "",
   "{profiles}",
   "",
-  "Prosíme o krátku kontrolu údajov. Opravy alebo chýbajúce informácie môžete navrhnúť cez tento bezpečný odkaz:",
+  "Ak ste oprávnený správca, údaje upravíte cez Partner účet. K vášmu profilu a postupu na prevzatie sa dostanete tu:",
   "{verification_url}",
   "",
-  "Návrh nič automaticky neprepíše ani nezverejní. Každú zmenu najprv skontroluje redakcia Psipedia.",
+  "Odoslaný odkaz sám osebe neudeľuje právo spravovať profil. Prevzatie musí schváliť Psipedia.",
   "",
   "Ak si ďalšie podobné oslovenia neželáte, môžete sa odhlásiť tu:",
   "{unsubscribe_url}",
@@ -241,6 +251,18 @@ export function renderOutreachText(input: {
     .map((entity) => "- " + entity.entityName + ": " + entity.profileUrl)
     .join("\n");
   let body = input.bodyTemplate || DEFAULT_OUTREACH_BODY;
+  // Templates are persisted per campaign, including the old default. Fix
+  // already-saved copy at send time so no new email advertises anonymous edits.
+  body = replaceAllLiteral(
+    body,
+    "Prosíme o krátku kontrolu údajov. Opravy alebo chýbajúce informácie môžete navrhnúť cez tento bezpečný odkaz:",
+    "Ak ste oprávnený správca, údaje upravíte cez Partner účet. K vášmu profilu a postupu na prevzatie sa dostanete tu:",
+  );
+  body = replaceAllLiteral(
+    body,
+    "Návrh nič automaticky neprepíše ani nezverejní. Každú zmenu najprv skontroluje redakcia Psipedia.",
+    "Odoslaný odkaz sám osebe neudeľuje právo spravovať profil. Prevzatie musí schváliť Psipedia.",
+  );
   body = replaceAllLiteral(body, "{profiles}", profileLines);
   body = replaceAllLiteral(body, "{verification_url}", input.verificationUrl);
   body = replaceAllLiteral(body, "{unsubscribe_url}", input.unsubscribeUrl);
