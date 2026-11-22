@@ -104,7 +104,7 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       <OrganizationProfileDetail composition={composition} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} publicMap={publicMapPresentation} />
-      <PartnerPublicOwnership state={partnerState} correctionHref="/opravy-a-podnety" />
+      <PartnerPublicOwnership state={partnerState} />
     </>
   );
 }

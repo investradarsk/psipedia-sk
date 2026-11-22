@@ -320,37 +320,27 @@ function proposal(overrides = {}) {
   };
 }
 
-test("profile-specific forms are prefilled for representative directory categories and keep verification private", async () => {
+test("old public correction URLs redirect to profiles without revealing an anonymous form", async () => {
   const { d1, profiles } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
   Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk" });
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("change-form", String(Date.now()));
+  workerUrl.searchParams.set("retired-public-correction", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
-  for (const [slug, name, category] of profiles) {
-    const detail = await request(worker, d1, `/adresar/${category}/${slug}`);
+
+  for (const [slug, , category] of profiles) {
+    const publicPath = `/adresar/${category}/${slug}`;
+    const detail = await request(worker, d1, publicPath);
     assert.equal(detail.status, 200);
-    assert.match(await detail.text(), new RegExp(`/adresar/${category}/${slug}/upravit`));
-    const form = await request(worker, d1, `/adresar/${category}/${slug}/upravit`);
-    assert.equal(form.status, 200, `${category}/${slug}`);
-    const html = await form.text();
-    assert.match(html, /Navrhnúť úpravu profilu/);
-    assert.match(html, new RegExp(name));
-    assert.doesNotMatch(
-      html,
-      /Stav overenia|čiastočne overené|import-vet|vet-internal@example\.sk/i,
-    );
+    const html = await detail.text();
+    assert.doesNotMatch(html, /Navrhnúť opravu údajov|partner-profile-correction-heading/);
+    assert.doesNotMatch(html, new RegExp(publicPath + "/upravit"));
+
+    const oldForm = await request(worker, d1, publicPath + "/upravit");
+    assert.equal(oldForm.status, 308, publicPath);
+    const location = new URL(oldForm.headers.get("location"), "http://localhost");
+    assert.equal(location.pathname, publicPath);
   }
-  const kennel = await request(worker, d1, "/adresar/chovatelske-stanice/stanica-test/upravit");
-  const kennelHtml = await kennel.text();
-  // Breed links are canonical IDs, not editable duplicate free-text fields.
-  assert.match(kennelHtml, /FCI skupina/);
-  assert.match(kennelHtml, /Chovateľ/);
-  assert.doesNotMatch(kennelHtml, /<span>Plemeno<\/span>/);
-  const walking = await request(worker, d1, "/adresar/vencenie/vencenie-test/upravit");
-  assert.match(await walking.text(), /GPS \/ foto report/);
-  const physio = await request(worker, d1, "/adresar/fyzioterapia/fyzio-test/upravit");
-  assert.match(await physio.text(), /Odborník \/ certifikácia/);
 });
 
 test("server validation stores a separate request and never changes the profile", async () => {

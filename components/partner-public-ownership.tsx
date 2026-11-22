@@ -99,18 +99,16 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
 
 export function PartnerPublicOwnership({
   state,
-  correctionHref,
   embedded = false,
 }: {
   state: PublicPartnerProfileManagementState;
-  correctionHref: string;
   embedded?: boolean;
 }) {
   const Wrapper = embedded ? "div" : "aside";
   return (
     <Wrapper
       className={[styles.wrap, embedded && styles.embedded].filter(Boolean).join(" ")}
-      aria-label={embedded ? undefined : "Správa a oprava profilu"}
+      aria-label={embedded ? undefined : "Správa profilu"}
     >
       <div className={styles.inner}>
         <section className={styles.management} aria-labelledby="partner-profile-management-heading">
@@ -127,17 +125,6 @@ export function PartnerPublicOwnership({
           </div>
         </section>
 
-        <section className={styles.correction} aria-labelledby="partner-profile-correction-heading">
-          <div>
-            <h3 id="partner-profile-correction-heading">Našli ste nesprávny údaj?</h3>
-            <p>
-              Opravu môže navrhnúť každý návštevník. Návrh opravy nevytvára právo spravovať profil.
-            </p>
-          </div>
-          <Link className={styles.correctionCta} href={correctionHref}>
-            Navrhnúť opravu údajov
-          </Link>
-        </section>
       </div>
     </Wrapper>
   );
