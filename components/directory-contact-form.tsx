@@ -27,32 +27,34 @@ export function DirectoryContactForm({
   const [consent, setConsent] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const submissionKey = useRef<string | null>(null);
+  // Keep one key only for an identical retry. Editing after a network failure
+  // must create a fresh request rather than silently returning the old inquiry.
+  const submissionKey = useRef<{ key: string; fingerprint: string } | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSending(true);
     setResult(null);
     try {
-      submissionKey.current ??= crypto.randomUUID();
+      const payload = {
+        profileId, senderName, senderEmail, senderPhone, dogInfo, message, company, consent,
+      };
+      const fingerprint = JSON.stringify(payload);
+      if (!submissionKey.current || submissionKey.current.fingerprint !== fingerprint) {
+        submissionKey.current = { key: crypto.randomUUID(), fingerprint };
+      }
       const response = await fetch("/api/directory/inquiries", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          profileId,
-          senderName,
-          senderEmail,
-          senderPhone,
-          dogInfo,
-          message,
-          company,
-          consent,
-          submissionKey: submissionKey.current,
-        }),
+        body: JSON.stringify({ ...payload, submissionKey: submissionKey.current.key }),
       });
       const data = (await response.json()) as { success?: boolean; error?: string };
-      if (!response.ok || !data.success)
+      if (!response.ok || !data.success) {
+        // An earlier request with this key had different content (e.g. a
+        // delayed reply after a network failure). The next attempt must be new.
+        if (response.status === 409) submissionKey.current = null;
         throw new Error(data.error || "Dopyt sa nepodarilo odoslať.");
+      }
       setResult({
         type: "success",
         text: `Dopyt pre ${profileName} sme prijali. Redakcia Psipedie ho skontroluje a ozve sa ti na uvedený e-mail.`,

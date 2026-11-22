@@ -17,6 +17,11 @@ export type DirectoryInquiryInput = {
 };
 
 export class DirectoryRateLimitError extends Error {}
+export class DirectorySubmissionKeyConflictError extends Error {
+  constructor() {
+    super("Obsah dopytu sa od predchádzajúceho odoslania zmenil. Skúste ho odoslať znova.");
+  }
+}
 
 type RuntimeBindings = { DB?: D1Database };
 
@@ -118,6 +123,22 @@ async function findInquiryBySubmissionKey(database: D1Database, submissionKey: s
   return row ? rowToInquiry(row) : null;
 }
 
+/**
+ * Idempotency keys protect retries of exactly the same inquiry, not edited
+ * messages or another profile. A previously accepted key must never return a
+ * misleading success for content that was not persisted.
+ */
+function assertSameInquirySubmission(existing: DirectoryInquiry, payload: DirectoryInquiryInput) {
+  const same = existing.profileId === Number(payload.profileId)
+    && existing.senderName === (payload.senderName?.trim() ?? "")
+    && existing.senderEmail === (payload.senderEmail?.trim().toLowerCase() ?? "")
+    && existing.senderPhone === (payload.senderPhone?.trim() ?? "")
+    && existing.dogInfo === (payload.dogInfo?.trim() ?? "")
+    && existing.message === (payload.message?.trim() ?? "")
+    && existing.consent === Boolean(payload.consent);
+  if (!same) throw new DirectorySubmissionKeyConflictError();
+}
+
 function isUniqueSubmissionKeyConflict(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes("directory_inquiries.submission_key") || message.includes("directory_inquiries_submission_key_unique");
@@ -129,7 +150,10 @@ export async function createDirectoryInquiry(payload: DirectoryInquiryInput, dat
 
   const submissionKey = normalizeSubmissionKey(payload.submissionKey);
   const existing = await findInquiryBySubmissionKey(db, submissionKey);
-  if (existing) return { inquiry: existing, created: false as const };
+  if (existing) {
+    assertSameInquirySubmission(existing, payload);
+    return { inquiry: existing, created: false as const };
+  }
 
   const profileId = Number(payload.profileId);
   if (!Number.isSafeInteger(profileId) || profileId < 1) throw new Error("Profil sa nenašiel.");
@@ -178,6 +202,7 @@ export async function createDirectoryInquiry(payload: DirectoryInquiryInput, dat
     if (!isUniqueSubmissionKeyConflict(error)) throw error;
     const concurrent = await findInquiryBySubmissionKey(db, submissionKey);
     if (!concurrent) throw error;
+    assertSameInquirySubmission(concurrent, payload);
     return { inquiry: concurrent, created: false as const };
   }
 }
