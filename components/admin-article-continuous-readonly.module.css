@@ -29,3 +29,27 @@
   .paper { padding: 1rem .85rem; border-radius: 8px; }
   .prose { font-size: .96rem; line-height: 1.68; }
 }
+
+/* Continuous workspace: a document surface rather than stacked Admin cards. */
+.editableWorkspace { min-width: 0; display: grid; gap: 1rem; }
+.editableWorkspace .paper { max-width: 860px; width: 100%; min-height: 480px; }
+.editableProse :global(.ProseMirror) { min-height: 380px; outline: 0; cursor: text; }
+.editableProse :global(.ProseMirror:focus-visible) { outline: 2px solid #3a7658; outline-offset: 8px; }
+.insertBar { max-width: 860px; width: 100%; margin-inline: auto; display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; }
+.insertBar > button, .widgetActions button, .widgetHeading > button {
+  appearance: none; min-height: 36px; padding: .45rem .8rem;
+  border: 1px solid #c9d6ce; border-radius: 7px; background: #f6faf7;
+  color: #17452d; cursor: pointer; font: inherit; font-weight: 650;
+}
+.insertBar > small { flex: 1; min-width: 180px; font-size: .8rem; color: #65756b; }
+.insertPicker { display: flex; flex-wrap: wrap; gap: .4rem; width: 100%; padding: .6rem; border: 1px solid #c9d6ce; border-radius: 9px; background: #f7faf8; }
+.insertPicker button { padding: .45rem .55rem; border-radius: 6px; border: 1px solid #d2ded5; background: #fff; color: #17452d; cursor: pointer; }
+.widget { border: 1px solid #d6e2d9; padding: .6rem; border-radius: 9px; }
+.widgetHeading { display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-bottom: .65rem; flex-wrap: wrap; }
+.widgetActions { display: flex; align-items: center; gap: .4rem; }
+.widgetActions .removeWidget { color: #9c302d; background: #fff8f6; }
+.boundary { margin-block: 1.5rem .5rem; padding-bottom: .3rem; border-bottom: 1px solid #e3ebe6; color: #567965; font-weight: 720; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; }
+@media (max-width: 700px) {
+  .editableWorkspace .paper { min-height: 320px; }
+  .insertPicker button { min-height: 42px; }
+}
