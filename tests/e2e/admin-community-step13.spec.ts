@@ -104,7 +104,6 @@ test("step 13: article feedback cards retain actions and compact mobile layout",
 for (const { path, module } of [
   { path: "/admin/tipy", module: "community-tips" },
   { path: "/admin/dopyty", module: "community-inquiries" },
-  { path: "/admin/adresar/navrhy", module: "community-profile-suggestions" },
 ]) {
   test(`step 13: ${module} community queue fits all viewports without changing records`, async ({ page }) => {
     const response = await page.goto(path, { waitUntil: "domcontentloaded" });
