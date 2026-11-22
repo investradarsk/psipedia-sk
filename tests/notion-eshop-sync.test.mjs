@@ -121,6 +121,99 @@ test("e-shop mapping recovery rejects divergent pages and self-declared Sync has
   assert.doesNotMatch(fn, /notionRichTextProperty\(input.page, "Sync hash"\) \|\| hash/);
 });
 
+test("e-shop system mirror verifies fresh Notion state before D1 acknowledgement and heals only its own error", async () => {
+  const source = read("lib/notion-eshop-sync.ts");
+  const helper = read("lib/notion-selective-property-patch.ts");
+  const first = source.indexOf("async function mirrorEshopSystemFields(");
+  const end = source.indexOf("\nfunction configured(", first);
+  assert.ok(first >= 0 && end > first);
+  const mirrorSource = source.slice(first, end);
+  const helperExports = {};
+  runInNewContext(ts.transpileModule(helper, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText, { exports: helperExports, module: { exports: helperExports } });
+
+  async function scenario({ staleEcho = false, persistMismatch = false, unrelatedError = false } = {}) {
+    const calls = [];
+    const pageId = "notion-eshop-1";
+    const sourceDate = "2026-11-12T14:05:00.000Z";
+    const syncedDate = "2026-11-22T17:00:00.000Z";
+    const errorText = unrelatedError ? "ESHOP_FIELD_EVENTS_PENDING" : "ESHOP_SYSTEM_MIRROR_ECHO_MISMATCH";
+    const current = {
+      id: pageId, properties: {
+        "Psipedia ID": { rich_text: [{ text: { content: "1" } }] },
+        "Počet hodnotení": { number: 0 },
+        "Aktualizované Psipedia": { date: { start: sourceDate } },
+        "Psipedia stav": { select: { name: "Publikované" } },
+        "Sync stav": { select: { name: unrelatedError ? "Chyba" : "Chyba" } },
+        "Sync chyba": { rich_text: [{ text: { content: errorText } }] },
+        "Posledný sync": { date: { start: syncedDate } },
+      },
+    };
+    const shop = { id: 1, status: "published", ratingCount: 1, updatedAt: sourceDate };
+    const originalCount = current.properties["Počet hodnotení"];
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const notionProperties = (_shop, _hash, now) => ({
+      "Počet hodnotení": { number: 1 },
+      "Celkové hodnotenie": { number: null },
+      "Doručenie": { number: null },
+      "Komunikácia": { number: null },
+      "Sortiment": { number: null },
+      "Ceny": { number: null },
+      "Aktualizované Psipedia": { date: { start: sourceDate } },
+      "Publikované Psipedia": { date: null },
+      "Psipedia stav": { select: { name: "Publikované" } },
+      "Posledný sync": { date: { start: now } },
+    });
+    const context = {
+      getManagedEshopById: async () => shop,
+      fetchPage: async () => { calls.push("GET"); return clone(current); },
+      notionPageBelongsToDataSource: p => p.id === pageId,
+      notionRichTextProperty: (p, field) =>
+        (p.properties[field]?.rich_text ?? []).map(v => v.text.content).join(""),
+      notionProperties,
+      select: value => ({ select: { name: value } }),
+      notionTextValue: value => ({ rich_text: value ? [{ text: { content: value } }] : [] }),
+      date: value => ({ date: value ? { start: value } : null }),
+      selectiveNotionProperties: helperExports.selectiveNotionProperties,
+      sameNotionProperty: helperExports.sameNotionProperty,
+      patchPage: async (_bindings, id, patch) => {
+        calls.push("PATCH");
+        assert.equal(id, pageId);
+        const original = clone(current);
+        if (!persistMismatch) Object.assign(current.properties, clone(patch));
+        if (staleEcho) return original;
+        return clone(current);
+      },
+    };
+    const fn = runInNewContext(
+      ts.transpileModule(mirrorSource + "\nthis.mirror = mirrorEshopSystemFields;", {
+        compilerOptions: { target: ts.ScriptTarget.ES2022 },
+      }).outputText,
+      context,
+    ) ?? context.mirror;
+    const db = { prepare: () => ({ bind: () => ({ run: async () => { calls.push("ACK"); return { success: true }; } }) }) };
+    const input = { database: db, bindings: {}, dataSourceId: "collection", mapping: { eshop_id: 1, notion_page_id: pageId } };
+    return { calls, current, fn: context.mirror, input, originalCount };
+  }
+
+  const stale = await scenario({ staleEcho: true });
+  assert.equal(await stale.fn(stale.input), "pushed");
+  assert.deepEqual(stale.calls, ["GET", "PATCH", "GET", "ACK"]);
+  assert.equal(stale.current.properties["Sync stav"].select.name, "Synchronizované");
+  assert.deepEqual(stale.current.properties["Sync chyba"].rich_text, []);
+
+  const mismatch = await scenario({ persistMismatch: true });
+  await assert.rejects(mismatch.fn(mismatch.input), /ESHOP_SYSTEM_MIRROR_ECHO_MISMATCH.*Počet hodnotení/);
+  assert.deepEqual(mismatch.calls, ["GET", "PATCH", "GET"]);
+  assert.equal(mismatch.current.properties["Sync stav"].select.name, "Chyba");
+
+  const unrelated = await scenario({ unrelatedError: true });
+  assert.equal(await unrelated.fn(unrelated.input), "pushed");
+  assert.equal(unrelated.current.properties["Sync chyba"].rich_text[0].text.content, "ESHOP_FIELD_EVENTS_PENDING");
+  assert.equal(unrelated.current.properties["Sync stav"].select.name, "Chyba");
+});
+
 test("e-shop production mapping upsert never silently reassigns Notion page", async () => {
   const source = read("lib/notion-eshop-sync.ts");
   const start = source.indexOf("async function saveMapping(input:");
