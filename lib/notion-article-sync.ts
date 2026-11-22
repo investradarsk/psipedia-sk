@@ -19,6 +19,7 @@ import {
 import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
   hasCompletePublicPhotoCredit,
+  isInternalArticleInstructionText,
   isNotionOnlySocialDraftHeading,
   isPhotoAttributionHeading,
   isPrivateEditorialArticleHeading,
@@ -894,7 +895,8 @@ function selectNotionArticleBodyBlocks(blocks: NotionBlock[], hasPhotoCredit = f
       break;
     }
   }
-  const selected = blocks.slice(from, until);
+  const selected = blocks.slice(from, until).filter((block) =>
+    !isInternalArticleInstructionText(blockText(block)));
   if (markerIndex < 0) {
     const first = selected.find((block) => blockText(block).length > 0);
     const headingCount = selected.filter((block) => block.type === "heading_2" && blockText(block)).length;
