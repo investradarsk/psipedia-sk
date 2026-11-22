@@ -1,3 +1,4 @@
+import { CalendarDays, Flag, BookOpen, Dumbbell, UsersRound, LayoutGrid } from "lucide-react";
 import type { EventListingFilters } from "@/lib/event-listing";
 import Link from "next/link";
 import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
@@ -35,6 +36,16 @@ import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
 import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import styles from "./events-public.module.css";
+
+/** Presentation-only icons; category routes and calendar colors stay unchanged. */
+const eventCategoryIcons = {
+  "Výstava": <CalendarDays size={18} />,
+  "Preteky": <Flag size={18} />,
+  "Seminár": <BookOpen size={18} />,
+  "Tréning": <Dumbbell size={18} />,
+  "Stretnutie": <UsersRound size={18} />,
+  "Iné": <LayoutGrid size={18} />,
+} satisfies Record<EventType, React.ReactElement>;
 
 export async function EventsPage({
   events,
@@ -225,6 +236,7 @@ export async function EventsPage({
                 items={eventTypes.map((type) => ({
                   href: eventTypePortalHref(type) ?? "/podujatia",
                   title: eventTypePresentation[type].label,
+                  icon: eventCategoryIcons[type],
                   current: initialType === type,
                 }))}
               />
