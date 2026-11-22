@@ -83,6 +83,59 @@ test("SERVICES-V2 desktop/mobile matrix uses one search, accessible categories a
   }
 });
 
+test("SERVICES-V2 long desktop filter remains sticky with one independently scrollable panel", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+  await page.setViewportSize({ width: 1440, height: 720 });
+  await open(page, "/adresar/veterinari");
+
+  const panel = page.locator("[data-directory-columns] > [data-public-filter-panel]");
+  const form = panel.locator('[data-directory-filter-form][data-directory-modal="false"]');
+  await expect(panel).toBeVisible();
+  await expect(form).toBeVisible();
+
+  const dimensions = await panel.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const formStyle = getComputedStyle(element.querySelector("form")!);
+    return {
+      position: style.position,
+      overflow: style.overflowY,
+      formOverflow: formStyle.overflowY,
+      top: parseFloat(style.top),
+      height: element.getBoundingClientRect().height,
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(dimensions.position).toBe("sticky");
+  expect(dimensions.overflow).toBe("auto");
+  expect(dimensions.formOverflow).toBe("visible"); // one scroll owner, no nested form scrollbar
+  expect(dimensions.height).toBeLessThanOrEqual(dimensions.viewportHeight - dimensions.top - 10);
+  expect(dimensions.scrollHeight).toBeGreaterThan(dimensions.clientHeight + 50);
+
+  // The submit/reset actions must be reachable without scrolling all the way
+  // down the page; the panel itself is the scrolling viewport.
+  await panel.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBeGreaterThan(40);
+  const actionsVisible = await panel.evaluate((element) => {
+    const viewport = element.getBoundingClientRect();
+    const submit = element.querySelector('button[type="submit"]')!.getBoundingClientRect();
+    const reset = element.querySelector('[data-directory-filter-form] a[href]')?.getBoundingClientRect();
+    return {
+      submitVisible: submit.top >= viewport.top && submit.bottom <= viewport.bottom,
+      resetVisible: Boolean(reset && reset.top >= viewport.top && reset.bottom <= viewport.bottom),
+    };
+  });
+  expect(actionsVisible.submitVisible).toBe(true);
+  expect(actionsVisible.resetVisible).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(panel).toHaveCSS("position", "static");
+  await expect(page.locator("[data-directory-mobile-filters]")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(391);
+});
+
 test("SERVICES-V2 GET search and filters work without JavaScript and keep category route", async ({ browser }) => {
   const context = await browser.newContext({
     baseURL:process.env.E2E_BASE_URL,

@@ -43,6 +43,7 @@
     "SERVICE_CATALOG_NOTION_AUTO_PAGE_CREATES_ENABLED": "true",
     "SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED": "true",
     "PARTNER_FROM_EMAIL": "Psipedia.sk <recenzie@psipedia.sk>",
+    "EDITORIAL_FROM_EMAIL": "Psipedia.sk <notifikacie@psipedia.sk>",
     "SITE_ANALYTICS_ENABLED": "true",
     "PROFILE_REVIEW_SUBMISSIONS_ENABLED": "true",
     "LOST_FOUND_SUBMISSIONS_ENABLED": "true",
