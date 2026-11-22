@@ -1,4 +1,5 @@
 import { PublicFilterLayout, PublicFilterPanel } from "@/components/public-filters";
+import { reportDirectoryPublicReadFailure } from "@/lib/public-directory-read-diagnostics";
 import Link from "next/link";
 import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { Breadcrumbs } from "@/components/page-system";
@@ -86,10 +87,15 @@ export async function DirectoryPage({
   // These three independent D1 reads previously ran in two serial phases
   // on the root overview. Start the conditional previews together with the
   // hero and editorial sidebar without changing the page's result set.
+  const previewsRead = isOverview ? getDirectoryCategoryPreviews(5) : Promise.resolve(null);
+  const heroRead = getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar");
+  const discoveryRead = getArticleDiscoveryData({ slug: "directory-listing", portalSection: "novinky" });
+  // Keep all three reads concurrent and identify any failing D1 read boundary
+  // in Cloudflare Observability without logging SQL or private input.
   const [categoryPreviews, heroVisual, discovery] = await Promise.all([
-    isOverview ? getDirectoryCategoryPreviews(5) : Promise.resolve(null),
-    getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar"),
-    getArticleDiscoveryData({ slug: "directory-listing", portalSection: "novinky" }),
+    previewsRead.catch((error) => reportDirectoryPublicReadFailure("category_previews", error)),
+    heroRead.catch((error) => reportDirectoryPublicReadFailure("hero_visual", error)),
+    discoveryRead.catch((error) => reportDirectoryPublicReadFailure("article_discovery", error)),
   ]);
   // Preserve the established category SEO copy and all stored image/crop values.
   const seoHeroVisual = active

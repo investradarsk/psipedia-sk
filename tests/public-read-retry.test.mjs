@@ -55,3 +55,38 @@ test("only recognized transient failures are retryable", () => {
   assert.equal(isTransientPublicReadError(new Error("D1_ERROR")), false);
   assert.equal(isTransientPublicReadError(new Error("no such column")), false);
 });
+
+test("directory diagnostics logs only a fixed stage and transient flag, preserving the original error", async () => {
+  const { reportDirectoryPublicReadFailure } = await import("../lib/public-directory-read-diagnostics.ts");
+  const original = console.error;
+  const logs = [];
+  console.error = (line) => logs.push(String(line));
+  const originalError = new Error("Network connection lost. sensitive user@example.com");
+  try {
+    assert.throws(
+      () => reportDirectoryPublicReadFailure("category_previews", originalError),
+      (error) => error === originalError,
+    );
+  } finally {
+    console.error = original;
+  }
+  assert.equal(logs.length, 1);
+  assert.deepEqual(JSON.parse(logs[0]), {
+    event: "public_directory_read_failed",
+    stage: "category_previews",
+    transient: true,
+    errorType: "Error",
+  });
+  assert.doesNotMatch(logs[0], /sensitive|user@example.com/);
+});
+
+test("directory SSR diagnostics cover primary listing, previews, hero and sidebar without changing data", async () => {
+  const { readFileSync } = await import("node:fs");
+  const root = readFileSync(new URL("../app/adresar/page.tsx", import.meta.url), "utf8");
+  const component = readFileSync(new URL("../components/directory-page.tsx", import.meta.url), "utf8");
+  assert.match(root, /reportDirectoryPublicReadFailure\("listing", error\)/);
+  for (const stage of ["category_previews", "hero_visual", "article_discovery"]) {
+    assert.ok(component.includes('reportDirectoryPublicReadFailure("' + stage + '", error)'));
+  }
+  assert.match(component, /const \[categoryPreviews, heroVisual, discovery\] = await Promise\.all\(\[/);
+});
