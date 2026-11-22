@@ -43,6 +43,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
   const categories: Record<string, string> = {
     novinky: "Novinky",
     steniatka: "Šteniatka",
+    plemena: "Plemená",
     vycvik: "Výcvik",
     zdravie: "Zdravie",
     vyziva: "Výživa",
