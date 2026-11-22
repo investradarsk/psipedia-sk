@@ -14,7 +14,7 @@ The existing Notion property `Kategória` remains the section selector for compa
 
 - Notion `Kategória = Plemená`, `Podsekcia` prázdna -> D1 `category = Plemená`, `portalSection = clanky`.
 - Detail článku zostáva na `/clanky/{slug}`; článok sa zobrazuje aj v sekcii `/plemena` a v archíve `/clanky?tema=plemena`.
-- `Prepojené plemená` je existujúca Notion relation na kanonické plemená. Pri importe sa mapuje cez `breed_notion_sync` alebo potvrdené workcopy prepojenie na D1 `breed_article_relations`.
+- `Prepojené plemená` je existujúca Notion relation na kanonické plemená. Pri importe sa mapuje cez `breed_notion_sync` alebo potvrdené workcopy prepojenie na D1 `breed_article_relations`; pri zámene plemena v Admin editore sa späť zapisujú iba potvrdené `ACTIVE` work-copy Notion page ID z `breed_notion_workcopy_links` (cieľ relation je work-copy databáza).
 - Staré publikované články sa nepresúvajú automaticky podľa názvu; presun rieši redaktor a pôvodné URL smerujú na kanonickú trasu.
 
 ## Canonical combinations
