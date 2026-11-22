@@ -19,6 +19,7 @@ import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
 import { buildSiteIdentityJsonLd, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 import "./design-system.css";
+import "./banner-visuals.css";
 import "./breed-hero-safe-zone.css";
 import "./navigation-loading.css";
 
