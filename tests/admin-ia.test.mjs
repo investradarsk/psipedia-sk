@@ -48,7 +48,6 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
     "/admin/tipy",
     "/admin/hodnotenia",
     "/admin/dopyty",
-    "/admin/adresar/navrhy",
     "/admin/partners",
     "/admin/automatizacie-gemini",
     "/admin/facebook-obrazky",
@@ -75,7 +74,6 @@ test("active state uses the most specific top-level owner for detail and legacy 
     ["/admin/adopcie/42", "/admin/pomoc-psom"],
     ["/admin/stratene-najdene/42", "/admin/pomoc-psom"],
     ["/admin/organizacie/42", "/admin/pomoc-psom"],
-    ["/admin/adresar/navrhy", "/admin/adresar/navrhy"],
     ["/admin/partners/claims/claim-1", "/admin/partners"],
     ["/admin/operations", "/admin/operations"],
     ["/admin/operations/automation/42", "/admin/automatizacie-gemini"],
@@ -251,7 +249,6 @@ test("all previous admin agendas and technical deep-link owners still exist", ()
   for (const path of [
     "app/admin/adopcie/page.tsx",
     "app/admin/adresar/page.tsx",
-    "app/admin/adresar/navrhy/page.tsx",
     "app/admin/automatizacie/page.tsx",
     "app/admin/dopyty/page.tsx",
     "app/admin/hodnotenia/page.tsx",
