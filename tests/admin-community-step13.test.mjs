@@ -131,8 +131,10 @@ test("step 13: tips, inquiries and profile change suggestions reuse compact comm
   assert.match(tips, /removeTip\(/);
   assert.match(inquiries, /<AdminInlineRowActions/);
   assert.match(inquiries, /removeInquiry\(/);
-  assert.match(change, /<AdminDestructiveConfirmDialog/);
-  assert.match(change, /setPendingReview\(/);
+  // Legacy public proposals are intentionally view-only until the page is
+  // retired in step 4/10; never reintroduce moderation buttons.
+  assert.doesNotMatch(change, /<AdminDestructiveConfirmDialog|setPendingReview\(/);
+  assert.match(change, /Historické návrhy – iba na čítanie/);
   assert.match(change, /<section className="admin-change-diff"/);
   assert.match(css, /\[data-admin-content-module\^="community-"\]/);
   assert.match(css, /min-height: var\(--admin-ui-control-height, 44px\)/);
