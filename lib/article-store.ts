@@ -578,6 +578,7 @@ async function normalizeInput(
   payload: ManagedArticleInput,
   database: D1Database,
   existingAuthorProfileId: number | null = null,
+  allowPastDueScheduledContentEdit = false,
 ) {
   const title = payload.title?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || title);
@@ -667,7 +668,10 @@ async function normalizeInput(
   if (excerpt.length < 20) throw new Error("Perex by mal mať aspoň 20 znakov.");
   if (intro.length < 20) throw new Error("Úvod by mal mať aspoň 20 znakov.");
   if (!blocks.length && !sections.length) throw new Error("Pridaj aspoň jeden obsahový blok.");
-  if (status === "scheduled" && (!publishedAt || new Date(publishedAt).getTime() <= Date.now())) throw new Error("Pre plánované publikovanie vyber budúci dátum a čas.");
+  if (status === "scheduled" && (!publishedAt
+    || (new Date(publishedAt).getTime() <= Date.now() && !allowPastDueScheduledContentEdit))) {
+    throw new Error("Pre plánované publikovanie vyber budúci dátum a čas.");
+  }
   if (status === "published" && publishedAt && new Date(publishedAt).getTime() > Date.now()) throw new Error("Budúci dátum použi cez tlačidlo Naplánovať publikovanie.");
 
   for (const block of blocks) {
@@ -1237,14 +1241,28 @@ export async function updateManagedArticle(
   payload: ManagedArticleInput,
   editorEmail: string,
   existingArticle?: ManagedArticle,
-  schedulingPrecondition?: { updatedAt: string; status?: "draft" | "scheduled" },
+  schedulingPrecondition?: {
+    updatedAt: string;
+    status?: "draft" | "scheduled";
+    allowPastDueScheduledContentEdit?: boolean;
+  },
 ) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
   const existing = existingArticle ?? await getManagedArticleById(id);
   if (!existing) return null;
 
-  const input = await normalizeInput(payload, database, existing.authorProfileId);
+  // Allow content-only edits of an already-public scheduled article. The
+  // persisted publication timestamp must be identical and the caller must
+  // protect both the row version and the stored scheduled state (CAS).
+  const allowPastDueScheduledContentEdit = schedulingPrecondition?.allowPastDueScheduledContentEdit === true
+    && schedulingPrecondition.status === "scheduled"
+    && existing.status === "scheduled"
+    && payload.status === "scheduled"
+    && !!existing.publishedAt
+    && payload.publishedAt === existing.publishedAt
+    && Date.parse(existing.publishedAt) <= Date.now();
+  const input = await normalizeInput(payload, database, existing.authorProfileId, allowPastDueScheduledContentEdit);
   const topicIds = payload.topicIds === undefined ? undefined : await validateArticleTopicIds(database, payload.topicIds);
   // Give every successful update a version newer than the one read.
   const previousMillis = Date.parse(existing.updatedAt);

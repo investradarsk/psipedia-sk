@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import type { DogNameDayImportPlan } from "@/lib/dog-name-day-import";
 import {
   dogNameDayDateParts,
@@ -104,11 +105,11 @@ export async function searchPublishedDogNameDays(query: string) {
   const database = getD1Binding();
   if (!database || normalized.length < 2) return [] as Array<{ month: number; day: number; name: string }>;
   try {
-    const result = await database.prepare(`
+    const result = await retryTransientPublicRead(() => database.prepare(`
       SELECT month, day, name FROM dog_name_days
       WHERE status = 'published' AND instr(normalized_name, ?) > 0
       ORDER BY month ASC, day ASC, normalized_name ASC LIMIT 30
-    `).bind(normalized).all<{ month: number; day: number; name: string }>();
+    `).bind(normalized).all<{ month: number; day: number; name: string }>());
     return result.results;
   } catch (error) {
     if (!isMissingTableError(error)) {
@@ -123,12 +124,12 @@ export async function getPublishedDogNameDaysForDate(date: Date = new Date()) {
   const parts = dogNameDayDateParts(date);
   if (!database || !parts) return [] as string[];
   try {
-    const result = await database.prepare(`
+    const result = await retryTransientPublicRead(() => database.prepare(`
       SELECT month, day, name, status
       FROM dog_name_days
       WHERE status = 'published' AND month = ? AND day = ?
       ORDER BY normalized_name ASC, id ASC
-    `).bind(parts.month, parts.day).all<DogNameDayResolverRecord>();
+    `).bind(parts.month, parts.day).all<DogNameDayResolverRecord>());
     return resolveDogNameDay(date, result.results);
   } catch (error) {
     if (!isMissingTableError(error)) {
@@ -267,9 +268,9 @@ export async function getPublishedDogNameDaysForMonth(month: number) {
     return [] as DogNameDayResolverRecord[];
   }
   try {
-    const result = await database.prepare(
+    const result = await retryTransientPublicRead(() => database.prepare(
       "SELECT month, day, name, status FROM dog_name_days WHERE status = 'published' AND month = ? ORDER BY normalized_name ASC, id ASC"
-    ).bind(month).all<DogNameDayResolverRecord>();
+    ).bind(month).all<DogNameDayResolverRecord>());
     return result.results;
   } catch (error) {
     if (!isMissingTableError(error)) {

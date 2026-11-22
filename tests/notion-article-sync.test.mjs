@@ -24,20 +24,20 @@ test("Ready Notion articles auto-flow into Psipedia as draft only", () => {
   assert.doesNotMatch(syncSource, /SEO skontrolované/);
 });
 
-test("past-due scheduled publications never re-enter inbound editorial sync", () => {
-  const start = syncSource.indexOf('  if (mappedExisting?.status === "scheduled"');
+test("past-due scheduled articles import editorial changes only through verified published mappings", () => {
+  const start = syncSource.indexOf('  const dueScheduledPublishedMapping = Boolean(');
   const end = syncSource.indexOf("  // Unapproved legacy Ready rows", start);
   const bodyLoad = syncSource.indexOf("  const blocks = await getPageBlocks(bindings, page.id);", start);
-  assert.ok(start >= 0 && end > start && bodyLoad > end, "guard must run before parsing article content");
+  assert.ok(start >= 0 && end > start && bodyLoad > end, "the identity gate must run before parsing article content");
   const guard = syncSource.slice(start, end);
   assert.match(guard, /effectiveArticleStatus\(mappedExisting\.status, mappedExisting\.publishedAt\) === "published"/);
   assert.match(guard, /selectProperty\(page, "Stav"\) === "Publikované"/);
   assert.match(guard, /richTextProperty\(page, "Psipedia ID"\) === String\(mappedExisting\.id\)/);
-  assert.doesNotMatch(guard, /updateManagedArticle|upsertMapping|updateNotionSyncState/);
+  assert.doesNotMatch(guard, /return "unchanged"|updateManagedArticle|upsertMapping|updateNotionSyncState/);
 
-  const skip = runInNewContext(`(function (mappedExisting, page) {
+  const verified = runInNewContext(`(function (mappedExisting, page) {
     ${guard}
-    return "continue";
+    return dueScheduledPublishedMapping;
   })`, {
     effectiveArticleStatus: (status, publishedAt) => (
       status === "scheduled" && publishedAt && Date.parse(publishedAt) <= Date.parse("2026-11-22T17:00:00Z")
@@ -46,13 +46,28 @@ test("past-due scheduled publications never re-enter inbound editorial sync", ()
     selectProperty: (page, property) => property === "Stav" ? page.status : "",
     richTextProperty: (page, property) => property === "Psipedia ID" ? page.articleId : "",
   }, { timeout: 500 });
-  const stored = { id: 2341, status: "scheduled", publishedAt: "2026-11-19T16:00:00.000Z" };
-  const remote = { status: "Publikované", articleId: "2341" };
-  assert.equal(skip(stored, remote), "unchanged");
-  assert.equal(skip({ ...stored, publishedAt: "2026-12-19T16:00:00.000Z" }, remote), "continue");
-  assert.equal(skip(stored, { ...remote, status: "Ready" }), "continue");
-  assert.equal(skip(stored, { ...remote, articleId: "other" }), "continue");
-  assert.equal(skip({ ...stored, status: "draft" }, remote), "continue");
+  const stored = { id: 2272, status: "scheduled", publishedAt: "2026-11-21T08:00:00.000Z" };
+  const remote = { status: "Publikované", articleId: "2272" };
+  assert.equal(verified(stored, remote), true);
+  assert.equal(verified({ ...stored, publishedAt: "2026-12-19T16:00:00.000Z" }, remote), false);
+  assert.equal(verified(stored, { ...remote, status: "Ready" }), false);
+  assert.equal(verified(stored, { ...remote, articleId: "other" }), false);
+  assert.equal(verified({ ...stored, status: "draft" }, remote), false);
+  assert.equal(verified(null, remote), false);
+
+  assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"[\s\S]*?!dueScheduledPublishedMapping/);
+  assert.match(syncSource, /if \(existing\.status === "published" \|\| dueScheduledPublishedMapping\)/);
+  assert.match(syncSource, /status: existing\.status,[\s\S]*?publishedAt: existing\.publishedAt/);
+  assert.match(syncSource, /status: dueScheduledPublishedMapping \? "scheduled" : undefined/);
+  assert.match(syncSource, /allowPastDueScheduledContentEdit: dueScheduledPublishedMapping/);
+  assert.match(articleStoreSource, /schedulingPrecondition\?\.allowPastDueScheduledContentEdit === true/);
+  assert.match(articleStoreSource, /schedulingPrecondition\.status === "scheduled"/);
+  assert.match(articleStoreSource, /existing\.status === "scheduled"/);
+  assert.match(articleStoreSource, /payload\.status === "scheduled"/);
+  assert.match(articleStoreSource, /payload\.publishedAt === existing\.publishedAt/);
+  assert.match(articleStoreSource, /Date\.parse\(existing\.publishedAt\) <= Date\.now\(\)/);
+  assert.match(articleStoreSource, /allowPastDueScheduledContentEdit\)\)\)/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR status = \?\)/);
 });
 
 test("published articles preserve identity and media while importing mapped SEO fields", () => {
@@ -242,7 +257,7 @@ test("article routes reject collisions with subsection landing slugs", () => {
 test("mapped Draft is loaded before placement resolution so a legacy missing subsection can preserve a valid route", () => {
   const mappingLoad = syncSource.indexOf("const mapping = await loadMapping");
   const existingLoad = syncSource.indexOf("const mappedExisting = mapping ?", mappingLoad);
-  const payloadBuild = syncSource.indexOf("notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo)", existingLoad);
+  const payloadBuild = syncSource.indexOf("const proposed = notionPageToManagedArticleInput(", existingLoad);
   assert.ok(mappingLoad >= 0 && existingLoad > mappingLoad && payloadBuild > existingLoad);
   assert.match(syncSource, /existing\.status !== "draft"/);
 });
@@ -466,4 +481,24 @@ test("legacy Ready error retry only acknowledges identical published article con
   assert.match(syncSource, /ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION/);
   assert.match(syncSource, /if \(legacyUnapprovedReady\) \{[\s\S]*?await updateNotionSyncState\(bindings, page\.id, \{/);
   assert.match(syncSource, /state: "Synchronizované", articleId: existing\.id, syncedAt: now/);
+});
+
+test("Notion image-credit cell updates, including explicit clears, are mapped to Admin/D1 without importing private notes", () => {
+  const fields = syncSource.slice(
+    syncSource.indexOf("const ARTICLE_EDITABLE_AUTHORITY_FIELDS = ["),
+    syncSource.indexOf("] as const;", syncSource.indexOf("const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [")) + "] as const;".length,
+  );
+  assert.match(fields, /"imageCredit"/);
+  assert.match(syncSource, /imageCredit: "Kredit fotografie"/);
+  assert.match(syncSource, /signedFields\?\.has\("imageCredit"\) \?\? false/);
+  assert.match(syncSource, /const imageCredit = explicitlyEditedPhotoCredit[\s\S]*?\? notionImageCredit/);
+  assert.match(syncSource, /imageCredit: explicitlyEditedPhotoCredit \? \(imageCredit \|\| null\) : \(imageCredit \|\| undefined\)/);
+  assert.match(syncSource, /if \(mappedExisting && signedFields && signedFields\.size === 0\) return "unchanged"/);
+  assert.match(syncSource, /imageCreditUrl = urlProperty\(page, "Zdroj obrázka"\)/);
+  assert.match(syncSource, /hasCompletePublicPhotoCredit\(imageCredit, imageCreditUrl\)/);
+  // Other property events and body-only webhooks must keep the canonical credit.
+  assert.match(syncSource, /eventType === "page\.content_updated"[\s\S]*?\["intro", "blocks", "excerpt"\]/);
+  assert.match(syncSource, /if \(edited\.has\(key\)\) continue/);
+  assert.match(syncSource, /\(next as Record<string, unknown>\)\[key\] = articleCurrentField\(existing, key\)/);
+  assert.match(articleStoreSource, /const canonicalBlocks = publicArticleBlocks\(normalizeArticleBlocks\(payload\.blocks/);
 });

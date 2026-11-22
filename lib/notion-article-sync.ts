@@ -1016,6 +1016,7 @@ export function notionPageToManagedArticleInput(
   existing?: ExistingNotionArticlePlacement,
   confirmedPrevious?: ArticleSeoRemoteValues | null,
   explicitlyEditedSeo?: ReadonlySet<ArticleNotionSeoKey>,
+  explicitlyEditedPhotoCredit = false,
 ): ManagedArticleInput {
   const title = titleProperty(page, "Názov");
   const slug = richTextProperty(page, "Slug");
@@ -1028,9 +1029,14 @@ export function notionPageToManagedArticleInput(
     ? richTextProperty(page, "Popis na sociálne siete")
     : (existing && "socialCaption" in existing ? (existing as { socialCaption?: string }).socialCaption ?? "" : "");
   const imageCreditUrl = urlProperty(page, "Zdroj obrázka") || existing?.imageCreditUrl || "";
-  const imageCredit = richTextProperty(page, "Kredit fotografie")
-    || existing?.imageCredit
-    || photoCreditFromNotionAttribution(photoAttributionNote(blocks));
+  const notionImageCredit = richTextProperty(page, "Kredit fotografie");
+  // An explicit Notion field edit, including clearing it, is authoritative.
+  // For unrelated updates, keep existing attribution or infer it from legacy
+  // editorial notes rather than accidentally erasing the required license.
+  const imageCredit = explicitlyEditedPhotoCredit
+    ? notionImageCredit
+    : notionImageCredit || existing?.imageCredit
+      || photoCreditFromNotionAttribution(photoAttributionNote(blocks));
   const { intro, introRichText, blocks: articleBlocks } = convertBodyBlocks(
     blocks, hasCompletePublicPhotoCredit(imageCredit, imageCreditUrl),
   );
@@ -1058,7 +1064,7 @@ export function notionPageToManagedArticleInput(
     sections: [],
     blocks: articleBlocks,
     sources: [],
-    imageCredit: imageCredit || undefined,
+    imageCredit: explicitlyEditedPhotoCredit ? (imageCredit || null) : (imageCredit || undefined),
     imageCreditUrl: imageCreditUrl || undefined,
     readingMinutes: estimateReadingMinutes(intro, articleBlocks),
     publishedAt: null,
@@ -1972,7 +1978,7 @@ async function findUnmappedCanonicalArticle(
 
 const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [
   "title","excerpt","intro","blocks","seoTitle","metaDescription","socialCaption","focusKeyword",
-  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl",
+  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl","imageCredit",
 ] as const;
 type ArticleAuthorityKey=(typeof ARTICLE_EDITABLE_AUTHORITY_FIELDS)[number];
 /**
@@ -1991,6 +1997,7 @@ function articleSignedNotionFields(
   const changed = new Set<ArticleAuthorityKey>();
   const direct = {
     title: "Názov", socialCaption: "Popis na sociálne siete",
+    imageCredit: "Kredit fotografie",
   } as const;
   for (const [field, name] of Object.entries(direct)) {
     const prop = propertyRecord(page, name);
@@ -2154,15 +2161,13 @@ async function syncOneNotionPage(
   const previousSeo = mapping ? decodeArticleSeoReceipt(mapping.content_hash).seo : null;
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
   if (mappedExisting && signedFields && signedFields.size === 0) return "unchanged";
-  // A past-due scheduled article is already public, but stays "scheduled" in
-  // D1. The publication reconciliation owns its Notion publication metadata.
-  // Never import editorial changes or report a valid schedule as a sync error.
-  if (mappedExisting?.status === "scheduled"
+  // A past-due scheduled article is public but intentionally remains "scheduled"
+  // in D1. Permit inbound editorial edits only for its verified published Notion
+  // mapping; publication metadata stays owned by publish reconciliation.
+  const dueScheduledPublishedMapping = Boolean(mappedExisting?.status === "scheduled"
     && effectiveArticleStatus(mappedExisting.status, mappedExisting.publishedAt) === "published"
     && selectProperty(page, "Stav") === "Publikované"
-    && richTextProperty(page, "Psipedia ID") === String(mappedExisting.id)) {
-    return "unchanged";
-  }
+    && richTextProperty(page, "Psipedia ID") === String(mappedExisting.id));
   // Unapproved legacy Ready rows must never create a new draft or publish.
   if (legacyUnapprovedReady && (!mapping || mappedExisting?.status !== "published")) {
     return "unchanged";
@@ -2185,7 +2190,10 @@ async function syncOneNotionPage(
   // correct fallback; do not parse a mapped page without that context.
   const explicitSeo = signedFields
     ? articleSeoSignedChangedFields(page, changedPropertyIds ?? []) : undefined;
-  const proposed = notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo);
+  const proposed = notionPageToManagedArticleInput(
+    page, blocks, mappedExisting ?? undefined, previousSeo, explicitSeo,
+    signedFields?.has("imageCredit") ?? false,
+  );
   const existing: ManagedArticle | null = mappedExisting
     ?? (mapping ? null : await findUnmappedCanonicalArticle(database, page, proposed));
   if (mapping && !existing) {
@@ -2194,13 +2202,17 @@ async function syncOneNotionPage(
   if (existing && (existing.slug !== proposed.slug || existing.portalSection !== proposed.portalSection)) {
     throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED");
   }
-  if (existing && existing.status !== "draft" && existing.status !== "published") {
+  if (existing && existing.status !== "draft" && existing.status !== "published"
+    && !dueScheduledPublishedMapping) {
     throw new Error("ARTICLE_STATUS_REVIEW_REQUIRED");
   }
   if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
-  validateSyncGate(page, existing?.status === "published");
+  validateSyncGate(page, existing?.status === "published" || dueScheduledPublishedMapping);
 
-  const sourcePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined, previousSeo, explicitSeo);
+  const sourcePayload = notionPageToManagedArticleInput(
+    page, blocks, existing ?? undefined, previousSeo, explicitSeo,
+    signedFields?.has("imageCredit") ?? false,
+  );
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
   const authorityPayload = existing && mapping && signedFields === null
@@ -2287,8 +2299,8 @@ async function syncOneNotionPage(
 
     // A locally edited draft belongs to the editor, not to the next Notion sweep.
     // Hash-only checks cannot detect admin edits after the previous import.
-    if (existing.status === "published") {
-      // The article remains published with its original URL, assets, topic
+    if (existing.status === "published" || dueScheduledPublishedMapping) {
+      // The article remains public with its original URL, assets, topic
       // relations, author and moderation state. Only Notion editorial fields
       // (body, intro, title, excerpt, SEO and social caption) flow inbound.
       if (mapping && existing.updatedBy !== SYNC_ACTOR
@@ -2323,6 +2335,10 @@ async function syncOneNotionPage(
       };
       const updated = await updateManagedArticle(existing.id, publishedPayload, SYNC_ACTOR, existing, {
         updatedAt: existing.updatedAt,
+        // Guard the stored lifecycle as well as updated_at. Past-due scheduled
+        // content edits must not turn into a reschedule or an accidental publish.
+        status: dueScheduledPublishedMapping ? "scheduled" : undefined,
+        allowPastDueScheduledContentEdit: dueScheduledPublishedMapping,
       });
       if (!updated) throw new Error("ARTICLE_PUBLISHED_UPDATE_FAILED");
       await upsertMapping(database, page, updated.id, contentHash, now);
