@@ -38,7 +38,7 @@ export function AdminDirectoryChangeRequests({ initialRequests }: { initialReque
   const visible = useMemo(() => requests.filter((item) => status === "all" || item.status === status), [requests, status]);
 
   return <>
-    <section className="admin-panel" data-retired-public-change-requests>
+    <section className="admin-panel" data-retired-public-change-requests role="status">
       <p><strong>Historické návrhy – iba na čítanie.</strong> Verejné návrhy už neprijímame ani neschvaľujeme. Aktuálne údaje upravuje oprávnený správca cez Partner účet.</p>
     </section>
     <section className="admin-stats" aria-label="Stav návrhov" data-admin-community-metrics><div><span>Všetky návrhy</span><strong>{requests.length}</strong></div><div><span>Nové</span><strong>{requests.filter((item) => item.status === "new").length}</strong></div><div><span>Schválené</span><strong>{requests.filter((item) => item.status === "approved").length}</strong></div><div><span>Zamietnuté</span><strong>{requests.filter((item) => item.status === "rejected").length}</strong></div></section>
