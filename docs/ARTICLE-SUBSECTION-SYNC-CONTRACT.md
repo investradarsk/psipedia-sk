@@ -78,7 +78,8 @@ When `Podsekcia` is absent:
 - legacy `Výživa` remains deterministically mapped to `starostlivost/vyziva`;
 - legacy `Správanie` remains deterministically mapped to `starostlivost/spravanie`;
 - existing mapped Drafts may preserve their already-valid subsection for the same canonical section during rollout;
-- generic legacy buckets Plemená, Pomoc psom, Bezpečnosť and Zaujímavosti retain their existing `/clanky` placement;
+- Notion `Všeobecné články` matches the Admin's `clanky` section; it takes no `Podsekcia`, keeps the existing `/clanky` URL and preserves the mapped article's D1 topic category;
+- generic legacy buckets Plemená, Pomoc psom, Bezpečnosť and Zaujímavosti retain their existing `/clanky` placement temporarily until old Notion options are retired;
 - ambiguous new records in Zdravie a starostlivosť, Výcvik a aktivity, Šteniatka or Recenzie a testy fail closed until `Podsekcia` is supplied;
 - unknown categories never fall back silently to `/clanky`.
 

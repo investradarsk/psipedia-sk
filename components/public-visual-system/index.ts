@@ -28,6 +28,7 @@ export {
   PublicLoadingState,
 } from "./public-result-states";
 export { PublicContentShell, PublicLandingSectionHeading } from "./public-landing-layout";
+export { PublicCategorySection } from "./public-category-section";
 export type { PublicContentShellVariant, PublicLandingHeadingTone } from "./public-landing-layout";
 
 export { PublicSubcategoryNavigator } from "./public-subcategory-navigator";

@@ -1,0 +1,36 @@
+/* Shared Psipedia category treatment; the existing navigator owns navigation. */
+.section {
+  min-width: 0;
+  margin-bottom: 18px;
+  --public-landing-eyebrow: var(--coral-dark, #b94732);
+}
+.navigation { min-width: 0; }
+.section :global([data-public-subcategory-item]) {
+  min-height: 52px;
+  border: 1px solid rgba(185, 71, 50, 0.19);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--forest-dark, #173e2d);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.section :global([data-public-subcategory-item] svg) {
+  color: var(--coral-dark, #b94732);
+}
+.section :global([data-public-subcategory-item]:hover) {
+  border-color: var(--coral-dark, #b94732);
+  background: #fff8f3;
+}
+.section :global([data-public-subcategory-item][aria-current="page"]),
+.section :global([data-public-subcategory-item][aria-current="page"]:hover) {
+  border-color: var(--coral-dark, #b94732);
+  background: var(--coral-dark, #b94732);
+  color: #fff;
+}
+.section :global([data-public-subcategory-item][aria-current="page"] svg) { color: #fff; }
+.section :global([data-public-subcategory-item]:focus-visible) {
+  outline: 3px solid var(--coral-dark, #b94732);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .section :global([data-public-subcategory-item]) { transition: none; }
+}

@@ -102,7 +102,12 @@ test("events keep the safe managed CTA default while the public listing uses one
   assert.match(portal, /slug: "podujatia"[\s\S]*ctaLabel: "\+ Pridať podujatie"[\s\S]*ctaVariant: "accent"/);
   assert.doesNotMatch(events, /Rýchle vstupy používajú existujúce verejné kategórie/);
   assert.doesNotMatch(events, /Vyberte si, čo vás zaujíma|landingCategories/);
-  assert.match(events, /afterCalendar=\{/);
+  assert.doesNotMatch(events, /afterCalendar=\{/);
+  const organizer = events.indexOf('title="Organizujete podujatie?"');
+  const categories = events.indexOf("data-event-category-navigation");
+  const calendar = events.indexOf("<EventCalendar");
+  assert.ok(organizer > 0 && organizer < categories && categories < calendar);
+  assert.equal(events.match(/Organizujete podujatie\?/g)?.length, 1);
   assert.match(events, /ctaEnabled:\s*false/);
   assert.match(events, /<PublicContextBanner[\s\S]*ctaHref="\/podujatia\/pridat-podujatie"/);
 });

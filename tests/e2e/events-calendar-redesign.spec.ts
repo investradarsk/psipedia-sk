@@ -101,7 +101,7 @@ test("desktop calendar is compact above results and selected-day details remain 
   await expect(page.locator("[data-calendar-day-placeholder]")).toHaveCount(0);
 });
 
-test("calendar retains selected-day details and the single organizer banner belongs to the results flow", async ({
+test("calendar retains selected-day details and the single organizer banner appears above categories", async ({
   page,
 }) => {
   await page.locator('[data-calendar-date="2026-10-15"]').click();
@@ -125,8 +125,13 @@ test("calendar retains selected-day details and the single organizer banner belo
       const calendar = document.querySelector("#events-calendar")!;
       const detail = document.querySelector("[data-selected-day]")!;
       const banner = document.querySelector("[data-public-context-banner]")!;
+      const organizer = document.querySelector('section[aria-label="Pre organizátorov"]')!;
+      const categories = document.querySelector("[data-event-category-navigation]")!;
       const list = document.querySelector("#events-list")!;
-      return calendar.contains(detail) && list.contains(banner);
+      return calendar.contains(detail)
+        && organizer.contains(banner)
+        && !list.contains(banner)
+        && Boolean(organizer.compareDocumentPosition(categories) & Node.DOCUMENT_POSITION_FOLLOWING);
     }),
   ).toBe(true);
   await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
