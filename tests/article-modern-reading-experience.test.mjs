@@ -484,7 +484,7 @@ test("TOC stays deterministic, H2-only, collapsible and accessible with anchor l
   assert.match(detail, /<nav aria-label="Obsah článku">/);
   assert.doesNotMatch(detail, /<details className=\{styles\.toc\} open/);
   assert.match(detail, /className=\{styles\.tocTitle\}/);
-  assert.match(blocks, /const headingIds = new Map\(\s*articleBlockHeadings\(publicBlocks\)/);
+  assert.match(blocks, /const headingIds = new Map\(\s*articleBlockHeadings\(blocks\)/);
   assert.match(blocks, /<h2\s+id=\{headingIds\.get\(block\.id\)\}/);
   assert.match(styles, /scroll-margin-top:\s*calc\(var\(--psipedia-sticky-header-height,/);
   assert.match(styles, /\.tocTitle\s*\{/);
