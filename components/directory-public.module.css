@@ -1709,6 +1709,20 @@
   top: calc(var(--psipedia-sticky-header-height, 76px) + 18px);
   align-self: start;
 }
+
+/* The directory filter can be taller than the viewport (especially for
+   veterinarian facets). Limit the sticky panel itself, not its inner form,
+   so the header, filters and submit/reset actions share one scroll area. */
+@media (min-width: 821px) {
+  .filterColumn {
+    box-sizing: border-box;
+    max-height: calc(100dvh - var(--psipedia-sticky-header-height, 76px) - 32px);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+}
 .resultsColumn {
   display: grid;
   min-width: 0;
