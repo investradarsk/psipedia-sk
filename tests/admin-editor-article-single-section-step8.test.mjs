@@ -27,7 +27,8 @@ test("ARTICLE-TIPTAP-2: section switch preserves mounted fields and matches left
   assert.equal((src.match(/\{ id: "article-/g) ?? []).length, 8);
   assert.ok(src.includes('sectionMode="switch"'));
   assert.ok(src.includes('useState<string>("article-blocks")'), "New articles open directly in the continuous editor");
-  assert.ok(src.includes('setActiveArticleSection("article-publish")'), "Classic fallback retains old initial publishing view");
+  assert.ok(src.includes('useSyncExternalStore('), "Saved classic preference is hydrated without an effect-state update");
+  assert.ok(src.includes('articleEditorModeKey'), "Classic editor selection persists between visits");
   assert.ok(src.includes('articleEditorNavigation = continuousEditableOpen'));
   assert.ok(src.includes('label: "Editor článku"'));
   assert.ok(src.includes('activeSectionId={activeArticleSection}'));
