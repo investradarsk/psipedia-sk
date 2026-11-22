@@ -40,5 +40,5 @@ export function photoCreditFromNotionAttribution(value: string): string {
 /** The free-form credit may be partial. Do not hide the original license paragraph. */
 export function hasCompletePublicPhotoCredit(credit: string | null | undefined, sourceUrl: string | null | undefined): boolean {
   return Boolean(credit?.trim() && /^https?:\/\//i.test(sourceUrl ?? "")
-    && /(?:creative commons|cc\s*by|public domain|©|vlastn[áa] fotografia)/i.test(credit));
+    && /(?:creative commons|cc\s*by|public domain|vlastn[áa] fotografia)/i.test(credit));
 }
