@@ -45,6 +45,7 @@ import {
   articleBlockHeadings,
   articleBlockPlainText,
   legacyArticleBlocks,
+  publicArticleBlocks,
 } from "@/lib/article-blocks";
 import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/editorial-content";
 import { AD_PLACEMENTS } from "@/lib/monetization";
@@ -116,9 +117,9 @@ export function ArticleDetail({
   const showAuthorRole = Boolean(
     authorRole && !authorName.toLocaleLowerCase("sk").includes(authorRole.toLocaleLowerCase("sk")),
   );
-  const blocks = article.blocks?.length
+  const blocks = publicArticleBlocks(article.blocks?.length
     ? article.blocks
-    : legacyArticleBlocks(article.sections, article.sources);
+    : legacyArticleBlocks(article.sections, article.sources));
   const contentBlocks = blocks.filter((block) => block.type !== "source");
   const sourceBlocks = blocks.filter((block) => block.type === "source");
   const introDocument = article.introRichText ?? legacyRichTextToDocument(article.intro);
