@@ -73,6 +73,34 @@ test("CONTINUOUS STEP 4: native widget form can update image while keeping origi
   assert.equal(result.blocks[4].sponsored, true);
 });
 
+test("CONTINUOUS STEP 4: ProseMirror link defaults do not rewrite raw intro or untouched body Markdown", () => {
+  const input = fixture();
+  input.intro = "Úvod s **dôrazom** a [odkazom](https://psipedia.sk).";
+  input.introRichText = legacyRichTextToDocument(input.intro);
+  input.blocks[0].content = "Starý **text** a [odkaz](https://example.org/guide).";
+  input.blocks[0].richText = legacyRichTextToDocument(input.blocks[0].content);
+  const document = articleToCanonicalContinuousDocument(input);
+  for (const node of document.content) {
+    for (const inline of node.content ?? []) {
+      for (const mark of inline.marks ?? []) {
+        if (mark.type === "link") {
+          mark.attrs.target = "_blank";
+          mark.attrs.rel = "noopener noreferrer nofollow";
+          mark.attrs.class = null;
+        }
+      }
+    }
+  }
+  const image = document.content.find(node => node.attrs?.sourceBlockId === "img");
+  image.attrs.block = { ...image.attrs.block, caption: "Upravený len obrázok" };
+  const result = convert(document, input);
+  assert.equal(result.intro, input.intro);
+  assert.deepEqual(result.introRichText, input.introRichText);
+  assert.equal(result.blocks[0].content, input.blocks[0].content);
+  assert.deepEqual(result.blocks[0].richText, input.blocks[0].richText);
+  assert.equal(result.blocks[2].caption, "Upravený len obrázok");
+});
+
 test("CONTINUOUS STEP 4: editor can append a new paragraph and new heading without touching original blocks", () => {
   const input = fixture();
   const document = articleToCanonicalContinuousDocument(input);
