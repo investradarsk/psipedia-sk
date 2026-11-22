@@ -1,5 +1,5 @@
 import { PublicPagination } from "@/components/public-visual-system/public-result-states";
-import Link from "next/link";
+
 import {
   roundPublicRating,
   type PublicProfileReview,
@@ -170,9 +170,11 @@ function ReviewSubmissionCta({ resourceId }: { resourceId: string }) {
   if (!href) return null;
   return (
     <div className={styles.ctaRow}>
-      <Link className={styles.reviewCta} href={href}>
+      {/* A reviewer auth redirect must be a full document navigation, not
+          an RSC transition that could strand the visitor on a blank shell. */}
+      <a className={styles.reviewCta} href={href}>
         Napísať recenziu
-      </Link>
+      </a>
       <span>Recenziu pred zverejnením skontrolujeme.</span>
     </div>
   );

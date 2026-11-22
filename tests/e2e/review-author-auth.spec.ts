@@ -50,7 +50,12 @@ test("new reviewer starts from profile, sees generic success, consumes magic lin
   expect(profileResponse?.status()).toBe(200);
   const reviews = page.locator("#recenzie");
   await expect(reviews.getByText("Zatiaľ bez recenzií", { exact: true })).toBeVisible();
+  const documentRequest = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === "/recenzia/napisat"
+      && request.resourceType() === "document",
+  );
   await reviews.getByRole("link", { name: "Napísať recenziu" }).click();
+  expect((await documentRequest).method()).toBe("GET");
 
   await expect(page).toHaveURL(/\/recenzia\/prihlasenie\?returnTo=/);
   const authReturnTo = new URL(page.url()).searchParams.get("returnTo");

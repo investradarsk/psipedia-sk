@@ -13,20 +13,18 @@ function isStandaloneDisclosure(block: ArticleBlock): boolean {
 }
 
 /**
- * Legacy Notion drafts may already contain a separate "Obsahuje reklamné odkazy."
- * paragraph. Relocate that notice to the shared disclaimer without altering the
- * Notion page or the stored article. Dognet links are detected even when the
- * author omitted that paragraph, including structured rich-text link marks.
+ * Remove legacy standalone "Obsahuje reklamné odkazy." from the public body
+ * without altering Notion or D1. Only a detected Dognet tracking URL triggers
+ * the shared bottom disclaimer, never the mere presence of a manual sentence.
  */
 export function prepareArticlePartnerDisclosure(
   blocks: ArticleBlock[],
   intro?: EditorialRichTextDocument | null,
   takeaway?: EditorialRichTextDocument | null,
 ) {
-  const hasManualDisclosure = blocks.some(isStandaloneDisclosure);
   const hasDognetTrackingLink = DOGNET_TRACKING_URL.test(JSON.stringify([blocks, intro, takeaway]));
   return {
     blocks: blocks.filter((block) => !isStandaloneDisclosure(block)),
-    showDisclosure: hasManualDisclosure || hasDognetTrackingLink,
+    showDisclosure: hasDognetTrackingLink,
   };
 }

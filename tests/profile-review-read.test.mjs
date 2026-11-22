@@ -219,3 +219,16 @@ test("public display helpers round once and never derive identity from email", a
   assert.equal(reviewRead.safePublicServiceMonth("2026-13"), null);
   assert.equal(reviewRead.publicReviewServiceTypeLabel("raw-private-key"), null);
 });
+
+test("REVIEWS-1B E2E bootstraps isolated Directory SQL before profile fixtures", async () => {
+  const fs = await import("node:fs/promises");
+  const workflow = await fs.readFile(new URL(".github/workflows/profile-reviews-public-ci.yml", root), "utf8");
+  const schema = await fs.readFile(new URL("db/isolated/directory_admin_sql_completion.sql", root), "utf8");
+  assert.match(schema, /CREATE TABLE directory_profile_service_texts\s*\(/);
+  const migrated = workflow.indexOf("- name: Apply non-adoption migrations to isolated local D1");
+  const sidecar = workflow.indexOf("- name: Apply isolated Directory SQL presentation schema");
+  const fixtures = workflow.indexOf("- name: Seed public profile fixtures into isolated local D1");
+  assert.ok(migrated >= 0 && migrated < sidecar && sidecar < fixtures);
+  assert.match(workflow, /d1 execute DB --local --config dist\/server\/wrangler\.json --persist-to \.wrangler\/state --file db\/isolated\/directory_admin_sql_completion\.sql/);
+  assert.doesNotMatch(workflow, /d1 execute DB --remote.*directory_admin_sql_completion/);
+});
