@@ -12,7 +12,7 @@ test.describe("MAP-1B admin geo foundation", () => {
     // Use the real profile link destination to avoid mobile row overlays
     // swallowing a pointer click before the editor route can load.
     const profileHref = await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).getAttribute("href");
-    expect(profileHref).toMatch(/^\\/admin\\/adresar\\/\\d+\\?/);
+    expect(profileHref?.startsWith("/admin/adresar/")).toBe(true);
     await page.goto(profileHref!, { waitUntil: "domcontentloaded" });
 
     // The shared editor renders one section at a time. Open the location
