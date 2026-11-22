@@ -36,7 +36,7 @@ import {
   type EditorialRichTextMark,
 } from "@/lib/editorial-content";
 import { articleHref } from "@/lib/portal";
-import { isBreedArticlePlacementChange, notionArticleBreedPlacement, type NotionArticleBreedPlacement } from "@/lib/notion-article-breed-placement";
+import { isBreedArticlePlacementChange, isBreedArticleNotionChange, notionArticleBreedPlacement, type NotionArticleBreedPlacement } from "@/lib/notion-article-breed-placement";
 import {
   buildNotionEditorialPlan,
   notionEditorialBlockShape,
@@ -55,6 +55,7 @@ export type NotionSyncBindings = {
   NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
+  NOTION_BREEDS_WORK_DATA_SOURCE_ID?: string;
   BUCKET?: R2Bucket;
 };
 
@@ -1340,7 +1341,7 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
   article: ManagedArticle;
 }): Promise<{ linked: boolean; updated: boolean; reason?: string }> {
   const { database, bindings, before, article } = args;
-  if (!isBreedArticlePlacementChange(before, article)) {
+  if (!isBreedArticleNotionChange(before, article)) {
     return { linked: false, updated: false, reason: "unchanged" };
   }
   if (!flagEnabled(bindings.NOTION_ARTICLE_SYNC_ENABLED) ||
