@@ -235,7 +235,28 @@ export function AdminArticleEditor({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
   const [continuousReadOnlyOpen, setContinuousReadOnlyOpen] = useState(false);
-  const [continuousEditableOpen, setContinuousEditableOpen] = useState(false);
+  // New editor is the default; the classic version stays available as a rollback.
+  // Legacy E2E fixtures can request the old editor with the same explicit preference.
+  const [continuousEditableOpen, setContinuousEditableOpen] = useState(true);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem("psipedia-article-editor-mode") === "legacy") {
+        setContinuousEditableOpen(false);
+      }
+    } catch { /* Storage can be unavailable in privacy modes. Keep the new default. */ }
+  }, []);
+  function selectArticleEditorMode(mode: "continuous" | "legacy" | "preview") {
+    try {
+      if (mode !== "preview") window.localStorage.setItem("psipedia-article-editor-mode", mode);
+    } catch { /* Editing must remain usable even without localStorage. */ }
+    setContinuousEditableOpen(mode === "continuous");
+    setContinuousReadOnlyOpen(mode === "preview");
+  }
+  const articleEditorNavigation = continuousEditableOpen
+    ? editorNavigation.filter(section => section.id !== "article-basics")
+      .map(section => section.id === "article-blocks"
+        ? { ...section, label: "Editor článku" } : section)
+    : editorNavigation;
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
   const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string } | null>(null);
   const [dirty, setDirtyState] = useState(false);
@@ -244,7 +265,9 @@ export function AdminArticleEditor({
   const resultRef = useRef<HTMLDivElement>(null);
   function chooseArticleSection(id: string) {
     if (id !== "article-content" && !editorNavigation.some((section) => section.id === id)) return;
-    const visibleId = id === "article-content" ? "article-basics" : id;
+    const canonicalId = id === "article-content" ? "article-basics" : id;
+    const visibleId = continuousEditableOpen && canonicalId === "article-basics"
+      ? "article-blocks" : canonicalId;
     setActiveArticleSection(visibleId);
     // Wait until React has revealed the selected panel before scrolling.
     window.requestAnimationFrame(() => {
