@@ -295,8 +295,8 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
 });
 
 test("Attention read model excludes retired automation and uses only current actionable sources", () => {
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 15);
-  assert.equal(adminAttentionQueueSourceTypes.length, 15);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 14);
+  assert.equal(adminAttentionQueueSourceTypes.length, 14);
   assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_ACTION"), false);
   assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_FINDING"), false);
   assert.equal(adminAttentionQueueSourceTypes.includes("GEO_LOCATION_ISSUE"), false);
