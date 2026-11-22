@@ -1317,6 +1317,47 @@ function notionArticlePageMatchesPlacement(
       sectionValue === placement.portalSection);
 }
 
+
+function normalizedNotionPageId(value: string): string {
+  return value.toLowerCase().replace(/-/g, "");
+}
+function notionRelationIdsEqual(left: readonly string[], right: readonly string[]) {
+  return [...left].sort().join(",") === [...right].sort().join(",");
+}
+function notionArticlePageWithBreedRelation(page: NotionPage, ids: readonly string[]): NotionPage {
+  const property = propertyRecord(page, "Prepojené plemená");
+  if (!property || property.has_more === true || (property.type && property.type !== "relation")) {
+    throw new Error("NOTION_ARTICLE_BREED_RELATION_PROPERTY_INVALID");
+  }
+  return { ...page, properties: {
+    ...page.properties,
+    "Prepojené plemená": { ...property, relation: ids.map((id) => ({ id })) },
+  } };
+}
+/** The Notion article relation targets the ACTIVE breed work-copy data source, not the retired breed database. */
+async function articleBreedWorkcopyPageIds(
+  database: D1Database, bindings: NotionSyncBindings, breedIds: readonly number[],
+): Promise<string[]> {
+  const sourceId = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID;
+  if (!sourceId && breedIds.length) throw new Error("NOTION_ARTICLE_BREED_WORKCOPY_SOURCE_MISSING");
+  const result: string[] = [];
+  for (const id of [...new Set(breedIds)]) {
+    if (!Number.isSafeInteger(id) || id < 1) throw new Error("NOTION_ARTICLE_BREED_ID_INVALID");
+    const row = await database.prepare(
+      "SELECT work_notion_page_id FROM breed_notion_workcopy_links " +
+      "WHERE breed_id = ? AND status = 'ACTIVE' " +
+      "AND lower(replace(work_data_source_id, '-', '')) = lower(replace(?, '-', '')) LIMIT 1",
+    ).bind(id, sourceId).first<{ work_notion_page_id: string }>();
+    const normalized = normalizedNotionPageId(row?.work_notion_page_id ?? "");
+    if (!/^[a-f0-9]{32}$/.test(normalized)) {
+      throw new Error("NOTION_ARTICLE_BREED_WORKCOPY_ID_UNVERIFIED");
+    }
+    result.push(normalized.slice(0, 8) + "-" + normalized.slice(8, 12) + "-" +
+      normalized.slice(12, 16) + "-" + normalized.slice(16, 20) + "-" + normalized.slice(20));
+  }
+  return result;
+}
+
 async function notionArticlePageContentHash(
   page: NotionPage, blocks: NotionBlock[],
   existing: ExistingNotionArticlePlacement,
@@ -1413,15 +1454,38 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
   if (!wasOld && !alreadyNewCore) {
     throw new Error("NOTION_ARTICLE_CATEGORY_REMOTE_CONFLICT");
   }
+  const relationChanged = isBreedArticleNotionChange(before, article) &&
+    [...new Set(before.relatedBreedIds)].sort((a, b) => a - b).join(",") !==
+    [...new Set(article.relatedBreedIds)].sort((a, b) => a - b).join(",");
+  const originalRelationIds = relationChanged
+    ? await articleBreedWorkcopyPageIds(database, bindings, before.relatedBreedIds) : [];
+  const desiredRelationIds = relationChanged
+    ? await articleBreedWorkcopyPageIds(database, bindings, article.relatedBreedIds) : [];
+  const remoteRelationIds = relationChanged ? notionArticleBreedPageIds(page) : [];
+  if (relationChanged && remoteRelationIds === null) {
+    throw new Error("NOTION_ARTICLE_BREED_RELATION_PROPERTY_INVALID");
+  }
+  const oldRelationMatches = !relationChanged || notionRelationIdsEqual(
+    remoteRelationIds ?? [], originalRelationIds.map(normalizedNotionPageId),
+  );
+  const newRelationMatches = !relationChanged || notionRelationIdsEqual(
+    remoteRelationIds ?? [], desiredRelationIds.map(normalizedNotionPageId),
+  );
+  if (!oldRelationMatches && !newRelationMatches) {
+    throw new Error("NOTION_ARTICLE_BREED_RELATION_REMOTE_CONFLICT");
+  }
   const blocks = await getPageBlocks(bindings, page.id);
   // Also supports safe retry if Notion was patched but the CAS receipt was not.
-  const oldImage = notionArticlePageWithPlacement(page, originalPlacement);
+  const oldPlacementImage = notionArticlePageWithPlacement(page, originalPlacement);
+  const oldImage = relationChanged
+    ? notionArticlePageWithBreedRelation(oldPlacementImage, originalRelationIds)
+    : oldPlacementImage;
   if (await notionArticlePageContentHash(oldImage, blocks, before, receipt.seo)
       !== receipt.hash) {
     throw new Error("NOTION_ARTICLE_CATEGORY_REMOTE_CONFLICT");
   }
   await assertRevision();
-  if (!alreadyNew) {
+  if (!alreadyNew || !newRelationMatches) {
     await updateNotionSyncState(bindings, page.id, {
       state: "Chyba", error: "ARTICLE_CATEGORY_WRITEBACK_PENDING",
     });
@@ -1435,6 +1499,9 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
           ...(propertyRecord(page, "Sekcia portálu") ? {
             "Sekcia portálu": { select: { name: desiredPlacement.portalSection } },
           } : {}),
+          ...(relationChanged ? {
+            "Prepojené plemená": { relation: desiredRelationIds.map((id) => ({ id })) },
+          } : {}),
         },
       }),
     });
@@ -1444,8 +1511,14 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
   if (!notionArticlePageMatchesPlacement(verified, desiredPlacement, false)) {
     throw new Error("NOTION_ARTICLE_CATEGORY_ECHO_MISMATCH");
   }
+  if (relationChanged && !notionRelationIdsEqual(
+    notionArticleBreedPageIds(verified) ?? [], desiredRelationIds.map(normalizedNotionPageId),
+  )) throw new Error("NOTION_ARTICLE_BREED_RELATION_ECHO_MISMATCH");
   const latestBlocks = await getPageBlocks(bindings, verified.id);
-  const verifiedOriginal = notionArticlePageWithPlacement(verified, originalPlacement);
+  const verifiedOriginalPlacement = notionArticlePageWithPlacement(verified, originalPlacement);
+  const verifiedOriginal = relationChanged
+    ? notionArticlePageWithBreedRelation(verifiedOriginalPlacement, originalRelationIds)
+    : verifiedOriginalPlacement;
   if (await notionArticlePageContentHash(verifiedOriginal, latestBlocks, before, receipt.seo)
       !== receipt.hash) {
     throw new Error("NOTION_ARTICLE_CATEGORY_REMOTE_CONFLICT");
@@ -1465,7 +1538,7 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
   await updateNotionSyncState(bindings, verified.id, {
     state: "Synchronizované", articleId: article.id, syncedAt: now,
   });
-  return { linked: true, updated: !alreadyNew };
+  return { linked: true, updated: !alreadyNew || !newRelationMatches };
 }
 
 /**
