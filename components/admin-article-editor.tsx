@@ -39,6 +39,7 @@ import { articleCategoryForPortalPlacement } from "@/lib/article-subsection-taxo
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { ImageDisplay } from "@/components/image-display";
 const ImageDisplayEditor = dynamic(() => import("@/components/image-display-editor").then(module => module.ImageDisplayEditor), { ssr: false });
+const AdminArticleContinuousReadOnly = dynamic(() => import("@/components/admin-article-continuous-readonly").then(module => module.AdminArticleContinuousReadOnly), { ssr: false });
 const AdminArticleFullscreenPreview = dynamic(() => import("@/components/admin-article-fullscreen-preview").then(module => module.AdminArticleFullscreenPreview), { ssr: false });
 import { legacyArticleThumbnail, legacyArticleDetail, type ImageDisplayConfig } from "@/lib/image-display";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
@@ -232,6 +233,7 @@ export function AdminArticleEditor({
   const [qaIssues, setQaIssues] = useState<ArticleQaIssue[]>([]);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
+  const [continuousReadOnlyOpen, setContinuousReadOnlyOpen] = useState(false);
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
   const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string } | null>(null);
   const [dirty, setDirtyState] = useState(false);
@@ -993,6 +995,22 @@ export function AdminArticleEditor({
           <div className="admin-card-heading">
             <div><span>08</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
           </div>
+          <div className="admin-field" data-article-continuous-step1>
+            <button type="button" className="admin-secondary-button" data-article-continuous-toggle
+              aria-pressed={continuousReadOnlyOpen}
+              onClick={() => setContinuousReadOnlyOpen((open) => !open)}>
+              {continuousReadOnlyOpen ? "Späť do pôvodného blokového editora" : "Zobraziť súvislý dokument (iba na čítanie)"}
+            </button>
+            <small>Skúšobný náhľad z aktuálneho obsahu. Nemá vlastné ukladanie a nemení verejný článok.</small>
+          </div>
+          {continuousReadOnlyOpen && <AdminArticleContinuousReadOnly
+            introRichText={introRichText}
+            takeawayRichText={takeawayRichText}
+            takeaway={takeaway}
+            blocks={blocks}
+            promoUtcDay={promoUtcDay}
+          />}
+          <div hidden={continuousReadOnlyOpen}>
           <details className="admin-block-news-note" data-article-source-help><summary>Ako uvádzať odborné zdroje?</summary><p>Odborné zdroje sú nepovinné aj pri zdravotných článkoch. Ak ich chceš uviesť, pridaj blok Zdroj. Viac blokov Zdroj sa na verejnom článku spojí do jedného zoznamu.</p></details>
           <AdminArticleBlockEditor
             blocks={blocks}
@@ -1003,6 +1021,7 @@ export function AdminArticleEditor({
             onMessage={setMessage}
             onError={setError}
           />
+          </div>
         </section>
 
 
