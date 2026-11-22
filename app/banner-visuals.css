@@ -1,0 +1,154 @@
+/* PSIPEDIA – two public editorial banner designs, three content-driven sizes.
+ * All site banners rendered through PublicBannerFrame use this single contract.
+ * Native Dognet affiliate artwork and regulatory notices are not affected.
+ * Legacy photoTone/tone and CSS classes remain for content/API compatibility,
+ * but they no longer produce additional public visual designs. */
+.ps-public-banner-frame[data-banner-visual][data-banner-size] {
+  --ps-bnr-bg: #eaf0e7;
+  --ps-bnr-ink: #17352b;
+  --ps-bnr-body: #425d4c;
+  --ps-bnr-kicker: #a74d3c;
+  --ps-bnr-button-bg: #20543e;
+  --ps-bnr-button-text: #fff;
+  --ps-bnr-padding: 18px 22px;
+  --ps-bnr-title-size: clamp(1.3rem, 1.9vw, 1.7rem);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 12px;
+  padding: var(--ps-bnr-padding) !important;
+  border: 1px solid rgba(23, 53, 43, 0.17);
+  border-left: 3px solid #b44939;
+  border-radius: var(--ps-banner-radius, 18px);
+  background: var(--ps-bnr-bg) !important;
+  background-image: none !important;
+  box-shadow: none;
+  color: var(--ps-bnr-ink);
+  isolation: isolate;
+  overflow-wrap: anywhere;
+}
+.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] {
+  --ps-bnr-bg: #173d2e;
+  --ps-bnr-ink: #fff;
+  --ps-bnr-body: #e3eee5;
+  --ps-bnr-kicker: #f3b9a4;
+  --ps-bnr-button-bg: #fff;
+  --ps-bnr-button-text: #17352b;
+  border-color: rgba(23, 53, 43, 0.3);
+  border-left-color: #b44939;
+}
+.ps-public-banner-frame[data-banner-size="small"] {
+  --ps-bnr-padding: 14px 16px;
+  --ps-bnr-title-size: 1.15rem;
+}
+.ps-public-banner-frame[data-banner-size="large"] {
+  --ps-bnr-padding: clamp(24px, 3.8vw, 36px);
+  --ps-bnr-title-size: clamp(1.65rem, 3vw, 2.15rem);
+}
+/* Remove decorative photographic variants without altering text, anchors,
+ * configured destinations or article promotion selection. */
+.ps-public-banner-frame[data-banner-visual][data-banner-size]::before,
+.ps-public-banner-frame[data-banner-visual][data-banner-size] > span[aria-hidden="true"],
+.ps-public-banner-frame[data-banner-visual][data-banner-size][data-public-context-banner] > div:not([data-public-banner-content]) {
+  display: none !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 20px;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding: 0 !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > div {
+  min-width: 0;
+  grid-column: auto;
+  grid-row: auto;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(h2, h3, strong) {
+  color: var(--ps-bnr-ink) !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(h2, h3) {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--ps-bnr-title-size) !important;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(p, [data-public-banner-content] .bannerDescription) {
+  color: var(--ps-bnr-body) !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(.eyebrow, [class*="Eyebrow"]) {
+  color: var(--ps-bnr-kicker) !important;
+}
+/* All editorial banner actions have one contrast-safe treatment per theme. */
+.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(a[data-public-action], a.article-block-cta-button) {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--ps-bnr-button-bg) !important;
+  border-radius: var(--ps-radius-control, 12px);
+  background: var(--ps-bnr-button-bg) !important;
+  color: var(--ps-bnr-button-text) !important;
+  text-align: center;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(a[data-public-action], a.article-block-cta-button) :is(span, svg) {
+  color: inherit !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(a[data-public-action], a.article-block-cta-button):focus-visible {
+  outline: 3px solid #b44939;
+  outline-offset: 3px;
+}
+.ps-public-banner-frame[data-banner-size="small"] [data-public-banner-content] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
+  justify-self: end;
+}
+.ps-public-banner-frame[data-banner-size="small"] [data-public-banner-content] > a {
+  justify-self: start;
+}
+@media (max-width: 720px) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a,
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] > a {
+    width: 100%;
+    justify-self: stretch;
+    min-height: 48px;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] {
+    --ps-bnr-padding: 17px 16px;
+  }
+  .ps-public-banner-frame[data-banner-size="small"] {
+    --ps-bnr-padding: 13px 14px;
+  }
+  .ps-public-banner-frame[data-banner-size="large"] {
+    --ps-bnr-padding: 22px 18px;
+  }
+}
+/* Readable actions in additional CTA adapters (hub, safety alert and article). */
+.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] :is([class*="lead"], [class*="text"], [class*="description"]) {
+  color: var(--ps-bnr-body) !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [class*="actions"] a {
+  border-color: var(--ps-bnr-button-bg);
+  background: var(--ps-bnr-button-bg);
+  color: var(--ps-bnr-button-text);
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [class*="actions"] a + a {
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--ps-bnr-ink);
+}
