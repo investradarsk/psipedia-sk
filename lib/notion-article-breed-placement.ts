@@ -9,6 +9,7 @@ export type BreedArticlePlacement = {
   category: string;
   portalSection: string;
   portalSubpage?: string | null;
+  relatedBreedIds?: readonly number[];
 };
 
 export type NotionArticleBreedPlacement = {
@@ -44,4 +45,16 @@ export function isBreedArticlePlacementChange(
     (before.category !== after.category ||
       before.portalSection !== after.portalSection ||
       (before.portalSubpage ?? null) !== (after.portalSubpage ?? null));
+}
+
+/** A user picking a different breed in the Admin must also update Notion's relation. */
+export function isBreedArticleNotionChange(
+  before: BreedArticlePlacement,
+  after: BreedArticlePlacement,
+): boolean {
+  if (isBreedArticlePlacementChange(before, after)) return true;
+  if (before.category !== "Plemená" && after.category !== "Plemená") return false;
+  const stable = (ids: readonly number[] = []) =>
+    [...new Set(ids)].sort((a, b) => a - b).join(",");
+  return stable(before.relatedBreedIds) !== stable(after.relatedBreedIds);
 }
