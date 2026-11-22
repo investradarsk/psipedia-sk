@@ -19,6 +19,7 @@ import {
 import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
   hasCompletePublicPhotoCredit,
+  isNotionOnlySocialDraftHeading,
   isPhotoAttributionHeading,
   isPrivateEditorialArticleHeading,
   photoCreditFromNotionAttribution,
@@ -853,6 +854,21 @@ function placeManifestBlocks(articleBlocks: ArticleBlock[], directives: NotionMa
   return result;
 }
 
+/** Legacy articles sometimes put a Facebook/Instagram proposal directly
+ * after the article without an SEO boundary. These two nested headings
+ * distinguish the internal draft from a genuine reader-facing social-media section. */
+function isNotionSocialDraftSection(blocks: NotionBlock[], index: number): boolean {
+  const headingBlock = blocks[index];
+  if (headingBlock?.type !== "heading_2") return false;
+  const subsections: string[] = [];
+  for (let cursor = index + 1; cursor < blocks.length; cursor += 1) {
+    const next = blocks[cursor];
+    if (next.type === "heading_2") break;
+    if (next.type === "heading_3") subsections.push(blockText(next));
+  }
+  return isNotionOnlySocialDraftHeading(blockText(headingBlock), subsections);
+}
+
 // The Editorial Hub also contains complete, markerless articles. Accept them
 // only when the page clearly starts with article prose and has a real H2 outline.
 // Never import editorial-only notes, SEO fields or Admin block manifests as prose.
@@ -870,6 +886,7 @@ function selectNotionArticleBodyBlocks(blocks: NotionBlock[], hasPhotoCredit = f
       isStopHeading(heading)
       || isAdminManifestHeading(heading)
       || isPrivateEditorialArticleHeading(heading)
+      || isNotionSocialDraftSection(blocks, index)
       || (hasPhotoCredit && isPhotoAttributionHeading(heading))
       || normalizeText(heading).toLocaleLowerCase("sk") === "pred publikovaním"
     ) {
