@@ -52,6 +52,8 @@ export function PublicMagazineBanner({
   /** Optional stable link target for read-only visual-library usage navigation. */
   anchorId?: string;
   desktopColors?: {
+    visual?: PublicBannerVisual;
+    size?: PublicBannerSize;
     background: "original" | "sage" | "cream" | "white";
     button: "original" | "green" | "red";
   } | null;
@@ -82,6 +84,8 @@ export function PublicMagazineBanner({
       as="section"
       visual={visual ?? (photoTone ? "dark" : "light")}
       size={size ?? (compact ? "small" : "medium")}
+      data-banner-desktop-visual={desktopColors?.visual}
+      data-banner-desktop-size={desktopColors?.size}
       id={anchorId}
       style={desktopColors ? desktopStyle : undefined}
       data-visual-library-desktop-published={desktopColors ? "true" : undefined}
