@@ -233,6 +233,47 @@ function checkboxProperty(page: NotionPage, name: string) {
 }
 
 
+
+/** The existing Notion article relation is authoritative only when present and fully read. */
+function notionArticleBreedPageIds(page: NotionPage): string[] | null {
+  const property = propertyRecord(page, "Prepojené plemená");
+  if (!property) return null; // older schema or inaccessible property: do not erase Admin relations
+  if (property.has_more === true) throw new Error("NOTION_ARTICLE_BREED_RELATION_TRUNCATED");
+  if (!Array.isArray(property.relation)) throw new Error("NOTION_ARTICLE_BREED_RELATION_INVALID");
+  return [...new Set(property.relation.map((entry) =>
+    entry && typeof entry === "object" && typeof (entry as { id?: unknown }).id === "string"
+      ? (entry as { id: string }).id.toLowerCase().replace(/-/g, "") : ""
+  ).filter((id) => /^[a-f0-9]{32}$/.test(id)))];
+}
+function notionArticleBreedFingerprint(page: NotionPage) {
+  const ids = notionArticleBreedPageIds(page);
+  return ids?.length ? { notionBreedPageIds: [...ids].sort() } : {};
+}
+async function resolveNotionArticleBreedIds(
+  database: D1Database, page: NotionPage, existingIds: readonly number[] = [],
+): Promise<number[]> {
+  const pageIds = notionArticleBreedPageIds(page);
+  if (pageIds === null) return [...existingIds];
+  const resolved: number[] = [];
+  for (const pageId of pageIds) {
+    let row = await database.prepare(
+      "SELECT breed_id FROM breed_notion_sync WHERE lower(replace(notion_page_id, '-', '')) = ? LIMIT 1",
+    ).bind(pageId).first<{ breed_id: number }>();
+    if (!row) {
+      try {
+        row = await database.prepare(
+          "SELECT breed_id FROM breed_notion_workcopy_links WHERE lower(replace(work_notion_page_id, '-', '')) = ? LIMIT 1",
+        ).bind(pageId).first<{ breed_id: number }>();
+      } catch (error) {
+        if (!/no such table/i.test(String(error))) throw error;
+      }
+    }
+    if (!row?.breed_id) throw new Error("Notion: prepojené plemeno nemá potvrdené mapovanie na existujúce plemeno v Admine.");
+    resolved.push(Number(row.breed_id));
+  }
+  return [...new Set(resolved)];
+}
+
 function safeRemoteImageUrl(value: string) {
   let url: URL;
   try {
@@ -658,6 +699,13 @@ function mapNotionPlacement(
   contentType: string,
   existing?: ExistingNotionArticlePlacement,
 ): NotionArticlePlacement {
+  if (notionCategory === "Plemená") {
+    if (notionSubsection) throw new Error("Pri kategórii Plemená nechaj v Notione pole Podsekcia prázdne.");
+    if (contentType === "Aktuálna novinka" || contentType === "Recenzia") {
+      throw new Error("Kategória Plemená nepodporuje typ Novinka ani Recenzia.");
+    }
+    return { category: "Plemená", portalSection: "clanky", portalSubpage: null, newsCategory: null };
+  }
   if (notionSubsection) {
     const canonical = resolveCanonicalArticleSubsection(notionCategory, notionSubsection);
     if (contentType === "Aktuálna novinka" && canonical.portalSection !== "novinky") {
@@ -1696,6 +1744,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
       decodeArticleSeoReceipt(mapping.content_hash).seo);
     const currentContentHash = await sha256(JSON.stringify({
       payload: current,
+      ...notionArticleBreedFingerprint(page),
       notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
       // Keep the previous hash shape for pages without a Files hero.
       ...(notionArticleMainImageSource(page).fileIdentity
@@ -1886,6 +1935,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     decodeArticleSeoReceipt(mapping.content_hash).seo);
   const finalHash = await sha256(JSON.stringify({
     payload: newPayload,
+    ...notionArticleBreedFingerprint(verifiedPage),
     notionImageSourceUrl: urlProperty(verifiedPage, "Hlavný obrázok URL"),
     ...(notionArticleMainImageSource(verifiedPage).fileIdentity
       ? { notionImageFileIdentity: notionArticleMainImageSource(verifiedPage).fileIdentity } : {}),
@@ -1997,7 +2047,7 @@ async function findUnmappedCanonicalArticle(
 
 const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [
   "title","excerpt","intro","blocks","seoTitle","metaDescription","socialCaption","focusKeyword",
-  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl","imageCredit",
+  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl","imageCredit","relatedBreedIds",
 ] as const;
 type ArticleAuthorityKey=(typeof ARTICLE_EDITABLE_AUTHORITY_FIELDS)[number];
 /**
@@ -2016,7 +2066,7 @@ function articleSignedNotionFields(
   const changed = new Set<ArticleAuthorityKey>();
   const direct = {
     title: "Názov", socialCaption: "Popis na sociálne siete",
-    imageCredit: "Kredit fotografie",
+    imageCredit: "Kredit fotografie", relatedBreedIds: "Prepojené plemená",
   } as const;
   for (const [field, name] of Object.entries(direct)) {
     const prop = propertyRecord(page, name);
@@ -2232,6 +2282,7 @@ async function syncOneNotionPage(
     page, blocks, existing ?? undefined, previousSeo, explicitSeo,
     signedFields?.has("imageCredit") ?? false,
   );
+  sourcePayload.relatedBreedIds = await resolveNotionArticleBreedIds(database, page, existing?.relatedBreedIds);
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
   const authorityPayload = existing && mapping && signedFields === null
@@ -2257,7 +2308,8 @@ async function syncOneNotionPage(
   const notionImageAlt = richTextProperty(page, "Alt text obrázka");
   const notionImageCreditUrl = urlProperty(page, "Zdroj obrázka");
   const contentHash = await sha256(JSON.stringify({
-    payload: sourcePayload,
+    payload: { ...sourcePayload, relatedBreedIds: [] },
+    ...notionArticleBreedFingerprint(page),
     notionImageSourceUrl,
     ...(notionImageFileIdentity ? { notionImageFileIdentity } : {}),
     notionImageAlt,
@@ -2341,7 +2393,8 @@ async function syncOneNotionPage(
         accent: existing.accent,
         author: existing.author,
         authorProfileId: existing.authorProfileId,
-        relatedBreedIds: existing.relatedBreedIds,
+        relatedBreedIds: signedFields?.has("relatedBreedIds")
+          ? (basePayload.relatedBreedIds ?? existing.relatedBreedIds) : existing.relatedBreedIds,
         sections: existing.sections,
         sources: existing.sources,
         takeaway: existing.takeaway,
