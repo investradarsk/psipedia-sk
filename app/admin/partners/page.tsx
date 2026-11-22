@@ -43,6 +43,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   return (
     <AdminShell user={user} eyebrow="Správa partnerov" title="Partneri"
       description="Registrovaní partneri, ich žiadosti, profily a správy na jednom mieste.">
+      <section className="admin-form-card" data-admin-partner-change-requests>
+        <h2>Návrhy úprav profilov</h2>
+        <p>Presné navrhované zmeny jednotlivých polí nájdeš v detaile žiadosti. Zobraziť môžeš aj staršie a už vybavené návrhy.</p>
+        <nav className="admin-partner-pending" aria-label="Prehľady žiadostí o úpravu profilu">
+          <Link href="/admin/partners/changes?status=all">Partnerské návrhy úprav – všetky stavy</Link>
+          <Link href="/admin/adresar/navrhy">Verejné návrhy úprav adresára</Link>
+        </nav>
+      </section>
       <section className="admin-form-card admin-partner-v2-workspace" data-admin-partner-accounts>
         <div className="admin-partner-v2-heading">
           <div>
