@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PublicHeading } from "@/components/public-heading";
 import { articleCategoryHref } from "@/lib/article-category-routes";
 import { ArticleBlocks } from "@/components/article-blocks";
+import { planArticleSourceDisplay } from "@/lib/article-source-dedup";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { hasCompletePublicPhotoCredit } from "@/lib/public-editorial-guard";
 import { AUTOMATIC_ARTICLE_PROMO_ANCHOR } from "@/lib/visual-library-anchors";
@@ -123,8 +124,7 @@ export function ArticleDetail({
     : legacyArticleBlocks(article.sections, article.sources), {
     hasImageCredit: hasCompletePublicPhotoCredit(article.imageCredit, article.imageCreditUrl),
   });
-  const contentBlocks = blocks.filter((block) => block.type !== "source");
-  const sourceBlocks = blocks.filter((block) => block.type === "source");
+  const { contentBlocks, sourceBlocks, hasManualSourceSection } = planArticleSourceDisplay(blocks);
   const introDocument = article.introRichText ?? legacyRichTextToDocument(article.intro);
   const takeawayDocument = article.takeawayRichText ?? legacyRichTextToDocument(article.takeaway);
   const showTakeaway = editorialRichTextPlainText(takeawayDocument).length > 0;
@@ -370,7 +370,8 @@ export function ArticleDetail({
               ) : null}
               <ArticleBlocks blocks={contentBlocks} promoUtcDay={discovery.utcDay} />
               {sourceBlocks.length > 0 ? (
-                <ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} />
+                <ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay}
+                   sourceHeading={hasManualSourceSection ? "Ďalšie odborné zdroje" : "Odborné zdroje"} />
               ) : null}
               <AdSlot placementId={AD_PLACEMENTS.ARTICLE_END.id} />
               <p className="article-disclaimer">
