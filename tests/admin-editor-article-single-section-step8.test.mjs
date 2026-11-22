@@ -17,11 +17,19 @@ test("ARTICLE-TIPTAP-2: section switch preserves mounted fields and matches left
     assert.ok(src.includes('<section id="' + id + '"'), "Article section remains mounted: " + id);
     if (name !== "content") assert.ok(src.includes('{ id: "' + id + '", label:'), "Nav entry " + id);
     const visibleId = name === "content" ? "basics" : name;
-    assert.ok(src.includes('hidden={activeArticleSection !== "article-' + visibleId + '"}'), "Section hidden while inactive: " + id);
+    if (name === "basics") {
+      // In the new default mode title/perex and the document share one visible section.
+      assert.ok(src.includes('hidden={activeArticleSection !== "article-basics" && !(continuousEditableOpen && activeArticleSection === "article-blocks")}'));
+    } else {
+      assert.ok(src.includes('hidden={activeArticleSection !== "article-' + visibleId + '"}'), "Section hidden while inactive: " + id);
+    }
   }
   assert.equal((src.match(/\{ id: "article-/g) ?? []).length, 8);
   assert.ok(src.includes('sectionMode="switch"'));
-  assert.ok(src.includes('useState<string>("article-publish")'));
+  assert.ok(src.includes('useState<string>("article-blocks")'), "New articles open directly in the continuous editor");
+  assert.ok(src.includes('setActiveArticleSection("article-publish")'), "Classic fallback retains old initial publishing view");
+  assert.ok(src.includes('articleEditorNavigation = continuousEditableOpen'));
+  assert.ok(src.includes('label: "Editor článku"'));
   assert.ok(src.includes('activeSectionId={activeArticleSection}'));
   assert.ok(src.includes('onSectionChange={setActiveArticleSection}'));
   assert.ok(src.includes('editorStyles.introCard'));
