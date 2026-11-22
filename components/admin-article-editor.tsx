@@ -1007,7 +1007,7 @@ export function AdminArticleEditor({
               <button type="button" className="admin-secondary-button" data-article-continuous-toggle
                 aria-pressed={continuousReadOnlyOpen}
                 onClick={() => {
-                  if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]')) {
+                  if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]:not([data-article-continuous-initial-error="true"])')) {
                     setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
                   }
                   setContinuousEditableOpen(false); setContinuousReadOnlyOpen(open => !open);
@@ -1017,7 +1017,7 @@ export function AdminArticleEditor({
               <button type="button" className="admin-secondary-button" data-article-legacy-toggle
                 aria-pressed={!continuousEditableOpen && !continuousReadOnlyOpen}
                 onClick={() => {
-                  if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]')) {
+                  if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]:not([data-article-continuous-initial-error="true"])')) {
                     setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
                   }
                   setContinuousEditableOpen(false); setContinuousReadOnlyOpen(false);
