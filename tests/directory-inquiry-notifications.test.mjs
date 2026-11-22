@@ -231,6 +231,59 @@ test("new inquiry sends one safe idempotent notification and duplicate submissio
   assert.equal(resendRequests.length, 1);
 });
 
+test("edited inquiry cannot silently succeed with an old idempotency key", async () => {
+  const { sqlite, d1 } = createDatabase();
+  const deliveries = [];
+  globalThis.fetch = async (url, init) => {
+    assert.equal(String(url), RESEND_ENDPOINT);
+    deliveries.push(JSON.parse(String(init.body)));
+    return Response.json({ id: "email-" + deliveries.length }, { status: 200 });
+  };
+  const extras = { RESEND_API_KEY: "re_test_key", EDITORIAL_FROM_EMAIL: "Psipedia <notifikacie@psipedia.sk>" };
+  configureRuntime(d1, extras);
+  const worker = await loadWorker("inquiry-content-conflict");
+  const original = inquiryPayload({ submissionKey: "33333333-3333-4333-8333-333333333333" });
+
+  const post = (payload) => request(worker, d1, "/api/directory/inquiries", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  }, false, extras);
+
+  const first = await post(original);
+  assert.equal(first.status, 201);
+  assert.deepEqual(await first.json(), { success: true });
+
+  // Retrying the same content is safe and does not create duplicates.
+  const repeated = await post({ ...original, senderEmail: original.senderEmail.toUpperCase() });
+  assert.equal(repeated.status, 200);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, 1);
+  assert.equal(deliveries.length, 1);
+
+  // A failed network response may lead the user to edit the message.
+  // Returning HTTP 200 here would falsely claim the edit was saved.
+  const changedMessage = original.message + " Potrebujem doplniť aj ďalší termín.";
+  for (const edited of [
+    { ...original, message: changedMessage },
+    { ...original, profileId: 987654 },
+    { ...original, senderPhone: "0911 222 333" },
+  ]) {
+    const conflict = await post(edited);
+    assert.equal(conflict.status, 409);
+    assert.match((await conflict.json()).error, /obsah dopytu/i);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, 1);
+    assert.equal(deliveries.length, 1);
+  }
+  assert.equal(sqlite.prepare("SELECT message FROM directory_inquiries").get().message, original.message);
+
+  // A genuinely edited inquiry with a fresh key is a separate submission.
+  const fresh = await post({ ...original, message: changedMessage, submissionKey: "44444444-4444-4444-8444-444444444444" });
+  assert.equal(fresh.status, 201);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, 2);
+  assert.equal(sqlite.prepare("SELECT message FROM directory_inquiries ORDER BY id DESC LIMIT 1").get().message, changedMessage);
+  assert.equal(deliveries.length, 2);
+});
+
 test("failed Resend preserves inquiry and failed outbox, then retry succeeds with same idempotency key", async () => {
   const { sqlite, d1 } = createDatabase();
   const resendRequests = [];
