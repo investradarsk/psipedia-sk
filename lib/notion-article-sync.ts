@@ -747,7 +747,8 @@ function mapNotionPlacement(
   // unrelated portal section merely to retire legacy Notion category options.
   if (notionCategory === "Všeobecné články") {
     return {
-      category: existing?.portalSection === "clanky" ? existing.category : "Život so psom",
+      category: existing?.portalSection === "clanky" && existing.category !== "Plemená"
+        ? existing.category : "Život so psom",
       portalSection: "clanky",
       portalSubpage: null,
       newsCategory: null,
@@ -1691,7 +1692,8 @@ export async function writeBackArticleSeoToNotion(args: {
     const payload = notionPageToManagedArticleInput(sourcePage, blocks, fallback, confirmedSeo);
     const image = notionArticleMainImageSource(sourcePage);
     return sha256(JSON.stringify({
-      payload,
+      payload: { ...payload, relatedBreedIds: [] },
+      ...notionArticleBreedFingerprint(sourcePage),
       notionImageSourceUrl: urlProperty(sourcePage, "Hlavný obrázok URL"),
       ...(image.fileIdentity ? { notionImageFileIdentity: image.fileIdentity } : {}),
       notionImageAlt: richTextProperty(sourcePage, "Alt text obrázka"),
@@ -2223,7 +2225,7 @@ async function findUnmappedCanonicalArticle(
 
 const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [
   "title","excerpt","intro","blocks","seoTitle","metaDescription","socialCaption","focusKeyword",
-  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl","imageCredit","relatedBreedIds",
+  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl","imageCredit","relatedBreedIds","category",
 ] as const;
 type ArticleAuthorityKey=(typeof ARTICLE_EDITABLE_AUTHORITY_FIELDS)[number];
 /**
@@ -2243,6 +2245,7 @@ function articleSignedNotionFields(
   const direct = {
     title: "Názov", socialCaption: "Popis na sociálne siete",
     imageCredit: "Kredit fotografie", relatedBreedIds: "Prepojené plemená",
+    category: "Kategória",
   } as const;
   for (const [field, name] of Object.entries(direct)) {
     const prop = propertyRecord(page, name);
@@ -2272,6 +2275,14 @@ function articleApplySignedFields(
     publishedAt: existing.publishedAt,
     imageUrl: existing.image, imageKey: existing.imageKey,
   };
+  // A deliberate change to Notion Kategória is also a placement change;
+  // always use its canonical portal section/subsection together.
+  if (edited.has("category")) {
+    next.category = incoming.category;
+    next.portalSection = incoming.portalSection;
+    next.portalSubpage = incoming.portalSubpage;
+    next.newsCategory = incoming.newsCategory;
+  }
   for (const key of ARTICLE_EDITABLE_AUTHORITY_FIELDS) {
     if (edited.has(key)) continue;
     if (key === "intro") {
@@ -2444,7 +2455,12 @@ async function syncOneNotionPage(
   if (mapping && !existing) {
     throw new Error("Notion záznam je prepojený na chýbajúci článok v Psipedii.");
   }
-  if (existing && (existing.slug !== proposed.slug || existing.portalSection !== proposed.portalSection)) {
+  const explicitBreedPlacementChange = Boolean(existing && mapping &&
+    signedFields?.has("category") &&
+    isBreedArticlePlacementChange(existing, proposed) &&
+    notionArticleBreedPlacement(existing) && notionArticleBreedPlacement(proposed));
+  if (existing && (existing.slug !== proposed.slug ||
+      (existing.portalSection !== proposed.portalSection && !explicitBreedPlacementChange))) {
     throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED");
   }
   if (existing && existing.status !== "draft" && existing.status !== "published"
@@ -2566,10 +2582,10 @@ async function syncOneNotionPage(
         status: existing.status,
         publishedAt: existing.publishedAt,
         slug: existing.slug,
-        category: existing.category,
-        portalSection: existing.portalSection,
-        portalSubpage: existing.portalSubpage,
-        newsCategory: existing.newsCategory,
+        category: explicitBreedPlacementChange ? basePayload.category : existing.category,
+        portalSection: explicitBreedPlacementChange ? basePayload.portalSection : existing.portalSection,
+        portalSubpage: explicitBreedPlacementChange ? basePayload.portalSubpage : existing.portalSubpage,
+        newsCategory: explicitBreedPlacementChange ? basePayload.newsCategory : existing.newsCategory,
         accent: existing.accent,
         author: existing.author,
         authorProfileId: existing.authorProfileId,
