@@ -83,7 +83,11 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+    await page.addInitScript(() => {
+      localStorage.setItem("psipedia-cookie-consent", "necessary");
+      // Existing E2E suite deliberately exercises backwards compatibility.
+      localStorage.setItem("psipedia-article-editor-mode", "legacy");
+    });
   });
 
   test("CONTINUOUS-STEP1: one read-only Tiptap document displays unsaved prose and original block editor stays intact", async ({ page }) => {
@@ -118,6 +122,23 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(original).toBeVisible();
     await expect(original.locator('[contenteditable="true"]')).toContainText("Toto je obsahový blok upravovaný");
     expect(mutations).toEqual([]);
+  });
+
+  test("CONTINUOUS-STEP6: new article uses single editor navigation and canvas by default", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await page.evaluate(() => localStorage.removeItem("psipedia-article-editor-mode"));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+    await expect(nav.getByLabel("Sekcia editora")).toBeVisible();
+    const labels = await nav.getByLabel("Sekcia editora").locator("option").allTextContents();
+    expect(labels.some(label => label.includes("Editor článku"))).toBe(true);
+    expect(labels.some(label => label.includes("Bloky článku"))).toBe(false);
+    await nav.getByLabel("Sekcia editora").selectOption("article-blocks");
+    await expect(page.locator("#article-title")).toBeVisible();
+    await expect(page.locator("#article-excerpt")).toHaveCount(1);
+    await expect(page.locator('[data-article-continuous-document="editable"]')).toHaveCount(1);
+    await expect(page.locator('[data-article-legacy-toggle]')).toHaveAttribute("aria-pressed", "false");
   });
 
   test("CONTINUOUS-STEP3: edit a body paragraph in one Tiptap canvas and return to legacy without losing it", async ({ page }) => {
