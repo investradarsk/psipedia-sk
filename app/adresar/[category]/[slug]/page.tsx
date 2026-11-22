@@ -180,7 +180,6 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
     ]);
   const publicMapPresentation = { ...publicMap, ...getPublicMapRuntime() };
   const schema = buildDirectoryProfileJsonLd({ profile, presentation, canonical, relatedBreeds });
-  const correctionHref = `/adresar/${profile.category}/${profile.slug}/upravit`;
   return (
     <>
       <StructuredData value={schema} />
@@ -197,7 +196,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
         relatedStations={relatedStations}
         locationDiscoveryLinks={locationDiscoveryLinks}
         management={
-          <PartnerPublicOwnership embedded state={partnerState} correctionHref={correctionHref} />
+          <PartnerPublicOwnership embedded state={partnerState} />
         }
       />
     </>
