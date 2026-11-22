@@ -624,6 +624,10 @@
       "coverage": "live-preview"
     },
     {
+      "path": "components/public-visual-system/public-category-section.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/public-visual-system/public-context-banner.tsx",
       "coverage": "live-preview"
     },

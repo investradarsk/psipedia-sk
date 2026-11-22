@@ -15,7 +15,7 @@ export type EditorialArticle = {
   seoTitle: string; metaDescription: string; focusKeyword: string;
   socialCaption?: string;
   ogTitle?: string; ogDescription?: string; image?: string | null;
-  imageAlt?: string | null; imageCreditUrl?: string | null;
+  imageAlt?: string | null; imageCredit?: string | null; imageCreditUrl?: string | null;
 };
 export type NotionEditorialOperation = {
   id: string;
@@ -252,6 +252,7 @@ export function buildNotionEditorialPlan(args: {
   if (permitSeo("metaDescription")) fields.push([SEO.metaDescription.name, SEO.metaDescription.type, article.metaDescription]);
   if (permitSeo("focusKeyword")) fields.push([SEO.focusKeyword.name, SEO.focusKeyword.type, article.focusKeyword]);
   if ("Popis na sociálne siete" in pageProperties) fields.push(["Popis na sociálne siete", "rich_text", article.socialCaption ?? ""]);
+  if ("Kredit fotografie" in pageProperties) fields.push(["Kredit fotografie", "rich_text", article.imageCredit ?? ""]);
   if (permitSeo("ogTitle") && SEO.ogTitle.name in pageProperties)
     fields.push([SEO.ogTitle.name, SEO.ogTitle.type, article.ogTitle ?? ""]);
   if (permitSeo("ogDescription") && SEO.ogDescription.name in pageProperties)

@@ -251,6 +251,12 @@ async function loadWriter(h) {
     "@/lib/notion-transfer-audit": {recordNotionTransfer:async()=>{}},
     "@/lib/article-store": {},
     "@/lib/article-blocks": {},
+    "@/lib/public-editorial-guard": {
+      hasCompletePublicPhotoCredit: () => false,
+      isPhotoAttributionHeading: () => false,
+      isPrivateEditorialArticleHeading: () => false,
+      photoCreditFromNotionAttribution: () => "",
+    },
     "@/lib/article-promo": {},
     "@/lib/notion-article-image-source": { notionArticleMainImageSource: () => ({ url: "", identity: "", fileIdentity: null, kind: "none" }) },
     "@/lib/notion-article-related-publication": { assertPublishedRelatedBlocks: async () => {} },
