@@ -7,7 +7,6 @@ import {
   mapHelpSourceReviewAttention,
   mapAutomationActionAttention,
   mapArticleFeedbackAttention,
-  mapDirectoryChangeRequestAttention,
   mapDirectoryInquiryAttention,
   mapGeoLocationAttention,
   mapModerationAttention,
@@ -28,7 +27,6 @@ import {
   type AdminAttentionQueueSourceType,
   type AdminAttentionState,
   type ArticleFeedbackAttentionRow,
-  type DirectoryChangeRequestAttentionRow,
   type DirectoryInquiryAttentionRow,
   type GeoLocationAttentionRow,
   type ModerationAttentionRow,
@@ -427,16 +425,6 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
       CASE WHEN status IN ('new','reviewing') THEN created_at ELSE COALESCE(updated_at,created_at) END AS relevantAt,
       json_object('id',id,'title',title,'topic',topic,'status',status,'createdAt',created_at,'updatedAt',updated_at) AS payload
     FROM news_tips
-  `,
-  DIRECTORY_CHANGE_REQUEST: `
-    SELECT 'DIRECTORY_CHANGE_REQUEST' AS sourceType, CAST(id AS TEXT) AS sourceId,
-      CASE WHEN status='new' THEN 0 ELSE 1 END AS activeRank,
-      CASE WHEN status='new' THEN 'NEW' WHEN status='approved' THEN 'RESOLVED' ELSE 'DISMISSED' END AS attentionState,
-      'MEDIUM' AS priority, 1 AS priorityRank,
-      CASE WHEN status='new' THEN created_at ELSE COALESCE(updated_at,created_at) END AS relevantAt,
-      json_object('id',id,'profileName',profile_name,'profileCategory',profile_category,'status',status,
-        'createdAt',created_at,'updatedAt',updated_at) AS payload
-    FROM directory_profile_change_requests
   `,
   DIRECTORY_INQUIRY: `
     SELECT 'DIRECTORY_INQUIRY' AS sourceType, CAST(id AS TEXT) AS sourceId,
@@ -1194,7 +1182,6 @@ function mapGenericRow(row: AttentionGenericRow, now: Date): AdminAttentionItem 
     case "MODERATION_SUBMISSION": return mapModerationAttention(payload as ModerationAttentionRow, now)!;
     case "PROFILE_REVIEW_MODERATION": return mapProfileReviewAttention(payload as ProfileReviewAttentionRow, now);
     case "NEWS_TIP": return mapNewsTipAttention(payload as NewsTipAttentionRow, now);
-    case "DIRECTORY_CHANGE_REQUEST": return mapDirectoryChangeRequestAttention(payload as DirectoryChangeRequestAttentionRow, now);
     case "DIRECTORY_INQUIRY": return mapDirectoryInquiryAttention(payload as DirectoryInquiryAttentionRow, now);
     case "ARTICLE_FEEDBACK": return mapArticleFeedbackAttention(payload as ArticleFeedbackAttentionRow, now);
     case "ADOPTION_STALE": return mapAdoptionStaleAttention(payload as AdoptionStaleAttentionRow, now);
