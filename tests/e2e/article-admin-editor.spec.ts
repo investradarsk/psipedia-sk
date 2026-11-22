@@ -141,6 +141,16 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await blockSection.locator("[data-article-legacy-toggle]").click();
     const original = blockSection.locator("[data-admin-rich-text-editor]");
+    const stateAfterSwitch = await blockSection.evaluate(section => ({
+      active: section.getAttribute("data-editor-section-active"),
+      editable: !!section.querySelector("[data-article-continuous-editable]"),
+      invalid: section.querySelector("[data-article-continuous-editable]")?.getAttribute("data-article-tiptap-invalid"),
+      error: section.querySelector('[role="alert"]')?.textContent?.slice(0, 220),
+      legacyPressed: section.querySelector("[data-article-legacy-toggle]")?.getAttribute("aria-pressed"),
+      originalEditors: section.querySelectorAll("[data-admin-rich-text-editor]").length,
+      emptyBlockList: !!section.querySelector(".admin-block-empty"),
+    }));
+    expect(stateAfterSwitch.legacyPressed, JSON.stringify(stateAfterSwitch)).toBe("true");
     await expect(original).toBeVisible();
     await expect(original.last().locator('[contenteditable="true"]')).toContainText("NOVA-SUVISLA-VERZIA");
 
