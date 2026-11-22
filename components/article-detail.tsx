@@ -3,6 +3,7 @@ import { PublicHeading } from "@/components/public-heading";
 import { articleCategoryHref } from "@/lib/article-category-routes";
 import { ArticleBlocks } from "@/components/article-blocks";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
+import { hasCompletePublicPhotoCredit } from "@/lib/public-editorial-guard";
 import { AUTOMATIC_ARTICLE_PROMO_ANCHOR } from "@/lib/visual-library-anchors";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
@@ -120,7 +121,7 @@ export function ArticleDetail({
   const blocks = publicArticleBlocks(article.blocks?.length
     ? article.blocks
     : legacyArticleBlocks(article.sections, article.sources), {
-    hasImageCredit: Boolean(article.imageCredit?.trim() && article.imageCreditUrl?.trim()),
+    hasImageCredit: hasCompletePublicPhotoCredit(article.imageCredit, article.imageCreditUrl),
   });
   const contentBlocks = blocks.filter((block) => block.type !== "source");
   const sourceBlocks = blocks.filter((block) => block.type === "source");
