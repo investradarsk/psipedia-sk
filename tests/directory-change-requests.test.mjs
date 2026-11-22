@@ -661,96 +661,36 @@ test("remaining editorial tip and feedback flows retry once without retired publ
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
 });
 
-test("admin endpoints are protected and review uses the safe manual workflow", async () => {
+test("historic admin proposals remain read-only; nobody can moderate through retired API", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
-  Object.assign(runtimeEnv, {
-    DB: d1,
-    ADMIN_EMAILS: "admin@psipedia.sk",
-    EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk",
-    RESEND_API_KEY: "re_test_key",
-  });
-  delete runtimeEnv.EDITORIAL_EMAIL;
-  globalThis.fetch = async () => Response.json({ id: "email-admin-test" }, { status: 200 });
+  Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk" });
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("change-admin", String(Date.now()));
+  workerUrl.searchParams.set("retired-proposal-admin", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
-  for (const [email, profileId] of [
-    ["approve@example.sk", 1],
-    ["reject@example.sk", 2],
-  ]) {
-    const body = proposal({
-      profileId,
-      requesterEmail: email,
-      proposedData: {
-        ...proposal().proposedData,
-        name: profileId === 1 ? "Veterina nový názov" : "Tréner nový názov",
-        region: profileId === 1 ? "Nitriansky kraj" : "Bratislavský kraj",
-      },
-    });
-    const response = await request(worker, d1, "/api/directory/profile-change-requests", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    assert.equal(response.status, 201);
-  }
-  const profilesBefore = sqlite.prepare("SELECT * FROM directory_profiles ORDER BY id").all();
+  const mutation = {
+    method: "PUT", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ status: "approved" }),
+  };
+
   assert.equal((await request(worker, d1, "/api/admin/profile-change-requests")).status, 401);
-  assert.equal(
-    (
-      await request(worker, d1, "/api/admin/profile-change-requests/1", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: "approved" }),
-      })
-    ).status,
-    401,
-  );
+  assert.equal((await request(worker, d1, "/api/admin/profile-change-requests/1", mutation)).status, 401);
+
+  const history = await request(worker, d1, "/api/admin/profile-change-requests", {}, true);
+  assert.equal(history.status, 200);
+  assert.deepEqual((await history.json()).requests, []);
 
   const adminPage = await request(worker, d1, "/admin/adresar/navrhy", {}, true);
   assert.equal(adminPage.status, 200);
   const html = await adminPage.text();
-  assert.match(html, /Návrhy úprav profilov/);
-  assert.match(html, /Rozdiely/);
-  assert.match(html, /Veterina nový názov/);
-  assert.match(html, /Schváliť návrh/);
+  assert.match(html, /Historické návrhy/);
+  assert.doesNotMatch(html, />Schváliť návrh<|>Zamietnuť<|>Zamietnuť návrh</);
 
-  const approved = await request(
-    worker,
-    d1,
-    "/api/admin/profile-change-requests/1",
-    {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: "approved" }),
-    },
-    true,
-  );
-  assert.equal(approved.status, 200);
-  assert.equal((await approved.json()).request.status, "approved");
-  const rejected = await request(
-    worker,
-    d1,
-    "/api/admin/profile-change-requests/2",
-    {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: "rejected" }),
-    },
-    true,
-  );
-  assert.equal(rejected.status, 200);
-  assert.equal((await rejected.json()).request.status, "rejected");
-  assert.deepEqual(
-    sqlite.prepare("SELECT * FROM directory_profiles ORDER BY id").all(),
-    profilesBefore,
-  );
-  assert.equal(
-    sqlite.prepare("SELECT reviewed_by FROM directory_profile_change_requests WHERE id = 1").get()
-      .reviewed_by,
-    "admin@psipedia.sk",
-  );
+  const retired = await request(worker, d1, "/api/admin/profile-change-requests/1", mutation, true);
+  assert.equal(retired.status, 410);
+  assert.match((await retired.json()).error, /Partner účet/);
+  assert.equal(retired.headers.get("cache-control"), "no-store");
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 0);
 });
 
 test("change request layout stacks safely on mobile", () => {
