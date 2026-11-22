@@ -64,3 +64,12 @@ test("public name-day D1 reads retry transient connection errors only, without m
   const admin = store.split("export async function listDogNameDayRecords")[1].split("/** Read-only public month lookup")[0];
   assert.doesNotMatch(admin, /retryTransientPublicRead/, "admin reads and all writes must not retry");
 });
+
+test("name-day browser E2E initializes the isolated Directory presentation tables used by homepage SSR", async () => {
+  const workflow = await read("../.github/workflows/homepage-name-days-ci.yml");
+  const migration = await read("../db/isolated/directory_admin_sql_completion.sql");
+  assert.match(migration, /CREATE TABLE directory_profile_image_display_settings/);
+  assert.match(workflow, /Finish local D1 migrations[\s\S]*?Apply isolated Directory SQL presentation schema[\s\S]*?Start app locally/);
+  assert.match(workflow, /d1 execute DB --local --config dist\/server\/wrangler\.json --persist-to \.wrangler\/state --file db\/isolated\/directory_admin_sql_completion\.sql/);
+  assert.doesNotMatch(workflow, /d1 execute DB --remote.*directory_admin_sql_completion/);
+});
