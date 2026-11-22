@@ -3302,3 +3302,15 @@
   min-height: 40px;
   font-size: 0.83rem;
 }
+
+/* The event time filter is distinct from category navigation. */
+.periodLabel {
+  margin: 0 0 8px;
+  color: var(--coral-dark, #b94732);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+/* The organizer CTA lives right below the hero instead of after the results. */
+.calendarOrganizer { margin: 8px 0 12px; }
