@@ -546,6 +546,11 @@
   overflow-wrap: anywhere;
 }
 
+.partnerDisclosure {
+  display: block;
+  margin-top: 7px;
+}
+
 .readingShell :global(.article-disclaimer) {
   margin-top: 30px;
   padding-top: 20px;
