@@ -27,7 +27,7 @@ export function PublicHelpPhotoBanner({ promo, anchorId, desktopColors, desktopC
 
 export function PublicHelpReportBanner() {
   return (
-    <PublicBannerFrame className={styles.reportBanner} aria-label="Rýchla pomoc pri nájdenom psovi">
+    <PublicBannerFrame visual="dark" size="small" className={styles.reportBanner} aria-label="Rýchla pomoc pri nájdenom psovi">
       <div className={styles.reportCopy}>
         <span className={styles.reportIcon}><AlertCircleIcon size={22} /></span>
         <div>
