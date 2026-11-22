@@ -259,7 +259,7 @@ export function AdminArticleEditor({
     subscribeArticleEditorMode, articleEditorBrowserMode, articleEditorServerMode,
   );
   const [manualMode, setManualMode] = useState<ArticleEditorMode | null>(null);
-  const continuousEditableOpen = (manualMode ?? savedEditorMode) === "continuous";
+  const continuousEditableOpen = !continuousReadOnlyOpen && (manualMode ?? savedEditorMode) === "continuous";
   const lastNonPreviewMode = useRef<ArticleEditorMode>("continuous");
   function selectArticleEditorMode(mode: ArticleEditorMode | "preview") {
     if (mode === "preview") {
