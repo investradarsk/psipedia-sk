@@ -82,12 +82,14 @@ async function fillMinimumArticle(page: import("@playwright/test").Page, title: 
 test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   test.describe.configure({ mode: "serial" });
 
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    // Existing E2E flows stay on the explicitly supported classic fallback.
+    // The STEP6 test uses a clean first-visit profile to verify the new default.
+    await page.addInitScript((testNewDefault: boolean) => {
       localStorage.setItem("psipedia-cookie-consent", "necessary");
-      // Existing E2E suite deliberately exercises backwards compatibility.
-      localStorage.setItem("psipedia-article-editor-mode", "legacy");
-    });
+      if (testNewDefault) localStorage.removeItem("psipedia-article-editor-mode");
+      else localStorage.setItem("psipedia-article-editor-mode", "legacy");
+    }, testInfo.title.includes("CONTINUOUS-STEP6"));
   });
 
   test("CONTINUOUS-STEP1: one read-only Tiptap document displays unsaved prose and original block editor stays intact", async ({ page }) => {
@@ -127,8 +129,6 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   test("CONTINUOUS-STEP6: new article uses single editor navigation and canvas by default", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
-    await page.evaluate(() => localStorage.removeItem("psipedia-article-editor-mode"));
-    await page.reload({ waitUntil: "domcontentloaded" });
     const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
     await expect(nav.getByLabel("Sekcia editora")).toBeVisible();
     const labels = await nav.getByLabel("Sekcia editora").locator("option").allTextContents();
