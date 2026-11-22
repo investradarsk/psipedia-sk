@@ -80,6 +80,7 @@ export function continuousDocumentToArticleFields(
   value: unknown,
   options: {
     requiredNativeBlockIds?: string[];
+    requiredNativeBlockKeys?: string[];
     originalIntro?: { intro: string; introRichText: EditorialRichTextDocument };
   } = {},
 ): ContinuousArticleFields {
@@ -139,6 +140,7 @@ export function continuousDocumentToArticleFields(
   };
 
   const encounteredNative: string[] = [];
+  const encounteredNativeKeys: string[] = [];
   for (const [bodyIndex, node] of nodes.slice(boundary + 2).entries()) {
     if (node.type === "psipediaArticleWidget") {
       flush();
@@ -150,6 +152,7 @@ export function continuousDocumentToArticleFields(
       }
       blocks.push(snapshot(block));
       encounteredNative.push(block.id);
+      encounteredNativeKeys.push(String(node.attrs?.sourceBlockIndex) + ":" + block.id);
       continue;
     }
     if (!["paragraph", "heading", "bulletList", "orderedList", "blockquote", "psipediaCallout"].includes(node.type)) {
@@ -169,6 +172,13 @@ export function continuousDocumentToArticleFields(
   // Accidental Backspace/drag mutations are never allowed to drop media/CTA.
   for (const id of options.requiredNativeBlockIds ?? []) {
     if (!encounteredNative.includes(id)) throw new Error(`Chýba pôvodný vložený blok ${id}. Uloženie bolo zastavené.`);
+  }
+  // Some historical records can contain duplicate block IDs. Each original
+  // widget is therefore guarded by its stable source index AND ID.
+  for (const key of options.requiredNativeBlockKeys ?? []) {
+    if (!encounteredNativeKeys.includes(key)) {
+      throw new Error(`Chýba pôvodný vložený blok ${key}. Uloženie bolo zastavené.`);
+    }
   }
   return {
     intro: keepOriginalIntro ? originalIntro!.intro : editorialRichTextPlainText(introRichText), introRichText,
