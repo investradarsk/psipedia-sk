@@ -54,7 +54,6 @@ export function adminPushEventKey(eventType:string, sourceType = "", system = ""
       (system === "adoption_dog" || system === "ADOPTION_DOG"))
   ) return "ADOPTION_REQUEST";
   if (
-    eventType === "directory_profile_change_submitted" ||
     eventType === "moderation_submission_actionable" ||
     eventType === "partner_profile_proposed"
   ) return "PROFILE_PROPOSAL";
@@ -96,8 +95,6 @@ export function adminPushCategoryForEvent(eventType: string, system?: string): A
  * Keep historical resource types distinct from modern event_type routing. */
 export function legacyAdminPushEventKey(resourceType: string): AdminPushEventKey {
   switch (resourceType) {
-    case "directory_profile_change_request":
-      return "PROFILE_PROPOSAL";
     case "news_tip":
     case "article_feedback":
     case "directory_inquiry":

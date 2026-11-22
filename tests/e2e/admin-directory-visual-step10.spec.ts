@@ -32,8 +32,7 @@ test("step 10: category links and secondary tools remain accessible on phones", 
   await tools.locator("summary").click();
   await expect(tools.getByRole("link", { name: "Katalóg služieb a vlastností" }))
     .toHaveAttribute("href", "/admin/sluzby-pre-psov/katalog");
-  await expect(tools.getByRole("link", { name: "Návrhy úprav" }))
-    .toHaveAttribute("href", "/admin/adresar/navrhy");
+  await expect(tools.getByRole("link", { name: "Návrhy úprav" })).toHaveCount(0);
 });
 
 test("step 10: service directory filters and table actions keep their original links", async ({ page }) => {

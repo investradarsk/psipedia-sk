@@ -184,10 +184,6 @@
       "coverage": "page-composite"
     },
     {
-      "path": "components/directory-profile-change-form.tsx",
-      "coverage": "needs-preview"
-    },
-    {
       "path": "components/directory-profile-detail.tsx",
       "coverage": "page-composite"
     },

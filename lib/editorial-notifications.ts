@@ -1,11 +1,9 @@
 import { env } from "cloudflare:workers";
 import { enqueueAutomationFindingAdminNotification, enqueueEditorialReferenceAdminNotification } from "@/lib/admin-notifications";
 import type { ArticleFeedback } from "@/lib/article-feedback-store";
-import type { DirectoryProfileChangeRequest } from "@/lib/directory";
 import type { NewsTip } from "@/lib/news-tip";
 import type { AutomationFindingNotification } from "@/lib/data-automation";
 import {
-  notifyDirectoryProfileChangeRequest,
   notifyNegativeArticleFeedback,
   notifyNewsTip,
   notifyAutomationFinding,
@@ -13,11 +11,10 @@ import {
 } from "@/lib/editorial-email";
 
 export type EditorialNotificationResourceType =
-  | "directory_profile_change_request"
   | "news_tip"
   | "article_feedback"
   | "automation_finding";
-type EditorialNotificationResource = DirectoryProfileChangeRequest | NewsTip | ArticleFeedback | AutomationFindingNotification;
+type EditorialNotificationResource = NewsTip | ArticleFeedback | AutomationFindingNotification;
 type RuntimeBindings = EditorialEmailBindings & { DB?: D1Database };
 type Options = { database?: D1Database; bindings?: EditorialEmailBindings; now?: Date; mirrorAdminPush?: boolean };
 type OutboxRow = {
@@ -72,7 +69,6 @@ function log(resourceType: EditorialNotificationResourceType, resourceId: number
 
 async function deliver(resourceType: EditorialNotificationResourceType, resource: EditorialNotificationResource, bindings: EditorialEmailBindings) {
   const options = { bindings, idempotencyKey: `editorial/${resourceType}/new/${resource.id}` };
-  if (resourceType === "directory_profile_change_request") return notifyDirectoryProfileChangeRequest(resource as DirectoryProfileChangeRequest, options);
   if (resourceType === "news_tip") return notifyNewsTip(resource as NewsTip, options);
   if (resourceType === "automation_finding") return notifyAutomationFinding(resource as AutomationFindingNotification, options);
   return notifyNegativeArticleFeedback(resource as ArticleFeedback, options);
@@ -134,14 +130,6 @@ export async function processEditorialNotification(
 }
 
 async function loadResource(database: D1Database, row: OutboxRow): Promise<EditorialNotificationResource | null> {
-  if (row.resource_type === "directory_profile_change_request") {
-    const value = await database.prepare(`SELECT id, profile_id, profile_name, profile_slug, profile_category,
-      requester_name, requester_email, requester_phone, requester_role, proposed_data_json, note, authorized,
-      consent, status, created_at, updated_at, reviewed_at, reviewed_by
-      FROM directory_profile_change_requests WHERE id = ? LIMIT 1`).bind(row.resource_id).first<Record<string, unknown>>();
-    if (!value) return null;
-    return { id: Number(value.id), profileId: Number(value.profile_id), profileName: String(value.profile_name), profileSlug: String(value.profile_slug), profileCategory: String(value.profile_category), requesterName: String(value.requester_name), requesterEmail: String(value.requester_email), requesterPhone: String(value.requester_phone), requesterRole: String(value.requester_role), proposedData: JSON.parse(String(value.proposed_data_json)), note: String(value.note), authorized: Boolean(value.authorized), consent: Boolean(value.consent), status: String(value.status), createdAt: String(value.created_at), updatedAt: String(value.updated_at), reviewedAt: value.reviewed_at ? String(value.reviewed_at) : null, reviewedBy: value.reviewed_by ? String(value.reviewed_by) : null } as DirectoryProfileChangeRequest;
-  }
   if (row.resource_type === "news_tip") {
     const value = await database.prepare("SELECT * FROM news_tips WHERE id = ? LIMIT 1").bind(row.resource_id).first<Record<string, unknown>>();
     if (!value) return null;
@@ -172,7 +160,7 @@ async function loadResource(database: D1Database, row: OutboxRow): Promise<Edito
 export async function runEditorialNotificationSweep(options: Options = {}) {
   const resolved = runtime(options);
   const rows = await resolved.database.prepare(`SELECT ${COLUMNS} FROM editorial_notifications
-    WHERE status IN ('pending','failed') ORDER BY created_at ASC LIMIT 100`).all<OutboxRow>();
+    WHERE status IN ('pending','failed') AND resource_type <> 'directory_profile_change_request' ORDER BY created_at ASC LIMIT 100`).all<OutboxRow>();
   const summary = { candidates: rows.results.length, sent: 0, failed: 0, skipped: 0 };
   for (const row of rows.results) {
     try {

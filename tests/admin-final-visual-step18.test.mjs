@@ -6,12 +6,12 @@ const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8"
 const inventory = JSON.parse(read("docs/audits/admin-ui-unification-inventory.json"));
 
 test("step 18: complete admin navigation inventory has seven groups and all expected modules", () => {
-  assert.equal(inventory.entries.length, 29, "28 draft-branch destinations plus new upstream analytics");
+  assert.equal(inventory.entries.length, 28, "27 active destinations plus upstream analytics after retiring public proposals");
   assert.deepEqual([...new Set(inventory.entries.map(item => item.group))], [
     "Prehľad", "Obsah", "Adresár", "Komunita",
     "Automatizácie", "Kvalita dát", "Nastavenia",
   ]);
-  assert.equal(new Set(inventory.entries.map(item => item.href)).size, 29);
+  assert.equal(new Set(inventory.entries.map(item => item.href)).size, 28);
   const currentNav = read("lib/admin-navigation.ts");
   for (const item of inventory.entries) {
     if (item.href === "/admin/nastavenia/statistiky") continue; // added on main; merge blocker is documented

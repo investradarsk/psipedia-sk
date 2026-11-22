@@ -111,13 +111,6 @@
     },
     {
       "group": "Komunita",
-      "label": "Návrhy úprav",
-      "href": "/admin/adresar/navrhy",
-      "step": 13,
-      "verification": "source_inventory_only"
-    },
-    {
-      "group": "Komunita",
       "label": "Partneri",
       "href": "/admin/partners",
       "step": 13,

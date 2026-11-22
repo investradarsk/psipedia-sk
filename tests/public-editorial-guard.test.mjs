@@ -35,8 +35,8 @@ test("Notion-only sections never enter the public article body", () => {
   const articleStore = read("lib/article-store.ts");
   const notionSync = read("lib/notion-article-sync.ts");
   assert.match(publicDetail, /const blocks = publicArticleBlocks\(/);
-  assert.match(publicDetail, /articleBlockHeadings\(blocks\)/);
-  assert.match(publicDetail, /articleBlockPlainText\(blocks\)/);
+  assert.match(publicDetail, /articleBlockHeadings\(publicBlocks\)/);
+  assert.match(publicDetail, /articleBlockPlainText\(publicBlocks\)/);
   assert.match(articleBlocks, /isPrivateEditorialArticleHeading\(block\.text\)/);
   assert.match(articleBlocks, /return !privateTail/);
   assert.match(articleStore, /const canonicalBlocks = publicArticleBlocks\(normalizeArticleBlocks\(payload\.blocks/);

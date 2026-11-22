@@ -120,7 +120,6 @@ on:
       - "components/admin-article-feedback-dashboard.module.css"
       - "components/admin-news-tip-dashboard.tsx"
       - "components/admin-inquiry-dashboard.tsx"
-      - "components/admin-directory-change-requests.tsx"
       - "app/admin/recenzie-profilov/[id]/page.tsx"
       - "lib/admin-profile-review-labels.ts"
       - "components/admin-record-table.module.css"

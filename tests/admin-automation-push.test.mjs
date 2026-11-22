@@ -38,7 +38,7 @@ test("adoption moderation is classified ahead of generic profile proposals", () 
 
 test("legacy editorial delivery uses one shared category mapping", () => {
   for (const [resource, key] of [
-    ["directory_profile_change_request", "PROFILE_PROPOSAL"],
+    ["directory_profile_change_request", "SYSTEM_ACTIVITY"], // retired historic type, no new proposals
     ["news_tip", "COMMUNITY_TIP"],
     ["article_feedback", "COMMUNITY_TIP"],
     ["directory_inquiry", "COMMUNITY_TIP"],
