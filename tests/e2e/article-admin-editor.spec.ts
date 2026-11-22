@@ -932,10 +932,14 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       const direction = group.locator('select[name="direction"]');
       await expect(sort).toBeVisible();
       await expect(direction).toBeVisible();
-      const sortBox = await sort.boundingBox();
-      const directionBox = await direction.boundingBox();
-      expect(sortBox && directionBox).toBeTruthy();
-      expect(Math.abs((sortBox?.y ?? 0) - (directionBox?.y ?? 0))).toBeLessThan(4);
+      // The advanced filter layout can settle after both controls first become visible.
+      // Assert that the two selectors truly share a row once layout is stable.
+      await expect.poll(async () => {
+        const [sortBox, directionBox] = await Promise.all([sort.boundingBox(), direction.boundingBox()]);
+        return sortBox && directionBox
+          ? Math.abs(sortBox.y - directionBox.y)
+          : Infinity;
+      }, { message: "Sort and direction must remain on the same row", timeout: 10_000 }).toBeLessThan(4);
       const submit = filters.getByRole("button", { name: "Filtrovať" });
       await expect(submit).toBeVisible();
       const buttonBackground = await submit.evaluate(el => getComputedStyle(el).backgroundColor);
