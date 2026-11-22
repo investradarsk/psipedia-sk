@@ -130,7 +130,7 @@ export function continuousDocumentToArticleFields(
   };
 
   const encounteredNative: string[] = [];
-  for (const node of nodes.slice(boundary + 2)) {
+  for (const [bodyIndex, node] of nodes.slice(boundary + 2).entries()) {
     if (node.type === "psipediaArticleWidget") {
       flush();
       if (node.attrs?.kind !== "block") throw new Error("Nepodporovaný vložený prvok článku.");
@@ -149,7 +149,8 @@ export function continuousDocumentToArticleFields(
     const original = provenancedBlock(node);
     const originIndex = typeof node.attrs?.sourceBlockIndex === "number"
       ? node.attrs.sourceBlockIndex : null;
-    const key = original ? `${originIndex ?? "-"}:${original.id}` : "new";
+    const key = original ? `${originIndex ?? "-"}:${original.id}`
+      : node.type === "heading" ? `new-heading:${bodyIndex}` : "new";
     if (pending && pending.key !== key) flush();
     if (!pending) pending = { key, original, nodes: [] };
     pending.nodes.push(node);
