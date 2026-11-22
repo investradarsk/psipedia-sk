@@ -1,4 +1,4 @@
-import { isNotionOnlySocialDraftHeading, isPhotoAttributionHeading, isPrivateEditorialArticleHeading } from "@/lib/public-editorial-guard";
+import { isInternalArticleInstructionText, isNotionOnlySocialDraftHeading, isPhotoAttributionHeading, isPrivateEditorialArticleHeading } from "@/lib/public-editorial-guard";
 import type { ArticleSection, ArticleSource } from "@/lib/content";
 import {
   editorialRichTextPlainText,
@@ -239,6 +239,10 @@ export function publicArticleBlocks(
 ): ArticleBlock[] {
   let privateTail = false;
   return blocks.filter((block, index) => {
+    if (
+      (block.type === "text" || block.type === "tip" || block.type === "warning" || block.type === "quote")
+      && isInternalArticleInstructionText(block.content)
+    ) return false;
     if (block.type === "h2" || block.type === "h3") {
       let socialDraft = false;
       if (block.type === "h2") {
