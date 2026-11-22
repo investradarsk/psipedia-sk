@@ -23,6 +23,37 @@ test("Ready Notion articles auto-flow into Psipedia as draft only", () => {
   assert.doesNotMatch(syncSource, /SEO skontrolované/);
 });
 
+test("past-due scheduled publications never re-enter inbound editorial sync", () => {
+  const start = syncSource.indexOf('  if (mappedExisting?.status === "scheduled"');
+  const end = syncSource.indexOf("  // Unapproved legacy Ready rows", start);
+  const bodyLoad = syncSource.indexOf("  const blocks = await getPageBlocks(bindings, page.id);", start);
+  assert.ok(start >= 0 && end > start && bodyLoad > end, "guard must run before parsing article content");
+  const guard = syncSource.slice(start, end);
+  assert.match(guard, /effectiveArticleStatus\(mappedExisting\.status, mappedExisting\.publishedAt\) === "published"/);
+  assert.match(guard, /selectProperty\(page, "Stav"\) === "Publikované"/);
+  assert.match(guard, /richTextProperty\(page, "Psipedia ID"\) === String\(mappedExisting\.id\)/);
+  assert.doesNotMatch(guard, /updateManagedArticle|upsertMapping|updateNotionSyncState/);
+
+  const skip = runInNewContext(`(function (mappedExisting, page) {
+    ${guard}
+    return "continue";
+  })`, {
+    effectiveArticleStatus: (status, publishedAt) => (
+      status === "scheduled" && publishedAt && Date.parse(publishedAt) <= Date.parse("2026-11-22T17:00:00Z")
+        ? "published" : status
+    ),
+    selectProperty: (page, property) => property === "Stav" ? page.status : "",
+    richTextProperty: (page, property) => property === "Psipedia ID" ? page.articleId : "",
+  }, { timeout: 500 });
+  const stored = { id: 2341, status: "scheduled", publishedAt: "2026-11-19T16:00:00.000Z" };
+  const remote = { status: "Publikované", articleId: "2341" };
+  assert.equal(skip(stored, remote), "unchanged");
+  assert.equal(skip({ ...stored, publishedAt: "2026-12-19T16:00:00.000Z" }, remote), "continue");
+  assert.equal(skip(stored, { ...remote, status: "Ready" }), "continue");
+  assert.equal(skip(stored, { ...remote, articleId: "other" }), "continue");
+  assert.equal(skip({ ...stored, status: "draft" }, remote), "continue");
+});
+
 test("published articles preserve identity and media while importing mapped SEO fields", () => {
   assert.match(syncSource, /findUnmappedCanonicalArticle/);
   assert.match(syncSource, /ARTICLE_MAPPING_REVIEW_REQUIRED/);
