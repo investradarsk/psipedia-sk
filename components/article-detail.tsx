@@ -119,7 +119,9 @@ export function ArticleDetail({
   );
   const blocks = publicArticleBlocks(article.blocks?.length
     ? article.blocks
-    : legacyArticleBlocks(article.sections, article.sources));
+    : legacyArticleBlocks(article.sections, article.sources), {
+    hasImageCredit: Boolean(article.imageCredit?.trim() && article.imageCreditUrl?.trim()),
+  });
   const contentBlocks = blocks.filter((block) => block.type !== "source");
   const sourceBlocks = blocks.filter((block) => block.type === "source");
   const introDocument = article.introRichText ?? legacyRichTextToDocument(article.intro);
