@@ -106,8 +106,9 @@
 }
 
 .tone_coral {
-  --context-banner-eyebrow: #8d3929;
-  background: linear-gradient(135deg, #fff0ea, #fffaf4);
+  --context-banner-eyebrow: var(--coral-dark, #b94732);
+  border-left: 3px solid var(--coral-dark, #b94732);
+  background: linear-gradient(135deg, #f8f4eb, #fffdf8);
 }
 
 .tone_sand {
