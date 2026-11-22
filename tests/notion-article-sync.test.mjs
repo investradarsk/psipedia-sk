@@ -200,7 +200,10 @@ test("Admin-aligned Všeobecné články preserves existing /clanky routes and c
   assert.match(fn, /existing\?\.portalSection === "clanky" \? existing\.category : "Život so psom"/);
   assert.match(fn, /portalSection: "clanky"/);
   assert.match(fn, /portalSubpage: null/);
-  assert.match(fn, /contentType === "Aktuálna novinka" \|\| contentType === "Recenzia"/);
+  assert.match(fn, /notionCategory === "Všeobecné články"[\s\S]*?contentType === "Aktuálna novinka" \|\| contentType === "Recenzia"/);
+  assert.ok(fn.indexOf('if (notionCategory === "Všeobecné články"') <
+    fn.indexOf('if (contentType === "Aktuálna novinka" || notionCategory === "Novinky zo sveta psov")'),
+    "news and reviews must fail closed before any automatic news routing");
   assert.ok(fn.indexOf('if (notionSubsection) {') < fn.indexOf('if (notionCategory === "Všeobecné články")'),
     "a non-empty canonical subsection must fail before generic fallback");
 
