@@ -1617,6 +1617,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     ogDescription: article.seo?.ogDescription ?? "",
     image: mirroredHero,
     imageAlt: article.imageAlt ?? "",
+    imageCredit: article.imageCredit ?? "",
     imageCreditUrl: article.imageCreditUrl ?? "",
   };
   // A mapping alone does not authorize writes to a page whose canonical
@@ -1663,7 +1664,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if (decodeArticleSeoReceipt(mapping.content_hash).hash !== currentContentHash) {
       throw new Error("NOTION_EDITORIAL_REMOTE_CONFLICT");
     }
-    const selected = selectNotionArticleBodyBlocks(remoteBlocks);
+    const selected = selectNotionArticleBodyBlocks(remoteBlocks,
+      hasCompletePublicPhotoCredit(current.imageCredit, current.imageCreditUrl));
     plan = buildNotionEditorialPlan({
       article: editorProjection, remoteBlocks: selected as RemoteArticleBlock[],
       pageProperties: page.properties ?? {}, siteUrl: SITE_URL,
@@ -1723,7 +1725,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if (JSON.stringify(identities) !== JSON.stringify(plan.fullBlockOrder)) {
       throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     }
-    const selected = selectNotionArticleBodyBlocks(blocks);
+    const selected = selectNotionArticleBodyBlocks(blocks,
+      hasCompletePublicPhotoCredit(editorProjection.imageCredit, editorProjection.imageCreditUrl));
     if (selected.length !== plan.blockSnapshots.length) {
       throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
     }
