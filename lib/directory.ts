@@ -175,26 +175,6 @@ import type { ImageDisplayConfig } from "./image-display.ts";
 
 export type DirectoryProfileStatus = "draft" | "published" | "archived";
 export type DirectoryInquiryStatus = "new" | "read" | "resolved";
-export type DirectoryProfileChangeRequestStatus = "new" | "approved" | "rejected";
-
-export type DirectoryProfileEditableData = {
-  name: string;
-  serviceType: string;
-  city: string;
-  district: string;
-  region: string;
-  address: string;
-  phone: string;
-  email: string;
-  website: string;
-  facebook: string;
-  instagram: string;
-  description: string;
-  services: string[];
-  priceNote: string;
-  coverage: string;
-  specialized: Record<string, string>;
-};
 
 export type PublicDirectoryProfile = {
   id: number;
@@ -311,28 +291,6 @@ export type DirectoryInquiry = {
   consent: boolean;
   createdAt: string;
   updatedAt: string;
-};
-
-export type DirectoryProfileChangeRequest = {
-  id: number;
-  profileId: number;
-  profileName: string;
-  profileSlug: string;
-  profileCategory: DirectoryCategorySlug;
-  requesterName: string;
-  requesterEmail: string;
-  requesterPhone: string;
-  requesterRole: string;
-  proposedData: DirectoryProfileEditableData;
-  currentData: DirectoryProfileEditableData | null;
-  note: string;
-  authorized: boolean;
-  consent: boolean;
-  status: DirectoryProfileChangeRequestStatus;
-  createdAt: string;
-  updatedAt: string;
-  reviewedAt: string | null;
-  reviewedBy: string | null;
 };
 
 export function getDirectoryCategory(slug: string) {
