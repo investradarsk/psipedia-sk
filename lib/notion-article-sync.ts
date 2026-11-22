@@ -666,6 +666,11 @@ function mapNotionPlacement(
     };
   }
 
+  if (notionCategory === "Všeobecné články"
+    && (contentType === "Aktuálna novinka" || contentType === "Recenzia")) {
+    throw new Error("Typ obsahu vyžaduje príslušnú kanonickú sekciu, nie Všeobecné články.");
+  }
+
   if (contentType === "Aktuálna novinka" || notionCategory === "Novinky zo sveta psov") {
     return {
       category: "Život so psom",
@@ -684,9 +689,6 @@ function mapNotionPlacement(
   // existing /clanky articles. Do not force historical /clanky URLs into an
   // unrelated portal section merely to retire legacy Notion category options.
   if (notionCategory === "Všeobecné články") {
-    // Current news and reviews must keep their own canonical section.
-    if (contentType === "Aktuálna novinka" || contentType === "Recenzia")
-      throw new Error("Typ obsahu vyžaduje príslušnú kanonickú sekciu, nie Všeobecné články.");
     return {
       category: existing?.portalSection === "clanky" ? existing.category : "Život so psom",
       portalSection: "clanky",
