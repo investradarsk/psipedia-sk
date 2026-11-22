@@ -9,7 +9,6 @@ import {
   mapAdoptionStaleAttention,
   mapAutomationActionAttention,
   mapArticleFeedbackAttention,
-  mapDirectoryChangeRequestAttention,
   mapDirectoryInquiryAttention,
   mapGeoLocationAttention,
   mapModerationAttention,
@@ -108,16 +107,6 @@ test("news tip lifecycle keeps reviewing active and terminal states in history",
   assert.equal(used.attentionState, "RESOLVED");
   assert.equal(isAdminAttentionActive(used), false);
   assert.equal(fresh.targetHref, "/admin/tipy#tip-7");
-});
-
-test("directory change request maps approved/rejected to history", () => {
-  const pending = mapDirectoryChangeRequestAttention({ id: 8, profileName: "Psí salón", profileCategory: "salony-a-sluzby", status: "new", createdAt: "2026-09-13T12:00:00.000Z" }, NOW);
-  const approved = mapDirectoryChangeRequestAttention({ id: 9, profileName: "Veterina", profileCategory: "veterinari", status: "approved", createdAt: "2026-09-12T12:00:00.000Z", updatedAt: "2026-09-15T10:00:00.000Z" }, NOW);
-  const rejected = mapDirectoryChangeRequestAttention({ id: 10, profileName: "Tréner", profileCategory: "treneri", status: "rejected", createdAt: "2026-09-12T12:00:00.000Z", updatedAt: "2026-09-15T09:00:00.000Z" }, NOW);
-  assert.equal(pending.attentionState, "NEW");
-  assert.equal(approved.attentionState, "RESOLVED");
-  assert.equal(rejected.attentionState, "DISMISSED");
-  assert.equal(pending.targetHref, "/admin/adresar/navrhy#navrh-8");
 });
 
 test("directory inquiry keeps read items active and resolved items only in history", () => {
@@ -337,7 +326,6 @@ test("Attention read model excludes retired automation and uses only current act
 test("target hrefs point to existing admin route patterns", () => {
   const routes = [
     "../app/admin/tipy/page.tsx",
-    "../app/admin/adresar/navrhy/page.tsx",
     "../app/admin/dopyty/page.tsx",
     "../app/admin/hodnotenia/page.tsx",
     "../app/admin/adopcie/[id]/page.tsx",
