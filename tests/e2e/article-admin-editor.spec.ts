@@ -454,7 +454,10 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const suffix = projectSuffix(testInfo.project.name);
     await page.goto("/admin/novy?sekcia=novinky", { waitUntil: "domcontentloaded" });
     await fillMinimumArticle(page, `ARTICLE ADMIN Novinky optional source ${suffix}`);
-    await expect(page.getByText("Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných.")).toBeVisible();
+    await showArticleSection(page, "article-blocks");
+    await page.locator("[data-article-source-help] summary").click();
+    await expect(page.locator("[data-article-source-help] p"))
+      .toContainText("Odborné zdroje sú nepovinné aj pri zdravotných článkoch.");
     await showArticleSection(page, "article-publish");
     await publicationAction(page, "Publikovať novinku").click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
