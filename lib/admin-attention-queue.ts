@@ -7,7 +7,6 @@ export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
   "PROFILE_REVIEW_MODERATION",
   "NEWS_TIP",
-  "DIRECTORY_CHANGE_REQUEST",
   "DIRECTORY_INQUIRY",
   "ARTICLE_FEEDBACK",
   "ADOPTION_STALE",
@@ -73,7 +72,6 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   MODERATION_SUBMISSION: "Moderácia",
   PROFILE_REVIEW_MODERATION: "Profilové recenzie",
   NEWS_TIP: "Tipy pre redakciu",
-  DIRECTORY_CHANGE_REQUEST: "Návrhy úprav",
   DIRECTORY_INQUIRY: "Dopyty",
   ARTICLE_FEEDBACK: "Hodnotenia článkov",
   ADOPTION_STALE: "Adopcie",
@@ -280,45 +278,6 @@ export function mapNewsTipAttention(row: NewsTipAttentionRow, now = new Date()):
     ageDays: ageDays(relevantAt, now),
     targetHref: `/admin/tipy#tip-${row.id}`,
     metadata: [{ label: "Téma", value: row.topic }],
-  };
-}
-
-function directoryChangeAttentionState(status: string): AdminAttentionState {
-  if (status === "new") return "NEW";
-  if (status === "approved") return "RESOLVED";
-  return "DISMISSED";
-}
-
-export type DirectoryChangeRequestAttentionRow = {
-  id: number;
-  profileName: string;
-  profileCategory: string;
-  status: string;
-  createdAt: string;
-  updatedAt?: string;
-};
-
-export function mapDirectoryChangeRequestAttention(row: DirectoryChangeRequestAttentionRow, now = new Date()): AdminAttentionItem {
-  const attentionState = directoryChangeAttentionState(row.status);
-  const relevantAt = isAdminAttentionActive(attentionState) ? row.createdAt : row.updatedAt ?? row.createdAt;
-  return {
-    key: `directory-change:${row.id}`,
-    sourceType: "DIRECTORY_CHANGE_REQUEST",
-    sourceId: String(row.id),
-    title: `Úprava profilu: ${row.profileName}`,
-    reason: attentionState === "NEW"
-      ? "Nový návrh zmeny profilu čaká na redakčnú kontrolu."
-      : attentionState === "RESOLVED"
-        ? "Návrh zmeny profilu bol schválený."
-        : "Návrh zmeny profilu bol zamietnutý.",
-    priority: "MEDIUM",
-    status: row.status,
-    attentionState,
-    createdAt: row.createdAt,
-    relevantAt,
-    ageDays: ageDays(relevantAt, now),
-    targetHref: `/admin/adresar/navrhy#navrh-${row.id}`,
-    metadata: [{ label: "Kategória", value: row.profileCategory }],
   };
 }
 
