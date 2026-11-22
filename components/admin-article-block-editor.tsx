@@ -138,13 +138,14 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
   const singleUploadPending=useRef(false);
   const [uploadingSingleId,setUploadingSingleId]=useState<string|null>(null);
 
+  const shouldFetchRelated = !inlineWidgetMode || blocks.some(block => block.type === "related");
   useEffect(() => {
-    if (inlineWidgetMode && blocks.every(block => block.type !== "related")) return;
+    if (!shouldFetchRelated) return;
     fetch("/api/admin/articles?limit=100")
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: { articles?: ManagedArticleSummary[] }) => setArticles((data.articles ?? []).filter((item) => item.id !== currentArticleId && item.status === "published")))
       .catch(() => undefined);
-  }, [currentArticleId, inlineWidgetMode, blocks]);
+  }, [currentArticleId, shouldFetchRelated]);
 
   function update(id: string, updater: (block: ArticleBlock) => ArticleBlock) {
     onChange(blocks.map((block) => block.id === id ? updater(block) : block));
