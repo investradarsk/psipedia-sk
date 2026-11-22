@@ -17,6 +17,7 @@ import {
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
+import { isPrivateEditorialArticleHeading } from "@/lib/public-editorial-guard";
 import { preserveArticlePromoBlocks } from "@/lib/article-promo";
 import { notionArticleMainImageSource } from "@/lib/notion-article-image-source";
 import { assertPublishedRelatedBlocks } from "@/lib/notion-article-related-publication";
@@ -833,6 +834,7 @@ function selectNotionArticleBodyBlocks(blocks: NotionBlock[]) {
     if (
       isStopHeading(heading)
       || isAdminManifestHeading(heading)
+      || isPrivateEditorialArticleHeading(heading)
       || normalizeText(heading).toLocaleLowerCase("sk") === "pred publikovaním"
     ) {
       until = index;
