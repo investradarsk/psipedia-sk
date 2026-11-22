@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
 import type { VisualBanner } from "@/lib/visual-library-banners";
 import { defaultBannerDraft, validateBannerDraft, type BannerDraft } from "@/lib/visual-library-drafts";
@@ -11,18 +11,8 @@ type ServerRecord = {
   publishedRevision: number | null; published: BannerDraft | null;
 };
 const BASE = "/api/admin/visual-library/banners";
-const BACKGROUND_OPTIONS = {
-  original: "Pôvodné pozadie", sage: "Svetlozelené", cream: "Krémové", white: "Biele",
-} as const;
-const BUTTON_OPTIONS = {
-  original: "Pôvodná farba", green: "Tmavozelená", red: "Tehlovočervená",
-} as const;
-const backgroundValues: Record<BannerDraft["background"], string | undefined> = {
-  original: undefined, sage: "#e1ebdf", cream: "#f9f1e5", white: "#ffffff",
-};
-const buttonValues: Record<BannerDraft["button"], string | undefined> = {
-  original: undefined, green: "#20543e", red: "#b44939",
-};
+const VISUAL_OPTIONS = { light: "Svetlý", dark: "Tmavý" } as const;
+const SIZE_OPTIONS = { small: "Malý", medium: "Stredný", large: "Veľký" } as const;
 
 export function AdminVisualLibraryEditor({
   banner, variantIndex, knownUses, canConfirmAllUses,
@@ -87,12 +77,6 @@ export function AdminVisualLibraryEditor({
     knownUses === 1 && !dirty && server !== null && valid &&
     (!banner.photoTone || draft.background === "original");
 
-  const previewStyle = {
-    "--visual-library-bg": banner.photoTone ? undefined : backgroundValues[draft.background],
-    "--visual-library-button": buttonValues[draft.button],
-    "--visual-library-button-text": banner.photoTone && draft.button === "original"
-      ? "#174b38" : "#ffffff",
-  } as CSSProperties;
 
   const save = async () => {
     if (!valid) { setStatus("Vyplň všetky texty a dodrž povolenú dĺžku."); return; }
@@ -134,8 +118,8 @@ export function AdminVisualLibraryEditor({
       setServer(result.draft);
       setConfirmed(false);
       const releaseMessage = action === "publish"
-        ? "Desktopové texty a farby boli publikované pre potvrdenú URL. Mobilné farby a texty zostali pôvodné."
-        : "Publikované desktopové texty a farby boli vrátené na pôvodné.";
+        ? "Desktopové texty, vizuál a veľkosť boli publikované pre potvrdenú URL. Mobilné farby a texty zostali pôvodné."
+        : "Publikované desktopové texty, vizuál a veľkosť boli vrátené na pôvodné.";
       setStatus(releaseMessage + (result.cacheNotice ? " " + result.cacheNotice : ""));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Akcia zlyhala.");
@@ -158,8 +142,8 @@ export function AdminVisualLibraryEditor({
       "Známych použití: " + knownUses + (canConfirmAllUses ? "" : " – neúplné"),
       "Nadpis: " + draft.title, "Malý nadpis: " + draft.eyebrow,
       "Popis: " + draft.description, "Text tlačidla: " + draft.ctaLabel,
-      "Pozadie: " + BACKGROUND_OPTIONS[draft.background],
-      "Farba tlačidla: " + BUTTON_OPTIONS[draft.button],
+      "Vizuál: " + VISUAL_OPTIONS[draft.visual],
+      "Veľkosť: " + SIZE_OPTIONS[draft.size],
       "Mobilné texty a farby zostávajú pôvodné. Zmeny platia iba na desktope.",
     ].join("\n");
     try {
@@ -173,7 +157,7 @@ export function AdminVisualLibraryEditor({
       <div className={styles.editorHeading}>
         <div>
           <h4>Jednoduchá úprava</h4>
-          <p>Texty a farby si najprv pozri v náhľade. Návrh možno bezpečne uložiť na server.</p>
+          <p>Jeden banner, dva vizuály a tri veľkosti. Texty upravíš samostatne pre každý banner.</p>
         </div>
         <span className={styles.readOnly}>{server?.published ? "Desktopové zmeny publikované" : "Návrh"}</span>
       </div>
@@ -192,16 +176,14 @@ export function AdminVisualLibraryEditor({
           <input maxLength={80} value={draft.ctaLabel}
             onChange={(event) => change("ctaLabel", event.target.value)} />
         </label>
-        <label>Farba pozadia
-          <select disabled={Boolean(banner.photoTone)} value={banner.photoTone ? "original" : draft.background}
-            onChange={(event) => change("background", event.target.value as BannerDraft["background"])}>
-            {Object.entries(BACKGROUND_OPTIONS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}
+        <label>Vizuál banneru
+          <select value={draft.visual} onChange={(event) => change("visual", event.target.value as BannerDraft["visual"])}>
+            {Object.entries(VISUAL_OPTIONS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}
           </select>
-          {banner.photoTone && <small>Fotografické bannery zachovávajú bezpečné prekrytie.</small>}
         </label>
-        <label>Farba tlačidla
-          <select value={draft.button} onChange={(event) => change("button", event.target.value as BannerDraft["button"])}>
-            {Object.entries(BUTTON_OPTIONS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}
+        <label>Veľkosť banneru
+          <select value={draft.size} onChange={(event) => change("size", event.target.value as BannerDraft["size"])}>
+            {Object.entries(SIZE_OPTIONS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
         <label className={styles.editorWide}>Plánovaný rozsah
@@ -214,13 +196,14 @@ export function AdminVisualLibraryEditor({
 
       <p className={styles.editorScope}>
         Evidovaných výskytov: {knownUses}{canConfirmAllUses ? "." : " (neúplný zoznam)."}
-        {" "}Priame publikovanie je povolené iba pre overený samostatný banner a rozsah „Len tento banner“. Desktopové texty môžeš zmeniť, mobil zostane pôvodný.
+        {" "}Priame publikovanie je povolené iba pre overený samostatný banner a rozsah „Len tento banner“. Texty, vizuál aj veľkosť sa publikujú iba pre desktop; mobilný text ostane pôvodný.
       </p>
       <strong className={styles.editorPreviewTitle}>Náhľad zmien – desktop</strong>
-      <div className={styles.editorPreview} style={previewStyle}>
+      <div className={styles.editorPreview}>
         <div className={styles.previewComponent} inert>
           <AdminVisualLibraryBannerPreview
             banner={banner} testId={"editor-preview-" + banner.id}
+            visual={draft.visual} size={draft.size}
             copy={{ eyebrow: draft.eyebrow, title: draft.title,
               description: draft.description, label: draft.ctaLabel }}
           />
@@ -243,7 +226,7 @@ export function AdminVisualLibraryEditor({
         {publishTarget ? (
           <>
             <p>Overené umiestnenie: <a target="_blank" rel="noopener noreferrer" href={publishTarget}>{publishTarget}</a></p>
-            <p>Publikujeme iba <strong>desktopové texty a farby</strong>. Mobilné texty aj farby ostanú pôvodné.</p>
+            <p>Publikujeme iba <strong>desktopové texty, vizuál a veľkosť</strong>. Mobilné texty aj farby ostanú pôvodné.</p>
             {banner.photoTone && draft.background !== "original" && <p className={styles.pending}>Fotografickému banneru nie je možné meniť pozadie. Vyber pôvodné pozadie.</p>}
             <label className={styles.publishConfirm}>
               <input type="checkbox" checked={confirmed} disabled={busy || loading}
