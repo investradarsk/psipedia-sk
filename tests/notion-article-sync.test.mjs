@@ -229,7 +229,7 @@ test("Admin-aligned Všeobecné články preserves existing /clanky routes and c
   assert.ok(start >= 0 && end > start);
   const fn = syncSource.slice(start, end);
   assert.match(fn, /notionCategory === "Všeobecné články"/);
-  assert.match(fn, /existing\?\.portalSection === "clanky" \? existing\.category : "Život so psom"/);
+  assert.match(fn, /existing\?\.portalSection === "clanky" && existing\.category !== "Plemená"[\s\S]*?\? existing\.category : "Život so psom"/);
   assert.match(fn, /portalSection: "clanky"/);
   assert.match(fn, /portalSubpage: null/);
   assert.match(fn, /notionCategory === "Všeobecné články"[\s\S]*?contentType === "Aktuálna novinka" \|\| contentType === "Recenzia"/);
