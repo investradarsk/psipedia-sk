@@ -29,6 +29,15 @@ export function isPhotoAttributionHeading(value: string): boolean {
   return heading === "fotografia a licencia" || heading === "fotografia - licencia";
 }
 
+/** A Notion template callout is editorial guidance, never prose or a public tip.
+ * Exclude only the instructional block, not the article paragraphs after it. */
+export function isInternalArticleInstructionText(value: string): boolean {
+  const note = normalizedEditorialText(value);
+  return note.startsWith("tato sekcia je zdrojom obsahu pre synchronizaciu")
+    || note.startsWith("odtialto az po koniec stranky patri iba verejny text clanku")
+    || note.startsWith("nazov clanku patri iba do databazoveho pola");
+}
+
 /** Prevent unpublished review directives in old breed-sport notes from leaking. */
 export function isInternalBreedSportNote(value: string): boolean {
   const note = normalizedEditorialText(value);
