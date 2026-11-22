@@ -680,6 +680,21 @@ function mapNotionPlacement(
     throw new Error("Doplň v Notione Podsekciu pre sekciu „Recenzie a testy“. Sync nevymyslí náhradnú route.");
   }
 
+  // The Admin's "Všeobecné články" section is the canonical label for
+  // existing /clanky articles. Do not force historical /clanky URLs into an
+  // unrelated portal section merely to retire legacy Notion category options.
+  if (notionCategory === "Všeobecné články") {
+    // Current news and reviews must keep their own canonical section.
+    if (contentType === "Aktuálna novinka" || contentType === "Recenzia")
+      throw new Error("Typ obsahu vyžaduje príslušnú kanonickú sekciu, nie Všeobecné články.");
+    return {
+      category: existing?.portalSection === "clanky" ? existing.category : "Život so psom",
+      portalSection: "clanky",
+      portalSubpage: null,
+      newsCategory: null,
+    };
+  }
+
   const legacy = LEGACY_UNAMBIGUOUS_CATEGORY_PLACEMENTS[notionCategory];
   if (legacy) return legacy;
 
