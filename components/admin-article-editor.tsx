@@ -981,7 +981,7 @@ export function AdminArticleEditor({
           </div>
         </section>
 
-        <section id="article-content" hidden={activeArticleSection !== "article-basics"} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" ? "true" : "false"} data-admin-editor-section className={`admin-form-card ${editorStyles.introContinuation}`}>
+        {!continuousEditableOpen && <section id="article-content" hidden={activeArticleSection !== "article-basics"} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" ? "true" : "false"} data-admin-editor-section className={`admin-form-card ${editorStyles.introContinuation}`}>
           <h2 className={editorStyles.visuallyHidden}>Textový obsah článku</h2>
           <div className="admin-field">
             <label htmlFor="article-intro">Úvod článku</label>
@@ -991,7 +991,7 @@ export function AdminArticleEditor({
             <label htmlFor="article-takeaway">To najdôležitejšie <small>nepovinné</small></label>
             <RichTextInput id="article-takeaway" rows={4} value={takeaway} richText={takeawayRichText} onChange={(content, richText) => { setTakeaway(content); setTakeawayRichText(richText); setEditorDirty(true); }} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists />
           </div>
-        </section>
+        </section>}
 
         <section id="article-blocks" hidden={activeArticleSection !== "article-blocks"} tabIndex={activeArticleSection === "article-blocks" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-blocks" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
           <div className="admin-card-heading">
@@ -1006,18 +1006,29 @@ export function AdminArticleEditor({
               </button>
               <button type="button" className="admin-secondary-button" data-article-continuous-toggle
                 aria-pressed={continuousReadOnlyOpen}
-                onClick={() => { setContinuousEditableOpen(false); setContinuousReadOnlyOpen(true); }}>
+                onClick={() => {
+                  if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]')) {
+                    setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
+                  }
+                  setContinuousEditableOpen(false); setContinuousReadOnlyOpen(true);
+                }}>
                 Súvislý náhľad
               </button>
               <button type="button" className="admin-secondary-button" data-article-legacy-toggle
                 aria-pressed={!continuousEditableOpen && !continuousReadOnlyOpen}
-                onClick={() => { setContinuousEditableOpen(false); setContinuousReadOnlyOpen(false); }}>
+                onClick={() => {
+                  if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]')) {
+                    setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
+                  }
+                  setContinuousEditableOpen(false); setContinuousReadOnlyOpen(false);
+                }}>
                 Pôvodný editor
               </button>
             </div>
             <small>V súvislom editore upravuješ úvod, text aj všetky prvky na jednej stránke. Uloženie používa pôvodný systém článkov.</small>
           </div>
           {continuousEditableOpen && <AdminArticleContinuousEditor
+            intro={intro}
             introRichText={introRichText}
             takeawayRichText={takeawayRichText}
             takeaway={takeaway}
@@ -1043,7 +1054,7 @@ export function AdminArticleEditor({
             blocks={blocks}
             promoUtcDay={promoUtcDay}
           />}
-          <div hidden={continuousReadOnlyOpen || continuousEditableOpen}>
+          {!continuousReadOnlyOpen && !continuousEditableOpen && <div>
           <details className="admin-block-news-note" data-article-source-help><summary>Ako uvádzať odborné zdroje?</summary><p>Odborné zdroje sú nepovinné aj pri zdravotných článkoch. Ak ich chceš uviesť, pridaj blok Zdroj. Viac blokov Zdroj sa na verejnom článku spojí do jedného zoznamu.</p></details>
           <AdminArticleBlockEditor
             blocks={blocks}
@@ -1054,7 +1065,7 @@ export function AdminArticleEditor({
             onMessage={setMessage}
             onError={setError}
           />
-          </div>
+          </div>}
         </section>
 
 
