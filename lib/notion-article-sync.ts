@@ -1297,12 +1297,21 @@ function notionArticlePageWithPlacement(
     ...page.properties,
     "Kategória": { ...category, select: { name: placement.category } },
     "Podsekcia": { ...subsection, select: placement.subsection ? { name: placement.subsection } : null },
+    ...(propertyRecord(page, "Sekcia portálu") ? {
+      "Sekcia portálu": { ...propertyRecord(page, "Sekcia portálu"),
+        select: { name: placement.portalSection } },
+    } : {}),
   } };
 }
 
-function notionArticlePageMatchesPlacement(page: NotionPage, placement: NotionArticleBreedPlacement) {
+function notionArticlePageMatchesPlacement(
+  page: NotionPage, placement: NotionArticleBreedPlacement, allowBlankSection = true,
+) {
+  const sectionValue = selectProperty(page, "Sekcia portálu");
   return selectProperty(page, "Kategória") === placement.category
-    && selectProperty(page, "Podsekcia") === (placement.subsection ?? "");
+    && selectProperty(page, "Podsekcia") === (placement.subsection ?? "")
+    && (!propertyRecord(page, "Sekcia portálu") ||
+      (allowBlankSection && !sectionValue) || sectionValue === placement.portalSection);
 }
 
 async function notionArticlePageContentHash(
@@ -1396,8 +1405,9 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
   const page = await readPage();
   checkIdentity(page);
   const wasOld = notionArticlePageMatchesPlacement(page, originalPlacement);
-  const alreadyNew = notionArticlePageMatchesPlacement(page, desiredPlacement);
-  if (!wasOld && !alreadyNew) {
+  const alreadyNew = notionArticlePageMatchesPlacement(page, desiredPlacement, false);
+  const alreadyNewCore = notionArticlePageMatchesPlacement(page, desiredPlacement);
+  if (!wasOld && !alreadyNewCore) {
     throw new Error("NOTION_ARTICLE_CATEGORY_REMOTE_CONFLICT");
   }
   const blocks = await getPageBlocks(bindings, page.id);
@@ -1419,13 +1429,16 @@ export async function writeBackArticleBreedCategoryToNotion(args: {
           "Kategória": { select: { name: desiredPlacement.category } },
           "Podsekcia": { select: desiredPlacement.subsection
             ? { name: desiredPlacement.subsection } : null },
+          ...(propertyRecord(page, "Sekcia portálu") ? {
+            "Sekcia portálu": { select: { name: desiredPlacement.portalSection } },
+          } : {}),
         },
       }),
     });
   }
   const verified = await readPage();
   checkIdentity(verified);
-  if (!notionArticlePageMatchesPlacement(verified, desiredPlacement)) {
+  if (!notionArticlePageMatchesPlacement(verified, desiredPlacement, false)) {
     throw new Error("NOTION_ARTICLE_CATEGORY_ECHO_MISMATCH");
   }
   const latestBlocks = await getPageBlocks(bindings, verified.id);
