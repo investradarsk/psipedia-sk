@@ -1,3 +1,4 @@
+import { isPrivateEditorialArticleHeading } from "@/lib/public-editorial-guard";
 import type { ArticleSection, ArticleSource } from "@/lib/content";
 import {
   editorialRichTextPlainText,
@@ -225,6 +226,19 @@ export function articleBlockSources(blocks: ArticleBlock[]) {
 
 function headingSlug(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70) || "cast";
+}
+
+/**
+ * Sanitize only the public projection. The Admin editor still receives the raw
+ * content, allowing an editor to inspect and correct it. A new H2 resets the
+ * section boundary so unrelated public sections are not discarded.
+ */
+export function publicArticleBlocks(blocks: ArticleBlock[]): ArticleBlock[] {
+  let privateSection = false;
+  return blocks.filter((block) => {
+    if (block.type === "h2") privateSection = isPrivateEditorialArticleHeading(block.text);
+    return !privateSection;
+  });
 }
 
 export function articleBlockHeadings(blocks: ArticleBlock[]) {
