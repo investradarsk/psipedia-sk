@@ -307,8 +307,8 @@ async function sendPartnerAuthEmail(input: {
         lines: ["Návrh nového profilu sme prijali a čaká na moderátorskú kontrolu. Verejný profil zatiaľ nevznikol."],
       },
       NEW_PROFILE_CREATED: {
-        subject: "Nový profil bol schválený a zverejnený",
-        lines: ["Váš návrh bol schválený. Profil je zverejnený a môžete ho spravovať cez Partner účet."],
+        subject: "Nový profil bol vytvorený ako koncept",
+        lines: ["Návrh bol schválený a profil bol vytvorený ako koncept. Profil ešte nemusí byť verejne publikovaný."],
       },
       NEW_PROFILE_LINKED_EXISTING: {
         subject: "Návrh bol prepojený s existujúcim profilom",
@@ -323,8 +323,8 @@ async function sendPartnerAuthEmail(input: {
         lines: ["Podujatie sme prijali a čaká na kontrolu. Zatiaľ nebolo publikované."],
       },
       EVENT_CREATED: {
-        subject: "Podujatie bolo schválené a zverejnené",
-        lines: ["Vaše podujatie bolo schválené a zverejnené. Môžete ho spravovať cez Partner účet."],
+        subject: "Podujatie bolo vytvorené ako koncept",
+        lines: ["Podujatie bolo vytvorené ako koncept a zatiaľ nemusí byť verejne publikované."],
       },
       EVENT_LINKED_EXISTING: {
         subject: "Podujatie bolo prepojené s existujúcim záznamom",
@@ -366,11 +366,16 @@ async function sendPartnerAuthEmail(input: {
     // RETURNED has no separate D1 enum. A reserved canonical key disambiguates
     // it from a new SUBMITTED receipt without a risky table-copy migration.
     const returned=isCanonicalReturnedNotice(input.row.notification_type,input.row.dedupe_key);
+    const canonicalApproved=input.row.dedupe_key.startsWith("partner-canonical-approved/");
     const selected=returned ? (
       input.row.notification_type==="EVENT_SUBMITTED"
         ?{subject:"Podujatie je potrebné doplniť",lines:["Redakcia vám vrátila podujatie na doplnenie. Dôvod a požadované úpravy nájdete vo svojom Partner účte. Po úprave ho môžete znovu odoslať."]}
         :{subject:"Hlásenie alebo profil je potrebné doplniť",lines:["Redakcia vám vrátila podanie na doplnenie. Dôvod a požadované úpravy nájdete vo svojom Partner účte. Po úprave ho môžete znovu odoslať."]}
-    ) : copy[input.row.notification_type];
+    ) :canonicalApproved&&input.row.notification_type==="NEW_PROFILE_CREATED"
+      ?{subject:"Nový profil bol schválený a zverejnený",lines:["Váš návrh bol schválený. Profil je zverejnený a môžete ho spravovať cez Partner účet."]}
+      :canonicalApproved&&input.row.notification_type==="EVENT_CREATED"
+        ?{subject:"Podujatie bolo schválené a zverejnené",lines:["Vaše podujatie bolo schválené a zverejnené. Môžete ho spravovať cez Partner účet."]}
+        :copy[input.row.notification_type];
     subject=selected.subject;
     const id=returned?input.row.dedupe_key.split("/")[1]:"";
     const canonicalNotice=input.row.dedupe_key.startsWith("partner-canonical-");
