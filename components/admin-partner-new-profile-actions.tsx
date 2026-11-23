@@ -19,7 +19,7 @@ type PendingResolution = {
   reasonCode?: string;
 };
 
-export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false, isCanonicalDraft=false }: { id: string; candidateIds: number[]; hasImage?:boolean; isCanonicalDraft?:boolean }) {
+export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false, isCanonicalDraft=false, canonicalUpdatedAt=null }: { id: string; candidateIds: number[]; hasImage?:boolean; isCanonicalDraft?:boolean; canonicalUpdatedAt?:string|null }) {
   const router=useRouter();
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
