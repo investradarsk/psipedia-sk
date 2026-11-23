@@ -82,6 +82,33 @@ test("mobile drawer returns from Adresár to Prehľad repeatedly", async ({ page
   }
 });
 
+test("stalled Prehľad retry cannot bypass a newly dirty editor", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "Desktop navigation recovery");
+  await page.goto("/admin/organizacie/novy", { waitUntil: "domcontentloaded" });
+  const name = page.getByLabel("Názov *", { exact: true });
+  await expect(name).toBeEnabled();
+  await name.fill("Rozpracovaný návrh počas zaseknutej navigácie");
+  await expect(page.getByRole("status").filter({ hasText: "Neuložené zmeny" })).toBeVisible();
+
+  await page.clock.install();
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent("psipedia:admin-navigation-start", {
+      detail: { href: "/admin", navigationType: "push" },
+    }));
+  });
+  await page.clock.fastForward(12_001);
+  const recovery = page.locator("[data-admin-navigation-recovery]");
+  await expect(recovery.getByRole("button", { name: "Skúsiť znova" })).toBeVisible();
+  await recovery.getByRole("button", { name: "Skúsiť znova" }).click();
+
+  const confirm = page.getByRole("dialog", { name: "Neuložené zmeny" });
+  await expect(confirm).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/organizacie\/novy$/);
+  await confirm.getByRole("button", { name: "Pokračovať v úpravách" }).click();
+  await expect(name).toHaveValue("Rozpracovaný návrh počas zaseknutej navigácie");
+  await expect(page).toHaveURL(/\/admin\/organizacie\/novy$/);
+});
+
 test("Prehľad header asks before leaving a dirty editor and preserves edits on Stay", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop-chromium", "Desktop sidebar behavior");
   await page.goto("/admin/organizacie/novy", { waitUntil: "domcontentloaded" });
