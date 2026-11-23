@@ -3314,3 +3314,23 @@
 }
 /* The organizer CTA lives right below the hero instead of after the results. */
 .calendarOrganizer { margin: 8px 0 12px; }
+
+
+/* The sitewide small-banner preset stacks its CTA by default. On the events
+   landing this makes the organizer banner taller than the compact desktop
+   acceptance contract. Keep the CTA alongside the copy without changing
+   other public banners or the stacked mobile layout. */
+@media (min-width: 821px) {
+  .calendarOrganizer :global([data-public-context-banner-layout="inline"][data-banner-size="small"] [data-public-banner-content]) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 16px;
+  }
+  .calendarOrganizer :global([data-public-context-banner-layout="inline"][data-banner-size="small"] [data-public-banner-content] > a[data-public-action]) {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    margin: 0;
+  }
+}

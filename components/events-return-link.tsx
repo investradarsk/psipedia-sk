@@ -3,14 +3,20 @@
 import { useEffect, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { eventTypeFromPortalSlug } from "@/lib/events";
 
 const STORAGE_KEY = "psipedia:events:last-listing";
 const MAX_AGE_MS = 60 * 60 * 1000;
 
+export function eventsListingType(href: string) {
+  const match = /^\/podujatia(?:\/([a-z0-9-]+))?(?:[?#]|$)/.exec(href);
+  if (!match) return null;
+  const slug = match[1];
+  return !slug || slug === "kalendar" ? "Všetky" : eventTypeFromPortalSlug(slug);
+}
+
 function validListingPath(href: unknown): href is string {
-  return typeof href === "string"
-    && /^\/podujatia(?:\/[a-z0-9-]+)?(?:[?#]|$)/.test(href)
-    && !href.startsWith("//");
+  return typeof href === "string" && eventsListingType(href) !== null;
 }
 
 // Preserve the exact public listing URL, including filters, calendar month and selected day.
@@ -37,15 +43,25 @@ export function EventsBackLink({ fallbackHref }: { fallbackHref: string }) {
 
   function returnToListing(event: MouseEvent<HTMLAnchorElement>) {
     // Preserve normal behavior for modified clicks, new tabs and inaccessible storage.
-    if (event.defaultPrevented || event.button !== 0
-      || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
 
     try {
       const stored = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) || "null");
-      if (stored && validListingPath(stored.href)
-        && Number.isFinite(stored.savedAt)
-        && Date.now() - stored.savedAt >= 0
-        && Date.now() - stored.savedAt < MAX_AGE_MS) {
+      if (
+        stored &&
+        validListingPath(stored.href) &&
+        Number.isFinite(stored.savedAt) &&
+        Date.now() - stored.savedAt >= 0 &&
+        Date.now() - stored.savedAt < MAX_AGE_MS
+      ) {
         event.preventDefault();
         router.push(stored.href);
       }
@@ -54,5 +70,9 @@ export function EventsBackLink({ fallbackHref }: { fallbackHref: string }) {
     }
   }
 
-  return <Link href={fallbackHref} onClick={returnToListing} data-native-history-skip>← Späť na výsledky podujatí</Link>;
+  return (
+    <Link href={fallbackHref} onClick={returnToListing} data-native-history-skip>
+      ← Späť na výsledky podujatí
+    </Link>
+  );
 }
