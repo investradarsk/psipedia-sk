@@ -149,6 +149,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
         </DetailSection> : null}
         <DetailFactsCard title="Aktuálnosť a zdroj" facts={[
           {label:"Aktualizované",value:formatDogReportDate(report.updatedAt,true)},
+          ...(report.status === "RESOLVED" && report.resolvedAt ? [{label:"Vyriešené",value:formatDogReportDate(report.resolvedAt,true)}] : []),
           ...(report.source ? [{label:"Zdroj",value:report.source}] : []),
         ]} />
       </aside>
