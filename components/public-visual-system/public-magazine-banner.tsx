@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { ArrowIcon } from "@/components/icons";
 import styles from "./public-magazine-banner.module.css";
-import { PublicBannerFrame } from "./public-banner-frame";
+import { PublicBannerFrame, type PublicBannerVisual, type PublicBannerSize } from "./public-banner-frame";
 
 export type PublicMagazineBannerPhotoTone = "care" | "rescue" | "volunteer" | "closing";
 
@@ -27,6 +27,8 @@ export function PublicMagazineBanner({
   photoTone,
   links,
   compact = false,
+  visual,
+  size,
   promoKey,
   promoVariant,
   anchorId,
@@ -43,11 +45,15 @@ export function PublicMagazineBanner({
   photoTone?: PublicMagazineBannerPhotoTone;
   links?: Array<{ href: string; label: string }>;
   compact?: boolean;
+  visual?: PublicBannerVisual;
+  size?: PublicBannerSize;
   promoKey?: string;
   promoVariant?: string;
   /** Optional stable link target for read-only visual-library usage navigation. */
   anchorId?: string;
   desktopColors?: {
+    visual?: PublicBannerVisual;
+    size?: PublicBannerSize;
     background: "original" | "sage" | "cream" | "white";
     button: "original" | "green" | "red";
   } | null;
@@ -76,6 +82,10 @@ export function PublicMagazineBanner({
   return (
     <PublicBannerFrame
       as="section"
+      visual={visual ?? (photoTone ? "dark" : "light")}
+      size={size ?? (compact ? "small" : "medium")}
+      data-banner-desktop-visual={desktopColors?.visual}
+      data-banner-desktop-size={desktopColors?.size}
       id={anchorId}
       style={desktopColors ? desktopStyle : undefined}
       data-visual-library-desktop-published={desktopColors ? "true" : undefined}

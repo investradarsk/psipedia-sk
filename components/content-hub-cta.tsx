@@ -7,6 +7,8 @@ import { PublicBannerFrame } from "./public-visual-system/public-banner-frame";
 export function ContentHubCta({ cta }: { cta: ContentHubCtaDecision }) {
   return (
     <PublicBannerFrame
+      visual={cta.key === "health-urgent" ? "dark" : "light"}
+      size="small"
       className={styles.card}
       aria-label={cta.headline}
       data-contextual-hub-cta

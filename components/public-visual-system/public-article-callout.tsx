@@ -23,6 +23,8 @@ export function PublicArticleCallout({
       : undefined;
   return (
     <PublicBannerFrame
+      visual="light"
+      size="small"
       className={`article-block-cta ${sponsored ? "is-sponsored" : ""}`}
       data-public-article-callout
     >

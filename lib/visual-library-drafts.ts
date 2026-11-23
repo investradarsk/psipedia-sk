@@ -6,6 +6,8 @@ export type BannerDraft = {
   title: string;
   description: string;
   ctaLabel: string;
+  visual: "light" | "dark";
+  size: "small" | "medium" | "large";
   background: "original" | "sage" | "cream" | "white";
   button: "original" | "green" | "red";
   scope: "one" | "template";
@@ -20,6 +22,8 @@ export function defaultBannerDraft(banner: VisualBanner, variantIndex: number): 
     title: variant?.title ?? banner.title,
     description: variant?.description ?? banner.description,
     ctaLabel: variant?.ctaLabel ?? banner.ctaLabel,
+    visual: banner.photoTone ? "dark" : "light",
+    size: banner.id === "help:closing" ? "large" : banner.group === "clanky" ? "small" : "medium",
     background: "original",
     button: "original",
     scope: "one",
@@ -40,6 +44,8 @@ export function validateBannerDraft(raw: unknown, fallback: BannerDraft): Banner
   if (!eyebrow || !title || !description || !ctaLabel) return null;
   return {
     eyebrow, title, description, ctaLabel,
+    visual: input.visual === "light" || input.visual === "dark" ? input.visual : fallback.visual,
+    size: input.size === "small" || input.size === "medium" || input.size === "large" ? input.size : fallback.size,
     background: ["original", "sage", "cream", "white"].includes(String(input.background))
       ? input.background as BannerDraft["background"] : fallback.background,
     button: ["original", "green", "red"].includes(String(input.button))

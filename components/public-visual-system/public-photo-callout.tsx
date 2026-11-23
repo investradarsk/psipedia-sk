@@ -42,6 +42,7 @@ export function PublicPhotoCallout({
       href={promo.href}
       testId={bannerId ?? `help-${promo.tone}`}
       photoTone={promo.tone}
+      size={promo.tone === "closing" ? "large" : "medium"}
       headingId={headingId}
     />
   );
