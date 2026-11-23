@@ -160,7 +160,7 @@ test("Partner event Attention has stable key, direct review deep-link, lifecycle
 
 test("Partner UX exposes dashboard, create, edit, history and withdraw",()=>{
  assert.match(eventsPage,/Pridať podujatie/);assert.match(eventsPage,/pendingChange/);assert.match(eventsPage,/Upraviť/);
- assert.match(newPage,/redirect\("\/partner\/koncepty\/novy\?typ=MANAGED_EVENT"\)/);
+ assert.match(newPage,/redirect\("\/partner\/koncepty\/novy\/podujatie"\)/);
  assert.match(canonicalNewPage,/PartnerCanonicalDraftForm/);
  assert.match(canonicalNewPage,/MANAGED_EVENT/);
  assert.match(editPage,/PartnerEventForm mode="edit"/);
