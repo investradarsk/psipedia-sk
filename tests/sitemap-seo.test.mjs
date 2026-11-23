@@ -1078,9 +1078,10 @@ test("public breed atlas uses trusted image paths without blocking HTML on R2 pr
     /withAvailableBreedImages|availableBreedImage|BUCKET\s*\.(?:head|list)/,
   );
   const photo = fs.readFileSync(new URL("../components/breed-photo.tsx", import.meta.url), "utf8");
+  // The image error fallback is required, but formatting whitespace in JSX is irrelevant.
   assert.match(
     photo,
-    /onError=\{\s*\(\s*\)=>setFailed\(\s*String\(\s*props\s*\.src\s*\)\s*\)\s*\}/,
+    /onError=\{\s*\(\s*\)\s*=>\s*setFailed\(\s*String\(\s*props\s*\.src\s*\)\s*\)\s*\}/,
   );
-  assert.match(photo, /failed===props\s*\.src/);
+  assert.match(photo, /failed\s*===\s*props\s*\.src/);
 });
