@@ -904,15 +904,17 @@ export type BreedArticleArchivePage = { articles: Article[]; total: number; page
 /** An indexed, paginated archive; a group facet requires a real breed relation. */
 export async function getPublishedBreedArticleArchivePage(options: {
   fciGroup?: number;
+  query?: string;
   page?: number;
   pageSize?: number;
 } = {}): Promise<BreedArticleArchivePage> {
   const page = Math.max(1, Math.min(1000, Math.trunc(options.page ?? 1)));
   const pageSize = Math.max(1, Math.min(30, Math.trunc(options.pageSize ?? 18)));
+  const query = options.query?.trim().slice(0, 100) ?? "";
   const database = getD1Binding();
   if (!database) {
-    const all = seedArticles.filter(article =>
-      article.category === "Plemená" && article.portalSection === "clanky");
+    const all = seedArticles.filter(article => article.category === "Plemená" && article.portalSection === "clanky")
+      .filter(article => !query || `${article.title} ${article.excerpt}`.toLocaleLowerCase("sk").includes(query.toLocaleLowerCase("sk")));
     return { articles: options.fciGroup ? [] : all.slice((page - 1) * pageSize, page * pageSize),
       total: options.fciGroup ? 0 : all.length, page, pageSize };
   }
@@ -927,10 +929,12 @@ export async function getPublishedBreedArticleArchivePage(options: {
         JOIN managed_breeds b ON b.id = r.breed_id
         WHERE r.article_id = a.id AND b.fci_group = ?
       )` : "";
-  const args: (string | number)[] = [now, ...(validGroup ? [validGroup] : [])];
+  const args: (string | number)[] = [now, ...(validGroup ? [validGroup] : []), ...(query ? [`%${query}%`, `%${query}%`] : [])];
+  const searchCondition = query ? "AND (a.title LIKE ? OR a.excerpt LIKE ?)" : "";
   const where = `a.category = 'Plemená' AND a.portal_section = 'clanky'
     AND (a.status = 'published' OR (a.status = 'scheduled' AND a.published_at <= ?))
-    ${groupCondition}`;
+    ${groupCondition}
+    ${searchCondition}`;
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM managed_articles a WHERE ${where}`)
     .bind(...args).first<{ count: number }>();
   const imageColumns = await articleImageProjection(database);
