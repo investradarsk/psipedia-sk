@@ -141,6 +141,7 @@ export function continuousDocumentToArticleFields(
 
   const encounteredNative: string[] = [];
   const encounteredNativeKeys: string[] = [];
+  const usedHeadingOrigins = new Set<string>();
   for (const [bodyIndex, node] of nodes.slice(boundary + 2).entries()) {
     if (node.type === "psipediaArticleWidget") {
       flush();
@@ -158,11 +159,21 @@ export function continuousDocumentToArticleFields(
     if (!["paragraph", "heading", "bulletList", "orderedList", "blockquote", "psipediaCallout"].includes(node.type)) {
       throw new Error(`Nepodporovaný uzol: ${node.type}.`);
     }
-    const original = provenancedBlock(node);
+    const sourceOriginal = provenancedBlock(node);
     const originIndex = typeof node.attrs?.sourceBlockIndex === "number"
       ? node.attrs.sourceBlockIndex : null;
-    const key = original ? `${originIndex ?? "-"}:${original.id}`
-      : node.type === "heading" ? `new-heading:${bodyIndex}` : "new";
+    const originKey = sourceOriginal ? `${originIndex ?? "-"}:${sourceOriginal.id}` : null;
+    const splitHeading = sourceOriginal?.type === "h2" || sourceOriginal?.type === "h3";
+    // Enter after a native H2/H3 can inherit the old ProseMirror provenance.
+    // Preserve its first descendant as the original heading, but create a
+    // separate fresh block for every subsequent paragraph/heading. Otherwise
+    // a two-line heading turns into one generic body text block on save.
+    const original = splitHeading && usedHeadingOrigins.has(originKey!)
+      ? null : sourceOriginal;
+    if (splitHeading) usedHeadingOrigins.add(originKey!);
+    const key = splitHeading ? `split-heading:${bodyIndex}`
+      : original ? originKey!
+        : node.type === "heading" ? `new-heading:${bodyIndex}` : "new";
     if (pending && pending.key !== key) flush();
     if (!pending) pending = { key, original, nodes: [] };
     pending.nodes.push(node);
