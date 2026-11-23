@@ -1,3 +1,5 @@
+import Link from "next/link";
+import styles from "@/components/admin-v5-technical-tools.module.css";
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminGeoOperatorDashboard } from "@/components/admin-geo-operator-dashboard";
@@ -59,6 +61,19 @@ export default async function AdminMapsPage({
       <Suspense fallback={<AdminDataLoading label="Mapy" />}>
         <MapContent promise={dataPromise} />
       </Suspense>
+      <details className={styles.advanced} data-admin-maps-advanced>
+        <summary>Rozšírené technické nástroje</summary>
+        <nav className={styles.toolList} aria-label="Technické nástroje pre mapy">
+          <Link className={styles.toolLink} href="/admin/nastroje/geo">
+            <span className={styles.toolLabel}>GEO operácie</span>
+            <span className={styles.toolDescription}>Preview, diagnostika a riadené dávky</span>
+          </Link>
+          <Link className={styles.toolLink} href="/admin/nastroje/google-places">
+            <span className={styles.toolLabel}>Google Places · Place ID canary</span>
+            <span className={styles.toolDescription}>Ručné overovanie identít</span>
+          </Link>
+        </nav>
+      </details>
     </AdminShell>
   );
 }
