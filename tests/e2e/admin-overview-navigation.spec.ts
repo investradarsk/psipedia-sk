@@ -31,9 +31,13 @@ test("repeated Prehľad → Adresár → Prehľad client transitions do not stal
 });
 
 test("Prehľad opens from an actual directory record editor", async ({ page }) => {
-  await page.goto("/admin/adresar", { waitUntil: "domcontentloaded" });
+  // Reuse the same deterministic fixture as the existing directory E2E suite.
+  // Never assume the first live record is editable or even present.
+  await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", {
+    waitUntil: "domcontentloaded",
+  });
   await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
-  const detail = page.locator('[data-testid="admin-record-row"] a[href^="/admin/adresar/"]').first();
+  const detail = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
   await expect(detail).toBeVisible();
   await detail.click();
   await expect(page).toHaveURL(/\/admin\/adresar\/\d+(?:\?.*)?$/);
