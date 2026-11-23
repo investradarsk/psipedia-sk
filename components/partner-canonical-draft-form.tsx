@@ -27,7 +27,7 @@ type Draft={
 type Props={
   categories:ReadonlyArray<{slug:string;label:string}>;
   definitions:Record<PartnerCanonicalType,CanonicalFormField[]>;
-  initial?:Draft;initialType?:PartnerCanonicalType;
+  initial?:Draft;initialType?:PartnerCanonicalType;initialReportType?:"LOST"|"FOUND";
 };
 function initialValues(type:PartnerCanonicalType,definitions:Props["definitions"],from:Record<string,unknown>={}){
   const values:Record<string,string|boolean>={};
@@ -59,11 +59,12 @@ function mediaIntent(type:PartnerCanonicalType){
     type==="DIRECTORY_PROFILE"||type==="HELP_ORGANIZATION"?"PARTNER_PROFILE_CREATE" as const:
     "PARTNER_HELP_UPDATE" as const;
 }
-export function PartnerCanonicalDraftForm({categories,definitions,initial,initialType="DIRECTORY_PROFILE"}:Props){
+export function PartnerCanonicalDraftForm({categories,definitions,initial,initialType="DIRECTORY_PROFILE",initialReportType}:Props){
   const router=useRouter();
   const [type,setType]=useState<PartnerCanonicalType>(initial?.resourceType??initialType);
   const [values,setValues]=useState<Record<string,string|boolean>>(
-    ()=>initialValues(initial?.resourceType??initialType,definitions,initial?.values));
+    ()=>initialValues(initial?.resourceType??initialType,definitions,
+      initial?.values??(initialType==="LOST_FOUND_DOG"&&initialReportType?{type:initialReportType}:{})));
   const [id,setId]=useState<string|null>(initial?.id??null);
   const [revision,setRevision]=useState(initial?.baseUpdatedAt??"");
   const [status,setStatus]=useState<PartnerDraftStatus>(initial?.status??"DRAFT");
