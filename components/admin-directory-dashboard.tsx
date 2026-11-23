@@ -34,10 +34,9 @@ function formatUpdatedAt(value: string) {
     : new Intl.DateTimeFormat("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
-export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adresar" }: {
+export function AdminDirectoryDashboard({ data, filters }: {
   data: ManagedDirectoryAdminPage;
   filters: DirectoryAdminFilters;
-  basePath?: "/admin/adresar" | "/admin/sluzby-pre-psov";
 }) {
   const router = useRouter();
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(() => Boolean(
@@ -53,7 +52,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
   const [inline, setInline] = useState<{ id: number; key: string; updatedAt: string; name: string; excerpt: string } | null>(null);
   const [inlineBusy, setInlineBusy] = useState(false);
   const { profiles, counts, resultCount, pagination, options } = data;
-  const listReturnHref = directoryAdminHref(filters).replace("/admin/adresar", basePath);
+  const listReturnHref = directoryAdminHref({ ...filters, page: pagination.page });
   const membershipFilter = directoryAdminMembershipFilters(filters);
   const membershipFingerprint = directoryAdminMembershipFingerprint(membershipFilter);
   const pageIds = profiles.map((profile) => profile.id);
@@ -168,7 +167,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
       </section>
 
       <section className="admin-panel" data-admin-directory-list>
-        <form className={`admin-directory-category-filter ${styles.filters}`} action={basePath} method="get" role="search" data-admin-list-filters>
+        <form className={`admin-directory-category-filter ${styles.filters}`} action="/admin/adresar" method="get" role="search" data-admin-list-filters>
           <label className={`admin-search ${styles.search}`}>
             <SearchIcon size={19} />
             <span>Hľadať</span>
@@ -191,7 +190,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
           </div>
           <div className={styles.filterActions}>
             <AdminActionButton variant="primary" type="submit">Použiť filtre</AdminActionButton>
-            <Link className={styles.clearFilters} href={basePath}>Vyčistiť</Link>
+            <Link className={styles.clearFilters} href="/admin/adresar">Vyčistiť</Link>
           </div>
         </form>
 
@@ -226,7 +225,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
             />}
             <AdminRecordTable
               rows={profiles}
-              label="Profily služieb"
+              label="Profily adresára"
               stickyActions
               busy={inlineBusy}
               serverSorted
@@ -236,8 +235,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                 allowedIds: ["name", "city", "status", "updated"],
                 onChange: ({ id, desc }) => {
                   const sort = id === "name" || id === "city" || id === "status" ? id : "updated";
-                  router.push(directoryAdminHref({ ...filters, sort, direction: desc ? "desc" : "asc", page: 1 })
-                    .replace("/admin/adresar", basePath));
+                  router.push(directoryAdminHref({ ...filters, sort, direction: desc ? "desc" : "asc", page: 1 }));
                 },
               }}
               density="compact"
@@ -292,7 +290,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
             />
           </>
         ) : <div className="admin-empty"><span>📍</span><h2>Žiadne profily</h2><p>Zmeň filtre alebo pridaj nový profil.</p></div>}
-        <AdminPagination pagination={pagination} basePath={directoryAdminHref({ ...filters, page: 1 }).replace("/admin/adresar", basePath)} />
+        <AdminPagination pagination={pagination} basePath={directoryAdminHref({ ...filters, page: 1 })} />
       </section>
 
       <AdminDestructiveConfirmDialog
