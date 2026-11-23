@@ -5,22 +5,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Article } from "@/lib/content";
 import { ArticleCard } from "./article-card";
-import { STORAGE_KEY } from "./favorite-button";
+import { readFavorites, subscribeFavorites } from "@/lib/public-favorites";
 
 export function FavoritesList({ articles }: { articles: Article[] }) {
   const [slugs, setSlugs] = useState<string[] | null>(null);
 
   useEffect(() => {
     function read() {
-      try {
-        setSlugs(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"));
-      } catch {
-        setSlugs([]);
-      }
+      setSlugs(readFavorites());
     }
     read();
-    window.addEventListener("psipedia-favorites-changed", read);
-    return () => window.removeEventListener("psipedia-favorites-changed", read);
+    return subscribeFavorites(read);
   }, []);
 
   if (slugs === null) return <div className="favorites-loading">Načítavam uložené články…</div>;
