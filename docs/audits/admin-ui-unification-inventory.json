@@ -104,8 +104,8 @@
     },
     {
       "group": "Komunita",
-      "label": "Dopyty",
-      "href": "/admin/dopyty",
+      "label": "Podania a dopyty",
+      "href": "/admin/podania",
       "step": 13,
       "verification": "source_inventory_only"
     },
