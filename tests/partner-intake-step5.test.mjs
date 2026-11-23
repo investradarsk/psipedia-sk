@@ -119,6 +119,11 @@ test("Owner editor offers safe one-click found/reunited action and preserves exi
   assert.match(editor,/reportType: parsed.entityType === "LOST_FOUND_DOG"/);
   assert.match(form,/mediaAssetId/);
   assert.match(form,/galleryMediaIds/);
+  const ownerList=read("lib/partner-help-claims.ts");
+  const uiLabels=read("lib/partner-ui-labels.ts");
+  assert.match(ownerList,/\["ACTIVE","RESOLVED"\]\.includes\(row.recordStatus\)/);
+  assert.match(editor,/\["ACTIVE","RESOLVED"\]\.includes\(String\(raw.status\)\)/);
+  assert.match(uiLabels,/RESOLVED: "Vyriešené"/);
   assert.match(page,/PartnerLifecycleRequest/,"existing hide/archive/release workflow remains");
   const publicDetail=read("components/lost-found-dog-detail.tsx");
   assert.match(publicDetail,/Pes sa našiel. Hlásenie je uzavreté./);
