@@ -4,7 +4,7 @@ import {DatabaseSync} from "node:sqlite";
 import {readFileSync} from "node:fs";
 import {serviceCatalog,attributeCatalog} from "../lib/service-catalog-contract.ts";
 import {loadServiceProfileMembership} from "../lib/service-catalog-profile-membership.ts";
-import {saveAdminServiceChoice,resetAdminServiceChoice,ServiceCatalogConflictError,ServiceCatalogInputError} from "../lib/service-catalog-admin-store.ts";
+import {saveAdminServiceChoice,resetAdminServiceChoice,createAdminCatalogOption,ServiceCatalogConflictError,ServiceCatalogInputError} from "../lib/service-catalog-admin-store.ts";
 import {catalogEditorItems,eligibleProfileServiceItems} from "../lib/service-catalog-admin-editor-view.ts";
 import {loadResolvedServiceDefinitions} from "../lib/service-catalog-resolved.ts";
 import {canonicalPublicProfileServices} from "../lib/service-catalog-public-profile-services.ts";
@@ -160,4 +160,25 @@ test("V5-08: Notion reconciler flags out-of-category saved YES before rewriting 
  assert.match(source,/SERVICES_RELATION_CATEGORY_CHANGED_REVIEW/);
  assert.match(source,/SERVICES_RELATION_MEMBERSHIP_CHANGED_REVIEW/);
  assert.match(source,/SERVICES_RELATION_LOCAL_CHANGED_BEFORE_BASELINE/);
+ assert.match(source,/filter\(id=>id\.startsWith\("svc\."\)\)/);
+});
+
+test("V5-08: ACTIVE dynamic service bound to a secondary category uses the same CAS and live membership gates",async()=>{
+ const f=fixture();
+ try{
+  const dynamic=await createAdminCatalogOption(f.db,{
+   name:"V5 08 testovacia sekundárna diagnostika",categories:["veterinari"],
+   kind:"service",group:"Diagnostika",meaning:"Konkrétne testovanie sekundárneho členstva bez inferencie."
+  },actor);
+  assert.deepEqual(dynamic.categories,["veterinari"]);
+  assert.ok(eligibleProfileServiceItems(catalogEditorItems([dynamic]),["treneri","veterinari"])
+    .some(item=>item.id===dynamic.id));
+  const first=await saveAdminServiceChoice(f.db,
+    {profileId:1,optionId:dynamic.id,choice:"yes",expectedVersion:0},actor);
+  assert.equal(first.choice,"yes");
+  f.sqlite.exec("DELETE FROM directory_profile_additional_categories WHERE profile_id=1 AND category='veterinari'");
+  await assert.rejects(()=>saveAdminServiceChoice(f.db,
+    {profileId:1,optionId:dynamic.id,choice:"no",expectedVersion:first.version},actor),ServiceCatalogInputError);
+  assert.equal(f.sqlite.prepare("SELECT choice FROM service_profile_option_choices WHERE option_id=?").get(dynamic.id).choice,"yes");
+ }finally{f.close();}
 });
