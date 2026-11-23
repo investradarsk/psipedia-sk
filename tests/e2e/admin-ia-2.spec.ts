@@ -221,12 +221,19 @@ test("V3 all seven navigation groups, focus and header actions work at 1440px, 3
       const group = nav.locator(`[data-admin-nav-group="${label}"]`);
       await expect(group).toHaveCount(1);
       if (!mobile) {
-        const button = group.getByRole("button", { name: label, exact: true });
-        if (await button.getAttribute("aria-expanded") !== "true") {
-          await button.focus();
-          await page.keyboard.press("Enter");
+        if (label === "Prehľad") {
+          // From /admin/operations the overview header navigates home,
+          // while the currently active group's links remain expanded.
+          const overview = group.getByRole("button", { name: "Prejsť na pracovný prehľad" });
+          await expect(overview).not.toHaveAttribute("aria-expanded", /.+/);
+        } else {
+          const button = group.getByRole("button", { name: label, exact: true });
+          if (await button.getAttribute("aria-expanded") !== "true") {
+            await button.focus();
+            await page.keyboard.press("Enter");
+          }
+          await expect(button).toHaveAttribute("aria-expanded", "true");
         }
-        await expect(button).toHaveAttribute("aria-expanded", "true");
       }
       await expect(group.getByRole("link").first()).toBeVisible();
       if (label === "Prehľad") {
