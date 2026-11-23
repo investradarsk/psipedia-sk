@@ -19,11 +19,11 @@ test("desktop admin sections and puppies at 1280 and 1440 px", async ({ page }, 
     for (const [name, path, marker] of [
       ["sections", "/admin/sekcie", '[data-testid="admin-section-management"]'],
       ["puppy-coverage", "/admin/steniatka/pokrytie", '[data-testid="admin-puppy-coverage"]'],
-      ["puppy-editorial", "/admin/steniatka", "main"],
+      ["puppy-editorial", "/admin/sekcie?sekcia=steniatka", '[data-testid="admin-section-management"]'],
     ] as const) {
       const response = await page.goto(path, { waitUntil: "domcontentloaded" });
       expect(response?.status(), `${path}: HTTP status`).toBeLessThan(400);
-      expect(new URL(page.url()).pathname, `${path}: unexpected redirect`).toBe(path);
+      expect(new URL(page.url()).pathname, `${path}: unexpected redirect`).toBe(new URL(path, "https://psipedia.sk").pathname);
       await expect(page.locator(marker).first()).toBeVisible();
       await page.evaluate(async () => { await document.fonts.ready; });
       expect(
