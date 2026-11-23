@@ -20,6 +20,7 @@ import { partnerHelpCaseCategories } from "./partner-help-create";
 import { enqueueAdminNotificationEvent } from "./admin-notifications";
 import { helpEditorFields } from "./partner-help-editor-fields";
 import { getPartnerLostFoundSubmitIssue } from "./partner-lost-found-intake";
+import { canonicalNoticeStatement } from "./partner-canonical-notices";
 import { normalizeProfileGalleryUrls, mergeProfileGallery, readProfileGallery } from "./partner-profile-gallery";
 import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-category-sql";
@@ -433,15 +434,18 @@ export async function submitPartnerCanonicalDraft(input:{accountId:string;id:str
       "WHERE submission_id=?3 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?3 AND status='SUBMITTED')")
       .bind(confidence,JSON.stringify(candidates.map(partnerSafeDuplicateCandidate)),row.id));
   }
-  const now=input.now??new Date(),nowIso=now.toISOString();
+  const now=input.now??new Date(),nowIso=now.toISOString(),eventId=crypto.randomUUID();
   await applyAtomicModerationTransition(db,{
     id:row.id,expectedStatus:row.status,toStatus:"SUBMITTED",actorType:"PARTNER",
-    actorRef:accountActor(input.accountId),eventId:crypto.randomUUID(),changedFieldsJson:'["status"]',now:nowIso,
+    actorRef:accountActor(input.accountId),eventId,changedFieldsJson:'["status"]',now:nowIso,
     transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+" WHERE id=? AND status IN ('draft','DRAFT') AND updated_at=?)",
       bindings:[row.canonicalId,current.updatedAt]},
-    extraStatements:duplicateStatements,
+    extraStatements:[...duplicateStatements,canonicalNoticeStatement(db,{
+      submissionId:row.id,accountId:row.accountId,resourceType:row.resourceType,
+      phase:"SUBMITTED",transitionId:eventId,nowIso,
+    })],
   });
-  // Notifications must never accidentally expose a still-unsubmitted draft.
+  // Both transition and recipient receipt are committed atomically in D1.
   try{
     await enqueueAdminNotificationEvent(db,{
       eventType:"partner_new_profile_submitted",sourceType:"PARTNER_NEW_PROFILE_REVIEW",
@@ -571,12 +575,10 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
       "VALUES(?1,'ADMIN',?2,?3,'MODERATION_SUBMISSION',?4,?5,?6)")
       .bind(crypto.randomUUID(),actorRef,action,row.id,JSON.stringify({canonicalId:row.canonicalId,
         resourceType:row.resourceType,accountId:row.accountId}),nowIso));
-    const notice=row.resourceType==="MANAGED_EVENT"?"EVENT_CREATED":"NEW_PROFILE_CREATED";
-    extras.push(db.prepare("INSERT OR IGNORE INTO partner_notification_outbox "+
-      "(id,partner_account_id,notification_type,dedupe_key,status,expires_at,attempts,created_at,updated_at) "+
-      "VALUES(?1,?2,?3,?4,'PENDING',?5,0,?6,?6)")
-      .bind(crypto.randomUUID(),row.accountId,notice,"partner-canonical-approved/"+row.id,
-        new Date(Date.parse(nowIso)+30*86400000).toISOString(),nowIso));
+    extras.push(canonicalNoticeStatement(db,{
+      submissionId:row.id,accountId:row.accountId,resourceType:row.resourceType,
+      phase:"APPROVED",transitionId:"final",nowIso,
+    }));
   }
   if(input.action==="REJECT"){
     const {coverId,galleryIds}=parseCanonicalDraftMedia(row.proposedPatchJson);
@@ -584,9 +586,14 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
       extras.push(db.prepare("UPDATE media_assets SET state='REJECTED',reviewed_at=? WHERE id=? AND owner_id=? AND state='ATTACHED'")
         .bind(nowIso,id,row.accountId));
   }
+  const decisionEventId=crypto.randomUUID();
+  if(input.action==="RETURN"||input.action==="REJECT")extras.push(canonicalNoticeStatement(db,{
+    submissionId:row.id,accountId:row.accountId,resourceType:row.resourceType,
+    phase:input.action==="RETURN"?"RETURNED":"REJECTED",transitionId:decisionEventId,nowIso,
+  }));
   await applyAtomicModerationTransition(db,{
     id:row.id,expectedStatus:"PENDING_REVIEW",toStatus:outcome,actorType:"ADMIN",actorRef,
-    eventId:crypto.randomUUID(),changedFieldsJson:'["status"]',now:nowIso,
+    eventId:decisionEventId,changedFieldsJson:'["status"]',now:nowIso,
     reasonCode:input.action==="RETURN"?input.note?.trim():input.action==="REJECT"?"OTHER":null,
     transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+
       " WHERE id=? AND status IN ('draft','DRAFT') AND updated_at=?)",
