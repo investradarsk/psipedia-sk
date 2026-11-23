@@ -53,6 +53,17 @@ test("audit has an explicit deterministic inventory and does not infer bundle si
   assert.equal(output.evidence.hasSearchAbortController, true);
   assert.equal(output.evidence.shellUsesAttentionPromise, true);
   assert.equal(output.evidence.homeSharesAttentionPromise, true);
+  // A renamed bounded promise is valid only when both consumers use the same
+  // instance. Catch a future accidental second D1 summary request.
+  const mismatched = auditAdminSources({
+    sourceReader(path) {
+      const source = readFileSync(new URL("../" + path, import.meta.url), "utf8");
+      return path === "app/admin/page.tsx"
+        ? source.replace("attentionPromise={boundedAttentionPromise}", "attentionPromise={differentPromise}")
+        : source;
+    },
+  });
+  assert.equal(mismatched.evidence.homeSharesAttentionPromise, false);
   assert.ok(output.limitations.some(value => value.includes("not shipped")));
 });
 
