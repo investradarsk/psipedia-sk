@@ -30,6 +30,10 @@ export function qualityTodayInSlovakia(now = new Date()): string {
 /** False means the profile/case is no longer suitable for a paid Tavily lookup. */
 export function qualityMayResearch(kind: QualityResearchKind, row: Record<string, unknown>, today: string): boolean {
   const status = nonempty(row.status).toUpperCase();
+  // Closed or archived canonical records must not generate new paid lookups
+  // and must not retain actionable missing-data proposals.
+  if (["ARCHIVED", "CANCELLED", "CANCELED", "CLOSED", "COMPLETED", "RESOLVED", "EXPIRED", "REJECTED"].includes(status)) return false;
+  if (row.archived_at || row.deleted_at) return false;
   if (kind === "EVENT") {
     if (row.cancelled === true || Number(row.cancelled) === 1) return false;
     const start = nonempty(row.start_date);
