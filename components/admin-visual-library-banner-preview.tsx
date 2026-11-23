@@ -33,7 +33,7 @@ export function AdminVisualLibraryBannerPreview({
   return (
     <PublicMagazineBanner
       compact={banner.group === "clanky" || directorySidebar}
-      visual={visual ?? (banner.id === "adresar:poskytovatelia" ? "dark" : "light")}
+      visual={visual ?? (banner.id === "adresar:poskytovatelia" ? "dark" : undefined)}
       size={size ?? (directorySidebar ? "small" : undefined)}
       photoTone={banner.photoTone}
       testId={testId}
