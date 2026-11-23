@@ -10,7 +10,7 @@ import {
 } from "@/lib/admin-navigation";
 import styles from "./admin-navigation.module.css";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
-import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
+import { dispatchAdminOverviewNavigation } from "@/lib/admin-overview-navigation";
 
 function NavigationPendingIndicator() {
   const { pending } = useLinkStatus();
@@ -66,14 +66,7 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const groupGlyphs = ["⌂", "▤", "♧", "⚙", "◎", "◇", "⚙"];
 
   function navigateToOverview() {
-    const navigate = () => router.push("/admin");
-    // A group header is a button, so the shared dirty-editor link capture
-    // cannot see it. Use the same cancelable intent as Ctrl+K navigation.
-    const intent = new CustomEvent<AdminNavigationIntent>(ADMIN_NAVIGATION_INTENT_EVENT, {
-      cancelable: true,
-      detail: { href: "/admin", navigate },
-    });
-    if (window.dispatchEvent(intent)) navigate();
+    dispatchAdminOverviewNavigation(() => router.push("/admin"));
   }
 
   return (
