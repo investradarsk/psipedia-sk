@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArticleCard } from "@/components/article-card";
+import { EditorialTopicArticleGrid } from "@/components/editorial-topic-article-grid";
+import { PublicLandingSectionHeading } from "@/components/public-visual-system";
 import { fciGroups } from "@/lib/content";
 import { getPublishedBreedArticleArchivePage } from "@/lib/article-store";
 import { buildListingPageMetadata } from "@/lib/listing-seo";
@@ -84,17 +85,18 @@ export default async function BreedArticleArchive({ searchParams }: Props) {
           ))}
         </nav>
         <div className={styles.results}>
-          <h2>{groupLabel ? `Články: ${groupLabel}` : "Najnovšie články"}</h2>
+          <PublicLandingSectionHeading
+            eyebrow="Články o plemenách"
+            title={groupLabel ? `Články: ${groupLabel}` : "Najnovšie články"}
+            id="breed-archive-results-heading"
+          />
           <p>{result.total} {result.total === 1 ? "článok" : result.total > 1 && result.total < 5 ? "články" : "článkov"}</p>
         </div>
         {result.articles.length > 0 ? (
-          <div className={styles.grid} role="list">
-            {result.articles.map(article => (
-              <div role="listitem" key={article.slug} className={styles.card}>
-                <ArticleCard article={article} variant="grid" listItem={false}/>
-              </div>
-            ))}
-          </div>
+          <EditorialTopicArticleGrid
+            articles={result.articles}
+            label={groupLabel ? `Články: ${groupLabel}` : "Najnovšie články o plemenách"}
+          />
         ) : (
           <div className={styles.empty}>
             <p>Pre tento výber zatiaľ nemáme publikované články.</p>
