@@ -90,6 +90,9 @@ for (const entry of cases) {
     await expect(page.getByText(entry.type === "LOST" ? "STRATENÝ PES" : "NÁJDENÝ PES", { exact: true })).toBeVisible();
     await expect(page.getByText("Aktívne", { exact: true })).toBeVisible();
     if (entry.type === "LOST") await expect(page.getByText("Naposledy videný:", { exact: true })).toBeVisible();
+    const recordId = entry.type === "LOST" ? 910001 : 910002;
+    await expect(page.getByRole("link", { name: "Spravujete toto hlásenie? Požiadať o správu" }))
+      .toHaveAttribute("href", `/partner/prevziat-profil/LOST_FOUND_DOG/${recordId}`);
     await expectPrivateValuesHidden(page);
     await expectNoHorizontalOverflow(page);
     await expectNoAxeViolations(page);
