@@ -16,24 +16,18 @@
 .groups a { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 12px; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-control); background: var(--white); color: var(--forest-dark); text-decoration: none; font-size: .82rem; font-weight: 700; }
 .groups a.active { background: var(--forest-dark); border-color: var(--forest-dark); color: white; }
 .results { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 16px; }
-.results h2 { margin: 0; color: var(--forest-dark); font-size: clamp(1.3rem, 2.8vw, 1.9rem); }
+.results :global([data-public-landing-section-heading]) { min-width: 0; flex: 1; margin: 0; }
 .results p { margin: 0; color: var(--muted); font-size: .84rem; white-space: nowrap; }
-.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
-.card { min-width: 0; }
-.card > * { height: 100%; }
 .empty { padding: 48px 20px; text-align: center; background: var(--white); border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-card); }
 .empty a { color: var(--forest-dark); font-weight: 800; }
 .pagination { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: center; margin-top: 28px; }
 .pagination a { min-height: 44px; display: inline-flex; align-items: center; padding: 8px 14px; border: 1px solid var(--ps-border-strong); background: white; border-radius: var(--ps-radius-control); text-decoration: none; color: var(--forest-dark); font-weight: 750; }
 .pagination span { color: var(--muted); }
 .back { display: inline-block; margin-top: 32px; color: var(--forest-dark); font-weight: 750; }
-@media (max-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) {
  .page { padding-inline: 12px; }
  .searchControls { flex-direction: column; }
  .groups { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
  .groups a { min-width: 0; }
- .grid { grid-template-columns: minmax(0,1fr); gap: 12px; }
  .results { align-items: start; }
- .results h2 { font-size: 1.25rem; }
 }

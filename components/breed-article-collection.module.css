@@ -1,21 +1,28 @@
+/* Match the flat editorial sections on /steniatka/pred-kupou-psa.
+   The canonical photographic cards are rendered by EditorialTopicArticleGrid. */
 .section {
   min-width: 0;
-  margin: 14px 0 22px;
-  padding: 18px;
-  border: 1px solid var(--ps-border-soft);
-  border-radius: var(--ps-radius-card);
-  background: var(--white);
+  margin: 18px 0 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
-.header { margin-bottom: 14px; }
-.header h2, .header h3 {
+.groupHeading { margin-bottom: 14px; }
+.eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--coral-dark);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+}
+.groupHeading h3 {
   margin: 0;
   color: var(--forest-dark);
-  font-size: clamp(1.15rem, 1.8vw, 1.55rem);
+  font-size: clamp(1.15rem, 1.65vw, 1.45rem);
   line-height: 1.2;
 }
-.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.item { min-width: 0; }
-.item > * { height: 100%; }
 .link {
   display: inline-flex;
   align-items: center;
@@ -32,24 +39,8 @@
 }
 .link:hover { background: var(--sage-light); }
 .link:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
-.compact { margin: 20px 0 0; padding: 16px; }
-.compact .header h3 { font-size: 1.15rem; }
+.compact { margin: 20px 0 0; }
 @media (max-width: 720px) {
-  .section { padding: 14px; }
-  .grid {
-    display: flex;
-    overflow-x: auto;
-    gap: 10px;
-    scroll-snap-type: x mandatory;
-    overscroll-behavior-inline: contain;
-    padding-bottom: 8px;
-  }
-  .item {
-    flex: 0 0 min(78%, 280px);
-    scroll-snap-align: start;
-  }
+  .section { margin-block: 14px 22px; }
   .link { width: 100%; justify-content: center; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .grid { scroll-behavior: auto; }
 }

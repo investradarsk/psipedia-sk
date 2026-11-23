@@ -1,0 +1,21 @@
+/* Shared with the existing category pages: photograph first, headline and
+   editorial metadata below, flat surface, no enclosing white article cards. */
+.grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 14px 18px;
+  background: transparent;
+}
+.grid > [role="listitem"] { min-width: 0; }
+@media (min-width: 621px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 901px) {
+  .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+  /* The atlas result column is narrower than a full topic page. Keep
+     the established photo-card proportions rather than squeezing four
+     cards into the same width. */
+  .constrained { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

@@ -1329,30 +1329,7 @@
   }
 }
 
-/* CATEGORY-UNIFICATION: topic details always use the health category's compact
-   multi-column card grid. Even one result occupies only one card slot, not a
-   full-width horizontal article row. Existing ArticleListItem remains shared. */
-.topicBody .topicArticleGrid {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-  gap: 14px 18px;
-}
-@media (min-width: 621px) {
-  .topicBody .topicArticleGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 901px) {
-  .topicBody .topicArticleGrid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 20px;
-  }
-}
-.topicBody .topicArticleGrid > [role="listitem"] {
-  min-width: 0;
-}
+/* Category topic cards now use EditorialTopicArticleGrid, shared with Plemená. */
 
 /* All topic banners inherit the exact same surface and accents as the
    established urgent-health banner. Only editorial copy and actions differ. */
