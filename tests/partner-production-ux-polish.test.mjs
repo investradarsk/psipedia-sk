@@ -106,7 +106,7 @@ test("Partner shell uses the measured sticky header height as shared scroll offs
 });
 
 test("Partner event creation redirects to shared editor with accurate private-draft copy", () => {
-  assert.match(newEventPage, /redirect\("\/partner\/koncepty\/novy\?typ=MANAGED_EVENT"\)/);
+  assert.match(newEventPage, /redirect\("\/partner\/koncepty\/novy\/podujatie"\)/);
   assert.match(canonicalNewPage, /PartnerCanonicalDraftForm/);
   assert.match(canonicalNewPage, /Uložte si neverejný koncept alebo ho odošlite na prvé schválenie/);
   assert.match(canonicalForm, /Koncept zostane súkromný a na stránke sa zobrazí až po schválení/);
