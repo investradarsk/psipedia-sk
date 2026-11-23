@@ -137,3 +137,68 @@
   .hexControl input, .linkBar input { min-width: 0; font-size: 16px; min-height: 44px; }
   .linkBar { min-width: 0; }
 }
+
+/* Continuous article: insertion stays with the shared sticky formatting tools.
+   The picker is a sibling of the horizontally scrolling toolbar so it cannot
+   get clipped when the formatting buttons overflow on a narrow screen. */
+.tools .insertTrigger {
+  background: #1f4a3a;
+  border-color: #1f4a3a;
+  color: #fff;
+  font-weight: 750;
+  padding-inline: 0.8rem;
+  white-space: nowrap;
+}
+.tools .insertTrigger[aria-expanded="true"] {
+  background: #163b2c;
+  border-color: #163b2c;
+}
+.insertPanel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: min(440px, 100%);
+  max-width: 100%;
+  box-sizing: border-box;
+  max-height: min(65dvh, 480px);
+  overflow-y: auto;
+  z-index: 2;
+  padding: 0.8rem;
+  border: 1px solid #cbd9cf;
+  border-radius: 11px;
+  background: #fffefa;
+  color: #183b2b;
+  box-shadow: 0 14px 30px rgb(20 45 32 / 20%);
+}
+.insertPanel > strong {
+  display: block;
+  font-size: 0.85rem;
+}
+.insertChoices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+.insertChoices button {
+  min-height: 40px;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  font: inherit;
+  font-size: 0.82rem;
+  color: #1f4a3a;
+  background: #f7faf7;
+  border: 1px solid #d4e1d7;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.insertChoices button:hover { background: #eaf2eb; }
+.insertChoices button:focus-visible {
+  outline: 2px solid #b4513d;
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .insertPanel { padding: 0.65rem; max-height: min(60dvh, 430px); }
+  .insertChoices button { min-height: 44px; }
+}
