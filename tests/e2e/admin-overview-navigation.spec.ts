@@ -120,6 +120,8 @@ test("stalled Prehľad retry cannot bypass a newly dirty editor", async ({ page 
   await confirm.getByRole("button", { name: "Pokračovať v úpravách" }).click();
   await expect(name).toHaveValue("Rozpracovaný návrh počas zaseknutej navigácie");
   await expect(page).toHaveURL(/\/admin\/organizacie\/novy$/);
+  await expect(recovery).toBeVisible();
+  await recovery.getByRole("button", { name: "Zavrieť upozornenie" }).click();
 });
 
 test("Prehľad header asks before leaving a dirty editor and preserves edits on Stay", async ({ page }, info) => {
