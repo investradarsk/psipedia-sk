@@ -56,6 +56,8 @@ export async function getPartnerHelpEditor(accountId: string, resourceId: string
   return {
     resourceId, entityType: parsed.entityType, canonicalId: parsed.canonicalId,
     title, values, fields: helpEditorFields[parsed.entityType],
+    reportType: parsed.entityType === "LOST_FOUND_DOG" && (raw.type === "LOST" || raw.type === "FOUND")
+      ? raw.type : null,
     imageUrl, gallery, baseRevision: String(raw.updated_at ?? ""),
     status: String(raw.status ?? ""),
     publicHref: parsed.entityType === "ADOPTION_DOG"
