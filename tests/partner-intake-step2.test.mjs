@@ -18,12 +18,21 @@ test("only safe local Partner destinations are retained through registration", (
 
 test("canonical create entry remembers both type and dog report kind before session gate", () => {
   const page = read("app/partner/koncepty/novy/page.tsx");
+  const typedPage = read("app/partner/koncepty/novy/[kind]/page.tsx");
+  const worker = read("worker/index.ts");
   const form = read("components/partner-canonical-draft-form.tsx");
   assert.match(page, /const \{typ,druh\}=await searchParams/);
   assert.match(page, /initialType==="LOST_FOUND_DOG"&&\(druh==="LOST"\|\|druh==="FOUND"\)/);
   assert.match(page, /const returnTo="\/partner\/koncepty\/novy\?typ="/);
   assert.match(page, /await requirePartnerPageIdentity\(\{returnTo\}\)/);
   assert.match(page, /initialReportType=\{reportType\?\?undefined\}/);
+  assert.match(typedPage, /kind === "strateny" \? "LOST"/);
+  assert.match(typedPage, /kind === "najdeny" \? "FOUND"/);
+  assert.match(typedPage, /initialType="LOST_FOUND_DOG"/);
+  assert.match(typedPage, /requirePartnerPageIdentity\(\{ returnTo:/);
+  assert.match(worker, /url\.searchParams\.get\("typ"\) === "LOST_FOUND_DOG"/);
+  assert.match(worker, /url\.searchParams\.get\("druh"\)/);
+  assert.match(worker, /Response\.redirect\(new URL\(destination, url\), 307\)/);
   assert.match(form, /initialReportType\?:"LOST"\|"FOUND"/);
   assert.match(form, /initial\?\.values\?\?\(initialType==="LOST_FOUND_DOG"&&initialReportType\?\{type:initialReportType\}:\{\}\)/);
   assert.match(form, /const \[values,setValues\]=useState/);
@@ -32,10 +41,10 @@ test("canonical create entry remembers both type and dog report kind before sess
 test("published dog lists route to the signed-in draft editor, never the anonymous POST", () => {
   const listing = read("components/lost-found-dogs-page.tsx");
   const preset = read("lib/help-banner-presets.ts");
-  assert.match(listing, /\/partner\/koncepty\/novy\?typ=LOST_FOUND_DOG&druh=LOST/);
-  assert.match(listing, /\/partner\/koncepty\/novy\?typ=LOST_FOUND_DOG&druh=FOUND/);
+  assert.match(listing, /\/partner\/koncepty\/novy\/strateny/);
+  assert.match(listing, /\/partner\/koncepty\/novy\/najdeny/);
   assert.doesNotMatch(listing, /lostFoundSubmissionEnabled|stratene-a-najdene\/nahlasit/);
-  assert.match(preset, /href: "\/partner\/koncepty\/novy\?typ=LOST_FOUND_DOG"/);
+  assert.match(preset, /href: "\/partner\/koncepty\/novy\/nahlasit"/);
   assert.match(preset, /Prihláste sa alebo si vytvorte účet/);
 });
 
