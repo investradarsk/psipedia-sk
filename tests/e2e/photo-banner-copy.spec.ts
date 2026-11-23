@@ -8,7 +8,7 @@ for (const path of ["/", "/pomoc-psom"]) {
     await page.setViewportSize({ width: 1440, height: 936 });
     await page.goto(path);
     const banner = page.locator(".home-magazine-banner").filter({
-      has: page.locator('a[href="/partner/koncepty/novy?typ=LOST_FOUND_DOG"], a[href="/pomoc-psom/stratene-a-najdene/nahlasit"]'),
+      has: page.locator('a[href="/partner/koncepty/novy?typ=LOST_FOUND_DOG"]'),
     });
     await expect(banner).toHaveCount(1);
     const description = banner.locator('[class*="bannerDescription"]');
