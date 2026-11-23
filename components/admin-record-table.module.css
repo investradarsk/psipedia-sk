@@ -1,9 +1,9 @@
 .workspace {
   min-width: 0;
   border: 1px solid #d9e3da;
-  border-radius: 14px;
+  border-radius: var(--admin-ui-radius, 8px);
   overflow: visible;
-  background: #fffdf9;
+  background: #fff;
 }
 .toolbar { display: flex; gap: 12px; justify-content: space-between; align-items: center; padding: 12px 14px; background: #f7faf6; border-bottom: 1px solid #e0e7e1; }
 .tableIntro { display: grid; gap: 3px; color: #1c4436; font-size: .87rem; }
@@ -44,8 +44,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  min-height: 40px;
+  width: 44px;
+  min-height: 44px;
   cursor: pointer;
 }
 .selectionCheck input {
@@ -72,12 +72,30 @@
 }
 
 /* Compact is the default shared density; comfortable remains opt-in. */
-.workspace[data-density="compact"] .toolbar { padding: 8px 12px; gap: 8px; }
+.workspace[data-density="compact"] .toolbar { padding: 6px 10px; gap: 6px; }
 .workspace[data-density="compact"] .table { font-size: .81rem; }
 .workspace[data-density="compact"] .table th,
 .workspace[data-density="compact"] .table td { padding: 6px 9px; height: 44px; }
 .workspace[data-density="compact"] .table th { font-size: .72rem; }
 .workspace[data-density="compact"] .table td { line-height: 1.25; }
+/* The table module is the only owner of row geometry on desktop.
+   Other breakpoints keep the existing 44px mobile/table controls. */
+@media (min-width: 821px) {
+  .workspace[data-density="compact"] .table th,
+  .workspace[data-density="compact"] .table td {
+    box-sizing: border-box;
+    height: 38px;
+    padding: 5px 8px;
+  }
+  .workspace[data-density="compact"] .selectionCheck {
+    width: 34px;
+    min-height: 34px;
+  }
+  .workspace[data-density="compact"] .columnPicker summary {
+    min-height: 38px;
+    padding: 5px 9px;
+  }
+}
 .workspace[data-density="compact"] .columnPicker summary { padding: 6px 10px; }
 .workspace .heading button { min-height: 32px; display: inline-flex; align-items: center; gap: 4px; }
 .workspace .heading button:focus-visible { outline: 2px solid #9a3d29; outline-offset: 3px; border-radius: 3px; }
@@ -255,7 +273,7 @@
   min-width: 0;
   flex-wrap: wrap;
   gap: var(--admin-list-filter-gap, 0.55rem);
-  padding: var(--admin-ui-panel-padding, 0.75rem);
+  padding: var(--admin-ui-panel-padding, 0.55rem);
 }
 .tableIntro {
   min-width: 0;
@@ -269,7 +287,7 @@
 .columnPicker { flex: 0 0 auto; max-width: 100%; }
 .columnPicker summary {
   display: inline-flex;
-  min-height: 44px;
+  min-height: var(--admin-ui-control-height, 44px);
   align-items: center;
   box-sizing: border-box;
 }

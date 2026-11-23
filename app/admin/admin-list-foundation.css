@@ -76,7 +76,7 @@
 [data-admin-workspace] [data-admin-list-pagination] :where(a, button, span[aria-disabled="true"], span[aria-current="page"]) {
   box-sizing: border-box;
   min-height: var(--admin-list-control-height);
-  min-width: 44px;
+  min-width: var(--admin-list-control-height);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -126,6 +126,7 @@
     margin-block: 0.6rem;
   }
   [data-admin-workspace] [data-admin-list-pagination] :where(a, button, span[aria-disabled="true"]) {
+    min-width: 44px;
     padding-inline: 0.55rem;
     white-space: normal;
     overflow-wrap: anywhere;
