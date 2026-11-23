@@ -160,6 +160,7 @@ export function AdminArticleEditor({
   const [pendingFacebookSave, setPendingFacebookSave] = useState<PendingFacebookSave | null>(null);
   const [facebookReceipt, setFacebookReceipt] = useState<FollowupReceipt | null>(null);
   const [retryBusy, setRetryBusy] = useState<string | null>(null);
+  const [saveOutcomeUnknown, setSaveOutcomeUnknown] = useState(false);
   const [intro, setIntro] = useState(article?.intro ?? "");
   const [introRichText, setIntroRichText] = useState(article?.introRichText ?? legacyRichTextToDocument(article?.intro ?? ""));
   const [takeaway, setTakeaway] = useState(article?.takeaway ?? "");
@@ -462,6 +463,14 @@ export function AdminArticleEditor({
       setMessage("");
       return;
     }
+    if (saveOutcomeUnknown) {
+      setError("Výsledok predchádzajúceho zápisu sa nepodarilo overiť. Pred ďalším ukladaním skontroluj článok v zozname alebo obnov editor.");
+      return;
+    }
+    if (publishedAt && !Number.isFinite(new Date(publishedAt).getTime())) {
+      setError("Dátum publikovania nie je platný.");
+      return;
+    }
     if (savePendingRef.current || uploading) return;
     savePendingRef.current = true;
     setSaving(true);
@@ -533,6 +542,7 @@ export function AdminArticleEditor({
     };
 
     let hasQaIssues = false;
+    let receivedSaveResult = false;
     try {
       const endpoint = currentArticle ? `/api/admin/articles/${currentArticle.id}` : "/api/admin/articles";
       const response = await fetch(endpoint, {
@@ -544,6 +554,7 @@ export function AdminArticleEditor({
         article?: ManagedArticle; error?: string; issues?: ArticleQaIssue[];
         saveReceipt?: ArticleSaveReceipt;
       };
+      receivedSaveResult = true;
       if (!response.ok || !data.article) {
         if (Array.isArray(data.issues)) {
           hasQaIssues = data.issues.length > 0;
@@ -623,7 +634,14 @@ export function AdminArticleEditor({
         }
       }
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Článok sa nepodarilo uložiť.");
+      if (!receivedSaveResult) {
+        // A dropped response is not proof that the server rolled back the
+        // write. Particularly for POST, a second blind save could duplicate it.
+        setSaveOutcomeUnknown(true);
+        setError("Sieťové spojenie prerušilo potvrdenie uloženia. Zápis v D1 sa mohol dokončiť. Pred ďalším pokusom skontroluj aktuálny článok alebo zoznam článkov.");
+      } else {
+        setError(saveError instanceof Error ? saveError.message : "Článok sa nepodarilo uložiť.");
+      }
       // Preserve the QA blocker focus selected above; only generic errors focus the result.
       if (!hasQaIssues) focusResult();
     } finally {
