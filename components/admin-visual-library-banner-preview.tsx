@@ -29,11 +29,12 @@ export function AdminVisualLibraryBannerPreview({
   visual?: PublicBannerVisual;
   size?: PublicBannerSize;
 }) {
+  const directorySidebar = banner.id.startsWith("adresar:");
   return (
     <PublicMagazineBanner
-      compact={banner.group === "clanky"}
-      visual={visual}
-      size={size}
+      compact={banner.group === "clanky" || directorySidebar}
+      visual={visual ?? (banner.id === "adresar:poskytovatelia" ? "dark" : "light")}
+      size={size ?? (directorySidebar ? "small" : undefined)}
       photoTone={banner.photoTone}
       testId={testId}
       eyebrow={copy?.eyebrow ?? banner.eyebrow}
