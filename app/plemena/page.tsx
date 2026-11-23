@@ -3,6 +3,8 @@ import { breedProfileHref } from "@/lib/breed-canonical";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
+import { ArticleListItem } from "@/components/article-list-item";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon } from "@/components/icons";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
@@ -40,11 +42,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export const dynamic = "force-dynamic";
 
 export default async function BreedsPage({ searchParams }: Props) {
-  const [portalSection, breeds, heroVisual, breedClubBannerColors] = await Promise.all([
+  const [portalSection, breeds, heroVisual, breedClubBannerColors, breedArticles] = await Promise.all([
     getManagedPortalSection("plemena"),
     listPublishedCanonicalBreedAtlasCards(),
     retryTransientPublicRead(() => getSectionHeroVisual("section.plemena")),
     retryTransientPublicRead(() => getPublishedDesktopBannerColors("plemena:kluby")),
+    getPublishedArticleSummaries({ portalSection: "clanky", category: "Plemená", limit: 12 }),
   ]);
   const rawSearchParams = await searchParams;
   const breedSection = portalSection ?? portalSections.find((section) => section.slug === "plemena") ?? null;
@@ -123,6 +126,20 @@ export default async function BreedsPage({ searchParams }: Props) {
               <a href="https://www.fci.be/nomenclature/" target="_blank" rel="noreferrer">Oficiálna nomenklatúra FCI <ArrowIcon size={17} /></a>
             </aside>
             </div>
+            {breedArticles.length > 0 && (
+              <section id="clanky-o-plemenach" aria-labelledby="breed-articles-heading" className="breed-editorial-articles">
+                <h2 id="breed-articles-heading">Články o plemenách</h2>
+                <p>Praktické skúsenosti, história, povaha a život s jednotlivými plemenami.</p>
+                <div className="article-grid article-grid--listing article-grid--compact" role="list">
+                  {breedArticles.map((article) => (
+                    <div key={article.slug} role="listitem">
+                      <ArticleListItem article={article} listItem={false} />
+                    </div>
+                  ))}
+                </div>
+                <Link href="/clanky?tema=plemena" className={styles.compareAction}>Zobraziť všetky články o plemenách <ArrowIcon size={17} /></Link>
+              </section>
+            )}
             </PublicContentShell>
           </section>
         </PublicFoundation>

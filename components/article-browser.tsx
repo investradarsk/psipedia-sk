@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ArticleListingCard } from "@/lib/content";
 import { SearchIcon } from "./icons";
 
-const filters = ["Všetky", "Novinky", "Šteniatka", "Výcvik", "Zdravie", "Výživa", "Život so psom"];
+const filters = ["Všetky", "Novinky", "Šteniatka", "Plemená", "Výcvik", "Zdravie", "Výživa", "Život so psom"];
 const INITIAL_COUNT = 12;
 const NEXT_COUNT = 12;
 
@@ -55,7 +55,7 @@ export function ArticleBrowser({
     const form = document.querySelector<HTMLFormElement>('form[data-public-search-form="articles"]');
     if (!form) return;
     const slugs: Record<string, string> = {
-      "Novinky": "novinky", "Šteniatka": "steniatka",
+      "Novinky": "novinky", "Šteniatka": "steniatka", "Plemená": "plemena",
       "Výcvik": "vycvik", "Zdravie": "zdravie",
       "Výživa": "vyziva", "Život so psom": "zivot-so-psom",
     };

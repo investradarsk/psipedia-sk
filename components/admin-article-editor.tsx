@@ -774,10 +774,11 @@ export function AdminArticleEditor({
             </div>
             {portalSection === "clanky" && (
               <div className="admin-field">
-                <label htmlFor="article-category">Kategória článku (starší archív)</label>
+                <label htmlFor="article-category">Kategória článku</label>
                 <select id="article-category" value={category} onChange={(event) => setCategory(event.target.value as ManagedArticle["category"])}>
-                  <option>Výcvik</option><option>Zdravie</option><option>Výživa</option><option>Život so psom</option>
+                  <option>Výcvik</option><option>Zdravie</option><option>Výživa</option><option>Život so psom</option><option>Plemená</option>
                 </select>
+                {category === "Plemená" && <small>Článok sa zobrazí v atlase Plemená. V záložke Prepojené plemená priraď konkrétne plemeno; URL zostáva /clanky/…</small>}
               </div>
             )}
             <AdminArticleTopicPicker

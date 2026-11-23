@@ -6,6 +6,7 @@ const categorySlugs: Record<Article["category"], string> = {
   Zdravie: "zdravie",
   Výživa: "vyziva",
   "Život so psom": "zivot-so-psom",
+  Plemená: "plemena",
 };
 
 const categoryDestinations: Record<Article["category"], string> = {
@@ -13,6 +14,7 @@ const categoryDestinations: Record<Article["category"], string> = {
   Zdravie: "/clanky?tema=zdravie",
   Výživa: "/clanky?tema=vyziva",
   "Život so psom": "/clanky?tema=zivot-so-psom",
+  Plemená: "/plemena#clanky-o-plemenach",
 };
 
 export function articleCategorySlug(category: Article["category"]) {
