@@ -49,19 +49,23 @@ for (const { name, path } of [
   });
 }
 
-test("step 8: server and client paging share minimum 44px controls", async ({ page }) => {
-  for (const path of ["/admin/clanky", "/admin/adresar", "/admin/plemena", "/admin/podujatia"]) {
-    const response = await page.goto(path, { waitUntil: "domcontentloaded" });
-    expect(response?.status()).toBe(200);
-    const pagination = page.locator("[data-admin-list-pagination]").first();
-    if (await pagination.count()) {
-      const controls = pagination.locator("a, button, span[aria-disabled='true']");
-      await expect(pagination).toBeVisible();
-      for (const control of await controls.all()) {
-        expect(await control.evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+test("step 8: pagers use 38px desktop and 44px mobile targets", async ({ page }) => {
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const path of ["/admin/clanky", "/admin/adresar", "/admin/plemena", "/admin/podujatia"]) {
+      const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+      expect(response?.status()).toBe(200);
+      const pagination = page.locator("[data-admin-list-pagination]").first();
+      if (await pagination.count()) {
+        await expect(pagination).toBeVisible();
+        const controls = pagination.locator("a, button, span[aria-disabled='true'], span[aria-current='page']");
+        for (const control of await controls.all()) {
+          expect(await control.evaluate(el => el.getBoundingClientRect().height))
+            .toBeGreaterThanOrEqual(width <= 820 ? 44 : 38);
+        }
+        expect(await pagination.evaluate(el => el.getBoundingClientRect().width))
+          .toBeLessThanOrEqual(width + 1);
       }
-      expect(await pagination.evaluate(el => el.getBoundingClientRect().width))
-        .toBeLessThanOrEqual(1440);
     }
   }
 });

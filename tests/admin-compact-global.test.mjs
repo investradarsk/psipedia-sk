@@ -30,7 +30,7 @@ test("compact layer inherits existing V3/V4 tokens without touching application 
 
 test("small desktop density does not shrink mobile touch targets or editable text", () => {
   const css = read("app/admin/admin-compact-global.css");
-  assert.match(css, /--admin-ui-control-height:\s*40px/);
+  assert.match(css, /--admin-ui-control-height:\s*38px/);
   assert.match(css, /@media \(min-width:\s*821px\)/);
   assert.match(css, /@media \(max-width:\s*820px\)/);
   assert.match(css, /--admin-ui-control-height:\s*44px/);
