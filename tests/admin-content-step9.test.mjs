@@ -69,7 +69,8 @@ test("step 9: articles, breeds and reviews keep the canonical editors and compac
   assert.match(breed, /hidePageTitle/);
   assert.match(breed, /<AdminNotionProfileImportButton/);
   assert.match(reviews, /data-admin-content-module="reviews"/);
-  assert.match(reviews, /<details className=\{styles\.rules\}/);
+  assert.match(reviews, /<nav aria-labelledby="reviews-workspaces-title">/);
+  assert.match(reviews, /<details className=\{styles\.notes\}/);
   assert.match(reviews, /href="\/admin\/recenzie-profilov"/);
 });
 
