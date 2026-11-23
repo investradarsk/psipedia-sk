@@ -10,8 +10,8 @@ import { PartnerHelpPublicEditorForm } from "@/components/partner-help-public-ed
 export const dynamic = "force-dynamic";
 
 export default async function Page({ params }: {params:Promise<{resourceId:string}>}) {
-  const identity = await requirePartnerPageIdentity();
   const { resourceId } = await params;
+  const identity = await requirePartnerPageIdentity({returnTo:"/partner/pomoc/"+encodeURIComponent(resourceId)+"/upravit"});
   let editor;
   try { editor = await getPartnerHelpEditor(identity.accountId, resourceId); }
   catch(error) {
