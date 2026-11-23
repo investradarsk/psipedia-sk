@@ -12,7 +12,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await request.json() as Record<string, unknown>;
     if (body.action === "APPROVE") {
-      return Response.json({ claim: await approvePartnerClaimAdmin({ id, adminEmail: auth.user.email }) });
+      return Response.json({ claim: await approvePartnerClaimAdmin({ id, adminEmail: auth.user.email,
+        reporterIdentityVerified: body.reporterIdentityVerified }) });
     }
     if (body.action === "REVOKE") {
       return Response.json({ claim: await revokePartnerHelpClaimAdmin({id,adminEmail:auth.user.email,decisionNote:body.decisionNote}) });
