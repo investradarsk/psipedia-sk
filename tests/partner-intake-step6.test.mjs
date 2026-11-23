@@ -31,7 +31,10 @@ function fixture() {
       try {
         const results=statements.map(({query,params})=>{
           const stmt=sql.prepare(query);
-          if(stmt.reader) {
+          // D1 returns rows for UPDATE ... RETURNING, but node:sqlite has no
+          // StatementSync.reader property (Node 22/24). Detect returned rows
+          // from SQL instead of relying on a non-existent fixture API.
+          if (/^\s*SELECT\b/i.test(query) || /\bRETURNING\b/i.test(query)) {
             const rows=stmt.all(...params);
             return {results:rows,meta:{changes:0}};
           }
