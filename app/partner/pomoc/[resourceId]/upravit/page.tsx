@@ -31,6 +31,8 @@ export default async function Page({ params }: {params:Promise<{resourceId:strin
         fields={editor.fields}
         originalValues={editor.values}
         initialRevision={editor.baseRevision}
+        reportStatus={editor.status}
+        reportType={editor.reportType}
         imageUrl={editor.imageUrl}
         gallery={editor.gallery}
       />
