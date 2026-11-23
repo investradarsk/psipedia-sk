@@ -75,7 +75,7 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
     await expect(page.getByLabel("Pracovný e-mail")).toHaveCount(0);
     await emailMethod.click();
     await expect(emailMethod).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByLabel("Pracovný e-mail")).toBeVisible();
+    await expect(page.getByLabel("E-mail", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Poslať prihlasovací odkaz" })).toBeDisabled();
     await expect(page.getByLabel("Heslo", { exact: true })).toHaveCount(0);
     await passwordMethod.click();
