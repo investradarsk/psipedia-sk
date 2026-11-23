@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminPartnerCanonicalReturn } from "@/components/admin-partner-canonical-return";
 import { AdminPartnerHelpReviewActions } from "@/components/admin-partner-help-review-actions";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getPartnerHelpCreateAdmin, PartnerHelpReviewError } from "@/lib/partner-help-create-admin";
@@ -36,6 +37,7 @@ export default async function Page({params}:{params:Promise<{id:string}>}){
     {item.active?<AdminPartnerHelpReviewActions id={item.id} resourceType={item.resourceType} payload={item.payload}
       isCanonicalDraft={Boolean(item.canonicalId)} canonicalUpdatedAt={item.canonicalUpdatedAt}/>:
       <section className="admin-form-card"><h2>Uzavretá žiadosť</h2><p>Návrh už nie je možné znovu schváliť. Všetky rozhodnutia ostávajú v histórii.</p></section>}
+    {item.active&&item.canonicalId?<AdminPartnerCanonicalReturn submissionId={item.id}/>:null}
     <section className="admin-form-card">
       <h2>História moderácie</h2>
       <div className="admin-audit-list">{item.history.map((entry,index)=>{
