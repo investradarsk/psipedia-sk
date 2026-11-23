@@ -5,6 +5,7 @@ import {
   rejectPartnerNewProfileAdmin,
 } from "@/lib/partner-new-profile-admin";
 import { PartnerNewProfileError } from "@/lib/partner-new-profile";
+import { PartnerCanonicalWorkflowError } from "@/lib/partner-canonical-workflow";
 import { PartnerSingleManagerConflictError, isPartnerSingleManagerConstraintError } from "@/lib/partner-single-manager";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     return Response.json({ error: "Neplatná resolution akcia." }, { status: 400 });
   } catch (error) {
-    const status = error instanceof PartnerNewProfileError || error instanceof PartnerSingleManagerConflictError
+    const status = error instanceof PartnerNewProfileError || error instanceof PartnerSingleManagerConflictError || error instanceof PartnerCanonicalWorkflowError
       ? error.status
       : error instanceof Error && (error.name === "ModerationStateConflictError" || isPartnerSingleManagerConstraintError(error)) ? 409 : 500;
     return Response.json({
