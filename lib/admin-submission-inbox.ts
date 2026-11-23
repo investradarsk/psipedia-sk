@@ -96,7 +96,8 @@ export function inboxReviewHref(item:Pick<InboxRow,"kind"|"id"|"resourceType"|"o
   const id=encodeURIComponent(item.id);
   if(item.kind==="INQUIRY")return "/admin/dopyty?id="+id+"#dopyt-"+id;
   if(item.kind==="CLAIM")return "/admin/partners/claims/"+id;
-  if(item.kind==="PUBLIC")return inboxEditorHref(item)??"/admin/pomoc-psom";
+  if(item.kind==="PUBLIC")return item.resourceType==="LOST_FOUND_DOG"
+    ?"/admin/stratene-najdene":inboxEditorHref(item)??"/admin/pomoc-psom";
   if(item.kind==="PUBLIC"&&item.resourceType==="LOST_FOUND_DOG"&&item.canonicalId)
     return "/admin/stratene-najdene/"+item.canonicalId;
   if(item.resourceType==="MANAGED_EVENT")return "/admin/partners/events/"+id;
