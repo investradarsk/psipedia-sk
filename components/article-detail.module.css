@@ -646,25 +646,6 @@
   margin-top: 0;
 }
 
-.readingProgress {
-  position: sticky;
-  z-index: 49;
-  top: var(--psipedia-sticky-header-height, 76px);
-  width: 100%;
-  height: 3px;
-  pointer-events: none;
-}
-
-.readingProgress > span {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: var(--brand-accent, var(--coral, #f47757));
-  transform: scaleX(var(--article-reading-progress, 0));
-  transform-origin: left center;
-  will-change: transform;
-}
-
 .relatedInner {
   max-width: calc(
     var(--article-reading-width) + var(--article-layout-gap) + var(--article-sidebar-width)
