@@ -23,7 +23,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     <AdminShell user={user} eyebrow="Žiadosť o prevzatie" title={claim.resourceName} description={`${partnerAdminStatusLabel(claim.status)} · ${partnerAdminResourceLabel(claim.entityType)}`}>
       {claim.conflict ? <section className="admin-partner-conflict"><strong>⚠ Konflikt správy profilu</strong><p>Profil už spravuje iný partner alebo oň žiada niekto ďalší. Schválenie nesmie automaticky odobrať existujúce oprávnenie.</p></section> : null}
       <div className="admin-partner-detail">
-        <section className="admin-form-card"><h2>Partner</h2><p>{claim.email}</p><Link href={`/admin/partners/accounts/${claim.accountId}`}>Partner účet →</Link></section>
+        <section className="admin-form-card"><h2>Partner</h2><p>{claim.email}</p><Link href={`/admin/partners/accounts/${claim.accountId}`}>Partner účet →</Link><p><Link href={`/admin/partners/accounts/${claim.accountId}?tab=spravy`}>Napísať Partnerovi správu →</Link></p></section>
         <section className="admin-form-card"><h2>Profil</h2><p>{claim.resourceName}</p><p>{partnerAdminResourceLabel(claim.entityType)} · ID profilu {claim.resourceId}</p><Link href={claim.publicHref} target="_blank">Verejný profil ↗</Link>
           {claim.entityType === "LOST_FOUND_DOG" && claim.canonicalId ? <p><Link href={`/admin/stratene-najdene/${claim.canonicalId}`} target="_blank">Otvoriť pôvodné hlásenie v Admine ↗</Link></p> : null}
         </section>
