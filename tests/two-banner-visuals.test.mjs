@@ -88,6 +88,14 @@ test("shared banner sizing preserves centered site shell for all non-compact mag
     "homepage lost/found banner is placed in the common shell layout");
 });
 
+test("desktop inline article banner shares the exact text-column width", () => {
+  const css = read("components/article-detail.module.css");
+  assert.match(css, /@media \(min-width: 768px\) \{\s*\.readingShell :global\(\.article-blocks > \[data-home-banner\^="article-"\]\) \{/);
+  assert.match(css, /\.article-blocks > \[data-home-banner\^="article-"\]\) \{\s*width: 100%;\s*max-width: 100%;\s*margin-inline: 0;/);
+  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /compact \? "home-magazine-banner" : "shell home-magazine-banner"/,
+    "homepage banners retain the shared shell");
+});
+
 test("banner CTA stacks in a narrow desktop sidebar based on its own width", () => {
   const styles = read("app/banner-visuals.css");
   const magazine = read("components/public-visual-system/public-magazine-banner.tsx");
