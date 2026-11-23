@@ -6,7 +6,7 @@ const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "u
 
 test("Admin V5 stage 4 keeps one shared editor layout and compact section rhythm", () => {
   const css = source("components/admin-editor-workspace.module.css");
-  const module = source("components/admin-editor-workspace.tsx");
+  const workspaceComponent = source("components/admin-editor-workspace.tsx");
   assert.match(css, /\/\* ADMIN-V3-COMPACT-01/);
   assert.match(css, /\.content, \.preview \{ padding: var\(--admin-ui-panel-padding, 0\.55rem\); \}/);
   assert.match(css, /\.content \{ gap: var\(--admin-ui-section-gap, 0\.4rem\); \}/);
@@ -15,9 +15,9 @@ test("Admin V5 stage 4 keeps one shared editor layout and compact section rhythm
   assert.match(css, /box-shadow: 0 -1px 5px rgb\(23 53 43 \/ 5%\)/);
   assert.match(css, /\.pageWorkspace\s*\{[\s\S]*?overflow:\s*visible/);
   assert.match(css, /Dialog-mode EditorWorkspace keeps its own bounded pane/);
-  assert.match(module, /sectionMode\?: "scroll" \| "switch"/);
-  assert.match(module, /data-editor-page/);
-  assert.doesNotMatch(module, /DATABASE_URL|notion\.pages|db\.prepare/);
+  assert.match(workspaceComponent, /sectionMode\?: "scroll" \| "switch"/);
+  assert.match(workspaceComponent, /data-editor-page/);
+  assert.doesNotMatch(workspaceComponent, /DATABASE_URL|notion\.pages|db\.prepare/);
 });
 
 test("Admin V5 stage 4 scopes editable controls without styling file/choice/hidden inputs", () => {

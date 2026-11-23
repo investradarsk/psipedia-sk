@@ -37,8 +37,8 @@ test("Admin V5 stage 3 preserves accessible table sorting, selection and mobile 
   assert.match(src, /role="region" aria-label=\{label \+ " – tabuľka"\} tabIndex=\{0\}/);
   assert.match(css, /height: 38px/);
   assert.match(css, /\.workspace\[data-mobile-focus="true"\] \.scroll \{ overflow: visible; \}/);
-  assert.match(css, /@media \(max-width: 700px\)[\s\S]*?\.columnPickerMenu label \{ min-height: 44px; \}/);
-  assert.match(css, /@media \(max-width: 700px\)[\s\S]*?\.workspace \.heading button \{ min-height: 44px; \}/);
+  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.columnPickerMenu label \{[\s\S]*?min-height: 44px;/);
+  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.workspace \.heading button \{[\s\S]*?min-height: 44px;/);
   assert.doesNotMatch(css, /overflow-x:\s*hidden/);
 });
 
