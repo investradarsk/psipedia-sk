@@ -153,9 +153,14 @@ test("public and admin route import order keeps shared tokens without admin CSS 
   assert.deepEqual(imports, [
     "./globals.css",
     "./design-system.css",
+    "./banner-visuals.css",
     "./breed-hero-safe-zone.css",
     "./navigation-loading.css",
   ]);
+  // Banner themes are a public-only extension; preserve the separation from admin CSS.
+  const bannerStyles = read("app/banner-visuals.css");
+  assert.match(bannerStyles, /\.ps-public-banner-frame\[data-banner-visual\]/);
+  assert.doesNotMatch(bannerStyles, /\[data-admin-workspace\]|\.admin-root/);
   const admin = read("app/admin/layout.tsx");
   assert.ok(admin.includes('import "./admin-root-extracted.css";'));
   assert.ok(admin.includes('import "../navigation-hotfix.css";'));
