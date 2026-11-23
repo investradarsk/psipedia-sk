@@ -296,7 +296,7 @@ async function sendPartnerAuthEmail(input: {
       },
       PROFILE_CHANGE_APPROVED: {
         subject: "Úpravy profilu boli schválené",
-        lines: ["Úpravy profilu boli schválené a zverejnené v canonical profile."],
+        lines: ["Úpravy profilu boli schválené a zverejnené v existujúcom profile."],
       },
       PROFILE_CHANGE_REJECTED: {
         subject: "Návrh úprav nebol schválený",
@@ -367,6 +367,7 @@ async function sendPartnerAuthEmail(input: {
     // it from a new SUBMITTED receipt without a risky table-copy migration.
     const returned=isCanonicalReturnedNotice(input.row.notification_type,input.row.dedupe_key);
     const canonicalApproved=input.row.dedupe_key.startsWith("partner-canonical-approved/");
+    const canonicalRejected=input.row.dedupe_key.startsWith("partner-canonical-rejected/");
     const selected=returned ? (
       input.row.notification_type==="EVENT_SUBMITTED"
         ?{subject:"Podujatie je potrebné doplniť",lines:["Redakcia vám vrátila podujatie na doplnenie. Dôvod a požadované úpravy nájdete vo svojom Partner účte. Po úprave ho môžete znovu odoslať."]}
@@ -375,7 +376,11 @@ async function sendPartnerAuthEmail(input: {
       ?{subject:"Nový profil bol schválený a zverejnený",lines:["Váš návrh bol schválený. Profil je zverejnený a môžete ho spravovať cez Partner účet."]}
       :canonicalApproved&&input.row.notification_type==="EVENT_CREATED"
         ?{subject:"Podujatie bolo schválené a zverejnené",lines:["Vaše podujatie bolo schválené a zverejnené. Môžete ho spravovať cez Partner účet."]}
-        :copy[input.row.notification_type];
+        :canonicalRejected&&input.row.notification_type==="NEW_PROFILE_REJECTED"
+          ?{subject:"Hlásenie alebo návrh profilu nebol schválený",lines:["Redakcia vaše podanie neschválila. Stav nájdete vo svojom Partner účte; ak potrebujete vysvetlenie, napíšte nám cez súkromné správy."]}
+          :canonicalRejected&&input.row.notification_type==="EVENT_REJECTED"
+            ?{subject:"Návrh podujatia nebol schválený",lines:["Redakcia vaše podujatie neschválila. Stav nájdete vo svojom Partner účte; ak potrebujete vysvetlenie, napíšte nám cez súkromné správy."]}
+            :copy[input.row.notification_type];
     subject=selected.subject;
     const id=returned?input.row.dedupe_key.split("/")[1]:"";
     const canonicalNotice=input.row.dedupe_key.startsWith("partner-canonical-");
