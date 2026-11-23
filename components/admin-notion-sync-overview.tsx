@@ -2,6 +2,45 @@
 
 import { useCallback, useEffect, useState } from "react";
 import styles from "./admin-notion-data-quality-audit.module.css";
+import Link from "next/link";
+import { AdminNotionDataQualityAudit } from "./admin-notion-data-quality-audit";
+import { AdminNotionFieldSettings } from "./admin-notion-field-settings";
+import { AdminNotionManualTransfer } from "./admin-notion-manual-transfer";
+
+type DeliveryCase = {
+  agenda: "organizations" | "adoptions" | "help-cases" | "lost-found";
+  entityId: number;
+  status: "PENDING" | "PROCESSING" | "REVIEW";
+  attempts: number;
+  errorCode: string | null;
+  updatedAt: number | null;
+};
+type DeliverySummary = {
+  pending: number; processing: number; review: number; permanentFailure: number;
+  cases: DeliveryCase[]; truncated: boolean;
+};
+const helpEditors: Record<DeliveryCase["agenda"], string> = {
+  organizations: "/admin/organizacie/", adoptions: "/admin/adopcie/",
+  "help-cases": "/admin/pomoc/", "lost-found": "/admin/stratene-najdene/",
+};
+function caseStatus(item: DeliveryCase): string {
+  if (item.status === "PENDING") return "Čaká na Notion";
+  if (item.status === "PROCESSING") return "Spracováva sa";
+  if (item.attempts >= 12 && item.errorCode === "NOTION_RETRY_FAILED") return "Trvalé zlyhanie – vyžaduje zásah";
+  if (/CHANGED|CONFLICT|MISMATCH/.test(item.errorCode ?? "")) return "Konflikt – vyžaduje kontrolu";
+  return "Ručná kontrola";
+}
+function caseAction(item: DeliveryCase): string {
+  if (item.status === "PENDING" || item.status === "PROCESSING")
+    return "Automatický prenos pokračuje; neprepisovať údaje ručne.";
+  if (item.errorCode === "NOTION_RETRY_FAILED") return "Overiť prístup a dostupnosť Notionu; po oprave preveriť záznam.";
+  if (/MAPPING|IDENTITY|CANONICAL_MISSING/.test(item.errorCode ?? ""))
+    return "Overiť Psipedia ID, Notion väzbu a kanonický záznam.";
+  if (/FIELD_CHANGED/.test(item.errorCode ?? ""))
+    return "Porovnať zmenené polia v D1 a Notione; vybrať platnú hodnotu.";
+  return "Skontrolovať dôvod zlyhania a údaje v editore; bez hromadného prepisu.";
+}
+
 
 type OverviewRow = {
   area: string;
@@ -12,6 +51,7 @@ type OverviewRow = {
   lastMappingAt: string | null;
   pendingCount: number | null;
   pendingBasis: "REVISION_GAP" | "EDITORIAL_OUTBOX" | "NOT_RECORDED";
+  delivery?: DeliverySummary | null;
 };
 
 type RunReceipt = {
@@ -129,10 +169,12 @@ async function fetchOverview(): Promise<OverviewResponse> {
   return result as OverviewResponse;
 }
 
-export function AdminNotionSyncOverview() {
+export function AdminNotionSyncOverview({ view = "status" }: { view?: "status" | "issues" }) {
   const [snapshot, setSnapshot] = useState<OverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const cases = snapshot?.rows.flatMap(row => row.delivery?.cases ?? []) ?? [];
+  const helpRows = snapshot?.rows.filter(row => ["organizations","adoptions","help-cases","lost-found"].includes(row.area)) ?? [];
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -170,8 +212,9 @@ export function AdminNotionSyncOverview() {
     <section className={styles.panel} aria-labelledby="notion-sync-overview-heading">
       <div className={styles.heading}>
         <div>
-          <h2 id="notion-sync-overview-heading">Prepojenia Psipedia ↔ Notion</h2>
-          <p>Všetky agendy, posledné evidované potvrdenia, možné čakajúce zmeny a dostupné výsledky behov.</p>
+          <h2 id="notion-sync-overview-heading">{view === "status" ? "Stav synchronizácie Psipedia ↔ Notion" : "D1 outbox – čakajúce záznamy a chyby"}</h2>
+          <p>{view === "status" ? "Evidované mapovania, čakajúce zmeny a výsledky behov podľa agendy."
+            : "Konkrétne nedokončené prenosy štyroch agend Pomoci psom; bez automatických opráv."}</p>
         </div>
         <strong className={styles.readOnly}>Len na čítanie</strong>
       </div>
@@ -187,8 +230,9 @@ export function AdminNotionSyncOverview() {
       </div>
       {error ? <p role="alert" className="admin-message admin-message--error">{error}</p> : null}
       {loading && !snapshot ? <p role="status">Načítavam evidenciu prepojení…</p> : null}
-      {snapshot ? (
+      {snapshot && view === "status" ? (
         <>
+          <p className={styles.progress}>Uložené v D1 ≠ doručené do Notionu. Čaká na Notion = otvorený outbox; Synchronizované = len potvrdený konkrétny prenos. Konflikt a trvalé zlyhanie vyžadujú osobitnú kontrolu. Samotné mapovanie ani úspešný beh automatizácie nezaručujú aktuálnu zhodu.</p>
           <div className={styles.tableScroll}>
             <table className={styles.table}>
               <thead>
@@ -198,6 +242,7 @@ export function AdminNotionSyncOverview() {
                   <th scope="col">Počet</th>
                   <th scope="col">Posledný zapísaný sync</th>
                   <th scope="col">Zmeny bez potvrdenia</th>
+                  <th scope="col">Admin → Notion (outbox)</th>
                   <th scope="col">Posledný beh automatizácie</th>
                   <th scope="col">Konflikty / chyby v behu</th>
                 </tr>
@@ -210,6 +255,9 @@ export function AdminNotionSyncOverview() {
                     <td>{row.count === null ? "Neznámy" : String(row.count) + " " + countLabels[row.evidence]}</td>
                     <td>{row.evidence === "LINKED_POSTS" ? "Neeviduje sa" : formatDate(row.lastMappingAt)}</td>
                     <td>{pendingLabel(row)}</td>
+                    <td>{row.delivery
+                      ? `${row.delivery.pending} čaká · ${row.delivery.processing} spracováva sa · ${row.delivery.review} na kontrolu (z toho ${row.delivery.permanentFailure} po vyčerpaní pokusov)`
+                      : "Neoverené – bez dostupnej evidencie doručenia"}</td>
                     <td>{(() => {
                       const run = runForArea(row.area, snapshot.runs);
                       return run
@@ -252,6 +300,55 @@ export function AdminNotionSyncOverview() {
           </p>
         </>
       ) : null}
+      {snapshot && view === "issues" ? (
+        <>
+          <p className={styles.progress}>Zápis do D1 a doručenie do Notionu sú dva samostatné kroky. Stav REVIEW môže byť konflikt, ochranné zablokovanie alebo chyba prenosu; trvalé zlyhanie označujeme iba pri vyčerpaných opakovaniach NOTION_RETRY_FAILED.</p>
+          {helpRows.some(row => row.delivery == null)
+            ? <p role="status">Pre niektoré agendy nie je dostupná tabuľka outboxu alebo jej čítanie zlyhalo. Neznámy stav neznamená nula chýb.</p> : null}
+          {cases.length ? <div className={styles.tableScroll}>
+            <table className={styles.table}>
+              <thead><tr><th>Agenda</th><th>Záznam</th><th>Stav</th><th>Dôvod a ďalší krok</th><th>Otvoriť</th></tr></thead>
+              <tbody>{cases.map(item => <tr key={item.agenda + ":" + item.entityId}>
+                <td>{snapshot.rows.find(row => row.area === item.agenda)?.label ?? item.agenda}</td>
+                <td>#{item.entityId}</td>
+                <td>{caseStatus(item)} · pokusov {item.attempts}</td>
+                <td>{item.errorCode ? `Kód: ${item.errorCode}. ` : ""}{caseAction(item)}</td>
+                <td><Link href={helpEditors[item.agenda] + item.entityId}>Otvoriť editor</Link></td>
+              </tr>)}</tbody>
+            </table>
+          </div> : <p>V dostupnej evidencii nie sú otvorené prípady na zobrazenie; v ostatných agendách použi audit nižšie.</p>}
+          {helpRows.some(row => row.delivery?.truncated)
+            ? <p role="status">Zobrazuje sa najviac 50 najnovších alebo prioritných prípadov. Ďalšie prípady môžu zostať vo fronte.</p> : null}
+          <p className={styles.progress}>Táto obrazovka nerobí žiadne zmeny. Pred ručným prenosom skontroluj review lock, najnovšie hodnoty jednotlivých polí a potvrdené Google Place. Oprava chyby nevyžaduje meniť globálne priority.</p>
+        </>
+      ) : null}
     </section>
   );
+}
+
+export type NotionWorkspaceTab = "status" | "issues" | "fields" | "transfer";
+const workspaceTabs: {value:NotionWorkspaceTab;label:string}[] = [
+  {value:"status",label:"Stav synchronizácie"},
+  {value:"issues",label:"Chyby a konflikty"},
+  {value:"fields",label:"Nastavenia polí"},
+  {value:"transfer",label:"Manuálny prenos"},
+];
+
+export function AdminNotionWorkspace({initialTab="status"}:{initialTab?:NotionWorkspaceTab}) {
+  const [tab,setTab] = useState<NotionWorkspaceTab>(initialTab);
+  return <div data-admin-content-module="notion-workspace">
+    <nav role="tablist" aria-label="Pracovisko Notion" className={styles.controls}>
+      {workspaceTabs.map(item => <button key={item.value} type="button" role="tab"
+        id={"notion-tab-"+item.value} aria-controls={"notion-panel-"+item.value}
+        aria-selected={tab===item.value} tabIndex={tab===item.value?0:-1}
+        className={tab===item.value?"admin-primary-action":styles.secondary}
+        onClick={()=>setTab(item.value)}>{item.label}</button>)}
+    </nav>
+    <div id={"notion-panel-"+tab} role="tabpanel" aria-labelledby={"notion-tab-"+tab}>
+      {tab==="status" ? <AdminNotionSyncOverview /> : null}
+      {tab==="issues" ? <><AdminNotionSyncOverview view="issues" /><AdminNotionDataQualityAudit /></> : null}
+      {tab==="fields" ? <AdminNotionFieldSettings /> : null}
+      {tab==="transfer" ? <AdminNotionManualTransfer /> : null}
+    </div>
+  </div>;
 }
