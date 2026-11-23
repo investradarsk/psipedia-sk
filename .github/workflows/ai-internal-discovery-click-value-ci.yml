@@ -121,6 +121,8 @@ jobs:
         run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
       - name: Verify canonical adoption activation
         run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs verify
+      - name: Apply Directory SQL sidecar schema to isolated local D1
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql
       - name: Seed pre-start public fixtures
         run: |
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
