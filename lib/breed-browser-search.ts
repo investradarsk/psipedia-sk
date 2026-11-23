@@ -9,8 +9,15 @@ export type BreedSearchIndexEntry<T extends BreedSearchFields = BreedAtlasCard> 
 };
 type BreedSearchFields = Pick<
   BreedAtlasCard,
-  "name" | "officialFciName" | "group" | "fciSection" | "intro" |
-  "searchText" | "fciGroup" | "fciSectionNumber" | "origin"
+  | "name"
+  | "officialFciName"
+  | "group"
+  | "fciSection"
+  | "intro"
+  | "searchText"
+  | "fciGroup"
+  | "fciSectionNumber"
+  | "origin"
 >;
 
 export function indexBreedSearch<T extends BreedSearchFields>(
@@ -18,10 +25,9 @@ export function indexBreedSearch<T extends BreedSearchFields>(
 ): BreedSearchIndexEntry<T>[] {
   return breeds.map((breed) => ({
     breed,
-    // Keep the exact original search-field order and string interpolation
-    // to preserve whitespace, accents, FCI matches and legacy text.
+    // Index the displayed origin even if the stored search text predates it.
     normalizedText: normalizeBreedSearchText(
-      `${breed.name} ${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.intro} ${breed.searchText}`,
+      `${breed.name} ${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.intro} ${breed.searchText} ${breed.origin}`,
     ),
   }));
 }
@@ -48,10 +54,10 @@ export function filterIndexedBreeds<T extends BreedSearchFields>(
 }
 
 /** One pass into FCI buckets, preserving the supplied group order and Slovak sort. */
-export function groupVisibleBreeds<T extends { fciGroup: number; name: string }, G extends { number: number }>(
-  visible: readonly T[],
-  groups: readonly G[],
-): Array<{ group: G; breeds: T[] }> {
+export function groupVisibleBreeds<
+  T extends { fciGroup: number; name: string },
+  G extends { number: number },
+>(visible: readonly T[], groups: readonly G[]): Array<{ group: G; breeds: T[] }> {
   const byGroup = new Map<number, T[]>();
   for (const breed of visible) {
     const groupBreeds = byGroup.get(breed.fciGroup);
@@ -61,7 +67,14 @@ export function groupVisibleBreeds<T extends { fciGroup: number; name: string },
   return groups.flatMap((group) => {
     const groupBreeds = byGroup.get(group.number);
     return groupBreeds?.length
-      ? [{ group, breeds: groupBreeds.sort((first, second) => first.name.localeCompare(second.name, "sk")) }]
+      ? [
+          {
+            group,
+            breeds: groupBreeds.sort((first, second) =>
+              first.name.localeCompare(second.name, "sk"),
+            ),
+          },
+        ]
       : [];
   });
 }
