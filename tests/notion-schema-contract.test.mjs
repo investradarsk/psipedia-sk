@@ -81,3 +81,36 @@ test("identical primary/fallback token never triggers duplicate Notion requests"
  assert.equal(calls,1);
  assert.match(result.issues[0],/NOTION_HTTP_404/);
 });
+
+// These customer-facing contact/link fields are deliberately free-form text in Notion.
+// A live drift check must not flag their intended rich_text schema as a failure.
+test("directory, event and organization contact fields use plain rich_text",()=>{
+ const byName=Object.fromEntries(NOTION_SCHEMA_CONTRACTS.map(entry=>[entry.name,entry]));
+ const expected={
+   "Podujatia": [
+     "Web",
+     "Registrácia"
+   ],
+   "Adresár": [
+     "Web",
+     "Facebook",
+     "Instagram",
+     "Zdroj dát",
+     "E-mail",
+     "Interný e-mail",
+     "Telefón"
+   ],
+   "Organizácie": [
+     "Web",
+     "Facebook",
+     "Instagram"
+   ]
+ };
+ for(const [source,fields] of Object.entries(expected))
+  for(const field of fields)
+   assert.equal(byName[source].properties[field],"rich_text",source+" / "+field);
+ // URL-specific system fields must remain URL properties.
+ assert.equal(byName["Adresár"].properties["URL Psipedia"],"url");
+ assert.equal(byName["Podujatia"].properties["Hlavný obrázok URL"],"url");
+ assert.equal(byName["Organizácie"].properties["Zdroj dát"],"url");
+});
