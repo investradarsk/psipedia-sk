@@ -54,13 +54,13 @@ test("published dog lists route to the signed-in draft editor, never the anonymo
 });
 
 test("all legacy Partner creation aliases defer authentication to the canonical page", () => {
-  for (const [path, type] of [
-    ["app/partner/profily/novy/page.tsx", "DIRECTORY_PROFILE"],
-    ["app/partner/podujatia/nove/page.tsx", "MANAGED_EVENT"],
-    ["app/partner/pomoc/nova/page.tsx", "ADOPTION_DOG"],
+  for (const [path, slug] of [
+    ["app/partner/profily/novy/page.tsx", "adresar"],
+    ["app/partner/podujatia/nove/page.tsx", "podujatie"],
+    ["app/partner/pomoc/nova/page.tsx", "adopcia"],
   ]) {
     const source = read(path);
-    assert.match(source, new RegExp("redirect\\(\"/partner/koncepty/novy\\?typ="+type+"\"\\)"));
+    assert.ok(source.includes(`redirect("/partner/koncepty/novy/${slug}")`), path);
     assert.doesNotMatch(source, /requirePartnerPageIdentity/);
   }
 });
