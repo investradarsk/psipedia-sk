@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("step 10: services and directory use one category navigator with accessible tools", () => {
+test("step 10: canonical directory owns category navigation and legacy route redirects", () => {
   const nav = read("components/admin-directory-module-nav.tsx");
   const styles = read("components/admin-directory-module-nav.module.css");
   const services = read("app/admin/sluzby-pre-psov/page.tsx");
@@ -12,12 +12,13 @@ test("step 10: services and directory use one category navigator with accessible
   assert.match(nav, /data-admin-directory-modules/);
   assert.match(nav, /data-admin-directory-categories/);
   assert.match(nav, /aria-current=\{selected === category.slug \? "page" : undefined\}/);
-  assert.match(nav, /href=\{"\/admin\/sluzby-pre-psov\?category=" \+ category.slug\}/);
+  assert.match(nav, /href=\{categoryHref\(category.slug\)\}/);
+  assert.match(nav, /directoryAdminHref\(\{ \.\.\.filters, category, page: 1 \}\)/);
   assert.match(nav, /<details className=\{styles.tools\} data-admin-directory-tools>/);
   assert.match(nav, /href="\/admin\/sluzby-pre-psov\/katalog"/);
   assert.doesNotMatch(nav, /href="\/admin\/adresar\/navrhy"/);
-  assert.match(services, /<AdminDirectoryCategoryNav selected=\{filters.category\}/);
-  assert.match(directory, /<AdminDirectoryCategoryNav selected=\{filters.category\}/);
+  assert.match(services, /redirect\(directoryAdminHref\(filters\)\)/);
+  assert.match(directory, /<AdminDirectoryCategoryNav filters=\{filters\}/);
   assert.match(styles, /\.categories a\s*\{[^}]*min-height: var\(--admin-ui-control-height, 44px\)/);
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*?\.categories \{[^}]*overflow-x: auto;/);
   assert.match(styles, /\.tools > summary\s*\{[^}]*min-height: var\(--admin-ui-control-height, 44px\)/);
@@ -28,7 +29,7 @@ test("step 10: directory listing retains GET filters, inline editing and archive
   const styles = read("components/admin-directory-dashboard.module.css");
   assert.match(list, /data-admin-directory-overview/);
   assert.match(list, /data-admin-directory-list/);
-  assert.match(list, /action=\{basePath\} method="get" role="search" data-admin-list-filters/);
+  assert.match(list, /action="\/admin\/adresar" method="get" role="search" data-admin-list-filters/);
   assert.match(list, /data-admin-list-advanced/);
   assert.match(list, /data-admin-list-results/);
   assert.match(list, /<AdminRecordTable/);
