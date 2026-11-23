@@ -25,7 +25,6 @@ export function EditorialTopicArticleGrid({
     <PublicContentList
       label={label}
       className={`${styles.grid} ${constrained ? styles.constrained : ""}`}
-      data-editorial-topic-article-grid
     >
       {visible.map((article) => (
         <ArticleListItem key={article.slug} article={article} desktopLayout="stacked" />
