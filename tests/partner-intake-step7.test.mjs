@@ -116,7 +116,7 @@ test("Admin-only page is a compact read-only view; original routes remain edit a
  assert.match(page,/item.reviewHref/);
  assert.match(page,/item.chatHref/);
  assert.match(page,/Otvoriť podanie/);
- assert.doesNotMatch(page,/fetch\(|INSERT INTO|UPDATE |DELETE FROM|\\.run\\(/);
+ assert.doesNotMatch(page,/fetch\(|INSERT INTO|UPDATE |DELETE FROM|\.run\(/);
  assert.match(style,/min-width:790px/);
  assert.match(menu,/label: "Podania a dopyty", href: "\/admin\/podania", matches: \["\/admin\/dopyty"\]/);
  assert.match(oldPage,/initialFocusedId=\{focusedId\}/);
