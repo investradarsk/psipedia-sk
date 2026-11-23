@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin-navigation";
 import styles from "./admin-navigation.module.css";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
+import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
 
 function NavigationPendingIndicator() {
   const { pending } = useLinkStatus();
@@ -32,6 +33,10 @@ function useAdminIntentPrefetch() {
   useEffect(() => { prefetched.current.clear(); }, [pathname]);
 
   return (href: string) => {
+    // The workspace streams authenticated D1 reads. Hover/focus prefetch can
+    // leave Vinext reusing an unfinished RSC request when the user clicks home.
+    // Navigate only on explicit intent, with a fresh client-router request.
+    if (href === "/admin") return;
     // Opening the mobile drawer focuses a link automatically. That is not
     // user intent to fetch an authenticated, D1-backed route.
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
@@ -51,6 +56,7 @@ function useAdminIntentPrefetch() {
 }
 
 function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
+  const router = useRouter();
   const pathname = usePathname();
   const prefetchOnIntent = useAdminIntentPrefetch();
   const active = findActiveAdminNavigationItem(pathname);
@@ -58,6 +64,17 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<{ pathname: string; group: string } | null>(null);
   const selectedGroup = expandedDesktopGroup?.pathname === pathname ? expandedDesktopGroup.group : null;
   const groupGlyphs = ["⌂", "▤", "♧", "⚙", "◎", "◇", "⚙"];
+
+  function navigateToOverview() {
+    const navigate = () => router.push("/admin");
+    // A group header is a button, so the shared dirty-editor link capture
+    // cannot see it. Use the same cancelable intent as Ctrl+K navigation.
+    const intent = new CustomEvent<AdminNavigationIntent>(ADMIN_NAVIGATION_INTENT_EVENT, {
+      cancelable: true,
+      detail: { href: "/admin", navigate },
+    });
+    if (window.dispatchEvent(intent)) navigate();
+  }
 
   return (
     <>
@@ -75,7 +92,13 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
               aria-expanded={expanded}
               aria-controls={`admin-group-${groupIndex}`}
               data-active={groupActive ? "true" : undefined}
-              onClick={() => setExpandedDesktopGroup({ pathname, group: expanded ? "" : group.label })}
+              onClick={() => {
+                if (group.items.some((item) => item.href === "/admin") && pathname !== "/admin") {
+                  navigateToOverview();
+                  return;
+                }
+                setExpandedDesktopGroup({ pathname, group: expanded ? "" : group.label });
+              }}
             >
               <span className={styles.groupGlyph} aria-hidden="true">{groupGlyphs[groupIndex]}</span>
               <span>{group.label}</span>
