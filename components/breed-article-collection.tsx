@@ -31,7 +31,7 @@ export function BreedArticleCollection({
         />
       ) : (
         <div className={styles.groupHeading}>
-          <span className={styles.eyebrow}>Články v skupine FCI</span>
+          <span className={styles.eyebrow}>Články v oblasti</span>
           <h3 id={headingId}>{title}</h3>
         </div>
       )}
