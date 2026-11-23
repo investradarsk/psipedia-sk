@@ -11,13 +11,25 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ kind: string }> };
 
 /**
- * Encode the report kind in the pathname, not the query string. Some Vinext
- * redirects can render the query-based entry with default searchParams,
- * silently turning a LOST/FOUND report into a directory profile.
+ * All Partner draft kinds have stable URL paths, not query-only state.
+ * The server must never silently change a requested event/adoption/lost dog
+ * into a directory profile when Vinext loses query params during redirects.
  */
-export default async function NewLostFoundReportPage({ params }: Props) {
+const canonicalKinds = {
+  adresar: "DIRECTORY_PROFILE",
+  organizacia: "HELP_ORGANIZATION",
+  podujatie: "MANAGED_EVENT",
+  adopcia: "ADOPTION_DOG",
+  pomoc: "HELP_CASE",
+  strateny: "LOST_FOUND_DOG",
+  najdeny: "LOST_FOUND_DOG",
+  nahlasit: "LOST_FOUND_DOG",
+} as const;
+
+export default async function NewPartnerDraftPage({ params }: Props) {
   const { kind } = await params;
-  if (kind !== "strateny" && kind !== "najdeny" && kind !== "nahlasit") notFound();
+  const initialType = canonicalKinds[kind as keyof typeof canonicalKinds];
+  if (!initialType) notFound();
   const reportType = kind === "strateny" ? "LOST"
     : kind === "najdeny" ? "FOUND" : undefined;
   await requirePartnerPageIdentity({ returnTo: `/partner/koncepty/novy/${kind}` });
@@ -28,7 +40,7 @@ export default async function NewLostFoundReportPage({ params }: Props) {
       <PartnerCanonicalDraftForm
         categories={directoryCategories.map(({ slug, label }) => ({ slug, label }))}
         definitions={getPartnerCanonicalFormFields()}
-        initialType="LOST_FOUND_DOG"
+        initialType={initialType}
         initialReportType={reportType}
       />
     </PartnerShell>
