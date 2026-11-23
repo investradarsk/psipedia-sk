@@ -263,7 +263,7 @@ export async function DirectoryPage({
                         ? "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality. Mapa používa rovnaký filter potvrdenej služby ako zoznam."
                         : "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality."
                     }
-                    label="Zobraziť na mape →"
+                    label="Zobraziť na mape"
                     href={mapHref(filters, active?.slug)}
                     anchorId={CTA_DIRECTORY_MAP_ANCHOR}
                   />
@@ -278,7 +278,7 @@ export async function DirectoryPage({
                     eyebrow="Pre poskytovateľov"
                     title="Poskytuješ služby pre psov?"
                     description="Požiadaj o pridanie alebo úpravu údajov svojho profilu."
-                    label="Pridať alebo upraviť profil →"
+                    label="Pridať alebo upraviť profil"
                     href="/o-nas#kontakt"
                   />
                 </div>
