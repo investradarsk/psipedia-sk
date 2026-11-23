@@ -31,8 +31,7 @@ import {
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { slovakRegions } from "@/lib/events";
 import { listPublicDogReports, listPublishedBreedOptions } from "@/lib/lost-found-dog-store";
-import { lostFoundSubmissionEnabled } from "@/lib/submission-feature-flags";
-import { getSectionHeroVisual } from "@/lib/section-visual-store";
+ import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { buildCollectionPageJsonLd, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import {
   dogReportBasePath,
@@ -80,7 +79,6 @@ export async function LostFoundDogsPage({
   const basePath = dogReportBasePath(type);
   const policy = resolveListingIndexPolicy(basePath, raw, { indexPagination: true });
 
-  const submissionsEnabled = lostFoundSubmissionEnabled();
   const [result, breeds, sharedHeroVisual] = await Promise.all([
     listPublicDogReports(type, {
       q,
@@ -218,14 +216,14 @@ export async function LostFoundDogsPage({
                       Nájdené psy
                     </Link>
                   </nav>
-                  {submissionsEnabled ? (
-                    <Link
-                      className="button button--dark"
-                      href="/pomoc-psom/stratene-a-najdene/nahlasit"
-                    >
-                      Nahlásiť psa
-                    </Link>
-                  ) : null}
+                  <Link
+                    className="button button--dark"
+                    href={type === "LOST"
+                      ? "/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=LOST"
+                      : "/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=FOUND"}
+                  >
+                    {type === "LOST" ? "Nahlásiť strateného psa" : "Nahlásiť nájdeného psa"}
+                  </Link>
                 </div>
               }
               metaSlot={
