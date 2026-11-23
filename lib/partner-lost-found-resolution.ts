@@ -7,6 +7,7 @@ import { env } from "cloudflare:workers";
 import { adminNotificationEventStatement } from "./admin-notifications";
 import { getPartnerDatabase } from "./partner-auth-store";
 import { parseHelpResourceId } from "./partner-help-claims";
+import { PARTNER_LOST_FOUND_RESOLVE_SQL } from "./partner-lost-found-resolution-sql";
 import { requirePartnerPermission } from "./partner-platform";
 import { invalidateVersionedPublicHtmlCacheUrl } from "./public-html-cache";
 import {
@@ -86,16 +87,8 @@ export async function resolvePartnerLostFoundReport(input: {
 
   try {
     await db.batch([
-      db.prepare(
-        "UPDATE lost_found_dog_reports SET status='RESOLVED',resolved_at=?1,updated_at=?1 "+
-        "WHERE id=?2 AND status='ACTIVE' AND published_at IS NOT NULL "+
-        "AND duplicate_of_id IS NULL AND updated_at=?3 "+
-        "AND (expires_at IS NULL OR expires_at>?4) "+
-        "AND EXISTS (SELECT 1 FROM partner_help_claims c "+
-        "JOIN partner_accounts a ON a.id=c.account_id AND a.status='ACTIVE' "+
-        "WHERE c.lost_found_report_id=?2 AND c.entity_type='LOST_FOUND_DOG' "+
-        "AND c.account_id=?5 AND c.status='APPROVED')",
-      ).bind(updatedAt, parsed.canonicalId, input.baseRevision, now.toISOString(), input.accountId),
+      db.prepare(PARTNER_LOST_FOUND_RESOLVE_SQL)
+        .bind(updatedAt, parsed.canonicalId, input.baseRevision, now.toISOString(), input.accountId),
       db.prepare("SELECT CASE WHEN changes()=1 THEN 1 "+
         "ELSE json_extract('PARTNER_LOST_FOUND_RESOLVE_CONFLICT',char(36)) END"),
       db.prepare("INSERT INTO partner_audit_events "+
