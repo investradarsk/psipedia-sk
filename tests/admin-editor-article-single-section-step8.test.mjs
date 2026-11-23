@@ -4,49 +4,43 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("ARTICLE-TIPTAP-2: section switch preserves mounted fields and matches left navigation order", () => {
+test("ARTICLE-TIPTAP: only one document editor is exposed and the left navigation is canonical", () => {
   const src = read("components/admin-article-editor.tsx");
   const css = read("components/admin-content-editor-v3.module.css");
   const shells = [
     read("app/admin/clanky/[id]/page.tsx"),
     read("app/admin/novy/page.tsx"),
   ];
-  const ids = ["publish", "authors", "settings", "seo", "relations", "media", "basics", "content", "blocks"];
+  const ids = ["publish", "authors", "settings", "seo", "relations", "media", "basics", "blocks"];
   for (const name of ids) {
     const id = "article-" + name;
     assert.ok(src.includes('<section id="' + id + '"'), "Article section remains mounted: " + id);
-    if (name !== "content") assert.ok(src.includes('{ id: "' + id + '", label:'), "Nav entry " + id);
-    const visibleId = name === "content" ? "basics" : name;
-    if (name === "basics") {
-      // In the new default mode title/perex and the document share one visible section.
-      assert.ok(src.includes('hidden={activeArticleSection !== "article-basics" && !(continuousEditableOpen && activeArticleSection === "article-blocks")}'));
-    } else {
-      assert.ok(src.includes('hidden={activeArticleSection !== "article-' + visibleId + '"}'), "Section hidden while inactive: " + id);
-    }
+    if (name !== "basics") assert.ok(src.includes('{ id: "' + id + '", label:'), "Nav entry " + id);
+    const visibleId = name === "basics" ? "blocks" : name;
+    assert.ok(src.includes('hidden={activeArticleSection !== "article-' + visibleId + '"}'), "Section hidden while inactive: " + id);
   }
-  assert.equal((src.match(/\{ id: "article-/g) ?? []).length, 8);
-  assert.ok(src.includes('sectionMode="switch"'));
-  assert.ok(src.includes('useState<string>("article-blocks")'), "New articles open directly in the continuous editor");
-  assert.ok(src.includes('useSyncExternalStore('), "Saved classic preference is hydrated without an effect-state update");
-  assert.ok(src.includes('articleEditorModeKey'), "Classic editor selection persists between visits");
-  assert.ok(src.includes('articleEditorNavigation = continuousEditableOpen'));
-  assert.ok(src.includes('label: "Editor článku"'));
-  assert.ok(src.includes('activeSectionId={activeArticleSection}'));
-  assert.ok(src.includes('onSectionChange={setActiveArticleSection}'));
-  assert.ok(src.includes('editorStyles.introCard'));
-  assert.ok(src.includes('editorStyles.introContinuation'));
-  assert.ok(src.includes('editorStyles.selectedBreedTags'));
-  assert.ok(src.includes('breedPickerOpen'));
-  assert.ok(src.includes('data-article-facebook-disclosure'));
-  assert.ok(src.includes('data-article-seo-advanced'));
+  assert.equal((src.match(/\{ id: "article-/g) ?? []).length, 7);
+  assert.match(src, /sectionMode="switch"/);
+  assert.match(src, /useState<string>\("article-blocks"\)/);
+  assert.match(src, /label: "Editor článku"/);
+  assert.match(src, /sections=\{editorNavigation\}/);
+  assert.match(src, /activeSectionId=\{activeArticleSection\}/);
+  assert.match(src, /onSectionChange=\{setActiveArticleSection\}/);
+  assert.match(src, /<AdminArticleContinuousEditor/);
+  assert.match(src, /editorStyles.introCard/);
+  assert.match(src, /editorStyles.selectedBreedTags/);
+  assert.match(src, /breedPickerOpen/);
+  assert.match(src, /data-article-facebook-disclosure/);
+  assert.match(src, /data-article-seo-advanced/);
   assert.ok(css.includes('data-editor-layout="article"'));
   assert.ok(css.includes('data-editor-section-mode="switch"'));
   assert.ok(shells.every(s => s.includes("compactHeading")));
   const order = ids.map(id => src.indexOf('<section id="article-' + id + '"'));
   assert.ok(order.every((value, index) => value >= 0 && (index === 0 || value > order[index - 1])));
   const nav = src.slice(src.indexOf("const editorNavigation = ["), src.indexOf("];", src.indexOf("const editorNavigation = [")));
-  const navOrder = ids.filter(id => id !== "content").map(id => nav.indexOf('id: "article-' + id + '"'));
+  const navOrder = ids.filter(id => id !== "basics").map(id => nav.indexOf('id: "article-' + id + '"'));
   assert.ok(navOrder.every((value, index) => value >= 0 && (index === 0 || value > navOrder[index - 1])));
+  assert.doesNotMatch(src, /AdminArticleBlockEditor|data-article-legacy-toggle|articleEditorModeKey|useSyncExternalStore/);
 });
 
 test("EDITOR-8: submit validation reveals hidden required fields, publication decisions stay server-owned", () => {
@@ -65,7 +59,7 @@ test("EDITOR-8: submit validation reveals hidden required fields, publication de
   assert.match(src, /<ArticleEditorCalendar/);
   assert.match(src, /<AdminRecordLifecycleActions/);
   assert.match(src, /<ImageDisplayEditor/);
-  assert.match(src, /<AdminArticleBlockEditor/);
+  assert.match(src, /<AdminArticleContinuousEditor/);
   assert.match(src, /<AdminEditorialAuthorField/);
   assert.match(src, /<AdminArticleTopicPicker/);
 });
@@ -78,7 +72,7 @@ test("EDITOR-8: live preview, Lexical, SEO, media, FB and QA remain functional i
   assert.match(src, /chooseArticleSection\("article-publish"\)/);
   assert.match(src, /firstBlocker\?\.blockId \? "article-blocks"/);
   assert.match(src, /<AdminLexicalTextField/);
-  assert.match(src, /<RichTextInput/);
+  assert.match(read("components/admin-article-continuous-editor.tsx"), /<RichTextInput/);
   assert.match(src, /<AdminSingleImageUpload/);
   assert.match(src, /<AdminRecordLifecycleActions/);
   assert.match(src, /onUnpublished=\{/);
@@ -110,7 +104,7 @@ test("ARTICLE-VISUAL-3: the right rail reuses existing status, schedule, SEO and
   assert.match(src, /<AdminRecordLifecycleActions/);
   assert.match(src, /onUnpublished=\{/);
   assert.match(src, /fullscreenPreviewOpen \&\&/);
-  assert.match(src, /<AdminArticleBlockEditor/);
+  assert.match(src, /<AdminArticleContinuousEditor/);
   assert.match(css, /\.rightRail/);
   assert.match(css, /\.railCard/);
   assert.match(css, /\.railPreviewCard/);

@@ -159,8 +159,8 @@ export function AdminArticleContinuousEditor(props: Props) {
       ? [] : [index + ":" + block.id])));
 
   useEffect(() => { scopeRef.current = scope; callbackRef.current = props.onChange; }, [scope, props.onChange]);
-  // A damaged/unsupported article must never blank the entire Admin screen.
-  // Render an explicit error and keep the classic editor available.
+  // A damaged/unsupported article must never blank the Admin or discard any existing data.
+  // Keep this document read-only and expose the exact conversion error until resolved.
   const [prepared] = useState(() => {
     try {
       return { document: articleToCanonicalContinuousDocument(props), initialError: "" };
@@ -261,7 +261,7 @@ export function AdminArticleContinuousEditor(props: Props) {
       data-article-tiptap-invalid={invalid || prepared.initialError ? "true" : "false"}>
       {prepared.initialError ? <p role="alert" className={styles.error}>
         Súvislý editor nie je pre tento článok dostupný: {prepared.initialError}
-        Pôvodný obsah zostal bez zmeny. Použi tlačidlo Pôvodný editor.
+        Pôvodný obsah zostal bez zmeny. Uloženie je zablokované, kým sa nepodporovaný blok neopraví.
       </p> : <>
       <div className={styles.paper}>
         <EditorContent editor={editor} className={styles.prose + " " + styles.editableProse} />

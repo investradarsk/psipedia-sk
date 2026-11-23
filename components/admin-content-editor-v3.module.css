@@ -1324,12 +1324,3 @@
 .railNote, .railMeta, .railDetails p { font-size: var(--admin-ui-type-caption, 0.83rem); line-height: 1.5; }
 .railField label { font-size: var(--admin-ui-type-label, 0.82rem); }
 
-/* When returning from a focused paragraph, mode controls must scroll below
-   the measured sticky toolbar rather than receiving a covered pointer click. */
-.workspaceRoot :global(
-  [data-editor-layout="article"] [data-article-continuous-step1] .admin-editor-mode-switch button
-) {
-  scroll-margin-top: calc(
-    var(--admin-sticky-stack, 96px) + var(--admin-tiptap-toolbar-height, 0px) + 24px
-  );
-}

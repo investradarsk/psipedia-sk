@@ -44,11 +44,11 @@ test("step 7: article rich text and palette stay within the 320px viewport", asy
   for (const width of [320, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     const sectionPicker = navigation.getByRole("combobox", { name: "Sekcia editora" });
-    if (await sectionPicker.isVisible()) await sectionPicker.selectOption("article-basics");
-    else await navigation.getByRole("button", { name: "Úvod a obsah", exact: true }).click();
-    await expect(page.locator('#article-intro[data-editor-ready="true"]')).toHaveCount(1);
+    if (await sectionPicker.isVisible()) await sectionPicker.selectOption("article-blocks");
+    else await navigation.getByRole("button", { name: "Editor článku", exact: true }).click();
+    await expect(page.locator('[data-article-continuous-document="editable"]')).toHaveCount(1);
 
-    const proseMirror = page.locator("#article-intro");
+    const proseMirror = page.locator('[data-article-continuous-document="editable"]');
     await proseMirror.focus();
     const actionbarParent = page.locator('[data-editor-page] [data-editor-actionbar]').locator("xpath=..");
     await expect(actionbarParent).toHaveCSS("position", "static");

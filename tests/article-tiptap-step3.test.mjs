@@ -9,7 +9,7 @@ test("ARTICLE-TIPTAP-3: all article rich text uses one scoped Tiptap toolbar", (
   const blocks = read("components/admin-article-block-editor.tsx");
   const tiptap = read("components/admin-tiptap-article-editor.tsx");
   const css = read("components/admin-tiptap-article-editor.module.css");
-  assert.match(article, /<AdminTiptapArticleScope activeSectionId=\{activeArticleSection\} readOnlyPreview=/);
+  assert.match(article, /<AdminTiptapArticleScope activeSectionId=\{activeArticleSection\}>/);
   assert.match(tiptap, /!readOnlyPreview &&/);
   assert.match(blocks, /<AdminTiptapRichTextEditor/);
   assert.doesNotMatch(blocks, /AdminLexicalRichTextEditor/);

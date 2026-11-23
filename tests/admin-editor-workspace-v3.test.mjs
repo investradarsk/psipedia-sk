@@ -71,12 +71,12 @@ test("ADMIN V3 content editors reuse workspace without copying canonical data fo
   assert.match(article, /data-publication-state=\{displayedStatus\}/);
   assert.match(article, /articleEffectiveStatusLabel\(displayedStatus\)/);
   assert.match(breed, /<EditorStatus/);
-  for (const section of ["article-basics", "article-publish", "article-seo", "article-settings", "article-authors", "article-media", "article-content", "article-blocks", "article-relations"])
+  for (const section of ["article-basics", "article-publish", "article-seo", "article-settings", "article-authors", "article-media", "article-blocks", "article-relations"])
     assert.match(article, new RegExp('id="' + section + '"[^>]*data-admin-editor-section'));
   for (const section of ["breed-overview", "breed-basic", "breed-character", "breed-practical", "breed-health", "breed-fit", "breed-fci", "breed-media", "breed-settings"])
     assert.match(breed, new RegExp('AdminEditorSection id="' + section + '"'));
-  assert.match(article, /<AdminArticleBlockEditor/);
-  assert.match(article, /<RichTextInput/);
+  assert.match(article, /<AdminArticleContinuousEditor/);
+  assert.doesNotMatch(article, /<AdminArticleBlockEditor|<RichTextInput/);
   assert.match(article, /<ArticleEditorCalendar/);
   assert.match(article, /<AdminEditorialAuthorField/);
   assert.match(article, /preservedEditorArticleMetadata/);

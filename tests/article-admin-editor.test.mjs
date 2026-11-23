@@ -119,7 +119,9 @@ test("ARTICLE-ADMIN save path carries canonical rich text, author profile select
   assert.match(navigationGuard, /useAdminEditorNavigationGuard/);
   assert.doesNotMatch(articleEditor, /window\.addEventListener\("beforeunload"/);
   assert.match(articleEditor, /AdminEditorialAuthorField/);
-  assert.match(articleEditor, /To najdôležitejšie <small>nepovinné<\/small>/);
+  const continuousEditor = readFileSync("components/admin-article-continuous-editor.tsx", "utf8");
+  assert.match(continuousEditor, /To najdôležitejšie/);
+  assert.match(continuousEditor, /Zhrnutie je nepovinné/);
   assert.match(articleEditor, /Vizuálne nastavenia <small>nepovinné<\/small>/);
 
   assert.match(blockEditor, /richText={block\.richText}/);
@@ -128,7 +130,8 @@ test("ARTICLE-ADMIN save path carries canonical rich text, author profile select
   assert.match(blockEditor, /Podporované sú iba bezpečné HTTPS odkazy na YouTube alebo Vimeo/);
 
   assert.doesNotMatch(store, /Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj/);
-  assert.match(articleEditor, /Odborné zdroje sú nepovinné aj pri zdravotných článkoch/);
+  const qa = readFileSync("lib/article-content-qa.ts", "utf8");
+  assert.match(qa, /Sources are always optional across every article category/);
   assert.match(store, /Video musí byť bezpečný HTTPS odkaz na YouTube alebo Vimeo/);
 });
 

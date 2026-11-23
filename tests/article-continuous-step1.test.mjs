@@ -77,13 +77,15 @@ test("CONTINUOUS STEP 1: empty prose blocks retain identity, unsupported kinds f
   assert.equal(input.blocks.at(-1).payload, "Keep my content");
 });
 
-test("CONTINUOUS STEP 1: UI is opt-in and cannot save a new article document", () => {
+test("CONTINUOUS: the primary Admin editor has no classic toggle or legacy form", () => {
   const admin = readFileSync("components/admin-article-editor.tsx", "utf8");
+  const inline = readFileSync("components/admin-article-continuous-editor.tsx", "utf8");
   const viewer = readFileSync("components/admin-article-continuous-readonly.tsx", "utf8");
   const adapter = readFileSync("lib/article-continuous-readonly.ts", "utf8");
-  assert.match(admin, /data-article-continuous-toggle/);
-  assert.match(admin, /!continuousReadOnlyOpen && !continuousEditableOpen/);
-  assert.match(admin, /<AdminArticleBlockEditor/);
+  assert.match(admin, /<AdminArticleContinuousEditor/);
+  assert.match(admin, /label: "Editor článku"/);
+  assert.doesNotMatch(admin, /data-article-legacy-toggle|data-article-continuous-toggle|data-article-continuous-edit-toggle|<AdminArticleBlockEditor|<AdminArticleContinuousReadOnly/);
+  assert.match(inline, /<AdminArticleBlockEditor/); // Native widgets still reuse their existing field controls.
   assert.match(viewer, /editable: false/);
   assert.match(viewer, /ReactNodeViewRenderer\(ReadOnlyWidget\)/);
   assert.match(viewer, /ArticleBlocks blocks=\{\[block\]\}/);
