@@ -82,10 +82,11 @@ test("password, magic-link, Google and onboarding keep the validated returnTo", 
   assert.match(magic, /<span>E-mail<\/span>/);
 });
 
-test("current anonymous intake stays intact for existing submissions until step 3 cutover", () => {
+test("step 3 cutover retires anonymous creation while keeping historic moderation support", () => {
   const oldPage = read("app/pomoc-psom/stratene-a-najdene/nahlasit/page.tsx");
   const oldApi = read("app/api/lost-found/submissions/route.ts");
-  assert.match(oldPage, /LostFoundSubmissionForm/);
-  assert.match(oldApi, /ensurePendingLostFoundModeration/);
-  assert.match(oldApi, /createPendingPublicLostFoundDogReport/);
+  const history = read("lib/lost-found-public-moderation.ts");
+  assert.match(oldPage, /redirect\(target\)/);
+  assert.match(oldApi, /status: 410/);
+  assert.match(history, /PUBLIC_REPORTER/);
 });
