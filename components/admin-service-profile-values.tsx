@@ -14,8 +14,8 @@ import styles from "./admin-service-catalog.module.css";
 
 type StoredChoice={optionId:string;choice:"yes"|"no";version:number};
 type InputChoice="yes"|"no"|"unknown";
-export function AdminServiceProfileValues({profileId,category,entries,initialChoices,resolvedServices,legacyServices,publicProjectionEnabled,writeEnabled,error}:{
-  profileId:number;category:string;entries:readonly CatalogEditorItem[];initialChoices:readonly StoredChoice[];
+export function AdminServiceProfileValues({profileId,categories,entries,initialChoices,resolvedServices,legacyServices,publicProjectionEnabled,writeEnabled,error}:{
+  profileId:number;categories:readonly string[];entries:readonly CatalogEditorItem[];initialChoices:readonly StoredChoice[];
   resolvedServices:readonly ResolvedServiceDefinition[];legacyServices:readonly string[];
   publicProjectionEnabled:boolean;writeEnabled:boolean;error:string|null;
 }){
@@ -52,8 +52,8 @@ export function AdminServiceProfileValues({profileId,category,entries,initialCho
     // profile has no confirmed choice row; the preview must do the same.
     if(!choices.length)return {services:[...currentLegacyServices],
       visible:currentLegacyServices.map(label=>({label,source:"legacy" as const})),suppressed:[]};
-    return projectPublicProfileServices(currentLegacyServices,category,choices,resolvedServices);
-  },[currentLegacyServices,category,resolvedServices,publicProjectionEnabled,error,saved,draft]);
+    return projectPublicProfileServices(currentLegacyServices,categories,choices,resolvedServices);
+  },[currentLegacyServices,categories,resolvedServices,publicProjectionEnabled,error,saved,draft]);
   const navigation=useAdminEditorNavigationGuard({dirty:changed.length>0});
   async function save(){
     if(!writeEnabled||busy||changed.length===0)return;
@@ -140,7 +140,7 @@ export function AdminServiceProfileValues({profileId,category,entries,initialCho
     })}{services.length===0&&<p>Nenašli sa žiadne vhodné služby.</p>}</div>
     </section>
     <section className={styles.profileSection} aria-label="Vlastnosti profilu"><h3>Vlastnosti — Áno/Nie/Neznáme ({attributes.length})</h3>
-      {category === "veterinari" && attributes.some(item => item.id === "attr.vet.emergency") && (
+      {categories.includes("veterinari") && attributes.some(item => item.id === "attr.vet.emergency") && (
         <p className={styles.muted} data-services-emergency-authority>
           Pohotovosť tu predstavuje samostatnú vlastnosť Služby V3. Jej uloženie mení iba explicitnú verziovanú voľbu V3, nie kategóriový filter Pohotovosť ani historický text verejného detailu. Hodnoty sa automaticky nezlučujú; Pohotovosť neznamená automaticky 24/7.
         </p>
