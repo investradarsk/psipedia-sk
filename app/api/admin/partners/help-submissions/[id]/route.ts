@@ -4,6 +4,7 @@ import {
   PartnerHelpReviewError,
 } from "@/lib/partner-help-create-admin";
 import { PartnerHelpCreateError } from "@/lib/partner-help-create";
+import { PartnerCanonicalWorkflowError } from "@/lib/partner-canonical-workflow";
 import { PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 import { ModerationStateConflictError } from "@/lib/moderation-transition";
 
@@ -32,7 +33,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     }else throw new PartnerHelpReviewError("Neplatná moderátorská akcia.");
     return Response.json({success:true,submission:result},{headers:{"Cache-Control":"private, no-store"}});
   }catch(error){
-    const status=error instanceof PartnerHelpReviewError||error instanceof PartnerHelpCreateError||
+    const status=error instanceof PartnerHelpReviewError||error instanceof PartnerHelpCreateError||error instanceof PartnerCanonicalWorkflowError||
       error instanceof PartnerOwnershipApprovalGuardError?error.status
       :error instanceof ModerationStateConflictError?409
       :error instanceof Error&&/UNIQUE constraint failed/.test(error.message)?409:503;
