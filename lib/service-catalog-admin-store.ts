@@ -5,7 +5,7 @@
  */
 import {serviceCatalog,attributeCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
 import {validateCatalogOptionDraft,type CatalogOptionDraft} from "./service-option-governance-contract.ts";
-import type {ServiceFilterCategory} from "./directory-filter-contract.ts";
+import {loadServiceProfileMembership,serviceMembershipWriteGuard} from "./service-catalog-profile-membership.ts";
 import type {AdminCatalogOptionDto,CatalogOptionStatus,CatalogMirrorStatus,CatalogExplicitChoice} from "./service-catalog-admin-api-contract.ts";
 
 export class ServiceCatalogInputError extends Error {}
@@ -13,7 +13,6 @@ export class ServiceCatalogConflictError extends Error {}
 export class ServiceCatalogSchemaError extends Error {}
 type DB=Pick<D1Database,"prepare">;
 type AdminOptionRow={id:string;kind:"service"|"attribute";label:string;normalized_label:string;group_name:string;meaning:string;primary_category:string;categories_json:string;status:CatalogOptionStatus;notion_mirror_status:CatalogMirrorStatus;version:number};
-type ProfileRow={id:number;category:string;status:string};
 type ChoiceRow={profile_id:number;option_id:string;choice:string;version:number};
 export type ServiceChoiceInput={profileId:number;optionId:string;choice:CatalogExplicitChoice;expectedVersion:number};
 function actorEmail(raw:string){
@@ -122,15 +121,15 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
      ||!Number.isSafeInteger(input.expectedVersion)||input.expectedVersion<0
      ||typeof input.optionId!=="string"||!["yes","no"].includes(input.choice))
     throw new ServiceCatalogInputError("Invalid explicit service choice.");
-  let profile:ProfileRow|null,allowed:readonly string[]|null;
+  let profile:Awaited<ReturnType<typeof loadServiceProfileMembership>>,allowed:readonly string[]|null;
   try{
-    profile=await db.prepare("SELECT id,category,status FROM directory_profiles WHERE id=?1 LIMIT 1")
-      .bind(input.profileId).first<ProfileRow>();
+    profile=await loadServiceProfileMembership(db,input.profileId);
     if(!profile||profile.status==="archived")throw new ServiceCatalogConflictError("Profile is missing or archived.");
     allowed=await allowedCategories(db,input.optionId);
   }catch(e){return handleDbError(e);}
-  if(!allowed||!allowed.includes(profile.category as ServiceFilterCategory))
-    throw new ServiceCatalogInputError("Service is unknown, inactive or not eligible for this category.");
+  if(!allowed||!allowed.some(category=>profile!.categories.includes(category)))
+    throw new ServiceCatalogInputError("Service is unknown, inactive or not eligible for this profile's categories.");
+  const allowedJson=JSON.stringify(allowed);
   const time=now.toISOString();
   const dynamicOption=/^(svc|attr)\.admin\./.test(input.optionId);
   let saved:ChoiceRow|null;
@@ -143,25 +142,24 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
         // The 0134 ledger survives RESET and profile deletion; stale clients must
         // not be able to overwrite a newly inserted row using an old version.
         "SELECT ?1,?2,?3,(SELECT COALESCE(MAX(COALESCE(next_version,prior_version)),0)+1",
-        "FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND profile_id=?1 AND option_id=?2),?4,?4,?5,?5 WHERE EXISTS",
-        "(SELECT 1 FROM directory_profiles WHERE id=?1 AND category=?6 AND status<>'archived')",
-        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?2 AND status='ACTIVE'",
-          "AND EXISTS (SELECT 1 FROM json_each(categories_json) WHERE value=?6))"]:[]),
+        "FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND profile_id=?1 AND option_id=?2),?4,?4,?5,?5 WHERE",
+        serviceMembershipWriteGuard("?1","?6"),
+        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options AS option WHERE option.id=?2 AND option.status='ACTIVE'",
+          "AND "+serviceMembershipWriteGuard("?1","option.categories_json")+")"]:[]),
         "ON CONFLICT (profile_id,option_id) DO NOTHING RETURNING profile_id,option_id,choice,version"
       ].join(" ");
-      saved=await db.prepare(sql).bind(input.profileId,input.optionId,input.choice,time,actor,profile.category).first<ChoiceRow>();
+      saved=await db.prepare(sql).bind(input.profileId,input.optionId,input.choice,time,actor,allowedJson).first<ChoiceRow>();
     }else{
       const sql=[
         "UPDATE service_profile_option_choices SET choice=?1,version=version+1,updated_at=?2,updated_by=?3",
         "WHERE profile_id=?4 AND option_id=?5 AND version=?6",
-        "AND EXISTS (SELECT 1 FROM directory_profiles WHERE id=?4 AND category=?7 AND status<>'archived')",
-        // D1 is canonical. A previously saved choice must remain editable while
-        // its catalog definition is still being mirrored to Notion, just like a new choice.
-        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?5 AND status='ACTIVE'",
-          "AND EXISTS (SELECT 1 FROM json_each(categories_json) WHERE value=?7))"]:[]),
+        "AND "+serviceMembershipWriteGuard("?4","?7"),
+        // D1 is canonical; a pending Notion mirror does not block valid changes.
+        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options AS option WHERE option.id=?5 AND option.status='ACTIVE'",
+          "AND "+serviceMembershipWriteGuard("?4","option.categories_json")+")"]:[]),
         "RETURNING profile_id,option_id,choice,version"
       ].join(" ");
-      saved=await db.prepare(sql).bind(input.choice,time,actor,input.profileId,input.optionId,input.expectedVersion,profile.category).first<ChoiceRow>();
+      saved=await db.prepare(sql).bind(input.choice,time,actor,input.profileId,input.optionId,input.expectedVersion,allowedJson).first<ChoiceRow>();
     }
   }catch(e){return handleDbError(e);}
   if(!saved)throw new ServiceCatalogConflictError("Selection changed concurrently; reload before saving.");
