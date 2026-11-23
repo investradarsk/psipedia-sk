@@ -2,7 +2,6 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 10px;
 }
 
 .notificationLink {
@@ -51,10 +50,6 @@
 }
 
 @media (max-width: 760px) {
-  .topbarActions {
-    gap: 6px;
-  }
-
   .notificationLink {
     flex: none;
   }
@@ -122,7 +117,6 @@
 @media (max-width: 760px) {
   .backToWeb { width: 44px; padding: 0; flex: none; }
   .backToWeb span { display: none; }
-  .topbarActions { gap: 5px; }
 }
 
 /* ADMIN VISUAL SYSTEM V3: approved common shell; no editor data/state changes. */
@@ -185,7 +179,7 @@
 }
 .topbarCaption { min-width: 0; color: #526a5e; font-size: .78rem; font-weight: 800; }
 .mobileBrand { display: none; }
-.topbarActions { margin-left: auto; gap: 10px; }
+.topbarActions { margin-left: auto; }
 .notificationLink {
   color: #193f30;
   border-color: #e1e9e3;
@@ -220,8 +214,6 @@
   .sidebarFrame { display: contents; }
   .sidebarBrand { display: none; }
   .workspacePage { min-height: 100dvh; }
-  .workspaceMain { padding: 16px 16px 0; }
-  .topbarSticky { min-height: 65px; padding: 10px 64px 10px 15px; }
   .topbarCaption { display: none; }
   .mobileBrand {
     display: flex;
@@ -242,7 +234,6 @@
     height: 44px;
     margin: 0;
   }
-  .topbarActions { gap: 5px; }
 }
 @media (max-width: 760px) {
   .account > span { display: none; }
@@ -255,13 +246,10 @@
   .logoutSymbol { display: block; font-size: 1.25rem; }
 }
 @media (max-width: 390px) {
-  .workspaceMain { padding: 14px 12px 0; }
-  .topbarSticky { padding: 9px 60px 9px 10px; }
   .mobileBrand { gap: 4px; }
   .mobileBrand svg { width: 23px; }
   .mobileBrand > span { font-size: .8rem; }
-  .backToWeb { width: 44px; min-width: 44px; }
-  .topbarActions { gap: 2px; }
+  .backToWeb { min-width: 44px; }
 }
 
 /* Do not let the fixed mobile menu obscure the account action at 320–390px.
@@ -279,7 +267,6 @@
 .mobileBrand { min-width: 0; }
 .topbarActions > * { flex-shrink: 0; }
 @media (max-width: 1100px) {
-  .workspace { display: block; }
   .workspaceMain { padding: var(--admin-ui-section-gap, 10px) var(--admin-ui-space-md, 12px) 0; }
   /* Reserve space for the fixed mobile navigation trigger. */
   .topbarSticky { min-height: 60px; padding: 8px 64px 8px 12px; }
@@ -294,7 +281,6 @@
 @media (max-width: 760px) {
   /* The fixed menu keeps its reserved slot at 320px; avoid document-width drift. */
   .topbarSticky { box-sizing: border-box; width: 100%; max-width: 100%; }
-  .topbarActions { gap: var(--admin-ui-space-xs, 6px); }
   .workspacePage, .contentArea { max-width: 100%; }
 }
 

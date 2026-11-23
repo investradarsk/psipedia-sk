@@ -17,14 +17,12 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
   min-width: 0;
-  padding: 0.85rem 1rem;
 }
 .headerText { min-width: 0; }
-.header h1 { margin: 0; color: var(--admin-v3-heading, #133b2b); font-size: clamp(1.25rem, 2vw, 1.65rem); }
+.header h1 { margin: 0; color: var(--admin-v3-heading, #133b2b); }
 .header p { margin: 0.3rem 0 0; color: var(--admin-v3-muted, #52695c); font-size: 0.87rem; }
-.statusLine { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
+.statusLine { display: flex; gap: 0.4rem; }
 
 dialog.workspaceModal[open] {
   display: grid;
@@ -54,25 +52,20 @@ dialog.workspaceModal[open] > div:nth-child(3) {
   min-height: 0;
   background: var(--admin-v3-canvas, #f9fbf8);
 }
-.workspace > .header { padding: 0.4rem 1rem 0; }
 .navigation {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.65rem 1rem;
   min-width: 0;
   background: var(--admin-v3-surface, #fff);
   border-bottom: 1px solid var(--admin-v3-line, #e2e9e4);
 }
 .navigationLinks { display: flex; flex-wrap: wrap; gap: 0.4rem; min-width: 0; }
 .navigation button {
-  min-height: 44px;
   border: 1px solid transparent;
   border-radius: 0.6rem;
   background: transparent;
   color: var(--admin-v3-neutral-text, #345447);
-  padding: 0.6rem 0.75rem;
   font: inherit;
   font-size: 0.86rem;
   font-weight: 750;
@@ -120,7 +113,6 @@ dialog.workspaceModal[open] > div:nth-child(3) {
   min-width: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: var(--admin-ui-panel-padding, 0.55rem);
   border: 1px solid var(--admin-v3-line, #e2eae3);
   border-radius: var(--admin-ui-radius, 8px);
   background: var(--admin-v3-surface, #fff);
@@ -128,7 +120,6 @@ dialog.workspaceModal[open] > div:nth-child(3) {
 .content {
   display: grid;
   align-content: start;
-  gap: var(--admin-ui-section-gap, 0.4rem);
 }
 .content [data-admin-editor-section] { scroll-margin-top: 0.8rem; }
 .content :is(input:not([type="checkbox"]),textarea,select) {
@@ -143,14 +134,12 @@ dialog.workspaceModal[open] > div:nth-child(3) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
   width: 100%;
   min-width: 0;
-  padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom));
   background: var(--admin-v3-surface, #fff);
 }
 .actionStart,
-.actionEnd { display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center; }
+.actionEnd { display: flex; flex-wrap: wrap; align-items: center; }
 .actionStart { min-width: 0; }
 .actionEnd { justify-content: flex-end; margin-left: auto; }
 .actionMessage { color: #3b6c53; font-size: 0.83rem; }
@@ -158,13 +147,10 @@ dialog.workspaceModal[open] > div:nth-child(3) {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 38rem;
-  overflow: hidden;
   border: 1px solid var(--admin-v3-line, #dce5de);
   border-radius: var(--admin-ui-radius, 8px);
   background: var(--admin-v3-surface, #fff);
 }
-.pageWorkspace > .workspace { min-height: 34rem; max-height: 75dvh; }
 .pageWorkspace .workspace > .header:empty { display: none; }
 .pageActions { border-top: 1px solid var(--admin-v3-line, #e2e9e4); }
 @media (max-width: 820px) {
@@ -207,7 +193,6 @@ dialog.workspaceModal[open] > div:nth-child(3) {
   .actionStart,.actionEnd { flex: 1 1 auto; }
   .actionEnd { justify-content: flex-end; }
   .actionBar :is(button,a) { min-height: 44px; }
-  .pageWorkspace > .workspace { min-height: 38rem; max-height: calc(100dvh - 11rem); }
 }
 @media (max-width: 380px) {
   .navigation { padding: 0.5rem; }
@@ -312,7 +297,6 @@ dialog.workspaceModal[open] :is(h2, h3),
 .navigation { padding: 0.25rem var(--admin-ui-space-md, 0.75rem); gap: var(--admin-ui-space-xs, 0.35rem); }
 .navigationLinks { gap: 0.25rem; }
 .navigation button { min-height: 44px; padding: 0.45rem 0.6rem; }
-.columns { gap: var(--admin-ui-space-sm, 0.55rem); padding: var(--admin-ui-space-sm, 0.55rem); }
 .content, .preview { padding: var(--admin-ui-panel-padding, 0.55rem); }
 .content { gap: var(--admin-ui-section-gap, 0.4rem); }
 .content [data-admin-editor-section] { gap: var(--admin-ui-editor-field-gap, 0.375rem); }
@@ -323,8 +307,6 @@ dialog.workspaceModal[open] :is(h2, h3),
   padding: 0.35rem var(--admin-ui-space-md, 0.75rem) calc(0.35rem + env(safe-area-inset-bottom));
 }
 .actionStart, .actionEnd { gap: 0.45rem; }
-.pageWorkspace { min-height: 32rem; }
-.pageWorkspace > .workspace { min-height: 30rem; }
 @media (max-width: 820px) {
   .header { padding: 0.45rem 0.65rem; }
   .workspace > .header { padding: 0.3rem 0.65rem 0; }
@@ -337,7 +319,6 @@ dialog.workspaceModal[open] :is(h2, h3),
       calc(0.55rem + env(safe-area-inset-bottom))
       calc(0.6rem + env(safe-area-inset-left));
   }
-  .pageWorkspace > .workspace { min-height: 34rem; }
   /* Text inputs remain usable on iOS; file and choice controls retain native sizing. */
   .content [data-admin-editor-section] :is(
     input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="color"]):not([type="range"]),

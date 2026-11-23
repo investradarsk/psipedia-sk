@@ -1,17 +1,19 @@
 .workspace {
+  box-sizing: border-box;
   min-width: 0;
+  max-width: 100%;
   border: 1px solid #d9e3da;
   border-radius: var(--admin-ui-radius, 8px);
   overflow: visible;
   background: #fff;
 }
-.toolbar { display: flex; gap: 12px; justify-content: space-between; align-items: center; padding: 12px 14px; background: #f7faf6; border-bottom: 1px solid #e0e7e1; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; background: #f7faf6; border-bottom: 1px solid #e0e7e1; }
 .tableIntro { display: grid; gap: 3px; color: #1c4436; font-size: .87rem; }
 .tableIntro span { font-size: .73rem; color: #64766c; }
 .columnPicker { position: relative; color: #234639; font-size: .83rem; }
 .columnPicker summary { cursor: pointer; border: 1px solid #cedbd1; background: white; border-radius: 8px; padding: 8px 12px; font-weight: 650; }
 .columnPickerMenu { position: absolute; z-index: 5; top: calc(100% + 5px); right: 0; min-width: 190px; max-height: 280px; overflow: auto; display: grid; gap: 8px; padding: 12px; border-radius: 10px; border: 1px solid #cbd7cd; box-shadow: 0 12px 28px #17352b23; background: white; }
-.columnPickerMenu label { display: flex; align-items: center; gap: 8px; white-space: nowrap; cursor: pointer; }
+.columnPickerMenu label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .columnPickerMenu input { accent-color: #245541; }
 .scroll { width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
 .scroll:focus-visible { outline: 3px solid #9a3d29; outline-offset: -3px; }
@@ -33,7 +35,7 @@
 .resizeHandle { position: absolute; z-index: 2; top: 0; bottom: 0; right: -3px; width: 7px; cursor: col-resize; touch-action: none; }
 .resizeHandle:hover { background: #b7cec1; }
 @media (max-width: 700px) {
- .toolbar { align-items: flex-start; flex-wrap: wrap; }
+ .toolbar { align-items: flex-start; }
  .table { min-width: 760px; }
  .table th, .table td { padding: 10px; }
 }
@@ -113,7 +115,6 @@
    inline edit controls, server sorting and row selection unchanged. */
 .mobileViewToggle { display: none; }
 @media (max-width: 700px) {
-  .toolbar { gap: 0.4rem; padding: 0.6rem; }
   .tableIntro { flex: 1 1 100%; }
   .mobileViewToggle {
     display: inline-flex;
@@ -267,10 +268,6 @@
 
 /* ADMIN-LISTS STEP 8: compact TanStack table chrome without hiding any
    columns, changing sort semantics or altering the mobile card toggle. */
-.workspace {
-  box-sizing: border-box;
-  max-width: 100%;
-}
 .toolbar {
   min-width: 0;
   flex-wrap: wrap;
