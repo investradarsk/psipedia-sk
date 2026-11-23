@@ -444,7 +444,7 @@ async function organizationIdByName(database: D1Database, name: string) {
   return rows.results.length === 1 ? Number(rows.results[0].id) : null;
 }
 
-function adoptionPayload(
+export function adoptionPayload(
   values: Record<string, ReconciliationValue>,
   existing: Awaited<ReturnType<typeof getAdoptionById>> | null,
   organizationId: number | null,
@@ -479,13 +479,33 @@ function adoptionPayload(
     organizationName,
     organizationSlug: existing && existing.organizationId === organizationId ? existing.organizationSlug : null,
     mainImage: imageUrl,
+    // A Notion field event edits only its authorized property. Every other
+    // canonical field must survive updateAdoptionFromAdmin's full-row save.
+    thumbnailImageDisplay: existing?.thumbnailImageDisplay ?? null,
+    detailImageDisplay: existing?.detailImageDisplay ?? null,
+    gallery: existing?.gallery ?? [],
     shortDescription: s(values["Krátky popis"]),
     description: s(values["Popis"]),
     temperament: s(values["Povaha"]),
     activityLevel: s(values["Aktivita"]),
+    suitableForChildren: existing?.suitableForChildren ?? "UNKNOWN",
+    suitableForDogs: existing?.suitableForDogs ?? "UNKNOWN",
+    suitableForCats: existing?.suitableForCats ?? "UNKNOWN",
+    suitableForOtherAnimals: existing?.suitableForOtherAnimals ?? "UNKNOWN",
+    apartmentSuitable: existing?.apartmentSuitable ?? null,
+    beginnerSuitable: existing?.beginnerSuitable ?? null,
+    needsExperiencedOwner: existing?.needsExperiencedOwner ?? false,
+    vaccinationStatus: existing?.vaccinationStatus ?? "UNKNOWN",
+    chipped: existing?.chipped ?? null,
+    neutered: existing?.neutered ?? null,
     healthNotes: s(values["Zdravotné poznámky"]),
     specialNeeds: s(values["Špeciálne potreby"]),
+    adoptionRequirements: existing?.adoptionRequirements ?? "",
     externalSourceUrl: s(values["Zdroj dát"]) || null,
+    contactEmail: existing?.contactEmail ?? null,
+    contactPhone: existing?.contactPhone ?? null,
+    contactUrl: existing?.contactUrl ?? null,
+    lastVerifiedAt: existing?.lastVerifiedAt ?? null,
   };
 }
 
