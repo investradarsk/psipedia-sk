@@ -673,9 +673,9 @@ test("uses light admin lists and loads full records only for detail and save", a
     const articleDetailHtml = await articleDetail.text();
     assert.match(articleDetailHtml, /Upraviť článok/);
     assert.match(articleDetailHtml, /Testovací článok/);
-    // Continuous editing is the default; the former block insertion button
-    // is available only after explicitly selecting the legacy editor.
-    assert.match(articleDetailHtml, /Súvislý editor \(Word štýl\)/);
+    // The former Word-style mode switch was removed when the unified article
+    // editor became the sole editing surface. The shell is verified below.
+    assert.doesNotMatch(articleDetailHtml, /Súvislý editor \(Word štýl\)/);
     // The Blocks tab is not initially selected in the Editor Workspace. The
     // HTML smoke verifies the editor shell; block labels and CTA safety are
     // covered at their canonical source rather than requiring hidden controls.
