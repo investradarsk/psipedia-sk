@@ -52,10 +52,14 @@ test("explicit article, breed and directory relations use canonical links and hi
   expect(breedResponse?.status()).toBe(200);
   const breedMain = page.locator("main#obsah");
   await expect(breedMain.getByRole("heading", { name: "Články o tomto plemene" })).toBeVisible();
+  // Breed profiles render desktop/mobile article lists in separate responsive
+  // slots. Both exist in the DOM but exactly one is shown at a given viewport.
+  const visibleRelatedSlot = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
   const breedArticleLink = breedMain.locator(
-    'a[data-article-list-item][href="/clanky/content-relations-e2e-clanok"]',
+    `[data-breed-related-articles="${visibleRelatedSlot}"] a[data-article-list-item][href="/clanky/content-relations-e2e-clanok"]`,
   );
   await expect(breedArticleLink).toHaveCount(1);
+  await expect(breedArticleLink).toBeVisible();
   await expect(breedArticleLink).toContainText("CONTENT-RELATIONS E2E článok");
   await expect(breedMain.getByText("CONTENT-RELATIONS skrytý draft článok", { exact: false })).toHaveCount(0);
   await expect(breedMain.getByText("CONTENT-RELATIONS noncanonical článok", { exact: false })).toHaveCount(0);
