@@ -1,6 +1,6 @@
 import { mirrorAdminReviewFlagToNotion } from "./notion-admin-review-field";
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
-import { isHelpFieldEventAgenda, changedNotionHelpFields, helpFieldSnapshot } from "./notion-help-field-events.ts";
+import { isHelpFieldEventAgenda, changedNotionHelpFields, helpFieldSnapshot, sameHelpFieldValue } from "./notion-help-field-events.ts";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
@@ -1181,7 +1181,7 @@ async function syncAgenda(input: {
               const latestSource = latestRows.find(item => sourceId(item) === entityId);
               if (!latestSource) throw new Error("HELP_EVENT_CANONICAL_MISSING");
               live = editableSnapshot(agenda, latestSource.properties, schema);
-              if (JSON.stringify(live[field] ?? null) === JSON.stringify(notionSnapshot[field] ?? null))
+              if (sameHelpFieldValue(agenda, field, live[field], notionSnapshot[field]))
                 continue;
               await applyNotionToCanonical(
                 agenda, entityId, helpFieldSnapshot(live, notionSnapshot, field), input.database,
@@ -1190,7 +1190,7 @@ async function syncAgenda(input: {
               const reloaded = rows.find(item => sourceId(item) === entityId);
               if (!reloaded) throw new Error("HELP_EVENT_RELOAD_MISSING");
               const updated = editableSnapshot(agenda, reloaded.properties, schema);
-              if (JSON.stringify(updated[field] ?? null) !== JSON.stringify(notionSnapshot[field] ?? null))
+              if (!sameHelpFieldValue(agenda, field, updated[field], notionSnapshot[field]))
                 throw new Error("HELP_EVENT_FIELD_VERIFY_FAILED");
               live = updated;
               applied++;
