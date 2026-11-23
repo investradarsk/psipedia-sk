@@ -31,7 +31,8 @@ test("FCI group previews derive from persistent breed relation, not headline gue
   assert.match(browser, /articles=\{groupArticles\[group\.number\] \?\? \[\]\}/);
   assert.match(browser, /href=\{`\/clanky\/plemena\?fciGroup=\$\{group\.number\}`\}/);
   assert.match(collection, /if \(!articles\.length\) return null/);
-  assert.match(collection, /articles\.slice\(0, 3\)/);
+  assert.match(collection, /limit=\{3\}/);
+  assert.match(collection, /<EditorialTopicArticleGrid/);
 });
 
 test("SQLite ranks each FCI group separately, excludes drafts and de-duplicates relations", () => {
