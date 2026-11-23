@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { listAdminInbox, normalizeInboxFilters, type InboxRow } from "@/lib/admin-submission-inbox";
+import { listAdminInbox, normalizeInboxFilters, type InboxFilters, type InboxRow } from "@/lib/admin-submission-inbox";
 import { partnerAdminResourceLabel, partnerAdminStatusLabel } from "@/lib/admin-partner-labels";
 import styles from "./podania.module.css";
 
@@ -21,10 +22,7 @@ function dateLabel(value:string){
     :"—";
 }
 
-export default async function Page({searchParams}:{searchParams:Promise<Search>}){
-  const user=await requireAdminPageUser("/admin/podania");
-  const raw=await searchParams;
-  const filters=normalizeInboxFilters({kind:single(raw.kind),state:single(raw.state),q:single(raw.q),page:single(raw.page)});
+async function InboxContent({filters}:{filters:InboxFilters}){
   let error=false;
   const result=await listAdminInbox(filters).catch(e=>{
     console.error("Admin unified intake unavailable",e instanceof Error?e.name:"unknown");
@@ -36,32 +34,7 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
     if(page>1)search.set("page",String(page));
     return "/admin/podania?"+search.toString();
   };
-  return <AdminShell user={user} eyebrow="Prijaté podania" title="Podania a dopyty"
-    description="Spoločný pracovný prehľad. Schvaľovanie, súkromné kontakty a história zostávajú v pôvodných sekciách.">
-    <section className={styles.workspace} data-admin-submission-inbox>
-      <form className={styles.filters} method="get" role="search" aria-label="Filtrovať podania" data-admin-list-filters>
-        <label>Hľadať
-          <input name="q" maxLength={100} defaultValue={filters.q} placeholder="Profil, podanie alebo ID Partnera"/>
-        </label>
-        <label>Typ
-          <select name="kind" defaultValue={filters.kind}>
-            <option value="all">Všetky typy</option>
-            <option value="PARTNER">Partnerské podania</option>
-            <option value="PUBLIC">Staršie verejné hlásenia</option>
-            <option value="CLAIM">Prevzatia profilov</option>
-            <option value="INQUIRY">Dopyty na služby</option>
-          </select>
-        </label>
-        <label>Stav
-          <select name="state" defaultValue={filters.state}>
-            <option value="pending">Na vybavenie</option>
-            <option value="history">História / ukončené</option>
-            <option value="all">Všetky</option>
-          </select>
-        </label>
-        <button type="submit">Filtrovať</button>
-        <Link href="/admin/podania" className={styles.reset}>Vymazať filtre</Link>
-      </form>
+  return <>
       {error?<div className={styles.error} role="alert">
         Spoločný prehľad momentálne nie je dostupný. Podania možno naďalej vybaviť v pôvodných sekciách nižšie.
       </div>:result&&<>
@@ -99,6 +72,42 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
           {result.page<result.totalPages?<Link href={urlFor(result.page+1)}>Ďalšia →</Link>:<span/>}
         </nav>
       </>}
+  </>;
+}
+
+export default async function Page({searchParams}:{searchParams:Promise<Search>}){
+  const user=await requireAdminPageUser("/admin/podania");
+  const raw=await searchParams;
+  const filters=normalizeInboxFilters({kind:single(raw.kind),state:single(raw.state),q:single(raw.q),page:single(raw.page)});
+  return <AdminShell user={user} eyebrow="Prijaté podania" title="Podania a dopyty"
+    description="Spoločný pracovný prehľad. Schvaľovanie, súkromné kontakty a história zostávajú v pôvodných sekciách.">
+    <section className={styles.workspace} data-admin-submission-inbox>
+      <form className={styles.filters} method="get" role="search" aria-label="Filtrovať podania" data-admin-list-filters>
+        <label>Hľadať
+          <input name="q" maxLength={100} defaultValue={filters.q} placeholder="Profil, podanie alebo ID Partnera"/>
+        </label>
+        <label>Typ
+          <select name="kind" defaultValue={filters.kind}>
+            <option value="all">Všetky typy</option>
+            <option value="PARTNER">Partnerské podania</option>
+            <option value="PUBLIC">Staršie verejné hlásenia</option>
+            <option value="CLAIM">Prevzatia profilov</option>
+            <option value="INQUIRY">Dopyty na služby</option>
+          </select>
+        </label>
+        <label>Stav
+          <select name="state" defaultValue={filters.state}>
+            <option value="pending">Na vybavenie</option>
+            <option value="history">História / ukončené</option>
+            <option value="all">Všetky</option>
+          </select>
+        </label>
+        <button type="submit">Filtrovať</button>
+        <Link href="/admin/podania" className={styles.reset}>Vymazať filtre</Link>
+      </form>
+      <Suspense fallback={<p role="status">Načítavam podania a dopyty…</p>}>
+        <InboxContent filters={filters}/>
+      </Suspense>
       <div className={styles.origins}>
         <span>Pôvodné pracoviská:</span>
         <Link href="/admin/partners/submissions?status=active">Nové profily</Link>
