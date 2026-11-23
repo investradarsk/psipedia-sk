@@ -555,6 +555,12 @@ export function AdminArticleEditor({
         saveReceipt?: ArticleSaveReceipt;
       };
       receivedSaveResult = true;
+      if (response.status >= 500 || (response.ok && !data.article)) {
+        // The server may have committed before returning an incomplete/error
+        // response. Require a read before any subsequent mutation.
+        setSaveOutcomeUnknown(true);
+        throw new Error("Server nepotvrdil výsledok zápisu. Skontroluj stav článku pred opakovaným uložením.");
+      }
       if (!response.ok || !data.article) {
         if (Array.isArray(data.issues)) {
           hasQaIssues = data.issues.length > 0;
