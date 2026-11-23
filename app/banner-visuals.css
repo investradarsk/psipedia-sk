@@ -10,6 +10,7 @@
   --ps-bnr-kicker: #a74d3c;
   --ps-bnr-button-bg: #20543e;
   --ps-bnr-button-text: #fff;
+  --ps-bnr-border: rgba(23, 53, 43, 0.17);
   --ps-bnr-padding: 18px 22px;
   --ps-bnr-title-size: clamp(1.3rem, 1.9vw, 1.7rem);
   box-sizing: border-box;
@@ -23,9 +24,11 @@
   min-height: 0 !important;
   gap: 12px;
   padding: var(--ps-bnr-padding) !important;
-  border: 1px solid rgba(23, 53, 43, 0.17);
-  border-left: 3px solid #b44939;
-  border-radius: var(--ps-banner-radius, 18px);
+  /* Calm editorial frame: the former thick coral start stripe is removed. */
+  border: 1px solid var(--ps-bnr-border);
+  border-left-width: 1px !important;
+  border-left-color: var(--ps-bnr-border) !important;
+  border-radius: 0 !important;
   background: var(--ps-bnr-bg) !important;
   background-image: none !important;
   box-shadow: none;
@@ -43,8 +46,8 @@
   --ps-bnr-kicker: #f3b9a4;
   --ps-bnr-button-bg: #fff;
   --ps-bnr-button-text: #17352b;
-  border-color: rgba(23, 53, 43, 0.3);
-  border-left-color: #b44939;
+  --ps-bnr-border: rgba(23, 53, 43, 0.3);
+  border-color: var(--ps-bnr-border);
 }
 .ps-public-banner-frame[data-banner-size="small"] {
   --ps-bnr-padding: 14px 16px;
@@ -173,8 +176,8 @@
     --ps-bnr-kicker: #a74d3c;
     --ps-bnr-button-bg: #20543e;
     --ps-bnr-button-text: #fff;
-    border-color: rgba(23, 53, 43, 0.17);
-    border-left-color: #b44939;
+    --ps-bnr-border: rgba(23, 53, 43, 0.17);
+    border-color: var(--ps-bnr-border);
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-visual="dark"] {
     --ps-bnr-bg: #173d2e;
@@ -183,8 +186,8 @@
     --ps-bnr-kicker: #f3b9a4;
     --ps-bnr-button-bg: #fff;
     --ps-bnr-button-text: #17352b;
-    border-color: rgba(23, 53, 43, 0.3);
-    border-left-color: #b44939;
+    --ps-bnr-border: rgba(23, 53, 43, 0.3);
+    border-color: var(--ps-bnr-border);
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"] {
     --ps-bnr-padding: 14px 16px;
