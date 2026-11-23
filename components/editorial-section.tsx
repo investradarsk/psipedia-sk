@@ -2,6 +2,7 @@ import { PublicEmptyState, PublicPagination } from "@/components/public-visual-s
 import Link from "next/link";
 import { PublicHeading } from "@/components/public-heading";
 import { ArticleListItem } from "@/components/article-list-item";
+import { EditorialTopicArticleGrid } from "@/components/editorial-topic-article-grid";
 import { HorizontalCarouselControls } from "@/components/horizontal-carousel-controls";
 import { ArrowIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
@@ -111,6 +112,11 @@ function SectionContentList({
       </PublicEmptyState>
     );
   }
+  // The public topic page and both breed editorial surfaces now render this
+  // very same responsive card component, rather than two visual copies.
+  if (topicGrid) {
+    return <EditorialTopicArticleGrid articles={articles} label={label} limit={limit} />;
+  }
   return (
     <PublicContentList
       label={label}
@@ -118,7 +124,6 @@ function SectionContentList({
         styles.contentList,
         articles.length === 1 && !topicGrid && styles.singleArticleList,
         featuredLead && styles.featuredContentList,
-        topicGrid && styles.topicArticleGrid,
       ].filter(Boolean).join(" ")}
     >
       {articles.slice(0, limit).map((article, index) => (
@@ -126,7 +131,7 @@ function SectionContentList({
           article={article}
           desktopLayout={featuredLead
             ? (index === 0 ? "stacked" : undefined)
-            : (topicGrid || (articles.length > 1 && Boolean(article.image)))
+            : articles.length > 1 && Boolean(article.image)
               ? "stacked"
               : undefined}
           key={article.slug}
