@@ -72,6 +72,18 @@ test("article, contextual, help and content CTA banners reuse the same frame", (
   assert.match(read("lib/visual-library-edit-store.ts"), /ALLOWED_PUBLICATIONS/);
 });
 
+test("shared banner sizing preserves centered site shell for all non-compact magazine banners", () => {
+  const styles = read("app/banner-visuals.css");
+  const sharedRule = styles.match(/\\.ps-public-banner-frame\\[data-banner-visual\\]\\[data-banner-size\\]\\s*\\{([^}]+)\\}/)?.[1];
+  assert.ok(sharedRule, "shared banner rule exists");
+  assert.doesNotMatch(sharedRule, /(?:^|;)\\s*width\\s*:\\s*100%/m,
+    "a generic width: 100% overrides the narrower .shell rule at higher specificity");
+  assert.match(read("app/globals.css"), /\\.shell\\s*\\{\\s*width:\\s*min\\(var\\(--ps-content-max\\)/);
+  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"),
+    /compact \\? "home-magazine-banner" : "shell home-magazine-banner"/);
+  assert.match(read("app/page.tsx"), /<div className="home-desktop-interlude">[\\s\\S]*?<PublicHelpPhotoBanner/);
+});
+
 test("original partner creatives are not restyled or rebuilt", () => {
   const ads = read("components/affiliate-rotating-banner.tsx");
   assert.doesNotMatch(ads, /PublicBannerFrame|data-banner-visual/);
