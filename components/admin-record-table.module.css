@@ -85,7 +85,7 @@
   .workspace[data-density="compact"] .table td {
     box-sizing: border-box;
     height: 38px;
-    padding: 5px 8px;
+    padding: 2px 8px;
   }
   .workspace[data-density="compact"] .selectionCheck {
     width: 34px;
