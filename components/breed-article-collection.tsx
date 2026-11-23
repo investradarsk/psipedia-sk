@@ -25,7 +25,7 @@ export function BreedArticleCollection({
       data-breed-editorial-collection>
       {headingLevel === 2 ? (
         <PublicLandingSectionHeading
-          eyebrow="Články o plemenách"
+          eyebrow="Články v oblasti"
           title={title}
           id={headingId}
         />
