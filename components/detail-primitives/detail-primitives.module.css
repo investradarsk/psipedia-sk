@@ -1338,8 +1338,7 @@
   align-self: start;
 }
 
-/* Natural directory photographs keep their aspect ratio; custom crops and
-   organization logos retain their existing compact treatment. */
+/* Preserve the aspect ratio of natural directory photos on desktop. */
 .hero[data-public-detail-hero="directory"]
   .heroFrame[data-media-presentation="compact"]:has([data-image-display="natural"]) {
   grid-template-columns: minmax(0, 1fr) minmax(220px, 340px);
@@ -1371,13 +1370,19 @@
     .heroFrame[data-media-presentation="compact"]:has([data-image-display="natural"]) {
     grid-template-columns: minmax(0, 1fr);
   }
-  .hero[data-public-detail-hero="directory"]
+  .hero:is([data-public-detail-hero="directory"], [data-public-detail-hero="organization"])
     .heroFrame[data-media-presentation="compact"]
     .heroMedia:has([data-image-display="natural"]) {
     height: auto;
     justify-self: center;
   }
-  .hero[data-public-detail-hero="directory"]
+  .hero:is([data-public-detail-hero="directory"], [data-public-detail-hero="organization"])
+    .heroFrame[data-media-presentation="compact"]
+    .heroMedia
+    [data-image-display="natural"] {
+    height: auto;
+  }
+  .hero:is([data-public-detail-hero="directory"], [data-public-detail-hero="organization"])
     .heroFrame[data-media-presentation="compact"]
     .heroMedia
     [data-image-display="natural"]
