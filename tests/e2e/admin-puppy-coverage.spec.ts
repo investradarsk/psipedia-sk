@@ -51,6 +51,6 @@ test("V5-01: puppy coverage is discoverable from Sections and links back without
   await expect(link).toBeVisible();
   await link.click();
   await expect(page.getByTestId("admin-puppy-coverage")).toBeVisible();
-  await page.getByRole("link", { name: /Sekcie a podsekcie/ }).click();
+  await page.getByRole("link", { name: "← Sekcie a podsekcie", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/sekcie\?sekcia=steniatka/);
 });
