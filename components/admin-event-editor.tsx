@@ -79,6 +79,9 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [cancelled, setCancelled] = useState(event?.cancelled ?? false);
   const [status, setStatus] = useState<EventStatus>(event?.status ?? "draft");
+  // Keep the D1 revision of the last successful form load/save. Do not refresh
+  // this token after a 409: an old form must never silently overwrite newer data.
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(event?.updatedAt ?? "");
   const [seo, setSeo] = useState(event?.seo ?? {});
   const [saving, setSaving] = useState(false);
   const savePendingRef = useRef(false);
@@ -181,21 +184,31 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
       const response = await fetch(event ? `/api/admin/events/${event.id}` : "/api/admin/events", {
         method: event ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageAlt, internalNotes, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo,
+        body: JSON.stringify({ expectedUpdatedAt: event ? expectedUpdatedAt : undefined, title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageAlt, internalNotes, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo,
           eventEditorialChangedFields: event ? eventChangedAdminFields(
             JSON.parse(savedSnapshot) as Record<string,unknown>,
             JSON.parse(editorSnapshot) as Record<string,unknown>,
           ) : undefined }),
       });
-      const data = await response.json() as { event?: DogEvent; error?: string; fieldWarnings?: string[]; notionFieldSync?: string };
+      const data = await response.json() as {
+        event?: DogEvent; error?: string; code?: string; fieldWarnings?: string[];
+        notionFieldSync?: string; notionWarnings?: string[]; savedToD1?: boolean;
+      };
+      if (response.status === 409 && data.code === "EVENT_VERSION_CONFLICT") {
+        // Preserve all unsaved edits. Reloading automatically would lose them.
+        setError("Podujatie medzitým niekto upravil. Tvoje zmeny zostali vo formulári, ale neboli uložené. Skopíruj si ich a obnov stránku, aby si videl aktuálnu verziu.");
+        return;
+      }
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
       setStatus(data.event.status);
+      setExpectedUpdatedAt(data.event.updatedAt);
       setSavedSnapshot(editorSnapshot);
       setMessage((data.event.status === "published"
         ? (status === "published" ? "Zmeny publikovaného podujatia sú uložené." : "Podujatie je publikované v kalendári.")
         : (status === "published" ? "Podujatie bolo stiahnuté z kalendára." : "Koncept je bezpečne uložený.")) +
         (data.fieldWarnings?.length ? " Upozornenia: " + data.fieldWarnings.join("; ") : "") +
-        (imageChanged && ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? "")
+        (data.notionWarnings?.length ? " Notion: " + data.notionWarnings.join(" ") : "") +
+        (imageChanged && !data.notionWarnings?.length && ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? "")
           ? " Fotografia je uložená v Admine, ale jej URL zatiaľ nie je potvrdená v Notione."
           : ""));
       if (!event) {
