@@ -37,7 +37,7 @@ export default async function LegacyArticlePage({ params }: Props) {
   const article = sanitizePublicArticleContent(storedArticle);
 
   const canonical = articleHref(article);
-  if (canonical !== `/clanky/${slug}`) redirect(canonical);
+  if (canonical !== `/clanky/${slug}`) permanentRedirect(canonical);
 
   const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads] = await Promise.all([
     getArticleMagazineData(article),

@@ -209,7 +209,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   if (!storedArticle) notFound();
   const article = sanitizePublicArticleContent(storedArticle);
   const canonical = articleHref(article);
-  if (canonical !== `/${section}/${slug}`) redirect(canonical);
+  if (canonical !== `/${section}/${slug}`) permanentRedirect(canonical);
 
   const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads] = await Promise.all([
     getArticleMagazineData(article),

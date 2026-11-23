@@ -61,6 +61,10 @@ const syncDependencies = {
   "@/lib/editorial-content": { EDITORIAL_RICH_TEXT_VERSION: 1 },
   "@/lib/portal": { articleHref: ({ portalSection, slug }) => "/" + portalSection + "/" + slug },
   "@/lib/article-subsection-taxonomy": {},
+  "@/lib/notion-article-breed-placement": {
+    isBreedArticlePlacementChange: () => false,
+    notionArticleBreedPlacement: () => null,
+  },
   "@/config/public-site": { SITE_URL: "https://psipedia.sk" },
   "./notion-article-seo-properties": {
     ARTICLE_NOTION_SEO_PROPERTIES: {

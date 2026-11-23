@@ -182,9 +182,18 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(blockSection.locator('[data-article-tiptap-invalid="true"]')).toHaveCount(0);
 
     await blockSection.locator("[data-article-legacy-toggle]").click();
-    // React commits mode changes asynchronously; first wait for the selected
-    // mode instead of reading the pre-commit DOM immediately after a click.
-    await expect(blockSection.locator("[data-article-legacy-toggle]")).toHaveAttribute("aria-pressed", "true");
+    // Show lossless-roundtrip guard details if the mode transition is blocked.
+    await expect.poll(async () => blockSection.evaluate(section => {
+      const pressed = section.querySelector("[data-article-legacy-toggle]")?.getAttribute("aria-pressed");
+      if (pressed === "true") return "true";
+      return JSON.stringify({
+        pressed,
+        invalid: section.querySelector("[data-article-continuous-editable]")?.getAttribute("data-article-tiptap-invalid"),
+        initialError: section.querySelector("[data-article-continuous-editable]")?.getAttribute("data-article-continuous-initial-error"),
+        warning: section.querySelector('[role="alert"]')?.textContent?.slice(0, 220),
+        active: section.getAttribute("data-editor-section-active"),
+      });
+    }), { timeout: 10_000 }).toBe("true");
     const original = blockSection.locator("[data-admin-rich-text-editor]");
     const stateAfterSwitch = await blockSection.evaluate(section => ({
       active: section.getAttribute("data-editor-section-active"),
