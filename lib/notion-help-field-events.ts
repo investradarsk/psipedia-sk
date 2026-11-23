@@ -1,5 +1,6 @@
 import { agendaEditableFields, type BidirectionalAgendaKey } from "./notion-events-help-adapters.ts";
 import type { ReconciliationValue } from "./notion-bulk-reconciliation.ts";
+import { stableAgendaSnapshotJson } from "./notion-bidirectional-reconciliation.ts";
 
 /**
  * The Directory-style per-property transport for mapped Help records.
@@ -64,4 +65,18 @@ export function helpFieldSnapshot(
   field: string,
 ): Record<string, ReconciliationValue> {
   return { ...live, [field]: notion[field] ?? null };
+}
+
+/**
+ * Notion can express the same lost/found instant in a different UTC offset.
+ * Compare the actual instant in webhook receipts, not its literal date string.
+ */
+export function sameHelpFieldValue(
+  agenda: HelpFieldEventAgenda, field: string, left: ReconciliationValue | undefined, right: ReconciliationValue | undefined,
+): boolean {
+  if (agenda === "lost-found" && field === "Naposledy videný") {
+    return stableAgendaSnapshotJson(agenda, { [field]: left ?? "" }) ===
+      stableAgendaSnapshotJson(agenda, { [field]: right ?? "" });
+  }
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
