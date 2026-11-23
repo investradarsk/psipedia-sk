@@ -10,7 +10,7 @@ import {runFacebookImagePublishSweep,setPublisherEnabled} from "../lib/facebook-
 import {env} from "cloudflare:workers";
 const input=(more={})=>({title:'Ručný príspevok',caption:'Text na Facebook',imageUrl:'',imageKey:'',date:'',time:'',status:'draft',...more});
 const request=(url,body,method='POST',headers={})=>new Request('http://localhost:5173'+url,{method,headers:{'content-type':'application/json',...headers},body:JSON.stringify(body)});
-const uploadRequest=()=>new Request('http://localhost:5173/api/admin/uploads',{method:'POST',headers:{'content-type':'image/png','x-upload-folder':'facebook-images'},body:png});
+const uploadRequest=()=>new Request('http://localhost:5173/api/admin/uploads',{method:'POST',headers:{'content-type':'image/png','x-upload-folder':'facebook-images','sec-fetch-site':'same-origin'},body:png});
 
 test('Bratislava schedule roundtrips independent of browser/server timezone; no slot restrictions',()=>{
  for(const [date,time,utc] of [['2026-01-01','00:01','2025-12-31T23:01:00.000Z'],['2026-07-01','23:59','2026-07-01T21:59:00.000Z'],['2020-06-01','03:07','2020-06-01T01:07:00.000Z']]){
@@ -66,9 +66,9 @@ test('schema absent fails closed for reads, creates and upload without R2 mutati
 });
 test('uploaded type, magic bytes, size and R2 existence are validated',async t=>{
  const{db}=fixture(t);
- assert.equal((await upload(new Request('http://localhost/api/admin/uploads',{method:'POST',headers:{'content-type':'image/png','x-upload-folder':'facebook-images','content-length':String(9*1024*1024)},body:png}))).status,413);
- assert.equal((await upload(new Request('http://localhost/api/admin/uploads',{method:'POST',headers:{'content-type':'image/jpeg','x-upload-folder':'facebook-images'},body:png}))).status,415);
- assert.equal((await upload(new Request('http://localhost/api/admin/uploads',{method:'POST',headers:{'content-type':'image/avif','x-upload-folder':'facebook-images'},body:png}))).status,415);
+ assert.equal((await upload(new Request('http://localhost/api/admin/uploads',{method:'POST',headers:{'content-type':'image/png','x-upload-folder':'facebook-images','sec-fetch-site':'same-origin','content-length':String(9*1024*1024)},body:png}))).status,413);
+ assert.equal((await upload(new Request('http://localhost/api/admin/uploads',{method:'POST',headers:{'content-type':'image/jpeg','x-upload-folder':'facebook-images','sec-fetch-site':'same-origin'},body:png}))).status,415);
+ assert.equal((await upload(new Request('http://localhost/api/admin/uploads',{method:'POST',headers:{'content-type':'image/avif','x-upload-folder':'facebook-images','sec-fetch-site':'same-origin'},body:png}))).status,415);
  await assert.rejects(saveFacebookImagePost(null,input({imageKey:'facebook-images/2026/aaaa.png',imageUrl:'/media/facebook-images/2026/aaaa.png'}),'admin',db),/nenašiel/);
  assert.throws(()=>normalizeFacebookImageInput(input({imageUrl:'https://notion.so/temp',imageKey:'bad'})));
 });
@@ -100,7 +100,7 @@ test('missing migration renders a safe disabled admin page; legacy article uploa
   });
  });
  assert.match(html,/0128/);assert.match(html,/disabled=""/);assert.doesNotMatch(html,/<form/);assert.doesNotMatch(html,/načítavajú sa údaje/);
- const legacy=await upload(new Request('http://localhost/api/admin/uploads',{method:'POST',headers:{'content-type':'image/png','x-upload-folder':'articles'},body:png}));assert.equal(legacy.status,201);assert.equal(images.size,1);
+ const legacy=await upload(new Request('http://localhost/api/admin/uploads',{method:'POST',headers:{'content-type':'image/png','x-upload-folder':'articles','sec-fetch-site':'same-origin'},body:png}));assert.equal(legacy.status,201);assert.equal(images.size,1);
 });
 test('prepared SQL and Drizzle agree; migration adds only its own table and indexes',async t=>{
  const{sqlite}=fixture(t);const {getTableConfig}=await import('drizzle-orm/sqlite-core');const{facebookImagePosts}=await import('../db/facebook-image-schema.ts');
