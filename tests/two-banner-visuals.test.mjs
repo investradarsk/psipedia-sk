@@ -114,7 +114,7 @@ test("approved editorial art reuses the soft framed brand palette and article ra
   const shared = css.slice(sharedStart, css.indexOf("}", sharedStart));
   assert.match(shared, /border-left-width:\s*1px\s*!important/);
   assert.match(shared, /border-left-color:\s*var\(--ps-bnr-border\)\s*!important/);
-  assert.match(shared, /border-radius:\s*14px\s*!important/);
+  assert.match(shared, /border-radius:\s*0\s*!important/);
   assert.doesNotMatch(shared, /border-left:\s*3px solid #b44939/);
   assert.match(css, /psipedia-banner-dog-outline\.svg/);
   assert.match(css, /data-banner-semantic="urgent"/);
