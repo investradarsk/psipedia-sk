@@ -41,7 +41,7 @@ export const lostFoundSubmitPromo: HelpOverviewBannerPreset = {
   eyebrow: "Stratený alebo nájdený pes",
   title: "Stratil sa vám pes alebo ste psa našli?",
   text: "Prihláste sa alebo si vytvorte účet. Hlásenie potom môžete spravovať a sledovať jeho stav; zverejní sa až po kontrole.",
-  href: "/partner/koncepty/novy?typ=LOST_FOUND_DOG",
+  href: "/partner/koncepty/novy/nahlasit",
   action: "Nahlásiť psa",
   tone: "rescue",
 };
