@@ -103,7 +103,8 @@ export function auditAdminSources({
       hasQuickSearchTtl: quickSearch.includes("SEARCH_CACHE_TTL_MS"),
       attentionSourceSqlBranches: (notifications.match(/SELECT\s+['"]?[A-Z][A-Z_]+['"]?\s+AS\s+sourceType/gi) ?? []).length,
       shellUsesAttentionPromise: shell.includes("attentionSummaryPromise"),
-      homeSharesAttentionPromise: adminHome.includes("attentionSummaryPromise={attentionPromise}"),
+      homeSharesAttentionPromise: /attentionSummaryPromise=\{(boundedAttentionPromise|attentionPromise)\}/.test(adminHome) &&
+        /attentionPromise=\{\1\}/.test(adminHome),
     },
     limitations: [
       "Source size is not shipped or compressed JavaScript size.",
