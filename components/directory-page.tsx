@@ -4,7 +4,6 @@ import Link from "next/link";
 import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { Breadcrumbs } from "@/components/page-system";
 import {
-  PublicActionLink,
   PublicContentShell,
   PublicCategorySection,
   PublicFoundation,
