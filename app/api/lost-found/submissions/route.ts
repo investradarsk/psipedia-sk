@@ -13,7 +13,7 @@ export async function POST(_request: Request) {
     {
       error: "Na odoslanie hlásenia sa prihláste alebo zaregistrujte do Partner účtu.",
       code: "PARTNER_ACCOUNT_REQUIRED",
-      partnerUrl: "/partner/koncepty/novy?typ=LOST_FOUND_DOG",
+      partnerUrl: "/partner/koncepty/novy/nahlasit",
     },
     { status: 410, headers: { "Cache-Control": "private, no-store" } },
   );
