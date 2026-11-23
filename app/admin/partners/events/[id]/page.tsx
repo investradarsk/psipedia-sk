@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminPartnerCanonicalReturn } from "@/components/admin-partner-canonical-return";
 import { AdminPartnerEventActions } from "@/components/admin-partner-event-actions";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getPartnerEventAdmin } from "@/lib/partner-events-admin";
@@ -23,5 +24,6 @@ export default async function Page({params}:{params:Promise<{id:string}>}){
   {item.operation==="UPDATE"?<section className="admin-form-card admin-profile-diff"><div className="admin-profile-diff-heading"><div><span className="eyebrow">Moderation diff</span><h2>OLD → NEW</h2></div><p>{stale?"Zobrazená je pôvodná, aktuálna a navrhovaná hodnota.":"Zobrazené sú iba explicitne zmenené polia."}</p></div><div className="admin-profile-diff-list">{item.diff.map(field=><article key={String(field.field)} className={field.currentChangedFromBase?"is-stale":undefined}><h3>{String(field.field)}</h3>{stale?<div className="admin-profile-diff-base"><span>Partner pôvodne videl</span><pre>{value(field.baseValue)}</pre></div>:null}<div className="admin-profile-diff-columns"><div><span>Aktuálna hodnota</span><pre>{value(field.currentValue)}</pre></div><div><span>Navrhovaná hodnota</span><pre>{value(field.proposedValue)}</pre></div></div></article>)}</div></section>:null}
   <section className="admin-form-card"><h2>Moderation history</h2><div className="admin-audit-list">{item.moderation.length?item.moderation.map((event,index)=><article key={String((event as {id?:unknown}).id??index)}><strong>{String((event as {action?:unknown}).action??"")}</strong><span>{String((event as {from_status?:unknown}).from_status??"—")} → {String((event as {to_status?:unknown}).to_status??"—")}</span><small>{new Date(String((event as {created_at?:unknown}).created_at??item.createdAt)).toLocaleString("sk-SK")}</small></article>):<p>Bez udalostí.</p>}</div></section>
   {item.active?<AdminPartnerEventActions id={item.id} operation={item.operation} candidateId={item.duplicateCandidateId} hasImage={Boolean(item.media)} isCanonicalDraft={Boolean(item.subjectId)&&item.operation==="CREATE"} canonicalUpdatedAt={item.current?.updatedAt}/>:<section className="admin-form-card"><h2>Výsledok</h2><p>{item.statusLabel}</p>{item.rejectionReasonCode?<p>Dôvod: {item.rejectionReasonCode}</p>:null}{item.resolutionType?<p>Resolution: {item.resolutionType} · event #{item.resolvedEventId}</p>:null}</section>}
+  {item.active&&item.subjectId&&item.operation==="CREATE"?<AdminPartnerCanonicalReturn submissionId={item.id}/>:null}
  </AdminShell>;
 }
