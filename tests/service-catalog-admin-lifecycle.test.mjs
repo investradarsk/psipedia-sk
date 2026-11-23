@@ -29,6 +29,7 @@ function fixture(){
   const sqlite=new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
   sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT NOT NULL, status TEXT NOT NULL)");
+  sqlite.exec("CREATE TABLE directory_profile_additional_categories (profile_id INTEGER NOT NULL, category TEXT NOT NULL, PRIMARY KEY (profile_id,category))");
   sqlite.exec(migration);
   sqlite.exec(auditMigration);
   sqlite.exec(builtinMigration);
