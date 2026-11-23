@@ -80,6 +80,8 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
     <>
       {adminNavigationGroups.map((group, groupIndex) => {
         const groupActive = group.items.some((item) => item.href === active?.href);
+        const navigatesToOverview = !mobile && pathname !== "/admin" &&
+          group.items.some((item) => item.href === "/admin");
         const expanded = mobile || (selectedGroup === group.label || (selectedGroup === null && groupActive));
         return (
         <div className={mobile ? styles.mobileGroup : styles.desktopGroup} key={group.label} data-admin-nav-group={group.label}>
@@ -89,11 +91,12 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
             <button
               type="button"
               className={styles.groupButton}
-              aria-expanded={expanded}
-              aria-controls={`admin-group-${groupIndex}`}
+              aria-expanded={navigatesToOverview ? undefined : expanded}
+              aria-controls={navigatesToOverview ? undefined : `admin-group-${groupIndex}`}
+              aria-label={navigatesToOverview ? "Prejsť na pracovný prehľad" : undefined}
               data-active={groupActive ? "true" : undefined}
               onClick={() => {
-                if (group.items.some((item) => item.href === "/admin") && pathname !== "/admin") {
+                if (navigatesToOverview) {
                   navigateToOverview();
                   return;
                 }
