@@ -45,16 +45,11 @@ async function accessible(page: Page) {
   ))).toEqual([]);
 }
 
-test.beforeEach(async ({ page, baseURL }, testInfo) => {
+test.beforeEach(async ({ page, baseURL }) => {
   if (!baseURL || !["localhost", "127.0.0.1", "::1"].includes(new URL(baseURL).hostname)) {
     throw new Error("Admin UX verification requires an isolated local environment.");
   }
-  await page.addInitScript((articleLegacy: boolean) => {
-    localStorage.setItem("psipedia-cookie-consent", "necessary");
-    // This existing cross-editor regression exercises the original article
-    // sections. The dedicated continuous-editor test covers the new default.
-    if (articleLegacy) localStorage.setItem("psipedia-article-editor-mode", "legacy");
-  }, testInfo.title.startsWith("article:"));
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
 
 const editors = [
@@ -85,19 +80,17 @@ for (const editor of editors) {
     // Wait for the client editor, then verify that moving within the editor
     // never sends a mutation or replaces typed state.
     if (editor.key === "article") {
-      // The article editor deliberately starts in Publikovanie, not in its
-      // content section. Activate Úvod a obsah before asserting visibility
-      // or typing into the title; do not alter the editor's default UI.
+      // Title, excerpt and the continuous document are now one editor workspace.
       const articleNav = page.getByRole("navigation", { name: "Sekcie pracovného editora", exact: true });
       const articleSelect = articleNav.getByRole("combobox");
       if (await articleSelect.isVisible()) {
-        await articleSelect.selectOption("article-basics");
+        await articleSelect.selectOption("article-blocks");
       } else {
-        await articleNav.getByRole("button", { name: "Úvod a obsah", exact: true }).click();
+        await articleNav.getByRole("button", { name: "Editor článku", exact: true }).click();
       }
       await expect(page.locator("#article-basics")).toBeVisible();
-      // Tiptap remains mounted across section changes.
-      await expect(page.locator('#article-intro[data-editor-ready="true"]')).toHaveCount(1);
+      // The single document remains mounted while switching sections.
+      await expect(page.locator('[data-article-continuous-document="editable"]')).toHaveCount(1);
     }
     if (editor.key === "breed") await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
     // Preserve main's hydration gate: the directory is server-rendered before
@@ -159,7 +152,7 @@ for (const editor of editors) {
       // returning to the initial panel must keep the unsaved field value.
       // Restore the initially editable panel, rather than the first menu
       // item: the article's first menu item is publication settings.
-      const initial = editor.key === "article" ? "article-basics" : options[0];
+      const initial = editor.key === "article" ? "article-blocks" : options[0];
       const selectBack = nav.getByRole("combobox");
       if (await selectBack.isVisible()) await selectBack.selectOption(initial);
       else {
