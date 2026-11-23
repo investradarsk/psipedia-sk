@@ -116,7 +116,10 @@ export const agendaEditableFields: Record<BidirectionalAgendaKey, readonly strin
     "Meno", "Slug", "Stav", "Dátum narodenia", "Vek mesiace", "Pohlavie", "Veľkosť", "Hmotnosť",
     "Plemeno", "Kríženec", "Farba", "Mesto", "Okres", "Kraj", "Organizácia",
     "Krátky popis", "Popis", "Povaha", "Aktivita", "Zdravotné poznámky",
-    "Špeciálne potreby", "Hlavný obrázok URL", "Zdroj dát",
+    "Špeciálne potreby", "Vhodný k deťom", "Vhodný k psom", "Vhodný k mačkám",
+    "Vhodný k iným zvieratám", "Očkovanie", "Podmienky adopcie",
+    "Kontaktný e-mail", "Kontaktný telefón", "Kontaktný odkaz",
+    "Hlavný obrázok URL", "Zdroj dát",
   ],
   "help-cases": [
     "Názov", "Slug", "Kategória", "Psipedia stav", "Perex", "Popis", "Organizácia", "Pes", "Plemeno",
@@ -488,23 +491,32 @@ export function adoptionPayload(
     description: s(values["Popis"]),
     temperament: s(values["Povaha"]),
     activityLevel: s(values["Aktivita"]),
-    suitableForChildren: existing?.suitableForChildren ?? "UNKNOWN",
-    suitableForDogs: existing?.suitableForDogs ?? "UNKNOWN",
-    suitableForCats: existing?.suitableForCats ?? "UNKNOWN",
-    suitableForOtherAnimals: existing?.suitableForOtherAnimals ?? "UNKNOWN",
+    suitableForChildren: Object.hasOwn(values, "Vhodný k deťom")
+      ? s(values["Vhodný k deťom"]) || "UNKNOWN" : existing?.suitableForChildren ?? "UNKNOWN",
+    suitableForDogs: Object.hasOwn(values, "Vhodný k psom")
+      ? s(values["Vhodný k psom"]) || "UNKNOWN" : existing?.suitableForDogs ?? "UNKNOWN",
+    suitableForCats: Object.hasOwn(values, "Vhodný k mačkám")
+      ? s(values["Vhodný k mačkám"]) || "UNKNOWN" : existing?.suitableForCats ?? "UNKNOWN",
+    suitableForOtherAnimals: Object.hasOwn(values, "Vhodný k iným zvieratám")
+      ? s(values["Vhodný k iným zvieratám"]) || "UNKNOWN" : existing?.suitableForOtherAnimals ?? "UNKNOWN",
     apartmentSuitable: existing?.apartmentSuitable ?? null,
     beginnerSuitable: existing?.beginnerSuitable ?? null,
     needsExperiencedOwner: existing?.needsExperiencedOwner ?? false,
-    vaccinationStatus: existing?.vaccinationStatus ?? "UNKNOWN",
+    vaccinationStatus: Object.hasOwn(values, "Očkovanie")
+      ? s(values["Očkovanie"]) || "UNKNOWN" : existing?.vaccinationStatus ?? "UNKNOWN",
     chipped: existing?.chipped ?? null,
     neutered: existing?.neutered ?? null,
     healthNotes: s(values["Zdravotné poznámky"]),
     specialNeeds: s(values["Špeciálne potreby"]),
-    adoptionRequirements: existing?.adoptionRequirements ?? "",
+    adoptionRequirements: Object.hasOwn(values, "Podmienky adopcie")
+      ? s(values["Podmienky adopcie"]) : existing?.adoptionRequirements ?? "",
     externalSourceUrl: s(values["Zdroj dát"]) || null,
-    contactEmail: existing?.contactEmail ?? null,
-    contactPhone: existing?.contactPhone ?? null,
-    contactUrl: existing?.contactUrl ?? null,
+    contactEmail: Object.hasOwn(values, "Kontaktný e-mail")
+      ? s(values["Kontaktný e-mail"]) || null : existing?.contactEmail ?? null,
+    contactPhone: Object.hasOwn(values, "Kontaktný telefón")
+      ? s(values["Kontaktný telefón"]) || null : existing?.contactPhone ?? null,
+    contactUrl: Object.hasOwn(values, "Kontaktný odkaz")
+      ? s(values["Kontaktný odkaz"]) || null : existing?.contactUrl ?? null,
     lastVerifiedAt: existing?.lastVerifiedAt ?? null,
   };
 }
