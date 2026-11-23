@@ -92,7 +92,10 @@ const kinds:Record<PartnerCanonicalType,DraftKind> = {
 };
 const helpers:ReadonlySet<PartnerCanonicalType>=new Set(partnerCanonicalTypes);
 const pendingStates=["SUBMITTED","PENDING_REVIEW","QUARANTINED"];
-const editableStates=["DRAFT",...pendingStates,"RETURNED"];
+// Partner may edit only an unsubmitted draft or one explicitly returned by Admin.
+// Freeze the canonical snapshot while review is pending: Admin must never
+// approve data silently changed after the reviewer opened the submission.
+const editableStates=["DRAFT","RETURNED"];
 const CAS_GUARD_SQL="SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('PARTNER_CANONICAL_DRAFT_REVISION_CONFLICT',char(36)) END AS accepted";
 const accountActor=(id:string)=>"partner:"+id;
 function database(input?:D1Database){return getPartnerDatabase(input??(env as unknown as {DB?:D1Database}).DB);}
@@ -370,7 +373,7 @@ export async function savePartnerCanonicalDraft(input:{
     " AND EXISTS(SELECT 1 FROM moderation_submissions s WHERE s.id=?"+
     (entries.length+(row.resourceType==="LOST_FOUND_DOG"?4:5))+
     " AND s.submitter_ref=?"+(entries.length+(row.resourceType==="LOST_FOUND_DOG"?5:6))+
-    " AND s.status IN ('DRAFT','SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED'))";
+    " AND s.status IN ('DRAFT','RETURNED'))";
   const params=[...bindings,nowIso,...(row.resourceType==="LOST_FOUND_DOG"?[]:[accountActor(input.accountId)]),
     row.canonicalId,input.baseUpdatedAt,row.id,input.accountId];
   try{
@@ -379,7 +382,7 @@ export async function savePartnerCanonicalDraft(input:{
       guard(db),
       ...relationStatements,
       db.prepare("UPDATE moderation_submissions SET proposed_patch_json=json_patch(COALESCE(proposed_patch_json,'{}'),?1),updated_at=?2 "+
-        "WHERE id=?3 AND submitter_ref=?4 AND status IN ('DRAFT','SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED')")
+        "WHERE id=?3 AND submitter_ref=?4 AND status IN ('DRAFT','RETURNED')")
         .bind(JSON.stringify(data),nowIso,row.id,input.accountId),
       guard(db),
       ...(mediaPlan?.statements??[]),
