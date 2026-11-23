@@ -6,8 +6,8 @@ import { canonicalArticleSubsectionOptions } from "@/lib/article-subsection-taxo
  * Notion section/subsection explicitly; never invent that destination.
  */
 export type BreedArticlePlacement = {
-  category: string;
-  portalSection: string;
+  category?: string | null;
+  portalSection?: string | null;
   portalSubpage?: string | null;
   relatedBreedIds?: readonly number[];
 };
@@ -21,6 +21,7 @@ export type NotionArticleBreedPlacement = {
 export function notionArticleBreedPlacement(
   article: BreedArticlePlacement,
 ): NotionArticleBreedPlacement | null {
+  if (!article.category || !article.portalSection) return null;
   if (article.portalSection === "clanky") {
     return {
       category: article.category === "Plemená" ? "Plemená" : "Všeobecné články",
