@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2172 724" preserveAspectRatio="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="hill" x1="0" y1="0" x2="1" y2=".6"><stop stop-color="#d8e2d0" stop-opacity="0"/><stop offset=".5" stop-color="#d3dfcb" stop-opacity=".8"/><stop offset="1" stop-color="#b7cbb2" stop-opacity=".9"/></linearGradient>
+    <linearGradient id="low" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d8e2d0" stop-opacity=".68"/><stop offset="1" stop-color="#c2d2bc" stop-opacity=".85"/></linearGradient>
+  </defs>
+  <path d="M1290 542 C1330 416 1505 369 1640 268 C1770 169 1838 -18 2172 -22 L2172 724 L1270 724Z" fill="url(#hill)"/>
+  <path d="M0 576 C262 527 430 708 680 665 C935 626 1033 478 1255 510 C1410 531 1530 617 1721 610 C1941 612 2077 549 2172 505 L2172 724 L0 724Z" fill="url(#low)"/>
+  <path d="M0 612 C200 646 280 713 464 724 L0 724Z" fill="#b44939"/>
+  <path d="M790 724 C1080 700 1240 594 1450 603 C1680 606 1841 686 2040 605 C2111 582 2149 546 2172 528 L2172 724Z" fill="#174d3a"/>
+  <path d="M1275 480 C1211 355 1238 188 1351 91 C1450 4 1599 -29 1737 71" stroke="#b44939" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+</svg>

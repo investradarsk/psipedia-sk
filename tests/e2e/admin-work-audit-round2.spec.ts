@@ -14,17 +14,17 @@ test("Work round 2: article toolbar appears only on editable text tabs and stays
     await page.setViewportSize({ width, height: 900 });
     const response = await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
-    await expect(page.locator('#article-intro[data-editor-ready="true"]')).toHaveCount(1);
+    await expect(page.locator('[data-article-continuous-document="editable"]')).toHaveCount(1);
     await selectArticleTab(page, "article-settings", "Nastavenia");
     await expect(page.locator("[data-admin-tiptap-toolbar]")).toHaveCount(0);
-    await selectArticleTab(page, "article-blocks", "Bloky článku");
+    await selectArticleTab(page, "article-blocks", "Editor článku");
     const toolbar = page.locator("[data-admin-tiptap-toolbar]");
     await expect(toolbar).toBeVisible();
     const tools = toolbar.getByRole("group", { name: "Posúvateľná lišta nástrojov formátovania" });
     await expect(tools).toHaveCSS("flex-wrap", "nowrap");
     const bounds = await toolbar.boundingBox();
     expect(bounds?.height ?? 100).toBeLessThan(85);
-    await selectArticleTab(page, "article-basics", "Úvod a obsah");
+    await expect(page.locator("#article-basics")).toBeVisible();
     await expect(toolbar).toBeVisible();
     await expect.poll(() => page.evaluate(() => {
       const label = document.querySelector('label[for="article-title"]');
