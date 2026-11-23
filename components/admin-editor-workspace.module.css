@@ -195,6 +195,7 @@ dialog.workspaceModal[open] > div:nth-child(3) {
     color: var(--admin-v3-green, #173f2d);
     padding: 0.4rem;
     font: inherit;
+    font-size: 16px;
   }
   .columns,
   .columns[data-editor-columns="with-preview"] { display: block; padding: 0.5rem; overflow: hidden; }

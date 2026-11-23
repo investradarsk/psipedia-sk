@@ -589,6 +589,7 @@
     background: var(--admin-v3-surface, #fff);
     color: var(--admin-v3-ink, #17352b);
     font: inherit;
+    font-size: 16px;
     font-weight: 750;
   }
 

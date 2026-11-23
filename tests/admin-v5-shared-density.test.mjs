@@ -30,7 +30,7 @@ test("Admin V5 retains comfortable mobile touch targets and prevents text-input 
   assert.match(records, /\.mobileViewToggle[\s\S]*?min-height:\s*44px/);
   assert.match(records, /\.mobileSelectAll[\s\S]*?min-height:\s*44px/);
   assert.match(records, /data-mobile-focus="true"/);
-  assert.match(pagination, /@media \(max-width:\s*760px\)[\s\S]*min-width:\s*44px/);
+  assert.match(pagination, /@media \(max-width:\s*820px\)[\s\S]*min-width:\s*44px/);
   assert.match(forms, /@media \(max-width:\s*820px\)[\s\S]*font-size:\s*16px/);
 });
 

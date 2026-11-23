@@ -292,7 +292,10 @@
   .mobileBrand > span { display: none; }
 }
 @media (max-width: 760px) {
+  /* The fixed menu keeps its reserved slot at 320px; avoid document-width drift. */
+  .topbarSticky { box-sizing: border-box; width: 100%; max-width: 100%; }
   .topbarActions { gap: var(--admin-ui-space-xs, 6px); }
+  .workspacePage, .contentArea { max-width: 100%; }
 }
 
 /* Article editor: a single small page heading; ordinary admin headings are unchanged. */
