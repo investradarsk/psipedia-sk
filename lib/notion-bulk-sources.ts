@@ -12,6 +12,9 @@ function s(value: unknown) {
 }
 
 function n(value: unknown) {
+  // Number(null) and Number("") are both 0. Empty D1 numeric columns must
+  // remain empty in Notion; a 0 coordinate or dog weight has real meaning.
+  if (value === null || value === undefined || (typeof value === "string" && !value.trim())) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -294,6 +297,8 @@ export async function loadNotionBulkOrganizations(database: D1Database, targetId
 export async function loadNotionBulkAdoptions(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,name,slug,status,sex,birth_date,approximate_age_months,size,weight,breed_name,breed_mix,color,
     region,district,city,organization_name,main_image,short_description,description,temperament,activity_level,health_notes,special_needs,
+    suitable_for_children,suitable_for_dogs,suitable_for_cats,suitable_for_other_animals,vaccination_status,adoption_requirements,
+    contact_email,contact_phone,contact_url,
     external_source_url FROM adoption_dogs ${targetId === undefined ? "" : "WHERE id = ?"} ORDER BY id ASC`, targetId);
 
   return sourceRows.map((row) => {
@@ -320,6 +325,15 @@ export async function loadNotionBulkAdoptions(database: D1Database, targetId?: n
       "Aktivita": s(row.activity_level),
       "Zdravotné poznámky": s(row.health_notes),
       "Špeciálne potreby": s(row.special_needs),
+      "Vhodný k deťom": s(row.suitable_for_children),
+      "Vhodný k psom": s(row.suitable_for_dogs),
+      "Vhodný k mačkám": s(row.suitable_for_cats),
+      "Vhodný k iným zvieratám": s(row.suitable_for_other_animals),
+      "Očkovanie": s(row.vaccination_status),
+      "Podmienky adopcie": s(row.adoption_requirements),
+      "Kontaktný e-mail": s(row.contact_email),
+      "Kontaktný telefón": s(row.contact_phone),
+      "Kontaktný odkaz": s(row.contact_url),
       "Hlavný obrázok URL": asset(row.main_image),
       "Zdroj dát": s(row.external_source_url),
     }, ["Slug"]);
