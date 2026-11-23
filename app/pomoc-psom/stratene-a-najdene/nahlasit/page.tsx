@@ -1,42 +1,20 @@
-import Link from "next/link";
-import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
-import { LostFoundSubmissionForm } from "@/components/lost-found-submission-form";
-import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
-import { lostFoundSubmissionEnabled } from "@/lib/submission-feature-flags";
-import headerStyles from "@/components/site-header.module.css";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-function UnavailableState({ security = false }: { security?: boolean }) {
-  return (
-    <main id="obsah">
-      <UniversalPageHero eyebrow="Pomoc psom" title="Nahlásiť strateného alebo nájdeného psa" intro="Pošli hlásenie o stratenom alebo nájdenom psovi. Záznam sa zobrazí po kontrole." variant="compact" showSearch={false} />
-      <div className="page-body shell">
-      <section className="article-card article-card--large">
-        <div className="article-card-body">
-          <span className="eyebrow">Pomoc psom</span>
-          <h2>Nahlásenie momentálne nie je dostupné</h2>
-          <p>
-            {security
-              ? "Bezpečnostné overenie formulára momentálne nie je nakonfigurované."
-              : "Verejné nahlasovanie stratených a nájdených psov zatiaľ nie je zapnuté."}
-          </p>
-          <Link className="button button--dark" href="/pomoc-psom/stratene-a-najdene">Späť na hlásenia</Link>
-        </div>
-      </section>
-      </div>
-    </main>
-  );
-}
-
-export default function LostFoundSubmissionPage() {
-  if (!lostFoundSubmissionEnabled()) return <UnavailableState />;
-  const siteKey = getPartnerTurnstileSiteKey();
-  if (!siteKey) return <UnavailableState security />;
-  return (
-    <main id="obsah" className={headerStyles.routeCssAnchor}>
-      <UniversalPageHero eyebrow="Pomoc psom" title="Nahlásiť strateného alebo nájdeného psa" intro="Vyplň hlásenie o psovi. Kontaktné údaje zostanú súkromné a záznam sa zobrazí po kontrole." variant="compact" showSearch={false} />
-      <LostFoundSubmissionForm siteKey={siteKey} />
-    </main>
-  );
+/**
+ * Historical public submission URL. No new anonymous form is rendered.
+ * Existing reports and moderation records remain unchanged in D1.
+ */
+export default async function LostFoundSubmissionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ druh?: string | string[]; type?: string | string[] }>;
+}) {
+  const query = await searchParams;
+  const kind = typeof query.druh === "string" ? query.druh
+    : typeof query.type === "string" ? query.type : "";
+  const target = "/partner/koncepty/novy?typ=LOST_FOUND_DOG"
+    + (kind === "LOST" || kind === "FOUND" ? "&druh=" + kind : "");
+  redirect(target);
 }
