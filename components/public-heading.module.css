@@ -3,7 +3,7 @@
     min-width: 0;
     margin: 0 0 12px;
     color: inherit;
-    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: var(--ps-public-heading-font);
     font-weight: 750;
     letter-spacing: -0.025em;
     text-transform: none;

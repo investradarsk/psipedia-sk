@@ -11,11 +11,9 @@
   --ps-bnr-kicker: #b44939;
   --ps-bnr-button-bg: #174d3a;
   --ps-bnr-art: #174d3a;
-  --ps-bnr-shape: #dce7d7;
   --ps-bnr-button-text: #fff;
   --ps-bnr-border: rgba(23, 77, 58, 0.15);
   --ps-bnr-padding: 18px 22px;
-  --ps-bnr-title-size: clamp(1.3rem, 1.9vw, 1.7rem);
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
@@ -44,7 +42,11 @@
    * page viewport: narrow sidebars exist even on wide desktop screens. */
   container: ps-editorial-banner / inline-size;
 }
+.ps-public-banner-frame[data-banner-visual="light"][data-banner-size] {
+  --ps-bnr-waves: url("/images/psipedia-banner-waves-light.svg");
+}
 .ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] {
+  --ps-bnr-waves: url("/images/psipedia-banner-waves-dark.svg");
   --ps-bnr-bg: #174d3a;
   --ps-bnr-ink: #fffaf0;
   --ps-bnr-body: #e0e9e2;
@@ -52,13 +54,15 @@
   --ps-bnr-button-bg: #b44939;
   --ps-bnr-button-text: #fff;
   --ps-bnr-art: #e1eee5;
-  --ps-bnr-shape: #376b53;
   --ps-bnr-border: rgba(23, 53, 43, 0.3);
   border-color: var(--ps-bnr-border);
 }
 .ps-public-banner-frame[data-banner-size="small"] {
   --ps-bnr-padding: 14px 16px;
   --ps-bnr-title-size: 1.15rem;
+}
+.ps-public-banner-frame[data-banner-size="medium"] {
+  --ps-bnr-title-size: clamp(1.3rem, 1.9vw, 1.7rem);
 }
 .ps-public-banner-frame[data-banner-size="large"] {
   --ps-bnr-padding: clamp(24px, 3.8vw, 36px);
@@ -67,7 +71,8 @@
 /* Remove the old photo art without altering text, anchors, promo targeting
  * or partner artwork (which does not use PublicBannerFrame). */
 .ps-public-banner-frame[data-banner-visual][data-banner-size] > span[aria-hidden="true"],
-.ps-public-banner-frame[data-banner-visual][data-banner-size][data-public-context-banner] > div:not([data-public-banner-content]) {
+.ps-public-banner-frame[data-banner-visual][data-banner-size][data-public-context-banner]
+  > div:not([data-public-banner-content]) {
   display: none !important;
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
@@ -85,30 +90,29 @@
   grid-column: auto;
   grid-row: auto;
 }
- .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(h2, h3, strong) {
+.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(h2, h3, strong) {
   color: var(--ps-bnr-ink) !important;
 }
-.ps-public-banner-frame[data-banner-visual][data-banner-size] [class*="reportCopy"] strong {
-  font-family: inherit;
+.ps-public-banner-frame[data-banner-visual][data-banner-size]
+  :is(h2, h3, [class*="reportCopy"] strong) {
+  margin: 0;
+  font-family: var(--ps-public-heading-font);
   font-size: var(--ps-bnr-title-size) !important;
   font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
 }
-.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(h2, h3) {
-  margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: var(--ps-bnr-title-size) !important;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-}
-.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(p, [data-public-banner-content] .bannerDescription) {
+.ps-public-banner-frame[data-banner-visual][data-banner-size]
+  :is(p, [data-public-banner-content] .bannerDescription) {
   color: var(--ps-bnr-body) !important;
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(.eyebrow, [class*="Eyebrow"]) {
   color: var(--ps-bnr-kicker) !important;
 }
 /* All editorial banner actions have one contrast-safe treatment per theme. */
-.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(a[data-public-action], a.article-block-cta-button) {
+.ps-public-banner-frame[data-banner-visual][data-banner-size]
+  :is(a[data-public-action], a.article-block-cta-button) {
   min-height: 44px;
   max-width: 100%;
   padding: 10px 14px;
@@ -120,10 +124,13 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
-.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(a[data-public-action], a.article-block-cta-button) :is(span, svg) {
+.ps-public-banner-frame[data-banner-visual][data-banner-size]
+  :is(a[data-public-action], a.article-block-cta-button)
+  :is(span, svg) {
   color: inherit !important;
 }
-.ps-public-banner-frame[data-banner-visual][data-banner-size] :is(a[data-public-action], a.article-block-cta-button):focus-visible {
+.ps-public-banner-frame[data-banner-visual][data-banner-size]
+  :is(a[data-public-action], a.article-block-cta-button):focus-visible {
   outline: 3px solid #b44939;
   outline-offset: 3px;
 }
@@ -158,7 +165,8 @@
   }
 }
 /* Readable actions in additional CTA adapters (hub, safety alert and article). */
-.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] :is([class*="lead"], [class*="text"], [class*="description"]) {
+.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size]
+  :is([class*="lead"], [class*="text"], [class*="description"]) {
   color: var(--ps-bnr-body) !important;
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [class*="actions"] a {
@@ -176,18 +184,19 @@
  * independent mobile copy and the protected per-placement release workflow. */
 @media (min-width: 621px) {
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-visual="light"] {
+    --ps-bnr-waves: url("/images/psipedia-banner-waves-light.svg");
     --ps-bnr-bg: #f7f2e9;
     --ps-bnr-ink: #174d3a;
     --ps-bnr-body: #4b6156;
     --ps-bnr-kicker: #b44939;
     --ps-bnr-button-bg: #174d3a;
     --ps-bnr-art: #174d3a;
-    --ps-bnr-shape: #dce7d7;
     --ps-bnr-button-text: #fff;
     --ps-bnr-border: rgba(23, 53, 43, 0.17);
     border-color: var(--ps-bnr-border);
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-visual="dark"] {
+    --ps-bnr-waves: url("/images/psipedia-banner-waves-dark.svg");
     --ps-bnr-bg: #174d3a;
     --ps-bnr-ink: #fffaf0;
     --ps-bnr-body: #e0e9e2;
@@ -195,7 +204,6 @@
     --ps-bnr-button-bg: #b44939;
     --ps-bnr-button-text: #fff;
     --ps-bnr-art: #e1eee5;
-    --ps-bnr-shape: #376b53;
     --ps-bnr-border: rgba(23, 53, 43, 0.3);
     border-color: var(--ps-bnr-border);
   }
@@ -214,23 +222,30 @@
 }
 /* The shared copy adapter uses generated CSS-module class names. Target the
  * semantic child structure, never guessed hashes, so the dark body is readable. */
-.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > div > div {
+.ps-public-banner-frame[data-banner-visual][data-banner-size]
+  [data-public-banner-content]
+  > div
+  > div {
   color: var(--ps-bnr-body) !important;
 }
 
 @media (min-width: 721px) {
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"] [data-public-banner-content] {
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"]
+    [data-public-banner-content] {
     grid-template-columns: minmax(0, 1fr);
   }
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"] [data-public-banner-content] > a {
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="small"]
+    [data-public-banner-content]
+    > a {
     justify-self: start;
   }
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="medium"] [data-public-banner-content],
-  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="large"] [data-public-banner-content] {
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="medium"]
+    [data-public-banner-content],
+  .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="large"]
+    [data-public-banner-content] {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 }
-
 
 /* A 250px article rail and a 400px inset card must not keep the desktop
  * copy + CTA columns just because the viewport is wider than 720px.
@@ -250,7 +265,9 @@
     justify-self: stretch;
     box-sizing: border-box;
   }
-  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] :is(h2, h3, .eyebrow) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size]
+    [data-public-banner-content]
+    :is(h2, h3, .eyebrow) {
     overflow-wrap: break-word;
     word-break: normal;
   }
@@ -297,24 +314,19 @@
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::before {
   inset: 0;
-  background: url("/images/psipedia-banner-waves-light.svg") center / 100% 100% no-repeat;
-  opacity: .92;
-}
-.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] [data-ps-banner-art]::before {
-  background-image: url("/images/psipedia-banner-waves-dark.svg");
+  background: var(--ps-bnr-waves) center / 100% 100% no-repeat;
+  mask-image: linear-gradient(90deg, transparent 28%, #000 80%);
+  opacity: 0.55;
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::after {
-  right: 2%;
-  bottom: 0;
-  width: 26%;
-  height: 97%;
+  right: 3%;
+  bottom: 8%;
+  width: 24%;
+  height: 84%;
   background: var(--ps-bnr-art);
   -webkit-mask: url("/images/psipedia-banner-dog-outline.svg") center bottom / contain no-repeat;
   mask: url("/images/psipedia-banner-dog-outline.svg") center bottom / contain no-repeat;
-  opacity: .78;
-}
-.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] [data-ps-banner-art]::after {
-  opacity: .7;
+  opacity: 0.58;
 }
 /* Reserve the full right-hand illustration lane. Padding the original grid did
  * not solve the overlap because CTA widths and desktop overrides vary. */
@@ -336,8 +348,9 @@
 }
 /* No large drawings in the sidebar, inside a 520px article, or on a narrow
  * mobile viewport. The S variant keeps a barely visible green tonal accent. */
-.ps-public-banner-frame[data-banner-size="small"] [data-ps-banner-art]::before {
-  background: linear-gradient(160deg, transparent 58%, rgba(122, 151, 127, .12));
+.ps-public-banner-frame[data-banner-visual][data-banner-size="small"] [data-ps-banner-art]::before {
+  background: linear-gradient(160deg, transparent 58%, rgba(122, 151, 127, 0.12));
+  mask-image: none;
   opacity: 1;
 }
 .ps-public-banner-frame[data-banner-size="small"] [data-ps-banner-art]::after {
@@ -363,16 +376,17 @@
     display: none;
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::before {
-    opacity: .16;
+    opacity: 0.16;
   }
-  .ps-public-banner-frame[data-banner-size="small"] [data-ps-banner-art]::before {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size="small"]
+    [data-ps-banner-art]::before {
     opacity: 1;
   }
 }
 /* These are safety alerts, not promotional artwork. */
 .ps-public-banner-frame[data-banner-semantic="urgent"] {
   --ps-bnr-bg: #fffaf6;
-  --ps-bnr-border: rgba(180, 73, 57, .28);
+  --ps-bnr-border: rgba(180, 73, 57, 0.28);
   --ps-bnr-ink: #174d3a;
   --ps-bnr-body: #4b6156;
 }
