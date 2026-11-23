@@ -108,6 +108,9 @@ test("Admin-only page is a compact read-only view; original routes remain edit a
  const dashboard=read("components/admin-inquiry-dashboard.tsx");
  assert.match(page,/requireAdminPageUser\("\/admin\/podania"\)/);
  assert.match(page,/listAdminInbox\(filters\)/);
+ assert.match(page,/<Suspense fallback=/);
+ assert.match(page,/<InboxContent filters=\{filters\}/);
+ assert.match(page,/Spoločný prehľad momentálne nie je dostupný/);
  assert.match(page,/data-admin-submission-inbox/);
  assert.match(page,/aria-label="Stránkovanie podaní"/);
  assert.match(page,/item.reviewHref/);
