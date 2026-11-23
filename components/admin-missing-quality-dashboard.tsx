@@ -24,6 +24,10 @@ const GROUPS = [
   {id:"other",label:"Ostatné"},
 ];
 function plural(n:number) { return n===1?"nález":n>1&&n<5?"nálezy":"nálezov"; }
+function safeQualityHref(value:string):string|null {
+  try { const url=new URL(value); return ["https:","http:"].includes(url.protocol)?url.href:null; }
+  catch { return null; }
+}
 const ERROR_LABELS: Record<string, string> = {
   AUTH_FAILED: "Neplatné oprávnenie Tavily",
   RATE_LIMITED: "Priveľa požiadaviek Tavily",
@@ -201,7 +205,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       <div>
         <span className={styles.eyebrow}>Nájdené nové údaje na schválenie</span>
         <div className={styles.total} aria-live="polite">{Math.max(0,total)}</div>
-        <p className={styles.subtle}>Po schválení alebo zamietnutí sa počet automaticky zníži.</p>
+        <p className={styles.subtle}>Otvorené návrhy v evidencii vrátane zatiaľ neoverených. Na tejto stránke je {items.length} aktuálnych nálezov.</p>
       </div>
       <div className={styles.month}>
         <h2>Tento mesiac – pokusy o kontrolu</h2>
@@ -322,7 +326,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
         })}
       </div>
       <AdminFormFeedback error={noticeError?notice:undefined} message={!noticeError?notice:undefined} className={styles.notice}/>
-      {data.truncated?<p className={styles.subtle}>Zobrazuje sa prvých 1 000 návrhov. Po ich spracovaní sa načítajú ďalšie.</p>:null}
+      <p className={styles.subtle}>Filtre a vyhľadávanie profilu pracujú s načítanou stránkou (najviac 100 nálezov).</p>
       {shown.length===0?<div className={styles.empty}>V tejto kategórii zatiaľ nie sú žiadne nájdené údaje na schválenie.</div>:(
         <>
           <div className={styles.list}>
@@ -346,7 +350,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                     {editingProposalId===p.id?
                       <div className={styles.inlineCorrection}>
                         <label htmlFor={"quality-correction-"+p.id}>Upravená verejná hodnota</label>
-                        <input id={"quality-correction-"+p.id} type={p.field_group==="email"?"email":p.field_group==="phone"?"tel":"url"}
+                        <input id={"quality-correction-"+p.id} type="text"
                           value={correctedValue} maxLength={2048} disabled={busy!==null||bulkBusy||manualBusy}
                           onChange={event=>setCorrectedValue(event.target.value)} />
                         <small>Uloženie zároveň schváli nález a doplní údaj do profilu. Pôvodný nález: {p.value}</small>
@@ -357,8 +361,8 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                           ? "/api/admin/data-quality/missing/"+p.id+"/image" : p.value}
                         label={p.profile_label} onPreview={setPreview}
                         onBroken={()=>setBrokenImages(prev=>prev.includes(p.id)?prev:[...prev,p.id])} />:
-                      ["web","social","registration"].includes(p.field_group)?
-                        <a href={p.value} target="_blank" rel="noopener noreferrer" className={styles.value}>{p.value} ↗</a>:
+                      ["web","social","registration"].includes(p.field_group)&&safeQualityHref(p.value)?
+                        <a href={safeQualityHref(p.value)!} target="_blank" rel="noopener noreferrer" className={styles.value}>{p.value} ↗</a>:
                         <div className={styles.value}>{p.value}</div>
                     }
                   </div>
@@ -367,7 +371,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                   <span className={styles.source}>Overený obrázok uložený v Psipedia na schválenie.</span>:null}
                 {p.field_group==="image"&&brokenImages.includes(p.id)?
                   <span className={styles.lastError}>Náhľad nefunguje. Tento obrázok neschvaľuj; vyhľadaj iný.</span>:null}
-                {p.source_url&&p.source_url!==p.value?<a className={styles.source} href={p.source_url} rel="noopener noreferrer" target="_blank">Otvoriť zdroj ↗</a>:null}
+                {p.source_url&&p.source_url!==p.value&&safeQualityHref(p.source_url)?<a className={styles.source} href={safeQualityHref(p.source_url)!} rel="noopener noreferrer" target="_blank">Otvoriť zdroj ↗</a>:null}
               </div>
               <div className={styles.actions}>
                 {editingProposalId===p.id?<>
@@ -394,6 +398,12 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
         </>
       )}
     </section>
+    <nav aria-label="Stránkovanie nálezov" className={styles.footer}>
+      {data.pageBefore!==null?<a className={styles.profileLink} href="/admin/kvalita">Na najnovšie nálezy</a>:null}
+      {data.nextBefore!==null?<a className={styles.profileLink} href={"/admin/kvalita?before="+data.nextBefore}>
+        Staršie nálezy →</a>:null}
+      {data.nextBefore===null&&data.pageBefore!==null?<span className={styles.subtle}>Koniec evidencie.</span>:null}
+    </nav>
     {preview?<div className={styles.previewOverlay} role="dialog" aria-modal="true" aria-label="Náhľad obrázka">
       <div className={styles.previewDialog}>
         <button type="button" className={styles.reject} onClick={()=>setPreview(null)}>Zavrieť náhľad</button>
