@@ -871,7 +871,7 @@ export async function getPublishedBreedArticleGroupTeasers(
       SELECT DISTINCT r.article_id, b.fci_group
       FROM breed_article_relations r
       JOIN managed_breeds b ON b.id = r.breed_id
-      WHERE b.fci_group BETWEEN 1 AND 10
+      WHERE b.status = 'published' AND b.fci_group BETWEEN 1 AND 10
     ),
     ranked AS (
       SELECT a.*, linked.fci_group,
@@ -927,7 +927,7 @@ export async function getPublishedBreedArticleArchivePage(options: {
     ? `AND EXISTS (
         SELECT 1 FROM breed_article_relations r
         JOIN managed_breeds b ON b.id = r.breed_id
-        WHERE r.article_id = a.id AND b.fci_group = ?
+        WHERE r.article_id = a.id AND b.status = 'published' AND b.fci_group = ?
       )` : "";
   const args: (string | number)[] = [now, ...(validGroup ? [validGroup] : []), ...(query ? [`%${query}%`, `%${query}%`] : [])];
   const searchCondition = query ? "AND (a.title LIKE ? OR a.excerpt LIKE ?)" : "";
