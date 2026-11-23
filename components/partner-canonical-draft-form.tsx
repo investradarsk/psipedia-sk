@@ -43,6 +43,8 @@ function initialValues(type:PartnerCanonicalType,definitions:Props["definitions"
     else if(field.kind==="datetime-local")values[field.key]=partnerLostFoundTimeForInput(String(value??""));
     else if(value!==null&&value!==undefined)values[field.key]=String(value);
     else if(field.key==="countryCode")values[field.key]="SK";
+    else if(field.key==="public_location_precision")values[field.key]="MUNICIPALITY";
+    else if(field.kind==="select"&&field.options?.includes("UNKNOWN"))values[field.key]="UNKNOWN";
     else if(field.required&&field.options?.length&&field.key!=="category")values[field.key]=field.options[0];
     else values[field.key]="";
   }
