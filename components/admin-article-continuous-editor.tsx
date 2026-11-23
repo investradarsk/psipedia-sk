@@ -149,14 +149,8 @@ const ArticleWidget = Node.create({
 });
 
 const editableExtensions = [...articleTiptapExtensions, ArticleOrigin, ArticleWidget];
-const insertTypes: ArticleBlock["type"][] = [
-  "text", "h2", "h3", "image", "gallery", "bullet-list", "numbered-list",
-  "tip", "warning", "quote", "table", "source", "related", "psipedia-promo", "cta", "embed",
-];
-
 export function AdminArticleContinuousEditor(props: Props) {
   const [invalid, setInvalid] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
   const scope = useArticleTiptapScope();
   const scopeRef = useRef(scope);
   const callbackRef = useRef(props.onChange);
@@ -239,10 +233,19 @@ export function AdminArticleContinuousEditor(props: Props) {
     const from = editor.state.selection.from;
     const insertAt = Math.max(from, boundaryEnd);
     editor.chain().focus().insertContentAt(insertAt, nodes).run();
-    // Only pre-existing native blocks need removal confirmation. An undo after
-    // inserting a brand-new widget must remain possible without a false error.
-    setPickerOpen(false);
+    // Only pre-existing native blocks need removal confirmation on removal.
   };
+
+  // The sticky formatting toolbar owns the insert menu. Keep this callback live
+  // without re-registering on every paragraph edit or cursor movement.
+  const insertRef = useRef(insert);
+  insertRef.current = insert;
+  const registerInsertWidget = scope?.registerInsertWidget;
+  useEffect(() => {
+    if (!editor || prepared.initialError || !registerInsertWidget) return;
+    registerInsertWidget(type => insertRef.current(type));
+    return () => registerInsertWidget(null);
+  }, [editor, prepared.initialError, registerInsertWidget]);
 
   const widgetActions = useMemo<WidgetActions>(() => ({
     currentArticleId: props.currentArticleId,
@@ -260,15 +263,6 @@ export function AdminArticleContinuousEditor(props: Props) {
         Súvislý editor nie je pre tento článok dostupný: {prepared.initialError}
         Pôvodný obsah zostal bez zmeny. Použi tlačidlo Pôvodný editor.
       </p> : <>
-      <div className={styles.insertBar}>
-        <button type="button" onClick={() => setPickerOpen(open => !open)} aria-expanded={pickerOpen}>
-          + Vložiť prvok do článku
-        </button>
-        <small>Text a nadpisy upravuješ priamo v dokumente. Obrázky, zdroje, tabuľky a bannery otvoríš kliknutím na Upraviť.</small>
-        {pickerOpen && <div className={styles.insertPicker}>
-          {insertTypes.map(type => <button key={type} type="button" onClick={() => insert(type)}>{articleBlockLabels[type]}</button>)}
-        </div>}
-      </div>
       <div className={styles.paper}>
         <EditorContent editor={editor} className={styles.prose + " " + styles.editableProse} />
         {!editor && <p role="status">Pripravujem editor článku…</p>}
