@@ -396,7 +396,8 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
       CASE WHEN s.status='QUARANTINED' OR ${RISK_FLAG_SQL}>0 THEN 0 ELSE 1 END AS priorityRank,
       CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN s.created_at ELSE s.updated_at END AS relevantAt,
       json_object('id',s.id,'resourceType',s.resource_type,'operation',s.operation,'status',s.status,
-        'riskFlagsJson',COALESCE(s.risk_flags_json,'[]'),'createdAt',s.created_at,'updatedAt',s.updated_at) AS payload
+        'riskFlagsJson',COALESCE(s.risk_flags_json,'[]'),'subjectId',s.subject_id,
+        'createdAt',s.created_at,'updatedAt',s.updated_at) AS payload
     FROM moderation_submissions s
     WHERE s.resource_type IN ('LOST_FOUND_CASE','ADOPTION_DOG')
   `,
