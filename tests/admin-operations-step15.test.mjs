@@ -51,8 +51,10 @@ test("step 15: Notion and technical tools retain the original destinations", () 
     assert.ok(tools.includes('href="' + href + '"'), href);
   }
   assert.match(notion, /data-admin-content-module="notion-audit"/);
-  assert.match(notion, /<AdminNotionSyncOverview/);
-  assert.match(notion, /<AdminNotionDataQualityAudit/);
+  assert.match(notion, /<AdminNotionWorkspace initialTab="issues"/);
+  const workspace = read("components/admin-notion-sync-overview.tsx");
+  assert.match(workspace, /<AdminNotionSyncOverview view="issues"/);
+  assert.match(workspace, /<AdminNotionDataQualityAudit/);
   assert.match(layout, /import "\.\/admin-operations-step15\.css";/);
 });
 
