@@ -179,6 +179,18 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
 });
 
+test("anonymous LOST and FOUND creation preserve their exact type through Partner login", async ({ page }) => {
+  for (const kind of ["LOST", "FOUND"] as const) {
+    const target = "/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=" + kind;
+    await page.goto(target, { waitUntil: "domcontentloaded" });
+    const url = new URL(page.url());
+    expect(url.pathname).toBe("/partner/prihlasenie");
+    expect(url.searchParams.get("returnTo")).toBe(target);
+    await expect(page.getByRole("link", { name: "Vytvoriť Partner účet" }))
+      .toHaveAttribute("href", "/partner/registracia?returnTo=" + encodeURIComponent(target));
+  }
+});
+
 test("public header exposes Partner login as a utility action without overflow", async ({ page }, testInfo) => {
   // The isolated Partner E2E D1 fixture does not seed Homepage-only visual tables.
   // Exercise the same shared public header on a static public page instead.
