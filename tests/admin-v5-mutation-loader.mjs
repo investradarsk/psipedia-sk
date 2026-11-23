@@ -32,6 +32,15 @@ const mocked = {
     export async function createPromotion() { count("monetization"); return "promotion"; }
     export async function updateDirectCampaignStatus() { count("monetization"); }
     export async function updatePromotionStatus() { count("monetization"); }`,
+  "@/lib/outreach-security": 'export function assertOutreachJsonMutation(request) { if (!(request.headers.get("content-type") ?? "").includes("application/json")) throw new Error("Expected JSON"); }',
+  "@/lib/outreach-store": `${count}
+    export async function getOutreachAdminData() { return {}; }
+    export async function createOutreachCampaign() { count("outreach"); return { id: "1" }; }
+    export async function transitionOutreachCampaign() { count("outreach"); return { id: "1" }; }
+    export async function prepareOutreachCampaign() { count("outreach"); return { id: "1" }; }
+    export async function previewOutreachCampaign() { count("outreach"); return {}; }
+    export async function sendOutreachCampaignBatch() { count("outreach"); return { sent: 1 }; }
+    export async function reviewOutreachResponse() { count("outreach"); return { id: "1" }; }`,
 };
 
 export async function resolve(specifier, context, nextResolve) {

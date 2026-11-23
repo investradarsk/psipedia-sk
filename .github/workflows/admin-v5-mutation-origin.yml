@@ -7,6 +7,7 @@ on:
       - 'app/api/admin/address-research-import/apply/**'
       - 'app/api/admin/name-days/**'
       - 'app/api/admin/monetization/**'
+      - 'app/api/admin/outreach/**'
       - 'lib/admin-auth.ts'
       - 'lib/admin-mutation-origin.ts'
       - 'tests/admin-v5-mutation-origin.test.mjs'

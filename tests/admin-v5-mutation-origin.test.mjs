@@ -9,6 +9,12 @@ import { GET as getNames, POST as createName } from "../app/api/admin/name-days/
 import { PUT as editName, DELETE as archiveName } from "../app/api/admin/name-days/[id]/route.ts";
 import { POST as importNames } from "../app/api/admin/name-days/import/route.ts";
 import { GET as getMonetization, POST as addMonetization, PATCH as updateMonetization } from "../app/api/admin/monetization/route.ts";
+import { POST as createOutreach } from "../app/api/admin/outreach/campaigns/route.ts";
+import { PATCH as changeOutreach } from "../app/api/admin/outreach/campaigns/[id]/route.ts";
+import { POST as prepareOutreach } from "../app/api/admin/outreach/campaigns/[id]/prepare/route.ts";
+import { POST as previewOutreach } from "../app/api/admin/outreach/campaigns/[id]/preview/route.ts";
+import { POST as sendOutreach } from "../app/api/admin/outreach/campaigns/[id]/send/route.ts";
+import { PATCH as reviewOutreach } from "../app/api/admin/outreach/responses/[id]/route.ts";
 
 const ADMIN = { authProvider: "chatgpt", email: "admin@example.com", displayName: "Admin", fullName: "Admin" };
 const PNG = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aOioAAAAASUVORK5CYII=", "base64"));
@@ -24,6 +30,12 @@ const cases = [
   { label: "name-days/import POST", path: "name-days/import", handler: importNames, body: '{"records":[],"apply":true}', status: 200 },
   { label: "monetization POST", path: "monetization", handler: addMonetization, body: '{"kind":"promotion"}', status: 201 },
   { label: "monetization PATCH", path: "monetization", method: "PATCH", handler: updateMonetization, body: '{"kind":"promotion","id":"x","status":"active"}', status: 200 },
+  { label: "outreach campaign POST", path: "outreach/campaigns", handler: createOutreach, body: '{"title":"Test"}', status: 201 },
+  { label: "outreach campaign PATCH", path: "outreach/campaigns/1", method: "PATCH", handler: changeOutreach, params, body: '{"action":"pause"}', status: 200 },
+  { label: "outreach prepare POST", path: "outreach/campaigns/1/prepare", handler: prepareOutreach, params, status: 200 },
+  { label: "outreach preview POST", path: "outreach/campaigns/1/preview", handler: previewOutreach, params, status: 200 },
+  { label: "outreach send POST", path: "outreach/campaigns/1/send", handler: sendOutreach, params, body: '{"limit":1}', status: 200 },
+  { label: "outreach response PATCH", path: "outreach/responses/1", method: "PATCH", handler: reviewOutreach, params, body: '{"status":"APPROVED"}', status: 200 },
 ];
 
 function makeRequest(item, { origin, site, headers: extraHeaders } = {}) {
@@ -52,6 +64,9 @@ test("all selected live write handlers use strict provenance before parsing or s
     "uploads/route.ts", "analytics-device/route.ts", "address-research-import/apply/route.ts",
     "name-days/route.ts", "name-days/[id]/route.ts", "name-days/import/route.ts",
     "monetization/route.ts",
+    "outreach/campaigns/route.ts", "outreach/campaigns/[id]/route.ts",
+    "outreach/campaigns/[id]/prepare/route.ts", "outreach/campaigns/[id]/preview/route.ts",
+    "outreach/campaigns/[id]/send/route.ts", "outreach/responses/[id]/route.ts",
   ];
   let count = 0;
   for (const path of paths) {
@@ -69,7 +84,7 @@ test("all selected live write handlers use strict provenance before parsing or s
       if (parseAt >= 0) assert.ok(guardAt >= 0 && guardAt < parseAt, path + " guard before parsing");
     }
   }
-  assert.equal(count, 9, "all nine HTTP mutator exports are covered");
+  assert.equal(count, 15, "all 15 HTTP mutator exports are covered");
 });
 
 test("authenticated first-party Origin and Fetch Metadata fallback allow real route mutations", async () => {
@@ -89,6 +104,7 @@ test("authenticated first-party Origin and Fetch Metadata fallback allow real ro
   assert.ok(globalThis.__v5Writes.name >= 3, "valid name mutations still persist");
   assert.ok(globalThis.__v5Writes.address >= 3, "valid address imports still apply");
   assert.ok(globalThis.__v5Writes.monetization >= 6, "valid monetization writes still persist");
+  assert.ok(globalThis.__v5Writes.outreach >= 18, "legitimate outreach mutations, including sends, remain available");
 });
 
 test("cross-site, conflicting Fetch Metadata, missing and opaque provenance block every selected write", async () => {
