@@ -81,6 +81,34 @@ test("unified inbox links historical public report to exact original editor, wit
   assert.match(inbox,/LIMIT \?4 OFFSET \?5/);
 });
 
+
+test("all six canonical record types can be returned to edit without legacy duplicate handling",()=>{
+  const component=read("components/admin-partner-canonical-return.tsx");
+  const api=read("app/api/admin/partners/canonical-drafts/[id]/route.ts");
+  const workflow=read("lib/partner-canonical-workflow.ts");
+  const editor=read("components/partner-canonical-draft-form.tsx");
+  assert.match(component,/fetch\("\/api\/admin\/partners\/canonical-drafts\/"\+encodeURIComponent\(submissionId\)/);
+  assert.match(component,/JSON.stringify\(\{action:"RETURN",note\}\)/);
+  assert.match(component,/reason.trim\(\)/);
+  assert.match(component,/router.refresh\(\)/);
+  assert.match(api,/action:body.action as "APPROVE"\|"REJECT"\|"RETURN"/);
+  assert.match(workflow,/input.action==="RETURN"/);
+  assert.match(workflow,/outcome=input.action==="APPROVE"\?"APPROVED":input.action==="RETURN"\?"RETURNED":"REJECTED"/);
+  assert.match(workflow,/reasonCode:input.action==="RETURN"\?input.note\?\.trim\(\)/);
+  assert.match(editor,/initial\?\.returnReason&&status==="RETURNED"/);
+  const cases=[
+    ["app/admin/partners/submissions/[id]/page.tsx","submission.active&&submission.subjectId"],
+    ["app/admin/partners/help-submissions/[id]/page.tsx","item.active&&item.canonicalId"],
+    ["app/admin/partners/events/[id]/page.tsx",'item.active&&item.subjectId&&item.operation==="CREATE"'],
+  ];
+  for(const [file,guard] of cases){
+    const page=read(file);
+    assert.ok(page.includes('AdminPartnerCanonicalReturn'),file);
+    assert.ok(page.includes(guard),file);
+    assert.match(page,/submissionId=\{/);
+  }
+});
+
 test("new workflow preserves original moderation, ownership, Notion and email queues",()=>{
   const workflow=read("lib/partner-canonical-workflow.ts");
   const media=read("lib/partner-lost-found-resolution.ts");
