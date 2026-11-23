@@ -489,3 +489,27 @@ test("attention source count chips filter the queue directly", () => {
   assert.doesNotMatch(page, /href="\/admin\/operations\?source=AUTOMATION_ACTION#centrum-pozornosti"/);
   assert.match(page, /Prejsť na upozornenia ↓/);
 });
+
+
+test("approved lost/found public submissions retain a direct admin link in history", () => {
+  const submitted = {
+    id: "uuid-public-submission",
+    resourceType: "LOST_FOUND_CASE",
+    operation: "CREATE",
+    subjectId: "1872",
+    status: "APPROVED",
+    riskFlagsJson: "[]",
+    createdAt: "2026-09-14T09:00:00.000Z",
+    updatedAt: "2026-09-15T11:00:00.000Z",
+  };
+  const approved = mapModerationAttention(submitted, NOW);
+  assert.equal(approved?.attentionState, "RESOLVED");
+  assert.equal(approved?.targetHref, "/admin/stratene-najdene/1872");
+  assert.match(approved?.title ?? "", /1872/);
+  assert.equal(approved?.metadata?.find(entry => entry.label === "ID hlásenia")?.value, "1872");
+  assert.equal(mapModerationAttention({ ...submitted, resourceType: "ADOPTION_DOG" }, NOW)?.targetHref, "/admin/adopcie/1872");
+  for (const malformed of ["12abc", "0", "-1", "../123", "9007199254740992", ""]) {
+    assert.equal(mapModerationAttention({ ...submitted, subjectId: malformed }, NOW)?.targetHref, "/admin/stratene-najdene");
+  }
+  assert.equal(mapModerationAttention({ ...submitted, subjectId: null }, NOW)?.targetHref, "/admin/stratene-najdene");
+});
