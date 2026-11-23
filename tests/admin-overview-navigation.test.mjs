@@ -6,10 +6,22 @@ const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf
 
 test("desktop Prehľad header navigates home, not just expands a disclosure", () => {
   const source = read("components/admin-navigation.tsx");
-  assert.match(source, /group\.items\.some\(\(item\) => item\.href === "\/admin"\) && pathname !== "\/admin"/);
-  assert.match(source, /navigateToOverview\(\);\s*return;/);
+  assert.match(source, /const navigatesToOverview = !mobile && pathname !== "\/admin" &&\s*group\.items\.some\(\(item\) => item\.href === "\/admin"\)/);
+  assert.match(source, /if \(navigatesToOverview\) \{\s*navigateToOverview\(\);\s*return;/);
+  assert.match(source, /aria-expanded=\{navigatesToOverview \? undefined : expanded\}/);
+  assert.match(source, /aria-controls=\{navigatesToOverview \? undefined : /);
+  assert.match(source, /aria-label=\{navigatesToOverview \? "Prejsť na pracovný prehľad" : undefined\}/);
   assert.match(source, /const navigate = \(\) => router\.push\("\/admin"\)/);
   assert.match(source, /setExpandedDesktopGroup\(\{ pathname, group: expanded \? "" : group\.label \}\)/);
+});
+
+test("accepted programmatic transitions are watched by the existing Admin navigation recovery", () => {
+  const client = read("instrumentation-client.ts");
+  const recovery = read("components/admin-navigation-recovery.tsx");
+  assert.match(client, /export function onRouterTransitionStart\(href: string, navigationType: "push" \| "replace" \| "traverse"\)/);
+  assert.match(client, /window\.dispatchEvent\(new CustomEvent<AdminNavigationStartDetail>\(ADMIN_NAVIGATION_START_EVENT/);
+  assert.match(recovery, /window\.addEventListener\(ADMIN_NAVIGATION_START_EVENT, onStart\)/);
+  assert.match(recovery, /setStalled\(true\)/);
 });
 
 test("programmatic header navigation honors the dirty-editor confirmation", () => {
