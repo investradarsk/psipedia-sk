@@ -33,7 +33,7 @@
   border: 1px solid var(--ps-bnr-border);
   border-left-width: 1px !important;
   border-left-color: var(--ps-bnr-border) !important;
-  border-radius: 14px !important;
+  border-radius: 0 !important;
   background: var(--ps-bnr-bg) !important;
   background-image: none !important;
   box-shadow: none;
