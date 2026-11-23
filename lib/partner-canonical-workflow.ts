@@ -559,8 +559,11 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
   const revision=await canonicalRevision(row,db);
   if(!revision||!["draft","DRAFT"].includes(revision.status))
     throw new PartnerCanonicalWorkflowError("Kanonický profil už nie je koncept.",409);
-  if(input.expectedCanonicalUpdatedAt&&revision.updatedAt!==input.expectedCanonicalUpdatedAt)
-    throw new PartnerCanonicalWorkflowError("Profil sa počas kontroly zmenil. Obnovte editor.",409);
+  // Admin approval must be tied to the exact canonical revision reviewed on
+  // the detail page, not merely whatever happens to be current at PATCH time.
+  // Reject clients that omit the precondition as well as stale review tabs.
+  if(input.action==="APPROVE"&&(!input.expectedCanonicalUpdatedAt||revision.updatedAt!==input.expectedCanonicalUpdatedAt))
+    throw new PartnerCanonicalWorkflowError("Profil sa počas kontroly zmenil alebo chýba overená verzia. Obnovte kontrolu.",409,"STALE_CANONICAL_REVIEW");
   const outcome=input.action==="APPROVE"?"APPROVED":input.action==="RETURN"?"RETURNED":"REJECTED";
   const extras:D1PreparedStatement[]=[];
   if(input.action==="APPROVE"){
