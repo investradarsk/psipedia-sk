@@ -15,6 +15,7 @@ const PROTECTED: Readonly<Record<HelpFieldEventAgenda, readonly string[]>> = {
   "lost-found": [
     "Názov", "Slug", "Typ", "Psipedia stav", "Latitude", "Longitude",
     "Presnosť lokality", "Miesto", "Verejný kontakt",
+    "Verejný telefón", "Verejný e-mail", "Verejný web", "Verejný Facebook", "Verejný Instagram",
   ],
 };
 
