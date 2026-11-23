@@ -80,6 +80,40 @@ test("article search keeps matches in the perex and introduction while ranking t
       new Set(result.items.map(({ href }) => href)),
       new Set(["/starostlivost/titul", "/starostlivost/perex", "/starostlivost/uvod"]),
     );
+    for (let number = 1; number <= 500; number += 1) {
+      const code = String(number).padStart(3, "0");
+      insert.run("zotavenie-" + code, "Zotavenie " + code, "published", "", "");
+    }
+    const capped = await searchPortal("zotavenie", {
+      section: "starostlivost",
+      page: 11,
+      pageSize: 48,
+    });
+    assert.equal(capped.total, 500);
+    assert.equal(capped.totalPages, 10);
+    assert.equal(capped.page, 10);
+    assert.equal(capped.items.length, 48);
+    assert.equal(capped.items.at(-1).href, "/starostlivost/zotavenie-480");
+
+    const smallPages = await searchPortal("zotavenie", {
+      section: "starostlivost",
+      page: 21,
+      pageSize: 12,
+    });
+    assert.equal(smallPages.totalPages, 20);
+    assert.equal(smallPages.page, 20);
+    assert.equal(smallPages.items.length, 12);
+    assert.equal(smallPages.items.at(-1).href, "/starostlivost/zotavenie-240");
+    assert.equal(smallPages.capped, true);
+
+    const partial = await searchPortal("zotavenie", {
+      section: "starostlivost",
+      page: 11,
+      pageSize: 47,
+    });
+    assert.equal(partial.page, 11);
+    assert.equal(partial.items.length, 10);
+    assert.equal(partial.items.at(-1).href, "/starostlivost/zotavenie-480");
   } finally {
     if (previousDb === undefined) delete env.DB;
     else env.DB = previousDb;
