@@ -11,6 +11,7 @@ async function expectOverview(page: Page) {
   await expect(page.locator("[data-admin-shell]")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Pracovný prehľad" })).toBeVisible();
   await expect(page.locator('[data-admin-sidebar][data-admin-hydrated="true"]')).toBeAttached();
+  await expect(overviewGroup(page)).toHaveAttribute("aria-expanded", "true");
 }
 
 function overviewGroup(page: Page) {
@@ -21,6 +22,8 @@ async function clickOverviewGroup(page: Page) {
   // Server HTML can render well before the client navigation button hydrates.
   await expect(page.locator('[data-admin-sidebar][data-admin-hydrated="true"]')).toBeAttached();
   await expect(overviewGroup(page)).toBeVisible();
+  await expect(overviewGroup(page)).toHaveAttribute("aria-label", "Prejsť na pracovný prehľad");
+  await expect(overviewGroup(page)).not.toHaveAttribute("aria-expanded", /.+/);
   await overviewGroup(page).click();
 }
 
