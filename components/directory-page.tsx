@@ -4,7 +4,6 @@ import Link from "next/link";
 import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { Breadcrumbs } from "@/components/page-system";
 import {
-  PublicActionLink,
   PublicContentShell,
   PublicCategorySection,
   PublicFoundation,
@@ -33,6 +32,7 @@ import {
 import { EMPTY_MAP_FILTERS, serializeMapUiFilters } from "@/lib/map-public-ui";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
+import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import { CTA_DIRECTORY_MAP_ANCHOR } from "@/lib/visual-library-anchors";
 import styles from "./directory-public.module.css";
@@ -250,36 +250,38 @@ export async function DirectoryPage({
               )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
-                <section
-                  className={`ps-public-banner-frame ${styles.sidebarCard}`}
-                  data-directory-map-cta
-                >
-                  <span className={styles.sidebarEyebrow}>Služby v okolí</span>
-                  <h2>Nájdi služby na mape</h2>
-                  <p>Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality.</p>
-                  {filters.canonicalService && (
-                    <p>Mapa používa rovnaký filter potvrdenej služby ako zoznam.</p>
-                  )}
-                  <PublicActionLink
-                    id={CTA_DIRECTORY_MAP_ANCHOR}
-                    variant="primary"
+                <div data-directory-map-cta>
+                  <PublicMagazineBanner
+                    compact
+                    visual="light"
+                    size="small"
+                    testId="directory-map-cta"
+                    eyebrow="Služby v okolí"
+                    title="Nájdi služby na mape"
+                    description={
+                      filters.canonicalService
+                        ? "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality. Mapa používa rovnaký filter potvrdenej služby ako zoznam."
+                        : "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality."
+                    }
+                    label="Zobraziť na mape"
                     href={mapHref(filters, active?.slug)}
-                  >
-                    Zobraziť na mape →
-                  </PublicActionLink>
-                </section>
+                    anchorId={CTA_DIRECTORY_MAP_ANCHOR}
+                  />
+                </div>
 
-                <section
-                  className={`ps-public-banner-frame ${styles.sidebarCard}`}
-                  data-directory-provider-cta
-                >
-                  <span className={styles.sidebarEyebrow}>Pre poskytovateľov</span>
-                  <h2>Poskytuješ služby pre psov?</h2>
-                  <p>Požiadaj o pridanie alebo úpravu údajov svojho profilu.</p>
-                  <PublicActionLink variant="secondary" href="/o-nas#kontakt">
-                    Pridať alebo upraviť profil →
-                  </PublicActionLink>
-                </section>
+                <div data-directory-provider-cta>
+                  <PublicMagazineBanner
+                    compact
+                    visual="dark"
+                    size="small"
+                    testId="directory-provider-cta"
+                    eyebrow="Pre poskytovateľov"
+                    title="Poskytuješ služby pre psov?"
+                    description="Požiadaj o pridanie alebo úpravu údajov svojho profilu."
+                    label="Pridať alebo upraviť profil"
+                    href="/o-nas#kontakt"
+                  />
+                </div>
 
                 <div className={styles.popularityCard} data-directory-popular-articles data-directory-popular-content>
                   {hasPopularity ? (

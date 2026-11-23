@@ -38,7 +38,7 @@ test("primary and secondary CTA samples link to exact public DOM anchors", () =>
   assert.match(examples, /<PublicActionLink href="\/mapa" variant="primary">/);
   assert.match(examples, /<PublicActionLink href="\/organizacie" variant="tertiary">/);
   assert.match(examples, /anchorId: "help-overview-utulky"/);
-  assert.match(directory, /<PublicActionLink\s+id=\{CTA_DIRECTORY_MAP_ANCHOR\}\s+variant="primary"/);
+  assert.match(directory, /<PublicMagazineBanner[\s\S]*?anchorId=\{CTA_DIRECTORY_MAP_ANCHOR\}/);
   assert.match(help, /id=\{`help-overview-\$\{section\.slug\}`\}/);
   // Shelters now live under organizations; other help sections keep their own destinations.
   assert.match(help, /<PublicActionLink\s+href=\{section\.slug === "utulky" \? "\/organizacie" : section\.href\}\s+variant="tertiary"/);

@@ -2,6 +2,7 @@ import { articlePromoKeys, articlePromoRegistry, type ArticlePromoKey, type Arti
 import type { PublicMagazineBannerPhotoTone } from "@/components/public-visual-system/public-magazine-banner";
 import {
   ARTICLE_LISTING_PROMO_ANCHOR,
+  CTA_DIRECTORY_MAP_ANCHOR,
   HOME_PROFILE_BANNER_ANCHOR,
   BREED_CLUBS_BANNER_ANCHOR,
   HELP_LOST_FOUND_BANNER_ANCHOR,
@@ -69,6 +70,40 @@ const editorialBanners: VisualBanner[] = articlePromoKeys.map((key: ArticlePromo
 });
 
 const pageBanners: VisualBanner[] = [
+  {
+    id: "adresar:mapa",
+    label: "Banner – Nájdi služby na mape",
+    group: "stranky",
+    eyebrow: "Služby v okolí",
+    title: "Nájdi služby na mape",
+    description: "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality.",
+    ctaLabel: "Zobraziť na mape",
+    ctaHref: "/mapa?category=services",
+    uses: [{
+      url: "https://psipedia.sk/adresar",
+      label: "Adresár – služby pre psov",
+      placement: "Pravý bočný panel · prechod na mapu",
+      evidence: "verified-in-code",
+      anchorId: CTA_DIRECTORY_MAP_ANCHOR,
+    }],
+    dynamicNote: "Odkaz na mapu na verejnom webe priebežne zachováva filtre kategórie a lokality. Náhľad knižnice ukazuje základné umiestnenie.",
+  },
+  {
+    id: "adresar:poskytovatelia",
+    label: "Banner – Poskytuješ služby pre psov?",
+    group: "stranky",
+    eyebrow: "Pre poskytovateľov",
+    title: "Poskytuješ služby pre psov?",
+    description: "Požiadaj o pridanie alebo úpravu údajov svojho profilu.",
+    ctaLabel: "Pridať alebo upraviť profil",
+    ctaHref: "/o-nas#kontakt",
+    uses: [{
+      url: "https://psipedia.sk/adresar",
+      label: "Adresár – služby pre psov",
+      placement: "Pravý bočný panel · pre poskytovateľov",
+      evidence: "verified-in-code",
+    }],
+  },
   {
     id: "homepage:profil",
     label: "Banner – Pridajte svoj profil",

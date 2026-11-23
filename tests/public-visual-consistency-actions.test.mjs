@@ -46,11 +46,9 @@ test("directory, help, events and breeds use shared visible actions", () => {
     directory,
     /<PublicActionButton\s*type="button"\s*className=\{\s*styles.modalTrigger\s*\}/,
   );
-  assert.match(
-    directoryPage,
-    /<PublicActionLink\s*id=\{\s*CTA_DIRECTORY_MAP_ANCHOR\s*\}\s*variant="primary"\s*href=\{\s*mapHref/,
-  );
-  assert.match(directoryPage, /<PublicActionLink\s*variant="secondary"\s*href="\/o-nas#kontakt">/);
+  assert.match(directoryPage, /<PublicMagazineBanner[\s\S]*?href=\{mapHref\(filters, active\?\.slug\)\}/);
+  assert.match(directoryPage, /<PublicMagazineBanner[\s\S]*?href="\/o-nas#kontakt"/);
+  assert.match(directoryPage, /anchorId=\{CTA_DIRECTORY_MAP_ANCHOR\}/);
   assert.match(
     help,
     /<PublicActionButton\s*className=\{\s*styles.searchSubmit\s*\}\s*type="submit">/,
