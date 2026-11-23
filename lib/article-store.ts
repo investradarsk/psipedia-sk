@@ -816,9 +816,12 @@ export async function getPublishedArticleSummaries(options: {
   portalSection?: ArticlePortalSection;
   portalSubpage?: string;
   category?: Article["category"];
+  slugs?: readonly string[];
   limit?: number;
   offset?: number;
 } = {}): Promise<Article[]> {
+  const slugs = options.slugs ? new Set(options.slugs) : null;
+  if (slugs?.size === 0) return [];
   const database = getD1Binding();
   const limit = Math.max(1, Math.min(500, Math.trunc(options.limit ?? 120)));
   const offset = options.offset === undefined ? undefined : Math.max(0, Math.trunc(options.offset));
@@ -826,10 +829,15 @@ export async function getPublishedArticleSummaries(options: {
     .filter((article) => !options.portalSection || article.portalSection === options.portalSection)
     .filter((article) => !options.portalSubpage || article.portalSubpage === options.portalSubpage)
     .filter((article) => !options.category || article.category === options.category)
+    .filter((article) => !slugs || slugs.has(article.slug))
     .slice(offset ?? 0, (offset ?? 0) + limit);
   await ensureArticleStore(database);
   const conditions = ["(status = 'published' OR (status = 'scheduled' AND published_at <= ?))"];
   const bindings: unknown[] = [new Date().toISOString()];
+  if (slugs) {
+    conditions.push("slug IN (SELECT value FROM json_each(?))");
+    bindings.push(JSON.stringify([...slugs]));
+  }
   if (options.portalSection) {
     conditions.push("portal_section = ?");
     bindings.push(options.portalSection);

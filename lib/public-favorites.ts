@@ -1,3 +1,9 @@
+export const FAVORITES_BATCH_SIZE = 40;
+
+export function isFavoriteSlug(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 200 && value.trim().length > 0;
+}
+
 const STORAGE_KEY = "psipedia-favorites";
 const CHANGE_EVENT = "psipedia-favorites-changed";
 
@@ -6,11 +12,7 @@ export function readFavorites(): string[] {
   try {
     const stored: unknown = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]");
     if (!Array.isArray(stored)) return [];
-    return [
-      ...new Set(
-        stored.filter((slug): slug is string => typeof slug === "string" && !!slug.trim()),
-      ),
-    ];
+    return [...new Set(stored.filter(isFavoriteSlug))];
   } catch {
     return [];
   }
