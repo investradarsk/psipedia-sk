@@ -1,0 +1,47 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+
+test("desktop Prehľad header navigates home, not just expands a disclosure", () => {
+  const source = read("components/admin-navigation.tsx");
+  assert.match(source, /group\.items\.some\(\(item\) => item\.href === "\/admin"\) && pathname !== "\/admin"/);
+  assert.match(source, /navigateToOverview\(\);\s*return;/);
+  assert.match(source, /const navigate = \(\) => router\.push\("\/admin"\)/);
+  assert.match(source, /setExpandedDesktopGroup\(\{ pathname, group: expanded \? "" : group\.label \}\)/);
+});
+
+test("programmatic header navigation honors the dirty-editor confirmation", () => {
+  const nav = read("components/admin-navigation.tsx");
+  const guard = read("components/admin-editor-navigation-guard.tsx");
+  assert.match(nav, /new CustomEvent<AdminNavigationIntent>\(ADMIN_NAVIGATION_INTENT_EVENT, \{/);
+  assert.match(nav, /cancelable: true,\s*detail: \{ href: "\/admin", navigate \}/);
+  assert.match(nav, /if \(window\.dispatchEvent\(intent\)\) navigate\(\)/);
+  assert.match(guard, /window\.addEventListener\(ADMIN_NAVIGATION_INTENT_EVENT, onIntent\)/);
+  assert.match(guard, /event\.preventDefault\(\);\s*requestNavigation\(detail\.navigate\)/);
+});
+
+test("authenticated streamed dashboard is never manually prefetched on hover or focus", () => {
+  const nav = read("components/admin-navigation.tsx");
+  assert.match(nav, /if \(href === "\/admin"\) return;/);
+  assert.ok(nav.indexOf('if (href === "/admin") return;') < nav.indexOf("router.prefetch(href)"));
+  assert.match(nav, /prefetch=\{false\}/);
+  assert.doesNotMatch(nav, /window\.location\.(?:assign|reload|replace)/);
+});
+
+test("slow attention, quality and activity reads remain isolated from workspace shell", () => {
+  const page = read("app/admin/page.tsx");
+  const shell = read("components/admin-shell.tsx");
+  const dashboard = read("components/admin-workspace-dashboard.tsx");
+  assert.match(page, /const attentionPromise = loadRequestAdminAttentionSummary\(\)/);
+  assert.match(page, /const qualityPromise = loadWorkspaceQuality\(\)/);
+  assert.match(page, /const workspaceFeedPromise = loadAdminWorkspaceOverview\(\)/);
+  assert.match(page, /attentionSummaryPromise=\{attentionPromise\}/);
+  assert.match(shell, /<Suspense fallback=\{<AdminNotificationBellPending \/>\}>/);
+  assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Aktívne upozornenia" \/>\}>/);
+  assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Kvalita údajov" \/>\}>/);
+  assert.match(dashboard, /<Suspense fallback=\{<WorkspaceCommunityPending \/>\}>/);
+  assert.match(dashboard, /<Suspense fallback=\{<p role="status">Načítava sa pracovný feed…<\/p>\}>/);
+  assert.doesNotMatch(page, /await (?:loadRequestAdminAttentionSummary|loadWorkspaceQuality|loadAdminWorkspaceOverview)\(/);
+});
