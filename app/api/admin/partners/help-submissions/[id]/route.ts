@@ -20,8 +20,9 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     const common={id,adminEmail:auth.user.email,requestId:request.headers.get("cf-ray")};
     let result;
     if(data.action==="CREATE_DRAFT"){
-      if(Object.keys(data).some(k=>!["action","editedPayload"].includes(k)))throw new PartnerHelpReviewError("Nepovolené pole.");
-      result=await createPartnerHelpDraftAdmin({...common,editedPayload:data.editedPayload});
+      if(Object.keys(data).some(k=>!["action","editedPayload","expectedCanonicalUpdatedAt"].includes(k)))throw new PartnerHelpReviewError("Nepovolené pole.");
+      result=await createPartnerHelpDraftAdmin({...common,editedPayload:data.editedPayload,
+        expectedCanonicalUpdatedAt:typeof data.expectedCanonicalUpdatedAt==="string"?data.expectedCanonicalUpdatedAt:undefined});
     }else if(data.action==="LINK_EXISTING"){
       if(Object.keys(data).some(k=>!["action","canonicalId"].includes(k)))throw new PartnerHelpReviewError("Nepovolené pole.");
       result=await linkPartnerHelpCreateAdmin({...common,canonicalId:Number(data.canonicalId)});
