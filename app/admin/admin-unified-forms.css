@@ -57,8 +57,8 @@
   color: var(--unified-field-ink);
   background: var(--unified-field-bg);
   font: inherit;
-  font-size: 0.94rem;
-  line-height: 1.5;
+  font-size: var(--admin-ui-type-body, 0.875rem);
+  line-height: 1.4;
 }
 
 [data-admin-workspace] [data-admin-form-system="v4"] .admin-field textarea:not([data-lexical-value]) {
@@ -202,8 +202,8 @@
   color: var(--unified-field-ink);
   background: var(--unified-field-bg);
   font: inherit;
-  font-size: 0.94rem;
-  line-height: 1.5;
+  font-size: var(--admin-ui-type-body, 0.875rem);
+  line-height: 1.4;
 }
 [data-admin-workspace] [data-admin-lost-found-editor][data-admin-form-system="v4"]
   [data-admin-editor-section] :is(input, select, textarea):focus-visible {
