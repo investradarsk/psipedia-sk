@@ -60,6 +60,22 @@ export type ManagedEventInput = {
 
 export type ManagedEventSummary = import("./admin-events").AdminEventSummary;
 
+/** A concurrent D1 change must not be overwritten by a full editor save. */
+export class EventWriteConflictError extends Error {
+  constructor() {
+    super("Podujatie bolo medzičasom upravené alebo odstránené. Obnov editor a skontroluj aktuálne údaje pred opätovným uložením.");
+    this.name = "EventWriteConflictError";
+  }
+}
+
+/** Ensure each successful event update advances the existing updated_at token. */
+export function nextManagedEventUpdatedAt(previous: string, now = new Date()): string {
+  const previousTime = Date.parse(previous);
+  const currentTime = now.getTime();
+  return new Date(Number.isFinite(previousTime) && previousTime >= currentTime
+    ? previousTime + 1 : currentTime).toISOString();
+}
+
 type EventRow = {
   id: number;
   slug: string;
@@ -720,7 +736,7 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
     admissionFee: payload.admissionFee === undefined ? existing.admissionFee ?? "" : input.admissionFee,
   };
   const hasContactColumns = await eventContactColumnsReady(database, contactValues);
-  const now = new Date().toISOString();
+  const now = nextManagedEventUpdatedAt(existing.updatedAt);
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`
     UPDATE managed_events SET
@@ -731,7 +747,7 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
       website_url = ?, registration_url = ?, image_url = ?, image_key = ?, image_alt = ?,
       ${payload.internalNotes !== undefined ? "internal_notes = ?," : ""} image_display = ?, thumbnail_display_json = ?, detail_display_json = ?,
       cancelled = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
-    WHERE id = ? RETURNING *
+    WHERE id = ? AND updated_at = ? RETURNING *
   `).bind(
     input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
     input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
@@ -743,9 +759,9 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
     payload.imageDisplay === undefined ? existing.imageDisplay ?? "auto" : input.imageDisplay,
     JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
     JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
-    input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id,
+    input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id, existing.updatedAt,
   ).first<EventRow>();
-  if (!row) return null;
+  if (!row) throw new EventWriteConflictError();
   const event = rowToEvent(row);
   if (managedEventGeoSourceChanged(existing, event)) {
     await reconcileManagedEventGeo(event.id, editorEmail, database);
@@ -806,7 +822,7 @@ export async function quickEditManagedEvent(id: number, payload: ManagedEventQui
   const updatedAt = payload.updatedAt?.trim() ?? "";
   if (!eventType || typeof cancelled !== "boolean" || !updatedAt) throw new Error("Rýchla úprava nie je platná.");
 
-  const now = new Date().toISOString();
+  const now = nextManagedEventUpdatedAt(updatedAt);
   const row = await requireD1Binding().prepare(`
     UPDATE managed_events
     SET event_type = ?, cancelled = ?, updated_at = ?, updated_by = ?
