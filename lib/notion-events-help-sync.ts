@@ -1224,7 +1224,14 @@ async function syncAgenda(input: {
         const values: Record<string, ReconciliationValue> = Object.fromEntries(
           fields.map(name => [name, sourceSnapshot[name] ?? null]),
         );
-        const patch = encodeProperties(values, schema);
+        const patch = encodeProperties({
+          ...values,
+          // A successful targeted Admin write must refresh the Notion receipt
+          // in the same PATCH, not leave a stale green status/timestamp.
+          "Sync stav": "Synchronizované",
+          "Sync chyba": "",
+          "Posledný sync": new Date().toISOString(),
+        }, schema);
         if (fields.includes("Slug") || (agenda === "lost-found" && fields.includes("Typ"))) {
           if (!schema["URL Psipedia"]) throw new Error("HELP_ADMIN_URL_SCHEMA_MISSING");
           Object.assign(patch, encodeProperties({ "URL Psipedia": source.url }, schema));
