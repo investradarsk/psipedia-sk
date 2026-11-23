@@ -37,6 +37,9 @@ test("Admin Help edits use a before/after canonical field delta", async () => {
   assert.match(target, /adminChangedFields: input\.changedHelpFields/);
   assert.match(runner, /selectiveNotionProperties\(page\.properties \?\? \{\}, patch\)/);
   assert.match(runner, /HELP_ADMIN_FIELD_ECHO_MISMATCH/);
+  assert.match(runner, /"Sync stav": "Synchronizované"/);
+  assert.match(runner, /"Sync chyba": ""/);
+  assert.match(runner, /"Posledný sync": new Date\(\)\.toISOString\(\)/);
   assert.match(runner, /fields\.includes\("Slug"\)/);
   for (const path of [
     "app/api/admin/organizations/[id]/route.ts",

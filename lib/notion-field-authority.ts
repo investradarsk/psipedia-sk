@@ -65,7 +65,9 @@ export const NOTION_AGENDA_FIXED_FIELDS = {
   adoptions: ["Slug", "Stav", "Organizácia", "Zdroj dát"],
   "help-cases": ["Slug", "Kategória", "Psipedia stav", "Organizácia", "Vyriešené", "Kontakt"],
   "lost-found": ["Slug", "Typ", "Psipedia stav", "Latitude", "Longitude",
-    "Presnosť lokality", "Verejný kontakt", "Zdroj", "Zdroj URL", "Miesto", "Naposledy videný"],
+    "Presnosť lokality", "Verejný kontakt", "Verejný telefón", "Verejný e-mail",
+    "Verejný web", "Verejný Facebook", "Verejný Instagram",
+    "Zdroj", "Zdroj URL", "Miesto", "Naposledy videný"],
 } satisfies Record<keyof typeof agendaEditableFields, readonly string[]>;
 
 export function fixedNotionAgendaField(agenda: keyof typeof agendaEditableFields, field: string) {

@@ -72,3 +72,28 @@ test("public detail reuses service/organization contacts and buttons, never priv
   assert.doesNotMatch(detail,/report\.contactPhone|report\.contactEmail|report\.contactName/);
   assert.match(detail,/Telefón a e-mail oznamovateľa nie sú automaticky publikované/);
 });
+
+test("mapped Notion lost/found mirrors explicitly public contact fields without private reporter PII", () => {
+  const bulk = read("lib/notion-bulk-sources.ts");
+  const source = bulk.slice(bulk.indexOf("export async function loadNotionBulkLostFound("));
+  const adapters = read("lib/notion-events-help-adapters.ts");
+  const contract = read("lib/notion-help-field-events.ts");
+  const authority = read("lib/notion-field-authority.ts");
+  const lostFields = adapters.slice(adapters.indexOf('  "lost-found": ['), adapters.indexOf('  ],', adapters.indexOf('  "lost-found": [')));
+  const protectedFields = contract.slice(contract.indexOf('  "lost-found": ['), contract.indexOf('  ],', contract.indexOf('  "lost-found": [')));
+  const fixedFields = authority.slice(authority.indexOf('  "lost-found": ['), authority.indexOf('],', authority.indexOf('  "lost-found": [')));
+  for (const [column, name] of [
+    ["public_phone", "Verejný telefón"],
+    ["public_email", "Verejný e-mail"],
+    ["public_website_url", "Verejný web"],
+    ["public_facebook_url", "Verejný Facebook"],
+    ["public_instagram_url", "Verejný Instagram"],
+  ]) {
+    assert.ok(source.includes(column), column + " missing from canonical D1 source");
+    assert.ok(source.includes('"' + name + '": s(row.' + column + ')'), name + " missing mapping");
+    assert.ok(lostFields.includes('"' + name + '"'), name + " missing admin field sync");
+    assert.ok(protectedFields.includes('"' + name + '"'), name + " must not auto-publish inbound from Notion");
+    assert.ok(fixedFields.includes('"' + name + '"'), name + " must remain Admin-owned");
+  }
+  assert.doesNotMatch(source, /private_contact_(name|phone|email)_encrypted/);
+});

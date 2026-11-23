@@ -54,6 +54,11 @@ test("Notion Lost/Found source includes the lead and never replaces the long des
   assert.equal(result.length,1);
   assert.equal(result[0].properties[field],"Našiel sa pes pri stanici");
   assert.equal(result[0].properties["Popis"],"Podrobný popis nálezu");
+  // Unspecified coordinates are not literal 0°N, 0°E. Unknown duplicate
+  // links must not be serialized as a reference to entity #0 either.
+  assert.equal(result[0].properties["Latitude"],null);
+  assert.equal(result[0].properties["Longitude"],null);
+  assert.equal(result[0].properties["Duplicate of"],null);
 });
 
 test("verified old hash is still usable only after removing the newly introduced field", () => {
