@@ -190,8 +190,8 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       const x = rect.left + rect.width / 2;
       const y = rect.top + rect.height / 2;
       return y > 0 && y < window.innerHeight
-        && (element === document.elementFromPoint(x, y)
-          || element.contains(document.elementFromPoint(x, y)));
+        && (element === window.document.elementFromPoint(x, y)
+          || element.contains(window.document.elementFromPoint(x, y)));
     })).toBe(true);
     await legacyToggle.click();
     // Show lossless-roundtrip guard details if the mode transition is blocked.
