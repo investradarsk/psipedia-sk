@@ -95,8 +95,10 @@
     min-height: 38px;
     padding: 5px 9px;
   }
+  .workspace[data-density="compact"] .toolbar {
+    padding: 5px 9px;
+  }
 }
-.workspace[data-density="compact"] .columnPicker summary { padding: 6px 10px; }
 .workspace .heading button { min-height: 32px; display: inline-flex; align-items: center; gap: 4px; }
 .workspace .heading button:focus-visible { outline: 2px solid #9a3d29; outline-offset: 3px; border-radius: 3px; }
 .workspace .table tbody tr:focus-within { background: #edf5ef; }
@@ -144,10 +146,10 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 0.4rem 0.65rem;
-    padding: 0.65rem 0.75rem;
+    gap: 0.35rem 0.55rem;
+    padding: 0.55rem 0.65rem;
     border: 1px solid #dfe8e1;
-    border-radius: 12px;
+    border-radius: var(--admin-ui-radius, 8px);
     background: #fff;
   }
   .workspace[data-mobile-focus="true"] .table td {
@@ -316,4 +318,6 @@
     max-height: min(55dvh, 320px);
     overscroll-behavior: contain;
   }
+  .columnPickerMenu label { min-height: 44px; }
+  .workspace .heading button { min-height: 44px; }
 }
