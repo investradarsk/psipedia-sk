@@ -12,6 +12,7 @@ import {notionRequest,type NotionSyncBindings} from "./notion-sync-shared";
 import { directoryProfileNotionSyncLocked } from "./directory-reviewed-sync-lock";
 import {planCatalogRelationSync,planSignedCatalogRelationSync} from "./service-catalog-notion-relation-plan";
 import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
+import {loadServiceProfileMembership} from "./service-catalog-profile-membership";
 import {importNotionServiceIds} from "./service-profile-notion-bridge";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port";
 import {notionPageBelongsToDataSource} from "./notion-sync-page-ownership";
@@ -80,17 +81,21 @@ export async function loadNotionCatalogRelationLookup(bindings:NotionSyncBinding
   }
   throw Error("SERVICES_CATALOG_MAX_PAGES");
 }
-async function canonicalItems(db:D1Database,category:string):Promise<Map<string,Item>>{
-  // Use the same effective names/categories as Admin and the Notion text
-  // bridge: built-in D1 overrides must affect relation eligibility too.
-  const resolved=await loadResolvedServiceDefinitions(db,category);
+async function canonicalItems(db:D1Database,categories:readonly string[]):Promise<Map<string,Item>>{
+  // Effective built-in overrides and dynamic options share one SQL membership set.
+  const resolved=(await loadResolvedServiceDefinitions(db))
+    .filter(option=>option.categories.some(value=>categories.includes(value)));
   return new Map<string,Item>(resolved.map(x=>[x.id,{id:x.id,label:x.label,categories:x.categories}] as const));
 }
 async function canonicalYes(db:D1Database,profileId:number,known:Map<string,Item>){
   const result=await db.prepare(
     "SELECT option_id,choice,version FROM service_profile_option_choices WHERE profile_id=?1 AND choice='yes'"
   ).bind(profileId).all<D1Row>();
-  return (result.results??[]).map(x=>x.option_id).filter(id=>known.has(id)).sort();
+  const selected=(result.results??[]).map(x=>x.option_id);
+  // A category removal cannot implicitly deselect a historical YES.
+  // Review it explicitly instead of silently deleting a Notion relation.
+  if(selected.some(id=>!known.has(id)))throw Error("SERVICES_RELATION_CATEGORY_CHANGED_REVIEW");
+  return selected.sort();
 }
 async function schemaExists(db:D1Database){
   return !!await db.prepare("SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'").first();
@@ -116,10 +121,21 @@ export async function syncProfileCatalogRelation(input:{
  const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
  if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
  if(!await schemaExists(db))return "skipped"; // Migration not yet applied: do not break existing sync.
+ const membership=await loadServiceProfileMembership(db,profileId);
+ if(!membership||membership.status==="archived"||membership.primary!==category)
+   throw Error("SERVICES_RELATION_PROFILE_CATEGORY_CHANGED");
+ const membershipSnapshot=JSON.stringify(membership.categories);
+ const verifyMembership=async()=>{
+   const latest=await loadServiceProfileMembership(db,profileId);
+   if(!latest||latest.status==="archived"||latest.primary!==category||
+      JSON.stringify(latest.categories)!==membershipSnapshot)
+     throw Error("SERVICES_RELATION_MEMBERSHIP_CHANGED_REVIEW");
+ };
  const page=await readRemote(bindings,pageId,directoryDataSourceId);
  const raw=relationIds(page);
  if(raw===null)return "skipped";
- const available=await canonicalItems(db,category);
+ await verifyMembership();
+ const available=await canonicalItems(db,membership.categories);
  const remote:string[]=[];
  for(const pageId of raw){
    const id=lookup.pageToService.get(pageId);
@@ -153,6 +169,7 @@ export async function syncProfileCatalogRelation(input:{
  if(plan.action==="conflict")throw Error("SERVICES_RELATION_BOTH_SIDES_CHANGED_REVIEW");
  if(plan.action==="pull"||plan.action==="merge"){
    if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
+   await verifyMembership();
    // Recheck the relation before touching D1; never import a truncated/superseded page.
    const latest=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
@@ -161,13 +178,16 @@ export async function syncProfileCatalogRelation(input:{
    if(JSON.stringify(currentLocal)!==JSON.stringify(local))
      throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_IMPORT");
    if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
+   await verifyMembership();
    await importNotionServiceIds(db,profileId,category,plan.target);
+   await verifyMembership();
    const confirmed=await canonicalYes(db,profileId,available);
    if(JSON.stringify(confirmed)!==JSON.stringify([...plan.target].sort()))
      throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
  }
  if(plan.action==="push"||plan.action==="merge"){
    if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
+   await verifyMembership();
    // Recheck before PATCH. PATCH touches only our relation, no editorial/identity fields.
    const currentLocal=await canonicalYes(db,profileId,available);
    if(JSON.stringify(currentLocal)!==JSON.stringify([...plan.target].sort()))
@@ -176,6 +196,7 @@ export async function syncProfileCatalogRelation(input:{
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_EXPORT");
    const pages=plan.target.map(id=>({id:lookup.serviceToPage.get(id)!}));
+   await verifyMembership();
    if(await directoryProfileNotionSyncLocked(db, profileId)) return "skipped";
    const ack=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId),{
      method:"PATCH",body:JSON.stringify({properties:{[PROPERTY]:{relation:pages}}})
@@ -191,6 +212,10 @@ export async function syncProfileCatalogRelation(input:{
  const targetPages=plan.target.map(id=>lookup.serviceToPage.get(id)!);
  if(!finalRelation||JSON.stringify([...finalRelation].sort())!==JSON.stringify([...targetPages].sort()))
    throw Error("SERVICES_RELATION_CHANGED_BEFORE_BASELINE");
+ await verifyMembership();
+ const finalLocal=await canonicalYes(db,profileId,available);
+ if(JSON.stringify(finalLocal)!==JSON.stringify([...plan.target].sort()))
+   throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_BASELINE");
  const now=new Date().toISOString();
  await db.prepare(
    "INSERT INTO directory_service_notion_relation_sync (directory_profile_id,notion_page_id,confirmed_ids_json,synced_at) "+
