@@ -55,7 +55,9 @@ test("an unlinked, disabled or unchanged Notion sync is never falsely marked syn
 
 test("successful D1 write returns a receipt even if Notion, R2 or publication acknowledgement fails", () => {
   const put = route.slice(route.indexOf("export async function PUT("), route.indexOf("export async function PATCH("));
-  assert.match(put, /const article = await updateManagedArticle\(/);
+  assert.match(put, /article = await updateManagedArticle\\(/);
+  assert.match(put, /outcome: "D1_CHANGED_RELATIONS_UNVERIFIED"/);
+  assert.match(put, /assignments: \{ status: "synced" as const \}/);
   assert.match(put, /notionSteps\.publication = notionStepFailure\(error\)/);
   assert.match(put, /reportError\("seo", error/);
   assert.match(put, /mediaReceipt = removed\.some\(/);
