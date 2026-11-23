@@ -239,7 +239,7 @@ export function AdminArticleContinuousEditor(props: Props) {
   // The sticky formatting toolbar owns the insert menu. Keep this callback live
   // without re-registering on every paragraph edit or cursor movement.
   const insertRef = useRef(insert);
-  insertRef.current = insert;
+  useEffect(() => { insertRef.current = insert; });
   const registerInsertWidget = scope?.registerInsertWidget;
   useEffect(() => {
     if (!editor || prepared.initialError || !registerInsertWidget) return;
