@@ -46,3 +46,26 @@ FROM managed_breeds AS b
 JOIN directory_profiles AS p
   ON p.slug = 'malkia-garden' AND p.category = 'chovatelske-stanice'
 WHERE b.slug = 'irsky-vlkodav' AND b.status = 'published';
+
+-- Disposable homepage card with a long provider name. The local media key
+-- intentionally has no object; the fallback still exercises the title layout.
+INSERT OR IGNORE INTO directory_profiles (
+  slug, name, category, status, excerpt, description, city, region, image_url, image_key,
+  created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'vizualna-ukazka-veterinara',
+  'Veterinárna ambulancia MVDr. Ukážkové meno',
+  'veterinari',
+  'published',
+  'Ukážka dlhého názvu pre vizuálnu kontrolu.',
+  'Izolovaný profil bez produkčných údajov.',
+  'Bratislava - Nové Mesto',
+  'Bratislavský kraj',
+  '/media/visual-ci/provider.webp',
+  'visual-ci/provider.webp',
+  '2026-11-17T12:00:00.000Z',
+  '2026-11-17T12:00:00.000Z',
+  '2026-11-17T12:00:00.000Z',
+  'pr-visual@psipedia.local',
+  'pr-visual@psipedia.local'
+);
