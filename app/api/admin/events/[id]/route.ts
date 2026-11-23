@@ -2,7 +2,7 @@ import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
-import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
+import { deleteManagedEvent, EventWriteConflictError, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
 import { writeBackPublishedEventToNotion, type NotionEventSyncBindings } from "@/lib/notion-event-sync";
 import { eventChangedAdminFields, eventPreserveUneditedAdminFields, EVENT_NOTION_PATHS, type EventNotionField } from "@/lib/notion-event-field-contract";
 
@@ -17,6 +17,9 @@ async function numericId(params: Props["params"]) {
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Nastala neočakávaná chyba.";
+  if (error instanceof EventWriteConflictError) {
+    return Response.json({ error: error.message, code: "EVENT_VERSION_CONFLICT" }, { status: 409 });
+  }
   const conflict = isEventSlugConflict(error);
   return Response.json({ error: conflict ? "Túto adresu už používa iné podujatie." : message }, { status: conflict ? 409 : 400 });
 }
@@ -39,7 +42,18 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getManagedEventById(id);
     if (!before) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
-    const raw = await request.json() as ManagedEventInput & {eventEditorialChangedFields?:unknown};
+    const raw = await request.json() as ManagedEventInput & {
+      expectedUpdatedAt?: unknown; eventEditorialChangedFields?: unknown;
+    };
+    // The version comes from the editor's initial D1 snapshot. A fresh read
+    // alone is not sufficient: another writer can commit between SELECT/UPDATE.
+    if (typeof raw?.expectedUpdatedAt !== "string" || !raw.expectedUpdatedAt.trim()) {
+      return Response.json({
+        error: "Chýba verzia podujatia. Obnov editor pred uložením.",
+        code: "EVENT_VERSION_REQUIRED",
+      }, { status: 428 });
+    }
+    if (raw.expectedUpdatedAt !== before.updatedAt) throw new EventWriteConflictError();
     const edited = Array.isArray(raw.eventEditorialChangedFields)
       ? raw.eventEditorialChangedFields.filter((path):path is EventNotionField =>
           typeof path==="string" && EVENT_NOTION_PATHS.includes(path as EventNotionField))
@@ -74,9 +88,15 @@ export async function PUT(request: Request, { params }: Props) {
     }
     const event = await updateManagedEvent(id, safe, user.email, before);
     if (!event) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
+    // The D1 write has committed. Remote Notion mirroring and auxiliary
+    // acknowledgements are separate outcomes, never a failed Admin save.
+    const notionWarnings: string[] = [];
     if (before.imageKey && before.imageKey !== event.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
-      if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
+      if (bucket) await bucket.delete(before.imageKey).catch((error) => {
+        console.error("event_previous_image_cleanup_failed", id, error);
+        fieldWarnings.push("Starý obrázok sa nepodarilo odstrániť z úložiska.");
+      });
     }
     if (before.status !== "published" && event.status === "published") {
       const bindings = env as unknown as UploadBindings;
@@ -86,6 +106,7 @@ export async function PUT(request: Request, { params }: Props) {
           bindings,
           event,
         }).catch((error) => {
+          notionWarnings.push("Publikovanie sa uložilo do D1, ale potvrdenie v Notione sa nepodarilo dokončiť.");
           console.error(JSON.stringify({
             event: "notion_event_publish_writeback_failed",
             eventId: event.id,
@@ -98,9 +119,19 @@ export async function PUT(request: Request, { params }: Props) {
       bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id,
       changedEventFields:edited??eventChangedAdminFields(
         before as unknown as Record<string,unknown>,event as unknown as Record<string,unknown>),
+    }).catch((error) => {
+      console.error("event_notion_field_sync_failed", id, error);
+      return "pending" as const;
     });
-    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"events",id,event.status);
-    return Response.json({ event, notionFieldSync, fieldWarnings });
+    if (["pending", "review", "setup"].includes(notionFieldSync)) {
+      notionWarnings.push("Údaje podujatia sú uložené v D1, synchronizácia s Notionom zatiaľ nie je potvrdená.");
+    }
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"events",id,event.status)
+      .catch((error) => {
+        console.error("event_publication_acknowledgement_failed", id, error);
+        fieldWarnings.push("Interné potvrdenie stavu publikovania sa nepodarilo dokončiť.");
+      });
+    return Response.json({ event, savedToD1: true, notionFieldSync, notionWarnings, fieldWarnings });
   } catch (error) { return errorResponse(error); }
 }
 
