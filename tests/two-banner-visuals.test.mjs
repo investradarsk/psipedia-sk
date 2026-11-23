@@ -136,33 +136,34 @@ test("all editorial hub callouts use the same S/M/L banner frame", () => {
   assert.match(section, /size=\{subpage \? "medium" : "large"\}/);
   assert.match(section, /data-banner-semantic=\{config\.urgent \? "urgent" : undefined\}/);
   assert.match(section, /className=\{styles\.calloutLayout\}/);
-  assert.match(css, /\.ps-public-banner-frame\[data-banner-size="small"\]::after/);
+  assert.match(css, /\[data-banner-size="small"\] \[data-ps-banner-art\]::after/);
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(art, /viewBox="0 0 772 545"/);
   assert.match(art, /fill-rule="evenodd"/);
 });
 
-test("approved banner artwork includes full landscape, real outlined dog and safe CTA area", () => {
+test("banner artwork stays inside a real responsive child and outside CTA lanes", () => {
   const css = read("app/banner-visuals.css");
+  const frame = read("components/public-visual-system/public-banner-frame.tsx");
   const light = read("public/images/psipedia-banner-waves-light.svg");
   const dark = read("public/images/psipedia-banner-waves-dark.svg");
   const dog = read("public/images/psipedia-banner-dog-outline.svg");
 
   assert.match(light, /viewBox="0 0 2172 724"/);
-  assert.match(light, /stroke="#b44939"/, "approved terracotta arc is present");
-  assert.match(light, /fill="#174d3a"/, "dark green landscape is present");
+  assert.match(light, /stroke="#b44939"/, "terracotta arc remains in the wide design");
   assert.match(dark, /viewBox="0 0 2172 724"/);
   assert.match(dog, /viewBox="0 0 772 545"/);
-
-  assert.match(css, /background: transparent url\("\/images\/psipedia-banner-waves-light\.svg"\)/);
-  assert.match(css, /background-image: url\("\/images\/psipedia-banner-waves-dark\.svg"\)/);
-  assert.match(css, /mask: url\("\/images\/psipedia-banner-dog-outline\.svg"\)/);
-  assert.match(css, /data-banner-size="medium"\]:not\(\[data-banner-semantic="urgent"\]\)[^\n]*div\[data-public-banner-content\]/);
-  assert.match(css, /data-banner-size="large"\]:not\(\[data-banner-semantic="urgent"\]\)[^\n]*div\[data-public-banner-content\]/);
-  assert.match(css, /padding-right: clamp\(85px, 20%, 180px\) !important/);
-  assert.match(css, /padding-right: clamp\(105px, 25%, 260px\) !important/);
-  assert.match(css, /data-banner-semantic="urgent"\]::after/);
-  assert.doesNotMatch(css, /inset: auto -13% -103% auto/, "old diagonal green blob is gone");
+  assert.match(frame, /<i data-ps-banner-art aria-hidden="true" \/>/, "art must be a descendant of the container");
+  assert.match(css, /@container ps-editorial-banner \(min-width: 821px\)/);
+  assert.match(css, /@container ps-editorial-banner \(max-width: 820px\)/);
+  assert.match(css, /width: 72% !important;/, "CTA region excludes the illustrated right lane");
+  assert.match(css, /\[data-banner-size="small"\] \[data-ps-banner-art\]::after\s*\{\s*display: none;/);
+  assert.match(css, /\[data-banner-semantic="urgent"\] \[data-ps-banner-art\]\s*\{\s*display: none !important;/);
+  assert.match(css, /psipedia-banner-waves-light\.svg/);
+  assert.match(css, /psipedia-banner-waves-dark\.svg/);
+  assert.match(css, /psipedia-banner-dog-outline\.svg/);
+  assert.doesNotMatch(css, /padding-right: clamp\(85px, 20%, 180px\)/, "old padding-only fix removed");
+  assert.doesNotMatch(css, /right: -19%;/, "no dog shifted outside the narrow sidebar");
 });
 
 test("original partner creatives are not restyled or rebuilt", () => {
