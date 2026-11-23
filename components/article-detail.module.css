@@ -399,6 +399,16 @@
   gap: 14px;
 }
 
+/* An article's inline promo already lives inside the reader column.
+   The shared site .shell would otherwise inset it by 24px on each side. */
+@media (min-width: 768px) {
+  .readingShell :global(.article-blocks > [data-home-banner^="article-"]) {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
+  }
+}
+
 .readingShell :global(.article-block-text),
 .readingShell :global(.article-block-rich-content) {
   gap: 0.7em;
