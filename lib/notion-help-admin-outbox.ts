@@ -1,4 +1,6 @@
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
+import { stableAgendaSnapshotJson } from "./notion-bidirectional-reconciliation";
+import { fixedNotionAgendaField } from "./notion-field-authority";
 import { loadNotionBulkAdoptions, loadNotionBulkHelpCases, loadNotionBulkLostFound, loadNotionBulkOrganizations } from "./notion-bulk-sources";
 import { pageProperty } from "./notion-events-help-sync";
 import { notionRequest, type NotionPage } from "./notion-sync-shared";
@@ -26,7 +28,21 @@ const loaders = {
 const AGENDAS = new Set<HelpNotionAgenda>(["organizations", "adoptions", "help-cases", "lost-found"]);
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 const stable = (value: unknown) => JSON.stringify(value == null ? "" : value);
-const same = (a: unknown, b: unknown) => stable(a) === stable(b);
+const same = (agenda: HelpNotionAgenda, name: string, a: unknown, b: unknown) => {
+  if (agenda === "lost-found" && name === "Naposledy videný") {
+    // Notion can serialize the same instant with an equivalent timezone/precision.
+    return stableAgendaSnapshotJson(agenda, { [name]: a ?? "" }) ===
+      stableAgendaSnapshotJson(agenda, { [name]: b ?? "" });
+  }
+  return stable(a) === stable(b);
+};
+function canonicalLostFoundChangeCanBackfill(name: string, remote: unknown, after: unknown) {
+  // Publication, moderation, privacy and last-seen fields belong to Admin/D1.
+  // An empty Notion photo cannot erase the image approved through moderation.
+  return fixedNotionAgendaField("lost-found", name) ||
+    (name === "Hlavný obrázok" && stable(remote) === JSON.stringify("") &&
+      stable(after) !== JSON.stringify(""));
+}
 function parsedFields(json: string): Fields {
   const parsed: unknown = JSON.parse(json);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw Error("HELP_OUTBOX_FIELDS_INVALID");
@@ -139,7 +155,8 @@ export async function retryOneHelpNotionWriteback(input: {
   const row = await database.prepare(
     "UPDATE notion_help_admin_writeback_outbox SET status='PROCESSING'," +
     "attempts=attempts+1,lease_until=?,updated_at=? WHERE agenda=? AND entity_id=? " +
-    "AND ((status='PENDING' AND next_attempt_at<=?) OR (status='PROCESSING' AND lease_until<=?)) " +
+    "AND ((status='PENDING' AND next_attempt_at<=?) OR (status='PROCESSING' AND lease_until<=?) " +
+    "OR (status='REVIEW' AND error_code='NOTION_FIELD_CHANGED' AND attempts=1)) " +
     "RETURNING agenda,entity_id,notion_page_id,fields_json,status,attempts,version",
   ).bind(now + 180,now,agenda,entityId,now,now).first<Row>();
   if (!row) return readHelpNotionWritebackStatus(database,bindings,agenda,entityId);
@@ -158,7 +175,7 @@ export async function retryOneHelpNotionWriteback(input: {
       return "review";
     }
     // Prevent an older queued edit from overwriting a newer Admin or Notion value.
-    if (Object.entries(fields).some(([name,field])=>!same(source.properties[name],field.after))) {
+    if (Object.entries(fields).some(([name,field])=>!same(agenda,name,source.properties[name],field.after))) {
       await finish(database,row,"REVIEW","ADMIN_FIELD_CHANGED");
       return "review";
     }
@@ -169,7 +186,8 @@ export async function retryOneHelpNotionWriteback(input: {
     }
     if (Object.entries(fields).some(([name,field])=>{
       const remote=pageProperty(page,name);
-      return !same(remote,field.before) && !same(remote,field.after);
+      return !same(agenda,name,remote,field.before) && !same(agenda,name,remote,field.after) &&
+        !(agenda === "lost-found" && canonicalLostFoundChangeCanBackfill(name,remote,field.after));
     })) {
       await finish(database,row,"REVIEW","NOTION_FIELD_CHANGED");
       return "review";
@@ -207,6 +225,7 @@ export async function runHelpNotionWritebackRetrySweep(input: {
         "SELECT agenda,entity_id FROM notion_help_admin_writeback_outbox " +
         "WHERE (status='PENDING' AND next_attempt_at<=?) " +
         "OR (status='PROCESSING' AND lease_until<=?) " +
+        "OR (status='REVIEW' AND error_code='NOTION_FIELD_CHANGED' AND attempts=1) " +
         "ORDER BY updated_at,entity_id LIMIT 1",
       ).bind(nowSeconds(),nowSeconds()).first<{agenda:HelpNotionAgenda;entity_id:number}>();
     }catch{return result;} // Schema not applied yet. No other agenda is affected.
