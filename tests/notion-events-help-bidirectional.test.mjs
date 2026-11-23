@@ -33,7 +33,7 @@ import {
   readyForCreate,
 } from "../lib/notion-events-help-adapters.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "../lib/notion-event-priority.ts";
-import { loadNotionBulkHelpCases } from "../lib/notion-bulk-sources.ts";
+import { loadNotionBulkAdoptions, loadNotionBulkHelpCases } from "../lib/notion-bulk-sources.ts";
 import { auditHelpSyncMappings, classifyHelpSyncCanonical, isHelpSyncCategoryOutOfDomain } from "../lib/notion-help-domain-boundary.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority, mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
@@ -167,6 +167,63 @@ test("a single Notion adoption field edit preserves D1-only public contacts and 
     "vaccinationStatus", "chipped", "neutered", "adoptionRequirements",
     "contactEmail", "contactPhone", "contactUrl", "lastVerifiedAt",
   ]) assert.deepEqual(payload[field], existing[field], field + " must survive an unrelated Notion edit");
+});
+
+test("adoptions mirror existing Notion contact, care and compatibility fields without dropping optional numbers", async () => {
+  const row = {
+    id: 401, name: "Luna", slug: "luna", status: "ACTIVE",
+    suitable_for_children: "YES", suitable_for_dogs: "NO",
+    suitable_for_cats: "CONDITIONAL", suitable_for_other_animals: "UNKNOWN",
+    vaccination_status: "UP_TO_DATE", adoption_requirements: "Bezpečný domov",
+    contact_email: "utulok@example.sk", contact_phone: "+421900111222",
+    contact_url: "https://example.sk/adopcia",
+    approximate_age_months: null, weight: null,
+  };
+  const db={prepare(sql){
+    assert.match(sql,/suitable_for_children/);
+    assert.match(sql,/contact_email,contact_phone,contact_url/);
+    return {async all(){return {results:[row]}}};
+  }};
+  const [source]=await loadNotionBulkAdoptions(db);
+  const fields={
+    "Vhodný k deťom": "YES", "Vhodný k psom": "NO",
+    "Vhodný k mačkám": "CONDITIONAL", "Vhodný k iným zvieratám": "UNKNOWN",
+    "Očkovanie": "UP_TO_DATE", "Podmienky adopcie": "Bezpečný domov",
+    "Kontaktný e-mail": "utulok@example.sk", "Kontaktný telefón": "+421900111222",
+    "Kontaktný odkaz": "https://example.sk/adopcia",
+  };
+  for(const [name,value] of Object.entries(fields)){
+    assert.equal(source.properties[name],value,name);
+    assert.ok(agendaEditableFields.adoptions.includes(name),name+" must be handled as a field event");
+  }
+  assert.equal(source.properties["Vek mesiace"],null);
+  assert.equal(source.properties["Hmotnosť"],null);
+});
+
+test("Notion adoption change updates only authorized fields while retaining unrelated canonical data",()=>{
+  const existing={
+    status:"ACTIVE",contactEmail:"povodne@example.sk",contactPhone:"0900123456",
+    contactUrl:"https://example.sk/povodne",adoptionRequirements:"Stará podmienka",
+    suitableForChildren:"UNKNOWN",suitableForDogs:"UNKNOWN",suitableForCats:"UNKNOWN",
+    suitableForOtherAnimals:"UNKNOWN",vaccinationStatus:"UNKNOWN",
+    mainImage:"/media/old.webp",gallery:["/media/extra.webp"],
+    lastVerifiedAt:"2026-11-20T09:00:00.000Z",
+  };
+  const changed={
+    "Meno":"Luna","Slug":"luna","Stav":"Publikované",
+    "Kontaktný e-mail":"novy@example.sk","Vhodný k psom":"YES",
+    "Podmienky adopcie":"Záhrada nie je podmienkou",
+  };
+  const payload=adoptionPayload(changed,existing,null);
+  assert.equal(payload.contactEmail,"novy@example.sk");
+  assert.equal(payload.suitableForDogs,"YES");
+  assert.equal(payload.adoptionRequirements,"Záhrada nie je podmienkou");
+  assert.equal(payload.contactPhone,existing.contactPhone);
+  assert.equal(payload.contactUrl,existing.contactUrl);
+  assert.equal(payload.suitableForChildren,existing.suitableForChildren);
+  assert.equal(payload.vaccinationStatus,existing.vaccinationStatus);
+  assert.deepEqual(payload.gallery,existing.gallery);
+  assert.equal(payload.lastVerifiedAt,existing.lastVerifiedAt);
 });
 
 test("unchanged snapshot stays unchanged", () => {
