@@ -106,14 +106,11 @@ test("public intake persists PENDING only, hashes/encrypts PII and never returns
   assert.match(store, /COALESCE\(r\.dog_name,' '\)\?5|COALESCE\(r\.dog_name,''\)=\?5/);
   assert.match(store, /r\.distinguishing_marks=\?7/);
   assert.match(store, /r\.size=\?17/);
-  assert.match(route, /enforcePublicLostFoundRateLimits/);
-  assert.match(route, /verifyPublicLostFoundTurnstile/);
-  assert.match(route, /publicLostFoundHoneypotTriggered/);
-
-  const acceptedStart = route.indexOf("function acceptedResponse");
-  const acceptedEnd = route.indexOf("function required", acceptedStart);
-  const accepted = route.slice(acceptedStart, acceptedEnd);
-  assert.doesNotMatch(accepted, /reportId|PENDING|slug/);
+  // Historical PII and moderation helpers remain for already received reports.
+  // The public endpoint must never create another anonymous report.
+  assert.match(route, /status: 410/);
+  assert.match(route, /PARTNER_ACCOUNT_REQUIRED/);
+  assert.doesNotMatch(route, /createPendingPublicLostFoundDogReport|ensurePendingLostFoundModeration/);
 });
 
 test("public DTO/render path cannot carry private contact or private media keys", () => {
@@ -153,34 +150,33 @@ test("moderation uses existing LOST_FOUND_CASE foundation and approval precedes 
   assert.match(adminRoute, /finalizeLostFoundPublicMedia/);
 });
 
-test("public submission form cannot fall back to GET before or without hydration", () => {
-  const form = readFileSync(new URL("../components/lost-found-submission-form.tsx", import.meta.url), "utf8");
+test("historical anonymous form is no longer rendered and its POST is permanently read-only", () => {
+  const page = readFileSync(new URL("../app/pomoc-psom/stratene-a-najdene/nahlasit/page.tsx", import.meta.url), "utf8");
   const route = readFileSync(new URL("../app/api/lost-found/submissions/route.ts", import.meta.url), "utf8");
-
-  assert.match(form, /method="post"/);
-  assert.match(form, /action="\/api\/lost-found\/submissions"/);
-  assert.match(form, /disabled=\{!clientReady \|\| sending\}/);
-  assert.match(form, /<noscript>/);
-  assert.match(form, /Údaje neboli odoslané/);
-  assert.match(form, /lost-found-public-constants/);
-  assert.doesNotMatch(form, /from "@\/lib\/lost-found-public-submission"/);
+  assert.match(page, /redirect\(target\)/);
+  assert.match(page, /partner\/koncepty\/novy\?typ=LOST_FOUND_DOG/);
+  assert.doesNotMatch(page, /LostFoundSubmissionForm|lostFoundSubmissionEnabled/);
+  assert.match(route, /status: 410/);
+  assert.match(route, /partnerUrl/);
+  assert.doesNotMatch(route, /\.formData\(\)|\.prepare\(|createPendingPublicLostFoundDogReport/);
   assert.doesNotMatch(route, /export async function GET/);
 });
 
-test("public submission retry resets Turnstile after failed API or network request", () => {
-  const form = readFileSync(new URL("../components/lost-found-submission-form.tsx", import.meta.url), "utf8");
-  assert.match(form, /resetTurnstile\(\)/);
-  assert.match(form, /key=\{turnstileAttempt\}/);
-  assert.match(form, /Odosielam…/);
-  assert.match(form, /resultRef\.current\?\.scrollIntoView/);
+test("new Partner intake uses existing protected moderation rather than public Turnstile", () => {
+  const route = readFileSync(new URL("../app/api/partner/canonical-drafts/route.ts", import.meta.url), "utf8");
+  const submit = readFileSync(new URL("../app/api/partner/canonical-drafts/[id]/route.ts", import.meta.url), "utf8");
+  assert.match(route, /requirePartnerAccount/);
+  assert.match(route, /assertPartnerJsonMutation/);
+  assert.match(submit, /requirePartnerAccount/);
+  assert.match(submit, /assertPartnerJsonMutation/);
 });
 
 test("lost/found report route keeps shared header CSS and help overview exposes direct report CTA", () => {
   const page = readFileSync(new URL("../app/pomoc-psom/stratene-a-najdene/nahlasit/page.tsx", import.meta.url), "utf8");
   const overview = readFileSync(new URL("../components/help-overview.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /site-header\.module\.css/);
-  assert.match(page, /routeCssAnchor/);
+  assert.match(page, /redirect\(target\)/);
+  assert.match(page, /druh=/);
   const banner = readFileSync(new URL("../components/public-visual-system/public-help-banner.tsx", import.meta.url), "utf8");
   const presets = readFileSync(new URL("../lib/help-banner-presets.ts", import.meta.url), "utf8");
   assert.match(overview, /lostFoundSubmitPromo/);
@@ -191,12 +187,11 @@ test("lost/found report route keeps shared header CSS and help overview exposes 
   assert.match(banner, /lostFoundSubmitPromo/);
 });
 
-test("framework request body limit matches LOST/FOUND upload contract", () => {
-  const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
-  const route = readFileSync(new URL("../app/api/lost-found/submissions/route.ts", import.meta.url), "utf8");
-
-  assert.match(nextConfig, /bodySizeLimit:\s*"10mb"/);
-  assert.match(route, /MAX_REQUEST_BYTES = 10 \* 1024 \* 1024/);
+test("legacy image pipeline stays available only for historical moderation", () => {
+  const media = readFileSync(new URL("../lib/lost-found-public-media.ts", import.meta.url), "utf8");
+  const endpoint = readFileSync(new URL("../app/api/lost-found/submissions/route.ts", import.meta.url), "utf8");
+  assert.match(media, /publishSafeImage/);
+  assert.doesNotMatch(endpoint, /createLostFoundPublicMedia/);
 });
 
 test("public image upload stays private until moderation and 0100 is not created", () => {
