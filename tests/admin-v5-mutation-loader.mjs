@@ -20,6 +20,7 @@ const mocked = {
     export async function updateDogNameDayRecord() { count("name"); return { id: 1 }; }
     export async function archiveDogNameDayRecord() { count("name"); return { id: 1 }; }
     export async function listDogNameDayRecords() { return []; }
+    export async function applyDogNameDayImportPlan() { count("name"); return { applied: 1 }; }
     export function isDogNameDayConflict() { return false; }`,
   "@/lib/dog-name-day-import": 'export function planDogNameDayImport() { return { summary: { ERROR: 0 } }; } export async function applyDogNameDayImportPlan() { const w = globalThis.__v5Writes ??= {}; w.name = (w.name ?? 0) + 1; return { applied: 1 }; }',
   "@/lib/directory-address-research-import": `${count}
