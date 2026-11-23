@@ -36,6 +36,14 @@ test("programmatic header navigation honors the dirty-editor confirmation", () =
   assert.match(guard, /event\.preventDefault\(\);\s*requestNavigation\(detail\.navigate\)/);
 });
 
+test("stalled navigation retry uses the shared dirty-editor intent guard", () => {
+  const recovery = read("components/admin-navigation-recovery.tsx");
+  assert.match(recovery, /new CustomEvent<AdminNavigationIntent>\(ADMIN_NAVIGATION_INTENT_EVENT, \{/);
+  assert.match(recovery, /cancelable: true,\s*detail: \{ href: pending\.href, navigate \}/);
+  assert.match(recovery, /if \(window\.dispatchEvent\(intent\)\) navigate\(\)/);
+  assert.match(recovery, /const navigate = \(\) => \{[\s\S]*?router\.push\(pending\.href\)/);
+});
+
 test("authenticated streamed dashboard is never manually prefetched on hover or focus", () => {
   const nav = read("components/admin-navigation.tsx");
   assert.match(nav, /if \(href === "\/admin"\) return;/);
