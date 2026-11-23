@@ -5,7 +5,8 @@ import { useMemo, useState, type FormEvent } from "react";
 import { names, specs } from "@/lib/partner-help-create-form-fields";
 import type { PartnerHelpCreateType } from "@/lib/partner-help-create";
 
-type Props={id:string;resourceType:PartnerHelpCreateType;payload:Record<string,unknown>};
+type Props={id:string;resourceType:PartnerHelpCreateType;payload:Record<string,unknown>;
+  isCanonicalDraft?:boolean;canonicalUpdatedAt?:string|null;};
 type Action="CREATE_DRAFT"|"LINK_EXISTING"|"REJECT";
 const reasons=[
   {value:"INCORRECT_INFORMATION",label:"Neoverené alebo nesprávne údaje"},
@@ -15,7 +16,7 @@ const reasons=[
   {value:"OTHER",label:"Iný dôvod"},
 ] as const;
 
-export function AdminPartnerHelpReviewActions({id,resourceType,payload}:Props){
+export function AdminPartnerHelpReviewActions({id,resourceType,payload,isCanonicalDraft=false,canonicalUpdatedAt=null}:Props){
   const router=useRouter();
   const initial=useMemo(()=>Object.fromEntries(
     specs[resourceType].map(field=>[field.key,payload[field.key]===null?"":String(payload[field.key]??"")])
@@ -33,13 +34,18 @@ export function AdminPartnerHelpReviewActions({id,resourceType,payload}:Props){
     if(busy||complete)return;
     let body:Record<string,unknown>={action};
     if(action==="CREATE_DRAFT"){
-      // The exact original field allowlist is validated again on the server.
-      const editedPayload=Object.fromEntries(specs[resourceType].map(field=>[
-        field.key,field.kind==="number"
-          ? (values[field.key]?.trim()?Number(values[field.key]):null)
-          : (values[field.key]??""),
-      ]));
-      body={action,editedPayload};
+      if(isCanonicalDraft){
+        // A canonical draft already exists: never pass the legacy editedPayload
+        // or recreate a second draft; approve exactly the version reviewed.
+        body={action,expectedCanonicalUpdatedAt:canonicalUpdatedAt};
+      }else{
+        const editedPayload=Object.fromEntries(specs[resourceType].map(field=>[
+          field.key,field.kind==="number"
+            ? (values[field.key]?.trim()?Number(values[field.key]):null)
+            : (values[field.key]??""),
+        ]));
+        body={action,editedPayload};
+      }
     }else if(action==="LINK_EXISTING"){
       const idNumber=Number(linkedId);
       if(!Number.isSafeInteger(idNumber)||idNumber<1){setMessage("Zadajte platné ID existujúceho záznamu.");return;}
@@ -55,14 +61,21 @@ export function AdminPartnerHelpReviewActions({id,resourceType,payload}:Props){
       const result=await response.json() as {error?:string};
       if(!response.ok)throw new Error(result.error??"Rozhodnutie sa nepodarilo uložiť.");
       setComplete(true);
-      setMessage(action==="CREATE_DRAFT"?"Koncept vytvorený a správa pridelená. Zverejnenie zostáva samostatným redakčným krokom.":action==="LINK_EXISTING"?"Návrh je prepojený s existujúcim záznamom.":"Návrh bol zamietnutý.");
+      setMessage(action==="CREATE_DRAFT"
+        ?isCanonicalDraft?"Existujúci koncept bol schválený a publikovaný.":"Koncept vytvorený a správa pridelená. Zverejnenie zostáva samostatným redakčným krokom."
+        :action==="LINK_EXISTING"?"Návrh je prepojený s existujúcim záznamom.":"Návrh bol zamietnutý.");
       router.refresh();
     }catch(error){setMessage(error instanceof Error?error.message:"Uloženie zlyhalo.");}
     finally{setBusy(false);}
   }
 
   return <div className="admin-partner-detail">
-    <section className="admin-form-card">
+    {isCanonicalDraft?<section className="admin-form-card">
+      <h2>Schváliť už vytvorený kanonický koncept</h2>
+      <p>Schválenie zverejní existujúci záznam a pridelí správu Partnerovi. Nezakladá ďalší profil. Ak sa údaje od otvorenia stránky zmenili, rozhodnutie sa bezpečne odmietne.</p>
+      <button type="button" className="button button--dark" disabled={busy||complete||!canonicalUpdatedAt}
+        onClick={()=>void decide("CREATE_DRAFT")}>{busy?"Schvaľujem…":"Schváliť a publikovať"}</button>
+    </section>:<section className="admin-form-card">
       <h2>Upraviť údaje pred schválením</h2>
       <p>Upravuje sa iba výsledný koncept. Pôvodný návrh a história moderácie zostanú zachované. SEO, slug a stav publikovania určujú výhradne serverové pravidlá.</p>
       <form className="partner-profile-edit-form" onSubmit={event=>void decide("CREATE_DRAFT",event)}>
@@ -84,15 +97,15 @@ export function AdminPartnerHelpReviewActions({id,resourceType,payload}:Props){
         <p>Schválením vznikne <strong>nezverejnený koncept</strong> v sekcii {names[resourceType]} a prístup k jeho správe získa žiadajúci partner.</p>
         <button className="button button--dark" type="submit" disabled={busy||complete}>{busy?"Ukladám…":"Upraviť a schváliť ako koncept"}</button>
       </form>
-    </section>
-    <section className="admin-form-card">
+    </section>}
+    {!isCanonicalDraft&&<section className="admin-form-card">
       <h2>Duplicitný záznam — prepojiť existujúci</h2>
       <p>Ak na Psipedii už záznam existuje, zadajte jeho kanonické číselné ID. Vytvorenie duplicity sa preskočí a žiadateľ dostane správu existujúceho záznamu. Žiadne jeho údaje sa tým neprepíšu.</p>
       <label className="partner-field"><span>ID existujúceho záznamu</span>
         <input type="number" min="1" step="1" value={linkedId} disabled={busy||complete}
           onChange={event=>setLinkedId(event.target.value)}/></label>
       <button type="button" disabled={busy||complete||!linkedId} onClick={()=>void decide("LINK_EXISTING")}>Prepojiť existujúci záznam</button>
-    </section>
+    </section>}
     <section className="admin-form-card">
       <h2>Zamietnuť návrh</h2>
       <label className="partner-field"><span>Dôvod zamietnutia</span><select value={reason} disabled={busy||complete}
