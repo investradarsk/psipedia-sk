@@ -11,7 +11,8 @@ import {
   PublicTextInput,
 } from "@/components/public-visual-system/public-form-controls";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { FciGroup } from "@/lib/content";
+import type { Article, FciGroup } from "@/lib/content";
+import { BreedArticleCollection } from "@/components/breed-article-collection";
 import type { BreedAtlasCard } from "@/lib/breed-store";
 import { indexBreedSearch, filterIndexedBreeds, groupVisibleBreeds } from "@/lib/breed-browser-search";
 import {
@@ -54,12 +55,14 @@ export function BreedBrowser({
   breeds,
   groups,
   initialFilters,
+  groupArticles = {},
   actions,
   hidePrimarySearch = false,
 }: {
   breeds: BreedAtlasCard[];
   groups: FciGroup[];
   initialFilters: BreedAtlasFilters;
+  groupArticles?: Record<number, Article[]>;
   actions?: ReactNode;
   hidePrimarySearch?: boolean;
 }) {
@@ -344,6 +347,15 @@ export function BreedBrowser({
                     ) : null}
                   </div>
                 )}
+                <BreedArticleCollection
+                  compact
+                  id={`clanky-fci-${group.number}`}
+                  title={`Články zo skupiny ${group.number}: ${group.label}`}
+                  articles={groupArticles[group.number] ?? []}
+                  href={`/clanky/plemena?fciGroup=${group.number}`}
+                  actionLabel={`Všetky články zo skupiny ${group.number}`}
+                  headingLevel={3}
+                />
               </section>
             ))}
           </div>
