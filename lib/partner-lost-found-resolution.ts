@@ -115,10 +115,6 @@ export async function resolvePartnerLostFoundReport(input: {
     throw error;
   }
 
-  const notionFieldSync = await syncSavedNotionRecord({
-    bindings, agenda:"lost-found", entityId:parsed.canonicalId, beforeHelpSnapshot,
-  });
-
   if (input.publicOrigin) {
     const version=input.workerVersionId ??
       (env as unknown as {CF_VERSION_METADATA?:{id?:string}}).CF_VERSION_METADATA?.id;
@@ -128,6 +124,10 @@ export async function resolvePartnerLostFoundReport(input: {
       catch(error) { console.error("Partner lost-found public HTML invalidation failed",error); }
     }
   }
+  const notionFieldSync = await syncSavedNotionRecord({
+    bindings, agenda:"lost-found", entityId:parsed.canonicalId, beforeHelpSnapshot,
+  });
+
   return { resourceId:input.resourceId, status:"RESOLVED" as const,
     resolvedAt:updatedAt, baseRevision:updatedAt, notionFieldSync };
 }
