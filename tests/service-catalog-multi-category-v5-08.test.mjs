@@ -8,6 +8,8 @@ import {saveAdminServiceChoice,resetAdminServiceChoice,ServiceCatalogConflictErr
 import {catalogEditorItems,eligibleProfileServiceItems} from "../lib/service-catalog-admin-editor-view.ts";
 import {loadResolvedServiceDefinitions} from "../lib/service-catalog-resolved.ts";
 import {canonicalPublicProfileServices} from "../lib/service-catalog-public-profile-services.ts";
+import {canonicalPublicServiceWhere} from "../lib/service-catalog-public-service-filter.ts";
+import {directoryCategoryMembershipSql} from "../lib/directory-multi-category.ts";
 import {importNotionServiceIds} from "../lib/service-profile-notion-bridge.ts";
 
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
@@ -91,8 +93,9 @@ test("V5-08: removing secondary membership blocks stale writes and keeps prior Y
   assert.deepEqual(membership.categories,["treneri"]);
   await assert.rejects(()=>saveAdminServiceChoice(f.db,{profileId:1,optionId:vet.id,choice:"no",expectedVersion:first.version},actor),
     ServiceCatalogInputError);
-  assert.deepEqual(f.sqlite.prepare("SELECT choice,version FROM service_profile_option_choices WHERE option_id=?").get(vet.id),
-    {choice:"yes",version:first.version});
+  const preserved=f.sqlite.prepare("SELECT choice,version FROM service_profile_option_choices WHERE option_id=?").get(vet.id);
+  assert.equal(preserved.choice,"yes");
+  assert.equal(preserved.version,first.version);
   await assert.rejects(()=>importNotionServiceIds(f.db,1,"treneri",[vet.id]),/SERVICES_RELATION_UNKNOWN_OR_WRONG_CATEGORY/);
   assert.equal(f.sqlite.prepare("SELECT choice FROM service_profile_option_choices WHERE option_id=?").get(vet.id).choice,"yes");
   await assert.rejects(()=>saveAdminServiceChoice(f.db,{profileId:2,optionId:vet.id,choice:"yes",expectedVersion:0},actor),
@@ -137,4 +140,24 @@ test("V5-08: Notion ID imports respect secondary categories but never replace in
   assert.equal(f.sqlite.prepare("SELECT choice FROM service_profile_option_choices WHERE option_id=?").get(trainer.id).choice,"no");
   assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM service_profile_option_choices WHERE option_id=?").get(vet.id).n,0);
  }finally{f.close();}
+});
+
+test("V5-08: public list and canonical map filter include secondary service category membership",async()=>{
+ const f=fixture();
+ try{
+  await saveAdminServiceChoice(f.db,{profileId:1,optionId:vet.id,choice:"yes",expectedVersion:0},actor);
+  const filter=canonicalPublicServiceWhere("veterinari",vet.id,true,"d");
+  const sql="SELECT d.id FROM directory_profiles AS d WHERE d.status='published' AND "+
+    directoryCategoryMembershipSql("d")+" AND "+filter.clauses.join(" AND ");
+  assert.deepEqual(f.sqlite.prepare(sql).all("veterinari","veterinari",...filter.bindings).map(x=>x.id),[1]);
+  const map=read("lib/map-query.ts");
+  assert.match(map,/directoryCategoryMembershipSql\("d"\)/);
+  assert.match(map,/candidate.entityType === "service" && query.canonicalService/);
+ }finally{f.close();}
+});
+test("V5-08: Notion reconciler flags out-of-category saved YES before rewriting baseline",()=>{
+ const source=read("lib/service-catalog-notion-relations.ts");
+ assert.match(source,/SERVICES_RELATION_CATEGORY_CHANGED_REVIEW/);
+ assert.match(source,/SERVICES_RELATION_MEMBERSHIP_CHANGED_REVIEW/);
+ assert.match(source,/SERVICES_RELATION_LOCAL_CHANGED_BEFORE_BASELINE/);
 });
