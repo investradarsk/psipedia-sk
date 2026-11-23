@@ -163,9 +163,13 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
     let mediaReceipt: ArticleFollowupReceipt = { status: "skipped" };
     if (bucket && removedKeys.length) {
-      const removed = await Promise.allSettled(removedKeys.map((key) => bucket.delete(key)));
-      mediaReceipt = removed.some((result) => result.status === "rejected")
-        ? { status: "failed", code: "R2_MEDIA_CLEANUP_FAILED" } : { status: "synced" };
+      try {
+        const removed = await Promise.allSettled(removedKeys.map((key) => bucket.delete(key)));
+        mediaReceipt = removed.some((result) => result.status === "rejected")
+          ? { status: "failed", code: "R2_MEDIA_CLEANUP_FAILED" } : { status: "synced" };
+      } catch {
+        mediaReceipt = { status: "failed", code: "R2_MEDIA_CLEANUP_FAILED" };
+      }
     }
     const notionSteps: Partial<Record<NotionArticleStep, ArticleFollowupReceipt>> = {};
     const bindings = env as unknown as ArticleRouteBindings;
