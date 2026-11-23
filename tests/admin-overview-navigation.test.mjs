@@ -37,7 +37,13 @@ test("slow attention, quality and activity reads remain isolated from workspace 
   assert.match(page, /const attentionPromise = loadRequestAdminAttentionSummary\(\)/);
   assert.match(page, /const qualityPromise = loadWorkspaceQuality\(\)/);
   assert.match(page, /const workspaceFeedPromise = loadAdminWorkspaceOverview\(\)/);
-  assert.match(page, /attentionSummaryPromise=\{attentionPromise\}/);
+  assert.match(page, /attentionSummaryPromise=\{boundedAttentionPromise\}/);
+  assert.match(page, /attentionPromise=\{boundedAttentionPromise\}/);
+  assert.match(page, /qualityPromise=\{boundedQualityPromise\}/);
+  assert.match(page, /activityPromise=\{boundedWorkspaceFeedPromise\}/);
+  assert.match(page, /const boundedAttentionPromise = settleAdminOverviewRead\(attentionPromise, unavailableAttention\)/);
+  assert.match(page, /availability: "UNAVAILABLE"/);
+  assert.match(page, /bySource: Object\.fromEntries\(adminAttentionQueueSourceTypes\.map/);
   assert.match(shell, /<Suspense fallback=\{<AdminNotificationBellPending \/>\}>/);
   assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Aktívne upozornenia" \/>\}>/);
   assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Kvalita údajov" \/>\}>/);
