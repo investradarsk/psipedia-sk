@@ -49,7 +49,8 @@ test("CONTINUOUS STEP 1: one Tiptap doc contains intro, takeaway, native heading
   assert.equal(doc.content.find(node => node.attrs?.sourceBlockId === "text-1")?.type, "paragraph");
   assert.deepEqual(doc.content.at(-1)?.attrs?.blocks, [input.blocks.at(-1)]);
   assert.equal(doc.content.at(-1)?.attrs?.sourceHeading, "Odborné zdroje");
-  assert.equal(doc.content.find(node => node.attrs?.sourceBlockId === "h-2")?.attrs?.sourceBlock, input.blocks[1]);
+  assert.deepEqual(doc.content.find(node => node.attrs?.sourceBlockId === "h-2")?.attrs?.sourceBlock, input.blocks[1]);
+  assert.notStrictEqual(doc.content.find(node => node.attrs?.sourceBlockId === "h-2")?.attrs?.sourceBlock, input.blocks[1], "canonical projection isolates mutable form state");
   assert.equal(JSON.stringify(input), before, "read-only conversion must not mutate source blocks");
 });
 
@@ -81,7 +82,7 @@ test("CONTINUOUS STEP 1: UI is opt-in and cannot save a new article document", (
   const viewer = readFileSync("components/admin-article-continuous-readonly.tsx", "utf8");
   const adapter = readFileSync("lib/article-continuous-readonly.ts", "utf8");
   assert.match(admin, /data-article-continuous-toggle/);
-  assert.match(admin, /<div hidden=\{continuousReadOnlyOpen\}>/);
+  assert.match(admin, /!continuousReadOnlyOpen && !continuousEditableOpen/);
   assert.match(admin, /<AdminArticleBlockEditor/);
   assert.match(viewer, /editable: false/);
   assert.match(viewer, /ReactNodeViewRenderer\(ReadOnlyWidget\)/);

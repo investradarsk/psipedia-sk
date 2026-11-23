@@ -3,7 +3,8 @@
  * The original ArticleBlock objects travel in Tiptap node attributes unchanged.
  */
 import type { ArticleBlock } from "@/lib/article-blocks";
-import { legacyRichTextToDocument, type EditorialRichTextDocument } from "@/lib/editorial-content";
+import type { EditorialRichTextDocument } from "@/lib/editorial-content";
+import { articleBlocksToContinuousNodes } from "@/lib/article-continuous-document";
 import { planArticleSourceDisplay } from "@/lib/article-source-dedup";
 import { editorialToTiptap, type TiptapEditorialDocument, type TiptapEditorialNode } from "@/lib/tiptap-editorial-bridge";
 
@@ -15,23 +16,12 @@ export type ContinuousReadOnlyInput = {
   promoUtcDay?: string;
 };
 
-const WIDGET_TYPES = new Set<ArticleBlock["type"]>([
-  "image", "gallery", "bullet-list", "numbered-list", "tip", "warning",
-  "quote", "table", "related", "psipedia-promo", "cta", "embed",
-]);
-
 function withOrigin(node: TiptapEditorialNode, attrs: Record<string, unknown>): TiptapEditorialNode {
   return { ...node, attrs: { ...node.attrs, ...attrs } };
 }
 
 function proseNodes(value: EditorialRichTextDocument, origin: Record<string, unknown>): TiptapEditorialNode[] {
   return editorialToTiptap(value).content.map((node) => withOrigin(node, origin));
-}
-
-function widget(block: ArticleBlock, promoUtcDay?: string): TiptapEditorialNode {
-  return { type: "psipediaArticleWidget", attrs: {
-    kind: "block", block, promoUtcDay: promoUtcDay ?? null,
-  } };
 }
 
 /** Non-destructive conversion. Unknown block kinds fail visibly, not as missing paragraphs. */
@@ -47,28 +37,7 @@ export function articleToContinuousReadOnlyDocument(input: ContinuousReadOnlyInp
   }
 
   const { contentBlocks, sourceBlocks, hasManualSourceSection } = planArticleSourceDisplay(input.blocks);
-  for (const block of contentBlocks) {
-    if (!block || typeof block !== "object" || typeof block.id !== "string") {
-      throw new Error("Obsah obsahuje neplatný blok, ktorý sa nesmie skryť.");
-    }
-    if (block.type === "text") {
-      const textNodes = proseNodes(block.richText ?? legacyRichTextToDocument(block.content), {
-        sourceBlockId: block.id, sourceBlock: block,
-      });
-      // Preserve empty text blocks as identifiable placeholders, not omitted nodes.
-      nodes.push(...(textNodes.length ? textNodes : [{
-        type: "paragraph", attrs: { sourceBlockId: block.id, sourceBlock: block },
-      }]));
-    } else if (block.type === "h2" || block.type === "h3") {
-      nodes.push({ type: "heading", attrs: {
-        level: block.type === "h2" ? 2 : 3, sourceBlockId: block.id, sourceBlock: block,
-      }, ...(block.text ? { content: [{ type: "text", text: block.text }] } : {}) });
-    } else if (WIDGET_TYPES.has(block.type)) {
-      nodes.push(widget(block, input.promoUtcDay));
-    } else {
-      throw new Error(`Nepodporovaný typ bloku: ${String(block.type)}. Pôvodný obsah zostáva nezmenený.`);
-    }
-  }
+  nodes.push(...articleBlocksToContinuousNodes(contentBlocks, { promoUtcDay: input.promoUtcDay }));
   if (sourceBlocks.length) {
     // Same source planning as article-detail.tsx, including manual-source deduplication.
     // Each original source object is retained in the read-only widget attributes.

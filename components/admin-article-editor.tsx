@@ -5,7 +5,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
-import { ChangeEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Blocks, BookOpen, CalendarDays, Camera, CheckCircle2, ChevronDown, Clock3, Eye, PawPrint, Search, Settings2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
@@ -40,6 +40,7 @@ import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upl
 import { ImageDisplay } from "@/components/image-display";
 const ImageDisplayEditor = dynamic(() => import("@/components/image-display-editor").then(module => module.ImageDisplayEditor), { ssr: false });
 const AdminArticleContinuousReadOnly = dynamic(() => import("@/components/admin-article-continuous-readonly").then(module => module.AdminArticleContinuousReadOnly), { ssr: false });
+const AdminArticleContinuousEditor = dynamic(() => import("@/components/admin-article-continuous-editor").then(module => module.AdminArticleContinuousEditor), { ssr: false });
 const AdminArticleFullscreenPreview = dynamic(() => import("@/components/admin-article-fullscreen-preview").then(module => module.AdminArticleFullscreenPreview), { ssr: false });
 import { legacyArticleThumbnail, legacyArticleDetail, type ImageDisplayConfig } from "@/lib/image-display";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
@@ -58,6 +59,24 @@ function slugify(value: string, maxLength = 90) {
 
 function dateTimeValue(value?: string | null) {
   return formatArticleLocalDateTime(value);
+}
+
+const articleEditorModeKey = "psipedia-article-editor-mode";
+const articleEditorModeEvent = "psipedia-article-editor-mode-change";
+type ArticleEditorMode = "continuous" | "legacy";
+const articleEditorServerMode = (): ArticleEditorMode => "continuous";
+function articleEditorBrowserMode(): ArticleEditorMode {
+  try {
+    return window.localStorage.getItem(articleEditorModeKey) === "legacy" ? "legacy" : "continuous";
+  } catch { return "continuous"; }
+}
+function subscribeArticleEditorMode(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(articleEditorModeEvent, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(articleEditorModeEvent, onStoreChange);
+  };
 }
 
 const editorNavigation = [
@@ -234,7 +253,33 @@ export function AdminArticleEditor({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
   const [continuousReadOnlyOpen, setContinuousReadOnlyOpen] = useState(false);
-  const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
+  // During SSR the default is continuous. Hydration reads the saved choice with
+  // useSyncExternalStore, avoiding state updates inside effects and hydration drift.
+  const savedEditorMode = useSyncExternalStore(
+    subscribeArticleEditorMode, articleEditorBrowserMode, articleEditorServerMode,
+  );
+  const [manualMode, setManualMode] = useState<ArticleEditorMode | null>(null);
+  const continuousEditableOpen = !continuousReadOnlyOpen && (manualMode ?? savedEditorMode) === "continuous";
+  const lastNonPreviewMode = useRef<ArticleEditorMode>("continuous");
+  function selectArticleEditorMode(mode: ArticleEditorMode | "preview") {
+    if (mode === "preview") {
+      lastNonPreviewMode.current = continuousEditableOpen ? "continuous" : "legacy";
+    } else {
+      lastNonPreviewMode.current = mode;
+      setManualMode(mode);
+      try {
+        window.localStorage.setItem(articleEditorModeKey, mode);
+        window.dispatchEvent(new Event(articleEditorModeEvent));
+      } catch { /* Storage may be blocked; local state still changes. */ }
+    }
+    setContinuousReadOnlyOpen(mode === "preview");
+  }
+  const articleEditorNavigation = continuousEditableOpen
+    ? editorNavigation.filter(section => section.id !== "article-basics")
+      .map(section => section.id === "article-blocks"
+        ? { ...section, label: "Editor článku" } : section)
+    : editorNavigation;
+  const [activeArticleSection, setActiveArticleSection] = useState<string>("article-blocks");
   const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string } | null>(null);
   const [dirty, setDirtyState] = useState(false);
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
@@ -242,7 +287,9 @@ export function AdminArticleEditor({
   const resultRef = useRef<HTMLDivElement>(null);
   function chooseArticleSection(id: string) {
     if (id !== "article-content" && !editorNavigation.some((section) => section.id === id)) return;
-    const visibleId = id === "article-content" ? "article-basics" : id;
+    const canonicalId = id === "article-content" ? "article-basics" : id;
+    const visibleId = continuousEditableOpen && canonicalId === "article-basics"
+      ? "article-blocks" : canonicalId;
     setActiveArticleSection(visibleId);
     // Wait until React has revealed the selected panel before scrolling.
     window.requestAnimationFrame(() => {
@@ -439,7 +486,9 @@ export function AdminArticleEditor({
             : firstBlocker?.field === "title" || firstBlocker?.field === "excerpt" ? "article-basics"
               : firstBlocker?.field.startsWith("sources") || firstBlocker?.field.startsWith("blocks") ? "article-blocks"
                 : firstBlocker?.field === "intro" ? "article-content" : "article-publish";
-          const visibleTargetId = targetId === "article-content" ? "article-basics" : targetId;
+          const targetSectionId = targetId === "article-content" ? "article-basics" : targetId;
+          const visibleTargetId = continuousEditableOpen && targetSectionId === "article-basics"
+            ? "article-blocks" : targetSectionId;
           chooseArticleSection(visibleTargetId);
           setQaFocusRequest({ sectionId: visibleTargetId });
         }
@@ -524,7 +573,7 @@ export function AdminArticleEditor({
         mode="page"
         title={article ? "Upraviť článok" : "Nový článok"}
         articleLayout
-        sections={editorNavigation}
+        sections={articleEditorNavigation}
         sectionMode="switch"
         activeSectionId={activeArticleSection}
         onSectionChange={setActiveArticleSection}
@@ -967,7 +1016,7 @@ export function AdminArticleEditor({
           </div>
         </section>
 
-        <section id="article-basics" hidden={activeArticleSection !== "article-basics"} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" ? "true" : "false"} data-admin-editor-section className={`admin-form-card admin-form-card--intro ${editorStyles.introCard}`}>
+        <section id="article-basics" hidden={activeArticleSection !== "article-basics" && !(continuousEditableOpen && activeArticleSection === "article-blocks")} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" || (continuousEditableOpen && activeArticleSection === "article-blocks") ? "true" : "false"} data-admin-editor-section className={`admin-form-card admin-form-card--intro ${editorStyles.introCard}`}>
           <div className="admin-card-heading"><div><span>07</span><div><h2>Úvod a obsah</h2><p>Základné informácie o článku a jeho úvod.</p></div></div></div>
           <div className="admin-field admin-field--title">
             <label htmlFor="article-title">Názov {portalSection === "novinky" ? "novinky" : "článku"}</label>
@@ -980,7 +1029,7 @@ export function AdminArticleEditor({
           </div>
         </section>
 
-        <section id="article-content" hidden={activeArticleSection !== "article-basics"} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" ? "true" : "false"} data-admin-editor-section className={`admin-form-card ${editorStyles.introContinuation}`}>
+        {!continuousEditableOpen && <section id="article-content" hidden={activeArticleSection !== "article-basics"} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" ? "true" : "false"} data-admin-editor-section className={`admin-form-card ${editorStyles.introContinuation}`}>
           <h2 className={editorStyles.visuallyHidden}>Textový obsah článku</h2>
           <div className="admin-field">
             <label htmlFor="article-intro">Úvod článku</label>
@@ -990,20 +1039,63 @@ export function AdminArticleEditor({
             <label htmlFor="article-takeaway">To najdôležitejšie <small>nepovinné</small></label>
             <RichTextInput id="article-takeaway" rows={4} value={takeaway} richText={takeawayRichText} onChange={(content, richText) => { setTakeaway(content); setTakeawayRichText(richText); setEditorDirty(true); }} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists />
           </div>
-        </section>
+        </section>}
 
         <section id="article-blocks" hidden={activeArticleSection !== "article-blocks"} tabIndex={activeArticleSection === "article-blocks" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-blocks" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
           <div className="admin-card-heading">
-            <div><span>08</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
+            <div><span>08</span><div><h2>{continuousEditableOpen ? "Editor článku" : "Blokový obsah článku"}</h2><p>{continuousEditableOpen ? "Píš text priamo ako jeden dokument. Ostatné prvky upravuj na ich mieste." : "Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí."}</p></div></div>
           </div>
           <div className="admin-field" data-article-continuous-step1>
-            <button type="button" className="admin-secondary-button" data-article-continuous-toggle
-              aria-pressed={continuousReadOnlyOpen}
-              onClick={() => setContinuousReadOnlyOpen((open) => !open)}>
-              {continuousReadOnlyOpen ? "Späť do pôvodného blokového editora" : "Zobraziť súvislý dokument (iba na čítanie)"}
-            </button>
-            <small>Skúšobný náhľad z aktuálneho obsahu. Nemá vlastné ukladanie a nemení verejný článok.</small>
+            <div className="admin-editor-mode-switch" role="group" aria-label="Režim editora článku">
+              <button type="button" className="admin-secondary-button" data-article-continuous-edit-toggle
+                aria-pressed={continuousEditableOpen}
+                onClick={() => selectArticleEditorMode("continuous")}>
+                Súvislý editor (Word štýl)
+              </button>
+              <button type="button" className="admin-secondary-button" data-article-continuous-toggle
+                aria-pressed={continuousReadOnlyOpen}
+                onClick={() => {
+                  if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]:not([data-article-continuous-initial-error="true"])')) {
+                    setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
+                  }
+                  if (continuousReadOnlyOpen) selectArticleEditorMode(lastNonPreviewMode.current);
+                  else selectArticleEditorMode("preview");
+                }}>
+                Súvislý náhľad
+              </button>
+              <button type="button" className="admin-secondary-button" data-article-legacy-toggle
+                aria-pressed={!continuousEditableOpen && !continuousReadOnlyOpen}
+                onClick={() => {
+                  if (continuousEditableOpen && document.querySelector('[data-article-continuous-editable][data-article-tiptap-invalid="true"]:not([data-article-continuous-initial-error="true"])')) {
+                    setError("Najprv oprav chybu v súvislom editore. Neplatný text by sa pri prepnutí stratil."); return;
+                  }
+                  selectArticleEditorMode("legacy");
+                }}>
+                Pôvodný editor
+              </button>
+            </div>
+            <small>V súvislom editore upravuješ úvod, text aj všetky prvky na jednej stránke. Uloženie používa pôvodný systém článkov.</small>
           </div>
+          {continuousEditableOpen && <AdminArticleContinuousEditor
+            intro={intro}
+            introRichText={introRichText}
+            takeawayRichText={takeawayRichText}
+            takeaway={takeaway}
+            blocks={blocks}
+            promoUtcDay={promoUtcDay}
+            currentArticleId={article?.id}
+            onUploadingChange={setUploading}
+            onMessage={setMessage}
+            onError={setError}
+            onChange={(fields) => {
+              setIntro(fields.intro);
+              setIntroRichText(fields.introRichText);
+              setTakeaway(fields.takeaway);
+              setTakeawayRichText(fields.takeawayRichText);
+              setBlocks(fields.blocks);
+              setEditorDirty(true);
+            }}
+          />}
           {continuousReadOnlyOpen && <AdminArticleContinuousReadOnly
             introRichText={introRichText}
             takeawayRichText={takeawayRichText}
@@ -1011,7 +1103,7 @@ export function AdminArticleEditor({
             blocks={blocks}
             promoUtcDay={promoUtcDay}
           />}
-          <div hidden={continuousReadOnlyOpen}>
+          {!continuousReadOnlyOpen && !continuousEditableOpen && <div>
           <details className="admin-block-news-note" data-article-source-help><summary>Ako uvádzať odborné zdroje?</summary><p>Odborné zdroje sú nepovinné aj pri zdravotných článkoch. Ak ich chceš uviesť, pridaj blok Zdroj. Viac blokov Zdroj sa na verejnom článku spojí do jedného zoznamu.</p></details>
           <AdminArticleBlockEditor
             blocks={blocks}
@@ -1022,7 +1114,7 @@ export function AdminArticleEditor({
             onMessage={setMessage}
             onError={setError}
           />
-          </div>
+          </div>}
         </section>
 
 

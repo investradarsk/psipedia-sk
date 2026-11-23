@@ -82,8 +82,14 @@ async function fillMinimumArticle(page: import("@playwright/test").Page, title: 
 test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   test.describe.configure({ mode: "serial" });
 
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+  test.beforeEach(async ({ page }, testInfo) => {
+    // Existing E2E flows stay on the explicitly supported classic fallback.
+    // The STEP6 test uses a clean first-visit profile to verify the new default.
+    await page.addInitScript((testNewDefault: boolean) => {
+      localStorage.setItem("psipedia-cookie-consent", "necessary");
+      if (testNewDefault) localStorage.removeItem("psipedia-article-editor-mode");
+      else localStorage.setItem("psipedia-article-editor-mode", "legacy");
+    }, testInfo.title.includes("CONTINUOUS-STEP6"));
   });
 
   test("CONTINUOUS-STEP1: one read-only Tiptap document displays unsaved prose and original block editor stays intact", async ({ page }) => {
@@ -118,6 +124,105 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(original).toBeVisible();
     await expect(original.locator('[contenteditable="true"]')).toContainText("Toto je obsahový blok upravovaný");
     expect(mutations).toEqual([]);
+  });
+
+  test("CONTINUOUS-STEP6: new article uses one editor and persists content through canonical save", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+    await expect(nav.getByLabel("Sekcia editora")).toBeVisible();
+    const labels = await nav.getByLabel("Sekcia editora").locator("option").allTextContents();
+    expect(labels.some(label => label.includes("Editor článku"))).toBe(true);
+    expect(labels.some(label => label.includes("Bloky článku"))).toBe(false);
+    await nav.getByLabel("Sekcia editora").selectOption("article-blocks");
+    await expect(page.locator("#article-title")).toBeVisible();
+    await expect(page.locator("#article-excerpt")).toHaveCount(1);
+    await expect(page.locator('[data-article-continuous-document="editable"]')).toHaveCount(1);
+    await expect(page.locator('[data-article-legacy-toggle]')).toHaveAttribute("aria-pressed", "false");
+
+    // Exercise actual Admin save, not only the in-memory Tiptap converter.
+    await page.locator("#article-title").fill("CONTINUOUS SAVE " + projectSuffix(testInfo.project.name));
+    await page.getByLabel("Krátky úvod na karte").fill("Automatický test jediného redakčného editora a bezpečného uloženia konceptu.");
+    const editor = page.locator('[data-article-continuous-document="editable"]');
+    const paragraphs = editor.locator(":scope > p");
+    await expect(paragraphs).toHaveCount(2);
+    await paragraphs.first().click();
+    await page.keyboard.type("Úvod súvislého článku s dostatočne jasným kontextom.");
+    await paragraphs.last().click();
+    await page.keyboard.type("Telo súvislého článku s vlastným textovým blokom.");
+    await expect(editor).toContainText("Úvod súvislého článku");
+    await expect(editor).toContainText("Telo súvislého článku");
+    await expect(page.locator('[data-article-tiptap-invalid="true"]')).toHaveCount(0);
+
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
+    await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
+    await expect(editor).toContainText("Telo súvislého článku");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator('[data-article-continuous-document="editable"]')).toContainText("Úvod súvislého článku");
+    await expect(page.locator('[data-article-continuous-document="editable"]')).toContainText("Telo súvislého článku");
+  });
+
+  test("CONTINUOUS-STEP3: edit a body paragraph in one Tiptap canvas and return to legacy without losing it", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await fillMinimumArticle(page, "Jednotný editor – overenie úprav");
+    const blockSection = page.locator("#article-blocks");
+    await blockSection.locator("[data-article-continuous-edit-toggle]").click();
+
+    const document = blockSection.locator('[data-article-continuous-document="editable"]');
+    await expect(document).toHaveCount(1);
+    await expect(document).toContainText("Toto je bezpečný úvod článku");
+    await expect(document).toContainText("Toto je obsahový blok upravovaný");
+
+    const paragraph = document.locator("p").filter({ hasText: "Toto je obsahový blok upravovaný" });
+    await paragraph.click();
+    await page.keyboard.press("End");
+    await page.keyboard.type(" NOVA-SUVISLA-VERZIA");
+    await expect(document).toContainText("NOVA-SUVISLA-VERZIA");
+    await expect(blockSection.locator('[data-article-tiptap-invalid="true"]')).toHaveCount(0);
+
+    const legacyToggle = blockSection.locator("[data-article-legacy-toggle]");
+    // The formatting toolbar is sticky. Explicit scrolling respects the control's
+    // scroll-margin and avoids a pointer click under the toolbar on narrow screens.
+    await legacyToggle.evaluate(element => element.scrollIntoView({ block: "start", behavior: "instant" }));
+    await expect.poll(() => legacyToggle.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      return y > 0 && y < window.innerHeight
+        && (element === window.document.elementFromPoint(x, y)
+          || element.contains(window.document.elementFromPoint(x, y)));
+    })).toBe(true);
+    await legacyToggle.click();
+    // Show lossless-roundtrip guard details if the mode transition is blocked.
+    await expect.poll(async () => blockSection.evaluate(section => {
+      const pressed = section.querySelector("[data-article-legacy-toggle]")?.getAttribute("aria-pressed");
+      if (pressed === "true") return "true";
+      return JSON.stringify({
+        pressed,
+        invalid: section.querySelector("[data-article-continuous-editable]")?.getAttribute("data-article-tiptap-invalid"),
+        initialError: section.querySelector("[data-article-continuous-editable]")?.getAttribute("data-article-continuous-initial-error"),
+        warning: section.querySelector('[role="alert"]')?.textContent?.slice(0, 220),
+        active: section.getAttribute("data-editor-section-active"),
+      });
+    }), { timeout: 10_000 }).toBe("true");
+    const original = blockSection.locator("[data-admin-rich-text-editor]");
+    const stateAfterSwitch = await blockSection.evaluate(section => ({
+      active: section.getAttribute("data-editor-section-active"),
+      editable: !!section.querySelector("[data-article-continuous-editable]"),
+      invalid: section.querySelector("[data-article-continuous-editable]")?.getAttribute("data-article-tiptap-invalid"),
+      error: section.querySelector('[role="alert"]')?.textContent?.slice(0, 220),
+      legacyPressed: section.querySelector("[data-article-legacy-toggle]")?.getAttribute("aria-pressed"),
+      originalEditors: section.querySelectorAll("[data-admin-rich-text-editor]").length,
+      emptyBlockList: !!section.querySelector(".admin-block-empty"),
+    }));
+    expect(stateAfterSwitch.legacyPressed, JSON.stringify(stateAfterSwitch)).toBe("true");
+    await expect(original).toBeVisible();
+    await expect(original.last().locator('[contenteditable="true"]')).toContainText("NOVA-SUVISLA-VERZIA");
+
+    await blockSection.locator("[data-article-continuous-edit-toggle]").click();
+    await expect(document).toContainText("NOVA-SUVISLA-VERZIA");
+    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
   });
 
   test("mobile article editor has one save action, compact navigation and searchable breeds", async ({ page }) => {
@@ -495,6 +600,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-publish");
     await publicationAction(page, "Publikovať novinku").click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
+    // After a create redirect the editor opens on the body, not Publishing.
+    // The mobile lifecycle action lives inside the Publishing section.
+    await showArticleSection(page, "article-publish");
     await expect(publicationAction(page, "Stiahnuť z webu")).toBeVisible();
   });
 
@@ -742,7 +850,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const editor = page.locator('[data-editor-layout="article"][data-editor-section-mode="switch"]');
     const sections = editor.locator("#article-canonical-editor-form > [data-admin-editor-section]");
     await expect(sections).toHaveCount(9);
-    await expect(page.locator("#article-publish")).toBeVisible();
+    // Step 6 intentionally opens the article body first, including the classic fallback.
+    await expect(page.locator("#article-blocks")).toBeVisible();
+    await expect(page.locator("#article-publish")).toBeHidden();
     await expect(page.locator("#article-basics")).toBeHidden();
     await expect.poll(() => sections.evaluateAll(elements =>
       elements.filter(el => getComputedStyle(el).display !== "none").length,

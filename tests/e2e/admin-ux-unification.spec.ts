@@ -45,11 +45,16 @@ async function accessible(page: Page) {
   ))).toEqual([]);
 }
 
-test.beforeEach(async ({ page, baseURL }) => {
+test.beforeEach(async ({ page, baseURL }, testInfo) => {
   if (!baseURL || !["localhost", "127.0.0.1", "::1"].includes(new URL(baseURL).hostname)) {
     throw new Error("Admin UX verification requires an isolated local environment.");
   }
-  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+  await page.addInitScript((articleLegacy: boolean) => {
+    localStorage.setItem("psipedia-cookie-consent", "necessary");
+    // This existing cross-editor regression exercises the original article
+    // sections. The dedicated continuous-editor test covers the new default.
+    if (articleLegacy) localStorage.setItem("psipedia-article-editor-mode", "legacy");
+  }, testInfo.title.startsWith("article:"));
 });
 
 const editors = [
