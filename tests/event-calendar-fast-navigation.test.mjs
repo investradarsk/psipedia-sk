@@ -19,8 +19,8 @@ const backLink = readFileSync(
 
 test("selecting a day preserves the month and listing and fetches only its 12 bounded previews", () => {
   const dayBranch = client.slice(
-    client.indexOf("if (sameMonth && !pending)"),
-    client.indexOf("    const calendarOnly = sameListing && !pending && !next.day;"),
+    client.indexOf("if (sameMonth && !pending && !loadError)"),
+    client.indexOf("    const calendarOnly = sameListing && !pending && !loadError && !next.day;"),
   );
   assert.match(dayBranch, /setData\(\(current\) => \(\{ \.\.\.current, calendarEvents:/);
   assert.match(dayBranch, /dayEndpoint\.pathname \+= "\/day"/);
@@ -36,7 +36,7 @@ test("selecting a day preserves the month and listing and fetches only its 12 bo
 });
 
 test("month-only requests preserve the current filtered listing and avoid refetching counts", () => {
-  assert.match(client, /const calendarOnly = sameListing && !pending && !next\.day;/);
+  assert.match(client, /const calendarOnly = sameListing && !pending && !loadError && !next\.day;/);
   assert.match(client, /endpoint\.searchParams\.set\("calendarOnly", "1"\)/);
   assert.match(
     client,
@@ -84,4 +84,71 @@ test("calendar-only navigation preserves the listing page and restores it from h
   assert.match(client, /setView\(\{ \.\.\.next, page: nextPage \}\)/);
   assert.match(client, /else if \(view\.page > 1\) params\.set\("strana", String\(view\.page\)\)/);
   assert.match(client, /if \(state\.page > 1\) params\.set\("strana", String\(state\.page\)\)/);
+});
+
+test("calendar retries failed data instead of reusing an earlier month or skipping the same day", async () => {
+  const { default: ts } = await import("typescript");
+  const source = ts.createSourceFile("event-calendar.tsx", client, ts.ScriptTarget.ESNext, true);
+  let navigate;
+  function visit(node) {
+    if (ts.isFunctionDeclaration(node) && node.name?.text === "navigate") {
+      navigate = node.getText(source);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.ok(navigate);
+  const run = new Function("env", `with (env) { ${ts.transpile(navigate)}; return navigate; }`);
+  const view = {
+    month: "2026-11",
+    filterMonth: "",
+    page: 2,
+    time: "all",
+    type: "Všetky",
+    day: "2026-11-23",
+  };
+  for (const [loadError, dayLoadError, path] of [
+    ["Failed month", "", "/api/public/events/calendar"],
+    ["", "Failed day", "/api/public/events/calendar/day"],
+  ]) {
+    const requests = [];
+    const noop = () => {};
+    const data = {
+      events: [],
+      listing: { page: 2 },
+      calendarEvents: [],
+      calendarSummaries: loadError ? [] : [{ date: view.day, count: 1 }],
+    };
+    const navigate = run({
+      view,
+      data,
+      loadError,
+      dayLoadError,
+      pending: false,
+      pendingDay: false,
+      cacheRef: { current: new Map() },
+      requestRef: { current: null },
+      window: { location: new URL("https://psipedia.sk/podujatia") },
+      rememberEventsListing: noop,
+      parseEventListing: ({ strana }) => ({ page: Number(strana) }),
+      setView: noop,
+      setLoadError: noop,
+      setDayLoadError: noop,
+      setPendingDay: noop,
+      setPendingCalendarOnly: noop,
+      setPending: noop,
+      setData: noop,
+      remember: noop,
+      fetch: async (url) => {
+        requests.push(new URL(url));
+        return { ok: true, json: async () => data };
+      },
+    });
+    await navigate(`/podujatia?strana=2&den=${view.day}`, view, false);
+    assert.deepEqual(
+      requests.map((url) => url.pathname),
+      [path],
+    );
+    assert.equal(requests[0].searchParams.get("strana"), "2");
+  }
 });

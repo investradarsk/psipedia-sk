@@ -249,9 +249,9 @@ export function EventCalendar({
 
     // A day selection changes only the right-hand panel. The list and month
     // aggregates are already loaded, so avoid repeating their expensive D1 reads.
-    if (sameMonth && !pending) {
+    if (sameMonth && !pending && !loadError) {
       setPendingDay(false);
-      if (next.day === view.day && !pendingDay) return;
+      if (next.day === view.day && !pendingDay && !dayLoadError) return;
       if (
         !next.day ||
         (data.calendarSummaries &&
@@ -291,7 +291,7 @@ export function EventCalendar({
     }
 
     setPendingDay(false);
-    const calendarOnly = sameListing && !pending && !next.day;
+    const calendarOnly = sameListing && !pending && !loadError && !next.day;
     setPendingCalendarOnly(calendarOnly);
     setPending(true);
     const cached = cacheRef.current.get(key);
@@ -684,7 +684,11 @@ export function EventCalendar({
                       Zavrieť výber
                     </a>
                   </div>
-                  {!pending && (daySummaries.get(selectedDay)?.count ?? 0) > dailyEvents.length ? (
+                  {!pending &&
+                  !pendingDay &&
+                  !loadError &&
+                  !dayLoadError &&
+                  (daySummaries.get(selectedDay)?.count ?? 0) > dailyEvents.length ? (
                     <p>
                       Zobrazených prvých {dailyEvents.length} z{" "}
                       {daySummaries.get(selectedDay)?.count} podujatí.{" "}
