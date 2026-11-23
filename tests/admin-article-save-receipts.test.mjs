@@ -115,3 +115,13 @@ test("retry UI keeps D1 success visible and locks failed steps behind current re
   assert.match(editor, /disabled=\{!!retryBusy \|\| saving \|\| dirty\}/);
   assert.match(editor, /Zopakovať iba tento krok/);
 });
+
+test("ambiguous network save cannot be blindly resubmitted as another POST", () => {
+  const save = editor.slice(editor.indexOf("async function save(nextStatus:"), editor.indexOf("function cancelEditing()"));
+  assert.match(save, /if \(saveOutcomeUnknown\)/);
+  assert.match(save, /let receivedSaveResult = false/);
+  assert.match(save, /receivedSaveResult = true/);
+  assert.match(save, /if \(!receivedSaveResult\)/);
+  assert.match(save, /setSaveOutcomeUnknown\(true\)/);
+  assert.match(save, /Zápis v D1 sa mohol dokončiť/);
+});
