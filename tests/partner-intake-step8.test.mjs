@@ -19,7 +19,7 @@ test("Admin cannot approve with absent or stale reviewed canonical revision",()=
   const workflow=read("lib/partner-canonical-workflow.ts");
   assert.match(workflow,/input.action==="APPROVE"&&\(!input.expectedCanonicalUpdatedAt\|\|revision.updatedAt!==input.expectedCanonicalUpdatedAt\)/);
   assert.match(workflow,/STALE_CANONICAL_REVIEW/);
-  assert.match(workflow,/updated_at=.*status IN \('draft','DRAFT'\)/);
+  assert.match(workflow,/published_at IS NULL AND updated_at/);
   assert.match(workflow,/guard\(db\)/);
   const canonicalEndpoint=read("app/api/admin/partners/canonical-drafts/[id]/route.ts");
   assert.match(canonicalEndpoint,/expectedCanonicalUpdatedAt/);
