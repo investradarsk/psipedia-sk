@@ -1348,13 +1348,17 @@
 
 /* Category topic cards now use EditorialTopicArticleGrid, shared with Plemená. */
 
-/* All topic banners inherit the exact same surface and accents as the
-   established urgent-health banner. Only editorial copy and actions differ. */
-.topicEmergency .callout {
-  border-color: rgba(178, 75, 54, 0.22);
-  background: #fffaf6;
+/* All topics use the same banner surface; emergency keeps only the
+   medically meaningful blue icon/accent, not a separate decorative skin. */
+.callout .eyebrow {
+  color: #b44939;
 }
-.topicEmergency .calloutIcon,
-.topicEmergency .eyebrow {
+.callout .calloutIcon {
+  color: #174d3a;
+}
+.topicEmergency [data-banner-semantic="urgent"] .calloutIcon {
+  color: #387c88;
+}
+.topicEmergency [data-banner-semantic="urgent"] .eyebrow {
   color: #387c88;
 }
