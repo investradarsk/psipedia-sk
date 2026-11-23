@@ -349,10 +349,10 @@ export function BreedBrowser({
                 <BreedArticleCollection
                   compact
                   id={`clanky-fci-${group.number}`}
-                  title={`Články zo skupiny ${group.number}: ${group.label}`}
+                  title={`Články o plemenách – FCI skupina ${group.number}`}
                   articles={groupArticles[group.number] ?? []}
                   href={`/clanky/plemena?fciGroup=${group.number}`}
-                  actionLabel={`Všetky články zo skupiny ${group.number}`}
+                  actionLabel={`Všetky články o plemenách – skupina ${group.number}`}
                   headingLevel={3}
                 />
               </section>
