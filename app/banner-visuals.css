@@ -32,6 +32,9 @@
   color: var(--ps-bnr-ink);
   isolation: isolate;
   overflow-wrap: anywhere;
+  /* Responsive banner layout follows the available component width, not the
+   * page viewport: narrow sidebars exist even on wide desktop screens. */
+  container: ps-editorial-banner / inline-size;
 }
 .ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] {
   --ps-bnr-bg: #173d2e;
@@ -213,4 +216,40 @@
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="large"] [data-public-banner-content] {
     grid-template-columns: minmax(0, 1fr) auto;
   }
+}
+
+
+/* A 250px article rail and a 400px inset card must not keep the desktop
+ * copy + CTA columns just because the viewport is wider than 720px.
+ * Query the rendered banner width itself. */
+@container ps-editorial-banner (max-width: 520px) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > div,
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > nav,
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
+    min-width: 0;
+    width: 100%;
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+    box-sizing: border-box;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] :is(h2, h3, .eyebrow) {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+}
+/* Small is always a stacked banner, including the desktop article sidebar.
+ * Keep this independent of published desktop size presets (which are not
+ * applied to automatic article promotions). */
+.ps-public-banner-frame[data-banner-size="small"] [data-public-banner-content] {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.ps-public-banner-frame[data-banner-size="small"] [data-public-banner-content] > a {
+  justify-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
 }
