@@ -77,7 +77,7 @@ const pageBanners: VisualBanner[] = [
     eyebrow: "Služby v okolí",
     title: "Nájdi služby na mape",
     description: "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality.",
-    ctaLabel: "Zobraziť na mape →",
+    ctaLabel: "Zobraziť na mape",
     ctaHref: "/mapa?category=services",
     uses: [{
       url: "https://psipedia.sk/adresar",
@@ -95,7 +95,7 @@ const pageBanners: VisualBanner[] = [
     eyebrow: "Pre poskytovateľov",
     title: "Poskytuješ služby pre psov?",
     description: "Požiadaj o pridanie alebo úpravu údajov svojho profilu.",
-    ctaLabel: "Pridať alebo upraviť profil →",
+    ctaLabel: "Pridať alebo upraviť profil",
     ctaHref: "/o-nas#kontakt",
     uses: [{
       url: "https://psipedia.sk/adresar",
