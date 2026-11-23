@@ -755,27 +755,17 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     const corrected=correctedValue.trim();
     if(!corrected || corrected.length>2048 || /[\x00-\x1f\x7f]/.test(corrected))
       throw new Error("Upravený údaj má neplatný formát.");
-    if(["web","social"].includes(f.group) && !allowedPage(corrected))
-      throw new Error("Upravený odkaz nie je bezpečná platná adresa.");
-    if(f.group==="email" && (corrected.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrected)))
-      throw new Error("Zadaj platný e-mail.");
-    if(f.group==="phone" && (!/^\+?[0-9\s().-]+$/.test(corrected) ||
-      corrected.replace(/\D/g,"").length<6 || corrected.replace(/\D/g,"").length>15))
-      throw new Error("Zadaj platný verejný telefón.");
-    if(f.group==="social") {
-      const hostname=new URL(corrected).hostname.toLowerCase();
-      if(f.key==="facebookUrl" && !(/(^|\.)facebook\.com$/.test(hostname)||hostname==="fb.me"))
-        throw new Error("Facebook odkaz musí viesť na Facebook.");
-      if(f.key==="instagramUrl" && !(/(^|\.)instagram\.com$/.test(hostname)||hostname==="instagr.am"))
-        throw new Error("Instagram odkaz musí viesť na Instagram.");
-    }
+    // The canonical Admin treats all five public contacts as unrestricted text.
+    // Keep only bounds/control-character checks, never require URL, @ or digits.
     approvedValue=corrected;
   }
   const stagedKey=f.group==="image"?qualityMissingCandidateKey(p.value):null;
-  if(["web","image","social","registration"].includes(f.group)&&!stagedKey&&!allowedPage(approvedValue))
+  if(["image","registration"].includes(f.group)&&!stagedKey&&!allowedPage(approvedValue))
     throw new Error("Neplatný externý odkaz.");
   const row=await db.prepare(`SELECT * FROM ${config.table} WHERE id=?`).bind(p.entity_id).first<Row>();
   if(!row||!missing(fieldValue(p.entity_type,row,f)))throw new Error("Údaj už bol medzičasom vyplnený.");
+  if(!qualityMayResearch(p.entity_type,row,qualityTodayInSlovakia()))
+    throw new Error("Profil bol medzičasom uzavretý alebo archivovaný. Obnov stránku.");
   const updatedAt=String(row.updated_at??"");
   let reviewedImage:{key:string;url:string}|null=null;
   if(f.group==="image") {
@@ -827,7 +817,8 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     // The approved value is committed only to its canonical SQL column.
     // No JSON write, no interference with other contacts.
     update=db.prepare(`UPDATE directory_profiles SET ${column}=?,updated_at=?,updated_by=?
-      WHERE id=? AND updated_at=? AND EXISTS (SELECT 1 FROM quality_missing_proposals WHERE id=? AND status='OPEN')`)
+      WHERE id=? AND updated_at=? AND NULLIF(TRIM(CAST(${column} AS TEXT)), '') IS NULL
+        AND EXISTS (SELECT 1 FROM quality_missing_proposals WHERE id=? AND status='OPEN')`)
       .bind(approvedValue,at,actor,p.entity_id,updatedAt,p.id);
   }else{
     if(!f.column)throw new Error("Chýba mapovanie poľa.");
