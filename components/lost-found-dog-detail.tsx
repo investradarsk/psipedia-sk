@@ -136,6 +136,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
         {active && !report.sourceUrl && !publicPhoneHref && !publicEmailHref
           ? <DetailActions><PublicActionLink href={relayHref}>Kontaktovať cez Psipediu</PublicActionLink></DetailActions>
           : null}
+        {active && <p><Link href={`/partner/prevziat-profil/LOST_FOUND_DOG/${report.id}`}>Spravujete toto hlásenie? Požiadať o správu</Link></p>}
         <div className={styles.safetyPanel}><DetailSection compactHeading title="Bezpečný kontakt">
           <p>Pri osobnom stretnutí dbajte na vlastnú bezpečnosť a presnú súkromnú adresu nezverejňujte verejne. Ak je pes vystrašený alebo sa správa nepredvídateľne, neprenasledujte ho bez vhodného zabezpečenia.</p>
         </DetailSection></div>
