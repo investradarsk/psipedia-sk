@@ -5,6 +5,7 @@ import test from "node:test";
 // Keep article/Notion field preservation on the existing focused CI path.
 import "./article-editor-notion-parity.test.mjs";
 import "./admin-lexical-text-field.test.mjs";
+import "./admin-article-save-receipts.test.mjs";
 
 import {
   normalizeEditorialAuthorProfileInput,
