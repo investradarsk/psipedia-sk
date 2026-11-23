@@ -168,7 +168,7 @@ test("approved public lost/found report syncs canonical status, contact, missing
     "Naposledy videný":"2026-11-22T13:00:00.000Z",
     "Verejný kontakt":"Kontakt sprostredkuje administrácia Psipedia.sk.",
   };
-  h.state.canonicalFields=after;
+  h.state.canonicalFields={...after,"Naposledy videný":"2026-11-22T14:00:00+01:00"};
   h.state.remoteFields={
     "Psipedia stav":"DRAFT",
     "Hlavný obrázok":"",
