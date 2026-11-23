@@ -3,16 +3,28 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const client = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
-const calendarRoute = readFileSync(new URL("../app/api/public/events/calendar/route.ts", import.meta.url), "utf8");
-const dayRoute = readFileSync(new URL("../app/api/public/events/calendar/day/route.ts", import.meta.url), "utf8");
+const calendarRoute = readFileSync(
+  new URL("../app/api/public/events/calendar/route.ts", import.meta.url),
+  "utf8",
+);
+const dayRoute = readFileSync(
+  new URL("../app/api/public/events/calendar/day/route.ts", import.meta.url),
+  "utf8",
+);
 const store = readFileSync(new URL("../lib/event-store.ts", import.meta.url), "utf8");
-const backLink = readFileSync(new URL("../components/events-return-link.tsx", import.meta.url), "utf8");
+const backLink = readFileSync(
+  new URL("../components/events-return-link.tsx", import.meta.url),
+  "utf8",
+);
 
 test("selecting a day preserves the month and listing and fetches only its 12 bounded previews", () => {
-  const dayBranch = client.slice(client.indexOf("if (sameMonth && !pending)"), client.indexOf("    const calendarOnly = sameListing && !next.day;"));
+  const dayBranch = client.slice(
+    client.indexOf("if (sameMonth && !pending)"),
+    client.indexOf("    const calendarOnly = sameListing && !pending && !next.day;"),
+  );
   assert.match(dayBranch, /setData\(\(current\) => \(\{ \.\.\.current, calendarEvents:/);
   assert.match(dayBranch, /dayEndpoint\.pathname \+= "\/day"/);
-  assert.match(dayBranch, /if \(!next\.day \|\|/);
+  assert.match(dayBranch, /if \(\s*!next\.day \|\|/);
   assert.match(dayBranch, /cacheRef\.current\.get\(key\)/);
   assert.doesNotMatch(dayBranch, /setPending\(true\)/);
   assert.match(client, /requestRef\.current\?\.abort\(\)/);
@@ -24,11 +36,17 @@ test("selecting a day preserves the month and listing and fetches only its 12 bo
 });
 
 test("month-only requests preserve the current filtered listing and avoid refetching counts", () => {
-  assert.match(client, /const calendarOnly = sameListing && !next\.day;/);
+  assert.match(client, /const calendarOnly = sameListing && !pending && !next\.day;/);
   assert.match(client, /endpoint\.searchParams\.set\("calendarOnly", "1"\)/);
-  assert.match(client, /\{ \.\.\.data, calendarEvents: received\.calendarEvents, calendarSummaries: received\.calendarSummaries \}/);
+  assert.match(
+    client,
+    /\{\s*\.\.\.data,\s*calendarEvents: received\.calendarEvents,\s*calendarSummaries: received\.calendarSummaries,?\s*\}/,
+  );
   assert.match(calendarRoute, /if \(raw\.calendarOnly === "1"\)/);
-  assert.ok(calendarRoute.indexOf('if (raw.calendarOnly === "1")') < calendarRoute.indexOf("getPublishedEventListing(filters)"));
+  assert.ok(
+    calendarRoute.indexOf('if (raw.calendarOnly === "1")') <
+      calendarRoute.indexOf("getPublishedEventListing(filters)"),
+  );
   assert.match(store, /const \[rows, dayEvents\] = await Promise\.all\(/);
   assert.match(client, /window\.history\.pushState/);
   assert.match(client, /window\.addEventListener\("popstate", restore\)/);
@@ -54,4 +72,16 @@ test("browser back uses latest state and detail return remembers the selected da
 test("failed day preview does not hide the main event listing", () => {
   assert.match(client, /setDayLoadError\("Podujatia sa nepodarilo načítať/);
   assert.match(client, /dayLoadError \|\| loadError/);
+});
+
+test("calendar-only navigation preserves the listing page and restores it from history", () => {
+  assert.match(client, /page: initialFilters\.page/);
+  assert.match(
+    client,
+    /const nextPage = parseEventListing\(\{\s*strana: target\.searchParams\.get\("strana"\) \?\? undefined,?\s*\}\)\.page/,
+  );
+  assert.match(client, /view\.page === nextPage/);
+  assert.match(client, /setView\(\{ \.\.\.next, page: nextPage \}\)/);
+  assert.match(client, /else if \(view\.page > 1\) params\.set\("strana", String\(view\.page\)\)/);
+  assert.match(client, /if \(state\.page > 1\) params\.set\("strana", String\(state\.page\)\)/);
 });
