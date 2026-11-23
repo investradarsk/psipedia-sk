@@ -64,7 +64,7 @@ test("password, magic-link, Google and onboarding keep the validated returnTo", 
   assert.match(verification, /window\.location\.replace\(returnTo \|\| "\/partner"\)/);
   assert.match(google, /postAuthTarget\(onboardingComplete,flow\.returnTo\)/);
   assert.match(onboarding, /window\.location\.replace\(returnTo \|\| "\/partner"\)/);
-  assert.match(login, /majiteľov psov, ktorí chcú spravovať vlastné hlásenia/);
+  assert.match(login, /Pre majiteľov psov, poskytovateľov služieb/);
   assert.match(register, /Organizáciu ani firmu mať nemusíte/);
   assert.match(magic, /<span>E-mail<\/span>/);
 });
