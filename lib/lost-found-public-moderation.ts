@@ -140,3 +140,19 @@ export async function syncLostFoundModerationBeforeAdminStatus(input: {
 
   return getModerationSubmission(link.id);
 }
+
+/** Read-only provenance for the authenticated Admin detail, without PII. */
+export async function getLostFoundPublicSubmissionProvenance(reportId: number) {
+  if (!Number.isSafeInteger(reportId) || reportId <= 0) return null;
+  return database().prepare(
+    "SELECT id,status,created_at AS createdAt,reviewed_at AS reviewedAt " +
+    "FROM moderation_submissions WHERE resource_type='LOST_FOUND_CASE' " +
+    "AND subject_id=?1 AND operation='CREATE' AND submitter_type='PUBLIC_REPORTER' " +
+    "ORDER BY created_at DESC LIMIT 1",
+  ).bind(String(reportId)).first<{
+    id: string;
+    status: string;
+    createdAt: string;
+    reviewedAt: string | null;
+  }>();
+}
