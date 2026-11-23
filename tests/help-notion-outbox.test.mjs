@@ -224,7 +224,9 @@ test("a legacy NOTION_FIELD_CHANGED review gets exactly one safe automatic reche
   const second=await x.api.runHelpNotionWritebackRetrySweep({database:x.db,bindings:x.bindings});
   assert.equal(first.review,1);
   assert.equal(second.claimed,0,"a genuine conflict must not spin forever");
-  assert.deepEqual(x.sqlite.prepare("SELECT status,attempts FROM notion_help_admin_writeback_outbox").get(),{status:"REVIEW",attempts:2});
+  const stillBlocked=x.sqlite.prepare("SELECT status,attempts FROM notion_help_admin_writeback_outbox").get();
+  assert.equal(stillBlocked.status,"REVIEW");
+  assert.equal(stillBlocked.attempts,2);
   assert.equal(x.state.writes.length,0);
   x.sqlite.close();
 });
