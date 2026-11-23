@@ -9,6 +9,6 @@ export default async function NotionFieldSettingsPage() {
   return <AdminShell user={user} eyebrow="Nastavenia / Integrácie"
     title="Notion – synchronizácia a nastavenia"
     description="Jedno pracovisko pre stav synchronizácie, konflikty, pravidlá polí a bezpečný ručný prenos.">
-    <AdminNotionWorkspace initialTab="fields" />
+    <div data-admin-content-module="notion-settings"><AdminNotionWorkspace initialTab="fields" /></div>
   </AdminShell>;
 }
