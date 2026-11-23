@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "app/admin/admin-editorial-foundation.css"
+      - "app/admin/admin-compact-global.css"
+      - "tests/admin-compact-global.test.mjs"
       - "app/admin/admin-list-foundation.css"
       - "app/admin/admin-community-step13.css"
       - "app/admin/admin-operations-step15.css"
@@ -208,4 +210,4 @@ jobs:
       - name: Verify safe filtered Admin return navigation
         run: node --experimental-strip-types --test tests/admin-return-navigation.test.mjs
       - name: Check admin typography, community queues, content modules, mobile and 28-route inventory
-        run: node --test tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/admin-events-visual-step11.test.mjs tests/admin-help-modules-step12.test.mjs tests/admin-community-step13.test.mjs tests/admin-social-visual-step14.test.mjs tests/admin-operations-step15.test.mjs tests/admin-settings-step16.test.mjs tests/admin-knip-cleanup-step17.test.mjs tests/admin-final-visual-step18.test.mjs tests/admin-main-reconciliation.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
+        run: node --test tests/admin-compact-global.test.mjs tests/admin-typography-step3.test.mjs tests/admin-density-step4.test.mjs tests/admin-controls-step5.test.mjs tests/admin-shell-step6.test.mjs tests/admin-work-audit-step7.test.mjs tests/admin-work-audit-round2.test.mjs tests/admin-mobile-stability-step7.test.mjs tests/admin-list-foundation-step8.test.mjs tests/admin-content-step9.test.mjs tests/admin-directory-visual-step10.test.mjs tests/admin-events-visual-step11.test.mjs tests/admin-help-modules-step12.test.mjs tests/admin-community-step13.test.mjs tests/admin-social-visual-step14.test.mjs tests/admin-operations-step15.test.mjs tests/admin-settings-step16.test.mjs tests/admin-knip-cleanup-step17.test.mjs tests/admin-final-visual-step18.test.mjs tests/admin-main-reconciliation.test.mjs tests/reviews-admin-hub.test.mjs tests/admin-editor-breed-single-section-step7.test.mjs tests/admin-workspace-overview-performance.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-editor-article-single-section-step8.test.mjs tests/admin-unified-ui-foundation.test.mjs tests/admin-editor-form-controls-step4.test.mjs tests/admin-ui-unification-inventory.test.mjs
