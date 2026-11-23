@@ -21,6 +21,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         id,
         adminEmail: auth.user.email,
         requestId: request.headers.get("cf-ray"),
+        expectedCanonicalUpdatedAt:typeof body.expectedCanonicalUpdatedAt==="string"?body.expectedCanonicalUpdatedAt:undefined,
       });
       return Response.json({ submission }, { headers: { "Cache-Control": "private, no-store" } });
     }
