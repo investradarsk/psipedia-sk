@@ -40,7 +40,7 @@ export const helpOverviewPromos: Partial<Record<number, HelpOverviewBannerPreset
 export const lostFoundSubmitPromo: HelpOverviewBannerPreset = {
   eyebrow: "Stratený alebo nájdený pes",
   title: "Stratil sa vám pes alebo ste psa našli?",
-  text: "Pošlite hlásenie cez krátky formulár. Kontaktné údaje zostanú súkromné a záznam sa zobrazí až po kontrole.",
+  text: "Prihláste sa alebo si vytvorte účet. Hlásenie potom môžete spravovať a sledovať jeho stav; zverejní sa až po kontrole.",
   href: "/partner/koncepty/novy?typ=LOST_FOUND_DOG",
   action: "Nahlásiť psa",
   tone: "rescue",
