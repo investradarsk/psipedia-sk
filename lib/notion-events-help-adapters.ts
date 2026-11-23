@@ -116,7 +116,10 @@ export const agendaEditableFields: Record<BidirectionalAgendaKey, readonly strin
     "Meno", "Slug", "Stav", "Dátum narodenia", "Vek mesiace", "Pohlavie", "Veľkosť", "Hmotnosť",
     "Plemeno", "Kríženec", "Farba", "Mesto", "Okres", "Kraj", "Organizácia",
     "Krátky popis", "Popis", "Povaha", "Aktivita", "Zdravotné poznámky",
-    "Špeciálne potreby", "Hlavný obrázok URL", "Zdroj dát",
+    "Špeciálne potreby", "Vhodný k deťom", "Vhodný k psom", "Vhodný k mačkám",
+    "Vhodný k iným zvieratám", "Očkovanie", "Podmienky adopcie",
+    "Kontaktný e-mail", "Kontaktný telefón", "Kontaktný odkaz",
+    "Hlavný obrázok URL", "Zdroj dát",
   ],
   "help-cases": [
     "Názov", "Slug", "Kategória", "Psipedia stav", "Perex", "Popis", "Organizácia", "Pes", "Plemeno",
@@ -127,7 +130,8 @@ export const agendaEditableFields: Record<BidirectionalAgendaKey, readonly strin
     "Názov", "Slug", "Typ", "Psipedia stav", "Meno psa", "Pohlavie", "Plemeno", "Farba", "Vek",
     "Veľkosť", "Krátky popis", "Popis", "Rozlišovacie znaky", "Obojok", "Čip", "Hlavný obrázok", "Dátum udalosti",
     "Naposledy videný", "Kraj", "Okres", "Mesto", "Miesto", "Latitude", "Longitude",
-    "Presnosť lokality", "Verejný kontakt", "Zdroj", "Zdroj URL",
+    "Presnosť lokality", "Verejný kontakt", "Verejný telefón", "Verejný e-mail",
+    "Verejný web", "Verejný Facebook", "Verejný Instagram", "Zdroj", "Zdroj URL",
   ],
 };
 
@@ -443,7 +447,7 @@ async function organizationIdByName(database: D1Database, name: string) {
   return rows.results.length === 1 ? Number(rows.results[0].id) : null;
 }
 
-function adoptionPayload(
+export function adoptionPayload(
   values: Record<string, ReconciliationValue>,
   existing: Awaited<ReturnType<typeof getAdoptionById>> | null,
   organizationId: number | null,
@@ -478,13 +482,42 @@ function adoptionPayload(
     organizationName,
     organizationSlug: existing && existing.organizationId === organizationId ? existing.organizationSlug : null,
     mainImage: imageUrl,
+    // A Notion field event edits only its authorized property. Every other
+    // canonical field must survive updateAdoptionFromAdmin's full-row save.
+    thumbnailImageDisplay: existing?.thumbnailImageDisplay ?? null,
+    detailImageDisplay: existing?.detailImageDisplay ?? null,
+    gallery: existing?.gallery ?? [],
     shortDescription: s(values["Krátky popis"]),
     description: s(values["Popis"]),
     temperament: s(values["Povaha"]),
     activityLevel: s(values["Aktivita"]),
+    suitableForChildren: Object.hasOwn(values, "Vhodný k deťom")
+      ? s(values["Vhodný k deťom"]) || "UNKNOWN" : existing?.suitableForChildren ?? "UNKNOWN",
+    suitableForDogs: Object.hasOwn(values, "Vhodný k psom")
+      ? s(values["Vhodný k psom"]) || "UNKNOWN" : existing?.suitableForDogs ?? "UNKNOWN",
+    suitableForCats: Object.hasOwn(values, "Vhodný k mačkám")
+      ? s(values["Vhodný k mačkám"]) || "UNKNOWN" : existing?.suitableForCats ?? "UNKNOWN",
+    suitableForOtherAnimals: Object.hasOwn(values, "Vhodný k iným zvieratám")
+      ? s(values["Vhodný k iným zvieratám"]) || "UNKNOWN" : existing?.suitableForOtherAnimals ?? "UNKNOWN",
+    apartmentSuitable: existing?.apartmentSuitable ?? null,
+    beginnerSuitable: existing?.beginnerSuitable ?? null,
+    needsExperiencedOwner: existing?.needsExperiencedOwner ?? false,
+    vaccinationStatus: Object.hasOwn(values, "Očkovanie")
+      ? s(values["Očkovanie"]) || "UNKNOWN" : existing?.vaccinationStatus ?? "UNKNOWN",
+    chipped: existing?.chipped ?? null,
+    neutered: existing?.neutered ?? null,
     healthNotes: s(values["Zdravotné poznámky"]),
     specialNeeds: s(values["Špeciálne potreby"]),
+    adoptionRequirements: Object.hasOwn(values, "Podmienky adopcie")
+      ? s(values["Podmienky adopcie"]) : existing?.adoptionRequirements ?? "",
     externalSourceUrl: s(values["Zdroj dát"]) || null,
+    contactEmail: Object.hasOwn(values, "Kontaktný e-mail")
+      ? s(values["Kontaktný e-mail"]) || null : existing?.contactEmail ?? null,
+    contactPhone: Object.hasOwn(values, "Kontaktný telefón")
+      ? s(values["Kontaktný telefón"]) || null : existing?.contactPhone ?? null,
+    contactUrl: Object.hasOwn(values, "Kontaktný odkaz")
+      ? s(values["Kontaktný odkaz"]) || null : existing?.contactUrl ?? null,
+    lastVerifiedAt: existing?.lastVerifiedAt ?? null,
   };
 }
 

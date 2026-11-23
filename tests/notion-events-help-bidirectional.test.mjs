@@ -18,6 +18,7 @@ import {
 } from "../lib/notion-canonical-target.ts";
 import {
   adoptionStatusFromNotion,
+  adoptionPayload,
   agendaEditableFields,
   NOTION_MAIN_IMAGE_FIELDS,
   needsAdminMainImageBackfill,
@@ -32,7 +33,8 @@ import {
   readyForCreate,
 } from "../lib/notion-events-help-adapters.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "../lib/notion-event-priority.ts";
-import { loadNotionBulkHelpCases } from "../lib/notion-bulk-sources.ts";
+import { loadNotionBulkAdoptions, loadNotionBulkHelpCases } from "../lib/notion-bulk-sources.ts";
+import { sameHelpFieldValue } from "../lib/notion-help-field-events.ts";
 import { auditHelpSyncMappings, classifyHelpSyncCanonical, isHelpSyncCategoryOutOfDomain } from "../lib/notion-help-domain-boundary.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority, mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
@@ -128,6 +130,110 @@ test("an empty Notion image cannot erase the uploaded Admin image in any Events/
       { [field]: "https://example.org/replacement.webp" }, admin), false);
     assert.equal(needsAdminMainImageBackfill(agenda, { [field]: "" }, { [field]: "" }), false);
   }
+});
+
+
+test("a single Notion adoption field edit preserves D1-only public contacts and profile options", () => {
+  const photoStyle = { mode: "crop", zoom: 1.2, x: 0.3, y: 0.7 };
+  const existing = {
+    status: "ACTIVE",
+    breedName: "Labrador", breedId: 9,
+    organizationId: null, organizationSlug: null,
+    mainImage: "/media/adoption.jpg",
+    thumbnailImageDisplay: photoStyle,
+    detailImageDisplay: photoStyle,
+    gallery: ["/media/adoption-other.jpg"],
+    suitableForChildren: "YES", suitableForDogs: "NO",
+    suitableForCats: "CONDITIONAL", suitableForOtherAnimals: "UNKNOWN",
+    apartmentSuitable: false, beginnerSuitable: true,
+    needsExperiencedOwner: true, vaccinationStatus: "UP_TO_DATE",
+    chipped: true, neutered: false,
+    adoptionRequirements: "Zabezpečená záhrada",
+    contactEmail: "adopcia@example.sk", contactPhone: "+421900000000",
+    contactUrl: "https://example.sk/adopcia",
+    lastVerifiedAt: "2026-11-22T10:00:00Z",
+  };
+  const notion = {
+    "Meno": "Luna", "Slug": "luna", "Stav": "Publikované",
+    "Plemeno": "Labrador", "Organizácia": "Útulok",
+    "Popis": "Upravený text z Notionu",
+    "Hlavný obrázok URL": "https://psipedia.sk/media/adoption.jpg",
+  };
+  const payload = adoptionPayload(notion, existing, null);
+  assert.equal(payload.description, "Upravený text z Notionu");
+  for (const field of [
+    "gallery", "thumbnailImageDisplay", "detailImageDisplay",
+    "suitableForChildren", "suitableForDogs", "suitableForCats", "suitableForOtherAnimals",
+    "apartmentSuitable", "beginnerSuitable", "needsExperiencedOwner",
+    "vaccinationStatus", "chipped", "neutered", "adoptionRequirements",
+    "contactEmail", "contactPhone", "contactUrl", "lastVerifiedAt",
+  ]) assert.deepEqual(payload[field], existing[field], field + " must survive an unrelated Notion edit");
+});
+
+test("adoptions mirror existing Notion contact, care and compatibility fields without dropping optional numbers", async () => {
+  const row = {
+    id: 401, name: "Luna", slug: "luna", status: "ACTIVE",
+    suitable_for_children: "YES", suitable_for_dogs: "NO",
+    suitable_for_cats: "CONDITIONAL", suitable_for_other_animals: "UNKNOWN",
+    vaccination_status: "UP_TO_DATE", adoption_requirements: "Bezpečný domov",
+    contact_email: "utulok@example.sk", contact_phone: "+421900111222",
+    contact_url: "https://example.sk/adopcia",
+    approximate_age_months: null, weight: null,
+  };
+  const db={prepare(sql){
+    assert.match(sql,/suitable_for_children/);
+    assert.match(sql,/contact_email,contact_phone,contact_url/);
+    return {async all(){return {results:[row]}}};
+  }};
+  const [source]=await loadNotionBulkAdoptions(db);
+  const fields={
+    "Vhodný k deťom": "YES", "Vhodný k psom": "NO",
+    "Vhodný k mačkám": "CONDITIONAL", "Vhodný k iným zvieratám": "UNKNOWN",
+    "Očkovanie": "UP_TO_DATE", "Podmienky adopcie": "Bezpečný domov",
+    "Kontaktný e-mail": "utulok@example.sk", "Kontaktný telefón": "+421900111222",
+    "Kontaktný odkaz": "https://example.sk/adopcia",
+  };
+  for(const [name,value] of Object.entries(fields)){
+    assert.equal(source.properties[name],value,name);
+    assert.ok(agendaEditableFields.adoptions.includes(name),name+" must be handled as a field event");
+  }
+  assert.equal(source.properties["Vek mesiace"],null);
+  assert.equal(source.properties["Hmotnosť"],null);
+});
+
+test("Notion adoption change updates only authorized fields while retaining unrelated canonical data",()=>{
+  const existing={
+    status:"ACTIVE",contactEmail:"povodne@example.sk",contactPhone:"0900123456",
+    contactUrl:"https://example.sk/povodne",adoptionRequirements:"Stará podmienka",
+    suitableForChildren:"UNKNOWN",suitableForDogs:"UNKNOWN",suitableForCats:"UNKNOWN",
+    suitableForOtherAnimals:"UNKNOWN",vaccinationStatus:"UNKNOWN",
+    mainImage:"/media/old.webp",gallery:["/media/extra.webp"],
+    lastVerifiedAt:"2026-11-20T09:00:00.000Z",
+  };
+  const changed={
+    "Meno":"Luna","Slug":"luna","Stav":"Publikované",
+    "Kontaktný e-mail":"novy@example.sk","Vhodný k psom":"YES",
+    "Podmienky adopcie":"Záhrada nie je podmienkou",
+  };
+  const payload=adoptionPayload(changed,existing,null);
+  assert.equal(payload.contactEmail,"novy@example.sk");
+  assert.equal(payload.suitableForDogs,"YES");
+  assert.equal(payload.adoptionRequirements,"Záhrada nie je podmienkou");
+  assert.equal(payload.contactPhone,existing.contactPhone);
+  assert.equal(payload.contactUrl,existing.contactUrl);
+  assert.equal(payload.suitableForChildren,existing.suitableForChildren);
+  assert.equal(payload.vaccinationStatus,existing.vaccinationStatus);
+  assert.deepEqual(payload.gallery,existing.gallery);
+  assert.equal(payload.lastVerifiedAt,existing.lastVerifiedAt);
+});
+
+test("lost/found inbound Notion edits compare date instants, not timezone display strings",()=>{
+  assert.equal(sameHelpFieldValue("lost-found", "Naposledy videný",
+    "2026-11-22T16:00:00.000Z", "2026-11-22T17:00:00+01:00"), true);
+  assert.equal(sameHelpFieldValue("lost-found", "Naposledy videný",
+    "2026-11-22T16:00:00Z", "2026-11-22T18:00:00+01:00"), false);
+  assert.equal(sameHelpFieldValue("lost-found", "Popis", "Upravený opis", "Iný opis"), false);
+  assert.equal(sameHelpFieldValue("adoptions", "Popis", "Rovnaký opis", "Rovnaký opis"), true);
 });
 
 test("unchanged snapshot stays unchanged", () => {
