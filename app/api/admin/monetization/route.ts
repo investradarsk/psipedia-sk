@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
   createDirectCampaign,
   createPromotion,
@@ -25,8 +25,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   try {
     const payload = await request.json() as Record<string, unknown>;
     const id = payload.kind === "promotion"
@@ -39,8 +40,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   try {
     const payload = await request.json() as Record<string, unknown>;
     const id = typeof payload.id === "string" ? payload.id : "";

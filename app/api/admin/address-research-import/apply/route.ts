@@ -8,7 +8,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response!;
   try {
     const body = await request.json() as {
