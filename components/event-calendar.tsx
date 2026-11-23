@@ -36,7 +36,6 @@ import {
   eventTimeFilterParam,
   eventTimeFilterFromParam,
   eventMonthFilterFromParam,
-  eventTypeFromPortalSlug,
   eventTypePortalHref,
   eventTypes,
   formatEventDate,
@@ -48,7 +47,7 @@ import {
 } from "@/lib/events";
 import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
-import { rememberEventsListing } from "./events-return-link";
+import { eventsListingType, rememberEventsListing } from "./events-return-link";
 
 const DesktopEventFullCalendar = dynamic(
   () => import("./desktop-event-fullcalendar").then((mod) => mod.DesktopEventFullCalendar),
@@ -120,6 +119,7 @@ export function EventCalendar({
     );
   type View = {
     month: string;
+    page: number;
     day: string;
     filterMonth: string;
     time: EventTimeFilter;
@@ -134,6 +134,7 @@ export function EventCalendar({
   const [view, setView] = useState<View>(() => ({
     month: resolveCalendarMonth(initialCalendarMonth, initialMonth, today),
     day: initialDay,
+    page: initialFilters.page,
     filterMonth: initialMonth,
     time: initialTime,
     type: initialType,
@@ -220,30 +221,36 @@ export function EventCalendar({
     [selectedDay, pending, pendingDay, data.calendarEvents],
   );
 
-  async function navigate(href: string, next: View, addHistory = true) {
+  async function navigate(href: string, next: Omit<View, "page">, addHistory = true) {
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
     if (addHistory) window.history.pushState(window.history.state, "", href);
     // Client-only navigation must update the return URL after every month/day change.
     rememberEventsListing(window.location.pathname + window.location.search + window.location.hash);
-    setView(next);
+    const target = new URL(href, window.location.origin);
+    const nextPage = parseEventListing({
+      strana: target.searchParams.get("strana") ?? undefined,
+    }).page;
+    setView({ ...next, page: nextPage });
     setLoadError("");
     setDayLoadError("");
-    const target = new URL(href, window.location.origin);
     const endpoint = new URL("/api/public/events/calendar", window.location.origin);
     target.searchParams.forEach((value, key) => endpoint.searchParams.set(key, value));
     if (next.type !== "Všetky") endpoint.searchParams.set("typ", next.type);
     const key = endpoint.pathname + endpoint.search;
     const sameListing =
-      view.time === next.time && view.type === next.type && view.filterMonth === next.filterMonth;
+      view.time === next.time &&
+      view.type === next.type &&
+      view.filterMonth === next.filterMonth &&
+      view.page === nextPage;
     const sameMonth = sameListing && view.month === next.month;
 
     // A day selection changes only the right-hand panel. The list and month
     // aggregates are already loaded, so avoid repeating their expensive D1 reads.
-    if (sameMonth && !pending) {
+    if (sameMonth && !pending && !loadError) {
       setPendingDay(false);
-      if (next.day === view.day && !pendingDay) return;
+      if (next.day === view.day && !pendingDay && !dayLoadError) return;
       if (
         !next.day ||
         (data.calendarSummaries &&
@@ -283,7 +290,7 @@ export function EventCalendar({
     }
 
     setPendingDay(false);
-    const calendarOnly = sameListing && !next.day;
+    const calendarOnly = sameListing && !pending && !loadError && !next.day;
     setPendingCalendarOnly(calendarOnly);
     setPending(true);
     const cached = cacheRef.current.get(key);
@@ -337,7 +344,11 @@ export function EventCalendar({
   });
   // Calendar controls use native anchors: the handler owns history + data
   // updates; a framework Link would also attempt route navigation.
-  function clickNavigate(event: MouseEvent<HTMLAnchorElement>, href: string, next: View) {
+  function clickNavigate(
+    event: MouseEvent<HTMLAnchorElement>,
+    href: string,
+    next: Omit<View, "page">,
+  ) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
       return;
     event.preventDefault();
@@ -346,15 +357,14 @@ export function EventCalendar({
   useEffect(() => {
     function restore() {
       const url = new URL(window.location.href);
-      if (!url.pathname.startsWith("/podujatia")) return;
+      const type = eventsListingType(url.pathname);
+      if (!type) return;
       const fromUrlMonth = eventMonthFilterFromParam(url.searchParams.get("mesiac") ?? "");
       const visible = resolveCalendarMonth(
         eventMonthFilterFromParam(url.searchParams.get("kalendar") ?? ""),
         fromUrlMonth,
         today,
       );
-      const slug = url.pathname.split("/").filter(Boolean)[1];
-      const type = slug ? (eventTypeFromPortalSlug(slug) ?? "Všetky") : "Všetky";
       void navigateRef.current(
         url.pathname + url.search,
         {
@@ -380,6 +390,7 @@ export function EventCalendar({
     if (region) params.set("region", region);
     // A month filter must not silently suppress every day after navigating to a different month.
     if (month && targetMonth !== month) params.delete("mesiac");
+    else if (view.page > 1) params.set("strana", String(view.page));
     const timeParam = eventTimeFilterParam(view.time);
     if (timeParam) params.set("termin", timeParam);
     if (targetMonth !== (month || todayMonth)) params.set("kalendar", targetMonth);
@@ -424,6 +435,7 @@ export function EventCalendar({
     });
     if (state.month !== (state.filterMonth || todayMonth)) params.set("kalendar", state.month);
     if (state.day) params.set("den", state.day);
+    if (state.page > 1) params.set("strana", String(state.page));
     return params.size ? "?" + params.toString() : "";
   };
   const timeOptions = [
@@ -670,7 +682,11 @@ export function EventCalendar({
                       Zavrieť výber
                     </a>
                   </div>
-                  {!pending && (daySummaries.get(selectedDay)?.count ?? 0) > dailyEvents.length ? (
+                  {!pending &&
+                  !pendingDay &&
+                  !loadError &&
+                  !dayLoadError &&
+                  (daySummaries.get(selectedDay)?.count ?? 0) > dailyEvents.length ? (
                     <p>
                       Zobrazených prvých {dailyEvents.length} z{" "}
                       {daySummaries.get(selectedDay)?.count} podujatí.{" "}
