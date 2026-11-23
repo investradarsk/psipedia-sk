@@ -8,6 +8,7 @@ import {
   adminNavigationTarget,
   type AdminNavigationStartDetail,
 } from "@/lib/admin-navigation-recovery";
+import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
 import styles from "./admin-navigation-recovery.module.css";
 
 /**
@@ -77,11 +78,19 @@ export function AdminNavigationRecovery() {
       <div className={styles.actions}>
         {pending.navigationType !== "traverse" && (
           <button type="button" onClick={() => {
-            // A new pending generation restarts the watchdog even if the
-            // router refuses to restart the original in-flight request.
-            setPending({ ...pending });
-            setStalled(false);
-            router.push(pending.href);
+            const navigate = () => {
+              // Restart the watchdog only after a guarded navigation is accepted.
+              setPending({ ...pending });
+              setStalled(false);
+              router.push(pending.href);
+            };
+            // The form may have become dirty while the previous transition
+            // was stalled. A retry must honor the same cancelable exit intent.
+            const intent = new CustomEvent<AdminNavigationIntent>(ADMIN_NAVIGATION_INTENT_EVENT, {
+              cancelable: true,
+              detail: { href: pending.href, navigate },
+            });
+            if (window.dispatchEvent(intent)) navigate();
           }}>Skúsiť znova</button>
         )}
         <a href={pending.href} target="_blank" rel="noopener noreferrer">
