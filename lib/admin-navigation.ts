@@ -32,7 +32,7 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
   { label: "Profilové recenzie", href: "/admin/recenzie-profilov" },
   { label: "Tipy", href: "/admin/tipy" },
   { label: "Hodnotenia", href: "/admin/hodnotenia" },
-  { label: "Dopyty", href: "/admin/dopyty" },
+  { label: "Podania a dopyty", href: "/admin/podania", matches: ["/admin/dopyty"] },
   { label: "Partneri", href: "/admin/partners" },
  ] },
  { label: "Automatizácie", items: [
