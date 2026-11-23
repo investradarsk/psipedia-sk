@@ -123,6 +123,20 @@
   box-shadow: 0 10px 30px rgba(23, 53, 43, 0.065);
 }
 
+/* PublicBannerFrame owns the surface. This inner grid retains the editorial
+   icon, content and CTA arrangement without introducing a separate banner skin. */
+.calloutLayout {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+.calloutLayout > * {
+  min-width: 0;
+}
+
 .callout h2,
 .urgent h2 {
   margin: 2px 0 5px;
@@ -380,12 +394,12 @@
     grid-template-columns: 1fr;
   }
 
-  .callout,
+  .calloutLayout,
   .urgent {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .callout > :last-child,
+  .calloutLayout > :last-child,
   .urgentActions {
     grid-column: 1 / -1;
     justify-content: flex-start;
@@ -413,17 +427,20 @@
 
   .callout,
   .urgent {
-    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     padding: 17px;
   }
+  .calloutLayout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
 
-  .callout > span,
+  .calloutLayout > span,
   .urgent > span {
     justify-self: start;
   }
 
-  .callout > :last-child,
+  .calloutLayout > :last-child,
   .urgentActions {
     grid-column: auto;
   }
