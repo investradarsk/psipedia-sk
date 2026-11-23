@@ -404,7 +404,7 @@ test("ARTICLE-READING-UX-2 preserves tracker, compact feedback, sticky-header an
   assert.match(feedbackComponent, />\s*Nie\s*<\/button>/);
   assert.match(
     styles,
-    /\.article-feedback\)[^{]*\{[\s\S]*border-left:\s*2px solid var\(--brand-accent\)/,
+    /\.article-feedback\)[^{]*\{[\s\S]*border-left:\s*0/,
   );
   assert.match(shareStyles, /var\(--brand-accent-strong/);
 
