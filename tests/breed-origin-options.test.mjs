@@ -17,31 +17,44 @@ const compiled = ts.transpileModule(source, {
 }).outputText;
 const exports = {};
 const wrapper = ({ children }) => React.createElement("div", null, children);
-new Function("require", "exports", compiled)((name) => {
-  if (name === "react" || name === "react/jsx-runtime") return require(name);
-  if (name === "@/lib/breed-browser-search")
-    return {
-      indexBreedSearch: (breeds) => breeds,
-      filterIndexedBreeds: () => [],
-      groupVisibleBreeds: () => [],
-    };
-  if (name === "@/lib/breed-atlas")
-    return {
-      breedAtlasHref: () => "/plemena",
-      listFciSectionOptions: () => [],
-      validFciSectionForGroup: () => "",
-    };
-  if (name === "next/link") return { default: wrapper };
-  return new Proxy(
-    {},
-    {
-      get: (_, key) =>
-        key === "PublicSelect"
-          ? ({ children, ...props }) => React.createElement("select", props, children)
-          : wrapper,
-    },
-  );
-}, exports);
+const effects = [];
+const replacements = [];
+const browserWindow = {
+  location: { pathname: "/plemena", search: "", hash: "#clanky-o-plemenach" },
+  history: { replaceState: (_state, _title, url) => replacements.push(url) },
+};
+new Function("require", "exports", "window", "document", compiled)(
+  (name) => {
+    if (name === "react") return { ...require(name), useEffect: (effect) => effects.push(effect) };
+    if (name === "react" || name === "react/jsx-runtime") return require(name);
+    if (name === "@/lib/breed-browser-search")
+      return {
+        indexBreedSearch: (breeds) => breeds,
+        filterIndexedBreeds: () => [],
+        groupVisibleBreeds: () => [],
+      };
+    if (name === "@/lib/breed-atlas")
+      return {
+        breedAtlasHref: ({ query }) =>
+          query ? "/plemena?q=" + encodeURIComponent(query) : "/plemena",
+        listFciSectionOptions: () => [],
+        validFciSectionForGroup: () => "",
+      };
+    if (name === "next/link") return { default: wrapper };
+    return new Proxy(
+      {},
+      {
+        get: (_, key) =>
+          key === "PublicSelect"
+            ? ({ children, ...props }) => React.createElement("select", props, children)
+            : wrapper,
+      },
+    );
+  },
+  exports,
+  browserWindow,
+  { querySelector: () => null },
+);
 
 test("origin choices retain the qualifiers that distinguish otherwise identical country labels", () => {
   const origins = [
@@ -69,4 +82,22 @@ test("origin choices retain the qualifiers that distinguish otherwise identical 
   assert.equal(new Set(options.map((match) => match[3])).size, origins.length);
   for (const [, value, , label] of options) assert.equal(label, value);
   assert.match(options.find((match) => match[1] === selected)[2], /selected/);
+});
+
+test("atlas filter URL synchronization preserves deep links and skips identical URLs", () => {
+  function sync(query) {
+    effects.length = 0;
+    renderToStaticMarkup(
+      React.createElement(exports.BreedBrowser, {
+        breeds: [],
+        groups: [],
+        initialFilters: { query, fciGroup: "", fciSection: "", origin: "" },
+      }),
+    );
+    effects.forEach((effect) => effect());
+  }
+  sync("");
+  assert.deepEqual(replacements, []);
+  sync("labrador");
+  assert.deepEqual(replacements, ["/plemena?q=labrador#clanky-o-plemenach"]);
 });

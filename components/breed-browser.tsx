@@ -105,7 +105,10 @@ export function BreedBrowser({
       fciSection: selectedSection,
       origin: selectedOrigin === "all" ? "" : selectedOrigin,
     });
-    window.history.replaceState(null, "", href);
+    const { pathname, search, hash } = window.location;
+    if (href !== pathname + search) {
+      window.history.replaceState(null, "", href + hash);
+    }
     // Keep hero form facets in step with client-side FCI and origin changes.
     const form = document.querySelector<HTMLFormElement>('form[data-public-search-form="breeds"]');
     if (form) {
