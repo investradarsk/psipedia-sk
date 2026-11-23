@@ -66,10 +66,10 @@ test("alerts center, shared bell and active/history controls are accessible and 
     await expect(overview).not.toHaveAttribute("aria-expanded", /.+/);
     await overview.focus();
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\\/admin\\/?$/);
+    await expect(page).toHaveURL(/\/admin\/?$/);
     await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
     await page.goBack();
-    await expect(page).toHaveURL(/\\/admin\\/operations$/);
+    await expect(page).toHaveURL(/\/admin\/operations$/);
     await expect(adminNavigation).toHaveAttribute("data-admin-hydrated", "true");
   }
   await expect(adminNavigation.getByRole("link", { name: "Upozornenia", exact: true })).toBeVisible();
