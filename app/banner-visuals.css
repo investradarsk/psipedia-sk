@@ -338,7 +338,7 @@
 .ps-public-banner-frame[data-banner-semantic="urgent"]::after {
   display: none !important;
 }
-@container ps-editorial-banner (max-width: 520px) {
+@media (max-width: 720px) {
   .ps-public-banner-frame[data-banner-visual][data-banner-size]::before {
     right: -42%;
     bottom: -65%;
