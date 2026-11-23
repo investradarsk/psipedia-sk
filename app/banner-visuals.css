@@ -1,19 +1,24 @@
 /* PSIPEDIA – two public editorial banner designs, three content-driven sizes.
  * All site banners rendered through PublicBannerFrame use this single contract.
- * Native Dognet affiliate artwork and regulatory notices are not affected.
+ * The approved outlined-dog motif is a local SVG shared by S/M/L. Native
+ * Dognet affiliate artwork and regulatory notices are not affected.
  * Legacy photoTone/tone and CSS classes remain for content/API compatibility,
  * but they no longer produce additional public visual designs. */
 .ps-public-banner-frame[data-banner-visual][data-banner-size] {
-  --ps-bnr-bg: #eaf0e7;
-  --ps-bnr-ink: #17352b;
-  --ps-bnr-body: #425d4c;
-  --ps-bnr-kicker: #a74d3c;
-  --ps-bnr-button-bg: #20543e;
+  --ps-bnr-bg: #f7f2e9;
+  --ps-bnr-ink: #174d3a;
+  --ps-bnr-body: #4b6156;
+  --ps-bnr-kicker: #b44939;
+  --ps-bnr-button-bg: #174d3a;
+  --ps-bnr-art: #174d3a;
+  --ps-bnr-shape: #dce7d7;
   --ps-bnr-button-text: #fff;
-  --ps-bnr-border: rgba(23, 53, 43, 0.17);
+  --ps-bnr-border: rgba(23, 77, 58, 0.15);
   --ps-bnr-padding: 18px 22px;
   --ps-bnr-title-size: clamp(1.3rem, 1.9vw, 1.7rem);
   box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
   display: flex !important;
   flex-direction: column;
   align-items: stretch;
@@ -24,7 +29,7 @@
   min-height: 0 !important;
   gap: 12px;
   padding: var(--ps-bnr-padding) !important;
-  /* Calm editorial frame: the former thick coral start stripe is removed. */
+  /* One quiet border: decorative contrast comes from the art, never a red stripe. */
   border: 1px solid var(--ps-bnr-border);
   border-left-width: 1px !important;
   border-left-color: var(--ps-bnr-border) !important;
@@ -40,12 +45,14 @@
   container: ps-editorial-banner / inline-size;
 }
 .ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] {
-  --ps-bnr-bg: #173d2e;
-  --ps-bnr-ink: #fff;
-  --ps-bnr-body: #e3eee5;
-  --ps-bnr-kicker: #f3b9a4;
-  --ps-bnr-button-bg: #fff;
-  --ps-bnr-button-text: #17352b;
+  --ps-bnr-bg: #174d3a;
+  --ps-bnr-ink: #fffaf0;
+  --ps-bnr-body: #e0e9e2;
+  --ps-bnr-kicker: #f1baa6;
+  --ps-bnr-button-bg: #b44939;
+  --ps-bnr-button-text: #fff;
+  --ps-bnr-art: #e1eee5;
+  --ps-bnr-shape: #376b53;
   --ps-bnr-border: rgba(23, 53, 43, 0.3);
   border-color: var(--ps-bnr-border);
 }
@@ -57,9 +64,8 @@
   --ps-bnr-padding: clamp(24px, 3.8vw, 36px);
   --ps-bnr-title-size: clamp(1.65rem, 3vw, 2.15rem);
 }
-/* Remove decorative photographic variants without altering text, anchors,
- * configured destinations or article promotion selection. */
-.ps-public-banner-frame[data-banner-visual][data-banner-size]::before,
+/* Remove the old photo art without altering text, anchors, promo targeting
+ * or partner artwork (which does not use PublicBannerFrame). */
 .ps-public-banner-frame[data-banner-visual][data-banner-size] > span[aria-hidden="true"],
 .ps-public-banner-frame[data-banner-visual][data-banner-size][data-public-context-banner] > div:not([data-public-banner-content]) {
   display: none !important;
@@ -89,10 +95,10 @@
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(h2, h3) {
   margin: 0;
-  font-family: inherit;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: var(--ps-bnr-title-size) !important;
-  font-weight: 750;
-  line-height: 1.25;
+  font-weight: 700;
+  line-height: 1.2;
   letter-spacing: -0.02em;
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(p, [data-public-banner-content] .bannerDescription) {
@@ -170,22 +176,26 @@
  * independent mobile copy and the protected per-placement release workflow. */
 @media (min-width: 621px) {
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-visual="light"] {
-    --ps-bnr-bg: #eaf0e7;
-    --ps-bnr-ink: #17352b;
-    --ps-bnr-body: #425d4c;
-    --ps-bnr-kicker: #a74d3c;
-    --ps-bnr-button-bg: #20543e;
+    --ps-bnr-bg: #f7f2e9;
+    --ps-bnr-ink: #174d3a;
+    --ps-bnr-body: #4b6156;
+    --ps-bnr-kicker: #b44939;
+    --ps-bnr-button-bg: #174d3a;
+    --ps-bnr-art: #174d3a;
+    --ps-bnr-shape: #dce7d7;
     --ps-bnr-button-text: #fff;
     --ps-bnr-border: rgba(23, 53, 43, 0.17);
     border-color: var(--ps-bnr-border);
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-visual="dark"] {
-    --ps-bnr-bg: #173d2e;
-    --ps-bnr-ink: #fff;
-    --ps-bnr-body: #e3eee5;
-    --ps-bnr-kicker: #f3b9a4;
-    --ps-bnr-button-bg: #fff;
-    --ps-bnr-button-text: #17352b;
+    --ps-bnr-bg: #174d3a;
+    --ps-bnr-ink: #fffaf0;
+    --ps-bnr-body: #e0e9e2;
+    --ps-bnr-kicker: #f1baa6;
+    --ps-bnr-button-bg: #b44939;
+    --ps-bnr-button-text: #fff;
+    --ps-bnr-art: #e1eee5;
+    --ps-bnr-shape: #376b53;
     --ps-bnr-border: rgba(23, 53, 43, 0.3);
     border-color: var(--ps-bnr-border);
   }
@@ -255,4 +265,94 @@
   justify-self: stretch;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* PSIPEDIA APPROVED BANNER ART
+ * Traced from the approved outlined-dog illustration, delivered as 2.5 KB SVG.
+ * All editorial placements inherit it; two themes and S/M/L are the only variants.
+ */
+.ps-public-banner-frame[data-banner-visual][data-banner-size]::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  inset: auto -13% -103% auto;
+  width: 69%;
+  aspect-ratio: 1;
+  border-radius: 48% 52% 50% 50%;
+  background: var(--ps-bnr-shape) !important;
+  opacity: 0.8;
+  transform: rotate(-13deg);
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size]::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  right: 0;
+  bottom: -7%;
+  width: 45%;
+  height: 115%;
+  background: var(--ps-bnr-art);
+  -webkit-mask: url("/images/psipedia-banner-dog-outline.svg") right bottom / contain no-repeat;
+  mask: url("/images/psipedia-banner-dog-outline.svg") right bottom / contain no-repeat;
+  opacity: 0.48;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] > * {
+  position: relative;
+  z-index: 1;
+}
+.ps-public-banner-frame[data-banner-size="small"]::before {
+  right: -40%;
+  bottom: -68%;
+  width: 110%;
+  opacity: .44;
+}
+.ps-public-banner-frame[data-banner-size="small"]::after {
+  right: -27%;
+  bottom: -6%;
+  width: 88%;
+  height: 86%;
+  opacity: 0.105;
+}
+.ps-public-banner-frame[data-banner-size="medium"]::after {
+  right: -5%;
+  width: 42%;
+  opacity: .23;
+}
+.ps-public-banner-frame[data-banner-visual="dark"]::after {
+  opacity: .28;
+}
+.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size="small"]::after {
+  opacity: .095;
+}
+/* Emergency information must stay immediately recognisable and readable.
+ * It keeps the same frame and typography but not the decorative dog art. */
+.ps-public-banner-frame[data-banner-semantic="urgent"] {
+  --ps-bnr-bg: #fffaf6;
+  --ps-bnr-border: rgba(180, 73, 57, .28);
+  --ps-bnr-ink: #174d3a;
+  --ps-bnr-body: #4b6156;
+}
+.ps-public-banner-frame[data-banner-semantic="urgent"]::before,
+.ps-public-banner-frame[data-banner-semantic="urgent"]::after {
+  display: none !important;
+}
+@media (max-width: 720px) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size]::before {
+    right: -42%;
+    bottom: -65%;
+    width: 95%;
+    opacity: .38;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size]::after {
+    right: -28%;
+    bottom: -12%;
+    width: 79%;
+    height: 79%;
+    opacity: .12;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] > * {
+    min-width: 0;
+  }
 }
