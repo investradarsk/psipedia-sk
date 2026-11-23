@@ -7,7 +7,8 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
  const auth=await requirePartnerAdminMutation(request);if(auth.response)return auth.response;
  try{
   const {id}=await params;if(!/^[A-Za-z0-9_-]{1,128}$/.test(id))throw new PartnerEventError("Neplatný návrh.");
-  const body=await request.json() as Record<string,unknown>;const common={id,adminEmail:auth.user.email,requestId:request.headers.get("cf-ray"),publicOrigin:new URL(request.url).origin};
+  const body=await request.json() as Record<string,unknown>;const common={id,adminEmail:auth.user.email,requestId:request.headers.get("cf-ray"),publicOrigin:new URL(request.url).origin,
+    expectedCanonicalUpdatedAt:typeof body.expectedCanonicalUpdatedAt==="string"?body.expectedCanonicalUpdatedAt:undefined};
   if(body.action==="CREATE_EVENT")return Response.json({submission:await createPartnerEventAdmin(common)},{headers:{"Cache-Control":"private, no-store"}});
   if(body.action==="LINK_EXISTING"){const canonicalId=Number(body.canonicalId);if(!Number.isSafeInteger(canonicalId)||canonicalId<=0)throw new PartnerEventError("Vyber platné existujúce podujatie.");return Response.json({submission:await linkPartnerEventAdmin({id,canonicalId,adminEmail:auth.user.email,requestId:request.headers.get("cf-ray"),applyImage:body.applyImage===true})},{headers:{"Cache-Control":"private, no-store"}});}
   if(body.action==="APPROVE")return Response.json({submission:await approvePartnerEventUpdateAdmin(common)},{headers:{"Cache-Control":"private, no-store"}});
