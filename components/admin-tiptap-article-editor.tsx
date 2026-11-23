@@ -183,9 +183,6 @@ function TiptapSharedToolbar({ active, insertWidget }: { active: ActiveEditor | 
   const editor = active?.editor;
 
   useEffect(() => {
-    if (!insertWidget) setInsertOpen(false);
-  }, [insertWidget]);
-  useEffect(() => {
     if (!insertOpen) return;
     const onOutsidePointer = (event: PointerEvent) => {
       const target = event.target as HTMLElement;
