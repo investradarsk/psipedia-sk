@@ -1598,3 +1598,29 @@
   }
   .mobileFacts :global(section) { min-width: 0; }
 }
+
+/* Related editorial stays in the existing detail grid: desktop just below
+   quick facts, and mobile immediately after the mobile quick-facts card. */
+.desktopRelatedArticles { display: block; min-width: 0; }
+.mobileRelatedArticles { display: none; min-width: 0; }
+.page .sidebarEditorial {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--detail-border, #dfe7e4);
+  border-radius: var(--ps-radius-card);
+  background: var(--white);
+}
+.page .sidebarEditorial h2 {
+  margin: 0 0 12px;
+  color: var(--forest-dark);
+  font-size: 1.1rem;
+  line-height: 1.25;
+}
+.page .sidebarEditorial :global(a) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 800px) {
+  .desktopRelatedArticles { display: none; }
+  .mobileRelatedArticles { display: block; margin-top: 12px; }
+}

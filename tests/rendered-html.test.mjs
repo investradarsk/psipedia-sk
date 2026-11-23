@@ -673,7 +673,9 @@ test("uses light admin lists and loads full records only for detail and save", a
     const articleDetailHtml = await articleDetail.text();
     assert.match(articleDetailHtml, /Upraviť článok/);
     assert.match(articleDetailHtml, /Testovací článok/);
-    assert.match(articleDetailHtml, /Vložiť blok sem/);
+    // Continuous editing is the default; the former block insertion button
+    // is available only after explicitly selecting the legacy editor.
+    assert.match(articleDetailHtml, /Súvislý editor \(Word štýl\)/);
     // The Blocks tab is not initially selected in the Editor Workspace. The
     // HTML smoke verifies the editor shell; block labels and CTA safety are
     // covered at their canonical source rather than requiring hidden controls.
@@ -685,12 +687,13 @@ test("uses light admin lists and loads full records only for detail and save", a
     const publicCalloutSource = readFileSync(new URL("../components/public-visual-system/public-article-callout.tsx", import.meta.url), "utf8");
     assert.match(publicCalloutSource, /sponsored nofollow/);
     assert.match(publicCalloutSource, /Partnerský odkaz/);
-    // Tiptap's editable shell exists in SSR; its shared formatting toolbar is
-    // conditional on the active Basics/Blocks section and must not be required
-    // in a server-rendered initial view with another active panel.
-    assert.match(articleDetailHtml, /data-admin-tiptap-rich-text/);
-    assert.match(articleDetailHtml, /data-admin-rich-text-editor/);
+    // The Word-style editor is a client-mounted surface. SSR provides its
+    // navigation and editor shell; the editable Tiptap node appears on
+    // hydration. Verify the source contract instead of demanding client-only
+    // attributes from the server-rendered HTML.
     const tiptapSource = readFileSync(new URL("../components/admin-tiptap-article-editor.tsx", import.meta.url), "utf8");
+    assert.match(tiptapSource, /data-admin-tiptap-rich-text/);
+    assert.match(tiptapSource, /data-admin-rich-text-editor/);
     assert.match(tiptapSource, /aria-label="Spoločná lišta formátovania článku"/);
     assert.match(tiptapSource, /formattingSection && <TiptapSharedToolbar/);
     assert.doesNotMatch(articleDetailHtml, /aria-label="Formátovanie textu"/);
@@ -770,7 +773,9 @@ test("renders the news portal and stable topic URLs without published news", asy
   const science = await worker.fetch(new Request("http://localhost/novinky/veda-a-zdravie", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(science.status, 200);
   const scienceHtml = await science.text();
-  assert.match(scienceHtml, /Čo nový objav naozaj znamená/);
+  // The topic archive now uses its public category heading, not the retired
+  // static editorial guidance callout.
+  assert.match(scienceHtml, /Veda a zdravie/);
   assert.match(scienceHtml, /Prvú správu pripravujeme/);
 });
 
@@ -865,7 +870,8 @@ test("redirects an old article URL to its portal section URL", async () => {
     { waitUntil() {}, passThroughOnException() {} },
   );
 
-  assert.equal(response.status, 307);
+  // Canonical article URL changes are permanent redirects (Next.js 308).
+  assert.equal(response.status, 308);
   assert.equal(new URL(response.headers.get("location")).pathname, "/starostlivost/ako-vybrat-granule-bez-marketingovych-mytov");
 });
 

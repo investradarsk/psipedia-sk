@@ -296,6 +296,7 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
       ? [sitemapEntry("/mapa", { changeFrequency: "weekly", priority: 0.7 })]
       : []),
     sitemapEntry("/clanky", { lastModified: latestArticles, changeFrequency: "weekly", priority: 0.7 }),
+    sitemapEntry("/clanky/plemena", { lastModified: latestArticles, changeFrequency: "weekly", priority: 0.65 }),
     sitemapEntry("/plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
     sitemapEntry("/porovnat-plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
     sitemapEntry("/pomoc-psom/adopcia", { lastModified: latestAdoptions, changeFrequency: "daily", priority: 0.85 }),
