@@ -165,9 +165,8 @@ for (const articleCase of cases) {
     const mobileSidebar = page.locator("[data-article-discovery-sidebar]");
     await expect(mobileSidebar).toBeHidden();
     await expect(mobileSidebar.locator("[data-automatic-article-promo]")).toBeHidden();
-    const mobileProgress = page.locator("[data-article-reading-progress]");
-    await expect(mobileProgress).toHaveCount(1);
-    await expect(mobileProgress).toHaveAttribute("aria-hidden", "true");
+    // Owner removed the decorative red reading-progress stripe.
+    await expect(page.locator("[data-article-reading-progress]")).toHaveCount(0);
     if (articleCase.id === "no-image") {
       await expect(page.locator('.article-prose [data-promo-key="veterinari"]')).toBeVisible();
     }
@@ -485,30 +484,7 @@ for (const articleCase of cases) {
     expect(metrics.headingTextAlign).not.toBe("justify");
     expect(metrics.disclaimerTextAlign).not.toBe("justify");
 
-    const readingProgress = page.locator("[data-article-reading-progress]");
-    await expect(readingProgress).toHaveCount(1);
-    await expect(readingProgress).toHaveAttribute("aria-hidden", "true");
-    const progressFill = readingProgress.locator("span");
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForFunction(() => {
-      const fill = document.querySelector<HTMLElement>("[data-article-reading-progress] span");
-      return (Number.parseFloat(fill?.style.getPropertyValue("--article-reading-progress") || "0") || 0) <= 0.05;
-    });
-    const progressAtTop = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
-    expect(progressAtTop).toBeGreaterThanOrEqual(0);
-    expect(progressAtTop).toBeLessThanOrEqual(0.05);
-    const articleEnd = page.locator("[data-article-reading-end]");
-    await articleEnd.evaluate((node) => window.scrollTo(0, Math.max(0, node.getBoundingClientRect().bottom + window.scrollY - window.innerHeight)));
-    await page.waitForFunction(() => {
-      const fill = document.querySelector<HTMLElement>("[data-article-reading-progress] span");
-      return Number.parseFloat(fill?.style.getPropertyValue("--article-reading-progress") || "0") >= 0.99;
-    });
-    const progressAtEnd = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
-    expect(progressAtEnd).toBeGreaterThanOrEqual(0.99);
-    await page.locator(".related-section").first().scrollIntoViewIfNeeded();
-    const progressInRelated = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
-    expect(progressInRelated).toBeGreaterThanOrEqual(0.99);
-    expect(progressInRelated).toBeLessThanOrEqual(1);
+    await expect(page.locator("[data-article-reading-progress]")).toHaveCount(0);
 
     const [desktopProseBox, desktopSidebarBox] = await Promise.all([
       page.locator(".article-prose").boundingBox(),
@@ -579,7 +555,6 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
       const hero = document.querySelector<HTMLElement>(".article-hero-image")!;
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const h1 = document.querySelector<HTMLElement>("h1")!;
-      const progress = document.querySelector<HTMLElement>("[data-article-reading-progress]")!;
       const sidebar = document.querySelector<HTMLElement>("[data-article-discovery-sidebar]")!;
       const heroRect = hero.getBoundingClientRect();
       const proseRect = prose.getBoundingClientRect();
@@ -597,7 +572,6 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
         sidebarDisplay: getComputedStyle(sidebar).display,
         sidebarLeft: sidebarRect.left,
         sidebarTop: sidebarRect.top,
-        progressHeight: progress.getBoundingClientRect().height,
       };
     });
     expect(metrics.overflow, `overflow at ${viewport.width}px`).toBeLessThanOrEqual(1);
@@ -622,8 +596,7 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
     } else {
       expect(metrics.sidebarDisplay, `mobile sidebar hidden at ${viewport.width}px`).toBe("none");
     }
-    expect(metrics.progressHeight).toBeGreaterThanOrEqual(2);
-    expect(metrics.progressHeight).toBeLessThanOrEqual(3);
+    await expect(page.locator("[data-article-reading-progress]")).toHaveCount(0);
   }
 });
 
