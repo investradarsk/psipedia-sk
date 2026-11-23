@@ -6,6 +6,10 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { AdminSortableOrderPreview } from "@/components/admin-sortable-order-preview";
 import { AdminContentHistory } from "@/components/admin-content-history";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
+import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
+import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
+import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
+import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import {
   AdminActionButton,
   AdminDrawer,
@@ -72,6 +76,7 @@ export function AdminSectionEditor({
   const [settingsTarget, setSettingsTarget] = useState<SettingsTarget>(null);
   const [pendingRemoval, setPendingRemoval] = useState<{slug:string;index:number;label:string}|null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState("");
   const [dirty, setDirty] = useState(false);
   const updateSections: typeof setSections = (value) => { setDirty(true); setSections(value); };
   const [message, setMessage] = useState("");
@@ -103,6 +108,28 @@ export function AdminSectionEditor({
       : section));
     setMessage("");
     setError("");
+  }
+
+  async function uploadSubpageImage(sectionSlug: string, subIndex: number, file: File) {
+    const subpage = sections.find((item) => item.slug === sectionSlug)?.subpages[subIndex];
+    if (!subpage || saving || uploading) return;
+    const uploadKey = `${sectionSlug}:${subIndex}`;
+    setUploading(uploadKey);
+    setError("");
+    setMessage("");
+    try {
+      // Keep the former puppy-area image folder and canonical sections PUT contract.
+      const result = await uploadAdminImage(file, "articles");
+      updateSubpage(sectionSlug, subIndex, {
+        imageUrl: result.imageUrl,
+        imageAlt: subpage.imageAlt || subpage.label,
+      });
+      setMessage(adminImageUploadMessage(result, "Ulož sekcie, aby sa fotografia zobrazila na webe."));
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Fotografiu sa nepodarilo nahrať.");
+    } finally {
+      setUploading("");
+    }
   }
 
   function move(index: number, direction: -1 | 1) {
@@ -168,6 +195,7 @@ export function AdminSectionEditor({
   }
 
   async function save() {
+    if (saving || uploading) return;
     setSaving(true);
     setMessage("");
     setError("");
@@ -202,7 +230,7 @@ export function AdminSectionEditor({
       closeLabel="Späť do administrácie"
       actions={<EditorActionBar
         message={<span role={error ? "alert" : "status"}>{error || message || (dirty ? "Neuložené zmeny" : "Všetky zmeny uložené")}</span>}
-        primary={<AdminActionButton variant="primary" disabled={saving || !dirty} onClick={() => void save()}>{saving ? "Ukladám…" : "Uložiť sekcie"}</AdminActionButton>}
+        primary={<AdminActionButton variant="primary" disabled={saving || Boolean(uploading) || !dirty} onClick={() => void save()}>{saving ? "Ukladám…" : "Uložiť sekcie"}</AdminActionButton>}
       />}
     >
     <section className={styles.workspace} data-admin-content-module="sections" data-testid="admin-section-management" data-admin-section-hydrated={hydrated ? "true" : "false"}>
@@ -235,7 +263,7 @@ export function AdminSectionEditor({
             visible: section.visible,
           }))}
           onReorder={reorderSections}
-          disabled={saving}
+          disabled={saving || Boolean(uploading)}
         />
         </details>
       )}
@@ -249,7 +277,7 @@ export function AdminSectionEditor({
             : articleCounts.available
               ? `${counts?.total ?? 0} spolu · ${counts?.published ?? 0} publikovaných · ${counts?.draft ?? 0} konceptov · ${counts?.scheduled ?? 0} naplánovaných`
               : "Počty článkov nedostupné";
-          const directAdminHref = section.slug === "steniatka" ? "/admin/steniatka" : `/admin/clanky?section=${encodeURIComponent(section.slug)}`;
+          const directAdminHref = `/admin/clanky?section=${encodeURIComponent(section.slug)}`;
 
           return (
             <article className={styles.sectionCard} key={section.slug} id={`portal-section-${section.slug}`} data-admin-editor-section tabIndex={-1} onFocus={(event) => { if (event.target === event.currentTarget) setOpen(section.slug); }}>
@@ -281,11 +309,12 @@ export function AdminSectionEditor({
                 <div className={styles.rowActions}>
                   <Link href={`/${section.slug}`} target="_blank">Verejná stránka ↗</Link>
                   {section.articleEnabled && <Link href={directAdminHref}>{section.slug === "steniatka" ? "Články sekcie" : "Správa článkov"}</Link>}
+                  {section.slug === "steniatka" && <Link href="/admin/steniatka/pokrytie">Pokrytie tém</Link>}
                   <button type="button" onClick={() => update(section.slug, { visible: !section.visible })}>
                     {section.visible ? "Skryť" : "Zobraziť"}
                   </button>
-                  <button type="button" aria-label={`Posunúť ${section.label} vyššie`} disabled={index === 0} onClick={() => move(index, -1)}>↑</button>
-                  <button type="button" aria-label={`Posunúť ${section.label} nižšie`} disabled={index === sections.length - 1} onClick={() => move(index, 1)}>↓</button>
+                  <button type="button" aria-label={`Posunúť ${section.label} vyššie`} disabled={Boolean(uploading) || index === 0} onClick={() => move(index, -1)}>↑</button>
+                  <button type="button" aria-label={`Posunúť ${section.label} nižšie`} disabled={Boolean(uploading) || index === sections.length - 1} onClick={() => move(index, 1)}>↓</button>
                 </div>
               </header>
 
@@ -342,7 +371,7 @@ export function AdminSectionEditor({
                         visible: subpage.visible,
                       }))}
                       onReorder={(from, to) => reorderSubpages(section.slug, from, to)}
-                      disabled={saving}
+                      disabled={saving || Boolean(uploading)}
                     />
                   )}
                   <div className={styles.subsectionList}>
@@ -376,8 +405,8 @@ export function AdminSectionEditor({
                                 {subpage.visible === false ? "Skrytá" : "Zobrazená"}
                               </button>
                               <button type="button" disabled={!hydrated} onClick={() => setSettingsTarget({ sectionSlug: section.slug, subIndex })}>Nastavenia</button>
-                              <button type="button" aria-label="Posunúť podsekciu vyššie" disabled={subIndex === 0} onClick={() => moveSubpage(section.slug, subIndex, -1)}>↑</button>
-                              <button type="button" aria-label="Posunúť podsekciu nižšie" disabled={subIndex === section.subpages.length - 1} onClick={() => moveSubpage(section.slug, subIndex, 1)}>↓</button>
+                              <button type="button" aria-label="Posunúť podsekciu vyššie" disabled={Boolean(uploading) || subIndex === 0} onClick={() => moveSubpage(section.slug, subIndex, -1)}>↑</button>
+                              <button type="button" aria-label="Posunúť podsekciu nižšie" disabled={Boolean(uploading) || subIndex === section.subpages.length - 1} onClick={() => moveSubpage(section.slug, subIndex, 1)}>↓</button>
                             </div>
                           </header>
 
@@ -398,6 +427,7 @@ export function AdminSectionEditor({
                           <label>
                             <span>Úvod podstránky</span>
                             <AdminLexicalTextField rows={3} value={subpage.intro ?? ""} onChange={(next) => updateSubpage(section.slug, subIndex, { intro: next })} ariaLabel="Úvodný text" />
+                            {isPuppySection && !subpage.href && <AdminLexicalAppendButton disabled={saving || Boolean(uploading)} onAppend={(text) => updateSubpage(section.slug, subIndex, { intro: appendLexicalPlainText(subpage.intro ?? "", text) })} />}
                           </label>
 
                           {isStructuredSection && (
@@ -445,7 +475,7 @@ export function AdminSectionEditor({
                                 + Vytvoriť obsah
                               </Link>
                             )}
-                            <button type="button" className={styles.remove} onClick={() => removeSubpage(section.slug, subIndex)}>Odstrániť podsekciu</button>
+                            <button type="button" className={styles.remove} disabled={Boolean(uploading)} onClick={() => removeSubpage(section.slug, subIndex)}>Odstrániť podsekciu</button>
                           </div>
                         </article>
                       );
@@ -491,6 +521,20 @@ export function AdminSectionEditor({
                 placeholder="/media/... alebo https://..."
               />
             </label>
+            <AdminSingleImageUpload
+              label={settingsSubpage.imageUrl ? "Vybrať inú fotografiu" : "Nahrať fotografiu"}
+              onFile={(file) => uploadSubpageImage(settingsSection.slug, settingsTarget.subIndex, file)}
+              busy={uploading === `${settingsSection.slug}:${settingsTarget.subIndex}`}
+              disabled={saving || Boolean(uploading)}
+              onRejected={setError}
+            />
+            {settingsSubpage.imageUrl && (
+              <>
+                <img src={settingsSubpage.imageUrl} alt={settingsSubpage.imageAlt || settingsSubpage.label} width={240} height={135} style={{ objectFit: "cover", maxWidth: "100%", borderRadius: 8 }} />
+                <button type="button" disabled={saving || Boolean(uploading)} onClick={() => updateSubpage(settingsSection.slug, settingsTarget.subIndex, { imageUrl: "", imageAlt: "" })}>Odstrániť fotografiu</button>
+              </>
+            )}
+            {uploading === `${settingsSection.slug}:${settingsTarget.subIndex}` && <span role="status">Nahrávanie fotografie…</span>}
             <label>
               <span>ALT text obrázka</span>
               <input
