@@ -1239,8 +1239,11 @@ async function syncAgenda(input: {
           input.bindings, "/pages/" + encodeURIComponent(page.id));
         if (verified.id !== page.id || !notionPageBelongsToDataSource(verified, target.dataSourceId)
           || fields.some(field =>
-            JSON.stringify(pageProperty(verified, field) ?? null) !==
-            JSON.stringify(sourceSnapshot[field] ?? null))
+            agenda === "lost-found" && field === "Naposledy videný"
+              ? stableAgendaSnapshotJson(agenda, { [field]: pageProperty(verified, field) ?? "" }) !==
+                stableAgendaSnapshotJson(agenda, { [field]: sourceSnapshot[field] ?? "" })
+              : JSON.stringify(pageProperty(verified, field) ?? null) !==
+                JSON.stringify(sourceSnapshot[field] ?? null))
           || ((fields.includes("Slug") || (agenda === "lost-found" && fields.includes("Typ")))
             && pageProperty(verified, "URL Psipedia") !== source.url)) {
           throw new Error("HELP_ADMIN_FIELD_ECHO_MISMATCH");
