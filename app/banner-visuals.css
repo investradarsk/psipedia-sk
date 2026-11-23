@@ -267,110 +267,115 @@
   box-sizing: border-box;
 }
 
-/* PSIPEDIA APPROVED BANNER COMPOSITION — V2
- * The earlier single green blob and oversize dog mask did NOT reproduce the
- * approved composition. Keep the real proportions: cream/sage layered hills,
- * dark-green ground, small terracotta corner and open terracotta arc.
- * The dog is separate SVG line art so it remains undistorted in S/M/L.
- * Native partner creatives and emergency notifications are unchanged.
- */
-.ps-public-banner-frame[data-banner-visual][data-banner-size]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  width: auto;
-  height: auto;
-  border: 0;
-  border-radius: 0;
-  z-index: 0;
-  pointer-events: none;
-  transform: none;
-  opacity: .85;
-  background: transparent url("/images/psipedia-banner-waves-light.svg") center / 100% 100% no-repeat !important;
-}
-.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size]::before {
-  background-image: url("/images/psipedia-banner-waves-dark.svg") !important;
-}
+/* Approved artwork. It is a DECORATIVE CHILD, not ::before/::after of the
+ * container itself, so @container responds to the banner width (including a
+ * 225px sidebar on a 1640px desktop). Text, links and partner ads are native. */
+.ps-public-banner-frame[data-banner-visual][data-banner-size]::before,
 .ps-public-banner-frame[data-banner-visual][data-banner-size]::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  pointer-events: none;
-  right: 1%;
-  bottom: -2%;
-  width: 28%;
-  height: 96%;
-  background: var(--ps-bnr-art);
-  -webkit-mask: url("/images/psipedia-banner-dog-outline.svg") center bottom / contain no-repeat;
-  mask: url("/images/psipedia-banner-dog-outline.svg") center bottom / contain no-repeat;
-  opacity: .82;
+  content: none !important;
 }
-.ps-public-banner-frame[data-banner-visual][data-banner-size] > * {
+.ps-public-banner-frame[data-banner-visual][data-banner-size="large"] {
+  min-height: 148px !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] > :not([data-ps-banner-art]) {
   position: relative;
   z-index: 1;
 }
-.ps-public-banner-frame[data-banner-size="medium"]::after {
-  width: 34%;
-  height: 98%;
-  right: 1%;
-  opacity: .65;
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art] {
+  position: absolute !important;
+  inset: 0;
+  z-index: 0 !important;
+  display: block;
+  pointer-events: none;
+  overflow: hidden;
 }
-.ps-public-banner-frame[data-banner-size="small"]::before {
-  opacity: .27;
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::before,
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
 }
-.ps-public-banner-frame[data-banner-size="small"]::after {
-  width: 86%;
-  height: 56%;
-  right: -12%;
-  bottom: -7%;
-  opacity: .11;
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::before {
+  inset: 0;
+  background: url("/images/psipedia-banner-waves-light.svg") center / 100% 100% no-repeat;
+  opacity: .92;
 }
-.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size]::after {
-  opacity: .74;
+.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] [data-ps-banner-art]::before {
+  background-image: url("/images/psipedia-banner-waves-dark.svg");
 }
-.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size="small"]::after {
-  opacity: .10;
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::after {
+  right: 2%;
+  bottom: 0;
+  width: 26%;
+  height: 97%;
+  background: var(--ps-bnr-art);
+  -webkit-mask: url("/images/psipedia-banner-dog-outline.svg") center bottom / contain no-repeat;
+  mask: url("/images/psipedia-banner-dog-outline.svg") center bottom / contain no-repeat;
+  opacity: .78;
 }
-/* Preserve the copy/CTA area on desktop: neither the dog's head nor its
- * terracotta halo can sit underneath a live button again. */
-@media (min-width: 721px) {
-  .ps-public-banner-frame[data-banner-size="medium"]:not([data-banner-semantic="urgent"]) > :is(div[data-public-banner-content], div[class*="calloutLayout"]) {
+.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size] [data-ps-banner-art]::after {
+  opacity: .7;
+}
+/* Reserve the full right-hand illustration lane. Padding the original grid did
+ * not solve the overlap because CTA widths and desktop overrides vary. */
+@container ps-editorial-banner (min-width: 821px) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size]:not([data-banner-semantic="urgent"])
+    > [data-public-banner-content],
+  .ps-public-banner-frame[data-banner-visual][data-banner-size]:not([data-banner-semantic="urgent"])
+    > [class*="calloutLayout"] {
     box-sizing: border-box;
-    padding-right: clamp(85px, 20%, 180px) !important;
+    width: 72% !important;
+    max-width: 72% !important;
+    padding: 0 !important;
   }
-  .ps-public-banner-frame[data-banner-size="large"]:not([data-banner-semantic="urgent"]) > :is(div[data-public-banner-content], div[class*="calloutLayout"]) {
-    box-sizing: border-box;
-    padding-right: clamp(105px, 25%, 260px) !important;
-  }
-  .ps-public-banner-frame[data-banner-size="medium"]:not([data-banner-semantic="urgent"]) [data-public-banner-content] > a {
-    justify-self: start;
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
+    justify-self: end;
     width: auto !important;
+    max-width: 100%;
   }
 }
-/* The original Dognet artwork never enters this frame. Emergency information
- * keeps its icon and its safety-first hierarchy without decorative art. */
+/* No large drawings in the sidebar, inside a 520px article, or on a narrow
+ * mobile viewport. The S variant keeps a barely visible green tonal accent. */
+.ps-public-banner-frame[data-banner-size="small"] [data-ps-banner-art]::before {
+  background: linear-gradient(160deg, transparent 58%, rgba(122, 151, 127, .12));
+  opacity: 1;
+}
+.ps-public-banner-frame[data-banner-size="small"] [data-ps-banner-art]::after {
+  display: none;
+}
+@container ps-editorial-banner (max-width: 820px) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] > [data-public-banner-content],
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] > [class*="calloutLayout"] {
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
+    justify-self: start;
+    width: 100%;
+    max-width: 100%;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::after {
+    display: none;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-ps-banner-art]::before {
+    opacity: .16;
+  }
+  .ps-public-banner-frame[data-banner-size="small"] [data-ps-banner-art]::before {
+    opacity: 1;
+  }
+}
+/* These are safety alerts, not promotional artwork. */
 .ps-public-banner-frame[data-banner-semantic="urgent"] {
   --ps-bnr-bg: #fffaf6;
   --ps-bnr-border: rgba(180, 73, 57, .28);
   --ps-bnr-ink: #174d3a;
   --ps-bnr-body: #4b6156;
 }
-.ps-public-banner-frame[data-banner-semantic="urgent"]::before,
-.ps-public-banner-frame[data-banner-semantic="urgent"]::after {
+.ps-public-banner-frame[data-banner-semantic="urgent"] [data-ps-banner-art] {
   display: none !important;
-}
-@media (max-width: 720px) {
-  .ps-public-banner-frame[data-banner-visual][data-banner-size]::before {
-    opacity: .24;
-  }
-  .ps-public-banner-frame[data-banner-visual][data-banner-size]::after {
-    right: -19%;
-    bottom: -7%;
-    width: 70%;
-    height: 73%;
-    opacity: .10;
-  }
-  .ps-public-banner-frame[data-banner-visual][data-banner-size] > * {
-    min-width: 0;
-  }
 }
