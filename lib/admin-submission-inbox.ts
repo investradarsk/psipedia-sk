@@ -33,7 +33,7 @@ export function normalizeInboxFilters(raw:{kind?:unknown;state?:unknown;q?:unkno
  * new takeover request; its decision_note is a known system-generated marker.
  * Public unverified submitter_ref is never interpreted as a Partner account.
  */
-export const INBOX_CTE=\`
+export const INBOX_CTE=`
 WITH combined AS (
  SELECT 'submission:'||s.id AS key,
    CASE WHEN s.submitter_type='PUBLIC_REPORTER' THEN 'PUBLIC' ELSE 'PARTNER' END AS kind,
@@ -90,7 +90,7 @@ filtered AS (
    AND (?3='' OR instr(lower(title),lower(?3))>0
      OR instr(lower(COALESCE(accountId,'')),lower(?3))>0 OR instr(lower(id),lower(?3))>0)
 )
-\`;
+`;
 
 export function inboxReviewHref(item:Pick<InboxRow,"kind"|"id"|"resourceType"|"operation"|"canonicalId">):string {
   const id=encodeURIComponent(item.id);
