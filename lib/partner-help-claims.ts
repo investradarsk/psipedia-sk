@@ -165,7 +165,7 @@ export async function listPartnerApprovedHelpResources(accountId:string,database
   return rows.map(row=>({
     resourceId:helpResourceId(row.entityType,row.canonicalId),entityType:row.entityType,
     canonicalId:row.canonicalId,role:"OWNER" as const,name:row.name,status:row.recordStatus,
-    slug:row.slug,publicHref:row.entityType==="ADOPTION_DOG"&&!["ACTIVE","RESERVED"].includes(row.recordStatus)?null:row.entityType==="LOST_FOUND_DOG"&&row.recordStatus!=="ACTIVE"?null:row.entityType==="HELP_CASE"&&row.recordStatus!=="published"?null:helpClaimHref(row),verificationStatus:"UNVERIFIED" as const,
+    slug:row.slug,publicHref:row.entityType==="ADOPTION_DOG"&&!["ACTIVE","RESERVED"].includes(row.recordStatus)?null:row.entityType==="LOST_FOUND_DOG"&&!["ACTIVE","RESOLVED"].includes(row.recordStatus)?null:row.entityType==="HELP_CASE"&&row.recordStatus!=="published"?null:helpClaimHref(row),verificationStatus:"UNVERIFIED" as const,
   }));
 }
 export async function getPartnerHelpMembership(accountId:string,resourceId:string,database?:D1Database){
