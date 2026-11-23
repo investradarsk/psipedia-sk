@@ -154,7 +154,7 @@ test("historical anonymous form is no longer rendered and its POST is permanentl
   const page = readFileSync(new URL("../app/pomoc-psom/stratene-a-najdene/nahlasit/page.tsx", import.meta.url), "utf8");
   const route = readFileSync(new URL("../app/api/lost-found/submissions/route.ts", import.meta.url), "utf8");
   assert.match(page, /redirect\(target\)/);
-  assert.match(page, /partner\/koncepty\/novy\?typ=LOST_FOUND_DOG/);
+  assert.match(page, /partner\/koncepty\/novy\/(?:strateny|najdeny|nahlasit)/);
   assert.doesNotMatch(page, /LostFoundSubmissionForm|lostFoundSubmissionEnabled/);
   assert.match(route, /status: 410/);
   assert.match(route, /partnerUrl/);
@@ -182,7 +182,7 @@ test("lost/found report route keeps shared header CSS and help overview exposes 
   assert.match(overview, /lostFoundSubmitPromo/);
   assert.match(overview, /<Promo promo=\{lostFoundSubmitPromo\} anchorId=\{HELP_LOST_FOUND_BANNER_ANCHOR\} published=\{publishedHelp\["help:lost-found"\]\} \/>/);
   assert.match(presets, /Stratil sa vám pes alebo ste psa našli\?/);
-  assert.match(presets, /\/partner\/koncepty\/novy\?typ=LOST_FOUND_DOG/);
+  assert.match(presets, /\/partner\/koncepty\/novy\/nahlasit/);
   assert.match(presets, /Nahlásiť psa/);
   assert.match(banner, /lostFoundSubmitPromo/);
 });
