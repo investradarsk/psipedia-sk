@@ -72,7 +72,7 @@ for (const entry of cases) {
     await expect(page.getByRole("link", { name: "Zobraziť hlásenie", exact: true }).first()).toBeVisible();
     const kind = entry.type === "LOST" ? "strateného" : "nájdeného";
     await expect(page.getByRole("link", { name: `Nahlásiť ${kind} psa` }))
-      .toHaveAttribute("href", `/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=${entry.type}`);
+      .toHaveAttribute("href", `/partner/koncepty/novy/${entry.type === "LOST" ? "strateny" : "najdeny"}`);
     await expectPrivateValuesHidden(page);
     await expectNoHorizontalOverflow(page);
     await expectNoAxeViolations(page);
@@ -357,7 +357,7 @@ test("old anonymous report page redirects to Partner login with report kind pres
     await page.goto("/pomoc-psom/stratene-a-najdene/nahlasit?druh=" + kind, { waitUntil: "domcontentloaded" });
     const url = new URL(page.url());
     expect(url.pathname).toBe("/partner/prihlasenie");
-    expect(url.searchParams.get("returnTo")).toBe("/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=" + kind);
+    expect(url.searchParams.get("returnTo")).toBe(kind === "LOST" ? "/partner/koncepty/novy/strateny" : "/partner/koncepty/novy/najdeny");
     await expect(page.getByRole("heading", { name: "Prihlásenie do Partner účtu" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   }
@@ -379,7 +379,7 @@ test("retired anonymous POST never creates reports; historic Admin rows remain u
     expect(response.status()).toBe(410);
     const result = await response.json() as { code?: string; partnerUrl?: string; error?: string };
     expect(result.code).toBe("PARTNER_ACCOUNT_REQUIRED");
-    expect(result.partnerUrl).toBe("/partner/koncepty/novy?typ=LOST_FOUND_DOG");
+    expect(result.partnerUrl).toBe("/partner/koncepty/novy/nahlasit");
     expect(JSON.stringify(result)).not.toMatch(/SQL|D1|stack|PENDING/i);
   }
   await page.goto("/admin/stratene-najdene?q=" + encodeURIComponent(unique), { waitUntil: "domcontentloaded" });
