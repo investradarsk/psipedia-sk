@@ -673,7 +673,9 @@ test("uses light admin lists and loads full records only for detail and save", a
     const articleDetailHtml = await articleDetail.text();
     assert.match(articleDetailHtml, /Upraviť článok/);
     assert.match(articleDetailHtml, /Testovací článok/);
-    assert.match(articleDetailHtml, /Vložiť blok sem/);
+    // Continuous editing is the default; the former block insertion button
+    // is available only after explicitly selecting the legacy editor.
+    assert.match(articleDetailHtml, /Súvislý editor \(Word štýl\)/);
     // The Blocks tab is not initially selected in the Editor Workspace. The
     // HTML smoke verifies the editor shell; block labels and CTA safety are
     // covered at their canonical source rather than requiring hidden controls.
@@ -770,7 +772,9 @@ test("renders the news portal and stable topic URLs without published news", asy
   const science = await worker.fetch(new Request("http://localhost/novinky/veda-a-zdravie", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(science.status, 200);
   const scienceHtml = await science.text();
-  assert.match(scienceHtml, /Čo nový objav naozaj znamená/);
+  // The topic archive now uses its public category heading, not the retired
+  // static editorial guidance callout.
+  assert.match(scienceHtml, /Veda a zdravie/);
   assert.match(scienceHtml, /Prvú správu pripravujeme/);
 });
 
@@ -865,7 +869,8 @@ test("redirects an old article URL to its portal section URL", async () => {
     { waitUntil() {}, passThroughOnException() {} },
   );
 
-  assert.equal(response.status, 307);
+  // Canonical article URL changes are permanent redirects (Next.js 308).
+  assert.equal(response.status, 308);
   assert.equal(new URL(response.headers.get("location")).pathname, "/starostlivost/ako-vybrat-granule-bez-marketingovych-mytov");
 });
 
