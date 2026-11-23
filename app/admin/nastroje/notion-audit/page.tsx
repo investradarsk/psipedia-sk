@@ -9,6 +9,6 @@ export default async function NotionDataQualityAuditPage() {
   return <AdminShell user={user} eyebrow="Admin · Nástroje · Notion"
     title="Notion – synchronizácia a diagnostika"
     description="Spoločné pracovisko pre prehľad D1, kontrolu konfliktov, pravidlá polí a manuálne prenosy.">
-    <AdminNotionWorkspace initialTab="issues" />
+    <div data-admin-content-module="notion-audit"><AdminNotionWorkspace initialTab="issues" /></div>
   </AdminShell>;
 }
