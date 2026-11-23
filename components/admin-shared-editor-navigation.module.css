@@ -6,8 +6,8 @@
 .horizontal .links { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; max-width: 100%; }
 .horizontal .links :is(button, a) { flex: 0 0 auto; white-space: nowrap; }
 .links :is(button, a) {
-  min-height: 44px;
-  padding: 9px 12px;
+  min-height: var(--admin-ui-control-height, 44px);
+  padding: var(--admin-ui-control-padding-block, 0.3rem) var(--admin-ui-control-padding-inline, 0.65rem);
   border: 1px solid transparent;
   border-radius: 9px;
   color: var(--admin-v3-neutral-text, #345447);
@@ -51,8 +51,8 @@
   position: sticky;
   top: calc(var(--admin-sticky-stack, 96px) + 12px);
   border: 1px solid var(--admin-v3-line, #d8e2dc);
-  border-radius: 14px;
-  padding: 10px;
+  border-radius: var(--admin-ui-radius, 8px);
+  padding: var(--admin-ui-space-sm, 0.375rem);
   background: #fff;
 }
 .sidebar .links { display: grid; align-items: stretch; gap: 4px; }
@@ -121,7 +121,7 @@
   }
 }
 @media (min-width: 821px) {
-  .sidebar { padding: 0.55rem; border-radius: 12px; }
+  .sidebar { padding: var(--admin-ui-space-sm, 0.375rem); border-radius: var(--admin-ui-radius, 8px); }
   .sidebar .links { gap: 0.2rem; }
   .sidebar .links :is(button, a) { padding-inline: 0.65rem; }
 }
