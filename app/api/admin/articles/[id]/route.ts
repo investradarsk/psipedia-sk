@@ -54,7 +54,7 @@ function notionStepFailure(error: unknown): ArticleFollowupReceipt {
 }
 function articleSaveReceipt(article: { updatedAt: string }, notion: Partial<Record<NotionArticleStep, ArticleFollowupReceipt>>,
   lifecycle: ArticleFollowupReceipt, media: ArticleFollowupReceipt) {
-  return { d1: { status: "saved" as const, updatedAt: article.updatedAt }, notion, lifecycle, media };
+  return { d1: { status: "saved" as const, updatedAt: article.updatedAt }, assignments: { status: "synced" as const }, notion, lifecycle, media };
 }
 
 
@@ -134,7 +134,24 @@ export async function PUT(request: Request, { params }: RouteProps) {
         ? before.portalSubpage
         : payload.portalSubpage,
     };
-    const article = await updateManagedArticle(id, updatePayload, user.email, before, { updatedAt: payload.expectedUpdatedAt });
+    let article;
+    try {
+      // article-store commits the canonical row before updating related topics
+      // and breeds. Never treat a later relation failure as proof of rollback.
+      article = await updateManagedArticle(id, updatePayload, user.email, before, {
+        updatedAt: payload.expectedUpdatedAt,
+      });
+    } catch (writeError) {
+      const current = await getManagedArticleById(id).catch(() => null);
+      if (current && current.updatedAt !== before.updatedAt) {
+        return Response.json({
+          error: "Verzia článku v D1 sa zmenila, ale uloženie priradení tém a plemien sa nepodarilo potvrdiť. Pred ďalším zápisom obnov editor a skontroluj aktuálne údaje.",
+          outcome: "D1_CHANGED_RELATIONS_UNVERIFIED",
+          storedVersion: current.updatedAt,
+        }, { status: 409, headers: { "cache-control": "no-store" } });
+      }
+      throw writeError;
+    }
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
 
     // Notion-imported hero and OG images often share one R2 object.
@@ -151,6 +168,21 @@ export async function PUT(request: Request, { params }: RouteProps) {
         ? { status: "failed", code: "R2_MEDIA_CLEANUP_FAILED" } : { status: "synced" };
     }
     const notionSteps: Partial<Record<NotionArticleStep, ArticleFollowupReceipt>> = {};
+    const bindings = env as unknown as ArticleRouteBindings;
+    if (!bindings.DB) {
+      if (before.status !== "published" && article.status === "published") {
+        notionSteps.publication = { status: "skipped", code: "NOTION_BINDING_MISSING" };
+      }
+      if (isBreedArticleNotionChange(before, article)) {
+        notionSteps.placement = { status: "skipped", code: "NOTION_BINDING_MISSING" };
+      }
+      if (articleSeoChangedFields(before, article).length > 0) {
+        notionSteps.seo = { status: "skipped", code: "NOTION_BINDING_MISSING" };
+      }
+      if (before.status === "draft" && article.status === "draft") {
+        notionSteps.draft = { status: "skipped", code: "NOTION_BINDING_MISSING" };
+      }
+    }
 
     // Canonical D1 publication already committed. Notion writeback is best-effort:
     // a remote API error must never turn a successful publish into a failed response.
@@ -178,7 +210,6 @@ export async function PUT(request: Request, { params }: RouteProps) {
     // cannot be echoed by Notion. Report the remote result rather than
     // silently claiming both systems are synchronized.
     let notionEditorialWriteback: { status: string; code?: string; fields?: string[] } | undefined;
-    const bindings = env as unknown as ArticleRouteBindings;
     if (bindings.DB) {
       const report = (step: NotionArticleStep, result: NotionArticleResult) => {
         notionSteps[step] = notionStepReceipt(result);
