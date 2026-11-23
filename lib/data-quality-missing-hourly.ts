@@ -532,71 +532,151 @@ export type MissingQualityDashboard = {
   outcomes: Record<QualityArea, QualityScanCount>;
   last: Record<QualityArea, QualityScanLast>;
   truncated: boolean;
+  nextBefore: number | null;
+  pageBefore: number | null;
   schemaReady: boolean;
 };
-// One canonical read per bounded group of profiles (not one read per suggestion).
-// This includes legacy OPEN findings whose fields may have changed since discovery.
-async function attachCurrentQualityValues(db:Database, proposals:MissingQualityProposal[]):Promise<void> {
-  const grouped=new Map<Kind,Map<number,MissingQualityProposal[]>>();
-  for(const p of proposals) {
-    if(!SPECS[p.entity_type]) continue;
-    let byId=grouped.get(p.entity_type);
-    if(!byId) { byId=new Map(); grouped.set(p.entity_type,byId); }
-    const matches=byId.get(p.entity_id)??[];
-    matches.push(p);
-    byId.set(p.entity_id,matches);
+const QUALITY_PAGE_SIZE = 100;
+const QUALITY_READ_BUDGET = 1000;
+const QUALITY_STALE_ACTOR = "SYSTEM:QUALITY_STALE";
+const QUALITY_LIFECYCLE_COLUMNS: Record<Kind, readonly string[]> = {
+  DIRECTORY: ["status"],
+  EVENT: ["status", "cancelled", "start_date", "end_date"],
+  ORGANIZATION: ["status"],
+  ADOPTION: ["status"],
+  FOSTER: ["status", "resolved"],
+  HELP_ITEM: ["status", "resolved"],
+  LOST_FOUND: ["status", "expires_at"],
+};
+function qualityCanonicalColumn(kind: Kind, f: Field): string | null {
+  if (kind === "DIRECTORY") {
+    const contactColumns: Record<string, string> = {
+      websiteUrl: "website_url", publicPhone: "public_phone", publicEmail: "public_email",
+      facebookUrl: "facebook_url", instagramUrl: "instagram_url",
+    };
+    if (contactColumns[f.key]) return contactColumns[f.key];
   }
-
-  await Promise.all([...grouped].map(async ([kind,byId])=>{
-    const spec=SPECS[kind];
-    const fields=new Map(spec.fields.map(f=>[f.key,f]));
-    const columns=new Set<string>(["id"]);
-    for(const proposalsForProfile of byId.values()) {
-      for(const proposal of proposalsForProfile) {
-        const f=fields.get(proposal.field_key);
-        if(!f) continue;
-        if(f.column) columns.add(f.column);
-        if(kind==="DIRECTORY"&&(f.contact||f.key==="websiteUrl")) {
-          const names={websiteUrl:"website_url",phone:"public_phone",
-            email:"public_email",facebook:"facebook_url",instagram:"instagram_url"} as const;
-          columns.add(f.key==="websiteUrl"?names.websiteUrl:names[f.contact!]);
-        }
+  return f.column ?? null;
+}
+type QualityStale = {
+  proposal: MissingQualityProposal; kind: Kind;
+  updatedAt: string | null; filledColumn: string | null;
+};
+/**
+ * Revalidate each proposal against its current canonical row, not the old
+ * discovery snapshot. Auto-closed findings retain their original value,
+ * evidence and decision history in the existing table. The database CHECK
+ * already allows REJECTED; the dedicated system actor distinguishes an
+ * auto-resolved finding from an administrator's rejection.
+ *
+ * Changes are CAS-guarded by the current canonical updated_at; a conflicting
+ * edit cannot be closed or overwritten from a stale read.
+ */
+async function attachCurrentQualityValues(
+  db: Database, proposals: MissingQualityProposal[], today: string,
+): Promise<MissingQualityProposal[]> {
+  const grouped = new Map<Kind, Map<number, MissingQualityProposal[]>>();
+  const stale: QualityStale[] = [];
+  for (const p of proposals) {
+    if (!SPECS[p.entity_type]) continue;
+    let byId = grouped.get(p.entity_type);
+    if (!byId) { byId = new Map(); grouped.set(p.entity_type, byId); }
+    const matches = byId.get(p.entity_id) ?? [];
+    matches.push(p);
+    byId.set(p.entity_id, matches);
+  }
+  await Promise.all([...grouped].map(async ([kind, byId]) => {
+    const spec = SPECS[kind];
+    const fields = new Map(spec.fields.map(f => [f.key, f]));
+    const columns = new Set<string>(["id", "updated_at", ...QUALITY_LIFECYCLE_COLUMNS[kind]]);
+    for (const records of byId.values()) for (const proposal of records) {
+      const f = fields.get(proposal.field_key);
+      if (f) {
+        const column = qualityCanonicalColumn(kind, f);
+        if (column) columns.add(column);
       }
     }
-    const ids=[...byId.keys()];
-    for(let offset=0;offset<ids.length;offset+=75) {
-      const batch=ids.slice(offset,offset+75);
-      const sql="SELECT "+[...columns].join(",")+" FROM "+spec.table+
-        " WHERE id IN ("+batch.map(()=>"?").join(",")+")";
-      const rows=await db.prepare(sql).bind(...batch).all<Row>();
-      for(const row of rows.results) {
-        const proposalsForProfile=byId.get(Number(row.id))??[];
-        for(const proposal of proposalsForProfile) {
-          const f=fields.get(proposal.field_key);
-          if(!f) continue;
-          const value=fieldValue(kind,row,f);
-          proposal.current_value=missing(value)?null:String(value);
+    const ids = [...byId.keys()];
+    for (let offset = 0; offset < ids.length; offset += 75) {
+      const batch = ids.slice(offset, offset + 75);
+      const sql = "SELECT " + [...columns].join(",") + " FROM " + spec.table +
+        " WHERE id IN (" + batch.map(() => "?").join(",") + ")";
+      const rows = await db.prepare(sql).bind(...batch).all<Row>();
+      const seen = new Set<number>();
+      for (const row of rows.results) {
+        const id = Number(row.id);
+        seen.add(id);
+        for (const proposal of byId.get(id) ?? []) {
+          const f = fields.get(proposal.field_key);
+          if (!f) {
+            stale.push({ proposal, kind, updatedAt: String(row.updated_at ?? ""), filledColumn: null });
+            continue;
+          }
+          const value = fieldValue(kind, row, f);
+          const filled = !missing(value);
+          proposal.current_value = filled ? String(value) : null;
+          if (filled || !qualityMayResearch(kind, row, today)) {
+            stale.push({
+              proposal, kind, updatedAt: String(row.updated_at ?? ""),
+              filledColumn: filled ? qualityCanonicalColumn(kind, f) : null,
+            });
+          }
         }
       }
+      for (const id of batch) if (!seen.has(id)) for (const proposal of byId.get(id) ?? [])
+        stale.push({ proposal, kind, updatedAt: null, filledColumn: null });
     }
   }));
+
+  // One bounded D1 batch per 50 stale findings. A field that was filled then
+  // cleared between the read and this update must remain OPEN for re-review.
+  const at = new Date().toISOString();
+  for (let offset = 0; offset < stale.length; offset += 50) {
+    const group = stale.slice(offset, offset + 50);
+    const updates = group.map(({ proposal, kind, updatedAt, filledColumn }) => {
+      const table = SPECS[kind].table;
+      const base = "UPDATE quality_missing_proposals SET status='REJECTED',decided_by=?,decided_at=? " +
+        "WHERE id=? AND status='OPEN' AND ";
+      if (updatedAt === null) {
+        return db.prepare(base + "NOT EXISTS (SELECT 1 FROM " + table + " WHERE id=?)")
+          .bind(QUALITY_STALE_ACTOR, at, proposal.id, proposal.entity_id);
+      }
+      const fieldCheck = filledColumn ?
+        " AND NULLIF(TRIM(CAST(" + filledColumn + " AS TEXT)), '') IS NOT NULL" : "";
+      return db.prepare(base + "EXISTS (SELECT 1 FROM " + table +
+        " WHERE id=? AND COALESCE(updated_at,'')=?" + fieldCheck + ")")
+        .bind(QUALITY_STALE_ACTOR, at, proposal.id, proposal.entity_id, updatedAt);
+    });
+    const results = await db.batch(updates);
+    for (let i = 0; i < group.length; i++) if (results[i].meta.changes) {
+      const key = qualityMissingCandidateKey(group[i].proposal.value);
+      if (key) await (env as unknown as { BUCKET?: R2Bucket }).BUCKET?.delete(key).catch(() => undefined);
+    }
+  }
+  const staleIds = new Set(stale.map(x => x.proposal.id));
+  return proposals.filter(p => !staleIds.has(p.id));
 }
 
-export async function loadMissingQualityDashboard(db: Database): Promise<MissingQualityDashboard> {
+export async function loadMissingQualityDashboard(
+  db: Database, options: { before?: number } = {},
+): Promise<MissingQualityDashboard> {
   const monthly = { services: 0, events: 0, help: 0 };
   const outcomes: Record<QualityArea, QualityScanCount> = {
     services: emptyScanCount(), events: emptyScanCount(), help: emptyScanCount(),
   };
   const last: Record<QualityArea, QualityScanLast> = { services: null, events: null, help: null };
+  const before = Number.isSafeInteger(options.before) && Number(options.before) > 0
+    ? Number(options.before) : null;
+  const emptyPage = { nextBefore: null, pageBefore: before };
   if (!(await hasScanStatusColumns(db))) {
-    return { pending: [], manualHistory: [], manualReady: false, total: 0, monthly, outcomes, last, truncated: false, schemaReady: false };
+    return { pending: [], manualHistory: [], manualReady: false, total: 0, monthly, outcomes, last,
+      truncated: false, schemaReady: false, ...emptyPage };
   }
-  const manualReady=await qualityManualSchemaReady(db);
-  const manualHistory=manualReady?await listManualQualityHistory(db):[];
+  const manualReady = await qualityManualSchemaReady(db);
+  const manualHistory = manualReady ? await listManualQualityHistory(db) : [];
   const since = new Date().toISOString().slice(0, 7) + "-01";
-  const [rows, counts, runCounts, latest] = await Promise.all([
-    db.prepare("SELECT id,area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at FROM quality_missing_proposals WHERE status='OPEN' ORDER BY id DESC LIMIT 1000").all<MissingQualityProposal>(),
-    db.prepare("SELECT COUNT(*) AS n FROM quality_missing_proposals WHERE status='OPEN'").first<{ n: number }>(),
+  const today = qualityTodayInSlovakia();
+  const [runCounts, latest] = await Promise.all([
     db.prepare("SELECT area,status,COUNT(*) AS n FROM quality_missing_scans WHERE scanned_at>=? AND entity_id IS NOT NULL GROUP BY area,status")
       .bind(since).all<{ area: QualityArea; status: ScanStatus; n: number }>(),
     db.prepare(
@@ -618,11 +698,36 @@ export async function loadMissingQualityDashboard(db: Database): Promise<Missing
   for (const row of latest.results) {
     if (QUALITY_AREAS.includes(row.area)) last[row.area] = { status: row.status, errorCode: row.error_code };
   }
+
+  const pending: MissingQualityProposal[] = [];
+  let cursor = before ?? Number.MAX_SAFE_INTEGER;
+  let exhausted = false;
+  let scanned = 0;
+  // Keyset pagination: skip auto-resolved findings and fill the visible page
+  // without loading the entire unbounded OPEN history into a single request.
+  while (pending.length < QUALITY_PAGE_SIZE && scanned < QUALITY_READ_BUDGET) {
+    const rows = await db.prepare(
+      "SELECT id,area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at " +
+      "FROM quality_missing_proposals WHERE status='OPEN' AND id<? ORDER BY id DESC LIMIT ?"
+    ).bind(cursor, QUALITY_PAGE_SIZE).all<MissingQualityProposal>();
+    if (!rows.results.length) { exhausted = true; break; }
+    scanned += rows.results.length;
+    cursor = rows.results[rows.results.length - 1].id;
+    pending.push(...await attachCurrentQualityValues(db, rows.results, today));
+    if (rows.results.length < QUALITY_PAGE_SIZE) { exhausted = true; break; }
+  }
+  // A full 100-row batch might have been the final batch; one cheap query
+  // prevents a misleading next-page link.
+  const next = exhausted ? null : await db.prepare(
+    "SELECT id FROM quality_missing_proposals WHERE status='OPEN' AND id<? ORDER BY id DESC LIMIT 1"
+  ).bind(cursor).first<{ id: number }>();
+  const nextBefore = next ? cursor : null;
+  const counts = await db.prepare(
+    "SELECT COUNT(*) AS n FROM quality_missing_proposals WHERE status='OPEN'"
+  ).first<{ n: number }>();
   const total = Number(counts?.n ?? 0);
-  // Resolve current values on every dashboard load, after fetching open proposals.
-  await attachCurrentQualityValues(db,rows.results);
-  return { pending: rows.results, manualHistory, manualReady, total, monthly, outcomes, last,
-    truncated: total > rows.results.length, schemaReady: true };
+  return { pending, manualHistory, manualReady, total, monthly, outcomes, last,
+    truncated: nextBefore !== null, nextBefore, pageBefore: before, schemaReady: true };
 }
 
 export async function reviewMissingQualityProposal(db:Database,id:number,action:"accept"|"reject",actor:string,correctedValue?:unknown) {
