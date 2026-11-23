@@ -131,6 +131,8 @@ test("returned and published copy is accurate for canonical workflow without cha
   assert.match(email,/canonicalApproved=input.row.dedupe_key.startsWith\("partner-canonical-approved\/"\)/);
   assert.match(email,/Nový profil bol schválený a zverejnený/);
   assert.match(email,/Podujatie bolo schválené a zverejnené/);
+  assert.match(email,/canonicalRejected=input.row.dedupe_key.startsWith/);
+  assert.match(email,/Redakcia vaše podanie neschválila/);
   assert.match(email,/Nový profil bol vytvorený ako koncept/,"older legacy draft-only emails keep their accurate copy");
   assert.match(email,/Redakcia vám vrátila podanie na doplnenie/);
   assert.match(email,/Dôvod a požadované úpravy nájdete vo svojom Partner účte/);
