@@ -14,7 +14,8 @@ export default async function LostFoundSubmissionPage({
   const query = await searchParams;
   const kind = typeof query.druh === "string" ? query.druh
     : typeof query.type === "string" ? query.type : "";
-  const target = "/partner/koncepty/novy?typ=LOST_FOUND_DOG"
-    + (kind === "LOST" || kind === "FOUND" ? "&druh=" + kind : "");
+  const target = kind === "LOST" ? "/partner/koncepty/novy/strateny"
+    : kind === "FOUND" ? "/partner/koncepty/novy/najdeny"
+    : "/partner/koncepty/novy/nahlasit";
   redirect(target);
 }
