@@ -10,6 +10,9 @@ import {
 import { env } from "cloudflare:workers";
 import { loadAdminQualityPendingSummary } from "@/lib/admin-quality-pending-summary";
 import { loadAdminWorkspaceOverview } from "@/lib/admin-workspace-feed";
+import { settleAdminOverviewRead } from "@/lib/admin-overview-read";
+import { adminAttentionQueueSourceTypes } from "@/lib/admin-attention-queue";
+import type { AdminAttentionExactSummary } from "@/lib/admin-attention-queue-store";
 
 export const dynamic = "force-dynamic";
 
@@ -47,9 +50,31 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
   // Start independent D1 reads immediately, but do not hold back the admin shell.
   // Pass the *same* attention promise to the bell and dashboard: one exact read.
+  const unavailableAttention: AdminAttentionExactSummary = {
+    active: 0,
+    availability: "UNAVAILABLE",
+    bySource: Object.fromEntries(adminAttentionQueueSourceTypes.map((source) => [source, null])) as AdminAttentionExactSummary["bySource"],
+    unavailableSources: [...adminAttentionQueueSourceTypes],
+  };
+
+  // Time out only optional reads. Authentication still runs before rendering.
+  // All three readers stay independent, and their fallbacks remain explicitly
+  // UNAVAILABLE rather than reporting an incorrect count of zero.
   const attentionPromise = loadRequestAdminAttentionSummary();
   const qualityPromise = loadWorkspaceQuality();
   const workspaceFeedPromise = loadAdminWorkspaceOverview();
+
+  const boundedAttentionPromise = settleAdminOverviewRead(attentionPromise, unavailableAttention);
+  const boundedQualityPromise = settleAdminOverviewRead(qualityPromise, {
+    key: "admin-workspace:data-quality",
+    status: "UNAVAILABLE" as const,
+    data: { profilesWithCoreIssues: 0, mediaIssues: 0 },
+    checkedAt: new Date().toISOString(),
+    errorRef: null,
+  });
+  const boundedWorkspaceFeedPromise = settleAdminOverviewRead(workspaceFeedPromise, {
+    nextGemini: null, status: "UNAVAILABLE" as const,
+  });
 
   return (
     <AdminShell
@@ -58,12 +83,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       title="Pracovný prehľad"
       description="Začni tým, čo čaká na kontrolu. Odtiaľto sa dostaneš priamo do canonical frontov, správy obsahu, automatizácií a kvality údajov."
       actions={<Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link>}
-      attentionSummaryPromise={attentionPromise}
+      attentionSummaryPromise={boundedAttentionPromise}
     >
       <AdminWorkspaceDashboard
-        attentionPromise={attentionPromise}
-        qualityPromise={qualityPromise}
-        activityPromise={workspaceFeedPromise}
+        attentionPromise={boundedAttentionPromise}
+        qualityPromise={boundedQualityPromise}
+        activityPromise={boundedWorkspaceFeedPromise}
       />
     </AdminShell>
   );
