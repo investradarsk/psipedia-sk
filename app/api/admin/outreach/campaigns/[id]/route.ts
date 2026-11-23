@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { getOutreachAdminData, transitionOutreachCampaign } from "@/lib/outreach-store";
 import { assertOutreachJsonMutation } from "@/lib/outreach-security";
 
@@ -17,8 +17,9 @@ export async function GET(_request: Request, { params }: Props) {
 }
 
 export async function PATCH(request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   try {
     assertOutreachJsonMutation(request);
     const body = await request.json() as { action?: unknown };
