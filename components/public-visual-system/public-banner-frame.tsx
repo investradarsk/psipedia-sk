@@ -31,6 +31,8 @@ export function PublicBannerFrame({
       data-banner-size={size}
     >
       {children}
+      {/* Own child so container queries respond to the banner's actual width. */}
+      <i data-ps-banner-art aria-hidden="true" />
     </Element>
   );
 }
