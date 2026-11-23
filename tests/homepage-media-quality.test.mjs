@@ -3,7 +3,10 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { readFile } from "node:fs/promises";
 import { hasHomepageRealImage, HOMEPAGE_REAL_IMAGE_SQL } from "../lib/homepage-media.ts";
-import { directoryLegacyDistrictSql, directoryEffectiveDistrictSql } from "../lib/directory-public-source-contract.ts";
+import {
+  directoryLegacyDistrictSql,
+  directoryEffectiveDistrictSql,
+} from "../lib/directory-public-source-contract.ts";
 
 const repoFile = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -130,8 +133,14 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
     assert.doesNotMatch(segment, /fetch\(|\.filter\(\(.*imageUrl/);
     if (functionName === "getHomepageDirectoryProfilesWithImages") {
       // Kept for other consumers; homepage now uses one grouped D1 read.
-      assert.match(directory, /export async function getHomepageDirectoryProfilesByCategoriesWithImages/);
-      assert.match(page, /getHomepageDirectoryProfilesByCategoriesWithImages\(\["veterinari", "treneri"\], 8\)/);
+      assert.match(
+        directory,
+        /export async function getHomepageDirectoryProfilesByCategoriesWithImages/,
+      );
+      assert.match(
+        page,
+        /getHomepageDirectoryProfilesByCategoriesWithImages\(\["veterinari", "treneri"\], 8\)/,
+      );
     } else {
       assert.match(page, new RegExp(functionName));
     }
@@ -146,7 +155,10 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
   // Rank only lightweight ordering columns; load profile display JSON after LIMIT.
   assert.match(groupedSql, /SELECT id, name, category, featured/);
   assert.match(groupedSql, /SELECT id, category, card_rank FROM ranked WHERE card_rank <= \?/);
-  assert.match(groupedSql, /INNER JOIN directory_profiles AS profile ON profile\.id = selected\.id/);
+  assert.match(
+    groupedSql,
+    /INNER JOIN directory_profiles AS profile ON profile\.id = selected\.id/,
+  );
   assert.match(groupedSql, /directoryImageSqlExpression\("thumbnail","profile"\)/);
   assert.doesNotMatch(groupedSql, /profile\.thumbnail_display_json|profile\.source_data_json/);
   // The projection is composed by the canonical source contract, not inlined here.
@@ -188,7 +200,7 @@ test("homepage breed cards read only presentation fields, not the editor's full 
   assert.doesNotMatch(fn, /withAvailableBreedImages|availableBreedImage\(/);
   assert.match(fn, /SELECT slug,name,image_url,intro/);
   const breedPhoto = await repoFile("components/breed-photo.tsx");
-  assert.match(breedPhoto, /onError=\{\(\)=>setFailed\(String\(props\.src\)\)\}/);
+  assert.match(breedPhoto, /onError=\{\(\)\s*=>\s*setFailed\(String\(props\.src\)\)\}/);
   assert.doesNotMatch(fn, /\$\{select\}|fromRow\(|fci_standard_json|editorial_json|gallery_json/);
   assert.match(page, /listHomepageFeaturedBreeds\(8\)/);
 });
@@ -316,13 +328,20 @@ test("homepage directory cards preserve SQL district and do not restore retired 
     // The obsolete JSON field must never rescue a blank SQL district.
     const sql = `SELECT ${directoryEffectiveDistrictSql("d")} AS district,
       ${directoryLegacyDistrictSql()} AS fallback_district FROM d ORDER BY id`;
-    assert.deepEqual(db.prepare(sql).all().map(row => ({
-      district: row.district, fallback: row.fallback_district,
-    })), [
-      { district: "Nitra", fallback: null },
-      { district: "", fallback: null },
-      { district: "Bratislava", fallback: null },
-    ]);
+    assert.deepEqual(
+      db
+        .prepare(sql)
+        .all()
+        .map((row) => ({
+          district: row.district,
+          fallback: row.fallback_district,
+        })),
+      [
+        { district: "Nitra", fallback: null },
+        { district: "", fallback: null },
+        { district: "Bratislava", fallback: null },
+      ],
+    );
   } finally {
     db.close();
   }
