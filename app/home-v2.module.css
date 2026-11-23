@@ -1177,8 +1177,8 @@
 .homeV2 :global(.home-services-wide) {
   padding: 30px 32px;
   border: 1px solid rgba(23, 53, 43, 0.12);
-  border-left: 4px solid var(--coral-dark);
-  border-radius: 14px;
+  /* The homepage service promo follows the square, stripe-free banner style. */
+  border-radius: 0;
   background: color-mix(in srgb, var(--sage-light) 52%, var(--cream));
 }
 

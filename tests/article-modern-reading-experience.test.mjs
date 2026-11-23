@@ -18,8 +18,6 @@ const feedbackComponent = readFileSync("components/article-feedback.tsx", "utf8"
 const siteHeader = readFileSync("components/site-header.tsx", "utf8");
 const siteHeaderStyles = readFileSync("components/site-header.module.css", "utf8");
 const backToTopStyles = readFileSync("components/back-to-top.module.css", "utf8");
-const readingProgress = readFileSync("components/article-reading-progress.tsx", "utf8");
-const readingProgressMath = readFileSync("lib/article-reading-progress.ts", "utf8");
 const magazine = readFileSync("lib/article-magazine.ts", "utf8");
 const selection = readFileSync("lib/article-magazine-selection.ts", "utf8");
 const articleStore = readFileSync("lib/article-store.ts", "utf8");
@@ -242,7 +240,7 @@ test("article header follows compact editorial hierarchy and aligns with the rea
   assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 9/);
 });
-test("desktop magazine layout widens the reading column and keeps a truthful sticky sidebar", () => {
+test("desktop magazine layout widens the reading column and scrolls the sidebar naturally", () => {
   assert.match(styles, /--article-sidebar-width:\s*290px/);
   assert.match(styles, /\.readingShell \.standfirst\s*\{[^}]*margin:\s*0 0 18px/);
   assert.doesNotMatch(detail, /<h1>\{article\.title\}<\/h1>\s*<p>\{article\.excerpt\}<\/p>/);
@@ -251,10 +249,8 @@ test("desktop magazine layout widens the reading column and keeps a truthful sti
     styles,
     /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(\s*220px,\s*var\(--article-sidebar-width\)\s*\)/,
   );
-  assert.match(
-    styles,
-    /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*#fff/,
-  );
+  assert.match(styles, /\.sidebarSticky\s*\{[^}]*position:\s*static/);
+  assert.doesNotMatch(styles, /\.sidebarSticky\s*\{[^}]*position:\s*sticky/);
   assert.match(popularitySidebar, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
   assert.match(popularityStyles, /\.rank[\s\S]*color:\s*var\(--brand-accent-strong/);
   assert.doesNotMatch(popularitySidebar, /dateIso|<time/);
@@ -289,10 +285,8 @@ test("ARTICLE-READING-WHITE-1 uses left-aligned prose and lifts the desktop disc
     /\.articleLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(\s*220px,\s*var\(--article-sidebar-width\)\s*\)/,
   );
   assert.match(styles, /\.sidebar[\s\S]*align-self:\s*stretch/);
-  assert.match(
-    styles,
-    /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*#fff/,
-  );
+  assert.match(styles, /\.sidebarSticky\s*\{[^}]*position:\s*static/);
+  assert.doesNotMatch(styles, /\.sidebarSticky\s*\{[^}]*position:\s*sticky/);
   assert.match(
     styles,
     /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*left[\s\S]*text-align-last:\s*auto[\s\S]*hyphens:\s*none/,
@@ -339,30 +333,16 @@ test("ARTICLE-READING-WHITE-1 keeps compact sans-serif text and flush-left mobil
   assert.match(mobileStyles, /\.sidebar\s*\{\s*display:\s*none;/);
 });
 
-test("ARTICLE-ALIGNMENT-PROGRESS-1 keeps one canonical article axis and an isolated reading progress contract", () => {
+test("ARTICLE-ALIGNMENT-1 keeps the article axis without a progress strip", () => {
   assert.match(detail, /data-article-reading-start/);
   assert.match(detail, /data-article-reading-end/);
-  assert.match(detail, /<ArticleReadingProgress \/>/);
+  assert.doesNotMatch(detail, /ArticleReadingProgress/);
+  assert.doesNotMatch(styles, /\.readingProgress\s*\{/);
   assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(
     styles,
     /\.relatedInner[\s\S]*max-width:\s*calc\(\s*var\(--article-reading-width\) \+ var\(--article-layout-gap\) \+ var\(--article-sidebar-width\)\s*\)/,
   );
-  assert.match(styles, /\.readingProgress[\s\S]*top:\s*var\(--psipedia-sticky-header-height/);
-  assert.match(
-    styles,
-    /\.readingProgress > span[\s\S]*transform:\s*scaleX\(var\(--article-reading-progress, 0\)\)/,
-  );
-  assert.match(styles, /background:\s*var\(--brand-accent/);
-  assert.match(readingProgress, /aria-hidden="true"/);
-  assert.match(readingProgress, /requestAnimationFrame/);
-  assert.match(readingProgress, /addEventListener\("scroll", onScroll, \{ passive: true \}\)/);
-  assert.match(readingProgress, /addEventListener\("resize", onResize\)/);
-  assert.match(readingProgress, /removeEventListener\("scroll", onScroll\)/);
-  assert.match(readingProgress, /removeEventListener\("resize", onResize\)/);
-  assert.match(readingProgress, /cancelAnimationFrame/);
-  assert.doesNotMatch(readingProgress, /fetch\(|analytics|localStorage/);
-  assert.match(readingProgressMath, /Math\.min\(1, Math\.max\(0/);
   assert.equal((detail.match(/<ArticleReadTracker\b/g) ?? []).length, 1);
 });
 
@@ -424,7 +404,7 @@ test("ARTICLE-READING-UX-2 preserves tracker, compact feedback, sticky-header an
   assert.match(feedbackComponent, />\s*Nie\s*<\/button>/);
   assert.match(
     styles,
-    /\.article-feedback\)[^{]*\{[\s\S]*border-left:\s*2px solid var\(--brand-accent\)/,
+    /\.article-feedback\)[^{]*\{[\s\S]*border-left:\s*0/,
   );
   assert.match(shareStyles, /var\(--brand-accent-strong/);
 

@@ -10,7 +10,6 @@ import { AUTOMATIC_ARTICLE_PROMO_ANCHOR } from "@/lib/visual-library-anchors";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
 import { ArticleReadTracker } from "@/components/article-read-tracker";
-import { ArticleReadingProgress } from "@/components/article-reading-progress";
 import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
 import { ArticlePromo } from "@/components/article-promo";
 import { ArticleContinuation } from "@/components/article-continuation";
@@ -242,7 +241,6 @@ export function ArticleDetail({
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
       />
       <ArticleReadTracker articleSlug={article.slug} />
-      <ArticleReadingProgress />
       <div className={`${styles.articleLayout} shell`} data-article-layout>
         <div className={styles.articleMainColumn}>
           <header className={styles.hero} data-article-reading-start>
