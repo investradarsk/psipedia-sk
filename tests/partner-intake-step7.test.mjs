@@ -42,7 +42,7 @@ function fixture(){
  const db={prepare(query){return {bind(...values){return {
    async first(){return sql.prepare(query).get(...values)??null;},
    async all(){return {results:sql.prepare(query).all(...values)};},
- };}}};
+ };}}}};
  return {sql,db};
 }
 
