@@ -367,10 +367,11 @@ test("old anonymous report page redirects to Partner login with report kind pres
 test("retired anonymous POST never creates reports; historic Admin rows remain unaffected", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Retired endpoint regression runs once on desktop.");
   const unique = "No anonymous write " + Date.now();
-  for (const multipart of [
+  const payloads: Record<string, string>[] = [
     { type: "FOUND", dogName: unique, contactEmail: "test@example.invalid" },
     { website: "https://spam.invalid", dogName: unique },
-  ]) {
+  ];
+  for (const multipart of payloads) {
     const response = await page.request.post("/api/lost-found/submissions", {
       headers: { origin: "http://localhost:5173", "sec-fetch-site": "same-origin" },
       multipart,
