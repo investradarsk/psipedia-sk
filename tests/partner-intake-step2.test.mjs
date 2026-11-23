@@ -28,11 +28,16 @@ test("canonical create entry remembers both type and dog report kind before sess
   assert.match(page, /initialReportType=\{reportType\?\?undefined\}/);
   assert.match(typedPage, /kind === "strateny" \? "LOST"/);
   assert.match(typedPage, /kind === "najdeny" \? "FOUND"/);
-  assert.match(typedPage, /initialType="LOST_FOUND_DOG"/);
+  assert.match(typedPage, /initialType=\{initialType\}/);
+  for (const [slug, type] of [["adresar", "DIRECTORY_PROFILE"], ["organizacia", "HELP_ORGANIZATION"], ["podujatie", "MANAGED_EVENT"], ["adopcia", "ADOPTION_DOG"], ["pomoc", "HELP_CASE"], ["strateny", "LOST_FOUND_DOG"], ["najdeny", "LOST_FOUND_DOG"], ["nahlasit", "LOST_FOUND_DOG"]]) {
+    assert.ok(typedPage.includes(`${slug}: "${type}"`), `Canonical route missing ${slug}`);
+  }
   assert.match(typedPage, /requirePartnerPageIdentity\(\{ returnTo:/);
-  assert.match(worker, /url\.searchParams\.get\("typ"\) === "LOST_FOUND_DOG"/);
+  assert.match(worker, /url\.searchParams\.get\("typ"\)/);
+  assert.match(worker, /draftType === "LOST_FOUND_DOG"/);
+  assert.match(worker, /draftType === "MANAGED_EVENT"/);
   assert.match(worker, /url\.searchParams\.get\("druh"\)/);
-  assert.match(worker, /Response\.redirect\(new URL\(destination, url\), 307\)/);
+  assert.match(worker, /Response\.redirect\(new URL\(`/);
   assert.match(form, /initialReportType\?:"LOST"\|"FOUND"/);
   assert.match(form, /initial\?\.values\?\?\(initialType==="LOST_FOUND_DOG"&&initialReportType\?\{type:initialReportType\}:\{\}\)/);
   assert.match(form, /const \[values,setValues\]=useState/);
