@@ -50,6 +50,7 @@ type FollowupStatus = "synced" | "skipped" | "partial" | "failed" | "deferred";
 type FollowupReceipt = { status: FollowupStatus; code?: string; fields?: string[] };
 type ArticleSaveReceipt = {
   d1: { status: "saved"; updatedAt: string };
+  assignments?: { status: "synced" };
   notion: Partial<Record<"publication" | "placement" | "seo" | "draft", FollowupReceipt>>;
   lifecycle?: FollowupReceipt;
   media?: FollowupReceipt;
@@ -778,6 +779,7 @@ export function AdminArticleEditor({
         </div>}
         {saveReceipt && <div role="status" aria-live="polite" className="admin-editor-message">
           <p><strong>D1:</strong> Článok, jeho stav publikovania a uložené údaje sú potvrdené (verzia {saveReceipt.d1.updatedAt}).</p>
+          {saveReceipt.assignments?.status === "synced" && <p><strong>Priradenia:</strong> témy a prepojené plemená sú uložené v D1.</p>}
           {Object.entries(saveReceipt.notion).map(([key, receipt]) => {
             const step = key as keyof ArticleSaveReceipt["notion"];
             if (!receipt) return null;
