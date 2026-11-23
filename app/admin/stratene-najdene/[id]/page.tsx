@@ -25,7 +25,7 @@ const publicVisible=Boolean(report.publishedAt)&&["ACTIVE","RESOLVED","EXPIRED",
 {report.source === LOST_FOUND_PUBLIC_SOURCE && (
   <section className="admin-panel" aria-label="Pôvod verejného hlásenia" data-lost-found-public-provenance>
     <h2>Prijaté cez verejný formulár</h2>
-    <p>Hlásenie # {report.id} bolo odoslané návštevníkom. Pôvodné údaje psa a súkromný kontakt sú v editore nižšie; pri úpravách sa môžu meniť. Schválenie samo osebe nevytvára Partner účet.</p>
+    <p>Hlásenie #{report.id} bolo odoslané návštevníkom. Údaje psa a súkromný kontakt sú v editore nižšie. Schválenie samo osebe nevytvára Partner účet.</p>
     {publicSubmission ? (
       <p>Podanie: {publicSubmission.id} · Stav moderácie: {publicSubmission.status} · Prijaté: {publicSubmission.createdAt}{publicSubmission.reviewedAt ? ` · Rozhodnuté: ${publicSubmission.reviewedAt}` : ""}</p>
     ) : <p>Samostatný záznam moderácie nie je dostupný. Hlásenie zostáva v Admine zachované.</p>}
