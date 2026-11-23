@@ -1791,13 +1791,6 @@
   border-radius: var(--ps-radius-card, 22px);
   background: #fff;
 }
-.sidebarEyebrow {
-  color: var(--coral-dark);
-  font-size: 0.69rem;
-  font-weight: 850;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
 .sidebarCard h2 {
   margin: 0;
   color: var(--ink);
