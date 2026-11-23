@@ -51,6 +51,19 @@ test("all legacy Partner creation aliases defer authentication to the canonical 
   }
 });
 
+test("bookmarked Partner draft and profile editors return to the exact record after login", () => {
+  for (const [path, parameter] of [
+    ["app/partner/koncepty/[id]/page.tsx", "id"],
+    ["app/partner/pomoc/[resourceId]/upravit/page.tsx", "resourceId"],
+    ["app/partner/profily/[resourceId]/upravit/page.tsx", "resourceId"],
+    ["app/partner/podujatia/[resourceId]/upravit/page.tsx", "resourceId"],
+  ]) {
+    const source = read(path);
+    assert.match(source, /requirePartnerPageIdentity\(\{returnTo:/);
+    assert.ok(source.includes("encodeURIComponent("+parameter+")"), path);
+  }
+});
+
 test("password, magic-link, Google and onboarding keep the validated returnTo", () => {
   const password = read("components/partner-password-auth-form.tsx");
   const magic = read("components/partner-auth-form.tsx");
