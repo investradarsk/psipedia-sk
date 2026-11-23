@@ -43,6 +43,7 @@ function fixture(){
   id INTEGER PRIMARY KEY,category TEXT NOT NULL,status TEXT NOT NULL,
   services_json TEXT,updated_at TEXT
  )`);
+ sqlite.exec("CREATE TABLE directory_profile_additional_categories (profile_id INTEGER NOT NULL, category TEXT NOT NULL, PRIMARY KEY (profile_id,category))");
  sqlite.exec(read("drizzle/0133_services_canonical_admin_foundation.sql"));
  sqlite.exec(read("drizzle/0134_services_admin_change_audit.sql"));
  sqlite.exec(read("drizzle/0149_services_builtin_admin_overrides.sql"));
