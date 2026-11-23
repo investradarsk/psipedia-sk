@@ -213,9 +213,11 @@ export async function readNotionSyncOverview(db: D1Database): Promise<NotionOver
       const details = await db.prepare(
         "SELECT agenda,entity_id,status,attempts,error_code,updated_at " +
         "FROM notion_help_admin_writeback_outbox " +
-        "ORDER BY CASE WHEN status='REVIEW' THEN 0 ELSE 1 END,updated_at DESC LIMIT 51",
+        "ORDER BY CASE WHEN status='REVIEW' AND attempts>=12 AND error_code='NOTION_RETRY_FAILED' THEN 0 " +
+        "WHEN status='REVIEW' THEN 1 ELSE 2 END,updated_at DESC LIMIT 51",
       ).all<{agenda:string;entity_id:number;status:string;attempts:number;error_code:string|null;updated_at:number}>();
-      const cases: NotionDeliveryItem[] = (details.results ?? []).filter(
+      if (!Array.isArray(totals.results) || !Array.isArray(details.results)) throw Error("OUTBOX_EVIDENCE_UNAVAILABLE");
+      const cases: NotionDeliveryItem[] = details.results.filter(
         item => agendas.has(item.agenda) && ["PENDING","PROCESSING","REVIEW"].includes(item.status)
           && Number.isSafeInteger(item.entity_id) && item.entity_id > 0,
       ).slice(0,50).map(item => ({
