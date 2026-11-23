@@ -11,9 +11,16 @@ async function QualityContent({ promise }: { promise: ReturnType<typeof loadMiss
   return <AdminMissingQualityDashboard data={await promise} />;
 }
 
-export default async function AdminDataQualityPage() {
+export default async function AdminDataQualityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ before?: string }>;
+}) {
   const user = await requireAdminPageUser("/admin/kvalita");
-  const dataPromise = loadMissingQualityDashboard(getQualityMissingDatabase());
+  const params = await searchParams;
+  const parsed = Number(params.before);
+  const before = params.before && Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+  const dataPromise = loadMissingQualityDashboard(getQualityMissingDatabase(), { before });
 
   return (
     <AdminShell
