@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { allDirectoryCategories } from "@/lib/directory";
+import { directoryAdminHref, type DirectoryAdminFilters } from "@/lib/directory-admin-query";
 import styles from "./admin-directory-module-nav.module.css";
 
 const modules = [
-  { key: "services", label: "Služby pre psov", href: "/admin/sluzby-pre-psov" },
+  { key: "services", label: "Profily adresára", href: "/admin/adresar" },
   { key: "help", label: "Pomoc psom", href: "/admin/pomoc-psom" },
   { key: "events", label: "Podujatia", href: "/admin/podujatia" },
 ] as const;
@@ -14,14 +15,17 @@ export function AdminDirectoryModuleNav({ active }: { active: "services" | "help
   </nav>;
 }
 
-export function AdminDirectoryCategoryNav({ selected }: { selected: string }) {
-  return <section className={styles.categoryWorkspace} aria-label="Kategórie a nástroje služieb pre psov" data-admin-directory-categories>
-    <div className={styles.categoryHeader}><h2>Kategórie služieb</h2><span>Vyber kategóriu, potom pracuj s tabuľkou profilov.</span></div>
+export function AdminDirectoryCategoryNav({ filters }: { filters: DirectoryAdminFilters }) {
+  const selected = filters.category;
+  // Changing category preserves the rest of the GET filters and restarts pagination.
+  const categoryHref = (category: string) => directoryAdminHref({ ...filters, category, page: 1 });
+  return <section className={styles.categoryWorkspace} aria-label="Kategórie a nástroje adresára" data-admin-directory-categories>
+    <div className={styles.categoryHeader}><h2>Kategórie profilov</h2><span>Vyber kategóriu, potom pracuj s rovnakým zoznamom profilov.</span></div>
     <nav className={styles.categories} aria-label="Kategórie profilov" tabIndex={0}>
-      <Link prefetch={false} href="/admin/sluzby-pre-psov" aria-current={!selected ? "page" : undefined}>Všetky profily</Link>
+      <Link prefetch={false} href={categoryHref("")} aria-current={!selected ? "page" : undefined}>Všetky profily</Link>
       {allDirectoryCategories.map((category) => <Link prefetch={false}
         key={category.slug}
-        href={"/admin/sluzby-pre-psov?category=" + category.slug}
+        href={categoryHref(category.slug)}
         aria-current={selected === category.slug ? "page" : undefined}
       >{category.icon} {category.label}</Link>)}
     </nav>
