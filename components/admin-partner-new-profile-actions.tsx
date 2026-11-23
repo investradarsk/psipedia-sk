@@ -56,6 +56,7 @@ export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false
           action: decision.action,
           ...(decision.action === "LINK_EXISTING" ? { canonicalId: decision.canonicalId, applyImage: decision.applyImage } : {}),
           ...(decision.action === "REJECT" ? { reasonCode: decision.reasonCode } : {}),
+          ...(isCanonicalDraft&&decision.action==="CREATE_NEW"?{expectedCanonicalUpdatedAt:canonicalUpdatedAt}:{}),
         }),
       });
       const data = await response.json() as { error?: string };
