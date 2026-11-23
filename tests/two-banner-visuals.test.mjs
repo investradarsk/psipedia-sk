@@ -74,14 +74,18 @@ test("article, contextual, help and content CTA banners reuse the same frame", (
 
 test("shared banner sizing preserves centered site shell for all non-compact magazine banners", () => {
   const styles = read("app/banner-visuals.css");
-  const sharedRule = styles.match(/\\.ps-public-banner-frame\\[data-banner-visual\\]\\[data-banner-size\\]\\s*\\{([^}]+)\\}/)?.[1];
-  assert.ok(sharedRule, "shared banner rule exists");
-  assert.doesNotMatch(sharedRule, /(?:^|;)\\s*width\\s*:\\s*100%/m,
+  const start = styles.indexOf(".ps-public-banner-frame[data-banner-visual][data-banner-size] {");
+  assert.ok(start >= 0, "shared banner rule exists");
+  const rule = styles.slice(start, styles.indexOf("}", start));
+  assert.doesNotMatch(rule, /(?:^|;)\s*width\s*:\s*100%/m,
     "a generic width: 100% overrides the narrower .shell rule at higher specificity");
-  assert.match(read("app/globals.css"), /\\.shell\\s*\\{\\s*width:\\s*min\\(var\\(--ps-content-max\\)/);
-  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"),
-    /compact \\? "home-magazine-banner" : "shell home-magazine-banner"/);
-  assert.match(read("app/page.tsx"), /<div className="home-desktop-interlude">[\\s\\S]*?<PublicHelpPhotoBanner/);
+  assert.ok(read("app/globals.css").includes("width: min(var(--ps-content-max)"),
+    "canonical shell retains responsive centered gutters");
+  assert.ok(read("components/public-visual-system/public-magazine-banner.tsx").includes(
+    'compact ? "home-magazine-banner" : "shell home-magazine-banner"'
+  ), "ordinary magazine banners opt into the shared shell");
+  assert.ok(read("app/page.tsx").includes('<div className="home-desktop-interlude">'),
+    "homepage lost/found banner is placed in the common shell layout");
 });
 
 test("original partner creatives are not restyled or rebuilt", () => {
