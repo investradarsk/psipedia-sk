@@ -55,8 +55,12 @@ test("Mutations require verified authenticated Partner and explicit same-origin 
   assert.match(domain,/applyAtomicModerationTransition/);
   assert.match(domain,/canTransitionModerationSubmission/);
 });
-test("UX makes Help submission discoverable and tracks it in account and admin queue",()=>{
-  assert.match(page,/requirePartnerPageIdentity/);
+test("UX makes Help submission discoverable and tracks it in account and admin queue",async()=>{
+  // The retired Help page redirects into the authenticated canonical editor.
+  assert.match(page,/redirect\("\/partner\/koncepty\/novy\?typ=ADOPTION_DOG"\)/);
+  const canonicalPage=await read("app/partner/koncepty/novy/page.tsx");
+  assert.match(canonicalPage,/requirePartnerPageIdentity\(\{returnTo\}\)/);
+  assert.match(canonicalPage,/initialType=\{initialType\}/);
   assert.match(form,/Odoslať na kontrolu/);
   assert.match(form,/partner\/ziadosti/);
   assert.match(requests,/listPartnerHelpCreateSubmissions\(identity.accountId\)/);
