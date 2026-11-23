@@ -564,7 +564,7 @@ const QUALITY_LIFECYCLE_COLUMNS: Record<Kind, readonly string[]> = {
   ADOPTION: ["status"],
   FOSTER: ["status", "resolved"],
   HELP_ITEM: ["status", "resolved"],
-  LOST_FOUND: ["status", "expires_at"],
+  LOST_FOUND: ["status", "expires_at", "archived_at"],
 };
 function qualityCanonicalColumn(kind: Kind, f: Field): string | null {
   if (kind === "DIRECTORY") {
