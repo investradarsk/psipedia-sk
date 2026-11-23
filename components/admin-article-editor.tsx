@@ -45,6 +45,34 @@ import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import type { ArticleQaIssue } from "@/lib/article-content-qa";
 import type { ArticleTopic } from "@/lib/article-topics";
 
+
+type FollowupStatus = "synced" | "skipped" | "partial" | "failed" | "deferred";
+type FollowupReceipt = { status: FollowupStatus; code?: string; fields?: string[] };
+type ArticleSaveReceipt = {
+  d1: { status: "saved"; updatedAt: string };
+  notion: Partial<Record<"publication" | "placement" | "seo" | "draft", FollowupReceipt>>;
+  lifecycle?: FollowupReceipt;
+  media?: FollowupReceipt;
+};
+type PendingFacebookSave = {
+  articleId: number;
+  expectedVersion: FacebookImagePost["version"] | undefined;
+  payload: Record<string, unknown>;
+};
+const notionStepNames = {
+  publication: "Publikovanie v Notione",
+  placement: "Sekcia a prepojené plemená v Notione",
+  seo: "SEO v Notione",
+  draft: "Obsah konceptu v Notione",
+} as const;
+function followupLabel(receipt: FollowupReceipt) {
+  if (receipt.status === "synced") return "Potvrdené";
+  if (receipt.status === "skipped") return "Nevykonáva sa";
+  if (receipt.status === "deferred") return "Čaká na predchádzajúci krok";
+  if (receipt.status === "partial") return "Čiastočne dokončené";
+  return "Nepodarilo sa";
+}
+
 function slugify(value: string, maxLength = 90) {
   return value
     .normalize("NFD")
@@ -125,6 +153,11 @@ export function AdminArticleEditor({
   const [excerpt, setExcerpt] = useState(article?.excerpt ?? "");
   const [socialCaption,setSocialCaption] = useState(article?.socialCaption ?? "");
   const savedFacebookContent = useRef({caption:article?.socialCaption??"",title:article?.title??"",imageKey:article?.imageKey??""});
+  const savedArticleRef = useRef<ManagedArticle | null>(article ?? null);
+  const [saveReceipt, setSaveReceipt] = useState<ArticleSaveReceipt | null>(null);
+  const [followupBefore, setFollowupBefore] = useState<ManagedArticle | null>(null);
+  const [pendingFacebookSave, setPendingFacebookSave] = useState<PendingFacebookSave | null>(null);
+  const [retryBusy, setRetryBusy] = useState<string | null>(null);
   const [intro, setIntro] = useState(article?.intro ?? "");
   const [introRichText, setIntroRichText] = useState(article?.introRichText ?? legacyRichTextToDocument(article?.intro ?? ""));
   const [takeaway, setTakeaway] = useState(article?.takeaway ?? "");
@@ -343,6 +376,81 @@ export function AdminArticleEditor({
     }
   }
 
+  async function retryNotionStep(step: keyof ArticleSaveReceipt["notion"] | "lifecycle") {
+    const persisted = savedArticleRef.current;
+    if (!persisted || retryBusy || savePendingRef.current || dirty) return;
+    setRetryBusy(step); setError("");
+    try {
+      const response = await fetch(`/api/admin/articles/${persisted.id}`, {
+        method: "PATCH", headers: { "content-type": "application/json" },
+        credentials: "same-origin", cache: "no-store",
+        body: JSON.stringify({
+          action: "retry-article-followup", step,
+          expectedUpdatedAt: persisted.updatedAt,
+          ...((step === "seo" || step === "placement") && followupBefore
+            ? { before: followupBefore } : {}),
+        }),
+      });
+      const data = await response.json() as { error?: string; saveReceipt?: ArticleSaveReceipt };
+      if (!response.ok || !data.saveReceipt) throw new Error(data.error || "Nadväzujúci krok sa nepodarilo overiť.");
+      const receipt = step === "lifecycle"
+        ? data.saveReceipt.lifecycle : data.saveReceipt.notion[step];
+      if (!receipt) throw new Error("Odpoveď neobsahuje výsledok nadväzujúceho kroku.");
+      setSaveReceipt((current) => current ? {
+        ...current,
+        notion: { ...current.notion, ...data.saveReceipt?.notion },
+        ...(step === "lifecycle" ? { lifecycle: receipt } : {}),
+      } : data.saveReceipt!);
+      if (receipt.status === "synced") setMessage("Nadväzujúci krok bol potvrdený. Článok v D1 sa nemenil.");
+      else setMessage("Článok zostáva uložený v D1. Nadväzujúci krok: " + followupLabel(receipt) + ".");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Opakovanie kroku zlyhalo.");
+    } finally { setRetryBusy(null); }
+  }
+
+  async function persistFacebookStep(pending: PendingFacebookSave, verifyRevision: boolean) {
+    // A timed-out PUT may already have succeeded. Never submit a second
+    // schedule against an unverified Facebook version.
+    if (verifyRevision) {
+      const check = await fetch(`/api/admin/facebook-articles/${pending.articleId}`, {
+        credentials: "same-origin", cache: "no-store",
+      });
+      const current = await check.json() as { post: FacebookImagePost | null; error?: string };
+      if (!check.ok) throw new Error(current.error || "Stav Facebook kalendára sa nepodarilo overiť.");
+      if ((current.post?.version ?? null) !== (pending.expectedVersion ?? null)) {
+        setFbPost(current.post);
+        throw new Error("Facebook kalendár sa medzičasom zmenil. Skontroluj jeho aktuálny stav pred ďalšou úpravou.");
+      }
+    }
+    const response = await fetch(`/api/admin/facebook-articles/${pending.articleId}`, {
+      method: "PUT", credentials: "same-origin", cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(pending.payload),
+    });
+    const result = await response.json() as { post: FacebookImagePost | null; error?: string };
+    if (!response.ok || !result.post) throw new Error(result.error || "Facebook nastavenia sa nepodarilo uložiť.");
+    setFbPost(result.post);
+    setFbLoaded(true);
+    setFbApprove(result.post.approvalStatus === "APPROVED");
+    setFbDirty(false); setFbError(""); setPendingFacebookSave(null);
+    savedFacebookContent.current = { caption: socialCaption.trim(), title, imageKey: imageKey || "" };
+  }
+
+  async function retryFacebookStep() {
+    if (!pendingFacebookSave || retryBusy || savePendingRef.current || dirty) return;
+    setRetryBusy("facebook"); setError(""); setFbError("");
+    try {
+      await persistFacebookStep(pendingFacebookSave, true);
+      setMessage("Facebook nastavenia sú uložené. Článok v D1 sa znovu nezapisoval.");
+      if (!article) {
+        allowNavigationRef.current = true;
+        router.replace(`/admin/clanky/${pendingFacebookSave.articleId}?vytvoreny=1`);
+      }
+    } catch (reason) {
+      setFbError(reason instanceof Error ? reason.message : "Facebook nastavenia sa nepodarilo uložiť.");
+    } finally { setRetryBusy(null); }
+  }
+
   async function save(nextStatus: ArticleStatus) {
     // Never save a stale parent snapshot when a Tiptap field rejected a change.
     if (document.querySelector('[data-article-tiptap-invalid="true"]')) {
@@ -363,7 +471,8 @@ export function AdminArticleEditor({
       : nextStatus === "published" && requestedPublishedAt && requestedPublishedAt.getTime() > statusClock
         ? new Date()
         : requestedPublishedAt;
-    const preservedMetadata = preservedEditorArticleMetadata(article, {
+    const currentArticle = savedArticleRef.current;
+    const preservedMetadata = preservedEditorArticleMetadata(currentArticle ?? undefined, {
       portalSection,
       portalSubpage: currentAreas.length || originalAreaHidden ? portalSubpage : null,
       imageUrl: imageUrl || null,
@@ -379,7 +488,7 @@ export function AdminArticleEditor({
       newsCategory: portalSection === "novinky" ? newsCategory : null,
       accent,
       author,
-      authorProfileId: article && authorProfileId === article.authorProfileId && author === article.author ? undefined : authorProfileId,
+      authorProfileId: currentArticle && authorProfileId === currentArticle.authorProfileId && author === currentArticle.author ? undefined : authorProfileId,
       readingMinutes,
       excerpt,
       intro,
@@ -421,13 +530,16 @@ export function AdminArticleEditor({
 
     let hasQaIssues = false;
     try {
-      const endpoint = article ? `/api/admin/articles/${article.id}` : "/api/admin/articles";
+      const endpoint = currentArticle ? `/api/admin/articles/${currentArticle.id}` : "/api/admin/articles";
       const response = await fetch(endpoint, {
-        method: article ? "PUT" : "POST",
+        method: currentArticle ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json()) as { article?: ManagedArticle; error?: string; issues?: ArticleQaIssue[] };
+      const data = (await response.json()) as {
+        article?: ManagedArticle; error?: string; issues?: ArticleQaIssue[];
+        saveReceipt?: ArticleSaveReceipt;
+      };
       if (!response.ok || !data.article) {
         if (Array.isArray(data.issues)) {
           hasQaIssues = data.issues.length > 0;
@@ -445,37 +557,59 @@ export function AdminArticleEditor({
         throw new Error(data.error || "Článok sa nepodarilo uložiť.");
       }
 
+      // The API returned a successful canonical write. Any later failure is
+      // a separate receipt and never a failed article save.
+      savedArticleRef.current = data.article;
+      setFollowupBefore(currentArticle);
       setStatus(data.article.status);
       setConfirmedPublishedAt(data.article.publishedAt);
       lastSavedUpdatedAtRef.current = data.article.updatedAt;
       setPublishedAt(dateTimeValue(data.article.publishedAt));
+      setSaveReceipt(data.saveReceipt ?? {
+        d1: { status: "saved", updatedAt: data.article.updatedAt }, notion: {},
+      });
+      setEditorDirty(false);
       const changedContent = socialCaption.trim()!==savedFacebookContent.current.caption.trim()
         || title!==savedFacebookContent.current.title || (imageKey||"")!==savedFacebookContent.current.imageKey;
-      const updateFb = (fbDirty && fbPost?.status!=="published") || (!article && fbEnabled)
+      const updateFb = (fbDirty && fbPost?.status!=="published") || (!currentArticle && fbEnabled)
         || (fbPost!==null && fbPost.status!=="published" && changedContent);
-      if(updateFb){
-        if(!fbLoaded||fbError)throw new Error("Článok sa uložil, ale Facebook kalendár nie je dostupný. Obnov editor.");
-        const [date,time]=fbDateTime.split("T");
-        const response=await fetch(`/api/admin/facebook-articles/${data.article.id}`,{
-          method:"PUT",headers:{"content-type":"application/json"},
-          body:JSON.stringify({enabled:fbEnabled,date:date||"",time:time||"",repeatedHour:fbRepeatedHour,
-            imageMode:fbMode,graphicImageKey:fbGraphic.imageKey,includeLink:fbLink,
-            approve:fbApprove,expectedVersion:fbPost?.version}),
-        });
-        const result=await response.json() as {post:FacebookImagePost|null;error?:string};
-        if(!response.ok)throw new Error("Článok je uložený, ale Facebook príspevok nie: "+(result.error||"Neznáma chyba."));
-        setFbPost(result.post);setFbApprove(result.post?.approvalStatus==="APPROVED");setFbDirty(false);
+      let facebookFailed = false;
+      if (updateFb) {
+        const [date,time] = fbDateTime.split("T");
+        const pending: PendingFacebookSave = {
+          articleId: data.article.id,
+          expectedVersion: fbPost?.version,
+          payload: { enabled: fbEnabled, date: date || "", time: time || "",
+            repeatedHour: fbRepeatedHour, imageMode: fbMode,
+            graphicImageKey: fbGraphic.imageKey, includeLink: fbLink,
+            approve: fbApprove, expectedVersion: fbPost?.version },
+        };
+        setPendingFacebookSave(pending);
+        try {
+          if (!fbLoaded || fbError) throw new Error("Facebook kalendár nebol načítaný. Over jeho stav a zopakuj iba Facebook krok.");
+          await persistFacebookStep(pending, false);
+        } catch (facebookError) {
+          facebookFailed = true;
+          setFbError(facebookError instanceof Error ? facebookError.message : "Facebook nastavenia sa neuložili.");
+        }
+      } else {
+        setPendingFacebookSave(null);
+        savedFacebookContent.current = { caption: socialCaption.trim(), title, imageKey: imageKey || "" };
       }
-      savedFacebookContent.current={caption:socialCaption.trim(),title,imageKey:imageKey||""};
-      setEditorDirty(false);
-      setMessage(nextStatus === "published" ? (portalSection === "novinky" ? "Novinka je publikovaná na webe." : "Článok je publikovaný na webe.") : nextStatus === "scheduled" ? "Publikovanie je naplánované." : "Koncept je bezpečne uložený.");
+      setMessage(nextStatus === "published"
+        ? (portalSection === "novinky" ? "Novinka je uložená a publikovaná v D1." : "Článok je uložený a publikovaný v D1.")
+        : nextStatus === "scheduled" ? "Plánovanie článku je uložené v D1." : "Koncept je uložený v D1.");
       focusResult();
-      if (returnToCalendar && nextStatus === "draft") {
-        allowNavigationRef.current = true;
-        router.replace(returnToCalendar);
-      } else if (!article) {
-        allowNavigationRef.current = true;
-        router.replace(`/admin/clanky/${data.article.id}?vytvoreny=1`);
+      // First creation must not accidentally POST again after an FB failure.
+      // Keep the editor on the confirmed record so the failed step can retry.
+      if (!facebookFailed) {
+        if (returnToCalendar && nextStatus === "draft") {
+          allowNavigationRef.current = true;
+          router.replace(returnToCalendar);
+        } else if (!article) {
+          allowNavigationRef.current = true;
+          router.replace(`/admin/clanky/${data.article.id}?vytvoreny=1`);
+        }
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Článok sa nepodarilo uložiť.");
@@ -621,7 +755,7 @@ export function AdminArticleEditor({
           </div>
         }
         actions={<EditorActionBar
-          message={<span className="admin-editor-dirty-state">{dirty ? "Neuložené zmeny" : article ? "Všetky zmeny uložené" : "Nový článok zatiaľ nie je uložený"}</span>}
+          message={<span className="admin-editor-dirty-state">{dirty ? "Neuložené zmeny" : pendingFacebookSave ? "Článok uložený · Facebook čaká" : savedArticleRef.current ? "Článok uložený v D1" : "Nový článok zatiaľ nie je uložený"}</span>}
           destructive={article ? <AdminRecordLifecycleActions kind="articles" recordId={article.id} status={displayedStatus} disabled={saving || uploading} returnHref="/admin/clanky" onUnpublished={(_next,updatedAt)=>{setStatus("draft");if(updatedAt)lastSavedUpdatedAtRef.current=updatedAt;}} /> : undefined}
           primary={<>
             <span className={editorStyles.desktopActions}>
@@ -641,6 +775,38 @@ export function AdminArticleEditor({
       <form id="article-canonical-editor-form" noValidate className={`admin-editor-form ${editorStyles.articleForm}`} onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); submitArticleForm(); }}>
         {(message || error || saving) && <div ref={resultRef} tabIndex={-1}>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
+        </div>}
+        {saveReceipt && <div role="status" aria-live="polite" className="admin-editor-message">
+          <p><strong>D1:</strong> Článok, jeho stav publikovania a uložené údaje sú potvrdené (verzia {saveReceipt.d1.updatedAt}).</p>
+          {Object.entries(saveReceipt.notion).map(([key, receipt]) => {
+            const step = key as keyof ArticleSaveReceipt["notion"];
+            if (!receipt) return null;
+            const blockedByPrevious = step === "seo" || step === "draft"
+              ? ["failed", "partial", "deferred"].includes(saveReceipt.notion.placement?.status ?? "")
+              : false;
+            const blockedBySeo = step === "draft" &&
+              ["failed", "partial", "deferred"].includes(saveReceipt.notion.seo?.status ?? "");
+            const canRetry = ["failed", "partial", "deferred"].includes(receipt.status) &&
+              !blockedByPrevious && !blockedBySeo && ((step !== "seo" && step !== "placement") || !!followupBefore);
+            return <p key={key}>
+              <strong>{notionStepNames[step]}:</strong> {followupLabel(receipt)}
+              {receipt.code ? ` (${receipt.code})` : ""}{receipt.fields?.length ? ` · polia: ${receipt.fields.join(", ")}` : ""}
+              {canRetry && <button type="button" disabled={!!retryBusy || saving || dirty}
+                onClick={() => void retryNotionStep(step)}> {retryBusy === step ? "Overujem…" : "Zopakovať iba tento krok"}</button>}
+            </p>;
+          })}
+          {saveReceipt.lifecycle?.status === "failed" && <p>
+            Potvrdenie publikovania: nedokončené.
+            <button type="button" disabled={!!retryBusy || saving || dirty}
+              onClick={() => void retryNotionStep("lifecycle")}>Zopakovať iba potvrdenie</button>
+          </p>}
+          {saveReceipt.media?.status === "failed" && <p>R2: čistenie nepoužitých obrázkov nebolo potvrdené. Uložené médiá článku zostali zachované.</p>}
+          {pendingFacebookSave && <p>
+            <strong>Facebook:</strong> nastavenia sa nepodarilo potvrdiť; článok je už uložený v D1.
+            {fbError && ` ${fbError}`}
+            <button type="button" disabled={!!retryBusy || saving || dirty}
+              onClick={() => void retryFacebookStep()}>{retryBusy === "facebook" ? "Overujem…" : "Overiť a zopakovať iba Facebook"}</button>
+          </p>}
         </div>}
         {qaIssues.length > 0 && (
           <section className="admin-form-card" aria-live="polite" aria-label="Publikačná kontrola">
