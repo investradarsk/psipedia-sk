@@ -600,6 +600,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-publish");
     await publicationAction(page, "Publikovať novinku").click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
+    // After a create redirect the editor opens on the body, not Publishing.
+    // The mobile lifecycle action lives inside the Publishing section.
+    await showArticleSection(page, "article-publish");
     await expect(publicationAction(page, "Stiahnuť z webu")).toBeVisible();
   });
 
@@ -847,7 +850,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const editor = page.locator('[data-editor-layout="article"][data-editor-section-mode="switch"]');
     const sections = editor.locator("#article-canonical-editor-form > [data-admin-editor-section]");
     await expect(sections).toHaveCount(9);
-    await expect(page.locator("#article-publish")).toBeVisible();
+    // Step 6 intentionally opens the article body first, including the classic fallback.
+    await expect(page.locator("#article-blocks")).toBeVisible();
+    await expect(page.locator("#article-publish")).toBeHidden();
     await expect(page.locator("#article-basics")).toBeHidden();
     await expect.poll(() => sections.evaluateAll(elements =>
       elements.filter(el => getComputedStyle(el).display !== "none").length,
