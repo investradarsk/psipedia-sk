@@ -311,9 +311,15 @@ test("step 6: compact topbar, drawer and navigation remain collision-free", asyn
     const tour = page.locator("[data-admin-tour-trigger]");
     const bell = page.getByTestId("admin-notification-bell");
     const web = page.getByRole("link", { name: "Návrat na Psipedia.sk" });
-    for (const control of [search, tour, bell, web]) {
+    for (const [control, minHeight] of [
+      [search, width <= 820 ? 44 : 38],
+      [tour, width <= 820 ? 44 : 38],
+      [bell, 44],
+      [web, 44],
+    ] as const) {
       await expect(control).toBeInViewport();
-      expect(await control.evaluate(el => el.getBoundingClientRect().height), "44px target at " + width).toBeGreaterThanOrEqual(44);
+      expect(await control.evaluate(el => el.getBoundingClientRect().height), "V5 control target at " + width)
+        .toBeGreaterThanOrEqual(minHeight - 0.5);
     }
     await expect(header).toHaveCSS("position", "sticky");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);

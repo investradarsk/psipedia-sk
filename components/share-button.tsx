@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { PublicActionButton, PublicActionLink } from "@/components/public-visual-system";
 import styles from "./share-button.module.css";
 import { ShareIcon } from "./icons";
@@ -18,7 +18,18 @@ export function ShareButton({
   compact?: boolean;
 }) {
   const resolvedUrl = url?.trim() ?? "";
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const copyFeedback =
+    copyStatus === "copied"
+      ? "Odkaz skopírovaný"
+      : copyStatus === "failed"
+        ? "Kopírovanie zlyhalo"
+        : null;
+  useEffect(() => {
+    if (copyStatus !== "copied") return;
+    const timeout = window.setTimeout(() => setCopyStatus("idle"), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [copyStatus]);
   const supportsNativeShare = useSyncExternalStore(
     () => () => {},
     () => typeof navigator.share === "function",
@@ -49,12 +60,20 @@ export function ShareButton({
       textarea.style.position = "fixed";
       textarea.style.opacity = "0";
       document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      textarea.remove();
+      try {
+        textarea.select();
+        if (!document.execCommand("copy")) {
+          setCopyStatus("failed");
+          return;
+        }
+      } catch {
+        setCopyStatus("failed");
+        return;
+      } finally {
+        textarea.remove();
+      }
     }
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    setCopyStatus("copied");
   }
 
   async function nativeShare() {
@@ -62,15 +81,21 @@ export function ShareButton({
     try {
       await navigator.share({ title, url: currentShareUrl() });
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === "AbortError")) throw error;
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      await copyLink();
     }
   }
 
   if (compact) {
     return (
       <div className={`${styles.sharePanel} ${styles.compact}`} role="group" aria-label={label}>
-        <PublicActionButton variant="secondary" className={`${utilityStyles.utility} public-utility-action`} icon={<ShareIcon size={17} />} onClick={supportsNativeShare ? nativeShare : copyLink}>
-          {copied ? "Odkaz skopírovaný" : supportsNativeShare ? "Zdieľať" : "Kopírovať odkaz"}
+        <PublicActionButton
+          variant="secondary"
+          className={`${utilityStyles.utility} public-utility-action`}
+          icon={<ShareIcon size={17} />}
+          onClick={supportsNativeShare ? nativeShare : copyLink}
+        >
+          {copyFeedback ?? (supportsNativeShare ? "Zdieľať" : "Kopírovať odkaz")}
         </PublicActionButton>
       </div>
     );
@@ -80,10 +105,20 @@ export function ShareButton({
     <div className={styles.sharePanel} role="group" aria-label={label}>
       <span className={styles.label}>{label}</span>
       <div className={styles.actions}>
-        <PublicActionLink href={shareTargets.facebook} variant="secondary" target="_blank" rel="noreferrer">
+        <PublicActionLink
+          href={shareTargets.facebook}
+          variant="secondary"
+          target="_blank"
+          rel="noreferrer"
+        >
           Facebook
         </PublicActionLink>
-        <PublicActionLink href={shareTargets.whatsapp} variant="secondary" target="_blank" rel="noreferrer">
+        <PublicActionLink
+          href={shareTargets.whatsapp}
+          variant="secondary"
+          target="_blank"
+          rel="noreferrer"
+        >
           WhatsApp
         </PublicActionLink>
         {supportsNativeShare ? (
@@ -92,7 +127,7 @@ export function ShareButton({
           </PublicActionButton>
         ) : null}
         <PublicActionButton variant="tertiary" onClick={copyLink}>
-          {copied ? "Odkaz skopírovaný" : "Kopírovať odkaz"}
+          {copyFeedback ?? "Kopírovať odkaz"}
         </PublicActionButton>
       </div>
     </div>
