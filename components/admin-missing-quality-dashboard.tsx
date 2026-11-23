@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
@@ -399,9 +400,9 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       )}
     </section>
     <nav aria-label="Stránkovanie nálezov" className={styles.footer}>
-      {data.pageBefore!==null?<a className={styles.profileLink} href="/admin/kvalita">Na najnovšie nálezy</a>:null}
-      {data.nextBefore!==null?<a className={styles.profileLink} href={"/admin/kvalita?before="+data.nextBefore}>
-        Staršie nálezy →</a>:null}
+      {data.pageBefore!==null?<Link className={styles.profileLink} href="/admin/kvalita">Na najnovšie nálezy</Link>:null}
+      {data.nextBefore!==null?<Link className={styles.profileLink} href={"/admin/kvalita?before="+data.nextBefore}>
+        Staršie nálezy →</Link>:null}
       {data.nextBefore===null&&data.pageBefore!==null?<span className={styles.subtle}>Koniec evidencie.</span>:null}
     </nav>
     {preview?<div className={styles.previewOverlay} role="dialog" aria-modal="true" aria-label="Náhľad obrázka">
