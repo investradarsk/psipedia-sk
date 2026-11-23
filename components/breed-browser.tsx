@@ -14,7 +14,11 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Article, FciGroup } from "@/lib/content";
 import { BreedArticleCollection } from "@/components/breed-article-collection";
 import type { BreedAtlasCard } from "@/lib/breed-store";
-import { indexBreedSearch, filterIndexedBreeds, groupVisibleBreeds } from "@/lib/breed-browser-search";
+import {
+  indexBreedSearch,
+  filterIndexedBreeds,
+  groupVisibleBreeds,
+} from "@/lib/breed-browser-search";
 import {
   breedAtlasHref,
   listFciSectionOptions,
@@ -42,12 +46,6 @@ const shortGroupLabels: Record<number, string> = {
   9: "Spoločenské",
   10: "Chrty",
 };
-
-// Use short readable option text while retaining the canonical value for filtering/URLs.
-function originOptionLabel(origin: string) {
-  const main = origin.split(";")[0].replace(/\s*\([^)]*\)\s*$/, "").trim();
-  return main.length > 48 ? `${main.slice(0, 45).trimEnd()}…` : main || origin;
-}
 
 const INITIAL_PER_GROUP = 3;
 
@@ -107,7 +105,10 @@ export function BreedBrowser({
       fciSection: selectedSection,
       origin: selectedOrigin === "all" ? "" : selectedOrigin,
     });
-    window.history.replaceState(null, "", href);
+    const { pathname, search, hash } = window.location;
+    if (href !== pathname + search) {
+      window.history.replaceState(null, "", href + hash);
+    }
     // Keep hero form facets in step with client-side FCI and origin changes.
     const form = document.querySelector<HTMLFormElement>('form[data-public-search-form="breeds"]');
     if (form) {
@@ -134,12 +135,13 @@ export function BreedBrowser({
 
   const indexedBreeds = useMemo(() => indexBreedSearch(breeds), [breeds]);
   const visible = useMemo(
-    () => filterIndexedBreeds(indexedBreeds, {
-      query,
-      group: selectedGroup,
-      section: selectedSection,
-      origin: selectedOrigin,
-    }),
+    () =>
+      filterIndexedBreeds(indexedBreeds, {
+        query,
+        group: selectedGroup,
+        section: selectedSection,
+        origin: selectedOrigin,
+      }),
     [indexedBreeds, query, selectedGroup, selectedSection, selectedOrigin],
   );
 
@@ -164,10 +166,7 @@ export function BreedBrowser({
 
   // Each FCI group shows three real cards. Native links allow the complete
   // group-filtered server route to be discovered even without client JavaScript.
-  const groupedBreeds = useMemo(
-    () => groupVisibleBreeds(visible, groups),
-    [groups, visible],
-  );
+  const groupedBreeds = useMemo(() => groupVisibleBreeds(visible, groups), [groups, visible]);
   const isGroupExpanded = (number: number) =>
     selectedGroup === String(number) || expandedGroups.has(number);
   const toggleGroup = (number: number) => {
@@ -211,7 +210,7 @@ export function BreedBrowser({
               <option value="all">Všetky krajiny pôvodu</option>
               {origins.map((origin) => (
                 <option value={origin} key={origin}>
-                  {originOptionLabel(origin)}
+                  {origin}
                 </option>
               ))}
             </PublicSelect>
@@ -338,6 +337,15 @@ export function BreedBrowser({
                           fciSection: "",
                         })}
                         onClick={(event) => {
+                          if (
+                            event.defaultPrevented ||
+                            event.button !== 0 ||
+                            event.ctrlKey ||
+                            event.metaKey ||
+                            event.shiftKey ||
+                            event.altKey
+                          )
+                            return;
                           event.preventDefault();
                           toggleGroup(group.number);
                         }}
