@@ -10,6 +10,7 @@ import { loadResolvedServiceDefinitions, type ResolvedServiceDefinition } from "
 import { listBuiltinCatalogOverrides } from "@/lib/service-catalog-builtin-overrides";
 import { catalogEditorItems, eligibleProfileServiceItems } from "@/lib/service-catalog-admin-editor-view";
 import { serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+import { loadServiceProfileMembership } from "@/lib/service-catalog-profile-membership";
 import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
 import { AdminRecordViewStats } from "@/components/admin-record-view-stats";
 import { AdminDirectoryNotionSyncStatus } from "@/components/admin-directory-notion-sync-status";
@@ -55,13 +56,15 @@ async function DirectoryServiceValues({
   let serviceEntries: ReturnType<typeof eligibleProfileServiceItems> = [];
   let serviceChoices: Array<{ optionId: string; choice: "yes" | "no"; version: number }> = [];
   let resolvedServices: ResolvedServiceDefinition[] = [];
+  let profileCategories: string[] = [category];
   let serviceError: string | null = null;
 
   if (!database) {
     serviceError = "D1 nie je dostupná. Hodnoty Services V3 sa nenačítali.";
   } else {
     try {
-      const [dynamic, overrides, stored, resolved] = await Promise.all([
+      const [membership, dynamic, overrides, stored, resolved] = await Promise.all([
+        loadServiceProfileMembership(database, profileId),
         listAdminCatalogOptions(database),
         listBuiltinCatalogOverrides(database).catch((cause) => {
           if (cause instanceof ServiceCatalogSchemaError) return [];
@@ -71,7 +74,9 @@ async function DirectoryServiceValues({
           .bind(profileId).all<{ optionId: string; choice: "yes" | "no"; version: number }>(),
         loadResolvedServiceDefinitions(database),
       ]);
-      serviceEntries = eligibleProfileServiceItems(catalogEditorItems(dynamic, overrides), category);
+      if (!membership) throw new Error("Services V3 profile missing");
+      profileCategories = [...membership.categories];
+      serviceEntries = eligibleProfileServiceItems(catalogEditorItems(dynamic, overrides), profileCategories);
       serviceChoices = stored.results;
       resolvedServices = resolved;
     } catch {
@@ -79,7 +84,7 @@ async function DirectoryServiceValues({
     }
   }
 
-  return <AdminServiceProfileValues key={profileId} profileId={profileId} category={category}
+  return <AdminServiceProfileValues key={profileId} profileId={profileId} categories={profileCategories}
     entries={serviceEntries} initialChoices={serviceChoices} resolvedServices={resolvedServices}
     legacyServices={legacyServices} publicProjectionEnabled={bindings.SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED === "true"}
     writeEnabled={writeEnabled && !archived} error={serviceError} />;
@@ -122,7 +127,8 @@ export default async function EditDirectoryProfilePage({ params, searchParams }:
     }
   }
 
-  const isServiceCategory = (serviceFilterCategories as readonly string[]).includes(profile.category);
+  const isServiceCategory = [profile.category,...(profile.additionalCategories ?? [])]
+    .some(category => (serviceFilterCategories as readonly string[]).includes(category));
   return <AdminShell recordId={profile.id} user={user}
     eyebrow={profile.status === "published" ? "Publikovaný profil" : profile.status === "archived" ? "Archivovaný profil" : "Koncept profilu"}
     title={profile.status === "archived" ? "Archivovaný profil" : "Upraviť profil"}
