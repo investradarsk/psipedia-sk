@@ -606,9 +606,14 @@ export function AdminArticleEditor({
         ? (portalSection === "novinky" ? "Novinka je uložená a publikovaná v D1." : "Článok je uložený a publikovaný v D1.")
         : nextStatus === "scheduled" ? "Plánovanie článku je uložené v D1." : "Koncept je uložený v D1.");
       focusResult();
-      // First creation must not accidentally POST again after an FB failure.
-      // Keep the editor on the confirmed record so the failed step can retry.
-      if (!facebookFailed) {
+      // Keep the receipt visible for any failed follow-up, including when
+      // returning to the calendar. Never POST a second article after creation.
+      const hasUnresolvedFollowup =
+        Object.values(data.saveReceipt?.notion ?? {}).some((step) =>
+          step && ["failed", "partial", "deferred"].includes(step.status)) ||
+        data.saveReceipt?.lifecycle?.status === "failed" ||
+        data.saveReceipt?.media?.status === "failed";
+      if (!facebookFailed && !hasUnresolvedFollowup) {
         if (returnToCalendar && nextStatus === "draft") {
           allowNavigationRef.current = true;
           router.replace(returnToCalendar);
