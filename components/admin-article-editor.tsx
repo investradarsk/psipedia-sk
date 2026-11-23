@@ -158,6 +158,7 @@ export function AdminArticleEditor({
   const [saveReceipt, setSaveReceipt] = useState<ArticleSaveReceipt | null>(null);
   const [followupBefore, setFollowupBefore] = useState<ManagedArticle | null>(null);
   const [pendingFacebookSave, setPendingFacebookSave] = useState<PendingFacebookSave | null>(null);
+  const [facebookReceipt, setFacebookReceipt] = useState<FollowupReceipt | null>(null);
   const [retryBusy, setRetryBusy] = useState<string | null>(null);
   const [intro, setIntro] = useState(article?.intro ?? "");
   const [introRichText, setIntroRichText] = useState(article?.introRichText ?? legacyRichTextToDocument(article?.intro ?? ""));
@@ -434,6 +435,7 @@ export function AdminArticleEditor({
     setFbLoaded(true);
     setFbApprove(result.post.approvalStatus === "APPROVED");
     setFbDirty(false); setFbError(""); setPendingFacebookSave(null);
+    setFacebookReceipt({ status: "synced" });
     savedFacebookContent.current = { caption: socialCaption.trim(), title, imageKey: imageKey || "" };
   }
 
@@ -448,6 +450,7 @@ export function AdminArticleEditor({
         router.replace(`/admin/clanky/${pendingFacebookSave.articleId}?vytvoreny=1`);
       }
     } catch (reason) {
+      setFacebookReceipt({ status: "failed", code: "FACEBOOK_RETRY_NOT_CONFIRMED" });
       setFbError(reason instanceof Error ? reason.message : "Facebook nastavenia sa nepodarilo uložiť.");
     } finally { setRetryBusy(null); }
   }
@@ -591,10 +594,12 @@ export function AdminArticleEditor({
           await persistFacebookStep(pending, false);
         } catch (facebookError) {
           facebookFailed = true;
+          setFacebookReceipt({ status: "failed", code: "FACEBOOK_SETTINGS_NOT_CONFIRMED" });
           setFbError(facebookError instanceof Error ? facebookError.message : "Facebook nastavenia sa neuložili.");
         }
       } else {
         setPendingFacebookSave(null);
+        setFacebookReceipt({ status: "skipped", code: "bez zmien" });
         savedFacebookContent.current = { caption: socialCaption.trim(), title, imageKey: imageKey || "" };
       }
       setMessage(nextStatus === "published"
@@ -803,6 +808,7 @@ export function AdminArticleEditor({
               onClick={() => void retryNotionStep("lifecycle")}>Zopakovať iba potvrdenie</button>
           </p>}
           {saveReceipt.media?.status === "failed" && <p>R2: čistenie nepoužitých obrázkov nebolo potvrdené. Uložené médiá článku zostali zachované.</p>}
+          {facebookReceipt && !pendingFacebookSave && <p><strong>Facebook:</strong> {followupLabel(facebookReceipt)}{facebookReceipt.status === "skipped" ? " (bez zmeny nastavení)" : " (nastavenia v kalendári)"}.</p>}
           {pendingFacebookSave && <p>
             <strong>Facebook:</strong> nastavenia sa nepodarilo potvrdiť; článok je už uložený v D1.
             {fbError && ` ${fbError}`}
