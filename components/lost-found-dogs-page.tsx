@@ -219,8 +219,8 @@ export async function LostFoundDogsPage({
                   <Link
                     className="button button--dark"
                     href={type === "LOST"
-                      ? "/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=LOST"
-                      : "/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=FOUND"}
+                      ? "/partner/koncepty/novy/strateny"
+                      : "/partner/koncepty/novy/najdeny"}
                   >
                     {type === "LOST" ? "Nahlásiť strateného psa" : "Nahlásiť nájdeného psa"}
                   </Link>
