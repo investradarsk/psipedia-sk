@@ -32,7 +32,7 @@ function caseStatus(item: DeliveryCase): string {
 }
 function caseAction(item: DeliveryCase): string {
   if (item.status === "PENDING" || item.status === "PROCESSING")
-    return "Automatický prenos pokračuje; neprepisovať údaje ručne.";
+    return "Prenos čaká alebo prebieha; pri review lock môže byť pozastavený. Pred zásahom overiť aktuálny záznam.";
   if (item.errorCode === "NOTION_RETRY_FAILED") return "Overiť prístup a dostupnosť Notionu; po oprave preveriť záznam.";
   if (/MAPPING|IDENTITY|CANONICAL_MISSING/.test(item.errorCode ?? ""))
     return "Overiť Psipedia ID, Notion väzbu a kanonický záznam.";
@@ -84,7 +84,7 @@ type OverviewResponse = {
 };
 
 const stateLabels: Record<OverviewRow["status"], string> = {
-  RECORDED: "Evidované",
+  RECORDED: "Evidované mapovanie",
   EMPTY: "Bez záznamov",
   SCHEMA_UNAVAILABLE: "Chýba schéma",
   UNKNOWN: "Neoverené",
@@ -340,7 +340,7 @@ export function AdminNotionWorkspace({initialTab="status"}:{initialTab?:NotionWo
     <nav role="tablist" aria-label="Pracovisko Notion" className={styles.controls}>
       {workspaceTabs.map(item => <button key={item.value} type="button" role="tab"
         id={"notion-tab-"+item.value} aria-controls={"notion-panel-"+item.value}
-        aria-selected={tab===item.value} tabIndex={tab===item.value?0:-1}
+        aria-selected={tab===item.value} tabIndex={0}
         className={tab===item.value?"admin-primary-action":styles.secondary}
         onClick={()=>setTab(item.value)}>{item.label}</button>)}
     </nav>
