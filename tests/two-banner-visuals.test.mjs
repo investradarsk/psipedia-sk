@@ -107,6 +107,25 @@ test("banner CTA stacks in a narrow desktop sidebar based on its own width", () 
   assert.match(read("app/globals.css"), /\.shell\s*\{\s*width:\s*min\(var\(--ps-content-max\)/);
 });
 
+
+test("owner editorial accents use square quiet frames and article rail scrolls naturally", () => {
+  const css = read("app/banner-visuals.css");
+  const sharedStart = css.indexOf(".ps-public-banner-frame[data-banner-visual][data-banner-size] {");
+  const shared = css.slice(sharedStart, css.indexOf("}", sharedStart));
+  assert.match(shared, /border-left-width:\s*1px\s*!important/);
+  assert.match(shared, /border-left-color:\s*var\(--ps-bnr-border\)\s*!important/);
+  assert.match(shared, /border-radius:\s*0\s*!important/);
+  assert.doesNotMatch(shared, /border-left:\s*3px solid #b44939/);
+  const detailCss = read("components/article-detail.module.css");
+  assert.match(detailCss, /\.sidebarSticky\s*\{[^}]*position:\s*static/);
+  assert.doesNotMatch(detailCss, /\.sidebarSticky\s*\{[^}]*position:\s*sticky/);
+  const detail = read("components/article-detail.tsx");
+  assert.match(detail, /<ArticleReadTracker articleSlug=\{article.slug\}/);
+  assert.doesNotMatch(detail, /<ArticleReadingProgress\s*\/>/);
+  assert.match(read("app/home-v2.module.css"), /\.homeV2 :global\(\.home-services-wide\)\s*\{[^}]*border-radius:\s*0/);
+});
+
+
 test("original partner creatives are not restyled or rebuilt", () => {
   const ads = read("components/affiliate-rotating-banner.tsx");
   assert.doesNotMatch(ads, /PublicBannerFrame|data-banner-visual/);
