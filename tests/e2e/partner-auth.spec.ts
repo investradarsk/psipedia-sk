@@ -540,6 +540,10 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByText("Údaje z účtu sa do verejných kontaktov neprenášajú.",{exact:false})).toBeVisible();
   await expect(dogReportForm.getByLabel("Verejný e-mail")).toHaveValue("");
   await expect(dogReportForm.getByLabel("Verejný telefón")).toHaveValue("");
+  // The SSR inputs are visible before hydration. Scan accessibility first, then type.
+  const dogReportAccessibility = await new AxeBuilder({ page }).analyze();
+  expect(dogReportAccessibility.violations).toEqual([]);
+  await expectNoHorizontalOverflow(page);
   await dogReportForm.getByLabel("Meno psa").fill(reportName);
   await dogReportForm.getByLabel("Dátum udalosti").fill("2026-11-22");
   await dogReportForm.getByLabel("Kraj").fill("Nitriansky kraj");
