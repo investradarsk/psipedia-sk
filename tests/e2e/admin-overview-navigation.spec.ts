@@ -21,7 +21,7 @@ async function clickOverviewGroup(page: Page) {
   // Server HTML can render well before the client navigation button hydrates.
   await expect(page.locator('[data-admin-sidebar][data-admin-hydrated="true"]')).toBeAttached();
   await expect(overviewGroup(page)).toBeVisible();
-  await clickOverviewGroup(page);
+  await overviewGroup(page).click();
 }
 
 test("repeated Prehľad → Adresár → Prehľad client transitions do not stall", async ({ page }, info) => {
