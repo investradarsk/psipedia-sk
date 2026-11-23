@@ -61,14 +61,15 @@ test("Step 8: URL pagers stay link-based and client pagers stay button-based", (
   assert.match(articles, /<AdminPagination pagination=\{pagination\}/);
 });
 
-test("Step 8: pagination actions remain accessible and never shrink below 44px", () => {
+test("Step 8: pagination actions are 38px desktop and 44px mobile", () => {
   const css = read("app/admin/admin-list-foundation.css");
   assert.match(css, /\[data-admin-list-pagination\] \:where\(a, button, span\[aria-disabled="true"\]/);
   assert.match(css, /min-height:\s*var\(--admin-list-control-height\)/);
-  assert.match(css, /min-width:\s*44px/);
+  assert.match(css, /min-width:\s*var\(--admin-list-control-height\)/);
+  assert.match(css, /@media \(max-width: 820px\)[\s\S]*min-width:\s*44px/);
   assert.match(css, /\:where\(button:disabled, span\[aria-disabled="true"\]\)/);
   assert.match(css, /\:where\(a, button\):focus-visible/);
-  assert.match(css, /@media \(max-width: 760px\)/);
+  assert.match(css, /@media \(max-width: 820px\)/);
   assert.match(css, /font-size:\s*16px/);
 });
 
