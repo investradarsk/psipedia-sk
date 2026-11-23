@@ -431,7 +431,7 @@ function staticSectionItems(parsed: ParsedPortalSearchQuery, section: string, su
     .filter((item) => item.score < 999);
 }
 
-function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearchItem | null {
+function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearchItem {
   const href = row.kind === "breed" && row.breed_fci_group
     ? breedProfileHref(row.href.slice("/plemena/".length), row.breed_fci_group)
     : row.href;
@@ -457,7 +457,10 @@ function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearc
     score: 999,
   };
   item.score = scorePortalSearchItem({ ...item, haystack: item.keywords }, parsed);
-  return item.score < 999 ? item : null;
+  // SQL determines eligibility. The smaller card projection is only for
+  // ranking, so matches in fields omitted from it retain the content rank.
+  if (item.score === 999) item.score = 70;
+  return item;
 }
 
 function allowedSpecs(parsed: ParsedPortalSearchQuery, limit: number, section: string, subsection = "") {
@@ -522,7 +525,9 @@ export async function searchPortal(
 ): Promise<PortalSearchResultPage> {
   const parsed = applyPortalSearchFilterOverrides(parsePortalSearchQuery(query), options.filters);
   const pageSize = Math.max(1, Math.min(48, Math.trunc(options.pageSize ?? SEARCH_PAGE_SIZE)));
-  const page = Math.max(1, Math.min(SEARCH_MAX_PAGE, Math.trunc(options.page ?? 1)));
+  const visibleLimit = Math.min(SEARCH_MAX_VISIBLE_RESULTS, pageSize * SEARCH_MAX_PAGE);
+  const lastPossiblePage = Math.ceil(visibleLimit / pageSize);
+  const page = Math.max(1, Math.min(lastPossiblePage, Math.trunc(options.page ?? 1)));
   const supportedSections = ["starostlivost", "aktivity", "steniatka", "novinky", "recenzie", "pomoc-psom"];
   const section = supportedSections.includes(options.section ?? "") ? options.section! : "";
   const sectionDefinition = portalSections.find((item) => item.slug === section);
@@ -532,7 +537,7 @@ export async function searchPortal(
     : "";
   if (parsed.normalized.length < 2) return { items: [], total: 0, page: 1, pageSize, totalPages: 0, capped: false, parsed };
 
-  const need = Math.min(SEARCH_MAX_VISIBLE_RESULTS, page * pageSize);
+  const need = Math.min(visibleLimit, page * pageSize);
   const staticItems = staticSectionItems(parsed, section, subsection);
   const db = database();
   const databaseItems: PortalSearchItem[] = [];
@@ -546,8 +551,7 @@ export async function searchPortal(
         const rows = (result.results ?? []) as unknown as SearchRow[];
         databaseTotal += Number(rows[0]?.source_total ?? 0);
         for (const row of rows) {
-          const item = rowToItem(row, parsed);
-          if (item) databaseItems.push(item);
+          databaseItems.push(rowToItem(row, parsed));
         }
       }
     }
@@ -556,12 +560,13 @@ export async function searchPortal(
   const unique = [...new Map([...staticItems, ...databaseItems].map((item) => [item.href, item])).values()];
   const sorted = stablePortalSearchSort(unique);
   const total = databaseTotal + staticItems.length;
-  const capped = total > SEARCH_MAX_VISIBLE_RESULTS;
-  const totalPages = Math.min(SEARCH_MAX_PAGE, Math.ceil(total / pageSize));
+  const visibleTotal = Math.min(total, visibleLimit);
+  const capped = total > visibleTotal;
+  const totalPages = Math.ceil(visibleTotal / pageSize);
   const effectivePage = Math.min(page, Math.max(1, totalPages));
   const start = (effectivePage - 1) * pageSize;
   return {
-    items: sorted.slice(start, start + pageSize),
+    items: sorted.slice(start, Math.min(start + pageSize, visibleTotal)),
     total,
     page: effectivePage,
     pageSize,
