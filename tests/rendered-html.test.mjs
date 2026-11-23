@@ -687,12 +687,13 @@ test("uses light admin lists and loads full records only for detail and save", a
     const publicCalloutSource = readFileSync(new URL("../components/public-visual-system/public-article-callout.tsx", import.meta.url), "utf8");
     assert.match(publicCalloutSource, /sponsored nofollow/);
     assert.match(publicCalloutSource, /Partnerský odkaz/);
-    // Tiptap's editable shell exists in SSR; its shared formatting toolbar is
-    // conditional on the active Basics/Blocks section and must not be required
-    // in a server-rendered initial view with another active panel.
-    assert.match(articleDetailHtml, /data-admin-tiptap-rich-text/);
-    assert.match(articleDetailHtml, /data-admin-rich-text-editor/);
+    // The Word-style editor is a client-mounted surface. SSR provides its
+    // navigation and editor shell; the editable Tiptap node appears on
+    // hydration. Verify the source contract instead of demanding client-only
+    // attributes from the server-rendered HTML.
     const tiptapSource = readFileSync(new URL("../components/admin-tiptap-article-editor.tsx", import.meta.url), "utf8");
+    assert.match(tiptapSource, /data-admin-tiptap-rich-text/);
+    assert.match(tiptapSource, /data-admin-rich-text-editor/);
     assert.match(tiptapSource, /aria-label="Spoločná lišta formátovania článku"/);
     assert.match(tiptapSource, /formattingSection && <TiptapSharedToolbar/);
     assert.doesNotMatch(articleDetailHtml, /aria-label="Formátovanie textu"/);
