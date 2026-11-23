@@ -77,7 +77,8 @@
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* Long action labels wrap while leaving room for the heading and description. */
+  grid-template-columns: minmax(0, 1fr) fit-content(36%);
   align-items: center;
   gap: 14px 20px;
   width: 100%;
@@ -243,7 +244,7 @@
     [data-public-banner-content],
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="large"]
     [data-public-banner-content] {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) fit-content(36%);
   }
 }
 
