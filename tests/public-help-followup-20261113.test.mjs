@@ -36,13 +36,9 @@ test("fundraiser distinguishes amount verification from profile update and volun
   assert.match(types, /textFact\("Pokyny na poskytnutie pomoci", volunteerDeliveryInstructions\(item\)\)/);
 });
 
-test("dog report form has a single visible title and no duplicate global search", () => {
-  const hero = read("components/public-visual-system/universal-page-hero.tsx");
+test("historical dog report form URL leads into Partner login rather than legacy anonymous form", () => {
   const route = read("app/pomoc-psom/stratene-a-najdene/nahlasit/page.tsx");
-  const form = read("components/lost-found-submission-form.tsx");
-  assert.match(hero, /showSearch \? \(/);
-  assert.match(route, /variant="compact" showSearch=\{false\}/);
-  assert.match(form, /<h2 className="sr-only">Údaje hlásenia<\/h2>/);
-  assert.doesNotMatch(form, /<h2>Nahlásiť strateného alebo nájdeného psa<\/h2>/);
-  assert.match(form, /action="\/api\/lost-found\/submissions"/);
+  assert.match(route, /partner\/koncepty\/novy\?typ=LOST_FOUND_DOG/);
+  assert.match(route, /redirect\(target\)/);
+  assert.doesNotMatch(route, /LostFoundSubmissionForm/);
 });
