@@ -1,8 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // Read-only Admin regression: never save, publish or delete user data.
-test.beforeEach(async ({ page }, info) => {
-  test.skip(info.project.name !== "desktop-chromium", "Desktop sidebar behavior");
+test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 900 });
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
@@ -17,7 +16,8 @@ function overviewGroup(page: Page) {
   return page.locator('[data-admin-sidebar] [data-admin-nav-group="Prehľad"] > button');
 }
 
-test("repeated Prehľad → Adresár → Prehľad client transitions do not stall", async ({ page }) => {
+test("repeated Prehľad → Adresár → Prehľad client transitions do not stall", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "Desktop sidebar behavior");
   await page.goto("/admin", { waitUntil: "domcontentloaded" });
   await expectOverview(page);
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -30,7 +30,8 @@ test("repeated Prehľad → Adresár → Prehľad client transitions do not stal
   }
 });
 
-test("Prehľad opens from an actual directory record editor", async ({ page }) => {
+test("Prehľad opens from an actual directory record editor", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "Desktop sidebar behavior");
   // Reuse the same deterministic fixture as the existing directory E2E suite.
   // Never assume the first live record is editable or even present.
   await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", {
@@ -70,7 +71,8 @@ test("mobile drawer returns from Adresár to Prehľad repeatedly", async ({ page
   }
 });
 
-test("Prehľad header asks before leaving a dirty editor and preserves edits on Stay", async ({ page }) => {
+test("Prehľad header asks before leaving a dirty editor and preserves edits on Stay", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "Desktop sidebar behavior");
   await page.goto("/admin/organizacie/novy", { waitUntil: "domcontentloaded" });
   const name = page.getByLabel("Názov *", { exact: true });
   await expect(name).toBeEnabled();
