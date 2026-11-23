@@ -7,16 +7,16 @@ type Field={id:string;label:string;notionLabel?:string;locked?:boolean;note?:str
 type Group={scope:string;title:string;family:string;active:boolean;fields:Field[]};
 type Result={ready:boolean;groups:Group[];rules:Record<string,Mode>;note:string};
 const labels:Record<Mode,string>={
-  safe:"Bezpečné porovnanie (predvolené)",
-  notion:"Notion má prednosť",
-  admin:"Admin má prednosť",
-  latest:"Najnovšia overená zmena",
+  safe:"Bez výnimky – bezpečné porovnanie (predvolené)",
+  notion:"Výnimka: uprednostniť Notion",
+  admin:"Výnimka: uprednostniť Admin",
+  latest:"Najnovšia overiteľná zmena",
 };
 const breedLabels:Record<Mode,string>={
   safe:"Automaticky – pri nejasnosti Notion",
-  notion:"Notion má prednosť",
-  admin:"Admin má prednosť",
-  latest:"Najnovšia, ak je overiteľná – inak Notion",
+  notion:"Výnimka: uprednostniť Notion",
+  admin:"Výnimka: uprednostniť Admin",
+  latest:"Najnovšia overiteľná – pri nejasnosti Notion",
 };
 type BreedDiagnostic={breedId:number;name:string;field:string;notionValue:unknown;adminValue:unknown;same:boolean;expectedNotionHash:string;lastSyncedAt:string;adminUpdatedAt:string;inbox:{status:string;attempts:number;outcome:string|null;last_error_code:string|null}|null};
 function BreedTransferDiagnostic(){
@@ -116,7 +116,7 @@ export function AdminNotionFieldSettings(){
       setError(e instanceof Error?e.message:"Uloženie sa nepodarilo.");
     }finally{setBusy("")}
   }
-  const [bulkMode,setBulkMode]=useState<Mode>("notion");
+  const [bulkMode,setBulkMode]=useState<Mode>("latest");
   async function saveAll(){
     if(!group?.active||!result?.ready||busy)return;
     const editable=group.fields.filter(f=>!f.locked);
@@ -141,13 +141,16 @@ export function AdminNotionFieldSettings(){
   const families=[...new Set(result?.groups.map(g=>g.family)??[])];
   return <section className={styles.root}>
     <div className={styles.explainer}>
-      <strong>Priorita údajov podľa kategórie a poľa</strong>
-      <p>Predvolené bezpečné porovnanie prenáša samostatné úpravy. „Admin“ chráni jeho hodnotu;
-      „Notion“ uprednostní redakčnú úpravu aj pri preukázanom konflikte.
-      „Najnovšia overená zmena“ nevyberá víťaza podľa času celej stránky: keď nevieme overiť
-      čas konkrétneho poľa, konflikt zostane na kontrolu.</p>
-      <p>Pravidlá sa uplatnia na nasledujúce synchronizácie. Nespúšťajú hromadný prepis existujúcich záznamov.</p>
-      <p>Pre Plemená rozhoduje o bežných rozdieloch priority, nie ručné konflikty. Bez časovej histórie jednotlivého poľa sa pri režimoch Automaticky/Najnovšia uprednostní Notion.</p>
+      <strong>Pravidlá jednotlivých polí – len pre podporované agendy</strong>
+      <p>Odporúčané pravidlo je najnovšia <em>overiteľná</em> zmena konkrétneho poľa, nie čas poslednej úpravy celej stránky.
+      Ak synchronizátor nevie určiť poradie oboch úprav, nesmie ich ticho zameniť za potvrdenú zhodu.
+      Predvolený režim „Bez výnimky“ ponecháva pôvodné bezpečné porovnanie a môže vyžadovať kontrolu konfliktu.</p>
+      <p>„Výnimka: uprednostniť Notion“ a „Výnimka: uprednostniť Admin“ sú stále používané staršie režimy backendu.
+      <strong> Nie sú všeobecným pravidlom poslednej zmeny.</strong> Existujúce uložené voľby zostávajú zachované;
+      ich zmena ovplyvní až nasledujúce synchronizácie a nespustí okamžitý hromadný prepis.</p>
+      <p>Pre Plemená má existujúci adaptér osobitné správanie: ak nie je možné poradie preukázať,
+      režimy Automaticky/Najnovšia môžu uprednostniť Notion. Review locks, systémové polia,
+      stav publikovania a potvrdené Google Place zostávajú chránené mimo tejto tabuľky.</p>
     </div>
     {error?<p role="alert" className={styles.error}>{error}</p>:null}
     {message?<p role="status" className={styles.success}>{message}</p>:null}
