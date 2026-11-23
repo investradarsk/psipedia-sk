@@ -57,7 +57,7 @@ test("Mutations require verified authenticated Partner and explicit same-origin 
 });
 test("UX makes Help submission discoverable and tracks it in account and admin queue",async()=>{
   // The retired Help page redirects into the authenticated canonical editor.
-  assert.match(page,/redirect\("\/partner\/koncepty\/novy\?typ=ADOPTION_DOG"\)/);
+  assert.match(page,/redirect\("\/partner\/koncepty\/novy\/adopcia"\)/);
   const canonicalPage=await read("app/partner/koncepty/novy/page.tsx");
   assert.match(canonicalPage,/requirePartnerPageIdentity\(\{returnTo\}\)/);
   assert.match(canonicalPage,/initialType=\{initialType\}/);
