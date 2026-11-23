@@ -17,7 +17,7 @@ test("Plemená is a distinct editorial category without creating a conflicting a
   assert.match(routes, /Plemená: "\/plemena#clanky-o-plemenach"/);
   assert.match(admin, /<option>Plemená<\/option>/);
   assert.match(browser, /"Plemená"/);
-  assert.match(atlas, /category: "Plemená", limit: 12/);
+  assert.match(atlas, /category: "Plemená", limit: 3/);
   assert.match(atlas, /id="clanky-o-plemenach"/);
 });
 
