@@ -38,7 +38,7 @@ test("fundraiser distinguishes amount verification from profile update and volun
 
 test("historical dog report form URL leads into Partner login rather than legacy anonymous form", () => {
   const route = read("app/pomoc-psom/stratene-a-najdene/nahlasit/page.tsx");
-  assert.match(route, /partner\/koncepty\/novy\?typ=LOST_FOUND_DOG/);
+  assert.match(route, /partner\/koncepty\/novy\/(?:strateny|najdeny|nahlasit)/);
   assert.match(route, /redirect\(target\)/);
   assert.doesNotMatch(route, /LostFoundSubmissionForm/);
 });
