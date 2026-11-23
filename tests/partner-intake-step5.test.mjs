@@ -116,7 +116,9 @@ test("Owner editor offers safe one-click found/reunited action and preserves exi
   assert.match(form,/dirty\|\|state==="sending"\|\|state==="success"/);
   assert.match(form,/window.confirm/);
   assert.match(form,/router.refresh\(\)/);
-  assert.match(editor,/reportType: parsed.entityType === "LOST_FOUND_DOG"/);
+  assert.match(editor,/const reportType: "LOST" \| "FOUND" \| null = parsed.entityType === "LOST_FOUND_DOG"/);
+  assert.match(editor,/raw\.type === "LOST" \|\| raw\.type === "FOUND"/);
+  assert.match(editor,/\breportType,/);
   assert.match(form,/mediaAssetId/);
   assert.match(form,/galleryMediaIds/);
   const ownerList=read("lib/partner-help-claims.ts");
