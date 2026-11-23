@@ -53,8 +53,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const unavailableAttention: AdminAttentionExactSummary = {
     active: 0,
     availability: "UNAVAILABLE",
-    bySource: Object.fromEntries(adminAttentionQueueSourceTypes.map((source) => [source, null]))
-      as AdminAttentionExactSummary["bySource"],
+    bySource: Object.fromEntries(adminAttentionQueueSourceTypes.map((source) => [source, null])) as AdminAttentionExactSummary["bySource"],
     unavailableSources: [...adminAttentionQueueSourceTypes],
   };
 
