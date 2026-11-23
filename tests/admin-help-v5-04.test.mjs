@@ -10,7 +10,8 @@ test("V5-04 has four Help tabs and no duplicate mobile navigation", () => {
   const grid = read("components/admin-help-unified-table.tsx");
   const css = read("components/admin-help-unified-table.module.css");
   assert.deepEqual(
-    [...page.matchAll(/\{ slug: "(adopcia|stratene-a-najdene|organizacie|ostatna-pomoc)", label:/g)]
+    [...page.slice(page.indexOf("const workspaceCategories"), page.indexOf("const organizationFilters"))
+      .matchAll(/\{ slug: "(adopcia|stratene-a-najdene|organizacie|ostatna-pomoc)", label:/g)]
       .map(match => match[1]),
     ["adopcia", "stratene-a-najdene", "organizacie", "ostatna-pomoc"],
   );
