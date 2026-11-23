@@ -54,7 +54,9 @@ async function transition(db, expected, next, phase, n, resourceType="LOST_FOUND
   await applyAtomicModerationTransition(db,{
     id:"draft-1",expectedStatus:expected,toStatus:next,actorRef:"partner:reporter",
     eventId,changedFieldsJson:'["status"]',now,
-    extraStatements:phase?[canonicalNoticeStatement(db,{
+    // Same transactional guard as the production workflow: stop any side effects
+    // if moderation failed its expected-status CAS.
+    extraStatements:phase?[db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract(\'PARTNER_CANONICAL_DRAFT_REVISION_CONFLICT\',char(36)) END").bind(),canonicalNoticeStatement(db,{
       submissionId,accountId:"reporter",resourceType,phase,transitionId:eventId,nowIso:now,
     })]:[],
   });
@@ -115,11 +117,11 @@ test("failed/invalid moderation decision cannot enqueue a misleading email; REJE
 test("canonical workflow inserts all receipt and decision notices inside state transition, not post-commit",()=>{
   const src=read("lib/partner-canonical-workflow.ts");
   assert.match(src,/const now=input.now\?\?new Date\(\),nowIso=now.toISOString\(\),eventId=crypto.randomUUID\(\)/);
-  assert.match(src,/extraStatements:\[\.\.\.duplicateStatements,canonicalNoticeStatement\(db,/);
+  assert.match(src,/extraStatements:\[guard\(db\),\.\.\.duplicateStatements,canonicalNoticeStatement\(db,/);
   assert.match(src,/phase:"SUBMITTED",transitionId:eventId/);
   assert.match(src,/phase:"APPROVED",transitionId:"final"/);
   assert.match(src,/phase:input.action==="RETURN"\?"RETURNED":"REJECTED",transitionId:decisionEventId/);
-  assert.match(src,/extraStatements:extras/);
+  assert.match(src,/extraStatements:\[guard\(db\),\.\.\.extras\]/);
   assert.doesNotMatch(src,/await queuePartnerLifecycleNotification\(\{accountId:row.accountId/);
 });
 
