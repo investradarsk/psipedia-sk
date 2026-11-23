@@ -344,6 +344,7 @@
   }
   .ps-public-banner-frame[data-banner-size="medium"]:not([data-banner-semantic="urgent"]) [data-public-banner-content] > a {
     justify-self: start;
+    width: auto !important;
   }
 }
 /* The original Dognet artwork never enters this frame. Emergency information
