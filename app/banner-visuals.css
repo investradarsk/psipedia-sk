@@ -267,67 +267,87 @@
   box-sizing: border-box;
 }
 
-/* PSIPEDIA APPROVED BANNER ART
- * Traced from the approved outlined-dog illustration, delivered as 2.5 KB SVG.
- * All editorial placements inherit it; two themes and S/M/L are the only variants.
+/* PSIPEDIA APPROVED BANNER COMPOSITION — V2
+ * The earlier single green blob and oversize dog mask did NOT reproduce the
+ * approved composition. Keep the real proportions: cream/sage layered hills,
+ * dark-green ground, small terracotta corner and open terracotta arc.
+ * The dog is separate SVG line art so it remains undistorted in S/M/L.
+ * Native partner creatives and emergency notifications are unchanged.
  */
 .ps-public-banner-frame[data-banner-visual][data-banner-size]::before {
   content: "";
   position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
   z-index: 0;
   pointer-events: none;
-  inset: auto -13% -103% auto;
-  width: 69%;
-  aspect-ratio: 1;
-  border-radius: 48% 52% 50% 50%;
-  background: var(--ps-bnr-shape) !important;
-  opacity: 0.8;
-  transform: rotate(-13deg);
+  transform: none;
+  opacity: .85;
+  background: transparent url("/images/psipedia-banner-waves-light.svg") center / 100% 100% no-repeat !important;
+}
+.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size]::before {
+  background-image: url("/images/psipedia-banner-waves-dark.svg") !important;
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size]::after {
   content: "";
   position: absolute;
   z-index: 0;
   pointer-events: none;
-  right: 0;
-  bottom: -7%;
-  width: 45%;
-  height: 115%;
+  right: 1%;
+  bottom: -2%;
+  width: 28%;
+  height: 96%;
   background: var(--ps-bnr-art);
-  -webkit-mask: url("/images/psipedia-banner-dog-outline.svg") right bottom / contain no-repeat;
-  mask: url("/images/psipedia-banner-dog-outline.svg") right bottom / contain no-repeat;
-  opacity: 0.48;
+  -webkit-mask: url("/images/psipedia-banner-dog-outline.svg") center bottom / contain no-repeat;
+  mask: url("/images/psipedia-banner-dog-outline.svg") center bottom / contain no-repeat;
+  opacity: .82;
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] > * {
   position: relative;
   z-index: 1;
 }
+.ps-public-banner-frame[data-banner-size="medium"]::after {
+  width: 34%;
+  height: 98%;
+  right: 1%;
+  opacity: .65;
+}
 .ps-public-banner-frame[data-banner-size="small"]::before {
-  right: -40%;
-  bottom: -68%;
-  width: 110%;
-  opacity: .44;
+  opacity: .27;
 }
 .ps-public-banner-frame[data-banner-size="small"]::after {
-  right: -27%;
-  bottom: -6%;
-  width: 88%;
-  height: 86%;
-  opacity: 0.105;
+  width: 86%;
+  height: 56%;
+  right: -12%;
+  bottom: -7%;
+  opacity: .11;
 }
-.ps-public-banner-frame[data-banner-size="medium"]::after {
-  right: -5%;
-  width: 42%;
-  opacity: .23;
-}
-.ps-public-banner-frame[data-banner-visual="dark"]::after {
-  opacity: .28;
+.ps-public-banner-frame[data-banner-visual="dark"][data-banner-size]::after {
+  opacity: .74;
 }
 .ps-public-banner-frame[data-banner-visual="dark"][data-banner-size="small"]::after {
-  opacity: .095;
+  opacity: .10;
 }
-/* Emergency information must stay immediately recognisable and readable.
- * It keeps the same frame and typography but not the decorative dog art. */
+/* Preserve the copy/CTA area on desktop: neither the dog's head nor its
+ * terracotta halo can sit underneath a live button again. */
+@media (min-width: 721px) {
+  .ps-public-banner-frame[data-banner-size="medium"]:not([data-banner-semantic="urgent"]) > :is(div[data-public-banner-content], div[class*="calloutLayout"]) {
+    box-sizing: border-box;
+    padding-right: clamp(85px, 20%, 180px) !important;
+  }
+  .ps-public-banner-frame[data-banner-size="large"]:not([data-banner-semantic="urgent"]) > :is(div[data-public-banner-content], div[class*="calloutLayout"]) {
+    box-sizing: border-box;
+    padding-right: clamp(105px, 25%, 260px) !important;
+  }
+  .ps-public-banner-frame[data-banner-size="medium"]:not([data-banner-semantic="urgent"]) [data-public-banner-content] > a {
+    justify-self: start;
+  }
+}
+/* The original Dognet artwork never enters this frame. Emergency information
+ * keeps its icon and its safety-first hierarchy without decorative art. */
 .ps-public-banner-frame[data-banner-semantic="urgent"] {
   --ps-bnr-bg: #fffaf6;
   --ps-bnr-border: rgba(180, 73, 57, .28);
@@ -340,17 +360,14 @@
 }
 @media (max-width: 720px) {
   .ps-public-banner-frame[data-banner-visual][data-banner-size]::before {
-    right: -42%;
-    bottom: -65%;
-    width: 95%;
-    opacity: .38;
+    opacity: .24;
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-size]::after {
-    right: -28%;
-    bottom: -12%;
-    width: 79%;
-    height: 79%;
-    opacity: .12;
+    right: -19%;
+    bottom: -7%;
+    width: 70%;
+    height: 73%;
+    opacity: .10;
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-size] > * {
     min-width: 0;
