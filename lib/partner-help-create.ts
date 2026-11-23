@@ -123,7 +123,11 @@ function hydrate(row: SubmissionRow) {
   try { payload = JSON.parse(row.payload) as Record<string, unknown>; } catch { /* Historic corrupt JSON must not crash the queue. */ }
   let risks: string[] = [];
   try { const parsed: unknown = JSON.parse(row.riskFlags); if (Array.isArray(parsed)) risks = parsed.filter((x): x is string => typeof x === "string"); } catch {}
-  return { id: row.id, resourceType: row.resourceType, accountId: row.accountId, title: summary(row.resourceType, payload), payload, status: row.status, statusLabel: statusLabel(row.status), risks, createdAt: row.createdAt, rejectionReasonCode: row.rejectionReasonCode, canWithdraw: !row.subjectId && statuses.includes(row.status) };
+  return { id: row.id, resourceType: row.resourceType, accountId: row.accountId,
+    subjectId: row.subjectId, title: summary(row.resourceType, payload), payload,
+    status: row.status, statusLabel: statusLabel(row.status), risks,
+    createdAt: row.createdAt, rejectionReasonCode: row.rejectionReasonCode,
+    canWithdraw: !row.subjectId && statuses.includes(row.status) };
 }
 export async function listPartnerHelpCreateSubmissions(accountId: string, database?: D1Database) {
   const result = await db(database).prepare(`
