@@ -1,36 +1,40 @@
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
-import { AdminDirectoryModuleNav } from "@/components/admin-directory-module-nav";
-import { AdminHelpUnifiedTable, type HelpDirectoryRow } from "@/components/admin-help-unified-table";
+import { AdminHelpUnifiedTable, type HelpDirectoryRow, type HelpDirectoryCategory } from "@/components/admin-help-unified-table";
 import { adminDetailHref } from "@/lib/admin-return-navigation";
-import { AdminSectionHub, type AdminSectionHubItem } from "@/components/admin-section-hub";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { adoptionStatusLabels } from "@/lib/adoption";
 import { listAdoptionAdminDashboard } from "@/lib/adoption-admin-store";
 import { parseOrganizationAdminFilters } from "@/lib/help-organization-admin-query";
 import { getOrganizationAdminPage } from "@/lib/help-organization-admin-store";
-import { parseHelpAdminFilters } from "@/lib/help-admin-query";
+import { parseHelpAdminFilters, isHelpAdminManagedCategory } from "@/lib/help-admin-query";
 import { getManagedHelpDashboard } from "@/lib/help-store";
-import { helpCategories } from "@/lib/help";
+import { allHelpCategories } from "@/lib/help";
 import { listAdminDogReports } from "@/lib/lost-found-dog-store";
 import { dogReportStatusLabel, dogReportTypeShortLabel } from "@/lib/lost-found-dogs";
-import styles from "@/components/admin-help-unified-table.module.css";
 
 export const dynamic = "force-dynamic";
 
-const hrefByCategory: Record<(typeof helpCategories)[number]["slug"], string> = {
-  adopcia: "/admin/adopcie",
-  utulky: "/admin/organizacie?type=SHELTER",
-  "docasna-opatera": "/admin/pomoc?category=docasna-opatera",
-  zbierky: "/admin/pomoc?category=zbierky",
-  "stratene-a-najdene": "/admin/stratene-najdene",
-  dobrovolnictvo: "/admin/pomoc?category=dobrovolnictvo",
-};
+const workspaceCategories: HelpDirectoryCategory[] = [
+  { slug: "adopcia", label: "Adopcie", icon: "🏠", href: "/admin/adopcie" },
+  { slug: "stratene-a-najdene", label: "Stratené a nájdené", icon: "🔎", href: "/admin/stratene-najdene" },
+  { slug: "organizacie", label: "Organizácie", icon: "🤝", href: "/admin/organizacie" },
+  { slug: "ostatna-pomoc", label: "Ostatná pomoc", icon: "🐾", href: "/admin/pomoc" },
+];
+const organizationFilters = [
+  { slug: "organizacie", label: "Všetky organizácie" },
+  { slug: "utulky", label: "Iba útulky" },
+];
+const otherHelpFilters = [
+  { slug: "ostatna-pomoc", label: "Všetky prípady" },
+  ...allHelpCategories.filter(item => isHelpAdminManagedCategory(item.slug))
+    .map(item => ({ slug: item.slug, label: item.label })),
+];
 type SearchParams = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined) => typeof value === "string" ? value : Array.isArray(value) ? value[0] ?? "" : "";
 
-async function loadTable(category: (typeof helpCategories)[number]["slug"], q: string, page: number) {
+async function loadTable(category: string, q: string, page: number) {
   let rows: HelpDirectoryRow[] = [];
   let total = 0;
   let pages = 1;
@@ -53,9 +57,9 @@ async function loadTable(category: (typeof helpCategories)[number]["slug"], q: s
       inlineDog: { name: item.dogName ?? "", editable: item.status !== "ARCHIVED" && item.duplicateOfId === null,
         kind: "stratene-a-najdene" },
     }));
-  } else if (category === "utulky") {
+  } else if (category === "utulky" || category === "organizacie") {
     const data = await getOrganizationAdminPage(parseOrganizationAdminFilters({ get: key =>
-      key === "q" ? q : key === "page" ? String(page) : key === "type" ? "SHELTER" : null,
+      key === "q" ? q : key === "page" ? String(page) : key === "type" && category === "utulky" ? "SHELTER" : null,
     }));
     total = data.pagination.total; pages = data.pagination.totalPages; currentPage = data.pagination.page;
     rows = data.items.map(item => ({
@@ -73,12 +77,14 @@ async function loadTable(category: (typeof helpCategories)[number]["slug"], q: s
     }));
   } else {
     const data = await getManagedHelpDashboard(parseHelpAdminFilters({ get: key =>
-      key === "category" ? category : key === "q" ? q : key === "page" ? String(page) : null,
+      key === "category" ? (category === "ostatna-pomoc" ? null : category) : key === "q" ? q : key === "page" ? String(page) : null,
     }));
     total = data.resultCount; pages = data.pages; currentPage = data.page;
     rows = data.items.map(item => ({
-      id: item.id, title: item.title, detail: item.organization || item.dogName || "",
-      category, status: item.resolved ? "Vybavené" : item.status === "published" ? "Publikované" : "Koncept",
+      id: item.id, title: item.title,
+      detail: [allHelpCategories.find(entry => entry.slug === item.category)?.label || item.category,
+        item.organization || item.dogName].filter(Boolean).join(" · "),
+      category: item.category, status: item.resolved ? "Vybavené" : item.status === "published" ? "Publikované" : "Koncept",
       city: item.city, updatedAt: item.updatedAt, href: "/admin/pomoc/" + item.id,
       inlineHelp: { title: item.title, excerpt: item.excerpt, editable: true },
     }));
@@ -88,7 +94,7 @@ async function loadTable(category: (typeof helpCategories)[number]["slug"], q: s
 
 async function HelpTable({ promise, category, q }: {
   promise: ReturnType<typeof loadTable>;
-  category: (typeof helpCategories)[number]["slug"];
+  category: string;
   q: string;
 }) {
   const table = await promise;
@@ -96,9 +102,12 @@ async function HelpTable({ promise, category, q }: {
   if (q) returnQuery.set("q", q);
   if (table.page > 1) returnQuery.set("page", String(table.page));
   const returnHref = "/admin/pomoc-psom?" + returnQuery.toString();
+  const isOrganizationView = category === "organizacie" || category === "utulky";
+  const isOtherHelpView = category === "ostatna-pomoc" || isHelpAdminManagedCategory(category);
   return <AdminHelpUnifiedTable
     category={category}
-    categories={helpCategories.map(item => ({ slug: item.slug, label: item.label, icon: item.icon, href: hrefByCategory[item.slug] }))}
+    categories={workspaceCategories}
+    filterOptions={isOrganizationView ? organizationFilters : isOtherHelpView ? otherHelpFilters : []}
     rows={table.rows.map(row => ({ ...row, href: adminDetailHref(row.href, returnHref) }))}
     query={q}
     page={table.page}
@@ -111,26 +120,19 @@ export default async function AdminDogHelpPage({ searchParams }: { searchParams:
   const user = await requireAdminPageUser("/admin/pomoc-psom");
   const raw = await searchParams;
   const requested = first(raw.category);
-  const category = helpCategories.find(item => item.slug === requested)?.slug ?? "adopcia";
+  // Legacy subcategory URLs remain valid and show the correct four-tab workspace.
+  const category = requested === "organizacie" || requested === "ostatna-pomoc" ||
+    allHelpCategories.some(item => item.slug === requested) ? requested : "adopcia";
   const q = first(raw.q).trim().slice(0, 80);
   const page = Math.min(100_000, Math.max(1, Number.parseInt(first(raw.page) || "1", 10) || 1));
-  const items: AdminSectionHubItem[] = helpCategories.map(item => ({
-    label: item.slug === "utulky" ? "Útulky" : item.label,
-    description: item.slug === "utulky"
-      ? "Správa útulkov podľa toho, čo reálne robia. Právna forma tu nie je pracovná kategória."
-      : item.description,
-    icon: item.icon, href: hrefByCategory[item.slug],
-  }));
   const tablePromise = loadTable(category, q, page);
 
   return (
     <AdminShell user={user} eyebrow="Pomoc psom" title="Pomoc psom"
-      description="Vyber kategóriu a otvor konkrétny profil priamo z tabuľky. Úpravy prebiehajú v pôvodných editoroch.">
-      <AdminDirectoryModuleNav active="help" />
+      description="Jedna tabuľka pre adopcie, hlásenia, organizácie a ostatnú pomoc. Každý záznam má vlastný editor.">
       <Suspense fallback={<AdminDataLoading label="Pomoc psom" />}>
         <HelpTable promise={tablePromise} category={category} q={q} />
       </Suspense>
-      <div className={styles.mobileHub}><AdminSectionHub items={items} /></div>
     </AdminShell>
   );
 }
