@@ -19,6 +19,7 @@ import { organizationPublicationTypes } from "./help-organization-publication";
 import { partnerHelpCaseCategories } from "./partner-help-create";
 import { enqueueAdminNotificationEvent } from "./admin-notifications";
 import { helpEditorFields } from "./partner-help-editor-fields";
+import { getPartnerLostFoundSubmitIssue } from "./partner-lost-found-intake";
 import { normalizeProfileGalleryUrls, mergeProfileGallery, readProfileGallery } from "./partner-profile-gallery";
 import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-category-sql";
@@ -397,6 +398,13 @@ export async function submitPartnerCanonicalDraft(input:{accountId:string;id:str
   const current=await canonicalRevision(row,db);
   if(!current||!["draft","DRAFT"].includes(current.status))
     throw new PartnerCanonicalWorkflowError("Koncept už nie je neverejný.",409);
+  if(row.resourceType==="LOST_FOUND_DOG"){
+    const draft=await getPartnerCanonicalDraft({accountId:input.accountId,id:row.id,database:db});
+    if(draft.baseUpdatedAt!==current.updatedAt)
+      throw new PartnerCanonicalWorkflowError("Koncept sa počas odosielania zmenil. Obnovte ho.",409);
+    const issue=getPartnerLostFoundSubmitIssue(draft.values,input.now??new Date());
+    if(issue)throw new PartnerCanonicalWorkflowError(issue.message,422,"INCOMPLETE_LOST_FOUND_REPORT");
+  }
   // The old new-profile page now redirects here. Preserve its HIGH-duplicate
   // confirmation gate, and never match the draft against its own canonical row.
   const duplicateStatements:D1PreparedStatement[]=[];
@@ -423,8 +431,8 @@ export async function submitPartnerCanonicalDraft(input:{accountId:string;id:str
   await applyAtomicModerationTransition(db,{
     id:row.id,expectedStatus:row.status,toStatus:"SUBMITTED",actorType:"PARTNER",
     actorRef:accountActor(input.accountId),eventId:crypto.randomUUID(),changedFieldsJson:'["status"]',now:nowIso,
-    transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+" WHERE id=? AND status IN ('draft','DRAFT'))",
-      bindings:[row.canonicalId]},
+    transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+" WHERE id=? AND status IN ('draft','DRAFT') AND updated_at=?)",
+      bindings:[row.canonicalId,current.updatedAt]},
     extraStatements:duplicateStatements,
   });
   // Notifications must never accidentally expose a still-unsubmitted draft.
