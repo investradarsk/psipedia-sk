@@ -18,6 +18,7 @@ import {
 } from "../lib/notion-canonical-target.ts";
 import {
   adoptionStatusFromNotion,
+  adoptionPayload,
   agendaEditableFields,
   NOTION_MAIN_IMAGE_FIELDS,
   needsAdminMainImageBackfill,
@@ -128,6 +129,44 @@ test("an empty Notion image cannot erase the uploaded Admin image in any Events/
       { [field]: "https://example.org/replacement.webp" }, admin), false);
     assert.equal(needsAdminMainImageBackfill(agenda, { [field]: "" }, { [field]: "" }), false);
   }
+});
+
+
+test("a single Notion adoption field edit preserves D1-only public contacts and profile options", () => {
+  const photoStyle = { mode: "crop", zoom: 1.2, x: 0.3, y: 0.7 };
+  const existing = {
+    status: "ACTIVE",
+    breedName: "Labrador", breedId: 9,
+    organizationId: null, organizationSlug: null,
+    mainImage: "/media/adoption.jpg",
+    thumbnailImageDisplay: photoStyle,
+    detailImageDisplay: photoStyle,
+    gallery: ["/media/adoption-other.jpg"],
+    suitableForChildren: "YES", suitableForDogs: "NO",
+    suitableForCats: "CONDITIONAL", suitableForOtherAnimals: "UNKNOWN",
+    apartmentSuitable: false, beginnerSuitable: true,
+    needsExperiencedOwner: true, vaccinationStatus: "UP_TO_DATE",
+    chipped: true, neutered: false,
+    adoptionRequirements: "Zabezpečená záhrada",
+    contactEmail: "adopcia@example.sk", contactPhone: "+421900000000",
+    contactUrl: "https://example.sk/adopcia",
+    lastVerifiedAt: "2026-11-22T10:00:00Z",
+  };
+  const notion = {
+    "Meno": "Luna", "Slug": "luna", "Stav": "Publikované",
+    "Plemeno": "Labrador", "Organizácia": "Útulok",
+    "Popis": "Upravený text z Notionu",
+    "Hlavný obrázok URL": "https://psipedia.sk/media/adoption.jpg",
+  };
+  const payload = adoptionPayload(notion, existing, null);
+  assert.equal(payload.description, "Upravený text z Notionu");
+  for (const field of [
+    "gallery", "thumbnailImageDisplay", "detailImageDisplay",
+    "suitableForChildren", "suitableForDogs", "suitableForCats", "suitableForOtherAnimals",
+    "apartmentSuitable", "beginnerSuitable", "needsExperiencedOwner",
+    "vaccinationStatus", "chipped", "neutered", "adoptionRequirements",
+    "contactEmail", "contactPhone", "contactUrl", "lastVerifiedAt",
+  ]) assert.deepEqual(payload[field], existing[field], field + " must survive an unrelated Notion edit");
 });
 
 test("unchanged snapshot stays unchanged", () => {
