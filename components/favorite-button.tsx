@@ -1,30 +1,14 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { BookmarkIcon } from "./icons";
+import { readFavorites, subscribeFavorites, writeFavorites } from "@/lib/public-favorites";
 import utilityStyles from "./public-utility-action.module.css";
 
-const STORAGE_KEY = "psipedia-favorites";
-
-function readFavorites(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
 export function FavoriteButton({ slug, compact = false }: { slug: string; compact?: boolean }) {
+  const [writeFailed, setWriteFailed] = useState(false);
   const saved = useSyncExternalStore(
-    (onChange) => {
-      window.addEventListener("psipedia-favorites-changed", onChange);
-      window.addEventListener("storage", onChange);
-      return () => {
-        window.removeEventListener("psipedia-favorites-changed", onChange);
-        window.removeEventListener("storage", onChange);
-      };
-    },
+    subscribeFavorites,
     () => readFavorites().includes(slug),
     () => false,
   );
@@ -34,23 +18,27 @@ export function FavoriteButton({ slug, compact = false }: { slug: string; compac
     const next = current.includes(slug)
       ? current.filter((item) => item !== slug)
       : [...current, slug];
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    window.dispatchEvent(new CustomEvent("psipedia-favorites-changed"));
+    setWriteFailed(!writeFavorites(next));
   }
 
+  const error = writeFailed ? "Zmenu obľúbených sa nepodarilo uložiť" : null;
+
   return (
-    <button
-      type="button"
-      className={`${utilityStyles.utility} public-utility-action favorite-button ${compact ? "favorite-button--compact" : ""} ${saved ? "is-saved" : ""}`}
-      onClick={toggle}
-      aria-pressed={saved}
-      aria-label={saved ? "Odstrániť z obľúbených" : "Uložiť medzi obľúbené"}
-      title={saved ? "Uložené" : "Uložiť článok"}
-    >
-      <BookmarkIcon filled={saved} />
-      {!compact && <span>{saved ? "Uložené" : "Uložiť"}</span>}
-    </button>
+    <>
+      <button
+        type="button"
+        className={`${utilityStyles.utility} public-utility-action favorite-button ${compact ? "favorite-button--compact" : ""} ${saved ? "is-saved" : ""}`}
+        onClick={toggle}
+        aria-pressed={saved}
+        aria-label={saved ? "Odstrániť z obľúbených" : "Uložiť medzi obľúbené"}
+        title={error ?? (saved ? "Uložené" : "Uložiť článok")}
+      >
+        <BookmarkIcon filled={saved} />
+        {!compact && <span>{error ?? (saved ? "Uložené" : "Uložiť")}</span>}
+      </button>
+      <span role="status" className="sr-only">
+        {error}
+      </span>
+    </>
   );
 }
-
-export { STORAGE_KEY };

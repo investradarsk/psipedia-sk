@@ -198,7 +198,7 @@ test("V3 semantic actions and focus tokens remain consistent at 1440/390/320", a
   }
 });
 
-test("compact V3: 320/390/1440 screenshots, no overflow and 44px editor actions", async ({ page }) => {
+test("compact V5: 320/390/1440 screenshots, no overflow and responsive editor actions", async ({ page }) => {
   for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
     const response = await page.goto("/admin/editor-workspace-preview");
@@ -216,7 +216,8 @@ test("compact V3: 320/390/1440 screenshots, no overflow and 44px editor actions"
     const save = editor.getByRole("button", { name: "Uložiť koncept" });
     await expect(save).toBeVisible();
     const saveHeight = await save.evaluate((element) => element.getBoundingClientRect().height);
-    expect(saveHeight, "Save action must remain at least 44px").toBeGreaterThanOrEqual(43.5);
+    const minimumSaveHeight = width <= 820 ? 43.5 : 37.5;
+    expect(saveHeight, "Save action uses 44px mobile and 38px desktop V5 geometry").toBeGreaterThanOrEqual(minimumSaveHeight);
     await verifyNoHorizontalOverflow(page);
     await screenshot(page, "compact-" + width + "-editor");
   }
