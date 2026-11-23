@@ -299,6 +299,22 @@ const worker = {
       return Response.redirect(url, 301);
     }
 
+    // Recover the exact report kind before Vinext's query-based RSC entry.
+    // This is a URL canonicalization only: the destination still enforces the
+    // Partner session, onboarding and edit permissions on the server.
+    if (request.method === "GET") {
+      const legacyReportPath = url.pathname === "/pomoc-psom/stratene-a-najdene/nahlasit";
+      const queryReportPath = url.pathname === "/partner/koncepty/novy" &&
+        url.searchParams.get("typ") === "LOST_FOUND_DOG";
+      if (legacyReportPath || queryReportPath) {
+        const kind = url.searchParams.get("druh") ?? url.searchParams.get("type");
+        const destination = kind === "LOST" ? "/partner/koncepty/novy/strateny"
+          : kind === "FOUND" ? "/partner/koncepty/novy/najdeny"
+          : "/partner/koncepty/novy/nahlasit";
+        return Response.redirect(new URL(destination, url), 307);
+      }
+    }
+
     // Public XML only: a warm POP may safely serve its most recent validated
     // snapshot when D1/SSR has a transient error. Never cache authenticated,
     // queried or private requests; public HTML caching remains separate.
