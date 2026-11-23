@@ -1,8 +1,11 @@
 import Link from "next/link";
 import type { Article } from "@/lib/content";
-import { ArticleCard } from "@/components/article-card";
+import { EditorialTopicArticleGrid } from "@/components/editorial-topic-article-grid";
+import { PublicLandingSectionHeading } from "@/components/public-visual-system";
 import styles from "./breed-article-collection.module.css";
 
+/** Atlas, FCI-group and archive previews share the exact topic card grid
+ * from Šteniatka → Pred kúpou psa. No separate cards or white outer panel. */
 export function BreedArticleCollection({
   articles, id, title, href, actionLabel, headingLevel = 2, compact = false,
 }: {
@@ -20,19 +23,27 @@ export function BreedArticleCollection({
     <section id={id} aria-labelledby={headingId}
       className={`${styles.section} ${compact ? styles.compact : ""}`}
       data-breed-editorial-collection>
-      <div className={styles.header}>
-        {headingLevel === 2
-          ? <h2 id={headingId}>{title}</h2>
-          : <h3 id={headingId}>{title}</h3>}
-      </div>
-      <div className={styles.grid} role="list">
-        {articles.slice(0, 3).map(article => (
-          <div className={styles.item} role="listitem" key={article.slug}>
-            <ArticleCard article={article} variant="grid" headingLevel={4} listItem={false}/>
-          </div>
-        ))}
-      </div>
-      <Link className={styles.link} href={href}>{actionLabel} <span aria-hidden="true">→</span></Link>
+      {headingLevel === 2 ? (
+        <PublicLandingSectionHeading
+          eyebrow="Články o plemenách"
+          title={title}
+          id={headingId}
+        />
+      ) : (
+        <div className={styles.groupHeading}>
+          <span className={styles.eyebrow}>Články v skupine FCI</span>
+          <h3 id={headingId}>{title}</h3>
+        </div>
+      )}
+      <EditorialTopicArticleGrid
+        articles={articles}
+        label={title}
+        limit={3}
+        constrained
+      />
+      <Link className={styles.link} href={href}>
+        {actionLabel} <span aria-hidden="true">→</span>
+      </Link>
     </section>
   );
 }
