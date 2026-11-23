@@ -11,7 +11,7 @@ test("desktop Prehľad header navigates home, not just expands a disclosure", ()
   assert.match(source, /aria-expanded=\{navigatesToOverview \? undefined : expanded\}/);
   assert.match(source, /aria-controls=\{navigatesToOverview \? undefined : /);
   assert.match(source, /aria-label=\{navigatesToOverview \? "Prejsť na pracovný prehľad" : undefined\}/);
-  assert.match(source, /const navigate = \(\) => router\.push\("\/admin"\)/);
+  assert.match(source, /dispatchAdminOverviewNavigation\(\(\) => router\.push\("\/admin"\)\)/);
   assert.match(source, /setExpandedDesktopGroup\(\{ pathname, group: expanded \? "" : group\.label \}\)/);
 });
 
@@ -26,10 +26,12 @@ test("accepted programmatic transitions are watched by the existing Admin naviga
 
 test("programmatic header navigation honors the dirty-editor confirmation", () => {
   const nav = read("components/admin-navigation.tsx");
+  const intent = read("lib/admin-overview-navigation.ts");
   const guard = read("components/admin-editor-navigation-guard.tsx");
-  assert.match(nav, /new CustomEvent<AdminNavigationIntent>\(ADMIN_NAVIGATION_INTENT_EVENT, \{/);
-  assert.match(nav, /cancelable: true,\s*detail: \{ href: "\/admin", navigate \}/);
-  assert.match(nav, /if \(window\.dispatchEvent\(intent\)\) navigate\(\)/);
+  assert.match(nav, /dispatchAdminOverviewNavigation\(\(\) => router\.push\("\/admin"\)\)/);
+  assert.match(intent, /new CustomEvent<AdminNavigationIntent>\(ADMIN_NAVIGATION_INTENT_EVENT, \{/);
+  assert.match(intent, /cancelable: true,\s*detail: \{ href: "\/admin", navigate \}/);
+  assert.match(intent, /if \(dispatch\(intent\)\) navigate\(\)/);
   assert.match(guard, /window\.addEventListener\(ADMIN_NAVIGATION_INTENT_EVENT, onIntent\)/);
   assert.match(guard, /event\.preventDefault\(\);\s*requestNavigation\(detail\.navigate\)/);
 });
