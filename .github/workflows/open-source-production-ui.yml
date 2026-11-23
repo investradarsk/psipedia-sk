@@ -94,5 +94,4 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Validate Zod, Fuse, lockfile, and production integration
         run: node --experimental-strip-types --test tests/open-source-production-ui.test.mjs tests/open-source-final-adoption.test.mjs tests/service-catalog-mobile-polish.test.mjs tests/admin-open-source-unification.test.mjs tests/article-gallery-shared-upload.test.mjs tests/admin-single-image-unification.test.mjs tests/admin-gallery-sortable-ids.test.mjs tests/admin-sections-v2.test.mjs tests/admin-unsaved-navigation-shared.test.mjs tests/admin-unified-partner-confirmations.test.mjs tests/admin-unified-review-confirmations.test.mjs tests/admin-unified-organization-confirmations.test.mjs tests/organization-dashboard-hydration.test.mjs tests/admin-shared-form-feedback.test.mjs tests/admin-unsaved-form-links.test.mjs
-      - name: Lint changed production modules
-      # Required CI builds runtime PR changes once; avoid a duplicate build here.
+      # Runtime changes are linted and built by the required CI workflow.
