@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin-navigation";
 import styles from "./admin-navigation.module.css";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
+import { dispatchAdminOverviewNavigation } from "@/lib/admin-overview-navigation";
 
 function NavigationPendingIndicator() {
   const { pending } = useLinkStatus();
@@ -32,6 +33,10 @@ function useAdminIntentPrefetch() {
   useEffect(() => { prefetched.current.clear(); }, [pathname]);
 
   return (href: string) => {
+    // The workspace streams authenticated D1 reads. Hover/focus prefetch can
+    // leave Vinext reusing an unfinished RSC request when the user clicks home.
+    // Navigate only on explicit intent, with a fresh client-router request.
+    if (href === "/admin") return;
     // Opening the mobile drawer focuses a link automatically. That is not
     // user intent to fetch an authenticated, D1-backed route.
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
@@ -51,6 +56,7 @@ function useAdminIntentPrefetch() {
 }
 
 function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
+  const router = useRouter();
   const pathname = usePathname();
   const prefetchOnIntent = useAdminIntentPrefetch();
   const active = findActiveAdminNavigationItem(pathname);
@@ -59,10 +65,16 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const selectedGroup = expandedDesktopGroup?.pathname === pathname ? expandedDesktopGroup.group : null;
   const groupGlyphs = ["⌂", "▤", "♧", "⚙", "◎", "◇", "⚙"];
 
+  function navigateToOverview() {
+    dispatchAdminOverviewNavigation(() => router.push("/admin"));
+  }
+
   return (
     <>
       {adminNavigationGroups.map((group, groupIndex) => {
         const groupActive = group.items.some((item) => item.href === active?.href);
+        const navigatesToOverview = !mobile && pathname !== "/admin" &&
+          group.items.some((item) => item.href === "/admin");
         const expanded = mobile || (selectedGroup === group.label || (selectedGroup === null && groupActive));
         return (
         <div className={mobile ? styles.mobileGroup : styles.desktopGroup} key={group.label} data-admin-nav-group={group.label}>
@@ -72,10 +84,17 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
             <button
               type="button"
               className={styles.groupButton}
-              aria-expanded={expanded}
-              aria-controls={`admin-group-${groupIndex}`}
+              aria-expanded={navigatesToOverview ? undefined : expanded}
+              aria-controls={navigatesToOverview ? undefined : `admin-group-${groupIndex}`}
+              aria-label={navigatesToOverview ? "Prejsť na pracovný prehľad" : undefined}
               data-active={groupActive ? "true" : undefined}
-              onClick={() => setExpandedDesktopGroup({ pathname, group: expanded ? "" : group.label })}
+              onClick={() => {
+                if (navigatesToOverview) {
+                  navigateToOverview();
+                  return;
+                }
+                setExpandedDesktopGroup({ pathname, group: expanded ? "" : group.label });
+              }}
             >
               <span className={styles.groupGlyph} aria-hidden="true">{groupGlyphs[groupIndex]}</span>
               <span>{group.label}</span>

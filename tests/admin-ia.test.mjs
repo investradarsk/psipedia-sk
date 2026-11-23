@@ -147,7 +147,8 @@ test("sidebar links are mounted only for expanded groups and prefetched only on 
   assert.match(navigation, /router\.prefetch\(href\)/);
   assert.match(navigation, /prefetched\.current\.clear\(\)/);
   assert.doesNotMatch(navigation, /router\.prefetch\(href,\s*\{\s*onInvalidate/);
-  assert.match(navigation, /aria-expanded=\{expanded\}/);
+  assert.match(navigation, /aria-expanded=\{navigatesToOverview \? undefined : expanded\}/);
+  assert.match(navigation, /aria-label=\{navigatesToOverview \? "Prejsť na pracovný prehľad" : undefined\}/);
   assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
   assert.match(shell, /<AdminNavigation/);
   assert.match(navigation, /<NavigationGroups mobile \/>/);
@@ -179,8 +180,8 @@ test("admin landing is the read-only workspace and old article filters redirect 
 
   assert.match(landing, /title="Pracovný prehľad"/);
   assert.match(landing, /const attentionPromise = loadRequestAdminAttentionSummary\(\)/);
-  assert.match(landing, /attentionSummaryPromise=\{attentionPromise\}/);
-  assert.match(landing, /attentionPromise=\{attentionPromise\}/);
+  assert.match(landing, /attentionSummaryPromise=\{boundedAttentionPromise\}/);
+  assert.match(landing, /attentionPromise=\{boundedAttentionPromise\}/);
   assert.match(landing, /readAdminAutomationData/);
   assert.match(read("components/admin-workspace-dashboard.tsx"), /summarizeAdminAutomationReads/);
   assert.match(landing, /loadAdminQualityPendingSummary/);
