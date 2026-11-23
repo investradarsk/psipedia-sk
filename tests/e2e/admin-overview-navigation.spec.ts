@@ -46,6 +46,30 @@ test("Prehľad opens from an actual directory record editor", async ({ page }) =
   await expectOverview(page);
 });
 
+test("mobile drawer returns from Adresár to Prehľad repeatedly", async ({ page }, info) => {
+  test.skip(info.project.name !== "mobile-chromium", "Mobile drawer behavior");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  await expectOverview(page);
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const menu = page.getByRole("button", { name: "Menu", exact: true });
+    await menu.click();
+    const drawer = page.getByRole("dialog", { name: "Navigácia administrácie" });
+    await expect(drawer).toBeVisible();
+    await drawer.getByRole("link", { name: "Služby pre psov", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/sluzby-pre-psov$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
+
+    await menu.click();
+    const home = page.getByRole("dialog", { name: "Navigácia administrácie" })
+      .getByRole("link", { name: "Pracovný prehľad", exact: true });
+    await home.click();
+    await expectOverview(page);
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+  }
+});
+
 test("Prehľad header asks before leaving a dirty editor and preserves edits on Stay", async ({ page }) => {
   await page.goto("/admin/organizacie/novy", { waitUntil: "domcontentloaded" });
   const name = page.getByLabel("Názov *", { exact: true });
