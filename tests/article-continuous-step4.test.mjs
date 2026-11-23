@@ -114,6 +114,28 @@ test("CONTINUOUS STEP 4: editor can append a new paragraph and new heading witho
   assert.equal(result.blocks.at(-1).text, "Nový podnadpis");
 });
 
+test("CONTINUOUS STEP 4: Enter after original H2 preserves heading and creates a new body block ID", () => {
+  const original = fixture();
+  const doc = articleToCanonicalContinuousDocument(original);
+  const headingAt = doc.content.findIndex(node => node.attrs?.sourceBlockId === "h2");
+  const heading = doc.content[headingAt];
+  // ProseMirror's splitBlock copies the original heading attributes to the
+  // next paragraph, so both carry the same origin even though one is new.
+  doc.content.splice(headingAt + 1, 0, {
+    type: "paragraph",
+    attrs: structuredClone(heading.attrs),
+    content: [{ type: "text", text: "Nový odsek po nadpise" }],
+  });
+  const result = convert(doc, original);
+  assert.equal(result.blocks[1].type, "h2");
+  assert.equal(result.blocks[1].text, "Nadpis");
+  assert.equal(result.blocks[1].id, "h2");
+  assert.equal(result.blocks[2].type, "text");
+  assert.equal(result.blocks[2].content, "Nový odsek po nadpise");
+  assert.notEqual(result.blocks[2].id, "h2");
+  assert.deepEqual(result.blocks.slice(3), original.blocks.slice(2));
+});
+
 test("CONTINUOUS STEP 4: empty intro is editable and becomes intro without spilling into body", () => {
   const input = fixture();
   input.intro = "";
