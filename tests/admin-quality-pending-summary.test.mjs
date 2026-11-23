@@ -68,6 +68,9 @@ test("Admin workspace uses the light reader while /admin/kvalita retains full hi
   assert.doesNotMatch(homepage, /loadMissingQualityDashboard|getQualityMissingDatabase|data-quality-missing-hourly/);
   assert.match(homepage, /if \(!result\.schemaReady\) throw/);
   assert.match(qualityPage, /loadMissingQualityDashboard/);
-  assert.match(detailed, /ORDER BY id DESC LIMIT 1000/);
+  assert.match(detailed, /QUALITY_PAGE_SIZE = 100/);
+  assert.match(detailed, /QUALITY_READ_BUDGET = 1000/);
+  assert.match(detailed, /WHERE status='OPEN' AND id<\\? ORDER BY id DESC LIMIT \\?/);
+  assert.doesNotMatch(detailed, /ORDER BY id DESC LIMIT 1000/);
   assert.match(detailed, /GROUP BY area,status/);
 });
