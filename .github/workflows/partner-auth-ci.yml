@@ -58,6 +58,9 @@ on:
       - "tests/partner-media.test.mjs"
       - "tests/partner-intake-step2.test.mjs"
       - "tests/partner-intake-step3.test.mjs"
+      - "tests/partner-intake-step4.test.mjs"
+      - "components/lost-found-dog-detail.tsx"
+      - "app/admin/partners/claims/[id]/page.tsx"
       - "tests/e2e/partner-auth.spec.ts"
       - "tests/fixtures/partner-auth-e2e.sql"
       - ".github/workflows/partner-auth-ci.yml"
@@ -98,7 +101,7 @@ jobs:
       - name: Partner auth security tests
         run: npm run test:partner-auth
       - name: Partner LOST/FOUND intake cutover and privacy regressions
-        run: node --experimental-strip-types --test tests/partner-intake-step2.test.mjs tests/partner-intake-step3.test.mjs
+        run: node --experimental-strip-types --test tests/partner-intake-step2.test.mjs tests/partner-intake-step3.test.mjs tests/partner-intake-step4.test.mjs
       - name: Partner review lock and Notion checkbox regressions
         run: node --experimental-strip-types --test tests/admin-events-help-reviewed-lock.test.mjs tests/notion-events-help-reviewed-mirror.test.mjs
       - name: Partner admin search, paging and loading regression tests
