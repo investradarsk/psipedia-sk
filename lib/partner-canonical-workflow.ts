@@ -166,6 +166,12 @@ function cleanFields(type:PartnerCanonicalType,raw:unknown){
     if(typeof value!=="string"||value.length>20000||/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value))
       throw new PartnerCanonicalWorkflowError("Pole "+key+" obsahuje neplatnú hodnotu.");
     const text=value.trim();
+    // Keep SQL CHECK defaults when incomplete LOST/FOUND drafts are saved.
+    // A draft must be saveable before a partner fills the mandatory report details.
+    if(type==="LOST_FOUND_DOG"&&text===""){
+      const defaults:Record<string,string>={sex:"UNKNOWN",size:"UNKNOWN",chipped:"UNKNOWN",public_location_precision:"MUNICIPALITY"};
+      if(Object.hasOwn(defaults,key)){clean[key]=defaults[key];continue;}
+    }
     if(detail?.kind==="select"&&text&&!(detail.options??[]).includes(text))
       throw new PartnerCanonicalWorkflowError("Neplatná možnosť: "+key);
     if(detail?.kind==="date"&&text&&!/^\d{4}-\d{2}-\d{2}$/.test(text))
