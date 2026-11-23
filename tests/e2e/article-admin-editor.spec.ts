@@ -181,7 +181,19 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(document).toContainText("NOVA-SUVISLA-VERZIA");
     await expect(blockSection.locator('[data-article-tiptap-invalid="true"]')).toHaveCount(0);
 
-    await blockSection.locator("[data-article-legacy-toggle]").click();
+    const legacyToggle = blockSection.locator("[data-article-legacy-toggle]");
+    // The formatting toolbar is sticky. Explicit scrolling respects the control's
+    // scroll-margin and avoids a pointer click under the toolbar on narrow screens.
+    await legacyToggle.evaluate(element => element.scrollIntoView({ block: "start", behavior: "instant" }));
+    await expect.poll(() => legacyToggle.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      return y > 0 && y < window.innerHeight
+        && (element === document.elementFromPoint(x, y)
+          || element.contains(document.elementFromPoint(x, y)));
+    })).toBe(true);
+    await legacyToggle.click();
     // Show lossless-roundtrip guard details if the mode transition is blocked.
     await expect.poll(async () => blockSection.evaluate(section => {
       const pressed = section.querySelector("[data-article-legacy-toggle]")?.getAttribute("aria-pressed");
