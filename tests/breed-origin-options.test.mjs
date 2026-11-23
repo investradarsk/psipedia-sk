@@ -18,6 +18,7 @@ const compiled = ts.transpileModule(source, {
 const exports = {};
 const wrapper = ({ children }) => React.createElement("div", null, children);
 const effects = [];
+const links = [];
 const replacements = [];
 const browserWindow = {
   location: { pathname: "/plemena", search: "", hash: "#clanky-o-plemenach" },
@@ -30,8 +31,8 @@ new Function("require", "exports", "window", "document", compiled)(
     if (name === "@/lib/breed-browser-search")
       return {
         indexBreedSearch: (breeds) => breeds,
-        filterIndexedBreeds: () => [],
-        groupVisibleBreeds: () => [],
+        filterIndexedBreeds: (breeds) => breeds,
+        groupVisibleBreeds: (breeds, groups) => groups.map((group) => ({ group, breeds })),
       };
     if (name === "@/lib/breed-atlas")
       return {
@@ -40,7 +41,13 @@ new Function("require", "exports", "window", "document", compiled)(
         listFciSectionOptions: () => [],
         validFciSectionForGroup: () => "",
       };
-    if (name === "next/link") return { default: wrapper };
+    if (name === "next/link")
+      return {
+        default: ({ children, ...props }) => {
+          links.push(props);
+          return React.createElement("a", { href: props.href }, children);
+        },
+      };
     return new Proxy(
       {},
       {
@@ -100,4 +107,38 @@ test("atlas filter URL synchronization preserves deep links and skips identical 
   assert.deepEqual(replacements, []);
   sync("labrador");
   assert.deepEqual(replacements, ["/plemena?q=labrador#clanky-o-plemenach"]);
+});
+
+test("atlas group expansion intercepts plain clicks only", () => {
+  links.length = 0;
+  renderToStaticMarkup(
+    React.createElement(exports.BreedBrowser, {
+      breeds: Array.from({ length: 4 }, (_, index) => ({ slug: "breed-" + index, origin: "" })),
+      groups: [{ number: 1, label: "Ovčiarske psy" }],
+      initialFilters: { query: "", fciGroup: "", fciSection: "", origin: "" },
+    }),
+  );
+  const link = links.find(({ onClick }) => onClick);
+  assert.ok(link);
+  for (const modifiers of [
+    { ctrlKey: true },
+    { metaKey: true },
+    { shiftKey: true },
+    { altKey: true },
+    { button: 1 },
+  ]) {
+    link.onClick({
+      button: 0,
+      ...modifiers,
+      preventDefault: () => assert.fail("Native link action blocked"),
+    });
+  }
+  let intercepted = false;
+  link.onClick({
+    button: 0,
+    preventDefault: () => {
+      intercepted = true;
+    },
+  });
+  assert.ok(intercepted);
 });
