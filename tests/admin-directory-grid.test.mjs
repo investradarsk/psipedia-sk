@@ -40,7 +40,7 @@ test("all canonical actions and versioned mutation endpoints stay owned by exist
   const editorLink = read("components/admin-directory-editor-link.tsx");
   assert.match(directory, /<AdminDirectoryEditorLink[^>]*profileId=\{profile.id\}/);
   assert.match(editorLink, /\/admin\/adresar\/\$\{profileId\}/);
-  assert.match(editorLink, /<a href=\{`\/admin\/adresar\/\$\{profileId\}`\}/);
+  assert.match(editorLink, /<a href=\{returnHref \? adminDetailHref/);
   assert.doesNotMatch(editorLink, /onClick|window\.location\.assign/);
   assert.match(help, /prepareBulk\("published"\)/);
   assert.match(help, /\/api\/admin\/help\/bulk/);
