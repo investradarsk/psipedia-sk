@@ -49,13 +49,17 @@ export function PartnerClaimForm({
       </div>
       <form onSubmit={submit} className="partner-auth-form">
         <label className="partner-field">
-          <span>Aký je váš vzťah k tomuto záznamu? <small>(voliteľné)</small></span>
+          <span>{entityType === "LOST_FOUND_DOG"
+            ? "Aký je váš vzťah k tomuto hláseniu a ako vás môžeme overiť?"
+            : "Aký je váš vzťah k tomuto záznamu?"} <small>(voliteľné)</small></span>
           <textarea
             rows={5}
             maxLength={1000}
             value={requestMessage}
             onChange={(event) => setRequestMessage(event.target.value)}
-            placeholder="Napr. som majiteľ prevádzky, organizátor podujatia alebo poverený správca."
+            placeholder={entityType === "LOST_FOUND_DOG"
+              ? "Napr. psa som nahlásil ja; redakcia ma môže kontaktovať cez pôvodný súkromný kontakt. Nepíšte sem heslá ani doklady."
+              : "Napr. som majiteľ prevádzky, organizátor podujatia alebo poverený správca."}
           />
         </label>
         {notice ? <p className={"partner-form-message is-" + notice.kind} role="status" aria-live="polite">{notice.text}</p> : null}
