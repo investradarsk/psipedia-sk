@@ -70,6 +70,9 @@ for (const entry of cases) {
     await expect(page.getByLabel("Veľkosť")).toBeVisible();
     await expect(page.getByLabel("Plemeno")).toBeVisible();
     await expect(page.getByRole("link", { name: "Zobraziť hlásenie", exact: true }).first()).toBeVisible();
+    const kind = entry.type === "LOST" ? "strateného" : "nájdeného";
+    await expect(page.getByRole("link", { name: `Nahlásiť ${kind} psa` }))
+      .toHaveAttribute("href", `/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=${entry.type}`);
     await expectPrivateValuesHidden(page);
     await expectNoHorizontalOverflow(page);
     await expectNoAxeViolations(page);
