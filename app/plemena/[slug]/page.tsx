@@ -175,6 +175,32 @@ export default async function BreedDetailPage({ params }: Props) {
     const meta = relatedArticleMeta.get(article.slug);
     return meta ? [{ ...article, ...meta }] : [];
   });
+  const relatedArticleCard = (placement: "desktop" | "mobile") => relatedArticles.length ? (
+    <section
+      id={`suvisiaci-obsah-${placement}`}
+      className={`${styles.sidebarEditorial} ${styles.anchorSection}`}
+      aria-label="Články o tomto plemene"
+      data-breed-related-articles={placement}
+    >
+      <h2>Články o tomto plemene</h2>
+      <PublicContentList label="Súvisiace články k plemenu">
+        {relatedArticles.slice(0, 3).map(article => (
+          <PublicArticleListItem
+            key={article.slug}
+            href={article.href}
+            title={article.title}
+            topic={article.topic}
+            date={article.date}
+            dateTime={article.dateIso}
+            image={article.image ? {
+              src: article.image,
+              alt: `Ilustračná fotografia k článku: ${article.title}`,
+            } : undefined}
+          />
+        ))}
+      </PublicContentList>
+    </section>
+  ) : null;
 
   const canonical = resolvedCanonical(
     { ...breed.seo, canonicalUrl: breedProfileHref(breed.slug, breed.fciGroup) },
@@ -512,6 +538,9 @@ export default async function BreedDetailPage({ params }: Props) {
                   {factsCard}
                 </div>
               ) : null}
+              <div className={styles.desktopRelatedArticles}>
+                {relatedArticleCard("desktop")}
+              </div>
               <ArticlePromo promoKey="veterinari" variant="v1" seed={breed.slug} compact />
               <PublicMagazineBanner
                 compact
@@ -581,6 +610,9 @@ export default async function BreedDetailPage({ params }: Props) {
                 {factsCard}
               </div>
             ) : null}
+            <div className={styles.mobileRelatedArticles}>
+              {relatedArticleCard("mobile")}
+            </div>
             {ratings.length ? (
               <section
                 id="hodnotenia"
@@ -901,39 +933,6 @@ export default async function BreedDetailPage({ params }: Props) {
                 />
               )}
             />
-          </section>
-        ) : null}
-
-        {relatedArticles.length > 0 ? (
-          <section
-            className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}
-            id="suvisiaci-obsah"
-          >
-            <header>
-              <PublicHeading role="panel" as="h2">
-                Články o tomto plemene
-              </PublicHeading>
-            </header>
-            <PublicContentList label="Súvisiace články k plemenu">
-              {relatedArticles.map((article) => (
-                <PublicArticleListItem
-                  key={article.slug}
-                  href={article.href}
-                  title={article.title}
-                  topic={article.topic}
-                  date={article.date}
-                  dateTime={article.dateIso}
-                  image={
-                    article.image
-                      ? {
-                          src: article.image,
-                          alt: `Ilustračná fotografia k článku: ${article.title}`,
-                        }
-                      : undefined
-                  }
-                />
-              ))}
-            </PublicContentList>
           </section>
         ) : null}
 
