@@ -91,7 +91,9 @@ async function canonicalYes(db:D1Database,profileId:number,known:Map<string,Item
   const result=await db.prepare(
     "SELECT option_id,choice,version FROM service_profile_option_choices WHERE profile_id=?1 AND choice='yes'"
   ).bind(profileId).all<D1Row>();
-  const selected=(result.results??[]).map(x=>x.option_id);
+  // Only service IDs belong to the Notion relation. Tri-state attributes
+  // are independent V3 choices and must never be treated as invalid services.
+  const selected=(result.results??[]).map(x=>x.option_id).filter(id=>id.startsWith("svc."));
   // A category removal cannot implicitly deselect a historical YES.
   // Review it explicitly instead of silently deleting a Notion relation.
   if(selected.some(id=>!known.has(id)))throw Error("SERVICES_RELATION_CATEGORY_CHANGED_REVIEW");
