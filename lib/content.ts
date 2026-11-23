@@ -32,7 +32,7 @@ export type Article = {
   slug: string;
   title: string;
   excerpt: string;
-  category: "Výcvik" | "Zdravie" | "Výživa" | "Život so psom";
+  category: "Výcvik" | "Zdravie" | "Výživa" | "Život so psom" | "Plemená";
   date: string;
   dateIso: string;
   updatedDate: string;

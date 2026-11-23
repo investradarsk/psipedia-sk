@@ -36,6 +36,7 @@ import {
   type EditorialRichTextMark,
 } from "@/lib/editorial-content";
 import { articleHref } from "@/lib/portal";
+import { isBreedArticlePlacementChange, isBreedArticleNotionChange, notionArticleBreedPlacement, type NotionArticleBreedPlacement } from "@/lib/notion-article-breed-placement";
 import {
   buildNotionEditorialPlan,
   notionEditorialBlockShape,
@@ -54,6 +55,7 @@ export type NotionSyncBindings = {
   NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
+  NOTION_BREEDS_WORK_DATA_SOURCE_ID?: string;
   BUCKET?: R2Bucket;
 };
 
@@ -232,6 +234,47 @@ function checkboxProperty(page: NotionPage, name: string) {
   return propertyRecord(page, name)?.checkbox === true;
 }
 
+
+
+/** The existing Notion article relation is authoritative only when present and fully read. */
+function notionArticleBreedPageIds(page: NotionPage): string[] | null {
+  const property = propertyRecord(page, "Prepojené plemená");
+  if (!property) return null; // older schema or inaccessible property: do not erase Admin relations
+  if (property.has_more === true) throw new Error("NOTION_ARTICLE_BREED_RELATION_TRUNCATED");
+  if (!Array.isArray(property.relation)) throw new Error("NOTION_ARTICLE_BREED_RELATION_INVALID");
+  return [...new Set(property.relation.map((entry) =>
+    entry && typeof entry === "object" && typeof (entry as { id?: unknown }).id === "string"
+      ? (entry as { id: string }).id.toLowerCase().replace(/-/g, "") : ""
+  ).filter((id) => /^[a-f0-9]{32}$/.test(id)))];
+}
+function notionArticleBreedFingerprint(page: NotionPage) {
+  const ids = notionArticleBreedPageIds(page);
+  return ids?.length ? { notionBreedPageIds: [...ids].sort() } : {};
+}
+async function resolveNotionArticleBreedIds(
+  database: D1Database, page: NotionPage, existingIds: readonly number[] = [],
+): Promise<number[]> {
+  const pageIds = notionArticleBreedPageIds(page);
+  if (pageIds === null) return [...existingIds];
+  const resolved: number[] = [];
+  for (const pageId of pageIds) {
+    let row = await database.prepare(
+      "SELECT breed_id FROM breed_notion_sync WHERE lower(replace(notion_page_id, '-', '')) = ? LIMIT 1",
+    ).bind(pageId).first<{ breed_id: number }>();
+    if (!row) {
+      try {
+        row = await database.prepare(
+          "SELECT breed_id FROM breed_notion_workcopy_links WHERE lower(replace(work_notion_page_id, '-', '')) = ? LIMIT 1",
+        ).bind(pageId).first<{ breed_id: number }>();
+      } catch (error) {
+        if (!/no such table/i.test(String(error))) throw error;
+      }
+    }
+    if (!row?.breed_id) throw new Error("Notion: prepojené plemeno nemá potvrdené mapovanie na existujúce plemeno v Admine.");
+    resolved.push(Number(row.breed_id));
+  }
+  return [...new Set(resolved)];
+}
 
 function safeRemoteImageUrl(value: string) {
   let url: URL;
@@ -658,6 +701,13 @@ function mapNotionPlacement(
   contentType: string,
   existing?: ExistingNotionArticlePlacement,
 ): NotionArticlePlacement {
+  if (notionCategory === "Plemená") {
+    if (notionSubsection) throw new Error("Pri kategórii Plemená nechaj v Notione pole Podsekcia prázdne.");
+    if (contentType === "Aktuálna novinka" || contentType === "Recenzia") {
+      throw new Error("Kategória Plemená nepodporuje typ Novinka ani Recenzia.");
+    }
+    return { category: "Plemená", portalSection: "clanky", portalSubpage: null, newsCategory: null };
+  }
   if (notionSubsection) {
     const canonical = resolveCanonicalArticleSubsection(notionCategory, notionSubsection);
     if (contentType === "Aktuálna novinka" && canonical.portalSection !== "novinky") {
@@ -698,7 +748,8 @@ function mapNotionPlacement(
   // unrelated portal section merely to retire legacy Notion category options.
   if (notionCategory === "Všeobecné články") {
     return {
-      category: existing?.portalSection === "clanky" ? existing.category : "Život so psom",
+      category: existing?.portalSection === "clanky" && existing.category !== "Plemená"
+        ? existing.category : "Život so psom",
       portalSection: "clanky",
       portalSubpage: null,
       newsCategory: null,
@@ -1227,6 +1278,269 @@ async function updateNotionSyncState(
 }
 
 
+
+/**
+ * This mirrors only an explicit change INTO/OUT OF the breed editorial
+ * category. It never writes the article body, SEO or publication state.
+ * The Notion preimage must match the acknowledged D1 sync receipt.
+ */
+function notionArticlePageWithPlacement(
+  page: NotionPage, placement: NotionArticleBreedPlacement,
+): NotionPage {
+  const category = propertyRecord(page, "Kategória");
+  const subsection = propertyRecord(page, "Podsekcia");
+  if (!category || !subsection ||
+      (category.type && category.type !== "select") ||
+      (subsection.type && subsection.type !== "select")) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_PROPERTY_MISSING");
+  }
+  return { ...page, properties: {
+    ...page.properties,
+    "Kategória": { ...category, select: { name: placement.category } },
+    "Podsekcia": { ...subsection, select: placement.subsection ? { name: placement.subsection } : null },
+    ...(propertyRecord(page, "Sekcia portálu") ? {
+      "Sekcia portálu": { ...propertyRecord(page, "Sekcia portálu"),
+        select: { name: placement.portalSection } },
+    } : {}),
+  } };
+}
+
+function notionArticlePageMatchesPlacement(
+  page: NotionPage, placement: NotionArticleBreedPlacement, allowBlankSection = true,
+) {
+  const sectionValue = selectProperty(page, "Sekcia portálu");
+  return selectProperty(page, "Kategória") === placement.category
+    && selectProperty(page, "Podsekcia") === (placement.subsection ?? "")
+    // Sekcia portálu is legacy advisory metadata. The canonical preimage
+    // is Kategória + Podsekcia, even if older rows kept a stale section.
+    && (allowBlankSection || !propertyRecord(page, "Sekcia portálu") ||
+      sectionValue === placement.portalSection);
+}
+
+
+function normalizedNotionPageId(value: string): string {
+  return value.toLowerCase().replace(/-/g, "");
+}
+function notionRelationIdsEqual(left: readonly string[], right: readonly string[]) {
+  return [...left].sort().join(",") === [...right].sort().join(",");
+}
+function notionArticlePageWithBreedRelation(page: NotionPage, ids: readonly string[]): NotionPage {
+  const property = propertyRecord(page, "Prepojené plemená");
+  if (!property || property.has_more === true || (property.type && property.type !== "relation")) {
+    throw new Error("NOTION_ARTICLE_BREED_RELATION_PROPERTY_INVALID");
+  }
+  return { ...page, properties: {
+    ...page.properties,
+    "Prepojené plemená": { ...property, relation: ids.map((id) => ({ id })) },
+  } };
+}
+/** The Notion article relation targets the ACTIVE breed work-copy data source, not the retired breed database. */
+async function articleBreedWorkcopyPageIds(
+  database: D1Database, bindings: NotionSyncBindings, breedIds: readonly number[],
+): Promise<string[]> {
+  const sourceId = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID;
+  if (!sourceId && breedIds.length) throw new Error("NOTION_ARTICLE_BREED_WORKCOPY_SOURCE_MISSING");
+  const result: string[] = [];
+  for (const id of [...new Set(breedIds)]) {
+    if (!Number.isSafeInteger(id) || id < 1) throw new Error("NOTION_ARTICLE_BREED_ID_INVALID");
+    const row = await database.prepare(
+      "SELECT work_notion_page_id FROM breed_notion_workcopy_links " +
+      "WHERE breed_id = ? AND status = 'ACTIVE' " +
+      "AND lower(replace(work_data_source_id, '-', '')) = lower(replace(?, '-', '')) LIMIT 1",
+    ).bind(id, sourceId).first<{ work_notion_page_id: string }>();
+    const normalized = normalizedNotionPageId(row?.work_notion_page_id ?? "");
+    if (!/^[a-f0-9]{32}$/.test(normalized)) {
+      throw new Error("NOTION_ARTICLE_BREED_WORKCOPY_ID_UNVERIFIED");
+    }
+    result.push(normalized.slice(0, 8) + "-" + normalized.slice(8, 12) + "-" +
+      normalized.slice(12, 16) + "-" + normalized.slice(16, 20) + "-" + normalized.slice(20));
+  }
+  return result;
+}
+
+async function notionArticlePageContentHash(
+  page: NotionPage, blocks: NotionBlock[],
+  existing: ExistingNotionArticlePlacement,
+  previousSeo: ArticleSeoRemoteValues | null,
+): Promise<string> {
+  const payload = notionPageToManagedArticleInput(page, blocks, existing, previousSeo);
+  const image = notionArticleMainImageSource(page);
+  return sha256(JSON.stringify({
+    payload: { ...payload, relatedBreedIds: [] },
+    ...notionArticleBreedFingerprint(page),
+    notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
+    ...(image.fileIdentity ? { notionImageFileIdentity: image.fileIdentity } : {}),
+    notionImageAlt: richTextProperty(page, "Alt text obrázka"),
+    notionImageCreditUrl: urlProperty(page, "Zdroj obrázka"),
+  }));
+}
+
+export async function writeBackArticleBreedCategoryToNotion(args: {
+  database: D1Database;
+  bindings: NotionSyncBindings;
+  before: ManagedArticle;
+  article: ManagedArticle;
+}): Promise<{ linked: boolean; updated: boolean; reason?: string }> {
+  const { database, bindings, before, article } = args;
+  if (!isBreedArticleNotionChange(before, article)) {
+    return { linked: false, updated: false, reason: "unchanged" };
+  }
+  if (!flagEnabled(bindings.NOTION_ARTICLE_SYNC_ENABLED) ||
+      !flagEnabled(bindings.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED)) {
+    return { linked: false, updated: false, reason: "disabled" };
+  }
+  if (before.id !== article.id || before.slug !== article.slug) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_IDENTITY_CONFLICT");
+  }
+  if (article.status !== "draft" && article.status !== "published") {
+    throw new Error("NOTION_ARTICLE_CATEGORY_STATUS_REVIEW_REQUIRED");
+  }
+  const originalPlacement = notionArticleBreedPlacement(before);
+  const desiredPlacement = notionArticleBreedPlacement(article);
+  if (!originalPlacement || !desiredPlacement) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_DESTINATION_UNSUPPORTED");
+  }
+  const mapping = await database.prepare(
+    "SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = ? LIMIT 1",
+  ).bind(article.id).first<{ notion_page_id: string; article_id: number; content_hash: string }>();
+  if (!mapping) return { linked: false, updated: false, reason: "not-linked" };
+  const receipt = decodeArticleSeoReceipt(mapping.content_hash);
+  const readPage = () => notionRequest<NotionPage>(
+    bindings, "/pages/" + encodeURIComponent(mapping.notion_page_id),
+  );
+  const checkIdentity = (page: NotionPage) => {
+    if (page.id !== mapping.notion_page_id || page.archived || page.in_trash ||
+        richTextProperty(page, "Psipedia ID") !== String(article.id) ||
+        richTextProperty(page, "Slug") !== article.slug ||
+        (page.parent?.data_source_id &&
+          page.parent.data_source_id !== bindings.NOTION_ARTICLES_DATA_SOURCE_ID)) {
+      throw new Error("NOTION_ARTICLE_CATEGORY_IDENTITY_CONFLICT");
+    }
+    const state = selectProperty(page, "Stav");
+    if (article.status === "draft"
+      ? state !== "Ready" || !checkboxProperty(page, "Odoslať na Psipedia")
+      : state !== "Publikované" && !(state === "Ready" &&
+        checkboxProperty(page, "Odoslať na Psipedia"))) {
+      throw new Error("NOTION_ARTICLE_CATEGORY_NOT_APPROVED");
+    }
+  };
+  const assertRevision = async () => {
+    const current = await database.prepare(
+      "SELECT slug, category, portal_section, status, updated_at FROM managed_articles WHERE id = ? LIMIT 1",
+    ).bind(article.id).first<{
+      slug: string; category: string; portal_section: string; status: string; updated_at: string;
+    }>();
+    if (!current || current.slug !== article.slug ||
+        current.category !== article.category || current.portal_section !== article.portalSection ||
+        current.status !== article.status || current.updated_at !== article.updatedAt) {
+      throw new Error("ADMIN_ARTICLE_REVISION_CONFLICT");
+    }
+  };
+  await assertRevision();
+  const outbox = await database.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'article_notion_editorial_outbox'",
+  ).first<{ name: string }>();
+  if (outbox) {
+    const pending = await database.prepare(
+      "SELECT article_id FROM article_notion_editorial_outbox WHERE notion_page_id = ? LIMIT 1",
+    ).bind(mapping.notion_page_id).first<{ article_id: number }>();
+    if (pending) throw new Error("NOTION_EDITORIAL_WRITEBACK_PENDING");
+  }
+  const page = await readPage();
+  checkIdentity(page);
+  const wasOld = notionArticlePageMatchesPlacement(page, originalPlacement);
+  const alreadyNew = notionArticlePageMatchesPlacement(page, desiredPlacement, false);
+  const alreadyNewCore = notionArticlePageMatchesPlacement(page, desiredPlacement);
+  if (!wasOld && !alreadyNewCore) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_REMOTE_CONFLICT");
+  }
+  const relationChanged = isBreedArticleNotionChange(before, article) &&
+    [...new Set(before.relatedBreedIds)].sort((a, b) => a - b).join(",") !==
+    [...new Set(article.relatedBreedIds)].sort((a, b) => a - b).join(",");
+  const originalRelationIds = relationChanged
+    ? await articleBreedWorkcopyPageIds(database, bindings, before.relatedBreedIds) : [];
+  const desiredRelationIds = relationChanged
+    ? await articleBreedWorkcopyPageIds(database, bindings, article.relatedBreedIds) : [];
+  const remoteRelationIds = relationChanged ? notionArticleBreedPageIds(page) : [];
+  if (relationChanged && remoteRelationIds === null) {
+    throw new Error("NOTION_ARTICLE_BREED_RELATION_PROPERTY_INVALID");
+  }
+  const oldRelationMatches = !relationChanged || notionRelationIdsEqual(
+    remoteRelationIds ?? [], originalRelationIds.map(normalizedNotionPageId),
+  );
+  const newRelationMatches = !relationChanged || notionRelationIdsEqual(
+    remoteRelationIds ?? [], desiredRelationIds.map(normalizedNotionPageId),
+  );
+  if (!oldRelationMatches && !newRelationMatches) {
+    throw new Error("NOTION_ARTICLE_BREED_RELATION_REMOTE_CONFLICT");
+  }
+  const blocks = await getPageBlocks(bindings, page.id);
+  // Also supports safe retry if Notion was patched but the CAS receipt was not.
+  const oldPlacementImage = notionArticlePageWithPlacement(page, originalPlacement);
+  const oldImage = relationChanged
+    ? notionArticlePageWithBreedRelation(oldPlacementImage, originalRelationIds)
+    : oldPlacementImage;
+  if (await notionArticlePageContentHash(oldImage, blocks, before, receipt.seo)
+      !== receipt.hash) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_REMOTE_CONFLICT");
+  }
+  await assertRevision();
+  if (!alreadyNew || !newRelationMatches) {
+    await updateNotionSyncState(bindings, page.id, {
+      state: "Chyba", error: "ARTICLE_CATEGORY_WRITEBACK_PENDING",
+    });
+    await notionRequest(bindings, "/pages/" + encodeURIComponent(page.id), {
+      method: "PATCH",
+      body: JSON.stringify({
+        properties: {
+          "Kategória": { select: { name: desiredPlacement.category } },
+          "Podsekcia": { select: desiredPlacement.subsection
+            ? { name: desiredPlacement.subsection } : null },
+          ...(propertyRecord(page, "Sekcia portálu") ? {
+            "Sekcia portálu": { select: { name: desiredPlacement.portalSection } },
+          } : {}),
+          ...(relationChanged ? {
+            "Prepojené plemená": { relation: desiredRelationIds.map((id) => ({ id })) },
+          } : {}),
+        },
+      }),
+    });
+  }
+  const verified = await readPage();
+  checkIdentity(verified);
+  if (!notionArticlePageMatchesPlacement(verified, desiredPlacement, false)) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_ECHO_MISMATCH");
+  }
+  if (relationChanged && !notionRelationIdsEqual(
+    notionArticleBreedPageIds(verified) ?? [], desiredRelationIds.map(normalizedNotionPageId),
+  )) throw new Error("NOTION_ARTICLE_BREED_RELATION_ECHO_MISMATCH");
+  const latestBlocks = await getPageBlocks(bindings, verified.id);
+  const verifiedOriginalPlacement = notionArticlePageWithPlacement(verified, originalPlacement);
+  const verifiedOriginal = relationChanged
+    ? notionArticlePageWithBreedRelation(verifiedOriginalPlacement, originalRelationIds)
+    : verifiedOriginalPlacement;
+  if (await notionArticlePageContentHash(verifiedOriginal, latestBlocks, before, receipt.seo)
+      !== receipt.hash) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_REMOTE_CONFLICT");
+  }
+  const finalHash = await notionArticlePageContentHash(verified, latestBlocks, article, receipt.seo);
+  await assertRevision();
+  const now = new Date().toISOString();
+  const receiptWrite = await database.prepare(
+    "UPDATE article_notion_sync SET content_hash = ?, notion_last_edited_time = ?, " +
+    "last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ? " +
+    "AND content_hash = ?",
+  ).bind(encodeArticleSeoReceipt(finalHash, verified), verified.last_edited_time ?? null,
+    now, now, verified.id, article.id, mapping.content_hash).run();
+  if (receiptWrite.meta?.changes !== 1) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_MAPPING_CONFLICT");
+  }
+  await updateNotionSyncState(bindings, verified.id, {
+    state: "Synchronizované", articleId: article.id, syncedAt: now,
+  });
+  return { linked: true, updated: !alreadyNew || !newRelationMatches };
+}
+
 /**
  * A D1 publication is authoritative. Scheduled rows remain "scheduled" in D1
  * even after published_at; public GET routes intentionally do not write to D1.
@@ -1467,7 +1781,8 @@ export async function writeBackArticleSeoToNotion(args: {
     const payload = notionPageToManagedArticleInput(sourcePage, blocks, fallback, confirmedSeo);
     const image = notionArticleMainImageSource(sourcePage);
     return sha256(JSON.stringify({
-      payload,
+      payload: { ...payload, relatedBreedIds: [] },
+      ...notionArticleBreedFingerprint(sourcePage),
       notionImageSourceUrl: urlProperty(sourcePage, "Hlavný obrázok URL"),
       ...(image.fileIdentity ? { notionImageFileIdentity: image.fileIdentity } : {}),
       notionImageAlt: richTextProperty(sourcePage, "Alt text obrázka"),
@@ -1696,6 +2011,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
       decodeArticleSeoReceipt(mapping.content_hash).seo);
     const currentContentHash = await sha256(JSON.stringify({
       payload: current,
+      ...notionArticleBreedFingerprint(page),
       notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
       // Keep the previous hash shape for pages without a Files hero.
       ...(notionArticleMainImageSource(page).fileIdentity
@@ -1886,6 +2202,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     decodeArticleSeoReceipt(mapping.content_hash).seo);
   const finalHash = await sha256(JSON.stringify({
     payload: newPayload,
+    ...notionArticleBreedFingerprint(verifiedPage),
     notionImageSourceUrl: urlProperty(verifiedPage, "Hlavný obrázok URL"),
     ...(notionArticleMainImageSource(verifiedPage).fileIdentity
       ? { notionImageFileIdentity: notionArticleMainImageSource(verifiedPage).fileIdentity } : {}),
@@ -1997,7 +2314,7 @@ async function findUnmappedCanonicalArticle(
 
 const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [
   "title","excerpt","intro","blocks","seoTitle","metaDescription","socialCaption","focusKeyword",
-  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl","imageCredit",
+  "canonicalUrl","noindex","ogTitle","ogDescription","ogImageUrl","imageCredit","relatedBreedIds","category",
 ] as const;
 type ArticleAuthorityKey=(typeof ARTICLE_EDITABLE_AUTHORITY_FIELDS)[number];
 /**
@@ -2016,7 +2333,8 @@ function articleSignedNotionFields(
   const changed = new Set<ArticleAuthorityKey>();
   const direct = {
     title: "Názov", socialCaption: "Popis na sociálne siete",
-    imageCredit: "Kredit fotografie",
+    imageCredit: "Kredit fotografie", relatedBreedIds: "Prepojené plemená",
+    category: "Kategória",
   } as const;
   for (const [field, name] of Object.entries(direct)) {
     const prop = propertyRecord(page, name);
@@ -2046,6 +2364,14 @@ function articleApplySignedFields(
     publishedAt: existing.publishedAt,
     imageUrl: existing.image, imageKey: existing.imageKey,
   };
+  // A deliberate change to Notion Kategória is also a placement change;
+  // always use its canonical portal section/subsection together.
+  if (edited.has("category")) {
+    next.category = incoming.category;
+    next.portalSection = incoming.portalSection;
+    next.portalSubpage = incoming.portalSubpage;
+    next.newsCategory = incoming.newsCategory;
+  }
   for (const key of ARTICLE_EDITABLE_AUTHORITY_FIELDS) {
     if (edited.has(key)) continue;
     if (key === "intro") {
@@ -2218,7 +2544,18 @@ async function syncOneNotionPage(
   if (mapping && !existing) {
     throw new Error("Notion záznam je prepojený na chýbajúci článok v Psipedii.");
   }
-  if (existing && (existing.slug !== proposed.slug || existing.portalSection !== proposed.portalSection)) {
+  const explicitBreedPlacementChange = Boolean(existing && mapping &&
+    signedFields?.has("category") &&
+    isBreedArticlePlacementChange(existing, proposed) &&
+    notionArticleBreedPlacement(existing) && notionArticleBreedPlacement(proposed));
+  // An hourly poll is not evidence that a human intentionally changed placement.
+  // Without a signed category edit, never acknowledge a mismatched breed category.
+  if (existing && isBreedArticlePlacementChange(existing, proposed) &&
+      !explicitBreedPlacementChange) {
+    throw new Error("NOTION_ARTICLE_CATEGORY_EXPLICIT_CHANGE_REQUIRED");
+  }
+  if (existing && (existing.slug !== proposed.slug ||
+      (existing.portalSection !== proposed.portalSection && !explicitBreedPlacementChange))) {
     throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED");
   }
   if (existing && existing.status !== "draft" && existing.status !== "published"
@@ -2232,6 +2569,11 @@ async function syncOneNotionPage(
     page, blocks, existing ?? undefined, previousSeo, explicitSeo,
     signedFields?.has("imageCredit") ?? false,
   );
+  const relatedBreedIdsFromNotion = await resolveNotionArticleBreedIds(database, page, existing?.relatedBreedIds);
+  // An unrelated Notion body or metadata sweep must not erase Admin's existing relations.
+  // Explicit relation webhook edits (including clearing the relation) remain authoritative.
+  sourcePayload.relatedBreedIds = existing?.relatedBreedIds.length && !signedFields?.has("relatedBreedIds")
+    ? existing.relatedBreedIds : relatedBreedIdsFromNotion;
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
   const authorityPayload = existing && mapping && signedFields === null
@@ -2257,7 +2599,8 @@ async function syncOneNotionPage(
   const notionImageAlt = richTextProperty(page, "Alt text obrázka");
   const notionImageCreditUrl = urlProperty(page, "Zdroj obrázka");
   const contentHash = await sha256(JSON.stringify({
-    payload: sourcePayload,
+    payload: { ...sourcePayload, relatedBreedIds: [] },
+    ...notionArticleBreedFingerprint(page),
     notionImageSourceUrl,
     ...(notionImageFileIdentity ? { notionImageFileIdentity } : {}),
     notionImageAlt,
@@ -2334,14 +2677,15 @@ async function syncOneNotionPage(
         status: existing.status,
         publishedAt: existing.publishedAt,
         slug: existing.slug,
-        category: existing.category,
-        portalSection: existing.portalSection,
-        portalSubpage: existing.portalSubpage,
-        newsCategory: existing.newsCategory,
+        category: explicitBreedPlacementChange ? basePayload.category : existing.category,
+        portalSection: explicitBreedPlacementChange ? basePayload.portalSection : existing.portalSection,
+        portalSubpage: explicitBreedPlacementChange ? basePayload.portalSubpage : existing.portalSubpage,
+        newsCategory: explicitBreedPlacementChange ? basePayload.newsCategory : existing.newsCategory,
         accent: existing.accent,
         author: existing.author,
         authorProfileId: existing.authorProfileId,
-        relatedBreedIds: existing.relatedBreedIds,
+        relatedBreedIds: signedFields?.has("relatedBreedIds")
+          ? (basePayload.relatedBreedIds ?? existing.relatedBreedIds) : existing.relatedBreedIds,
         sections: existing.sections,
         sources: existing.sources,
         takeaway: existing.takeaway,

@@ -265,6 +265,11 @@ async function loadWriter(h) {
     "@/lib/editorial-content": { EDITORIAL_RICH_TEXT_VERSION: 1 },
     "@/lib/portal": {},
     "@/lib/article-subsection-taxonomy": {},
+    "@/lib/notion-article-breed-placement": {
+      isBreedArticlePlacementChange: () => false,
+      isBreedArticleNotionChange: () => false,
+      notionArticleBreedPlacement: () => null,
+    },
     "@/config/public-site": { SITE_URL: "https://psipedia.sk" },
     "@/lib/notion-article-content-plan": h.planner,
     // The article module now uses the shared transport for retries. Keep

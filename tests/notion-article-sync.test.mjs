@@ -229,7 +229,7 @@ test("Admin-aligned Všeobecné články preserves existing /clanky routes and c
   assert.ok(start >= 0 && end > start);
   const fn = syncSource.slice(start, end);
   assert.match(fn, /notionCategory === "Všeobecné články"/);
-  assert.match(fn, /existing\?\.portalSection === "clanky" \? existing\.category : "Život so psom"/);
+  assert.match(fn, /existing\?\.portalSection === "clanky" && existing\.category !== "Plemená"[\s\S]*?\? existing\.category : "Život so psom"/);
   assert.match(fn, /portalSection: "clanky"/);
   assert.match(fn, /portalSubpage: null/);
   assert.match(fn, /notionCategory === "Všeobecné články"[\s\S]*?contentType === "Aktuálna novinka" \|\| contentType === "Recenzia"/);
@@ -384,7 +384,7 @@ test("Notion image sync is idempotent and cleans up failed or replaced R2 object
   assert.match(syncSource, /currentObject\?\.customMetadata\?\.notionSourceHash === sourceFingerprint/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, \[prepared\.uploadedKey\]\)/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, prepared\.replacedKeys\)/);
-  assert.match(syncSource, /JSON\.stringify\(\{[\s\S]*payload: sourcePayload,[\s\S]*notionImageSourceUrl,[\s\S]*notionImageAlt,[\s\S]*notionImageCreditUrl/);
+  assert.match(syncSource, /JSON\.stringify\(\{[\s\S]*payload: \{ \.\.\.sourcePayload, relatedBreedIds: \[\] \},[\s\S]*notionArticleBreedFingerprint\(page\),[\s\S]*notionImageSourceUrl,[\s\S]*notionImageAlt,[\s\S]*notionImageCreditUrl/);
 });
 
 

@@ -15,9 +15,11 @@ import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from
 import { articleBlockImageKeys } from "@/lib/article-blocks";
 import { orphanedArticleMediaKeys } from "@/lib/article-media-key-preservation";
 import { articleSeoChangedFields } from "@/lib/notion-article-seo-writeback";
+import { isBreedArticleNotionChange } from "@/lib/notion-article-breed-placement";
 import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 import {
   writeBackPublishedArticleToNotion,
+  writeBackArticleBreedCategoryToNotion,
   writeBackDraftArticleContentToNotion,
   writeBackArticleSeoToNotion,
   type NotionSyncBindings,
@@ -162,10 +164,22 @@ export async function PUT(request: Request, { params }: RouteProps) {
         notionEditorialWriteback = { status: "blocked", code };
         console.error(event, { articleId: article.id, code });
       };
+      // Category/section moves to/from Plemená must be mirrored before the SEO
+      // and draft editorial writers use the acknowledged Notion receipt.
+      if (isBreedArticleNotionChange(before, article)) {
+        try {
+          report(await writeBackArticleBreedCategoryToNotion({
+            database: bindings.DB, bindings, before, article,
+          }));
+        } catch (error) {
+          reportError(error, "notion_article_breed_category_writeback_failed");
+        }
+      }
       // Only changed SEO properties are sent, for BOTH drafts and published
       // articles. They run before draft body writeback so its Notion hash
       // baseline reflects already-acknowledged SEO changes.
-      if (articleSeoChangedFields(before, article).length > 0) {
+      if (notionEditorialWriteback?.status !== "blocked" &&
+          articleSeoChangedFields(before, article).length > 0) {
         try {
           report(await writeBackArticleSeoToNotion({
             database: bindings.DB, bindings, before, article,
@@ -175,7 +189,8 @@ export async function PUT(request: Request, { params }: RouteProps) {
         }
       }
       if (before.status === "draft" && article.status === "draft" &&
-          notionEditorialWriteback?.status !== "partial") {
+          notionEditorialWriteback?.status !== "partial" &&
+          notionEditorialWriteback?.status !== "blocked") {
         try {
           report(await writeBackDraftArticleContentToNotion({
             database: bindings.DB, bindings, article,
