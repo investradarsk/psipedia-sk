@@ -1,3 +1,4 @@
+import { AdminQualityWorkspaceTabs } from "@/components/admin-quality-workspace-tabs";
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminShell } from "@/components/admin-shell";
@@ -29,6 +30,7 @@ export default async function AdminDataQualityPage({
       title="Kvalita údajov"
       description="Nájdené chýbajúce údaje v existujúcich profiloch. Schváľ alebo zamietni návrhy."
     >
+      <AdminQualityWorkspaceTabs active="findings" />
       <Suspense fallback={<AdminDataLoading label="Kvalita údajov" />}>
         <QualityContent promise={dataPromise} />
       </Suspense>
