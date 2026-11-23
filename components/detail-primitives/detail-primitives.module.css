@@ -1374,7 +1374,16 @@
   .hero[data-public-detail-hero="directory"]
     .heroFrame[data-media-presentation="compact"]
     .heroMedia:has([data-image-display="natural"]) {
+    height: auto;
     justify-self: center;
+  }
+  .hero[data-public-detail-hero="directory"]
+    .heroFrame[data-media-presentation="compact"]
+    .heroMedia
+    [data-image-display="natural"]
+    img {
+    width: auto;
+    max-height: 240px;
   }
 }
 
