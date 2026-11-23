@@ -63,10 +63,10 @@ test("admin home streams attention, quality and activity in independent suspense
   const shell = read("components/admin-shell.tsx");
   const home = page.slice(page.indexOf("export default async function AdminPage"));
   assert.match(home, /const attentionPromise = loadRequestAdminAttentionSummary\(\)/);
-  assert.match(home, /attentionSummaryPromise=\{attentionPromise\}/);
-  assert.match(home, /<AdminWorkspaceDashboard[\s\S]*?attentionPromise=\{attentionPromise\}/);
-  assert.match(home, /qualityPromise=\{qualityPromise\}/);
-  assert.match(home, /activityPromise=\{workspaceFeedPromise\}/);
+  assert.match(home, /attentionSummaryPromise=\{boundedAttentionPromise\}/);
+  assert.match(home, /<AdminWorkspaceDashboard[\s\S]*?attentionPromise=\{boundedAttentionPromise\}/);
+  assert.match(home, /qualityPromise=\{boundedQualityPromise\}/);
+  assert.match(home, /activityPromise=\{boundedWorkspaceFeedPromise\}/);
   assert.match(dashboard, /async function WorkspaceActivityPanel/);
   assert.match(dashboard, /async function WorkspaceAttentionMetrics/);
   assert.match(dashboard, /async function WorkspaceQualityMetric/);

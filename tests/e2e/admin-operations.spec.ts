@@ -59,16 +59,18 @@ test("alerts center, shared bell and active/history controls are accessible and 
 
   const adminNavigation = page.getByRole("navigation", { name: "Redakčné moduly" });
   if (!mobile) {
-    // V3 opens the current section on load. Verify this before exercising the
-    // disclosure using the keyboard, rather than closing it with an old click.
-    const overview = adminNavigation.getByRole("button", { name: "Prehľad", exact: true });
+    // On another Admin route, the Prehľad header is a home-navigation action,
+    // not an accordion disclosure. Keyboard activation must work as well.
+    const overview = adminNavigation.getByRole("button", { name: "Prejsť na pracovný prehľad" });
     await expect(adminNavigation).toHaveAttribute("data-admin-hydrated", "true");
-    await expect(overview).toHaveAttribute("aria-expanded", "true");
+    await expect(overview).not.toHaveAttribute("aria-expanded", /.+/);
     await overview.focus();
     await page.keyboard.press("Enter");
-    await expect(overview).toHaveAttribute("aria-expanded", "false");
-    await page.keyboard.press("Enter");
-    await expect(overview).toHaveAttribute("aria-expanded", "true");
+    await expect(page).toHaveURL(/\/admin\/?$/);
+    await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/admin\/operations$/);
+    await expect(adminNavigation).toHaveAttribute("data-admin-hydrated", "true");
   }
   await expect(adminNavigation.getByRole("link", { name: "Upozornenia", exact: true })).toBeVisible();
   await expect(adminNavigation.getByRole("link", { name: "Upozornenia", exact: true })).toHaveAttribute("aria-current", "page");
