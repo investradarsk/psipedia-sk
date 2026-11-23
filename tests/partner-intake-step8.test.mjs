@@ -70,6 +70,19 @@ test("Events distinguish legacy DRAFT creation from canonical publication with a
   assert.match(route,/expectedCanonicalUpdatedAt:typeof body.expectedCanonicalUpdatedAt/);
 });
 
+test("legacy moderation routes return 409 for a stale canonical reviewer tab",()=>{
+  for(const path of [
+    "app/api/admin/partners/submissions/[id]/route.ts",
+    "app/api/admin/partners/help-submissions/[id]/route.ts",
+    "app/api/admin/partners/events/[id]/route.ts",
+  ]){
+    const source=read(path);
+    assert.match(source,/import \{ PartnerCanonicalWorkflowError \}/,path);
+    assert.match(source,/error instanceof PartnerCanonicalWorkflowError/,path);
+    assert.match(source,/expectedCanonicalUpdatedAt/,path);
+  }
+});
+
 test("unified inbox links historical public report to exact original editor, without public reporter private identity",()=>{
   const inbox=read("lib/admin-submission-inbox.ts");
   assert.match(inbox,/if\(item.kind==="PUBLIC"\)\{/);
