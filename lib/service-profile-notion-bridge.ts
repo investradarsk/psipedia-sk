@@ -10,11 +10,12 @@ type DB=D1Database;
 type ChoiceRow={option_id:string;choice:"yes"|"no";version:number};
 const actor="notion-service-choices@psipedia.sk";
 const categories=new Set<string>(serviceFilterCategories);
-async function allowedCatalog(db:DB,category:string,profileId:number){
+async function allowedCatalog(db:DB,category:string,profileId:number,
+  resolved?:Awaited<ReturnType<typeof loadResolvedServiceDefinitions>>){
   const membership=await loadServiceProfileMembership(db,profileId);
   if(!membership||membership.status==="archived"||membership.primary!==category)
     throw Error("SERVICES_RELATION_PROFILE_CATEGORY_CHANGED");
-  return (await loadResolvedServiceDefinitions(db))
+  return (resolved??await loadResolvedServiceDefinitions(db))
     .filter(item=>item.categories.some(value=>membership.categories.includes(value)));
 }
 
@@ -27,7 +28,7 @@ export async function importNotionServiceIds(
   resolved?:Awaited<ReturnType<typeof allowedCatalog>>,
 ){
   if(!categories.has(category))throw Error("SERVICES_RELATION_INVALID_CATEGORY");
-  const available=resolved??await allowedCatalog(db,category,profileId);
+  const available=await allowedCatalog(db,category,profileId,resolved);
   const availableIds=new Set(available.map(x=>x.id));
   const selected=new Set(ids);
   if([...selected].some(id=>!availableIds.has(id)))
