@@ -11,6 +11,7 @@ Dátum: 23. 11. 2026. Pracovný PR #1566 (Draft).
 - `app/partner/koncepty/novy/page.tsx` pred autentifikáciou normalizuje `typ` na uzavretý zoznam šiestich agend a `druh` iba na LOST/FOUND. Až potom konštruuje interný `returnTo`. `lib/partner-return-to.ts` ďalej zakazuje externé, admin/API a neplatné adresy.
 - `PartnerCanonicalDraftForm` pre úplne nový LOST_FOUND_DOG koncept preberá predvolenú hodnotu z URL; hodnoty existujúceho uloženého konceptu majú prednosť. Pri prepnutí typu sa platné uložené hodnoty stále chránia potvrdením pred zahodením.
 - Staré partnerské aliasy `/partner/profily/novy`, `/partner/podujatia/nove` a `/partner/pomoc/nova` rovno presmerujú na kanonický editor. Tým sa neodbočí na generický dashboard počas autentifikácie.
+- Pri opätovnom prihlásení do rozpracovaného konceptu alebo do editácie služby, podujatia či Pomoci psom zostane zachovaná konkrétna adresa záznamu (deep link), nie len Partner prehľad.
 - Registrácia a login už explicitne komunikujú aj s nefiremnými majiteľmi psov; e-mailový vstup už nie je označený ako „Pracovný e-mail“.
 
 ## Cesty autentifikácie
