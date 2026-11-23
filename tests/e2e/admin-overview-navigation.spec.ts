@@ -58,6 +58,19 @@ test("Prehľad opens from an actual directory record editor", async ({ page }, i
   await expectOverview(page);
 });
 
+test("breadcrumbs and Admin logo both return from directory without leaving an empty workspace", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "Desktop navigation entries");
+  await page.goto("/admin/sluzby-pre-psov", { waitUntil: "domcontentloaded" });
+  const breadcrumbs = page.getByRole("navigation", { name: "Drobečková navigácia" });
+  await breadcrumbs.getByRole("link", { name: "Pracovný prehľad", exact: true }).click();
+  await expectOverview(page);
+
+  await page.locator('[data-admin-shell] a[href="/admin/sluzby-pre-psov"]').first().click();
+  await expect(page).toHaveURL(/\/admin\/sluzby-pre-psov$/);
+  await page.locator('[data-admin-sidebar-shell] a[aria-label="Psipedia Admin – pracovný prehľad"]').click();
+  await expectOverview(page);
+});
+
 test("mobile drawer returns from Adresár to Prehľad repeatedly", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile-chromium", "Mobile drawer behavior");
   await page.setViewportSize({ width: 390, height: 844 });
