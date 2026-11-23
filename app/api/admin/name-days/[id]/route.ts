@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
   archiveDogNameDayRecord,
   getDogNameDayRecord,
@@ -32,8 +32,9 @@ export async function GET(_request: Request, { params }: Props) {
 }
 
 export async function PUT(request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   const id = await numericId(params);
   if (!id) return Response.json({ error: "Neplatné ID záznamu." }, { status: 400 });
   try {
@@ -46,9 +47,10 @@ export async function PUT(request: Request, { params }: Props) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+export async function DELETE(request: Request, { params }: Props) {
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   const id = await numericId(params);
   if (!id) return Response.json({ error: "Neplatné ID záznamu." }, { status: 400 });
   try {

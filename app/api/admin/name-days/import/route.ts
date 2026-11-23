@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { applyDogNameDayImportPlan, listDogNameDayRecords } from "@/lib/dog-name-day-store";
 import { planDogNameDayImport } from "@/lib/dog-name-day-import";
 
@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 type ImportRequest = { records?: unknown; apply?: boolean };
 
 export async function POST(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   try {
     const body = await request.json() as ImportRequest;
     const existing = await listDogNameDayRecords();
