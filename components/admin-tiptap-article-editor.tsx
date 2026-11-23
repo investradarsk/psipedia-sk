@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Mark, Node, type Editor } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -9,6 +9,7 @@ import {
   tiptapToEditorial,
 } from "@/lib/tiptap-editorial-bridge";
 import { normalizeEditorialRichText, sanitizeEditorialColor, sanitizeEditorialHref, type EditorialRichTextDocument } from "@/lib/editorial-content";
+import { articleBlockLabels, type ArticleBlock } from "@/lib/article-blocks";
 import styles from "./admin-tiptap-article-editor.module.css";
 
 /** A single toolbar edits v1 legacy and v2 styled documents without HTML persistence. */
@@ -19,10 +20,17 @@ type ActiveEditor = {
   allowCallouts: boolean;
   allowQuotes: boolean;
 };
+type InsertWidget = (type: ArticleBlock["type"]) => void;
 type EditorScope = {
   active: ActiveEditor | null;
   setActive: (next: ActiveEditor | null) => void;
+  registerInsertWidget: (callback: InsertWidget | null) => void;
 };
+
+const articleInsertTypes: ArticleBlock["type"][] = [
+  "text", "h2", "h3", "image", "gallery", "bullet-list", "numbered-list",
+  "tip", "warning", "quote", "table", "source", "related", "psipedia-promo", "cta", "embed",
+];
 const ScopeContext = createContext<EditorScope | null>(null);
 export function useArticleTiptapScope() { return useContext(ScopeContext); }
 
@@ -161,15 +169,36 @@ function TiptapColorPanel({
   );
 }
 
-function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
+function TiptapSharedToolbar({ active, insertWidget }: { active: ActiveEditor | null; insertWidget: InsertWidget | null }) {
   const [, refresh] = useState(0);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkInput, setLinkInput] = useState("https://");
   const [linkError, setLinkError] = useState("");
   const [openColorPanel, setOpenColorPanel] = useState<ColorTarget | null>(null);
+  const [insertOpen, setInsertOpen] = useState(false);
+  const insertPanelRef = useRef<HTMLDivElement>(null);
+  const insertTriggerRef = useRef<HTMLButtonElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const rememberedSelection = useRef<{ from: number; to: number } | null>(null);
   const editor = active?.editor;
+
+  useEffect(() => {
+    if (!insertOpen) return;
+    const onOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as HTMLElement;
+      if (insertPanelRef.current?.contains(target) || insertTriggerRef.current?.contains(target)) return;
+      setInsertOpen(false);
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setInsertOpen(false);
+    };
+    document.addEventListener("pointerdown", onOutsidePointer);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("pointerdown", onOutsidePointer);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [insertOpen]);
 
   // The toolbar is mounted only for text-editing sections. Measure before the
   // navigation animation so even the first label starts below the sticky tools.
@@ -340,6 +369,13 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   return (
     <div ref={toolbarRef} className={styles.toolbar} role="toolbar" aria-label="Spoločná lišta formátovania článku" data-admin-tiptap-toolbar>
       <div className={styles.tools} role="group" tabIndex={0} aria-label="Posúvateľná lišta nástrojov formátovania">
+        {insertWidget && <button ref={insertTriggerRef} type="button" className={styles.insertTrigger}
+          data-article-insert-trigger aria-label="Vložiť prvok do článku"
+          aria-expanded={insertOpen} aria-controls="article-tiptap-insert-panel"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => { setLinkOpen(false); setOpenColorPanel(null); setInsertOpen(open => !open); }}>
+          + Vložiť prvok
+        </button>}
         <span className={styles.activeLabel} aria-live="polite">{active ? "Upravuješ: " + (active.id === "article-continuous" ? "celý článok" : active.id.startsWith("block-") ? "textový blok" : active.id === "article-intro" ? "úvod" : "to najdôležitejšie") : "Klikni do textu"}</span>
         {action("B", "Tučné (Ctrl+B)", () => toggleInlineMark("bold"), Boolean(editor?.isActive("bold")))}
         {action("I", "Kurzíva (Ctrl+I)", () => toggleInlineMark("italic"), Boolean(editor?.isActive("italic")))}
@@ -381,6 +417,18 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
           <span aria-hidden="true">⌄</span>
         </button>
       </div>
+      {insertOpen && insertWidget && <div ref={insertPanelRef} id="article-tiptap-insert-panel"
+        className={styles.insertPanel} role="group" aria-label="Vybrať prvok do článku"
+        data-article-insert-picker>
+        <strong>Vložiť na pozíciu kurzora</strong>
+        <div className={styles.insertChoices}>
+          {articleInsertTypes.map(type => <button key={type} type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => { insertWidget(type); setInsertOpen(false); }}>
+            {articleBlockLabels[type]}
+          </button>)}
+        </div>
+      </div>}
       {openColorPanel && editor && (
         <TiptapColorPanel key={openColorPanel} target={openColorPanel}
           currentColor={sanitizeEditorialColor(editor.getAttributes(openColorPanel === "text" ? "textStyle" : "highlight").color)
@@ -403,7 +451,11 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
 
 export function AdminTiptapArticleScope({ children, activeSectionId, readOnlyPreview = false }: { children: ReactNode; activeSectionId: string; readOnlyPreview?: boolean }) {
   const [active, setActive] = useState<ActiveEditor | null>(null);
-  const scope = useMemo(() => ({ active, setActive }), [active]);
+  const [insertWidget, setInsertWidget] = useState<InsertWidget | null>(null);
+  const registerInsertWidget = useCallback((callback: InsertWidget | null) => {
+    setInsertWidget(() => callback);
+  }, []);
+  const scope = useMemo(() => ({ active, setActive, registerInsertWidget }), [active, registerInsertWidget]);
   // Switching left-hand panels must not edit a hidden, previously focused field.
   const visible = !readOnlyPreview && active && (
     active.id === "article-continuous" || active.id === "article-continuous-takeaway" || active.id.startsWith("block-")
@@ -413,7 +465,8 @@ export function AdminTiptapArticleScope({ children, activeSectionId, readOnlyPre
   // The read-only preview exists only in the blocks section; intro editing is unchanged.
   const formattingSection = activeSectionId === "article-basics" || activeSectionId === "article-blocks" && !readOnlyPreview;
   return <ScopeContext.Provider value={scope}>
-    {formattingSection && <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible} />}
+    {formattingSection && <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible}
+      insertWidget={activeSectionId === "article-blocks" ? insertWidget : null} />}
     {children}
   </ScopeContext.Provider>;
 }
