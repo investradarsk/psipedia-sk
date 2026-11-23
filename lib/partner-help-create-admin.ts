@@ -56,11 +56,15 @@ export async function getPartnerHelpCreateAdmin(id:string,databaseInput?:D1Datab
     .bind(id).all()).results;
   const payload=parseJson(row.proposedJson);
   let risks:string[]=[];try{const r:unknown=JSON.parse(row.riskJson);if(Array.isArray(r))risks=r.filter((v):v is string=>typeof v==="string");}catch{}
+  const canonicalId=row.subjectId?Number(row.subjectId):null;
+  const canonicalUpdatedAt=canonicalId&&Number.isSafeInteger(canonicalId)&&canonicalId>0
+    ?(await database.prepare("SELECT updated_at updatedAt FROM "+specs[row.resourceType].table+" WHERE id=?1 LIMIT 1")
+      .bind(canonicalId).first<{updatedAt:string}>())?.updatedAt??null:null;
   return {
     id:row.id,accountId:row.accountId,resourceType:row.resourceType,status:row.status,
     title:label(row.resourceType,payload),payload,risks,history,
     createdAt:row.createdAt,updatedAt:row.updatedAt,
-    rejectionReasonCode:row.rejectionReasonCode,canonicalId:row.subjectId?Number(row.subjectId):null,
+    rejectionReasonCode:row.rejectionReasonCode,canonicalId,canonicalUpdatedAt,
     active:["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(row.status),
   };
 }
@@ -192,13 +196,14 @@ function safeResult(error:unknown){
 }
 export async function createPartnerHelpDraftAdmin(input:{
   id:string;adminEmail:string;editedPayload?:unknown;requestId?:string|null;
-  database?:D1Database;now?:Date;
+  expectedCanonicalUpdatedAt?:string;database?:D1Database;now?:Date;
 }){
   const database=db(input.database),original=await submission(input.id,database);
   if(original.subjectId){
     if(input.editedPayload!==undefined)
       throw new PartnerCanonicalWorkflowError("Úpravy vykonajte v existujúcom kanonickom Admin editore.",409);
-    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"APPROVE",database,now:input.now});
+    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"APPROVE",database,now:input.now,
+      expectedCanonicalUpdatedAt:input.expectedCanonicalUpdatedAt});
     return getPartnerHelpCreateAdmin(input.id,database);
   }
   if(!["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(original.status))
