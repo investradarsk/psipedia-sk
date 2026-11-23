@@ -82,7 +82,7 @@ test("one published-only bounded read powers calendar while listing remains cano
   const route = read("app/api/public/events/calendar/route.ts");
   assert.match(calendar, /"use client"/);
   assert.match(calendar, /fetch\(endpoint\.toString\(\)/);
-  assert.match(calendar, /setView\(next\)/);
+  assert.match(calendar, /setView\(\{ \.\.\.next, page: nextPage \}\)/);
   assert.match(calendar, /pushState/);
   assert.match(calendar, /popstate/);
   assert.match(route, /getPublicEventCalendar/);
