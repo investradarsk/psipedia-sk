@@ -31,7 +31,7 @@ import {
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { slovakRegions } from "@/lib/events";
 import { listPublicDogReports, listPublishedBreedOptions } from "@/lib/lost-found-dog-store";
- import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { buildCollectionPageJsonLd, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import {
   dogReportBasePath,
