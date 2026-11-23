@@ -12,7 +12,7 @@
 
 .foundation :global(.browser-toolbar) {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(220px, .6fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.6fr);
   gap: 12px;
   align-items: end;
   padding: 14px;
@@ -134,7 +134,9 @@
 }
 
 @media (max-width: 600px) {
-  .headerShell { padding-top: 14px; }
+  .headerShell {
+    padding-top: 14px;
+  }
 }
 
 .foundation :global(.breed-crawl-index) {
@@ -223,7 +225,6 @@
   }
 }
 
-
 /* Compact text-only routes keep the atlas search and filters in primary focus. */
 .quickActions {
   display: grid;
@@ -246,40 +247,110 @@
   text-decoration: none;
   overflow-wrap: anywhere;
 }
-.quickAction strong { font-size: .95rem; line-height: 1.35; }
-.quickAction span { flex: 0 0 auto; color: var(--forest); }
-.quickAction:hover { border-color: var(--ps-border-strong); background: var(--sage-light); }
-.quickAction:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
+.quickAction strong {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.quickAction span {
+  flex: 0 0 auto;
+  color: var(--forest);
+}
+.quickAction:hover {
+  border-color: var(--ps-border-strong);
+  background: var(--sage-light);
+}
+.quickAction:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 3px;
+}
 @media (max-width: 760px) {
-  .quickActions { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 18px; }
-  .quickAction { min-height: 52px; padding: 10px 14px; }
+  .quickActions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .quickAction {
+    min-height: 52px;
+    padding: 10px 14px;
+  }
 }
 
 /* GLOBAL-DESIGN-UNIFICATION-1: search first, then atlas actions. */
-.foundation :global(.browser-toolbar) { width: 100%; max-width: var(--ps-list-search-max); margin-inline: auto; margin-bottom: 16px; border-radius: var(--ps-radius-filter, 18px); }
-.atlasActions { padding-block: 8px 12px; }
-.atlasActions :global([data-public-landing-section-heading]) { margin-bottom: 12px; }
-@media (max-width: 620px) { .atlasActions { padding-block: 4px 8px; } }
-
+.foundation :global(.browser-toolbar) {
+  width: 100%;
+  max-width: var(--ps-list-search-max);
+  margin-inline: auto;
+  margin-bottom: 16px;
+  border-radius: var(--ps-radius-filter, 18px);
+}
+.atlasActions {
+  padding-block: 8px 12px;
+}
+.atlasActions :global([data-public-landing-section-heading]) {
+  margin-bottom: 12px;
+}
+@media (max-width: 620px) {
+  .atlasActions {
+    padding-block: 4px 8px;
+  }
+}
 
 /* S-05: denser cards and faster access to the full atlas, preserving photo-led profiles. */
-.foundation :global(.fci-group-list) { gap: clamp(26px, 3.2vw, 38px); }
-.foundation :global(.breed-card-body) { padding: 14px 15px; }
-.foundation :global(.breed-card-body > p) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-block: 7px; }
-.foundation :global(.breed-card-facts) { gap: 6px 10px; }
-.foundation :global(.breed-crawl-index) { margin-top: 28px; padding-top: 16px; }
-.foundation :global(.breed-crawl-index-groups) { gap: 14px; padding: 14px; }
-.foundation :global(.fci-filter-panel) { margin-bottom: 12px; }
+.foundation :global(.fci-group-list) {
+  gap: clamp(26px, 3.2vw, 38px);
+}
+.foundation :global(.breed-card-body) {
+  padding: 14px 15px;
+}
+.foundation :global(.breed-card-body > p) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-block: 7px;
+}
+.foundation :global(.breed-card-facts) {
+  gap: 6px 10px;
+}
+.foundation :global(.breed-card-facts dd) {
+  max-width: none;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.foundation :global(.breed-crawl-index) {
+  margin-top: 28px;
+  padding-top: 16px;
+}
+.foundation :global(.breed-crawl-index-groups) {
+  gap: 14px;
+  padding: 14px;
+}
+.foundation :global(.fci-filter-panel) {
+  margin-bottom: 12px;
+}
 @media (max-width: 620px) {
-  .foundation :global(.breed-card-body) { padding: 12px; }
-  .foundation :global(.breed-card-body > p) { -webkit-line-clamp: 2; }
-  .foundation :global(.fci-group-list) { gap: 24px; }
-  .foundation :global(.breed-crawl-index-groups) { padding: 10px; }
+  .foundation :global(.breed-card-body) {
+    padding: 12px;
+  }
+  .foundation :global(.breed-card-body > p) {
+    -webkit-line-clamp: 2;
+  }
+  .foundation :global(.fci-group-list) {
+    gap: 24px;
+  }
+  .foundation :global(.breed-crawl-index-groups) {
+    padding: 10px;
+  }
 }
 
 /* Breed atlas: one compact comparison action and the SAME shared photographic
    banner as other public landing sections. No duplicate action directory. */
-.atlasActions { display: grid; gap: 14px; padding-block: 6px 12px; }
+.atlasActions {
+  display: grid;
+  gap: 14px;
+  padding-block: 6px 12px;
+}
 .compareAction {
   display: inline-flex;
   width: fit-content;
@@ -294,15 +365,23 @@
   font-weight: 800;
   text-decoration: none;
 }
-.compareAction:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
+.compareAction:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 3px;
+}
 .atlasActions :global([data-home-banner="breed-clubs"]) {
   width: 100%;
   max-width: 100%;
   margin: 0;
 }
 @media (max-width: 620px) {
-  .atlasActions { gap: 12px; }
-  .compareAction { width: 100%; justify-content: center; }
+  .atlasActions {
+    gap: 12px;
+  }
+  .compareAction {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* Atlas filter chips: no hidden sideways scroll, consistent with public categories. */
@@ -317,23 +396,58 @@
   padding: 8px 0;
 }
 .foundation :global(.fci-filter-row button) {
-  min-width: 0; max-width: 100%; min-height: 48px; white-space: normal;
-  overflow-wrap: anywhere; text-align: left; border-radius: var(--ps-radius-control, 12px);
+  min-width: 0;
+  max-width: 100%;
+  min-height: 48px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+  border-radius: var(--ps-radius-control, 12px);
 }
-.foundation :global(.breed-group-cta) { display: flex; justify-content: flex-start; margin-top: 16px; }
+.foundation :global(.breed-group-cta) {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 16px;
+}
 .foundation :global(.breed-group-cta a),
 .foundation :global(.breed-group-cta button) {
-  display: inline-flex; align-items: center; gap: 10px; min-height: 44px;
-  border: 1px solid var(--ps-border-strong); border-radius: var(--ps-radius-control, 12px);
-  padding: 10px 15px; background: var(--white); color: var(--forest-dark);
-  text-decoration: none; font: inherit; font-weight: 800; cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius-control, 12px);
+  padding: 10px 15px;
+  background: var(--white);
+  color: var(--forest-dark);
+  text-decoration: none;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
 }
 .foundation :global(.breed-group-cta a:hover),
-.foundation :global(.breed-group-cta button:hover) { background: var(--sage-light); }
-.foundation :global(.breed-group-cta :is(a,button):focus-visible) { outline: 3px solid var(--coral-dark); outline-offset: 3px; }
-@media (max-width: 900px) { .foundation :global(.fci-filter-row) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .foundation :global(.fci-filter-row) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 360px) { .foundation :global(.fci-filter-row) { grid-template-columns: minmax(0, 1fr); } }
+.foundation :global(.breed-group-cta button:hover) {
+  background: var(--sage-light);
+}
+.foundation :global(.breed-group-cta :is(a, button):focus-visible) {
+  outline: 3px solid var(--coral-dark);
+  outline-offset: 3px;
+}
+@media (max-width: 900px) {
+  .foundation :global(.fci-filter-row) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .foundation :global(.fci-filter-row) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 360px) {
+  .foundation :global(.fci-filter-row) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
 /* Keep the shared photographic club banner in the results column, not inside
    the narrow 240px filter sidebar where its title wrapped one letter per line. */
