@@ -34,6 +34,7 @@ import {
 } from "../lib/notion-events-help-adapters.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "../lib/notion-event-priority.ts";
 import { loadNotionBulkAdoptions, loadNotionBulkHelpCases } from "../lib/notion-bulk-sources.ts";
+import { sameHelpFieldValue } from "../lib/notion-help-field-events.ts";
 import { auditHelpSyncMappings, classifyHelpSyncCanonical, isHelpSyncCategoryOutOfDomain } from "../lib/notion-help-domain-boundary.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority, mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
@@ -224,6 +225,15 @@ test("Notion adoption change updates only authorized fields while retaining unre
   assert.equal(payload.vaccinationStatus,existing.vaccinationStatus);
   assert.deepEqual(payload.gallery,existing.gallery);
   assert.equal(payload.lastVerifiedAt,existing.lastVerifiedAt);
+});
+
+test("lost/found inbound Notion edits compare date instants, not timezone display strings",()=>{
+  assert.equal(sameHelpFieldValue("lost-found", "Naposledy videný",
+    "2026-11-22T16:00:00.000Z", "2026-11-22T17:00:00+01:00"), true);
+  assert.equal(sameHelpFieldValue("lost-found", "Naposledy videný",
+    "2026-11-22T16:00:00Z", "2026-11-22T18:00:00+01:00"), false);
+  assert.equal(sameHelpFieldValue("lost-found", "Popis", "Upravený opis", "Iný opis"), false);
+  assert.equal(sameHelpFieldValue("adoptions", "Popis", "Rovnaký opis", "Rovnaký opis"), true);
 });
 
 test("unchanged snapshot stays unchanged", () => {
