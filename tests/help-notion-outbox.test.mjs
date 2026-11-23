@@ -4,11 +4,12 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import { stableAgendaSnapshotJson } from "../lib/notion-bidirectional-reconciliation.ts";
 
 const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
 function harness() {
   const sqlite=new DatabaseSync(":memory:");
-  const state={value:"Max",remote:"Max",writes:[],result:"synced",locked:false};
+  const state={value:"Max",remote:"Max",remoteFields:{},canonicalFields:null,writes:[],result:"synced",locked:false};
   const db={
     prepare(sql) {
       return {
@@ -29,10 +30,13 @@ function harness() {
       loadNotionBulkAdoptions:async(_db,id)=>[{id:String(id),properties:{Meno:state.value}}],
       loadNotionBulkOrganizations:async(_db,id)=>[{id:String(id),properties:{Názov:state.value}}],
       loadNotionBulkHelpCases:async(_db,id)=>[{id:String(id),properties:{Názov:state.value}}],
-      loadNotionBulkLostFound:async(_db,id)=>[{id:String(id),properties:{"Meno psa":state.value}}],
+      loadNotionBulkLostFound:async(_db,id)=>[{id:String(id),properties:state.canonicalFields??{"Meno psa":state.value}}],
     },
     "./notion-events-help-sync":{pageProperty:(page,name)=>page.properties[name]??""},
-    "./notion-sync-shared":{notionRequest:async()=>({id:"page-1",properties:{Meno:state.remote,Názov:state.remote,"Meno psa":state.remote}})},
+    "./notion-bidirectional-reconciliation":{stableAgendaSnapshotJson},
+    "./notion-field-authority":{fixedNotionAgendaField:(agenda,name)=>agenda==="lost-found" &&
+      ["Psipedia stav","Naposledy videný","Verejný kontakt","Miesto","Slug","Typ"].includes(name)},
+    "./notion-sync-shared":{notionRequest:async()=>({id:"page-1",properties:{Meno:state.remote,Názov:state.remote,"Meno psa":state.remote,...state.remoteFields}})},
     "./notion-targeted-admin-help":{syncOneAdminHelpRecord:async input=>{
       state.writes.push(input);
       if(state.result==="synced")state.remote=state.value;
@@ -147,4 +151,87 @@ test("only the four canonical Help agendas are accepted and D1 schema is additiv
   assert.match(worker,/runHelpNotionWritebackRetrySweep/);
   assert.match(worker,/controller\.cron === "\* \* \* \* \*"/);
   h.sqlite.close();
+});
+
+test("approved public lost/found report syncs canonical status, contact, missing image and equivalent timestamp",async()=>{
+  const h=await setup();
+  h.sqlite.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?)").run("lost-found",21,"page-1");
+  const before={
+    "Psipedia stav":"PENDING",
+    "Hlavný obrázok":"https://psipedia.sk/safe/LOST_FOUND_PUBLIC/old.jpg",
+    "Naposledy videný":"2026-11-22T12:00:00.000Z",
+    "Verejný kontakt":"Pôvodný kontakt",
+  };
+  const after={
+    "Psipedia stav":"ACTIVE",
+    "Hlavný obrázok":"https://psipedia.sk/media/mia.jpg",
+    "Naposledy videný":"2026-11-22T13:00:00.000Z",
+    "Verejný kontakt":"Kontakt sprostredkuje administrácia Psipedia.sk.",
+  };
+  h.state.canonicalFields={...after,"Naposledy videný":"2026-11-22T14:00:00+01:00"};
+  h.state.remoteFields={
+    "Psipedia stav":"DRAFT",
+    "Hlavný obrázok":"",
+    "Naposledy videný":"2026-11-22T14:00:00+01:00",
+    "Verejný kontakt":"Starý Notion kontakt",
+  };
+  assert.equal(await h.api.queueHelpNotionAdminChange({
+    database:h.db,agenda:"lost-found",entityId:21,before,after,fields:Object.keys(after),
+  }),"pending");
+  assert.equal(await h.api.retryOneHelpNotionWriteback({
+    database:h.db,bindings:h.bindings,agenda:"lost-found",entityId:21,
+  }),"synced");
+  assert.equal(h.state.writes.length,1);
+  assert.equal(queuedCount(h.sqlite),0);
+  h.sqlite.close();
+});
+test("nonempty independent Notion photo edit remains a real lost/found conflict",async()=>{
+  const h=await setup();
+  h.sqlite.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?)").run("lost-found",21,"page-1");
+  const field="Hlavný obrázok";
+  const before={[field]:"https://psipedia.sk/old.jpg"};
+  const after={[field]:"https://psipedia.sk/new-admin.jpg"};
+  h.state.canonicalFields=after;
+  h.state.remoteFields={[field]:"https://psipedia.sk/new-notion.jpg"};
+  await h.api.queueHelpNotionAdminChange({
+    database:h.db,agenda:"lost-found",entityId:21,before,after,fields:[field],
+  });
+  assert.equal(await h.api.retryOneHelpNotionWriteback({
+    database:h.db,bindings:h.bindings,agenda:"lost-found",entityId:21,
+  }),"review");
+  assert.equal(h.state.writes.length,0);
+  assert.equal(h.sqlite.prepare("SELECT error_code FROM notion_help_admin_writeback_outbox").get().error_code,"NOTION_FIELD_CHANGED");
+  h.sqlite.close();
+});
+test("a legacy NOTION_FIELD_CHANGED review gets exactly one safe automatic recheck",async()=>{
+  const h=await setup();
+  h.state.value="Maxík";h.state.remote="Maroš";
+  await queue(h,"Max","Maxík");
+  assert.equal(await send(h),"review");
+  assert.equal(h.sqlite.prepare("SELECT attempts FROM notion_help_admin_writeback_outbox").get().attempts,1);
+  // Once Notion's verified state returns to the expected baseline, the queued D1 edit wins.
+  h.state.remote="Max";
+  const recovered=await h.api.runHelpNotionWritebackRetrySweep({database:h.db,bindings:h.bindings});
+  assert.equal(recovered.synced,1);
+  assert.equal(queuedCount(h.sqlite),0);
+  h.sqlite.close();
+
+  const x=await setup();
+  x.state.value="Maxík";x.state.remote="Maroš";
+  await queue(x,"Max","Maxík");
+  assert.equal(await send(x),"review");
+  const first=await x.api.runHelpNotionWritebackRetrySweep({database:x.db,bindings:x.bindings});
+  const second=await x.api.runHelpNotionWritebackRetrySweep({database:x.db,bindings:x.bindings});
+  assert.equal(first.review,1);
+  assert.equal(second.claimed,0,"a genuine conflict must not spin forever");
+  const stillBlocked=x.sqlite.prepare("SELECT status,attempts FROM notion_help_admin_writeback_outbox").get();
+  assert.equal(stillBlocked.status,"REVIEW");
+  assert.equal(stillBlocked.attempts,2);
+  assert.equal(x.state.writes.length,0);
+  x.sqlite.close();
+});
+test("the mapped Help Notion echo uses instant normalization for last-seen dates",async()=>{
+  const source=await read("lib/notion-events-help-sync.ts");
+  assert.match(source,/agenda === "lost-found" && field === "Naposledy videný"/);
+  assert.match(source,/stableAgendaSnapshotJson\(agenda, \{ \[field\]: pageProperty\(verified, field\)/);
 });
