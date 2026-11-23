@@ -457,6 +457,9 @@ function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearc
     score: 999,
   };
   item.score = scorePortalSearchItem({ ...item, haystack: item.keywords }, parsed);
+  // Help SQL already matched the query against public content, including the
+  // full description. Keep those matches at content rank without fetching it.
+  if (row.kind === "help" && item.score === 999) item.score = 70;
   return item.score < 999 ? item : null;
 }
 
