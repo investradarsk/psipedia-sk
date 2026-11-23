@@ -10,10 +10,18 @@ async function expectOverview(page: Page) {
   await expect(page).toHaveURL(/\/admin\/?$/);
   await expect(page.locator("[data-admin-shell]")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Pracovný prehľad" })).toBeVisible();
+  await expect(page.locator('[data-admin-sidebar][data-admin-hydrated="true"]')).toBeAttached();
 }
 
 function overviewGroup(page: Page) {
   return page.locator('[data-admin-sidebar] [data-admin-nav-group="Prehľad"] > button');
+}
+
+async function clickOverviewGroup(page: Page) {
+  // Server HTML can render well before the client navigation button hydrates.
+  await expect(page.locator('[data-admin-sidebar][data-admin-hydrated="true"]')).toBeAttached();
+  await expect(overviewGroup(page)).toBeVisible();
+  await clickOverviewGroup(page);
 }
 
 test("repeated Prehľad → Adresár → Prehľad client transitions do not stall", async ({ page }, info) => {
@@ -25,7 +33,7 @@ test("repeated Prehľad → Adresár → Prehľad client transitions do not stal
     await expect(page).toHaveURL(/\/admin\/sluzby-pre-psov$/);
     await expect(page.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
     await expect(overviewGroup(page)).toBeVisible();
-    await overviewGroup(page).click();
+    await clickOverviewGroup(page);
     await expectOverview(page);
   }
 });
@@ -43,7 +51,7 @@ test("Prehľad opens from an actual directory record editor", async ({ page }, i
   await detail.click();
   await expect(page).toHaveURL(/\/admin\/adresar\/\d+(?:\?.*)?$/);
   await expect(overviewGroup(page)).toBeVisible();
-  await overviewGroup(page).click();
+  await clickOverviewGroup(page);
   await expectOverview(page);
 });
 
@@ -79,7 +87,7 @@ test("Prehľad header asks before leaving a dirty editor and preserves edits on 
   await name.fill("Neuložený záznam – regresný test navigácie");
   await expect(overviewGroup(page)).toBeVisible();
 
-  await overviewGroup(page).click();
+  await clickOverviewGroup(page);
   const dialog = page.getByRole("dialog", { name: "Neuložené zmeny" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Pokračovať v úpravách" }).click();
@@ -87,7 +95,7 @@ test("Prehľad header asks before leaving a dirty editor and preserves edits on 
   await expect(page).toHaveURL(/\/admin\/organizacie\/novy$/);
   await expect(name).toHaveValue("Neuložený záznam – regresný test navigácie");
 
-  await overviewGroup(page).click();
+  await clickOverviewGroup(page);
   await dialog.getByRole("button", { name: "Zahodiť zmeny a zavrieť" }).click();
   await expectOverview(page);
 });
