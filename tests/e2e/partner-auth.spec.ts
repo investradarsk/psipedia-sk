@@ -529,6 +529,42 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expectNoHorizontalOverflow(page);
   }
 
+  // A private individual can report a dog without exposing their Partner account contact.
+  const reportKind=project==="desktop-chromium"?"FOUND":"LOST";
+  const reportName=project==="desktop-chromium"?"Partner E2E Nájdený Pes":"Partner E2E Stratený Pes";
+  await page.goto("/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh="+reportKind);
+  await expect(page.getByRole("heading",{name:"Vytvoriť nový záznam"})).toBeVisible();
+  const dogReportForm=page.locator("form.partner-canonical-form");
+  await expect(dogReportForm.getByLabel("Druh záznamu")).toHaveValue("LOST_FOUND_DOG");
+  await expect(dogReportForm.getByLabel("Typ hlásenia *")).toHaveValue(reportKind);
+  await expect(page.getByText("Údaje z účtu sa do verejných kontaktov neprenášajú.",{exact:false})).toBeVisible();
+  await expect(dogReportForm.getByLabel("Verejný e-mail")).toHaveValue("");
+  await expect(dogReportForm.getByLabel("Verejný telefón")).toHaveValue("");
+  await dogReportForm.getByLabel("Meno psa").fill(reportName);
+  await dogReportForm.getByLabel("Dátum udalosti").fill("2026-11-22");
+  await dogReportForm.getByLabel("Kraj").fill("Nitriansky kraj");
+  await dogReportForm.getByLabel("Obec").fill("Nitra");
+  await dogReportForm.getByLabel("Popis udalosti").fill("Hlásenie z partnerského účtu na overenie vlastníctva a bezpečnej moderácie.");
+  if(reportKind==="LOST"){
+    await dogReportForm.getByLabel("Naposledy videný – dátum a čas").fill("2026-11-22T17:00");
+  }else{
+    await expect(dogReportForm.getByLabel("Naposledy videný – dátum a čas")).toHaveCount(0);
+  }
+  await dogReportForm.getByRole("button",{name:"Uložiť koncept"}).click();
+  await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
+  const dogDraftUrl=new URL(page.url()).pathname;
+  await expect(page.getByText("Rozpracovaný súkromný koncept",{exact:true})).toBeVisible();
+  const category=reportKind==="LOST"?"stratene-psy":"najdene-psy";
+  await page.goto("/pomoc-psom/"+category+"?q="+encodeURIComponent(reportName));
+  await expect(page.locator("[data-public-filter-results]")).not.toContainText(reportName);
+  const publicMarkup=await page.content();
+  expect(publicMarkup).not.toContain(expectedEmail);
+  await page.goto(dogDraftUrl);
+  await page.getByRole("button",{name:"Odoslať na schválenie"}).click();
+  await expect(page).toHaveURL(/\/partner\/ziadosti$/);
+  await page.goto("/partner");
+  await expect(page.locator(".partner-dashboard-record").filter({hasText:reportName})).toContainText("Čaká na schválenie");
+
   const ownedEventTitle=project==="desktop-chromium"?"Partner E2E Publikované Podujatie":"Partner E2E Koncept Podujatie";
   const newEventTitle=project==="desktop-chromium"?"Partner E2E Nové Podujatie Desktop":"Partner E2E Nové Podujatie Mobile";
   const originalVenue=project==="desktop-chromium"?"Areál Desktop":"Areál Mobile";
