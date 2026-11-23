@@ -1253,11 +1253,11 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: var(--admin-ui-space-sm, 0.55rem);
 }
 
 .admin-form-actions {
-  margin-top: 16px;
+  margin-top: var(--admin-ui-space-md, 0.75rem);
 }
 
 .admin-form-actions > button,
@@ -1268,13 +1268,13 @@
 .admin-form-grid > button[type="submit"] {
   appearance: none;
   display: inline-flex;
-  min-height: 44px;
+  min-height: var(--admin-ui-control-height, 44px);
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0 15px;
+  gap: var(--admin-ui-space-xs, 6px);
+  padding: var(--admin-ui-control-padding-block, 0.55rem) var(--admin-ui-control-padding-inline, 0.75rem);
   border: 1px solid var(--admin-v3-secondary-border, #c7d4cc);
-  border-radius: 10px;
+  border-radius: var(--admin-ui-field-radius, 9px);
   color: var(--admin-v3-secondary-text, #174b38);
   background: var(--admin-v3-surface, #fff);
   font: inherit;
@@ -1284,8 +1284,8 @@
   text-align: center;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(23, 53, 43, .04);
-  transition: border-color .14s ease, background .14s ease, color .14s ease, box-shadow .14s ease, transform .14s ease;
+  box-shadow: none;
+  transition: border-color .14s ease, background .14s ease, color .14s ease;
 }
 
 .admin-form-actions > button:hover:not(:disabled),
@@ -1296,8 +1296,7 @@
 .admin-form-grid > button[type="submit"]:hover:not(:disabled) {
   border-color: var(--admin-v3-secondary-hover-border, #90aa9c);
   background: var(--admin-v3-surface-muted, #f1f6f2);
-  box-shadow: 0 4px 12px rgba(23, 53, 43, .08);
-  transform: translateY(-1px);
+  box-shadow: none;
 }
 
 .admin-form-actions > button.is-primary,
@@ -1310,7 +1309,7 @@
   border-color: var(--admin-v3-green, #1f684b);
   color: var(--admin-v3-surface, #fff);
   background: var(--admin-v3-green, #1f684b);
-  box-shadow: 0 7px 18px rgba(31, 104, 75, .18);
+  box-shadow: none;
 }
 
 .admin-form-actions > button.is-primary:hover:not(:disabled),

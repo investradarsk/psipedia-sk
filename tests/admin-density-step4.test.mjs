@@ -46,7 +46,7 @@ test("step 4: EditorWorkspace and dashboard share card density", () => {
   assert.match(overview, /\.metricCard \{ min-height: 132px;[^\n]*padding: var\(--admin-ui-panel-padding,/);
   assert.match(overview, /\.queueLink \{ min-height: 56px/);
   assert.match(overview, /\.panel \{ padding: var\(--admin-ui-panel-padding,/);
-  assert.match(shell, /\.workspaceMain \{ padding: var\(--admin-ui-space-md,/);
+  assert.match(shell, /\.workspaceMain \{ padding: var\(--admin-ui-section-gap, 10px\) var\(--admin-ui-space-md, 12px\) 0; \}/);
   assert.match(overview, /\.actionRow a, \.quickLinks a \{ min-height: 44px; \}/);
 });
 
