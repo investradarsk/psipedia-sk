@@ -88,7 +88,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
   const dirty=useMemo(()=>jsonSnapshot(values,coverId,galleryIds,galleryUrls,additionalCategories)!==baseline,
     [values,coverId,galleryIds,galleryUrls,additionalCategories,baseline]);
   usePartnerUnsavedGuard(dirty);
-  const editable=["DRAFT","RETURNED","SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(status);
+  const editable=["DRAFT","RETURNED"].includes(status);
   const submitted=!["DRAFT","RETURNED"].includes(status);
   function setField(key:string,value:string|boolean){
     setValues(previous=>({...previous,[key]:value,...(key==="type"&&value==="FOUND"?{last_seen_date_time:""}:{})}));
@@ -202,6 +202,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
   return <div className="partner-canonical-workspace">
     <div className="partner-canonical-intro">
       <p>Vyplňte údaje, ktoré poznáte. Koncept zostane súkromný a na stránke sa zobrazí až po schválení.</p>
+      {!editable&&["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(status)&&<p role="status">Podanie čaká na redakčné rozhodnutie. Úpravy budú dostupné až po vrátení na doplnenie.</p>}
       <span className="partner-canonical-status" role="status">{labels[status]??"Stav návrhu"}</span>
       {initial?.returnReason&&status==="RETURNED"&&
         <p role="alert" className="partner-field-error">Na doplnenie: {initial.returnReason}</p>}
