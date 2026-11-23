@@ -44,6 +44,7 @@ test("V5-01: legacy puppy tabs lead to Articles or Sections without losing filte
   const puppySection = page.locator("#portal-section-steniatka");
   await expect(puppySection).toBeVisible();
   await expect(puppySection.getByRole("link", { name: "Pokrytie tém" })).toHaveAttribute("href", "/admin/steniatka/pokrytie");
+  await page.setViewportSize({ width: 320, height: 844 });
   await expectNoPageOverflow(page, 320);
 });
 
