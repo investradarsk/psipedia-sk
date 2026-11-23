@@ -324,9 +324,9 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
   // Step 2: both desktop and mobile show real self-service destinations.
   const dashboardActions = page.locator(".partner-dashboard-welcome");
-  await expect(dashboardActions.getByRole("link", { name: "+ Pridať profil", exact: true })).toHaveAttribute("href", "/partner/koncepty/novy?typ=DIRECTORY_PROFILE");
-  await expect(dashboardActions.getByRole("link", { name: "Pridať podujatie" })).toHaveAttribute("href", "/partner/koncepty/novy?typ=MANAGED_EVENT");
-  await expect(dashboardActions.getByRole("link", { name: "Pridať pomoc psom" })).toHaveAttribute("href", "/partner/koncepty/novy?typ=ADOPTION_DOG");
+  await expect(dashboardActions.getByRole("link", { name: "+ Pridať profil", exact: true })).toHaveAttribute("href", "/partner/koncepty/novy/adresar");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať podujatie" })).toHaveAttribute("href", "/partner/koncepty/novy/podujatie");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať pomoc psom" })).toHaveAttribute("href", "/partner/koncepty/novy/adopcia");
   await expect(page.locator(".partner-dashboard-stat")).toHaveCount(3);
   await expect(page.getByRole("heading", { name: "Čo spravujete" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -380,7 +380,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
     // The old new-profile page now redirects to the shared private canonical editor.
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
-    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE$/);
+    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\/adresar$/);
     await expect(page.getByRole("heading", { name: "Vytvoriť nový záznam" })).toBeVisible();
     const newDirectory = page.locator("form.partner-canonical-form");
     await expect(newDirectory.getByLabel("Druh záznamu")).toHaveValue("DIRECTORY_PROFILE");
@@ -465,7 +465,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
-    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE$/);
+    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\/adresar$/);
     await page.getByLabel("Druh záznamu").selectOption("HELP_ORGANIZATION");
     const newOrganization = page.locator("form.partner-canonical-form");
     await expect(newOrganization.getByLabel("Druh záznamu")).toHaveValue("HELP_ORGANIZATION");
@@ -587,7 +587,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
   // New events are saved as unpublished canonical drafts, not legacy pending-only proposals.
   await page.getByRole("link",{name:"Pridať podujatie"}).first().click();
-  await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=MANAGED_EVENT$/);
+  await expect(page).toHaveURL(/\/partner\/koncepty\/novy\/podujatie$/);
   await expect(page.getByRole("heading",{name:"Vytvoriť nový záznam"})).toBeVisible();
   await expect(page.getByLabel("Druh záznamu")).toHaveValue("MANAGED_EVENT");
   await expect(page.getByText("Koncept zostane súkromný a na stránke sa zobrazí až po schválení.", { exact: false })).toBeVisible();
