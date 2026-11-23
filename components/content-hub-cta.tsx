@@ -14,6 +14,7 @@ export function ContentHubCta({ cta }: { cta: ContentHubCtaDecision }) {
       data-contextual-hub-cta
       data-cta-key={cta.key}
       data-health-urgent={cta.key === "health-urgent" ? "" : undefined}
+      data-banner-semantic={cta.key === "health-urgent" ? "urgent" : undefined}
     >
       <div className={styles.copy}>
         <h3 className={styles.headline}>{cta.headline}</h3>

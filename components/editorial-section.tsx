@@ -22,6 +22,7 @@ import type { Article } from "@/lib/content";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
+import { PublicBannerFrame } from "@/components/public-visual-system/public-banner-frame";
 import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import {
   articleHref,
@@ -377,29 +378,35 @@ function HubCallout({ sectionSlug, subpage }: { sectionSlug: EditorialSectionSlu
     : baseConfig;
 
   return (
-    <section
+    <PublicBannerFrame
+      as="section"
+      visual="light"
+      size={subpage ? "medium" : "large"}
+      data-banner-semantic={config.urgent ? "urgent" : undefined}
       className={`${styles.callout} ${config.urgent ? styles.calloutUrgent : ""}`}
       aria-labelledby={`${sectionSlug}-hub-callout`}
     >
-      <PublicIcon icon={config.icon} size="lg" className={styles.calloutIcon} />
-      <div className={styles.calloutCopy}>
-        <span className={styles.eyebrow}>{config.eyebrow}</span>
-        <h2 id={`${sectionSlug}-hub-callout`}>{config.title}</h2>
-        <p>{config.description}</p>
+      <div className={styles.calloutLayout}>
+        <PublicIcon icon={config.icon} size="lg" className={styles.calloutIcon} />
+        <div className={styles.calloutCopy}>
+          <span className={styles.eyebrow}>{config.eyebrow}</span>
+          <h2 id={`${sectionSlug}-hub-callout`}>{config.title}</h2>
+          <p>{config.description}</p>
+        </div>
+        <div className={styles.calloutActions}>
+          {config.actions.map((action) => (
+            <PublicActionLink
+              href={action.href}
+              variant={action.variant}
+              icon={"icon" in action ? action.icon : undefined}
+              key={action.href}
+            >
+              {action.label}
+            </PublicActionLink>
+          ))}
+        </div>
       </div>
-      <div className={styles.calloutActions}>
-        {config.actions.map((action) => (
-          <PublicActionLink
-            href={action.href}
-            variant={action.variant}
-            icon={"icon" in action ? action.icon : undefined}
-            key={action.href}
-          >
-            {action.label}
-          </PublicActionLink>
-        ))}
-      </div>
-    </section>
+    </PublicBannerFrame>
   );
 }
 
