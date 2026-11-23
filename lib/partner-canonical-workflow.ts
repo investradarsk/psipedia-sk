@@ -440,7 +440,8 @@ export async function submitPartnerCanonicalDraft(input:{accountId:string;id:str
     actorRef:accountActor(input.accountId),eventId,changedFieldsJson:'["status"]',now:nowIso,
     transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+" WHERE id=? AND status IN ('draft','DRAFT') AND updated_at=?)",
       bindings:[row.canonicalId,current.updatedAt]},
-    extraStatements:[...duplicateStatements,canonicalNoticeStatement(db,{
+    // Abort the D1 batch before creating any receipt if moderation CAS lost.
+    extraStatements:[guard(db),...duplicateStatements,canonicalNoticeStatement(db,{
       submissionId:row.id,accountId:row.accountId,resourceType:row.resourceType,
       phase:"SUBMITTED",transitionId:eventId,nowIso,
     })],
@@ -598,7 +599,8 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
     transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+
       " WHERE id=? AND status IN ('draft','DRAFT') AND updated_at=?)",
       bindings:[row.canonicalId,revision.updatedAt]},
-    extraStatements:extras,
+    // The moderation CAS must succeed before publication, media and email rows.
+    extraStatements:[guard(db),...extras],
   });
   return {id:row.id,resourceType:row.resourceType,canonicalId:row.canonicalId,
     status:outcome,editorHref:canonicalHref(row.resourceType,row.canonicalId)};
