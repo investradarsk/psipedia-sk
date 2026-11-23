@@ -182,6 +182,22 @@ async function discoverWithStagedImage(
   return findings;
 }
 
+// Tavily results are a snapshot: before creating a proposal, recheck that the
+// canonical field is still empty and the entity has not been closed/archived.
+async function stillMissingQualityFindings(db:Database,profile:Profile,findings:Found[]):Promise<Found[]> {
+  if(!findings.length) return findings;
+  const row=await db.prepare("SELECT * FROM "+SPECS[profile.kind].table+" WHERE id=?")
+    .bind(profile.id).first<Row>();
+  const current=row&&qualityMayResearch(profile.kind,row,qualityTodayInSlovakia())?
+    findings.filter(item=>missing(fieldValue(profile.kind,row,item.field))):[];
+  const keep=new Set(current);
+  for(const item of findings) if(!keep.has(item)) {
+    const key=qualityMissingCandidateKey(item.value);
+    if(key)await (env as unknown as {BUCKET?:R2Bucket}).BUCKET?.delete(key).catch(()=>undefined);
+  }
+  return current;
+}
+
 async function insertQualityFinding(db:Database,profile:Profile,item:Found,now:string) {
   const candidateKey=qualityMissingCandidateKey(item.value);
   try {
@@ -328,7 +344,8 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
     try {
       const search = await provider.searchWithImages({ query, maxResults: 5, locale: "sk-SK", country: "SK" });
       const foundFields = await discoverWithStagedImage(db,profile,search.results,search.images);
-      for (const item of foundFields) found += await insertQualityFinding(db,profile,item,at);
+      for (const item of await stillMissingQualityFindings(db,profile,foundFields))
+        found += await insertQualityFinding(db,profile,item,at);
 
       await db.prepare("UPDATE quality_missing_scans SET status='SUCCESS',error_code=NULL WHERE area=? AND hour=?")
         .bind(area, hour).run();
@@ -496,7 +513,8 @@ export async function runManualQualitySearch(
     if(profile) {
       const discovered=(await discoverWithStagedImage(db,profile,search.results,search.images))
         .filter(x=>input.group==="all"||x.field.group===input.group);
-      for(const item of discovered) found+=await insertQualityFinding(db,profile,item,now);
+      for(const item of await stillMissingQualityFindings(db,profile,discovered))
+        found+=await insertQualityFinding(db,profile,item,now);
     }
     await db.prepare("UPDATE quality_missing_manual_attempts SET status='SUCCESS',found=?,finished_at=? WHERE id=?")
       .bind(found,new Date().toISOString(),id).run();
