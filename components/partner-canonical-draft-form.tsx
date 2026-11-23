@@ -8,6 +8,7 @@ import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
 import type { PartnerCanonicalType,PartnerDraftStatus } from "@/lib/partner-canonical-workflow";
 import type { CanonicalFormField } from "@/lib/partner-canonical-form-fields";
 import { partnerFieldOptionLabel } from "@/lib/partner-field-option-labels";
+import { getPartnerLostFoundSubmitIssue, partnerLostFoundTimeForInput, partnerLostFoundTimeForSave } from "@/lib/partner-lost-found-intake";
 
 const types:ReadonlyArray<[PartnerCanonicalType,string]>=[
   ["DIRECTORY_PROFILE","Služba pre psov"],["HELP_ORGANIZATION","Organizácia"],
@@ -39,6 +40,7 @@ function initialValues(type:PartnerCanonicalType,definitions:Props["definitions"
       values[field.key]=value===null||value===""||value===undefined?"UNKNOWN":value===true||value===1?"YES":"NO";
     else if(field.kind==="list")
       values[field.key]=Array.isArray(value)?value.map(String).join("\n"):typeof value==="string"?value:"";
+    else if(field.kind==="datetime-local")values[field.key]=partnerLostFoundTimeForInput(String(value??""));
     else if(value!==null&&value!==undefined)values[field.key]=String(value);
     else if(field.key==="countryCode")values[field.key]="SK";
     else if(field.required&&field.options?.length&&field.key!=="category")values[field.key]=field.options[0];
@@ -87,7 +89,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
   const editable=["DRAFT","RETURNED","SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(status);
   const submitted=!["DRAFT","RETURNED"].includes(status);
   function setField(key:string,value:string|boolean){
-    setValues(previous=>({...previous,[key]:value}));
+    setValues(previous=>({...previous,[key]:value,...(key==="type"&&value==="FOUND"?{last_seen_date_time:""}:{})}));
     setSuccess("");setDuplicateReview(false);
   }
   function switchType(next:PartnerCanonicalType){
@@ -107,11 +109,13 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
       const raw=values[field.key];
       if(field.kind==="list")data[field.key]=display(raw).split("\n").map(x=>x.trim()).filter(Boolean);
       else if(field.kind==="number")data[field.key]=display(raw).trim()===""?null:Number(raw);
+      else if(field.kind==="datetime-local")data[field.key]=partnerLostFoundTimeForSave(display(raw));
       else if(field.kind==="nullableBoolean")data[field.key]=raw==="UNKNOWN"?null:raw==="YES";
       else if(field.kind==="checkbox")data[field.key]=raw===true;
       else data[field.key]=display(raw);
     }
     if(type==="DIRECTORY_PROFILE")data.category=display(values.category);
+    if(type==="LOST_FOUND_DOG"&&values.type==="FOUND")data.last_seen_date_time="";
     if(isGallery(type))data.galleryUrls=galleryUrls;
     return data;
   }
@@ -159,6 +163,10 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
     if(busy||!editable)return;
     setBusy(true);setError("");setSuccess("");
     try{
+      if(action==="SUBMIT"&&type==="LOST_FOUND_DOG"){
+        const issue=getPartnerLostFoundSubmitIssue(payload());
+        if(issue)throw new Error(issue.message);
+      }
       const draftId=await save();
       if(action==="SUBMIT"){
         if(submitted)throw new Error("Tento koncept už bol odoslaný.");
@@ -196,6 +204,11 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
       {initial?.returnReason&&status==="RETURNED"&&
         <p role="alert" className="partner-field-error">Na doplnenie: {initial.returnReason}</p>}
     </div>
+    {type==="LOST_FOUND_DOG"&&<div className="partner-canonical-intro" role="note">
+      <p><strong>Súkromný kontakt:</strong> redakcia vás kontaktuje cez overený Partner účet a jeho súkromné správy. Údaje z účtu sa do verejných kontaktov neprenášajú.</p>
+      <p>Verejný telefón alebo e-mail vyplňte iba vtedy, ak ich chcete zobraziť návštevníkom. Na odoslanie potrebujeme dátum, kraj, obec a opis udalosti; pri stratenom psovi aj čas posledného videnia.</p>
+      <p><Link href="/partner/nastavenia">Skontrolovať moje súkromné kontaktné údaje</Link></p>
+    </div>}
     <form onSubmit={event=>{event.preventDefault();void perform("SAVE");}} className="partner-profile-edit-form partner-canonical-form">
       <label className="partner-field"><span>Druh záznamu</span>
         <select value={type} disabled={Boolean(id)||busy} onChange={event=>switchType(event.target.value as PartnerCanonicalType)}>
@@ -203,7 +216,8 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
         </select>
       </label>
       <div className="partner-profile-edit-grid">
-        {definitions[type].filter(field=>field.categoryScope===undefined||field.categoryScope===values.category)
+        {definitions[type].filter(field=>(field.categoryScope===undefined||field.categoryScope===values.category)
+          &&!(type==="LOST_FOUND_DOG"&&field.key==="last_seen_date_time"&&values.type==="FOUND"))
           .map(field=>{
           if(field.key==="galleryUrls")return null;
           if(field.key==="additionalCategories"){
@@ -244,7 +258,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
                 maxLength={field.max??20000} value={display(value)} disabled={disabled}
                 onChange={e=>setField(field.key,e.target.value)}/>:
               <input value={display(value)} disabled={disabled} type={field.kind==="date"?"date":field.kind==="time"?"time":
-                  field.kind==="number"?"number":"text"}
+                  field.kind==="datetime-local"?"datetime-local":field.kind==="number"?"number":"text"}
                 min={field.minimum} max={field.maximum} step={field.kind==="number"?"any":undefined}
                 maxLength={field.max??20000} onChange={e=>setField(field.key,e.target.value)}/>}
             {field.kind==="list"&&<small>Každú položku zadajte na samostatný riadok.</small>}
