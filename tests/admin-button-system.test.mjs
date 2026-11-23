@@ -12,7 +12,7 @@ test("admin action containers share one accessible button system", () => {
   assert.match(css, /\.admin-actions,/);
   assert.match(css, /\.admin-heading-actions/);
   assert.match(css, /\.admin-form-grid > button\[type="submit"\]/);
-  assert.match(css, /min-height:\s*44px/);
+  assert.match(css, /min-height:\s*var\(--admin-ui-control-height, 44px\)/);
   assert.match(css, /button\.is-primary/);
   assert.match(css, /button\.is-danger/);
   assert.match(css, /:focus-visible/);

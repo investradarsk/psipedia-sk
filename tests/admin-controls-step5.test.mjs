@@ -29,7 +29,7 @@ test("step 5: canonical buttons preserve all semantic variants and interaction s
   assert.match(src, /disabled=\{disabled \|\| loading\}/);
   assert.match(src, /aria-busy=\{loading \? true : props\["aria-busy"\]\}/);
   assert.match(css, /\.action\s*\{[\s\S]*?min-height: var\(--admin-ui-control-height, 44px\)/);
-  assert.match(css, /\.action\s*\{[\s\S]*?min-width: 44px/);
+  assert.match(css, /\.action\s*\{[\s\S]*?min-width: var\(--admin-ui-control-height, 44px\)/);
   assert.match(css, /\.action\s*\{[\s\S]*?border-radius: var\(--admin-ui-field-radius, 9px\)/);
   assert.match(css, /\.action:focus-visible/);
   assert.match(css, /\.action:disabled/);

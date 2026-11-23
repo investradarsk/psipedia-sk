@@ -1,4 +1,4 @@
-/* Psipedia Admin — one compact visual layer.
+/* Psipedia Admin V5 — shared compact foundation.
  * Loaded LAST by app/admin/layout.tsx. Presentation only; no event handlers,
  * editor data flow, table sorting, Notion/D1 state or public-site styles.
  * This refines the existing V3/V4 tokens rather than starting a new design system.
@@ -6,22 +6,22 @@
 [data-admin-workspace] {
   --admin-ui-font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --admin-ui-type-body: .875rem;
-  --admin-ui-type-heading: clamp(1.22rem, 1.5vw, 1.48rem);
+  --admin-ui-type-heading: clamp(1.16rem, 1.4vw, 1.38rem);
   --admin-ui-type-section: .99rem;
   --admin-ui-type-label: .78rem;
   --admin-ui-type-caption: .77rem;
   --admin-ui-type-stat: clamp(1.45rem, 2vw, 1.88rem);
-  --admin-ui-radius: 10px;
+  --admin-ui-radius: 8px;
   --admin-ui-field-radius: 8px;
   --admin-ui-space-xs: .25rem;
-  --admin-ui-space-sm: .45rem;
-  --admin-ui-space-md: .625rem;
+  --admin-ui-space-sm: .375rem;
+  --admin-ui-space-md: .55rem;
   --admin-ui-space-lg: .85rem;
-  --admin-ui-section-gap: .5rem;
-  --admin-ui-editor-field-gap: .4rem;
-  --admin-ui-panel-padding: .625rem;
-  --admin-ui-control-height: 40px;
-  --admin-ui-control-padding-block: .4rem;
+  --admin-ui-section-gap: .4rem;
+  --admin-ui-editor-field-gap: .375rem;
+  --admin-ui-panel-padding: .55rem;
+  --admin-ui-control-height: 38px;
+  --admin-ui-control-padding-block: .3rem;
   --admin-ui-control-padding-inline: .65rem;
   --admin-v3-card-radius: var(--admin-ui-radius);
   --admin-v3-card-padding: var(--admin-ui-panel-padding);
@@ -39,14 +39,14 @@
 [data-admin-workspace] :is(.admin-panel, .admin-form-card) {
   border-radius: var(--admin-ui-radius);
   border-color: var(--admin-v3-line);
-  box-shadow: 0 1px 5px rgb(20 45 33 / 3%);
+  box-shadow: none;
 }
 [data-admin-workspace] .admin-form-card {
   padding: var(--admin-ui-panel-padding);
 }
 [data-admin-workspace] .admin-heading {
-  gap: .45rem;
-  padding-block: .2rem .55rem;
+  gap: .375rem;
+  padding-block: .1rem .35rem;
 }
 [data-admin-workspace] .admin-heading h1 {
   margin: 0;
@@ -75,15 +75,15 @@
  * pagination, TanStack table state, and existing scroll containers. */
 [data-admin-workspace] .admin-toolbar {
   gap: var(--admin-ui-space-sm);
-  padding: .5rem .625rem;
+  padding: .375rem .55rem;
 }
 [data-admin-workspace] .admin-stats {
   gap: var(--admin-ui-space-sm);
-  margin-bottom: .55rem;
+  margin-bottom: .4rem;
 }
 [data-admin-workspace] .admin-stats > div {
   min-height: 0;
-  padding: .625rem;
+  padding: .5rem;
   border-radius: var(--admin-ui-radius);
   box-shadow: none;
 }
@@ -98,10 +98,7 @@
   gap: .6rem;
   padding-block: .48rem;
 }
-[data-admin-workspace] :is(.admin-pagination, [data-admin-list-pagination]) {
-  gap: var(--admin-ui-space-sm);
-  margin-block: .5rem;
-}
+/* Pager spacing is owned by admin-list-foundation.css. */
 [data-admin-workspace] :is(.admin-table, [data-admin-list-table] table) {
   width: 100%;
   border-collapse: separate;
@@ -110,8 +107,8 @@
   font-size: .82rem;
 }
 [data-admin-workspace] :is(.admin-table, [data-admin-list-table] table) :is(th, td) {
-  padding: .48rem .65rem;
-  line-height: 1.35;
+  padding: .35rem .55rem;
+  line-height: 1.3;
   border-bottom: 1px solid var(--admin-v3-line);
   vertical-align: middle;
 }
@@ -131,37 +128,8 @@
   overscroll-behavior-inline: contain;
 }
 
-/* Canonical TanStack AdminRecordTable powers the majority of list pages.
- * Its module uses 44px rows; compact desktop rows are 40px, while mobile
- * card-mode and selection controls stay untouched. */
-@media (min-width: 821px) {
-  [data-admin-workspace] [data-density="compact"] {
-    border-color: var(--admin-v3-line);
-    border-radius: var(--admin-ui-radius);
-    background: #fff;
-  }
-  [data-admin-workspace] [data-density="compact"] > div:first-child {
-    gap: .4rem;
-    padding: .45rem .65rem;
-    background: var(--admin-v3-surface-muted);
-  }
-  [data-admin-workspace] [data-density="compact"] table[class] {
-    font-size: .8rem;
-  }
-  [data-admin-workspace] [data-density="compact"] table[class] :is(th, td) {
-    height: 40px;
-    padding: .35rem .5rem;
-    line-height: 1.3;
-  }
-  [data-admin-workspace] [data-density="compact"] table[class] th {
-    background: var(--admin-v3-surface-muted);
-    font-size: .72rem;
-    font-weight: 700;
-  }
-  [data-admin-workspace] [data-density="compact"] table[class] td {
-    border-bottom-color: var(--admin-v3-line);
-  }
-}
+/* AdminRecordTable owns its desktop density in its own CSS module.
+ * No later global override is needed for desktop rows or mobile cards. */
 
 /* Form controls — editorial writing surfaces (Tiptap/Lexical), uploads,
  * checkboxes, file inputs and image/map tools are intentionally excluded. */
@@ -204,12 +172,7 @@
     font-size: .8rem;
     line-height: 1.3;
   }
-  [data-admin-workspace] [data-admin-list-pagination]
-    :is(a, button, span[aria-disabled="true"], span[aria-current="page"]) {
-    min-height: var(--admin-ui-control-height);
-    min-width: 40px;
-    padding: .4rem .6rem;
-  }
+  /* Pager dimensions derive from the shared list foundation. */
 }
 
 /* Motion is deliberately subtle and has no dependency on animation libraries. */
@@ -233,9 +196,9 @@
     --admin-ui-type-heading: 1.3rem;
   }
   [data-admin-workspace] :is(.admin-panel, .admin-form-card) {
-    border-radius: 10px;
+    border-radius: var(--admin-ui-radius);
   }
-  [data-admin-workspace] .admin-heading { padding-block: .2rem .55rem; }
+  [data-admin-workspace] .admin-heading { padding-block: .2rem .45rem; }
   [data-admin-workspace] .admin-toolbar { padding: .6rem; }
   [data-admin-workspace] .admin-field :is(
     input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
