@@ -173,7 +173,7 @@ export function mapModerationAttention(row: ModerationAttentionRow, now = new Da
   const relevantAt = isAdminAttentionActive(attentionState) ? row.createdAt : row.updatedAt;
   // Only canonical numeric subject IDs can be routed to the admin editor.
   // Legacy or malformed submissions retain their safe category listing link.
-  const subjectId = typeof row.subjectId === "string" && /^[1-9]\\d*$/.test(row.subjectId)
+  const subjectId = typeof row.subjectId === "string" && /^[1-9]\d*$/.test(row.subjectId)
     && Number.isSafeInteger(Number(row.subjectId)) ? row.subjectId : null;
   const directHref = subjectId ? `${target.href}/${subjectId}` : target.href;
   return {
