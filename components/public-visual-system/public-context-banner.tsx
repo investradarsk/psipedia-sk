@@ -47,6 +47,8 @@ export function PublicContextBanner({
 
   return (
     <PublicBannerFrame
+      visual={tone === "forest" ? "dark" : "light"}
+      size={inline ? "small" : "medium"}
       className={cx(
         styles.banner,
         styles[`tone_${tone}`],
