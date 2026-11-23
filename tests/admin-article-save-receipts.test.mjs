@@ -104,7 +104,7 @@ test("repeated article save after a successful first POST uses existing article 
   assert.match(save, /savedArticleRef\.current = data\.article/);
   assert.match(save, /lastSavedUpdatedAtRef\.current = data\.article\.updatedAt/);
   assert.match(save, /facebookFailed/);
-  assert.match(save, /if \(!facebookFailed\)/);
+  assert.match(save, /if \(!facebookFailed && !hasUnresolvedFollowup\)/);
   assert.match(editor, /savePendingRef\.current \|\| uploading/);
 });
 
