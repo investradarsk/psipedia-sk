@@ -5,7 +5,10 @@ import { listDirectoryInquiries } from "@/lib/directory-store";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminInquiriesPage() {
+export default async function AdminInquiriesPage({searchParams}:{searchParams:Promise<{id?:string|string[]}>}) {
   const user = await requireAdminPageUser("/admin/dopyty");
-  return <AdminShell user={user} eyebrow="Kontakty cez Psipediu" title="Prijaté dopyty" description="Správy od návštevníkov zostávajú v redakcii, kým ich nevybavíš alebo nevymažeš."><AdminInquiryDashboard initialInquiries={await listDirectoryInquiries()} /></AdminShell>;
+  const raw=await searchParams;
+  const value=typeof raw.id==="string"?Number(raw.id):NaN;
+  const focusedId=Number.isSafeInteger(value)&&value>0?value:null;
+  return <AdminShell user={user} eyebrow="Kontakty cez Psipediu" title="Prijaté dopyty" description="Správy od návštevníkov zostávajú v redakcii, kým ich nevybavíš alebo nevymažeš."><AdminInquiryDashboard initialInquiries={await listDirectoryInquiries()} initialFocusedId={focusedId} /></AdminShell>;
 }
