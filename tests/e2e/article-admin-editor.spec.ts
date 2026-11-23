@@ -162,6 +162,29 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(page.locator('[data-article-continuous-document="editable"]')).toContainText("Telo súvislého článku");
   });
 
+  test("CONTINUOUS-STEP6: insert a widget from the sticky formatting toolbar on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+
+    const document = page.locator('[data-article-continuous-document="editable"]');
+    const toolbar = page.locator("[data-admin-tiptap-toolbar]");
+    const insert = toolbar.locator("[data-article-insert-trigger]");
+    await expect(document).toHaveCount(1);
+    await expect(toolbar).toHaveCSS("position", "sticky");
+    await expect(insert).toBeVisible();
+    await expect(page.locator("[data-article-continuous-editable] .insertBar")).toHaveCount(0);
+
+    // The insertion menu belongs to the sticky toolbar, not the scrolling document.
+    await insert.click();
+    await expect(insert).toHaveAttribute("aria-expanded", "true");
+    const picker = toolbar.locator("[data-article-insert-picker]");
+    await expect(picker).toBeVisible();
+    await picker.getByRole("button", { name: "Obrázok", exact: true }).click();
+    await expect(document.locator('[data-article-continuous-widget="image"]')).toHaveCount(1);
+    await expect(picker).toHaveCount(0);
+    await expect(page.locator('[data-article-tiptap-invalid="true"]')).toHaveCount(0);
+  });
+
   test("CONTINUOUS-STEP3: edit a body paragraph in one Tiptap canvas and return to legacy without losing it", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });

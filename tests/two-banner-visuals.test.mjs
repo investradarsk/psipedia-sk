@@ -88,6 +88,25 @@ test("shared banner sizing preserves centered site shell for all non-compact mag
     "homepage lost/found banner is placed in the common shell layout");
 });
 
+test("banner CTA stacks in a narrow desktop sidebar based on its own width", () => {
+  const styles = read("app/banner-visuals.css");
+  const magazine = read("components/public-visual-system/public-magazine-banner.tsx");
+  const article = read("components/article-detail.tsx");
+  const promo = read("components/article-promo.tsx");
+
+  assert.match(styles, /container:\s*ps-editorial-banner\s*\/\s*inline-size/);
+  assert.match(styles, /@container ps-editorial-banner \(max-width: 520px\)/);
+  assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important/);
+  assert.match(styles, /word-break:\s*normal/);
+  assert.match(styles, /justify-self:\s*stretch/);
+  assert.match(styles, /\.ps-public-banner-frame\[data-banner-size="small"\] \[data-public-banner-content\]/);
+
+  assert.match(article, /<ArticlePromo[\s\S]*?\bcompact\s*\/>/);
+  assert.match(promo, /compact=\{compact\}/);
+  assert.match(magazine, /size=\{size \?\? \(compact \? "small" : "medium"\)\}/);
+  assert.match(read("app/globals.css"), /\.shell\s*\{\s*width:\s*min\(var\(--ps-content-max\)/);
+});
+
 test("original partner creatives are not restyled or rebuilt", () => {
   const ads = read("components/affiliate-rotating-banner.tsx");
   assert.doesNotMatch(ads, /PublicBannerFrame|data-banner-visual/);
