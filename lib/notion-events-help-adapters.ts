@@ -127,7 +127,8 @@ export const agendaEditableFields: Record<BidirectionalAgendaKey, readonly strin
     "Názov", "Slug", "Typ", "Psipedia stav", "Meno psa", "Pohlavie", "Plemeno", "Farba", "Vek",
     "Veľkosť", "Krátky popis", "Popis", "Rozlišovacie znaky", "Obojok", "Čip", "Hlavný obrázok", "Dátum udalosti",
     "Naposledy videný", "Kraj", "Okres", "Mesto", "Miesto", "Latitude", "Longitude",
-    "Presnosť lokality", "Verejný kontakt", "Zdroj", "Zdroj URL",
+    "Presnosť lokality", "Verejný kontakt", "Verejný telefón", "Verejný e-mail",
+    "Verejný web", "Verejný Facebook", "Verejný Instagram", "Zdroj", "Zdroj URL",
   ],
 };
 
