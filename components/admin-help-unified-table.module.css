@@ -1,9 +1,9 @@
-.workspace { display: grid; gap: 14px; min-width: 0; margin-top: 18px; }
+.workspace { display: grid; gap: 10px; min-width: 0; max-width: 100%; margin-top: 4px; }
 .intro {
   display: flex; justify-content: space-between; align-items: center;
   gap: 14px; flex-wrap: wrap; color: #1a4534;
 }
-.intro strong { font-size: 1.15rem; }
+.intro span { font-size: .79rem; }
 .intro p { margin: 4px 0 0; color: #64756a; font-size: .83rem; }
 .categories {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
@@ -16,6 +16,10 @@
   text-decoration: none; padding: 8px 10px; font-size: .78rem; font-weight: 700;
 }
 .categories a[aria-current="page"] { background: #174b38; border-color: #174b38; color: #fff; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.filters a { display: inline-flex; align-items: center; padding: 6px 9px; border-radius: 6px; border: 1px solid #d8e4da; color: #28513d; background: #f7faf7; text-decoration: none; font-size: .77rem; font-weight: 650; }
+.filters a[aria-current="page"] { border-color: #28513d; background: #e7f1ea; font-weight: 800; }
+.categories a:focus-visible, .filters a:focus-visible, .categoryAction:focus-visible { outline: 3px solid #a26a1b; outline-offset: 2px; }
 .categoryAction, .action {
   display: inline-flex; align-items: center; border-radius: 8px;
   padding: 8px 10px; background: #e9f3e9; color: #174b38;
@@ -44,10 +48,19 @@
   color: #174b38; font-size: .81rem; text-decoration: none;
 }
 .empty { padding: 20px; border: 1px solid #dae5da; border-radius: 12px; }
-.mobileHub { display: none; }
 @media (max-width: 760px) {
-  .workspace { display: none; }
-  .mobileHub { display: block; }
+  /* The same shared grid remains visible; AdminRecordTable renders its mobile cards. */
+  .workspace { display: grid; max-width: 100%; }
+  .intro { align-items: flex-start; }
+  .categories a, .filters a, .categoryAction,
+  .search input, .search button, .search > a, .pagination a, .pagination span {
+    min-height: 44px; box-sizing: border-box;
+  }
+  .search > a { display: inline-flex; align-items: center; }
+  .search { min-width: 0; }
+  .search label { width: 100%; }
+  .search input { max-width: 100%; }
+  .inlineActions :is(a, button) { min-height: 44px; }
 }
 
 
