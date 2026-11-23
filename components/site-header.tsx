@@ -7,7 +7,7 @@ import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { PublicHeaderNavigationItem } from "@/lib/public-header-navigation";
 import { BookmarkIcon, ChevronDownIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
-import { STORAGE_KEY } from "./favorite-button";
+import { readFavorites, subscribeFavorites } from "@/lib/public-favorites";
 import { NavigationProgress } from "./navigation-progress";
 import styles from "./site-header.module.css";
 
@@ -180,19 +180,10 @@ export function SiteHeader({
 
   useEffect(() => {
     function updateCount() {
-      try {
-        setFavoriteCount(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]").length);
-      } catch {
-        setFavoriteCount(0);
-      }
+      setFavoriteCount(readFavorites().length);
     }
     updateCount();
-    window.addEventListener("psipedia-favorites-changed", updateCount);
-    window.addEventListener("storage", updateCount);
-    return () => {
-      window.removeEventListener("psipedia-favorites-changed", updateCount);
-      window.removeEventListener("storage", updateCount);
-    };
+    return subscribeFavorites(updateCount);
   }, []);
 
   useEffect(() => {

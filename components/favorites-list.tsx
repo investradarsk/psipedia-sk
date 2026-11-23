@@ -5,27 +5,74 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Article } from "@/lib/content";
 import { ArticleCard } from "./article-card";
-import { STORAGE_KEY } from "./favorite-button";
+import { FAVORITES_BATCH_SIZE, readFavorites, subscribeFavorites } from "@/lib/public-favorites";
 
-export function FavoritesList({ articles }: { articles: Article[] }) {
-  const [slugs, setSlugs] = useState<string[] | null>(null);
+type LoadState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; articles: Article[] };
+
+export function FavoritesList() {
+  const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    function read() {
+    let request: AbortController | undefined;
+
+    async function load() {
+      request?.abort();
+      const controller = new AbortController();
+      request = controller;
+      const slugs = readFavorites();
+      const articles: Article[] = [];
+      if (slugs.length) setState({ status: "loading" });
       try {
-        setSlugs(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"));
+        for (let start = 0; start < slugs.length; start += FAVORITES_BATCH_SIZE) {
+          const params = new URLSearchParams();
+          for (const slug of slugs.slice(start, start + FAVORITES_BATCH_SIZE)) {
+            params.append("slug", slug);
+          }
+          const response = await fetch(`/api/public/articles/favorites?${params}`, {
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error("Favorite articles request failed");
+          const batch = (await response.json()) as { articles: Article[] };
+          articles.push(...batch.articles);
+          if (controller.signal.aborted) return;
+        }
+        articles.sort((a, b) => b.dateIso.localeCompare(a.dateIso));
+        if (!controller.signal.aborted) setState({ status: "ready", articles });
       } catch {
-        setSlugs([]);
+        if (!controller.signal.aborted) setState({ status: "error" });
       }
     }
-    read();
-    window.addEventListener("psipedia-favorites-changed", read);
-    return () => window.removeEventListener("psipedia-favorites-changed", read);
-  }, []);
 
-  if (slugs === null) return <div className="favorites-loading">Načítavam uložené články…</div>;
-  const saved = articles.filter((article) => slugs.includes(article.slug));
+    void load();
+    const unsubscribe = subscribeFavorites(load);
+    return () => {
+      unsubscribe();
+      request?.abort();
+    };
+  }, [retry]);
 
+  if (state.status === "loading") {
+    return (
+      <div className="favorites-loading" role="status">
+        Načítavam uložené články…
+      </div>
+    );
+  }
+  if (state.status === "error") {
+    return (
+      <PublicEmptyState variant="context" className="empty-state favorites-empty" role="status">
+        <h2>Obľúbené články sa nepodarilo načítať</h2>
+        <button type="button" className="button button--dark" onClick={() => setRetry(retry + 1)}>
+          Skúsiť znova
+        </button>
+      </PublicEmptyState>
+    );
+  }
+  const saved = state.articles;
   if (!saved.length) {
     return (
       <PublicEmptyState variant="context" className="empty-state favorites-empty">
