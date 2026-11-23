@@ -274,7 +274,7 @@
 .ps-public-banner-frame[data-banner-visual][data-banner-size]::after {
   content: none !important;
 }
-.ps-public-banner-frame[data-banner-size="large"] {
+.ps-public-banner-frame[data-banner-visual][data-banner-size="large"] {
   min-height: 148px !important;
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] > :not([data-ps-banner-art]) {
