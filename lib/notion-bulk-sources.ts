@@ -371,7 +371,7 @@ export async function loadNotionBulkHelpCases(database: D1Database, targetId?: n
 export async function loadNotionBulkLostFound(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,type,status,slug,dog_name,sex,breed,color,approximate_age,size,short_description,description,distinguishing_marks,
     collar_description,chipped,main_image,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,
-    public_location_precision,public_contact_note,source,source_url,updated_at,published_at,expires_at,resolved_at,duplicate_of_id,duplicate_reason
+    public_location_precision,public_contact_note,public_phone,public_email,public_website_url,public_facebook_url,public_instagram_url,source,source_url,updated_at,published_at,expires_at,resolved_at,duplicate_of_id,duplicate_reason
     FROM lost_found_dog_reports ${targetId === undefined ? "" : "WHERE id = ?"} ORDER BY id ASC`, targetId);
 
   return sourceRows.map((row) => {
@@ -406,6 +406,11 @@ export async function loadNotionBulkLostFound(database: D1Database, targetId?: n
       "Longitude": n(row.public_longitude),
       "Presnosť lokality": s(row.public_location_precision),
       "Verejný kontakt": s(row.public_contact_note),
+      "Verejný telefón": s(row.public_phone),
+      "Verejný e-mail": s(row.public_email),
+      "Verejný web": s(row.public_website_url),
+      "Verejný Facebook": s(row.public_facebook_url),
+      "Verejný Instagram": s(row.public_instagram_url),
       "Zdroj": s(row.source),
       "Zdroj URL": s(row.source_url),
       "Aktualizované": date(row.updated_at),
