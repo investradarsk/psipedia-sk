@@ -23,11 +23,13 @@ function dateLabel(value:string){
 }
 
 async function InboxContent({filters}:{filters:InboxFilters}){
-  let error=false;
-  const result=await listAdminInbox(filters).catch(e=>{
-    console.error("Admin unified intake unavailable",e instanceof Error?e.name:"unknown");
-    error=true;return null;
-  });
+  const {result,error}=await listAdminInbox(filters).then(
+    result=>({result,error:false}),
+    e=>{
+      console.error("Admin unified intake unavailable",e instanceof Error?e.name:"unknown");
+      return {result:null,error:true};
+    },
+  );
   const urlFor=(page:number)=>{
     const search=new URLSearchParams({kind:filters.kind,state:filters.state});
     if(filters.q)search.set("q",filters.q);
