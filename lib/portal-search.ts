@@ -431,7 +431,7 @@ function staticSectionItems(parsed: ParsedPortalSearchQuery, section: string, su
     .filter((item) => item.score < 999);
 }
 
-function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearchItem | null {
+function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearchItem {
   const href = row.kind === "breed" && row.breed_fci_group
     ? breedProfileHref(row.href.slice("/plemena/".length), row.breed_fci_group)
     : row.href;
@@ -457,10 +457,10 @@ function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearc
     score: 999,
   };
   item.score = scorePortalSearchItem({ ...item, haystack: item.keywords }, parsed);
-  // Help SQL already matched the query against public content, including the
-  // full description. Keep those matches at content rank without fetching it.
-  if (row.kind === "help" && item.score === 999) item.score = 70;
-  return item.score < 999 ? item : null;
+  // SQL determines eligibility. The smaller card projection is only for
+  // ranking, so matches in fields omitted from it retain the content rank.
+  if (item.score === 999) item.score = 70;
+  return item;
 }
 
 function allowedSpecs(parsed: ParsedPortalSearchQuery, limit: number, section: string, subsection = "") {
@@ -549,8 +549,7 @@ export async function searchPortal(
         const rows = (result.results ?? []) as unknown as SearchRow[];
         databaseTotal += Number(rows[0]?.source_total ?? 0);
         for (const row of rows) {
-          const item = rowToItem(row, parsed);
-          if (item) databaseItems.push(item);
+          databaseItems.push(rowToItem(row, parsed));
         }
       }
     }
