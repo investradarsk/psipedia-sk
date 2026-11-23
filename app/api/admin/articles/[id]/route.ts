@@ -329,14 +329,14 @@ export async function PATCH(request: Request, { params }: RouteProps) {
               database: bindings.DB, bindings, article,
             }));
           } else if (step === "placement") {
-            if (!isBreedArticleNotionChange(before!, article)) {
+            if (!isBreedArticleNotionChange(before! as typeof article, article)) {
               return Response.json({ error: "Priradenie sa v tejto verzii nezmenilo." }, { status: 409 });
             }
             receipt = notionStepReceipt(await writeBackArticleBreedCategoryToNotion({
               database: bindings.DB, bindings, before: before! as typeof article, article,
             }));
           } else if (step === "seo") {
-            if (!articleSeoChangedFields(before!, article).length) {
+            if (!articleSeoChangedFields(before! as typeof article, article).length) {
               return Response.json({ error: "SEO sa v tejto verzii nezmenilo." }, { status: 409 });
             }
             receipt = notionStepReceipt(await writeBackArticleSeoToNotion({
