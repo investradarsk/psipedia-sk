@@ -13,8 +13,10 @@ test("step 16: app settings and Notion settings keep original functional compone
   assert.match(settings, /href="\/admin\/nastavenia\/notion"/);
   assert.match(settings, /<AdminPwaSettings/);
   assert.match(notion, /data-admin-content-module="notion-settings"/);
-  assert.match(notion, /<AdminNotionFieldSettings/);
-  assert.match(notion, /<AdminNotionManualTransfer/);
+  assert.match(notion, /<AdminNotionWorkspace initialTab="fields"/);
+  const workspace = read("components/admin-notion-sync-overview.tsx");
+  assert.match(workspace, /<AdminNotionFieldSettings/);
+  assert.match(workspace, /<AdminNotionManualTransfer/);
   assert.match(pwa, /onClick=\{enableNotifications\}/);
   assert.match(pwa, /onClick=\{disableNotifications\}/);
   assert.match(pwa, /onClick=\{sendTestNotification\}/);
