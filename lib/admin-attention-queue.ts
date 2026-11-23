@@ -145,6 +145,8 @@ export type ModerationAttentionRow = {
   operation: string;
   status: string;
   riskFlagsJson: string;
+  /** Canonical report ID; persisted separately from submission UUID. */
+  subjectId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -169,11 +171,16 @@ export function mapModerationAttention(row: ModerationAttentionRow, now = new Da
               ? "Podanie bolo zamietnuté."
               : "Podanie bolo stiahnuté.";
   const relevantAt = isAdminAttentionActive(attentionState) ? row.createdAt : row.updatedAt;
+  // Only canonical numeric subject IDs can be routed to the admin editor.
+  // Legacy or malformed submissions retain their safe category listing link.
+  const subjectId = typeof row.subjectId === "string" && /^[1-9]\\d*$/.test(row.subjectId)
+    && Number.isSafeInteger(Number(row.subjectId)) ? row.subjectId : null;
+  const directHref = subjectId ? `${target.href}/${subjectId}` : target.href;
   return {
     key: `moderation:${row.id}`,
     sourceType: "MODERATION_SUBMISSION",
     sourceId: row.id,
-    title: target.label,
+    title: subjectId ? `${target.label} #${subjectId}` : target.label,
     reason,
     priority,
     status: row.status,
@@ -181,8 +188,12 @@ export function mapModerationAttention(row: ModerationAttentionRow, now = new Da
     createdAt: row.createdAt,
     relevantAt,
     ageDays: ageDays(relevantAt, now),
-    targetHref: target.href,
-    metadata: [{ label: "Operácia", value: row.operation }],
+    targetHref: directHref,
+    actionLabel: subjectId ? "Otvoriť hlásenie" : "Otvoriť zoznam",
+    metadata: [
+      { label: "Operácia", value: row.operation },
+      ...(subjectId ? [{ label: "ID hlásenia", value: subjectId }] : []),
+    ],
   };
 }
 
