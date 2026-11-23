@@ -77,7 +77,7 @@ test("settings API allowlists both scope and field, requires admin, writes D1 on
   assert.match(route,/requireAdminMutation\(request,\{strictProvenance:true\}\)/);
   assert.match(route,/editableNotionField\(scope,field\)/);
   assert.match(route,/notion_field_authority/);
-  assert.match(app,/AdminNotionFieldSettings/);
+  assert.match(app,/<AdminNotionWorkspace initialTab="fields"/);
   assert.match(breedSync,/readNotionFieldAuthorities\(args\.database, "breeds"\)/);
   assert.match(directory,/readNotionFieldAuthorities\(/);
   assert.match(diagnostic,/expectedNotionHash/);
