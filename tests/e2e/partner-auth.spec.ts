@@ -181,8 +181,9 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
 
 test("anonymous LOST and FOUND creation preserve their exact type through Partner login", async ({ page }) => {
   for (const kind of ["LOST", "FOUND"] as const) {
-    const target = "/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=" + kind;
-    await page.goto(target, { waitUntil: "domcontentloaded" });
+    const target = kind === "LOST" ? "/partner/koncepty/novy/strateny" : "/partner/koncepty/novy/najdeny";
+    // Old bookmarked query links must canonicalize to the path-based entry.
+    await page.goto("/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=" + kind, { waitUntil: "domcontentloaded" });
     const url = new URL(page.url());
     expect(url.pathname).toBe("/partner/prihlasenie");
     expect(url.searchParams.get("returnTo")).toBe(target);
@@ -532,7 +533,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   // A private individual can report a dog without exposing their Partner account contact.
   const reportKind=project==="desktop-chromium"?"FOUND":"LOST";
   const reportName=project==="desktop-chromium"?"Partner E2E Nájdený Pes":"Partner E2E Stratený Pes";
-  await page.goto("/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh="+reportKind);
+  await page.goto(reportKind === "LOST" ? "/partner/koncepty/novy/strateny" : "/partner/koncepty/novy/najdeny");
   await expect(page.getByRole("heading",{name:"Vytvoriť nový záznam"})).toBeVisible();
   const dogReportForm=page.locator("form.partner-canonical-form");
   await expect(dogReportForm.getByLabel("Druh záznamu")).toHaveValue("LOST_FOUND_DOG");
