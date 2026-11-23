@@ -152,3 +152,33 @@ test("calendar retries failed data instead of reusing an earlier month or skippi
     assert.equal(requests[0].searchParams.get("strana"), "2");
   }
 });
+
+test("calendar history accepts event listings and excludes individual event details", async () => {
+  const { default: ts } = await import("typescript");
+  const { eventTypeFromPortalSlug } = await import("../lib/events.ts");
+  const compiled = ts.transpileModule(backLink, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const exports = {};
+  const writes = [];
+  new Function("require", "exports", "window", compiled)(
+    (name) => (name === "@/lib/events" ? { eventTypeFromPortalSlug } : {}),
+    exports,
+    { sessionStorage: { setItem: (_key, value) => writes.push(JSON.parse(value).href) } },
+  );
+  exports.rememberEventsListing("/podujatia?strana=2#events-list");
+  exports.rememberEventsListing("/podujatia/jesenne-preteky-2026");
+  assert.deepEqual(writes, ["/podujatia?strana=2#events-list"]);
+  assert.equal(exports.eventsListingType("/podujatia?strana=2#events-list"), "Všetky");
+  assert.equal(exports.eventsListingType("/podujatia/kalendar?kalendar=2026-11"), "Všetky");
+  assert.equal(exports.eventsListingType("/podujatia/preteky?region=Nitra"), "Preteky");
+  for (const href of [
+    "/podujatia/jesenne-preteky-2026",
+    "/podujatia/preteky/jesenne-preteky-2026",
+    "/podujatia-archiv",
+    "/adresar",
+  ]) {
+    assert.equal(exports.eventsListingType(href), null, href);
+  }
+  assert.match(client, /const type = eventsListingType\(url\.pathname\);\s*if \(!type\) return;/);
+});

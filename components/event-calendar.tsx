@@ -36,7 +36,6 @@ import {
   eventTimeFilterParam,
   eventTimeFilterFromParam,
   eventMonthFilterFromParam,
-  eventTypeFromPortalSlug,
   eventTypePortalHref,
   eventTypes,
   formatEventDate,
@@ -48,7 +47,7 @@ import {
 } from "@/lib/events";
 import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
-import { rememberEventsListing } from "./events-return-link";
+import { eventsListingType, rememberEventsListing } from "./events-return-link";
 
 const DesktopEventFullCalendar = dynamic(
   () => import("./desktop-event-fullcalendar").then((mod) => mod.DesktopEventFullCalendar),
@@ -358,15 +357,14 @@ export function EventCalendar({
   useEffect(() => {
     function restore() {
       const url = new URL(window.location.href);
-      if (!url.pathname.startsWith("/podujatia")) return;
+      const type = eventsListingType(url.pathname);
+      if (!type) return;
       const fromUrlMonth = eventMonthFilterFromParam(url.searchParams.get("mesiac") ?? "");
       const visible = resolveCalendarMonth(
         eventMonthFilterFromParam(url.searchParams.get("kalendar") ?? ""),
         fromUrlMonth,
         today,
       );
-      const slug = url.pathname.split("/").filter(Boolean)[1];
-      const type = slug ? (eventTypeFromPortalSlug(slug) ?? "Všetky") : "Všetky";
       void navigateRef.current(
         url.pathname + url.search,
         {
