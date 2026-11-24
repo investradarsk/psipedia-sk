@@ -51,17 +51,20 @@ export async function getPartnerHelpEditor(accountId: string, resourceId: string
     const arr: unknown = typeof galleryRaw === "string" ? JSON.parse(galleryRaw) : [];
     if (Array.isArray(arr)) gallery = arr.filter((url): url is string => typeof url === "string").slice(0, 20);
   } catch { /* Keep old malformed content unchanged. */ }
+  const reportType: "LOST" | "FOUND" | null = parsed.entityType === "LOST_FOUND_DOG" &&
+    (raw.type === "LOST" || raw.type === "FOUND") ? raw.type : null;
   const originalImage = raw[config.image];
   const imageUrl = typeof originalImage === "string" ? originalImage : null;
   return {
     resourceId, entityType: parsed.entityType, canonicalId: parsed.canonicalId,
     title, values, fields: helpEditorFields[parsed.entityType],
+    reportType,
     imageUrl, gallery, baseRevision: String(raw.updated_at ?? ""),
     status: String(raw.status ?? ""),
     publicHref: parsed.entityType === "ADOPTION_DOG"
       ? ["ACTIVE","RESERVED"].includes(String(raw.status)) ? `/pomoc-psom/adopcia/${raw.slug}` : null
       : parsed.entityType === "LOST_FOUND_DOG"
-        ? raw.status === "ACTIVE" && raw.published_at ? `/pomoc-psom/${raw.type === "FOUND" ? "najdene-psy" : "stratene-psy"}/${raw.slug}` : null
+        ? ["ACTIVE","RESOLVED"].includes(String(raw.status)) && raw.published_at ? `/pomoc-psom/${raw.type === "FOUND" ? "najdene-psy" : "stratene-psy"}/${raw.slug}` : null
         : raw.status === "published" && Number(raw.resolved)===0 ? `/pomoc-psom/${raw.category}/${raw.slug}` : null,
   };
 }

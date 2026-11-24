@@ -6,9 +6,12 @@ import { AdminDestructiveConfirmDialog } from "@/components/admin-interaction-sy
 
 type ClaimDecision = "APPROVE" | "REJECT" | "REVOKE";
 
-export function AdminPartnerClaimActions({ claimId, status="PENDING" }: { claimId: string; status?: string }) {
+export function AdminPartnerClaimActions({ claimId, status="PENDING", requiresReporterVerification=false }: {
+  claimId: string; status?: string; requiresReporterVerification?: boolean;
+}) {
   const router = useRouter();
   const [decisionNote, setDecisionNote] = useState("");
+  const [reporterIdentityVerified, setReporterIdentityVerified] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [pendingAction, setPendingAction] = useState<ClaimDecision | null>(null);
@@ -21,7 +24,9 @@ export function AdminPartnerClaimActions({ claimId, status="PENDING" }: { claimI
       const response = await fetch(`/api/admin/partners/claims/${claimId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, decisionNote }),
+        body: JSON.stringify({ action, decisionNote,
+          ...(action==="APPROVE"&&requiresReporterVerification?{reporterIdentityVerified}:{}),
+        }),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Rozhodnutie sa nepodarilo uložiť.");
@@ -42,8 +47,13 @@ export function AdminPartnerClaimActions({ claimId, status="PENDING" }: { claimI
         <div className="admin-commercial-actions">
           <label>Interná poznámka k rozhodnutiu<textarea rows={5} maxLength={2000} value={decisionNote} onChange={(event) => setDecisionNote(event.target.value)} /></label>
           <p className="admin-partner-hint">Poznámka zostáva v administrácii a neposiela sa Partnerovi e-mailom.</p>
+          {status==="PENDING"&&requiresReporterVerification&&<label className="admin-partner-hint">
+            <input type="checkbox" checked={reporterIdentityVerified}
+              onChange={event=>setReporterIdentityVerified(event.target.checked)} />
+            Overil som, že žiadateľ je pôvodný oznamovateľ alebo oprávnený správca tohto hlásenia.
+          </label>}
           <div className="admin-partner-button-row">
-            {status === "PENDING" ? <><button type="button" disabled={busy} onClick={() => setPendingAction("APPROVE")}>Schváliť</button>
+            {status === "PENDING" ? <><button type="button" disabled={busy || (requiresReporterVerification && !reporterIdentityVerified)} onClick={() => setPendingAction("APPROVE")}>Schváliť</button>
             <button type="button" className="is-danger" disabled={busy} onClick={() => setPendingAction("REJECT")}>Zamietnuť</button></> : <button type="button" className="is-danger" disabled={busy} onClick={() => setPendingAction("REVOKE")}>Odobrať správu záznamu</button>}
           </div>
           {message ? <p role="status" className="admin-partner-message">{message}</p> : null}
@@ -53,7 +63,9 @@ export function AdminPartnerClaimActions({ claimId, status="PENDING" }: { claimI
         open={pendingAction !== null}
         title={pendingAction === "APPROVE" ? "Schváliť správu záznamu?" : pendingAction === "REVOKE" ? "Odobrať správu záznamu?" : "Zamietnuť správu záznamu?"}
         description={pendingAction === "APPROVE"
-          ? "Schváliť žiadosť a prideliť správu existujúceho záznamu? Predchádzajúci správca sa nikdy neodoberie automaticky."
+          ? requiresReporterVerification
+            ? "Potvrdzujete, že ste porovnali údaje so súkromným kontaktom pôvodného hlásenia a overili oprávnenie žiadateľa? Záznam aj pôvodný kontakt zostanú zachované."
+            : "Schváliť žiadosť a prideliť správu existujúceho záznamu? Predchádzajúci správca sa nikdy neodoberie automaticky."
           : pendingAction === "REVOKE" ? "Odobrať tomuto partnerovi aktívne oprávnenie? Záznam a história zostanú zachované." : "Zamietnuť túto žiadosť o správu záznamu?"}
         affectedCount={1}
         affectedLabel="žiadosť"

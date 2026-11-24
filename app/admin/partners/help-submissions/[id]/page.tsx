@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminPartnerCanonicalReturn } from "@/components/admin-partner-canonical-return";
 import { AdminPartnerHelpReviewActions } from "@/components/admin-partner-help-review-actions";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getPartnerHelpCreateAdmin, PartnerHelpReviewError } from "@/lib/partner-help-create-admin";
@@ -25,7 +26,7 @@ export default async function Page({params}:{params:Promise<{id:string}>}){
         <p>Partner: <Link href={`/admin/partners/accounts/${item.accountId}`}>{item.accountId}</Link></p>
         <p>Stav: <strong>{item.status}</strong></p>
         {item.risks.length?<p role="alert"><strong>Možná duplicita:</strong> {item.risks.join(", ")}. Pred vytvorením porovnajte už existujúce záznamy.</p>:null}
-        {item.canonicalId?<p>Kanonické ID: <strong>#{item.canonicalId}</strong>. Vytvorený záznam zatiaľ nie je automaticky publikovaný.</p>:null}
+        {item.canonicalId?<p>Kanonické ID: <strong>#{item.canonicalId}</strong>. Existujúci koncept bude publikovaný pri schválení; nevytvára sa jeho kópia.</p>:null}
         {item.rejectionReasonCode?<p>Dôvod zamietnutia: {item.rejectionReasonCode}</p>:null}
       </section>
       <section className="admin-form-card">
@@ -33,8 +34,10 @@ export default async function Page({params}:{params:Promise<{id:string}>}){
         <dl>{Object.entries(item.payload).map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value===null?"—":String(value)}</dd></div>)}</dl>
       </section>
     </div>
-    {item.active?<AdminPartnerHelpReviewActions id={item.id} resourceType={item.resourceType} payload={item.payload}/>:
+    {item.active?<AdminPartnerHelpReviewActions id={item.id} resourceType={item.resourceType} payload={item.payload}
+      isCanonicalDraft={Boolean(item.canonicalId)} canonicalUpdatedAt={item.canonicalUpdatedAt}/>:
       <section className="admin-form-card"><h2>Uzavretá žiadosť</h2><p>Návrh už nie je možné znovu schváliť. Všetky rozhodnutia ostávajú v histórii.</p></section>}
+    {item.active&&item.canonicalId?<AdminPartnerCanonicalReturn submissionId={item.id}/>:null}
     <section className="admin-form-card">
       <h2>História moderácie</h2>
       <div className="admin-audit-list">{item.history.map((entry,index)=>{

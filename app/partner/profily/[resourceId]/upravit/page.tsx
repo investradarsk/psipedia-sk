@@ -9,8 +9,8 @@ import { getPartnerProfileEditor } from "@/lib/partner-profile-changes";
 export const dynamic = "force-dynamic";
 
 export default async function Page({ params }: { params: Promise<{ resourceId: string }> }) {
-  const identity = await requirePartnerPageIdentity();
   const { resourceId } = await params;
+  const identity = await requirePartnerPageIdentity({returnTo:"/partner/profily/"+encodeURIComponent(resourceId)+"/upravit"});
   let editor;
   try {
     editor = await getPartnerProfileEditor(identity.accountId, resourceId);

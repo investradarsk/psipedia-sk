@@ -5,6 +5,7 @@ import { normalizePartnerClaimText } from "./partner-claims";
 import { queuePartnerLifecycleNotification } from "./partner-email";
 import { enqueueAdminNotificationEvent } from "./admin-notifications";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "./partner-ownership-approval";
+import { LOST_FOUND_PUBLIC_SOURCE } from "./lost-found-public-submission";
 
 export const partnerHelpTypes = ["ADOPTION_DOG","LOST_FOUND_DOG","HELP_CASE"] as const;
 export type PartnerHelpType = (typeof partnerHelpTypes)[number];
@@ -164,7 +165,7 @@ export async function listPartnerApprovedHelpResources(accountId:string,database
   return rows.map(row=>({
     resourceId:helpResourceId(row.entityType,row.canonicalId),entityType:row.entityType,
     canonicalId:row.canonicalId,role:"OWNER" as const,name:row.name,status:row.recordStatus,
-    slug:row.slug,publicHref:row.entityType==="ADOPTION_DOG"&&!["ACTIVE","RESERVED"].includes(row.recordStatus)?null:row.entityType==="LOST_FOUND_DOG"&&row.recordStatus!=="ACTIVE"?null:row.entityType==="HELP_CASE"&&row.recordStatus!=="published"?null:helpClaimHref(row),verificationStatus:"UNVERIFIED" as const,
+    slug:row.slug,publicHref:row.entityType==="ADOPTION_DOG"&&!["ACTIVE","RESERVED"].includes(row.recordStatus)?null:row.entityType==="LOST_FOUND_DOG"&&!["ACTIVE","RESOLVED"].includes(row.recordStatus)?null:row.entityType==="HELP_CASE"&&row.recordStatus!=="published"?null:helpClaimHref(row),verificationStatus:"UNVERIFIED" as const,
   }));
 }
 export async function getPartnerHelpMembership(accountId:string,resourceId:string,database?:D1Database){
@@ -188,6 +189,13 @@ export async function getPartnerHelpClaimAdmin(id:string,database?:D1Database) {
     .replace("SELECT c.id","SELECT a.email_ciphertext emailCiphertext,c.id")).bind(id).first<HelpClaimRow>();
   if(!row)return null;
   const column=resourceCondition(row.entityType);
+  // Admin-only legacy-source check. Never expose the original private reporter
+  // contact or account identity through public/Partner claim search responses.
+  const legacySource = row.entityType==="LOST_FOUND_DOG"
+    ? await db.prepare("SELECT source FROM lost_found_dog_reports WHERE id=?1 LIMIT 1")
+        .bind(row.canonicalId).first<{source:string|null}>()
+    : null;
+  const requiresReporterVerification=legacySource?.source===LOST_FOUND_PUBLIC_SOURCE;
   const [all,events]=await Promise.all([
     db.prepare(`SELECT c.id,c.account_id accountId,c.status,c.created_at createdAt,a.status accountStatus
        FROM partner_help_claims c JOIN partner_accounts a ON a.id=c.account_id
@@ -204,14 +212,20 @@ export async function getPartnerHelpClaimAdmin(id:string,database?:D1Database) {
     memberships:members.map(x=>({...x,role:"OWNER"})),
     otherPendingClaims:all.results.filter(x=>x.status==="PENDING"&&x.id!==id),
     verification:{status:"UNVERIFIED"},audit:events.results,
+    requiresReporterVerification,
   };
 }
-export async function decidePartnerHelpClaimAdmin(input:{id:string;action:"APPROVE"|"REJECT"|"REVOKE";adminEmail:string;decisionNote?:unknown;database?:D1Database;now?:Date;hashKey?:string}){
+export async function decidePartnerHelpClaimAdmin(input:{id:string;action:"APPROVE"|"REJECT"|"REVOKE";adminEmail:string;decisionNote?:unknown;reporterIdentityVerified?:unknown;database?:D1Database;now?:Date;hashKey?:string}){
   const database=getPartnerDatabase(input.database),claim=await getPartnerHelpClaimAdmin(input.id,database);
   if(!claim)throw new PartnerHelpClaimError("Žiadosť neexistuje.",404);
   const revoke=input.action==="REVOKE";
   if(claim.status!==(revoke?"APPROVED":"PENDING"))throw new PartnerHelpClaimError("Žiadosť už bola vybavená.",409);
   if(input.action==="APPROVE"){
+    // Historic anonymous reports retain their encrypted original reporter contact.
+    // An admin must consult the canonical Admin editor and explicitly confirm
+    // the claimant before granting new permissions to modify that report.
+    if(claim.requiresReporterVerification && input.reporterIdentityVerified!==true)
+      throw new PartnerHelpClaimError("Pred schválením overte pôvodného oznamovateľa v Admine a potvrďte overenie.",422);
     const account=await getPartnerAccountById(claim.accountId,database);
     if(account?.status!=="ACTIVE")throw new PartnerHelpClaimError("Účet partnera nie je aktívny.",409);
     try{
@@ -255,7 +269,8 @@ export async function decidePartnerHelpClaimAdmin(input:{id:string;action:"APPRO
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:actor,
     action:revoke?"MEMBERSHIP_REVOKED":input.action==="APPROVE"?"CLAIM_APPROVED":"CLAIM_REJECTED",
     targetType:"PARTNER_HELP_CLAIM",targetId:input.id,
-    metadata:{resourceId:claim.resourceId,entityType:claim.entityType,accountId:claim.accountId},database,now});
+    metadata:{resourceId:claim.resourceId,entityType:claim.entityType,accountId:claim.accountId,
+      ...(input.action==="APPROVE"&&claim.requiresReporterVerification?{reporterIdentityVerified:true}:{})},database,now});
   if(!revoke)await queuePartnerLifecycleNotification({accountId:claim.accountId,
     notificationType:input.action==="APPROVE"?"CLAIM_APPROVED":"CLAIM_REJECTED",
     dedupeKey:`partner-claim-${status.toLowerCase()}/${input.id}`,database,now});

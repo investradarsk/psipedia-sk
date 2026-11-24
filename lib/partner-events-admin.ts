@@ -196,10 +196,11 @@ async function sideEffects(input:{eventId:number;slug:string;published:boolean;l
   }
 }
 
-export async function createPartnerEventAdmin(input:{id:string;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date;publicOrigin?:string;workerVersionId?:string}){
+export async function createPartnerEventAdmin(input:{id:string;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date;publicOrigin?:string;workerVersionId?:string;expectedCanonicalUpdatedAt?:string}){
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);if(row.operation!=="CREATE")throw new PartnerEventError("Táto akcia je iba pre nové podujatie.",409);
   if(row.subjectId){
-    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"APPROVE",database,now:input.now});
+    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"APPROVE",database,now:input.now,
+      expectedCanonicalUpdatedAt:input.expectedCanonicalUpdatedAt});
     return getPartnerEventAdmin(input.id,{database});
   }
   await assertEventIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,database});

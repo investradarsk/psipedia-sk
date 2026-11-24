@@ -57,9 +57,9 @@ export default function TermsPage() {
         Partner účet
       </PublicHeading>
       <p>
-        Partner účet je pracovný účet pre osoby a organizácie, ktoré na Psipedia.sk spravujú alebo
-        žiadajú o správu profilov služieb, organizácií alebo podujatí. Nie je určený ako bežný
-        spotrebiteľský ani sociálny účet.
+        Partner účet je účet pre jednotlivcov, poskytovateľov služieb a organizácie, ktorí na Psipedia.sk
+        vytvárajú alebo spravujú hlásenia a profily – napríklad stratených či nájdených psov,
+        adopcie, služby, organizácie a podujatia. Neslúži ako bežná sociálna sieť.
       </p>
       <p>
         Do Partner účtu sa možno prihlásiť heslom alebo jednorazovým odkazom zaslaným

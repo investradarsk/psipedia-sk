@@ -659,7 +659,7 @@ function statusLabel(status: string) {
 export async function listPartnerNewProfiles(accountId: string, dbInput?: D1Database) {
   const db = database(dbInput);
   const result = await db.prepare(`
-    SELECT s.id,s.status,s.rejection_reason_code rejectionReasonCode,s.created_at createdAt,s.updated_at updatedAt,
+    SELECT s.id,s.status,s.subject_id subjectId,s.rejection_reason_code rejectionReasonCode,s.created_at createdAt,s.updated_at updatedAt,
       m.intended_resource_type resourceType,m.display_name displayName,m.category_or_type categoryOrType,
       m.duplicate_confidence duplicateConfidence,m.resolution_type resolutionType,
       m.resolved_resource_id resolvedResourceId,m.resolved_canonical_id resolvedCanonicalId,
@@ -672,7 +672,7 @@ export async function listPartnerNewProfiles(accountId: string, dbInput?: D1Data
     WHERE m.partner_account_id=?1 AND s.status<>'DRAFT'
     ORDER BY s.created_at DESC,s.id DESC LIMIT 200
   `).bind(accountId).all<{
-    id:string;status:string;rejectionReasonCode:string|null;createdAt:string;updatedAt:string;
+    id:string;status:string;subjectId:string|null;rejectionReasonCode:string|null;createdAt:string;updatedAt:string;
     resourceType:PartnerNewProfileResourceType;displayName:string;categoryOrType:string;
     duplicateConfidence:PartnerDuplicateConfidence;resolutionType:"CREATED_NEW"|"LINKED_EXISTING"|null;
     resolvedResourceId:string|null;resolvedCanonicalId:number|null;directorySlug:string|null;directoryCategory:string|null;

@@ -424,7 +424,7 @@ test("partner login aligns its copy to the top through error, pending and e-mail
   await expect(page.getByRole("button", { name: "Spracúvam…" })).toBeDisabled();
   release();
   await expect(page.getByText("Izolovaný test: nesprávne prihlasovacie údaje.")).toBeVisible();
-  await page.getByLabel("Pracovný e-mail").fill("fixture@example.invalid");
+  await page.locator(".partner-auth-alternative").getByLabel("E-mail", { exact: true }).fill("fixture@example.invalid");
   await page.locator('.partner-auth-alternative button[type="submit"]').click();
   await expect(page.getByText("Izolovaný test: odkaz pripravený.")).toBeVisible();
   expect(blocked).toEqual([]);

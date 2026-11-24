@@ -20,10 +20,10 @@ export default async function PartnerRegistrationPage({ searchParams }: { search
         <div className="partner-auth-copy">
           <span className="eyebrow">Partner účet Psipedia.sk</span>
           <h1>Registrácia Partner účtu</h1>
-          <p className="lead">Vytvorte si Partner účet na správu profilov, služieb a podujatí na Psipedii. Určený je poskytovateľom služieb, organizáciám a oprávneným partnerom.</p>
+          <p className="lead">Vytvorte si Partner účet na správu profilov a hlásení na Psipedii. Je určený aj majiteľom psov, ktorí chcú nahlásiť strateného či nájdeného psa, a tiež poskytovateľom služieb a organizáciám.</p>
           <div className="partner-benefit">
             <strong>Čo nasleduje</strong>
-            <p>Po prihlásení budete môcť v ďalších krokoch prepojiť svoju organizáciu alebo službu.</p>
+            <p>Po prihlásení môžete vytvoriť vlastné hlásenie alebo profil, sledovať jeho stav a po schválení ho upravovať. Organizáciu ani firmu mať nemusíte.</p>
           </div>
           <p className="partner-auth-help">Mám Partner účet: <Link href={returnTo ? `/partner/prihlasenie?returnTo=${encodeURIComponent(returnTo)}` : "/partner/prihlasenie"}>Prejsť na prihlásenie</Link></p>
         </div>

@@ -31,6 +31,9 @@ on:
       - "drizzle/0068_partner_commercial_activation.sql"
       - "drizzle/0070_partner_multimethod_auth.sql"
       - "lib/partner-*"
+      - "app/api/lost-found/submissions/route.ts"
+      - "app/pomoc-psom/stratene-a-najdene/nahlasit/page.tsx"
+      - "components/lost-found-dogs-page.tsx"
       - "lib/private-media.ts"
       - "lib/moderation-store.ts"
       - "lib/moderation-transition.ts"
@@ -53,6 +56,34 @@ on:
       - "tests/partner-new-profile.test.mjs"
       - "tests/partner-events.test.mjs"
       - "tests/partner-media.test.mjs"
+      - "tests/partner-intake-step2.test.mjs"
+      - "tests/partner-intake-step3.test.mjs"
+      - "tests/partner-intake-step4.test.mjs"
+      - "tests/partner-intake-step5.test.mjs"
+      - "tests/partner-intake-step6.test.mjs"
+      - "tests/partner-intake-step7.test.mjs"
+      - "tests/partner-intake-step8.test.mjs"
+      - "components/admin-partner-new-profile-actions.tsx"
+      - "components/admin-partner-help-review-actions.tsx"
+      - "components/admin-partner-event-actions.tsx"
+      - "lib/partner-new-profile-admin.ts"
+      - "lib/partner-events-admin.ts"
+      - "lib/partner-help-create-admin.ts"
+      - "lib/admin-submission-inbox.ts"
+      - "lib/admin-navigation.ts"
+      - "app/admin/podania/**"
+      - "app/admin/dopyty/page.tsx"
+      - "components/admin-inquiry-dashboard.tsx"
+      - "tests/admin-ia.test.mjs"
+      - "lib/partner-canonical-notices.ts"
+      - "lib/partner-inbox.ts"
+      - "app/partner/ziadosti/page.tsx"
+      - "lib/partner-lost-found-resolution.ts"
+      - "lib/partner-lost-found-resolution-sql.ts"
+      - "app/api/partner/help-records/**"
+      - "components/partner-help-public-editor-form.tsx"
+      - "components/lost-found-dog-detail.tsx"
+      - "app/admin/partners/claims/[id]/page.tsx"
       - "tests/e2e/partner-auth.spec.ts"
       - "tests/fixtures/partner-auth-e2e.sql"
       - ".github/workflows/partner-auth-ci.yml"
@@ -92,6 +123,8 @@ jobs:
         run: npm run db:validate-clean
       - name: Partner auth security tests
         run: npm run test:partner-auth
+      - name: Partner LOST/FOUND intake cutover and privacy regressions
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-intake-step2.test.mjs tests/partner-intake-step3.test.mjs tests/partner-intake-step4.test.mjs tests/partner-intake-step5.test.mjs tests/partner-intake-step6.test.mjs tests/partner-intake-step7.test.mjs tests/partner-intake-step8.test.mjs
       - name: Partner review lock and Notion checkbox regressions
         run: node --experimental-strip-types --test tests/admin-events-help-reviewed-lock.test.mjs tests/notion-events-help-reviewed-mirror.test.mjs
       - name: Partner admin search, paging and loading regression tests

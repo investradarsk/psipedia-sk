@@ -4,6 +4,7 @@ import {
   PartnerHelpReviewError,
 } from "@/lib/partner-help-create-admin";
 import { PartnerHelpCreateError } from "@/lib/partner-help-create";
+import { PartnerCanonicalWorkflowError } from "@/lib/partner-canonical-workflow";
 import { PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 import { ModerationStateConflictError } from "@/lib/moderation-transition";
 
@@ -20,8 +21,9 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     const common={id,adminEmail:auth.user.email,requestId:request.headers.get("cf-ray")};
     let result;
     if(data.action==="CREATE_DRAFT"){
-      if(Object.keys(data).some(k=>!["action","editedPayload"].includes(k)))throw new PartnerHelpReviewError("Nepovolené pole.");
-      result=await createPartnerHelpDraftAdmin({...common,editedPayload:data.editedPayload});
+      if(Object.keys(data).some(k=>!["action","editedPayload","expectedCanonicalUpdatedAt"].includes(k)))throw new PartnerHelpReviewError("Nepovolené pole.");
+      result=await createPartnerHelpDraftAdmin({...common,editedPayload:data.editedPayload,
+        expectedCanonicalUpdatedAt:typeof data.expectedCanonicalUpdatedAt==="string"?data.expectedCanonicalUpdatedAt:undefined});
     }else if(data.action==="LINK_EXISTING"){
       if(Object.keys(data).some(k=>!["action","canonicalId"].includes(k)))throw new PartnerHelpReviewError("Nepovolené pole.");
       result=await linkPartnerHelpCreateAdmin({...common,canonicalId:Number(data.canonicalId)});
@@ -31,7 +33,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     }else throw new PartnerHelpReviewError("Neplatná moderátorská akcia.");
     return Response.json({success:true,submission:result},{headers:{"Cache-Control":"private, no-store"}});
   }catch(error){
-    const status=error instanceof PartnerHelpReviewError||error instanceof PartnerHelpCreateError||
+    const status=error instanceof PartnerHelpReviewError||error instanceof PartnerHelpCreateError||error instanceof PartnerCanonicalWorkflowError||
       error instanceof PartnerOwnershipApprovalGuardError?error.status
       :error instanceof ModerationStateConflictError?409
       :error instanceof Error&&/UNIQUE constraint failed/.test(error.message)?409:503;

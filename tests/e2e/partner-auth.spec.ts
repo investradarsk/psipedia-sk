@@ -75,7 +75,7 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
     await expect(page.getByLabel("Pracovný e-mail")).toHaveCount(0);
     await emailMethod.click();
     await expect(emailMethod).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByLabel("Pracovný e-mail")).toBeVisible();
+    await expect(page.getByLabel("E-mail", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Poslať prihlasovací odkaz" })).toBeDisabled();
     await expect(page.getByLabel("Heslo", { exact: true })).toHaveCount(0);
     await passwordMethod.click();
@@ -177,6 +177,19 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
   await page.goto("/partner/nastavenia");
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
+});
+
+test("anonymous LOST and FOUND creation preserve their exact type through Partner login", async ({ page }) => {
+  for (const kind of ["LOST", "FOUND"] as const) {
+    const target = kind === "LOST" ? "/partner/koncepty/novy/strateny" : "/partner/koncepty/novy/najdeny";
+    // Old bookmarked query links must canonicalize to the path-based entry.
+    await page.goto("/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=" + kind, { waitUntil: "domcontentloaded" });
+    const url = new URL(page.url());
+    expect(url.pathname).toBe("/partner/prihlasenie");
+    expect(url.searchParams.get("returnTo")).toBe(target);
+    await expect(page.getByRole("link", { name: "Vytvoriť Partner účet" }))
+      .toHaveAttribute("href", "/partner/registracia?returnTo=" + encodeURIComponent(target));
+  }
 });
 
 test("public header exposes Partner login as a utility action without overflow", async ({ page }, testInfo) => {
@@ -311,9 +324,9 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
   // Step 2: both desktop and mobile show real self-service destinations.
   const dashboardActions = page.locator(".partner-dashboard-welcome");
-  await expect(dashboardActions.getByRole("link", { name: "+ Pridať profil", exact: true })).toHaveAttribute("href", "/partner/koncepty/novy?typ=DIRECTORY_PROFILE");
-  await expect(dashboardActions.getByRole("link", { name: "Pridať podujatie" })).toHaveAttribute("href", "/partner/koncepty/novy?typ=MANAGED_EVENT");
-  await expect(dashboardActions.getByRole("link", { name: "Pridať pomoc psom" })).toHaveAttribute("href", "/partner/koncepty/novy?typ=ADOPTION_DOG");
+  await expect(dashboardActions.getByRole("link", { name: "+ Pridať profil", exact: true })).toHaveAttribute("href", "/partner/koncepty/novy/adresar");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať podujatie" })).toHaveAttribute("href", "/partner/koncepty/novy/podujatie");
+  await expect(dashboardActions.getByRole("link", { name: "Pridať pomoc psom" })).toHaveAttribute("href", "/partner/koncepty/novy/adopcia");
   await expect(page.locator(".partner-dashboard-stat")).toHaveCount(3);
   await expect(page.getByRole("heading", { name: "Čo spravujete" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -367,7 +380,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
     // The old new-profile page now redirects to the shared private canonical editor.
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
-    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE$/);
+    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\/adresar$/);
     await expect(page.getByRole("heading", { name: "Vytvoriť nový záznam" })).toBeVisible();
     const newDirectory = page.locator("form.partner-canonical-form");
     await expect(newDirectory.getByLabel("Druh záznamu")).toHaveValue("DIRECTORY_PROFILE");
@@ -452,7 +465,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
-    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE$/);
+    await expect(page).toHaveURL(/\/partner\/koncepty\/novy\/adresar$/);
     await page.getByLabel("Druh záznamu").selectOption("HELP_ORGANIZATION");
     const newOrganization = page.locator("form.partner-canonical-form");
     await expect(newOrganization.getByLabel("Druh záznamu")).toHaveValue("HELP_ORGANIZATION");
@@ -517,6 +530,49 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expectNoHorizontalOverflow(page);
   }
 
+  // A private individual can report a dog without exposing their Partner account contact.
+  const reportKind=project==="desktop-chromium"?"FOUND":"LOST";
+  const reportName=project==="desktop-chromium"?"Partner E2E Nájdený Pes":"Partner E2E Stratený Pes";
+  await page.goto(reportKind === "LOST" ? "/partner/koncepty/novy/strateny" : "/partner/koncepty/novy/najdeny");
+  await expect(page.getByRole("heading",{name:"Vytvoriť nový záznam"})).toBeVisible();
+  const dogReportForm=page.locator("form.partner-canonical-form");
+  await expect(dogReportForm.getByLabel("Druh záznamu")).toHaveValue("LOST_FOUND_DOG");
+  await expect(dogReportForm.getByLabel("Typ hlásenia *")).toHaveValue(reportKind);
+  await expect(page.getByText("Údaje z účtu sa do verejných kontaktov neprenášajú.",{exact:false})).toBeVisible();
+  await expect(dogReportForm.getByLabel("Verejný e-mail")).toHaveValue("");
+  await expect(dogReportForm.getByLabel("Verejný telefón")).toHaveValue("");
+  // The SSR inputs are visible before hydration. Scan accessibility first, then type.
+  const dogReportAccessibility = await new AxeBuilder({ page }).analyze();
+  expect(dogReportAccessibility.violations).toEqual([]);
+  await expectNoHorizontalOverflow(page);
+  await dogReportForm.getByLabel("Meno psa").fill(reportName);
+  await dogReportForm.getByLabel("Dátum udalosti").fill("2026-11-22");
+  await dogReportForm.getByLabel("Kraj").fill("Nitriansky kraj");
+  await dogReportForm.getByRole("textbox", { name: "Obec", exact: true }).fill("Nitra");
+  await dogReportForm.getByLabel("Popis udalosti").fill("Hlásenie z partnerského účtu na overenie vlastníctva a bezpečnej moderácie.");
+  if(reportKind==="LOST"){
+    await dogReportForm.getByLabel("Naposledy videný – dátum a čas").fill("2026-11-22T17:00");
+  }else{
+    await expect(dogReportForm.getByLabel("Naposledy videný – dátum a čas")).toHaveCount(0);
+  }
+  const dogDraftResponse=page.waitForResponse(response=>new URL(response.url()).pathname==="/api/partner/canonical-drafts"&&response.request().method()==="POST");
+  await dogReportForm.getByRole("button",{name:"Uložiť koncept"}).click();
+  const dogDraftCreated=await dogDraftResponse;
+  expect(dogDraftCreated.status(),await dogDraftCreated.text()).toBe(201);
+  await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
+  const dogDraftUrl=new URL(page.url()).pathname;
+  await expect(page.getByText("Rozpracovaný súkromný koncept",{exact:true})).toBeVisible();
+  const category=reportKind==="LOST"?"stratene-psy":"najdene-psy";
+  await page.goto("/pomoc-psom/"+category+"?q="+encodeURIComponent(reportName));
+  await expect(page.locator("[data-public-filter-results]")).not.toContainText(reportName);
+  const publicMarkup=await page.content();
+  expect(publicMarkup).not.toContain(expectedEmail);
+  await page.goto(dogDraftUrl);
+  await page.getByRole("button",{name:"Odoslať na schválenie"}).click();
+  await expect(page).toHaveURL(/\/partner\/ziadosti$/);
+  await page.goto("/partner");
+  await expect(page.locator(".partner-dashboard-record").filter({hasText:reportName})).toContainText("Čaká na schválenie");
+
   const ownedEventTitle=project==="desktop-chromium"?"Partner E2E Publikované Podujatie":"Partner E2E Koncept Podujatie";
   const newEventTitle=project==="desktop-chromium"?"Partner E2E Nové Podujatie Desktop":"Partner E2E Nové Podujatie Mobile";
   const originalVenue=project==="desktop-chromium"?"Areál Desktop":"Areál Mobile";
@@ -534,7 +590,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
   // New events are saved as unpublished canonical drafts, not legacy pending-only proposals.
   await page.getByRole("link",{name:"Pridať podujatie"}).first().click();
-  await expect(page).toHaveURL(/\/partner\/koncepty\/novy\?typ=MANAGED_EVENT$/);
+  await expect(page).toHaveURL(/\/partner\/koncepty\/novy\/podujatie$/);
   await expect(page.getByRole("heading",{name:"Vytvoriť nový záznam"})).toBeVisible();
   await expect(page.getByLabel("Druh záznamu")).toHaveValue("MANAGED_EVENT");
   await expect(page.getByText("Koncept zostane súkromný a na stránke sa zobrazí až po schválení.", { exact: false })).toBeVisible();
@@ -921,8 +977,8 @@ test("internal admin Partner overview and account detail are protected admin pag
   await createEventRow.getByRole("link",{name:"Detail →"}).click();
   await expect(page.getByRole("heading",{name:"Údaje na vytvorenie"})).toBeVisible();
   // The shared in-page admin dialog replaces the former native browser confirm.
-  // Closing it must never create an event or change the moderation state.
-  await page.getByRole("button",{name:"CREATE EVENT (DRAFT)"}).click();
+  // Closing it must never publish the existing draft or change moderation state.
+  await page.getByRole("button",{name:"Schváliť a publikovať podujatie",exact:true}).click();
   const createEventDialog=page.getByRole("dialog",{name:"Potvrdiť partnerské rozhodnutie"});
   await expect(createEventDialog).toBeVisible();
   await createEventDialog.getByRole("button",{name:"Zrušiť"}).click();
@@ -933,10 +989,10 @@ test("internal admin Partner overview and account detail are protected admin pag
     response.url().includes("/api/admin/partners/events/") &&
     response.request().method()==="PATCH" && response.ok(),
   );
-  await page.getByRole("button",{name:"CREATE EVENT (DRAFT)"}).click();
+  await page.getByRole("button",{name:"Schváliť a publikovať podujatie",exact:true}).click();
   await expect(createEventDialog).toBeVisible();
-  await expect(createEventDialog).toContainText("vytvoriť canonical podujatie ako DRAFT");
-  await createEventDialog.getByRole("button",{name:"Potvrdiť"}).click();
+  await expect(createEventDialog).toContainText("Publikovať už vytvorený kanonický koncept");
+  await createEventDialog.getByRole("button",{name:"Schváliť a publikovať",exact:true}).click();
   await createEventResponse;
   await expect(page.getByText("CREATED_NEW")).toBeVisible();
 

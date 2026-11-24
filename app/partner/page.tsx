@@ -63,9 +63,9 @@ export default async function PartnerHomePage() {
             ? "Tu môžete otvoriť a upravovať pridelené záznamy. Nový profil alebo podujatie môžete kedykoľvek navrhnúť."
             : "Vytvorte nový profil alebo požiadajte o správu už existujúceho. Po schválení sa vám zobrazí v tomto prehľade."}</p>
           <div className="partner-dashboard-welcome-actions">
-            <Link className="button button--coral" href="/partner/koncepty/novy?typ=DIRECTORY_PROFILE">+ Pridať profil</Link>
-            <Link className="button button--dark" href="/partner/koncepty/novy?typ=MANAGED_EVENT">+ Pridať podujatie</Link>
-            <Link className="button button--dark" href="/partner/koncepty/novy?typ=ADOPTION_DOG">+ Pridať pomoc psom</Link>
+            <Link className="button button--coral" href="/partner/koncepty/novy/adresar">+ Pridať profil</Link>
+            <Link className="button button--dark" href="/partner/koncepty/novy/podujatie">+ Pridať podujatie</Link>
+            <Link className="button button--dark" href="/partner/koncepty/novy/adopcia">+ Pridať pomoc psom</Link>
             <Link className="button button--dark" href="/partner/prevziat">Požiadať o správu profilu</Link>
           </div>
         </div>
@@ -92,7 +92,7 @@ export default async function PartnerHomePage() {
         <section className="partner-dashboard-section" aria-labelledby="partner-drafts-heading">
           <div className="partner-dashboard-section-heading">
             <div><span className="eyebrow">Rozpracované návrhy</span><h2 id="partner-drafts-heading">Moje koncepty a odoslané návrhy</h2></div>
-            <Link href="/partner/koncepty/novy?typ=DIRECTORY_PROFILE">+ Pridať profil</Link>
+            <Link href="/partner/koncepty/novy/adresar">+ Pridať profil</Link>
           </div>
           <div className="partner-dashboard-record-grid">
             {canonicalDrafts.slice(0,12).map(draft=>(

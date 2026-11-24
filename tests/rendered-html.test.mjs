@@ -675,6 +675,7 @@ test("uses light admin lists and loads full records only for detail and save", a
     assert.match(articleDetailHtml, /Testovací článok/);
     // The editor shell renders on the server; its rich-text surface mounts on the client.
     // The following shell and source assertions cover the actual editor contract.
+    assert.doesNotMatch(articleDetailHtml, /Súvislý editor \(Word štýl\)/);
     // The Blocks tab is not initially selected in the Editor Workspace. The
     // HTML smoke verifies the editor shell; block labels and CTA safety are
     // covered at their canonical source rather than requiring hidden controls.

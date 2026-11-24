@@ -80,6 +80,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/breed-article-collection.tsx",
+      "coverage": "server-preview"
+    },
+    {
       "path": "components/breed-browser.tsx",
       "coverage": "page-composite"
     },
@@ -218,6 +222,10 @@
     {
       "path": "components/editorial-section.tsx",
       "coverage": "needs-preview"
+    },
+    {
+      "path": "components/editorial-topic-article-grid.tsx",
+      "coverage": "server-preview"
     },
     {
       "path": "components/eshop-rating-form.tsx",

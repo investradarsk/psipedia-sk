@@ -121,11 +121,12 @@ export default async function Page() {
               <div><dt>Typ / kategória</dt><dd>{profileCategoryLabel(submission.resourceType, submission.categoryOrType)}</dd></div>
             </dl>
             {submission.duplicateWarning ? <p><strong>Kontrola duplicít:</strong> {submission.duplicateWarning}</p> : null}
-            {submission.resolutionType === "CREATED_NEW" ? <p>Profil bol vytvorený a pripravuje sa na zverejnenie.</p> : null}
+            {submission.resolutionType === "CREATED_NEW" ? <p>{submission.subjectId ? "Profil bol schválený a zverejnený." : "Profil bol vytvorený a pripravuje sa na zverejnenie."}</p> : null}
             {submission.resolutionType === "LINKED_EXISTING" ? <p>Návrh bol prepojený s existujúcim profilom.</p> : null}
             {submission.rejectionReason ? <p><strong>Dôvod:</strong> {submission.rejectionReason}</p> : null}
             <div className="partner-request-links">
               {submission.canonicalHref ? <Link href={submission.canonicalHref}>Verejný profil →</Link> : null}
+              {submission.subjectId ? <Link href={`/partner/koncepty/${encodeURIComponent(submission.id)}`}>Zobraziť podanie a rozhodnutie →</Link> : null}
               {submission.canWithdraw ? <PartnerNewProfileWithdrawButton id={submission.id} /> : null}
             </div>
           </article>
@@ -148,7 +149,8 @@ export default async function Page() {
             {submission.risks.includes("POSSIBLE_DUPLICATE") ? <p>Možná zhoda s existujúcim záznamom – administrátor ju preverí.</p> : null}
             <div className="partner-request-links">
               {submission.canWithdraw ? <PartnerHelpWithdrawButton id={submission.id}/> : null}
-              {submission.status==="APPROVED" ? <span>Návrh bol schválený na ďalšie spracovanie.</span> : null}
+              {submission.status==="APPROVED" ? <span>{submission.subjectId ? "Profil bol schválený a zverejnený." : "Návrh bol schválený na ďalšie spracovanie."}</span> : null}
+              {submission.subjectId ? <Link href={`/partner/koncepty/${encodeURIComponent(submission.id)}`}>Zobraziť podanie a rozhodnutie →</Link> : null}
             </div>
           </article>
         ))}</div> : <div className="partner-empty"><h2>Nemáte žiadne návrhy Pomoci psom</h2><p>Pridajte adopciu, strateného psa alebo ďalší prípad pomoci.</p></div>}
@@ -169,11 +171,12 @@ export default async function Page() {
               <div><dt>Odoslané</dt><dd>{new Date(submission.createdAt).toLocaleString("sk-SK")}</dd></div>
               <div><dt>Typ návrhu</dt><dd>{partnerEventOperationLabel(submission.operation)}</dd></div>
             </dl>
-            {submission.resolutionType === "CREATED_NEW" ? <p>Podujatie bolo vytvorené a pripravuje sa na zverejnenie.</p> : null}
+            {submission.resolutionType === "CREATED_NEW" ? <p>{submission.subjectId ? "Podujatie bolo schválené a zverejnené." : "Podujatie bolo vytvorené a pripravuje sa na zverejnenie."}</p> : null}
             {submission.resolutionType === "LINKED_EXISTING" ? <p>Návrh bol prepojený s existujúcim podujatím.</p> : null}
             {submission.rejectionReason ? <p><strong>Dôvod:</strong> {submission.rejectionReason}</p> : null}
             <div className="partner-request-links">
               {submission.canonicalHref ? <Link href={submission.canonicalHref} target="_blank">Verejné podujatie ↗</Link> : null}
+              {submission.subjectId && submission.operation === "CREATE" ? <Link href={`/partner/koncepty/${encodeURIComponent(submission.id)}`}>Zobraziť podanie a rozhodnutie →</Link> : null}
               {submission.canWithdraw ? <PartnerEventWithdrawButton id={submission.id} /> : null}
             </div>
           </article>
