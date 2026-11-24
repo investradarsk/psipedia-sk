@@ -874,11 +874,18 @@ test("internal admin Partner overview and account detail are protected admin pag
   await expect(accountOverview.getByText(project==="desktop-chromium"?"E2E manažér aktualizovaný":"E2E správca aktualizovaný")).toBeVisible();
   await expect(page.getByRole("heading",{name:"Bezpečnostné akcie"})).toBeVisible();
   await page.goto("/admin/partners/commercial?status=NEW");
-  await expect(page.getByRole("heading",{name:"Komerčné leady"})).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Zoznam žiadostí", exact: true })).toBeVisible();
+  const newRequests = page.locator(".admin-commercial-list article").filter({ hasText: "nové žiadosti" });
+  await expect(newRequests.locator("strong")).toHaveText("1");
+  await expect(page.getByLabel("Stav").locator("option[value=NEW]")).toHaveText("Nové");
+  await page.goto("/admin/partners/commercial?status=CLOSED");
+  await expect(page.getByLabel("Stav")).toHaveValue("CLOSED");
+  await expect(newRequests.locator("strong")).toHaveText("1");
+  await page.goto("/admin/partners/commercial?status=NEW");
   const leadRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
   await expect(leadRow).toContainText("E2E nezáväzný záujem");
   await leadRow.getByRole("link",{name:"Detail →"}).click();
-  await expect(page.getByRole("heading",{name:"Spracovanie leadu"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Spracovanie žiadosti"})).toBeVisible();
   // Server-rendered controls can be interacted with before the React client
   // hydrates them. Wait for React to attach the controlled select's props
   // before changing its value; otherwise the PATCH can omit the new status.
@@ -887,6 +894,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     return select !== null && Object.keys(select).some((key) => key.startsWith("__reactProps$"));
   });
   const statusSelect = page.getByLabel("Stav");
+  await expect(statusSelect.locator("option[value=CONTACTED]")).toHaveText("Kontaktované");
   await statusSelect.selectOption("CONTACTED");
   await expect(statusSelect).toHaveValue("CONTACTED");
   const leadUpdate = page.waitForResponse((response) =>
