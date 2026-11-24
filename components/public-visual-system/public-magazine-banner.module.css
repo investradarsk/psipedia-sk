@@ -8,7 +8,6 @@
   margin-block: 10px 16px;
   padding: 25px clamp(22px, 3vw, 38px);
   border: 1px solid var(--ps-banner-border, var(--ps-border-soft));
-  border-radius: 17px;
   background: linear-gradient(110deg, var(--sage-light), var(--paper));
 }
 .magazine:global(.home-magazine-banner .eyebrow) {
@@ -17,7 +16,6 @@
 .magazine:global(.home-magazine-banner h2) {
   margin: 0;
   color: var(--forest);
-  font-family: Georgia, serif;
   font-size: clamp(1.45rem, 2.1vw, 1.98rem);
 }
 .magazine:global(.home-magazine-banner p) {
@@ -50,8 +48,8 @@
 }
 
 .magazine:global(.home-magazine-banner h2) {
-  font-family: inherit;
-  font-weight: 750;
+  font-family: var(--ps-font-heading);
+  font-weight: 500;
   letter-spacing: -0.025em;
 }
 .magazine:global(.home-magazine-banner) {
@@ -60,7 +58,6 @@
   margin-block: 5px 8px;
   padding: 18px clamp(18px, 2.4vw, 28px);
   border-left: 3px solid var(--coral-dark);
-  border-radius: 14px;
   background: linear-gradient(110deg, var(--sage-light), var(--paper));
 }
 .magazine:global(.home-magazine-banner h2) {
@@ -169,7 +166,7 @@
   color: #fff;
 }
 .magazine:global(.home-magazine-banner).withPhoto .eyebrow {
-  color: #f7cfbd;
+  color: var(--ps-premium-kicker-on-dark);
 }
 .magazine:global(.home-magazine-banner).withPhoto :global(.button.button--dark) {
   border-color: #fff;

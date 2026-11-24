@@ -1217,7 +1217,7 @@
   .prose-page:is(.legal-page, .info-page) > h2 {
     margin: 28px 0 9px;
     color: var(--ink);
-    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: var(--ps-font-heading, "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif);
     font-size: var(--ps-heading-content-section);
     font-weight: 750;
     letter-spacing: -0.025em;
@@ -1233,7 +1233,7 @@
   }
   .prose-page.info-page .about-contact h2 {
     margin: 8px 0 10px;
-    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: var(--ps-font-heading, "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif);
     font-size: var(--ps-heading-content-section);
     font-weight: 750;
     letter-spacing: -0.025em;

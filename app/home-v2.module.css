@@ -369,7 +369,7 @@
 
 .homeV2 :global(.home-event-copy strong) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.12rem;
   font-weight: 500;
 }
@@ -1128,7 +1128,7 @@
 
 .homeV2 :global(.home-event-copy strong) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.08rem;
   font-weight: 500;
   line-height: 1.28;
@@ -1821,7 +1821,7 @@
 .homeV2 :global(.home-magazine-sidebar-heading h3) {
   margin: 0;
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.15rem;
   font-weight: 600;
   line-height: 1.2;
@@ -1938,7 +1938,7 @@
 
 .homeV2 :global(.home-side-breed > strong) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.26rem;
   line-height: 1.25;
 }
