@@ -72,6 +72,7 @@ const kinds:Record<PartnerCanonicalType,DraftKind> = {
       ...textFields(["name","sex","size","approximateAgeMonths","breedName","region","district","city",
         "organizationName","shortDescription","description"]),
       ...Object.fromEntries(helpEditorFields.ADOPTION_DOG.map(field=>[field.key,field.key])),
+      galleryUrls:"gallery_json",
     },
   },
   LOST_FOUND_DOG:{
@@ -80,6 +81,7 @@ const kinds:Record<PartnerCanonicalType,DraftKind> = {
       ...textFields(["type","dogName","sex","breed","color","size","eventDate","region","district","city",
         "locationDescription","description"]),
       ...Object.fromEntries(helpEditorFields.LOST_FOUND_DOG.map(field=>[field.key,field.key])),
+      galleryUrls:"gallery_json",
     },
   },
   HELP_CASE:{
@@ -309,7 +311,7 @@ export async function getPartnerCanonicalDraft(input:{accountId:string;id:string
   const values:Record<string,unknown>={};
   for(const key of Object.keys(mapping)){
     const v=current[key];
-    if(key==="services"||key==="qualifications"){
+    if(key==="services"||key==="qualifications"||key==="galleryUrls"){
       try{values[key]=JSON.parse(String(v??"[]"))}catch{values[key]=[]}
     }else{
       const def=helpFieldDefinitions[row.resourceType]?.[key];
