@@ -51,7 +51,7 @@ test("Partner E2E confirms every moderation action with shared in-page dialogs",
   assert.equal((admin.match(/page\.once\("dialog"/g) ?? []).length, 0);
   assert.match(admin, /getByRole\("dialog",\{name:"Potvrdiť partnerské rozhodnutie"\}\)/);
   assert.match(admin, /createEventDialog\.getByRole\("button",\{name:"Zrušiť"\}\)\.click\(\)/);
-  assert.match(admin, /createEventDialog\.getByRole\("button",\{name:"Potvrdiť"\}\)\.click\(\)/);
+  assert.match(admin, /createEventDialog\.getByRole\("button",\{name:"Schváliť a publikovať",exact:true\}\)\.click\(\)/);
   // Existing OWNER records save directly: neither profile nor event updates
   // should create an Admin moderation action in this E2E journey.
   assert.match(admin, /await expect\(updateEventRow\)\.toHaveCount\(0\)/);
