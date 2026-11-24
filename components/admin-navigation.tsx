@@ -2,7 +2,7 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   adminNavigationGroups,
   findActiveAdminNavigationItem,
@@ -55,8 +55,15 @@ function useAdminIntentPrefetch() {
   };
 }
 
+/** The Admin home is streamed and uncached. A fresh document avoids reusing a stalled authenticated RSC transition. */
+function handleAdminOverviewLink(event: MouseEvent<HTMLAnchorElement>) {
+  if (event.defaultPrevented || event.button !== 0 ||
+    event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  dispatchAdminOverviewNavigation(() => window.location.assign("/admin"));
+}
+
 function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
-  const router = useRouter();
   const pathname = usePathname();
   const prefetchOnIntent = useAdminIntentPrefetch();
   const active = findActiveAdminNavigationItem(pathname);
@@ -66,7 +73,7 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const groupGlyphs = ["⌂", "▤", "♧", "⚙", "◎", "◇", "⚙"];
 
   function navigateToOverview() {
-    dispatchAdminOverviewNavigation(() => router.push("/admin"));
+    dispatchAdminOverviewNavigation(() => window.location.assign("/admin"));
   }
 
   return (
@@ -108,6 +115,7 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
                 <Link
                   href={item.href}
                   prefetch={false}
+                  onClick={item.href === "/admin" ? handleAdminOverviewLink : undefined}
                   onMouseEnter={() => prefetchOnIntent(item.href)}
                   onFocus={() => prefetchOnIntent(item.href)}
                   key={item.href}
@@ -321,6 +329,7 @@ export function AdminBreadcrumbs() {
               : <Link
                   href={item.href}
                   prefetch={false}
+                  onClick={item.href === "/admin" ? handleAdminOverviewLink : undefined}
                   onMouseEnter={() => prefetchOnIntent(item.href)}
                   onFocus={() => prefetchOnIntent(item.href)}
                 >{item.label}</Link>}
