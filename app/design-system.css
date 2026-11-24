@@ -107,22 +107,10 @@
 
 .page-breadcrumbs,
 .article-breadcrumbs {
-  font-family: var(--ps-font-body, system-ui, sans-serif);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 7px;
-}
-
-.page-breadcrumbs a:focus-visible,
-.article-breadcrumbs a:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-.page-breadcrumbs a:hover,
-.article-breadcrumbs a:hover {
-  text-decoration: underline;
-  text-underline-offset: .2em;
 }
 
 .page-breadcrumbs > span:last-child,

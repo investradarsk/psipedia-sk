@@ -84,7 +84,7 @@ test("local public listing CSS no longer competes with CTA or card tokens", () =
   assert.doesNotMatch(events, /\s*\.sidebarContent\s*button,\s*\.listHeading\s*button/);
   assert.match(
     events,
-    /\s*\.gridCard\s*\{\s*[^}]*border-radius:\s*var\(\s*--ps-radius-card,\s*22px\s*\)/,
+    /\s*\.gridCard\s*\{\s*[^}]*border-radius:\s*var\(\s*--ps-radius-card\s*\)/,
   );
 });
 

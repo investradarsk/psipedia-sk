@@ -52,7 +52,7 @@ test("article and breed retain intrinsic/contained photos, help safety styling i
   );
   assert.match(
     breed,
-    /\s*\.heroPhoto\s*\{\s*border-radius:\s*var\(\s*--ps-detail-photo-radius\s*\);\s*\}/,
+    /\s*\.heroPhoto\s*\{\s*[^}]*border-radius:\s*var\(\s*--ps-radius-media\s*\);/,
   );
   assert.match(breed, /object-fit:\s*contain/);
   assert.match(

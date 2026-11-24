@@ -360,7 +360,7 @@ test("mobile article composition hides sidebar and keeps compact readable contro
   assert.match(styles, /font-size:\s*clamp\(1\.65rem,\s*6\.8vw,\s*1\.95rem\)/);
   assert.match(styles, /article-block-sources\)[^{]*\{[^}]*font-size:\s*0\.9rem/s);
   assert.match(shareStyles, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(shareStyles, /min-height:\s*40px/);
+  assert.match(shareStyles, /min-height:\s*var\(--ps-control-min-height,\s*44px\)/);
   assert.match(styles, /\.article-block-table-wrap\)[^{]*\{[^}]*overflow-x:\s*auto/s);
   assert.match(
     styles,
@@ -404,7 +404,7 @@ test("ARTICLE-READING-UX-2 preserves tracker, compact feedback, sticky-header an
   assert.match(feedbackComponent, />\s*Nie\s*<\/button>/);
   assert.match(
     styles,
-    /\.article-feedback\)[^{]*\{[\s\S]*border-left:\s*0/,
+    /\.article-feedback\)[^{]*\{[^}]*border-left:\s*1px solid var\(--ps-border-soft\);[^}]*border-radius:\s*var\(--ps-radius-card\)/,
   );
   assert.match(shareStyles, /var\(--brand-accent-strong/);
 

@@ -79,5 +79,8 @@ test("informational pages opt into readability without globally enlarging contro
   );
   assert.doesNotMatch(read("app/admin/admin-editorial-foundation.css"), /--ps-reading-size/);
   const globals = read("app/globals.css");
-  assert.match(globals, /body\s*\{[^}]*font-family:\s*"Avenir Next"/s);
+  assert.match(globals, /body\s*\{[^}]*font-family:\s*var\(--ps-font-body,\s*"Avenir Next"/s);
+  const premium = read("app/premium-foundation.css");
+  assert.match(premium, /:root:not\(:has\(\[data-admin-workspace\]\)\)\s*\{[^}]*--ps-font-body:\s*"Psipedia Inter"/s);
+  assert.match(premium, /--ps-reading-font:\s*var\(--ps-font-body\)/);
 });

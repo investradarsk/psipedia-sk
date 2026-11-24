@@ -53,7 +53,7 @@ test("shared detail cards and actions use the current public visual palette", ()
 
 test("help informational banner follows shared banner radius without changing safety warning", () => {
   const css = read("components/help-details/help-detail.module.css");
-  assert.match(css, /\s*\.trust\s*\{\s*border-radius:\s*var\(\s*--ps-radius-filter,\s*18px\s*\)/);
+  assert.match(css, /\s*\.trust\s*\{\s*[^}]*border-radius:\s*var\(\s*--ps-radius-card\s*\)/);
   assert.match(css, /\s*\.safety\s*\{\s*background:\s*#fff7e4;\s*border-color:\s*#f5dba4;\s*\}/);
 });
 

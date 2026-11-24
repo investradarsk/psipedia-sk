@@ -216,3 +216,16 @@
     --ps-glass-lift: none;
   }
 }
+
+/* V2 public breadcrumbs: leave the original DS-1A base unchanged. */
+:root:not(:has([data-admin-workspace])) :is(.page-breadcrumbs, .article-breadcrumbs) {
+  font-family: var(--ps-font-body);
+}
+:root:not(:has([data-admin-workspace])) :is(.page-breadcrumbs, .article-breadcrumbs) a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+:root:not(:has([data-admin-workspace])) :is(.page-breadcrumbs, .article-breadcrumbs) a:hover {
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}
