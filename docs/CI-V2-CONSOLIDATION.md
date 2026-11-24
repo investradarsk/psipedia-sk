@@ -118,13 +118,23 @@ Dôvod dvoch profilov: `vite.config.ts` číta PSIPEDIA_E2E_LOCAL_BOOTSTRAP a me
 
 Zachované oba povinné check contexts, existujúce produkčné workflowy, lokálna bezpečnosť a rozsahy testov. Nezlučujeme REVIEWS-3 (odlišné .dev.vars pred buildom), Partner, DS-0B (odlišná revízia PR HEAD) ani produkčné operácie. Ďalšie skupiny až po kontrole profilu a úspešnej pilotnej runtime validácii. Teoretické zníženie 4 -> 2 buildy pri prekryve; reálny čas a úspešné CI zatiaľ neoverené. Artefakt kontrakt je pridaný do hlavného povinného workflowu.
 
+## 05 – Inteligentný výber testov
+
+Rozšírený existujúci ci-scope (v8), nie druhá konkurenčná implementácia. Vlastníctvo sa overuje po jednotlivých súboroch: neznámy súbor v zmiešanom PR aktivuje existujúci full-core režim namiesto bounded. Nové scope pre homepage, verejný obsah, SEO/výkon a Facebook; rozšírené bezpečnostné a vizuálne závislosti vrátane premium-foundation.css. Spoločná build infraštruktúra a auth guardy ostávajú full-core. Git diff používa --no-renames, aby sa kontrolovali obe cesty premenovania. Verejné texty a executable MDX sa nepovažujú automaticky za dokumentáciu.
+
+Osem skupín z kroku 03 sa vypisuje v JSON/GitHub output ako transition plan. Tento plán zatiaľ nepreberá zodpovednosť za legacy workflow-only testy; full-core znamená existujúci npm test + súvisiace povinné kontrakty, nie všetkých 999 súborov a 113 E2E. Zachované pôvodné gate a manuálne/plánované behy.
+
+Pilot recenzií: canonical REVIEW_PR_PATHS je union pôvodných 2A/2B filtrov a spoločných build/scope súborov. Interný scope job bez npm install rozlíši auth-only, submission-only, obidva. Neznámy rozsah alebo nejednoznačnosť spustí obidva. Manuálny submission dispatch ostáva submission-only, standalone auth dispatch nezmenený. Dva build profily sú závislé od scope, lokálne D1 fixtures nezmenené.
+
+Nové dependency-free regresie v povinnom CI: neznámy zmiešaný súbor, kritické zmeny, docs, vizuály, premenovania, review ownership a zhoda filtrov s YAML podmienkami. Povinný gate spúšťa aj NPM parity test z kroku 03. Reálne GitHub CI zatiaľ neoverené; ďalšie skupiny migrovať až po preukázanej parite.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
 - [ ] CI-V2-02 – analýza a predbežná klasifikácia uložená; otvorené: source audit 114 workflowov a porovnateľný časový baseline.
 - [x] CI-V2-03 – spoločný NPM vstup, zachované aliasy, odstránené potvrdené duplicitné invokácie; runtime CI ešte overiť.
 - [x] CI-V2-04 – pilot zdieľania dvoch oddelených build profilov v review CI, verifikácia existujúceho admin artefaktu; runtime CI a ďalšie skupiny otvorené.
-- [ ] CI-V2-05 – rozšírenie existujúceho ci-scope, fail-closed pri neznámych zmenách.
+- [x] CI-V2-05 – fail-closed per-file scope, report 8 skupín, selektívny pilot reviews, regresné kontrakty; reálne CI ešte overiť.
 - [ ] CI-V2-06 – unit/integration: deduplikácia bez straty loaderov a kontraktov.
 - [ ] CI-V2-07 – Playwright, izolované fixtures a diagnostika.
 - [ ] CI-V2-08 – bezpečná archivácia historických workflowov až po dokázaní náhrady.

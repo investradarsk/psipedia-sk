@@ -67,6 +67,14 @@ jobs:
         run: node --test tests/ci-two-stage-guards.test.mjs
       - name: Validate shared-build contract
         run: node --test tests/ci-v2-shared-build.test.mjs
+      - name: Validate CI V2 changed-file selection
+        run: node --test tests/ci-v2-scope.test.mjs tests/ci-v2-npm-groups.test.mjs
+      - name: Report selected test groups
+        env:
+          TEST_GROUPS: ${{ steps.required-scope.outputs.test_groups }}
+          UNKNOWN_COUNT: ${{ steps.required-scope.outputs.unknown_count }}
+        run: |
+          printf 'CI V2 groups (transition plan): %s\nUnclassified files: %s\n' "$TEST_GROUPS" "$UNKNOWN_COUNT"
       - name: Install dependencies
         if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm ci

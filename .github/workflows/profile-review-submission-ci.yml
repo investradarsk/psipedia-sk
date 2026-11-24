@@ -45,6 +45,8 @@ on:
       - "vite.config.ts"
       - "scripts/build-verified.sh"
       - "scripts/validate-deploy-artifact.mjs"
+      - "scripts/ci-scope.mjs"
+      - "tests/ci-v2-scope.test.mjs"
   workflow_dispatch:
 
 concurrency:
@@ -55,7 +57,31 @@ permissions:
   contents: read
 
 jobs:
+  scope:
+    name: Select review regression scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      review_auth: ${{ steps.scope.outputs.review_auth }}
+      review_submission: ${{ steps.scope.outputs.review_submission }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - id: scope
+        env:
+          CI_SCOPE_EVENT_NAME: ${{ github.event_name }}
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/ci-scope.mjs --github-output
+
   shared-build:
+    needs: scope
+    if: needs.scope.outputs.review_auth == 'true' || needs.scope.outputs.review_submission == 'true'
     name: Shared review build (${{ matrix.profile }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -103,12 +129,13 @@ jobs:
 
   reviewer-auth:
     name: Reviewer authentication
-    if: github.event_name == 'pull_request'
-    needs: shared-build
+    if: needs.scope.outputs.review_auth == 'true'
+    needs: [scope, shared-build]
     uses: ./.github/workflows/review-author-auth-ci.yml
 
   validation:
-    needs: shared-build
+    needs: [scope, shared-build]
+    if: needs.scope.outputs.review_submission == 'true'
     name: Review submission — security, D1, regressions, lint and build
     runs-on: ubuntu-latest
     timeout-minutes: 35

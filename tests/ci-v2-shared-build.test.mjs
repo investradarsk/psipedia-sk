@@ -36,8 +36,8 @@ test("PR review jobs share two profiles in the same workflow run", () => {
   assert.match(parent, /profile: \[standard, local-e2e\]/);
   assert.match(parent, /name: ci-v2-review-\$\{\{ matrix\.profile \}\}-\$\{\{ github\.sha \}\}/);
   assert.match(parent, /uses: \.\/\.github\/workflows\/review-author-auth-ci\.yml/);
-  assert.match(parent, /reviewer-auth:[\s\S]*?needs: shared-build/);
-  assert.match(parent, /validation:\n    needs: shared-build/);
+  assert.match(parent, /reviewer-auth:[\s\S]*?needs: \[scope, shared-build\]/);
+  assert.match(parent, /validation:\n    needs: \[scope, shared-build\]/);
   assert.match(auth, /on:\n  workflow_call:\n  workflow_dispatch:/);
   for (const workflow of [parent, auth]) {
     for (const profile of ["standard", "local-e2e"]) {
