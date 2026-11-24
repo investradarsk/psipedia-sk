@@ -632,7 +632,7 @@ export async function listPartnerCanonicalDrafts(accountId:string,dbInput?:D1Dat
     try{const parsed=JSON.parse(proposedPatchJson) as unknown;
       if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed))values=parsed as Record<string,unknown>;
     }catch{}
-    return {...row,title:String(values.name??values.title??values.dogName??"Bez názvu")||"Bez názvu",
+    return {...row,title:String(values.name||values.title||values.dog_name||values.dogName||(row.resourceType==="LOST_FOUND_DOG"?values.city:"")||"Bez názvu"),
       partnerHref:"/partner/koncepty/"+encodeURIComponent(row.id)};
   });
 }
