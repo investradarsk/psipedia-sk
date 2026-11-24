@@ -1,5 +1,6 @@
 "use client";
-import { useCallback,useEffect,useMemo,useState } from "react";
+import { useCallback,useEffect,useMemo,useRef,useState } from "react";
+import type { ManualMappingDiagnostic } from "@/lib/notion-manual-transfer-mapping";
 import styles from "./admin-notion-manual-transfer.module.css";
 
 type Field={id:string;label:string;locked:boolean};
@@ -34,6 +35,13 @@ const reasonText:Record<string,string>={
   TRANSFER_DUPLICATE_NOTION_PAGE:"Jedna Notion stránka je priradená k viacerým profilom. Prenos sa bezpečne zastavil; najprv treba overiť prepojenia.",
   TRANSFER_NO_LINKED_PROFILES:"Pre tento výber nie je v D1 potvrdené prepojenie na Notion. Bez prepojenia sa prenos nespustí.",
   TRANSFER_PROFILE_AMBIGUOUS:"Vybranému ID zodpovedá viac väzieb. Vyber presnú podkategóriu a over identitu profilu.",
+  TRANSFER_PROFILE_LOCKED:"Profil je uzamknutý pre Notion synchronizáciu. Prenos nie je povolený.",
+  TRANSFER_PROFILE_ARCHIVED:"Profil je archivovaný. Prenos nie je povolený.",
+  TRANSFER_CANONICAL_MISSING:"Kanonický profil v D1 chýba.",
+  TRANSFER_MAPPING_CHECK_UNAVAILABLE:"Mapovania sa nepodarilo bezpečne overiť. Prenos sa nespustí.",
+  TRANSFER_REMOTE_SOURCE_MISMATCH:"Notion stránka patrí do nesprávnej databázy.",
+  TRANSFER_REMOTE_IDENTITY_MISMATCH:"Notion stránka nemá očakávanú identitu Psipedia.",
+  TRANSFER_REMOTE_PAGE_ARCHIVED:"Notion stránka je archivovaná alebo v koši.",
 };
 function errorLabel(code:string|null|undefined){
   if(!code)return "Bez uvedeného dôvodu";
@@ -71,6 +79,14 @@ export function AdminNotionManualTransfer(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   const [message,setMessage]=useState("");
+  const [diagnostics,setDiagnostics]=useState<MappingReport|null>(null);
+  const [diagnosticBusy,setDiagnosticBusy]=useState(false);
+  const [diagnosticError,setDiagnosticError]=useState("");
+  const diagnosticGeneration=useRef(0);
+  function clearDiagnostics(){
+    diagnosticGeneration.current+=1;
+    setDiagnostics(null);setDiagnosticError("");setDiagnosticBusy(false);
+  }
 
   const selectedArea=cap?.areas.find(item=>item.area===area);
   const selectedScope=selectedArea?.scopes.find(item=>item.id===scope);
@@ -136,7 +152,24 @@ export function AdminNotionManualTransfer(){
     area,direction,selection,...(scope?{scope}:{}),
     ...(selection==="ONE"?{profileId:Number(profileId)}:{}),
   };
-  const canStart=cap?.executable&&!busy&&
+  const validDiagnosticId=/^[1-9]\d*$/.test(profileId)&&Number.isSafeInteger(Number(profileId));
+  async function diagnose(off=0,verify=false){
+    const generation=++diagnosticGeneration.current;
+    setDiagnosticBusy(true);setDiagnosticError("");setDiagnostics(null);
+    try{
+      const params=new URLSearchParams({diagnostics:"1",area,offset:String(off)});
+      if(scope)params.set("scope",scope);
+      if(selection==="ONE")params.set("profileId",profileId);
+      if(verify)params.set("verify","1");
+      const report=await readJson<MappingReport>(await fetch("/api/admin/notion-manual-transfer?"+params,{cache:"no-store",credentials:"same-origin"}));
+      if(generation===diagnosticGeneration.current)setDiagnostics(report);
+    }catch{
+      if(generation===diagnosticGeneration.current)setDiagnosticError("Diagnostika nie je dostupná. Žiadny prenos nebol spustený.");
+    }finally{
+      if(generation===diagnosticGeneration.current)setDiagnosticBusy(false);
+    }
+  }
+  const canStart=cap?.executable&&!busy&&!diagnosticBusy&&
     (selection==="ALL"||(/^[1-9]\d*$/.test(profileId)&&Number.isSafeInteger(Number(profileId))))&&
     (selection==="ALL"||area!=="help"||!!scope);
   const canConfirm=detail?.run.status==="PREVIEW_READY"&&!busy;
@@ -157,25 +190,25 @@ export function AdminNotionManualTransfer(){
     {cap&&!cap.executable?<p className={styles.notice} role="status">{cap.note}</p>:null}
     <div className={styles.controls}>
       <label>Oblasť
-        <select value={area} onChange={e=>{setArea(e.target.value);setScope("")}}>
+        <select value={area} onChange={e=>{setArea(e.target.value);setScope("");clearDiagnostics()}}>
           {(cap?.areas??[{area:"breeds",label:"Plemená",scopes:[]}]).map(item=>
             <option key={item.area} value={item.area}>{item.label}</option>)}
         </select>
       </label>
       <label>Podkategória
-        <select value={scope} onChange={e=>setScope(e.target.value)}>
+        <select value={scope} onChange={e=>{setScope(e.target.value);clearDiagnostics()}}>
           <option value="">Všetky kategórie</option>
           {(selectedArea?.scopes??[]).map(item=><option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
       <label>Rozsah
-        <select value={selection} onChange={e=>setSelection(e.target.value as "ONE"|"ALL")}>
+        <select value={selection} onChange={e=>{setSelection(e.target.value as "ONE"|"ALL");clearDiagnostics()}}>
           <option value="ONE">Jeden profil</option><option value="ALL">Všetky profily</option>
         </select>
       </label>
       {selection==="ONE"?<label>Psipedia ID
         <input type="number" min="1" value={profileId}
-          onChange={e=>setProfileId(e.target.value)} placeholder="napr. 3214"/>
+          onChange={e=>{setProfileId(e.target.value);clearDiagnostics()}} placeholder="napr. 3214"/>
       </label>:null}
       <label>Smer
         <select value={direction} onChange={e=>setDirection(e.target.value as "NOTION_TO_ADMIN"|"ADMIN_TO_NOTION")}>
@@ -188,6 +221,8 @@ export function AdminNotionManualTransfer(){
     {selection==="ONE"&&area==="help"&&!scope?<p className={styles.hint}>
       Pri jednom profile v Pomoc psom vyber aj podkategóriu, aby bolo ID jednoznačné.
     </p>:null}
+    <MappingDiagnostics report={diagnostics} busy={diagnosticBusy} error={diagnosticError}
+      disabled={!cap||busy||selection==="ONE"&&!validDiagnosticId} single={selection==="ONE"} onScan={diagnose}/>
     <button type="button" className={styles.primary} disabled={!canStart}
       onClick={()=>void post({action:"preview",...request})}>
       {busy?"Spracúvam…":"1. Skontrolovať rozdiely"}
@@ -277,5 +312,73 @@ export function AdminNotionManualTransfer(){
       </button>)}
     </details>
     <p className={styles.footer}>Trvalé priority sa nemenia. Publikovanie, identita, Services V3 a potvrdené Google údaje zostávajú chránené. Niektoré médiá a vzťahy vyžadujú samostatný adaptér a zobrazia sa ako preskočené.</p>
+  </section>;
+}
+
+
+type MappingReport={items:ManualMappingDiagnostic[];offset:number;hasMore:boolean;checkedAt:string;ambiguousSelection:boolean};
+const mappingAdvice: Record<ManualMappingDiagnostic["issues"][number],string> = {
+  MAPPING_MISSING: "Chýba explicitné mapovanie. Over, či má profil vôbec patriť do Notion.",
+  PROFILE_ID_INVALID: "Neplatné Psipedia ID. Over zdrojový záznam; nevytváraj nové ID naslepo.",
+  PAGE_ID_MISSING: "Mapovanie neobsahuje Notion page ID. Over pôvodnú väzbu.",
+  PAGE_ID_INVALID: "Notion page ID nemá platný formát UUID. Over identitu pôvodnej stránky.",
+  PAGE_ID_FORMAT_UNSUPPORTED: "Kompaktné UUID tento adaptér nepodporuje. Over existujúcu väzbu a formát pred samostatnou opravou.",
+  CANONICAL_MISSING: "Mapovanie nemá zodpovedajúci kanonický záznam v tejto agende. Over históriu alebo kategóriu.",
+  MAPPING_INACTIVE: "Pracovná kópia plemena nie je aktívna alebo nemá potvrdený receipt. Over stav cutoveru.",
+  PAGE_DUPLICATE: "Rovnaká Notion stránka má viac aktívnych väzieb. Porovnaj identity naprieč agendami.",
+  PROFILE_AMBIGUOUS: "Jeden kanonický profil má viac aktívnych väzieb. Over správnu stránku.",
+  CATEGORY_UNSUPPORTED: "Primárna kategória profilu nepatrí medzi povolené agendy.",
+  PROFILE_ARCHIVED: "Archivovaný profil. Neobnovuj ho len kvôli mapovaniu.",
+  PROFILE_REVIEWED: "Odkontrolované — synchronizácia zamknutá. Zámok ponechaj, pokiaľ vlastník výslovne neschváli odomknutie.",
+  PARTNER_MANAGED: "Aktívny partner — synchronizácia zamknutá. Neobchádzaj partnerstvo.",
+  UNLOCK_PENDING: "Odomknutie ešte nie je dokončené. Over existujúci proces v editore.",
+  DELETION_PENDING: "Čakajúce odstránenie. Prenos nie je povolený.",
+  LOCK_CHECK_UNAVAILABLE: "Stav ochrany sa nepodarilo overiť. Prenos musí zostať zastavený.",
+};
+const remoteAdvice: Record<ManualMappingDiagnostic["remote"],string> = {
+  NOT_CHECKED: "Notion identita neoverená.",
+  VERIFIED: "Adaptér overil identitu a zdroj v Notion (iba čítanie).",
+  BLOCKED: "Notion kontrola sa nevykonala kvôli nálezu v D1 alebo zámku.",
+  UNAVAILABLE: "Notion kontrola nedostupná; identita nie je potvrdená.",
+  IDENTITY_MISMATCH: "Nesúhlasí identita Psipedia alebo stránky. Over správny záznam.",
+  SOURCE_MISMATCH: "Stránka patrí do nesprávneho zdroja Notion. Over správnu databázu.",
+  PAGE_ARCHIVED: "Stránka v Notion je archivovaná alebo v koši.",
+  PAGE_INACCESSIBLE: "Stránka je nedostupná (oprávnenie alebo neexistujúca stránka); príčina nie je potvrdená.",
+};
+function MappingDiagnostics({report,busy,error,disabled,single,onScan}:{
+  report:MappingReport|null;
+  busy:boolean;error:string;disabled:boolean;single:boolean;onScan:(offset?:number,verify?:boolean)=>Promise<void>;
+}){
+  return <section className={styles.run} aria-label="Diagnostika mapovaní iba na čítanie">
+    <h3>Diagnostika mapovaní · len na čítanie</h3>
+    <p>Kontroluje vybranú oblasť po 50 záznamoch. Nezakladá náhľad ani prenos. Pri jednom jednoznačnom profile možno overiť aj Notion identitu. Rovnaké číselné ID v rôznych agendách nie je samo osebe kolízia.</p>
+    <div className={styles.filters}>
+      <button type="button" disabled={busy||disabled} onClick={()=>void onScan()}>Skontrolovať mapovania v D1</button>
+      {single?<button type="button" disabled={busy||disabled} onClick={()=>void onScan(0,true)}>Overiť aj Notion identitu</button>:null}
+    </div>
+    {busy?<p role="status">Načítava sa diagnostika…</p>:null}
+    {error?<p role="alert" className={styles.error}>{error}</p>:null}
+    {report?<div>
+      <p role="status">Na tejto strane: {report.items.length} záznamov · {report.items.filter(item=>item.issues.length>0||!["VERIFIED","NOT_CHECKED"].includes(item.remote)).length} s nálezom alebo nedostupnou vzdialenou kontrolou. Nejde o celkový počet.</p>
+      <p className={styles.hint}>Načítané: {new Date(report.checkedAt).toLocaleString("sk-SK",{timeZone:"Europe/Bratislava"})}. Výsledok platí pre tento výber, nie pre celý Notion.</p>
+      {report.ambiguousSelection?<p role="alert">ID sa našlo vo viacerých väzbách alebo agendách. Vyber presnú podkategóriu; Notion kontrola neprebehla.</p>:null}
+      {!report.items.length?<p>Pre tento výber sa v D1 nenašiel kanonický záznam ani mapovanie. Skontroluj ID alebo podkategóriu.</p>:null}
+      {report.items.map((item,index)=><div className={styles.item} key={item.scope+":"+item.profileId+":"+index}>
+        <div className={styles.itemActions}>
+          <strong>{item.name||"Bez kanonického názvu"} · {item.scope} · ID {item.profileId??"neplatné"}</strong>
+          {item.editorHref?<a href={item.editorHref}>Otvoriť Admin editor →</a>:null}
+        </div>
+        <div className={styles.itemActions}>
+          <span>{item.mappingTable} · {item.canonicalStatus??"kanonický záznam chýba"}</span>
+          <span>{item.issues.length?"Vyžaduje kontrolu / uzamknuté":"Bez zisteného lokálneho problému"}</span>
+        </div>
+        {item.issues.length?<ul>{item.issues.map(issue=><li key={issue}>{mappingAdvice[issue]}</li>)}</ul>:null}
+        <p className={styles.hint}>{remoteAdvice[item.remote]}</p>
+      </div>)}
+      <div className={styles.pager}>
+        <button type="button" disabled={busy||report.offset===0} onClick={()=>void onScan(Math.max(0,report.offset-50))}>Predchádzajúca</button>
+        <button type="button" disabled={busy||!report.hasMore} onClick={()=>void onScan(report.offset+50)}>Ďalšia</button>
+      </div>
+    </div>:null}
   </section>;
 }
