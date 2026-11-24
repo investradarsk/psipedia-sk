@@ -196,17 +196,11 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
     </div>
   );
   return <div className={styles.root} data-admin-content-module="quality-review">
-    <div className={styles.overviewShortcut}>
-      <a href="/admin/kvalita/prehlad" target="_blank" rel="noopener noreferrer" className={styles.overviewLink}>
-        Prehľad chýbajúcich údajov ↗
-      </a>
-      <span>Otvorí sa v novej karte · bez spúšťania Tavily</span>
-    </div>
     <section className={styles.top}>
       <div>
-        <span className={styles.eyebrow}>Nájdené nové údaje na schválenie</span>
+        <span className={styles.eyebrow}>Návrhy na doplnenie</span>
         <div className={styles.total} aria-live="polite">{Math.max(0,total)}</div>
-        <p className={styles.subtle}>Otvorené návrhy v evidencii vrátane zatiaľ neoverených. Na tejto stránke je {items.length} aktuálnych nálezov.</p>
+        <p className={styles.subtle}>Zdroj: evidencia návrhov D1 a vyhľadávanie Tavily. Načítané: {items.length}. Návrh nie je potvrdený údaj.</p>
       </div>
       <div className={styles.month}>
         <h2>Tento mesiac – pokusy o kontrolu</h2>
@@ -217,6 +211,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
             return <div key={a.id}>
               <strong>{stats.total}</strong>
               <small>{a.label}</small>
+              <span className={styles.outcome}>Posledný pokus: {recent?.checkedAt ? new Date(recent.checkedAt).toLocaleString("sk-SK",{timeZone:"Europe/Bratislava"}) : "Neevidovaný"}</span>
               <span className={styles.outcome}>Úspešné: {stats.successful} · Zlyhané: {stats.failed}</span>
               {stats.unknown>0?<span className={styles.outcome}>Staršie/neznáme: {stats.unknown}</span>:null}
               {stats.running>0?<span className={styles.outcome}>Rozpracované: {stats.running}</span>:null}
@@ -241,7 +236,8 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       })}
     </section>
 
-    <section className={styles.manualPanel} aria-label="Ručné vyhľadávanie">
+    <details className={styles.manualPanel} aria-label="Ručné vyhľadávanie">
+      <summary>Ručné vyhľadávanie a história</summary>
       <div className={styles.heading}>
         <h2>Ručné vyhľadávanie · {AREAS.find(a=>a.id===area)?.label}</h2>
         <span>Automatické hodinové kontroly sa nemenia</span>
@@ -306,7 +302,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
           <strong>{run.status==="SUCCESS"?"Úspešné":run.status==="FAILED"?"Chyba":"Prebieha"} · {run.found} návrhov</strong>
         </div>)}</div>
       </details>:null}
-    </section>
+    </details>
     <section className={styles.results}>
       <div className={styles.heading}>
         <h2>{AREAS.find(a=>a.id===area)?.label}</h2>
@@ -328,7 +324,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       </div>
       <AdminFormFeedback error={noticeError?notice:undefined} message={!noticeError?notice:undefined} className={styles.notice}/>
       <p className={styles.subtle}>Filtre a vyhľadávanie profilu pracujú s načítanou stránkou (najviac 100 nálezov).</p>
-      {shown.length===0?<div className={styles.empty}>V tejto kategórii zatiaľ nie sú žiadne nájdené údaje na schválenie.</div>:(
+      {shown.length===0?<div className={styles.empty}>Pre zvolené filtre na načítanej strane nie sú žiadne návrhy.</div>:(
         <>
           <div className={styles.list}>
             {shown.map(p=><article className={styles.item} key={p.id}>
@@ -343,11 +339,11 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.current_value} className={styles.preview} alt={"Aktuálny obrázok profilu "+p.profile_label} loading="lazy"/>:
                       <div className={p.current_value===null?styles.emptyValue:styles.value}>
-                        {p.current_value===undefined?"Nedostupný":p.current_value??"Prázdny"}
+                        {p.current_value===undefined?"Nedostupný":p.current_value??"Chýbajúci údaj"}
                       </div>}
                   </div>
                   <div className={styles.comparisonValue}>
-                    <span>Nájdený údaj</span>
+                    <span>Navrhnutý údaj</span>
                     {editingProposalId===p.id?
                       <div className={styles.inlineCorrection}>
                         <label htmlFor={"quality-correction-"+p.id}>Upravená verejná hodnota</label>

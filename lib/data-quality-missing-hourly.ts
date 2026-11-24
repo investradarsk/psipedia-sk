@@ -247,7 +247,7 @@ async function nextProfile(db:Database,area:QualityArea,today:string) {
 }
 type ScanStatus = "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED" | "UNKNOWN";
 type QualityScanCount = { total: number; successful: number; failed: number; unknown: number; running: number };
-type QualityScanLast = { status: ScanStatus; errorCode: string | null } | null;
+type QualityScanLast = { status: ScanStatus; errorCode: string | null; checkedAt?: string } | null;
 const QUALITY_AREAS: QualityArea[] = ["services", "events", "help"];
 
 function emptyScanCount(): QualityScanCount {
@@ -698,10 +698,10 @@ export async function loadMissingQualityDashboard(
     db.prepare("SELECT area,status,COUNT(*) AS n FROM quality_missing_scans WHERE scanned_at>=? AND entity_id IS NOT NULL GROUP BY area,status")
       .bind(since).all<{ area: QualityArea; status: ScanStatus; n: number }>(),
     db.prepare(
-      "SELECT scans.area,scans.status,scans.error_code FROM quality_missing_scans scans " +
+      "SELECT scans.area,scans.status,scans.error_code,scans.scanned_at FROM quality_missing_scans scans " +
       "JOIN (SELECT area,MAX(scanned_at) AS latest FROM quality_missing_scans GROUP BY area) last " +
       "ON scans.area=last.area AND scans.scanned_at=last.latest"
-    ).all<{ area: QualityArea; status: ScanStatus; error_code: string | null }>(),
+    ).all<{ area: QualityArea; status: ScanStatus; error_code: string | null; scanned_at: string }>(),
   ]);
   for (const row of runCounts.results) {
     if (!QUALITY_AREAS.includes(row.area)) continue;
@@ -714,7 +714,7 @@ export async function loadMissingQualityDashboard(
   }
   for (const area of QUALITY_AREAS) monthly[area] = outcomes[area].total;
   for (const row of latest.results) {
-    if (QUALITY_AREAS.includes(row.area)) last[row.area] = { status: row.status, errorCode: row.error_code };
+    if (QUALITY_AREAS.includes(row.area)) last[row.area] = { status: row.status, errorCode: row.error_code, checkedAt: row.scanned_at };
   }
 
   const pending: MissingQualityProposal[] = [];
