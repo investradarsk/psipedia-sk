@@ -14,6 +14,8 @@ import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/a
 import { AdminPagination } from "@/components/admin-pagination";
 import { AdminDirectoryEditorLink } from "@/components/admin-directory-editor-link";
 import { AdminRecordTable } from "@/components/admin-record-table";
+import { AdminInlineDraftGuard } from "@/components/admin-inline-draft-guard";
+import { inlineSaveMessage } from "@/lib/admin-inline-save-status";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { SearchIcon } from "@/components/icons";
 import { allDirectoryCategories, directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
@@ -61,7 +63,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
     ? inline : null;
 
   function beginInline(profile: ManagedDirectoryProfileSummary) {
-    if (inlineBusy || profile.status === "archived") return;
+    if (inline || inlineBusy || profile.status === "archived") return;
     setMessage("");
     setInline({ id: profile.id, key: editViewKey, updatedAt: profile.updatedAt, name: profile.name, excerpt: profile.excerpt || "" });
   }
@@ -82,13 +84,13 @@ export function AdminDirectoryDashboard({ data, filters }: {
           changes: { name: draft.name, excerpt: draft.excerpt },
         }),
       });
-      const result = await response.json() as { error?: string };
+      const result = await response.json() as { error?: string; notionFieldSync?: unknown };
       if (!response.ok) throw new Error(result.error || "Rýchlu úpravu sa nepodarilo uložiť.");
       setInline(null);
-      setMessage("Názov a krátky popis profilu boli uložené.");
+      setMessage(inlineSaveMessage(result.notionFieldSync));
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Rýchla úprava sa nepodarila.");
+      setMessage("Uloženie nepotvrdené: " + (error instanceof Error ? error.message : "Rýchla úprava sa nepodarila."));
     } finally {
       setInlineBusy(false);
     }
@@ -159,6 +161,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
 
   return (
     <>
+    <AdminInlineDraftGuard active={Boolean(inline)} stale={Boolean(inline && !activeInline)} busy={inlineBusy} onCancel={() => setInline(null)} />
       <section className="admin-stats" aria-label="Stav adresára" data-admin-directory-overview>
         <div><span>Všetky profily</span><strong>{counts.total}</strong></div>
         <div><span>Publikované</span><strong>{counts.published}</strong></div>
@@ -220,7 +223,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
             {bulkSelection.selectedCount > 0 && <AdminRecordBulkDelete
               kind="directory"
               selectedIds={bulkSelection.selection.mode === "explicit" ? bulkSelection.selection.ids : []}
-              disabled={!bulkSelection.ready || inlineBusy || deletingId !== null}
+              disabled={Boolean(inline) || !bulkSelection.ready || inlineBusy || deletingId !== null}
               onFinished={() => { bulkSelection.clear(); router.refresh(); }}
             />}
             <AdminRecordTable
@@ -234,6 +237,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
                 desc: (filters.direction ?? ((filters.sort ?? "updated") === "updated" ? "desc" : "asc")) === "desc",
                 allowedIds: ["name", "city", "status", "updated"],
                 onChange: ({ id, desc }) => {
+              if (inline) return;
                   const sort = id === "name" || id === "city" || id === "status" ? id : "updated";
                   router.push(directoryAdminHref({ ...filters, sort, direction: desc ? "desc" : "asc", page: 1 }));
                 },
@@ -243,7 +247,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
               columns={[
                 { id: "selected", label: "Výber", width: 76, cell: (profile) => <BulkSelectionCheckbox
                   checked={bulkSelection.isSelected(profile.id)}
-                  disabled={!bulkSelection.ready}
+                  disabled={Boolean(inline) || !bulkSelection.ready}
                   label={"Vybrať profil " + profile.name}
                   onChange={() => bulkSelection.toggleRow(profile.id)}
                   className={styles.tableRowCheckbox}
@@ -268,7 +272,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
                 { id: "reviewed", label: "AI kontrola", width: 142, cell: (profile) => <label className={styles.reviewToggle}>
                   <input type="checkbox" aria-label={"Odkontrolované: " + profile.name}
                     checked={reviewedOverrides[profile.id] ?? profile.reviewed}
-                    disabled={reviewingId === profile.id}
+                    disabled={Boolean(inline) || reviewingId === profile.id}
                     onChange={(event) => void changeReviewed(profile, event.target.checked)} />
                   <span>Odkontrolované</span>
                 </label> },
@@ -283,8 +287,8 @@ export function AdminDirectoryDashboard({ data, filters }: {
                   />}
                   <AdminDirectoryEditorLink className="admin-row-edit" returnHref={listReturnHref} profileId={profile.id}>Detail</AdminDirectoryEditorLink>
                   {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Web ↗</Link>}
-                  {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
-                  <button type="button" disabled={deletingId !== null} onClick={() => setHardDeleteTarget(profile)}>Odstrániť</button>
+                  {profile.status !== "archived" && <button type="button" disabled={Boolean(inline) || deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
+                  <button type="button" disabled={Boolean(inline) || deletingId !== null} onClick={() => setHardDeleteTarget(profile)}>Odstrániť</button>
                 </div> },
               ]}
             />

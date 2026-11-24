@@ -6,6 +6,8 @@ import { AdminRecordId } from "./admin-record-id";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AdminInlineDraftGuard } from "@/components/admin-inline-draft-guard";
+import { inlineSaveMessage } from "@/lib/admin-inline-save-status";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminNumberedPagination } from "@/components/admin-pagination";
@@ -65,7 +67,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
   const activeInline = inlineDraft?.key === viewKey && result.items.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.updatedAt)
     ? inlineDraft : null;
   function beginInline(item: AdoptionAdminSummary) {
-    if (busy || item.status === "ARCHIVED") return;
+    if (inlineDraft || busy || item.status === "ARCHIVED") return;
     setMessage("");
     setInlineDraft({ id: item.id, updatedAt: item.updatedAt, key: viewKey, name: item.name });
   }
@@ -80,13 +82,13 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "set-inline-name", name: draft.name, expectedUpdatedAt: draft.updatedAt }),
       });
-      const data = await response.json() as { error?: string };
+      const data = await response.json() as { error?: string; notionFieldSync?: unknown };
       if (!response.ok) throw new Error(data.error || "Meno psa sa nepodarilo uložiť.");
       setInlineDraft(null);
-      setMessage("Meno psa bolo uložené.");
+      setMessage(inlineSaveMessage(data.notionFieldSync));
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Rýchla úprava zlyhala.");
+      setMessage("Uloženie nepotvrdené: " + (error instanceof Error ? error.message : "Rýchla úprava zlyhala."));
     } finally {
       setBusy(false);
     }
@@ -98,6 +100,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
   ];
 
   return <>
+    <AdminInlineDraftGuard active={Boolean(inlineDraft)} stale={Boolean(inlineDraft && !activeInline)} busy={busy} onCancel={() => setInlineDraft(null)} />
     <nav className={`${styles.tabs} ${styles.adoptionTabs}`} aria-label="Globálne počty adopcií">{stats.map((stat)=><Link key={stat.key} data-active={stat.active} href={stat.href}>{stat.label} <strong>{stat.count}</strong></Link>)}</nav>
     <form className={styles.filters} method="get" role="search" aria-label="Filtrovať adopcie" data-admin-list-filters data-admin-content-module="adoptions-list">
       <input name="q" defaultValue={filters.q} aria-label="Vyhľadávanie" placeholder="Meno, organizácia, mesto…" />
@@ -119,7 +122,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
     {selected.size > 0 && <div className={styles.gridSelection}>
         <strong>Označené: {selected.size}</strong>
         <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
-        <AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy}
+        <AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)}
           onFinished={ids => {
             setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
             router.refresh();
@@ -138,6 +141,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
             desc: (filters.sort ?? "updated-desc").endsWith("-desc"),
             allowedIds: ["name", "updated", "verified"],
             onChange: next => {
+              if (inlineDraft) return;
               if (!["name", "updated", "verified"].includes(next.id)) return;
               router.push(adminHref(filters, {
                 sort: (next.id + (next.desc ? "-desc" : "-asc")) as AdoptionAdminSort,
@@ -146,6 +150,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
             },
           }}
           selection={{
+            disabled: Boolean(inlineDraft),
             selectedIds: [...selected],
             labelForRow: item => `Označiť adopciu ${item.name}`,
             onChange: ids => setSelected(new Set(ids)),
@@ -174,7 +179,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
             { id: "actions", label: "Akcie", width: 240,
               cell: item => <div className={styles.rowTitle}>
                 {reviewed
-              ? <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+              ? <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} disabled={Boolean(inlineDraft)} compact />
               : <span aria-label="Stav redakčnej kontroly nedostupný">—</span>}
                 {item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
                   editing={activeInline?.id === item.id} busy={busy}
@@ -220,7 +225,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
           </dl>
           <div className={styles.adoptionCardActions}>
             {reviewed
-              ? <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+              ? <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} disabled={Boolean(inlineDraft)} compact />
               : <span aria-label="Stav redakčnej kontroly nedostupný">—</span>}
             <Link className={styles.edit} href={adminDetailHref(`/admin/adopcie/${item.id}`, listReturnHref)}>Upraviť →</Link>
           </div>
