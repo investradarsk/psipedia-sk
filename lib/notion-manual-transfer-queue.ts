@@ -44,6 +44,17 @@ function errorCode(error:unknown) {
 }
 function pageValid(value:string):boolean {return uuid(value);}
 
+/** Safe diagnostic for an authenticated admin: the invalid Notion page ID itself is never returned. */
+export class InvalidManualTransferMapping extends Error {
+  constructor(
+    readonly scope: string,
+    readonly profileId: number | null,
+    readonly invalidPart: "PROFILE_ID" | "NOTION_PAGE_ID",
+  ) {
+    super("TRANSFER_MAPPING_INVALID");
+  }
+}
+
 /** The migration is deployed only by the protected Production D1 workflow. */
 export async function manualTransferSchemaReady(db:D1Database):Promise<boolean> {
   const result=await db.prepare("SELECT COUNT(*) AS n FROM sqlite_master " +
@@ -103,8 +114,10 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
         .all<{profile_id:number;notion_page_id:string}>();
       const rows=q.results??[];
       for(const row of rows){
-        if(!Number.isSafeInteger(row.profile_id)||row.profile_id<=0
-          ||!pageValid(row.notion_page_id))throw Error("TRANSFER_MAPPING_INVALID");
+        if(!Number.isSafeInteger(row.profile_id)||row.profile_id<=0)
+          throw new InvalidManualTransferMapping(scope,null,"PROFILE_ID");
+        if(!pageValid(row.notion_page_id))
+          throw new InvalidManualTransferMapping(scope,row.profile_id,"NOTION_PAGE_ID");
         output.push({scope,profile_id:row.profile_id,notion_page_id:row.notion_page_id});
         if(output.length>MAX_LINKS)throw Error("TRANSFER_TOO_MANY_PROFILES");
       }
