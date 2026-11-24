@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { adminNavigationItems, findActiveAdminNavigationItem } from "../lib/admin-navigation.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
@@ -12,33 +13,20 @@ const items = [...primaryNavigation.matchAll(
   /\{\s*label:\s*"([^"]+)"\s*,\s*href:\s*"([^"]+)"/g,
 )].map((match) => ({ label: match[1], href: match[2] }));
 
-test("step 2 admin inventory covers every primary navigation destination exactly once", () => {
+test("historical Admin inventory remains traceable through canonical links or legacy aliases", () => {
   assert.equal(inventory.version, 1);
-  assert.equal(inventory.reference.includes("admin-article-editor.tsx"), true);
-  assert.equal(new Set(inventory.entries.map((item) => item.href)).size, inventory.entries.length);
-  assert.equal(new Set(items.map((item) => item.href)).size, items.length);
-  // main added the Analytics/Štatistiky menu during this long-running PR.
-  // The inventory already tracks it, while a direct checkout of this older
-  // draft branch may not yet contain that one upstream route. Every route
-  // that is actually present must still have exactly one matching entry.
-  const upstreamAnalyticsHref = "/admin/nastavenia/statistiky";
-  const analytics = inventory.entries.find(item => item.href === upstreamAnalyticsHref);
-  assert.deepEqual(
-    analytics && { label: analytics.label, group: analytics.group, step: analytics.step },
-    { label: "Štatistiky", group: "Nastavenia", step: 16 },
-  );
-  const navHrefs = new Set(items.map(item => item.href));
-  const presentInventory = inventory.entries
-    .filter(item => item.href !== upstreamAnalyticsHref || navHrefs.has(upstreamAnalyticsHref))
-    .map(({ label, href }) => ({ label, href }))
-    .sort((a, b) => a.href.localeCompare(b.href));
-  assert.deepEqual(
-    presentInventory,
-    items.sort((a, b) => a.href.localeCompare(b.href)),
-  );
+  assert.equal(inventory.entries.length, 28);
+  assert.equal(new Set(inventory.entries.map(item => item.href)).size, inventory.entries.length);
+  assert.equal(new Set(items.map(item => item.href)).size, items.length);
+  // This inventory is a pre-V5 snapshot. Removing a duplicate sidebar link
+  // must not remove the old URL or its mapped canonical workspace.
+  for (const old of inventory.entries) {
+    assert.ok(adminNavigationItems.some(item => item.href === old.href || item.matches?.includes(old.href)), old.href);
+    assert.ok(findActiveAdminNavigationItem(old.href), old.href);
+  }
 });
 
-test("every navigation item has a planned implementation stage and unverified browser state", () => {
+test("historical inventory retains its audit provenance and stage metadata", () => {
   const groups = new Set([
     "Prehľad", "Obsah", "Adresár", "Komunita", "Automatizácie", "Kvalita dát", "Nastavenia",
   ]);
