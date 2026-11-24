@@ -36,7 +36,7 @@ test("repeated Prehľad → Adresár → Prehľad fresh navigations do not stall
   await page.goto("/admin", { waitUntil: "domcontentloaded" });
   await expectOverview(page);
   for (let attempt = 0; attempt < 3; attempt++) {
-    const directoryGroup = page.locator('[data-admin-sidebar] [data-admin-nav-group="Adresár"] > button');
+    const directoryGroup = page.locator('[data-admin-sidebar] [data-admin-nav-group="Profily"] > button');
     await directoryGroup.click();
     await expect(directoryGroup).toHaveAttribute("aria-expanded", "true");
     await page.locator('[data-admin-shell] a[href="/admin/adresar"]').first().click();
@@ -72,7 +72,7 @@ test("breadcrumbs and Admin logo both return from directory without leaving an e
   await breadcrumbs.getByRole("link", { name: "Pracovný prehľad", exact: true }).click();
   await expectOverview(page);
 
-  const directoryGroup = page.locator('[data-admin-sidebar] [data-admin-nav-group="Adresár"] > button');
+  const directoryGroup = page.locator('[data-admin-sidebar] [data-admin-nav-group="Profily"] > button');
   await directoryGroup.click();
   await expect(directoryGroup).toHaveAttribute("aria-expanded", "true");
   await page.locator('[data-admin-shell] a[href="/admin/adresar"]').first().click();
@@ -92,7 +92,7 @@ test("mobile drawer returns from Adresár to Prehľad repeatedly", async ({ page
     await menu.click();
     const drawer = page.getByRole("dialog", { name: "Navigácia administrácie" });
     await expect(drawer).toBeVisible();
-    await drawer.getByRole("link", { name: "Profily", exact: true }).click();
+    await drawer.getByRole("link", { name: "Služby a prevádzky", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/adresar$/);
     await expect(page.getByRole("heading", { level: 1, name: "Profily adresára" })).toBeVisible();
 
