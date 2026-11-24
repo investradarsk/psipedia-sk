@@ -25,8 +25,11 @@ export function AdminQuickNavigation() {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    setReady(true);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const frame = window.requestAnimationFrame(() => setReady(true));
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, []);
 
   function changeOpen(value: boolean) {

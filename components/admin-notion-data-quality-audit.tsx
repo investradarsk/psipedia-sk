@@ -126,7 +126,11 @@ export function AdminNotionDataQualityAudit() {
   const [batches, setBatches] = useState<AuditBatch[]>([]);
   const [running, setRunning] = useState(false);
   const [ready, setReady] = useState(false);
-  useEffect(() => { setReady(true); }, []);
+  useEffect(() => {
+    // Enable interactive controls only after client hydration has committed.
+    const frame = window.requestAnimationFrame(() => setReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
 
