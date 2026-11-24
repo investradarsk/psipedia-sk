@@ -1,3 +1,4 @@
+import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { isDirectoryAdminWritebackEcho } from "./directory-notion-echo";
 import { syncDirectoryReviewedWithNotion } from "./directory-notion-reviewed-sync";
 import { directoryProfileNotionSyncLocked, directoryProfileOwnerUnlockPending } from "./directory-reviewed-sync-lock";
@@ -3804,10 +3805,12 @@ export async function inspectManualDirectoryProfile(input:{
   const mapping=await loadMappingByProfile(input.database,input.profileId);
   if(mapping?.notion_page_id!==input.pageId)throw Error("TRANSFER_IDENTITY_CHANGED");
   const page=await fetchNotionPage(input.bindings,input.pageId);
-  if(page.id!==input.pageId||!notionDirectoryPageBelongsToSource(
-    page,input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID??"")
-    ||propertyText(page,"Psipedia ID")!==String(input.profileId))
-    throw Error("TRANSFER_DIRECTORY_IDENTITY_MISMATCH");
+  assertManualRemoteIdentity({
+    page, pageId: input.pageId, profileId: input.profileId,
+    belongsToSource: notionDirectoryPageBelongsToSource(page,input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID??""),
+    claimedId: propertyText(page,"Psipedia ID"),
+  });
+  if(page.id!==input.pageId)throw Error("TRANSFER_DIRECTORY_IDENTITY_MISMATCH");
   const geo=await loadGeoMirror(input.database,input.profileId);
   const confirmed=profile.serviceAddressConfirmation==="CONFIRMED_SERVICE_LOCATION"
     ||Boolean(geo?.google_place_id&&geo.google_place_source_fingerprint

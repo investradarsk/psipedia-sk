@@ -1,5 +1,6 @@
 import { NOTION_AUTHORITY_GROUPS } from "./notion-field-authority";
 import { planOwnerDirectedFields } from "./notion-manual-transfer-plan";
+import { assertManualMappingEligible } from "./notion-manual-transfer-mapping";
 import {
   inspectManualBreedWorkCopyProfile,
   type BreedWorkCopyBindings,
@@ -62,6 +63,7 @@ export async function inspectManualTransferRecord(input:{
   const {database,bindings,link,direction}=input;
   const group=NOTION_AUTHORITY_GROUPS.find(g=>g.scope===link.scope&&g.active);
   if(!group)throw Error("TRANSFER_SCOPE_UNSUPPORTED");
+  await assertManualMappingEligible(database,link);
   let values:{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]};
   if(link.scope==="breeds"){
     values=await inspectManualBreedWorkCopyProfile({database,bindings,

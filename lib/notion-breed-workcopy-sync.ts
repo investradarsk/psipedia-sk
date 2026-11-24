@@ -1,3 +1,4 @@
+import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 /**
  * Notion 74-property breed work-copy sync, mutually exclusive with the old
  * source. A signed Notion page with an ACTIVE link and matching numeric
@@ -392,6 +393,11 @@ export async function inspectManualBreedWorkCopyProfile(input: {
   readReceipt(link.work_sync_receipt, canonical);
   const page = await notionRequest<NotionPage>(input.bindings,
     "/pages/" + encodeURIComponent(input.pageId));
+  assertManualRemoteIdentity({
+    page, pageId: input.pageId, profileId: input.profileId,
+    belongsToSource: notionPageBelongsToDataSource(page,input.bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID??""),
+    claimedId: notionRichTextProperty(page,"Psipedia ID"),
+  });
   assertOwnedPage(page, link, canonical, input.bindings);
   const edited = workCopyChangedEditorialIds(
     page, Object.keys(page.properties??{}), BREED_NOTION_SCHEMA,

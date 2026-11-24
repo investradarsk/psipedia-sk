@@ -211,3 +211,14 @@ export function manualRemoteDiagnostic(error: unknown): ManualMappingDiagnostic[
     return "IDENTITY_MISMATCH";
   return "UNAVAILABLE";
 }
+
+export function assertManualRemoteIdentity(input: {
+  page: { id: string; archived?: boolean; in_trash?: boolean };
+  pageId: string; belongsToSource: boolean; claimedId: string; profileId: number;
+}) {
+  if (input.page.archived || input.page.in_trash) throw Error("TRANSFER_REMOTE_PAGE_ARCHIVED");
+  if (normalizeManualPageId(input.page.id) !== normalizeManualPageId(input.pageId) ||
+    !normalizeManualPageId(input.pageId) || input.claimedId !== String(input.profileId))
+    throw Error("TRANSFER_REMOTE_IDENTITY_MISMATCH");
+  if (!input.belongsToSource) throw Error("TRANSFER_REMOTE_SOURCE_MISMATCH");
+}

@@ -12,6 +12,7 @@ import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from 
 import { runNotionEshopSyncSweep, type NotionEshopSyncBindings } from "./notion-eshop-sync";
 import type { BidirectionalAgendaKey } from "./notion-events-help-adapters";
 import { inspectManualTransferRecord, verifyManualTransferFields } from "./notion-manual-transfer-inspect";
+import { assertManualMappingEligible, assertManualMappingsUnique, normalizeManualPageId, validManualPageId } from "./notion-manual-transfer-mapping";
 
 export type ManualTransferBindings = BreedWorkCopyBindings &
   NotionDirectorySyncBindings & NotionEventsHelpSyncBindings &
@@ -42,7 +43,6 @@ function errorCode(error:unknown) {
   const message=error instanceof Error?error.message:"TRANSFER_ADAPTER_FAILED";
   return /^[A-Z][A-Z0-9_]{2,100}$/.test(message) ? message : "TRANSFER_ADAPTER_FAILED";
 }
-function pageValid(value:string):boolean {return uuid(value);}
 
 /** Safe diagnostic for an authenticated admin: the invalid Notion page ID itself is never returned. */
 export class InvalidManualTransferMapping extends Error {
@@ -104,6 +104,10 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
     sql+=(bind.length?" AND ":" WHERE ")+(byId?idColumn+"=?":"1=1");
     if(scope==="breeds")sql+=" AND status='ACTIVE' AND work_sync_receipt IS NOT NULL";
     if(byId)bind.push(request.profileId);
+    // Invalid IDs must not disappear behind the positive keyset cursor.
+    const invalid=await db.prepare(sql+" AND ("+idColumn+" IS NULL OR "+idColumn+"<=0 OR typeof("+idColumn+")<>'integer') LIMIT 1")
+      .bind(...bind).first();
+    if(invalid)throw new InvalidManualTransferMapping(scope,null,"PROFILE_ID");
     // A bounded single read per scope. Fail closed instead of reporting a
     // partial all-record queue as a completed whole-area transfer.
     const pageSize=250;
@@ -116,7 +120,7 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
       for(const row of rows){
         if(!Number.isSafeInteger(row.profile_id)||row.profile_id<=0)
           throw new InvalidManualTransferMapping(scope,null,"PROFILE_ID");
-        if(!pageValid(row.notion_page_id))
+        if(!validManualPageId(scope,row.notion_page_id))
           throw new InvalidManualTransferMapping(scope,row.profile_id,"NOTION_PAGE_ID");
         output.push({scope,profile_id:row.profile_id,notion_page_id:row.notion_page_id});
         if(output.length>MAX_LINKS)throw Error("TRANSFER_TOO_MANY_PROFILES");
@@ -130,9 +134,11 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
     throw Error("TRANSFER_PROFILE_AMBIGUOUS");
   const pages=new Set<string>();
   for(const row of output){
-    if(pages.has(row.notion_page_id))throw Error("TRANSFER_DUPLICATE_NOTION_PAGE");
-    pages.add(row.notion_page_id);
+    const key=normalizeManualPageId(row.notion_page_id)!;
+    if(pages.has(key))throw Error("TRANSFER_DUPLICATE_NOTION_PAGE");
+    pages.add(key);
   }
+  await assertManualMappingsUnique(db,output);
   return output;
 }
 
@@ -198,6 +204,7 @@ async function mappingStillLinked(db:D1Database,link:LinkRow):Promise<boolean>{
 async function runOne(input:{db:D1Database;bindings:ManualTransferBindings;job:Job;changedFields:string[]}){
   const {db,bindings,job}=input;
   if(!await mappingStillLinked(db,job))throw Error("TRANSFER_IDENTITY_CHANGED");
+  await assertManualMappingEligible(db,job);
   if(job.scope==="breeds"){
     // Use the active 60+2 workcopy and never the legacy 109-field mapping.
     if(bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED!=="true" ||

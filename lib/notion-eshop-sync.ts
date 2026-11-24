@@ -1,3 +1,4 @@
+import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { sameNotionProperty } from "./notion-selective-property-patch.ts";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { selectiveNotionProperties } from "./notion-selective-property-patch.ts";
@@ -1111,10 +1112,12 @@ export async function inspectManualEshopProfile(input:{
   if(!shop||mapping?.notion_page_id!==input.pageId)
     throw Error("TRANSFER_ESHOP_IDENTITY_MISMATCH");
   const page=await fetchPage(input.bindings,input.pageId);
-  if(page.id!==input.pageId
-    ||!notionPageBelongsToDataSource(page,input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID??"")
-    ||notionRichTextProperty(page,"Psipedia ID")!==String(input.profileId))
-    throw Error("TRANSFER_ESHOP_IDENTITY_MISMATCH");
+  assertManualRemoteIdentity({
+    page, pageId: input.pageId, profileId: input.profileId,
+    belongsToSource: notionPageBelongsToDataSource(page,input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID??""),
+    claimedId: notionRichTextProperty(page,"Psipedia ID"),
+  });
+  if(page.id!==input.pageId)throw Error("TRANSFER_ESHOP_IDENTITY_MISMATCH");
   return {notion:notionSnapshot(page) as unknown as Record<string,unknown>,
     admin:profileSnapshot(shop) as unknown as Record<string,unknown>,
     excluded:["slug","status","logoUrl"]};
