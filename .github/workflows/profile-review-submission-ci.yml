@@ -85,6 +85,28 @@ jobs:
           CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/ci-scope.mjs --github-output
 
+  common-validation:
+    name: Shared review migration safety, clean D1 and lint
+    needs: scope
+    if: needs.scope.outputs.review_auth == 'true' || needs.scope.outputs.review_submission == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Migration safety
+        run: npm run db:check-migrations
+      - name: Clean D1 migration chain
+        run: npm run db:validate-clean
+      - name: Lint
+        run: npm run lint
+
   shared-build:
     needs: scope
     if: needs.scope.outputs.review_auth == 'true' || needs.scope.outputs.review_submission == 'true'
@@ -136,11 +158,13 @@ jobs:
   reviewer-auth:
     name: Reviewer authentication
     if: needs.scope.outputs.review_auth == 'true'
-    needs: [scope, shared-build]
+    needs: [scope, shared-build, common-validation]
     uses: ./.github/workflows/review-author-auth-ci.yml
+    with:
+      shared_validation: true
 
   validation:
-    needs: [scope, shared-build]
+    needs: [scope, shared-build, common-validation]
     if: needs.scope.outputs.review_submission == 'true'
     name: Review submission — security, D1, regressions, lint and build
     runs-on: ubuntu-latest
@@ -159,18 +183,12 @@ jobs:
           node-version: 24.18.0
           cache: npm
       - run: npm ci
-      - name: Migration safety
-        run: npm run db:check-migrations
       - name: REVIEWS-2B unit and D1 integration
         run: npm run test:reviews-submission
       - name: Reviewer auth regression
         run: npm run test:review-author-auth
       - name: Public read VISIBLE-only regression
         run: npm run test:reviews-public-read
-      - name: Clean D1 migration chain
-        run: npm run db:validate-clean
-      - name: Lint
-        run: npm run lint
       - name: Download shared standard build from this run
         uses: actions/download-artifact@v4
         with:
@@ -256,7 +274,7 @@ jobs:
 
   review-result:
     name: Review CI selected suites
-    needs: [scope, shared-build, reviewer-auth, validation, e2e]
+    needs: [scope, shared-build, common-validation, reviewer-auth, validation, e2e]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

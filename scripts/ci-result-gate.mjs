@@ -47,6 +47,7 @@ export function evaluateGate(mode, needs) {
     const submission = flag("scope", "review_submission");
     if (!auth && !submission) errors.push("Review scope selected no suite");
     result("shared-build", auth || submission);
+    result("common-validation", auth || submission);
     result("reviewer-auth", auth);
     result("validation", submission);
     result("e2e", submission);

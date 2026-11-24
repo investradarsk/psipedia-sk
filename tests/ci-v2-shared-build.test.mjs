@@ -36,9 +36,9 @@ test("PR review jobs share two profiles in the same workflow run", () => {
   assert.match(parent, /profile: \[standard, local-e2e\]/);
   assert.match(parent, /name: ci-v2-review-\$\{\{ matrix\.profile \}\}-\$\{\{ github\.sha \}\}/);
   assert.match(parent, /uses: \.\/\.github\/workflows\/review-author-auth-ci\.yml/);
-  assert.match(parent, /reviewer-auth:[\s\S]*?needs: \[scope, shared-build\]/);
-  assert.match(parent, /validation:\n    needs: \[scope, shared-build\]/);
-  assert.match(auth, /on:\n  workflow_call:\n  workflow_dispatch:/);
+  assert.match(parent, /reviewer-auth:[\s\S]*?needs: \[scope, shared-build, common-validation\]/);
+  assert.match(parent, /validation:\n    needs: \[scope, shared-build, common-validation\]/);
+  assert.match(auth, /on:\n  workflow_call:\n    inputs:[\s\S]*?  workflow_dispatch:/);
   for (const workflow of [parent, auth]) {
     for (const profile of ["standard", "local-e2e"]) {
       assert.ok(workflow.includes("name: ci-v2-review-" + profile + "-${{ github.sha }}"));
@@ -53,4 +53,24 @@ test("PR review jobs share two profiles in the same workflow run", () => {
   assert.match(auth, /name: Local build \(standalone manual run\)\n        if: github.event_name != 'pull_request'\n        run: npm run build/);
   assert.match(parent, /tests\/fixtures\/review-author-auth-e2e\.sql/);
   assert.match(parent, /tests\/fixtures\/profile-review-submission-e2e\.sql/);
+});
+
+test("common review validation runs once and standalone auth retains all safety checks", () => {
+  const shared = parent.slice(parent.indexOf("  common-validation:\n"), parent.indexOf("  shared-build:\n"));
+  const submission = parent.slice(parent.indexOf("  validation:\n"), parent.indexOf("  e2e:\n"));
+  assert.match(shared, /needs: scope/);
+  assert.match(shared, /review_auth == 'true' \|\| needs.scope.outputs.review_submission == 'true'/);
+  assert.match(parent, /needs: \[scope, shared-build, common-validation\]\n    uses: \.\/\.github\/workflows\/review-author-auth-ci\.yml\n    with:\n      shared_validation: true/);
+  assert.match(auth, /shared_validation:\n[\s\S]*?type: boolean\n        default: false/);
+  for (const command of ["db:check-migrations", "db:validate-clean", "lint"]) {
+    const line = "run: npm run " + command;
+    assert.equal(parent.split(line).length, 2, command);
+    assert.ok(shared.includes(line));
+    assert.ok(!submission.includes(line));
+    assert.ok(auth.includes("if: inputs.shared_validation != true\n        " + line));
+  }
+  assert.match(submission, /npm run test:reviews-submission/);
+  assert.match(submission, /npm run test:review-author-auth/);
+  assert.match(submission, /npm run test:reviews-public-read/);
+  assert.match(auth, /npm run test:review-author-auth/);
 });

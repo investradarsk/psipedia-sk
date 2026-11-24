@@ -86,6 +86,7 @@ function reviewNeeds(auth, submission) {
   return {
     scope: { result: "success", outputs: { review_auth: String(auth), review_submission: String(submission) } },
     "shared-build": { result: auth || submission ? "success" : "skipped" },
+    "common-validation": { result: auth || submission ? "success" : "skipped" },
     "reviewer-auth": { result: auth ? "success" : "skipped" },
     validation: { result: submission ? "success" : "skipped" },
     e2e: { result: submission ? "success" : "skipped" },
@@ -110,7 +111,7 @@ test("review aggregate validates auth-only, submission-only and both", () => {
   delete missing.scope.outputs.review_auth;
   assert.equal(evaluateGate("reviews", missing).pass, false);
   const workflow = read(".github/workflows/profile-review-submission-ci.yml");
-  assert.match(workflow, /review-result:\n    name: Review CI selected suites\n    needs: \[scope, shared-build, reviewer-auth, validation, e2e\]/);
+  assert.match(workflow, /review-result:\n    name: Review CI selected suites\n    needs: \[scope, shared-build, common-validation, reviewer-auth, validation, e2e\]/);
 });
 
 test("CI summary reports actual coverage without claiming full browser regression", () => {

@@ -189,6 +189,12 @@ Reálny run 45493256526 / job 138796900423: scope guard, two-stage guard, shared
 
 [Strojovo čitateľný záverečný audit](ci-v2-workflow-audit/final-audit.json) obsahuje konkrétne run IDs, statickú paritu, snapshot výsledkov, rozhodnutie a otvorené podmienky. Ochrana main bezo zmeny, PR zostáva Draft. Krok 10 **čiastočne dokončený**: finálny audit a oprava potvrdených chýb uložené; úplná runtime parita, zelené CI, kontrolované meranie a konsolidácia zostávajúcich nezávislých workflowov nie sú hotové. Žiadny merge/deploy, žiadna produkčná mutácia.
 
+### 10 – pokračovanie: spoločná validácia review CI
+
+Reálny pred-V2 párový baseline na rovnakom HEAD 56c1dea35455f6c0988e311b69104feec886bf8d, oba workflowy success: auth run 45490453716 (joby 280 + 158 s), submission run 45490453657 (296 + 165 s). Štyri build kroky 37 + 23 + 40 + 32 = 132 s. Clean D1 131 + 137 s, lint 83 + 82 s. Tieto historické behy nie sú kontrolovaným before/after benchmarkom; nový V2 producer na inom HEAD meral 78 s build + 8 s upload, bez dokončených consumers.
+
+Spoločný parent teraz spúšťa migration safety, clean D1 a lint v jedinom common-validation jobe súbežne s build matrix. Obe vybrané doménové validácie naň čakajú. Standalone manuálny auth ponecháva všetky tri pôvodné kontroly (workflow_call boolean default false, explicit true iba v callerovi závislom od common-validation). Všetky doménové testy, vrátane reviewer auth regresie v submission, zostali; spoločný výsledok vyžaduje success common-validation. Pri výbere oboch agend odpadá jedno db:check-migrations, jedno db:validate-clean a jeden lint, historická opakovaná práca približne 213–220 sekúnd (nie garantovaná wall-clock úspora). Žiadna zmena produkčných alebo povinných branch protection nastavení.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.

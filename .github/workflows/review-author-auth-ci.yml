@@ -2,6 +2,12 @@ name: REVIEWS-2A Review Author Authentication
 
 on:
   workflow_call:
+    inputs:
+      shared_validation:
+        description: Caller has passed the same-revision common validation job
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
 
 concurrency:
@@ -31,12 +37,15 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Migration safety
+        if: inputs.shared_validation != true
         run: npm run db:check-migrations
       - name: REVIEWS-2A reviewer auth tests
         run: npm run test:review-author-auth
       - name: Clean D1 migration chain
+        if: inputs.shared_validation != true
         run: npm run db:validate-clean
       - name: Lint
+        if: inputs.shared_validation != true
         run: npm run lint
       - name: Build (standalone manual run)
         if: github.event_name != 'pull_request'
