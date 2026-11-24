@@ -194,7 +194,7 @@ jobs:
           const files = readFileSync(process.env.RUNNER_TEMP + "/ds0b-changed-files", "utf8").split("\0").filter(Boolean);
           if (!files.length) throw new Error("Untrusted empty DS-0B diff range");
           const publicContracts = [
-            /^app\/(?:layout\.tsx|globals\.css)$/,
+            /^app\/(?:layout\.tsx|globals\.css|design-system\.css|premium-foundation\.css)$/,
             /^scripts\/start-public-regression-ci\.sh$/,
             /^tests\/fixtures\/public-regression-ci\.sql$/,
             /^components\/(?:public-visual-system\/|detail-primitives\/|directory-|help-|events?-|reviews-hub\.tsx$|editorial-|home-portal-search\.tsx$|public-filter-disclosure\.tsx$|page-system\.tsx$|site-header|site-footer|cookie-consent)/,

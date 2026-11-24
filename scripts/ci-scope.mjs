@@ -329,7 +329,7 @@ function reviewPathMatches(file, pattern) {
   const regex = pattern.split(/(\*\*|\*)/).map((part) => {
     if (part === "**") return ".*";
     if (part === "*") return "[^/]*";
-    return part.replace(/[.*+?^${}()|[\]\\]/g, "\\function isCiControlFile(file) {");
+    return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }).join("");
   return new RegExp("^" + regex + "$").test(file);
 }
