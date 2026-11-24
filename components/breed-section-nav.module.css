@@ -1,6 +1,7 @@
 .nav {
   position: static;
-  box-shadow: 0 10px 26px rgba(23, 53, 43, 0.06);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--ps-font-body, system-ui, sans-serif);
 }
 
 .nav :global(.section-tabs-inner) {
@@ -22,7 +23,7 @@
 }
 
 .nav :global(.section-tab:focus-visible) {
-  outline: 3px solid rgba(23, 75, 56, 0.28);
+  outline: 3px solid var(--forest);
   outline-offset: 2px;
 }
 

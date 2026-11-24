@@ -1,4 +1,5 @@
 .modalPanel {
+  font-family: var(--ps-font-body, system-ui, sans-serif);
   display: grid;
   gap: 8px;
   max-height: min(56vh, 500px);
@@ -9,6 +10,7 @@
   padding: 10px 2px 0;
 }
 .homePanel {
+  font-family: var(--ps-font-body, system-ui, sans-serif);
   position: absolute;
   z-index: 40;
   top: 60px;
@@ -20,10 +22,10 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--line);
-  border-radius: 0 0 16px 16px;
+  border-radius: 0 0 var(--ps-radius-card) var(--ps-radius-card);
   padding: 12px;
   background: var(--paper);
-  box-shadow: 0 20px 48px rgba(15, 48, 36, 0.18);
+  box-shadow: var(--shadow-sm);
 }
 .list { display: grid; gap: 8px; }
 .group { display: grid; gap: 2px; }
@@ -41,7 +43,7 @@
   gap: 11px;
   min-height: 52px;
   padding: 9px 11px;
-  border-radius: 11px;
+  border-radius: var(--ps-radius-control);
   color: var(--ink);
   text-decoration: none;
 }
@@ -55,7 +57,7 @@
   width: 32px;
   height: 32px;
   place-items: center;
-  border-radius: 10px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest);
   background: var(--sage-light);
 }
@@ -82,9 +84,9 @@
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  min-height: 43px;
+  min-height: 44px;
   padding: 11px 12px;
-  border-radius: 10px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest);
   background: var(--sage-light);
   font-size: 0.84rem;
@@ -100,7 +102,7 @@
 .quickLinks a {
   padding: 9px 12px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest);
   background: var(--sage-light);
   font-size: 0.8rem;
@@ -112,4 +114,14 @@
   .homePanel { top: 107px; padding: 8px; }
   .option { min-height: 48px; }
   .optionText strong { font-size: 0.86rem; }
+}
+
+.option:focus-visible,
+.allResults:focus-visible,
+.quickLinks a:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: -2px;
+}
+.option[data-active="true"] {
+  box-shadow: inset var(--ps-premium-accent-width, 4px) 0 var(--coral-dark);
 }

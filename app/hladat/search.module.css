@@ -1,7 +1,3 @@
-:global(.portal-search-form button) {
-  background: var(--coral-dark);
-}
-
 .resultList {
   display: grid;
   gap: 12px;

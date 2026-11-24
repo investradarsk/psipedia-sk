@@ -1,4 +1,37 @@
-/* DS-6: compact public footer; keep existing colors, links and semantics. */
+/* V2-03: high-contrast editorial footer. */
+.compactFooter {
+  font-family: var(--ps-font-body, system-ui, sans-serif);
+  color: var(--ps-premium-on-dark, white);
+  background: var(--ps-premium-gradient, var(--forest-dark));
+}
+.compactFooter :global(.brand--footer),
+.compactFooter :global(.brand--footer) > span:last-child > span,
+.compactFooter :global(.brand--footer) small,
+.compactFooter :global(.footer-brand-block p),
+.compactFooter :global(.footer-bottom),
+.compactFooter :global(.footer-bottom a),
+.compactFooter :global(.footer-links strong) {
+  color: var(--ps-premium-on-dark, white);
+}
+.compactFooter :global(.brand-mark) {
+  color: var(--forest-dark);
+  background: var(--cream);
+  border-radius: 50%;
+  transform: none;
+}
+.compactFooter :global(.brand-mark) svg { transform: none; }
+.compactFooter :global(.footer-links a:hover),
+.compactFooter :global(.footer-cookie-button:hover) {
+  color: var(--ps-premium-on-dark, white);
+  text-decoration: underline;
+}
+.compactFooter :global(.footer-cookie-button:focus-visible),
+.compactFooter :global(.brand:focus-visible) {
+  outline: 2px solid var(--ps-premium-on-dark, white);
+  outline-offset: 3px;
+}
+
+/* Existing responsive footer layout. */
 .compactFooter :global(.footer-main) {
   grid-template-columns: minmax(180px, .7fr) minmax(0, 2fr);
   gap: clamp(24px, 3vw, 40px);
@@ -34,7 +67,7 @@
 
 .compactFooter :global(.footer-links a:focus-visible),
 .compactFooter :global(.footer-bottom a:focus-visible) {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--ps-premium-on-dark, white);
   outline-offset: 3px;
 }
 
