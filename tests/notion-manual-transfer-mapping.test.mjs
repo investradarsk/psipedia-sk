@@ -67,6 +67,7 @@ test("typed identities do not collide across help agendas but normalized page ID
     await assert.rejects(assertManualMappingsUnique(db,[link]),/TRANSFER_DUPLICATE_NOTION_PAGE/);
     const second=await readManualMappingDiagnostics(db,{area:"help",profileId:7,offset:0},allowed);
     assert.ok(second.result.every(row=>row.diagnostic.issues.includes("PAGE_DUPLICATE")));
+    assert.deepEqual(second.result[0].diagnostic.relatedMappings,[{kind:"adoptions",profileId:7},{kind:"lost-found",profileId:7}]);
     assert.ok(second.result[1].diagnostic.issues.includes("PAGE_ID_FORMAT_UNSUPPORTED"));
     assert.ok(second.result.every(row=>!JSON.stringify(row.diagnostic).includes(PAGE)));
     sqlite.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?)").run("adoptions",7,OTHER);

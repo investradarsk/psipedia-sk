@@ -1,4 +1,4 @@
-import { areaOfManualTransferScope, type NotionManualTransferArea } from "./notion-manual-transfer-contract.ts";
+import { areaOfManualTransferScope, normalizeManualPageId, validManualPageId, type NotionManualTransferArea } from "./notion-manual-transfer-contract.ts";
 import { helpAdminDomainSql, isHelpAdminDedicatedCategory } from "./help-admin-query.ts";
 import { isAdminNotionSyncLocked, readAdminNotionReviewLocks, type LockableAgenda } from "./admin-notion-review-lock.ts";
 import { readDirectoryReviewLock, readDirectoryReviewLocks, directoryReviewLockedFromProjection } from "./directory-reviewed-sync-lock.ts";
@@ -30,16 +30,7 @@ function specFor(scope: string) {
 function eligibleId(id: unknown): id is number {
   return typeof id === "number" && Number.isSafeInteger(id) && id > 0;
 }
-export function normalizeManualPageId(value: unknown): string | null {
-  if (typeof value !== "string" ||
-    !/^(?:[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/i.test(value)) return null;
-  return value.replaceAll("-", "").toLowerCase();
-}
-export function validManualPageId(scope: string, value: unknown): boolean {
-  // Only the breed work-copy adapter explicitly supports compact historical IDs.
-  return normalizeManualPageId(value) !== null &&
-    (scope === "breeds" || (typeof value === "string" && value.length === 36));
-}
+export { normalizeManualPageId, validManualPageId } from "./notion-manual-transfer-contract.ts";
 export function manualMappingEditorHref(scope: string, id: unknown): string | null {
   const spec = specFor(scope);
   return spec && eligibleId(id) ? spec.editor + "/" + id : null;
@@ -86,6 +77,8 @@ export type ManualMappingIssue = "MAPPING_MISSING" | "PROFILE_ID_INVALID" | "PAG
 export type ManualMappingDiagnostic = {
   scope: string; profileId: number | null; name: string; editorHref: string | null;
   mappingTable: string; canonicalStatus: string | null; category: string | null; expectedSource: string; issues: ManualMappingIssue[];
+  relatedMappings: Array<{kind:string;profileId:number|null}>;
+  relatedMappingsTruncated: boolean;
   remote: "NOT_CHECKED" | "VERIFIED" | "BLOCKED" | "UNAVAILABLE" | "IDENTITY_MISMATCH" |
     "SOURCE_MISMATCH" | "PAGE_ARCHIVED" | "PAGE_INACCESSIBLE";
 };
@@ -177,6 +170,22 @@ export async function readManualMappingDiagnostics(
     const ids=rows.filter(row=>row.kind===kind&&row.canonical_exists&&eligibleId(row.profile_id)).map(row=>row.profile_id!);
     agendaLocks.set(kind,await readAdminNotionReviewLocks(db,kind,ids).catch(()=>null));
   }
+  // Show the other typed identities behind a duplicate without disclosing raw UUIDs.
+  const duplicateKeys=[...new Set(rows.filter(row=>row.page_count>1).map(row=>normalizeManualPageId(row.page_id)).filter((key):key is string=>key!==null))];
+  const related=new Map<string,Array<{kind:string;profileId:number|null}>>();
+  if(duplicateKeys.length){
+    const matches=await db.prepare(mappingCte+
+      " SELECT kind,profile_id,page_key FROM (SELECT kind,profile_id,"+pageKey+" AS page_key,"+
+      " ROW_NUMBER() OVER (PARTITION BY "+pageKey+" ORDER BY kind,profile_id) AS rank"+
+      " FROM mapped WHERE eligible=1 AND "+pageKey+" IN ("+duplicateKeys.map(()=>"?").join(",")+")) WHERE rank<=12")
+      .bind(...duplicateKeys).all<{kind:string;profile_id:number|null;page_key:string}>();
+    if(!matches.success||!Array.isArray(matches.results))throw Error("TRANSFER_MAPPING_CHECK_UNAVAILABLE");
+    for(const match of matches.results){
+      const list=related.get(match.page_key)??[];
+      list.push({kind:match.kind,profileId:eligibleId(match.profile_id)?match.profile_id:null});
+      related.set(match.page_key,list);
+    }
+  }
   const result = rows.map(row => {
     const issues = classifyManualMapping(row, allowedScopes);
     if (row.kind === "directory" && row.canonical_exists && eligibleId(row.profile_id)) {
@@ -212,6 +221,8 @@ export async function readManualMappingDiagnostics(
       canonicalStatus: row.canonical_status,
       category: row.category,
       expectedSource: expectedSource(row.kind),
+      relatedMappings: related.get(normalizeManualPageId(row.page_id)??"")??[],
+      relatedMappingsTruncated: row.page_count>12,
       issues,
       remote: "NOT_CHECKED",
     };

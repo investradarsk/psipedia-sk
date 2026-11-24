@@ -35,6 +35,7 @@ const reasonText:Record<string,string>={
   TRANSFER_DUPLICATE_NOTION_PAGE:"Jedna Notion stránka je priradená k viacerým profilom. Prenos sa bezpečne zastavil; najprv treba overiť prepojenia.",
   TRANSFER_NO_LINKED_PROFILES:"Pre tento výber nie je v D1 potvrdené prepojenie na Notion. Bez prepojenia sa prenos nespustí.",
   TRANSFER_PROFILE_AMBIGUOUS:"Vybranému ID zodpovedá viac väzieb. Vyber presnú podkategóriu a over identitu profilu.",
+  TRANSFER_IDENTITY_CHANGED:"Mapovanie sa zmenilo od vytvorenia kontroly. Over novú väzbu a vytvor nový náhľad.",
   TRANSFER_PROFILE_LOCKED:"Profil je uzamknutý pre Notion synchronizáciu. Prenos nie je povolený.",
   TRANSFER_PROFILE_ARCHIVED:"Profil je archivovaný. Prenos nie je povolený.",
   TRANSFER_CANONICAL_MISSING:"Kanonický profil v D1 chýba.",
@@ -375,6 +376,10 @@ function MappingDiagnostics({report,busy,error,disabled,single,onScan}:{
           <span>{item.issues.length?"Vyžaduje kontrolu / uzamknuté":"Bez zisteného lokálneho problému"}</span>
         </div>
         {item.issues.length?<ul>{item.issues.map(issue=><li key={issue}>{mappingAdvice[issue]}</li>)}</ul>:null}
+        {item.relatedMappings.length>0?<p className={styles.hint}>
+          Väzby na rovnakú stránku: {item.relatedMappings.map(match=>match.kind+" #"+(match.profileId??"neplatné")).join(", ")}
+          {item.relatedMappingsTruncated?" · zobrazených najviac 12 väzieb":""}.
+        </p>:null}
         <p className={styles.hint}>{remoteAdvice[item.remote]}</p>
       </div>)}
       <div className={styles.pager}>
