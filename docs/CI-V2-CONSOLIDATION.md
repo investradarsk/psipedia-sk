@@ -161,6 +161,8 @@ REVIEWS-3 doplnený chýbajúci izolovaný Directory SQL sidecar pred directory-
 
 Scope union doplnený o bootstrap, kontrakt, spoločný sidecar a directory fixture. Nový dependency-free regresný test kontroluje bash syntax, odmietnutie remote/invalid kontextu, obnovu migrácií cez fake npx (bez DB), poradie fixture a oddelenú diagnostiku. Spúšťa sa v povinnom CI. Reálne browser/D1 CI ešte nie je overené. Ide o konsolidáciu review pilotu, nie úplné zjednotenie všetkých Playwright workflowov; ďalšie kandidáty z auditu vyžadujú paritu prostredia.
 
+Lokálne overenie 07: shell zdroj bol skopírovaný do izolovaného dočasného adresára a jeho git blob hash 6b9078abd76d422881d2b0133871d484784ec24a sa presne zhodoval s PR. Bash syntax, 4 odmietnutia neplatných kontextov/profilu, 3 scenáre obnovy migrácií (úspech, návratový kód 7, čiastočný presun) prešli. Npx bol mock, bez prístupu k D1. Staticky overené poradie fixtures vo všetkých 4 workflowoch, samostatné výstupy desktop/mobile a zhodný review scope union. Reálne GitHub browser testy zatiaľ nepotvrdené.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
