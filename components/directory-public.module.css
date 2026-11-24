@@ -535,7 +535,7 @@
 }
 
 .categoryHeader h3 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: 1.18rem;
   font-weight: 650;
   letter-spacing: -0.015em;
@@ -775,7 +775,7 @@
   max-width: 760px;
   margin: 10px 0 14px;
   color: var(--forest-dark);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(2.65rem, 5vw, 5.2rem);
   font-weight: 650;
   letter-spacing: -0.045em;
@@ -800,7 +800,7 @@
 }
 
 .heroMeta strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(1.8rem, 3vw, 2.55rem);
   font-weight: 650;
   line-height: 1;
@@ -862,7 +862,7 @@
 .providerCta h2 {
   margin: 5px 0 0;
   color: var(--forest-dark);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-weight: 650;
   letter-spacing: -0.025em;
 }
@@ -987,7 +987,7 @@
 .secondaryCopy h3 {
   margin: 0;
   color: var(--forest-dark);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: 1.05rem;
   font-weight: 650;
   line-height: 1.2;
@@ -1744,7 +1744,7 @@
 .resultsHeading h2 {
   margin: 4px 0 0;
   color: var(--ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: var(--ps-list-heading-size);
   line-height: var(--ps-list-heading-leading);
   overflow-wrap: anywhere;
@@ -2374,3 +2374,46 @@
   margin-top: 6px;
   background: var(--ps-premium-accent, #b44939);
 }
+
+/* V2-08: directory-only variant; events share this module. */
+.card[data-public-card="directory"] {
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-ds5-card-shadow);
+  transition: var(--ps-ds5-card-transition);
+}
+.card[data-public-card="directory"]:hover {
+  box-shadow: var(--ps-ds5-card-hover-shadow);
+  transform: var(--ps-ds5-card-hover-transform);
+}
+.card[data-public-card="directory"] .cardImage { border-radius: var(--ps-radius-media); }
+.card[data-public-card="directory"] .cardTitle {
+  font-family: var(--ps-font-heading);
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.card[data-public-card="directory"] .cardType,
+.card[data-public-card="directory"] .cardLocation,
+.card[data-public-card="directory"] .cardMeta {
+  font-family: var(--ps-font-body);
+  overflow-wrap: anywhere;
+}
+.card[data-public-card="directory"] .cardCopy { min-width: 0; }
+.card[data-public-card="directory"] .breederBreedSummary { overflow-wrap: anywhere; }
+.headerShell .header {
+  padding: clamp(16px, 3vw, 28px);
+  border: 1px solid var(--ps-border-soft);
+  border-inline-start: var(--ps-premium-accent-width) solid var(--ps-premium-accent);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  overflow-wrap: anywhere;
+}
+.headerShell .header h1, .categoryPreviewTitle, .resultsHeading h2 { font-family: var(--ps-font-heading); }
+.categoryPreviewMore { color: var(--coral-dark); }
+.directorySearch, .categoryPanel, .mainSearch {
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
+}
+.mainSearch :is(input, select, button), .categoryMore { border-radius: var(--ps-radius-control); }
