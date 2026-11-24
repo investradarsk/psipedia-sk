@@ -22,7 +22,7 @@
 .review-auth-verification-card h1 {
   max-width: 760px;
   margin: 10px 0 18px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(2.3rem, 5.2vw, 4.4rem);
   font-weight: 500;
   line-height: 1;
@@ -42,9 +42,9 @@
   margin-top: 24px;
   padding: 17px 19px;
   border: 1px solid rgba(31, 104, 75, 0.16);
-  border-radius: 16px;
+  border-radius: var(--ps-radius-card);
   color: var(--muted);
-  background: #f7faf7;
+  background: var(--cream);
   line-height: 1.6;
 }
 
@@ -52,9 +52,9 @@
 .review-auth-verification-card {
   min-width: 0;
   border: 1px solid rgba(23, 75, 56, 0.13);
-  border-radius: 22px;
-  background: #fff;
-  box-shadow: 0 18px 55px rgba(23, 53, 43, 0.09);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow, none);
 }
 
 .review-auth-card {
@@ -63,7 +63,7 @@
 
 .review-auth-card h2 {
   margin: 0 0 8px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading);
   font-size: 1.65rem;
   font-weight: 500;
 }
@@ -91,10 +91,10 @@
   min-width: 0;
   min-height: 48px;
   padding: 11px 13px;
-  border: 1px solid #c9d5ce;
-  border-radius: 11px;
+  border: 1px solid var(--ps-component-control-border);
+  border-radius: var(--ps-radius-control);
   color: var(--ink);
-  background: #fff;
+  background: var(--paper);
   font: inherit;
 }
 
@@ -161,7 +161,7 @@
   width: 42%;
   height: 100%;
   border-radius: inherit;
-  background: #1f684b;
+  background: var(--forest);
   animation: review-auth-progress 1.1s ease-in-out infinite alternate;
 }
 
@@ -191,7 +191,7 @@
 
   .review-auth-card,
   .review-auth-verification-card {
-    border-radius: 17px;
+    border-radius: var(--ps-radius-card);
   }
 
   .review-auth-card {
@@ -203,3 +203,10 @@
     justify-content: center;
   }
 }
+
+/* V2-11 */
+.review-auth-shell, .review-auth-verification-card { font-family: var(--ps-font-body); }
+.review-auth-verification-card h2 { font-family: var(--ps-font-heading); font-weight: 500; }
+.review-auth-shell .button, .review-auth-verification-card .button { border-radius: var(--ps-radius-control); min-height: 44px; font-family: var(--ps-font-body); box-shadow: var(--ps-component-shadow, none); }
+.review-auth-message { border-radius: var(--ps-radius-control); }
+@media (prefers-reduced-motion: reduce) { .review-auth-progress span { animation: none; width: 100%; } }
