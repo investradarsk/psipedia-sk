@@ -234,11 +234,19 @@ test("dog name day resolver uses Europe\/Bratislava boundaries and fails closed"
   );
 });
 
-test("PUBLIC-POLISH-2 keeps public photography square without flattening UI controls", () => {
+test("Premium Editorial V2 uses scoped media and control radii without changing legacy defaults", () => {
   assert.match(designSystem, /--ps-radius-media:\s*0;/);
-  assert.match(styles, /\.photoVisual\s*\{[^}]*border-radius:\s*0/s);
-  assert.match(styles, /\.articleListMedia\s*\{[^}]*border-radius:\s*0/s);
-  assert.match(styles, /\.contentMedia\s*\{[^}]*border-radius:\s*0/s);
+  const premium = read("app/premium-foundation.css");
+  const layout = read("app/layout.tsx");
+  const premiumTheme = premium.match(/:root:not\(:has\(\[data-admin-workspace\]\)\)\s*\{[^}]*\}/s)?.[0] ?? "";
+  assert.match(premiumTheme, /--ps-radius-media:\s*10px;/);
+  assert.match(premiumTheme, /--ps-radius-control:\s*9px;/);
+  assert.match(premiumTheme, /--ps-radius-card:\s*14px;/);
+  assert.ok(layout.indexOf('import "./design-system.css"') >= 0);
+  assert.ok(layout.indexOf('import "./premium-foundation.css"') > layout.indexOf('import "./design-system.css"'));
+  assert.match(styles, /\.photoVisual\s*\{[^}]*border-radius:\s*var\(--ps-radius-media,\s*0\)/s);
+  assert.match(styles, /\.articleListMedia\s*\{[^}]*border-radius:\s*var\(--ps-radius-media,\s*0\)/s);
+  assert.match(styles, /\.contentMedia\s*\{[^}]*border-radius:\s*var\(--ps-radius-media,\s*0\)/s);
   assert.match(homeStyles, /\.homeV2 :global\(\.hero-card\)[\s\S]*?border-radius:\s*0/);
   assert.match(
     articleDetailStyles,
@@ -353,7 +361,10 @@ test("HEADER-NAV-2 separates the editorial masthead, forest navigation band and 
     /\.desktopNavBand\s*\{[\s\S]*?background:[\s\S]*?var\(--brand-forest\)/,
   );
   assert.match(siteHeaderStyles, /\.desktopNav[\s\S]*?min-height:\s*46px/);
-  assert.match(siteHeaderStyles, /\.desktopNameDay[\s\S]*?border-inline:/);
+  const desktopStrip = siteHeaderStyles.slice(siteHeaderStyles.indexOf("/* Reuse the approved full-width mobile name-day strip on desktop. */"));
+  assert.match(desktopStrip, /@media \(min-width: 1200px\)\s*\{\s*\.desktopNameDay\s*\{\s*display:\s*none;\s*\}\s*\.mobileNameDay\s*\{[^}]*display:\s*flex;[^}]*border-bottom:/s);
+  assert.match(siteHeader, /href="\/psie-meniny" className=\{styles\.mobileNameDay\} data-mobile-name-day/);
+  assert.match(siteHeaderStyles, /\.mobileNameDay:focus-visible,[\s\S]*?outline:\s*3px solid/);
   assert.match(siteHeaderStyles, /\.mobileNameDay\s*\{[\s\S]*?overflow-wrap:\s*anywhere/);
   assert.match(
     siteHeaderStyles,
