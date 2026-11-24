@@ -201,3 +201,32 @@ test("Help Admin exposes the actual public text-derived fields without shadow da
   assert.match(adminEditor, /actionUrl: actionUrl \|\| null, contactNote, goalAmount/);
   assert.doesNotMatch(adminEditor, /public_fields_json|derived_fields_json/);
 });
+
+
+test("V2-10 Help uses premium tokens without losing semantic states", () => {
+  const cardCss = read("components/public-visual-system/public-help-profile-card.module.css");
+  const surfaceCss = read("components/public-visual-system/public-help-card-surface.module.css");
+  const reportCss = read("components/lost-found-dogs.module.css");
+  const formCss = read("components/lost-found-submission-form.module.css");
+  const genericCss = read("components/help-details/help-detail.module.css");
+  const adoptionCss = read("components/adoption.module.css");
+  const orgCss = read("components/organization-profile-detail.module.css");
+  const guideCss = read("components/help-public-premium.module.css");
+  assert.match(cardCss, /font-family: var\(--ps-font-heading/);
+  assert.match(cardCss, /font-family: var\(--ps-font-body/);
+  assert.match(surfaceCss, /background: var\(--paper\)/);
+  for (const css of [surfaceCss, reportCss, formCss, genericCss, adoptionCss, orgCss, guideCss]) {
+    assert.match(css, /border-radius:\s*var\(--ps-radius-card\)/);
+  }
+  assert.match(formCss, /background: var\(--ps-premium-gradient\)/);
+  assert.match(formCss, /color: var\(--ps-premium-on-dark\)/);
+  assert.match(reportCss, /\.lost\s*\{[^}]*#fff0ec[^}]*#a13d28/);
+  assert.match(reportCss, /\.found\s*\{[^}]*#eef4ff[^}]*#31588a/);
+  assert.match(reportCss, /data-state="ADOPTED"[^}]*#e5f3e9/);
+  assert.match(reportCss, /data-state="RESOLVED"/);
+  assert.match(adoptionCss, /\.reserved\s*\{[^}]*#fff2d7[^}]*#80550b/);
+  assert.match(genericCss, /\.tags \.urgent[^}]*#fff0e9/);
+  assert.match(genericCss, /\.tags \.resolved[^}]*#f0f1ee/);
+  assert.match(guideCss, /data-report-kind="LOST"[^}]*#a13d28/);
+  assert.match(guideCss, /data-report-kind="FOUND"[^}]*#31588a/);
+});
