@@ -37,7 +37,7 @@ test("Step 8: all four canonical lists share filter, advanced and result styling
   assert.match(breeds, /role="search" aria-label="Filtre plemien"/);
   assert.match(events, /data-admin-list-filters[^>]*disabled=\{!hydrated \|\| busy\}/);
   assert.match(events, /setSettledSearch\(filters\.query\)/);
-  assert.match(directory, /action=\{basePath\} method="get" role="search" data-admin-list-filters/);
+  assert.match(directory, /action="\\/admin\\/adresar" method="get" role="search" data-admin-list-filters/);
   assert.match(articles, /method="get" action=\{routePath\} role="search" data-admin-article-filters data-admin-list-filters/);
 });
 
