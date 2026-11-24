@@ -1,5 +1,19 @@
 import { breedProfileHref } from "@/lib/breed-canonical";
-import { breedSqlPrimaryEnabled, breedSqlPrimaryProjection } from "@/lib/breed-sql-v2-primary-read.mjs";
+import { breedSqlPrimaryProjection } from "@/lib/breed-sql-v2-primary-read.mjs";
+import {
+  directory0173QualificationsSqlExpression,
+  directory0173SeoSqlExpression,
+} from "@/lib/directory-0173-editorial-sql-read";
+import { directoryServicesSqlExpression } from "@/lib/directory-presentation-sql-read";
+import { directoryAdditionalCategoryJsonSql } from "@/lib/directory-multi-category";
+import {
+  canonicalPublicProfileServices,
+  type PublicServiceChoice,
+} from "@/lib/service-catalog-public-profile-services";
+import {
+  loadResolvedServiceDefinitions,
+  type ResolvedServiceDefinition,
+} from "@/lib/service-catalog-resolved";
 import {
   breedSeoFallback,
   directorySeoFallback,
@@ -31,13 +45,36 @@ function withImageContract(
   };
 }
 
-function directoryEntity(row: RawRow): AdminSeoQualityEntity {
-  const seo = parseSeoAuditJson(row.seo_json);
+function directoryServiceChoices(row: RawRow): PublicServiceChoice[] {
+  const raw = seoAuditText(row.service_choices);
+  if (!raw) return [];
+  const choices: unknown = JSON.parse(raw);
+  if (!Array.isArray(choices)) {
+    throw new Error("SEO_AUDIT_INVALID_SERVICE_CHOICES");
+  }
+  return choices as PublicServiceChoice[];
+}
+
+function directoryEntity(
+  row: RawRow,
+  catalog: readonly ResolvedServiceDefinition[],
+): AdminSeoQualityEntity {
+  const seo = parseSeoAuditJson(row.sql_seo);
   const name = seoAuditText(row.name);
   const slug = seoAuditText(row.slug);
   const category = seoAuditText(row.category);
   const city = seoAuditText(row.city);
   const fallback = directorySeoFallback(name, city, category);
+  const serviceTexts = seoStringsFromJson(row.sql_services);
+  const choices = directoryServiceChoices(row);
+  const services = choices.length
+    ? canonicalPublicProfileServices(
+        serviceTexts,
+        [category, ...seoStringsFromJson(row.sql_secondary_categories)],
+        choices,
+        catalog,
+      )
+    : serviceTexts;
   return withImageContract({
     agenda: "directory",
     id: num(row.id),
@@ -51,8 +88,9 @@ function directoryEntity(row: RawRow): AdminSeoQualityEntity {
     uniqueContentParts: [
       seoAuditText(row.excerpt),
       seoAuditText(row.description),
-      ...seoStringsFromJson(row.services_json),
-      ...seoStringsFromJson(row.qualifications_json),
+      ...services,
+      ...seoStringsFromJson(row.sql_qualifications),
+      seoAuditText(row.trainer_services_text),
     ],
     imageUrl: seoAuditText(row.image_url),
     imageAlt: name ? `Fotografia služby ${name}` : "",
@@ -371,7 +409,7 @@ export function articleEntity(row: RawRow): AdminSeoQualityEntity {
 
 export async function loadPublishedSeoQualityEntities(
   database: D1Database,
-  bindings: { BREED_SQL_V2_READ_MODE?: string } = {},
+  _bindings: { BREED_SQL_V2_READ_MODE?: string } = {},
 ): Promise<AdminSeoQualityEntity[]> {
   const now = new Date().toISOString();
   const entities: AdminSeoQualityEntity[] = [];
@@ -381,8 +419,18 @@ export async function loadPublishedSeoQualityEntities(
   // same stable agenda order for identical quality counts and pagination.
   const [directory, events, help, lostFound, organizations, adoptions, breeds, articles] = await Promise.all([
     database.prepare(`
-        SELECT id, slug, name, category, excerpt, description, services_json, qualifications_json,
-          city, online, image_url, seo_json
+        SELECT id, slug, name, category, excerpt, description,
+          ${directoryServicesSqlExpression()} AS sql_services,
+          ${directory0173QualificationsSqlExpression()} AS sql_qualifications,
+          ${directory0173SeoSqlExpression()} AS sql_seo,
+          ${directoryAdditionalCategoryJsonSql()} AS sql_secondary_categories,
+          (SELECT json_group_array(json_object('option_id', option_id, 'choice', choice))
+            FROM service_profile_option_choices
+            WHERE profile_id = directory_profiles.id) AS service_choices,
+          (SELECT text_value FROM directory_profile_extra_fields
+            WHERE profile_id = directory_profiles.id
+              AND field_key = '_psipedia_trainer_services_text') AS trainer_services_text,
+          city, online, image_url
         FROM directory_profiles
         WHERE status = 'published'
         ORDER BY id
@@ -428,7 +476,7 @@ export async function loadPublishedSeoQualityEntities(
         WHERE status IN ('ACTIVE', 'RESERVED')
         ORDER BY id
       `).all<RawRow>(),
-    database.prepare((breedSqlPrimaryEnabled(bindings) ? breedSqlPrimaryProjection : (sql: string) => sql)(`
+    database.prepare(breedSqlPrimaryProjection(`
         SELECT id, slug, name, fci_group, image_url, intro, character, needs, history, exercise, training, health,
           editorial_json, seo_json
         FROM managed_breeds
@@ -443,7 +491,12 @@ export async function loadPublishedSeoQualityEntities(
         ORDER BY id
       `).bind(now).all<RawRow>(),
   ]);
-  entities.push(...directory.results.map(directoryEntity));
+  // Resolve the live catalog once per audit, not once per directory profile.
+  // SQL choices are authoritative, including explicit NO and secondary categories.
+  const catalog = directory.results.some((row) => directoryServiceChoices(row).length)
+    ? await loadResolvedServiceDefinitions(database)
+    : [];
+  entities.push(...directory.results.map((row) => directoryEntity(row, catalog)));
   entities.push(...events.results.map(eventEntity));
   entities.push(...help.results.map(helpEntity));
   entities.push(...lostFound.results.map(lostFoundEntity));
