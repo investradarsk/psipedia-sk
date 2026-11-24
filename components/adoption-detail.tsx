@@ -11,6 +11,7 @@ import {
 } from "./detail-primitives/detail-primitives";
 import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
 import {
+  adoptionBreedNameIncludesMix,
   adoptionDetailActivityLabels,
   adoptionDetailBooleanLabel,
   adoptionDetailCompatibilityLabels,
@@ -56,7 +57,7 @@ export function AdoptionDetail({
     .join(" · ");
   const phoneHref = dog.contactPhone ? `tel:${dog.contactPhone.replace(/[^+\d]/g, "")}` : null;
   const hasContact = sections.contact || Boolean(organization);
-  const breedNameIncludesMix = /^kr[ií][zž]enec\b/iu.test(dog.breedName.trim());
+  const breedNameIncludesMix = adoptionBreedNameIncludesMix(dog.breedName);
 
   const basicFacts: Fact[] = [
     age ? { label: "Vek", value: age } : null,

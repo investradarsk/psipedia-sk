@@ -218,26 +218,20 @@ export async function LostFoundDogsPage({
                   </nav>
                   <Link
                     className="button button--dark"
-                    href={type === "LOST"
-                      ? "/partner/koncepty/novy/strateny"
-                      : "/partner/koncepty/novy/najdeny"}
+                    href={
+                      type === "LOST"
+                        ? "/partner/koncepty/novy/strateny"
+                        : "/partner/koncepty/novy/najdeny"
+                    }
                   >
                     {type === "LOST" ? "Nahlásiť strateného psa" : "Nahlásiť nájdeného psa"}
                   </Link>
                 </div>
               }
-              metaSlot={
-                <span>
-                  <strong>{result.total}</strong> {activeDogReportCountNoun(result.total)}
-                </span>
-              }
             />
           </UnifiedSectionHeroShell>
 
           <PublicContentShell variant="listing" className={styles.listingShell}>
-            <div className={styles.categoryNavShell}>
-              <PublicHelpCategoryNav items={publicHelpCategoryItems("stratene-a-najdene")} />
-            </div>
             <PublicFilterLayout>
               <PublicFilterPanel title="Filtrovať hlásenia" resetHref={basePath}>
                 <PublicFilterDisclosure
@@ -374,9 +368,11 @@ export async function LostFoundDogsPage({
               <div id="lost-found-results" data-public-filter-results>
                 <PublicResultsToolbar className={styles.summary}>
                   <PublicHeading role="section" as="h2">
-                    {dogReportTypeLabel(type)}
+                    Aktívne hlásenia
                   </PublicHeading>
-                  <p>{result.total} {activeDogReportCountNoun(result.total)}</p>
+                  <p>
+                    {result.total} {activeDogReportCountNoun(result.total)}
+                  </p>
                 </PublicResultsToolbar>
                 {result.items.length ? (
                   <div className={styles.grid}>
@@ -388,9 +384,13 @@ export async function LostFoundDogsPage({
                         title={report.dogName || report.breed || "Pes bez známeho mena"}
                         category={dogReportTypeLabel(type)}
                         actionLabel="Zobraziť hlásenie"
-                        badge={report.status === "ACTIVE" ? undefined : (
-                          <span className={styles.badge}>{dogReportStatusLabel[report.status]}</span>
-                        )}
+                        badge={
+                          report.status === "ACTIVE" ? undefined : (
+                            <span className={styles.badge}>
+                              {dogReportStatusLabel[report.status]}
+                            </span>
+                          )
+                        }
                         media={
                           <Link
                             href={dogReportHref(report)}
@@ -419,8 +419,9 @@ export async function LostFoundDogsPage({
                           </Link>
                         }
                         meta={[report.city, report.district, formatDogReportDate(report.eventDate)]
-                          .filter(Boolean).join(" · ")}
-                        excerpt={report.description}
+                          .filter(Boolean)
+                          .join(" · ")}
+                        excerpt={report.shortDescription?.trim() || report.description}
                       />
                     ))}
                   </div>
@@ -454,6 +455,9 @@ export async function LostFoundDogsPage({
                 />
               </div>
             </PublicFilterLayout>
+            <div className={styles.categoryNavShell}>
+              <PublicHelpCategoryNav items={publicHelpCategoryItems("stratene-a-najdene")} />
+            </div>
           </PublicContentShell>
         </PublicFoundation>
       </main>

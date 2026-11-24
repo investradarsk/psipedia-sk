@@ -46,7 +46,10 @@ test("directory, help, events and breeds use shared visible actions", () => {
     directory,
     /<PublicActionButton\s*type="button"\s*className=\{\s*styles.modalTrigger\s*\}/,
   );
-  assert.match(directoryPage, /<PublicMagazineBanner[\s\S]*?href=\{mapHref\(filters, active\?\.slug\)\}/);
+  assert.match(
+    directoryPage,
+    /<PublicMagazineBanner[\s\S]*?href=\{mapHref\(filters, active\?\.slug\)\}/,
+  );
   assert.match(directoryPage, /<PublicMagazineBanner[\s\S]*?href="\/o-nas#kontakt"/);
   assert.match(directoryPage, /anchorId=\{CTA_DIRECTORY_MAP_ANCHOR\}/);
   assert.match(
@@ -142,7 +145,7 @@ test("e-shop detail uses shared public CTA variants and semantic surfaces", () =
   }
   assert.match(
     css,
-    /\s*\.hero\s*h1\s*\{\s*[^}]*font:\s*500\s*clamp\(\s*2rem,\s*3\s*\.8vw,\s*3\s*\.5rem\s*\)\/1\s*\.06\s*Georgia/,
+    /\.hero h1\s*\{[^}]*font:\s*750 var\(--ps-heading-page\)\s*\/\s*1\.12 var\(--ps-public-heading-font\)/,
   );
   assert.match(profile, /ESHOP_RATING_FIELDS\s*\.map/);
   assert.match(profile, /shop\s*\.averages\s*\?/);

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  adoptionBreedNameIncludesMix,
   adoptionDetailStatusLabels,
   asPublicAdoptionDetail,
   buildAdoptionDetailSections,
@@ -207,4 +208,16 @@ test("generic Help renderer cannot become a second public adoption template", ()
   assert.doesNotMatch(variants, /\bAdoptionHelpDetail\b/);
   assert.doesNotMatch(variants, /^\s*adopcia\s*:/m);
   assert.match(adoptionRoute, /<AdoptionDetail dog=\{dog\} organization=\{organization\}/);
+});
+
+test("adoption mixed breed labels recognize the existing first word", () => {
+  for (const name of [
+    "kríženec",
+    "kríženec (kríženec čivavy)",
+    " KRIZENEC – čivava",
+    "Kríženec čivavy".normalize("NFD"),
+  ]) {
+    assert.equal(adoptionBreedNameIncludesMix(name), true, name);
+  }
+  assert.equal(adoptionBreedNameIncludesMix("Labradorský retriever"), false);
 });

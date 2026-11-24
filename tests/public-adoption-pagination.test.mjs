@@ -17,11 +17,12 @@ test("adoption catalog uses canonical accessible anchor pagination without chang
     "adoptionCatalogHref(filters, { page: pagination.page - 1 })",
     "adoptionCatalogHref(filters, { page: pagination.page + 1 })",
     "showDisabledControls={false}",
-  ]) assert.ok(src.includes(contract), "missing adoption pagination contract: " + contract);
+  ])
+    assert.ok(src.includes(contract), "missing adoption pagination contract: " + contract);
 
   assert.ok(pagination.includes('rel="prev"'));
   assert.ok(pagination.includes('rel="next"'));
   assert.ok(pagination.includes('aria-current="page"'));
-  assert.match(css, /\.pagination \{ margin-top: 12px; \}/);
+  assert.match(css, /\.pagination\s*\{\s*margin-top: 12px;\s*\}/);
   assert.doesNotMatch(src, /<nav className=\{styles\.pagination\}/);
 });

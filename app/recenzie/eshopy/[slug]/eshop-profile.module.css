@@ -16,9 +16,7 @@
 .hero h1 {
   margin: 8px 0 12px;
   color: var(--ink);
-  font:
-    500 clamp(2rem, 3.8vw, 3.5rem) / 1.06 Georgia,
-    serif;
+  font: 750 var(--ps-heading-page) / 1.12 var(--ps-public-heading-font);
   letter-spacing: -0.035em;
   overflow-wrap: anywhere;
 }
@@ -209,9 +207,6 @@
   max-width: 63ch;
   line-height: 1.55;
   font-size: 0.94rem;
-}
-.hero h1 {
-  font-size: clamp(1.8rem, 3vw, 2.65rem);
 }
 .logo {
   width: 94px;
