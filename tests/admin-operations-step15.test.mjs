@@ -10,8 +10,8 @@ test("step 15: quality review retains current-versus-found values and manual app
 
   assert.match(src, /data-admin-content-module="quality-review"/);
   assert.match(src, />Aktuálny údaj</);
-  assert.match(src, />Nájdený údaj</);
-  assert.match(src, /p\.current_value\?\?"Prázdny"/);
+  assert.match(src, />Navrhnutý údaj</);
+  assert.match(src, /p\.current_value===undefined\?"Nedostupný":p\.current_value\?\?"Chýbajúci údaj"/);
   assert.match(src, /<AdminDestructiveConfirmDialog/);
   assert.match(src, /onClick=\{\(\)=>void decide\(p,"accept"\)\}/);
   assert.match(src, /onClick=\{\(\)=>void decide\(p,"reject"\)\}/);

@@ -35,7 +35,7 @@
   composes: eyebrow from "./detail-primitives/detail-primitives.module.css";
 }
 .categoryBadge {
-  color: #075342;
+  color: var(--forest);
 }
 .featuredBadge,
 .premiumBadge {
@@ -45,7 +45,7 @@
   background: #fff0e9;
 }
 .heroLocation strong {
-  color: #075342;
+  color: var(--forest);
 }
 .practicalGrid {
   composes: facts from "./detail-primitives/detail-primitives.module.css";
@@ -62,7 +62,7 @@
 }
 .updatedAt {
   margin: 14px 0 0;
-  color: #455e66;
+  color: var(--muted);
   font-size: 0.73rem;
 }
 .servicesList {
@@ -77,9 +77,9 @@
   min-width: 0;
   padding: 13px;
   border: 1px solid #e6ede6;
-  border-radius: 9px;
+  border-radius: var(--ps-radius-control);
   background: #f5f7f1;
-  color: #092d36;
+  color: var(--ink);
   font-size: 0.8rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -92,7 +92,7 @@
   font-size: 0.83rem;
   line-height: 1.4;
   font-weight: 760;
-  color: #154b3b;
+  color: var(--forest);
 }
 .qualificationsList {
   display: grid;
@@ -119,7 +119,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #74998b;
+  background: var(--coral-dark);
   transform: translateY(-2px);
 }
 .moreQualifications {
@@ -129,7 +129,7 @@
   display: list-item;
   width: fit-content;
   cursor: pointer;
-  color: #16543f;
+  color: var(--forest);
   font-size: 0.79rem;
   font-weight: 730;
 }
@@ -156,7 +156,7 @@
   padding: 0;
 }
 .hours {
-  color: #455e66;
+  color: var(--muted);
   font-size: 0.85rem;
   line-height: 1.65;
 }
@@ -202,7 +202,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #7b9d8d;
+  background: var(--coral-dark);
 }
 .contactValues a {
   overflow-wrap: anywhere;
@@ -296,7 +296,7 @@
 }
 .singleHeading {
   margin: 0 0 12px;
-  color: var(--brand-accent-strong, #b94732);
+  color: var(--coral-dark);
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 850;
@@ -331,7 +331,7 @@
   padding: 7px 12px;
   border: 1px solid var(--ps-border-strong);
   border-radius: var(--ps-radius-control);
-  background: #fff;
+  background: var(--paper);
   color: var(--forest-dark);
   font-size: 0.8rem;
   font-weight: 800;
@@ -452,7 +452,7 @@
 }
 .expertLinks a:hover,
 .expertLinks a:focus-visible {
-  color: var(--brand-accent-strong, #b94732);
+  color: var(--coral-dark);
 }
 
 /* Readable profile facts without removing any editorial values. */
@@ -478,4 +478,28 @@
 .qualifications > summary:focus-visible {
   outline: 2px solid var(--forest);
   outline-offset: 3px;
+}
+
+
+/* V2-04: sidebar information is kept on paper; no color changes to status
+ * badges, availability or service data. */
+.page :global([data-detail-block="contact"]) h2,
+.page :global([data-detail-block="expertise"]) h2,
+.page :global([data-detail-block="catalog-attributes"]) h2,
+.page :global([data-detail-block="physio-price"]) h2 {
+  font-family: var(--ps-font-heading, Georgia, serif);
+  font-weight: 500;
+}
+
+/* V2-08: retain shared detail flow and semantic data, including missing media. */
+.page { font-family: var(--ps-font-body); }
+.page :global([data-directory-profile-hero]) h1 { font-family: var(--ps-font-heading); overflow-wrap: anywhere; }
+.page :global([data-directory-profile-hero] [data-public-profile-media]) { border-radius: var(--ps-radius-media); }
+.page :global([data-detail-block]) { min-width: 0; overflow-wrap: anywhere; }
+.page :global([data-detail-block="nearby"]) a { color: var(--coral-dark); }
+.page :global([data-detail-block="nearby"]) a:hover { text-decoration: underline; }
+.page :global([data-public-detail-aside]) { min-width: 0; }
+@media (max-width: 360px) {
+  .servicesColumns { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .servicesColumns .servicesList li { font-size: 0.84rem; padding-inline: 4px; }
 }

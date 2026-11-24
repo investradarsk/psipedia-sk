@@ -78,7 +78,7 @@ type BreedControlledValues=Record<string,string|number|string[]|null>;
 type BreedControlledResponse={values:BreedControlledValues;revision:number;pendingKeys:string[];rejectedKeys?:string[];error?:string};
 const subscribeToHydration=()=>()=>{};
 
-export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:BreedEditorOptions }) {
+export function AdminBreedEditor({ breed, returnHref = "/admin/plemena" }: { breed?: ManagedBreed; options: BreedEditorOptions; returnHref?: string }) {
   const router = useRouter();
   const hydrated=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
   const [form,setCanonicalForm]=useState({
@@ -433,8 +433,8 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       onSectionChange={setActiveBreedSection}
       dirty={dirty}
       allowNativeExitRef={allowNavigationRef}
-      onClose={()=>{ setDirty(false); router.push("/admin/plemena"); }}
-      closeLabel="Späť na plemená"
+      onClose={()=>{ setDirty(false); router.push(returnHref); }}
+      closeLabel={returnHref.startsWith("/admin/kvalita/seo?") ? "Späť na SEO audit" : "Späť na plemená"}
       actions={<EditorActionBar
         message={<span role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
         secondary={
@@ -446,7 +446,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
                 <AdminNotionProfileImportButton scope="breeds" profileId={breed.id}
                   dirty={dirty} disabled={saving || uploading} />
                 <small>Načítanie z Notionu nahradí údaje v editore. Neuložené zmeny by sa stratili.</small>
-                <AdminRecordLifecycleActions kind="breeds" recordId={breed.id} status={form.status} disabled={saving || uploading} returnHref="/admin/plemena"
+                <AdminRecordLifecycleActions kind="breeds" recordId={breed.id} status={form.status} disabled={saving || uploading} returnHref={returnHref}
                   onUnpublished={(_next,updatedAt) => { setCanonicalForm(current=>({...current,status:"draft"})); if(updatedAt)setExpectedUpdatedAt(updatedAt); }} />
               </>}
             </div>

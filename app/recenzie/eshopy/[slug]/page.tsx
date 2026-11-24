@@ -128,7 +128,9 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
 
         {shop.description.trim() ? (
           <section className={styles.about} aria-labelledby="shop-about-heading">
-            <h2 id="shop-about-heading">O e-shope</h2>
+            <PublicHeading role="section" as="h2" id="shop-about-heading">
+              O e-shope
+            </PublicHeading>
             <p>{shop.description}</p>
           </section>
         ) : null}

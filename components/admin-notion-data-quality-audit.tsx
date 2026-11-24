@@ -37,6 +37,8 @@ type AuditBatch = {
   mode: "dry-run";
   readOnly: true;
   batchSize: number;
+  status: "PARTIAL" | "COMPLETE_BATCH";
+  warnings: string[];
   pass: 1 | 2;
   sourceId: string;
   nextPass: 2 | null;
@@ -59,7 +61,7 @@ type AuditBatch = {
   nextCursor: string | null;
   truncated: boolean;
 };
-type AuditError = { error?: string; stage?: "SOURCE" | "NOTION_QUERY" | "D1_EVIDENCE" | "TRIAGE" };
+type AuditError = { error?: string; reason?: string; stage?: "SOURCE" | "NOTION_QUERY" | "D1_EVIDENCE" | "TRIAGE" };
 const auditFailureStages = {
   SOURCE: "vyhľadanie Notion zdroja",
   NOTION_QUERY: "čítanie dát z Notionu",
@@ -67,6 +69,26 @@ const auditFailureStages = {
   TRIAGE: "vyhodnotenie výsledkov",
 } as const;
 
+const readWarnings: Record<string, string> = {
+  AUDIT_RESPONSE_INCOMPLETE: "Notion vrátil neúplnú alebo nepodporovanú odpoveď.",
+  AUDIT_BATCH_LIMIT: "Odpoveď prekročila limit 100 záznamov.",
+  AUDIT_DUPLICATE_PAGE: "Notion opakovane vrátil rovnaký záznam.",
+  AUDIT_CURSOR_INCOMPLETE: "Kurzory neumožňujú spoľahlivé pokračovanie.",
+  AUDIT_SOURCE_DISCOVERY_LIMIT: "Vyhľadanie zdroja prekročilo bezpečný limit.",
+  AUDIT_SOURCE_SCHEMA: "Zdroj nemá očakávanú schému alebo chýba jeho konfigurácia.",
+  AUDIT_SOURCE_INCOMPLETE: "Vyhľadanie zdroja nebolo úplné.",
+  AUDIT_SOURCE_CHANGED: "Zdroj sa zmenil. Začni kontrolu odznova.",
+  MULTIPLE_NOTION_SOURCES_REQUIRE_REVIEW: "Viaceré kanonické zdroje vyžadujú manuálne overenie.",
+  NOTION_ACCESS_DENIED: "Integrácia nemá potrebný prístup k zdroju.",
+  NOTION_SOURCE_NOT_FOUND: "Zdroj neexistuje alebo nie je zdieľaný s integráciou.",
+  NOTION_RATE_LIMIT: "Notion obmedzil počet požiadaviek. Dávku možno zopakovať neskôr.",
+  NOTION_REQUEST_REJECTED: "Notion odmietol požiadavku.",
+  NOTION_SERVICE_UNAVAILABLE: "Služba Notion je nedostupná.",
+  AUDIT_TIMEOUT: "Bol prekročený časový limit kontroly.",
+  D1_READ_FAILED: "Väzby v D1 sa nepodarilo načítať.",
+  D1_RESPONSE_INCOMPLETE: "D1 vrátil neúplnú odpoveď.",
+  D1_EVIDENCE_LIMIT: "Dôkazy v D1 prekročili bezpečný limit.",
+};
 const errorLabels: Record<string, string> = {
   MISSING_HOUSE_NUMBER: "Chýba číslo domu",
   INVALID_LOCALITY: "Neúplná alebo neplatná lokalita",
@@ -109,6 +131,8 @@ export function AdminNotionDataQualityAudit() {
   const lastBatch = batches.at(-1);
   const hasMore = lastBatch?.hasMore ?? false;
   const nextCursor = lastBatch?.nextCursor ?? null;
+  const partial = batches.some(batch => batch.status === "PARTIAL" || !batch.checkedAgainstD1 || batch.truncated);
+  const complete = batches.length > 0 && lastBatch?.passesComplete === true && !partial && !error;
   const categoryLabel = categories.find((item) => item.value === category)?.label ?? category;
 
   const totals = useMemo(() => {
@@ -142,8 +166,10 @@ export function AdminNotionDataQualityAudit() {
     currentGooglePlace: totals.googlePlaceCurrent,
     googleNotRequired: totals.googleNotRequired,
     errorTypes: totals.errorTypes,
-    remainingBatches: hasMore || lastBatch?.nextPass === 2 ? "unknown" : 0,
-    complete: batches.length > 0 && lastBatch?.passesComplete === true && !lastBatch.truncated,
+    remainingBatches: hasMore || lastBatch?.nextPass === 2 || lastBatch?.truncated || error ? "unknown" : 0,
+    status: error && !batches.length ? "FAILED" : complete ? "COMPLETE" : batches.length ? "PARTIAL" : "NOT_STARTED",
+    complete,
+    warnings: [...new Set(batches.flatMap(batch => batch.warnings))],
     passes: [...new Set(batches.map((batch) => batch.pass))],
     countsByPass: [1, 2].map((pass) => ({
       pass,
@@ -152,10 +178,10 @@ export function AdminNotionDataQualityAudit() {
     })),
     d1Evidence: batches.map((batch) => ({ pass: batch.pass, verified: batch.checkedAgainstD1, totals: batch.independent?.totals, reasons: batch.independent?.reasons })),
     unresolvedEvidence: [...new Set(batches.flatMap((batch) => batch.independent?.unknown ?? []))],
-    checkpointVerified: Boolean(lastBatch?.passesComplete && !lastBatch.truncated),
+    checkpointVerified: false,
     qualityCounts: totals.qualityCounts,
     qualityUnknown: [...new Set(batches.flatMap((batch) => batch.triage.unknown))],
-  }), [batches, category, categoryLabel, hasMore, lastBatch, totals]);
+  }), [batches, category, categoryLabel, hasMore, lastBatch, totals, complete, error]);
 
   function reset(nextCategory: Category) {
     if (running) return;
@@ -176,14 +202,16 @@ export function AdminNotionDataQualityAudit() {
     setError("");
     setCopyStatus("");
     try {
+      const expectedPass = hasMore ? lastBatch?.pass ?? 1 : lastBatch?.nextPass ?? 1;
       const response = await fetch("/api/admin/notion-data-quality-audit", {
+        signal: AbortSignal.timeout(45_000),
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agenda: category,
           mode: "dry-run",
-          pass: hasMore ? lastBatch?.pass ?? 1 : lastBatch?.nextPass ?? 1,
+          pass: expectedPass,
           ...(lastBatch ? { sourceId: lastBatch.sourceId } : {}),
           ...(hasMore ? { cursor: nextCursor } : {}),
         }),
@@ -192,19 +220,32 @@ export function AdminNotionDataQualityAudit() {
       if (!response.ok || data.error) {
         if (data.error === "NOTION_AUDIT_UNAVAILABLE") {
           const step = data.stage ? auditFailureStages[data.stage] : "neznámy krok";
-          throw new Error(`Bezpečný audit sa nepodaril: ${step}. Žiadne údaje sa nezmenili. Skontroluj diagnostiku Workera a prístup k Notionu/D1.`);
+          const reason = readWarnings[data.reason ?? ""] ?? "Príčinu sa nepodarilo bližšie určiť.";
+          throw new Error(`Bezpečný audit sa nepodaril: ${step}. ${reason} Žiadne údaje sa nezmenili.`);
         }
-        throw new Error(data.error || `Kontrola zlyhala (HTTP ${response.status}).`);
+        throw new Error(readWarnings[data.error ?? ""] || data.error || `Kontrola zlyhala (HTTP ${response.status}).`);
       }
       if (
         data.agenda !== category || data.mode !== "dry-run" || data.readOnly !== true
         || data.batchSize !== 100 || !Array.isArray(data.reviewItems)
-        || !data.sourceId || (data.pass !== 1 && data.pass !== 2)
+        || !data.sourceId || data.pass !== expectedPass || (lastBatch && data.sourceId !== lastBatch.sourceId)
+        || (data.status !== "PARTIAL" && data.status !== "COMPLETE_BATCH") || !Array.isArray(data.warnings)
+        || typeof data.checkedAgainstD1 !== "boolean" || !data.independent || !data.triage?.counts
         || data.triage?.readOnly !== true || data.triage.scope !== "ONE_AUDIT_BATCH"
         || !Array.isArray(data.triage.items)
-        || typeof data.examined !== "number" || typeof data.hasMore !== "boolean"
+        || !Number.isInteger(data.examined) || (data.examined ?? -1) < 0 || (data.examined ?? 101) > 100 || typeof data.hasMore !== "boolean"
       ) throw new Error("Server vrátil neočakávaný formát auditu.");
-      setBatches((current) => [...current, data as AuditBatch]);
+      const batch = data as AuditBatch;
+      // A repeated cursor anywhere in the same pass is not a completed chain.
+      if (batch.nextCursor && batches.some(prior => prior.pass === batch.pass && prior.nextCursor === batch.nextCursor)) {
+        batch.status = "PARTIAL";
+        batch.truncated = true;
+        batch.nextCursor = null;
+        batch.nextPass = null;
+        batch.passesComplete = false;
+        batch.warnings = [...batch.warnings, "AUDIT_CURSOR_INCOMPLETE"];
+      }
+      setBatches((current) => [...current, batch]);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Kontrola sa nepodarila.");
     } finally {
@@ -250,11 +291,13 @@ export function AdminNotionDataQualityAudit() {
         {batches.length > 0 ? (
           <p className={styles.progress} role="status">
             Skontrolované: <strong>{totals.examined}</strong> záznamov v {batches.length} {batches.length === 1 ? "dávke" : "dávkach"}.
-            {hasMore ? " V Notione sú ďalšie záznamy." : lastBatch?.nextPass === 2 ? " Prvý prechod dokončený; druhý ešte nie." : " Druhý prechod ukončený."}
+            {complete ? " Oba prechody dokončené v rozsahu dostupných dôkazov." : lastBatch?.truncated ? " Pokračovanie nie je bezpečné; výsledok je čiastočný." : hasMore ? " V Notione sú ďalšie záznamy." : lastBatch?.nextPass === 2 ? " Prvý prechod ukončený; druhý ešte nie." : " Kontrola je čiastočná."}
+            {partial || error ? " Časť dôkazov chýba alebo ďalšia dávka zlyhala." : ""}
             {" D1 overenie sa vzťahuje na identity, nie na aktuálne snapshot hashe. Počty zahŕňajú oba prechody."}
             {lastBatch?.truncated ? " Notion nepotvrdil kurzor; prehľad nemusí byť úplný." : ""}
           </p>
         ) : null}
+        {report.warnings.length > 0 && <p role="status">{report.warnings.map(code => readWarnings[code] ?? "Neúplný dôkaz.").join(" ")}</p>}
       </section>
 
       {batches.length > 0 ? (

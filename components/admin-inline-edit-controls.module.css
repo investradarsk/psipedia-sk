@@ -9,7 +9,7 @@
 
 .actions button {
   box-sizing: border-box;
-  min-height: 32px;
+  min-height: var(--admin-ui-control-height, 38px);
   padding: 4px 8px;
   border: 1px solid var(--admin-v3-secondary-border, #cad9cc);
   border-radius: var(--admin-ui-field-radius, 8px);
@@ -43,7 +43,7 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  min-height: 32px;
+  min-height: var(--admin-ui-control-height, 38px);
   padding: 4px 8px;
   border: 1px solid var(--admin-v3-control-border, #bad0c2);
   border-radius: var(--admin-ui-field-radius, 8px);

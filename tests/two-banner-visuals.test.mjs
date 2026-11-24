@@ -120,10 +120,15 @@ test("approved editorial art reuses the soft framed brand palette and article ra
   const css = read("app/banner-visuals.css");
   const sharedStart = css.indexOf(".ps-public-banner-frame[data-banner-visual][data-banner-size] {");
   const shared = css.slice(sharedStart, css.indexOf("}", sharedStart));
-  assert.match(shared, /border-left-width:\s*1px\s*!important/);
-  assert.match(shared, /border-left-color:\s*var\(--ps-bnr-border\)\s*!important/);
+  // Admin preview retains its legacy fallback; public V9 overrides it.
   assert.match(shared, /border-radius:\s*0\s*!important/);
-  assert.doesNotMatch(shared, /border-left:\s*3px solid #b44939/);
+  const premium = css.slice(css.indexOf("/* V2-04"));
+  assert.match(premium, /border-left-width:\s*var\(--ps-premium-accent-width\)\s*!important/);
+  assert.match(premium, /border-left-color:\s*var\(--ps-premium-accent\)\s*!important/);
+  assert.match(premium, /border-radius:\s*var\(--ps-bnr-radius\)\s*!important/);
+  assert.match(premium, /--ps-bnr-gradient:\s*var\(--ps-premium-gradient\)/);
+  assert.match(premium, /--ps-bnr-radius:\s*var\(--ps-radius-banner-small\)/);
+  assert.match(premium, /--ps-bnr-radius:\s*var\(--ps-radius-banner-large\)/);
   assert.match(css, /psipedia-banner-dog-outline\.svg/);
   assert.match(css, /data-banner-semantic="urgent"/);
   const detailCss = read("components/article-detail.module.css");

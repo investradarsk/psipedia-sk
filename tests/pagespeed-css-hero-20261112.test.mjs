@@ -48,10 +48,10 @@ test("homepage preload and visible photo share the same candidate function and s
 
 test("breed reference stays outside the Vite CSS dependency graph", () => {
   const nested = read("app/plemena/layout.tsx");
-  const referenced = read("public/styles/breed-reference-3f5dab25d000.css");
+  const referenced = read("public/styles/breed-reference-ddc60a0fefaa.css");
   const root = read("app/layout.tsx");
   assert.match(nested, /<link rel="stylesheet" href=\{BREED_STYLESHEET\} precedence="high" \/>/);
-  assert.match(nested, /\/styles\/breed-reference-3f5dab25d000\.css/);
+  assert.match(nested, /\/styles\/breed-reference-ddc60a0fefaa\.css/);
   assert.doesNotMatch(nested, /import "\.\/breed-reference\.css"/);
   assert.doesNotMatch(root, /breed-reference/);
   assert.match(referenced, /\/\* Breed encyclopedia UI \*\//);

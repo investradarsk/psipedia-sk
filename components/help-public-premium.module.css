@@ -1,0 +1,42 @@
+/* V2-10: local Help guide and report selector. Shared photo banners are separate. */
+.hubCards > article {
+  min-width: 0;
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-ds5-card-shadow);
+  overflow: hidden;
+}
+.hubCards > article[data-report-kind="LOST"] { border-inline-start: 4px solid #a13d28; }
+.hubCards > article[data-report-kind="FOUND"] { border-inline-start: 4px solid #31588a; }
+.hubCards > article h2,
+.guide :global(.help-guide-steps) h2,
+.guide :global(.help-guide-layout) > aside h2 {
+  font-family: var(--ps-font-heading, Georgia, serif);
+  font-weight: var(--ps-component-heading-weight, 500);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.hubCards > article :global(.button) {
+  min-height: 44px;
+  border-radius: var(--ps-radius-control);
+}
+.guide :global(.help-guide-steps) article,
+.guide :global(.help-guide-layout) > aside {
+  min-width: 0;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-ds5-card-shadow);
+}
+.guide :global(.help-guide-steps) article > span {
+  border-radius: var(--ps-radius-control);
+  background: var(--cream);
+  color: var(--forest);
+}
+.guide :global(.help-guide-layout) > aside :global(.button),
+.guide :global(.help-guide-layout) > aside :global(.text-link) {
+  min-height: 44px;
+  white-space: normal;
+  align-items: center;
+  overflow-wrap: anywhere;
+}

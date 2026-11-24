@@ -7,7 +7,7 @@
   --detail-surface: var(--ps-surface-raised);
   --detail-radius: var(--ps-radius-card);
   min-width: 0;
-  font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: var(--ps-font-body, "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif);
   color: var(--detail-ink);
   background: var(--cream);
   padding-bottom: 48px;
@@ -68,11 +68,15 @@
 .heroCopy h1 {
   margin: 14px 0 12px;
   font:
-    500 clamp(2rem, 3.8vw, 3.5rem) / 1.06 Georgia,
-    serif;
+    500 clamp(2rem, 3.8vw, 3.5rem) / 1.06 var(--ps-font-heading, Georgia, serif);
   letter-spacing: -0.035em;
   color: var(--detail-ink, #092d36);
   overflow-wrap: anywhere;
+}
+.hero:not([data-public-detail-hero="breed"]) .heroCopy h1 {
+  font-family: var(--ps-font-heading);
+  font-weight: 500;
+  text-wrap: balance;
 }
 .heroCopy p {
   line-height: 1.6;
@@ -127,6 +131,15 @@
 .heroMedia:has([data-image-display="natural"]) img {
   height: auto;
   object-fit: contain;
+}
+@media (max-width: 800px) {
+  .hero[data-public-detail-hero="event"] .heroMedia:has([data-image-display="natural"]) {
+    min-height: 96px;
+    align-content: center;
+  }
+  .hero[data-public-detail-hero="event"] .heroMedia [data-image-display="natural"] img {
+    max-height: min(300px, 50svh);
+  }
 }
 .tags {
   display: flex;
@@ -255,8 +268,7 @@
   margin: 0 0 12px;
   color: var(--detail-ink, #092d36);
   font:
-    500 var(--ps-detail-heading-size) / 1.15 Georgia,
-    serif;
+    500 var(--ps-detail-heading-size) / 1.15 var(--ps-font-heading, Georgia, serif);
   letter-spacing: -0.025em;
   overflow-wrap: anywhere;
 }
@@ -524,24 +536,19 @@
   margin: 0;
   padding: 16px;
   border: 1px solid var(--detail-border);
-  border-radius: 12px;
+  border-radius: var(--ps-radius-card, 12px);
   background: var(--detail-surface);
 }
 .aside [data-testid="public-location-map"] h2 {
   font:
-    700 1rem/1.35 "Avenir Next",
-    Avenir,
-    "Segoe UI",
-    Helvetica,
-    Arial,
-    sans-serif;
+    700 1rem/1.35 var(--ps-font-body, "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif);
 }
 
 .page :global(.directory-contact-form) {
   margin: 0;
   padding: 20px;
   border: 1px solid var(--detail-border);
-  border-radius: 12px;
+  border-radius: var(--ps-radius-card, 12px);
   background: var(--detail-surface);
   box-shadow: none;
 }
@@ -659,12 +666,7 @@
 }
 .aside [data-testid="public-location-map"] [class*="heading"] h2 {
   font:
-    750 1rem/1.35 "Avenir Next",
-    Avenir,
-    "Segoe UI",
-    Helvetica,
-    Arial,
-    sans-serif;
+    750 1rem/1.35 var(--ps-font-body, "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif);
 }
 .tags > b[data-detail-state="current"] {
   color: #075342;

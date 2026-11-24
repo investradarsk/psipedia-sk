@@ -29,7 +29,7 @@
 }
 
 .sharePanel .actions > * {
-  min-height: 42px;
+  min-height: var(--ps-control-min-height, 44px);
   padding-inline: 12px;
   border-color: color-mix(in srgb, var(--brand-accent) 28%, var(--line));
   font-size: .76rem;
@@ -46,7 +46,6 @@
   }
 
   .sharePanel .actions > * {
-    min-height: 40px;
     padding-inline: 10px;
     font-size: .74rem;
   }

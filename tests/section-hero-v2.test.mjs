@@ -45,7 +45,8 @@ test("mobile photo and text share one hero visual while tools remain outside", (
 
 test("desktop overlay text uses light contrast while the search panel is not in its safe zone", () => {
   assert.match(heroCss, /\.breadcrumbs[\s\S]*color:\s*#fff/);
-  assert.match(heroCss, /\.eyebrow[\s\S]*background:\s*var\(--brand-accent-strong/);
+  assert.match(heroCss, /\.eyebrow\s*\{[^}]*background:\s*transparent/);
+  assert.match(heroCss, /\.eyebrow::before\s*\{[^}]*background:\s*var\(--ps-premium-accent/);
   assert.match(heroCss, /\.copy h1[\s\S]*color:\s*#fff/);
   assert.match(heroCss, /\.intro[\s\S]*color:\s*#fff/);
   assert.match(admin, /breadcrumb · eyebrow · H1 · intro/);
@@ -165,4 +166,30 @@ test("hero images still come only from section visuals, never list entities", ()
     assert.match(source, /getSectionHeroVisual/);
     assert.doesNotMatch(source, /visual=\{[^}]*(?:profile|event|article|dog|report)\.(?:image|imageUrl|mainImage)/);
   }
+});
+
+
+test("V2-05 landing styles use Premium tokens without replacing photographic heroes", () => {
+  const homeCss = read("app/home-v2.module.css");
+  const landingCss = read("components/public-visual-system/public-landing-layout.module.css");
+  const navCss = read("components/public-visual-system/public-subcategory-navigator.module.css");
+  const editorialCss = read("components/editorial-section.module.css");
+  const universal = read("components/public-visual-system/universal-page-hero.tsx");
+  assert.match(heroCss, /\.hero\[data-unified-section-hero\] \.visual\s*\{\s*border-radius:\s*var\(--ps-radius-banner-large/);
+  assert.match(heroCss, /\.copy h1\s*\{[^}]*font-family:\s*var\(--ps-font-heading/);
+  assert.match(heroCss, /\.image\s*\{[^}]*object-fit:\s*cover[^}]*--section-visual-desktop-x/);
+  assert.match(heroCss, /@media \(max-width: 620px\)[\s\S]*--section-visual-mobile-x/);
+  assert.match(heroCss, /@media \(min-width: 621px\) and \(max-width: 820px\)/);
+  assert.match(heroCss, /\.hero\[data-unified-section-hero\] \.portalSearch\s*\{[^}]*margin-top:\s*-25px/);
+  assert.match(universal, /<UnifiedSectionHero[\s\S]*mediaSlot=\{mediaSlot\}[\s\S]*<HomePortalSearch/);
+  assert.match(landingCss, /\.heading h2\s*\{[^}]*font-family:\s*var\(--ps-font-heading/);
+  assert.match(landingCss, /\.eyebrow::before\s*\{[^}]*--ps-premium-accent/);
+  assert.match(navCss, /\.compactItem\s*\{[^}]*font-family:\s*var\(--ps-font-body/);
+  assert.match(navCss, /\.compactItemCurrent\s*\{[^}]*background:\s*var\(--forest/);
+  assert.match(navCss, /grid-auto-rows:\s*minmax\(52px, auto\)/);
+  assert.match(editorialCss, /\.puppyTone,\s*\.careTone,\s*\.activityTone\s*\{[^}]*--section-accent:\s*var\(--forest\)/);
+  assert.match(editorialCss, /\[data-banner-semantic="urgent"\] \.calloutIcon/);
+  assert.match(homeCss, /\.home-section-heading h2\)[\s\S]*?font-family:\s*var\(--ps-font-heading/);
+  assert.match(home, /getSectionHeroVisual\("home\.hero"\)/);
+  assert.match(home, /portalSearchSlot=\{<HomePortalSearch/);
 });

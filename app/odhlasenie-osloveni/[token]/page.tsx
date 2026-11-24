@@ -1,3 +1,4 @@
+import infoStyles from "@/app/info-premium.module.css";
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -16,7 +17,8 @@ export default async function OutreachUnsubscribePage({ params }: Props) {
   const token = (await params).token;
   const context = await getOutreachUnsubscribeContext(token).catch(() => null);
   return (
-    <main id="obsah" className="prose-page legal-page">
+    <main id="obsah" className={infoStyles.document}>
+      <section className="prose-page legal-page">
       <span className="eyebrow">Profilový outreach</span>
       <PublicHeading role="page" as="h1">
         Odhlásenie z ďalších oslovení
@@ -36,6 +38,7 @@ export default async function OutreachUnsubscribePage({ params }: Props) {
           stránku <Link href="/opravy-a-podnety">Opravy a podnety</Link>.
         </p>
       )}
-    </main>
+    </section>
+      </main>
   );
 }

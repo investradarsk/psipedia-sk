@@ -45,7 +45,10 @@ test("map has an explicit search submit and a visible labeled mobile filter cont
   assert.match(map, /enterKeyHint="search"/);
   assert.match(map, /<span>Filtre<\/span>/);
   assert.match(read("app/mapa/page.tsx"), /hideQuickLinks/);
-  assert.match(read("components/public-visual-system/unified-section-hero.tsx"), /hideQuickLinks \|\| portalSearchSlot \? \[\] : activeShortcuts/);
+  assert.match(
+    read("components/public-visual-system/unified-section-hero.tsx"),
+    /hideQuickLinks \|\| portalSearchSlot \? \[\] : activeShortcuts/,
+  );
   assert.match(css, /\.filterButton > span:first-child \{\s*position: static/);
 });
 
@@ -53,7 +56,7 @@ test("events have one heading per section, return link after map and nonduplicat
   const event = read("components/event-detail.tsx");
   const shared = read("components/detail-primitives/detail-primitives.tsx");
   assert.ok(event.indexOf("<EventsBackLink") > event.indexOf("</PublicDetailLayout>"));
-  assert.match(event, /<DetailSection title="Praktické informácie"/);
+  assert.match(event, /<DetailSection compactHeading title="Praktické informácie"/);
   assert.doesNotMatch(event, /<DetailSection eyebrow="Pred návštevou"/);
   assert.match(event, /alt="Fotografia podujatia" loading="eager"/);
   assert.doesNotMatch(shared, /eyebrow && <span className=\{styles\.eyebrow\}/);
@@ -62,7 +65,10 @@ test("events have one heading per section, return link after map and nonduplicat
 test("shared adoption detail layout stacks contact after story even with a direct aside", () => {
   const css = read("components/detail-primitives/detail-primitives.module.css");
   const adoptionCss = read("components/adoption-detail.module.css");
-  assert.match(css, /@media \(max-width: 800px\) \{\s*\.publicDetailInline:has\(> aside\) \{\s*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(
+    css,
+    /@media \(max-width: 800px\) \{\s*\.publicDetailInline:has\(> aside\) \{\s*grid-template-columns: minmax\(0, 1fr\)/,
+  );
   const adoption = read("components/adoption-detail.tsx");
   assert.match(adoption, /<PublicHelpProfileDetailLayout/);
   assert.match(adoption, /className=\{dogStyles\.detailCopy\}/);

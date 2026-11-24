@@ -302,3 +302,28 @@ test("Help Admin 390x844 list, editor and import preview have no page overflow, 
   const box=await previewButton.boundingBox();expect(box?.height??0).toBeGreaterThanOrEqual(44);
   await expectNoAxeViolations(page);
 });
+
+
+// V2-10: check the shared card and the LOST/FOUND selector at the six design
+// system widths, without modifying publication fixtures or submission logic.
+for (const width of [320, 390, 768, 1024, 1440, 1920]) {
+  test(`V2-10 premium Help surfaces at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/pomoc-psom", { waitUntil: "domcontentloaded" });
+    const card = page.locator("[data-help-profile-card]").first();
+    await expect(card).toBeVisible();
+    await expect(card).toHaveCSS("border-top-left-radius", "14px");
+    await expect(card.locator("[data-public-card-title]")).toHaveCSS("font-family", /Psipedia Newsreader/);
+    await expect(card.locator("[data-help-profile-copy]")).toHaveCSS("font-family", /Psipedia Inter/);
+    await expectNoHorizontalOverflow(page);
+
+    await page.goto("/pomoc-psom/stratene-a-najdene", { waitUntil: "domcontentloaded" });
+    const lost = page.locator('[data-report-kind="LOST"]');
+    const found = page.locator('[data-report-kind="FOUND"]');
+    await expect(lost).toHaveCSS("border-left-color", "rgb(161, 61, 40)");
+    await expect(found).toHaveCSS("border-left-color", "rgb(49, 88, 138)");
+    await expect(lost.getByRole("link", { name: "Zobraziť stratené psy" })).toHaveAttribute("href", "/pomoc-psom/stratene-psy");
+    await expect(found.getByRole("link", { name: "Zobraziť nájdené psy" })).toHaveAttribute("href", "/pomoc-psom/najdene-psy");
+    await expectNoHorizontalOverflow(page);
+  });
+}

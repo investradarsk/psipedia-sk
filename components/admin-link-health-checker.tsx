@@ -192,7 +192,7 @@ export function AdminLinkHealthChecker() {
   return (
     <section className={styles.root} aria-label="Kontrola nefunkčných odkazov">
       <div className={styles.info}>
-        <strong>Bezpečná kontrola verejných stránok</strong>
+        <strong>Zdroj: živá HTTP kontrola verejných stránok</strong>
         <p>Kontrola sa spustí iba po kliknutí. Preverí najviac {MAX_LINK_SOURCE_PAGES} stránok a {MAX_LINK_TARGETS} rôznych interných odkazov. Neotvára administračné ani externé adresy a nič neupravuje.</p>
       </div>
       <div className={styles.controls}>
@@ -206,6 +206,7 @@ export function AdminLinkHealthChecker() {
           {report && <button type="button" onClick={saveReport}>Uložiť výsledky (JSON)</button>}
         </div>
       </div>
+      {!report && !busy && !error && <p role="status">V tejto relácii ešte neprebehla kontrola.</p>}
       {progress && <p role="status" className={styles.progress}>{progress}</p>}
       {error && <p className={styles.error} role="alert">{error}</p>}
       {report && (
@@ -219,13 +220,14 @@ export function AdminLinkHealthChecker() {
           </div>
           {report.truncated && <p className={styles.warning}>Bol dosiahnutý limit odkazov. Výsledok je iba čiastočný; ďalšiu stránku skontroluj samostatne.</p>}
           <div className={styles.resultHeader}>
-            <strong>Výsledky na opravu</strong>
+            <strong>Výsledky kontroly</strong>
             <label>Filter <select value={filter} onChange={e => setFilter(e.target.value as "issues" | "all")}>
               <option value="issues">Len chyby a nepotvrdené</option>
-              <option value="all">Všetky odkazy</option>
+              <option value="all">Všetky skontrolované odkazy</option>
             </select></label>
           </div>
-          {!displayed.length && <p>V skontrolovanej vzorke sa nenašla potvrdená chyba. Nejde o kontrolu celého webu.</p>}
+          {!displayed.length && <p>Pre zvolený filter nie sú výsledky v skontrolovanej vzorke.</p>}
+          {(filter === "issues" ? issues.length : report.findings.length) > displayed.length && <p className={styles.warning}>Zobrazených prvých {displayed.length} výskytov. Úplný výsledok stiahneš ako JSON.</p>}
           {displayed.length > 0 && <div className={styles.scroll}>
             <table><thead><tr><th>Stav</th><th>Na stránke</th><th>Odkaz</th><th>HTTP</th></tr></thead>
               <tbody>{displayed.map((item, i) => (
@@ -238,7 +240,7 @@ export function AdminLinkHealthChecker() {
               ))}</tbody>
             </table>
           </div>}
-          <small>Kontrola: {new Intl.DateTimeFormat("sk-SK", { dateStyle: "medium", timeStyle: "short" }).format(new Date(report.checkedAt))}. HTTP 403/429, blokovanie, timeout a odchádzajúce presmerovania sú označené ako nepotvrdené, nie ako pokazený odkaz.</small>
+          <small>Posledná dokončená kontrola v tejto relácii: {new Intl.DateTimeFormat("sk-SK", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Bratislava" }).format(new Date(report.checkedAt))}. HTTP 403/429, blokovanie, timeout a odchádzajúce presmerovania sú označené ako nepotvrdené, nie ako pokazený odkaz.</small>
         </div>
       )}
       <div className={styles.automated}>

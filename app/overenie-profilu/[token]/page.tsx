@@ -1,3 +1,4 @@
+import infoStyles from "@/app/info-premium.module.css";
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -19,17 +20,20 @@ export default async function OutreachVerificationPage({ params }: Props) {
 
   if (!context) {
     return (
-      <main id="obsah" className="prose-page legal-page">
+      <main id="obsah" className={infoStyles.document}>
+      <section className="prose-page legal-page">
         <span className="eyebrow">Správa profilu</span>
         <PublicHeading role="page" as="h1">Odkaz už nie je platný</PublicHeading>
         <p>Odkaz mohol expirovať, byť použitý alebo zrušený. O správu profilu môžete požiadať cez Partner účet.</p>
         <p><Link href="/partner/registracia">Prejsť na Partner účet</Link></p>
+      </section>
       </main>
     );
   }
 
   return (
-    <main id="obsah" className="prose-page legal-page">
+    <main id="obsah" className={infoStyles.document}>
+      <section className="prose-page legal-page">
       <span className="eyebrow">Správa verejných profilov</span>
       <PublicHeading role="page" as="h1">Spravujte svoj profil cez Partner účet</PublicHeading>
       <p className="lead">
@@ -57,6 +61,7 @@ export default async function OutreachVerificationPage({ params }: Props) {
       <p>
         Ochrana osobných údajov: <Link href="/sukromie">viac informácií</Link>.
       </p>
-    </main>
+    </section>
+      </main>
   );
 }

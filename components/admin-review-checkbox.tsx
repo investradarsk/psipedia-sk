@@ -12,6 +12,7 @@ type Props = {
   compact?: boolean;
   showDate?: boolean;
   lockedByPartner?: boolean;
+  disabled?: boolean;
 };
 
 function formatReviewedAt(value: string) {
@@ -34,6 +35,7 @@ export const AdminReviewCheckbox = memo(function AdminReviewCheckbox({
   compact = false,
   showDate = false,
   lockedByPartner = false,
+  disabled = false,
 }: Props) {
   const [reviewed, setReviewed] = useState(initialReviewed);
   const [reviewedAt, setReviewedAt] = useState(initialReviewedAt);
@@ -41,7 +43,7 @@ export const AdminReviewCheckbox = memo(function AdminReviewCheckbox({
   const [error, setError] = useState("");
 
   async function change(nextReviewed: boolean) {
-    if (pending || lockedByPartner) return;
+    if (disabled || pending || lockedByPartner) return;
     setPending(true);
     setError("");
     try {
@@ -73,7 +75,7 @@ export const AdminReviewCheckbox = memo(function AdminReviewCheckbox({
       <input
         type="checkbox"
         checked={reviewed}
-        disabled={pending || lockedByPartner}
+        disabled={disabled || pending || lockedByPartner}
         onChange={(event) => void change(event.target.checked)}
         aria-label={reviewed ? "Označené ako odkontrolované" : "Označiť ako odkontrolované"}
       />

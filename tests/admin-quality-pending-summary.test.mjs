@@ -74,3 +74,19 @@ test("Admin workspace uses the light reader while /admin/kvalita retains full hi
   assert.doesNotMatch(detailed, /ORDER BY id DESC LIMIT 1000/);
   assert.match(detailed, /GROUP BY area,status/);
 });
+
+
+test("V6-07 missing or invalid count rows cannot become a successful zero", async () => {
+  for (const row of [null, {}, { n: null }, { n: -1 }, { n: 1.5 }]) {
+    const db = { prepare() { return {
+      all: async () => ({ results: [] }),
+      first: async () => row,
+    }; } };
+    await assert.rejects(loadAdminQualityPendingSummary(db), /Počet otvorených návrhov je nedostupný/);
+  }
+  const emptyDb = { prepare() { return {
+    all: async () => ({ results: [] }),
+    first: async () => ({ n: 0 }),
+  }; } };
+  assert.deepEqual(await loadAdminQualityPendingSummary(emptyDb), { total: 0, schemaReady: true });
+});

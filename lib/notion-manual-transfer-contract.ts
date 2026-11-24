@@ -31,6 +31,16 @@ export type TransferCatalogGroup = Readonly<{
   fields: readonly TransferCatalogField[];
 }>;
 
+export function normalizeManualPageId(value: unknown): string | null {
+  if (typeof value !== "string" ||
+    !/^(?:[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/i.test(value)) return null;
+  return value.replaceAll("-", "").toLowerCase();
+}
+export function validManualPageId(scope: string, value: unknown): boolean {
+  // Only the breed work-copy adapter explicitly supports compact historical IDs.
+  return normalizeManualPageId(value) !== null &&
+    (scope === "breeds" || (typeof value === "string" && value.length === 36));
+}
 /** These are the five areas approved by the owner; article and FB scopes are excluded. */
 export function areaOfManualTransferScope(scope: string): NotionManualTransferArea | null {
   if (scope === "breeds") return "breeds";
@@ -161,8 +171,7 @@ export function previewManualTransferRecord(args: {
   const matched = Number.isSafeInteger(args.canonicalId)
     && args.canonicalId > 0
     && args.linkedCanonicalId === args.canonicalId
-    && typeof args.notionPageId === "string"
-    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args.notionPageId);
+    && validManualPageId(args.group.scope,args.notionPageId);
   const from = args.direction === "NOTION_TO_ADMIN" ? args.notion : args.admin;
   const to = args.direction === "NOTION_TO_ADMIN" ? args.admin : args.notion;
   const fields = args.group.fields.map((field): ManualTransferFieldResult => {

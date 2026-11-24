@@ -24,7 +24,7 @@
   color: var(--forest-dark);
   font-family: var(--ps-public-heading-font);
   font-size: clamp(1.125rem, 1.45vw, 1.3rem);
-  font-weight: 750;
+  font-weight: var(--ps-component-heading-weight);
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
@@ -38,7 +38,7 @@
   border: 1px solid var(--ps-border-strong);
   border-radius: var(--ps-radius-control);
   color: var(--forest-dark);
-  background: var(--white);
+  background: var(--paper);
   font-weight: 800;
   text-decoration: none;
 }
@@ -61,3 +61,8 @@
     justify-content: center;
   }
 }
+
+.groupHeading h3,
+.link { overflow-wrap: anywhere; }
+.link { font-family: var(--ps-font-body); max-width: 100%; }
+.eyebrow { font-family: var(--ps-font-body); }

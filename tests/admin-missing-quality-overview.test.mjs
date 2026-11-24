@@ -6,12 +6,12 @@ const source=readFileSync(new URL("../lib/admin-quality-missing-overview.ts",imp
 const page=readFileSync(new URL("../app/admin/kvalita/prehlad/page.tsx",import.meta.url),"utf8");
 const shortcut=readFileSync(new URL("../components/admin-missing-quality-dashboard.tsx",import.meta.url),"utf8");
 
-test("quality overview is separate admin-only page, opened in a new tab",()=>{
-  assert.match(shortcut,/href="\/admin\/kvalita\/prehlad" target="_blank" rel="noopener noreferrer"/);
+test("quality overview is an authenticated tab without a redundant shortcut",()=>{
+  assert.doesNotMatch(shortcut,/href="\/admin\/kvalita\/prehlad"/);
   assert.match(page,/requireAdminPageUser\("\/admin\/kvalita\/prehlad"\)/);
   assert.match(page,/dynamic="force-dynamic"/);
   assert.match(page,/robots:\{index:false,follow:false\}/);
-  assert.match(page,/Späť na schvaľovanie nálezov/);
+  assert.match(page,/<AdminQualityWorkspaceTabs active="missing"/);
 });
 test("count and filters come from canonical database instead of Tavily proposal queue",()=>{
   for(const domain of ["directory_profiles","managed_events","help_organizations","adoption_dogs","help_cases","lost_found_dog_reports"])
@@ -43,7 +43,7 @@ test("all nine missing-data categories have independent counters and drill-down"
   assert.match(source,/instagram_url/);
   assert.doesNotMatch(source,/source_data_json|json_valid/);
   assert.match(source,/incompleteProfiles:/);
-  assert.match(page,/result\.summary\.byField\[group\.id\]/);
+  assert.match(page,/fieldCounts\[group\.id\]/);
   assert.match(page,/result\.items\.map/);
 });
 test("status scope follows Tavily's active profile rules and current Slovak calendar dates",()=>{

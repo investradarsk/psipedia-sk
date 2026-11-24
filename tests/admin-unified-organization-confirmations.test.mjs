@@ -26,7 +26,7 @@ test("organization bulk lifecycle keeps selection/version contract and safe canc
   const src = read("components/admin-organization-publication-dashboard.tsx");
   assert.match(src, /<AdminModalDialog/);
   assert.match(src, /preferExplicitAutofocus/);
-  assert.match(src, /data-admin-autofocus="true" disabled=\{!hydrated \|\| bulkBusy\}/);
+  assert.match(src, /data-admin-autofocus="true" disabled=\{Boolean\(inlineDraft\) \|\| !hydrated \|\| bulkBusy\}/);
   assert.match(src, /if \(!hydrated \|\| !bulkAction \|\| !bulkTargets\.length \|\| bulkBusy\) return/);
   assert.match(src, /"\/api\/admin\/organizations\/bulk"/);
   assert.match(src, /items: bulkTargets\.map\(\(item\) => \(\{ id: item\.id, updatedAt: item\.updatedAt \}\)\)/);

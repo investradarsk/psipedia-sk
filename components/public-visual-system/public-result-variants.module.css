@@ -8,7 +8,7 @@
   margin: 4px;
   padding: 22px;
   border: 1px dashed rgba(23, 75, 56, 0.24);
-  border-radius: 16px;
+  border-radius: var(--ps-radius-card);
   color: var(--map-muted);
   background: rgba(246, 249, 243, 0.78);
   line-height: 1.55;
@@ -22,7 +22,7 @@
 .ratingError {
   margin: 16px 0 0;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--ps-radius-control);
   font-size: 0.78rem;
 }
 
@@ -40,7 +40,7 @@
 .reviewAlready {
   margin: 9px 0 0;
   padding: 11px 13px;
-  border-radius: 10px;
+  border-radius: var(--ps-radius-control);
   font-size: 0.86rem;
   line-height: 1.5;
 }
@@ -58,7 +58,7 @@
 .reportError {
   margin: 0;
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: var(--ps-radius-control);
   background: #fff0ed;
   color: #7a2116;
   font-weight: 700;
@@ -77,14 +77,14 @@
   gap: 7px;
   padding: 28px;
   border: 1px dashed #bdcbc2;
-  border-radius: 16px;
+  border-radius: var(--ps-radius-card);
   background: #fff;
 }
 
 .helpEmpty h2 {
   margin: 0;
   color: var(--help-ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.2rem;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -100,7 +100,7 @@
   margin-top: 5px;
   padding: 0 14px;
   border: 1px solid #bdcbc2;
-  border-radius: 10px;
+  border-radius: var(--ps-radius-control);
   background: #fff;
   color: #174b38;
   font-weight: 800;
@@ -113,7 +113,7 @@
   justify-content: center;
   box-sizing: border-box;
   border: 1px solid var(--help-border);
-  border-radius: 11px;
+  border-radius: var(--ps-radius-control);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 800;
@@ -167,9 +167,6 @@
   padding: 8px 14px;
 }
 
-.eventEmpty {
-  border-radius: var(--ps-radius-card);
-}
 
 .eventEmpty a {
   display: inline-flex;
@@ -195,7 +192,7 @@
   padding: 42px 24px;
   text-align: center;
   border: 1px dashed #bdccc2;
-  border-radius: 20px;
+  border-radius: var(--ps-radius-card);
   background: #f9fbf9;
 }
 
@@ -223,7 +220,7 @@
 .reviewEmpty {
   padding: 28px;
   border: 1px dashed rgba(23, 53, 43, 0.22);
-  border-radius: 18px;
+  border-radius: var(--ps-radius-card);
   background: rgba(255, 255, 255, 0.62);
 }
 
@@ -237,7 +234,7 @@
   gap: 8px;
   padding: 24px;
   border: 1px solid rgba(23, 75, 56, 0.12);
-  border-radius: 14px;
+  border-radius: var(--ps-radius-card);
   background: #fff;
 }
 
@@ -274,9 +271,6 @@
 
 .adoptionEmptyIcon {
   font-size: 2rem;
-}
-
-.adoptionEmptyIcon {
   display: grid;
   place-items: center;
   color: #315b46;
@@ -334,12 +328,6 @@
   font-weight: 800;
 }
 
-@media (max-width: 760px) {
-  .mapStatusPill {
-    right: 10px;
-    top: 10px;
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .mapLoadingDot {

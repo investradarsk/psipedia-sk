@@ -6,7 +6,7 @@ const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8"
 
 test("mobile homepage no longer carries the 25 KiB legacy directory section", () => {
   const globals = read("app/globals.css");
-  const directory = read("public/styles/directory-146dc4e44713.css");
+  const directory = read("public/styles/directory-cd5bd5dee982.css");
   const route = read("app/adresar/layout.tsx");
   const root = read("app/layout.tsx");
   assert.ok(globals.length < 200_000, "Shared CSS should be below the pre-PR 215 KiB source");
@@ -18,9 +18,9 @@ test("mobile homepage no longer carries the 25 KiB legacy directory section", ()
   assert.match(directory, /\.directory-club-selects\s*\{/);
   assert.match(directory, /@media \(max-width: 620px\)/);
   assert.ok(directory.length > 25_000);
-  assert.match(route, /href="\/styles\/directory-146dc4e44713\.css"/);
+  assert.match(route, /href="\/styles\/directory-cd5bd5dee982\.css"/);
   assert.match(route, /precedence="high"/);
-  assert.doesNotMatch(root, /directory-146dc4e44713\.css/);
+  assert.doesNotMatch(root, /directory-cd5bd5dee982\.css/);
 });
 
 test("admin inquiry styles are not removed with the public directory section", () => {

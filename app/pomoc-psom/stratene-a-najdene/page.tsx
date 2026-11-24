@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import premiumStyles from "@/components/help-public-premium.module.css";
 import { Breadcrumbs } from "@/components/page-system";
 import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { StructuredData } from "@/components/structured-data";
@@ -67,8 +68,8 @@ export default async function LostFoundHubPage() {
           <PublicHelpPhotoBanner promo={lostFoundSubmitPromo} />
 
           <PublicContentShell variant="listing" className="page-body">
-            <div className="article-grid">
-              <article className="article-card article-card--large article-card--coral">
+            <div className={`article-grid ${premiumStyles.hubCards}`}>
+              <article className="article-card article-card--large article-card--coral" data-report-kind="LOST">
                 <div className="article-card-body">
                   <span className="eyebrow">Aktuálne hlásenia</span>
                   <h2>Stratené psy</h2>
@@ -77,7 +78,7 @@ export default async function LostFoundHubPage() {
                 </div>
               </article>
 
-              <article className="article-card article-card--large article-card--forest">
+              <article className="article-card article-card--large article-card--forest" data-report-kind="FOUND">
                 <div className="article-card-body">
                   <span className="eyebrow">Aktuálne hlásenia</span>
                   <h2>Nájdené psy</h2>

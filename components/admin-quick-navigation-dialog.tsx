@@ -6,6 +6,8 @@ import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
+import { qualityTabs } from "@/lib/admin-quality-workspace";
+import { ADMIN_PROFILE_HOME, adminProfileTypes } from "@/lib/admin-profile-workspace";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
 import { mergeUniqueAdminDestinations } from "@/lib/admin-quick-navigation-results";
 import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
@@ -22,14 +24,18 @@ const shouldSearchRecords = (value: string) => value.trim().length >= 2 || /^\d$
 // Keep the regular sidebar as the single authority for main destinations.
 // Only deeper, verified admin routes are added below for fast access.
 const additionalDestinations: Destination[] = [
-  {label:"Adopcie",category:"Pomoc psom",href:"/admin/adopcie",keywords:"adopcia psy"},
-  {label:"Stratené a nájdené",category:"Pomoc psom",href:"/admin/stratene-najdene",keywords:"stratene najdene psy"},
-  {label:"Organizácie",category:"Pomoc psom",href:"/admin/organizacie",keywords:"utulky organizacie"},
+  ...qualityTabs.filter(tab => tab.id !== "findings").map(tab => ({ label: tab.label, href: tab.href, category: "Kvalita údajov", keywords: tab.id === "seo" ? "seo metadata indexacia" : tab.id === "links" ? "nefunkcne odkazy broken links" : "chybajuce polia udaje" })),
+  ...adminProfileTypes.filter(item => item.href !== ADMIN_PROFILE_HOME).map(item => ({
+    label: item.label,
+    category: "Profily",
+    href: item.href,
+    keywords: "pomoc psom " + item.id + " " + item.description,
+  })),
   {label:"Pokrytie šteniatok",category:"Redakcia",href:"/admin/steniatka/pokrytie",keywords:"steniatka pokrytie temy"},
   {label:"Kalendár článkov",category:"Redakcia",href:"/admin/clanky/kalendar",keywords:"redakcny plan publikovanie"},
   {label:"E-shopy a recenzie",category:"Redakcia",href:"/admin/recenzie/eshopy",keywords:"eshop hodnotenie testy"},
   {label:"Koncepty automatizácií",category:"Kvalita a automatizácie",href:"/admin/automatizacie-gemini/koncepty",keywords:"gemini koncepty navrhy"},
-  {label:"Overovanie zdrojov",category:"Pomoc psom",href:"/admin/operations/overovanie-zdrojov",keywords:"adopcia stratene kontrola zdrojov"},
+  {label:"Overovanie zdrojov",category:"Prehľad",href:"/admin/operations/overovanie-zdrojov",keywords:"adopcia stratene kontrola zdrojov"},
   {label:"Partner podania",category:"Partneri",href:"/admin/partners/submissions",keywords:"registracia podanie moderacia"},
   {label:"Partner hlásenia",category:"Partneri",href:"/admin/partners/help-submissions",keywords:"stratene adopcie nahlasene"},
   {label:"Žiadosti o profil",category:"Partneri",href:"/admin/partners/claims",keywords:"claim profil schvalovanie"},
@@ -38,7 +44,8 @@ const additionalDestinations: Destination[] = [
   {label:"Google Place nástroje",category:"Systém",href:"/admin/nastroje/google-places",keywords:"adresy mapy"},
 ];
 const aliases: Record<string, string> = {
-  "/admin/adresar": "sluzby profily veterinari salony treneri fyzioterapia",
+  "/admin/adresar": "sluzby profily veterinari salony treneri fyzioterapia adresar pomoc psom",
+  "/admin": "prehlad domov dashboard",
   "/admin/podujatia": "kalendar akcie podujatie vystavy seminare",
   "/admin/podania": "hlasenia dopyty ziadosti moderacia partner",
   "/admin/komponenty": "bannery sablony komponenty",
@@ -62,7 +69,7 @@ const search = new Fuse(destinations, {
   ignoreDiacritics: true,
 });
 const suggestedHrefs = new Set([
-  "/admin/clanky", "/admin/podujatia", "/admin/adresar", "/admin/pomoc-psom",
+  "/admin", "/admin/clanky", "/admin/podujatia", ADMIN_PROFILE_HOME,
   "/admin/podania", "/admin/kvalita", "/admin/nastavenia/notion",
 ]);
 
@@ -170,8 +177,14 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
     if (target.origin !== window.location.origin ||
       (target.pathname !== "/admin" && !target.pathname.startsWith("/admin/"))) return;
     const navigate = () => {
+      // Match the guarded fresh-document Overview navigation from PR #1581
+      // on desktop and mobile, not just iOS.
+      if (target.pathname === "/admin") {
+        window.location.assign(target.href);
+        return;
+      }
       if (target.origin === window.location.origin &&
-        (target.pathname === "/admin" || target.pathname === "/admin/clanky") &&
+        target.pathname === "/admin/clanky" &&
         window.matchMedia("(max-width: 820px)").matches &&
         isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) {
         window.location.assign(target.href);

@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
+import { profileWorkspace } from "@/lib/admin-profile-workspace";
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminLostFoundDashboard } from "@/components/admin-lost-found-dashboard";
@@ -61,9 +62,9 @@ export default async function LostFoundAdminPage({ searchParams }: { searchParam
   const resultPromise = listAdminDogReports({ ...filters, page, pageSize: 50 });
   const countsPromise = getAdminDogReportCounts().catch(() => null);
 
-  return <AdminShell user={user} eyebrow="Pomoc psom" title="Stratené a nájdené psy"
-    description="Moderácia, publikovanie, životný cyklus a riešenie duplicít. Kontaktné osobné údaje zostávajú iba v administrácii."
-    actions={<Link href="/admin/stratene-najdene/novy">+ Nové hlásenie</Link>}>
+  return <AdminShell user={user} {...profileWorkspace("stratene-a-najdene")}
+    actions={<AdminProfileActions active="stratene-a-najdene" />}>
+    <AdminProfileTypeTabs active="stratene-a-najdene" />
     <Suspense fallback={<AdminDataLoading label="Stratené a nájdené psy" />}>
       <LostFoundContent resultPromise={resultPromise} countsPromise={countsPromise} filters={filters} />
     </Suspense>

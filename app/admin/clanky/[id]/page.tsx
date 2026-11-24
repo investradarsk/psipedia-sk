@@ -1,3 +1,4 @@
+import { adminReturnHref } from "@/lib/admin-return-navigation";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AdminArticleEditor } from "@/components/admin-article-editor";
@@ -12,7 +13,7 @@ import { listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ calendarDay?: string; calendarTime?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ calendarDay?: string; calendarTime?: string; returnTo?: string | string[] }> };
 
 export default async function EditArticlePage({ params, searchParams }: Props) {
   const { id } = await params;
@@ -28,6 +29,7 @@ export default async function EditArticlePage({ params, searchParams }: Props) {
   if (!article) notFound();
   const isNews = article.portalSection === "novinky";
   const query = await searchParams;
+  const returnHref = adminReturnHref(query.returnTo, ["/admin/clanky", "/admin/kvalita/seo"]);
   const calendarDay = typeof query.calendarDay === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.calendarDay) ? query.calendarDay : null;
   const calendarTime = typeof query.calendarTime === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(query.calendarTime) ? query.calendarTime : "09:00";
   const returnToCalendar = calendarDay
@@ -45,7 +47,7 @@ export default async function EditArticlePage({ params, searchParams }: Props) {
       <Suspense fallback={null}>
         <AdminRecordViewStats entityType="ARTICLE" entityId={numericId} />
       </Suspense>
-      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} topicOptions={topicOptions} promoUtcDay={articlePromoUtcDay()} returnToCalendar={returnToCalendar} />
+      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} topicOptions={topicOptions} promoUtcDay={articlePromoUtcDay()} returnToCalendar={returnToCalendar} returnHref={returnHref} />
     </AdminShell>
   );
 }

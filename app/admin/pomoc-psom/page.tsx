@@ -4,6 +4,8 @@ import { AdminHelpUnifiedTable, type HelpDirectoryRow, type HelpDirectoryCategor
 import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { AdminShell } from "@/components/admin-shell";
 import Link from "next/link";
+import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
+import { profileDetailedHref, profileTypeForHelpCategory, profileWorkspace } from "@/lib/admin-profile-workspace";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { adoptionStatusLabels } from "@/lib/adoption";
 import { listAdoptionAdminDashboard } from "@/lib/adoption-admin-store";
@@ -127,11 +129,12 @@ export default async function AdminDogHelpPage({ searchParams }: { searchParams:
   const q = first(raw.q).trim().slice(0, 80);
   const page = Math.min(100_000, Math.max(1, Number.parseInt(first(raw.page) || "1", 10) || 1));
   const tablePromise = loadTable(category, q, page);
+  const active = profileTypeForHelpCategory(category);
 
   return (
-    <AdminShell user={user} eyebrow="Profily" title="Profily – adopcie, hlásenia a organizácie"
-      description="Vyber typ profilu. Adopcie, stratené psy, organizácie a ostatné záznamy majú vlastné editory."
-      actions={<Link href="/admin/adresar" className="admin-secondary-action">Služby a prevádzky</Link>}>
+    <AdminShell user={user} {...profileWorkspace(active)}
+      actions={<AdminProfileActions active={active}><Link prefetch={false} href={profileDetailedHref(category, q)} className="admin-secondary-action">Podrobný zoznam</Link></AdminProfileActions>}>
+      <AdminProfileTypeTabs active={active} />
       <Suspense fallback={<AdminDataLoading label="Pomoc psom" />}>
         <HelpTable promise={tablePromise} category={category} q={q} />
       </Suspense>

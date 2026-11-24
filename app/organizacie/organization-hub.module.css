@@ -13,8 +13,8 @@
   margin-top: 1.75rem;
   padding: 2rem;
   border: 1px solid var(--ps-border-soft, #dfe5e2);
-  border-radius: var(--ps-radius-card, 20px);
-  background: var(--surface, #fff);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
 }
 .empty h2 { margin-top: 0; }
 .empty a { display: inline-flex; align-items: center; gap: .4rem; font-weight: 800; }

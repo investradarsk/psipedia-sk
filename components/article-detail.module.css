@@ -1,9 +1,14 @@
 .modernArticle {
-  --article-reading-width: 800px;
+  /* Keep the article's shared prose measure aligned with its 800px editorial grid. */
+  --ps-reading-measure: 800px;
+  --article-reading-width: min(800px, var(--ps-reading-measure));
   --article-sidebar-width: 290px;
   --article-layout-gap: clamp(20px, 2vw, 30px);
   min-width: 0;
   background: var(--cream);
+  /* Preserve the approved reading column when the font metrics change. */
+  font-family: var(--ps-reading-font);
+  font-size: var(--ps-reading-size);
 }
 
 .articleLayout {
@@ -51,8 +56,8 @@
 .kicker {
   display: block;
   margin-bottom: 9px;
-  color: var(--brand-accent-strong, var(--coral-dark, #b94732));
-  font-family: "Avenir Next", Avenir, sans-serif;
+  color: var(--coral-dark);
+  font-family: var(--ps-font-body);
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.075em;
@@ -60,6 +65,7 @@
 }
 
 .title h1 {
+  font-family: var(--ps-font-heading);
   max-width: none;
   margin: 0;
   font-size: clamp(2rem, 3.2vw, 2.7rem);
@@ -122,7 +128,7 @@
   flex-wrap: wrap;
   gap: 4px 9px;
   color: var(--muted);
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body);
   font-size: 0.72rem;
   line-height: 1.4;
 }
@@ -130,7 +136,7 @@
 .articleMeta > *:not(:last-child)::after {
   content: "·";
   margin-left: 9px;
-  color: var(--brand-accent-strong, var(--coral-dark, #b94732));
+  color: var(--coral-dark);
 }
 
 .articleMeta [data-article-qualified-reads] {
@@ -148,7 +154,7 @@
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body);
 }
 
 .favoriteAction {
@@ -172,7 +178,7 @@
   min-width: 0;
   min-height: 0;
   aspect-ratio: 16 / 9;
-  border-radius: 16px;
+  border-radius: var(--ps-radius-media);
 }
 
 .heroMedia :global(.article-hero-image),
@@ -184,7 +190,7 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
-  border-radius: 16px;
+  border-radius: var(--ps-radius-media);
   object-fit: cover;
 }
 
@@ -196,7 +202,7 @@
 .heroImageMeta {
   margin: 8px 2px 0;
   color: var(--muted);
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body);
   font-size: 0.7rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -293,9 +299,9 @@
   margin: 25px 0 31px;
   padding: 16px 19px;
   border: 0;
-  border-left: 0;
-  border-radius: 0;
-  background: rgba(244, 119, 87, 0.07);
+  border-left: var(--ps-premium-accent-width) solid var(--coral-dark);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
   box-shadow: none;
 }
 
@@ -312,7 +318,7 @@
   padding: 0;
   border-top: 1px solid rgba(23, 75, 56, 0.16);
   border-bottom: 1px solid rgba(23, 75, 56, 0.16);
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body);
 }
 
 .tocTitle {
@@ -342,7 +348,7 @@
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(45deg);
-  transition: transform 160ms ease;
+  transition: transform var(--ps-motion-fast) var(--ps-motion-ease);
 }
 
 .toc[open] > .tocTitle::after {
@@ -401,12 +407,10 @@
 
 /* An article's inline promo already lives inside the reader column.
    The shared site .shell would otherwise inset it by 24px on each side. */
-@media (min-width: 768px) {
-  .readingShell :global(.article-blocks > [data-home-banner^="article-"]) {
-    width: 100%;
-    max-width: 100%;
-    margin-inline: 0;
-  }
+.readingShell :global(.article-blocks > [data-home-banner^="article-"]) {
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
 }
 
 .readingShell :global(.article-block-text),
@@ -423,8 +427,8 @@
 .readingShell :global(.article-blocks h2),
 .readingShell :global(.article-blocks h3) {
   color: var(--ps-reading-heading-color);
-  font-family: var(--ps-reading-font);
-  font-weight: 700;
+  font-family: var(--ps-font-heading);
+  font-weight: 600;
   letter-spacing: -0.015em;
 }
 
@@ -483,7 +487,7 @@
 .readingShell :global(.article-block-image figcaption),
 .readingShell :global(.article-block-gallery figcaption) {
   color: #718078;
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body);
   font-size: 0.72rem;
   line-height: 1.45;
 }
@@ -495,14 +499,14 @@
 
 .readingShell :global(.article-block-callout) {
   padding: 14px 16px;
-  border-radius: 0 10px 10px 0;
+  border-radius: var(--ps-radius-card);
   box-shadow: none;
 }
 
 .readingShell :global(.article-block-callout > strong) {
   margin-bottom: 7px;
   color: var(--forest);
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-family: var(--ps-font-body);
   font-size: 0.94rem;
   font-weight: 750;
   line-height: 1.35;
@@ -526,7 +530,7 @@
 
 .readingShell :global(.article-block-quote) {
   border-left-width: 3px;
-  border-radius: 0 10px 10px 0;
+  border-radius: var(--ps-radius-card);
   background: #f5f7f4;
   box-shadow: none;
 }
@@ -545,6 +549,11 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.readingShell :global(.article-block-source > strong),
+.readingShell :global(.article-block-related > span) {
+  color: var(--muted);
 }
 
 .readingShell :global(.article-block-sources) {
@@ -566,7 +575,7 @@
   padding-top: 20px;
   border-top: 1px solid rgba(23, 75, 56, 0.12);
   color: var(--muted);
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body);
   font-size: 0.78rem;
   line-height: 1.6;
 }
@@ -575,7 +584,7 @@
   display: flex;
   justify-content: flex-start;
   margin: 22px 0 28px;
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body);
 }
 
 .readingShell :global(.article-feedback) {
@@ -583,11 +592,11 @@
   margin-top: 28px;
   padding: 16px 18px;
   border-color: rgba(23, 75, 56, 0.16);
-  border-left: 0;
-  border-radius: 0;
-  background: rgba(255, 253, 248, 0.72);
+  border-left: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
   box-shadow: none;
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body);
 }
 
 .readingShell :global(.article-feedback-heading) {
@@ -611,10 +620,10 @@
 
 .readingShell :global(.article-feedback-actions button),
 .readingShell :global(.article-feedback-form button) {
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 14px;
   border-color: color-mix(in srgb, var(--brand-accent) 24%, #b8cbbf);
-  border-radius: 8px;
+  border-radius: var(--ps-radius-control);
   font-size: 0.78rem;
 }
 
@@ -632,7 +641,7 @@
 .sidebar {
   min-width: 0;
   align-self: stretch;
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body);
 }
 
 .sidebarSticky {
@@ -797,7 +806,7 @@
     min-height: 0;
     max-height: none;
     aspect-ratio: 16 / 9;
-    border-radius: 14px;
+    border-radius: var(--ps-radius-media);
   }
 
   .heroMedia :global(.article-hero-image),
@@ -806,7 +815,7 @@
     height: 100%;
     max-height: none;
     aspect-ratio: auto;
-    border-radius: 14px;
+    border-radius: var(--ps-radius-media);
   }
 
   .heroImageMeta {
@@ -928,9 +937,9 @@
   }
 
   .readingShell :global(.article-block-image--wide) {
-    width: calc(100% + 16px);
-    max-width: calc(100vw - 16px);
-    margin-left: -8px;
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
   }
 
   .readingShell :global(.article-block-gallery) {
@@ -995,11 +1004,11 @@
   }
 }
 
-/* PUBLIC-POLISH-2 photo contract */
+/* V2-06: approved photo radius, including intrinsic images. */
 .modernArticle .heroMedia,
 .heroMedia :global(.article-hero-image),
 .heroMedia :global(.article-hero-placeholder) {
-  border-radius: 0;
+  border-radius: var(--ps-radius-media);
 }
 
 /* IMAGE-EDITOR-1: natural images take intrinsic height. */
@@ -1019,7 +1028,7 @@
   max-height: min(680px, 78vh);
   aspect-ratio: auto;
   object-fit: contain;
-  border-radius: 0;
+  border-radius: var(--ps-radius-media);
 }
 
 /* Compact desktop reading flow; preserve intrinsic aspect ratio and editor crops. */
@@ -1052,4 +1061,32 @@
   .relatedList > :only-child {
     max-width: 480px;
   }
+}
+
+/* V2-06: editorial media and controls are constrained to the reading column.
+   The shared banner, gallery and video components still own rendering/crops. */
+.readingShell :global(.article-block-image--wide) {
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+}
+.readingShell :global(.article-block-image img),
+.readingShell :global(.article-block-gallery img),
+.readingShell :global(.article-block-embed) {
+  border-radius: var(--ps-radius-media);
+}
+.readingShell :global(.article-block-cta-button) {
+  border-radius: var(--ps-radius-control);
+}
+.readingShell :global(.article-intro h2),
+.readingShell :global(.article-intro h3),
+.readingShell :global(.article-block-source > strong),
+.readingShell :global(.article-feedback h2) {
+  font-family: var(--ps-font-heading);
+}
+.readingShell :global(.article-block-table-wrap),
+.readingShell :global(.article-block-sources),
+.readingShell :global(.article-block-related) {
+  font-family: var(--ps-font-body);
+  min-width: 0;
 }

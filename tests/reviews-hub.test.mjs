@@ -101,3 +101,17 @@ test("S-29 reuses the established compact cards instead of standalone oversized 
   assert.doesNotMatch(css, /\.eshopCard\s*\{|\.eshopMiniRatings\s*\{|\.serviceLinks a\s*\{/);
   assert.match(css, /\.methodGrid article/);
 });
+
+test("V2-11 review surfaces consume canonical editorial tokens", () => {
+  for (const path of ["components/reviews-hub.module.css","components/eshop-rating-form.module.css","components/profile-review-submission-form.module.css","components/profile-review-section.module.css","app/recenzia/review-auth.css","app/recenzia/prihlasenie/review-login.module.css","app/recenzie/eshopy/[slug]/eshop-profile.module.css"]) {
+    const css = read(path);
+    assert.doesNotMatch(css, /Georgia, serif|box-shadow:\s*0\s+(?:10|12|14|18)px/, path);
+    assert.match(css, /var\(--ps-radius-(?:card|control|media)/, path);
+  }
+  assert.match(read("components/reviews-hub.module.css"), /\.methodology\s*\{[^}]*var\(--ps-premium-gradient\)/s);
+  assert.match(read("app/recenzie/eshopy/[slug]/eshop-profile.module.css"), /\.info\s*\{[^}]*var\(--ps-premium-gradient\)/s);
+  assert.match(read("app/recenzia/review-auth.css"), /prefers-reduced-motion: reduce/);
+  assert.match(read("components/eshop-rating-form.module.css"), /input:checked \+ span/);
+  assert.match(read("components/profile-review-submission-form.module.css"), /input:checked \+ span/);
+  assert.match(read("components/profile-review-section.tsx"), /<PublicPagination/);
+});

@@ -10,8 +10,8 @@
   gap: 13px;
   padding: 17px;
   border: 1px solid rgba(23, 75, 56, 0.12);
-  border-radius: 16px;
-  background: #fff;
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
 }
 .heading {
   display: grid;
@@ -61,8 +61,8 @@
 @media (max-width: 820px) {
   .disclosure {
     border: 1px solid rgba(23, 75, 56, 0.16);
-    border-radius: 14px;
-    background: #fff;
+    border-radius: var(--ps-radius-card);
+    background: var(--paper);
   }
   .summary {
     display: list-item;
@@ -75,7 +75,7 @@
   .sidebarForm {
     border: 0;
     border-top: 1px solid rgba(23, 75, 56, 0.08);
-    border-radius: 0 0 14px 14px;
+    border-radius: 0 0 var(--ps-radius-card) var(--ps-radius-card);
   }
 }
 
@@ -158,7 +158,7 @@
     align-items: center;
     justify-content: center;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: var(--ps-radius-control);
     font: inherit;
     font-size: 0.88rem;
     font-weight: 850;
@@ -182,7 +182,7 @@
     margin: auto auto 0;
     padding: 0;
     border: 1px solid rgba(23, 75, 56, 0.14);
-    border-radius: 20px 20px 0 0;
+    border-radius: var(--ps-radius-banner-large) var(--ps-radius-banner-large) 0 0;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -217,9 +217,9 @@
     flex: none;
     place-items: center;
     border: 1px solid rgba(23, 75, 56, 0.16);
-    border-radius: 11px;
+    border-radius: var(--ps-radius-control);
     color: var(--forest-dark);
-    background: #fff;
+    background: var(--paper);
     font-size: 1.1rem;
     cursor: pointer;
   }
@@ -276,7 +276,7 @@
   position: relative;
   display: inline-flex;
   min-width: 0;
-  min-height: 37px;
+  min-height: 44px;
   gap: 0;
   align-items: stretch;
   cursor: pointer;
@@ -292,14 +292,14 @@
 }
 .sidebarForm .choiceOption > span {
   display: inline-flex;
-  min-height: 37px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   padding: 7px 9px;
   border: 1px solid rgba(23, 75, 56, 0.19);
-  border-radius: 9px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest);
-  background: #fff;
+  background: var(--paper);
   font-size: 0.73rem;
   font-weight: 800;
   white-space: nowrap;
@@ -324,9 +324,14 @@
 .sidebarForm select,
 .sidebarForm select option {
   color-scheme: light;
-  color: #173e2d;
-  -webkit-text-fill-color: #173e2d;
-  background-color: #fff;
+  color: var(--ink);
+  -webkit-text-fill-color: var(--ink);
+  background-color: var(--paper);
   text-indent: 0;
   opacity: 1;
 }
+
+/* V2-08: filters use utility typography; the dialog title is editorial. */
+.sidebarForm, .dialog, .mobileToolbar { font-family: var(--ps-font-body); }
+.dialogHeader h2 { font-family: var(--ps-font-heading); overflow-wrap: anywhere; }
+.sidebarForm select { border-radius: var(--ps-radius-control); }

@@ -70,9 +70,9 @@ test("slow attention, quality and activity reads remain isolated from workspace 
   assert.match(page, /availability: "UNAVAILABLE"/);
   assert.match(page, /bySource: Object\.fromEntries\(adminAttentionQueueSourceTypes\.map/);
   assert.match(shell, /<Suspense fallback=\{<AdminNotificationBellPending \/>\}>/);
-  assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Aktívne upozornenia" \/>\}>/);
+  assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Neprečítané upozornenia" \/>\}>/);
   assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Kvalita údajov" \/>\}>/);
   assert.match(dashboard, /<Suspense fallback=\{<WorkspaceCommunityPending \/>\}>/);
-  assert.match(dashboard, /<Suspense fallback=\{<p role="status">Načítava sa pracovný feed…<\/p>\}>/);
+  assert.match(dashboard, /<Suspense fallback=\{<p role="status">Načítava sa plán automatizácií…<\/p>\}>/);
   assert.doesNotMatch(page, /await (?:loadRequestAdminAttentionSummary|loadWorkspaceQuality|loadAdminWorkspaceOverview)\(/);
 });

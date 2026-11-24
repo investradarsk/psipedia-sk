@@ -7,7 +7,7 @@ const cases = [
     listPath: "/pomoc-psom/stratene-psy",
     detailPath: "/pomoc-psom/stratene-psy/strateny-e2e-rex-nitra",
     heading: "Stratené psy",
-    detailHeading: "Stratený Rex – Nitra",
+    detailHeading: "Hľadá sa Rex – Nitra",
   },
   {
     type: "FOUND",
@@ -29,7 +29,10 @@ const privateValues = [
 ];
 
 async function expectNoHorizontalOverflow(page: Page) {
-  const dimensions = await page.evaluate(() => ({ viewport: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    scroll: document.documentElement.scrollWidth,
+  }));
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.viewport + 1);
 }
 
@@ -48,11 +51,16 @@ function screenshotMode(projectName: string) {
 }
 
 for (const entry of cases) {
-  test(`${entry.listPath}: renders active listing, filters, canonical and accessibility`, async ({ page }, testInfo) => {
+  test(`${entry.listPath}: renders active listing, filters, canonical and accessibility`, async ({
+    page,
+  }, testInfo) => {
     const response = await page.goto(entry.listPath, { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: entry.heading })).toBeVisible();
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `https://psipedia.sk${entry.listPath}`);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      `https://psipedia.sk${entry.listPath}`,
+    );
     // Filters are intentionally collapsed on mobile, matching adoption.
     // Open the canonical disclosure before asserting the field accessibility.
     const filterToggle = page.getByRole("button", { name: /Filtrovať hlásenia/ });
@@ -69,16 +77,23 @@ for (const entry of cases) {
     await expect(page.getByLabel("Pohlavie")).toBeVisible();
     await expect(page.getByLabel("Veľkosť")).toBeVisible();
     await expect(page.getByLabel("Plemeno")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Zobraziť hlásenie", exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Zobraziť hlásenie", exact: true }).first(),
+    ).toBeVisible();
     const kind = entry.type === "LOST" ? "strateného" : "nájdeného";
-    await expect(page.getByRole("link", { name: `Nahlásiť ${kind} psa` }))
-      .toHaveAttribute("href", `/partner/koncepty/novy/${entry.type === "LOST" ? "strateny" : "najdeny"}`);
+    await expect(page.getByRole("link", { name: `Nahlásiť ${kind} psa` })).toHaveAttribute(
+      "href",
+      `/partner/koncepty/novy/${entry.type === "LOST" ? "strateny" : "najdeny"}`,
+    );
     await expectPrivateValuesHidden(page);
     await expectNoHorizontalOverflow(page);
     await expectNoAxeViolations(page);
 
     if (entry.type === "LOST") {
-      await page.screenshot({ path: `.e2e-artifacts/lost-found/${screenshotMode(testInfo.project.name)}-listing.png`, fullPage: true });
+      await page.screenshot({
+        path: `.e2e-artifacts/lost-found/${screenshotMode(testInfo.project.name)}-listing.png`,
+        fullPage: true,
+      });
     }
   });
 
@@ -96,37 +111,58 @@ for (const entry of cases) {
     await expect(page.locator("[data-dog-report-card]").first()).toBeVisible();
   });
 
-  test(`${entry.detailPath}: renders public detail without private PII and passes accessibility`, async ({ page }, testInfo) => {
+  test(`${entry.detailPath}: renders public detail without private PII and passes accessibility`, async ({
+    page,
+  }, testInfo) => {
     const response = await page.goto(entry.detailPath, { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: entry.detailHeading })).toBeVisible();
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `https://psipedia.sk${entry.detailPath}`);
-    await expect(page.getByText(entry.type === "LOST" ? "STRATENÝ PES" : "NÁJDENÝ PES", { exact: true })).toBeVisible();
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      `https://psipedia.sk${entry.detailPath}`,
+    );
+    await expect(
+      page.getByText(entry.type === "LOST" ? "STRATENÝ PES" : "NÁJDENÝ PES", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("Aktívne", { exact: true })).toBeVisible();
-    if (entry.type === "LOST") await expect(page.getByText("Naposledy videný:", { exact: true })).toBeVisible();
+    if (entry.type === "LOST")
+      await expect(page.getByText(/^(Posledné videnie|Dátum straty)$/)).toBeVisible();
     const recordId = entry.type === "LOST" ? 910001 : 910002;
-    await expect(page.getByRole("link", { name: "Spravujete toto hlásenie? Požiadať o správu" }))
-      .toHaveAttribute("href", `/partner/prevziat-profil/LOST_FOUND_DOG/${recordId}`);
+    await expect(
+      page.getByRole("link", { name: "Spravujete toto hlásenie? Požiadať o správu" }),
+    ).toHaveAttribute("href", `/partner/prevziat-profil/LOST_FOUND_DOG/${recordId}`);
     await expectPrivateValuesHidden(page);
     await expectNoHorizontalOverflow(page);
     await expectNoAxeViolations(page);
 
     if (entry.type === "LOST") {
-      await page.screenshot({ path: `.e2e-artifacts/lost-found/${screenshotMode(testInfo.project.name)}-detail.png`, fullPage: true });
+      await page.screenshot({
+        path: `.e2e-artifacts/lost-found/${screenshotMode(testInfo.project.name)}-detail.png`,
+        fullPage: true,
+      });
     }
   });
 }
 
-test("admin lost-found dashboard is protected by the existing admin layer, paginated and accessible when empty", async ({ page }) => {
-  const response = await page.goto("/admin/stratene-najdene?q=__e2e_no_match__", { waitUntil: "domcontentloaded" });
+test("admin lost-found dashboard is protected by the existing admin layer, paginated and accessible when empty", async ({
+  page,
+}) => {
+  const response = await page.goto("/admin/stratene-najdene?q=__e2e_no_match__", {
+    waitUntil: "domcontentloaded",
+  });
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1, name: "Stratené a nájdené psy" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Stratené a nájdené psy" }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: /Čakajúce/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Aktívne/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Vyriešené/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Expirované/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Zamietnuté/ })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Zoznam hlásení" })).toHaveAttribute("tabindex", "0");
+  await expect(page.getByRole("region", { name: "Zoznam hlásení" })).toHaveAttribute(
+    "tabindex",
+    "0",
+  );
   const table = page.getByRole("table", { includeHidden: true });
   await expect(table).toHaveCount(1);
   // Empty responsive tables have no visible rows or header on mobile.
@@ -150,13 +186,19 @@ test("admin lost-found dashboard is protected by the existing admin layer, pagin
 });
 
 for (const width of [1440, 390, 320]) {
-  test(`Lost/Found editor keeps case details and private contacts while switching 7 panels at ${width}px`, async ({ page }) => {
+  test(`Lost/Found editor keeps case details and private contacts while switching 7 panels at ${width}px`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width, height: 900 });
-    const response = await page.goto("/admin/stratene-najdene/novy", { waitUntil: "domcontentloaded" });
+    const response = await page.goto("/admin/stratene-najdene/novy", {
+      waitUntil: "domcontentloaded",
+    });
     expect(response?.status()).toBe(200);
     const form = page.locator("form[data-admin-lost-found-editor]");
     await expect(form).toHaveAttribute("data-hydrated", "true");
-    const nav = form.getByRole("navigation", { name: "Sekcie editora stratených a nájdených psov" });
+    const nav = form.getByRole("navigation", {
+      name: "Sekcie editora stratených a nájdených psov",
+    });
     await expect(nav.locator("option")).toHaveCount(7);
     const selectPanel = async (id: string, label: string) => {
       const select = nav.getByRole("combobox");
@@ -166,9 +208,12 @@ for (const width of [1440, 390, 320]) {
       await expect(form.locator("#" + id)).toBeFocused();
     };
     const writes: string[] = [];
-    page.on("request", request => {
-      if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) &&
-        request.url().includes("/api/admin/lost-found")) writes.push(request.url());
+    page.on("request", (request) => {
+      if (
+        ["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) &&
+        request.url().includes("/api/admin/lost-found")
+      )
+        writes.push(request.url());
     });
     await form.getByLabel("Slug", { exact: true }).fill("testovaci-pes-bez-ulozenia");
     await selectPanel("lost-found-dog", "Pes a plemeno");
@@ -182,7 +227,9 @@ for (const width of [1440, 390, 320]) {
     await form.getByLabel("E-mail — iba admin").fill("kontakt@example.invalid");
     await selectPanel("lost-found-media", "Fotografie a galéria");
     await expect(form.getByRole("heading", { name: "06. Fotografie a galéria" })).toBeVisible();
-    await expect(form.getByRole("button", { name: /^(Nahrať hlavnú fotografiu|Vybrať inú fotografiu)$/ })).toBeVisible();
+    await expect(
+      form.getByRole("button", { name: /^(Nahrať hlavnú fotografiu|Vybrať inú fotografiu)$/ }),
+    ).toBeVisible();
     await selectPanel("lost-found-moderation", "Životnosť a moderácia");
     await expect(form.getByRole("heading", { name: /07\. Životnosť/ })).toBeVisible();
     await selectPanel("lost-found-contacts", "Kontakt a súkromie");
@@ -192,15 +239,24 @@ for (const width of [1440, 390, 320]) {
     await selectPanel("lost-found-dog", "Pes a plemeno");
     await expect(form.getByLabel("Meno, ak je známe")).toHaveValue("Rex");
     await selectPanel("lost-found-basics", "Typ a stav prípadu");
-    await expect(form.getByLabel("Slug", { exact: true })).toHaveValue("testovaci-pes-bez-ulozenia");
+    await expect(form.getByLabel("Slug", { exact: true })).toHaveValue(
+      "testovaci-pes-bez-ulozenia",
+    );
     expect(writes).toEqual([]);
     await expectNoHorizontalOverflow(page);
   });
 }
 
-test("moderation duplicate action refuses to discard unrelated unsaved fields", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name.includes("mobile"), "Covered once on desktop; mobile panel preservation has separate coverage.");
-  const response = await page.goto("/admin/stratene-najdene/910001", { waitUntil: "domcontentloaded" });
+test("moderation duplicate action refuses to discard unrelated unsaved fields", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name.includes("mobile"),
+    "Covered once on desktop; mobile panel preservation has separate coverage.",
+  );
+  const response = await page.goto("/admin/stratene-najdene/910001", {
+    waitUntil: "domcontentloaded",
+  });
   expect(response?.status()).toBe(200);
   const form = page.locator("form[data-admin-lost-found-editor]");
   await expect(form).toHaveAttribute("data-hydrated", "true");
@@ -212,30 +268,46 @@ test("moderation duplicate action refuses to discard unrelated unsaved fields", 
   await form.getByLabel("Kanonické hlásenie ID").fill("910002");
 
   const writes: string[] = [];
-  page.on("request", request => {
-    if (request.method() === "POST" && request.url().includes("/api/admin/lost-found/910001/duplicate")) writes.push(request.url());
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      request.url().includes("/api/admin/lost-found/910001/duplicate")
+    )
+      writes.push(request.url());
   });
   await form.getByRole("button", { name: "Označiť ako duplicitu" }).click();
   await expect(form).toContainText("Najprv ulož ostatné úpravy hlásenia");
   expect(writes).toEqual([]);
 
   await nav.getByRole("button", { name: "Pes a plemeno" }).click();
-  await expect(form.getByLabel("Meno, ak je známe")).toHaveValue("Rozpracované meno – nesmie sa stratiť");
+  await expect(form.getByLabel("Meno, ak je známe")).toHaveValue(
+    "Rozpracované meno – nesmie sa stratiť",
+  );
   await nav.getByRole("button", { name: "Životnosť a moderácia" }).click();
   await expect(form.getByLabel("Kanonické hlásenie ID")).toHaveValue("910002");
 });
 
-test("authorized admin detail receives private contact fields from the private table", async ({ page }) => {
-  const response = await page.goto("/admin/stratene-najdene/910001", { waitUntil: "domcontentloaded" });
+test("authorized admin detail receives private contact fields from the private table", async ({
+  page,
+}) => {
+  const response = await page.goto("/admin/stratene-najdene/910001", {
+    waitUntil: "domcontentloaded",
+  });
   expect(response?.status()).toBe(200);
-  await expect(page.locator('#lf-field-e-mail-iba-admin')).toHaveValue("lost-e2e@example.invalid");
-  const inputValues = await page.locator("input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+  await expect(page.locator("#lf-field-e-mail-iba-admin")).toHaveValue("lost-e2e@example.invalid");
+  const inputValues = await page
+    .locator("input")
+    .evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
   expect(inputValues).toContain("+421900000001");
 });
 
-
-test("authenticated admin LOST/FOUND mutation contract covers create, edit, lifecycle, duplicate and archive", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name.includes("mobile"), "Mutation contract runs once on desktop; mobile coverage remains read-only for overflow/accessibility.");
+test("authenticated admin LOST/FOUND mutation contract covers create, edit, lifecycle, duplicate and archive", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name.includes("mobile"),
+    "Mutation contract runs once on desktop; mobile coverage remains read-only for overflow/accessibility.",
+  );
 
   const unique = `${Date.now()}-${testInfo.retry}`;
   const contactEmail = `lost-found-runtime-${unique}@example.invalid`;
@@ -280,48 +352,59 @@ test("authenticated admin LOST/FOUND mutation contract covers create, edit, life
     data: { ...basePayload, status: "DRAFT" },
   });
   expect(createResponse.status()).toBe(201);
-  const created = await createResponse.json() as { report: { id: number; status: string; contactEmail: string | null } };
+  const created = (await createResponse.json()) as {
+    report: { id: number; status: string; contactEmail: string | null };
+  };
   expect(created.report.status).toBe("DRAFT");
   expect(created.report.contactEmail).toBe(contactEmail);
   const reportId = created.report.id;
 
-  const put = async (payload: Record<string, unknown>) => page.request.put(`/api/admin/lost-found/${reportId}`, {
-    data: { ...basePayload, ...payload },
-  });
+  const put = async (payload: Record<string, unknown>) =>
+    page.request.put(`/api/admin/lost-found/${reportId}`, {
+      data: { ...basePayload, ...payload },
+    });
 
   const pendingResponse = await put({ status: "PENDING" });
   expect(pendingResponse.status()).toBe(200);
-  const pending = await pendingResponse.json() as { report: { status: string } };
+  const pending = (await pendingResponse.json()) as { report: { status: string } };
   expect(pending.report.status).toBe("PENDING");
 
   const invalidResponse = await put({ status: "RESOLVED" });
   expect(invalidResponse.status()).toBe(400);
-  const invalid = await invalidResponse.json() as { error?: string };
+  const invalid = (await invalidResponse.json()) as { error?: string };
   expect(invalid.error).toContain("Nepovolený prechod stavu PENDING -> RESOLVED");
 
   const activeResponse = await put({ status: "ACTIVE" });
   expect(activeResponse.status()).toBe(200);
-  const active = await activeResponse.json() as { report: { status: string; publishedAt: string | null; expiresAt: string | null } };
+  const active = (await activeResponse.json()) as {
+    report: { status: string; publishedAt: string | null; expiresAt: string | null };
+  };
   expect(active.report.status).toBe("ACTIVE");
   expect(active.report.publishedAt).toBeTruthy();
   expect(active.report.expiresAt).toBeTruthy();
 
   const editedResponse = await put({ status: "ACTIVE", dogName: "Runtime Contract Edited" });
   expect(editedResponse.status()).toBe(200);
-  const edited = await editedResponse.json() as { report: { status: string; dogName: string; contactEmail: string | null } };
+  const edited = (await editedResponse.json()) as {
+    report: { status: string; dogName: string; contactEmail: string | null };
+  };
   expect(edited.report.status).toBe("ACTIVE");
   expect(edited.report.dogName).toBe("Runtime Contract Edited");
   expect(edited.report.contactEmail).toBe(contactEmail);
 
   const resolvedResponse = await put({ status: "RESOLVED", dogName: "Runtime Contract Edited" });
   expect(resolvedResponse.status()).toBe(200);
-  const resolved = await resolvedResponse.json() as { report: { status: string; resolvedAt: string | null } };
+  const resolved = (await resolvedResponse.json()) as {
+    report: { status: string; resolvedAt: string | null };
+  };
   expect(resolved.report.status).toBe("RESOLVED");
   expect(resolved.report.resolvedAt).toBeTruthy();
 
   const archivedResponse = await put({ status: "ARCHIVED", dogName: "Runtime Contract Edited" });
   expect(archivedResponse.status()).toBe(200);
-  const archived = await archivedResponse.json() as { report: { status: string; archivedAt: string | null } };
+  const archived = (await archivedResponse.json()) as {
+    report: { status: string; archivedAt: string | null };
+  };
   expect(archived.report.status).toBe("ARCHIVED");
   expect(archived.report.archivedAt).toBeTruthy();
 
@@ -335,7 +418,7 @@ test("authenticated admin LOST/FOUND mutation contract covers create, edit, life
     },
   });
   expect(canonicalCreate.status()).toBe(201);
-  const canonical = await canonicalCreate.json() as { report: { id: number } };
+  const canonical = (await canonicalCreate.json()) as { report: { id: number } };
 
   const duplicateCreate = await page.request.post("/api/admin/lost-found", {
     data: {
@@ -347,17 +430,25 @@ test("authenticated admin LOST/FOUND mutation contract covers create, edit, life
     },
   });
   expect(duplicateCreate.status()).toBe(201);
-  const duplicate = await duplicateCreate.json() as { report: { id: number } };
+  const duplicate = (await duplicateCreate.json()) as { report: { id: number } };
 
-  const duplicateResponse = await page.request.post(`/api/admin/lost-found/${duplicate.report.id}/duplicate`, {
-    data: {
-      duplicateOfId: canonical.report.id,
-      duplicateReason: "CI regression duplicate",
+  const duplicateResponse = await page.request.post(
+    `/api/admin/lost-found/${duplicate.report.id}/duplicate`,
+    {
+      data: {
+        duplicateOfId: canonical.report.id,
+        duplicateReason: "CI regression duplicate",
+      },
     },
-  });
+  );
   expect(duplicateResponse.status()).toBe(200);
-  const duplicateResult = await duplicateResponse.json() as {
-    report: { status: string; duplicateOfId: number | null; duplicateReason: string; archivedAt: string | null };
+  const duplicateResult = (await duplicateResponse.json()) as {
+    report: {
+      status: string;
+      duplicateOfId: number | null;
+      duplicateReason: string;
+      archivedAt: string | null;
+    };
   };
   expect(duplicateResult.report.status).toBe("ARCHIVED");
   expect(duplicateResult.report.duplicateOfId).toBe(canonical.report.id);
@@ -365,21 +456,33 @@ test("authenticated admin LOST/FOUND mutation contract covers create, edit, life
   expect(duplicateResult.report.archivedAt).toBeTruthy();
 });
 
-test("old anonymous report page redirects to Partner login with report kind preserved", async ({ page }, testInfo) => {
-  if (testInfo.project.name.includes("mobile")) await page.setViewportSize({ width: 390, height: 844 });
+test("old anonymous report page redirects to Partner login with report kind preserved", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name.includes("mobile"))
+    await page.setViewportSize({ width: 390, height: 844 });
   for (const kind of ["LOST", "FOUND"]) {
-    await page.goto("/pomoc-psom/stratene-a-najdene/nahlasit?druh=" + kind, { waitUntil: "domcontentloaded" });
+    await page.goto("/pomoc-psom/stratene-a-najdene/nahlasit?druh=" + kind, {
+      waitUntil: "domcontentloaded",
+    });
     const url = new URL(page.url());
     expect(url.pathname).toBe("/partner/prihlasenie");
-    expect(url.searchParams.get("returnTo")).toBe(kind === "LOST" ? "/partner/koncepty/novy/strateny" : "/partner/koncepty/novy/najdeny");
+    expect(url.searchParams.get("returnTo")).toBe(
+      kind === "LOST" ? "/partner/koncepty/novy/strateny" : "/partner/koncepty/novy/najdeny",
+    );
     await expect(page.getByRole("heading", { name: "Prihlásenie do Partner účtu" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   }
   await expectNoAxeViolations(page);
 });
 
-test("retired anonymous POST never creates reports; historic Admin rows remain unaffected", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name.includes("mobile"), "Retired endpoint regression runs once on desktop.");
+test("retired anonymous POST never creates reports; historic Admin rows remain unaffected", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name.includes("mobile"),
+    "Retired endpoint regression runs once on desktop.",
+  );
   const unique = "No anonymous write " + Date.now();
   const payloads: Record<string, string>[] = [
     { type: "FOUND", dogName: unique, contactEmail: "test@example.invalid" },
@@ -391,11 +494,17 @@ test("retired anonymous POST never creates reports; historic Admin rows remain u
       multipart,
     });
     expect(response.status()).toBe(410);
-    const result = await response.json() as { code?: string; partnerUrl?: string; error?: string };
+    const result = (await response.json()) as {
+      code?: string;
+      partnerUrl?: string;
+      error?: string;
+    };
     expect(result.code).toBe("PARTNER_ACCOUNT_REQUIRED");
     expect(result.partnerUrl).toBe("/partner/koncepty/novy/nahlasit");
     expect(JSON.stringify(result)).not.toMatch(/SQL|D1|stack|PENDING/i);
   }
-  await page.goto("/admin/stratene-najdene?q=" + encodeURIComponent(unique), { waitUntil: "domcontentloaded" });
+  await page.goto("/admin/stratene-najdene?q=" + encodeURIComponent(unique), {
+    waitUntil: "domcontentloaded",
+  });
   await expect(page.locator("tr").filter({ hasText: unique })).toHaveCount(0);
 });

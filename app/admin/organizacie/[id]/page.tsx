@@ -56,7 +56,7 @@ function organizationSuggestions(organizationId: number): Promise<OrganizationSu
 }
 
 export default async function OrganizationAdminDetailPage({ params, searchParams }: Props) {
-  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/organizacie", "/admin/pomoc-psom"]);
+  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/organizacie", "/admin/pomoc-psom", "/admin/kvalita/seo"]);
   const { id } = await params;
   // Reject hexadecimal, decimals and accidental numeric coercions.
   // An invalid/missing Admin ID is a real 404, never a SQL crash.
@@ -92,7 +92,7 @@ export default async function OrganizationAdminDetailPage({ params, searchParams
         <OrganizationReviewAction organizationId={organization.id} />
       </Suspense>
       {organization.status === "PUBLISHED" && organization.slug && <Link href={"/organizacie/" + organization.slug} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
-      <Link href={returnHref}>← Späť na organizácie</Link>
+      <Link href={returnHref}>{returnHref.startsWith("/admin/kvalita/seo?") ? "← Späť na SEO audit" : "← Späť na organizácie"}</Link>
     </>}>
     <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /></Suspense><Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="HELP_ORGANIZATION" canonicalId={organization.id} /></Suspense><AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} />
     <Suspense fallback={null}><OrganizationDuplicateWarning organizationId={organization.id} /></Suspense>

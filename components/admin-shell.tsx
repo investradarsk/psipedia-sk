@@ -43,20 +43,24 @@ async function AdminNotificationBell({
 }) {
   let activeCount = count;
   let incomplete = partial;
+  let unavailable = false;
   if (activeCount === undefined) {
-    const summary = await (summaryPromise ?? loadRequestAdminAttentionSummary());
-    activeCount = summary.active;
-    incomplete = summary.availability !== "OK";
+    const summary = await (summaryPromise ?? loadRequestAdminAttentionSummary()).catch(() => null);
+    activeCount = summary?.active ?? 0;
+    unavailable = !summary || summary.availability === "UNAVAILABLE";
+    incomplete = unavailable || summary?.availability === "PARTIAL";
   }
-  const label = incomplete
+  const label = unavailable
+    ? "Upozornenia: počet neprečítaných upozornení je nedostupný"
+    : incomplete
     ? `Upozornenia: najmenej ${activeCount} neprečítaných upozornení; niektoré zdroje nie sú dostupné`
     : activeCount === 0
       ? "Upozornenia: žiadne neprečítané upozornenia"
       : activeCount === 1
         ? "Upozornenia: 1 neprečítané upozornenie"
         : `Upozornenia: ${activeCount} neprečítaných upozornení`;
-  const badge = activeCount > 0
-    ? `${activeCount > 99 ? "99+" : activeCount}${incomplete ? "+" : ""}`
+  const badge = unavailable ? "!" : activeCount > 0
+    ? `${activeCount > 99 ? "99+" : activeCount}${incomplete && activeCount <= 99 ? "+" : ""}`
     : incomplete ? "!" : null;
 
   return (

@@ -41,8 +41,9 @@ permissions:
 
 jobs:
   admin-ia-2:
-    # Fast required CI runs for drafts; comprehensive E2E starts when review-ready.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    # Drafts normally skip comprehensive E2E. Same-repository PRs can explicitly
+    # request before-review evidence without marking an unverified PR ready.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.body, 'PRE_REVIEW_VISUAL_EVIDENCE: true')) }}
     name: ADMIN-IA-2 — contracts, build, lint and Playwright
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -51,6 +52,9 @@ jobs:
       PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - name: Log revision evidence
         run: |
@@ -85,6 +89,7 @@ jobs:
           mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
           trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql
 
       - name: Configure ephemeral PII keys for disposable local preview
         run: |

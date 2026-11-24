@@ -121,7 +121,7 @@ export function PartnerGalleryField({
         {urls.map((url, index) => (
           <div key={url} style={{ width: 156, minWidth: 0 }}>
             {/* URL is validated again by the server before publication. */}
-            <img src={url} alt={`Fotografia galérie ${index + 1}`} style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: 8 }} />
+            <img src={url} alt={`Fotografia galérie ${index + 1}`} style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: "var(--ps-radius-media)" }} />
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               <button type="button" onClick={() => moveExisting(index, -1)} disabled={disabled || busy || index === 0} aria-label="Posunúť fotografiu doľava">←</button>
               <button type="button" onClick={() => moveExisting(index, 1)} disabled={disabled || busy || index === urls.length - 1} aria-label="Posunúť fotografiu doprava">→</button>
@@ -131,7 +131,7 @@ export function PartnerGalleryField({
         ))}
         {uploads.map((item, index) => (
           <div key={item.id} style={{ width: 156, minWidth: 0 }}>
-            <img src={item.previewUrl} alt={`Nová fotografia ${index + 1}`} style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: 8 }} />
+            <img src={item.previewUrl} alt={`Nová fotografia ${index + 1}`} style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: "var(--ps-radius-media)" }} />
             <small>Nová fotografia</small>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               <button type="button" onClick={() => moveUpload(index, -1)} disabled={disabled || busy || index === 0} aria-label="Posunúť novú fotografiu doľava">←</button>

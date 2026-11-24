@@ -1,3 +1,6 @@
+import { ADMIN_PROFILE_HOME, profileTypeForPath } from "./admin-profile-workspace.ts";
+import { QUALITY_HOME, qualityTabForPath } from "./admin-quality-workspace.ts";
+
 export type AdminNavigationItem = {
   label: string;
   href: string;
@@ -27,9 +30,8 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
     { label: "Psie meniny", href: "/admin/meniny" },
   ] },
   { label: "Profily", items: [
-    { label: "Služby a prevádzky", href: "/admin/adresar", matches: ["/admin/sluzby-pre-psov"] },
-    { label: "Adopcie a hlásenia", href: "/admin/pomoc-psom",
-      matches: ["/admin/pomoc", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie"] },
+    { label: "Všetky profily", href: ADMIN_PROFILE_HOME,
+      matches: ["/admin/sluzby-pre-psov", "/admin/pomoc-psom", "/admin/pomoc", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie"] },
     { label: "Katalóg služieb", href: "/admin/sluzby-pre-psov/katalog" },
   ] },
   { label: "Partneri", items: [
@@ -38,9 +40,7 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
     { label: "Profilové recenzie", href: "/admin/recenzie-profilov" },
   ] },
   { label: "Kvalita a automatizácie", items: [
-    { label: "Kvalita údajov", href: "/admin/kvalita" },
-    { label: "SEO", href: "/admin/kvalita/seo" },
-    { label: "Nefunkčné odkazy", href: "/admin/kontrola-odkazov" },
+    { label: "Kvalita údajov", href: QUALITY_HOME, matches: ["/admin/kontrola-odkazov"] },
     { label: "Automatizácie", href: "/admin/automatizacie-gemini",
       matches: ["/admin/automatizacie", "/admin/operations/automation"] },
   ] },
@@ -120,6 +120,23 @@ export function getAdminBreadcrumbs(pathname: string) {
     { label: "Pracovný prehľad", href: "/admin" },
     { label: active.label, href: active.href },
   ];
+
+  const qualityTab = active.href === QUALITY_HOME ? qualityTabForPath(pathname) : undefined;
+  if (qualityTab && qualityTab.id !== "findings") {
+    breadcrumbs.push({ label: qualityTab.label, href: qualityTab.href, current: true });
+    return breadcrumbs;
+  }
+
+  const profile = active.href === ADMIN_PROFILE_HOME ? profileTypeForPath(pathname) : undefined;
+  if (profile && profile.href !== ADMIN_PROFILE_HOME) {
+    breadcrumbs.push({ label: profile.label, href: profile.href });
+    if (normalizedPath(pathname) === profile.href) {
+      breadcrumbs[breadcrumbs.length - 1].current = true;
+    } else {
+      breadcrumbs.push({ label: detailLabel(pathname), href: normalizedPath(pathname), current: true });
+    }
+    return breadcrumbs;
+  }
 
   // /admin/novy is a real create editor, not a legacy list-root alias.
   const isLegacyRoot = normalizedPath(pathname) !== "/admin/novy" &&

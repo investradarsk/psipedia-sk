@@ -7,7 +7,8 @@
 
 .label {
   font-size: .8rem;
-  font-weight: 750;
+  font-family: var(--ps-font-body, inherit);
+  font-weight: var(--ps-component-label-weight, 750);
   line-height: 1.4;
 }
 
@@ -23,11 +24,12 @@
   min-width: 0;
   min-height: var(--ps-control-min-height, 44px);
   padding: 10px 13px;
-  border: 1px solid var(--ps-border-strong, #ccd7cf);
+  border: 1px solid var(--ps-component-control-border, var(--ps-border-strong, #ccd7cf));
   border-radius: var(--ps-radius-control, 12px);
   color: var(--ink);
-  background: var(--paper);
+  background: var(--ps-component-control-surface, var(--paper));
   font: inherit;
+  font-family: var(--ps-font-body, inherit);
   line-height: 1.35;
 }
 

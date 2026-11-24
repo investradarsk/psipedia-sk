@@ -17,8 +17,8 @@ test("admin section matching preserves exact, nested and alias routes", () => {
     ["/admin/steniatka/pokrytie", "/admin/clanky"],
     ["/admin/podujatia/3", "/admin/podujatia"],
     ["/admin/facebook-obrazky", "/admin/facebook-obrazky"],
-    ["/admin/kvalita/seo", "/admin/kvalita/seo"],
-    ["/admin/pomoc/12", "/admin/pomoc-psom"],
+    ["/admin/kvalita/seo", "/admin/kvalita"],
+    ["/admin/pomoc/12", "/admin/adresar"],
     ["/admin/operations/automation", "/admin/automatizacie-gemini"],
     ["/admin/operations/geo", "/admin/mapy"],
     ["/admin/nastavenia/notion", "/admin/nastavenia"],
@@ -36,4 +36,32 @@ test("breadcrumb links remain stable across navigation details", () => {
     "/admin", "/admin/plemena", "/admin/plemena/12",
   ]);
   assert.equal(breadcrumbs.at(-1)?.current, true);
+});
+
+
+test("V6-06 quality subroutes share one sidebar owner with exact breadcrumbs", () => {
+  for (const [path, label] of [["/admin/kvalita/prehlad", "Chýbajúce polia"], ["/admin/kvalita/seo", "SEO audit"], ["/admin/kontrola-odkazov", "Kontrola odkazov"]]) {
+    assert.equal(findActiveAdminNavigationItem(path)?.href, "/admin/kvalita");
+    assert.deepEqual(getAdminBreadcrumbs(path).at(-1), { href: path, label, current: true });
+  }
+  assert.equal(findActiveAdminNavigationItem("/admin/mapy")?.href, "/admin/mapy");
+});
+
+
+test("V6-07 canonical profile and quality breadcrumbs preserve one active owner", () => {
+  for (const [path, label] of [
+    ["/admin/adopcie/", "Adopcie"],
+    ["/admin/stratene-najdene", "Stratené a nájdené psy"],
+    ["/admin/organizacie", "Organizácie a útulky"],
+    ["/admin/pomoc", "Ostatná pomoc"],
+  ]) {
+    assert.equal(findActiveAdminNavigationItem(path)?.href, "/admin/adresar");
+    const crumbs = getAdminBreadcrumbs(path);
+    assert.equal(crumbs.at(-1)?.label, label);
+    assert.equal(crumbs.at(-1)?.current, true);
+  }
+  const detail = getAdminBreadcrumbs("/admin/adopcie/42");
+  assert.deepEqual(detail.map(item => item.href), ["/admin", "/admin/adresar", "/admin/adopcie", "/admin/adopcie/42"]);
+  assert.equal(findActiveAdminNavigationItem("/admin/kontrola-odkazov")?.href, "/admin/kvalita");
+  assert.equal(findActiveAdminNavigationItem("/admin/kvalita/seo")?.href, "/admin/kvalita");
 });

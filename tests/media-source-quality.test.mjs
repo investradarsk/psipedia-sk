@@ -14,7 +14,7 @@ const adminPage = await readFile(new URL("../app/admin/kvalita/page.tsx", import
 const adminComponent = await readFile(new URL("../components/admin-missing-quality-dashboard.tsx", import.meta.url), "utf8");
 const originalMediaComponent = await readFile(new URL("../components/admin-data-quality-dashboard.tsx", import.meta.url), "utf8");
 const dataQualityStore = await readFile(new URL("../lib/data-quality-store.ts", import.meta.url), "utf8");
-const adminNavigation = await readFile(new URL("../lib/admin-navigation.ts", import.meta.url), "utf8");
+import { findActiveAdminNavigationItem } from "../lib/admin-navigation.ts";
 
 test("media source monitor has a stable one-row-per-entity schema", () => {
   assert.match(migration, /CREATE TABLE IF NOT EXISTS media_source_monitors/);
@@ -121,9 +121,9 @@ test("source changes create a review candidate instead of silently replacing pub
 });
 
 test("admin quality displays found missing values for all areas", () => {
-  assert.match(adminNavigation, /href: "\/admin\/kvalita"/);
+  assert.equal(findActiveAdminNavigationItem("/admin/kvalita")?.href, "/admin/kvalita");
   assert.match(adminPage, /AdminMissingQualityDashboard/);
-  assert.match(adminComponent, /Nájdené nové údaje na schválenie/);
+  assert.match(adminComponent, /Návrhy na doplnenie/);
   assert.match(adminComponent, /Tento mesiac – pokusy o kontrolu/);
   assert.match(adminComponent, /Služby pre psov/);
   assert.match(adminComponent, /Podujatia/);

@@ -10,8 +10,10 @@
 .shell :global(.review-auth-privacy) { padding: 13px 15px; font-size: .84rem; line-height: 1.5; }
 .shell :global(.review-auth-card) { padding: clamp(17px,2.5vw,26px); }
 .shell :global(.review-auth-card > p) { margin-top: 0; font-size: .9rem; }
-.shell :global(.review-auth-submit) { width: 100%; min-height: 48px; border-radius: var(--ps-radius-control,12px); }
+.shell :global(.review-auth-submit) { width: 100%; min-height: 48px; border-radius: var(--ps-radius-control); }
 @media(max-width: 620px) {
   .shell { padding-bottom: 20px; }
   .shell :global(.review-auth-copy h1) { font-size: 1.9rem; }
 }
+
+/* V2-11 */

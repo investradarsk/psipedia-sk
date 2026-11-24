@@ -43,8 +43,9 @@ test("data quality is responsive and accessible in missing-data review", async (
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(500);
   expect(new URL(page.url()).pathname).toBe("/admin/kvalita");
-  await expect(page.getByRole("heading", { name: "Kvalita údajov", exact: true })).toBeVisible();
-  await expect(page.getByText(/Nájdené nové údaje na schválenie|Kvalita údajov sa pripravuje/).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nálezy na schválenie", exact: true })).toBeVisible();
+  await expect(page.locator("[data-admin-quality-tabs]").getByRole("link", { name: "Nálezy na schválenie" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByText("Návrhy na doplnenie", { exact: true })).toBeVisible();
 
   const body = await page.locator("body").innerText();
   expect(body).not.toMatch(/Error 1101|Worker threw exception|SELECT .* FROM|at .*\(.+\.tsx?:\d+/i);

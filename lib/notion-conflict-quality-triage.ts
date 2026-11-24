@@ -1,3 +1,4 @@
+import { directorySyncErrorKinds } from "./notion-data-quality-recovery.ts";
 import type { AuditItem, AuditReason } from "./notion-data-quality-audit-v2.ts";
 import type { NotionAuditAgenda } from "./notion-data-quality-audit.ts";
 
@@ -24,13 +25,7 @@ type Evidence = { evidence: "VERIFIED_IDS_ONLY" | "UNKNOWN"; items: AuditItem[] 
 const AGENDAS = new Set<NotionAuditAgenda>(["directory", "events", "organizations", "adoptions", "help-cases", "lost-found"]);
 const UUID = /^(?:[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/i;
 const ID = /^[1-9]\d{0,12}$/;
-const HISTORIC_KINDS = new Set([
-  "BIDIRECTIONAL_CONFLICT", "CONFIRMED_SITE_REVIEW_REQUIRED", "MISSING_HOUSE_NUMBER",
-  "INVALID_LOCALITY", "ILLEGAL_INVOCATION", "INVALID_PHONE", "INVALID_EMAIL",
-  "INVALID_WEBSITE", "REMOTE_IMAGE_HTTP_403", "REMOTE_IMAGE_HTTP_522",
-  "INVALID_IMAGE_FORMAT", "REMOTE_IMAGE_BLOCKED", "DUPLICATE_IDENTITY",
-  "GOOGLE_PLACE_MISMATCH", "PRIVACY_REVIEW_REQUIRED", "LEGACY_BASELINE_MISMATCH", "OTHER",
-]);
+const HISTORIC_KINDS = new Set<string>(directorySyncErrorKinds);
 const IDENTITY = new Set<AuditReason>([
   "DUPLICATE_IDENTITY", "MAPPING_CONFLICT", "MISSING_MAPPING",
   "ORPHAN_MAPPING", "MISSING_CANONICAL", "NO_PSID",
@@ -38,7 +33,7 @@ const IDENTITY = new Set<AuditReason>([
 const PROTECTION = new Set<string>([
   "CONFIRMED_SITE_REVIEW_REQUIRED", "PRIVACY_REVIEW_REQUIRED", "GOOGLE_PLACE_MISMATCH", "NOT_REQUIRED",
 ]);
-const RUNTIME = new Set(["ILLEGAL_INVOCATION", "REMOTE_IMAGE_HTTP_403", "REMOTE_IMAGE_HTTP_522", "REMOTE_IMAGE_BLOCKED", "INVALID_IMAGE_FORMAT"]);
+const RUNTIME = new Set(["SERVICE_RELATION_SYNC_ERROR", "ILLEGAL_INVOCATION", "REMOTE_IMAGE_HTTP_403", "REMOTE_IMAGE_HTTP_522", "REMOTE_IMAGE_BLOCKED", "INVALID_IMAGE_FORMAT"]);
 const CONTENT = new Set(["MISSING_HOUSE_NUMBER", "INVALID_LOCALITY", "INVALID_PHONE", "INVALID_EMAIL", "INVALID_WEBSITE"]);
 const SAFE_FIELD_NAMES = new Set([
   "Názov", "Meno", "Popis", "Miesto", "Mesto", "Kraj", "Okres", "Adresa", "Kategória", "Dátum začiatku", "Dátum konca",
@@ -51,7 +46,7 @@ function invalid(): never {
 function issueFor(reason: AuditReason | null, historic: string | null): QualityIssue {
   if (reason && IDENTITY.has(reason)) return "IDENTITY";
   if ((reason && PROTECTION.has(reason)) || (historic && PROTECTION.has(historic))) return "PROTECTION";
-  if (reason === "BIDIRECTIONAL_CONFLICT" || historic === "BIDIRECTIONAL_CONFLICT") return "SYNC_CONFLICT";
+  if (reason === "BIDIRECTIONAL_CONFLICT" || (historic === "BIDIRECTIONAL_CONFLICT" || historic === "MISSING_VERIFIED_BASELINE" || historic === "SERVICE_RELATION_UNVERIFIED_DELETE")) return "SYNC_CONFLICT";
   if (historic && RUNTIME.has(historic)) return "RUNTIME";
   if (historic && CONTENT.has(historic)) return "CONTENT";
   return "SYNC_ERROR";

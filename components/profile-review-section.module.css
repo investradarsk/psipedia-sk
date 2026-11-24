@@ -15,7 +15,7 @@
 
 .section h2 {
   margin: 0 0 16px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(1.55rem, 2.5vw, 2.05rem);
   font-weight: 500;
 }
@@ -48,7 +48,7 @@
   border: 1px solid var(--line);
   border-radius: var(--ps-radius-card);
   background: var(--paper);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ps-component-shadow, none);
 }
 
 .score {
@@ -61,7 +61,7 @@
 
 .score > strong {
   color: var(--forest-dark);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(2.5rem, 5vw, 4rem);
   font-weight: 500;
   line-height: 1;
@@ -259,7 +259,7 @@
   min-width: 0;
   margin-top: 15px;
   padding: 13px 14px;
-  border-left: 3px solid var(--forest);
+  border-left: var(--ps-premium-accent-width) solid var(--ps-premium-accent);
   border-radius: var(--ps-radius-control);
   background: var(--sage-light);
 }
@@ -368,4 +368,9 @@
 }
 
 /* Service profiles opt in; other review contexts keep their existing hierarchy. */
-.section h2.compactHeading { margin: 0 0 12px; color: var(--brand-accent-strong, #b94732); font-family: inherit; font-size: .78rem; font-weight: 850; letter-spacing: .085em; line-height: 1.45; text-transform: uppercase; }
+.section h2.compactHeading { margin: 0 0 12px; color: var(--ps-premium-accent); font-family: inherit; font-size: .78rem; font-weight: 850; letter-spacing: .085em; line-height: 1.45; text-transform: uppercase; }
+
+/* V2-11 */
+.section { font-family: var(--ps-font-body); }
+.score > strong { font-family: var(--ps-font-body); font-variant-numeric: tabular-nums; }
+.reviewCta { font-family: var(--ps-font-body); box-shadow: var(--ps-component-shadow, none); }

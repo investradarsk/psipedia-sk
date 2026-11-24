@@ -21,9 +21,10 @@ test("header name days navigate to the canonical public calendar on both viewpor
 test("shared public hero and news navigation use the same strong brand accent", () => {
   assert.match(headerCss, /\.desktopNav :global\(\.nav-news\)[\s\S]*background: var\(--brand-accent-strong\)/);
   assert.doesNotMatch(headerCss, /#ffd0c3/i);
-  assert.match(sharedCss, /\.eyebrow[\s\S]*background: var\(--brand-accent-strong/);
+  assert.match(sharedCss, /\.eyebrow\s*\{[^}]*background: transparent/);
+  assert.match(sharedCss, /\.eyebrow::before\s*\{[^}]*background: var\(--ps-premium-accent/);
   assert.match(sharedCss, /\.breadcrumbs[\s\S]*color: #fff/);
-  assert.match(homeCss, /\.homeV2 :global\(\.hero-kicker\)[\s\S]*background: var\(--brand-accent-strong/);
+  assert.match(homeCss, /\.homeV2 :global\(\.hero-kicker\)::before\s*\{[^}]*background: var\(--ps-premium-accent/);
 });
 
 test("hero copy has fixed vertical anchor and quick routes are restored without changing search scope", () => {

@@ -331,7 +331,7 @@
 .detailIntro h1 {
   margin: 0;
   color: #173f2d;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: clamp(2.25rem, 5vw, 3.8rem);
   font-weight: 500;
   line-height: 1.01;
@@ -766,8 +766,7 @@
 }
 .detailCopy .panel h2 {
   font:
-    500 1.9rem/1.15 Georgia,
-    serif;
+    500 1.9rem/1.15 var(--ps-font-heading, Georgia, serif);
   color: #092d36;
 }
 .safetyPanel,
@@ -904,8 +903,7 @@
 .detailCopy .panel h2 {
   margin-bottom: 10px;
   font:
-    500 clamp(1.3rem, 2vw, 1.55rem) / 1.2 Georgia,
-    serif;
+    500 clamp(1.3rem, 2vw, 1.55rem) / 1.2 var(--ps-font-heading, Georgia, serif);
   color: var(--detail-ink, #17352b);
 }
 .detailCopy .panel h3 {
@@ -983,12 +981,21 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-/* Match the compact sans-serif headline of the other Help detail templates. */
+/* V2-10: editorial headline, shared with adoption and generic Help. */
 .detail .reportTitle {
   margin: 8px 0;
-  font-family: inherit;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: clamp(1.8rem, 3vw, 2.7rem);
-  font-weight: 820;
+  font-weight: var(--ps-component-heading-weight, 500);
   line-height: 1.1;
   letter-spacing: -0.025em;
 }
+
+.filters, .card, .panel { border-radius: var(--ps-radius-card); background: var(--paper); box-shadow: var(--ps-ds5-card-shadow); }
+.detailImage, .reportGallery img, .visualFallback { border-radius: var(--ps-radius-media); }
+.actions button, .actions a, .cta, .filterToggle { border-radius: var(--ps-radius-control); }
+.actions button, .cta { background: var(--forest); }
+.statusBanner, .safetyPanel, .trustPanel { border-radius: var(--ps-radius-card); }
+.summary h2, .card h3, .detail h1 { font-family: var(--ps-font-heading, Georgia, serif); font-weight: var(--ps-component-heading-weight, 500); }
+/* Adopted is a successful outcome, not a missing-dog or archived state. */
+.statusBanner[data-state="ADOPTED"] { background: #e5f3e9; color: #155438; border-color: #9fc8ad; }
