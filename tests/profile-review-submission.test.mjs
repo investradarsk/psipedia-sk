@@ -518,3 +518,75 @@ test("actual review submission API creates one pending canonical review through 
     sqlite.close();
   }
 });
+
+test("guest can submit a moderated service review without an email and the same cookie cannot submit twice", async () => {
+  const { sqlite, database } = fixture();
+  const envObject = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
+  const previousEnv = { ...envObject };
+  const originalFetch = globalThis.fetch;
+  Object.assign(envObject, {
+    DB: database,
+    PROFILE_REVIEW_SUBMISSIONS_ENABLED: "true",
+    PROFILE_REVIEW_EMAIL_REQUIRED: "false",
+    TURNSTILE_SECRET_KEY: "test-secret",
+    PII_HASH_KEY: key32(56),
+    PII_ENCRYPTION_KEY: key32(57),
+  });
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    success: true,
+    hostname: "psipedia.sk",
+    action: "profile_review_submit",
+    challenge_ts: new Date().toISOString(),
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const { POST } = await importTs("app/api/review-author/reviews/route.ts");
+    function request(overrides = {}, cookie = "") {
+      return new Request("https://psipedia.sk/api/review-author/reviews", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://psipedia.sk",
+          "sec-fetch-site": "same-origin",
+          "cf-connecting-ip": "203.0.113.78",
+          cookie,
+        },
+        body: JSON.stringify({
+          resourceId: "opaque.directory.1",
+          overallRating: 5,
+          body: "Dobrá skúsenosť s veterinárom a profesionálnym prístupom.",
+          serviceMonth: "",
+          ratingSchemaVersion: 1,
+          dimensions: [],
+          displayName: "Návštevník",
+          ownExperience: true,
+          turnstileToken: "guest-test-" + crypto.randomUUID(),
+          ...overrides,
+        }),
+      });
+    }
+    assert.equal((await POST(request({ ownExperience: false }))).status, 422);
+    assert.equal((await POST(request({ displayName: "<script>" }))).status, 422);
+    assert.equal((await POST(request({ resourceId: "opaque.org.11" }))).status, 401);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM profile_reviews").get().count, 0);
+    const response = await POST(request());
+    assert.equal(response.status, 201);
+    const cookie = response.headers.get("set-cookie").split(";")[0];
+    assert.match(cookie, /^__Host-psipedia_review_guest=/);
+    const row = sqlite.prepare("SELECT a.status AS author_status,a.email_verified_at,a.email_ciphertext,a.display_name,r.status,r.risk_flags_json FROM profile_reviews r JOIN review_authors a ON a.id=r.author_id").get();
+    assert.equal(row.author_status, "PENDING_VERIFICATION");
+    assert.equal(row.email_verified_at, null);
+    assert.equal(row.email_ciphertext, "");
+    assert.equal(row.display_name, "Návštevník");
+    assert.equal(row.status, "PENDING_REVIEW");
+    assert.ok(JSON.parse(row.risk_flags_json).includes("GUEST_UNVERIFIED"));
+    assert.equal((await POST(request({}, cookie))).status, 409);
+    envObject.PROFILE_REVIEW_EMAIL_REQUIRED = "true";
+    assert.equal((await POST(request())).status, 401);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM profile_reviews").get().count, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const key of Object.keys(envObject)) delete envObject[key];
+    Object.assign(envObject, previousEnv);
+    sqlite.close();
+  }
+});
