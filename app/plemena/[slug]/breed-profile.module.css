@@ -1624,3 +1624,23 @@
   .desktopRelatedArticles { display: none; }
   .mobileRelatedArticles { display: block; margin-top: 12px; }
 }
+
+
+/* V2-04: related editorial panel, not the article cards inside it. */
+.page .sidebarEditorial {
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: none;
+}
+.page .sidebarEditorial h2 {
+  font-family: var(--ps-font-heading, Georgia, serif);
+  font-weight: 500;
+}
+.page .sidebarEditorial h2::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 2px;
+  margin-top: 6px;
+  background: var(--ps-premium-accent, #b44939);
+}

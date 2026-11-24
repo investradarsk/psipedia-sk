@@ -479,3 +479,14 @@
   outline: 2px solid var(--forest);
   outline-offset: 3px;
 }
+
+
+/* V2-04: sidebar information is kept on paper; no color changes to status
+ * badges, availability or service data. */
+.page :global([data-detail-block="contact"]) h2,
+.page :global([data-detail-block="expertise"]) h2,
+.page :global([data-detail-block="catalog-attributes"]) h2,
+.page :global([data-detail-block="physio-price"]) h2 {
+  font-family: var(--ps-font-heading, Georgia, serif);
+  font-weight: 500;
+}

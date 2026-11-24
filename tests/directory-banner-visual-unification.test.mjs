@@ -23,7 +23,7 @@ test("directory map and provider use the same two-theme public banner component"
   assert.match(provider, /visual="dark"/);
   assert.match(provider, /href="\/o-nas#kontakt"/);
   assert.match(source, /<ArticlePopularitySidebar/);
-  assert.match(read("app/banner-visuals.css"), /border-radius:\s*0\s*!important/);
+  assert.match(read("app/banner-visuals.css"), /border-radius:\s*var\(--ps-bnr-radius\)\s*!important/);
 });
 
 test("the two existing placements are findable in Admin's banner library", () => {

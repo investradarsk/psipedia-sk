@@ -394,3 +394,113 @@
 .ps-public-banner-frame[data-banner-semantic="urgent"] [data-ps-banner-art] {
   display: none !important;
 }
+
+
+/* V2-04 — public Premium Editorial V9. The legacy frame above also renders
+ * Admin previews; scope the visual migration to public/Partner routes.
+ * Keep the two published tone/size settings and all container geometry. */
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] {
+  --ps-bnr-radius: var(--ps-radius-banner-large);
+  border-left-width: var(--ps-premium-accent-width) !important;
+  border-left-color: var(--ps-premium-accent) !important;
+  border-radius: var(--ps-bnr-radius) !important;
+  background-image: var(--ps-bnr-gradient, none) !important;
+  font-family: var(--ps-font-body);
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size][data-banner-size="small"] {
+  --ps-bnr-radius: var(--ps-radius-banner-small);
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size][data-banner-visual="dark"] {
+  --ps-bnr-gradient: var(--ps-premium-gradient);
+  --ps-bnr-ink: var(--ps-premium-on-dark);
+  --ps-bnr-body: var(--ps-premium-muted-on-dark);
+  --ps-bnr-kicker: var(--ps-premium-kicker-on-dark);
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(h2, h3, [class*="reportCopy"] strong) {
+  font-family: var(--ps-font-heading);
+  font-weight: 500;
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(.eyebrow, [class*="Eyebrow"], [class*="eyebrow"]) {
+  display: block;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ps-bnr-kicker) !important;
+  font-family: var(--ps-font-body);
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(.eyebrow, [class*="Eyebrow"], [class*="eyebrow"])::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 2px;
+  margin-top: 5px;
+  background: var(--ps-premium-accent);
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(a[data-public-action], a.article-block-cta-button, nav a) {
+  border-radius: var(--ps-radius-control);
+  font-family: var(--ps-font-body);
+  transition: filter var(--ps-motion-fast) var(--ps-motion-ease);
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(a[data-public-action], a.article-block-cta-button):hover {
+  filter: brightness(1.08);
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] :is(a[data-public-action], a.article-block-cta-button, nav a):focus-visible {
+  outline: 2px solid var(--ps-bnr-ink);
+  outline-offset: 3px;
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] nav a {
+  color: var(--forest-dark);
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] [class*="actions"] a + a {
+  border-color: var(--ps-bnr-ink) !important;
+  background: transparent !important;
+  color: var(--ps-bnr-ink) !important;
+}
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size] .article-block-cta-disclosure {
+  color: var(--ps-bnr-ink);
+  font-family: var(--ps-font-body);
+}
+@media (min-width: 621px) {
+  :where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size][data-banner-desktop-visual="light"] {
+    --ps-bnr-gradient: none;
+    --ps-bnr-ink: #174d3a;
+    --ps-bnr-body: #4b6156;
+    --ps-bnr-kicker: var(--ps-premium-accent);
+  }
+  :where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size][data-banner-desktop-visual="dark"] {
+    --ps-bnr-gradient: var(--ps-premium-gradient);
+    --ps-bnr-ink: var(--ps-premium-on-dark);
+    --ps-bnr-body: var(--ps-premium-muted-on-dark);
+    --ps-bnr-kicker: var(--ps-premium-kicker-on-dark);
+  }
+  :where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size][data-banner-desktop-size="small"] {
+    --ps-bnr-radius: var(--ps-radius-banner-small);
+  }
+  :where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size][data-banner-desktop-size="medium"],
+  :where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size][data-banner-desktop-size="large"] {
+    --ps-bnr-radius: var(--ps-radius-banner-large);
+  }
+}
+/* An urgent message must remain a safety surface, including with a published
+ * dark desktop preset. The primary action still uses the brick accent. */
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size][data-banner-semantic="urgent"] {
+  --ps-bnr-gradient: none;
+  --ps-bnr-bg: #fffaf6;
+  --ps-bnr-ink: #174d3a;
+  --ps-bnr-body: #4b6156;
+  --ps-bnr-kicker: var(--ps-premium-accent);
+  --ps-bnr-button-bg: var(--ps-premium-accent);
+}
+
+/* Sidebar cards keep light content surfaces. Only the editorial heading
+ * receives the gradient, leaving contacts, map controls and data readable. */
+:where(:root:not(:has([data-admin-workspace]))) :is([data-testid="breed-quick-facts"] > section, [data-public-service-detail-template] [data-detail-block="contact"] > section, [data-public-service-detail-template] [data-detail-block="expertise"] > section, [data-public-service-detail-template] [data-detail-block="catalog-attributes"] > section, [data-public-service-detail-template] [data-detail-block="physio-price"] > section) {
+  border-radius: var(--ps-radius-card);
+  box-shadow: none;
+}
+:where(:root:not(:has([data-admin-workspace]))) :is([data-testid="breed-quick-facts"] > section, [data-public-service-detail-template] [data-detail-block="contact"] > section, [data-public-service-detail-template] [data-detail-block="expertise"] > section, [data-public-service-detail-template] [data-detail-block="catalog-attributes"] > section, [data-public-service-detail-template] [data-detail-block="physio-price"] > section) h2 {
+  font-family: var(--ps-font-heading);
+  font-weight: 500;
+}

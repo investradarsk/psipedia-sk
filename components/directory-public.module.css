@@ -2354,3 +2354,23 @@
     row-gap: 6px;
   }
 }
+
+
+/* V2-04: informational rail cards retain their own content, links and grid. */
+.sidebarCard {
+  border-radius: var(--ps-radius-card, 14px);
+  background: var(--paper);
+  box-shadow: none;
+}
+.sidebarCard h2 {
+  font-family: var(--ps-font-heading, Georgia, serif);
+  font-weight: 500;
+}
+.sidebarCard h2::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 2px;
+  margin-top: 6px;
+  background: var(--ps-premium-accent, #b44939);
+}
