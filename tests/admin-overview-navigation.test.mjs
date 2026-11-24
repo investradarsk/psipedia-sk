@@ -7,10 +7,11 @@ const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf
 test("desktop Prehľad header navigates with a fresh document, not just disclosure", () => {
   const source = read("components/admin-navigation.tsx");
   assert.match(source, /const navigatesToOverview = !mobile && pathname !== "\/admin" &&\s*group\.items\.some\(\(item\) => item\.href === "\/admin"\)/);
-  assert.match(source, /if \(navigatesToOverview\) \{\s*navigateToOverview\(\);\s*return;/);
-  assert.match(source, /aria-expanded=\{navigatesToOverview \? undefined : expanded\}/);
-  assert.match(source, /aria-controls=\{navigatesToOverview \? undefined : /);
-  assert.match(source, /aria-label=\{navigatesToOverview \? "Prejsť na pracovný prehľad" : undefined\}/);
+  assert.match(source, /\) : navigatesToOverview \? \(/);
+  assert.match(source, /<Link href="\/admin" prefetch=\{false\} className=\{styles\.groupButton\}/);
+  assert.match(source, /aria-label="Prejsť na pracovný prehľad" onClick=\{handleAdminOverviewLink\}/);
+  assert.match(source, /aria-expanded=\{expanded\}/);
+  assert.match(source, /aria-controls=\{`admin-group-\$\{groupIndex\}`\}/);
   assert.match(source, /dispatchAdminOverviewNavigation\(\(\) => window\.location\.assign\("\/admin"\)\)/);
   assert.match(source, /setExpandedDesktopGroup\(\{ pathname, group: expanded \? "" : group\.label \}\)/);
 });
