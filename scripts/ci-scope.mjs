@@ -241,7 +241,7 @@ function isDocsOnlyFile(file) {
   return DOC_RE.test(file) || /\.(?:md|mdx|txt)$/i.test(file);
 }
 
-const CI_CONTROL_RE = /^(?:\.github\/workflows\/|scripts\/(?:ci-scope(?:-conditions)?|check-ci-scope|ci-test-groups|ci-build-artifact|ci-v2-inventory)\.mjs$|tests\/ci-v2-[^/]+\.test\.mjs$)/;
+const CI_CONTROL_RE = /^(?:\.github\/workflows\/|scripts\/(?:ci-scope(?:-conditions)?|check-ci-scope|ci-test-groups|ci-build-artifact|ci-result-gate|ci-v2-inventory)\.mjs$|tests\/ci-v2-[^/]+\.test\.mjs$)/;
 
 // Deliberately a superset of DS-0B's internal selection so we may cheaply skip
 // the whole job for unrelated PRs without losing relevant visual regressions.
@@ -319,6 +319,8 @@ const REVIEW_SHARED_PATHS = [
   "tests/ci-v2-scope.test.mjs",
   "scripts/review-e2e-local.sh",
   "tests/ci-v2-review-e2e.test.mjs",
+  "tests/ci-v2-result-gate.test.mjs",
+  "scripts/ci-result-gate.mjs",
   "db/isolated/directory_admin_sql_completion.sql",
   "tests/fixtures/directory-admin-e2e.sql",
 ];

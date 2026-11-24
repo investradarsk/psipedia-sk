@@ -68,7 +68,7 @@ jobs:
       - name: Validate shared-build contract
         run: node --test tests/ci-v2-shared-build.test.mjs
       - name: Validate CI V2 changed-file selection
-        run: node --test tests/ci-v2-scope.test.mjs tests/ci-v2-npm-groups.test.mjs tests/ci-v2-unit-integration.test.mjs tests/ci-v2-review-e2e.test.mjs
+        run: node --test tests/ci-v2-scope.test.mjs tests/ci-v2-npm-groups.test.mjs tests/ci-v2-unit-integration.test.mjs tests/ci-v2-review-e2e.test.mjs tests/ci-v2-result-gate.test.mjs
       - name: Report selected test groups
         env:
           TEST_GROUPS: ${{ steps.required-scope.outputs.test_groups }}
@@ -315,14 +315,21 @@ jobs:
   # Run the actual breed regression separately on manual/scheduled full-core runs.
   required-breed-check:
     name: Breed CI bootstrap, all-breed regression and Playwright
-    needs: validate
+    needs: [validate, ds-0b-focused-regression, admin-interaction-e2e, admin-events-e2e, search-e2e, directory-e2e, seo-recovery-e2e, lost-found-public-e2e]
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Honor mandatory build and regression gate
-        run: |
-          test "${{ needs.validate.result }}" = "success"
-          echo "Required build/scope validation passed; full breed browser regression is reserved for full-core manual/scheduled runs."
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Evaluate selected job outcomes and publish CI summary
+        env:
+          CI_GATE_NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci-result-gate.mjs central
 
   pull-request-e2e:
     name: Full breed CI bootstrap, all-breed regression and Playwright (manual/scheduled)

@@ -50,6 +50,8 @@ on:
       - "tests/fixtures/directory-admin-e2e.sql"
       - "db/isolated/directory_admin_sql_completion.sql"
       - "tests/ci-v2-review-e2e.test.mjs"
+      - "tests/ci-v2-result-gate.test.mjs"
+      - "scripts/ci-result-gate.mjs"
       - "scripts/review-e2e-local.sh"
   workflow_dispatch:
 
@@ -251,3 +253,21 @@ jobs:
             test-results/playwright/
           if-no-files-found: ignore
           retention-days: 14
+
+  review-result:
+    name: Review CI selected suites
+    needs: [scope, shared-build, reviewer-auth, validation, e2e]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Evaluate selected job outcomes and publish CI summary
+        env:
+          CI_GATE_NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci-result-gate.mjs reviews

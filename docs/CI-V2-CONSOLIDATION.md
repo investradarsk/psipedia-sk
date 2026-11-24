@@ -171,6 +171,14 @@ GitHub vrátil 444 unikátnych dispatch behov z 444 reportovaných v piatich str
 
 Rozhodnutie: **0 aktívnych workflowov archivovaných alebo odstránených**, pretože žiadny z 36 nemá preukázanú bezpečnú prevádzkovú náhradu a zmena chránených produkčných operácií vyžaduje samostatný súhlas vlastníka. Odstránenie manual-only workflowov navyše nezrýchli PR CI. Všetkých 36 je vylúčených z navrhovanej konsolidácie PR CI. Retire až po doložení aktuálnej produkčnej completion/replacement, parity offline kontraktov, zachovaní recovery/receipts a owner approval. Existujúce required contexts, produkčný migrátor, scheduled a mixed joby zostávajú nedotknuté. Nevykonané žiadne produkčné operácie ani zmeny nastavení.
 
+## 09 – Zjednotenie výsledkov CI a ochrana main
+
+Ruleset 23739696 (read-only kontrola) vyžaduje strict aktuálnu main a presne dva status contexts. Ich názvy ani nastavenia nemeníme. Pôvodný required-breed-check potvrdzoval iba validate; teraz závisí od validate a siedmich lokálnych PR jobov v hlavnom workflowe. Vždy vyhodnotí explicitné scope flags, vyžaduje success pre vybraný job a skipped pre nevybraný. Chýbajúci flag/job, zrušenie, failure či nečakané skipped zlyhá. Vypíše tabuľku do GitHub Actions summary. Pôvodný scope pre directory (bounded only) zostáva; full breed je naďalej manuálny/plánovaný a gate netvrdí jeho vykonanie. Produkčné smoke, opt-in sitemap live diagnostic, approval-gated/nezávislé workflowy nie sú závislosťou PR gate.
+
+Spoločný helper ci-result-gate.mjs má aj review pilot summary: scope, shared-build, reusable auth, validation, E2E, presný očakávaný skip. Review gate je nový nepovinný kontext, nie zmena rulesetu. Triggery zahŕňajú helper a test kontraktu. Zvyšných 156 workflowov sa neruší ani nespúšťa cez jediný nový gate; cross-workflow migrácia vyžaduje ďalšiu paritu, bez jej dôkazu sa ochrana nesmie oslabiť.
+
+Nový dependency-free kontrakt testuje failure/cancelled/skipped/missing, neplatné scope flags, súlad central YAML podmienok a review výsledky. Zapojený do validate. Posledný predchádzajúci hlavný CI run 45492365573 zlyhal v npm test: dva zdrojové kontrakty (admin-inline-edit-articles-breeds, help-public-v2) očakávajú staré Admin trasy. Skutočný merge zostáva blokovaný až do opravy a úplného overenia. Nejde o dôvod na oslabenie gate. Produkčné nastavenia nezmenené.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
@@ -181,7 +189,7 @@ Rozhodnutie: **0 aktívnych workflowov archivovaných alebo odstránených**, pr
 - [x] CI-V2-06 – deduplikácia troch skupín a aktívneho entity CI, parity kontrakt; ďalšie workflow-only testy a runtime CI otvorené.
 - [x] CI-V2-07 – spoločný review E2E bootstrap pre 4 workflowy, Directory sidecar, oddelené reporty; ostatné browser workflowy a runtime CI otvorené.
 - [x] CI-V2-08 – rozhodovací audit 36/36; žiadny bezpečne odstrániteľný bez ďalšej prevádzkovej náhrady/súhlasu; všetky vyňaté z PR CI konsolidácie.
-- [ ] CI-V2-09 – výsledné CI a zachovanie povinných kontextov.
+- [x] CI-V2-09 – zjednotený fail-closed výsledok 8 centrálnych a 5 review jobov; oba required contexts zachované, runtime CI otvorené.
 - [ ] CI-V2-10 – overenie parity, výkonu, spoľahlivosti; kontrola vlastníkom pred merge.
 
 ## Zásady
