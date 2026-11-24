@@ -425,8 +425,12 @@ export async function resolveReadOnlyNotionAuditTarget(args: {
   const candidates = new Map<string, DataSourceResponse>();
   if (persistedId) {
     const source = await inspect(persistedId);
-    if (!notionDataSourceMatchesCanonicalSchema(source, args.definition)) throw new Error("AUDIT_SOURCE_SCHEMA");
-    candidates.set(source.id, source);
+    // A readable legacy Name-only source is not a canonical candidate.
+    // Discover the matching schema without changing the persisted mapping.
+    // An inaccessible source still fails closed (inspect throws).
+    if (notionDataSourceMatchesCanonicalSchema(source, args.definition)) {
+      candidates.set(source.id, source);
+    }
   }
   const seen = new Set<string>();
   const seenCursors = new Set<string>();
