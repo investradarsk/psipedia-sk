@@ -25,7 +25,7 @@ test("V5-10: seven compact work areas preserve canonical and historic destinatio
   assert.equal(groupFor("/admin/podujatia"), "Redakcia");
   assert.equal(groupFor("/admin/facebook-obrazky"), "Redakcia");
   assert.equal(groupFor("/admin/adresar"), "Profily");
-  assert.equal(groupFor("/admin/pomoc-psom"), "Profily");
+  assert.equal(findActiveAdminNavigationItem("/admin/pomoc-psom")?.href, "/admin/adresar");
   assert.equal(groupFor("/admin/podania"), "Partneri");
   assert.equal(groupFor("/admin/mapy"), "Systém");
   assert.equal(groupFor("/admin/nastroje"), "Systém");
@@ -46,7 +46,7 @@ test("V5-10: breadcrumbs and navigation match long routes without swallowing spe
     ["/admin/steniatka/pokrytie", "/admin/clanky"],
     ["/admin/podania", "/admin/podania"],
     ["/admin/dopyty", "/admin/podania"],
-    ["/admin/pomoc/18", "/admin/pomoc-psom"],
+    ["/admin/pomoc/18", "/admin/adresar"],
     ["/admin/operations/automation", "/admin/automatizacie-gemini"],
     ["/admin/operations/geo", "/admin/mapy"],
     ["/admin/kvalita/seo", "/admin/kvalita/seo"],

@@ -7,6 +7,8 @@ import {
   findActiveAdminNavigationItem,
   getAdminBreadcrumbs,
 } from "../lib/admin-navigation.ts";
+import { adminProfileTypes, profileDetailedHref, profileQuickHref } from "../lib/admin-profile-workspace.ts";
+import { adminDetailHref, adminReturnHref } from "../lib/admin-return-navigation.ts";
 import { summarizeAdminAutomationReads } from "../lib/admin-automation-reliability.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -41,7 +43,6 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
     "/admin/adresar",
     "/admin/sluzby-pre-psov/katalog",
     "/admin/podujatia",
-    "/admin/pomoc-psom",
     "/admin/mapy",
     "/admin/recenzie-profilov",
     "/admin/tipy",
@@ -68,11 +69,11 @@ test("active state uses the most specific top-level owner for detail and legacy 
     ["/admin/novy", "/admin/clanky"],
     ["/admin/sluzby-pre-psov", "/admin/adresar"],
     ["/admin/adresar/42", "/admin/adresar"],
-    ["/admin/pomoc-psom", "/admin/pomoc-psom"],
-    ["/admin/pomoc/42", "/admin/pomoc-psom"],
-    ["/admin/adopcie/42", "/admin/pomoc-psom"],
-    ["/admin/stratene-najdene/42", "/admin/pomoc-psom"],
-    ["/admin/organizacie/42", "/admin/pomoc-psom"],
+    ["/admin/pomoc-psom", "/admin/adresar"],
+    ["/admin/pomoc/42", "/admin/adresar"],
+    ["/admin/adopcie/42", "/admin/adresar"],
+    ["/admin/stratene-najdene/42", "/admin/adresar"],
+    ["/admin/organizacie/42", "/admin/adresar"],
     ["/admin/partners/claims/claim-1", "/admin/partners"],
     ["/admin/podania", "/admin/podania"],
     ["/admin/dopyty", "/admin/podania"],
@@ -196,7 +197,7 @@ test("admin landing is the read-only workspace and old article filters redirect 
   assert.match(articles, /listManagedArticleSummaries/);
   assert.match(articles, /listPath="\/admin\/clanky"/);
   assert.match(articleDashboard, /const routePath = fixedPortalSection \? "\/admin\/steniatka" : listPath;/);
-  assert.match(articleEditor, /router\.push\("\/admin\/clanky"\)/);
+  assert.match(articleEditor, /router\.push\(returnHref\)/);
 });
 
 test("dashboard uses bounded existing summaries and never treats unavailable data as a successful zero", () => {
@@ -330,4 +331,27 @@ test("admin logo uses a Next Link with a full document reload instead of a raw H
   assert.match(brand, /<Link[\s\S]*?href="\/admin"/);
   assert.match(brand, /window\.location\.assign\("\/admin"\)/);
   assert.match(brand, /event\.preventDefault\(\)/);
+});
+
+
+test("V6-04 all five profile types share their canonical navigation and creation actions", () => {
+  const group = adminNavigationGroups.find((entry) => entry.label === "Profily");
+  assert.deepEqual(group.items.map((item) => item.href), ["/admin/adresar", "/admin/sluzby-pre-psov/katalog"]);
+  assert.equal(adminProfileTypes.length, 5);
+  for (const type of adminProfileTypes) {
+    const segment = type.href.split("/").at(-1);
+    const page = read("app/admin/" + segment + "/page.tsx");
+    assert.ok(page.includes('profileWorkspace("' + type.id + '")'));
+    assert.ok(page.includes('<AdminProfileTypeTabs active="' + type.id + '"'));
+    assert.ok(page.includes('<AdminProfileActions active="' + type.id + '"'));
+    assert.equal(type.createHref, type.href + "/novy");
+    assert.equal(findActiveAdminNavigationItem(type.href + "/7")?.href, "/admin/adresar");
+    assert.ok(getAdminBreadcrumbs(type.href + "/7").some((crumb) => crumb.href === type.href));
+    const listing = type.href + "?q=pes&page=2";
+    const detail = new URL(adminDetailHref(type.href + "/7", listing), "https://admin.invalid");
+    assert.equal(adminReturnHref(detail.searchParams.get("returnTo"), type.href), listing);
+  }
+  assert.equal(profileDetailedHref("utulky", "Nitra"), "/admin/organizacie?q=Nitra&type=SHELTER");
+  assert.equal(profileDetailedHref("zbierky", "pes"), "/admin/pomoc?q=pes&category=zbierky");
+  assert.equal(profileQuickHref("utulky", "Nitra"), "/admin/pomoc-psom?category=utulky&q=Nitra");
 });

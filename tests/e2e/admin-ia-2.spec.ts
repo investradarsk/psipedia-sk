@@ -365,3 +365,34 @@ test("step 6: compact topbar, drawer and navigation remain collision-free", asyn
     });
   }
 });
+
+
+test("V6-04 all five profile lists share one compact navigation and correct creation action", async ({ page }, info) => {
+  const width = info.project.name === "mobile-chromium" ? 390 : 1440;
+  await page.setViewportSize({ width, height: 850 });
+  const routes = [
+    ["/admin/adresar", "Služby a prevádzky"],
+    ["/admin/adopcie", "Adopcie"],
+    ["/admin/stratene-najdene", "Stratené a nájdené psy"],
+    ["/admin/organizacie", "Organizácie a útulky"],
+    ["/admin/pomoc", "Ostatná pomoc"],
+  ] as const;
+  await page.goto(routes[0][0], { waitUntil: "domcontentloaded" });
+  for (const [route, label] of routes) {
+    const tabs = page.getByRole("navigation", { name: "Typy profilov" });
+    await expect(tabs).toHaveCount(1);
+    await expect(tabs.getByRole("link")).toHaveCount(5);
+    await tabs.getByRole("link", { name: label, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(route + "$"));
+    await expect(tabs.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.locator("[data-admin-profile-create]")).toHaveAttribute("href", route + "/novy");
+    await expect(page.locator("[data-admin-list-filters]")).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    if (width === 390) {
+      for (const link of await tabs.getByRole("link").all()) {
+        expect(await link.evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+      }
+    }
+    await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-04-" + route.split("/").at(-1) + "-" + width + ".png", fullPage: true, animations: "disabled" });
+  }
+});

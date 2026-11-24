@@ -303,7 +303,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
                 ? <AdminInlineCellInput label={"Názov organizácie " + item.name} value={activeInline.name}
                     maxLength={180} required disabled={inlineBusy}
                     onChange={name => setInlineDraft(current => current ? { ...current, name } : null)} />
-                : <strong><Link href={adminDetailHref(`/admin/organizacie/${item.id}`, organizationAdminHref(filters))}>{item.name || "Bez názvu"}</Link></strong>}
+                : <strong><Link href={adminDetailHref(`/admin/organizacie/${item.id}`, organizationAdminHref({ ...filters, page: data.pagination.page }))}>{item.name || "Bez názvu"}</Link></strong>}
               <small>/{item.slug || "—"}</small>
             </div> },
           { id: "status", label: "Publikovanie", width: 130, sortValue: item => item.status,
@@ -337,8 +337,8 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
                 onEdit={() => editInline(item)} onSave={() => void saveInline()}
                 onCancel={() => { if (!inlineBusy) setInlineDraft(null); }}
               /></span>}
-              <Link href={adminDetailHref("/admin/organizacie/" + item.id, organizationAdminHref(filters))}>Spravovať</Link>
-              <Link href={adminDetailHref(`/admin/organizacie/${item.id}#fundraising`, organizationAdminHref(filters))}>Fundraising</Link>
+              <Link href={adminDetailHref("/admin/organizacie/" + item.id, organizationAdminHref({ ...filters, page: data.pagination.page }))}>Spravovať</Link>
+              <Link href={adminDetailHref(`/admin/organizacie/${item.id}#fundraising`, organizationAdminHref({ ...filters, page: data.pagination.page }))}>Fundraising</Link>
               {item.status === "DRAFT" && <AdminActionButton variant="primary"
                 disabled={!hydrated || !item.preflight.ready || busyId !== null || bulkBusy}
                 onClick={() => requestPublication(item, "publish")}>Publikovať</AdminActionButton>}

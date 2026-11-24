@@ -135,19 +135,8 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
   }
 
   return <div className={styles.dashboard} data-admin-content-module="help-list">
-    <section className={styles.boundary} aria-label="Pomoc psom">
-      <div>
-        <span className="admin-eyebrow">Pomoc psom</span>
-        <h2>Správa prípadov a výziev</h2>
-        <p>Ostatné agendy Pomoci psom majú vlastné editory.</p>
-      </div>
-      <nav className={styles.moduleLinks} aria-label="Pomoc psom">
-        <Link prefetch={false} href="/admin/pomoc-psom">Všetky kategórie</Link>
-      </nav>
-    </section>
-
-    <section className={`admin-stats ${styles.stats}`} aria-label="Stav generic Help záznamov">
-      <div><span>Všetky Help záznamy</span><strong>{totals.total}</strong></div>
+    <section className={`admin-stats ${styles.stats}`} aria-label="Stav prípadov pomoci">
+      <div><span>Všetky prípady pomoci</span><strong>{totals.total}</strong></div>
       <div><span>Publikované</span><strong>{totals.published}</strong></div>
       <div><span>Koncepty</span><strong>{totals.draft}</strong></div>
       <div><span>Aktívne</span><strong>{totals.current}</strong></div>
@@ -156,7 +145,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
     </section>
 
     <section className="admin-panel" data-admin-help-list>
-      <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať Help záznamy" data-admin-list-filters>
+      <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať prípady pomoci" data-admin-list-filters>
         <label className={styles.searchField}><span>Hľadať</span><input name="q" defaultValue={filters.q} placeholder="Názov, Admin ID, pes, mesto alebo organizácia" maxLength={120} /></label>
         <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="all">Všetky kategórie ({totals.total})</option>{HELP_ADMIN_CATEGORIES.map((slug) => <option value={slug} key={slug}>{slug === "utulky" ? "Útulky" : getHelpCategory(slug)?.label ?? slug} ({categoryCounts[slug] ?? 0})</option>)}</select></label>
         <label><span>Publikácia</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
@@ -207,7 +196,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
           onChange: ids => setSelected(new Set(ids)),
         }}
         columns={[
-          { id: "title", label: "Záznam", width: 270, sortValue: (item) => item.title, cell: (item) => <Link prefetch={false} href={adminDetailHref("/admin/pomoc/" + item.id, url(filters))}><strong>{item.title}</strong></Link> },
+          { id: "title", label: "Záznam", width: 270, sortValue: (item) => item.title, cell: (item) => <Link prefetch={false} href={adminDetailHref("/admin/pomoc/" + item.id, url({ ...filters, page }))}><strong>{item.title}</strong></Link> },
           { id: "category", label: "Kategória", width: 160, sortValue: (item) => item.category, cell: (item) => item.category === "utulky" ? "Útulok" : getHelpCategory(item.category)?.label ?? item.category },
           { id: "city", label: "Mesto", width: 140, sortValue: (item) => item.city || "", cell: (item) => item.city || "—" },
           { id: "organization", label: "Organizácia", width: 180, sortValue: (item) => item.organization || "", cell: (item) => item.organization || "—" },
@@ -216,18 +205,18 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
           { id: "updated", label: "Aktualizované", width: 148, sortValue: (item) => item.updatedAt, cell: (item) => new Date(item.updatedAt).toLocaleDateString("sk-SK") },
           { id: "reviewed", label: "AI kontrola", width: 145, cell: (item) => <AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact /> },
           { id: "actions", label: "Akcie", width: 240, cell: (item) => <div className={styles.tableActions}>
-            <Link prefetch={false} href={"/admin/pomoc/" + item.id}>Upraviť</Link>
+            <Link prefetch={false} href={adminDetailHref("/admin/pomoc/" + item.id, url({ ...filters, page }))}>Upraviť</Link>
             {item.status === "published" && <Link prefetch={false} href={helpCaseHref(item)} target="_blank" rel="noreferrer">Web ↗</Link>}
             <AdminActionButton variant="destructive" disabled={deletingId !== null || bulkBusy} onClick={() => setPendingDelete(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</AdminActionButton>
           </div> },
         ]}
-      />  : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
-      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov" data-admin-list-pagination>{page > 1 ? <Link prefetch={false} href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link>  : <span aria-disabled="true">← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link prefetch={false} href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link>  : <span aria-disabled="true">Ďalšia →</span>}</nav>
+      />  : <div className="admin-empty"><span>🔎</span><h2>Žiadne prípady pomoci pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
+      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie prípadov pomoci" data-admin-list-pagination>{page > 1 ? <Link prefetch={false} href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link>  : <span aria-disabled="true">← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link prefetch={false} href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link>  : <span aria-disabled="true">Ďalšia →</span>}</nav>
     </section>
 
     <AdminModalDialog
       open={bulkReview !== null}
-      title={bulkReview?.targetStatus === "published" ? "Publikovať vybrané Help záznamy" : "Presunúť vybrané Help záznamy do konceptu"}
+      title={bulkReview?.targetStatus === "published" ? "Publikovať vybrané prípady pomoci" : "Presunúť vybrané prípady pomoci do konceptu"}
       description="Zmena sa týka iba publikačného stavu. Server pri potvrdení znovu overí verziu a publikačné pravidlá."
       onClose={() => { if (!bulkBusy) setBulkReview(null); }}
       footer={<>

@@ -54,7 +54,7 @@ const sortLabels: Record<AdoptionAdminSort, string> = {
 
 export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] | null }) {
   const router = useRouter();
-  const listReturnHref = adminHref(filters);
+  const listReturnHref = adminHref({ ...filters, page: result.pagination.page });
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const reviewed = reviewedIds === null ? null : new Set(reviewedIds);
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; name: string } | null>(null);

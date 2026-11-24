@@ -20,12 +20,12 @@ test("V5 post-merge: Profiles does not duplicate Help or Events navigation", () 
   assert.doesNotMatch(directory, /<AdminDirectoryModuleNav/);
   assert.match(directory, /<AdminDirectoryCategoryNav filters=\{filters\}/);
   const registry = read("lib/admin-navigation.ts");
-  assert.match(registry, /label: "Adopcie a hlásenia", href: "\/admin\/pomoc-psom"/);
+  assert.match(registry, /label: "Všetky profily", href: ADMIN_PROFILE_HOME/);
   assert.match(registry, /\{ label: "Profily", items:/);
   assert.match(directory, /<AdminProfileTypeTabs active="services"/);
   const help = read("app/admin/pomoc-psom/page.tsx");
-  assert.match(help, /actions=\{<Link href="\/admin\/adresar"/);
-  assert.doesNotMatch(help, /AdminProfileTypeTabs/);
+  assert.match(help, /<AdminProfileTypeTabs active=\{active\}/);
+  assert.doesNotMatch(read("components/admin-help-unified-table.tsx"), /aria-label="Typ pomoci"/);
   assert.match(registry, /label: "Podujatia", href: "\/admin\/podujatia"/);
 });
 
@@ -40,7 +40,7 @@ test("V5 post-merge: Services V3 stays narrow on desktop without shrinking mobil
 test("V5 post-merge: SEO audit identifies its D1 snapshot without claiming Google live verification", () => {
   const seo = read("app/admin/kvalita/seo/page.tsx");
   const store = read("lib/admin-seo-quality-store.ts");
-  assert.match(seo, /Audit D1 prepočítaný:/);
+  assert.match(seo, /Audit (?:D1 prepočítaný|prepočítaný z databázy):/);
   assert.match(seo, /nie o živé overenie indexácie v Google/);
   assert.match(store, /generatedAt: new Date\(\)\.toISOString\(\)/);
 });
