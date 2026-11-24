@@ -52,6 +52,11 @@ const ArticleOrigin = Extension.create({
   },
 });
 
+function documentActiveInsideEditor(button: HTMLButtonElement) {
+  const editor = button.closest('[data-article-continuous-document="editable"]');
+  return editor !== null && editor === button.ownerDocument.activeElement;
+}
+
 function InlineWidget({ node, updateAttributes, deleteNode }: NodeViewProps) {
   const actions = useContext(WidgetContext);
   const { kind, block, document, rawTakeaway, promoUtcDay } = node.attrs as {
@@ -66,6 +71,13 @@ function InlineWidget({ node, updateAttributes, deleteNode }: NodeViewProps) {
   const editingKey = kind === "takeaway" ? "takeaway" : "block:" + (block?.id ?? "");
   const editing = actions?.editingWidgetKeys.has(editingKey) ?? false;
   const toggleEditing = () => actions?.toggleWidgetEditing(editingKey);
+  // On mobile, blurring the focused document can immediately re-pin the
+  // save footer over this button between pointer-down and click. Retain the
+  // document focus for pointer activation; keyboard activation stays native.
+  const keepDocumentFocus = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button === 0 && window.innerWidth <= 820 &&
+      documentActiveInsideEditor(event.currentTarget)) event.preventDefault();
+  };
 
   if (kind === "boundary") {
     return <NodeViewWrapper as="div" className={styles.boundary} contentEditable={false}>
@@ -77,7 +89,7 @@ function InlineWidget({ node, updateAttributes, deleteNode }: NodeViewProps) {
       <aside className={styles.takeaway} data-article-continuous-takeaway>
         <div className={styles.widgetHeading}>
           <strong>To najdôležitejšie</strong>
-          <button type="button" onClick={toggleEditing}>
+          <button type="button" onPointerDown={keepDocumentFocus} onClick={toggleEditing}>
             {editing ? "Zavrieť úpravu" : "Upraviť zhrnutie"}
           </button>
         </div>
@@ -93,7 +105,7 @@ function InlineWidget({ node, updateAttributes, deleteNode }: NodeViewProps) {
       <div className={styles.widgetHeading}>
         <strong>{articleBlockLabels[block.type] ?? block.type}</strong>
         <div className={styles.widgetActions}>
-          <button type="button" aria-expanded={editing} onClick={toggleEditing}>
+          <button type="button" aria-expanded={editing} onPointerDown={keepDocumentFocus} onClick={toggleEditing}>
             {editing ? "Zavrieť úpravu" : "Upraviť"}
           </button>
           <button type="button" className={styles.removeWidget} onClick={() => {
