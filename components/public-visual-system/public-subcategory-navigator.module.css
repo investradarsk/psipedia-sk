@@ -15,10 +15,10 @@
   overflow: hidden;
   grid-template-rows: auto 1fr;
   border: 1px solid rgba(23, 53, 43, .12);
-  border-radius: var(--pv-radius-card, 16px);
+  border-radius: var(--ps-radius-card, var(--pv-radius-card, 16px));
   color: inherit;
   background: var(--paper, #fffdf8);
-  box-shadow: 0 7px 22px rgba(23, 53, 43, .045);
+  box-shadow: var(--ps-component-shadow, 0 7px 22px rgba(23, 53, 43, .045));
   text-decoration: none;
   scroll-snap-align: start;
   transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
@@ -26,7 +26,7 @@
 
 .landingCard:hover {
   border-color: rgba(23, 75, 56, .3);
-  box-shadow: 0 12px 30px rgba(23, 53, 43, .085);
+  box-shadow: var(--ps-component-hover-shadow, 0 12px 30px rgba(23, 53, 43, .085));
   transform: translateY(-2px);
 }
 
@@ -102,7 +102,7 @@
   display: -webkit-box;
   overflow: hidden;
   color: var(--forest-dark, #17352b);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.13rem;
   font-weight: 600;
   line-height: 1.14;
@@ -230,7 +230,7 @@
   }
 
   .landingCard {
-    border-radius: 16px;
+    border-radius: var(--ps-radius-card, 16px);
   }
 
   .landingMedia {
@@ -304,7 +304,7 @@
     align-items: stretch;
   }
   .landingMedia, .landingMediaFallback { min-height: 104px; height: 100%; aspect-ratio: auto; }
-  .landingMedia img { border-radius: 15px 0 0 15px; object-fit: cover; }
+  .landingMedia img { border-radius: var(--ps-radius-media, 15px) 0 0 var(--ps-radius-media, 15px); object-fit: cover; }
   .landingIcon { display: none; }
   .landingCopy { min-height: 0; align-content: center; padding: 12px 44px 12px 14px; gap: 5px; }
   .landingCopy > strong { font-size: 1.03rem; }

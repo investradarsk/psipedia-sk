@@ -39,3 +39,28 @@ test("Both fonts ship as local WOFF2 with licenses; no third-party font import",
   }
   assert.doesNotMatch(css, /@import|https?:\/\//);
 });
+
+test("shared V2 components consume canonical typography and control tokens", () => {
+  const shared = read("components/public-visual-system/public-visual-system.module.css");
+  const forms = read("components/public-visual-system/public-form-controls.module.css");
+  const headings = read("components/public-heading.module.css");
+  const filters = read("components/public-filters.module.css");
+  const article = read("components/public-visual-system/public-article-card.module.css");
+  const details = read("components/detail-primitives/detail-primitives.module.css");
+  const results = read("components/public-visual-system/public-result-states.module.css");
+  assert.match(shared, /\.articleListMedia\s*\{[^}]*border-radius: var\(--ps-radius-media, 0\)/s);
+  assert.match(shared, /\.articleListTitle\s*\{[^}]*font-family: var\(--ps-font-heading,/s);
+  assert.match(shared, /\.action\s*\{[^}]*min-height: 44px[^}]*font-family: var\(--ps-font-body,/s);
+  assert.match(shared, /\.actionPrimary\s*\{[^}]*box-shadow: var\(--ps-component-shadow,/s);
+  assert.match(forms, /\.control\s*\{[^}]*min-height: var\(--ps-control-min-height, 44px\)[^}]*font-family: var\(--ps-font-body,/s);
+  assert.match(forms, /aria-invalid="true"/);
+  assert.match(forms, /forced-colors: active/);
+  assert.match(headings, /@media \(max-width: 820px\)/);
+  assert.match(headings, /font-family: var\(--ps-font-body,/);
+  assert.match(filters, /min-height: var\(--ps-control-min-height, 44px\)/);
+  assert.match(article, /\.card :global\(\.article-card-title\)\s*\{[^}]*font-family: var\(--ps-font-heading,/s);
+  assert.match(details, /font-family: var\(--ps-font-body,/);
+  assert.match(results, /border-radius: var\(--ps-radius-control, 10px\)/);
+  assert.match(css, /--ps-ds5-card-hover-shadow: none/);
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*--ps-ds5-card-hover-transform: none/);
+});

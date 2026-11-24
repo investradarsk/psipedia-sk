@@ -81,3 +81,15 @@
     line-height: 1.25;
   }
 }
+
+/* Shared card variants own presentation; preserve edge-to-edge featured crops. */
+.card :global(.article-card-title) {
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
+  font-weight: var(--ps-component-heading-weight, 500);
+}
+.row [data-article-title] {
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
+}
+.row [data-article-image] {
+  border-radius: var(--ps-radius-media, 0);
+}

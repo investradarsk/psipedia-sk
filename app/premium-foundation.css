@@ -52,6 +52,17 @@
 
   --shadow-sm: 0 2px 8px rgba(23, 53, 43, 0.05);
   --ps-ds5-card-shadow: none;
+  --ps-ds5-card-hover-shadow: none;
+  --ps-ds5-card-hover-transform: translateY(-1px);
+  --ps-ds5-card-transition: transform var(--ps-motion-fast) var(--ps-motion-ease), border-color var(--ps-motion-fast) var(--ps-motion-ease);
+  --ps-card-organization-radius: var(--ps-radius-card);
+  --ps-card-organization-shadow: none;
+  --ps-component-shadow: none;
+  --ps-component-hover-shadow: none;
+  --ps-component-control-border: rgba(23, 77, 58, .25);
+  --ps-component-control-surface: var(--paper);
+  --ps-component-heading-weight: 500;
+  --ps-component-label-weight: 650;
   --ps-motion-fast: 180ms;
   --ps-motion-media: 350ms;
   --ps-motion-ease: ease;
@@ -72,6 +83,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root:not(:has([data-admin-workspace])) {
+    --ps-ds5-card-hover-transform: none;
     --ps-motion-fast: 0ms;
     --ps-motion-media: 0ms;
   }

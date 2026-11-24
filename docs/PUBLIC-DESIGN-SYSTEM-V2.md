@@ -1,6 +1,6 @@
 # Psipedia Public Design System V2 — Premium Editorial
 
-Status: migration, step 1/15. Approved visual direction: Premium Editorial prototype V9 (24 November 2026). One shared branch and one draft PR; do not merge until all 15 steps and final visual review are complete.
+Status: migration, step 2/15. Approved visual direction: Premium Editorial prototype V9 (24 November 2026). One shared branch and one draft PR; do not merge until all 15 steps and final visual review are complete.
 
 ## Canonical foundation
 
@@ -18,7 +18,7 @@ Status: migration, step 1/15. Approved visual direction: Premium Editorial proto
 ## Migration checklist
 
 1. Foundation and fonts (implemented in this PR; CI and browser verification pending).
-2. Shared cards, controls, headings and forms.
+2. Shared cards, controls, headings and forms (implemented in shared renderers; CI and browser validation pending).
 3. Header, footer, navigation and search.
 4. Banners, sidebar panels and rankings.
 5. Homepage and section landing pages.
@@ -40,3 +40,7 @@ Audit baseline: 85 non-Admin page templates (58 public, 27 Partner), including d
 - Inter: rsms/inter, docs/font-files/InterVariable.woff2, upstream blob 5a8d3e72ad7ffb62af3b146e1b1f54ab5813a212.
 - Newsreader: productiontype/Newsreader, fonts/variable/woff2/Newsreader[opsz,wght].woff2, upstream blob a505dbbcd93a7462b5b73c0ea55c90fb83897988.
 - Font family aliases isolate the public font faces from Admin's existing system Inter fallback.
+
+### Step 2: shared primitives
+
+Shared component modules now consume the scoped font, radius, control, shadow and motion tokens. Editorial title roles use Newsreader; labels, metadata, actions and form controls use Inter. Keep featured media edge-to-edge inside its clipped card; thumbnails use the shared radius. Preserve component HTML, link semantics, GET params, labels, disabled/loading/invalid states, 44px public target sizes and forced-color focus. Context-specific variants and the partner/local page styling remain migration work in their respective stages.
