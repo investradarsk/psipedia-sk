@@ -1324,3 +1324,19 @@
 .railNote, .railMeta, .railDetails p { font-size: var(--admin-ui-type-caption, 0.83rem); line-height: 1.5; }
 .railField label { font-size: var(--admin-ui-type-label, 0.82rem); }
 
+
+/* A focused inline widget is still part of the active writing surface. Do not
+   re-pin the save bar during the handoff from prose to its edit controls. */
+@media (max-width: 820px) {
+  .workspaceRoot:has([data-article-continuous-widget] :focus,
+    [data-article-continuous-takeaway] :focus)
+    :global([data-editor-page] > div:last-child) {
+    position: static;
+    bottom: auto;
+    box-shadow: none;
+  }
+  .articleForm :global([data-article-continuous-widget]) :is(button, input, textarea, select),
+  .articleForm :global([data-article-continuous-takeaway]) :is(button, input, textarea, select) {
+    scroll-margin-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}
