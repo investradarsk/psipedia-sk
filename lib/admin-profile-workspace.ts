@@ -40,6 +40,6 @@ export function profileDetailedHref(category: string, q = "") {
 }
 
 export function profileTypeForPath(pathname: string) {
-  const path = pathname.split("?")[0];
+  const path = pathname.split(/[?#]/)[0].replace(/\/$/, "");
   return adminProfileTypes.find((item) => path === item.href || path.startsWith(item.href + "/"));
 }

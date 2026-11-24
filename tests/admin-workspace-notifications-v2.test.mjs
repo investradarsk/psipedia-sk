@@ -16,7 +16,7 @@ test("workspace uses lightweight actionable overview while canonical event histo
  assert.match(feed,/enabled=1 AND next_run_at IS NOT NULL/);
  assert.match(feed,/quality_missing_proposals WHERE status='OPEN'/);
  assert.match(feed,/export async function loadAdminWorkspaceOverview/);
- assert.match(ui,/href="\/admin\/operations"/);
+ assert.doesNotMatch(ui,/href="\/admin\/operations"/);
  assert.match(ui,/href="\/admin\/mapy"/);
  assert.doesNotMatch(ui,/href="\/admin\/kvalita"/);
  assert.match(read("components/admin-workspace-dashboard.tsx"),/href="\/admin\/kvalita"/);
@@ -99,11 +99,11 @@ test("dashboard prioritizes real queues and quick agendas over the activity feed
   const activity = read("components/admin-workspace-activity.tsx");
   const attention = dashboard.indexOf('id="admin-priority-title"');
   const community = dashboard.indexOf("<WorkspaceCommunity promise={attentionPromise} />");
-  const quick = dashboard.indexOf('aria-label="Automatizácie a rýchla správa"');
+  const quick = dashboard.indexOf('aria-label="Rýchla správa"');
   const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} />");
   assert.ok(attention !== -1 && attention < community && community < quick && quick < feed);
-  assert.match(activity, /Otvoriť pracovnú sekciu/);
-  assert.match(activity, /href="\/admin\/operations"/);
+  assert.match(activity, /Automatizácie a ďalšie nástroje/);
+  assert.doesNotMatch(activity, /href="\/admin\/operations"/);
   assert.match(activity, /href="\/admin\/mapy"/);
   assert.doesNotMatch(activity, /Prečítané|shown\.map|hiddenIds/);
 });

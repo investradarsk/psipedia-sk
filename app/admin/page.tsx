@@ -35,10 +35,10 @@ function loadWorkspaceQuality() {
     load: async () => {
       const result = await loadAdminQualityPendingSummary((env as unknown as {DB?: D1Database}).DB);
       if (!result.schemaReady) throw Error("Quality suggestions unavailable");
-      return { profilesWithCoreIssues: result.total, mediaIssues: 0 };
+      return { pendingProposals: result.total };
     },
-    fallback: { profilesWithCoreIssues: 0, mediaIssues: 0 },
-    empty: (value) => value.profilesWithCoreIssues === 0 && value.mediaIssues === 0,
+    fallback: { pendingProposals: null },
+    empty: (value) => value.pendingProposals === 0,
   });
 }
 
@@ -68,7 +68,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const boundedQualityPromise = settleAdminOverviewRead(qualityPromise, {
     key: "admin-workspace:data-quality",
     status: "UNAVAILABLE" as const,
-    data: { profilesWithCoreIssues: 0, mediaIssues: 0 },
+    data: { pendingProposals: null },
     checkedAt: new Date().toISOString(),
     errorRef: null,
   });
@@ -81,7 +81,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       user={user}
       eyebrow="Admin"
       title="Pracovný prehľad"
-      description="Začni tým, čo čaká na kontrolu. Odtiaľto sa dostaneš priamo do canonical frontov, správy obsahu, automatizácií a kvality údajov."
+      description="Najprv skontroluj nové upozornenia a návrhy na schválenie. Potom pokračuj v príslušnej pracovnej sekcii."
       actions={<Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link>}
       attentionSummaryPromise={boundedAttentionPromise}
     >

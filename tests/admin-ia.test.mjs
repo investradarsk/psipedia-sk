@@ -245,7 +245,8 @@ test("dashboard count cards point to current canonical filtered work queues", ()
   assert.match(dashboard, /<QueueLink key=\{source\} title=\{title\} source=\{source\} summary=\{attention\}/);
   assert.match(dashboard, /href=\{\x60\/admin\/operations\?source=\$\{source\}\x60\}/);
   assert.match(dashboard, /href="\/admin\/kvalita"/);
-  assert.match(dashboard, /href="\/admin\/automatizacie-gemini"/);
+  assert.match(read("components/admin-workspace-activity.tsx"), /href="\/admin\/automatizacie-gemini"/);
+  assert.match(dashboard, /href=\{ADMIN_PROFILE_HOME\}/);
 });
 
 test("all previous admin agendas and technical deep-link owners still exist", () => {

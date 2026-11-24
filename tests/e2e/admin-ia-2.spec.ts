@@ -24,10 +24,10 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Čo potrebuje pozornosť", exact: true })).toBeVisible();
 
-  await expect(page.getByRole("link", { name: /Aktívne upozornenia/ })).toHaveAttribute("href", "/admin/operations");
+  await expect(page.getByRole("link", { name: /Neprečítané upozornenia/ })).toHaveAttribute("href", "/admin/operations");
   // Old Tavily attention cards are retired: Gemini and Quality own active work.
   await expect(page.getByRole("link", { name: /Automatizácie na kontrolu/ })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Automatizácie Gemini →", exact: true })).toHaveAttribute("href", "/admin/automatizacie-gemini");
+  await expect(page.locator('a[href="/admin/automatizacie-gemini"][class*="linkCard"]')).toHaveAttribute("href", "/admin/automatizacie-gemini");
   // Quality has one priority shortcut; known empty queues live in a compact disclosure.
   await expect(page.locator('a[href="/admin/operations?source=PARTNER_CLAIM_REVIEW"]')).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
   await expect(page.getByRole("link", { name: "Kvalita údajov →", exact: true })).toHaveCount(0);
@@ -446,4 +446,38 @@ test("V6-06 one quality workspace on desktop and mobile", async ({ page }, info)
       await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-06-" + route.replace(/[^a-z0-9]+/gi, "-") + "-" + width + ".png", fullPage: true, animations: "disabled" });
     }
   }
+});
+
+
+test("V6-07 dashboard shortcuts and guarded Ctrl+K return use canonical routes", async ({ page }, info) => {
+  const mobile = info.project.name === "mobile-chromium";
+  await page.setViewportSize({ width: mobile ? 390 : 1440, height: 850 });
+  await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  const shortcuts = page.locator("[data-admin-dashboard-shortcuts]");
+  await expect(shortcuts.getByRole("link", { name: "Všetky profily" })).toHaveAttribute("href", "/admin/adresar");
+  await expect(shortcuts.locator('a[href="/admin/sluzby-pre-psov"], a[href="/admin/pomoc-psom"]')).toHaveCount(0);
+  await shortcuts.getByRole("link", { name: "Všetky profily" }).click();
+  await expect(page).toHaveURL(/\/admin\/adresar$/);
+  const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
+  if (mobile) {
+    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Navigácia administrácie" })).toBeVisible();
+  }
+  await expect(nav.getByRole("link", { name: "Všetky profily", exact: true })).toHaveAttribute("aria-current", "page");
+  if (mobile) await page.keyboard.press("Escape");
+  await page.locator("[data-admin-quick-nav-trigger]").click();
+  const palette = page.locator("[data-admin-quick-navigation]");
+  await expect(palette).toBeVisible();
+  const overview = palette.getByRole("option", { name: /Pracovný prehľad/ });
+  await expect(overview).toBeVisible();
+  await page.evaluate(() => {
+    window.addEventListener("psipedia:admin-navigation-intent", event => event.preventDefault(), { once: true });
+  });
+  await overview.click();
+  await expect(page).toHaveURL(/\/admin\/adresar$/);
+  await expect(palette).toBeVisible();
+  await overview.click();
+  await expect(page).toHaveURL(/\/admin\/?$/);
+  await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
+  await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-07-overview-" + (mobile ? "390" : "1440") + ".png", fullPage: true, animations: "disabled" });
 });

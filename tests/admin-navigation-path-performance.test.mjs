@@ -46,3 +46,22 @@ test("V6-06 quality subroutes share one sidebar owner with exact breadcrumbs", (
   }
   assert.equal(findActiveAdminNavigationItem("/admin/mapy")?.href, "/admin/mapy");
 });
+
+
+test("V6-07 canonical profile and quality breadcrumbs preserve one active owner", () => {
+  for (const [path, label] of [
+    ["/admin/adopcie/", "Adopcie"],
+    ["/admin/stratene-najdene", "Stratené a nájdené psy"],
+    ["/admin/organizacie", "Organizácie a útulky"],
+    ["/admin/pomoc", "Ostatná pomoc"],
+  ]) {
+    assert.equal(findActiveAdminNavigationItem(path)?.href, "/admin/adresar");
+    const crumbs = getAdminBreadcrumbs(path);
+    assert.equal(crumbs.at(-1)?.label, label);
+    assert.equal(crumbs.at(-1)?.current, true);
+  }
+  const detail = getAdminBreadcrumbs("/admin/adopcie/42");
+  assert.deepEqual(detail.map(item => item.href), ["/admin", "/admin/adresar", "/admin/adopcie", "/admin/adopcie/42"]);
+  assert.equal(findActiveAdminNavigationItem("/admin/kontrola-odkazov")?.href, "/admin/kvalita");
+  assert.equal(findActiveAdminNavigationItem("/admin/kvalita/seo")?.href, "/admin/kvalita");
+});

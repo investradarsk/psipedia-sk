@@ -3,16 +3,16 @@ import { Suspense } from "react";
 import {AdminWorkspaceActivity} from "./admin-workspace-activity";
 import type {WorkspaceOverview} from "@/lib/admin-workspace-feed";
 import type { AdminAttentionExactSummary } from "@/lib/admin-attention-queue-store";
-import type { AdminAttentionQueueSourceType } from "@/lib/admin-attention-queue";
+import { adminAttentionQueueSourceTypes, adminAttentionSourceLabels, type AdminAttentionQueueSourceType } from "@/lib/admin-attention-queue";
+import { ADMIN_PROFILE_HOME } from "@/lib/admin-profile-workspace";
 import { summarizeAdminAutomationReads, type AdminAutomationReadResult } from "@/lib/admin-automation-reliability";
-import type { AdminDataQualitySummary } from "@/lib/admin-dashboard-store";
 import styles from "./admin-workspace-dashboard.module.css";
 
 type Availability = "OK" | "EMPTY" | "PARTIAL" | "UNAVAILABLE";
 
 const availabilityLabel: Record<Availability, string> = {
   OK: "Dostupné",
-  EMPTY: "Bez otvorených položiek",
+  EMPTY: "Bez položiek v tomto pohľade",
   PARTIAL: "Čiastočné údaje",
   UNAVAILABLE: "Nedostupné",
 };
@@ -24,7 +24,7 @@ function attentionStatus(summary: AdminAttentionExactSummary): Availability {
 }
 
 function sourceMetric(summary: AdminAttentionExactSummary, source: AdminAttentionQueueSourceType) {
-  const value = summary.bySource[source];
+  const value = summary.availability === "UNAVAILABLE" ? null : summary.bySource[source] ?? null;
   return {
     value,
     status: value === null ? "UNAVAILABLE" as const : value === 0 ? "EMPTY" as const : "OK" as const,
@@ -93,7 +93,7 @@ function QueueLink({
 
 
 // Render each source independently. Slow D1 readers never block unrelated cards.
-type QualityRead = AdminAutomationReadResult<AdminDataQualitySummary>;
+type QualityRead = AdminAutomationReadResult<{ pendingProposals: number | null }>;
 type AttentionPromise = Promise<AdminAttentionExactSummary>;
 type QualityPromise = Promise<QualityRead>;
 type ActivityPromise = Promise<WorkspaceOverview>;
@@ -131,13 +131,13 @@ async function WorkspaceAttentionMetrics({ promise }: { promise: AttentionPromis
   return (
     <>
           <MetricCard
-            emphasized
-            title="Aktívne upozornenia"
-            description="Canonical fronty, pri ktorých je potrebné ľudské rozhodnutie alebo kontrola."
+            emphasized={overallAttentionStatus !== "UNAVAILABLE" && attention.active > 0}
+            title="Neprečítané upozornenia"
+            description="Nové alebo opätovne otvorené upozornenia, ktoré nie sú prečítané ani odložené. Vybavenie úloh sleduj v záložke Na vybavenie."
             href="/admin/operations"
             value={attention.active}
             status={overallAttentionStatus}
-            valueLabel={overallAttentionStatus === "PARTIAL" ? "potvrdených v dostupných zdrojoch" : "čaká na spracovanie"}
+            valueLabel={overallAttentionStatus === "PARTIAL" ? "neprečítaných v dostupných zdrojoch" : "neprečítaných"}
           />
     </>
   );
@@ -149,9 +149,9 @@ async function WorkspaceQualityMetric({ promise }: { promise: QualityPromise }) 
   return (
           <MetricCard
             title="Kvalita údajov"
-            description="Nové skutočne nájdené chýbajúce údaje z Tavily, pripravené na individuálne schválenie."
+            description="Otvorené návrhy na doplnenie údajov. Počet predstavuje návrhy, nie počet dotknutých profilov."
             href="/admin/kvalita"
-            value={quality.status === "UNAVAILABLE" ? null : quality.data.profilesWithCoreIssues}
+            value={quality.status === "UNAVAILABLE" ? null : quality.data.pendingProposals}
             status={quality.status}
             valueLabel="návrhov na schválenie"
           />
@@ -167,18 +167,25 @@ const communitySources: Array<{ title: string; source: AdminAttentionQueueSource
   { title: "Hodnotenia článkov", source: "ARTICLE_FEEDBACK" },
   { title: "Žiadosti o správu profilu", source: "PARTNER_CLAIM_REVIEW" },
 ];
+for (const source of adminAttentionQueueSourceTypes) {
+  if (!communitySources.some((entry) => entry.source === source)) {
+    communitySources.push({ title: adminAttentionSourceLabels[source], source });
+  }
+}
 
 function WorkspaceCommunityPending() {
   return (
     <p className={styles.communityPending} role="status" aria-busy="true">
-      Načítavajú sa otvorené podnety a žiadosti…
+      Načítavajú sa neprečítané upozornenia…
     </p>
   );
 }
 
 async function WorkspaceCommunityCounts({ promise }: { promise: AttentionPromise }) {
   const attention = await promise;
-  const actionable = communitySources.filter(({ source }) => sourceMetric(attention, source).value !== 0);
+  const actionable = communitySources
+    .filter(({ source }) => sourceMetric(attention, source).value !== 0)
+    .sort((a, b) => (sourceMetric(attention, b.source).value ?? -1) - (sourceMetric(attention, a.source).value ?? -1));
   const completed = communitySources.filter(({ source }) => sourceMetric(attention, source).value === 0);
 
   return (
@@ -193,8 +200,8 @@ async function WorkspaceCommunityCounts({ promise }: { promise: AttentionPromise
       {completed.length > 0 && (
         <details className={styles.completedQueues} data-admin-completed-queues>
           <summary>
-            <span>{actionable.length === 0 ? "Bez otvorených podnetov a žiadostí" : "Ďalšie vybavené agendy"}</span>
-            <small>{completed.length} bez otvorených položiek · zobraziť</small>
+            <span>{actionable.length === 0 ? "Bez neprečítaných upozornení" : "Ďalšie agendy bez neprečítaných upozornení"}</span>
+            <small>{completed.length} bez neprečítaných · zobraziť</small>
           </summary>
           <div className={styles.completedQueueLinks}>
             {completed.map(({ title, source }) => (
@@ -215,9 +222,9 @@ function WorkspaceCommunity({ promise }: { promise: AttentionPromise }) {
       <div className={styles.sectionHeading}>
         <div>
           <span>Komunita</span>
-          <h2 id="admin-community-title">Podnety, žiadosti a moderovanie</h2>
+          <h2 id="admin-community-title">Neprečítané podľa agendy</h2>
         </div>
-        <p>Každá položka otvorí príslušné žiadosti a podnety.</p>
+        <p>Nula znamená bez neprečítaných upozornení, nie bez nevybavených úloh. Pomlčka znamená nedostupný zdroj.</p>
       </div>
       <Suspense fallback={<WorkspaceCommunityPending />}>
         <WorkspaceCommunityCounts promise={promise} />
@@ -246,10 +253,9 @@ export function AdminWorkspaceDashboard({
             <span>Teraz</span>
             <h2 id="admin-priority-title">Čo potrebuje pozornosť</h2>
           </div>
-          <Link prefetch={false} href="/admin/operations">Všetky upozornenia →</Link>
         </div>
         <div className={styles.priorityGrid}>
-          <Suspense fallback={<PendingMetric label="Aktívne upozornenia" />}>
+          <Suspense fallback={<PendingMetric label="Neprečítané upozornenia" />}>
             <WorkspaceAttentionMetrics promise={attentionPromise} />
           </Suspense>
           <Suspense fallback={<PendingMetric label="Kvalita údajov" />}>
@@ -258,40 +264,23 @@ export function AdminWorkspaceDashboard({
         </div>
       </section>
       <WorkspaceCommunity promise={attentionPromise} />
-      <section className={styles.splitGrid} aria-label="Automatizácie a rýchla správa">
-        <article className={styles.panel}>
-          <div className={styles.panelHeading}>
-            <div>
-              <span>Automatizácie Gemini</span>
-              <h2>Vyhľadávanie a plánovanie</h2>
-            </div>
+      <section className={styles.panel} aria-label="Rýchla správa">
+        <div className={styles.panelHeading}>
+          <div>
+            <h2>Najčastejšie agendy</h2>
           </div>
-          <p>Nové návrhy a ich plánovanie spravujú Automatizácie Gemini.</p>
-          <div className={styles.actionRow}>
-            <Link prefetch={false} href="/admin/automatizacie-gemini">Automatizácie Gemini →</Link>
-          </div>
-        </article>
-
-        <article className={styles.panel}>
-          <div className={styles.panelHeading}>
-            <div>
-              <span>Správa portálu</span>
-              <h2>Najčastejšie agendy</h2>
-            </div>
-          </div>
-          <div className={styles.quickLinks}>
-            <Link prefetch={false} href="/admin/clanky">Články</Link>
-            <Link prefetch={false} href="/admin/recenzie">Recenzie a testy</Link>
-            <Link prefetch={false} href="/admin/plemena">Plemená</Link>
-            <Link prefetch={false} href="/admin/sluzby-pre-psov">Služby pre psov</Link>
-            <Link prefetch={false} href="/admin/podujatia">Podujatia</Link>
-            <Link prefetch={false} href="/admin/pomoc-psom">Pomoc psom</Link>
-            <Link prefetch={false} href="/admin/partners">Partneri</Link>
-          </div>
-        </article>
+        </div>
+        <div className={styles.quickLinks} data-admin-dashboard-shortcuts>
+          <Link prefetch={false} href="/admin/clanky">Články</Link>
+          <Link prefetch={false} href="/admin/recenzie">Recenzie a testy</Link>
+          <Link prefetch={false} href="/admin/plemena">Plemená</Link>
+          <Link prefetch={false} href={ADMIN_PROFILE_HOME}>Všetky profily</Link>
+          <Link prefetch={false} href="/admin/podujatia">Podujatia</Link>
+          <Link prefetch={false} href="/admin/partners">Partneri</Link>
+        </div>
       </section>
-      {/* Event history belongs after actionable queues and commonly used agendas. */}
-      <Suspense fallback={<p role="status">Načítava sa pracovný feed…</p>}>
+      {/* Scheduling and secondary tools follow actionable queues. */}
+      <Suspense fallback={<p role="status">Načítava sa plán automatizácií…</p>}>
         <WorkspaceActivityPanel promise={activityPromise} />
       </Suspense>
 

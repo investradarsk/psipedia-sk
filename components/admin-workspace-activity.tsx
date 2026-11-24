@@ -18,30 +18,25 @@ export function AdminWorkspaceActivity({ initial }: { initial: WorkspaceOverview
     <section className={styles.root} aria-label="Prejsť do pracovných sekcií">
       <div className={styles.titleRow}>
         <div>
-          <small>Rýchly prehľad</small>
-          <h2>Otvoriť pracovnú sekciu</h2>
-          <p>Vyber oblasť, v ktorej chceš pokračovať. Jednotlivé udalosti nájdeš v príslušnej agende.</p>
+          <h2>Automatizácie a ďalšie nástroje</h2>
         </div>
       </div>
       <div className={styles.links}>
-        <Link href="/admin/operations" className={styles.linkCard}>
-          <strong>Podnety a upozornenia</strong>
-          <span>Čakajúce schválenia a žiadosti</span>
-          <b>Otvoriť upozornenia →</b>
-        </Link>
-        <Link href="/admin/mapy" className={styles.linkCard}>
+        <Link prefetch={false} href="/admin/mapy" className={styles.linkCard}>
           <strong>Adresy a polohy na overenie</strong>
           <span>Neúplné, nejednoznačné alebo nepotvrdené lokality profilov</span>
           <b>Otvoriť mapy →</b>
         </Link>
-        <Link href="/admin/automatizacie-gemini" className={styles.linkCard}>
+        <Link prefetch={false} href="/admin/automatizacie-gemini" className={styles.linkCard}>
           <strong>Automatizácie Gemini</strong>
           <span>{initial.nextGemini
             ? `Najbližšie: ${initial.nextGemini.label}, ${formatTime(initial.nextGemini.nextRunAt)}`
-            : "Najbližšie spustenie nie je potvrdené"}</span>
+             : initial.status === "UNAVAILABLE"
+              ? "Plán spustení je nedostupný"
+              : "Žiadne potvrdené budúce spustenie"}</span>
           <b>Otvoriť plánovač →</b>
         </Link>
-        <Link href="/admin/facebook-obrazky" className={styles.linkCard}>
+        <Link prefetch={false} href="/admin/facebook-obrazky" className={styles.linkCard}>
           <strong>Facebook obrázky</strong>
           <span>Príspevky, schvaľovanie a publikovanie</span>
           <b>Otvoriť Facebook obrázky →</b>
