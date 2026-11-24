@@ -1,6 +1,6 @@
 .page { min-height: 0; padding: 28px 0 28px; background: var(--cream); }
 .hero { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 28px; align-items: end; padding: 30px; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-card); background: var(--ps-surface-raised); }
-.hero h1 { margin: 8px 0 12px; color: var(--ink); font: 500 clamp(2rem, 3.8vw, 3.5rem)/1.06 Georgia, serif; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.hero h1 { margin: 8px 0 12px; color: var(--ink); font: 500 clamp(2rem, 3.8vw, 3.5rem)/1.06 var(--ps-font-heading); letter-spacing: -.035em; overflow-wrap: anywhere; }
 .hero p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.65; overflow-wrap: anywhere; }
 .heroActions { display: flex; min-width: 0; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
 .summary { display: grid; grid-template-columns: minmax(190px,.7fr) minmax(0,2fr); gap: 14px; margin-top: 18px; }
@@ -13,12 +13,12 @@
 .dimension strong { display: block; margin-top: 4px; color: var(--ink); font-size: 1.25rem; }
 .zero strong { color: var(--ink); }
 .zero p { margin: 6px 0 0; color: var(--muted); }
-.info { margin-top: 18px; padding: 20px 22px; border-radius: var(--ps-radius-filter); background: var(--ink); color: var(--white); }
+.info { margin-top: 18px; padding: 20px 22px; border-radius: var(--ps-radius-filter); background: var(--ps-premium-gradient); color: var(--ps-premium-on-dark); border-inline-start: var(--ps-premium-accent-width) solid var(--ps-premium-accent); }
 .info strong { display: block; margin-bottom: 5px; }
-.info p { margin: 0; color: rgba(255,255,255,.76); font-size: .78rem; line-height: 1.55; }
+.info p { margin: 0; color: var(--ps-premium-muted-on-dark); font-size: .78rem; line-height: 1.55; }
 .source { margin-top: 12px; color: var(--muted); font-size: .7rem; }
 .source a { color: var(--forest); font-weight: 800; }
-.ratingShell { min-height: 70vh; padding: 38px 16px 68px; background: #f5f7f3; }
+.ratingShell { min-height: 70vh; padding: 38px 16px 68px; background: var(--cream); }
 @media (max-width: 760px) {
   .hero { grid-template-columns: 1fr; padding: 22px; }
   .heroActions { justify-content: flex-start; }
@@ -27,12 +27,12 @@
 }
 
 .heroIdentity { display: grid; grid-template-columns: 112px minmax(0,1fr); gap: 20px; align-items: center; }
-.logo { display: grid; width: 112px; height: 92px; place-items: center; overflow: hidden; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-filter); background: var(--sage-light); }
+.logo { display: grid; width: 112px; height: 92px; place-items: center; overflow: hidden; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-media); background: var(--sage-light); }
 .logo img { width: 100%; height: 100%; padding: 14px; box-sizing: border-box; object-fit: contain; background: #fff; }
 .logo span { font-size: 2rem; }
 .focusTags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
 .focusTags span { padding: 6px 9px; border-radius: 999px; color: var(--forest-dark); background: var(--sage-light); font-size: .7rem; font-weight: 800; }
-@media (max-width: 760px) { .heroIdentity { grid-template-columns: 78px minmax(0,1fr); } .logo { width: 78px; height: 68px; border-radius: var(--ps-radius-control); } }
+@media (max-width: 760px) { .heroIdentity { grid-template-columns: 78px minmax(0,1fr); } .logo { width: 78px; height: 68px; border-radius: var(--ps-radius-media); } }
 @media (max-width: 480px) { .heroIdentity { grid-template-columns: 1fr; } }
 
 /* Compact shared detail density for the shop profile, matching public profile cards. */
@@ -47,7 +47,7 @@
 .dimension { padding: 12px; }
 .dimension strong { font-size: 1.09rem; }
 .about { margin-top: 15px; padding: 22px; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-card); background: var(--ps-surface-raised); }
-.about h2 { margin: 0 0 10px; color: var(--forest-dark); font: 600 clamp(1.3rem, 2vw, 1.7rem)/1.2 Georgia, serif; }
+.about h2 { margin: 0 0 10px; color: var(--forest-dark); font: 600 clamp(1.3rem, 2vw, 1.7rem)/1.2 var(--ps-font-heading); }
 .about p { margin: 0; max-width: 76ch; color: var(--muted); font-size: .89rem; line-height: 1.65; overflow-wrap: anywhere; }
 .info { margin-top: 14px; padding: 18px 20px; }
 .source { margin-bottom: 0; }
@@ -66,3 +66,11 @@
   .logo { width: 70px; height: 64px; }
   .heroActions { grid-template-columns: minmax(0,1fr); }
 }
+
+/* V2-11: the rating route is outside /recenzia/layout. */
+.page, .ratingShell { font-family: var(--ps-font-body); }
+.score strong, .dimension strong { font-variant-numeric: tabular-nums; }
+.zero { margin-top: 14px; }
+.ratingShell :global(.review-auth-verification-card) { width: min(620px, 100%); margin: 20px auto 0; padding: clamp(20px, 4vw, 40px); background: var(--paper); border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-card); text-align: center; }
+.ratingShell :global(.review-auth-verification-card h2) { font-family: var(--ps-font-heading); font-weight: 500; }
+.ratingShell :global(.review-auth-verification-card .button) { min-height: 44px; margin-top: 12px; border-radius: var(--ps-radius-control); font-family: var(--ps-font-body); }
