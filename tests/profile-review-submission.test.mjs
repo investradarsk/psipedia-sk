@@ -596,3 +596,35 @@ test("guest can submit a moderated service review without an email and the same 
     sqlite.close();
   }
 });
+
+test("service review catalog includes secondary categories, unrated profiles and visible reviews only", async () => {
+  const { sqlite, database } = fixture();
+  try {
+    sqlite.exec(`
+      ALTER TABLE directory_profiles ADD COLUMN city TEXT;
+      ALTER TABLE directory_profiles ADD COLUMN district TEXT;
+      CREATE TABLE directory_profile_additional_categories (profile_id INTEGER,category TEXT);
+      UPDATE directory_profiles SET city='Nitra' WHERE id=1;
+      INSERT INTO directory_profiles(id,name,slug,category,status,city) VALUES
+        (3,'Salon','salon','salony-a-sluzby','published','Nitra'),
+        (4,'Veterina bez hodnotenia','bez','veterinari','published','Levice'),
+        (5,'Archived','archived','veterinari','archived','Nitra');
+      INSERT INTO directory_profile_additional_categories VALUES (3,'veterinari');
+      INSERT INTO profile_reviews(id,resource_id,author_id,overall_rating,body,rating_schema_version,status,created_at,updated_at)
+        VALUES ('visible','opaque.directory.1','author-1',5,'Skutočný text recenzie veterinára.',1,'VISIBLE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+        ('pending','opaque.directory.1','author-suspended',1,'Druhá ešte neschválená recenzia.',1,'PENDING_REVIEW',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
+    `);
+    const { listServiceReviewCatalog } = await importTs("lib/service-review-catalog.ts");
+    const result = await listServiceReviewCatalog(database, "veterinari", "", "rating", 1);
+    assert.equal(result.total, 3);
+    assert.equal(result.rows[0].id, 1);
+    assert.equal(result.rows[0].review_count, 1);
+    assert.equal(result.rows[0].average_rating, 5);
+    assert.equal(result.rows.find(row => row.id === 3).average_rating, null);
+    assert.equal(result.rows.find(row => row.id === 4).review_count, 0);
+    assert.equal((await listServiceReviewCatalog(database, "veterinari", "Nitra", "name", 1)).total, 2);
+    assert.equal((await listServiceReviewCatalog(database, "veterinari", "%", "name", 1)).total, 0);
+  } finally {
+    sqlite.close();
+  }
+});
