@@ -260,7 +260,7 @@ export default async function AdminSeoQualityPage({
         </nav>
       ) : null}
 
-      <p><small>Audit vygenerovaný: {new Date(report.generatedAt).toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" })}</small></p>
+      <p><small>Audit D1 prepočítaný: {new Date(report.generatedAt).toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" })}. Ide o aktuálne uložené publikované údaje Psipedia, nie o živé overenie indexácie v Google.</small></p>
     </AdminShell>
   );
 }
