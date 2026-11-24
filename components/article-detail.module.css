@@ -1,10 +1,10 @@
 .modernArticle {
-  --article-reading-width: min(800px, var(--ps-reading-measure));
+  --article-reading-width: 800px;
   --article-sidebar-width: 290px;
   --article-layout-gap: clamp(20px, 2vw, 30px);
   min-width: 0;
   background: var(--cream);
-  /* Resolve ch against the same Inter size as the prose, including the grid track. */
+  /* Preserve the approved reading column when the font metrics change. */
   font-family: var(--ps-reading-font);
   font-size: var(--ps-reading-size);
 }
@@ -225,7 +225,7 @@
 
 .readingShell :global(.article-prose) {
   width: 100%;
-  max-width: var(--ps-reading-measure);
+  max-width: var(--article-reading-width);
   min-width: 0;
   margin: 0;
   color: var(--ps-reading-color);
@@ -549,6 +549,11 @@
   box-shadow: none;
 }
 
+.readingShell :global(.article-block-source > strong),
+.readingShell :global(.article-block-related > span) {
+  color: var(--muted);
+}
+
 .readingShell :global(.article-block-sources) {
   margin-top: 40px;
   padding: 22px 0 0;
@@ -827,7 +832,7 @@
   }
 
   .readingShell :global(.article-prose) {
-    max-width: var(--ps-reading-measure);
+    max-width: var(--article-reading-width);
     font-size: var(--ps-reading-size);
     line-height: var(--ps-reading-leading);
   }
