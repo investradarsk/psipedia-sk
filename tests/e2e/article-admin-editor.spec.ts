@@ -328,7 +328,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await modal.getByRole("button", { name: "Uložiť zobrazenie" }).click();
     await expect(modal).toBeHidden();
     await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
-    await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
+    await expect(page.getByText("Koncept je uložený v D1.")).toBeVisible();
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForEditor(page);
@@ -504,7 +504,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(canvas).toContainText("Legacy úvod článku");
     await replaceParagraph(page, "first", "Existujúci článok bezpečne upravený v novom súvislom editore.");
     await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
-    await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
+    await expect(page.getByText("Koncept je uložený v D1.")).toBeVisible();
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForEditor(page);
     await expect(canvas).toContainText("Existujúci článok bezpečne upravený");
