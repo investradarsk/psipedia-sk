@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import { articleEntity, eventEntity } from "../lib/admin-seo-quality-entities.ts";
+import { DatabaseSync } from "node:sqlite";
+import { articleEntity, eventEntity, loadPublishedSeoQualityEntities } from "../lib/admin-seo-quality-entities.ts";
 import { auditSeoQualityEntity, isSeoMetadataFinding, isSeoProfileAgenda } from "../lib/admin-seo-quality-rules.ts";
 import { selectAdminSeoQualityPage } from "../lib/admin-seo-quality-page.ts";
 
@@ -255,4 +256,173 @@ test("SEO defaults prioritize missing profile metadata without inventing custom 
   assert.match(store, /: "metadata"/);
   assert.match(page, /SEO metadáta profilov/);
   assert.match(page, /Automatické SEO metadáta/);
+});
+
+
+test("V6-01 audits SQL-only schemas and never resurrects retired JSON", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    // Isolated schema fixture: no production database or migration execution.
+    sqlite.exec(`
+      CREATE TABLE directory_profiles (
+        id INTEGER PRIMARY KEY, slug TEXT, name TEXT, category TEXT, status TEXT,
+        excerpt TEXT, description TEXT, city TEXT, online INTEGER, image_url TEXT
+      );
+      CREATE TABLE directory_profile_service_texts (
+        profile_id INTEGER, item_order INTEGER, service_text TEXT
+      );
+      CREATE TABLE directory_profile_qualifications (
+        profile_id INTEGER, item_order INTEGER, qualification_text TEXT
+      );
+      CREATE TABLE directory_profile_seo (
+        profile_id INTEGER PRIMARY KEY, title TEXT DEFAULT '', description TEXT DEFAULT '',
+        focus_keyword TEXT DEFAULT '', canonical_url TEXT DEFAULT '', og_title TEXT DEFAULT '',
+        og_description TEXT DEFAULT '', og_image_url TEXT DEFAULT '', noindex INTEGER DEFAULT 0
+      );
+      CREATE TABLE directory_profile_additional_categories (profile_id INTEGER, category TEXT);
+      CREATE TABLE directory_profile_extra_fields (profile_id INTEGER, field_key TEXT, text_value TEXT);
+      CREATE TABLE service_profile_option_choices (profile_id INTEGER, option_id TEXT, choice TEXT);
+      CREATE TABLE service_catalog_builtin_overrides (
+        option_id TEXT, label TEXT, categories_json TEXT, group_name TEXT, meaning TEXT, version INTEGER
+      );
+      CREATE TABLE service_catalog_admin_options (
+        id TEXT, label TEXT, categories_json TEXT, group_name TEXT, meaning TEXT,
+        version INTEGER, kind TEXT, status TEXT
+      );
+      CREATE TABLE managed_breeds (
+        id INTEGER PRIMARY KEY, slug TEXT, name TEXT, status TEXT, fci_group INTEGER,
+        image_url TEXT, intro TEXT, character TEXT, needs TEXT, history TEXT,
+        exercise TEXT, training TEXT, health TEXT
+      );
+      CREATE TABLE managed_events (
+        id INTEGER, slug TEXT, title TEXT, status TEXT, excerpt TEXT, event_type TEXT, city TEXT,
+        description TEXT, practical_info TEXT, image_url TEXT, seo_json TEXT
+      );
+      CREATE TABLE help_cases (
+        id INTEGER, slug TEXT, title TEXT, status TEXT, category TEXT, excerpt TEXT, description TEXT,
+        dog_name TEXT, city TEXT, location_note TEXT, contact_note TEXT, image_url TEXT, seo_json TEXT
+      );
+      CREATE TABLE lost_found_dog_reports (
+        id INTEGER, type TEXT, slug TEXT, dog_name TEXT, breed TEXT, description TEXT,
+        distinguishing_marks TEXT, collar_description TEXT, main_image TEXT, city TEXT,
+        location_description TEXT, public_contact_note TEXT, status TEXT, published_at TEXT,
+        duplicate_of_id INTEGER, expires_at TEXT
+      );
+      CREATE TABLE help_organizations (
+        id INTEGER, name TEXT, slug TEXT, type TEXT, short_description TEXT, description TEXT,
+        image_url TEXT, city TEXT, status TEXT, published_at TEXT, archived_at TEXT
+      );
+      CREATE TABLE organization_locations (
+        id INTEGER, organization_id INTEGER, city TEXT, is_primary INTEGER, sort_order INTEGER
+      );
+      CREATE TABLE adoption_dogs (
+        id INTEGER, name TEXT, slug TEXT, city TEXT, main_image TEXT, short_description TEXT,
+        description TEXT, temperament TEXT, health_notes TEXT, adoption_requirements TEXT, status TEXT
+      );
+      CREATE TABLE managed_articles (
+        id INTEGER, slug TEXT, title TEXT, excerpt TEXT, category TEXT, portal_section TEXT,
+        intro TEXT, takeaway TEXT, sections_json TEXT, blocks_json TEXT, image_url TEXT,
+        image_alt TEXT, seo_title TEXT, meta_description TEXT, canonical_url TEXT, noindex INTEGER,
+        status TEXT, published_at TEXT
+      );
+    `);
+    // Reuse the reviewed breed schema definitions in the disposable SQLite fixture.
+    sqlite.exec(fs.readFileSync(new URL("../drizzle/0174_breeds_sql_json_foundation.sql", import.meta.url), "utf8"));
+    sqlite.exec(`
+      INSERT INTO directory_profiles VALUES
+        (1,'test','Veterina','veterinari','published','Perex','Popis','Nitra',0,'/media/a.webp'),
+        (2,'empty','Prázdny','veterinari','published','','','Nitra',0,''),
+        (3,'absent','Bez SEO','veterinari','published','','','Nitra',0,''),
+        (4,'draft','Koncept','veterinari','draft','','','Nitra',0,'');
+      INSERT INTO directory_profile_seo (profile_id,title,description,canonical_url,noindex)
+        VALUES (1,'SQL title','SQL description','/adresar/veterinari/other',1),(2,'','','',0);
+      INSERT INTO directory_profile_qualifications VALUES (1,2,'Druhá'),(1,1,'Prvá');
+      INSERT INTO directory_profile_service_texts VALUES (1,1,'Samostatný text'),(1,2,'Potlačená služba');
+      INSERT INTO directory_profile_additional_categories VALUES (1,'treneri');
+      INSERT INTO directory_profile_extra_fields VALUES (1,'_psipedia_trainer_services_text','Text trénera');
+      INSERT INTO service_catalog_admin_options VALUES
+        ('test-no','Potlačená služba','["veterinari"]','Test','Test',1,'service','ACTIVE'),
+        ('test-yes','Nová služba','["treneri"]','Test','Test',1,'service','ACTIVE');
+      INSERT INTO service_profile_option_choices VALUES (1,'test-no','no'),(1,'test-yes','yes');
+      INSERT INTO managed_breeds (id,slug,name,status,fci_group,intro,seo_title,seo_description,seo_noindex,seo_canonical_url)
+        VALUES (10,'labrador','Labrador','published',8,'Úvod','SQL plemeno','SQL popis',1,
+          '/plemena/retrievery-sliedice-vodne/labrador');
+      INSERT INTO breed_editorial_text (breed_id,overview) VALUES (10,'SQL redakčný text');
+      INSERT INTO managed_events (id,slug,title,status,event_type,seo_json)
+        VALUES (20,'event','Podujatie','published','Preteky','{"title":"SEO podujatia","noindex":true}');
+      INSERT INTO help_cases (id,slug,title,status,category,seo_json)
+        VALUES (30,'case','Prípad','published','zbierky','{"title":"SEO pomoci","noindex":true}');
+      INSERT INTO managed_articles (id,slug,title,portal_section,seo_title,meta_description,canonical_url,noindex,status)
+        VALUES (40,'article','Článok','clanky','SEO článku','SQL description','/clanky/article',1,'published');
+    `);
+    const database = {
+      prepare(sql) {
+        assert.match(sql, /^\s*SELECT\b/i);
+        const statement = sqlite.prepare(sql);
+        let bindings = [];
+        return {
+          bind(...args) { bindings = args; return this; },
+          async all() { return { results: statement.all(...bindings) }; },
+        };
+      },
+    };
+    const initial = await loadPublishedSeoQualityEntities(database);
+    assert.deepEqual(initial.map((row) => row.id), [1, 2, 3, 20, 30, 10, 40]);
+    const byId = (rows, id) => rows.find((row) => row.id === id);
+    const directory = byId(initial, 1);
+    assert.equal(directory.customSeoTitle, "SQL title");
+    assert.equal(directory.resultDescription, "SQL description");
+    assert.equal(directory.noindex, true);
+    const codes = auditSeoQualityEntity(directory).map((item) => item.code);
+    assert.ok(codes.includes("noindex-explicit"));
+    assert.ok(codes.includes("canonical-nonstandard"));
+    assert.deepEqual(directory.uniqueContentParts, [
+      "Perex", "Popis", "Samostatný text", "Nová služba", "Prvá", "Druhá", "Text trénera",
+    ]);
+    for (const id of [2, 3]) {
+      const row = byId(initial, id);
+      assert.equal(row.customSeoTitle, "");
+      assert.equal(row.customSeoDescription, "");
+      assert.equal(row.noindex, false);
+      assert.equal(row.customCanonical, "");
+      assert.ok(auditSeoQualityEntity(row).some((item) => item.code === "custom-title-missing"));
+    }
+    const breed = byId(initial, 10);
+    assert.equal(breed.customSeoTitle, "SQL plemeno");
+    assert.equal(breed.noindex, true);
+    assert.ok(breed.uniqueContentParts.includes("SQL redakčný text"));
+    assert.equal(auditSeoQualityEntity(breed).some((item) => item.code === "canonical-nonstandard"), false);
+    assert.equal(byId(initial, 20).customSeoTitle, "SEO podujatia");
+    assert.equal(byId(initial, 30).customSeoTitle, "SEO pomoci");
+    assert.equal(byId(initial, 40).customSeoTitle, "SEO článku");
+    assert.ok([20, 30, 40].every((id) => byId(initial, id).noindex));
+
+    // Even a mixed transitional schema with deliberately wrong legacy documents
+    // must produce exactly the same result, including empty SQL sidecars.
+    sqlite.exec(`
+      ALTER TABLE directory_profiles ADD COLUMN services_json TEXT DEFAULT '["STALE SERVICE"]';
+      ALTER TABLE directory_profiles ADD COLUMN qualifications_json TEXT DEFAULT '["STALE QUALIFICATION"]';
+      ALTER TABLE directory_profiles ADD COLUMN seo_json TEXT DEFAULT '{"title":"STALE","noindex":true}';
+      ALTER TABLE managed_breeds ADD COLUMN seo_json TEXT DEFAULT '{"title":"STALE","noindex":false}';
+      ALTER TABLE managed_breeds ADD COLUMN editorial_json TEXT DEFAULT '{"overview":"STALE"}';
+    `);
+    assert.deepEqual(await loadPublishedSeoQualityEntities(database, { BREED_SQL_V2_READ_MODE: "off" }), initial);
+
+    // Fresh SQL edits, including a cleared SEO override, are visible immediately.
+    sqlite.exec(`
+      UPDATE directory_profile_seo SET title='', description='', canonical_url='', noindex=0 WHERE profile_id=1;
+      DELETE FROM directory_profile_qualifications WHERE profile_id=1;
+      DELETE FROM directory_profile_service_texts WHERE profile_id=1;
+      UPDATE managed_breeds SET seo_title='Aktualizované SQL plemeno',seo_noindex=0 WHERE id=10;
+    `);
+    const edited = await loadPublishedSeoQualityEntities(database);
+    assert.equal(byId(edited, 1).customSeoTitle, "");
+    assert.equal(byId(edited, 1).customCanonical, "");
+    assert.equal(byId(edited, 1).noindex, false);
+    assert.deepEqual(byId(edited, 1).uniqueContentParts, ["Perex", "Popis", "Nová služba", "Text trénera"]);
+    assert.equal(byId(edited, 10).customSeoTitle, "Aktualizované SQL plemeno");
+    assert.equal(byId(edited, 10).noindex, false);
+  } finally {
+    sqlite.close();
+  }
 });
