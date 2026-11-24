@@ -1,0 +1,1772 @@
+{
+  "ref": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+  "start": 112,
+  "end": 128,
+  "rows": [
+    {
+      "file": "production-d1-breeder-0169.yml",
+      "blob": "fc9618a44125aa86e885ad8cf9b7de18e856ecbb",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Read-only audit first; apply requires explicit owner confirmation\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: Enter AUDIT-0169-psipedia-sk-db or APPLY-0169-psipedia-sk-db\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "relation-schema",
+          "name": "Pinned 0169 read-only audit or independent additive schema apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Enforce owner dispatch from main and exact confirmation",
+              "commands": []
+            },
+            {
+              "name": "name: Checkout dispatched main",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main before D1 access",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Verify pinned SQL and standalone migration safety",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-breeder-0169.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Bind canonical Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Execute owner-selected audit or standalone schema-only apply",
+              "commands": [
+                "run: node scripts/production-d1-breeder-0169.mjs \"${{ inputs.mode }}\""
+              ]
+            },
+            {
+              "name": "name: Save schema-only receipt and D1 Time Travel bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-breeder-0169.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-breeder-0169.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-breeder-cutover.yml",
+      "blob": "068480c72966bbbe82ed4d2d15a8714c67e68110",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Audit, freeze, reset, or release (separate owner approvals)\n        required: true\n        type: choice\n        default: audit\n        options:\n          - audit\n          - freeze\n          - reset\n          - release\n      fingerprint:\n        description: Exact latest audit snapshot fingerprint (required for freeze and reset)\n        type: string\n        required: false\n      notion_verification:\n        description: Reset only - NOTION-RELATION-FIELDS-VERIFIED-EMPTY\n        type: string\n        required: false\n      release_verification:\n        description: Release only after verified #1414 deployment - NEW-1414-RUNTIME-VERIFIED\n        type: string\n        required: false\n      confirmation:\n        description: Enter AUDIT-, FREEZE-, RESET-, or RELEASE-BREEDER-CUTOVER-psipedia-sk-db\n        type: string\n        required: true",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "cutover",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Check protected dispatch",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: |",
+              "commands": [
+                "node --check scripts/production-d1-breeder-cutover.mjs",
+                "node --test tests/production-d1-breeder-0169.test.mjs tests/production-d1-breeder-cutover.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Bind canonical account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Execute protected cutover phase (Notion verified separately)",
+              "commands": [
+                "run: node scripts/production-d1-breeder-cutover.mjs \"$BREEDER_CUTOVER_MODE\""
+              ]
+            },
+            {
+              "name": "uses: actions/upload-artifact@v4",
+              "if": "always()",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/production-d1-breeder-0169.test.mjs",
+        "tests/production-d1-breeder-cutover.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-breeder-cutover.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-breeder-link-reset.yml",
+      "blob": "0d515dcd0b3d2380046cbbe5ef0aa4679fb8caeb",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: Enter AUDIT-BREEDER-LINKS-psipedia-sk-db\n        type: string\n        required: true",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "audit",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Check protected dispatch",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: |",
+              "commands": [
+                "node --check scripts/production-d1-breeder-link-reset.mjs",
+                "node --test tests/production-d1-breeder-0169.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Bind canonical account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Read-only D1 preflight (Notion verified separately)",
+              "commands": [
+                "run: node scripts/production-d1-breeder-link-reset.mjs audit"
+              ]
+            },
+            {
+              "name": "uses: actions/upload-artifact@v4",
+              "if": "always()",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/production-d1-breeder-0169.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-breeder-link-reset.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-directory-0170.yml",
+      "blob": "cf36338110a60bb187c8c4f2913deaa824354acc",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Read-only audit first; apply needs explicit owner confirmation\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: AUDIT-0170-psipedia-sk-db or APPLY-0170-psipedia-sk-db\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "directory-0170",
+          "name": "Pinned 0170 audit / independent additive schema operation",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Reject automated, wrong-branch or unconfirmed dispatch",
+              "commands": []
+            },
+            {
+              "name": "name: Checkout pinned main commit",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main before connecting to production D1",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Assert pinned schema-only SQL and offline D1 lifecycle guards",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-directory-0170.test.mjs tests/directory-sql-0170-schema.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Bind canonical Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Execute owner-selected schema-only read or apply",
+              "commands": [
+                "run: node scripts/production-d1-directory-0170.mjs \"${{ inputs.mode }}\""
+              ]
+            },
+            {
+              "name": "name: Archive schema receipt and recovery bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-directory-0170.test.mjs",
+        "tests/directory-sql-0170-schema.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-directory-0170.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-directory-0173.yml",
+      "blob": "68a65268b5b62f79a35739ef1bce650e638e4024",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Read-only audit first; apply requires explicit owner approval\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: AUDIT-0173-psipedia-sk-db or APPLY-0173-psipedia-sk-db\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "directory-0173",
+          "name": "Canonical SQL 0173 audit or exact-file apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Refuse automated, non-main or unconfirmed operations",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main before D1 access",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Validate isolated 0173 rollout guard and SQL constraints",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/directory-sql-0173-foundation.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Bind canonical Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Run owner-selected audit or exact SQL 0173",
+              "commands": [
+                "run: node scripts/production-d1-directory-0173.mjs \"${{ inputs.mode }}\""
+              ]
+            },
+            {
+              "name": "name: Save schema-only audit/report",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/directory-sql-0173-foundation.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-directory-0173.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-facebook-weekly-0166.yml",
+      "blob": "1cb23e7ee631f63fc37aa450b6de386c1f2dbddc",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: Type APPLY-0166-psipedia-sk-db exactly\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "planner-schema",
+          "name": "Pinned preflight, two tables only, verify",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main and explicit production confirmation",
+              "commands": [
+                "confirmation=\"$(node -e 'const fs=require(\"fs\");const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,\"utf8\"));process.stdout.write(e.inputs?.confirmation || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Checkout exact dispatched revision",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Require dispatched revision to still match current main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Require protected D1 credential and canonical account",
+              "commands": [
+                "account_id=\"$(node -e 'const fs=require(\"fs\");const x=JSON.parse(fs.readFileSync(\"config/cloudflare-resources.json\",\"utf8\"));process.stdout.write(x.account_id||\"\")')\""
+              ]
+            },
+            {
+              "name": "name: Existing offline migration safety checks",
+              "commands": [
+                "npm run db:check-migrations",
+                "npm run test:migration-safety"
+              ]
+            },
+            {
+              "name": "name: 0166 isolated rollout contract tests",
+              "commands": [
+                "run: node --test tests/facebook-weekly-0166-rollout.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Protected remote preflight and D1 Time Travel bookmark",
+              "commands": [
+                "node scripts/production-d1-facebook-0166.mjs preflight",
+                "installed=\"$(node -e 'const fs=require(\"fs\");const p=JSON.parse(fs.readFileSync(\".production-d1-facebook-0166/preflight.json\",\"utf8\"));process.stdout.write(String(p.installed))')\""
+              ]
+            },
+            {
+              "name": "name: Apply pinned 0166 SQL only (NEVER migrations apply)",
+              "if": "steps.preflight.outputs.installed != 'true'",
+              "commands": [
+                "run: node scripts/production-d1-facebook-0166.mjs apply"
+              ]
+            },
+            {
+              "name": "name: Verify both planner tables and unchanged legacy migration history",
+              "commands": [
+                "run: node scripts/production-d1-facebook-0166.mjs verify"
+              ]
+            },
+            {
+              "name": "name: Operator summary",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run test:migration-safety"
+      ],
+      "tests": [
+        "tests/facebook-weekly-0166-rollout.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-facebook-0166.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-history-audit.yml",
+      "blob": "6ed384f49cf47687d25d837227f4c74b5efde249",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: Type AUDIT-0058-0061-psipedia-sk-db exactly\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: production-d1-history-audit",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "audit",
+          "name": "Read-only migration history and schema audit",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main and explicit audit confirmation",
+              "commands": [
+                "confirmation=\"$(node -e 'const fs=require(\"fs\"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,\"utf8\")); process.stdout.write(e.inputs?.confirmation || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Checkout exact dispatched main revision",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log non-secret revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Require protected D1 credential",
+              "commands": []
+            },
+            {
+              "name": "name: Load canonical Cloudflare account id",
+              "commands": [
+                "account_id=\"$(node -e 'const fs=require(\"fs\"); const x=JSON.parse(fs.readFileSync(\"config/cloudflare-resources.json\",\"utf8\")); process.stdout.write(x.account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Repository migration safety",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Run read-only production history audit",
+              "commands": [
+                "run: node scripts/production-d1-history-audit.mjs"
+              ]
+            },
+            {
+              "name": "name: Upload read-only audit evidence",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Preserve NO-GO when audit finds backlog or drift",
+              "if": "steps.audit.outcome != 'success'",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [],
+      "scripts": [
+        "scripts/production-d1-history-audit.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-migrate.yml",
+      "blob": "ace9f6f00c195c8bad5289c47eb5947e611dcbd4",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      target_migration:\n        description: Canonical migration to apply\n        required: true\n        type: choice\n        default: 0148_notion_transfer_audit.sql\n        options:\n          - 0148_notion_transfer_audit.sql\n          - 0149_services_builtin_admin_overrides.sql\n          - 0150_gemini_import_review_notes.sql\n          - 0151_admin_content_revision_history.sql\n          - 0152_visual_library_banner_edits.sql\n          - 0153_notion_profile_field_baselines.sql\n          - 0154_facebook_content_share_markers.sql\n          - 0155_breed_notion_extra_fields.sql\n          - 0156_notion_manual_transfer_jobs.sql\n          - 0157_facebook_weekly_plan_marks.sql\n          - 0147_notion_field_authority.sql\n          - 0062_profile_reviews_foundation.sql\n          - 0063_partner_claims_verification.sql\n          - 0064_geo_foundation.sql\n          - 0065_partner_profile_changes.sql\n          - 0066_partner_new_profile_submissions.sql\n          - 0067_partner_events.sql\n          - 0068_partner_commercial_activation.sql\n          - 0069_partner_auth_onboarding_hardening.sql\n          - 0070_partner_multimethod_auth.sql\n          - 0071_admin_universal_notifications.sql\n          - 0072_partner_media_uploads.sql\n          - 0073_automation_multisource_entity_resolution.sql\n          - 0074_directory_service_address.sql\n          - 0075_automation_zsk_event_source.sql\n          - 0076_automation_non_event_entity_resolution_foundation.sql\n          - 0077_directory_geo_provider_result_id.sql\n          - 0078_automation_possible_match_reviews.sql\n          - 0079_automation_agility_event_source.sql\n          - 0080_automation_canonical_apply.sql\n          - 0081_automation_mushing_event_source.sql\n          - 0082_automation_discovery_candidate_evidence.sql\n          - 0083_automation_search_budgets.sql\n          - 0084_automation_governance_registry.sql\n          - 0085_automation_tavily_discovery_root.sql\n          - 0086_automation_tavily_event_cadence.sql\n          - 0087_automation_tavily_help_roots.sql\n          - 0088_automation_tavily_organization_root.sql\n          - 0089_automation_tavily_directory_roots.sql\n          - 0090_geo_google_place_identity.sql\n          - 0091_automation_detach_drafts.sql\n          - 0092_automation_product_model.sql\n          - 0093_automation_address_review.sql\n          - 0094_canonical_draft_delete.sql\n          - 0095_automation_calendar_schedule.sql\n          - 0096_automation_update_field_reviews.sql\n          - 0097_automation_operations_metrics.sql\n          - 0098_directory_notion_bidirectional_sync.sql\n          - 0099_media_source_quality.sql\n          - 0100_eshop_ratings.sql\n          - 0101_eshop_profile_presentation.sql\n          - 0102_eshop_notion_sync.sql\n          - 0103_admin_entity_reviews.sql\n          - 0104_article_topics.sql\n          - 0105_article_popularity.sql\n          - 0106_section_visuals.sql\n          - 0107_section_hero_config.sql\n          - 0108_notion_events_help_bidirectional_sync.sql\n          - 0109_dynamic_entity_identity_indexes.sql\n          - 0110_tavily_source_provider_usage.sql\n          - 0111_tavily_provider_diagnostics.sql\n          - 0112_tavily_transport_phase.sql\n          - 0113_gemini_automation_foundation.sql\n          - 0114_gemini_dedupe.sql\n          - 0115_gemini_notion_bridge.sql\n          - 0116_admin_automation_push.sql\n          - 0117_gemini_events_rejections.sql\n          - 0118_event_image_display.sql\n          - 0119_gemini_manual_background_jobs.sql\n          - 0120_article_image_presentation.sql\n          - 0121_article_image_display_config.sql\n          - 0122_entity_image_display_config.sql\n          - 0123_event_organization_structured_address.sql\n          - 0124_gemini_notion_review_locks.sql\n          - 0125_gemini_category_prompts.sql\n          - 0126_gemini_scheduler_admin_v2.sql\n          - 0127_gemini_notion_created_pages.sql\n          - 0128_facebook_image_posts.sql\n          - 0129_gemini_external_manual_queue.sql\n          - 0130_facebook_image_publisher.sql\n          - 0131_facebook_image_trash.sql\n          - 0132_facebook_image_direct_consent.sql\n          - 0133_services_canonical_admin_foundation.sql\n          - 0134_services_admin_change_audit.sql\n          - 0135_facebook_image_safe_retry.sql\n          - 0136_gemini_global_stop.sql\n          - 0137_media_source_review_decisions.sql\n          - 0138_article_editorial_outbox.sql\n          - 0139_services_catalog_notion_auto_attempts.sql\n          - 0140_directory_service_notion_relations.sql\n          - 0141_quality_missing_hourly.sql\n          - 0142_quality_missing_scan_outcomes.sql\n          - 0143_quality_missing_manual_attempts.sql\n          - 0144_facebook_articles_shared_calendar.sql\n          - 0145_notion_webhook_inbox.sql\n          - 0146_help_source_daily_checks.sql\n      confirmation:\n        description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "migrate",
+          "name": "Preflight, migrate, verify and smoke",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main and explicit production confirmation",
+              "commands": [
+                "confirmation=\"$(node -e 'const fs=require(\"fs\"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,\"utf8\")); process.stdout.write(e.inputs?.confirmation || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Checkout exact dispatched main revision",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Require dispatched revision to still be current main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "name: Log non-secret revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\"",
+                "echo \"current_main_sha=$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Require protected migration credential",
+              "commands": []
+            },
+            {
+              "name": "name: Load canonical Cloudflare account id",
+              "commands": [
+                "account_id=\"$(node -e 'const fs=require(\"fs\"); const x=JSON.parse(fs.readFileSync(\"config/cloudflare-resources.json\",\"utf8\")); process.stdout.write(x.account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Repository migration safety",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Offline migration safety regressions",
+              "commands": [
+                "run: npm run test:migration-safety"
+              ]
+            },
+            {
+              "name": "name: Build exact production artifact and generated Wrangler config",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Production D1 preflight and Time Travel recovery point",
+              "commands": [
+                "node scripts/production-d1-migrate.mjs preflight",
+                "target_applied=\"$(node -e 'const fs=require(\"fs\"); const x=JSON.parse(fs.readFileSync(\".production-d1/preflight-report.json\",\"utf8\")); process.stdout.write(String(Boolean(x.targetApplied)))')\""
+              ]
+            },
+            {
+              "name": "name: Apply canonical migration through scoped migration directory",
+              "if": "steps.preflight.outputs.target_applied != 'true'",
+              "commands": [
+                "run: node scripts/production-d1-migrate.mjs apply"
+              ]
+            },
+            {
+              "name": "name: Verify schema, history, resource backfill and data integrity",
+              "commands": [
+                "run: node scripts/production-d1-migrate.mjs verify"
+              ]
+            },
+            {
+              "name": "name: Install Chromium for production smoke",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Geo readiness report",
+              "if": "inputs.target_migration == '0064_geo_foundation.sql'",
+              "commands": [
+                "run: node scripts/production-d1-migrate.mjs geo-readiness"
+              ]
+            },
+            {
+              "name": "name: Key production route smoke",
+              "commands": [
+                "status=\"$(curl --silent --show-error --location --connect-timeout 10 --max-time 30 --output /dev/null --write-out '%{http_code}' \"https://psipedia.sk$route\")\""
+              ]
+            },
+            {
+              "name": "name: Public map API smoke after geo migration",
+              "if": "inputs.target_migration == '0064_geo_foundation.sql'",
+              "commands": [
+                "status=\"$(curl --silent --show-error --location --output .production-d1/map-api-smoke.json --write-out '%{http_code}' \"$url\")\"",
+                "node - <<'NODE'"
+              ]
+            },
+            {
+              "name": "name: Production Playwright smoke — desktop",
+              "commands": [
+                "run: npx playwright test --grep @production --project=desktop-chromium --workers=1"
+              ]
+            },
+            {
+              "name": "name: Production Playwright smoke — mobile",
+              "commands": [
+                "run: npx playwright test --grep @production --project=mobile-chromium --workers=1"
+              ]
+            },
+            {
+              "name": "name: Upload safe migration evidence",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run test:migration-safety",
+        "npm run build"
+      ],
+      "tests": [],
+      "scripts": [
+        "scripts/production-d1-migrate.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-partner-0171-0172.yml",
+      "blob": "2b0f307a769c8a5366353e09b59dadb43815b3ea",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        type: choice\n        required: true\n        default: audit\n        options: [audit, apply0171, apply0172]\n      confirmation:\n        type: string\n        required: true\n        description: AUDIT-PARTNER-0171-0172-psipedia-sk-db or APPLY-0171/0172-psipedia-sk-db\n      recovery_confirmation:\n        type: string\n        required: false\n        description: For apply, enter TIME-TRAVEL-BOOKMARK-RECORDED",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "partner-0171-0172",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Reject automation and non-main",
+              "commands": []
+            },
+            {
+              "name": "name: Checkout pinned main",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "name: Node and dependencies",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Validate exact migrations",
+              "commands": [
+                "node --check scripts/production-d1-partner-0171-0172.mjs",
+                "node --test tests/production-d1-partner-0171-0172.test.mjs tests/production-partner-owner-compatibility.test.mjs",
+                "npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Select protected Cloudflare account",
+              "commands": [
+                "echo \"CLOUDFLARE_ACCOUNT_ID=$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id)')\" >> \"$GITHUB_ENV\""
+              ]
+            },
+            {
+              "name": "name: Execute owner-selected operation",
+              "commands": [
+                "run: node scripts/production-d1-partner-0171-0172.mjs \"${{ inputs.mode }}\""
+              ]
+            },
+            {
+              "name": "name: Upload sanitized audit report",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-partner-0171-0172.test.mjs",
+        "tests/production-partner-owner-compatibility.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-partner-0171-0172.mjs"
+      ]
+    },
+    {
+      "file": "production-directory-contact-legacy-cleanup.yml",
+      "blob": "896a7fca9b852ad4ce47ccc018d7ffc97f991e5a",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"lib/directory-contact-legacy-cleanup.mjs\"\n      - \"scripts/production-directory-contact-legacy-cleanup.mjs\"\n      - \"tests/directory-contact-legacy-cleanup.test.mjs\"\n      - \".github/workflows/production-directory-contact-legacy-cleanup.yml\"\n      - \"docs/audits/DIRECTORY-CONTACT-LEGACY-CLEANUP.md\"\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: \"audit (read only) or apply (remove only copied JSON aliases)\"\n        type: choice\n        options:\n          - audit\n          - apply\n        default: audit\n        required: true\n      confirmation:\n        description: \"AUDIT-DIRECTORY-CONTACT-ALIASES-psipedia-sk-db or APPLY-DIRECTORY-CONTACT-ALIASES-psipedia-sk-db\"\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: ${{ github.event_name == 'pull_request' && format('directory-contacts-cleanup-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline",
+          "name": "Check SQL-only contact alias removal (no production D1)",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Verify selective JSON cleanup and public read parity",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/directory-contact-legacy-cleanup.test.mjs"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "production",
+          "name": "Protected owner-only D1 contacts cleanup",
+          "needs": "offline",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "name: Enforce owner-dispatched main and exact confirmation",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Refuse stale main before production access",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked Wrangler",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Bind validated Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id||\"\")')\""
+              ]
+            },
+            {
+              "name": "name: Audit or safely remove SQL-owned legacy contacts",
+              "commands": [
+                "run: node scripts/production-directory-contact-legacy-cleanup.mjs \"${{ inputs.mode }}\""
+              ]
+            },
+            {
+              "name": "name: Archive private audit, postflight and D1 recovery bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/directory-contact-legacy-cleanup.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-directory-contact-legacy-cleanup.mjs"
+      ]
+    },
+    {
+      "file": "production-directory-contact-null-backfill.yml",
+      "blob": "6dedeb9f13e756d7d3bbe4ce51c629e69e3adfa3",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"lib/directory-contact-null-backfill.mjs\"\n      - \"scripts/production-directory-contact-null-backfill.mjs\"\n      - \"tests/directory-contact-null-backfill.test.mjs\"\n      - \".github/workflows/production-directory-contact-null-backfill.yml\"\n      - \"docs/audits/DIRECTORY-CONTACT-NULL-BACKFILL.md\"\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: \"audit (SELECT-only) or apply (fills SQL NULL only)\"\n        type: choice\n        options:\n          - audit\n          - apply\n        default: audit\n        required: true\n      confirmation:\n        description: \"AUDIT-DIRECTORY-NULL-CONTACTS-psipedia-sk-db or APPLY-DIRECTORY-NULL-CONTACTS-psipedia-sk-db\"\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: ${{ github.event_name == 'pull_request' && format('directory-null-contacts-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline",
+          "name": "Directory contact SQL contract – no D1",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Verify idempotence, clears, locks, aliases and report privacy",
+              "commands": [
+                "run: node --test tests/directory-contact-null-backfill.test.mjs"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "production",
+          "name": "Protected D1 contact audit / owner-approved NULL-only apply",
+          "needs": "offline",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "name: Require manual main run and exact typed confirmation",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked Wrangler and dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Pin canonical Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Run selected D1 audit or guarded update",
+              "commands": [
+                "run: node scripts/production-directory-contact-null-backfill.mjs \"${{ inputs.mode }}\""
+              ]
+            },
+            {
+              "name": "name: Preserve counts and recovery bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/directory-contact-null-backfill.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-directory-contact-null-backfill.mjs"
+      ]
+    },
+    {
+      "file": "production-directory-legacy-readonly.yml",
+      "blob": "f817a01a6d035994d51076f42be2b1ff1ef67435",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: \"Type AUDIT-DIRECTORY-LEGACY-psipedia-sk-db (never APPLY)\"\n        required: true\n        type: string\n\n# Serialize with all production D1 migration workflows; cannot run concurrently.",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "readonly-audit",
+          "name": "Count active historical JSON dependencies (SELECT only)",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main branch and exact read-only confirmation",
+              "commands": [
+                "entered=\"$(node -e 'const e=require(process.env.GITHUB_EVENT_PATH);process.stdout.write(e.inputs?.confirmation||\"\")')\""
+              ]
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Ensure dispatched commit is current main (never stale audit)",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install pinned dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Offline safety and SQLite fixtures (NO production connection)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/production-directory-legacy-readonly.test.mjs tests/directory-legacy-cutover-readiness.test.mjs tests/directory-legacy-cutover-candidates.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Bind protected canonical Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id||\"\")')\""
+              ]
+            },
+            {
+              "name": "name: Query canonical production D1 (2 static SELECT statements ONLY)",
+              "commands": [
+                "run: node scripts/production-directory-legacy-readonly.mjs"
+              ]
+            },
+            {
+              "name": "name: Retain aggregate + numeric Psipedia ID audit",
+              "if": "success()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/production-directory-legacy-readonly.test.mjs",
+        "tests/directory-legacy-cutover-readiness.test.mjs",
+        "tests/directory-legacy-cutover-candidates.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-directory-legacy-readonly.mjs"
+      ]
+    },
+    {
+      "file": "production-directory-onetime-notion-import.yml",
+      "blob": "17fd0f08cf9d46faab2d4cba3b559fbbf6a4f528",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"scripts/production-directory-onetime-notion-import.mjs\"\n      - \"lib/directory-notion-onetime-import.mjs\"\n      - \"scripts/directory-0170-backfill-readonly.mjs\"\n      - \"tests/directory-notion-onetime-import.test.mjs\"\n      - \".github/workflows/production-directory-onetime-notion-import.yml\"\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: \"audit (read only) or apply (one-time SQL write)\"\n        type: choice\n        required: true\n        options: [audit, apply]\n        default: audit\n      confirmation:\n        description: \"Exact audit/apply confirmation; never auto-apply\"\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: ${{ github.event_name == 'pull_request' && format('directory-notion-import-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline-test",
+          "name": "Notion source map / owner lock tests (no external access)",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/directory-notion-onetime-import.test.mjs",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "owner-import",
+          "name": "Production Notion → SQL (manual, guarded)",
+          "needs": "offline-test",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Check owner intent and current main",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Bind configured Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Run one-time Notion source SQL job",
+              "commands": [
+                "run: node scripts/production-directory-onetime-notion-import.mjs \"${{ inputs.mode }}\""
+              ]
+            },
+            {
+              "name": "name: Upload sanitized report only",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/directory-notion-onetime-import.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-directory-onetime-notion-import.mjs",
+        "scripts/directory-0170-backfill-readonly.mjs"
+      ]
+    },
+    {
+      "file": "production-directory-sql-step2.yml",
+      "blob": "c497a986d9e4b5d1d3150f184addf5582c6824fc",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"scripts/production-directory-onetime-notion-import.mjs\"\n      - \"lib/directory-sql-step2-plan.mjs\"\n      - \"tests/directory-sql-step2.test.mjs\"\n      - \".github/workflows/production-directory-sql-step2.yml\"\n  workflow_dispatch:\n    inputs:\n      mode:\n        type: choice\n        required: true\n        default: audit\n        options: [audit, apply]\n      confirmation:\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: ${{ github.event_name == 'pull_request' && format('directory-sql-step2-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "verify",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/directory-sql-step2.test.mjs tests/directory-notion-onetime-import.test.mjs tests/directory-0176-sql-schema.test.mjs",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "execute",
+          "needs": "verify",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Owner confirmation",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Bind canonical Cloudflare account",
+              "commands": [
+                "run: echo \"CLOUDFLARE_ACCOUNT_ID=$(node -p 'require(\"./config/cloudflare-resources.json\").account_id')\" >> \"$GITHUB_ENV\""
+              ]
+            },
+            {
+              "name": "name: Owner-selected audit or staged SQL transfer",
+              "commands": [
+                "run: node scripts/production-directory-onetime-notion-import.mjs \"step2-$MODE\""
+              ]
+            },
+            {
+              "name": "uses: actions/upload-artifact@v4",
+              "if": "always()",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/directory-sql-step2.test.mjs",
+        "tests/directory-notion-onetime-import.test.mjs",
+        "tests/directory-0176-sql-schema.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-directory-onetime-notion-import.mjs"
+      ]
+    },
+    {
+      "file": "production-directory-sql-step3.yml",
+      "blob": "d195dc6d6971f2d1c67f64071f8d6772c2274d31",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"scripts/production-directory-onetime-notion-import.mjs\"\n      - \"lib/directory-sql-step3-readiness.mjs\"\n      - \"tests/directory-sql-step3.test.mjs\"\n      - \"tests/directory-sql-step3-field-parity.test.mjs\"\n      - \"lib/directory-sql-step3-field-parity.mjs\"\n      - \".github/workflows/production-directory-sql-step3.yml\"\n  workflow_dispatch:\n    inputs:\n      mode:\n        type: choice\n        required: true\n        default: audit\n        options: [audit, repair]\n      confirmation:\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: ${{ github.event_name == 'pull_request' && format('directory-sql-step3-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "verify",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/directory-sql-step3.test.mjs tests/directory-sql-step3-field-parity.test.mjs tests/directory-sql-step2.test.mjs tests/directory-notion-onetime-import.test.mjs",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "execute",
+          "needs": "verify",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Explicit owner confirmation",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Bind canonical Cloudflare account",
+              "commands": [
+                "run: echo \"CLOUDFLARE_ACCOUNT_ID=$(node -p 'require(\"./config/cloudflare-resources.json\").account_id')\" >> \"$GITHUB_ENV\""
+              ]
+            },
+            {
+              "name": "name: Readiness audit or guarded missing-profile staging",
+              "commands": [
+                "run: node scripts/production-directory-onetime-notion-import.mjs \"step3-$MODE\""
+              ]
+            },
+            {
+              "name": "uses: actions/upload-artifact@v4",
+              "if": "always()",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/directory-sql-step3.test.mjs",
+        "tests/directory-sql-step3-field-parity.test.mjs",
+        "tests/directory-sql-step2.test.mjs",
+        "tests/directory-notion-onetime-import.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-directory-onetime-notion-import.mjs"
+      ]
+    },
+    {
+      "file": "production-editorial-storage-readonly.yml",
+      "blob": "3826d0043d5947349c5c95e6d6d6492949588fef",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"scripts/production-editorial-storage-readonly.mjs\"\n      - \"lib/help-sql-reviewed-backfill.mjs\"\n      - \"tests/help-sql-reviewed-backfill.test.mjs\"\n      - \"tests/help-sql-legacy-public-cutover-step5.test.mjs\"\n      - \"lib/help-store.ts\"\n      - \"lib/visual-library-dynamic-urls.ts\"\n      - \"tests/help-sql-canonical-sync-step4.test.mjs\"\n      - \"lib/help-sql-schema-preflight.mjs\"\n      - \"tests/help-sql-schema-preflight.test.mjs\"\n      - \"tests/production-editorial-storage-readonly.test.mjs\"\n      - \"tests/directory-sql-unification-phase2.test.mjs\"\n      - \"tests/directory-sql-0170-schema.test.mjs\"\n      - \"tests/production-d1-directory-0170.test.mjs\"\n      - \"lib/production-d1-directory-0170-guard.mjs\"\n      - \"scripts/production-d1-directory-0170.mjs\"\n      - \".github/workflows/production-d1-directory-0170.yml\"\n      - \"drizzle/0170_directory_canonical_sql_slots.sql\"\n      - \"db/schema.ts\"\n      - \"tests/directory-sql-cutover-parity-phase3.test.mjs\"\n      - \"tests/directory-sql-cutover-write-phase3.test.mjs\"\n      - \"tests/directory-step4-drop-source-json.test.mjs\"\n      - \"db/isolated/directory_step4_drop_source_data_json.sql\"\n      - \"tests/editorial-cleanup-readiness-phase4.test.mjs\"\n      - \"scripts/production-editorial-cleanup-readiness.mjs\"\n      - \"scripts/editorial-legacy-reader-inventory.mjs\"\n      - \"tests/editorial-legacy-reader-inventory-phase4.test.mjs\"\n      - \"lib/directory-sql-cutover-write.ts\"\n      - \"lib/directory-sql-cutover-parity.ts\"\n      - \"app/api/admin/directory/[id]/route.ts\"\n      - \"lib/directory-sql-cutover-contract.ts\"\n      - \"docs/proposals/DIRECTORY-HELP-EVENTS-SQL-UNIFICATION-PHASE-2-DRAFT.sql\"\n      - \".github/workflows/production-editorial-storage-readonly.yml\"\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: \"Type AUDIT-EDITORIAL-STORAGE-psipedia-sk-db (never APPLY)\"\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: ${{ github.event_name == 'pull_request' && format('editorial-storage-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline-sql-fixtures",
+          "name": "Verify inventory, phase-2 SQL, phase-3 read/write contracts",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Run SQLite fixture and safety tests (no secrets or D1)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/production-editorial-storage-readonly.test.mjs tests/directory-sql-unification-phase2.test.mjs tests/directory-sql-0170-schema.test.mjs tests/production-d1-directory-0170.test.mjs tests/directory-sql-cutover-parity-phase3.test.mjs tests/directory-sql-cutover-write-phase3.test.mjs tests/directory-step4-drop-source-json.test.mjs tests/editorial-cleanup-readiness-phase4.test.mjs tests/editorial-legacy-reader-inventory-phase4.test.mjs tests/help-sql-schema-preflight.test.mjs tests/help-sql-reviewed-backfill.test.mjs tests/help-sql-legacy-public-cutover-step5.test.mjs"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "production-readonly",
+          "name": "Count D1 sources and Notion mappings (no writes)",
+          "needs": "offline-sql-fixtures",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require canonical repository, main and exact read-only confirmation",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Refuse audit of stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install pinned Wrangler",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Validate protected Cloudflare binding",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id||\"\")')\""
+              ]
+            },
+            {
+              "name": "name: Inventory source-code JSON consumers (read only)",
+              "commands": [
+                "run: node scripts/editorial-legacy-reader-inventory.mjs"
+              ]
+            },
+            {
+              "name": "name: Run count-only inventory (never migrate)",
+              "commands": [
+                "run: node scripts/production-editorial-storage-readonly.mjs"
+              ]
+            },
+            {
+              "name": "name: Generate fail-closed cleanup assessment (no D1 calls)",
+              "commands": [
+                "run: node scripts/production-editorial-cleanup-readiness.mjs"
+              ]
+            },
+            {
+              "name": "name: Upload category/mapping summary and cleanup blockers",
+              "if": "success()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/help-sql-reviewed-backfill.test.mjs",
+        "tests/help-sql-legacy-public-cutover-step5.test.mjs",
+        "tests/help-sql-canonical-sync-step4.test.mjs",
+        "tests/help-sql-schema-preflight.test.mjs",
+        "tests/production-editorial-storage-readonly.test.mjs",
+        "tests/directory-sql-unification-phase2.test.mjs",
+        "tests/directory-sql-0170-schema.test.mjs",
+        "tests/production-d1-directory-0170.test.mjs",
+        "tests/directory-sql-cutover-parity-phase3.test.mjs",
+        "tests/directory-sql-cutover-write-phase3.test.mjs",
+        "tests/directory-step4-drop-source-json.test.mjs",
+        "tests/editorial-cleanup-readiness-phase4.test.mjs",
+        "tests/editorial-legacy-reader-inventory-phase4.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-editorial-storage-readonly.mjs",
+        "scripts/production-d1-directory-0170.mjs",
+        "scripts/production-editorial-cleanup-readiness.mjs",
+        "scripts/editorial-legacy-reader-inventory.mjs"
+      ]
+    }
+  ]
+}

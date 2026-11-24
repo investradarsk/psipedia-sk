@@ -1,0 +1,1608 @@
+{
+  "ref": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+  "start": 96,
+  "end": 112,
+  "rows": [
+    {
+      "file": "production-d1-0134-readonly.yml",
+      "blob": "c7594212ba9818048c7e01daa731c841ae61a716",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: Type AUDIT-0134-state-psipedia-sk-db exactly (NEVER APPLY)\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "verify",
+          "name": "Inspect 0133/0134 ledger, DDL, integrity (SELECT only)",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require owner confirmation from current main only",
+              "commands": [
+                "actual=\"$(node -e 'const e=require(process.env.GITHUB_EVENT_PATH); process.stdout.write(e.inputs?.confirmation || \"\")')\""
+              ]
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Block stale checkout and branch races",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Mandatory offline regression suite and pinned SQL check",
+              "commands": [
+                "node --check scripts/production-d1-0134-readonly.mjs",
+                "node --test tests/production-d1-0134-readonly.test.mjs",
+                "npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Resolve exact canonical Cloudflare account identity",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Read ONLY 0134 migration ledger and schema using allowlisted SELECT",
+              "commands": [
+                "node scripts/production-d1-0134-readonly.mjs | tee .production-d1-0134-readonly/report.json"
+              ]
+            },
+            {
+              "name": "name: Preserve sanitized read-only report if generated",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-0134-readonly.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0134-readonly.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0158-0162-contract.yml",
+      "blob": "a581f5af4a0dec4f41a865ee06447e56dad66adf",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"drizzle/0158_admin_directory_list_indexes.sql\"\n      - \"drizzle/0162_lost_found_short_description.sql\"\n      - \"lib/production-d1-0158-0162-guard.mjs\"\n      - \"scripts/production-d1-0158-0162.mjs\"\n      - \"tests/production-d1-0158-0162.test.mjs\"\n      - \".github/workflows/production-d1-0158-0162.yml\"\n      - \".github/workflows/production-d1-0158-0162-contract.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: d1-0158-0162-contract-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "test",
+          "name": "Pinned SQL and local SQLite preservation",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Migration safety and exact 0158/0162 schema tests",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-0158-0162.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-0158-0162.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0158-0162.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0158-0162-ledger-contract.yml",
+      "blob": "d50bf9b29962406376b7842706f262b89e6ee1d3",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"lib/production-d1-0158-0162-history-guard.mjs\"\n      - \"scripts/production-d1-0158-0162-ledger.mjs\"\n      - \"tests/production-d1-0158-0162-history.test.mjs\"\n      - \".github/workflows/production-d1-0158-0162-ledger.yml\"\n      - \".github/workflows/production-d1-0158-0162-ledger-contract.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: d1-ledger-0158-0162-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "test",
+          "name": "Receipt-only history guards and SQLite regression",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Check canonical migration chain and receipt-only reconciliation tests",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-0158-0162-history.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-0158-0162-history.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0158-0162-ledger.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0158-0162-ledger.yml",
+      "blob": "d1aa89c34190a90999d50fc67747fe691eb96282",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Audit (read-only) or Reconcile existing physical migrations in D1 history\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: Type AUDIT-0158-0162-psipedia-sk-db or RECONCILE-0158-0162-psipedia-sk-db\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "reconcile",
+          "name": "Verify installed DDL then audit or reconcile only d1_migrations",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Restrict to manual dispatch and explicit current main",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Require current main revision",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Repository and receipt contract tests",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-0158-0162-history.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Load canonical Cloudflare account ID",
+              "commands": [
+                "account=\"$(node -e 'const x=require(\"./config/cloudflare-resources.json\"); process.stdout.write(x.account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Remote ledger audit or explicitly owner-approved receipt insertion",
+              "commands": [
+                "run: node scripts/production-d1-0158-0162-ledger.mjs \"$D1_LEDGER_MODE\""
+              ]
+            },
+            {
+              "name": "name: Save history reconciliation and Time Travel evidence",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-0158-0162-history.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0158-0162-ledger.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0158-0162.yml",
+      "blob": "e6d1fb14f77691b3d6f73bf9b72abc8448443ae3",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Audit (read-only) or Apply exactly 0158 + 0162 if missing\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: Type AUDIT-0158-0162-psipedia-sk-db or APPLY-0158-0162-psipedia-sk-db\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "completion",
+          "name": "Verify 0159–0161 and protected 0158/0162 audit or apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require explicit production authorization on main",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Require current main revision",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Check SQL migration safety and isolated schema tests",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-0158-0162.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Load and verify configured production Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'const x=require(\"./config/cloudflare-resources.json\"); process.stdout.write(x.account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Read-only preflight or owner-approved schema completion",
+              "commands": [
+                "node scripts/production-d1-0158-0162.mjs \"$D1_COMPLETION_MODE\""
+              ]
+            },
+            {
+              "name": "name: Preserve postflight evidence and Time Travel recovery bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-0158-0162.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0158-0162.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0159-shadow.yml",
+      "blob": "da1229838b5ca07ba5edfe8b8a75e275882ba452",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Audit is SELECT-only; Apply creates only empty 0159 shadow table\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: Type AUDIT-0159-psipedia-sk-db or APPLY-0159-psipedia-sk-db\n        type: string\n        required: true\n\n# Shares the production database migration lock with existing workflows.",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "breed-0159",
+          "name": "Protected 0159 read-only audit or schema-only apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Main only, manual request and exact user confirmation",
+              "commands": []
+            },
+            {
+              "name": "name: Checkout the exact dispatched revision",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Refuse a stale main checkout",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install repository dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Migration safety and isolated 0159 regression tests",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-0159-shadow.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Validate protected Cloudflare account binding",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id)')\""
+              ]
+            },
+            {
+              "name": "name: Run exactly requested 0159 audit or operator-approved apply",
+              "commands": [
+                "node scripts/production-d1-0159-shadow.mjs \"$BREED_0159_MODE\""
+              ]
+            },
+            {
+              "name": "name: Retain aggregate-only report and recovery bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-0159-shadow.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0159-shadow.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0160-events.yml",
+      "blob": "2977ceec20bc5c8fd8fa31b1ce718b29e212a10a",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Read-only audit or apply additive 0160 columns only\n        required: true\n        type: choice\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: Type AUDIT-0160-psipedia-sk-db or APPLY-0160-psipedia-sk-db\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "event-0160",
+          "name": "Protected 0160 schema audit or manual apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require owner-dispatched main and exact confirmation",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Refuse a stale main checkout",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Repository migration safety and isolated 0160 regression tests",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-0160-events.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Validate protected Cloudflare account binding",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id)')\""
+              ]
+            },
+            {
+              "name": "name: Perform read-only audit or explicit 0160-only apply",
+              "commands": [
+                "node scripts/production-d1-0160-events.mjs \"$EVENT_0160_MODE\""
+              ]
+            },
+            {
+              "name": "name: Retain aggregate-only report and recovery bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-0160-events.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0160-events.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0161-event-metadata.yml",
+      "blob": "187144a5e33f3888868b7b6931128997aaf69197",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Audit reads schema only; Apply adds two event metadata columns\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: Type AUDIT-0161-psipedia-sk-db or APPLY-0161-psipedia-sk-db\n        required: true\n        type: string\n\n# Same protected lock as other production D1 migrations.",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "event-metadata-0161",
+          "name": "Protected 0161 schema audit or two-column apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main, manual dispatch and exact operator confirmation",
+              "commands": []
+            },
+            {
+              "name": "name: Checkout dispatched main revision",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Require current main revision",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Verify migration safety and isolated schema regression",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-0161-event-metadata.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Validate configured production Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id)')\""
+              ]
+            },
+            {
+              "name": "name: Execute only the requested 0161 audit or approved apply",
+              "commands": [
+                "run: node scripts/production-d1-0161-event-metadata.mjs \"$EVENT_0161_MODE\""
+              ]
+            },
+            {
+              "name": "name: Retain aggregate-only rollout evidence and recovery point",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-0161-event-metadata.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0161-event-metadata.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0163-breed-controlled.yml",
+      "blob": "2b718df262166cd322b0c129a9ea6b525a8c1e9e",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Audit only reads D1; apply creates the empty 0163 sidecar table\n        required: true\n        type: choice\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: Enter AUDIT-0163-psipedia-sk-db or APPLY-0163-psipedia-sk-db exactly\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "breed-controlled-0163",
+          "name": "Protected 0163 audit or explicit schema-only apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main, manual dispatch and exact owner confirmation",
+              "commands": []
+            },
+            {
+              "name": "name: Checkout exact dispatched main",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Offline safety and 0163 schema regression",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-0163-breed-controlled.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Load protected Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id)')\""
+              ]
+            },
+            {
+              "name": "name: Audit remotely or perform explicitly approved 0163-only DDL",
+              "commands": [
+                "run: node scripts/production-d1-0163-breed-controlled.mjs \"$BREED_0163_MODE\""
+              ]
+            },
+            {
+              "name": "name: Keep aggregate report and Time Travel recovery bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-0163-breed-controlled.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0163-breed-controlled.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0164-lifecycle.yml",
+      "blob": "d25f910e493347d06f641a0d1dad2871f271394d",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: Audit is read-only; Apply installs the exact pinned lifecycle schema\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: Enter AUDIT-0164-psipedia-sk-db or APPLY-0164-psipedia-sk-db exactly\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "lifecycle-0164",
+          "name": "Protected 0164 audit or explicitly approved schema-only apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main, manual dispatch and explicit owner confirmation",
+              "commands": []
+            },
+            {
+              "name": "name: Checkout exact dispatched main",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Refuse stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install project dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Verify repository migrations and isolated 0164 safety",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/admin-record-lifecycle-migration.test.mjs tests/production-d1-0164-lifecycle.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Bind approved Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id)')\""
+              ]
+            },
+            {
+              "name": "name: Execute read-only audit or manual schema-only apply",
+              "commands": [
+                "run: node scripts/production-d1-0164-lifecycle.mjs \"$LIFECYCLE_0164_MODE\""
+              ]
+            },
+            {
+              "name": "name: Keep evidence including Time Travel recovery bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/admin-record-lifecycle-migration.test.mjs",
+        "tests/production-d1-0164-lifecycle.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0164-lifecycle.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-0165-contacts.yml",
+      "blob": "6d9ad7764ce99f4e7fadbd2beddc0669c5bcb5e3",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: \"Audit is read-only; Apply adds exactly five explicitly public contact fields\"\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: \"Enter AUDIT-0165-psipedia-sk-db or APPLY-0165-psipedia-sk-db exactly\"\n        required: true\n        type: string\n\n# Shared lock with every other protected production D1 migration.",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contacts-0165",
+          "name": "Protected D1 0165 read-only audit or approved five-column apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main, explicit manual action and exact confirmation",
+              "commands": []
+            },
+            {
+              "name": "name: Checkout exact dispatched main",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Refuse stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Check migration safety and isolated public contacts contract",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/lost-found-public-contacts.test.mjs tests/production-d1-0165-contacts.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Require canonical Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id)')\""
+              ]
+            },
+            {
+              "name": "name: Execute read-only audit or independently approved five-column apply",
+              "commands": [
+                "run: node scripts/production-d1-0165-contacts.mjs \"$CONTACTS_0165_MODE\""
+              ]
+            },
+            {
+              "name": "name: Preserve schema-only receipt and Time Travel recovery bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/lost-found-public-contacts.test.mjs",
+        "tests/production-d1-0165-contacts.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0165-contacts.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-analytics-0167-0168.yml",
+      "blob": "c2de5076d1ece7d0acff9bb193cac62d10c76936",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      target:\n        description: Select one isolated analytics schema migration\n        type: choice\n        required: true\n        options:\n          - \"0167\"\n          - \"0168\"\n      mode:\n        description: Audit is read-only; Apply requires a separate explicit approval\n        type: choice\n        required: true\n        default: audit\n        options:\n          - audit\n          - apply\n      confirmation:\n        description: Enter AUDIT-0167-psipedia-sk-db or APPLY-0168-psipedia-sk-db (match target/mode)\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "analytics-schema",
+          "name": "Protected D1 analytics schema audit / single-target apply",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require manual dispatch from main, protected credentials and exact owner confirmation",
+              "commands": []
+            },
+            {
+              "name": "name: Checkout exact dispatched main",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Refuse stale main before touching the database",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Check migration safety and pinned analytics D1 contracts",
+              "commands": [
+                "npm run db:check-migrations",
+                "node --test tests/production-d1-analytics-0167-0168.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Bind exact canonical Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Audit or apply exactly one pinned SQL file, then verify",
+              "commands": [
+                "run: node scripts/production-d1-analytics-0167-0168.mjs \"$ANALYTICS_D1_MODE\" \"$ANALYTICS_D1_TARGET\""
+              ]
+            },
+            {
+              "name": "name: Save schema-only receipt and pre-apply D1 Time Travel bookmark",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-d1-analytics-0167-0168.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-analytics-0167-0168.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-backlog-verify.yml",
+      "blob": "ef5c3ce7a4564c691c85d88764a96b9f0c2709db",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: Type VERIFY-0061-psipedia-sk-db exactly\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "verify",
+          "name": "Verify 0061 production state and smoke",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main and explicit verification confirmation",
+              "commands": [
+                "confirmation=\"$(node -e 'const fs=require(\"fs\"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,\"utf8\")); process.stdout.write(e.inputs?.confirmation || \"\")')\""
+              ]
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: test -n \"$CLOUDFLARE_API_TOKEN\"",
+              "commands": []
+            },
+            {
+              "name": "name: Load canonical Cloudflare account id",
+              "commands": [
+                "account_id=\"$(node -e 'const fs=require(\"fs\"); const x=JSON.parse(fs.readFileSync(\"config/cloudflare-resources.json\",\"utf8\")); process.stdout.write(x.account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "run: npm run db:check-migrations",
+              "commands": []
+            },
+            {
+              "name": "run: npm run build",
+              "commands": []
+            },
+            {
+              "name": "name: Read-only D1 verification",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs verify-current"
+              ]
+            },
+            {
+              "name": "name: Install Chromium",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Key production route smoke",
+              "commands": [
+                "status=\"$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' \"https://psipedia.sk$route\")\""
+              ]
+            },
+            {
+              "name": "name: Production Playwright smoke — desktop",
+              "commands": [
+                "run: npx playwright test --grep @production --project=desktop-chromium --workers=1"
+              ]
+            },
+            {
+              "name": "name: Production Playwright smoke — mobile",
+              "commands": [
+                "run: npx playwright test --grep @production --project=mobile-chromium --workers=1"
+              ]
+            },
+            {
+              "name": "name: Upload verification evidence",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run build"
+      ],
+      "tests": [],
+      "scripts": [
+        "scripts/production-d1-backlog-rollout.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-backlog.yml",
+      "blob": "6a3437412ad0e1edfdd128cda578569edbe32b81",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: Type APPLY-0058-0061-psipedia-sk-db exactly\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "rollout",
+          "name": "Preflight, apply 0058-0061, verify and smoke",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Require main and explicit production confirmation",
+              "commands": [
+                "confirmation=\"$(node -e 'const fs=require(\"fs\"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,\"utf8\")); process.stdout.write(e.inputs?.confirmation || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Checkout exact dispatched main revision",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log non-secret revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Require protected D1 credential",
+              "commands": []
+            },
+            {
+              "name": "name: Load canonical Cloudflare account id",
+              "commands": [
+                "account_id=\"$(node -e 'const fs=require(\"fs\"); const x=JSON.parse(fs.readFileSync(\"config/cloudflare-resources.json\",\"utf8\")); process.stdout.write(x.account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Repository migration safety",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Build exact production artifact and generated Wrangler config",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Production backlog preflight and Time Travel recovery point",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs preflight"
+              ]
+            },
+            {
+              "name": "name: Apply 0058",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs apply-step 0058_public_integrity_cleanup.sql"
+              ]
+            },
+            {
+              "name": "name: Verify 0058",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs verify-step 0058_public_integrity_cleanup.sql"
+              ]
+            },
+            {
+              "name": "name: Apply 0059",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs apply-step 0059_partner_auth_foundation.sql"
+              ]
+            },
+            {
+              "name": "name: Verify 0059",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs verify-step 0059_partner_auth_foundation.sql"
+              ]
+            },
+            {
+              "name": "name: Apply 0060",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs apply-step 0060_partner_memberships_admin.sql"
+              ]
+            },
+            {
+              "name": "name: Verify 0060",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs verify-step 0060_partner_memberships_admin.sql"
+              ]
+            },
+            {
+              "name": "name: Apply 0061",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs apply-step 0061_partner_commercial_interests.sql"
+              ]
+            },
+            {
+              "name": "name: Verify 0061",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs verify-step 0061_partner_commercial_interests.sql"
+              ]
+            },
+            {
+              "name": "name: Final production backlog postflight",
+              "commands": [
+                "run: node scripts/production-d1-backlog-rollout.mjs postflight"
+              ]
+            },
+            {
+              "name": "name: Install Chromium for production smoke",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Key production route smoke",
+              "commands": [
+                "status=\"$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' \"https://psipedia.sk$route\")\""
+              ]
+            },
+            {
+              "name": "name: Production Playwright smoke — desktop",
+              "commands": [
+                "run: npx playwright test --grep @production --project=desktop-chromium --workers=1"
+              ]
+            },
+            {
+              "name": "name: Production Playwright smoke — mobile",
+              "commands": [
+                "run: npx playwright test --grep @production --project=mobile-chromium --workers=1"
+              ]
+            },
+            {
+              "name": "name: Upload safe rollout evidence",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run build"
+      ],
+      "tests": [],
+      "scripts": [
+        "scripts/production-d1-backlog-rollout.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-breed-0174.yml",
+      "blob": "9d0ee9497838340318d87c225f3437425cfa35b0",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: \"Audit = read-only; Apply = install the exact additive 0174 schema\"\n        type: choice\n        required: true\n        default: audit\n        options: [audit, apply]\n      confirmation:\n        description: \"AUDIT-0174-psipedia-sk-db or APPLY-0174-psipedia-sk-db\"\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "breed-0174",
+          "name": "Owner-only exact-file SQL 0174 schema audit/apply",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "name: Refuse automatic or non-main dispatch",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Must match latest main to touch production D1",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Verify D1 0174 isolated safety and SQLite migration tests",
+              "commands": [
+                "node --check scripts/production-d1-breed-0174.mjs",
+                "npm run db:check-migrations",
+                "node --test tests/breed-sql-0174-foundation.test.mjs tests/breed-sql-v2-backfill.test.mjs tests/production-d1-breed-0174.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Select canonical Cloudflare production account",
+              "commands": [
+                "account=\"$(node -p 'require(\"./config/cloudflare-resources.json\").account_id')\""
+              ]
+            },
+            {
+              "name": "name: Owner-selected audit or schema-only 0174 apply",
+              "commands": [
+                "run: node scripts/production-d1-breed-0174.mjs \"$MODE\""
+              ]
+            },
+            {
+              "name": "name: Upload schema-only sanitized report",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/breed-sql-0174-foundation.test.mjs",
+        "tests/breed-sql-v2-backfill.test.mjs",
+        "tests/production-d1-breed-0174.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-breed-0174.mjs"
+      ]
+    },
+    {
+      "file": "production-d1-breed-0175.yml",
+      "blob": "f74f3a9de5ce45acc046b66f274f54be99784d7b",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: \"Audit = read-only; Apply = remove exactly four old breed JSON object columns\"\n        type: choice\n        required: true\n        default: audit\n        options: [audit, apply]\n      confirmation:\n        description: \"AUDIT-BREEDS-0175-FOUR or APPLY-BREEDS-0175-FOUR\"\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "cleanup-breeds",
+          "name": "SQL-only integrity + exact owner-triggered cleanup",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "name: Verify owner-dispatched main and confirmation",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Must be latest main to touch production database",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Verify offline D1 compatibility and migration safety",
+              "commands": [
+                "node --check scripts/production-d1-breed-0175.mjs",
+                "node --test tests/breed-sql-v2-legacy-drop.test.mjs",
+                "npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Select canonical Cloudflare account",
+              "commands": [
+                "echo \"CLOUDFLARE_ACCOUNT_ID=$(node -p 'require(\"./config/cloudflare-resources.json\").account_id')\" >> \"$GITHUB_ENV\""
+              ]
+            },
+            {
+              "name": "name: Verify current SQL-only production integrity",
+              "commands": [
+                "run: node scripts/production-breed-sql-v2-shadow-audit.mjs"
+              ]
+            },
+            {
+              "name": "name: Audit or apply four exact legacy column removals",
+              "commands": [
+                "run: node scripts/production-d1-breed-0175.mjs \"$MODE\""
+              ]
+            },
+            {
+              "name": "name: Upload sanitized results",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/breed-sql-v2-legacy-drop.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-breed-0175.mjs",
+        "scripts/production-breed-sql-v2-shadow-audit.mjs"
+      ]
+    }
+  ]
+}

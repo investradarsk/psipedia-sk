@@ -1,0 +1,1668 @@
+{
+  "ref": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+  "start": 48,
+  "end": 64,
+  "rows": [
+    {
+      "file": "facebook-admin-notion-authority.yml",
+      "blob": "4bcd4c1d4d936cd58568a9b34b2f9fc0656b63bd",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"lib/notion-facebook-images-admin-export.ts\"\n      - \"lib/notion-facebook-images-model.ts\"\n      - \"lib/facebook-image-publisher.ts\"\n      - \"lib/facebook-image-store.ts\"\n      - \"lib/facebook-image-trash.ts\"\n      - \"app/api/admin/facebook-images/**\"\n      - \"db/facebook-image-schema.ts\"\n      - \"drizzle/0132_facebook_image_direct_consent.sql\"\n      - \"tests/facebook-image-publisher.test.mjs\"\n      - \"tests/facebook-image-admin-v2.test.mjs\"\n      - \"tests/notion-facebook-images-integration.test.mjs\"\n      - \"lib/notion-facebook-images-sync.ts\"\n      - \"components/admin-facebook-images.tsx\"\n      - \"components/admin-facebook-images.module.css\"\n      - \"tests/facebook-image-ui.test.mjs\"\n      - \"tests/notion-facebook-images-admin-export.test.mjs\"\n      - \".github/workflows/facebook-admin-notion-authority.yml\"\n  workflow_dispatch:",
+      "concurrency": [
+        "  group: facebook-admin-notion-authority-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "notion-admin-authority",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Validate V4 STOP, owner consent, permanent delete and Notion reconciliation",
+              "commands": [
+                "run: npm run test:facebook-publisher && npm run test:facebook-admin-v2 && npm run test:notion-facebook-images"
+              ]
+            },
+            {
+              "name": "name: Validate additive migration policy",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Install Chromium for Facebook desktop and mobile UI acceptance",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Facebook images compact UI — desktop 1440 and mobile 390/320",
+              "commands": [
+                "run: npm run test:facebook-images-ui"
+              ]
+            },
+            {
+              "name": "name: Upload Facebook images desktop and mobile screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:facebook-publisher",
+        "npm run test:facebook-admin-v2",
+        "npm run test:notion-facebook-images",
+        "npm run db:check-migrations",
+        "npm run test:facebook-images-ui"
+      ],
+      "tests": [
+        "tests/facebook-image-publisher.test.mjs",
+        "tests/facebook-image-admin-v2.test.mjs",
+        "tests/notion-facebook-images-integration.test.mjs",
+        "tests/facebook-image-ui.test.mjs",
+        "tests/notion-facebook-images-admin-export.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "facebook-gmail-notion-bridge-ci.yml",
+      "blob": "c79ef6b597b69f3a6e09f12a8d6f37c45075b67a",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - 'scripts/apps-script/psipedia-fb-gmail-schedule-extension.gs'\n      - 'tests/psipedia-fb-gmail-schedule-extension.test.mjs'\n      - '.github/workflows/facebook-gmail-notion-bridge-ci.yml'\n  workflow_dispatch:",
+      "concurrency": [],
+      "permissions": [],
+      "jobs": [
+        {
+          "id": "offline-contract",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Offline Gmail Notion scheduling tests (no external writes)",
+              "commands": [
+                "run: node --test tests/psipedia-fb-gmail-schedule-extension.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/psipedia-fb-gmail-schedule-extension.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "gemini-automation-foundation-ci.yml",
+      "blob": "e49cc0f61caadb9efde5f80f213b24017e553213",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"app/admin/automatizacie-gemini/**\"\n      - \"app/api/admin/gemini-automation/**\"\n      - \"components/admin-gemini-automation*\"\n      - \"components/admin-gemini-event-concept-review.tsx\"\n      - \"lib/admin-navigation.ts\"\n      - \"components/admin-navigation.tsx\"\n      - \"lib/gemini-canonical-*.ts\"\n      - \"lib/gemini-import-d1-verification.ts\"\n      - \"lib/gemini-stale-lock-recovery.ts\"\n      - \"tests/gemini-stale-lock-recovery.test.mjs\"\n      - \"tests/gemini-import-d1-verification.test.mjs\"\n      - \"tests/gemini-canonical-*.test.mjs\"\n      - \"lib/gemini-automation-*.ts\"\n      - \"lib/gemini-external-agent.ts\"\n      - \"lib/gemini-notion-*.ts\"\n      - \"lib/notion-directory-sync.ts\"\n      - \"lib/notion-events-help-sync.ts\"\n      - \"lib/event-store.ts\"\n      - \"lib/help-store.ts\"\n      - \"scripts/gemini-notion-*.mjs\"\n      - \"tests/gemini-notion-*.test.mjs\"\n      - \"drizzle/0124_gemini_notion_review_locks.sql\"\n      - \"drizzle/0127_gemini_notion_created_pages.sql\"\n      - \"tests/gemini-notion-provenance.test.mjs\"\n      - \"tests/gemini-notion-canonical-drafts.test.mjs\"\n      - \"tests/production-d1-0127-readonly.test.mjs\"\n      - \"scripts/production-d1-0127-readonly.mjs\"\n      - \".github/workflows/production-d1-0127-readonly.yml\"\n      - \"components/admin-gemini-notion-*.tsx\"\n      - \"tests/gemini-notion-drafts.test.mjs\"\n      - \"scripts/gemini-notion-agent.mjs\"\n      - \"scripts/gemini-interactions-contract.mjs\"\n      - \"tests/gemini-external-worker-offline.test.mjs\"\n      - \"tests/fixtures/gemini-external-agent-fetch-mock.mjs\"\n      - \"app/api/internal/gemini-agent/**\"\n      - \".github/workflows/gemini-notion-agent.yml\"\n      - \"tests/gemini-external-agent.test.mjs\"\n      - \"lib/gemini-external-agent.ts\"\n      - \"app/api/internal/gemini-agent/**\"\n      - \"scripts/gemini-notion-agent.mjs\"\n      - \".github/workflows/gemini-notion-agent.yml\"\n      - \"tests/gemini-external-agent.test.mjs\"\n      - \"tests/gemini-automation-*.test.mjs\"\n      - \"tests/gemini-events-*.test.mjs\"\n      - \"drizzle/0113_gemini_automation_foundation.sql\"\n      - \"drizzle/0114_gemini_dedupe.sql\"\n      - \"drizzle/0115_gemini_notion_bridge.sql\"\n      - \"drizzle/0117_gemini_events_rejections.sql\"\n      - \"wrangler.jsonc\"\n      - \"config/runtime-env.ts\"\n      - \".env.example\"\n      - \".github/workflows/gemini-automation-foundation-ci.yml\"\n",
+      "concurrency": [
+        "  group: gemini-foundation-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contracts",
+          "name": "Isolated Gemini foundation contract and migration safety",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Canonical Gemini Notion draft save and 22-key publish handoff (offline)",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-canonical-publish-handoff.test.mjs tests/gemini-canonical-save-sync.test.mjs tests/gemini-notion-drafts.test.mjs tests/gemini-import-d1-verification.test.mjs tests/gemini-stale-lock-recovery.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Gemini foundation focused tests (network mocked)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs"
+              ]
+            },
+            {
+              "name": "name: External Gemini agent contracts (no network or paid API)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs tests/gemini-notion-provenance.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Trusted Gemini-to-canonical draft adapters (12 agendas, no external calls)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/gemini-notion-canonical-drafts.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Production D1 0127 read-only preflight/postflight simulation",
+              "commands": [
+                "run: node --test tests/production-d1-0127-readonly.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Notion category review contracts (mocked, no paid calls)",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-concept-manager-v3.test.mjs tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs tests/gemini-all-concepts-v4.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Gemini published cleanup and future SEO slugs (mocked, read-only)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/gemini-published-cleanup.test.mjs tests/gemini-public-slug.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Gemini review API authorization",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/gemini-notion-api-loader.mjs --test tests/gemini-notion-api.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Install Chromium for isolated admin UI test",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Gemini publication browser lifecycle (22 categories, mocked API; desktop/mobile)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/gemini-published-browser.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Gemini deep-link browser regression (22 categories, 320/390/1440; mocked GET only)",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-direct-deep-link.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Gemini modal desktop and mobile (mocked API only)",
+              "commands": [
+                "run: node --test tests/gemini-notion-review-ui.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Upload isolated Gemini UI screenshots (mocked data only)",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Load current compact Dashboard PR 867 snapshot (read-only)",
+              "commands": [
+                "git fetch --no-tags --depth=1 origin refs/pull/867/head",
+                "echo \"GEMINI_DASHBOARD_SHA=$(git rev-parse FETCH_HEAD)\" >> \"$GITHUB_ENV\"",
+                "echo \"Combined UI uses Dashboard PR #867 snapshot: $(git rev-parse FETCH_HEAD)\""
+              ]
+            },
+            {
+              "name": "name: Combined PR 867 dashboard and PR 868 manager browser acceptance",
+              "commands": [
+                "run: node --test tests/gemini-867-868-combined-ui.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Upload combined Dashboard V3 integration screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: External worker syntax",
+              "commands": [
+                "run: node --check scripts/gemini-notion-agent.mjs"
+              ]
+            },
+            {
+              "name": "name: External worker lint",
+              "commands": [
+                "run: npx eslint lib/gemini-external-agent.ts lib/gemini-notion-provenance.ts app/api/internal/gemini-agent/callback/route.ts scripts/gemini-notion-agent.mjs scripts/gemini-notion-directory-fields.mjs"
+              ]
+            },
+            {
+              "name": "name: Targeted Gemini admin lint coverage",
+              "commands": [
+                "run: npx eslint app/admin/automatizacie-gemini/page.tsx app/api/admin/gemini-automation components/admin-gemini-automation-settings.tsx lib/gemini-automation-pilot.ts lib/gemini-automation-store.ts lib/gemini-automation-admin-store.ts"
+              ]
+            },
+            {
+              "name": "name: Gemini review, rejection and canonical lifecycle lint",
+              "commands": [
+                "run: npx eslint app/admin/automatizacie-gemini app/api/admin/gemini-automation components/admin-gemini-concept-review.tsx lib/gemini-automation-concept-review.ts lib/gemini-automation-dedupe-store.ts lib/directory-store.ts"
+              ]
+            },
+            {
+              "name": "name: Gemini Event contract, canonical and review lint",
+              "commands": [
+                "run: npx eslint lib/gemini-automation-event-*.ts lib/notion-events-help-adapters.ts lib/notion-events-help-sync.ts lib/gemini-notion-agenda-review.ts components/admin-gemini-event-concept-review.tsx components/admin-gemini-agenda-draft-editor.tsx components/admin-gemini-notion-drafts.tsx lib/event-store.ts lib/help-store.ts components/admin-event-editor.tsx components/admin-help-editor.tsx"
+              ]
+            },
+            {
+              "name": "name: Agent JavaScript syntax (without executing or billing)",
+              "commands": [
+                "run: node --check scripts/gemini-notion-agent.mjs"
+              ]
+            },
+            {
+              "name": "name: Production build and typecheck",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Runtime secret contract",
+              "commands": [
+                "run: npm run test:config"
+              ]
+            },
+            {
+              "name": "name: Migration safety",
+              "commands": [
+                "run: npm run test:migration-safety"
+              ]
+            },
+            {
+              "name": "name: CI scope contract",
+              "commands": [
+                "run: node scripts/check-ci-scope.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": true,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run build",
+        "npm run test:config",
+        "npm run test:migration-safety"
+      ],
+      "tests": [
+        "tests/gemini-stale-lock-recovery.test.mjs",
+        "tests/gemini-import-d1-verification.test.mjs",
+        "tests/gemini-notion-provenance.test.mjs",
+        "tests/gemini-notion-canonical-drafts.test.mjs",
+        "tests/production-d1-0127-readonly.test.mjs",
+        "tests/gemini-notion-drafts.test.mjs",
+        "tests/gemini-external-worker-offline.test.mjs",
+        "tests/gemini-external-agent.test.mjs",
+        "tests/gemini-canonical-publish-handoff.test.mjs",
+        "tests/gemini-canonical-save-sync.test.mjs",
+        "tests/gemini-notion-events-help-fields.test.mjs",
+        "tests/gemini-concept-manager-v3.test.mjs",
+        "tests/gemini-notion-agenda-review.test.mjs",
+        "tests/gemini-notion-identity.test.mjs",
+        "tests/gemini-notion-lock.test.mjs",
+        "tests/notion-directory-sync.test.mjs",
+        "tests/gemini-all-concepts-v4.test.mjs",
+        "tests/gemini-published-cleanup.test.mjs",
+        "tests/gemini-public-slug.test.mjs",
+        "tests/gemini-notion-api.test.mjs",
+        "tests/gemini-published-browser.test.mjs",
+        "tests/gemini-direct-deep-link.test.mjs",
+        "tests/gemini-notion-review-ui.test.mjs",
+        "tests/gemini-867-868-combined-ui.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-0127-readonly.mjs",
+        "scripts/gemini-notion-agent.mjs",
+        "scripts/gemini-interactions-contract.mjs",
+        "scripts/gemini-notion-directory-fields.mjs",
+        "scripts/check-ci-scope.mjs"
+      ]
+    },
+    {
+      "file": "gemini-dashboard-v3-visual.yml",
+      "blob": "336aafd05dc62108ff412d37c93f31badbe8ae31",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/admin/automatizacie-gemini/page.tsx\"\n      - \"components/admin-gemini-automation-settings.tsx\"\n      - \"components/admin-gemini-automation.module.css\"\n      - \"tests/e2e/admin-gemini-dashboard-v3.spec.ts\"\n      - \".github/workflows/gemini-dashboard-v3-visual.yml\"\n",
+      "concurrency": [
+        "  group: gemini-dashboard-v3-visual-${{ github.event.pull_request.number }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "screenshot",
+          "name": "Isolated Gemini admin desktop/mobile screenshots",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Checkout PR merge ref",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Node 24",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Build application under test",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Install Chromium",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Configure isolated local preview only",
+              "commands": []
+            },
+            {
+              "name": "name: Apply schema to disposable local D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Seed one saved setting in disposable D1 only (never dispatch)",
+              "commands": [
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state \\"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/gemini-dashboard-v3/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/ >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Real rendered UI Playwright — desktop 1440, mobile 390 and 320",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-gemini-dashboard-v3.spec.ts tests/e2e/admin-gemini-all-concepts-v4.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload actual rendered screenshots (not design references)",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Upload Playwright failure diagnostics",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/e2e/admin-gemini-dashboard-v3.spec.ts",
+        "tests/e2e/admin-gemini-all-concepts-v4.spec.ts"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "gemini-global-stop-ci.yml",
+      "blob": "7595d2bf40a27cce39e9edff571c77886d775fe5",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    # Only map/Gemini/service-specific changes belong here; generic D1\n    # migration tooling is already covered by required CI and Clean D1.\n    paths:\n      - \"drizzle/0136_gemini_global_stop.sql\"\n      - \"lib/gemini-global-control.ts\"\n      - \"lib/gemini-external-agent.ts\"\n      - \"worker/index.ts\"\n      - \"scripts/gemini-notion-agent.mjs\"\n      - \"scripts/production-d1-0136-schema.mjs\"\n      - \"tests/production-d1-0136-rollout.test.mjs\"\n      - \"app/api/admin/gemini-automation/**\"\n      - \"app/api/internal/gemini-agent/authorize/**\"\n      - \"app/admin/automatizacie-gemini/page.tsx\"\n      - \"components/admin-gemini-automation-settings.tsx\"\n      - \"tests/gemini-global-stop.test.mjs\"\n      - \"docs/gemini-global-stop-01.md\"\n      - \"tsconfig.gemini-global-stop.json\"\n      - \"scripts/gemini-global-stop-typecheck.mjs\"\n      - \".github/workflows/gemini-global-stop-ci.yml\"\n",
+      "concurrency": [
+        "  group: gemini-global-stop-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Offline syntax and SQLite regressions (no Gemini/Notion/network requests)",
+              "commands": [
+                "node --check scripts/gemini-notion-agent.mjs",
+                "node --check tests/gemini-global-stop.test.mjs",
+                "node --test tests/production-d1-0135-rollout.test.mjs tests/production-d1-0136-rollout.test.mjs",
+                "node --experimental-strip-types --test tests/gemini-global-stop.test.mjs tests/gemini-scheduler-admin-v2.test.mjs tests/gemini-automation-admin.test.mjs",
+                "npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Lint and TypeScript",
+              "commands": [
+                "npm run lint",
+                "node scripts/gemini-global-stop-typecheck.mjs"
+              ]
+            },
+            {
+              "name": "name: Build without deploy",
+              "commands": [
+                "run: npm run build"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": true,
+        "lint": true,
+        "browser": false,
+        "historical": true,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/production-d1-0136-rollout.test.mjs",
+        "tests/gemini-global-stop.test.mjs",
+        "tests/production-d1-0135-rollout.test.mjs",
+        "tests/gemini-scheduler-admin-v2.test.mjs",
+        "tests/gemini-automation-admin.test.mjs"
+      ],
+      "scripts": [
+        "scripts/gemini-notion-agent.mjs",
+        "scripts/production-d1-0136-schema.mjs",
+        "scripts/gemini-global-stop-typecheck.mjs"
+      ]
+    },
+    {
+      "file": "gemini-notion-agent.yml",
+      "blob": "ecd73ec68861132b9d83a822603cd75f153fecfd",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      job_id:\n        description: \"Existing Psipedia job ID\"\n        required: true\n        type: string\n      stable_key:\n        description: \"Category stable key\"\n        required: true\n        type: string\n      max_new_concepts:\n        description: \"Hard cap 5\"\n        required: true\n        type: string\n      trigger_type:\n        description: \"MANUAL or SCHEDULED\"\n        required: true\n        type: string\n      category_prompt:\n        description: \"Effective reviewed category instructions from Psipedia admin\"\n        required: true\n        type: string",
+      "concurrency": [
+        "  group: gemini-notion-external-agent",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "agent",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Run Gemini Notion agent",
+              "commands": [
+                "run: node scripts/gemini-notion-agent.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [],
+      "tests": [],
+      "scripts": [
+        "scripts/gemini-notion-agent.mjs"
+      ]
+    },
+    {
+      "file": "gemini22-dedupe-gate-tests.yml",
+      "blob": "a87a3013e5ea8d9a39da9857fb7612a049762b7a",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - 'scripts/gemini-notion-agent.mjs'\n      - 'scripts/gemini-notion-preflight.mjs'\n      - 'scripts/gemini-notion-directory-fields.mjs'\n      - 'lib/gemini-external-dedupe.ts'\n      - 'lib/gemini-external-help-dedupe.ts'\n      - 'lib/gemini-external-quality-proposals.ts'\n      - 'lib/gemini-external-feed-quality.ts'\n      - 'tests/gemini-external-feed-quality.test.mjs'\n      - 'app/api/internal/gemini-agent/update-proposal/route.ts'\n      - 'tests/gemini-external-quality-proposals.test.mjs'\n      - 'app/api/internal/gemini-agent/dedupe/route.ts'\n      - 'tests/gemini-notion-preflight.test.mjs'\n      - 'tests/gemini-external-dedupe.test.mjs'\n      - 'tests/gemini-external-help-dedupe.test.mjs'\n      - 'tests/gemini-external-worker-offline.test.mjs'\n      - 'tests/fixtures/gemini-external-agent-fetch-mock.mjs'\n      - '.github/workflows/gemini22-dedupe-gate-tests.yml'\n  workflow_dispatch:",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline-contract",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: node --check scripts/gemini-notion-preflight.mjs && node --check scripts/gemini-notion-agent.mjs",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/gemini-notion-preflight.test.mjs",
+              "commands": []
+            },
+            {
+              "name": "run: node --experimental-strip-types --test tests/gemini-external-dedupe.test.mjs tests/gemini-external-help-dedupe.test.mjs tests/gemini-external-quality-proposals.test.mjs tests/gemini-external-feed-quality.test.mjs",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/gemini-external-worker-offline.test.mjs",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/gemini-external-feed-quality.test.mjs",
+        "tests/gemini-external-quality-proposals.test.mjs",
+        "tests/gemini-notion-preflight.test.mjs",
+        "tests/gemini-external-dedupe.test.mjs",
+        "tests/gemini-external-help-dedupe.test.mjs",
+        "tests/gemini-external-worker-offline.test.mjs"
+      ],
+      "scripts": [
+        "scripts/gemini-notion-agent.mjs",
+        "scripts/gemini-notion-preflight.mjs",
+        "scripts/gemini-notion-directory-fields.mjs"
+      ]
+    },
+    {
+      "file": "google-places-budget-guard-ci.yml",
+      "blob": "4821d4c035364f0fe2d15296b9db9090c8a45fdb",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - 'ops/google-places-budget-guard/**'\n      - '.github/workflows/google-places-budget-guard-ci.yml'\n  workflow_dispatch:\n",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "budget-guard",
+          "name": "Validate 5 EUR auto-disable policy (offline)",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Check handler syntax (no credentials or API calls)",
+              "commands": [
+                "run: npm run check"
+              ]
+            },
+            {
+              "name": "name: Run isolated policy and Service Usage API tests",
+              "commands": [
+                "run: npm test"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm run check",
+        "npm test"
+      ],
+      "tests": [],
+      "scripts": []
+    },
+    {
+      "file": "help-legacy-sql-cleanup-once.yml",
+      "blob": "340f74fd89ab430bfebd3b708fdfb91f3bf094ed",
+      "events": [
+        "pull_request",
+        "push",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \".github/workflows/help-legacy-sql-cleanup-once.yml\"\n      - \"scripts/maintenance/help-legacy-140.sql\"\n      - \"scripts/maintenance/help-legacy-140.mjs\"\n      - \"tests/help-legacy-sql-cleanup.test.mjs\"\n  push:\n    branches: [main]\n    paths:\n      - \".github/workflows/help-legacy-sql-cleanup-once.yml\"\n      - \"scripts/maintenance/help-legacy-140.sql\"\n      - \"scripts/maintenance/help-legacy-140.mjs\"\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: \"Presne: VYMAZAT LEN 140 SQL KOPII NOTION PONECHAT\"\n        required: true\n        type: string",
+      "concurrency": [
+        "  group: ${{ github.event_name == 'pull_request' && format('help-legacy-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline",
+          "name": "Offline safety — 140-row rollback",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/help-legacy-sql-cleanup.test.mjs",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "delete-once",
+          "name": "SQL-only delete 140 historical Help rows",
+          "needs": "offline",
+          "if": ">-",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: node scripts/maintenance/help-legacy-140.mjs",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [],
+      "tests": [
+        "tests/help-legacy-sql-cleanup.test.mjs"
+      ],
+      "scripts": [
+        "scripts/maintenance/help-legacy-140.mjs"
+      ]
+    },
+    {
+      "file": "homepage-name-days-ci.yml",
+      "blob": "7f91b80bc7754323150ed15de3d8a9c921a8a49d",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    # Homepage layout changes use mandatory public CI; costly calendar E2E\n    # runs for name-day-specific changes or via workflow_dispatch.\n    paths:\n      - \"app/psie-meniny/**\"\n      - \"components/*dog-name-day*\"\n      - \"lib/dog-name-day*\"\n      - \"tests/dog-name-day*\"\n      - \"tests/e2e/name-days.spec.ts\"\n      - \"tests/e2e/home-name-days-calendar.spec.ts\"\n      - \".github/workflows/homepage-name-days-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: homepage-name-days-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "name-day-calendar",
+          "name": "NAME-DAY calendar unit, mobile/desktop E2E and screenshots",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: NAME-DAY unit/integration regressions",
+              "commands": [
+                "run: npm run test:name-days"
+              ]
+            },
+            {
+              "name": "name: Build",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Install Chromium",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Configure isolated E2E bindings",
+              "commands": []
+            },
+            {
+              "name": "name: Create isolated local D1",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Bootstrapping local adoption prerequisite",
+              "commands": [
+                "run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs"
+              ]
+            },
+            {
+              "name": "name: Finish local D1 migrations",
+              "commands": [
+                "run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Apply isolated Directory SQL presentation schema",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql"
+              ]
+            },
+            {
+              "name": "name: Start app locally",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/name-days-server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/ >/dev/null; then exit 0; fi"
+              ]
+            },
+            {
+              "name": "name: Playwright — mobile, desktop, axe, keyboard, viewport screenshots",
+              "commands": [
+                "run: npm run e2e -- tests/e2e/home-name-days-calendar.spec.ts tests/e2e/name-days.spec.ts --workers=1"
+              ]
+            },
+            {
+              "name": "name: Upload screenshots, accessibility evidence and Playwright report",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Stop local server",
+              "if": "always()",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run lint",
+        "npm run test:name-days",
+        "npm run build",
+        "npm run e2e"
+      ],
+      "tests": [
+        "tests/e2e/name-days.spec.ts",
+        "tests/e2e/home-name-days-calendar.spec.ts"
+      ],
+      "scripts": [
+        "scripts/bootstrap-adoption-staging-ci.mjs"
+      ]
+    },
+    {
+      "file": "image-editor-2-ci.yml",
+      "blob": "9c2086d995d8643fbd13707070baf758d64e120d",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    # Image-specific changes only; global homepage and database changes are\n    # validated by the mandatory CI and migration safety workflows.\n    paths:\n      - \"components/image-display*\"\n      - \"components/smart-card-image.tsx\"\n      - \"components/public-profile/public-profile*\"\n      - \"components/help-details/help-detail*\"\n      - \"components/adoption-detail*\"\n      - \"components/lost-found-dogs.module.css\"\n      - \"components/events-public.module.css\"\n      - \"components/article-card.tsx\"\n      - \"components/admin-event-editor.tsx\"\n      - \"tests/image-editor-3.test.mjs\"\n      - \"tests/smart-card-images.test.mjs\"\n      - \"components/event-image.tsx\"\n      - \"components/directory-card.tsx\"\n      - \"components/help-card.tsx\"\n      - \"components/adoption-card-media.tsx\"\n      - \"components/lost-found-dogs-page.tsx\"\n      - \"components/lost-found-dog-detail.tsx\"\n      - \"lib/image-display.ts\"\n      - \"lib/adoption.ts\"\n      - \"drizzle/0122_entity_image_display_config.sql\"\n      - \"tests/image-editor-2.test.mjs\"\n      - \".github/workflows/image-editor-2-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: image-editor-2-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "focused-regression",
+          "name": "Image display and D1 migration contracts",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Shared renderer and six entity integration checks",
+              "commands": [
+                "run: npm run test:image-editor-2"
+              ]
+            },
+            {
+              "name": "name: Automatic image presentation and homepage contracts",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/image-editor-3.test.mjs tests/smart-card-images.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Migration numbering and safety",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Production D1 migration target tests",
+              "commands": [
+                "run: node --test tests/production-d1-migration.test.mjs tests/migration-safety.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm run test:image-editor-2",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/image-editor-3.test.mjs",
+        "tests/smart-card-images.test.mjs",
+        "tests/image-editor-2.test.mjs",
+        "tests/production-d1-migration.test.mjs",
+        "tests/migration-safety.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "knip-audit.yml",
+      "blob": "99ba11c505e7378059e185e661ea2b6f34d25d9b",
+      "events": [
+        "workflow_dispatch",
+        "pull_request"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"knip.json\"\n      - \".github/workflows/knip-audit.yml\"\n      - \"package.json\"\n      - \"docs/audits/knip-step1.md\"\n",
+      "concurrency": [
+        "  group: knip-audit-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "audit",
+          "name": "Read-only Knip report",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Check out the exact revision",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install existing locked dependencies without lifecycle scripts",
+              "commands": [
+                "run: npm ci --ignore-scripts --no-audit --no-fund"
+              ]
+            },
+            {
+              "name": "name: Generate read-only JSON and Markdown Knip reports",
+              "commands": [
+                "run: npm run audit:knip:report"
+              ]
+            },
+            {
+              "name": "name: Upload reports even if analysis fails",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run audit:knip:report"
+      ],
+      "tests": [],
+      "scripts": []
+    },
+    {
+      "file": "link-health-audit.yml",
+      "blob": "14d43ad766a6d304718e5aac23b651f3fc44c3d9",
+      "events": [
+        "schedule",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  schedule:\n    - cron: '17 3 * * 1'\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: psipedia-link-health-weekly",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "links",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "name: Checkout report scripts only (no write access)",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Node for report normalization",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Validate public-only scan policy and report contract",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/link-health.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Select maximum 12 public pages from sitemap",
+              "commands": [
+                "run: node scripts/link-health-weekly.mjs select"
+              ]
+            },
+            {
+              "name": "name: Install already approved checksum-pinned Linkinator v8.1.0 (MIT)",
+              "commands": [
+                "curl -fLsS --retry 2 --max-time 120 \\"
+              ]
+            },
+            {
+              "name": "name: Read-only, no recursion, internal links only, concurrency 1",
+              "commands": []
+            },
+            {
+              "name": "name: Generate readable source → target report",
+              "commands": [
+                "run: node scripts/link-health-weekly.mjs report"
+              ]
+            },
+            {
+              "name": "name: Upload diagnostics including failures",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "separate-review",
+      "npm": [],
+      "tests": [
+        "tests/link-health.test.mjs"
+      ],
+      "scripts": [
+        "scripts/link-health-weekly.mjs"
+      ]
+    },
+    {
+      "file": "map-data-row-level-export.yml",
+      "blob": "584ab03c14c0669222faa1ec2e8b2751234be3d7",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - scripts/map-data-row-level-export.mjs\n      - tests/map-data-row-level-export.test.mjs\n      - .github/workflows/map-data-row-level-export.yml\n",
+      "concurrency": [
+        "  group: map-data-row-level-export-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "static-safety",
+          "name": "Static read-only safety",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/map-data-row-level-export.test.mjs",
+              "commands": []
+            },
+            {
+              "name": "run: node --check scripts/map-data-row-level-export.mjs",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "production-readonly-export",
+          "name": "Production D1 read-only export",
+          "needs": "static-safety",
+          "if": "github.event.pull_request.head.repo.full_name == github.repository && github.actor == 'investradarsk'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Checkout exact PR head",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log immutable revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Require protected read credential",
+              "commands": []
+            },
+            {
+              "name": "name: Load canonical Cloudflare account id",
+              "commands": [
+                "account_id=\"$(node -e 'const fs=require(\"fs\"); const x=JSON.parse(fs.readFileSync(\"config/cloudflare-resources.json\",\"utf8\")); process.stdout.write(x.account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Re-run read-only guard before production access",
+              "commands": [
+                "run: node --test tests/map-data-row-level-export.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Export canonical production rows and audit counts",
+              "commands": [
+                "run: node scripts/map-data-row-level-export.mjs"
+              ]
+            },
+            {
+              "name": "name: Upload row-level audit artifacts",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/map-data-row-level-export.test.mjs"
+      ],
+      "scripts": [
+        "scripts/map-data-row-level-export.mjs"
+      ]
+    },
+    {
+      "file": "map-geo-foundation-ci.yml",
+      "blob": "8d2abe7eea76c5350b150f447dcfa12211fea973",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"db/geo-schema.ts\"\n      - \"db/index.ts\"\n      - \"drizzle/0064_geo_foundation.sql\"\n      - \"lib/geo*.ts\"\n      - \"app/admin/operations/geo/**\"\n      - \"app/admin/operations/page.tsx\"\n      - \"app/admin/adresar/[id]/page.tsx\"\n      - \"app/admin/podujatia/[id]/page.tsx\"\n      - \"app/api/admin/geo/**\"\n      - \"app/api/admin/directory/[id]/route.ts\"\n      - \"app/api/admin/events/[id]/route.ts\"\n      - \"app/api/admin/organizations/[id]/locations/[locationId]/route.ts\"\n      - \"components/admin-geo-*\"\n      - \"components/admin-organization-locations.tsx\"\n      - \"lib/admin-attention-queue*\"\n      - \"scripts/geo-production-inventory.sql\"\n      - \"scripts/validate-clean-d1.mjs\"\n      - \"tests/geo-foundation.test.mjs\"\n      - \"tests/directory-address-policy.test.mjs\"\n      - \"tests/directory-online-removal.test.mjs\"\n      - \"tests/admin-attention-queue.test.mjs\"\n      - \"tests/e2e/admin-geo-foundation.spec.ts\"\n      - \".github/workflows/map-geo-foundation-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: map-1b-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "geo-foundation",
+          "name": "Geo schema, privacy, build and admin E2E",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Migration safety",
+              "commands": [
+                "run: npm run test:migration-safety"
+              ]
+            },
+            {
+              "name": "name: MAP-1B focused unit and Attention tests",
+              "commands": [
+                "npm run test:geo-foundation",
+                "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-address-policy.test.mjs tests/directory-online-removal.test.mjs",
+                "node --experimental-strip-types --test tests/admin-attention-queue.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Clean D1 migration/schema validation",
+              "commands": [
+                "run: npm run db:validate-clean"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Production build",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Configure CI-only local security keys",
+              "commands": []
+            },
+            {
+              "name": "name: Apply non-adoption migrations to isolated local D1",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Apply isolated Directory SQL-only presentation schema",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql"
+              ]
+            },
+            {
+              "name": "name: Seed directory admin fixture into isolated local D1",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/map-1b/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/admin >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: MAP-1B admin Playwright — desktop and mobile",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-geo-foundation.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:migration-safety",
+        "npm run test:geo-foundation",
+        "npm run db:validate-clean",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/geo-foundation.test.mjs",
+        "tests/directory-address-policy.test.mjs",
+        "tests/directory-online-removal.test.mjs",
+        "tests/admin-attention-queue.test.mjs",
+        "tests/e2e/admin-geo-foundation.spec.ts"
+      ],
+      "scripts": [
+        "scripts/validate-clean-d1.mjs"
+      ]
+    },
+    {
+      "file": "map-production-launch-ci.yml",
+      "blob": "133e295e6ff95adbba1e4d7bf72134f03700693f",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    # Only map/Gemini/service-specific changes belong here; generic D1\n    # migration tooling is already covered by required CI and Clean D1.\n    paths:\n      - \".github/workflows/map-production-readiness.yml\"\n      - \".github/workflows/map-production-launch-ci.yml\"\n      - \"scripts/map-production-readiness.mjs\"\n      - \"scripts/map-production-privacy-smoke.mjs\"\n      - \"app/mapa/**\"\n      - \"components/map/**\"\n      - \"lib/geo-operations.ts\"\n      - \"app/api/admin/geo/operations/route.ts\"\n      - \"lib/navigation-store.ts\"\n      - \"lib/google-maps-consent.ts\"\n      - \"lib/map-query.ts\"\n      - \"components/google-maps-consent-controls.tsx\"\n      - \"app/cookies/page.tsx\"\n      - \"app/sukromie/page.tsx\"\n      - \"app/podmienky-pouzivania/page.tsx\"\n      - \"tests/map-production-launch.test.mjs\"\n      - \"tests/config-contract.test.mjs\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: map-production-launch-ci-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "launch-hardening",
+          "name": "Migration gates, map regressions and build",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Production migration and history safety",
+              "commands": [
+                "run: npm run test:migration-safety"
+              ]
+            },
+            {
+              "name": "name: MAP-1E launch, consent and privacy contracts",
+              "commands": [
+                "run: npm run test:map-production-launch"
+              ]
+            },
+            {
+              "name": "name: MAP-1B privacy regression",
+              "commands": [
+                "run: npm run test:geo-foundation"
+              ]
+            },
+            {
+              "name": "name: MAP-1C API regression",
+              "commands": [
+                "run: npm run test:map-read-api"
+              ]
+            },
+            {
+              "name": "name: MAP-1D UI contract regression",
+              "commands": [
+                "run: npm run test:map-public-ui"
+              ]
+            },
+            {
+              "name": "name: Config contract",
+              "commands": [
+                "run: npm run test:config"
+              ]
+            },
+            {
+              "name": "name: Clean D1 validation",
+              "commands": [
+                "run: npm run db:validate-clean"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Production build",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Verify scoped 0063 manifest excludes later migrations",
+              "commands": [
+                "TARGET_MIGRATION=0063_partner_claims_verification.sql node scripts/production-d1-migrate.mjs prepare",
+                "node - <<'NODE'"
+              ]
+            },
+            {
+              "name": "name: Verify scoped 0064 manifest excludes 0065+",
+              "commands": [
+                "TARGET_MIGRATION=0064_geo_foundation.sql node scripts/production-d1-migrate.mjs prepare",
+                "node - <<'NODE'"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": true,
+        "lint": true,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:migration-safety",
+        "npm run test:map-production-launch",
+        "npm run test:geo-foundation",
+        "npm run test:map-read-api",
+        "npm run test:map-public-ui",
+        "npm run test:config",
+        "npm run db:validate-clean",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/map-production-launch.test.mjs",
+        "tests/config-contract.test.mjs"
+      ],
+      "scripts": [
+        "scripts/map-production-readiness.mjs",
+        "scripts/map-production-privacy-smoke.mjs",
+        "scripts/production-d1-migrate.mjs"
+      ]
+    }
+  ]
+}

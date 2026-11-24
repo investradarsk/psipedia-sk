@@ -1,0 +1,2109 @@
+{
+  "ref": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+  "start": 128,
+  "end": 144,
+  "rows": [
+    {
+      "file": "production-help-org-contact-json-cleanup.yml",
+      "blob": "816175a4080073faa9690dffb14ad5e243ac4719",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \".github/workflows/production-help-org-contact-json-cleanup.yml\"\n      - \"scripts/production-help-org-contact-json-cleanup.mjs\"\n      - \"tests/help-org-contact-json-cleanup.test.mjs\"\n      - \"lib/partner-profile-changes.ts\"\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: \"Only AFTER SQL-only Help Organizations code is live: DEPLOYED-SQL-HELP-ORGANIZATIONS-CLEANUP-psipedia-sk-db\"\n        required: true\n        type: string\n",
+      "concurrency": [
+        "  group: ${{ github.event_name == 'pull_request' && format('help-org-contacts-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline",
+          "name": "Verify SQL-owned contacts and one-keyset cleanup (offline only)",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/help-org-contact-json-cleanup.test.mjs",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "production",
+          "name": "Explicit owner-only JSON contact cleanup",
+          "needs": "offline",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "name: Reject unexpected context or premature cleanup",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install pinned Wrangler",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Bind exact Cloudflare account from repository configuration",
+              "commands": [
+                "account=\"$(node -p 'require(\"./config/cloudflare-resources.json\").account_id')\""
+              ]
+            },
+            {
+              "name": "name: Remove only publicEmailsRaw and publicPhonesRaw from help_organizations",
+              "commands": [
+                "run: node scripts/production-help-org-contact-json-cleanup.mjs"
+              ]
+            },
+            {
+              "name": "name: Archive aggregate-only postflight result",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/help-org-contact-json-cleanup.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-help-org-contact-json-cleanup.mjs"
+      ]
+    },
+    {
+      "file": "production-help-sql-cutover.yml",
+      "blob": "60633003e7d07fcdca2365d3d110e8d977dfd709",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \".github/workflows/production-help-sql-cutover.yml\"\n      - \"lib/help-sql-cutover-readiness.mjs\"\n      - \"scripts/production-help-sql-cutover.mjs\"\n      - \"tests/production-help-sql-cutover.test.mjs\"\n      - \"lib/help-sql-schema-preflight.mjs\"\n      - \"lib/help-sql-reviewed-backfill.mjs\"\n      - \"scripts/production-editorial-storage-readonly.mjs\"\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: \"Read-only audit; postflight verifies manually checked deployment only (no migration)\"\n        type: choice\n        default: audit\n        required: true\n        options:\n          - audit\n          - postflight\n      confirmation:\n        description: \"AUDIT-HELP-SQL-psipedia-sk-db or POSTFLIGHT-HELP-SQL-psipedia-sk-db\"\n        type: string\n        required: true\n      backup_confirmation:\n        description: \"For postflight only: INDEPENDENT-BACKUP-VERIFIED\"\n        type: string\n        required: false\n      parity_confirmation:\n        description: \"For postflight only: ADMIN-NOTION-PUBLIC-PARITY-REVIEWED\"\n        type: string\n        required: false\n",
+      "concurrency": [
+        "  group: ${{ github.event_name == 'pull_request' && format('help-sql-pr-{0}', github.event.pull_request.number) || 'production-d1-migration' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline-safety",
+          "name": "Help schema, canonical reads and manual production gate (offline)",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Run offline SQLite and safety contracts (no credentials, D1 or Notion)",
+              "commands": [
+                "run: node --test tests/production-help-sql-cutover.test.mjs tests/help-sql-schema-preflight.test.mjs tests/help-sql-reviewed-backfill.test.mjs tests/help-sql-legacy-public-cutover-step5.test.mjs"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "production-verify",
+          "name": "Verify canonical Help D1, recovery point and aggregate blockers (no writes)",
+          "needs": "offline-safety",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Reject unexpected repository, branch or invocation",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main (never inspect unknown deployed code)",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install pinned Wrangler and app dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Bind exact canonical Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Verify SQL migration metadata (offline only)",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Collect existing production D1 inventory (SELECT only, no export)",
+              "commands": [
+                "run: node scripts/production-editorial-storage-readonly.mjs"
+              ]
+            },
+            {
+              "name": "name: Verify Help schema, D1 recovery checkpoint and legacy parity blockers",
+              "commands": [
+                "run: node scripts/production-help-sql-cutover.mjs \"$HELP_SQL_MODE\""
+              ]
+            },
+            {
+              "name": "name: Upload count-only gate result even if blocked",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/production-help-sql-cutover.test.mjs",
+        "tests/help-sql-schema-preflight.test.mjs",
+        "tests/help-sql-reviewed-backfill.test.mjs",
+        "tests/help-sql-legacy-public-cutover-step5.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-help-sql-cutover.mjs",
+        "scripts/production-editorial-storage-readonly.mjs"
+      ]
+    },
+    {
+      "file": "profile-review-admin-ci.yml",
+      "blob": "d1414a6d36c381140f8ba7be5358ab3be7689970",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/admin/recenzie-profilov/**\"\n      - \"app/api/admin/profile-reviews/**\"\n      - \"components/admin-profile-review-actions.tsx\"\n      - \"lib/admin-auth.ts\"\n      - \"lib/profile-review-admin.ts\"\n      - \"lib/profile-review-admin-transition.ts\"\n      - \"lib/profile-review-domain.ts\"\n      - \"lib/profile-review-read.ts\"\n      - \"tests/profile-review-admin.test.mjs\"\n      - \"tests/e2e/profile-review-admin.spec.ts\"\n      - \"tests/fixtures/profile-review-admin-e2e.sql\"\n      - \".github/workflows/profile-review-admin-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: reviews-3-${{ github.event.pull_request.number || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "validation",
+          "name": "Review admin — domain, Attention, regressions, D1, lint and build",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Migration safety",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-3 atomic moderation and Attention tests",
+              "commands": [
+                "run: npm run test:reviews-admin"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-1B public read regression",
+              "commands": [
+                "run: npm run test:reviews-public-read"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-2A reviewer auth regression",
+              "commands": [
+                "run: npm run test:review-author-auth"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-2B submission regression",
+              "commands": [
+                "run: npm run test:reviews-submission"
+              ]
+            },
+            {
+              "name": "name: Partner platform regression",
+              "commands": [
+                "run: npm run test:partner-platform"
+              ]
+            },
+            {
+              "name": "name: Clean D1 migration chain",
+              "commands": [
+                "run: npm run db:validate-clean"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Production build",
+              "commands": [
+                "run: npm run build"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "e2e",
+          "name": "Review admin — desktop/mobile/public/a11y",
+          "needs": "validation",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Configure CI-only local PII keys and isolated review admin runtime",
+              "commands": [
+                "PII_ENCRYPTION_KEY=\"$(node -e 'process.stdout.write(Buffer.from(\"0123456789abcdef\".repeat(2)).toString(\"base64url\"))')\"",
+                "PII_HASH_KEY=\"$(node -e 'process.stdout.write(Buffer.from(\"fedcba9876543210\".repeat(2)).toString(\"base64url\"))')\""
+              ]
+            },
+            {
+              "name": "run: npm run build",
+              "commands": []
+            },
+            {
+              "name": "name: Apply migrations to isolated local D1",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Seed isolated review moderation fixtures",
+              "commands": [
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/profile-reviews-e2e.sql",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/profile-review-admin-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/reviews-3/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/admin/recenzie-profilov >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-1B public browser regression",
+              "commands": [
+                "run: npx playwright test tests/e2e/profile-reviews-public.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-3 Playwright — desktop/mobile/a11y",
+              "commands": [
+                "run: npx playwright test tests/e2e/profile-review-admin.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Assert canonical moderation outcomes",
+              "commands": [
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command \"SELECT id,status,published_at,overall_rating,body FROM profile_reviews WHERE id IN ('e2e-review-vet-pending','e2e-review-admin-risk-pending') ORDER BY id;\" --json > .e2e-artifacts/reviews-3/review-outcomes.json",
+                "node -e 'const fs=require(\"node:fs\");const d=JSON.parse(fs.readFileSync(\".e2e-artifacts/reviews-3/review-outcomes.json\",\"utf8\"));const rows=d.flatMap(x=>x.results||[]);const approved=rows.find(x=>x.id===\"e2e-review-vet-pending\");const rejected=rows.find(x=>x.id===\"e2e-review-admin-risk-pending\");if(approved?.status!==\"VISIBLE\"||!approved?.published_at||rejected?.status!==\"REJECTED\"){console.error(rows);process.exit(1)}'"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run test:reviews-admin",
+        "npm run test:reviews-public-read",
+        "npm run test:review-author-auth",
+        "npm run test:reviews-submission",
+        "npm run test:partner-platform",
+        "npm run db:validate-clean",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/profile-review-admin.test.mjs",
+        "tests/e2e/profile-review-admin.spec.ts",
+        "tests/e2e/profile-reviews-public.spec.ts"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "profile-review-submission-ci.yml",
+      "blob": "812126f5ea2da8a7ef845a76d984013b70d3f085",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/recenzia/**\"\n      - \"app/api/review-author/reviews/**\"\n      - \"components/profile-review-section.tsx\"\n      - \"components/profile-review-submission-form.tsx\"\n      - \"components/profile-review-submission-form.module.css\"\n      - \"lib/profile-review-domain.ts\"\n      - \"lib/profile-review-read.ts\"\n      - \"lib/profile-review-submission.ts\"\n      - \"lib/review-author-auth.ts\"\n      - \"lib/review-author-auth-store.ts\"\n      - \"lib/review-author-return-to.ts\"\n      - \"lib/review-author-security.ts\"\n      - \"lib/submission-feature-flags.ts\"\n      - \"lib/submission-security.ts\"\n      - \"lib/turnstile.ts\"\n      - \"lib/rate-limit.ts\"\n      - \"tests/profile-review-submission.test.mjs\"\n      - \"tests/review-author-auth.test.mjs\"\n      - \"tests/profile-review-read.test.mjs\"\n      - \"tests/e2e/profile-review-submission.spec.ts\"\n      - \"tests/e2e/review-author-auth.spec.ts\"\n      - \"tests/fixtures/profile-review-submission-e2e.sql\"\n      - \".github/workflows/profile-review-submission-ci.yml\"\n      - \"app/api/review-author/**\"\n      - \"components/review-author-*\"\n      - \"components/profile-review-section.module.css\"\n      - \"components/cookie-consent.tsx\"\n      - \"components/programmatic-ad-loader.tsx\"\n      - \"lib/review-author-*\"\n      - \"lib/resource-access.ts\"\n      - \"lib/resource-access-store.ts\"\n      - \"lib/pii-crypto.ts\"\n      - \"tests/fixtures/review-author-auth-e2e.sql\"\n      - \".github/workflows/review-author-auth-ci.yml\"\n      - \"scripts/ci-build-artifact.mjs\"\n      - \"tests/ci-v2-shared-build.test.mjs\"\n      - \"package.json\"\n      - \"package-lock.json\"\n      - \"vite.config.ts\"\n      - \"scripts/build-verified.sh\"\n      - \"scripts/validate-deploy-artifact.mjs\"\n      - \"scripts/ci-scope.mjs\"\n      - \"tests/ci-v2-scope.test.mjs\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: reviews-2b-${{ github.event.pull_request.number || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "scope",
+          "name": "Select review regression scope",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "id: scope",
+              "commands": [
+                "run: node scripts/ci-scope.mjs --github-output"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "shared-build",
+          "name": "Shared review build (${{ matrix.profile }})",
+          "needs": "scope",
+          "if": "needs.scope.outputs.review_auth == 'true' || needs.scope.outputs.review_submission == 'true'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Standard build",
+              "if": "matrix.profile == 'standard'",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Isolated local E2E build",
+              "if": "matrix.profile == 'local-e2e'",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Record standard build identity",
+              "if": "matrix.profile == 'standard'",
+              "commands": [
+                "run: node scripts/ci-build-artifact.mjs record standard"
+              ]
+            },
+            {
+              "name": "name: Record local E2E build identity",
+              "if": "matrix.profile == 'local-e2e'",
+              "commands": [
+                "run: node scripts/ci-build-artifact.mjs record local-e2e"
+              ]
+            },
+            {
+              "name": "name: Publish verified build from this run",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "reviewer-auth",
+          "name": "Reviewer authentication",
+          "needs": "[scope, shared-build]",
+          "if": "needs.scope.outputs.review_auth == 'true'",
+          "steps": []
+        },
+        {
+          "id": "validation",
+          "name": "Review submission — security, D1, regressions, lint and build",
+          "needs": "[scope, shared-build]",
+          "if": "needs.scope.outputs.review_submission == 'true'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Migration safety",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-2B unit and D1 integration",
+              "commands": [
+                "run: npm run test:reviews-submission"
+              ]
+            },
+            {
+              "name": "name: Reviewer auth regression",
+              "commands": [
+                "run: npm run test:review-author-auth"
+              ]
+            },
+            {
+              "name": "name: Public read VISIBLE-only regression",
+              "commands": [
+                "run: npm run test:reviews-public-read"
+              ]
+            },
+            {
+              "name": "name: Clean D1 migration chain",
+              "commands": [
+                "run: npm run db:validate-clean"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Download shared standard build from this run",
+              "uses": "actions/download-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Verify shared standard build revision and integrity",
+              "commands": [
+                "run: node scripts/ci-build-artifact.mjs verify standard"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "e2e",
+          "name": "Review submission — desktop/mobile accessibility and security",
+          "needs": "validation",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Download shared local-e2e build from this run",
+              "uses": "actions/download-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Verify shared local-e2e build revision and integrity",
+              "commands": [
+                "run: node scripts/ci-build-artifact.mjs verify local-e2e"
+              ]
+            },
+            {
+              "name": "name: Configure CI-only local PII keys and isolated review runtime",
+              "commands": [
+                "PII_ENCRYPTION_KEY=\"$(node -e 'process.stdout.write(Buffer.from(\"0123456789abcdef\".repeat(2)).toString(\"base64url\"))')\"",
+                "PII_HASH_KEY=\"$(node -e 'process.stdout.write(Buffer.from(\"fedcba9876543210\".repeat(2)).toString(\"base64url\"))')\""
+              ]
+            },
+            {
+              "name": "name: Apply migrations to isolated local D1",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Apply isolated Directory SQL presentation schema",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql"
+              ]
+            },
+            {
+              "name": "name: Seed isolated review submission fixtures",
+              "commands": [
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/profile-review-submission-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/reviews-2b/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/recenzia/napisat?resourceId=reviews-2b-directory-resource >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-2B Playwright — desktop",
+              "commands": [
+                "run: npm run e2e -- tests/e2e/profile-review-submission.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-2B Playwright — mobile",
+              "commands": [
+                "run: npm run e2e -- tests/e2e/profile-review-submission.spec.ts --project=mobile-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Assert browser flow did not publish review fixtures",
+              "commands": [
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command \"SELECT status, COUNT(*) AS count FROM profile_reviews GROUP BY status ORDER BY status;\" --json > .e2e-artifacts/reviews-2b/review-status-counts.json",
+                "node -e 'const fs=require(\"node:fs\");const data=JSON.parse(fs.readFileSync(\".e2e-artifacts/reviews-2b/review-status-counts.json\",\"utf8\"));const rows=data.flatMap(x=>x.results||[]);const visible=rows.find(x=>x.status===\"VISIBLE\");if(visible && Number(visible.count)!==0){console.error(data);process.exit(1)}'"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run build",
+        "npm run db:check-migrations",
+        "npm run test:reviews-submission",
+        "npm run test:review-author-auth",
+        "npm run test:reviews-public-read",
+        "npm run db:validate-clean",
+        "npm run lint",
+        "npm run e2e"
+      ],
+      "tests": [
+        "tests/profile-review-submission.test.mjs",
+        "tests/review-author-auth.test.mjs",
+        "tests/profile-review-read.test.mjs",
+        "tests/e2e/profile-review-submission.spec.ts",
+        "tests/e2e/review-author-auth.spec.ts",
+        "tests/ci-v2-shared-build.test.mjs",
+        "tests/ci-v2-scope.test.mjs"
+      ],
+      "scripts": [
+        "scripts/ci-build-artifact.mjs",
+        "scripts/build-verified.sh",
+        "scripts/validate-deploy-artifact.mjs",
+        "scripts/ci-scope.mjs"
+      ]
+    },
+    {
+      "file": "profile-reviews-public-ci.yml",
+      "blob": "e31d7965d1d4920475ec7b5d2422f3712d8f86fd",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"lib/profile-review-read.ts\"\n      - \"lib/profile-review-domain.ts\"\n      - \"components/profile-review-section.tsx\"\n      - \"components/profile-review-section.module.css\"\n      - \"components/directory-profile-detail.tsx\"\n      - \"components/organization-profile-detail.tsx\"\n      - \"app/adresar/[category]/[slug]/page.tsx\"\n      - \"app/organizacie/[slug]/page.tsx\"\n      - \"tests/profile-review-read.test.mjs\"\n      - \"tests/e2e/profile-reviews-public.spec.ts\"\n      - \"tests/fixtures/profile-reviews-e2e.sql\"\n      - \".github/workflows/profile-reviews-public-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "public-reviews",
+          "name": "Public review read model, D1 and E2E",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Migration safety",
+              "commands": [
+                "run: npm run test:migration-safety"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-1B read unit and D1 integration tests",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/profile-review-read.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Clean D1 migration/schema validation",
+              "commands": [
+                "run: npm run db:validate-clean"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Production build",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Configure CI-only local security keys",
+              "commands": []
+            },
+            {
+              "name": "name: Apply non-adoption migrations to isolated local D1",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Apply isolated Directory SQL presentation schema",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql"
+              ]
+            },
+            {
+              "name": "name: Seed public profile fixtures into isolated local D1",
+              "commands": [
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/profile-reviews-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/reviews-1b/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/adresar/veterinari/health-fixture-vet-rich >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-1B public E2E — desktop and mobile",
+              "commands": [
+                "run: npx playwright test tests/e2e/profile-reviews-public.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:migration-safety",
+        "npm run db:validate-clean",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/profile-review-read.test.mjs",
+        "tests/e2e/profile-reviews-public.spec.ts"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "public-ds5-cards.yml",
+      "blob": "14dc68fcc90a6bc5ee918d7f909ef361d67d3fdb",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"app/design-system.css\"\n      - \"app/globals.css\"\n      - \"components/public-visual-system/**\"\n      - \"tests/public-filter-unification.test.mjs\"\n      - \"tests/public-banner-variants.test.mjs\"\n      - \"tests/public-photo-gallery.test.mjs\"\n      - \"components/directory-public.module.css\"\n      - \"components/help-public.module.css\"\n      - \"components/adoption.module.css\"\n      - \"components/events-public.module.css\"\n      - \"tests/public-ds5-cards.test.mjs\"\n      - \"tests/public-design-tokens.test.mjs\"\n      - \".github/workflows/public-ds5-cards.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: public-ds5-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "ds5-visual-contract",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci --ignore-scripts --no-audit --no-fund",
+              "commands": []
+            },
+            {
+              "name": "name: Syntax and shared visual regressions",
+              "commands": [
+                "node --check tests/public-ds5-cards.test.mjs",
+                "node --check tests/public-design-tokens.test.mjs",
+                "node --test tests/public-ds5-cards.test.mjs tests/public-design-tokens.test.mjs tests/public-form-controls.test.mjs tests/public-filter-unification.test.mjs tests/public-banner-variants.test.mjs tests/public-photo-gallery.test.mjs tests/public-result-states.test.mjs tests/public-search-simplify.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Native filter URL contracts",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-public-filters.test.mjs tests/lost-found-gallery-preservation.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/public-filter-unification.test.mjs",
+        "tests/public-banner-variants.test.mjs",
+        "tests/public-photo-gallery.test.mjs",
+        "tests/public-ds5-cards.test.mjs",
+        "tests/public-design-tokens.test.mjs",
+        "tests/public-form-controls.test.mjs",
+        "tests/public-result-states.test.mjs",
+        "tests/public-search-simplify.test.mjs",
+        "tests/directory-public-filters.test.mjs",
+        "tests/lost-found-gallery-preservation.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "public-html-cache-safety-guard.yml",
+      "blob": "1580d13f192c5a9828033279eebbd70cc1fee532",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - 'worker/index.ts'\n      - 'tests/public-html-cache-safety.test.mjs'\n      - 'tests/public-html-cache.test.mjs'\n      - 'tests/worker-performance.test.mjs'\n      - '.github/workflows/public-html-cache-safety-guard.yml'\n",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "public-html-cache-safety",
+          "name": "Public HTML cache restrictions and HIT/MISS regressions",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Run cache and Worker regressions offline",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/public-html-cache-safety.test.mjs tests/public-html-cache.test.mjs tests/worker-performance.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/public-html-cache-safety.test.mjs",
+        "tests/public-html-cache.test.mjs",
+        "tests/worker-performance.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "public-listings-qa.yml",
+      "blob": "ca6a3b0b56909f4f31b5fabd596b362cf3d9bf5d",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"components/public-visual-system/**\"\n      - \"components/site-header*\"\n      - \"components/help-overview.tsx\"\n      - \"components/help-public.module.css\"\n      - \"components/reviews-hub*\"\n      - \"components/directory-*.tsx\"\n      - \"components/event-listing-results.tsx\"\n      - \"components/events-page.tsx\"\n      - \"components/editorial-section.tsx\"\n      - \"components/news-hub.tsx\"\n      - \"components/adoption-detail.tsx\"\n      - \"app/hladat/page.tsx\"\n      - \"lib/public-pagination.ts\"\n      - \"lib/public-subcategory-paging.ts\"\n      - \"lib/public-section-photo-promos.ts\"\n      - \"tests/public-pagination-step6.test.mjs\"\n      - \"tests/public-subcategory-paging-step7.test.mjs\"\n      - \"tests/reviews-hub-step8.test.mjs\"\n      - \"tests/public-help-overview-cta-step9.test.mjs\"\n      - \"tests/public-banners-step10.test.mjs\"\n      - \"tests/mobile-menu-grip-step11.test.mjs\"\n      - \"tests/public-final-qa-step12.test.mjs\"\n      - \".github/workflows/public-listings-qa.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: public-listings-qa-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "public-listings-regressions",
+          "name": "Public listing, categories, banners and mobile menu contracts",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Validate all public UX regression contracts",
+              "commands": [
+                "node --experimental-strip-types --test \\"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/public-pagination-step6.test.mjs",
+        "tests/public-subcategory-paging-step7.test.mjs",
+        "tests/reviews-hub-step8.test.mjs",
+        "tests/public-help-overview-cta-step9.test.mjs",
+        "tests/public-banners-step10.test.mjs",
+        "tests/mobile-menu-grip-step11.test.mjs",
+        "tests/public-final-qa-step12.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "public-visual-screenshots.yml",
+      "blob": "db6c9eb1fa28074d1b989cd0879acccd82ffd17a",
+      "events": [
+        "workflow_dispatch",
+        "pull_request"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      page:\n        description: Public page or curated group (no arbitrary URLs)\n        required: true\n        type: choice\n        default: homepage\n        options:\n          - homepage\n          - adresar\n          - plemena\n          - podujatia\n          - pomoc-psom\n          - clanky\n          - steniatka\n          - starostlivost\n          - aktivity\n          - recenzie\n          - mapa\n          - core\n          - content\n          - all\n  pull_request:\n    branches: [main]\n    paths:\n      - '.github/workflows/public-visual-screenshots.yml'\n      - 'scripts/public-visual-screenshots.mjs'\n      - 'tests/public-visual-screenshots.test.mjs'\n      - 'docs/public-visual-screenshots.md'\n",
+      "concurrency": [
+        "  group: public-visual-screenshots-${{ github.event.pull_request.number || github.ref || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "capture",
+          "name": "Capture public production screenshots",
+          "if": "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Checkout this revision",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Set up Node",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install existing dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Validate screenshot configuration and failure handling",
+              "commands": [
+                "run: node --test tests/public-visual-screenshots.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Install Chromium",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Capture live production (read-only)",
+              "commands": [
+                "run: node scripts/public-visual-screenshots.mjs"
+              ]
+            },
+            {
+              "name": "name: Publish Markdown run summary",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload screenshot PNGs and reports",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/public-visual-screenshots.test.mjs"
+      ],
+      "scripts": [
+        "scripts/public-visual-screenshots.mjs"
+      ]
+    },
+    {
+      "file": "public-web-perf-10-final.yml",
+      "blob": "cf79528b20e51b4c52ed52d97c83313006b193b8",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - 'app/page.tsx'\n      - 'app/layout.tsx'\n      - 'app/globals.css'\n      - 'app/plemena/**'\n      - 'components/directory-*'\n      - 'components/event-*'\n      - 'components/breed-*'\n      - 'components/map/**'\n      - 'components/public-visual-system/**'\n      - 'components/public-profile/**'\n      - 'components/programmatic-ad-loader.tsx'\n      - 'components/cookie-consent.tsx'\n      - 'components/back-to-top.tsx'\n      - 'components/lazy-dog-age-calculator.tsx'\n      - 'lib/breed-browser-search.ts'\n      - 'lib/generated/visual-library-public-inventory.json'\n      - 'tests/visual-library-full-inventory.test.mjs'\n      - 'lib/homepage-directory-query.ts'\n      - 'lib/defer-public-third-party.ts'\n      - 'lib/public-anonymous-html-cache.ts'\n      - 'lib/section-visual-store.ts'\n      - 'worker/index.ts'\n      - 'tests/public-*'\n      - 'tests/public-landing-alignment.test.mjs'\n      - 'tests/performance-fastpaths.test.mjs'\n      - 'tests/homepage-*'\n      - 'tests/breed-crawl-hierarchy.test.mjs'\n      - 'package.json'\n      - '.github/workflows/public-web-perf-10-final.yml'\n",
+      "concurrency": [
+        "  group: public-web-perf-final-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "focused-regressions",
+          "name": "Public route performance, privacy, CSS and image regressions",
+          "if": "startsWith(github.head_ref, 'perf/public-web-10-steps-')",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Performance and public HTML cache safety",
+              "commands": [
+                "run: npm run test:perf-fastpaths"
+              ]
+            },
+            {
+              "name": "name: Home media, image size, source parity and gallery",
+              "commands": [
+                "run: npm run test:homepage-media"
+              ]
+            },
+            {
+              "name": "name: Public CSS scope, source design tokens and component inventory",
+              "commands": [
+                "npm run test:public-css-scope",
+                "node --test tests/public-design-tokens.test.mjs",
+                "node --test tests/public-landing-alignment.test.mjs",
+                "node --test tests/visual-library-full-inventory.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Events, maps and FCI crawl behavior",
+              "commands": [
+                "npm run test:events-public-ux",
+                "npm run test:map-public-ui",
+                "npm run test:breed-crawl-hierarchy"
+              ]
+            },
+            {
+              "name": "name: Privacy, advertising and AI referral contracts",
+              "commands": [
+                "npm run test:monetization",
+                "npm run test:ai-referral"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:perf-fastpaths",
+        "npm run test:homepage-media",
+        "npm run test:public-css-scope",
+        "npm run test:events-public-ux",
+        "npm run test:map-public-ui",
+        "npm run test:breed-crawl-hierarchy",
+        "npm run test:monetization",
+        "npm run test:ai-referral"
+      ],
+      "tests": [
+        "tests/visual-library-full-inventory.test.mjs",
+        "tests/public-landing-alignment.test.mjs",
+        "tests/performance-fastpaths.test.mjs",
+        "tests/breed-crawl-hierarchy.test.mjs",
+        "tests/public-design-tokens.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "review-author-auth-ci.yml",
+      "blob": "d2ef08c7e25c1c6853f935eeeaeb4f6ad3f68171",
+      "events": [
+        "workflow_call",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_call:\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: reviews-2a-${{ github.event.pull_request.number || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "security",
+          "name": "Reviewer auth — security, D1, lint and build",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Migration safety",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: REVIEWS-2A reviewer auth tests",
+              "commands": [
+                "run: npm run test:review-author-auth"
+              ]
+            },
+            {
+              "name": "name: Clean D1 migration chain",
+              "commands": [
+                "run: npm run db:validate-clean"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Build (standalone manual run)",
+              "if": "github.event_name != 'pull_request'",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Download shared standard build from this run",
+              "if": "github.event_name == 'pull_request'",
+              "uses": "actions/download-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Verify shared standard build revision and integrity",
+              "if": "github.event_name == 'pull_request'",
+              "commands": [
+                "run: node scripts/ci-build-artifact.mjs verify standard"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "e2e",
+          "name": "Reviewer auth — desktop/mobile accessibility and security",
+          "needs": "security",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Local build (standalone manual run)",
+              "if": "github.event_name != 'pull_request'",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Download shared local-e2e build from this run",
+              "if": "github.event_name == 'pull_request'",
+              "uses": "actions/download-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Verify shared local-e2e build revision and integrity",
+              "if": "github.event_name == 'pull_request'",
+              "commands": [
+                "run: node scripts/ci-build-artifact.mjs verify local-e2e"
+              ]
+            },
+            {
+              "name": "name: Configure CI-only local PII keys",
+              "commands": [
+                "PII_ENCRYPTION_KEY=\"$(node -e 'process.stdout.write(Buffer.from(\"0123456789abcdef\".repeat(2)).toString(\"base64url\"))')\"",
+                "PII_HASH_KEY=\"$(node -e 'process.stdout.write(Buffer.from(\"fedcba9876543210\".repeat(2)).toString(\"base64url\"))')\""
+              ]
+            },
+            {
+              "name": "name: Apply migrations to isolated local D1",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Apply isolated Directory SQL presentation schema",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql"
+              ]
+            },
+            {
+              "name": "name: Seed isolated reviewer auth fixtures",
+              "commands": [
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/review-author-auth-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/reviews-2a/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/recenzia/prihlasenie >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Reviewer auth Playwright — desktop",
+              "commands": [
+                "run: npm run e2e -- tests/e2e/review-author-auth.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Reviewer auth Playwright — mobile",
+              "commands": [
+                "run: npm run e2e -- tests/e2e/review-author-auth.spec.ts --project=mobile-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Assert auth flow creates no review rows",
+              "commands": [
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command \"SELECT COUNT(*) AS review_count FROM profile_reviews;\" --json > .e2e-artifacts/reviews-2a/profile-review-count.json",
+                "node -e 'const fs=require(\"node:fs\");const data=JSON.parse(fs.readFileSync(\".e2e-artifacts/reviews-2a/profile-review-count.json\",\"utf8\"));const rows=data.flatMap(x=>x.results||[]);if(rows.length!==1||Number(rows[0].review_count)!==0){console.error(data);process.exit(1)}'"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run test:review-author-auth",
+        "npm run db:validate-clean",
+        "npm run lint",
+        "npm run build",
+        "npm run e2e"
+      ],
+      "tests": [
+        "tests/e2e/review-author-auth.spec.ts"
+      ],
+      "scripts": [
+        "scripts/ci-build-artifact.mjs"
+      ]
+    },
+    {
+      "file": "section-hero-v2-ci.yml",
+      "blob": "0ce49c46177fcd24a2e13b8ede38c1d361eb8844",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"components/public-visual-system/**\"\n      - \"components/admin-section-visuals.tsx\"\n      - \"components/admin-section-visuals.module.css\"\n      - \"components/editorial-section*\"\n      - \"components/portal-hub*\"\n      - \"components/portal-topic*\"\n      - \"components/directory-page*\"\n      - \"components/events-page*\"\n      - \"components/help-overview*\"\n      - \"components/help-page*\"\n      - \"components/help-browser*\"\n      - \"components/lost-found-dogs.module.css\"\n      - \"components/adoption-catalog*\"\n      - \"components/lost-found-dogs-page*\"\n      - \"components/reviews-hub*\"\n      - \"app/page.tsx\"\n      - \"app/clanky/page.tsx\"\n      - \"app/hladat/page.tsx\"\n      - \"app/plemena/page.tsx\"\n      - \"app/pomoc-psom/**\"\n      - \"app/globals.css\"\n      - \"app/[section]/page.tsx\"\n      - \"app/[section]/[slug]/page.tsx\"\n      - \"lib/portal.ts\"\n      - \"lib/portal-search.ts\"\n      - \"lib/section-store.ts\"\n      - \"lib/section-visual-contract.ts\"\n      - \"lib/section-visual-store.ts\"\n      - \"drizzle/0107_section_hero_config.sql\"\n      - \"tests/section-hero-v2.test.mjs\"\n      - \"tests/unified-section-hero.test.mjs\"\n      - \"tests/e2e/unified-section-hero.spec.ts\"\n      - \"tests/public-landing-alignment.test.mjs\"\n      - \"tests/e2e/public-landing-alignment.spec.ts\"\n      - \"scripts/production-d1-migrate.mjs\"\n      - \".github/workflows/production-d1-migrate.yml\"\n      - \".github/workflows/section-hero-v2-ci.yml\"\n",
+      "concurrency": [
+        "  group: section-hero-v2-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "source-contracts",
+          "if": "github.head_ref == 'codex/section-hero-v2' || github.head_ref == 'codex/mobile-hero-fullwidth-1' || github.head_ref == 'codex/public-landing-alignment-1'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: SECTION-HERO-V2 focused contracts",
+              "commands": [
+                "run: npm run test:section-hero-v2"
+              ]
+            },
+            {
+              "name": "name: Unified hero regression contracts",
+              "commands": [
+                "run: npm run test:unified-section-hero"
+              ]
+            },
+            {
+              "name": "name: Public landing alignment contracts",
+              "commands": [
+                "run: npm run test:public-landing-alignment"
+              ]
+            },
+            {
+              "name": "name: Production migration contracts",
+              "commands": [
+                "run: npm run test:migration-safety"
+              ]
+            },
+            {
+              "name": "name: Full test suite",
+              "commands": [
+                "run: npm test"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Production build",
+              "commands": [
+                "run: npm run build"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "preview-visual",
+          "needs": "source-contracts",
+          "if": "github.head_ref == 'codex/section-hero-v2' || github.head_ref == 'codex/mobile-hero-fullwidth-1' || github.head_ref == 'codex/public-landing-alignment-1'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Resolve exact Cloudflare preview for PR head",
+              "commands": [
+                "payload=\"$(curl --silent --show-error --fail \\",
+                "state=\"$(printf '%s' \"${payload}\" | node -e '",
+                "preview_url=\"$(printf '%s' \"${payload}\" | node -e '"
+              ]
+            },
+            {
+              "name": "name: 390 430 768 1280 1440 1920 visual audit",
+              "commands": [
+                "run: npx playwright test tests/e2e/unified-section-hero.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: PUBLIC-LANDING-ALIGNMENT geometry and screenshot audit",
+              "commands": [
+                "run: npx playwright test tests/e2e/public-landing-alignment.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Upload SECTION-HERO-V2 screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Upload PUBLIC-LANDING-ALIGNMENT screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Upload Playwright failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:section-hero-v2",
+        "npm run test:unified-section-hero",
+        "npm run test:public-landing-alignment",
+        "npm run test:migration-safety",
+        "npm test",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/section-hero-v2.test.mjs",
+        "tests/unified-section-hero.test.mjs",
+        "tests/e2e/unified-section-hero.spec.ts",
+        "tests/public-landing-alignment.test.mjs",
+        "tests/e2e/public-landing-alignment.spec.ts"
+      ],
+      "scripts": [
+        "scripts/production-d1-migrate.mjs"
+      ]
+    },
+    {
+      "file": "service-catalog-contract-ci.yml",
+      "blob": "f0036939c431b7761c6acc0a0d6c1437a9901911",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"lib/service-catalog-contract.ts\"\n      - \"lib/service-option-governance-contract.ts\"\n      - \"lib/service-catalog-admin-store.ts\"\n      - \"lib/service-catalog-admin-lifecycle.ts\"\n      - \"lib/service-catalog-admin-api-contract.ts\"\n      - \"app/api/admin/service-catalog/**\"\n      - \"app/api/admin/directory/**/service-options/**\"\n      - \"drizzle/0133_services_canonical_admin_foundation.sql\"\n      - \"drizzle/0134_services_admin_change_audit.sql\"\n      - \"tests/service-catalog-d1-foundation.test.mjs\"\n      - \"tests/service-catalog-admin-api-contract.test.mjs\"\n      - \"tests/service-catalog-admin-lifecycle.test.mjs\"\n      - \"tests/service-catalog-admin-editor.test.mjs\"\n      - \"docs/services-v3-admin-api-phase-3a.md\"\n      - \"docs/services-v3-admin-lifecycle-phase-3c.md\"\n      - \"docs/SERVICES-V3-PHASE2-D1-ADMIN.md\"\n      - \"lib/directory-filter-contract.ts\"\n      - \"tests/service-catalog-contract.test.mjs\"\n      - \"docs/SERVICE-CATALOG-V0.2-PHASE1.md\"\n      - \"docs/SERVICE-CATALOG-V0.3-PHASE1.md\"\n      - \".github/workflows/service-catalog-contract-ci.yml\"\n  workflow_dispatch:",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "canonical-catalog-contract",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Validate catalog and legacy 21-facet contract",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/service-catalog-contract.test.mjs tests/directory-filter-contract.test.mjs tests/service-catalog-d1-foundation.test.mjs tests/service-catalog-admin-api-contract.test.mjs tests/service-catalog-admin-lifecycle.test.mjs tests/service-catalog-admin-editor.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/service-catalog-d1-foundation.test.mjs",
+        "tests/service-catalog-admin-api-contract.test.mjs",
+        "tests/service-catalog-admin-lifecycle.test.mjs",
+        "tests/service-catalog-admin-editor.test.mjs",
+        "tests/service-catalog-contract.test.mjs",
+        "tests/directory-filter-contract.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "services-v2-directory-ci.yml",
+      "blob": "63af604b124524639bdbf154a413ff1fee7a6d0f",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/adresar/**\"\n      - \"components/directory-**\"\n      - \"components/section-hero-search.tsx\"\n      - \"lib/directory-query.ts\"\n      - \"lib/directory-store.ts\"\n      - \"lib/directory-public-filters.ts\"\n      - \"lib/map-public-ui.ts\"\n      - \"lib/map-contract.ts\"\n      - \"lib/map-query.ts\"\n      - \"components/map/map-experience.tsx\"\n      - \"tests/directory-public-filters.test.mjs\"\n      - \"scripts/directory-facet-coverage-sql.mjs\"\n      - \"tests/directory-facet-coverage-sql.test.mjs\"\n      - \"tests/directory-unified-layout.test.mjs\"\n      - \"tests/e2e/directory-unified-layout.spec.ts\"\n      - \"tests/public-landing-alignment.test.mjs\"\n      - \".github/workflows/services-v2-directory-ci.yml\"\n",
+      "concurrency": [
+        "  group: services-v2-directory-${{ github.event.pull_request.number }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contracts",
+          "if": "github.head_ref == 'feat/services-v2-directory-unified-layout' || github.head_ref == 'services-v2-public-filters-final'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Focused directory and URL contracts",
+              "commands": [
+                "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-unified-layout.test.mjs tests/directory-public-filters.test.mjs",
+                "node --experimental-strip-types --test tests/service-catalog-contract.test.mjs tests/directory-filter-contract.test.mjs",
+                "node --experimental-strip-types --test tests/directory-facet-coverage-sql.test.mjs",
+                "npm run test:public-landing-alignment",
+                "npm run test:unified-section-hero",
+                "npm run test:map-public-ui"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Production build",
+              "commands": [
+                "run: npm run build"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "visual",
+          "needs": "contracts",
+          "if": "github.head_ref == 'feat/services-v2-directory-unified-layout' || github.head_ref == 'services-v2-public-filters-final'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Resolve exact Cloudflare preview",
+              "commands": [
+                "payload=\"$(curl --silent --show-error --fail -H \"Authorization: Bearer ${GH_TOKEN}\" -H \"Accept: application/vnd.github+json\" \"${api}\")\"",
+                "status=\"$(printf '%s' \"${payload}\" | node -e '",
+                "preview_url=\"$(printf '%s' \"${payload}\" | node -e '"
+              ]
+            },
+            {
+              "name": "name: Directory desktop/mobile/no-JS/keyboard screenshots",
+              "commands": [
+                "run: npx playwright test tests/e2e/directory-unified-layout.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Upload screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Upload test failure report",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:public-landing-alignment",
+        "npm run test:unified-section-hero",
+        "npm run test:map-public-ui",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/directory-public-filters.test.mjs",
+        "tests/directory-facet-coverage-sql.test.mjs",
+        "tests/directory-unified-layout.test.mjs",
+        "tests/e2e/directory-unified-layout.spec.ts",
+        "tests/public-landing-alignment.test.mjs",
+        "tests/service-catalog-contract.test.mjs",
+        "tests/directory-filter-contract.test.mjs"
+      ],
+      "scripts": [
+        "scripts/directory-facet-coverage-sql.mjs"
+      ]
+    },
+    {
+      "file": "services-v2-filter-contract-ci.yml",
+      "blob": "7a09d6d79427f7fc81e6853c1e6b34e5b83da680",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"lib/directory-filter-contract.ts\"\n      - \"tests/directory-filter-contract.test.mjs\"\n      - \"scripts/directory-filter-dry-run.mjs\"\n      - \"lib/directory.ts\"\n      - \"lib/directory-category-filter-editor.ts\"\n      - \"components/directory-category-filter-fields.tsx\"\n      - \"components/directory-category-filter-fields.module.css\"\n      - \"tests/directory-category-filter-editor.test.mjs\"\n      - \"tests/directory-category-filter-editor-loader.mjs\"\n      - \".github/workflows/services-v2-filter-contract-ci.yml\"\n",
+      "concurrency": [
+        "  group: services-v2-filter-${{ github.event.pull_request.number }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "filter-contracts",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Focused registry and offline dry-run contracts",
+              "commands": [
+                "node --experimental-strip-types --test tests/directory-filter-contract.test.mjs",
+                "node --experimental-strip-types --experimental-loader ./tests/directory-category-filter-editor-loader.mjs --test tests/directory-category-filter-editor.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/directory-filter-contract.test.mjs",
+        "tests/directory-category-filter-editor.test.mjs"
+      ],
+      "scripts": [
+        "scripts/directory-filter-dry-run.mjs"
+      ]
+    },
+    {
+      "file": "services-v3-admin-mobile-polish-ci.yml",
+      "blob": "c1534e1bd0c409e13f8d96f947f1c1bbf8635105",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"components/admin-service-catalog-workspace.tsx\"\n      - \"components/admin-service-catalog.module.css\"\n      - \"tests/service-catalog-mobile-polish.test.mjs\"\n      - \"tests/e2e/admin-services-catalog-3b.spec.ts\"\n      - \".github/workflows/services-v3-admin-mobile-polish-ci.yml\"\n",
+      "concurrency": [
+        "  group: services-v3-admin-mobile-polish-${{ github.event.pull_request.number }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "review",
+          "name": "Local authenticated Playwright, 14 screenshots and contracts",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Actual rendered UI and existing lifecycle contracts",
+              "commands": [
+                "run: node --test tests/service-catalog-mobile-polish.test.mjs tests/service-catalog-admin-editor.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Focused lint",
+              "commands": [
+                "run: npx eslint components/admin-service-catalog-workspace.tsx tests/e2e/admin-services-catalog-3b.spec.ts tests/service-catalog-mobile-polish.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Production-compatible build only (no deploy)",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Install isolated Chromium",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Configure local-only bootstrap (writes remain disabled)",
+              "commands": [
+                "node --input-type=module <<'NODE'"
+              ]
+            },
+            {
+              "name": "name: Prepare ephemeral local D1 test schema only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Apply isolated Directory SQL completion schema (local only)",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql"
+              ]
+            },
+            {
+              "name": "name: Seed isolated directory test fixtures",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/services-v3-admin-mobile-polish/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/adresar >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Real desktop 1440 Playwright and screenshots",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-services-catalog-3b.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Real mobile 390 and 320 Playwright and screenshots",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-services-catalog-3b.spec.ts --project=mobile-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Verify six full-page and eight viewport PNG outputs",
+              "commands": [
+                "node --input-type=module <<'NODE'"
+              ]
+            },
+            {
+              "name": "name: Upload 14 visual-review screenshots and viewport rectangle evidence",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Stop isolated local server",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": true,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/service-catalog-mobile-polish.test.mjs",
+        "tests/e2e/admin-services-catalog-3b.spec.ts",
+        "tests/service-catalog-admin-editor.test.mjs"
+      ],
+      "scripts": []
+    }
+  ]
+}

@@ -1,0 +1,1684 @@
+{
+  "ref": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+  "start": 0,
+  "end": 16,
+  "rows": [
+    {
+      "file": "address-enrichment-ci.yml",
+      "blob": "ee966c7bdf060216ce5685fe7b47f59e45708297",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/api/admin/address-enrichment/**\"\n      - \"app/admin/nastroje/address-enrichment/**\"\n      - \"components/admin-address-enrichment-canary.tsx\"\n      - \"lib/address-enrichment*.ts\"\n      - \"tests/address-enrichment.test.mjs\"\n      - \".github/workflows/address-enrichment-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: address-enrichment-${{ github.event.pull_request.number || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contracts",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npm run db:check-migrations",
+              "commands": []
+            },
+            {
+              "name": "run: npm run lint",
+              "commands": []
+            },
+            {
+              "name": "name: ADDRESS-ENRICH-2 focused tests",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/address-enrichment.test.mjs"
+              ]
+            },
+            {
+              "name": "run: npm run build",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": true,
+        "lint": true,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/address-enrichment.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-article-bulk-e2e.yml",
+      "blob": "955419a35f4fe891d9f07e418dd95296e7490b33",
+      "events": [
+        "workflow_dispatch",
+        "pull_request"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"app/api/admin/bulk/**\"\n      - \"components/admin-bulk-selection.tsx\"\n      - \"components/admin-help-dashboard.tsx\"\n      - \"components/admin-event-dashboard.tsx\"\n      - \"components/admin-directory-dashboard.tsx\"\n      - \"components/admin-organization-publication-dashboard.tsx\"\n      - \"components/admin-organization-publication.module.css\"\n      - \"app/api/admin/organizations/bulk/**\"\n      - \"lib/admin-bulk/**\"\n      - \"tests/admin-bulk-*.test.mjs\"\n      - \"tests/e2e/admin-article-bulk-execution.spec.ts\"\n      - \"tests/fixtures/article-admin-bulk-e2e.sql\"\n      - \".github/workflows/admin-article-bulk-e2e.yml\"\n",
+      "concurrency": [
+        "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "focused-admin-articles",
+          "name": "Admin Articles bulk — desktop and mobile",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Checkout PR merge ref",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Install Chromium and system dependencies",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Focused ADMIN bulk unit tests",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/admin-bulk-foundation.test.mjs tests/admin-bulk-execution.test.mjs tests/admin-bulk-v2.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Production build",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Configure CI-only local PII keys",
+              "commands": []
+            },
+            {
+              "name": "name: Apply required migrations to isolated local D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Seed ADMIN-2E article fixtures into isolated local D1 only",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/article-admin-bulk-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-article-bulk/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/admin >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Admin Articles bulk Playwright — desktop",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-article-bulk-execution.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Reset ADMIN-2E fixtures for mobile",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/article-admin-bulk-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Admin Articles bulk Playwright — mobile",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-article-bulk-execution.spec.ts --project=mobile-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload focused failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/e2e/admin-article-bulk-execution.spec.ts",
+        "tests/admin-bulk-foundation.test.mjs",
+        "tests/admin-bulk-execution.test.mjs",
+        "tests/admin-bulk-v2.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-duplication-inventory.yml",
+      "blob": "45100d5df2f7a6de5d21aa807eb36e209130ecdb",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"scripts/admin-duplication-inventory.mjs\"\n      - \"tests/admin-duplication-inventory.test.mjs\"\n      - \"tests/admin-form-control-unification-point-2.test.mjs\"\n      - \"tests/admin-media-text-unification-point-3.test.mjs\"\n      - \"tests/admin-lists-unification-point-4.test.mjs\"\n      - \"docs/ADMIN-COMPONENT-UNIFICATION-POINT-4.md\"\n      - \"components/admin-pagination.tsx\"\n      - \"components/admin-data-table-region.tsx\"\n      - \"components/admin-adoption-dashboard.tsx\"\n      - \"components/admin-lost-found-dashboard.tsx\"\n      - \"components/admin-help-dashboard.tsx\"\n      - \"components/admin-event-dashboard.tsx\"\n      - \"lib/admin-list-query.ts\"\n      - \"tests/admin-open-source-unification.test.mjs\"\n      - \"docs/ADMIN-COMPONENT-UNIFICATION-POINT-3.md\"\n      - \"components/admin-article-block-editor.tsx\"\n      - \"components/admin-photo-gallery.tsx\"\n      - \"components/admin-sortable-gallery.tsx\"\n      - \"docs/ADMIN-COMPONENT-UNIFICATION-POINT-2.md\"\n      - \"components/admin-editor-workspace.tsx\"\n      - \"components/admin-help-dashboard.tsx\"\n      - \"components/admin-service-catalog-workspace.tsx\"\n      - \"components/admin-partner-event-actions.tsx\"\n      - \"components/admin-automation-finding-review.tsx\"\n      - \"components/admin-missing-quality-dashboard.tsx\"\n      - \"components/admin-data-quality-dashboard.tsx\"\n      - \"components/admin-puppy-area-editor.tsx\"\n      - \"docs/ADMIN-DUPLICATION-AUDIT-POINT-1.md\"\n      - \".github/workflows/admin-duplication-inventory.yml\"\n",
+      "concurrency": [],
+      "permissions": [],
+      "jobs": [
+        {
+          "id": "inventory",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Validate read-only scanner and inventory",
+              "commands": [
+                "run: node --test tests/admin-duplication-inventory.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Print read-only inventory indicators",
+              "commands": [
+                "run: node scripts/admin-duplication-inventory.mjs"
+              ]
+            },
+            {
+              "name": "name: Verify point 2 form and confirmation contracts",
+              "commands": [
+                "run: node --test tests/admin-form-control-unification-point-2.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Verify point 3 image and editor contracts",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/admin-media-text-unification-point-3.test.mjs tests/admin-open-source-unification.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Verify point 4 list and selection equivalence",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/admin-lists-unification-point-4.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/admin-duplication-inventory.test.mjs",
+        "tests/admin-form-control-unification-point-2.test.mjs",
+        "tests/admin-media-text-unification-point-3.test.mjs",
+        "tests/admin-lists-unification-point-4.test.mjs",
+        "tests/admin-open-source-unification.test.mjs"
+      ],
+      "scripts": [
+        "scripts/admin-duplication-inventory.mjs"
+      ]
+    },
+    {
+      "file": "admin-editor-workspace-v3.yml",
+      "blob": "42efd2b8c4c0ce82acb804a9d56bcec65841beb0",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"components/admin-editor-workspace.tsx\"\n      - \"components/admin-editor-workspace.module.css\"\n      - \"components/admin-interaction-system.tsx\"\n      - \"components/admin-interaction-system.module.css\"\n      - \"app/admin/admin-workspace.css\"\n      - \"app/admin/admin-legacy-scoped.css\"\n      - \"tests/admin-v3-shared-visual.test.mjs\"\n      - \"tests/admin-v3-compactness.test.mjs\"\n      - \"components/admin-shell.module.css\"\n      - \"components/admin-navigation.module.css\"\n      - \"components/admin-workspace-dashboard.module.css\"\n      - \"components/admin-gemini-automation.module.css\"\n      - \"components/admin-facebook-images.module.css\"\n      - \"components/admin-service-catalog.module.css\"\n      - \"components/admin-directory-editor.module.css\"\n      - \"components/admin-editor-workspace-demo.tsx\"\n      - \"app/admin/editor-workspace-preview/**\"\n      - \"tests/admin-editor-workspace-v3.test.mjs\"\n      - \"tests/e2e/admin-editor-workspace-v3.spec.ts\"\n      - \"docs/PSIPEDIA-UNIFIED-ADMIN-EDITOR-V3.md\"\n      - \".github/workflows/admin-editor-workspace-v3.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: admin-editor-workspace-v3-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "foundation",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Scoped contract tests",
+              "commands": [
+                "run: node --test tests/admin-editor-workspace-v3.test.mjs tests/admin-button-system.test.mjs tests/admin-v3-shared-visual.test.mjs tests/admin-v3-compactness.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Scoped lint",
+              "commands": [
+                "run: npx eslint components/admin-editor-workspace.tsx components/admin-editor-workspace-demo.tsx app/admin/editor-workspace-preview/page.tsx tests/e2e/admin-editor-workspace-v3.spec.ts"
+              ]
+            },
+            {
+              "name": "name: Build",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Install Chromium",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Local test D1 setup only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Start local Vite app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > /tmp/admin-editor-v3.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/ >/dev/null; then exit 0; fi"
+              ]
+            },
+            {
+              "name": "name: Desktop and mobile Playwright acceptance",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-editor-workspace-v3.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Upload actual visual acceptance screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Stop local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/admin-v3-shared-visual.test.mjs",
+        "tests/admin-v3-compactness.test.mjs",
+        "tests/admin-editor-workspace-v3.test.mjs",
+        "tests/e2e/admin-editor-workspace-v3.spec.ts",
+        "tests/admin-button-system.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-event-editor-v3-pilot.yml",
+      "blob": "dd760b98f2fee3adae69f3f3184dcf619375329d",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"components/admin-event-editor.tsx\"\n      - \"components/admin-event-markdown-editor.tsx\"\n      - \"components/admin-lexical-rich-text-editor.tsx\"\n      - \"lib/event-lexical-markdown.ts\"\n      - \"tests/event-lexical-markdown.test.mjs\"\n      - \"components/admin-event-editor.module.css\"\n      - \"components/admin-editor-workspace.tsx\"\n      - \"app/admin/event-editor-v3-preview/**\"\n      - \"app/admin/podujatia/[id]/page.tsx\"\n      - \"tests/admin-event-editor-v3.test.mjs\"\n      - \"tests/e2e/admin-event-editor-v3.spec.ts\"\n      - \".github/workflows/admin-event-editor-v3-pilot.yml\"\n",
+      "concurrency": [
+        "  group: admin-event-editor-v3-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "events-pilot-only",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Checkout exact PR head, not an implicit merge ref",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Assert exact revision",
+              "commands": [
+                "run: test \"$(git rev-parse HEAD)\" = \"$EXPECTED_SHA\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Pilot contracts",
+              "commands": [
+                "run: node --test tests/admin-event-editor-v3.test.mjs && node --experimental-loader ./tests/admin-events-loader.mjs --test tests/event-lexical-markdown.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Pilot-only lint",
+              "commands": [
+                "run: npx eslint components/admin-event-editor.tsx components/admin-event-markdown-editor.tsx components/admin-lexical-rich-text-editor.tsx lib/event-lexical-markdown.ts components/admin-editor-workspace.tsx app/admin/event-editor-v3-preview/page.tsx tests/e2e/admin-event-editor-v3.spec.ts"
+              ]
+            },
+            {
+              "name": "name: Build isolated app",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Install Chromium",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Prepare disposable LOCAL D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Start local Vite with development-only fixtures",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > /tmp/events-editor-v3.log 2>&1 &",
+                "if curl --silent --fail http://127.0.0.1:5173/ >/dev/null; then exit 0; fi"
+              ]
+            },
+            {
+              "name": "name: Real Playwright browser pilot (1440/390/320, mock POST/PUT)",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-event-editor-v3.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Upload real pilot screenshots",
+              "if": "${{ always() && steps.pilot.outcome == 'success' }}",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Upload browser failures and partial screenshots",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Stop local app",
+              "if": "always()",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/event-lexical-markdown.test.mjs",
+        "tests/admin-event-editor-v3.test.mjs",
+        "tests/e2e/admin-event-editor-v3.spec.ts"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-ia-2.yml",
+      "blob": "7d2d9959c93a618f57a4c5ca3a9b6d2c5da8f6e5",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"app/admin/page.tsx\"\n      - \"app/admin/clanky/**\"\n      - \"app/admin/admin-workspace.css\"\n      - \"components/admin-sticky-metrics.tsx\"\n      - \"components/admin-interaction-system.tsx\"\n      - \"components/admin-interaction-system.module.css\"\n      - \"components/admin-breed-editor.module.css\"\n      - \"components/admin-directory-editor.tsx\"\n      - \"components/admin-directory-editor.module.css\"\n      - \"components/admin-shell.tsx\"\n      - \"components/admin-shell.module.css\"\n      - \"components/admin-navigation.tsx\"\n      - \"components/admin-navigation.module.css\"\n      - \"components/admin-workspace-dashboard.tsx\"\n      - \"components/admin-workspace-dashboard.module.css\"\n      - \"components/admin-dashboard.tsx\"\n      - \"components/admin-article-editor.tsx\"\n      - \"lib/admin-navigation.ts\"\n      - \"lib/admin-dashboard-store.ts\"\n      - \"tests/admin-ia.test.mjs\"\n      - \"tests/admin-v3-compact-finish-02.test.mjs\"\n      - \"tests/e2e/admin-ia-2.spec.ts\"\n      - \"tests/e2e/admin-ux-unification.spec.ts\"\n      - \"tests/e2e/admin-operations.spec.ts\"\n      - \".github/workflows/admin-ia-2.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: admin-ia-2-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "admin-ia-2",
+          "name": "ADMIN-IA-2 — contracts, build, lint and Playwright",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: ADMIN-IA-2 contract tests",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/admin-ia.test.mjs tests/admin-v3-compact-finish-02.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Build PR code",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Install Chromium and system dependencies",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Apply schema to isolated local D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Configure ephemeral PII keys for disposable local preview",
+              "commands": [
+                "node --input-type=module -e '"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-ia-2/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/ >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: ADMIN-IA-2 Playwright — desktop and 390px mobile",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-ia-2.spec.ts tests/e2e/admin-ux-unification.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload desktop/mobile screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Upload Playwright failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/admin-ia.test.mjs",
+        "tests/admin-v3-compact-finish-02.test.mjs",
+        "tests/e2e/admin-ia-2.spec.ts",
+        "tests/e2e/admin-ux-unification.spec.ts",
+        "tests/e2e/admin-operations.spec.ts"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-image-review-v2.yml",
+      "blob": "e3f0656cd7c98f2b556f812d8dac13cecc2b30a9",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - 'components/admin-data-quality-dashboard.tsx'\n      - 'components/admin-data-quality-image-review-v2.module.css'\n      - 'lib/admin-data-quality-image-review.ts'\n      - 'lib/media-source-monitor.ts'\n      - 'lib/media-source-review-decisions.ts'\n      - 'drizzle/0137_media_source_review_decisions.sql'\n      - 'app/api/admin/data-quality/media/**'\n      - 'tests/admin-data-quality-image-review-v2.test.mjs'\n      - 'tests/media-source-review-decisions.test.mjs'\n      - 'tests/e2e/admin-image-review-v2*.ts'\n      - 'tests/e2e/fixtures/admin-image-review-v2/**'\n      - '.github/workflows/admin-image-review-v2.yml'\n  workflow_dispatch:",
+      "concurrency": [
+        "  group: admin-image-review-v2-${{ github.event.pull_request.number || github.ref || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "isolated-contracts",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Run isolated V2 regression suite",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/admin-data-quality-image-review-v2.test.mjs tests/media-source-review-decisions.test.mjs"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "chromium-visual-e2e",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Install Chromium",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Execute isolated React fixture + Playwright tests (no production network)",
+              "commands": [
+                "run: npx playwright test --config tests/e2e/admin-image-review-v2.config.ts"
+              ]
+            },
+            {
+              "name": "name: Upload actual PNG screenshots, traces and report",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/admin-data-quality-image-review-v2.test.mjs",
+        "tests/media-source-review-decisions.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-legacy-mutation-csrf.yml",
+      "blob": "55ac337e70aeb7d426a636f698d02f537abbbc6d",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - 'app/api/admin/directory/**'\n      - 'app/api/admin/articles/**'\n      - 'app/api/admin/article-topics/**'\n      - 'app/api/admin/article-feedback/**'\n      - 'app/api/admin/events/**'\n      - 'app/api/admin/organizations/**'\n      - 'app/api/admin/adoptions/**'\n      - 'app/api/admin/breeds/**'\n      - 'app/api/admin/navigation/**'\n      - 'lib/admin-auth.ts'\n      - 'lib/admin-mutation-origin.ts'\n      - 'tests/admin-legacy-mutation-csrf.test.mjs'\n      - 'tests/admin-legacy-csrf-loader.mjs'\n      - '.github/workflows/admin-legacy-mutation-csrf.yml'\n  workflow_dispatch:",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "csrf-regression",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Syntax check",
+              "commands": [
+                "node --check tests/admin-legacy-csrf-loader.mjs",
+                "node --check tests/admin-legacy-mutation-csrf.test.mjs",
+                "node --experimental-strip-types --check lib/admin-mutation-origin.ts"
+              ]
+            },
+            {
+              "name": "name: Guard and route regression",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-legacy-csrf-loader.mjs --test tests/admin-legacy-mutation-csrf.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/admin-legacy-mutation-csrf.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-operations-ci.yml",
+      "blob": "446a0389fc86e026b7afd7ea00ed3a905b4f6b7e",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"app/admin/operations/**\"\n      - \"app/admin/nastroje/**\"\n      - \"app/admin/automatizacie/page.tsx\"\n      - \"app/admin/organizacie/**\"\n      - \"app/api/admin/organizations/**\"\n      - \"components/admin-attention-queue*\"\n      - \"components/admin-organization-publication-dashboard.tsx\"\n      - \"components/admin-organization-editor.tsx\"\n      - \"components/admin-shell.tsx\"\n      - \"lib/admin-attention-queue*\"\n      - \"lib/help-organization-admin-store.ts\"\n      - \"lib/help-organization-admin-write.ts\"\n      - \"lib/help-organization-publication.ts\"\n      - \"tests/admin-attention-queue.test.mjs\"\n      - \"tests/admin-ia.test.mjs\"\n      - \"tests/help-organization-publication.test.mjs\"\n      - \"tests/e2e/admin-operations.spec.ts\"\n      - \"tests/fixtures/admin-attention-pagination-e2e.sql\"\n      - \"tests/e2e/admin-organization-publication.spec.ts\"\n      - \"tests/e2e/admin-organization-unsaved.spec.ts\"\n      - \"tests/organization-dashboard-hydration.test.mjs\"\n      - \".github/workflows/admin-operations-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "operations-e2e",
+          "name": "Operations — desktop and mobile, Axe and overflow",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Admin IA and attention queue contract tests",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/admin-attention-queue.test.mjs tests/admin-ia.test.mjs"
+              ]
+            },
+            {
+              "name": "run: node --test tests/organization-dashboard-hydration.test.mjs",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "run: npm run build",
+              "commands": []
+            },
+            {
+              "name": "name: Configure CI-only local PII keys",
+              "commands": []
+            },
+            {
+              "name": "name: Apply schema migrations to isolated local D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Seed ORG-8A disposable publication fixture into isolated local D1 only",
+              "commands": [
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command \"INSERT INTO help_organizations (name, slug, type, status, short_description, description, city, district, region, country_code, published_at, archived_at, created_at, updated_at, created_by, updated_by) VALUES ('ORG-8A Testovacia organizácia', 'org-8a-testovacia-organizacia', 'OTHER', 'DRAFT', 'Testovací profil publication workflow.', 'Izolovaná CI fixture pre ORG-8A.', 'Nitra', 'Nitra', 'Nitriansky kraj', 'SK', NULL, NULL, '2026-09-17T08:00:00.000Z', '2026-09-17T08:00:00.000Z', 'ci:org-8a', 'ci:org-8a') ON CONFLICT(slug) DO UPDATE SET status = 'DRAFT', published_at = NULL, archived_at = NULL, updated_at = '2026-09-17T08:00:00.000Z', updated_by = 'ci:org-8a';\""
+              ]
+            },
+            {
+              "name": "name: Seed Attention pagination and unavailable-source fixtures into isolated local D1 only",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/admin-attention-pagination-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-operations/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/ >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Admin operations and organization publishing Playwright — desktop and mobile",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-operations.spec.ts tests/e2e/admin-organization-publication.spec.ts tests/e2e/admin-organization-unsaved.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/admin-attention-queue.test.mjs",
+        "tests/admin-ia.test.mjs",
+        "tests/help-organization-publication.test.mjs",
+        "tests/e2e/admin-operations.spec.ts",
+        "tests/e2e/admin-organization-publication.spec.ts",
+        "tests/e2e/admin-organization-unsaved.spec.ts",
+        "tests/organization-dashboard-hydration.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-perf-comparator-v2.yml",
+      "blob": "a2779303894098d53655997ff1f5c482940b3ca3",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"scripts/admin-perf-analyze.mjs\"\n      - \"tests/admin-perf-analyze.test.mjs\"\n      - \"docs/performance/admin-compare-v2.md\"\n      - \".github/workflows/admin-perf-comparator-v2.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline-comparator",
+          "name": "Strict offline comparator regression tests",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Syntax check",
+              "commands": [
+                "run: node --check scripts/admin-perf-analyze.mjs && node --check tests/admin-perf-analyze.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Comparator and existing V1 regressions",
+              "commands": [
+                "run: node --test tests/admin-perf-analyze.test.mjs tests/admin-perf-tooling.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/admin-perf-analyze.test.mjs",
+        "tests/admin-perf-tooling.test.mjs"
+      ],
+      "scripts": [
+        "scripts/admin-perf-analyze.mjs"
+      ]
+    },
+    {
+      "file": "admin-perf-url-guard.yml",
+      "blob": "95a20b6d877db24e3d7d5ab18709ab1e8cb21845",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"scripts/admin-perf-run.mjs\"\n      - \"scripts/admin-perf-core.mjs\"\n      - \"tests/admin-perf-url.test.mjs\"\n      - \"tests/admin-perf-tooling.test.mjs\"\n      - \".github/workflows/admin-perf-url-guard.yml\"\n      - \"docs/performance/admin-baseline.md\"\n",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline-url-regressions",
+          "name": "Local URL safety and comparator compatibility",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Syntax checks (no browser or application launch)",
+              "commands": [
+                "node --check scripts/admin-perf-run.mjs",
+                "node --check scripts/admin-perf-core.mjs",
+                "node --check tests/admin-perf-url.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Offline regressions (no Playwright browser, fixture, network or secrets)",
+              "commands": [
+                "run: node --test tests/admin-perf-url.test.mjs tests/admin-perf-tooling.test.mjs tests/admin-perf-analyze.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/admin-perf-url.test.mjs",
+        "tests/admin-perf-tooling.test.mjs",
+        "tests/admin-perf-analyze.test.mjs"
+      ],
+      "scripts": [
+        "scripts/admin-perf-run.mjs",
+        "scripts/admin-perf-core.mjs"
+      ]
+    },
+    {
+      "file": "admin-performance-v2.yml",
+      "blob": "a3303e996ebd0815b9c7747db5972958bd489f0f",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"components/admin-**\"\n      - \"app/admin/**\"\n      - \"lib/admin-**\"\n      - \"scripts/audit-admin-performance-v2.mjs\"\n      - \"scripts/benchmark-admin-search-v2.mjs\"\n      - \"scripts/check-admin-v2-types.mjs\"\n      - \"lib/admin-gallery-order.ts\"\n      - \"lib/admin-attention-request.ts\"\n      - \"tests/admin-performance-v2-*.test.mjs\"\n      - \"tests/admin-search-query-plans-v2.test.mjs\"\n      - \"tests/admin-global-search-ui-step6.test.mjs\"\n      - \"components/admin-quick-navigation.module.css\"\n      - \"docs/ADMIN-PERFORMANCE-V2-**\"\n      - \"package.json\"\n      - \"package-lock.json\"\n      - \".github/workflows/admin-performance-v2.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: admin-performance-v2-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "source-audit",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Validate phase 2 regressions and existing Admin/PWA invariants",
+              "commands": [
+                "run: npm run test:admin-performance-v2"
+              ]
+            },
+            {
+              "name": "name: Check new TypeScript diagnostics in changed Admin files",
+              "commands": [
+                "npx tsc --noEmit --pretty false > admin-v2-tsc-output.txt 2>&1 || true",
+                "node scripts/check-admin-v2-types.mjs admin-v2-tsc-output.txt > admin-v2-scoped-types.json"
+              ]
+            },
+            {
+              "name": "name: Capture local SQLite query-plan experiment",
+              "commands": [
+                "run: node --experimental-strip-types scripts/benchmark-admin-search-v2.mjs > admin-v2-search-plan.json"
+              ]
+            },
+            {
+              "name": "name: Validate captured SQL-plan JSON",
+              "commands": [
+                "run: node -e 'const data=require(\"./admin-v2-search-plan.json\");if(data.checkedCategories!==8||data.cases.exactId.resultCount!==8||data.cases.tombstonedExactId.resultCount!==7)process.exit(1)'"
+              ]
+            },
+            {
+              "name": "name: Capture reproducible source baseline",
+              "commands": [
+                "run: node scripts/audit-admin-performance-v2.mjs --json > admin-v2-source-baseline.json"
+              ]
+            },
+            {
+              "name": "name: Save source metrics (not runtime/browser metrics)",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:admin-performance-v2"
+      ],
+      "tests": [
+        "tests/admin-search-query-plans-v2.test.mjs",
+        "tests/admin-global-search-ui-step6.test.mjs"
+      ],
+      "scripts": [
+        "scripts/audit-admin-performance-v2.mjs",
+        "scripts/benchmark-admin-search-v2.mjs",
+        "scripts/check-admin-v2-types.mjs"
+      ]
+    },
+    {
+      "file": "admin-photo-gallery.yml",
+      "blob": "dcd6b54fcb9bdb26148028033c62e33d9e4c5ed5",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - 'components/admin-photo-gallery*'\n      - 'components/admin-adoption-editor*'\n      - 'components/admin-lost-found-editor.tsx'\n      - 'lib/lost-found-dog-store.ts'\n      - 'tests/lost-found-gallery-preservation.test.mjs'\n      - 'tests/admin-photo-gallery.browser.mjs'\n      - '.github/workflows/admin-photo-gallery.yml'",
+      "concurrency": [
+        "  group: admin-gallery-${{ github.event.pull_request.number }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "gallery",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/lost-found-gallery-preservation.test.mjs tests/lost-found-admin-contract.test.mjs tests/adoption-admin-editor.test.mjs",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "run: node tests/admin-photo-gallery.browser.mjs",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/lost-found-gallery-preservation.test.mjs",
+        "tests/lost-found-admin-contract.test.mjs",
+        "tests/adoption-admin-editor.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-puppy-coverage-ci.yml",
+      "blob": "9061f835383fdd065b74616b5804050ec880bfa5",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/admin/sekcie/**\"\n      - \"app/admin/steniatka/**\"\n      - \"components/admin-section-editor*\"\n      - \"components/admin-puppy-coverage*\"\n      - \"lib/section-store.ts\"\n      - \"lib/puppy-coverage*\"\n      - \"tests/admin-sections-v2.test.mjs\"\n      - \"tests/section-public-readonly.test.mjs\"\n      - \"tests/admin-puppy-coverage.test.mjs\"\n      - \"tests/e2e/admin-sections-v2.spec.ts\"\n      - \"tests/e2e/admin-puppy-coverage.spec.ts\"\n      - \"tests/e2e/admin-desktop-visual-evidence.spec.ts\"\n      - \".github/workflows/admin-puppy-coverage-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: admin-puppy-coverage-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "puppy-coverage",
+          "name": "Sections + puppy editorial workflow, desktop and mobile",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Migration safety",
+              "commands": [
+                "run: npm run test:migration-safety"
+              ]
+            },
+            {
+              "name": "name: Focused SECTION-ADMIN tests",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/admin-sections-v2.test.mjs tests/admin-puppy-coverage.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Public section D1 read-only regressions",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/section-public-readonly.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Production build",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Configure CI-only local PII keys",
+              "commands": []
+            },
+            {
+              "name": "name: Apply schema migrations to isolated local D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-puppy-coverage/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/ >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Materialize managed Portal sections in isolated local D1 only",
+              "commands": [
+                "run: node scripts/bootstrap-phase5-e2e.mjs sections-only"
+              ]
+            },
+            {
+              "name": "name: Sections and Puppy Coverage Playwright — desktop and mobile",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-sections-v2.spec.ts tests/e2e/admin-puppy-coverage.spec.ts tests/e2e/admin-desktop-visual-evidence.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload isolated admin desktop screenshots (including successful runs)",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:migration-safety",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/admin-sections-v2.test.mjs",
+        "tests/section-public-readonly.test.mjs",
+        "tests/admin-puppy-coverage.test.mjs",
+        "tests/e2e/admin-sections-v2.spec.ts",
+        "tests/e2e/admin-puppy-coverage.spec.ts",
+        "tests/e2e/admin-desktop-visual-evidence.spec.ts"
+      ],
+      "scripts": [
+        "scripts/bootstrap-phase5-e2e.mjs"
+      ]
+    },
+    {
+      "file": "admin-pwa-ci.yml",
+      "blob": "69898e57b4dfcd00ad3d0bd44b647abdaae280e2",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"app/admin/layout.tsx\"\n      - \"app/admin/nastavenia/**\"\n      - \"app/api/admin/push/**\"\n      - \"app/layout.tsx\"\n      - \"app/manifest.ts\"\n      - \"components/admin-pwa*\"\n      - \"components/admin-shell.tsx\"\n      - \"lib/admin-push.ts\"\n      - \"lib/admin-web-push.ts\"\n      - \"public/pwa/**\"\n      - \"public/sw.js\"\n      - \"drizzle/*admin_pwa*\"\n      - \"tests/admin-pwa.test.mjs\"\n      - \"tests/e2e/admin-pwa.spec.ts\"\n      - \".github/workflows/admin-pwa-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "admin-pwa",
+          "name": "PWA contract, build, mobile Axe and offline safety",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npm run test:admin-pwa",
+              "commands": []
+            },
+            {
+              "name": "run: npm run db:check-migrations",
+              "commands": []
+            },
+            {
+              "name": "run: npm run build",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Configure CI-only local security keys",
+              "commands": []
+            },
+            {
+              "name": "name: Apply schema migrations to isolated local D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-pwa/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/ >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Run PWA mobile, Axe and offline E2E",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-pwa.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:admin-pwa",
+        "npm run db:check-migrations",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/admin-pwa.test.mjs",
+        "tests/e2e/admin-pwa.spec.ts"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "admin-runtime-1.yml",
+      "blob": "4100acc93e664fc2721489be895ea300ed5db372",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/admin/kvalita/**\"\n      - \"components/admin-data-quality-dashboard.tsx\"\n      - \"lib/data-quality-store.ts\"\n      - \"lib/media-source-monitor.ts\"\n      - \"lib/admin-automation-reliability.ts\"\n      - \"tests/admin-runtime-1.test.mjs\"\n      - \"tests/e2e/admin-runtime-1.spec.ts\"\n      - \".github/workflows/admin-runtime-1.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: admin-runtime-1-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "admin-runtime",
+          "name": "ADMIN-RUNTIME-1 — D1 regression, Lost/Found, build, lint and Playwright",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: ADMIN-RUNTIME-1 D1-aware regression suite",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-runtime-1.test.mjs tests/media-source-quality.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Existing Lost/Found regression suite",
+              "commands": [
+                "run: npm run test:lost-found"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Build PR code",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Install Chromium and system dependencies",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Configure isolated local runtime keys",
+              "commands": []
+            },
+            {
+              "name": "name: Apply schema to isolated local D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Add Directory SQL cutover tables to isolated local D1 only",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql"
+              ]
+            },
+            {
+              "name": "name: Seed representative directory detail into isolated local D1 only",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-runtime-1/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/admin >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Admin runtime Playwright — desktop and mobile",
+              "commands": [
+                "run: npx playwright test tests/e2e/admin-runtime-1.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload admin runtime failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:lost-found",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/admin-runtime-1.test.mjs",
+        "tests/e2e/admin-runtime-1.spec.ts",
+        "tests/media-source-quality.test.mjs"
+      ],
+      "scripts": []
+    }
+  ]
+}
