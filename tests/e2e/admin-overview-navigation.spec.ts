@@ -37,7 +37,7 @@ test("repeated Prehľad → Adresár → Prehľad client transitions do not stal
     await expect(directoryGroup).toHaveAttribute("aria-expanded", "true");
     await page.locator('[data-admin-shell] a[href="/admin/adresar"]').first().click();
     await expect(page).toHaveURL(/\/admin\/adresar$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Profily adresára" })).toBeVisible();
     await expect(overviewGroup(page)).toBeVisible();
     await clickOverviewGroup(page);
     await expectOverview(page);
@@ -51,7 +51,7 @@ test("Prehľad opens from an actual directory record editor", async ({ page }, i
   await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", {
     waitUntil: "domcontentloaded",
   });
-  await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Profily adresára" })).toBeVisible();
   const detail = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
   await expect(detail).toBeVisible();
   await detail.click();
@@ -87,7 +87,7 @@ test("mobile drawer returns from Adresár to Prehľad repeatedly", async ({ page
     await expect(drawer).toBeVisible();
     await drawer.getByRole("link", { name: "Profily", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/adresar$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Profily adresára" })).toBeVisible();
 
     await menu.click();
     const home = page.getByRole("dialog", { name: "Navigácia administrácie" })
