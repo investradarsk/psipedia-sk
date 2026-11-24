@@ -147,8 +147,8 @@ test("sidebar links are mounted only for expanded groups and prefetched only on 
   assert.match(navigation, /router\.prefetch\(href\)/);
   assert.match(navigation, /prefetched\.current\.clear\(\)/);
   assert.doesNotMatch(navigation, /router\.prefetch\(href,\s*\{\s*onInvalidate/);
-  assert.match(navigation, /aria-expanded=\{navigatesToOverview \? undefined : expanded\}/);
-  assert.match(navigation, /aria-label=\{navigatesToOverview \? "Prejsť na pracovný prehľad" : undefined\}/);
+  assert.match(navigation, /aria-expanded=\{expanded\}/);
+  assert.match(navigation, /aria-label="Prejsť na pracovný prehľad" onClick=\{handleAdminOverviewLink\}/);
   assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
   assert.match(shell, /<AdminNavigation/);
   assert.match(navigation, /<NavigationGroups mobile \/>/);
