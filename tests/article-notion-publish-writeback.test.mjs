@@ -65,6 +65,7 @@ function harness({ status = "draft", target = "published", changed = false, writ
     "@/lib/article-media-key-preservation": { orphanedArticleMediaKeys() { return []; } },
     "@/lib/article-content-qa": { isArticlePublishIntegrityError() { return false; } },
     "@/lib/notion-article-seo-writeback": { articleSeoChangedFields() { return []; } },
+    "@/lib/notion-article-breed-placement": { isBreedArticleNotionChange() { return false; } },
     "@/lib/notion-article-sync": {
       async writeBackPublishedArticleToNotion(args) {
         calls.push(["writeback", args]);
