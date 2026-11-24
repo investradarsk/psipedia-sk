@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
-import { profileWorkspace, profileQuickHref } from "@/lib/admin-profile-workspace";
+import { profileWorkspace } from "@/lib/admin-profile-workspace";
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminAdoptionDashboard } from "@/components/admin-adoption-dashboard";
@@ -56,7 +55,7 @@ export default async function AdoptionAdminPage({ searchParams }: { searchParams
   return <AdminShell
     user={user}
     {...profileWorkspace("adopcia")}
-    actions={<AdminProfileActions active="adopcia"><Link className="admin-secondary-action" prefetch={false} href={profileQuickHref("adopcia", filters.q)}>Rýchla úprava</Link></AdminProfileActions>}
+    actions={<AdminProfileActions active="adopcia" />}
   >
     <AdminProfileTypeTabs active="adopcia" />
     <Suspense fallback={<AdminDataLoading label="Adopcie" />}>

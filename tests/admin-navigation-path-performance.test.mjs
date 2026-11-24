@@ -18,7 +18,7 @@ test("admin section matching preserves exact, nested and alias routes", () => {
     ["/admin/podujatia/3", "/admin/podujatia"],
     ["/admin/facebook-obrazky", "/admin/facebook-obrazky"],
     ["/admin/kvalita/seo", "/admin/kvalita/seo"],
-    ["/admin/pomoc/12", "/admin/pomoc-psom"],
+    ["/admin/pomoc/12", "/admin/adresar"],
     ["/admin/operations/automation", "/admin/automatizacie-gemini"],
     ["/admin/operations/geo", "/admin/mapy"],
     ["/admin/nastavenia/notion", "/admin/nastavenia"],
