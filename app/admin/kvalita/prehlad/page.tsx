@@ -1,3 +1,4 @@
+import { qualityWorkspace } from "@/lib/admin-quality-workspace";
 import { AdminQualityWorkspaceTabs } from "@/components/admin-quality-workspace-tabs";
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
@@ -22,9 +23,7 @@ export default async function AdminMissingOverviewPage({searchParams}:{searchPar
   const fieldLabel=new Map<string,string>(overviewFields.map(x=>[x.id,x.label]));
   const from=result.visibleCount?(result.page-1)*50+1:0;
   const to=Math.min(result.visibleCount,result.page*50);
-  return <AdminShell user={user} eyebrow="Admin · Kvalita údajov" title="Prehľad chýbajúcich údajov"
-    description="Skutočný stav existujúcich profilov v databáze. Filtrovanie a prezeranie bez vyhľadávania Tavily."
-    actions={<Link className="admin-secondary-action" href="/admin/kvalita">Späť na schvaľovanie nálezov</Link>}>
+  return <AdminShell user={user} {...qualityWorkspace("missing")}>
     <AdminQualityWorkspaceTabs active="missing" />
     <div className={styles.root}>
       <section className={styles.panel} aria-label="Filtre chýbajúcich údajov">

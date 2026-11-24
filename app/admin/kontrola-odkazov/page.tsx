@@ -1,3 +1,4 @@
+import { qualityWorkspace } from "@/lib/admin-quality-workspace";
 import { AdminQualityWorkspaceTabs } from "@/components/admin-quality-workspace-tabs";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminLinkHealthChecker } from "@/components/admin-link-health-checker";
@@ -10,9 +11,7 @@ export default async function AdminLinkHealthPage() {
   return (
     <AdminShell
       user={user}
-      eyebrow="Kvalita webu"
-      title="Kontrola nefunkčných odkazov"
-      description="Nájdi nefunkčné interné odkazy a ich zdrojové stránky. Kontroly sú iba na čítanie, nič sa samo nemaže ani neupravuje."
+      {...qualityWorkspace("links")}
     >
       <AdminQualityWorkspaceTabs active="links" />
       <AdminLinkHealthChecker />

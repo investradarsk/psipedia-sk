@@ -17,7 +17,7 @@ test("admin section matching preserves exact, nested and alias routes", () => {
     ["/admin/steniatka/pokrytie", "/admin/clanky"],
     ["/admin/podujatia/3", "/admin/podujatia"],
     ["/admin/facebook-obrazky", "/admin/facebook-obrazky"],
-    ["/admin/kvalita/seo", "/admin/kvalita/seo"],
+    ["/admin/kvalita/seo", "/admin/kvalita"],
     ["/admin/pomoc/12", "/admin/adresar"],
     ["/admin/operations/automation", "/admin/automatizacie-gemini"],
     ["/admin/operations/geo", "/admin/mapy"],
@@ -36,4 +36,13 @@ test("breadcrumb links remain stable across navigation details", () => {
     "/admin", "/admin/plemena", "/admin/plemena/12",
   ]);
   assert.equal(breadcrumbs.at(-1)?.current, true);
+});
+
+
+test("V6-06 quality subroutes share one sidebar owner with exact breadcrumbs", () => {
+  for (const [path, label] of [["/admin/kvalita/prehlad", "Chýbajúce polia"], ["/admin/kvalita/seo", "SEO audit"], ["/admin/kontrola-odkazov", "Kontrola odkazov"]]) {
+    assert.equal(findActiveAdminNavigationItem(path)?.href, "/admin/kvalita");
+    assert.deepEqual(getAdminBreadcrumbs(path).at(-1), { href: path, label, current: true });
+  }
+  assert.equal(findActiveAdminNavigationItem("/admin/mapy")?.href, "/admin/mapy");
 });

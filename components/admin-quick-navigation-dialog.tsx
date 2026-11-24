@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
+import { qualityTabs } from "@/lib/admin-quality-workspace";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
 import { mergeUniqueAdminDestinations } from "@/lib/admin-quick-navigation-results";
 import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
@@ -22,6 +23,7 @@ const shouldSearchRecords = (value: string) => value.trim().length >= 2 || /^\d$
 // Keep the regular sidebar as the single authority for main destinations.
 // Only deeper, verified admin routes are added below for fast access.
 const additionalDestinations: Destination[] = [
+  ...qualityTabs.filter(tab => tab.id !== "findings").map(tab => ({ label: tab.label, href: tab.href, category: "Kvalita údajov", keywords: tab.id === "seo" ? "seo metadata indexacia" : tab.id === "links" ? "nefunkcne odkazy broken links" : "chybajuce polia udaje" })),
   {label:"Adopcie",category:"Pomoc psom",href:"/admin/adopcie",keywords:"adopcia psy"},
   {label:"Stratené a nájdené",category:"Pomoc psom",href:"/admin/stratene-najdene",keywords:"stratene najdene psy"},
   {label:"Organizácie",category:"Pomoc psom",href:"/admin/organizacie",keywords:"utulky organizacie"},

@@ -1,3 +1,4 @@
+import { qualityWorkspace } from "@/lib/admin-quality-workspace";
 import { AdminQualityWorkspaceTabs } from "@/components/admin-quality-workspace-tabs";
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
@@ -26,9 +27,7 @@ export default async function AdminDataQualityPage({
   return (
     <AdminShell
       user={user}
-      eyebrow="Admin · Kvalita údajov"
-      title="Kvalita údajov"
-      description="Nájdené chýbajúce údaje v existujúcich profiloch. Schváľ alebo zamietni návrhy."
+      {...qualityWorkspace("findings")}
     >
       <AdminQualityWorkspaceTabs active="findings" />
       <Suspense fallback={<AdminDataLoading label="Kvalita údajov" />}>

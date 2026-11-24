@@ -6,9 +6,10 @@ const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf
 
 test("V5-05 renders the same compact tabs on all quality routes", () => {
   const nav = read("components/admin-quality-workspace-tabs.tsx");
+  const registry = read("lib/admin-quality-workspace.ts");
   for (const href of [
     "/admin/kvalita", "/admin/kvalita/prehlad", "/admin/kvalita/seo", "/admin/kontrola-odkazov",
-  ]) assert.ok(nav.includes('href: "' + href + '"'), href);
+  ]) assert.ok(registry.includes('"' + href + '"'), href);
   assert.ok(nav.includes('aria-current={active === section.id ? "page" : undefined}'));
   assert.ok(nav.includes("prefetch={false}"));
   for (const [path, active] of [
@@ -23,7 +24,7 @@ test("V5-05 renders the same compact tabs on all quality routes", () => {
   }
   const css = read("components/admin-quality-workspace-tabs.module.css");
   assert.ok(css.includes("min-height: 44px"));
-  assert.ok(css.includes("overflow-x: auto"));
+  assert.ok(css.includes("flex-wrap: wrap"));
 });
 
 test("V5-05 keeps proposals, manual review, history and cursor pagination intact", () => {

@@ -1,3 +1,4 @@
+import { qualityWorkspace } from "@/lib/admin-quality-workspace";
 import { AdminQualityWorkspaceTabs } from "@/components/admin-quality-workspace-tabs";
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
@@ -95,10 +96,7 @@ export default async function AdminSeoQualityPage({
   return (
     <AdminShell
       user={user}
-      eyebrow="Admin · Kvalita údajov"
-      title="SEO metadáta profilov"
-      description="Kontrola SEO titulkov, meta popisov, ALT, canonical a indexačných nastavení publikovaných profilov. Bez automatických zápisov."
-      actions={<Link href="/admin/kvalita">Späť na kvalitu údajov</Link>}
+      {...qualityWorkspace("seo")}
     >
       <AdminQualityWorkspaceTabs active="seo" />
       <section className="admin-panel" aria-label="Rozsah SEO auditu">
@@ -116,6 +114,49 @@ export default async function AdminSeoQualityPage({
           </p>
         ) : null}
       </section>
+      <section className="admin-panel">
+        <form className="admin-toolbar" method="get" action="/admin/kvalita/seo" role="search" data-admin-list-filters>
+          <label className="admin-search">
+            <span aria-hidden="true">⌕</span>
+            <input aria-label="Vyhľadávanie" name="q" type="search" defaultValue={report.filters.query} placeholder="Názov, URL, mesto alebo kategória" />
+          </label>
+          <label className="admin-select-filter">
+            <span>Agenda</span>
+            <select name="agenda" defaultValue={report.filters.agenda}>
+              <option value="profiles">Všetky profily</option>
+              <option value="all">Celý web vrátane článkov a podujatí</option>
+              {adminSeoAgendas.map((agenda) => <option key={agenda} value={agenda}>{adminSeoAgendaLabels[agenda]}</option>)}
+            </select>
+          </label>
+          <label className="admin-select-filter">
+            <span>Typ</span>
+            <select name="scope" defaultValue={report.filters.scope}>
+              <option value="metadata">SEO polia a metadáta</option>
+              <option value="custom">Len chýbajúce vlastné SEO polia</option>
+              <option value="all">Všetky kontroly</option>
+              <option value="quality">Rozšírená kvalita obsahu</option>
+            </select>
+          </label>
+          <label className="admin-select-filter">
+            <span>Problém</span>
+            <select name="issue" defaultValue={report.filters.issue}>
+              <option value="all">Všetky problémy</option>
+              {adminSeoIssueDefinitions.map((issue) => <option key={issue.code} value={issue.code}>{issue.label}</option>)}
+            </select>
+          </label>
+          <button type="submit">Filtrovať</button>
+          <Link prefetch={false} href="/admin/kvalita/seo">Vyčistiť filtre</Link>
+        </form>
+        {report.filters.issue !== "all" && !isSeoIssueInScope(report.filters.issue, report.filters.scope) ? (
+          <p role="status">Vybraný problém nepatrí do tohto typu kontroly. <Link prefetch={false} href={auditHref(filterState, { issue: "all", page: 1 })}>Zobraziť všetky kompatibilné problémy</Link>.</p>
+        ) : null}
+        <p>
+          Záznamy s nálezmi: <strong>{count(report.resultCount)}</strong>, z toho profily: <strong>{count(report.resultProfileCount)}</strong>. Jednotlivé nálezy: <strong>{count(report.resultFindingCount)}</strong>. Záznamy s chýbajúcim vlastným SEO v tomto výbere: <strong>{count(report.filteredCustomGapEntities)}</strong>. Vlastné SEO polia sa vyžadujú iba tam, kde ich editor podporuje.
+          Adopcie, stratené a nájdené psy a organizácie zatiaľ používajú automaticky generované metadáta;
+          pri nich kontrolujeme výsledný titulok a meta popis. Audit nič neopravuje.
+        </p>
+      </section>
+
       <section className="admin-stats" aria-label="Súhrn SEO auditu">
         <div><span>Publikované v oblasti celkom</span><strong>{count(report.entityCount)}</strong></div>
         <div><span>Záznamy zodpovedajúce vyhľadávaniu</span><strong>{count(report.filteredEntityCount)}</strong></div>
@@ -184,49 +225,6 @@ export default async function AdminSeoQualityPage({
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section className="admin-panel">
-        <form className="admin-toolbar" method="get" action="/admin/kvalita/seo">
-          <label className="admin-search">
-            <span aria-hidden="true">⌕</span>
-            <input name="q" type="search" defaultValue={report.filters.query} placeholder="Názov, URL, mesto alebo kategória" />
-          </label>
-          <label className="admin-select-filter">
-            <span>Agenda</span>
-            <select name="agenda" defaultValue={report.filters.agenda}>
-              <option value="profiles">Všetky profily</option>
-              <option value="all">Celý web vrátane článkov a podujatí</option>
-              {adminSeoAgendas.map((agenda) => <option key={agenda} value={agenda}>{adminSeoAgendaLabels[agenda]}</option>)}
-            </select>
-          </label>
-          <label className="admin-select-filter">
-            <span>Typ</span>
-            <select name="scope" defaultValue={report.filters.scope}>
-              <option value="metadata">SEO polia a metadáta</option>
-              <option value="custom">Len chýbajúce vlastné SEO polia</option>
-              <option value="all">Všetky kontroly</option>
-              <option value="quality">Rozšírená kvalita obsahu</option>
-            </select>
-          </label>
-          <label className="admin-select-filter">
-            <span>Problém</span>
-            <select name="issue" defaultValue={report.filters.issue}>
-              <option value="all">Všetky problémy</option>
-              {adminSeoIssueDefinitions.map((issue) => <option key={issue.code} value={issue.code}>{issue.label}</option>)}
-            </select>
-          </label>
-          <button type="submit">Filtrovať</button>
-          <Link prefetch={false} href="/admin/kvalita/seo">Vyčistiť filtre</Link>
-        </form>
-        {report.filters.issue !== "all" && !isSeoIssueInScope(report.filters.issue, report.filters.scope) ? (
-          <p role="status">Vybraný problém nepatrí do tohto typu kontroly. <Link prefetch={false} href={auditHref(filterState, { issue: "all", page: 1 })}>Zobraziť všetky kompatibilné problémy</Link>.</p>
-        ) : null}
-        <p>
-          Záznamy s nálezmi: <strong>{count(report.resultCount)}</strong>, z toho profily: <strong>{count(report.resultProfileCount)}</strong>. Jednotlivé nálezy: <strong>{count(report.resultFindingCount)}</strong>. Záznamy s chýbajúcim vlastným SEO v tomto výbere: <strong>{count(report.filteredCustomGapEntities)}</strong>. Vlastné SEO polia sa vyžadujú iba tam, kde ich editor podporuje.
-          Adopcie, stratené a nájdené psy a organizácie zatiaľ používajú automaticky generované metadáta;
-          pri nich kontrolujeme výsledný titulok a meta popis. Audit nič neopravuje.
-        </p>
       </section>
 
       <section className="admin-panel" aria-label="Výsledky SEO auditu">

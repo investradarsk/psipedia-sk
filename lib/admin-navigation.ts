@@ -1,4 +1,5 @@
 import { ADMIN_PROFILE_HOME, profileTypeForPath } from "./admin-profile-workspace.ts";
+import { QUALITY_HOME, qualityTabForPath } from "./admin-quality-workspace.ts";
 
 export type AdminNavigationItem = {
   label: string;
@@ -39,9 +40,7 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
     { label: "Profilové recenzie", href: "/admin/recenzie-profilov" },
   ] },
   { label: "Kvalita a automatizácie", items: [
-    { label: "Kvalita údajov", href: "/admin/kvalita" },
-    { label: "SEO", href: "/admin/kvalita/seo" },
-    { label: "Nefunkčné odkazy", href: "/admin/kontrola-odkazov" },
+    { label: "Kvalita údajov", href: QUALITY_HOME, matches: ["/admin/kontrola-odkazov"] },
     { label: "Automatizácie", href: "/admin/automatizacie-gemini",
       matches: ["/admin/automatizacie", "/admin/operations/automation"] },
   ] },
@@ -121,6 +120,12 @@ export function getAdminBreadcrumbs(pathname: string) {
     { label: "Pracovný prehľad", href: "/admin" },
     { label: active.label, href: active.href },
   ];
+
+  const qualityTab = active.href === QUALITY_HOME ? qualityTabForPath(pathname) : undefined;
+  if (qualityTab && qualityTab.id !== "findings") {
+    breadcrumbs.push({ label: qualityTab.label, href: qualityTab.href, current: true });
+    return breadcrumbs;
+  }
 
   const profile = active.href === ADMIN_PROFILE_HOME ? profileTypeForPath(pathname) : undefined;
   if (profile && profile.href !== ADMIN_PROFILE_HOME) {

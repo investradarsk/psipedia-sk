@@ -49,7 +49,7 @@ test("V5-10: breadcrumbs and navigation match long routes without swallowing spe
     ["/admin/pomoc/18", "/admin/adresar"],
     ["/admin/operations/automation", "/admin/automatizacie-gemini"],
     ["/admin/operations/geo", "/admin/mapy"],
-    ["/admin/kvalita/seo", "/admin/kvalita/seo"],
+    ["/admin/kvalita/seo", "/admin/kvalita"],
   ];
   for (const [path, expected] of samples) {
     assert.equal(findActiveAdminNavigationItem(path)?.href, expected, path);
