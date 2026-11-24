@@ -258,8 +258,12 @@ test("SEO defaults prioritize missing profile metadata without inventing custom 
   const page = fs.readFileSync(new URL("../app/admin/kvalita/seo/page.tsx", import.meta.url), "utf8");
   assert.match(store, /: "profiles"/);
   assert.match(store, /: "metadata"/);
-  assert.match(page, /SEO metadáta profilov/);
-  assert.match(page, /Automatické SEO metadáta/);
+  assert.match(page, /agenda: \(requestedAgenda \|\| "profiles"\)/);
+  assert.match(page, /scope: requestedScope === "quality" \|\| requestedScope === "custom" \|\| requestedScope === "all" \? requestedScope : "metadata"/);
+  assert.match(page, /<option value="profiles">Všetky profily<\/option>/);
+  assert.match(page, /<option value="metadata">SEO polia a metadáta<\/option>/);
+  assert.match(page, /Adopcie, stratené a nájdené psy a organizácie zatiaľ používajú automaticky generované metadáta;/);
+  assert.match(page, /pri nich kontrolujeme výsledný titulok a meta popis/);
 });
 
 
