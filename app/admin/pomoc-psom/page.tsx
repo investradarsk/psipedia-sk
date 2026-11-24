@@ -3,6 +3,7 @@ import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminHelpUnifiedTable, type HelpDirectoryRow, type HelpDirectoryCategory } from "@/components/admin-help-unified-table";
 import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { adoptionStatusLabels } from "@/lib/adoption";
 import { listAdoptionAdminDashboard } from "@/lib/adoption-admin-store";
@@ -128,8 +129,9 @@ export default async function AdminDogHelpPage({ searchParams }: { searchParams:
   const tablePromise = loadTable(category, q, page);
 
   return (
-    <AdminShell user={user} eyebrow="Pomoc psom" title="Pomoc psom"
-      description="Jedna tabuľka pre adopcie, hlásenia, organizácie a ostatnú pomoc. Každý záznam má vlastný editor.">
+    <AdminShell user={user} eyebrow="Profily" title="Profily – adopcie, hlásenia a organizácie"
+      description="Vyber typ profilu. Každá kategória má vlastné údaje a editor; všetky patria do pracoviska Profily.">
+      <AdminProfileTypeTabs active={category} />
       <Suspense fallback={<AdminDataLoading label="Pomoc psom" />}>
         <HelpTable promise={tablePromise} category={category} q={q} />
       </Suspense>
