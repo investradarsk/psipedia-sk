@@ -23,7 +23,7 @@ export default async function AdminDataQualityPage({
   const params = await searchParams;
   const parsed = Number(params.before);
   const before = params.before && Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
-  const dataPromise = loadMissingQualityDashboard(getQualityMissingDatabase(), { before });
+  const dataPromise = Promise.resolve().then(() => loadMissingQualityDashboard(getQualityMissingDatabase(), { before }));
 
   return (
     <AdminShell

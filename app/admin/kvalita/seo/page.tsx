@@ -165,7 +165,8 @@ export default async function AdminSeoQualityPage({
       </section>
 
       <section className="admin-panel">
-        <h2>Celkový prehľad podľa agendy (pred filtrami nálezov)</h2>
+        <details>
+        <summary>Celkový prehľad podľa agendy (pred filtrami nálezov)</summary>
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
@@ -200,10 +201,12 @@ export default async function AdminSeoQualityPage({
             </tbody>
           </table>
         </div>
+        </details>
       </section>
 
       <section className="admin-panel">
-        <h2>SEO nálezy podľa typu</h2>
+        <details>
+        <summary>SEO nálezy podľa typu</summary>
         <p>Počty zohľadňujú agendu, typ kontroly a vyhľadávanie, nie výber jednotlivého problému. Výber problému sa týmto odkazom nahradí.</p>
         <div className={styles.tableWrap}>
           <table className={styles.table}>
@@ -225,6 +228,7 @@ export default async function AdminSeoQualityPage({
             </tbody>
           </table>
         </div>
+        </details>
       </section>
 
       <section className="admin-panel" aria-label="Výsledky SEO auditu">

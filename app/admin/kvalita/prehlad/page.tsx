@@ -17,7 +17,6 @@ type SearchParams=Record<string,string|string[]|undefined>;
 export default async function AdminMissingOverviewPage({searchParams}:{searchParams:Promise<SearchParams>}){
   const user=await requireAdminPageUser("/admin/kvalita/prehlad");
   const filters=parseOverviewFilters(await searchParams);
-  const checkedAt = new Date();
   const result=await (async () => {
     try { return await loadMissingDataOverview(getQualityMissingDatabase(),filters); }
     catch (error) { console.error("Missing quality overview unavailable", error); return null; }
@@ -26,6 +25,7 @@ export default async function AdminMissingOverviewPage({searchParams}:{searchPar
     <AdminQualityWorkspaceTabs active="missing" />
     <p role="alert" className="admin-panel">Údaje z databázy sú nedostupné. Počty nie sú vyhodnotené. <Link prefetch={false} href={overviewHref(filters)}>Zopakovať načítanie</Link></p>
   </AdminShell>;
+  const checkedAt = new Date();
   const categories=overviewCategoryOptions(filters.area);
   const categoryLabel=new Map(categories.map(x=>[x.value,x.label]));
   const fieldLabel=new Map<string,string>(overviewFields.map(x=>[x.id,x.label]));
@@ -51,9 +51,9 @@ export default async function AdminMissingOverviewPage({searchParams}:{searchPar
               {categories.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </label>
-          <label>Čo chýba
+          <label>{exceptions?"Typ výnimky":"Čo chýba"}
             <select name="field" defaultValue={filters.field}>
-              <option value="all">Akýkoľvek chýbajúci údaj</option>
+              <option value="all">{exceptions?"Všetky výnimky":"Akýkoľvek chýbajúci údaj"}</option>
               {overviewFields.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
           </label>
@@ -68,7 +68,7 @@ export default async function AdminMissingOverviewPage({searchParams}:{searchPar
           </label>
           <div className={styles.formActions}>
             <button type="submit" className={styles.primary}>Filtrovať</button>
-            <Link href="/admin/kvalita/prehlad">Vymazať filtre</Link>
+            <Link prefetch={false} href="/admin/kvalita/prehlad">Vyčistiť filtre</Link>
           </div>
         </form>
       </section>
@@ -87,8 +87,8 @@ export default async function AdminMissingOverviewPage({searchParams}:{searchPar
           <p>Platné výnimky Adresára sa nezapočítavajú medzi chýbajúce údaje. Zamietnutie návrhu nie je výnimka.</p>
         </div>
         {filters.area==="services" && <div className={styles.chips} aria-label="Stav údajov">
-          <Link className={!exceptions?styles.active:""} href={overviewHref(filters,{exceptions:false,page:1})}>Chýbajúce údaje <strong>{result.summary.incompleteProfiles}</strong></Link>
-          <Link className={exceptions?styles.active:""} href={overviewHref(filters,{exceptions:true,page:1})}>Evidované výnimky <strong>{result.summary.exceptionProfiles}</strong></Link>
+          <Link className={!exceptions?styles.active:""} aria-current={!exceptions?"page":undefined} href={overviewHref(filters,{exceptions:false,field:"all",page:1})}>Chýbajúce údaje <strong>{result.summary.incompleteProfiles}</strong></Link>
+          <Link className={exceptions?styles.active:""} aria-current={exceptions?"page":undefined} href={overviewHref(filters,{exceptions:true,field:"all",page:1})}>Evidované výnimky <strong>{result.summary.exceptionProfiles}</strong></Link>
         </div>}
         <div className={styles.chips}>
           <Link className={filters.field==="all"?styles.active:""} href={overviewHref(filters,{field:"all",page:1})}>Všetko <strong>{exceptions?result.summary.exceptionProfiles:result.summary.incompleteProfiles}</strong></Link>

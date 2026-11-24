@@ -223,10 +223,11 @@ export function AdminLinkHealthChecker() {
             <strong>Výsledky kontroly</strong>
             <label>Filter <select value={filter} onChange={e => setFilter(e.target.value as "issues" | "all")}>
               <option value="issues">Len chyby a nepotvrdené</option>
-              <option value="all">Všetky evidované nálezy</option>
+              <option value="all">Všetky skontrolované odkazy</option>
             </select></label>
           </div>
-          {!displayed.length && <p>V skontrolovanej vzorke sa nenašla potvrdená chyba. Nejde o kontrolu celého webu.</p>}
+          {!displayed.length && <p>Pre zvolený filter nie sú výsledky v skontrolovanej vzorke.</p>}
+          {(filter === "issues" ? issues.length : report.findings.length) > displayed.length && <p className={styles.warning}>Zobrazených prvých {displayed.length} výskytov. Úplný výsledok stiahneš ako JSON.</p>}
           {displayed.length > 0 && <div className={styles.scroll}>
             <table><thead><tr><th>Stav</th><th>Na stránke</th><th>Odkaz</th><th>HTTP</th></tr></thead>
               <tbody>{displayed.map((item, i) => (
