@@ -429,6 +429,7 @@ export async function resolveReadOnlyNotionAuditTarget(args: {
     candidates.set(source.id, source);
   }
   const seen = new Set<string>();
+  const seenCursors = new Set<string>();
   let cursor: string | null = null;
   for (let index = 0; index < 5; index++) {
     const raw = await request<unknown>("/search", {
@@ -453,9 +454,9 @@ export async function resolveReadOnlyNotionAuditTarget(args: {
       if (!all.length) return { dataSourceId: null, databaseId: null, provisioned: false, targetMissing: true, duplicateDataSourceIds: [] };
       return found(all[0], all.slice(1).map(source => source.id));
     }
-    if (!response.nextCursor || response.nextCursor === cursor || seen.has("cursor:" + response.nextCursor)) throw new Error("AUDIT_SOURCE_INCOMPLETE");
+    if (!response.nextCursor || response.nextCursor === cursor || seenCursors.has(response.nextCursor)) throw new Error("AUDIT_SOURCE_INCOMPLETE");
     cursor = response.nextCursor;
-    seen.add("cursor:" + cursor);
+    seenCursors.add(cursor);
   }
   throw new Error("AUDIT_SOURCE_DISCOVERY_LIMIT");
 }

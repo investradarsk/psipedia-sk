@@ -265,3 +265,27 @@ test("V6-08 D1 incomplete and failed responses are not verified empty results", 
     assert.equal(result.failure, "D1_RESPONSE_INCOMPLETE");
   }
 });
+
+
+test("V6-08 provider list contract rejects false empty results and invalid pagination", async () => {
+  const { readNotionAuditBatch, readAuditList, auditReadFailure } = await import("../lib/notion-audit-read-contract.ts");
+  const row = { object: "page", id: "00000000-0000-4000-8000-000000000001", properties: { "Psipedia ID": { rich_text: [] } } };
+  assert.throws(() => readNotionAuditBatch({ has_more: false, next_cursor: null }, null), /AUDIT_RESPONSE_INCOMPLETE/);
+  assert.throws(() => readNotionAuditBatch({ results: [row, row], has_more: false, next_cursor: null }, null), /AUDIT_DUPLICATE_PAGE/);
+  assert.throws(() => readNotionAuditBatch({ results: [{ ...row, properties: {} }], has_more: false, next_cursor: null }, null), /AUDIT_RESPONSE_INCOMPLETE/);
+  assert.throws(() => readAuditList({ results: Array(101).fill(row), has_more: false }), /AUDIT_BATCH_LIMIT/);
+  assert.equal(readNotionAuditBatch({ results: [], has_more: false, next_cursor: null }, null).truncated, false);
+  assert.equal(readNotionAuditBatch({ results: [row], has_more: true, next_cursor: null }, null).truncated, true);
+  assert.equal(readNotionAuditBatch({ results: [row], has_more: true, next_cursor: "repeat" }, "repeat").truncated, true);
+  assert.equal(readNotionAuditBatch({ results: [row], has_more: false }, null).truncated, true);
+  assert.equal(readNotionAuditBatch({ results: [row], has_more: true, next_cursor: "next" }, null).nextCursor, "next");
+  assert.equal(auditReadFailure(new Error("Notion API 429: private provider body")), "NOTION_RATE_LIMIT");
+  assert.equal(auditReadFailure(new Error("untrusted private string")), "AUDIT_READ_FAILED");
+});
+
+test("V6-08 partial audit batches never produce a verified checkpoint", async () => {
+  const ui = await readFile(new URL("../components/admin-notion-data-quality-audit.tsx", import.meta.url), "utf8");
+  assert.match(ui, /batches\.some\(batch => batch\.status === "PARTIAL"/);
+  assert.match(ui, /passesComplete === true && !partial && !error/);
+  assert.match(ui, /checkpointVerified: false/);
+});

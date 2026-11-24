@@ -17,7 +17,7 @@ export function readAuditList(value: unknown) {
     results: value.results as unknown[],
     hasMore: value.has_more,
     nextCursor: value.has_more ? next : null,
-    inconsistent: value.has_more ? !next : value.next_cursor !== null && value.next_cursor !== undefined,
+    inconsistent: value.has_more ? !next : value.next_cursor !== null,
   };
 }
 

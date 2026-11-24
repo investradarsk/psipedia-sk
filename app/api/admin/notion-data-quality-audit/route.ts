@@ -85,10 +85,10 @@ export async function POST(request: Request) {
     }
     const dataSourceId = target.dataSourceId;
     if (body.sourceId && body.sourceId !== dataSourceId) {
-      return Response.json({ error: "AUDIT_SOURCE_CHANGED" }, { status: 409 });
+      return Response.json({ error: "AUDIT_SOURCE_CHANGED", status: "FAILED", readOnly: true }, { status: 409, headers: { "Cache-Control": "no-store" } });
     }
     if (!dataSourceId) {
-      return Response.json({ error: "Notion data source pre túto kategóriu nie je dostupný." }, { status: 503 });
+      return Response.json({ error: "NOTION_SOURCE_NOT_FOUND", status: "FAILED", readOnly: true }, { status: 503, headers: { "Cache-Control": "no-store" } });
     }
 
     stage = "NOTION_QUERY";
