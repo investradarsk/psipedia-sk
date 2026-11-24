@@ -20,7 +20,7 @@ export const GROUPS = Object.freeze({
     "db:check-migrations",
     "db:validate-clean",
     "test:migration-safety",
-    "test:record-lifecycle"
+    "test:record-lifecycle-core"
   ],
   "public": [
     "test:visual-library",
@@ -38,7 +38,9 @@ export const GROUPS = Object.freeze({
   ],
   "admin": [
     "test:admin-stability-step10",
-    "test:admin-performance-v2",
+    "test:admin-performance-v2-step1",
+    "test:admin-performance-v2-steps2-9",
+    "test:admin-performance-v2-tail",
     "test:admin-buttons",
     "test:admin-events",
     "test:article-admin-editor",
@@ -72,7 +74,6 @@ export const GROUPS = Object.freeze({
     "test:perf-fastpaths",
     "test:public-css-scope",
     "test:seo-metadata",
-    "test:seo-structured-data",
     "test:sitewide-ai-entity-surface",
     "test:social-metadata",
     "test:social-metadata-rendered",

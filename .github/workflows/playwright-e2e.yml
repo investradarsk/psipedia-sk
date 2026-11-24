@@ -68,7 +68,7 @@ jobs:
       - name: Validate shared-build contract
         run: node --test tests/ci-v2-shared-build.test.mjs
       - name: Validate CI V2 changed-file selection
-        run: node --test tests/ci-v2-scope.test.mjs tests/ci-v2-npm-groups.test.mjs
+        run: node --test tests/ci-v2-scope.test.mjs tests/ci-v2-npm-groups.test.mjs tests/ci-v2-unit-integration.test.mjs
       - name: Report selected test groups
         env:
           TEST_GROUPS: ${{ steps.required-scope.outputs.test_groups }}

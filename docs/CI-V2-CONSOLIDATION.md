@@ -128,6 +128,20 @@ Pilot recenzií: canonical REVIEW_PR_PATHS je union pôvodných 2A/2B filtrov a 
 
 Nové dependency-free regresie v povinnom CI: neznámy zmiešaný súbor, kritické zmeny, docs, vizuály, premenovania, review ownership a zhoda filtrov s YAML podmienkami. Povinný gate spúšťa aj NPM parity test z kroku 03. Reálne GitHub CI zatiaľ neoverené; ďalšie skupiny migrovať až po preukázanej parite.
 
+## 06 – Unit a integračné testy
+
+Tri skupiny z kroku 03 majú odstránené opakovania na úrovni explicitného súboru a rovnakých Node flags/loaders:
+
+| Skupina | Pred | Po |
+| --- | ---: | ---: |
+| admin | 79 | 59 |
+| database | 45 | 44 |
+| seo-performance | 25 | 24 |
+
+Admin stabilita už spúšťa celý PWA balík; skupina admin pridáva iba jeho performance-specific súbory cez existujúce step1/steps2-9 a nový tail alias. Pôvodný standalone performance príkaz naďalej zahŕňa PWA. Databázová skupina spúšťa lifecycle migráciu v migration-safety; nový lifecycle-core alias obsahuje zvyšné kontroly. Standalone record-lifecycle stále spúšťa migráciu aj core (migrácia teraz samostatne pred core). SEO skupina a aktívny entity workflow už nespúšťajú totožný structured-data súbor dvakrát; standalone test:seo-structured-data zostáva funkčný. Odlišný loader admin-global-search sa zachováva. Žiadny testovací súbor sa neodstraňuje. Neznáme príkazy, E2E, fixtures a produkčné operácie sa nekonsolidujú automaticky.
+
+Statická parita všetkých existujúcich npm príkazov a všetkých ôsmich skupín bola porovnaná. Nový dependency-free test overuje živé aliasy, presné loader kontexty, multiplicitu a poradie opaque príkazov a zachovanie SEO testu v aktívnom workflow; zapojený do povinného CI. 22 odstránených opakovaných explicitných spustení v skupinách (nie počet vymazaných testov ani garantovaná úspora na každom PR). Ďalšie workflow-only testy a cross-workflow duplicity zostávajú do úplnej klasifikácie; skupiny zatiaľ nie sú náhradou kompletného CI. Runtime CI a porovnateľný čas ešte neoverené.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
@@ -135,7 +149,7 @@ Nové dependency-free regresie v povinnom CI: neznámy zmiešaný súbor, kritic
 - [x] CI-V2-03 – spoločný NPM vstup, zachované aliasy, odstránené potvrdené duplicitné invokácie; runtime CI ešte overiť.
 - [x] CI-V2-04 – pilot zdieľania dvoch oddelených build profilov v review CI, verifikácia existujúceho admin artefaktu; runtime CI a ďalšie skupiny otvorené.
 - [x] CI-V2-05 – fail-closed per-file scope, report 8 skupín, selektívny pilot reviews, regresné kontrakty; reálne CI ešte overiť.
-- [ ] CI-V2-06 – unit/integration: deduplikácia bez straty loaderov a kontraktov.
+- [x] CI-V2-06 – deduplikácia troch skupín a aktívneho entity CI, parity kontrakt; ďalšie workflow-only testy a runtime CI otvorené.
 - [ ] CI-V2-07 – Playwright, izolované fixtures a diagnostika.
 - [ ] CI-V2-08 – bezpečná archivácia historických workflowov až po dokázaní náhrady.
 - [ ] CI-V2-09 – výsledné CI a zachovanie povinných kontextov.
