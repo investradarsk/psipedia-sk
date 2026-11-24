@@ -129,8 +129,8 @@ test("all existing public gallery families use central presentation without loca
   const css = read("components/public-visual-system/public-photo-gallery.module.css");
   for (const breakpoint of [600, 360, 650, 680]) assert.ok(css.includes(`max-width: ${breakpoint}px`));
   assert.match(css, /repeat\(auto-fit, minmax\(260px, 1fr\)\)/);
-  assert.match(css, /\.breed figure[^}]*border-radius: 0/);
-  assert.match(css, /\.report img[^}]*border-radius: 9px/);
+  assert.match(css, /\.breed figure[^}]*border-radius: var\(--ps-radius-card/);
+  assert.match(css, /\.report img[^}]*border-radius: var\(--ps-radius-media/);
   assert.match(css, /\.editorial \[data-photo-size="wide"\] img[^}]*aspect-ratio: 16 \/ 9/);
   assert.doesNotMatch(read("app/globals.css"), /\.breed-gallery|\.article-block-gallery/);
   assert.doesNotMatch(read("components/lost-found-dogs.module.css"), /\.gallery/);

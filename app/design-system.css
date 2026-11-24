@@ -758,7 +758,8 @@
   border: 1px solid var(--ps-color-border-subtle);
   border-radius: var(--ps-radius-control);
   color: var(--ps-color-text-primary);
-  background: #f8faf7;
+  background: var(--ps-color-surface);
+  font-family: var(--ps-font-body, system-ui, sans-serif);
 }
 
 :is(
@@ -826,7 +827,7 @@
   margin: 0;
   padding: 9px 18px;
   border: 0;
-  border-radius: calc(var(--ps-radius-control) - 3px);
+  border-radius: var(--ps-radius-control);
   color: var(--ps-color-action-primary-text);
   background: var(--ps-color-action-primary);
   font: inherit;
@@ -891,7 +892,7 @@
   padding-inline: 9px;
   border: 1px solid var(--ps-color-border-subtle);
   border-radius: var(--ps-radius-control);
-  background: #f8faf7;
+  background: var(--ps-color-surface);
 }
 
 [data-section-hero-search][data-public-search-ui="section"] .public-search-entry input {
@@ -900,7 +901,7 @@
 }
 
 [data-section-hero-search][data-public-search-ui="section"] button[type="submit"] {
-  border-radius: calc(var(--ps-radius-control) - 3px);
+  border-radius: var(--ps-radius-control);
   color: var(--ps-color-action-primary-text);
   background: var(--ps-color-action-primary);
 }
@@ -944,7 +945,7 @@
     padding: 0 12px;
     border: 1px solid var(--ps-color-border-subtle);
     border-radius: var(--ps-radius-control);
-    background: #f8faf7;
+    background: var(--ps-color-surface);
   }
 
   :is(
@@ -1204,7 +1205,7 @@
   .prose-page:is(.legal-page, .info-page) > h2 {
     margin: 28px 0 9px;
     color: var(--ink);
-    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: var(--ps-font-heading, "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif);
     font-size: var(--ps-heading-content-section);
     font-weight: 750;
     letter-spacing: -0.025em;
@@ -1220,7 +1221,7 @@
   }
   .prose-page.info-page .about-contact h2 {
     margin: 8px 0 10px;
-    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: var(--ps-font-heading, "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif);
     font-size: var(--ps-heading-content-section);
     font-weight: 750;
     letter-spacing: -0.025em;

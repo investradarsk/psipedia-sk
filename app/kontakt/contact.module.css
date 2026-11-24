@@ -48,7 +48,7 @@
 .sectionHeading h2,
 .urgentCopy h2,
 .infoCard h2 {
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading);
   font-weight: 500;
 }
 
@@ -100,18 +100,18 @@
   flex-direction: column;
   padding: 20px;
   border: 1px solid rgba(23, 75, 56, 0.13);
-  border-radius: 18px;
+  border-radius: var(--ps-radius-card);
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 8px 24px rgba(23, 53, 43, 0.055);
+  background: var(--paper);
+  box-shadow: var(--ps-ds5-card-shadow);
   text-decoration: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition: var(--ps-ds5-card-transition);
 }
 
 .routeCard:hover {
   border-color: rgba(23, 75, 56, 0.34);
-  box-shadow: 0 14px 30px rgba(23, 53, 43, 0.09);
-  transform: translateY(-2px);
+  box-shadow: var(--ps-ds5-card-hover-shadow);
+  transform: var(--ps-ds5-card-hover-transform);
 }
 
 .routeCard:focus-visible,
@@ -119,7 +119,7 @@
 .urgentActions a:focus-visible,
 .legalLinks a:focus-visible,
 .infoCard dd a:focus-visible {
-  outline: 3px solid var(--gold);
+  outline: 3px solid var(--brand-focus, var(--forest));
   outline-offset: 3px;
 }
 
@@ -133,7 +133,7 @@
 
 .routeCard h3 {
   margin: 10px 0 8px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading);
   font-size: 1.27rem;
   font-weight: 500;
   line-height: 1.2;
@@ -161,8 +161,9 @@
   margin-bottom: 42px;
   padding: 24px 26px;
   border: 1px solid rgba(185, 71, 50, 0.23);
-  border-radius: 20px;
-  background: #fff8f4;
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  border-inline-start: var(--ps-premium-accent-width) solid var(--coral-dark);
 }
 
 .urgentCopy {
@@ -181,7 +182,7 @@
   border-radius: 50%;
   color: var(--white);
   background: var(--coral-dark);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading);
   font-size: 1.55rem;
 }
 
@@ -212,7 +213,7 @@
   justify-content: center;
   padding: 0 15px;
   border: 1px solid rgba(185, 71, 50, 0.28);
-  border-radius: 11px;
+  border-radius: var(--ps-radius-control);
   color: var(--coral-dark);
   background: var(--white);
   font-size: 0.77rem;
@@ -235,8 +236,8 @@
   min-width: 0;
   padding: 24px;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.74);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
 }
 
 .infoCard h2 {
@@ -302,7 +303,7 @@
   align-items: center;
   padding: 0 13px;
   border: 1px solid rgba(23, 75, 56, 0.16);
-  border-radius: 10px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest);
   background: var(--white);
   font-size: 0.76rem;
@@ -392,9 +393,9 @@
   .routeSection { padding-block: 26px 30px; }
   .sectionHeading { margin-bottom: 16px; }
   .sectionHeading h2, .urgentCopy h2, .infoCard h2 {
-    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: var(--ps-font-heading);
     font-size: var(--ps-heading-content-section);
-    font-weight: 750;
+    font-weight: var(--ps-component-heading-weight);
     letter-spacing: -0.025em;
     line-height: 1.3;
   }
@@ -404,4 +405,43 @@
   .routeAction { padding-top: 12px; }
   .urgentSection { gap: 18px; margin-bottom: 30px; padding: 20px 22px; }
   .infoCard { padding: 20px; }
+}
+
+/* V2-13: local contact surfaces; urgent semantics remain distinct. */
+.routeCard,
+.infoCard,
+.urgentSection {
+  font-family: var(--ps-font-body);
+}
+.routeKicker {
+  color: var(--coral-dark);
+  font-weight: var(--ps-component-label-weight);
+}
+.routeCard h3,
+.sectionHeading h2,
+.urgentCopy h2,
+.infoCard h2 {
+  font-weight: var(--ps-component-heading-weight);
+}
+.urgentMark {
+  font-family: var(--ps-font-body);
+}
+.urgentActions a,
+.legalLinks a {
+  font-family: var(--ps-font-body);
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.urgentActions a:hover,
+.legalLinks a:hover {
+  text-decoration: underline;
+}
+@media (forced-colors: active) {
+  .routeCard:focus-visible,
+  .breadcrumbs a:focus-visible,
+  .urgentActions a:focus-visible,
+  .legalLinks a:focus-visible,
+  .infoCard dd a:focus-visible {
+    outline-color: Highlight;
+  }
 }

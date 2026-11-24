@@ -15,24 +15,24 @@
   overflow: hidden;
   grid-template-rows: auto 1fr;
   border: 1px solid rgba(23, 53, 43, .12);
-  border-radius: var(--pv-radius-card, 16px);
+  border-radius: var(--ps-radius-card, var(--pv-radius-card, 16px));
   color: inherit;
   background: var(--paper, #fffdf8);
-  box-shadow: 0 7px 22px rgba(23, 53, 43, .045);
+  box-shadow: var(--ps-component-shadow, 0 7px 22px rgba(23, 53, 43, .045));
   text-decoration: none;
   scroll-snap-align: start;
-  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  transition: transform var(--ps-motion-fast, 180ms) ease, border-color var(--ps-motion-fast, 180ms) ease;
 }
 
 .landingCard:hover {
   border-color: rgba(23, 75, 56, .3);
-  box-shadow: 0 12px 30px rgba(23, 53, 43, .085);
-  transform: translateY(-2px);
+  box-shadow: var(--ps-component-hover-shadow, 0 12px 30px rgba(23, 53, 43, .085));
+  transform: var(--ps-ds5-card-hover-transform, translateY(-1px));
 }
 
 .landingCard:focus-visible,
 .compactItem:focus-visible {
-  outline: 3px solid rgba(23, 75, 56, .28);
+  outline: 3px solid var(--forest, #174d3a);
   outline-offset: 3px;
 }
 
@@ -47,14 +47,14 @@
   min-width: 0;
   overflow: visible;
   aspect-ratio: 16 / 9;
-  background: linear-gradient(145deg, #edf3e9, #f8f5ec);
+  background: var(--cream, #f7f2e9);
 }
 
 .landingMedia img {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: calc(var(--pv-radius-card, 16px) - 1px) calc(var(--pv-radius-card, 16px) - 1px) 0 0;
+  border-radius: var(--ps-radius-media, 10px) var(--ps-radius-media, 10px) 0 0;
   object-fit: cover;
 }
 
@@ -80,7 +80,7 @@
   border-radius: 999px;
   color: var(--forest, #174b38);
   background: var(--sage-light, #edf3e9);
-  box-shadow: 0 5px 14px rgba(23, 53, 43, .07);
+  box-shadow: var(--ps-component-shadow, none);
 }
 
 .landingIcon > svg {
@@ -102,7 +102,7 @@
   display: -webkit-box;
   overflow: hidden;
   color: var(--forest-dark, #17352b);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.13rem;
   font-weight: 600;
   line-height: 1.14;
@@ -138,7 +138,7 @@
   border-radius: 999px;
   color: var(--forest, #174b38);
   background: var(--sage-light, #edf3e9);
-  transition: transform 150ms ease;
+  transition: transform var(--ps-motion-fast, 180ms) ease;
 }
 
 .landingCard:hover .landingArrow {
@@ -166,7 +166,8 @@
   padding-block: 8px;
   border: 1px solid rgba(23, 75, 56, .12);
   color: var(--forest-dark, #17352b);
-  background: rgba(255, 253, 248, .9);
+  background: var(--paper, #fffdf9);
+  font-family: var(--ps-font-body, inherit);
   font-size: .78rem;
   font-weight: 800;
   line-height: 1.15;
@@ -230,7 +231,7 @@
   }
 
   .landingCard {
-    border-radius: 16px;
+    border-radius: var(--ps-radius-card, 16px);
   }
 
   .landingMedia {
@@ -304,7 +305,7 @@
     align-items: stretch;
   }
   .landingMedia, .landingMediaFallback { min-height: 104px; height: 100%; aspect-ratio: auto; }
-  .landingMedia img { border-radius: 15px 0 0 15px; object-fit: cover; }
+  .landingMedia img { border-radius: var(--ps-radius-media, 15px) 0 0 var(--ps-radius-media, 15px); object-fit: cover; }
   .landingIcon { display: none; }
   .landingCopy { min-height: 0; align-content: center; padding: 12px 44px 12px 14px; gap: 5px; }
   .landingCopy > strong { font-size: 1.03rem; }
@@ -402,7 +403,7 @@
   overflow-wrap: anywhere;
   padding-inline: 13px;
 }
-.compactItemCurrent { text-decoration: none; box-shadow: 0 2px 7px rgba(23, 75, 56, .13); }
+.compactItemCurrent { text-decoration: none; box-shadow: none; }
 @media (max-width: 900px) { .compactTrack { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .compactTrack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 380px) { .compactTrack { grid-template-columns: minmax(0, 1fr); } }
@@ -495,7 +496,7 @@
     place-items: center;
     padding: 0;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--ps-radius-control, 9px);
     color: var(--forest-dark, #17352b);
     background: transparent;
     cursor: pointer;
@@ -538,4 +539,14 @@
   .compactGridMobile .compactTrack:not(.pagedTrack) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Shared navigation arrows and selected categories, not content cards. */
+.landingArrow {
+  background: var(--ps-glass-control, var(--sage-light));
+  box-shadow: var(--ps-glass-edge, none);
+}
+.compactItemCurrent:not(:hover) {
+  background: var(--ps-glass-green, var(--forest));
+  box-shadow: var(--ps-glass-edge, none);
 }

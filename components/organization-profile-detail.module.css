@@ -20,7 +20,7 @@
 .hero h1 {
   max-width: 900px;
   margin: 8px 0 12px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: clamp(2.35rem, 6vw, 4.8rem);
   font-weight: 500;
   line-height: 1.02;
@@ -105,7 +105,7 @@
   min-width: 0;
   padding: 15px 16px;
   border: 1px solid var(--ps-border-soft);
-  border-radius: 16px;
+  border-radius: var(--ps-radius-card);
   background: var(--sage-light);
 }
 
@@ -161,7 +161,7 @@
   gap: 10px;
   padding: 17px;
   border: 1px solid var(--ps-border-soft);
-  border-radius: 18px;
+  border-radius: var(--ps-radius-card);
   background: var(--sage-light);
 }
 
@@ -244,7 +244,7 @@
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--ps-border-soft);
-  border-radius: 20px;
+  border-radius: var(--ps-radius-card);
   background: var(--white);
   box-shadow: 0 10px 30px rgb(25 62 44 / 6%);
 }
@@ -350,7 +350,7 @@
 }
 
 .adoptionCard {
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ps-ds5-card-shadow);
 }
 
 .fundraisingDetail,
@@ -366,7 +366,7 @@
 
 /* PUBLIC-POLISH-2 photo contract */
 .adoptionCard {
-  border-radius: 0;
+  border-radius: var(--ps-radius-card);
 }
 
 
@@ -399,3 +399,7 @@
   background: #fff0e9;
   border: 1px solid rgba(185, 71, 50, 0.2);
 }
+
+.locationItem, .fundraisingCard, .adoptionCard { background: var(--paper); }
+.fundraisingCard h3, .adoptionCard h3 { font-family: var(--ps-font-heading, Georgia, serif); font-weight: var(--ps-component-heading-weight, 500); }
+.fundraisingType { color: var(--ps-premium-accent); }

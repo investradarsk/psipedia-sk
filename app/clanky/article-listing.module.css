@@ -60,3 +60,11 @@
   min-width: 0;
   min-height: 0;
 }
+
+/* Local archive filters follow the shared V2 control tokens. */
+.layout :global(.article-browser) { font-family: var(--ps-font-body); }
+.layout :global(.filter-row button) {
+  border-radius: var(--ps-radius-control);
+  min-height: 44px;
+}
+.layout :global(.article-listing-load-more) { font-family: var(--ps-font-body); }

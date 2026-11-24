@@ -7,7 +7,7 @@
 .comparisonPage :global(.compare-page-hero .page-hero-inner) { max-width: 860px; }
 .comparisonPage :global(.compare-page-hero h1) {
   margin: 7px 0 11px;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(2.1rem, 4.6vw, 3.4rem);
   line-height: 1.12;
   letter-spacing: -.022em;
@@ -22,7 +22,7 @@
 .comparisonPage :global(.compare-swap) { width: 44px; height: 44px; }
 .comparisonPage :global(.comparison-row > *) { padding: 12px 15px; overflow-wrap: anywhere; }
 .comparisonPage :global(.comparison-row--head > *) { padding-block: 15px; }
-.comparisonPage :global(.compare-breed-image) { margin-bottom: 9px; border-width: 2px; border-radius: 11px; }
+.comparisonPage :global(.compare-breed-image) { margin-bottom: 9px; border-width: 2px; border-radius: var(--ps-radius-media); }
 .comparisonPage :global(.compare-breed-heading > span) { font-size: .63rem; letter-spacing: .015em; line-height: 1.25; }
 .comparisonPage :global(.compare-breed-heading h2) {
   margin: 5px 0;
@@ -42,15 +42,16 @@
   .comparisonPage :global(.compare-page-hero p) { font-size: .87rem; }
   .comparisonPage :global(.compare-picker) { padding: 11px; gap: 6px; }
   .comparisonPage :global(.compare-picker label > span) { font-size: .67rem; }
-  .comparisonPage :global(.compare-swap) { width: 42px; height: 42px; }
+  .comparisonPage :global(.compare-swap) { width: 44px; height: 44px; }
   .comparisonPage :global(.comparison-row > *) { padding: 10px 11px; }
   .comparisonPage :global(.comparison-row--head > *) { padding-block: 12px; }
   .comparisonPage :global(.compare-breed-heading h2) { font-size: clamp(1.13rem, 4.4vw, 1.5rem); }
   .comparisonPage :global(.compare-breed-heading small) { font-size: .72rem; }
   .comparisonPage :global(.compare-breed-heading > span) {
     display: block;
-    max-height: 2.7em;
-    overflow: hidden;
+    max-height: none;
+    overflow: visible;
+    overflow-wrap: anywhere;
     font-size: .58rem;
     line-height: 1.35;
   }
@@ -59,4 +60,53 @@
   .comparisonPage :global(.comparison-summary) { gap: 12px; }
   .comparisonPage :global(.comparison-summary article) { padding: 15px; }
   .comparisonPage :global(.comparison-summary h3) { margin-top: 15px; }
+}
+
+/* V2-07: the comparison stays a side-by-side grid, including on phones. */
+.comparisonPage { font-family: var(--ps-font-body); background: var(--cream); }
+.comparisonPage :global(.compare-picker),
+.comparisonPage :global(.comparison-table),
+.comparisonPage :global(.comparison-summary article) {
+  min-width: 0;
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
+}
+.comparisonPage :global(.compare-picker select) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  font-family: var(--ps-font-body);
+  border-radius: var(--ps-radius-control);
+}
+.comparisonPage :global(.compare-breed-heading) {
+  background: var(--ps-premium-gradient);
+  border-block-start: var(--ps-premium-accent-width) solid var(--ps-premium-accent);
+  color: var(--ps-premium-on-dark);
+}
+.comparisonPage :global(.compare-breed-heading h2),
+.comparisonPage :global(.comparison-summary h3) {
+  font-family: var(--ps-font-heading);
+  font-weight: var(--ps-component-heading-weight);
+  overflow-wrap: anywhere;
+}
+.comparisonPage :global(.compare-breed-heading h2),
+.comparisonPage :global(.compare-breed-heading a),
+.comparisonPage :global(.compare-breed-heading small),
+.comparisonPage :global(.compare-breed-heading > span) {
+  color: var(--ps-premium-on-dark);
+  overflow-wrap: anywhere;
+}
+.comparisonPage :global(.compare-breed-heading a:hover) { color: var(--ps-premium-on-dark); text-decoration: underline; }
+.comparisonPage :global(.compare-breed-heading a:focus-visible) { outline: 2px solid var(--ps-premium-on-dark); outline-offset: 2px; }
+.comparisonPage :global(.comparison-row > *) { min-width: 0; overflow-wrap: anywhere; }
+.comparisonPage :global(.compare-rating) { flex-wrap: wrap; }
+.comparisonPage :global(.compare-rating > span) { flex-wrap: wrap; }
+.comparisonPage :global(.comparison-summary li) { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 360px) {
+  .comparisonPage :global(.comparison-row > *) { padding-inline: 8px; }
+  .comparisonPage :global(.compare-breed-heading a) { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .comparisonPage :global(.compare-swap) { transition: none; }
 }

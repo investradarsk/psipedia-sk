@@ -3,7 +3,7 @@
   min-width: 0;
   max-width: 100%;
   text-align: center;
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body, "Avenir Next", Avenir, sans-serif);
 }
 
 .label {

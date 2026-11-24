@@ -91,7 +91,7 @@
   border-radius: 50%;
   color: white;
   background: var(--coral-dark);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-body, Georgia, serif);
   font-size: 1.8rem;
 }
 .care-urgent .eyebrow {
@@ -448,7 +448,7 @@
 }
 .puppy-stage-heading h3 {
   margin: 0 0 2px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.55rem;
   font-weight: 500;
 }
@@ -605,7 +605,7 @@
 }
 .care-guidance-card h3 {
   margin: 0 0 15px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.45rem;
   font-weight: 500;
 }
@@ -633,7 +633,7 @@
   font-size: 1.55rem;
 }
 .care-expert-callout strong {
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.25rem;
   font-weight: 500;
 }
@@ -1329,7 +1329,7 @@ body {
   overflow-x: clip;
   background: var(--cream);
   color: var(--ink);
-  font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: var(--ps-font-body, "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -1377,7 +1377,7 @@ h3 {
 
 h1,
 h2 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   letter-spacing: -0.035em;
   line-height: 1.04;
 }
@@ -1635,9 +1635,9 @@ h3 {
   align-self: start;
   padding: 24px;
   border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 24px;
+  border-radius: var(--ps-radius-card, 24px);
   background: var(--paper);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .search-panel-head {
@@ -1645,7 +1645,7 @@ h3 {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 14px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.55rem;
 }
 
@@ -1988,9 +1988,9 @@ h3 {
   align-items: center;
   padding: 22px 24px;
   border: 1px solid rgba(23, 53, 43, 0.1);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 18px 48px rgba(15, 48, 36, 0.15);
+  border-radius: var(--ps-radius-card, 22px);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
   backdrop-filter: blur(14px);
 }
 
@@ -2009,7 +2009,7 @@ h3 {
 }
 
 .home-search-copy strong {
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.22rem;
   font-weight: 500;
 }
@@ -2129,7 +2129,7 @@ h3 {
 
 .home-search-shortcuts a {
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: var(--ps-radius-control, 9px);
   background: var(--sage-light);
   font-weight: 700;
 }
@@ -2202,7 +2202,7 @@ h3 {
 
 .home-live-card header h3 {
   margin: 0;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.15rem;
   font-weight: 500;
 }
@@ -2250,7 +2250,7 @@ h3 {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.05rem;
   font-weight: 500;
   line-height: 1.25;
@@ -2280,7 +2280,7 @@ h3 {
 
 .home-live-empty > strong {
   margin-bottom: 8px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.15rem;
   font-weight: 500;
 }
@@ -2381,7 +2381,7 @@ h3 {
 
 .home-starter-card h3 {
   margin: 0 0 10px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.48rem;
   font-weight: 500;
 }
@@ -2481,7 +2481,7 @@ h3 {
 
 .category-card h3 {
   margin: 24px 0 6px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.55rem;
   font-weight: 500;
 }
@@ -2577,7 +2577,7 @@ h3 {
 
 .portal-gateway-card h3 {
   margin: 0 0 7px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.65rem;
   font-weight: 500;
 }
@@ -2709,13 +2709,13 @@ h3 {
 
 .portal-subpage-card > span {
   color: var(--coral-dark);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-body, Georgia, serif);
   font-size: 1.2rem;
 }
 
 .portal-subpage-card h3 {
   margin: 0 0 5px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.3rem;
   font-weight: 500;
 }
@@ -2746,7 +2746,7 @@ h3 {
 
 .portal-empty h3 {
   margin: 0 0 4px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.35rem;
   font-weight: 500;
 }
@@ -2855,7 +2855,7 @@ h3 {
 
 .portal-topic-aside h3 {
   margin-bottom: 9px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.7rem;
   font-weight: 500;
 }
@@ -2976,7 +2976,7 @@ h3 {
 
 .article-card h3 {
   margin: 13px 0 9px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.42rem;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -3009,13 +3009,13 @@ h3 {
 
 .favorite-button {
   display: inline-flex;
-  min-height: 42px;
+  min-height: var(--ps-control-min-height, 44px);
   align-items: center;
   justify-content: center;
   gap: 7px;
   padding: 8px 13px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--ps-radius-control);
   color: var(--ink);
   background: rgba(255, 255, 255, 0.8);
   font-size: 0.8rem;
@@ -3025,14 +3025,14 @@ h3 {
 
 .favorite-button:hover,
 .favorite-button.is-saved {
-  border-color: #df9c88;
-  color: var(--coral-dark);
-  background: #fff3ef;
+  border-color: var(--forest);
+  color: var(--forest);
+  background: var(--sage-light);
 }
 
 .favorite-button--compact {
-  width: 40px;
-  min-height: 40px;
+  width: 44px;
+  min-height: 44px;
   padding: 0;
 }
 
@@ -3137,7 +3137,7 @@ h3 {
 
 .breed-card h3 {
   margin: 0 0 10px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.55rem;
   font-weight: 500;
 }
@@ -3258,7 +3258,7 @@ h3 {
 }
 
 .calculator-controls label b {
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.7rem;
   font-weight: 500;
 }
@@ -3293,7 +3293,7 @@ h3 {
 
 .calculator-result strong {
   color: #f5ae96;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: clamp(4.6rem, 8vw, 6.8rem);
   font-weight: 500;
   line-height: 0.7;
@@ -3461,7 +3461,7 @@ h3 {
 }
 
 .fci-source-note strong {
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.15rem;
   font-weight: 500;
 }
@@ -3506,7 +3506,7 @@ h3 {
 }
 
 .fci-filter-intro strong {
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.05rem;
   font-weight: 500;
 }
@@ -3560,7 +3560,7 @@ h3 {
   border-radius: 20px 50% 50% 50%;
   color: var(--forest);
   background: var(--sage-light);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.55rem;
 }
 
@@ -3655,11 +3655,11 @@ h3 {
 .empty-state {
   display: grid;
   justify-items: center;
-  padding: 90px 24px;
+  padding: clamp(28px, 7vw, 90px) 24px;
   border: 1px dashed #bcc7bc;
-  border-radius: 24px;
+  border-radius: var(--ps-radius-card);
   text-align: center;
-  background: rgba(255, 255, 255, 0.35);
+  background: var(--paper);
 }
 
 .empty-state > span {
@@ -3679,7 +3679,7 @@ h3 {
 }
 
 .favorites-loading {
-  padding: 80px;
+  padding: clamp(24px, 8vw, 80px) 16px;
   text-align: center;
   color: var(--muted);
 }
@@ -3922,7 +3922,7 @@ h3 {
 
 .comparison-summary h3 {
   margin: 22px 0 11px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.2rem;
   font-weight: 500;
 }
@@ -4057,7 +4057,7 @@ h3 {
 }
 
 .article-prose {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-reading-font, Georgia, "Times New Roman", serif);
   font-size: 1.06rem;
   line-height: 1.78;
 }
@@ -4098,7 +4098,7 @@ h3 {
 .takeaway-box strong {
   display: block;
   margin-bottom: 6px;
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body, "Avenir Next", Avenir, sans-serif);
   font-size: 0.72rem;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -4152,7 +4152,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 17px;
   background: rgba(255, 253, 248, 0.72);
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body, "Avenir Next", Avenir, sans-serif);
 }
 
 .article-sources h2 {
@@ -4193,7 +4193,7 @@ h3 {
   padding-top: 22px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body, "Avenir Next", Avenir, sans-serif);
   font-size: 0.76rem;
 }
 
@@ -4362,7 +4362,7 @@ h3 {
 
 .breed-side-card h3 {
   margin-bottom: 16px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.45rem;
 }
 
@@ -4447,13 +4447,15 @@ h3 {
 
 .not-found h1 {
   margin: 10px 0 14px;
-  font-size: clamp(3rem, 7vw, 6rem);
+  font-family: var(--ps-font-heading);
+  overflow-wrap: anywhere;
+  font-size: clamp(2rem, 7vw, 5rem);
   font-weight: 500;
 }
 
 .not-found p {
   max-width: 500px;
-  margin-bottom: 25px;
+  margin: 0 auto 25px;
   color: var(--muted);
 }
 
@@ -4807,7 +4809,7 @@ h3 {
   .search-panel {
     width: 100%;
     max-height: 88vh;
-    border-radius: 24px 24px 0 0;
+    border-radius: var(--ps-radius-card, 24px) var(--ps-radius-card, 24px) 0 0;
   }
 
   .search-form button {
@@ -5274,7 +5276,7 @@ h3 {
 }
 
 .event-date-badge strong {
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.75rem;
   font-weight: 500;
   line-height: 1;
@@ -5311,7 +5313,7 @@ h3 {
 
 .event-card h3 {
   margin: 10px 0 8px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.55rem;
   font-weight: 500;
 }
@@ -5474,7 +5476,7 @@ h3 {
 .event-practical-info > strong {
   display: block;
   margin-bottom: 10px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.35rem;
   font-weight: 500;
 }
@@ -5730,7 +5732,7 @@ h3 {
   display: block;
 }
 .help-hero-stats strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.45rem;
   font-weight: 500;
 }
@@ -6027,7 +6029,7 @@ h3 {
 }
 .help-card h3 {
   margin: 0 0 10px;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.62rem;
   font-weight: 500;
 }
@@ -6492,7 +6494,6 @@ h3 {
   }
   .home-search-panel {
     padding: 17px;
-    border-radius: 19px;
   }
   .home-search-copy strong {
     font-size: 1.08rem;
@@ -7150,7 +7151,7 @@ h3 {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.15rem;
   font-weight: 500;
   line-height: 1.3;
@@ -7192,7 +7193,7 @@ h3 {
 .home-news-empty strong {
   display: block;
   margin-bottom: 5px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.45rem;
   font-weight: 500;
 }
@@ -7336,7 +7337,7 @@ h3 {
 }
 
 .news-watch-card li strong {
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.06rem;
   font-weight: 500;
 }
@@ -7408,7 +7409,7 @@ h3 {
 
 .news-category-card h3 {
   margin: 7px 0 8px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.28rem;
   font-weight: 500;
   line-height: 1.2;
@@ -8630,10 +8631,10 @@ h3 {
   align-items: center;
   padding: 1.25rem;
   border: 1px solid rgba(31, 54, 42, 0.18);
-  border-radius: 18px;
-  background: #fffdf8;
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
   box-shadow: 0 18px 60px rgba(24, 43, 33, 0.22);
-  color: #21382c;
+  color: var(--ink);
 }
 
 /* Keep the browsing consent panel non-modal; only the active map filter
@@ -8646,7 +8647,9 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 .cookie-consent strong {
   display: block;
   margin-bottom: 0.35rem;
-  font-size: 1.08rem;
+  font-family: var(--ps-font-heading);
+  font-weight: 600;
+  font-size: 1.25rem;
 }
 .cookie-consent p {
   margin: 0;
@@ -8655,7 +8658,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 .cookie-consent small {
   display: block;
   margin-top: 0.45rem;
-  color: #5e6d65;
+  color: var(--muted);
 }
 .cookie-consent a {
   color: inherit;
@@ -8698,7 +8701,6 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
     align-items: start;
     bottom: 0.5rem;
     padding: 0.75rem;
-    border-radius: 14px;
     max-height: calc(100vh - 1rem);
     max-height: calc(100dvh - 1rem);
     overflow-y: auto;
@@ -8833,7 +8835,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   gap: 2px;
   margin-top: 7px;
   color: #69766f;
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body, "Avenir Next", Avenir, sans-serif);
   font-size: 0.8rem;
   line-height: 1.45;
   text-align: center;
@@ -8958,7 +8960,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   border-radius: 17px;
   background: linear-gradient(135deg, #edf5ef 0%, #fff8ed 100%);
   box-shadow: 0 10px 28px rgba(23, 75, 56, 0.08);
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body, "Avenir Next", Avenir, sans-serif);
 }
 .article-block-cta.is-sponsored {
   border-color: rgba(217, 92, 65, 0.25);
@@ -9737,14 +9739,14 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   border-radius: 14px;
   color: #7b5a12;
   background: #fff1bf;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 0.9rem;
   font-weight: 700;
 }
 
 .review-category-card h3 {
   margin: 0 0 6px;
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.42rem;
   font-weight: 500;
 }
@@ -9952,7 +9954,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   margin: 11px 0 0;
   overflow-wrap: anywhere;
   color: var(--ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(1.22rem, 1.8vw, 1.48rem);
   font-weight: 500;
   letter-spacing: -0.018em;
@@ -10035,4 +10037,17 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   .article-card--featured h4.article-card-title {
     font-size: clamp(1.45rem, 7vw, 1.85rem);
   }
+}
+
+/* PhotoSwipe is a third-party overlay: keep its focus, zoom, gestures and
+ * native controls, while inheriting the public typography and dark surface. */
+:where(:root:not(:has([data-admin-workspace]))) .pswp {
+  --pswp-bg: var(--forest-dark);
+  --pswp-icon-color: var(--ps-premium-on-dark);
+  --pswp-icon-color-secondary: var(--forest-dark);
+  font-family: var(--ps-font-body);
+}
+:where(:root:not(:has([data-admin-workspace]))) .pswp__button:focus-visible {
+  outline: 3px solid var(--ps-premium-on-dark);
+  outline-offset: -4px;
 }

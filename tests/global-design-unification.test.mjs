@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 test("shared hero has rounded desktop and full-bleed square mobile photography", () => {
   const css = source("components/public-visual-system/unified-section-hero.module.css");
-  assert.match(css, /border-radius: var\(--ps-radius-card, 22px\)/);
+  assert.match(css, /border-radius: var\(--ps-radius-banner-large, 18px\)/);
+  assert.match(source("app/premium-foundation.css"), /--ps-radius-banner-large:\s*18px;/);
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.visual \{[\s\S]*?border-radius: 0;/);
   assert.match(css, /width: 100dvw;/);
 });

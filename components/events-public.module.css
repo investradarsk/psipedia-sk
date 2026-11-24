@@ -237,7 +237,7 @@
 .categoryKicker {
   display: block;
   margin-bottom: 4px;
-  color: var(--coral-dark, #b94732);
+  color: var(--coral-dark);
   font-size: 0.7rem;
   font-weight: 900;
   letter-spacing: 0.09em;
@@ -247,7 +247,7 @@
 .categoryTitle {
   margin: 0;
   color: var(--forest-dark);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(1.4rem, 2vw, 1.8rem);
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -261,7 +261,7 @@
   height: 0.9em;
   margin-right: 10px;
   border-radius: 999px;
-  background: var(--coral, #b34830);
+  background: var(--coral);
   vertical-align: -0.02em;
 }
 
@@ -279,10 +279,10 @@
   justify-content: center;
   gap: 8px;
   padding: 8px 14px;
-  border: 1px solid var(--coral, #b34830);
+  border: 1px solid var(--coral);
   border-radius: 999px;
-  background: var(--cream, #faf6eb);
-  color: var(--coral-dark, #8f3826);
+  background: var(--cream);
+  color: var(--coral-dark);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 850;
@@ -293,13 +293,13 @@
 
 .categoryAll:hover,
 .categoryAll:focus-visible {
-  background: var(--coral, #b34830);
+  background: var(--coral);
   color: #fff;
 }
 
 .categorySection .cardBody h3 a:hover,
 .categorySection .detailLink:hover {
-  color: var(--coral-dark, #8f3826);
+  color: var(--coral-dark);
 }
 
 .eventCard,
@@ -347,9 +347,9 @@
   justify-items: center;
   min-height: 76px;
   padding: 8px;
-  border-left: 4px solid var(--coral, #b34830);
+  border-left: 4px solid var(--coral);
   border-radius: 8px;
-  background: var(--cream, #faf6eb);
+  background: var(--cream);
   color: var(--forest-dark);
   text-align: center;
 }
@@ -403,7 +403,7 @@
 }
 
 .cardMeta > b {
-  background: var(--cream, #faf6eb);
+  background: var(--cream);
   color: var(--coral-dark, var(--forest-dark));
 }
 
@@ -539,7 +539,7 @@
 }
 
 .detailTags > b {
-  background: var(--cream, #faf6eb);
+  background: var(--cream);
   color: var(--coral-dark, var(--forest-dark));
 }
 
@@ -902,7 +902,7 @@
 
 .detailHeading h1 {
   max-width: 900px;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(2.35rem, 5vw, 4.4rem);
   font-weight: 500;
   letter-spacing: -0.035em;
@@ -1918,9 +1918,9 @@
 .filterSidebar {
   min-width: 0;
   padding: 18px;
-  background: white;
+  background: var(--paper);
   border: 1px solid var(--ps-border-soft);
-  border-radius: var(--ps-radius-filter, 18px);
+  border-radius: var(--ps-radius-filter);
 }
 /* The event sidebar already has its established heading and reset link.
    Hide only the duplicate header supplied by the shared panel wrapper. */
@@ -1935,7 +1935,7 @@
 }
 .sidebarHeading h2 {
   font-size: 1.1rem;
-  color: #173f35;
+  color: var(--forest-dark);
   margin: 0 0 8px;
 }
 .sidebarHeading a {
@@ -1984,7 +1984,7 @@
 .typeChoice input {
   width: 18px;
   height: 18px;
-  accent-color: #205443;
+  accent-color: var(--forest);
 }
 /* Filter and sort actions use shared PublicActionButton variants. */
 .listingLayout .upcomingSection {
@@ -2002,7 +2002,7 @@
   min-width: 0;
   margin: 0;
   color: var(--ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: var(--ps-list-heading-size);
   line-height: var(--ps-list-heading-leading);
   overflow-wrap: anywhere;
@@ -2020,9 +2020,9 @@
 }
 .gridCard {
   min-width: 0;
-  background: white;
+  background: var(--paper);
   border: 1px solid var(--ps-border-soft);
-  border-radius: var(--ps-radius-card, 22px);
+  border-radius: var(--ps-radius-card);
   overflow: hidden;
   box-shadow: 0 3px 10px #173f3509;
 }
@@ -2058,7 +2058,7 @@
   padding: 6px 9px;
   border-radius: 6px;
   background: #ffffffed;
-  color: #173f35;
+  color: var(--forest-dark);
   font-size: 0.8rem;
   font-weight: 800;
 }
@@ -2068,7 +2068,7 @@
 .gridBody h3 {
   font-size: 1.05rem;
   line-height: 1.4;
-  color: #173f35;
+  color: var(--forest-dark);
   margin: 12px 0;
   overflow-wrap: anywhere;
   display: -webkit-box;
@@ -2202,7 +2202,7 @@
   max-width: var(--ps-list-search-max);
   margin-inline: auto;
   grid-template-columns: minmax(0, 1fr);
-  border-radius: var(--ps-radius-filter, 18px);
+  border-radius: var(--ps-radius-filter);
 }
 @media (max-width: 620px) {
   .categorySearchShell.categorySearchShell:global(.home-search-shell) {
@@ -2235,7 +2235,7 @@
   gap: var(--ps-ds5-grid-gap, 16px);
 }
 .gridCard {
-  border-radius: var(--ps-radius-card, 22px);
+  border-radius: var(--ps-radius-card);
   box-shadow: var(--ps-ds5-card-shadow);
   transition: var(--ps-ds5-card-transition);
 }
@@ -2324,7 +2324,7 @@
   gap: 12px;
   min-height: 96px;
   padding: 10px;
-  border-radius: 14px;
+  border-radius: var(--ps-radius-card);
   background: var(--ps-surface-raised, #fff);
 }
 .dayEventMedia {
@@ -2421,7 +2421,11 @@
   margin-bottom: 12px;
 }
 .relatedHeading h2 {
-  font-size: clamp(1.65rem, 3.5vw, 2.45rem);
+  font-family: var(--ps-font-heading);
+  font-size: var(--ps-heading-content-section);
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
 }
 .relatedList.cardGrid {
   gap: var(--ps-ds5-grid-gap, 16px);
@@ -2643,7 +2647,7 @@
 .dayPanelPlaceholder h3 {
   margin: 0;
   color: var(--forest-dark);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.4rem;
   font-weight: 650;
 }
@@ -2933,7 +2937,7 @@
   min-width: 0;
   margin: 16px 0 0;
   color: var(--forest-dark);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(1.22rem, 2.1vw, 1.55rem);
   font-weight: 600;
   line-height: 1.25;
@@ -3008,7 +3012,7 @@
 
   .calendar[data-event-workspace] .monthCalendar {
     padding: 12px 16px 10px;
-    border-radius: 16px;
+    border-radius: var(--ps-radius-card);
   }
 
   .calendar[data-event-workspace] .desktopCalendarColumns {
@@ -3306,7 +3310,7 @@
 /* The event time filter is distinct from category navigation. */
 .periodLabel {
   margin: 0 0 8px;
-  color: var(--coral-dark, #b94732);
+  color: var(--coral-dark);
   font-size: 0.7rem;
   font-weight: 900;
   letter-spacing: 0.075em;
@@ -3332,5 +3336,220 @@
     justify-self: end;
     align-self: center;
     margin: 0;
+  }
+}
+
+/* V2-09 — Premium Editorial. Only event-local presentation; keep calendar
+   geometry, links, state, image cropping and shared component behavior. */
+.foundation,
+.detailPage,
+.calendar {
+  font-family: var(--ps-font-body);
+}
+
+.calendar .monthCalendar,
+.filterSidebar,
+.eventCard,
+.cancelledCard,
+.dayEvent,
+.emptyState {
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
+}
+
+/* The month heading is the editorial panel header, not the day grid.
+   Keep category markers and selected-day contrast on the light surface. */
+.calendar[data-event-workspace] .monthHeading {
+  padding: 10px 12px;
+  border-inline-start: var(--ps-premium-accent-width) solid var(--ps-premium-accent);
+  border-radius: var(--ps-radius-card);
+  background: var(--ps-premium-gradient);
+  color: var(--ps-premium-on-dark);
+}
+.calendar .monthHeading h2 {
+  color: var(--ps-premium-on-dark);
+  font-family: var(--ps-font-heading);
+  font-weight: 500;
+}
+.calendar .monthEyebrow {
+  color: var(--ps-premium-kicker-on-dark);
+  font-family: var(--ps-font-body);
+}
+.calendar[data-event-workspace] .monthNavigation a {
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: var(--ps-radius-control);
+  background: var(--paper);
+  color: var(--forest-dark);
+}
+.calendar .monthNavigation a:focus-visible {
+  outline-color: var(--ps-premium-on-dark);
+  outline-offset: 2px;
+}
+
+.calendar .weekday,
+.calendar .monthDay,
+.calendar .monthDayCount,
+.calendar .fullCalendarDayContent,
+.calendar .fullCalendarCount,
+.calendar .calendarLegend,
+.calendar .selectedDayEyebrow,
+.filterSidebar :is(label, legend, input, select, button, summary),
+.listHeading :is(label, select),
+.dateBlock,
+.listTypeBadge,
+.listStatusBadge {
+  font-family: var(--ps-font-body);
+}
+
+.calendar .monthDay:not([data-selected="true"]),
+.calendar .desktopFullCalendar {
+  background: var(--paper);
+}
+.calendar .monthDay[data-selected="true"],
+.calendar .fullCalendarDayContent[data-selected="true"] {
+  background: var(--sage-light);
+}
+.calendar .monthDay[data-today="true"] .monthDayNumber,
+.calendar .fullCalendarDayContent[data-today="true"] .fullCalendarDayHeading > span:first-child {
+  background: var(--forest);
+  color: var(--paper);
+}
+
+.categoryTitle,
+.eventTypeGroupHeading,
+.dayDetailHeading h3,
+.dayPanelPlaceholder h3,
+.sidebarHeading h2,
+.listHeading h2,
+.relatedHeading h2,
+.emptyState h3,
+.cardBody h3 {
+  font-family: var(--ps-font-heading);
+  font-weight: 500;
+}
+.categoryKicker,
+.periodLabel,
+.selectedDayEyebrow {
+  color: var(--coral-dark);
+}
+.eventTypeGroupHeading {
+  border-inline-start: var(--ps-premium-accent-width) solid var(--ps-premium-accent);
+  padding-inline-start: 10px;
+}
+.filterSidebar :is(input:not([type="radio"]):not([type="checkbox"]), select),
+.listHeading select {
+  border-radius: var(--ps-radius-control);
+  background: var(--paper);
+}
+.dateBlock,
+.gridDate {
+  border-radius: var(--ps-radius-control);
+  background: var(--cream);
+}
+.dayEventMedia,
+.eventCardWithImage .cardMedia,
+.cancelledCard.eventCardWithImage .cardMedia {
+  border-radius: var(--ps-radius-media);
+}
+
+/* Shared directory row is scoped by its event marker; no directory CSS edits. */
+.cardGrid :global([data-event-card]) {
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
+}
+.cardGrid :global([data-event-card]:hover) {
+  box-shadow: var(--ps-component-hover-shadow);
+  transform: var(--ps-ds5-card-hover-transform);
+}
+.cardGrid :global([data-event-card] [data-public-card-title]) {
+  font-family: var(--ps-font-heading);
+  font-weight: 500;
+}
+.cardGrid :global([data-event-date-line]) {
+  color: var(--forest-dark);
+  font-family: var(--ps-font-body);
+  font-variant-numeric: tabular-nums;
+}
+.cardGrid :global([data-event-card] [class*="cardImage"]) {
+  border-radius: var(--ps-radius-media);
+}
+:global([data-event-status="current"]) .listStatusBadge,
+.eventCard:global([data-event-status="current"]) .cardMeta > b {
+  background: #e4f4e9;
+  color: #174d3a;
+}
+:global([data-event-status="past"]) .listStatusBadge,
+.eventCard:global([data-event-status="past"]) .cardMeta > b {
+  background: #eef0ee;
+  color: #41534a;
+}
+:global([data-event-status="cancelled"]) .listStatusBadge,
+.cancelledCard .cardMeta > b {
+  background: #fff0e9;
+  color: #963729;
+}
+
+/* Detail primitives and location map retain their shared layout and renderer.
+   The event root alone consumes these local visual overrides. */
+.detailPage {
+  --detail-ink: var(--ink);
+  --detail-muted: var(--ink-2);
+  --detail-green: var(--forest);
+  --detail-border: var(--ps-border-soft);
+  --detail-surface: var(--paper);
+  --detail-radius: var(--ps-radius-card);
+  --ps-detail-photo-radius: var(--ps-radius-media);
+  background: var(--cream);
+}
+.detailPage :global([data-event-detail-header] h1),
+.detailPage :global([data-public-detail-main] h2),
+.detailPage :global([data-testid="public-location-map"] h2) {
+  font-family: var(--ps-font-heading);
+  font-weight: 500;
+}
+.detailPage :global([data-event-facts] > div) {
+  border-radius: var(--ps-radius-control);
+  background: var(--paper);
+}
+.detailPage :global([data-event-facts] dt),
+.detailPage :global([data-event-facts] dd),
+.detailPage :global([data-detail-state]),
+.detailPage :global([data-public-detail-actions] a) {
+  font-family: var(--ps-font-body);
+}
+.detailPage :global([data-testid="public-location-map"] [class*="shell"]) {
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+}
+.detailPage :global([data-testid="public-location-map"] [class*="mapTypeControl"]) {
+  border-radius: var(--ps-radius-card);
+  box-shadow: var(--shadow-sm);
+}
+.detailPage :global([data-event-past-notice]) {
+  border-inline-start: 3px solid var(--ps-border-strong);
+  padding-inline-start: 10px;
+}
+.dayEmpty:not([role="alert"]),
+.dayPanelPlaceholder {
+  color: var(--ink-2);
+}
+@media (max-width: 520px) {
+  .calendar[data-event-workspace] .monthHeading {
+    padding: 8px;
+    gap: 6px;
+  }
+  .calendar .monthNavigation {
+    flex-wrap: wrap;
+  }
+}
+@media (forced-colors: active) {
+  .calendar[data-event-workspace] .monthHeading {
+    border: 1px solid CanvasText;
+  }
+  .calendar .monthNavigation a:focus-visible {
+    outline-color: Highlight;
   }
 }

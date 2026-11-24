@@ -1,3 +1,20 @@
+/* V2-03: shared public masthead and wordmark. */
+:global(.site-header) {
+  font-family: var(--ps-font-body, system-ui, sans-serif);
+  background: var(--cream);
+  border-color: var(--ps-border-soft);
+}
+.brandCluster :global(.brand) {
+  color: var(--ink);
+  font-family: var(--ps-font-body, system-ui, sans-serif);
+}
+.brandCluster :global(.brand-mark) {
+  background: var(--forest);
+  border-radius: 50%;
+  transform: none;
+}
+.brandCluster :global(.brand-mark) svg { transform: none; }
+
 .routeCssAnchor {
   min-width: 0;
 }
@@ -36,7 +53,8 @@
   border-top: 1px solid rgba(23, 53, 43, .08);
   border-bottom: 1px solid rgba(23, 53, 43, .09);
   color: var(--muted);
-  background: rgba(255, 255, 255, .42);
+  background: var(--cream);
+  font-family: var(--ps-font-body, system-ui, sans-serif);
   font-size: .74rem;
   line-height: 1.35;
   text-align: center;
@@ -44,7 +62,7 @@
 
 .mobileNameDay:hover,
 .desktopNameDay:hover {
-  background-color: rgba(185, 71, 50, .08);
+  background-color: color-mix(in srgb, var(--forest) 3%, var(--paper));
 }
 .mobileNameDay:focus-visible,
 .desktopNameDay:focus-visible {
@@ -53,8 +71,7 @@
 }
 .mobileNameDay span,
 .desktopNameDay span {
-  /* Smaller label needs a darker brand-red shade, including on hover. */
-  color: #872f1e;
+  color: var(--coral-dark);
   font-size: .64rem;
   font-weight: 850;
   letter-spacing: .075em;
@@ -90,7 +107,7 @@
   height: 14px;
   flex: none;
   color: var(--brand-accent-strong);
-  transition: transform 160ms ease, color 160ms ease;
+  transition: transform var(--ps-motion-fast, 160ms) var(--ps-motion-ease, ease), color var(--ps-motion-fast, 160ms) var(--ps-motion-ease, ease);
 }
 
 :global(.nav-group.is-open) .navChevron,
@@ -153,40 +170,7 @@
     height: 44px;
   }
 
-  .desktopNameDay {
-    display: inline-flex;
-    text-decoration: none;
-    min-width: 0;
-    grid-column: 2;
-    align-items: center;
-    justify-self: center;
-    gap: 10px;
-    padding: 7px 15px;
-    border-inline: 1px solid rgba(23, 53, 43, .11);
-    color: var(--muted);
-    line-height: 1.2;
-    white-space: nowrap;
-  }
-
-  .desktopNameDay::before {
-    width: 6px;
-    height: 6px;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    content: "";
-    background: var(--brand-accent);
-  }
-
-  .desktopNameDay strong {
-    max-width: min(34vw, 420px);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .mobileNameDay {
-    display: none;
-  }
+  .desktopNameDay { display: none; }
 
   .mobileLeftTrigger,
   .menuRightTrigger {
@@ -197,10 +181,8 @@
     display: block;
     border-top: 1px solid rgba(255, 255, 255, .07);
     border-bottom: 1px solid rgba(7, 30, 22, .28);
-    background:
-      linear-gradient(90deg, rgba(255, 255, 255, .025), transparent 22%, transparent 78%, rgba(255, 255, 255, .025)),
-      var(--brand-forest);
-    box-shadow: 0 5px 16px rgba(16, 48, 37, .08);
+    background: var(--ps-premium-gradient, var(--forest));
+    box-shadow: var(--shadow-sm);
   }
 
   :global(.site-header) .desktopNav {
@@ -212,7 +194,7 @@
     justify-content: center;
     gap: clamp(2px, .45vw, 8px);
     margin-inline: auto;
-    color: rgba(255, 255, 255, .92);
+    color: var(--ps-premium-on-dark, white);
     font-size: clamp(.69rem, .64vw, .76rem);
     font-weight: 780;
     letter-spacing: .035em;
@@ -280,18 +262,18 @@
     min-width: 230px;
     padding: .55rem;
     border-color: rgba(23, 53, 43, .12);
-    border-radius: 0 0 14px 14px;
+    border-radius: 0 0 var(--ps-radius-card) var(--ps-radius-card);
     color: var(--ink);
-    background: #fff;
-    box-shadow: 0 20px 45px rgba(15, 42, 32, .18);
+    background: var(--paper);
+    box-shadow: var(--shadow-sm);
     text-transform: none;
     letter-spacing: normal;
   }
 
   .desktopNav :global(.nav-submenu) a {
-    min-height: 40px;
+    min-height: 44px;
     padding: .62rem .72rem;
-    border-radius: 8px;
+    border-radius: var(--ps-radius-control);
     color: var(--ink);
     font-size: .82rem;
     font-weight: 690;
@@ -309,20 +291,20 @@
 
   .desktopNav :global(.nav-submenu) a[data-active="true"] {
     color: var(--brand-accent-strong);
-    background: color-mix(in srgb, var(--brand-accent) 9%, white);
+    background: color-mix(in srgb, var(--coral-dark) 9%, var(--paper));
   }
 
   .desktopNav :global(.nav-news) {
     color: #fff !important;
     background: var(--brand-accent-strong) !important;
-    border-radius: 7px;
+    border-radius: var(--ps-radius-control);
     padding-inline: 10px;
   }
   .desktopNav :global(.nav-news):hover,
   .desktopNav :global(.nav-news):focus-visible,
   .desktopNav :global(.nav-news)[data-active="true"] {
     color: #fff !important;
-    background: #973621 !important;
+    background: color-mix(in srgb, var(--coral-dark) 85%, var(--forest-dark)) !important;
   }
 
   .desktopNav :global(.nav-news)::before {
@@ -357,10 +339,10 @@
 
   :global(.site-header) :global(.header-contact-link) {
     display: inline-flex;
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 10px;
     border-left: 0;
-    border-radius: 999px;
+    border-radius: var(--ps-radius-control);
     color: var(--brand-forest);
     font-size: .76rem;
     font-weight: 780;
@@ -376,12 +358,17 @@
   }
 
   :global(.site-header) :global(.header-actions) :global(.icon-button) {
-    min-width: 42px;
-    height: 40px;
+    min-width: 44px;
+    height: 44px;
   }
 
-  :global(.site-header) :global(.desktop-nav) a:focus-visible,
-  :global(.site-header) :global(.nav-submenu-toggle):focus-visible,
+  :global(.site-header) :global(.desktop-nav) > a:focus-visible,
+  :global(.site-header) :global(.desktop-nav) :global(.nav-group) > a:focus-visible,
+  :global(.site-header) :global(.nav-submenu-toggle):focus-visible {
+    outline: 2px solid var(--ps-premium-on-dark, white);
+    outline-offset: -3px;
+  }
+
   :global(.site-header) :global(.header-actions) a:focus-visible,
   :global(.site-header) :global(.header-actions) button:focus-visible {
     outline: 2px solid var(--brand-focus);
@@ -402,10 +389,6 @@
 
   .masthead {
     gap: 20px;
-  }
-
-  .desktopNameDay {
-    padding-inline: 10px;
   }
 
   :global(.site-header) .desktopNav {
@@ -480,49 +463,6 @@
 }
 
 
-/* HOMEPAGE + SECTION POLISH: keep the mobile name-day strip intact, refine desktop only. */
-@media (min-width: 1200px) {
-  .desktopNameDay {
-    gap: 9px;
-    padding: 9px 16px 10px;
-    border: 1px solid rgba(23, 53, 43, .12);
-    border-radius: 999px;
-    background: linear-gradient(135deg, rgba(255, 250, 242, .96), rgba(237, 243, 233, .72));
-    box-shadow: 0 4px 14px rgba(23, 53, 43, .045);
-    font-size: .88rem;
-    line-height: 1.25;
-  }
-
-  .desktopNameDay::before {
-    width: 5px;
-    height: 5px;
-    background: var(--brand-accent-strong);
-  }
-
-  .desktopNameDay span {
-    font-size: .7rem;
-    letter-spacing: .085em;
-  }
-
-  .desktopNameDay strong {
-    max-width: min(34vw, 430px);
-    font-size: .9rem;
-    font-weight: 820;
-    letter-spacing: .005em;
-  }
-
-  .desktopNameDay .currentDate {
-    font-size: .78rem;
-    font-weight: 720;
-  }
-
-  .desktopNameDay .nameDayDivider {
-    width: 5px;
-    height: 5px;
-  }
-}
-
-
 .mobileUtilityLinks {
   display: flex;
   flex-wrap: wrap;
@@ -585,7 +525,7 @@
 /* The shared header can overlap an admin sticky bar during public/admin route
    transition tests. Keep brand-accent text WCAG AA even against that backdrop. */
 :global(.site-header) :global(.brand) > span:last-child > span {
-  color: #a43b29;
+  color: var(--coral-dark);
 }
 
 
@@ -691,7 +631,7 @@
 /* Keep the logo and utility icons balanced on 320px phones. */
 @media (max-width: 360px) {
   .mobileNavControls { gap: 0; }
-  .mobileLeftTrigger { min-width: 40px; width: 40px; }
+  .mobileLeftTrigger { min-width: 44px; width: 44px; }
   .brandCluster :global(.brand) { gap: 4px; font-size: .93rem; }
   .brandCluster :global(.brand-mark) {
     width: 24px;
@@ -715,4 +655,33 @@
   }
   .mobileNameDay span { font-size: .65rem; }
   .mobileNameDay .currentDate { font-size: .72rem; }
+}
+
+/* Preserve the existing drawer geometry, scrolling and keyboard behavior. */
+@media (max-width: 1199px) {
+  .mobileMenuShell {
+    font-family: var(--ps-font-body, system-ui, sans-serif);
+    background: var(--paper);
+  }
+  .mobileMenuShell :global(.mobile-nav-parent) > a,
+  .mobileMenuShell :global(.mobile-nav-children) a {
+    border-radius: var(--ps-radius-control);
+    padding-inline: 10px;
+  }
+  .mobileMenuShell a[data-active="true"] {
+    color: var(--forest);
+    background: var(--sage-light);
+    box-shadow: inset var(--ps-premium-accent-width, 4px) 0 var(--coral-dark);
+  }
+  .mobileMenuShell a:focus-visible,
+  .mobileMenuShell button:focus-visible {
+    outline: 2px solid var(--forest);
+    outline-offset: -3px;
+  }
+}
+
+/* Keep the brick brand accent, but use an AA-safe text tone on the
+ * name-day hover surface (axe reported 4.27:1 for the old color). */
+:global(:root:not(:has([data-admin-workspace]))) :is(.mobileNameDay, .desktopNameDay):hover span {
+  color: #963c2e;
 }

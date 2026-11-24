@@ -17,8 +17,11 @@ test.describe("MAP-1E launch navigation", () => {
   });
   test("desktop navigation exposes Mapa directly after services when launch flag is enabled", async ({ page, isMobile }) => {
     test.skip(isMobile, "Desktop launch navigation check");
-    await page.goto("/");
+    const response = await page.goto("/", { waitUntil: "domcontentloaded" });
+    expect(response?.status(), "homepage must render successfully").toBe(200);
     const nav = page.locator(".desktop-nav");
+    await expect(nav.getByRole("link", { name: "Mapa", exact: true })).toHaveAttribute("href", "/mapa");
+    await expect(nav.locator('a[href="/adresar"]')).toBeAttached();
     const links = nav.locator(":scope > a, :scope > .nav-group > a");
     const hrefs = await links.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href")));
     const directoryIndex = hrefs.indexOf("/adresar");
@@ -31,7 +34,8 @@ test.describe("MAP-1E launch navigation", () => {
   test("mobile navigation exposes Mapa and keeps a safe 390px layout", async ({ page, isMobile }) => {
     test.skip(!isMobile, "Mobile launch navigation check");
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/");
+    const response = await page.goto("/", { waitUntil: "domcontentloaded" });
+    expect(response?.status(), "homepage must render successfully").toBe(200);
     await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
     await page.waitForTimeout(100);
     const menuTrigger = page.locator('button[aria-controls="mobile-menu"]:visible').first();

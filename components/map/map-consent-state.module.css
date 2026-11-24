@@ -7,8 +7,8 @@
   gap: 10px;
   padding: 18px;
   border: 1px solid var(--ps-border-soft, #cad5ce);
-  border-radius: var(--ps-radius-card, 16px);
-  background: var(--paper, #fffdf8);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
   color: var(--forest-dark, #123d2f);
   box-shadow: 0 12px 32px rgba(13, 34, 27, 0.13);
   transform: translate(-50%, -50%);

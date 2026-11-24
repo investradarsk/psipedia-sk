@@ -354,7 +354,7 @@
   gap: var(--ps-ds5-grid-gap, 16px);
 }
 .card {
-  border-radius: var(--ps-radius-card, 22px);
+  border-radius: var(--ps-radius-card);
   box-shadow: var(--ps-ds5-card-shadow);
   transition: var(--ps-ds5-card-transition);
 }
@@ -395,7 +395,7 @@
     margin-bottom: 12px;
     padding: 11px 14px;
     border: 1px solid var(--ps-border-soft, #ccd9cf);
-    border-radius: var(--ps-radius-control, 12px);
+    border-radius: var(--ps-radius-control);
     color: var(--forest-dark, #17352b);
     background: var(--sage-light, #edf3e9);
     font: inherit;
@@ -463,3 +463,9 @@
 @media (min-width: 961px) {
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* V2-10: preserve filter layout, media cropping and reserved badge. */
+.filters, .card { background: var(--paper); border-radius: var(--ps-radius-card); box-shadow: var(--ps-ds5-card-shadow); }
+.actions button, .actions a, .sortForm button, .filterToggle, .quickFacts div { border-radius: var(--ps-radius-control); }
+.actions button, .sortForm button { background: var(--forest); }
+.summary h2, .card h2 { font-family: var(--ps-font-heading, Georgia, serif); font-weight: var(--ps-component-heading-weight, 500); color: var(--ink); }

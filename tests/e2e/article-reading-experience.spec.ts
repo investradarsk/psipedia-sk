@@ -248,10 +248,10 @@ for (const articleCase of cases) {
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 24 + 1);
     expect(metrics.proseSize).toBeGreaterThanOrEqual(16.9);
     expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
-    expect(metrics.canvasColor).toBe("rgb(248, 244, 235)");
+    expect(metrics.canvasColor).toBe("rgb(247, 242, 233)");
     expect(metrics.bodyColor).toBe("rgb(41, 72, 62)");
-    expect(metrics.proseFontFamily).toMatch(/system-ui/);
-    expect(metrics.readingFontFamily).toMatch(/system-ui/);
+    expect(metrics.proseFontFamily).toMatch(/^"?Psipedia Inter"?,/);
+    expect(metrics.readingFontFamily).toMatch(/^"?Psipedia Inter"?,/);
     expect(metrics.readingColor).toBe("rgb(41, 72, 62)");
     expect(metrics.readingMargin).toBe(0);
     expect(Math.abs(metrics.readingExtraWidth ?? 100)).toBeLessThanOrEqual(1);
@@ -284,7 +284,11 @@ for (const articleCase of cases) {
     expect(firstShareBox).not.toBeNull();
     expect(secondShareBox).not.toBeNull();
     expect(Math.abs(firstShareBox!.y - secondShareBox!.y)).toBeLessThanOrEqual(2);
-    expect(firstShareBox!.height).toBeLessThanOrEqual(42);
+    // V2 preserves a 44px minimum public touch target while keeping the row compact.
+    for (const box of [firstShareBox!, secondShareBox!]) {
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeLessThanOrEqual(48);
+    }
 
     const feedback = page.locator(".article-feedback");
     await expect(feedback.getByRole("button", { name: "Áno", exact: true })).toBeVisible();
@@ -477,9 +481,9 @@ for (const articleCase of cases) {
     }
     expect(metrics.sidebarTop, "Desktop sidebar should start in the title/meta zone").toBeLessThanOrEqual(metrics.headingTop);
     expect(metrics.sidebarRightOfHero, "Desktop sidebar should occupy the right rail beside the article").toBe(true);
-    expect(metrics.canvasColor).toBe("rgb(248, 244, 235)");
+    expect(metrics.canvasColor).toBe("rgb(247, 242, 233)");
     expect(metrics.bodyColor).toBe("rgb(41, 72, 62)");
-    expect(metrics.proseFontFamily).toMatch(/system-ui/);
+    expect(metrics.proseFontFamily).toMatch(/^"?Psipedia Inter"?,/);
     expect(metrics.introTextAlign).toBe("left");
     expect(metrics.headingTextAlign).not.toBe("justify");
     expect(metrics.disclaimerTextAlign).not.toBe("justify");

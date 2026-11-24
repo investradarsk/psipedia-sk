@@ -10,7 +10,7 @@
 .heading h2 {
   margin: 5px 0 0;
   color: var(--forest-dark);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(1.45rem, 3vw, 2rem);
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -42,7 +42,7 @@
   gap: 2px;
   padding: 3px;
   border: 1px solid rgba(23, 53, 43, 0.14);
-  border-radius: 12px;
+  border-radius: var(--ps-radius-card);
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 5px 18px rgba(23, 53, 43, 0.08);
 }
@@ -54,10 +54,10 @@
 }
 
 .mapTypeControl button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 7px 11px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest, #174b38);
   background: transparent;
   font-size: 0.76rem;
@@ -255,4 +255,26 @@
   .heading h2.compactHeading {
     font-size: 0.78rem;
   }
+}
+
+
+/* V2-04: only the title chrome of maps in the public detail rail.
+ * Map rendering, gestures, provider attribution and controls stay intact. */
+:global([data-public-detail-aside]) .heading,
+:global([data-public-service-detail-template] [data-detail-block="map"]) .heading {
+  padding: 12px 14px;
+  border-left: var(--ps-premium-accent-width, 4px) solid var(--ps-premium-accent, #b44939);
+  border-radius: var(--ps-radius-card, 14px);
+  background: var(--ps-premium-gradient, #174d3a);
+}
+:global([data-public-detail-aside]) .heading h2,
+:global([data-public-service-detail-template] [data-detail-block="map"]) .heading h2 {
+  color: var(--ps-premium-on-dark, #fffaf0);
+  font-family: var(--ps-font-heading, Georgia, serif);
+  font-weight: 500;
+}
+:global([data-public-detail-aside]) .heading :global(.eyebrow),
+:global([data-public-service-detail-template] [data-detail-block="map"]) .heading :global(.eyebrow) {
+  color: var(--ps-premium-kicker-on-dark, #f7f2e9);
+  background: transparent;
 }
