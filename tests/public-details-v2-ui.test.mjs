@@ -65,8 +65,8 @@ test(
           {
             name: "platform-fixtures",
             setup(b) {
-              // Match production's public asset URLs instead of embedding or substituting fonts.
-              b.onResolve({ filter: /^\/fonts\/(?:inter|newsreader)-variable\.woff2$/ }, (a) => ({
+              // Preserve production public font and banner asset URLs; the fixture serves actual files.
+              b.onResolve({ filter: /^\/(?:fonts\/(?:inter|newsreader)-variable\.woff2|images\/psipedia-banner-(?:waves-light|waves-dark|dog-outline)\.svg)$/ }, (a) => ({
                 path: a.path,
                 external: true,
               }));
