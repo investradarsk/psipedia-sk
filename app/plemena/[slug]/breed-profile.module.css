@@ -134,7 +134,7 @@
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-card);
   overflow: hidden;
-  background: var(--white);
+  background: var(--paper);
 }
 .factGrid div {
   min-width: 0;
@@ -328,7 +328,7 @@
   border: 1px solid var(--ps-border-strong);
   border-radius: 50%;
   color: var(--forest);
-  background: var(--white);
+  background: var(--paper);
   font-size: 1.35rem;
   line-height: 1;
 }
@@ -381,7 +381,7 @@
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-control);
   overflow: hidden;
-  background: var(--white);
+  background: var(--paper);
 }
 .sportList > div {
   display: flex;
@@ -522,7 +522,7 @@
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-card);
   overflow: hidden;
-  background: var(--white);
+  background: var(--paper);
 }
 .standardFacts div {
   padding: 17px 18px;
@@ -618,7 +618,7 @@
   border: 1px solid var(--ps-border-strong);
   border-radius: var(--ps-radius-control);
   color: var(--forest);
-  background: var(--white);
+  background: var(--paper);
   font-size: 0.76rem;
   font-weight: 800;
   text-decoration: none;
@@ -701,7 +701,7 @@
     margin-top: 10px;
   }
   .heroPhoto {
-    border-radius: var(--ps-detail-photo-radius);
+    border-radius: var(--ps-radius-media);
   }
   .heroImage {
     max-height: 320px;
@@ -857,7 +857,7 @@
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-card);
   color: var(--ink);
-  background: var(--white);
+  background: var(--paper);
   text-decoration: none;
   overflow-wrap: anywhere;
 }
@@ -903,7 +903,7 @@
   max-height: 292px;
   padding: 8px;
   border: 0;
-  border-radius: var(--ps-detail-photo-radius);
+  border-radius: var(--ps-radius-media);
   background: var(--sage-light);
   box-shadow: none;
 }
@@ -978,8 +978,7 @@
 .accordionHeading strong {
   color: var(--forest-dark);
   font:
-    600 clamp(1.06rem, 1.7vw, 1.3rem) / 1.3 Georgia,
-    serif;
+    600 clamp(1.06rem, 1.7vw, 1.3rem) / 1.3 var(--ps-font-heading);
 }
 .accordionPanel {
   padding: 0 0 8px;
@@ -1058,12 +1057,7 @@
   .riskBlock h4 {
     color: var(--forest-dark);
     font:
-      750 0.95rem/1.4 "Avenir Next",
-      Avenir,
-      "Segoe UI",
-      Helvetica,
-      Arial,
-      sans-serif;
+      750 0.95rem/1.4 var(--ps-font-body);
     letter-spacing: normal;
     text-transform: none;
   }
@@ -1099,7 +1093,7 @@
   padding: 16px;
   border: 1px solid var(--detail-border, #dfe7e4);
   border-radius: var(--ps-radius-card);
-  background: var(--detail-surface, #fffefa);
+  background: var(--paper);
 }
 .page .sectionLabel {
   margin-bottom: 12px;
@@ -1144,7 +1138,7 @@
   padding: 12px 14px;
   border: 1px solid var(--detail-border, #dfe7e4);
   border-radius: var(--ps-radius-control);
-  background: var(--detail-surface, #fffefa);
+  background: var(--paper);
 }
 .page .coatSummary > strong {
   display: block;
@@ -1207,7 +1201,7 @@
   padding: clamp(16px, 1.8vw, 20px);
   border: 1px solid var(--detail-border, #dfe7e4);
   border-radius: var(--ps-radius-card);
-  background: var(--detail-surface, #fffefa);
+  background: var(--paper);
   box-shadow: none;
 }
 .page .readingSection h2,
@@ -1216,8 +1210,8 @@
 .page .compactRelated h2,
 .page .gallerySection h2 {
   margin: 0 0 12px;
-  color: var(--detail-ink, #092d36);
-  font: 500 clamp(1.35rem, 2vw, 1.7rem)/1.2 Georgia, serif;
+  color: var(--ink);
+  font: 500 clamp(1.35rem, 2vw, 1.7rem)/1.2 var(--ps-font-heading);
   letter-spacing: -0.025em;
   text-transform: none;
 }
@@ -1316,7 +1310,7 @@
 }
 .page .gallerySection .galleryGrid figure {
   border: 1px solid var(--detail-border, #dfe7e4);
-  border-radius: var(--ps-detail-photo-radius);
+  border-radius: var(--ps-radius-media);
   background: var(--sage-light);
   box-shadow: none;
 }
@@ -1422,7 +1416,7 @@
   padding: 12px 14px;
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-control);
-  background: var(--white);
+  background: var(--paper);
 }
 .ratingItem > div { display: flex; justify-content: space-between; gap: 8px; }
 .ratingItem strong { font-size: .83rem; font-weight: 700; }
@@ -1479,8 +1473,8 @@
   margin: 0;
   padding: 20px;
   border: 1px solid var(--detail-border, #dfe7e4);
-  border-radius: var(--detail-radius, 12px);
-  background: var(--detail-surface, #fffefa);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
   box-shadow: none;
 }
 .page .contentLayout .ratingSection {
@@ -1490,7 +1484,7 @@
 }
 .page .contentLayout .ratingSection h2 {
   margin-bottom: 14px;
-  font: 500 var(--ps-detail-heading-size)/1.2 Georgia, serif;
+  font: 500 var(--ps-detail-heading-size)/1.2 var(--ps-font-heading);
 }
 .page .contentLayout .ratingGrid {
   gap: 10px;
@@ -1527,7 +1521,7 @@
   margin: 0 0 9px;
 }
 .page .contentLayout .accordionHeading strong {
-  font: 750 1.04rem/1.35 "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+  font: 750 1.04rem/1.35 var(--ps-font-body);
   color: var(--forest-dark);
 }
 .page .contentLayout .accordionPanel {
@@ -1608,7 +1602,7 @@
   padding: 14px;
   border: 1px solid var(--detail-border, #dfe7e4);
   border-radius: var(--ps-radius-card);
-  background: var(--white);
+  background: var(--paper);
 }
 .page .sidebarEditorial h2 {
   margin: 0 0 12px;
@@ -1633,7 +1627,7 @@
   box-shadow: none;
 }
 .page .sidebarEditorial h2 {
-  font-family: var(--ps-font-heading, Georgia, serif);
+  font-family: var(--ps-font-heading, var(--ps-font-heading));
   font-weight: 500;
 }
 .page .sidebarEditorial h2::after {
@@ -1643,4 +1637,45 @@
   height: 2px;
   margin-top: 6px;
   background: var(--ps-premium-accent, #b44939);
+}
+
+/* V2-07: only the breed-specific panels; desktop/mobile facts and shared
+   related article/gallery/detail primitives retain their existing order. */
+.page { font-family: var(--ps-font-body); }
+.page .contentLayout .ratingSection h2,
+.page .characterBlock h3,
+.page .sidebarEditorial h2 {
+  font-family: var(--ps-font-heading);
+  font-weight: var(--ps-component-heading-weight);
+  overflow-wrap: anywhere;
+}
+.page .contentLayout .accordionHeading strong,
+.page .ratingItem,
+.page .sectionLabel {
+  font-family: var(--ps-font-body);
+}
+.page .identity,
+.page .identity h1,
+.page .officialName,
+.page .lead,
+.page .prose,
+.page .readingSection h2,
+.page .fciFacts dd,
+.page .ratingItem strong,
+.page .riskBlock,
+.page .accordionContent,
+.page .gallerySection :global(figcaption),
+.page .compactRelated h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.page .ratingItem > div { flex-wrap: wrap; }
+.page .ratingItem meter { max-width: 100%; }
+.page .contentLayout .accordion { border-radius: var(--ps-radius-card); }
+.page .fciSection .fciHeading { min-width: 0; }
+.page .fciSection .primaryLink { min-height: 44px; white-space: normal; }
+.page .dataCardGrid > * { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 380px) {
+  .page .dataCardGrid,
+  .page .fciFacts { grid-template-columns: minmax(0, 1fr); }
 }

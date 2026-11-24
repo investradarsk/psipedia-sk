@@ -11,6 +11,8 @@
 
 .nav :global(.section-tab) {
   min-height: 44px;
+  border-radius: var(--ps-radius-control);
+  font-family: var(--ps-font-body);
   /* Avoid contrast failing during the white-on-green active-state animation:
      both text and background must reach their accessible colors immediately. */
   transition: none;

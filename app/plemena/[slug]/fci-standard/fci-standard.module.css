@@ -3,7 +3,7 @@
   min-height: 100vh;
   padding: 18px 0 64px;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--cream);
 }
 .shell { max-width: var(--ps-content-max); min-width: 0; }
 .breadcrumbs { margin-bottom: 12px; color: var(--muted); font-size: .76rem; }
@@ -30,7 +30,7 @@
 .referenceHeader h1 {
   max-width: 900px;
   margin: 0;
-  font: 500 clamp(2.1rem, 4vw, 3.6rem)/1.12 Georgia, "Times New Roman", serif;
+  font: 500 clamp(2.1rem, 4vw, 3.6rem)/1.12 var(--ps-font-heading);
   letter-spacing: -.025em;
   overflow-wrap: anywhere;
 }
@@ -53,7 +53,7 @@
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-card);
   overflow: hidden;
-  background: var(--white);
+  background: var(--paper);
 }
 .referenceFacts > div {
   min-width: 0;
@@ -103,7 +103,7 @@
 .standardIntro { max-width: 760px; padding: 25px 0 14px; }
 .standardIntro h2 {
   margin: 0;
-  font: 500 clamp(1.45rem, 2.8vw, 2rem)/1.22 Georgia, "Times New Roman", serif;
+  font: 500 clamp(1.45rem, 2.8vw, 2rem)/1.22 var(--ps-font-heading);
   letter-spacing: -.02em;
   overflow-wrap: anywhere;
 }
@@ -163,7 +163,7 @@
 .standardSectionIndex { color: var(--coral-dark); font-size: .72rem; font-weight: 800; letter-spacing: .035em; }
 .standardSectionTitle {
   min-width: 0;
-  font: 600 clamp(1.3rem, 2.2vw, 1.75rem)/1.3 Georgia, "Times New Roman", serif;
+  font: 600 clamp(1.3rem, 2.2vw, 1.75rem)/1.3 var(--ps-font-heading);
   letter-spacing: -.01em;
   overflow-wrap: anywhere;
 }
@@ -184,7 +184,7 @@
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-control);
   overflow: hidden;
-  background: var(--white);
+  background: var(--paper);
 }
 .measurementFacts div {
   min-width: 0;
@@ -226,3 +226,35 @@
   .measurementFacts { grid-template-columns: minmax(0, 1fr); }
   .measurementFacts div + div { border-left: 0; border-top: 1px solid var(--ps-border-soft); }
 }
+
+/* V2-07: the standard is a reading/reference page, not a promotional hero. */
+.page { font-family: var(--ps-font-body); }
+.referenceHeader h1,
+.standardIntro h2,
+.standardSectionTitle,
+.standardSubsection h3 {
+  font-family: var(--ps-font-heading);
+  font-weight: var(--ps-component-heading-weight);
+  overflow-wrap: anywhere;
+}
+.eyebrow::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 2px;
+  margin-top: 5px;
+  background: var(--ps-premium-accent);
+}
+.officialName,
+.standardProse,
+.officialLinks a,
+.standardSidebar a,
+.referenceFacts dt,
+.measurementFacts dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.officialLinks a { background: var(--paper); }
+.standardSidebar a { border-radius: var(--ps-radius-control); }
+.standardSidebar a:hover { background: var(--paper); }
+.measurementFacts { border-radius: var(--ps-radius-card); }

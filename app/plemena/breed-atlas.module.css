@@ -18,7 +18,7 @@
   padding: 14px;
   border-color: var(--ps-border-soft);
   border-radius: var(--ps-radius-card);
-  background: var(--white);
+  background: var(--paper);
   box-shadow: none;
 }
 
@@ -27,7 +27,7 @@
   min-height: var(--ps-control-min-height);
   border-color: var(--ps-border-strong);
   border-radius: var(--ps-radius-control);
-  background: var(--white);
+  background: var(--paper);
 }
 
 .foundation :global(.breed-search-primary input:focus-visible) {
@@ -41,7 +41,7 @@
   min-height: var(--ps-control-min-height);
   border-color: var(--ps-border-strong);
   border-radius: var(--ps-radius-control);
-  background: var(--white);
+  background: var(--paper);
 }
 
 .foundation :global(.fci-filter-panel) {
@@ -73,7 +73,7 @@
   color: var(--forest-dark);
   font-family: var(--ps-public-heading-font);
   font-size: clamp(1.3rem, 2vw, 1.65rem);
-  font-weight: 750;
+  font-weight: var(--ps-component-heading-weight);
   line-height: 1.2;
   letter-spacing: -0.025em;
   overflow-wrap: anywhere;
@@ -82,12 +82,12 @@
 .foundation :global(.breed-card) {
   border-color: var(--ps-border-soft);
   border-radius: var(--ps-radius-card);
-  background: var(--white);
-  box-shadow: var(--shadow-sm);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
 }
 
 .foundation :global(.breed-card:hover) {
-  transform: translateY(-1px);
+  transform: var(--ps-ds5-card-hover-transform);
 }
 
 .foundation :global(.breed-card-body) {
@@ -98,7 +98,7 @@
   padding: clamp(40px, 8vw, 68px) 20px;
   border-color: var(--ps-border-strong);
   border-radius: var(--ps-radius-card);
-  background: var(--white);
+  background: var(--paper);
 }
 
 .foundation :global(.breed-atlas-footer) {
@@ -184,7 +184,7 @@
 .foundation :global(.breed-crawl-index-details) {
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-card);
-  background: var(--white);
+  background: var(--paper);
 }
 
 .foundation :global(.breed-crawl-index-details summary) {
@@ -258,7 +258,7 @@
   padding: 14px 18px;
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-card);
-  background: var(--white);
+  background: var(--paper);
   color: var(--ink);
   text-decoration: none;
   overflow-wrap: anywhere;
@@ -325,7 +325,7 @@
   overflow: visible;
   font-family: var(--ps-public-heading-font);
   font-size: clamp(1.125rem, 1.45vw, 1.3rem);
-  font-weight: 750;
+  font-weight: var(--ps-component-heading-weight);
   line-height: 1.25;
   letter-spacing: -0.02em;
 }
@@ -394,7 +394,7 @@
   padding: 10px 17px;
   border: 1px solid var(--ps-border-strong);
   border-radius: var(--ps-radius-control);
-  background: var(--white);
+  background: var(--paper);
   color: var(--forest-dark);
   font-weight: 800;
   text-decoration: none;
@@ -452,7 +452,7 @@
   border: 1px solid var(--ps-border-strong);
   border-radius: var(--ps-radius-control, 12px);
   padding: 10px 15px;
-  background: var(--white);
+  background: var(--paper);
   color: var(--forest-dark);
   text-decoration: none;
   font: inherit;
@@ -497,4 +497,76 @@
 .atlasActions :global([data-home-banner="breed-clubs"] h2) {
   overflow-wrap: break-word;
   word-break: normal;
+}
+
+/* V2-07: section-owned atlas and FCI group surfaces. Shared photo heroes,
+   cards' image cropping and promotional banners keep their own renderers. */
+.foundation :global(.fci-group-heading) {
+  padding: 14px 16px;
+  border: 0;
+  border-inline-start: var(--ps-premium-accent-width) solid var(--ps-premium-accent);
+  border-radius: var(--ps-radius-card);
+  background: var(--ps-premium-gradient);
+  color: var(--ps-premium-on-dark);
+}
+.foundation :global(.fci-group-heading h2) {
+  color: var(--ps-premium-on-dark);
+  font-family: var(--ps-font-heading);
+  overflow-wrap: anywhere;
+}
+.foundation :global(.fci-group-heading .eyebrow),
+.foundation :global(.fci-group-heading p),
+.foundation :global(.fci-group-heading .fci-group-count) {
+  color: var(--ps-premium-kicker-on-dark);
+  background: transparent;
+  border-color: transparent;
+  font-family: var(--ps-font-body);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.foundation :global(.fci-group-heading .eyebrow)::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 2px;
+  margin-top: 5px;
+  background: var(--ps-premium-accent);
+}
+.foundation :global(.breed-card h3),
+.foundation :global(.breed-card h3 a),
+.foundation :global(.breed-crawl-group a) {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.foundation :global(.breed-card-classification) {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+.foundation :global(.breed-card-facts > div) { max-width: 100%; }
+.foundation :global(.breed-card-facts dd) { overflow-wrap: anywhere; }
+.foundation :global(.breed-card-body > p) {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  overflow-wrap: anywhere;
+}
+.foundation :global(.fci-filter-row button),
+.foundation :global(.fci-section-filter select),
+.foundation :global(.breed-origin-filter select) {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  font-family: var(--ps-font-body);
+  border-radius: var(--ps-radius-control);
+}
+.foundation :global(.fci-filter-row button) { white-space: normal; }
+.foundation :global(.fci-filter-row button.is-active),
+.foundation :global(.fci-filter-row button:hover) {
+  background: var(--forest);
+  color: var(--ps-premium-on-dark);
+}
+@media (max-width: 430px) {
+  .foundation :global(.fci-group-heading) { padding: 12px; }
 }
