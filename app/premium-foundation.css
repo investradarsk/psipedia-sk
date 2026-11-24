@@ -88,3 +88,131 @@
     --ps-motion-media: 0ms;
   }
 }
+
+/* Premium Glass — approved 25% visual accent. Only interactive chrome.
+ * Opaque fallbacks are the V9 surfaces; do not glass editorial cards, hero
+ * photography, legal text, ads, urgency/success/error states or Admin.
+ * Keep blur off the header itself: it would contain fixed search/drawer children.
+ */
+:root:not(:has([data-admin-workspace])) {
+  --ps-glass-filter: none;
+  --ps-glass-header-filter: none;
+  --ps-glass-panel: var(--paper);
+  --ps-glass-header: var(--cream);
+  --ps-glass-control: var(--sage-light);
+  --ps-glass-selected: var(--paper);
+  --ps-glass-green: var(--forest);
+  --ps-glass-dark-cta: var(--forest-dark);
+  --ps-glass-border: var(--ps-border-soft);
+  --ps-glass-sheen: none;
+  --ps-glass-edge: none;
+  --ps-glass-lift: none;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root:not(:has([data-admin-workspace])) {
+    --ps-glass-filter: blur(14px) saturate(135%);
+    --ps-glass-header-filter: blur(18px) saturate(145%);
+    --ps-glass-panel: linear-gradient(145deg, rgba(255,253,249,.97), rgba(247,242,233,.91) 70%, rgba(234,240,228,.93));
+    --ps-glass-header: rgba(247,242,233,.88);
+    --ps-glass-control: linear-gradient(145deg, #fff, #e8eee4);
+    --ps-glass-selected: linear-gradient(145deg, #fff, #f7f2e9);
+    --ps-glass-green: linear-gradient(150deg, #316b55, #174d3a);
+    --ps-glass-dark-cta: linear-gradient(145deg, rgba(36,87,67,.96), rgba(16,47,38,.92));
+    --ps-glass-border: rgba(23,77,58,.20);
+    --ps-glass-sheen: linear-gradient(145deg, rgba(255,255,255,.035), transparent 55%, rgba(16,47,38,.06));
+    --ps-glass-edge: inset 0 1px 1px rgba(255,255,255,.85), 0 2px 5px rgba(16,47,38,.08);
+    --ps-glass-lift: inset 0 1px 1px rgba(255,255,255,.7), 0 5px 16px rgba(16,47,38,.09);
+  }
+}
+
+/* All root-level shared controls are explicitly public/Partner scoped.
+ * Header pseudo-element provides the optical layer without a containing block
+ * on .site-header for fixed search-modal/mobile-menu/backdrop descendants.
+ */
+:root:not(:has([data-admin-workspace])) .site-header {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root:not(:has([data-admin-workspace])) .site-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--ps-glass-header);
+  -webkit-backdrop-filter: var(--ps-glass-header-filter);
+  backdrop-filter: var(--ps-glass-header-filter);
+  box-shadow: var(--ps-glass-edge);
+}
+:root:not(:has([data-admin-workspace])) .site-header :is(.nav-submenu, .mobile-menu.is-open, .search-panel),
+:root:not(:has([data-admin-workspace])) :is(.home-search-panel, .cookie-consent) {
+  background: var(--ps-glass-panel);
+  border-color: var(--ps-glass-border);
+  -webkit-backdrop-filter: var(--ps-glass-filter);
+  backdrop-filter: var(--ps-glass-filter);
+  box-shadow: var(--ps-glass-lift);
+}
+:root:not(:has([data-admin-workspace])) .site-header .icon-button:not(:disabled),
+:root:not(:has([data-admin-workspace])) .home-search-shortcuts a,
+:root:not(:has([data-admin-workspace])) .favorite-button--compact:not(.is-saved):not(:disabled),
+:root:not(:has([data-admin-workspace])) .share-button:not(:disabled) {
+  background: var(--ps-glass-control);
+  box-shadow: var(--ps-glass-edge);
+}
+:root:not(:has([data-admin-workspace])) .site-header .icon-button:hover,
+:root:not(:has([data-admin-workspace])) .favorite-button--compact:not(.is-saved):hover,
+:root:not(:has([data-admin-workspace])) .share-button:hover {
+  background: var(--sage);
+}
+:root:not(:has([data-admin-workspace])) .site-header [data-header-nav-band] {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.19);
+}
+:root:not(:has([data-admin-workspace])) .site-header .desktop-nav > a:not(.nav-news):not(.nav-help):is(:hover,[data-active="true"]),
+:root:not(:has([data-admin-workspace])) .site-header .desktop-nav .nav-group:not(:has(.nav-news,.nav-help)) > a:is(:hover,[data-active="true"]) {
+  background-image: var(--ps-glass-sheen);
+}
+:root:not(:has([data-admin-workspace])) :is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] {
+  background: var(--ps-glass-selected);
+}
+:root:not(:has([data-admin-workspace])) :is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] > button[type="submit"]:not(:disabled):not(:hover):not(:active) {
+  background: var(--ps-glass-green);
+  box-shadow: var(--ps-glass-edge);
+}
+:root:not(:has([data-admin-workspace])) .home-side-unified-row > svg {
+  border-radius: 50%;
+  background: var(--ps-glass-control);
+  box-shadow: var(--ps-glass-edge);
+}
+:root:not(:has([data-admin-workspace])) .home-side-unified-row:hover > svg {
+  color: var(--white);
+  background: var(--forest);
+}
+:root:not(:has([data-admin-workspace])) [data-public-filter-toggle]:not(:disabled) {
+  background-image: var(--ps-glass-sheen);
+}
+
+/* Mobile: limit live blur on large surfaces; do not introduce expensive
+ * animation, nested blurs on cards, or a full-screen filter.
+ */
+@media (max-width: 620px) {
+  :root:not(:has([data-admin-workspace])) {
+    --ps-glass-filter: blur(8px) saturate(120%);
+    --ps-glass-header-filter: blur(10px) saturate(125%);
+  }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active), print {
+  :root:not(:has([data-admin-workspace])) {
+    --ps-glass-filter: none;
+    --ps-glass-header-filter: none;
+    --ps-glass-panel: var(--paper);
+    --ps-glass-header: var(--cream);
+    --ps-glass-control: var(--sage-light);
+    --ps-glass-selected: var(--paper);
+    --ps-glass-green: var(--forest);
+    --ps-glass-dark-cta: var(--forest-dark);
+    --ps-glass-sheen: none;
+    --ps-glass-edge: none;
+    --ps-glass-lift: none;
+  }
+}

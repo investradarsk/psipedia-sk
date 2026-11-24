@@ -1019,3 +1019,10 @@
     height: 42px;
   }
 }
+
+/* The shared category icon carries the optical accent, not its whole tile. */
+.categoryTileArrow {
+  border-radius: 50%;
+  background: var(--ps-glass-control, var(--sage-light));
+  box-shadow: var(--ps-glass-edge, none);
+}

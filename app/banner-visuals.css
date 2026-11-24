@@ -504,3 +504,12 @@
   font-family: var(--ps-font-heading);
   font-weight: 500;
 }
+
+/* Premium Glass: keep the banner body and its managed color selection intact.
+ * Only non-urgent action surfaces receive the highlight. Default dark banners
+ * have an optically glazed, dark high-contrast CTA; light banners stay branded.
+ */
+:where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual][data-banner-size]:not([data-banner-semantic="urgent"]) :is(a[data-public-action], a.article-block-cta-button) {
+  background-image: var(--ps-glass-sheen, none) !important;
+  box-shadow: var(--ps-glass-edge, none);
+}

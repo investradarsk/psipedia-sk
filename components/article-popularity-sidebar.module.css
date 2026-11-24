@@ -211,3 +211,13 @@
 .tabs button {
   transition: background-color var(--ps-motion-fast, 180ms) var(--ps-motion-ease, ease);
 }
+
+/* Premium Glass: decorative sheen only, no changes to tab roles or state. */
+.tabs {
+  background-image: var(--ps-glass-sheen, none);
+  box-shadow: var(--ps-glass-edge, none);
+}
+.tabs .activeTab {
+  background: var(--ps-glass-selected, var(--cream));
+  box-shadow: var(--ps-glass-edge, none);
+}

@@ -540,3 +540,13 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Shared navigation arrows and selected categories, not content cards. */
+.landingArrow {
+  background: var(--ps-glass-control, var(--sage-light));
+  box-shadow: var(--ps-glass-edge, none);
+}
+.compactItemCurrent:not(:hover) {
+  background: var(--ps-glass-green, var(--forest));
+  box-shadow: var(--ps-glass-edge, none);
+}

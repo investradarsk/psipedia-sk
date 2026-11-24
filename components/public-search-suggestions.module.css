@@ -125,3 +125,15 @@
 .option[data-active="true"] {
   box-shadow: inset var(--ps-premium-accent-width, 4px) 0 var(--coral-dark);
 }
+
+/* The floating suggestions panel is the only blurred layer within search results. */
+.homePanel {
+  background: var(--ps-glass-panel, var(--paper));
+  -webkit-backdrop-filter: var(--ps-glass-filter, none);
+  backdrop-filter: var(--ps-glass-filter, none);
+  box-shadow: var(--ps-glass-lift, var(--shadow-sm));
+}
+.quickLinks a:not(:hover):not(:focus-visible) {
+  background: var(--ps-glass-control, var(--sage-light));
+  box-shadow: var(--ps-glass-edge, none);
+}

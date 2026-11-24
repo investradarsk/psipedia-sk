@@ -141,3 +141,7 @@ All stage prefixes V2-01 through V2-14 are present in the PR commit list at `827
 - `/zasady-obsahu`
 
 Required next checks: six viewport widths, authenticated Partner, Admin isolation, maps, contrast, keyboard, SEO/data integrity, and all failing CI. No screenshot or browser pass was established by this integration.
+
+## Approved Premium Glass accent (25%)
+
+The V9 editorial visual system is unchanged. Apply the 25% concept as a small family of shared interaction surfaces, not a literal opacity percentage. Canonical `--ps-glass-*` tokens live in `app/premium-foundation.css`: cream translucent chrome, restrained specular edges, gradient controls, dark green accents. Site header uses a pseudo-element for blur so fixed search and mobile navigation remain viewport-relative. Search panels, suggestions, menu, quick links, icon buttons, category arrows, ranking tabs, non-urgent banner action sheen, consent surface, back-to-top and Partner workspace/auth selection and suggestions adopt those tokens. Preserve managed banner button colors, urgency and error semantics. No new fonts, media, scripts, external dependencies, route changes or Admin styling. Content surfaces, photos and long legal/editorial texts remain opaque. Reduced transparency and forced colors use solid fallbacks. Browsers without backdrop-filter use solid surfaces; mobile blur budget is reduced. The full responsive visual audit and CI are still required, especially overlay geometry and contrast.

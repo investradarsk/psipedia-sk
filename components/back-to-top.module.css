@@ -62,3 +62,8 @@
 
 /* Mobile: never obscure content, forms or swipe gestures with a floating up arrow. */
 @media (max-width: 760px) { .button { display: none; } }
+
+.button:not(:hover) {
+  background: var(--ps-glass-green, var(--forest));
+  box-shadow: var(--ps-glass-edge, var(--shadow-sm));
+}

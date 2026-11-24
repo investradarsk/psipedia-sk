@@ -64,3 +64,18 @@ test("shared V2 components consume canonical typography and control tokens", () 
   assert.match(css, /--ps-ds5-card-hover-shadow: none/);
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*--ps-ds5-card-hover-transform: none/);
 });
+
+test("Premium Glass is scoped, progressively enhanced and avoids containing fixed header descendants", () => {
+  assert.match(css, /:root:not\(:has\(\[data-admin-workspace\]\)\) \.site-header\s*\{[^}]*backdrop-filter: none;/s);
+  assert.match(css, /\.site-header::before\s*\{[^}]*pointer-events: none;[^}]*backdrop-filter: var\(--ps-glass-header-filter\)/s);
+  assert.match(css, /@supports \(\(backdrop-filter: blur\(1px\)\)/);
+  assert.match(css, /prefers-reduced-transparency: reduce/);
+  assert.match(css, /forced-colors: active/);
+  assert.match(css, /--ps-glass-filter: none;/);
+  assert.match(css, /--ps-glass-header-filter: blur\(10px\) saturate\(125%\)/);
+  const glass = css.slice(css.indexOf("/* Premium Glass"));
+  assert.doesNotMatch(glass, /\[data-public-card\]|\.article-card\s*\{|\.hero\s*\{/);
+  assert.match(read("app/banner-visuals.css"), /:not\(\[data-banner-semantic="urgent"\]\)[^{}]*\{[^}]*background-image: var\(--ps-glass-sheen,/s);
+  assert.match(read("components/article-popularity-sidebar.module.css"), /\.tabs \.activeTab\s*\{[^}]*background: var\(--ps-glass-selected,/s);
+  assert.match(read("app/partner/partner.css"), /\.partner-shell--workspace \.partner-dashboard-header\s*\{[^}]*background: var\(--ps-glass-panel,/s);
+});

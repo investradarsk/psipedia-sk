@@ -2521,3 +2521,23 @@
 @media (forced-colors: active) {
   .partner-shell :is(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid Highlight; }
 }
+
+/* Premium Glass — Partner uses the same chrome tokens, never editable fields,
+ * authentication copy, danger controls, or validation feedback. */
+.partner-shell--workspace .partner-dashboard-header {
+  background: var(--ps-glass-panel, var(--cream));
+  box-shadow: var(--ps-glass-lift, var(--shadow-sm));
+}
+.partner-shell .partner-auth-method-tabs button[aria-pressed="true"] {
+  background: var(--ps-glass-selected, var(--paper));
+  box-shadow: var(--ps-glass-edge, var(--shadow-sm));
+}
+.partner-shell :is(.partner-location-options, .partner-claim-suggestions) {
+  background: var(--ps-glass-panel, var(--paper));
+  -webkit-backdrop-filter: var(--ps-glass-filter, none);
+  backdrop-filter: var(--ps-glass-filter, none);
+  box-shadow: var(--ps-glass-lift, var(--shadow-sm));
+}
+.partner-shell--workspace .partner-dashboard-header nav a:hover {
+  background-image: var(--ps-glass-sheen, none);
+}
