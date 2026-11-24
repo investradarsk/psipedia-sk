@@ -4,8 +4,8 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { buildAdminSeoQualityAudit } from "../lib/admin-seo-quality-store.ts";
 import { articleEntity, eventEntity, loadPublishedSeoQualityEntities, loadSeoQualitySources } from "../lib/admin-seo-quality-entities.ts";
-import { auditSeoQualityEntity, isSeoMetadataFinding, isSeoProfileAgenda } from "../lib/admin-seo-quality-rules.ts";
-import { selectAdminSeoQualityPage } from "../lib/admin-seo-quality-page.ts";
+import { adminSeoAgendas, adminSeoIssueDefinitions, auditSeoQualityEntity, isSeoMetadataFinding, isSeoProfileAgenda, seoEntityKey } from "../lib/admin-seo-quality-rules.ts";
+import { auditHref, isSeoIssueInScope, selectAdminSeoQualityPage } from "../lib/admin-seo-quality-page.ts";
 
 function entity(overrides = {}) {
   return {
@@ -204,9 +204,11 @@ test("SEO page selection exactly matches original complete projection on 134 mix
         const match = (finding) =>
           (scope === "all" || (scope === "custom" ? finding.scope === "custom" : finding.scope !== "custom"))
           && (issue === "all" || finding.code === issue);
-        const expected = source.map((item) => ({
-          ...item, findings: item.findings.filter(match),
-        })).filter((item) => item.findings.length > 0);
+        const expected = source.map((item) => {
+          const findings = item.findings.filter(match);
+          const customGapCount = findings.filter((finding) => finding.scope === "custom").length;
+          return { ...item, findings, customGapCount, qualityFindingCount: findings.length - customGapCount };
+        }).filter((item) => item.findings.length > 0);
         const totalPages = Math.max(1, Math.ceil(expected.length / 50));
         const page = Math.min(requestedPage, totalPages);
         const got = selectAdminSeoQualityPage(source, { scope, issue }, requestedPage, 50);
@@ -539,4 +541,63 @@ test("V6-02 isolates entity conversion errors and keeps the other source", async
   const article = sources.find((source) => source.source === "articles");
   assert.equal(article.status, "available");
   assert.equal(article.entities[0].id, 2);
+});
+
+
+test("V6-03 round-trips every agenda, scope and issue including all, search and pagination", () => {
+  for (const agenda of ["all", "profiles", ...adminSeoAgendas]) {
+    for (const scope of ["all", "metadata", "custom", "quality"]) {
+      for (const issue of ["all", ...adminSeoIssueDefinitions.map((item) => item.code)]) {
+        const filters = { agenda, scope, issue, query: "Žilina & Nitra + pes" };
+        for (const page of [1, 2, 99]) {
+          const params = new URL(auditHref(filters, { page }), "https://admin.invalid").searchParams;
+          assert.equal(params.get("agenda"), agenda);
+          assert.equal(params.get("scope"), scope);
+          assert.equal(params.get("issue"), issue);
+          assert.equal(params.get("q"), filters.query);
+          assert.equal(Number(params.get("page") ?? 1), page);
+        }
+      }
+    }
+  }
+});
+
+test("V6-03 counts records, profiles, findings and issue facets separately before pagination", async () => {
+  const rows = { articles: Array.from({ length: 53 }, (_, i) => ({
+    id: i + 1, title: i === 52 ? "Iný článok" : "Nitra článok " + i,
+    slug: "clanok-" + i, category: "zdravie", portal_section: "clanky",
+    seo_title: "", meta_description: "",
+  })) };
+  const { database } = v6AuditDatabase(rows);
+  const all = await buildAdminSeoQualityAudit(database, { agenda: "all", scope: "custom", query: "Nitra", page: 2 });
+  assert.equal(all.entityCount, 53);
+  assert.equal(all.filteredEntityCount, 52);
+  assert.equal(all.resultCount, 52);
+  assert.equal(all.resultProfileCount, 0);
+  assert.equal(all.resultFindingCount, 104);
+  assert.equal(all.items.length, 2);
+  assert.equal(all.filteredCustomGapEntities, 52);
+  assert.equal(all.filteredIssueCounts["custom-title-missing"], 52);
+  assert.equal(all.filteredIssueCounts["description-missing"], 0);
+  const one = await buildAdminSeoQualityAudit(database, { agenda: "all", scope: "custom", issue: "custom-title-missing", query: "Nitra", page: 99 });
+  assert.equal(one.pagination.page, 2);
+  assert.equal(one.resultFindingCount, 52);
+  assert.equal(one.filteredIssueCounts["custom-description-missing"], 52);
+  assert.equal(one.items[0].customGapCount, 1);
+  const incompatible = await buildAdminSeoQualityAudit(database, { agenda: "all", scope: "custom", issue: "description-missing", query: "Nitra" });
+  assert.equal(incompatible.resultCount, 0);
+  assert.equal(incompatible.resultFindingCount, 0);
+  assert.equal(isSeoIssueInScope("description-missing", "custom"), false);
+});
+
+test("V6-03 separates help and lost-found IDs and keeps correct editor routes", async () => {
+  const { database } = v6AuditDatabase({
+    help: [{ id: 7, title: "Pomoc", slug: "pomoc", category: "zbierky" }],
+    lostFound: [{ id: 7, dog_name: "Pes", slug: "pes", type: "LOST" }],
+  });
+  const report = await buildAdminSeoQualityAudit(database, { agenda: "help", scope: "all" });
+  assert.equal(report.resultCount, 2);
+  assert.equal(report.resultProfileCount, 2);
+  assert.deepEqual(report.items.map((item) => seoEntityKey(item.entity)), ["help:7", "lostFound:7"]);
+  assert.deepEqual(report.items.map((item) => item.entity.adminHref), ["/admin/pomoc/7", "/admin/stratene-najdene/7"]);
 });

@@ -26,22 +26,22 @@ export const adminSeoAgendaLabels: Record<AdminSeoAgenda, string> = {
 };
 
 export const adminSeoIssueDefinitions = [
-  { code: "description-missing", label: "Chýba Popis" },
-  { code: "description-weak", label: "Príliš slabý Popis" },
-  { code: "excerpt-description-identical", label: "Identický Perex a Popis" },
+  { code: "description-missing", label: "Chýba popis" },
+  { code: "description-weak", label: "Príliš krátky popis" },
+  { code: "excerpt-description-identical", label: "Zhodný perex a popis" },
   { code: "unique-content-short", label: "Veľmi krátky unikátny obsah" },
   { code: "image-missing", label: "Chýba obrázok" },
   { code: "image-alt-missing", label: "Obrázok bez výsledného alt textu" },
-  { code: "custom-title-missing", label: "Custom SEO title chýba" },
-  { code: "custom-description-missing", label: "Custom SEO description chýba" },
-  { code: "result-title-weak", label: "Výsledný SEO title je slabý" },
-  { code: "result-description-weak", label: "Výsledný SEO description je slabý" },
-  { code: "noindex-explicit", label: "Explicitný Noindex" },
-  { code: "canonical-nonstandard", label: "Neštandardný canonical" },
-  { code: "slug-missing", label: "Chýba slug" },
+  { code: "custom-title-missing", label: "Chýba vlastný SEO titulok" },
+  { code: "custom-description-missing", label: "Chýba vlastný meta popis" },
+  { code: "result-title-weak", label: "Nevhodná dĺžka výsledného SEO titulku" },
+  { code: "result-description-weak", label: "Nevhodná dĺžka výsledného meta popisu" },
+  { code: "noindex-explicit", label: "Výslovný zákaz indexovania (noindex)" },
+  { code: "canonical-nonstandard", label: "Neštandardná kanonická adresa" },
+  { code: "slug-missing", label: "Chýba identifikátor URL" },
   { code: "city-missing", label: "Chýba mesto" },
   { code: "category-missing", label: "Chýba kategória / typ" },
-  { code: "crawlable-parent-missing", label: "Chýba známy crawlable parent/listing" },
+  { code: "crawlable-parent-missing", label: "Chýba známa nadradená stránka" },
 ] as const;
 
 export type AdminSeoIssueCode = (typeof adminSeoIssueDefinitions)[number]["code"];
@@ -64,7 +64,14 @@ export function isSeoProfileAgenda(agenda: AdminSeoAgenda) {
 }
 
 
+export type AdminSeoEntityType = AdminSeoAgenda | "lostFound";
+
+export function seoEntityKey(entity: Pick<AdminSeoQualityEntity, "entityType" | "id">) {
+  return `${entity.entityType}:${entity.id}`;
+}
+
 export type AdminSeoQualityEntity = {
+  entityType: AdminSeoEntityType;
   agenda: AdminSeoAgenda;
   id: number;
   title: string;
@@ -139,6 +146,8 @@ export type AdminSeoQualityReport = {
   entitiesWithCustomGaps: number | null;
   explicitNoindex: number | null;
   resultCount: number | null;
+  resultFindingCount: number | null;
+  resultProfileCount: number | null;
   items: AdminSeoQualityItem[];
   agendaCounts: Record<AdminSeoAgenda, AdminSeoAgendaCounts | null>;
   issueCounts: Record<AdminSeoIssueCode, number> | null;
@@ -288,25 +297,25 @@ export function auditSeoQualityEntity(entity: AdminSeoQualityEntity): AdminSeoQu
   }
 
   if (entity.customSeoSupported && customTitle !== null && !customTitle) {
-    findings.push(finding("custom-title-missing", "custom", "info", "Custom SEO title nie je vyplnený; kvalitný fallback môže byť úplne postačujúci."));
+    findings.push(finding("custom-title-missing", "custom", "info", "Vlastný SEO titulok nie je vyplnený; automaticky vytvorený titulok môže postačovať."));
   }
   if (entity.customSeoSupported && customDescription !== null && !customDescription) {
-    findings.push(finding("custom-description-missing", "custom", "info", "Custom SEO description nie je vyplnený; kvalitný fallback môže byť úplne postačujúci."));
+    findings.push(finding("custom-description-missing", "custom", "info", "Vlastný meta popis nie je vyplnený; automaticky vytvorený popis môže postačovať."));
   }
 
   const unbrandedResultTitle = seoAuditText(entity.resultTitle).replace(/\s*(?:\||–|—|-)\s*Psipedia(?:\.sk)?\s*$/iu, "").trim();
   const finalDocumentTitle = unbrandedResultTitle ? `${unbrandedResultTitle} | Psipedia.sk` : "";
   const resultTitleLength = finalDocumentTitle.length;
   if (resultTitleLength < t.resultTitleMin || resultTitleLength > t.resultTitleMax) {
-    findings.push(finding("result-title-weak", "metadata", "warning", `Výsledný dokumentový <title> má ${resultTitleLength} znakov vrátane brand suffixu; interná heuristika je ${t.resultTitleMin}–${t.resultTitleMax}.`));
+    findings.push(finding("result-title-weak", "metadata", "warning", `Výsledný dokumentový <title> má ${resultTitleLength} znakov vrátane názvu webu; odporúčaná dĺžka je ${t.resultTitleMin}–${t.resultTitleMax}.`));
   }
   const resultDescriptionLength = seoAuditText(entity.resultDescription).length;
   if (resultDescriptionLength < t.resultDescriptionMin || resultDescriptionLength > t.resultDescriptionMax) {
-    findings.push(finding("result-description-weak", "metadata", "warning", `Výsledný description má ${resultDescriptionLength} znakov; interná heuristika je ${t.resultDescriptionMin}–${t.resultDescriptionMax}.`));
+    findings.push(finding("result-description-weak", "metadata", "warning", `Výsledný meta popis má ${resultDescriptionLength} znakov; interná heuristika je ${t.resultDescriptionMin}–${t.resultDescriptionMax}.`));
   }
 
   if (entity.noindex) {
-    findings.push(finding("noindex-explicit", "indexing", "error", "Publikovaná canonical entita má explicitný noindex. Audit ho nemení."));
+    findings.push(finding("noindex-explicit", "indexing", "error", "Publikovaný záznam má výslovný zákaz indexovania (noindex). Audit ho nemení."));
   }
 
   const customCanonical = seoAuditText(entity.customCanonical);
@@ -326,7 +335,7 @@ export function auditSeoQualityEntity(entity: AdminSeoQualityEntity): AdminSeoQu
     findings.push(finding("category-missing", "content", "warning", "Pre túto agendu sa pri publikovanej entite očakáva kategória alebo typ."));
   }
   if (!entity.parentPath) {
-    findings.push(finding("crawlable-parent-missing", "discovery", "warning", "Audit nevie priradiť známu crawlable parent/listing cestu tejto agendy."));
+    findings.push(finding("crawlable-parent-missing", "discovery", "warning", "Audit nevie priradiť známu nadradenú stránku alebo verejný zoznam."));
   }
 
   return findings;

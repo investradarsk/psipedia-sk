@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { loadSeoQualitySources } from "@/lib/admin-seo-quality-entities";
-import { selectAdminSeoQualityPage } from "@/lib/admin-seo-quality-page";
+import { isSeoIssueInScope, selectAdminSeoQualityPage } from "@/lib/admin-seo-quality-page";
 import {
   adminSeoAgendas,
   adminSeoIssueDefinitions,
@@ -62,6 +62,8 @@ export async function buildAdminSeoQualityAudit(
   })) as AdminSeoQualityReport["agendaAvailability"];
 
   const issueCounts = emptyIssueCounts();
+  const filteredIssueCounts = emptyIssueCounts();
+  let filteredEntityCount = 0;
   const totals = emptyCounts();
   const inbox: AdminSeoQualityItem[] = [];
   const filtered: AdminSeoQualityItem[] = [];
@@ -84,12 +86,17 @@ export async function buildAdminSeoQualityAudit(
       if (customGapCount > 0) counts.customGapEntities += 1;
       for (const finding of findings) issueCounts[finding.code] += 1;
       if (findings.some((finding) => finding.code === "noindex-explicit")) explicitNoindex += 1;
+      const matchesQuery = !needle || normalizeSeoComparable([
+        entity.title, entity.slug, entity.city ?? "", entity.category ?? "",
+      ].join(" ")).includes(needle);
+      if (matchesQuery) filteredEntityCount += 1;
       if (findings.length === 0) continue;
       const item = { entity, findings, customGapCount, qualityFindingCount };
       inbox.push(item);
-      if (needle && !normalizeSeoComparable([
-        entity.title, entity.slug, entity.city ?? "", entity.category ?? "",
-      ].join(" ")).includes(needle)) continue;
+      if (!matchesQuery) continue;
+      for (const finding of findings) {
+        if (isSeoIssueInScope(finding.code, filters.scope)) filteredIssueCounts[finding.code] += 1;
+      }
       filtered.push(item);
     }
   }
@@ -111,14 +118,16 @@ export async function buildAdminSeoQualityAudit(
     agendaAvailability,
     failedSources,
     entityCount: available ? totals.entities : null,
-    filteredEntityCount: available ? totals.entities : null,
-    filteredCustomGapEntities: available ? totals.customGapEntities : null,
-    filteredIssueCounts: available ? issueCounts : null,
+    filteredEntityCount: available ? filteredEntityCount : null,
+    filteredCustomGapEntities: available ? selected.customGapEntities : null,
+    filteredIssueCounts: available ? filteredIssueCounts : null,
     itemsWithAnyFinding: available ? inbox.length : null,
     entitiesWithQualityFindings: available ? totals.qualityEntities : null,
     entitiesWithCustomGaps: available ? totals.customGapEntities : null,
     explicitNoindex: available ? explicitNoindex : null,
     resultCount: available ? selected.total : null,
+    resultFindingCount: available ? selected.findingCount : null,
+    resultProfileCount: available ? selected.profileCount : null,
     items: selected.items,
     agendaCounts,
     issueCounts: available ? issueCounts : null,

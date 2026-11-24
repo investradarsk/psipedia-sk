@@ -78,6 +78,7 @@ function directoryEntity(
       )
     : serviceTexts;
   return withImageContract({
+    entityType: "directory",
     agenda: "directory",
     id: num(row.id),
     title: name,
@@ -125,6 +126,7 @@ export function eventEntity(row: RawRow): AdminSeoQualityEntity {
   const city = seoAuditText(row.city);
   const fallback = eventSeoFallback(title, eventType, city);
   return withImageContract({
+    entityType: "events",
     agenda: "events",
     id: num(row.id),
     title,
@@ -167,6 +169,7 @@ function helpEntity(row: RawRow): AdminSeoQualityEntity {
   const dogName = seoAuditText(row.dog_name);
   const publicImageAlt = dogName ? `${dogName} – ${title}` : title;
   return withImageContract({
+    entityType: "help",
     agenda: "help",
     id: num(row.id),
     title,
@@ -213,6 +216,7 @@ function lostFoundEntity(row: RawRow): AdminSeoQualityEntity {
   const description = seoAuditText(row.description);
   const resultDescription = `${lost ? "Stratený pes" : "Nájdený pes"} · ${city}. ${description}`.slice(0, 158);
   return withImageContract({
+    entityType: "lostFound",
     agenda: "help",
     id: num(row.id),
     title,
@@ -253,6 +257,7 @@ function organizationEntity(row: RawRow): AdminSeoQualityEntity {
   const shortDescription = seoAuditText(row.short_description);
   const description = seoAuditText(row.description);
   return withImageContract({
+    entityType: "organizations",
     agenda: "organizations",
     id: num(row.id),
     title: name,
@@ -288,6 +293,7 @@ function adoptionEntity(row: RawRow): AdminSeoQualityEntity {
   const shortDescription = seoAuditText(row.short_description);
   const description = seoAuditText(row.description);
   return withImageContract({
+    entityType: "adoptions",
     agenda: "adoptions",
     id: num(row.id),
     title: name,
@@ -329,6 +335,7 @@ function breedEntity(row: RawRow): AdminSeoQualityEntity {
   const fallback = breedSeoFallback(name);
   const editorialText = seoStringsFromJson(row.editorial_json);
   return withImageContract({
+    entityType: "breeds",
     agenda: "breeds",
     id: num(row.id),
     title: name,
@@ -376,6 +383,7 @@ export function articleEntity(row: RawRow): AdminSeoQualityEntity {
     ? `/clanky/${slug}`
     : `/${portalSection}/${slug}`;
   return withImageContract({
+    entityType: "articles",
     agenda: "articles",
     id: num(row.id),
     title,
