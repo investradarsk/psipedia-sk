@@ -67,8 +67,10 @@ test("0151 is approved only by pinned SHA and protected canonical DB identity", 
     "0174_breeds_sql_json_foundation.sql",
     "0175_partner_private_chat.sql",
     "0176_notion_help_admin_writeback_outbox.sql",
+    "0177_profile_review_verification_settings.sql",
   ]);
   assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes("0158_admin_directory_list_indexes.sql"));
+  assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes("0177_profile_review_verification_settings.sql"));
 });
 test("0151 is one-shot and requires exact 0150 ledger predecessor", () => {
   const prior = [
