@@ -36,8 +36,3 @@ export function lostFoundSubmissionEnabled() {
   return enabled(runtime.LOST_FOUND_SUBMISSIONS_ENABLED);
 }
 
-/** Temporary guest submission is limited to directory services. */
-export function profileReviewEmailRequired() {
-  const runtime = env as unknown as { PROFILE_REVIEW_EMAIL_REQUIRED?: string };
-  return enabled(runtime.PROFILE_REVIEW_EMAIL_REQUIRED);
-}
