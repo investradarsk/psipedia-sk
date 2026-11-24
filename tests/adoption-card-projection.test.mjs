@@ -81,6 +81,26 @@ test("public catalog reads a page of lean cards without private details, preserv
   } finally { sqlite.close(); }
 });
 
+test("outdated catalog pages use the last filtered page or the first empty page", async () => {
+  const { sqlite, database } = fixture();
+  try {
+    const active = await listPublicAdoptionCards({ page: 99, status: "ACTIVE" }, database);
+    assert.deepEqual(active.pagination, { page: 1, pageSize: 24, total: 24, totalPages: 1 });
+    assert.equal(active.items.length, 24);
+    const lastPage = await listPublicAdoptionCards({ page: 99 }, database);
+    assert.equal(lastPage.pagination.page, 2);
+    assert.deepEqual(
+      lastPage.items.map((item) => item.id),
+      [6, 5, 4, 3, 2, 1],
+    );
+    const empty = await listPublicAdoptionCards({ page: 99, q: "bez vysledku" }, database);
+    assert.deepEqual(empty.pagination, { page: 1, pageSize: 24, total: 0, totalPages: 0 });
+    assert.deepEqual(empty.items, []);
+  } finally {
+    sqlite.close();
+  }
+});
+
 test("public catalog projection uses shared filters while full adoption detail/admin remain intact", () => {
   const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
   const store = read("../lib/adoption-store.ts");

@@ -418,14 +418,29 @@ export async function listPublicAdoptionCards(
 ) {
   const query = buildPublicAdoptionQuery(filters);
   const db = database ?? getD1Binding();
-  if (!db) return { items: [] as PublicAdoptionCard[], pagination: { page: query.page, pageSize: query.pageSize, total: 0, totalPages: 0 } };
-  const countRow = await db.prepare(`SELECT COUNT(*) AS count FROM adoption_dogs d WHERE ${query.where}`)
-    .bind(...query.bindings).first<{ count: number }>();
+  if (!db)
+    return {
+      items: [] as PublicAdoptionCard[],
+      pagination: { page: 1, pageSize: query.pageSize, total: 0, totalPages: 0 },
+    };
+  const countRow = await db
+    .prepare(`SELECT COUNT(*) AS count FROM adoption_dogs d WHERE ${query.where}`)
+    .bind(...query.bindings)
+    .first<{ count: number }>();
   const total = Number(countRow?.count ?? 0);
-  const result = await db.prepare(`${PUBLIC_CARD_SELECT} WHERE ${query.where} ORDER BY ${query.orderBy} LIMIT ? OFFSET ?`)
-    .bind(...query.bindings, query.pageSize, query.offset).all<PublicAdoptionCardRow>();
-  return { items: result.results.map(rowToPublicAdoptionCard),
-    pagination: { page: query.page, pageSize: query.pageSize, total, totalPages: Math.ceil(total / query.pageSize) } };
+  const totalPages = Math.ceil(total / query.pageSize);
+  const page = Math.min(query.page, Math.max(1, totalPages));
+  const offset = (page - 1) * query.pageSize;
+  const result = await db
+    .prepare(
+      `${PUBLIC_CARD_SELECT} WHERE ${query.where} ORDER BY ${query.orderBy} LIMIT ? OFFSET ?`,
+    )
+    .bind(...query.bindings, query.pageSize, offset)
+    .all<PublicAdoptionCardRow>();
+  return {
+    items: result.results.map(rowToPublicAdoptionCard),
+    pagination: { page, pageSize: query.pageSize, total, totalPages },
+  };
 }
 export const getPublicAdoptions = listPublicAdoptions;
 

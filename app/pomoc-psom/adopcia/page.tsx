@@ -1,9 +1,18 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { AdoptionCatalog } from "@/components/adoption-catalog";
 import { StructuredData } from "@/components/structured-data";
-import { parseAdoptionCatalogFilters, type AdoptionCatalogSearchParams } from "@/lib/adoption-catalog";
+import {
+  adoptionCatalogHref,
+  parseAdoptionCatalogFilters,
+  type AdoptionCatalogSearchParams,
+} from "@/lib/adoption-catalog";
 import { listPublicAdoptionCards, listPublishedAdoptionBreedOptions } from "@/lib/adoption-store";
-import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
+import {
+  buildCollectionPageJsonLd,
+  buildListingPageMetadata,
+  resolveListingIndexPolicy,
+} from "@/lib/listing-seo";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +22,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const params = await searchParams;
   return buildListingPageMetadata({
     title: "Psy na adopciu",
-    description: "Aktuálny katalóg psov na adopciu na Slovensku s vyhľadávaním podľa plemena, veku, pohlavia, veľkosti a lokality.",
+    description:
+      "Aktuálny katalóg psov na adopciu na Slovensku s vyhľadávaním podľa plemena, veku, pohlavia, veľkosti a lokality.",
     path: "/pomoc-psom/adopcia",
     searchParams: params,
     indexPagination: true,
@@ -28,23 +38,38 @@ export default async function AdoptionPage({ searchParams }: Props) {
     listPublicAdoptionCards(filters),
     listPublishedAdoptionBreedOptions(),
   ]);
-  const policy = resolveListingIndexPolicy("/pomoc-psom/adopcia", params, { indexPagination: true, paginationParam: "strana" });
-  const schema = policy.kind === "query" ? null : buildCollectionPageJsonLd({
-    name: "Psy na adopciu",
-    description: "Aktuálny katalóg psov na adopciu na Slovensku s vyhľadávaním podľa plemena, veku, pohlavia, veľkosti a lokality.",
-    path: policy.canonicalPath,
-    breadcrumbs: [
-      { name: "Domov", path: "/" },
-      { name: "Pomoc psom", path: "/pomoc-psom" },
-      { name: "Psy na adopciu", path: "/pomoc-psom/adopcia" },
-    ],
-    items: result.items.map((dog) => ({ name: dog.name, path: `/pomoc-psom/adopcia/${dog.slug}` })),
+  if ((filters.page ?? 1) > result.pagination.page) {
+    redirect(adoptionCatalogHref(filters, { page: result.pagination.page }) + "#adoption-results");
+  }
+  const policy = resolveListingIndexPolicy("/pomoc-psom/adopcia", params, {
+    indexPagination: true,
+    paginationParam: "strana",
   });
+  const schema =
+    policy.kind === "query"
+      ? null
+      : buildCollectionPageJsonLd({
+          name: "Psy na adopciu",
+          description:
+            "Aktuálny katalóg psov na adopciu na Slovensku s vyhľadávaním podľa plemena, veku, pohlavia, veľkosti a lokality.",
+          path: policy.canonicalPath,
+          breadcrumbs: [
+            { name: "Domov", path: "/" },
+            { name: "Pomoc psom", path: "/pomoc-psom" },
+            { name: "Psy na adopciu", path: "/pomoc-psom/adopcia" },
+          ],
+          items: result.items.map((dog) => ({
+            name: dog.name,
+            path: `/pomoc-psom/adopcia/${dog.slug}`,
+          })),
+        });
 
-  return <>
-    {schema && <StructuredData value={schema} />}
-    <main id="obsah" tabIndex={-1}>
-      <AdoptionCatalog result={result} filters={filters} breeds={breeds} />
-    </main>
-  </>;
+  return (
+    <>
+      {schema && <StructuredData value={schema} />}
+      <main id="obsah" tabIndex={-1}>
+        <AdoptionCatalog result={result} filters={filters} breeds={breeds} />
+      </main>
+    </>
+  );
 }

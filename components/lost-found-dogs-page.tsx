@@ -19,6 +19,7 @@ import {
 } from "@/components/public-visual-system/public-form-controls";
 import { ImageDisplay } from "@/components/image-display";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { StructuredData } from "@/components/structured-data";
 import {
   PublicContentShell,
@@ -111,6 +112,7 @@ export async function LostFoundDogsPage({
     breed: breedId ? String(breedId) : "",
   }))
     if (value) params.set(key, value);
+  if (page > result.page) redirect(pageHref(type, params, result.page));
   const selectedFilters = [...params].map(([key, value]) => ({
     key,
     value,
@@ -218,9 +220,11 @@ export async function LostFoundDogsPage({
                   </nav>
                   <Link
                     className="button button--dark"
-                    href={type === "LOST"
-                      ? "/partner/koncepty/novy/strateny"
-                      : "/partner/koncepty/novy/najdeny"}
+                    href={
+                      type === "LOST"
+                        ? "/partner/koncepty/novy/strateny"
+                        : "/partner/koncepty/novy/najdeny"
+                    }
                   >
                     {type === "LOST" ? "Nahlásiť strateného psa" : "Nahlásiť nájdeného psa"}
                   </Link>
@@ -376,7 +380,9 @@ export async function LostFoundDogsPage({
                   <PublicHeading role="section" as="h2">
                     {dogReportTypeLabel(type)}
                   </PublicHeading>
-                  <p>{result.total} {activeDogReportCountNoun(result.total)}</p>
+                  <p>
+                    {result.total} {activeDogReportCountNoun(result.total)}
+                  </p>
                 </PublicResultsToolbar>
                 {result.items.length ? (
                   <div className={styles.grid}>
@@ -388,9 +394,13 @@ export async function LostFoundDogsPage({
                         title={report.dogName || report.breed || "Pes bez známeho mena"}
                         category={dogReportTypeLabel(type)}
                         actionLabel="Zobraziť hlásenie"
-                        badge={report.status === "ACTIVE" ? undefined : (
-                          <span className={styles.badge}>{dogReportStatusLabel[report.status]}</span>
-                        )}
+                        badge={
+                          report.status === "ACTIVE" ? undefined : (
+                            <span className={styles.badge}>
+                              {dogReportStatusLabel[report.status]}
+                            </span>
+                          )
+                        }
                         media={
                           <Link
                             href={dogReportHref(report)}
@@ -419,7 +429,8 @@ export async function LostFoundDogsPage({
                           </Link>
                         }
                         meta={[report.city, report.district, formatDogReportDate(report.eventDate)]
-                          .filter(Boolean).join(" · ")}
+                          .filter(Boolean)
+                          .join(" · ")}
                         excerpt={report.description}
                       />
                     ))}

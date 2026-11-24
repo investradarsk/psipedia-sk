@@ -327,26 +327,63 @@ function clampPageSize(value: number | undefined, fallback: number) { return Mat
 
 export async function listPublicDogReports(type: DogReportType, filters: DogReportFilters = {}) {
   const database = getD1Binding();
-  const page = clampPage(filters.page);
+  const requestedPage = clampPage(filters.page);
   const pageSize = clampPageSize(filters.pageSize, 24);
-  if (!database) return { items: [] as PublicDogReport[], total: 0, page, pageSize, pages: 0 };
+  if (!database) return { items: [] as PublicDogReport[], total: 0, page: 1, pageSize, pages: 0 };
 
-  const where = ["r.type = ?", "r.status = 'ACTIVE'", "r.published_at IS NOT NULL", "(r.expires_at IS NULL OR r.expires_at > ?)"];
+  const where = [
+    "r.type = ?",
+    "r.status = 'ACTIVE'",
+    "r.published_at IS NOT NULL",
+    "(r.expires_at IS NULL OR r.expires_at > ?)",
+  ];
   const args: unknown[] = [type, new Date().toISOString()];
-  if (filters.region) { where.push("r.region = ?"); args.push(filters.region); }
-  if (filters.locality) { where.push("(r.district LIKE ? OR r.city LIKE ? OR r.location_description LIKE ?)"); const q = `%${filters.locality.trim()}%`; args.push(q, q, q); }
-  if (filters.date) { where.push("r.event_date = ?"); args.push(filters.date); }
-  if (filters.sex && dogSexes.includes(filters.sex)) { where.push("r.sex = ?"); args.push(filters.sex); }
-  if (filters.size && dogSizes.includes(filters.size)) { where.push("r.size = ?"); args.push(filters.size); }
-  if (filters.breedId) { where.push("r.breed_id = ?"); args.push(filters.breedId); }
-  if (filters.q?.trim()) { where.push("r.search_text LIKE ?"); args.push(`%${normalizeSearch(filters.q)}%`); }
+  if (filters.region) {
+    where.push("r.region = ?");
+    args.push(filters.region);
+  }
+  if (filters.locality) {
+    where.push("(r.district LIKE ? OR r.city LIKE ? OR r.location_description LIKE ?)");
+    const q = `%${filters.locality.trim()}%`;
+    args.push(q, q, q);
+  }
+  if (filters.date) {
+    where.push("r.event_date = ?");
+    args.push(filters.date);
+  }
+  if (filters.sex && dogSexes.includes(filters.sex)) {
+    where.push("r.sex = ?");
+    args.push(filters.sex);
+  }
+  if (filters.size && dogSizes.includes(filters.size)) {
+    where.push("r.size = ?");
+    args.push(filters.size);
+  }
+  if (filters.breedId) {
+    where.push("r.breed_id = ?");
+    args.push(filters.breedId);
+  }
+  if (filters.q?.trim()) {
+    where.push("r.search_text LIKE ?");
+    args.push(`%${normalizeSearch(filters.q)}%`);
+  }
 
   const whereSql = where.join(" AND ");
-  const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r WHERE ${whereSql}`).bind(...args).first<{ count: number }>();
+  const count = await database
+    .prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r WHERE ${whereSql}`)
+    .bind(...args)
+    .first<{ count: number }>();
   const total = Number(count?.count || 0);
+  const pages = Math.ceil(total / pageSize);
+  const page = Math.min(requestedPage, Math.max(1, pages));
   const offset = (page - 1) * pageSize;
-  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, publicSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE ${whereSql} ORDER BY r.event_date DESC, r.published_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, offset).all<ReportRow>();
-  return { items: (result.results ?? []).map(rowToPublic), total, page, pageSize, pages: Math.ceil(total / pageSize) };
+  const result = await database
+    .prepare(
+      `SELECT ${await selectWithOptionalShortDescription(database, publicSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE ${whereSql} ORDER BY r.event_date DESC, r.published_at DESC, r.id DESC LIMIT ? OFFSET ?`,
+    )
+    .bind(...args, pageSize, offset)
+    .all<ReportRow>();
+  return { items: (result.results ?? []).map(rowToPublic), total, page, pageSize, pages };
 }
 
 export async function getPublicDogReport(type: DogReportType, slug: string) {
