@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { HelpCategoryIcon } from "@/components/help-public-icons";
 import { helpCategories, helpCategoryHref, type HelpCategorySlug } from "@/lib/help";
 import { PublicSubcategoryNavigator } from "./public-subcategory-navigator";
 import styles from "./public-help-category-nav.module.css";
 import { dogReportBasePath } from "@/lib/lost-found-dogs";
 import type { DogReportType } from "@/lib/lost-found-dogs";
-import { PublicContentShell } from "./index";
+import { PublicContentShell } from "./public-landing-layout";
 
 export type HelpNavItem = {
   slug: HelpCategorySlug;
@@ -68,13 +67,18 @@ export function PublicHelpReportNav({ current }: { current: "all" | DogReportTyp
     { key: "FOUND", href: dogReportBasePath("FOUND"), label: "Nájdené psy" },
   ] as const;
   return (
-    <nav className={styles.reportNav} aria-label="Typ hlásenia" data-help-report-nav>
-      {tabs.map((tab) => (
-        <Link key={tab.key} href={tab.href} aria-current={current === tab.key ? "page" : undefined}>
-          {tab.label}
-        </Link>
-      ))}
-    </nav>
+    <div className={styles.reportNav} data-help-report-nav>
+      <PublicSubcategoryNavigator
+        label="Typ hlásenia"
+        mode="compact"
+        mobileLayout="grid"
+        items={tabs.map((tab) => ({
+          href: tab.href,
+          title: tab.label,
+          current: current === tab.key,
+        }))}
+      />
+    </div>
   );
 }
 

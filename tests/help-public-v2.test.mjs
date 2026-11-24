@@ -237,7 +237,8 @@ test("Help navigation remains present in the report hub, lists and profile detai
   assert.match(nav, /reportScope && <PublicHelpReportNav/);
   assert.match(nav, /dogReportBasePath\("LOST"\)/);
   assert.match(nav, /dogReportBasePath\("FOUND"\)/);
-  assert.match(nav, /aria-current=\{current === tab.key/);
+  assert.match(nav, /current: current === tab.key/);
+  assert.doesNotMatch(nav, /<Link\b/);
   const paths = [
     ["app/pomoc-psom/stratene-a-najdene/page.tsx", /<PublicHelpSectionNav current="stratene-a-najdene" reportScope="all"/],
     ["components/lost-found-dogs-page.tsx", /reportScope=\{type\}/],

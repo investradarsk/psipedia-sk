@@ -32,37 +32,15 @@
   margin-block: 16px;
 }
 .reportNav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
   margin-top: 12px;
 }
-.reportNav a {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 8px 14px;
-  border: 1px solid #d8ddd5;
-  border-radius: 9px;
-  background: #fff;
-  color: #235743;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: none;
+.nav .reportNav :global([data-public-subcategory-track]) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
 }
-.reportNav a[aria-current="page"] {
-  background: #235743;
-  border-color: #235743;
-  color: #fff;
-}
-.reportNav a:focus-visible {
-  outline: 2px solid #235743;
-  outline-offset: 2px;
-}
-@media (max-width: 650px) {
-  .reportNav a {
-    flex: 1 1 auto;
-    padding-inline: 8px;
+@media (max-width: 480px) {
+  .nav .reportNav :global([data-public-subcategory-track]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
