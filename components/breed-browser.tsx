@@ -306,9 +306,6 @@ export function BreedBrowser({
             {groupedBreeds.map(({ group, breeds: groupBreeds }) => (
               <section className="fci-group-section" id={`fci-${group.number}`} key={group.number}>
                 <header className="fci-group-heading">
-                  <span className="fci-group-number" aria-hidden="true">
-                    {String(group.number).padStart(2, "0")}
-                  </span>
                   <div>
                     <span className="eyebrow">FCI skupina {group.number}</span>
                     <h2>{group.label}</h2>
