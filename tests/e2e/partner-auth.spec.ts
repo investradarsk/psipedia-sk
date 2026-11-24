@@ -548,7 +548,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await dogReportForm.getByLabel("Meno psa").fill(reportName);
   await dogReportForm.getByLabel("Dátum udalosti").fill("2026-11-22");
   await dogReportForm.getByLabel("Kraj").fill("Nitriansky kraj");
-  await dogReportForm.getByLabel("Obec").fill("Nitra");
+  await dogReportForm.getByRole("textbox", { name: "Obec", exact: true }).fill("Nitra");
   await dogReportForm.getByLabel("Popis udalosti").fill("Hlásenie z partnerského účtu na overenie vlastníctva a bezpečnej moderácie.");
   if(reportKind==="LOST"){
     await dogReportForm.getByLabel("Naposledy videný – dátum a čas").fill("2026-11-22T17:00");
