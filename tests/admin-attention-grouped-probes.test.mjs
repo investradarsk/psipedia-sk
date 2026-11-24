@@ -14,6 +14,8 @@ const COUNT_FIELDS = [
   "resolvedCount", "dismissedCount", "highCount", "mediumCount", "lowCount",
   "activeHighCount", "activeMediumCount", "activeLowCount",
   "historyHighCount", "historyMediumCount", "historyLowCount",
+  "unreadCount", "snoozedCount", "unreadHighCount", "unreadMediumCount", "unreadLowCount",
+  "snoozedHighCount", "snoozedMediumCount", "snoozedLowCount",
 ];
 
 function sample(source) {
@@ -26,6 +28,12 @@ function sample(source) {
   if (source === "NEWS_TIP") Object.assign(row, {
     total: 2, activeCount: 1, historyCount: 1, newCount: 1, dismissedCount: 1,
     mediumCount: 2, activeMediumCount: 1, historyMediumCount: 1,
+  });
+  Object.assign(row, {
+    unreadCount: row.activeCount,
+    unreadHighCount: row.activeHighCount,
+    unreadMediumCount: row.activeMediumCount,
+    unreadLowCount: row.activeLowCount,
   });
   return { sourceType: source, ...row };
 }
