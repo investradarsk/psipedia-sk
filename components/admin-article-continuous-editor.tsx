@@ -30,6 +30,8 @@ type Props = ContinuousArticleInput & {
 type WidgetActions = Pick<Props, "onUploadingChange" | "onMessage" | "onError"> & {
   currentArticleId?: number;
   onRemoveNative: (id: string, originalIndex: number) => void;
+  editingWidgetKeys: ReadonlySet<string>;
+  toggleWidgetEditing: (key: string) => void;
 };
 const WidgetContext = createContext<WidgetActions | null>(null);
 
@@ -52,7 +54,6 @@ const ArticleOrigin = Extension.create({
 
 function InlineWidget({ node, updateAttributes, deleteNode }: NodeViewProps) {
   const actions = useContext(WidgetContext);
-  const [editing, setEditing] = useState(false);
   const { kind, block, document, rawTakeaway, promoUtcDay } = node.attrs as {
     kind?: string;
     block?: ArticleBlock;
@@ -60,6 +61,11 @@ function InlineWidget({ node, updateAttributes, deleteNode }: NodeViewProps) {
     rawTakeaway?: string;
     promoUtcDay?: string;
   };
+  // Keep UI-only expansion state outside the NodeView instance: ProseMirror
+  // can recreate an atom view during mobile focus/selection changes.
+  const editingKey = kind === "takeaway" ? "takeaway" : "block:" + (block?.id ?? "");
+  const editing = actions?.editingWidgetKeys.has(editingKey) ?? false;
+  const toggleEditing = () => actions?.toggleWidgetEditing(editingKey);
 
   if (kind === "boundary") {
     return <NodeViewWrapper as="div" className={styles.boundary} contentEditable={false}>
@@ -71,7 +77,7 @@ function InlineWidget({ node, updateAttributes, deleteNode }: NodeViewProps) {
       <aside className={styles.takeaway} data-article-continuous-takeaway>
         <div className={styles.widgetHeading}>
           <strong>To najdôležitejšie</strong>
-          <button type="button" onClick={() => setEditing(open => !open)}>
+          <button type="button" onClick={toggleEditing}>
             {editing ? "Zavrieť úpravu" : "Upraviť zhrnutie"}
           </button>
         </div>
@@ -87,7 +93,7 @@ function InlineWidget({ node, updateAttributes, deleteNode }: NodeViewProps) {
       <div className={styles.widgetHeading}>
         <strong>{articleBlockLabels[block.type] ?? block.type}</strong>
         <div className={styles.widgetActions}>
-          <button type="button" aria-expanded={editing} onClick={() => setEditing(open => !open)}>
+          <button type="button" aria-expanded={editing} onClick={toggleEditing}>
             {editing ? "Zavrieť úpravu" : "Upraviť"}
           </button>
           <button type="button" className={styles.removeWidget} onClick={() => {
@@ -145,12 +151,18 @@ const ArticleWidget = Node.create({
   renderHTML({ node }) {
     return ["div", { "data-psipedia-article-widget": String(node.attrs.kind ?? "block") }];
   },
-  addNodeView() { return ReactNodeViewRenderer(InlineWidget); },
+  addNodeView() {
+    // These are non-editable atom widgets containing real React form fields.
+    // Let their native controls own pointer, touch and keyboard events rather
+    // than letting the surrounding ProseMirror selection handle them.
+    return ReactNodeViewRenderer(InlineWidget, { stopEvent: () => true });
+  },
 });
 
 const editableExtensions = [...articleTiptapExtensions, ArticleOrigin, ArticleWidget];
 export function AdminArticleContinuousEditor(props: Props) {
   const [invalid, setInvalid] = useState("");
+  const [editingWidgetKeys, setEditingWidgetKeys] = useState<ReadonlySet<string>>(() => new Set());
   const scope = useArticleTiptapScope();
   const scopeRef = useRef(scope);
   const callbackRef = useRef(props.onChange);
@@ -252,8 +264,22 @@ export function AdminArticleContinuousEditor(props: Props) {
     onUploadingChange: props.onUploadingChange,
     onMessage: props.onMessage,
     onError: props.onError,
-    onRemoveNative: (id, index) => { requiredNativeKeys.current.delete(index + ":" + id); },
-  }), [props.currentArticleId, props.onUploadingChange, props.onMessage, props.onError]);
+    editingWidgetKeys,
+    toggleWidgetEditing: key => setEditingWidgetKeys(previous => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    }),
+    onRemoveNative: (id, index) => {
+      requiredNativeKeys.current.delete(index + ":" + id);
+      setEditingWidgetKeys(previous => {
+        const next = new Set(previous);
+        next.delete("block:" + id);
+        return next;
+      });
+    },
+  }), [props.currentArticleId, props.onUploadingChange, props.onMessage, props.onError, editingWidgetKeys]);
 
   return <WidgetContext.Provider value={widgetActions}>
     <div className={styles.editableWorkspace} data-article-continuous-editable
