@@ -202,3 +202,16 @@
   .layout { grid-template-columns: minmax(0, 1fr); }
   .detail, .profileCard { padding: 0.65rem; }
 }
+
+/* Admin V5 follow-up: profile services should not stretch across the entire wide editor.
+   Keep 44px touch targets below the desktop breakpoint and preserve list semantics. */
+@media (min-width: 821px) {
+  .profileCard { box-sizing: border-box; width: 100%; max-width: 860px; padding: 10px 12px; margin: 8px 0; gap: 7px; }
+  .profileHeading h2 { font-size: 1rem; }
+  .profileHeading p { margin: 3px 0 0; line-height: 1.35; }
+  .profileSection { gap: 7px; }
+  .profileRow { grid-template-columns: minmax(0, 1fr) 132px; min-height: 34px; padding: 5px 0; gap: 8px; }
+  .profileRow select { min-height: 36px; padding: 5px 8px; }
+  .profileSearch input { min-height: 36px; padding: 6px 8px; }
+  .profileSection .profileList { max-height: min(38dvh, 390px); }
+}

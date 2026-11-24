@@ -61,8 +61,9 @@ test("alerts center, shared bell and four inbox views are accessible and respons
   if (!mobile) {
     // On another Admin route, the Prehľad header is a home-navigation action,
     // not an accordion disclosure. Keyboard activation must work as well.
-    const overview = adminNavigation.getByRole("button", { name: "Prejsť na pracovný prehľad" });
+    const overview = adminNavigation.getByRole("link", { name: "Prejsť na pracovný prehľad" });
     await expect(adminNavigation).toHaveAttribute("data-admin-hydrated", "true");
+    await expect(overview).toHaveAttribute("href", "/admin");
     await expect(overview).not.toHaveAttribute("aria-expanded", /.+/);
     await overview.focus();
     await page.keyboard.press("Enter");

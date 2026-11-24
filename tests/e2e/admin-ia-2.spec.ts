@@ -193,7 +193,7 @@ test("V3 all seven navigation groups, focus and header actions work at 1440px, 3
     await expect(page.getByTestId("admin-notification-bell")).toBeVisible();
     await expect(page.getByRole("link", { name: "Návrat na Psipedia.sk" })).toBeVisible();
     if (!mobile) await expect(page.getByRole("link", { name: "Odhlásiť" })).toBeVisible();
-    const groups = ["Prehľad", "Redakcia", "Adresár", "Pomoc psom", "Partneri", "Kvalita a automatizácie", "Systém"];
+    const groups = ["Prehľad", "Redakcia", "Profily", "Partneri", "Kvalita a automatizácie", "Systém"];
     let nav = page.getByRole("navigation", { name: "Redakčné moduly" });
     if (mobile) {
       const menu = page.getByRole("button", { name: "Menu", exact: true });
@@ -224,7 +224,7 @@ test("V3 all seven navigation groups, focus and header actions work at 1440px, 3
         if (label === "Prehľad") {
           // From /admin/operations the overview header navigates home,
           // while the currently active group's links remain expanded.
-          const overview = group.getByRole("button", { name: "Prejsť na pracovný prehľad" });
+          const overview = group.getByRole("link", { name: "Prejsť na pracovný prehľad" });
           await expect(overview).not.toHaveAttribute("aria-expanded", /.+/);
         } else {
           const button = group.getByRole("button", { name: label, exact: true });

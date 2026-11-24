@@ -62,6 +62,8 @@ export async function POST(request: Request) {
   const pass = body.pass === 2 ? 2 : 1;
   const agenda = body.agenda as NotionAuditAgenda;
 
+  // Return only a safe stage code on failure: provider exceptions can contain private values.
+  let stage: "SOURCE" | "NOTION_QUERY" | "D1_EVIDENCE" | "TRIAGE" = "SOURCE";
   try {
     let dataSourceId = agenda === "directory"
       ? bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim()
@@ -101,6 +103,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "Notion data source pre túto kategóriu nie je dostupný." }, { status: 503 });
     }
 
+    stage = "NOTION_QUERY";
     const response = await notionRequest<QueryResponse>(bindings, `/data_sources/${encodeURIComponent(dataSourceId)}/query`, {
       method: "POST",
       body: JSON.stringify({
@@ -116,9 +119,11 @@ export async function POST(request: Request) {
     if (pages.length > 100) {
       return Response.json({ error: "AUDIT_BATCH_LIMIT" }, { status: 502 });
     }
+    stage = "D1_EVIDENCE";
     const d1 = await loadAuditD1Evidence(bindings.DB, agenda, pages);
     const independent = analyzeAuditEvidence(agenda, pages, d1);
     const summary = summarizeNotionAuditBatch(agenda, pages);
+    stage = "TRIAGE";
     const triage = triageNotionQuality(agenda, summary.reviewItems, independent);
     const hasMore = Boolean(response.has_more);
     const nextCursor = hasMore ? response.next_cursor ?? null : null;
@@ -150,6 +155,7 @@ export async function POST(request: Request) {
     // Notion errors may include submitted property text. Never echo them.
     return Response.json({
       error: "NOTION_AUDIT_UNAVAILABLE",
+      stage,
       readOnly: true,
       productionCounts: "UNKNOWN",
     }, { status: 503, headers: { "Cache-Control": "no-store" } });
