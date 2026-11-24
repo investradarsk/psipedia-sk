@@ -82,7 +82,7 @@ test("mobile drawer returns from Adresár to Prehľad repeatedly", async ({ page
     await menu.click();
     const drawer = page.getByRole("dialog", { name: "Navigácia administrácie" });
     await expect(drawer).toBeVisible();
-    await drawer.getByRole("link", { name: "Profily a služby", exact: true }).click();
+    await drawer.getByRole("link", { name: "Profily", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/adresar$/);
     await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
 
