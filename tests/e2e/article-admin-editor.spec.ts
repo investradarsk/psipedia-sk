@@ -551,14 +551,21 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const video = canvas.locator('[data-article-continuous-widget="embed"]');
     await expect(video).toHaveCount(1);
     const edit = video.getByRole("button", { name: "Upraviť", exact: true });
+    // Scroll as a reader would: clear both sticky bars before activating the
+    // inline button, rather than clicking a partially covered viewport edge.
+    await edit.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await expect(edit).toBeInViewport({ ratio: 1 });
     await edit.click();
     const urlInput = video.locator(".admin-video-editor input[type='url']");
     await expect(video.getByRole("button", { name: "Zavrieť úpravu", exact: true })).toHaveAttribute("aria-expanded", "true");
     await expect(urlInput).toBeVisible();
     await urlInput.fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     await expect(video.locator(".admin-video-editor iframe")).toBeVisible();
-    await video.getByRole("button", { name: "Zavrieť úpravu", exact: true }).click();
+    const close = video.getByRole("button", { name: "Zavrieť úpravu", exact: true });
+    await close.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await close.click();
     await expect(urlInput).toHaveCount(0);
+    await edit.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
     await edit.click();
     await expect(urlInput).toHaveValue("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     await expect(page.locator('[data-article-tiptap-invalid="true"]')).toHaveCount(0);
