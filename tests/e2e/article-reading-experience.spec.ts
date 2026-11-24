@@ -284,7 +284,11 @@ for (const articleCase of cases) {
     expect(firstShareBox).not.toBeNull();
     expect(secondShareBox).not.toBeNull();
     expect(Math.abs(firstShareBox!.y - secondShareBox!.y)).toBeLessThanOrEqual(2);
-    expect(firstShareBox!.height).toBeLessThanOrEqual(42);
+    // V2 preserves a 44px minimum public touch target while keeping the row compact.
+    for (const box of [firstShareBox!, secondShareBox!]) {
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeLessThanOrEqual(48);
+    }
 
     const feedback = page.locator(".article-feedback");
     await expect(feedback.getByRole("button", { name: "Áno", exact: true })).toBeVisible();
