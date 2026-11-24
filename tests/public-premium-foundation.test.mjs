@@ -79,3 +79,8 @@ test("Premium Glass is scoped, progressively enhanced and avoids containing fixe
   assert.match(read("components/article-popularity-sidebar.module.css"), /\.tabs \.activeTab\s*\{[^}]*background: var\(--ps-glass-selected,/s);
   assert.match(read("app/partner/partner.css"), /\.partner-shell--workspace \.partner-dashboard-header\s*\{[^}]*background: var\(--ps-glass-panel,/s);
 });
+
+test("Dark Glass CTA excludes urgent and explicitly customized banners", () => {
+  const banners = read("app/banner-visuals.css");
+  assert.match(banners, /\[data-banner-visual="dark"\]\[data-banner-size\]:not\(\[data-banner-semantic="urgent"\]\):not\(\[data-visual-library-desktop-published\]\)[^{}]*\{[^}]*background-image: var\(--ps-glass-dark-cta, none\)/s);
+});
