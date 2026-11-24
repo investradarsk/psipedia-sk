@@ -137,7 +137,7 @@ test("ARTICLE-EDITOR-NOTION-PARITY-1 rich block/photo/SEO payload is not replace
   assert.match(editor, /ogTitle,/);
   assert.match(editor, /ogDescription,/);
   assert.match(editor, /ogImageKey:/);
-  assert.match(editor, /method: article \? "PUT" : "POST"/);
+  assert.match(editor, /method: currentArticle \? "PUT" : "POST"/);
   assert.match(editor, /originalAreaHidden && <option/);
   assert.doesNotMatch(editor, /onSubmit=\{[^\n]*void save\("published"\)/);
 });
