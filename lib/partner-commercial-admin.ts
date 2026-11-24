@@ -16,6 +16,12 @@ const BASE=`SELECT c.id,c.account_id accountId,a.email_ciphertext emailCiphertex
   FROM partner_commercial_interests c JOIN partner_accounts a ON a.id=c.account_id LEFT JOIN partner_resources r ON r.id=c.resource_id
   LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id LEFT JOIN help_organizations o ON o.id=r.help_organization_id LEFT JOIN managed_events e ON e.id=r.managed_event_id`;
 async function hydrate(rows:AdminRow[],key:string){return Promise.all(rows.map(async row=>({...row,email:await decryptPii(row.emailCiphertext,key),publicHref:href(row)})));}
+export async function countNewPartnerCommercialInterests(database?: D1Database) {
+  const result = await db(database)
+    .prepare("SELECT COUNT(*) AS count FROM partner_commercial_interests WHERE status='NEW'")
+    .first<{ count: number }>();
+  return Number(result?.count ?? 0);
+}
 export async function listPartnerCommercialInterestsAdmin(input:{status?:string;interestType?:string;q?:string;database?:D1Database;encryptionKey?:string}={}){
   if(input.status&&input.status!=="all"&&!isPartnerCommercialStatus(input.status))throw new PartnerCommercialAdminError("Neplatný filter stavu.");
   if(input.interestType&&input.interestType!=="all"&&!isPartnerCommercialInterestType(input.interestType))throw new PartnerCommercialAdminError("Neplatný filter typu.");
