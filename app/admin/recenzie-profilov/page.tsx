@@ -130,7 +130,7 @@ export default async function AdminProfileReviewsPage({
               <p>{excerpt(item.body)}</p>
               <div className="admin-review-meta">
                 <span>{profileReviewEntityTypeLabel(item.entityType)}{item.targetCategory ? ` · ${profileReviewCategoryLabel(item.targetCategory)}` : ""}</span>
-                <span>Recenzent: {item.reviewerDisplayName}</span>
+                <span>Recenzent: {item.reviewerDisplayName}{item.riskFlags.includes("GUEST_UNVERIFIED") ? " · bez e-mailového overenia" : ""}</span>
                 <span>Vytvorené: {formatDate(item.createdAt)}</span>
               </div>
             </div>
