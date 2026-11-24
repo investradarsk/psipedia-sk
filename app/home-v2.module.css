@@ -489,16 +489,14 @@
   overflow: hidden;
   color: var(--forest);
   font-size: 0.91rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .homeV2 :global(.home-vet-item small) {
   overflow: hidden;
   color: var(--muted);
   font-size: 0.71rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .homeV2 :global(.home-services-wide) {
@@ -2716,6 +2714,17 @@
     gap: 10px;
     min-height: 92px;
     padding: 8px 0;
+  }
+  /* Service names and locations must remain distinguishable on a narrow card. */
+  .homeV2
+    :global(
+      .home-magazine-side
+        .home-vet-item
+        .home-side-unified-copy
+        :is(strong, .home-side-unified-description)
+    ) {
+    display: block;
+    overflow: visible;
   }
 }
 
