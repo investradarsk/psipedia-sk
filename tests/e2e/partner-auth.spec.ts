@@ -555,7 +555,10 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }else{
     await expect(dogReportForm.getByLabel("Naposledy videný – dátum a čas")).toHaveCount(0);
   }
+  const dogDraftResponse=page.waitForResponse(response=>new URL(response.url()).pathname==="/api/partner/canonical-drafts"&&response.request().method()==="POST");
   await dogReportForm.getByRole("button",{name:"Uložiť koncept"}).click();
+  const dogDraftCreated=await dogDraftResponse;
+  expect(dogDraftCreated.status(),await dogDraftCreated.text()).toBe(201);
   await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
   const dogDraftUrl=new URL(page.url()).pathname;
   await expect(page.getByText("Rozpracovaný súkromný koncept",{exact:true})).toBeVisible();
