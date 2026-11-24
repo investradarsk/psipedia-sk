@@ -179,6 +179,16 @@ Spoločný helper ci-result-gate.mjs má aj review pilot summary: scope, shared-
 
 Nový dependency-free kontrakt testuje failure/cancelled/skipped/missing, neplatné scope flags, súlad central YAML podmienok a review výsledky. Zapojený do validate. Posledný predchádzajúci hlavný CI run 45492365573 zlyhal v npm test: dva zdrojové kontrakty (admin-inline-edit-articles-breeds, help-public-v2) očakávajú staré Admin trasy. Skutočný merge zostáva blokovaný až do opravy a úplného overenia. Nejde o dôvod na oslabenie gate. Produkčné nastavenia nezmenené.
 
+## 10 – Finálny audit: NO-GO pre merge
+
+Audit baseline `39d42c72` vs opravený HEAD `b440a4f7`: 110/110 pôvodných testovacích aliasov má zhodnú statickú množinu rozbalených explicitných príkazov a Node file/flag kontextov; 999 → 1005 Node test súborov, 113 → 113 Playwright spec, 55 → 55 fixtures, 156 → 156 workflowov, nula odstránených súborov. Dva staré zdrojové kontrakty Adminu opravené na aktuálne kanonické redirecty, domain store a editory; pôvodné SQL/security kontroly ponechané. Toto nie je dôkaz úplnej runtime parity všetkých dynamických a workflow-only scenárov.
+
+Reálny run 45493256526 / job 138796900423: scope guard, two-stage guard, shared-build contract a CI V2 contract step prešli; npm test zlyhal v dvoch starých zdrojových kontraktoch. Opravené v `b440a4f7`; nové asercie staticky overené proti zdrojom. Run 45493256954: oba shared build profily úspešné (38 s standard, 40 s local, upload 4 s každý); následné consumers/browser joby neukončené alebo zrušené po novom commite, nie dôkaz kompletného úspechu.
+
+Úspora explicitných invokácií v troch skupinách 149 → 127 (22); npm test 377 → 376. Review pilot pri oboch vybraných agendách 4 → 2 build kroky. Celková úspora času PR nie je preukázaná; kontrolovaný paired benchmark úspešných ekvivalentných behov stále chýba. Nezamieňať počet príkazov a merané trvanie.
+
+[Strojovo čitateľný záverečný audit](ci-v2-workflow-audit/final-audit.json) obsahuje konkrétne run IDs, statickú paritu, snapshot výsledkov, rozhodnutie a otvorené podmienky. Ochrana main bezo zmeny, PR zostáva Draft. Krok 10 **čiastočne dokončený**: finálny audit a oprava potvrdených chýb uložené; úplná runtime parita, zelené CI, kontrolované meranie a konsolidácia zostávajúcich nezávislých workflowov nie sú hotové. Žiadny merge/deploy, žiadna produkčná mutácia.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
@@ -190,7 +200,7 @@ Nový dependency-free kontrakt testuje failure/cancelled/skipped/missing, neplat
 - [x] CI-V2-07 – spoločný review E2E bootstrap pre 4 workflowy, Directory sidecar, oddelené reporty; ostatné browser workflowy a runtime CI otvorené.
 - [x] CI-V2-08 – rozhodovací audit 36/36; žiadny bezpečne odstrániteľný bez ďalšej prevádzkovej náhrady/súhlasu; všetky vyňaté z PR CI konsolidácie.
 - [x] CI-V2-09 – zjednotený fail-closed výsledok 8 centrálnych a 5 review jobov; oba required contexts zachované, runtime CI otvorené.
-- [ ] CI-V2-10 – overenie parity, výkonu, spoľahlivosti; kontrola vlastníkom pred merge.
+- [ ] CI-V2-10 – statický finálny audit a oprava dvoch potvrdených regresií hotové; runtime CI, kompletná parita a kontrolovaný časový benchmark otvorené (NO-GO).
 
 ## Zásady
 
