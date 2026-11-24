@@ -160,7 +160,7 @@ test("Services V3 simple catalog — desktop and mobile visual QA",async({page},
    const r=await page.goto("/admin/sluzby-pre-psov/katalog",{waitUntil:"domcontentloaded"});
    expect(r?.status()).toBe(200);
    await expect(page.getByRole("heading",{level:1,name:"Katalóg služieb a vlastností"})).toBeVisible();
-   await expect(page.getByRole("navigation",{name:"Drobečková navigácia"}).getByText("Katalóg",{exact:true})).toBeVisible();
+   await expect(page.getByRole("navigation",{name:"Drobečková navigácia"}).getByText("Katalóg služieb",{exact:true})).toBeVisible();
    const panel=page.locator('section[aria-label="Katalóg služieb a vlastností"]');
    await expect(panel).toBeVisible();
    const create=panel.getByRole("button",{name:"+ Nová služba"});
