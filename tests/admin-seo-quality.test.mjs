@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { articleEntity, eventEntity, loadPublishedSeoQualityEntities } from "../lib/admin-seo-quality-entities.ts";
+import { buildAdminSeoQualityAudit } from "../lib/admin-seo-quality-store.ts";
+import { articleEntity, eventEntity, loadPublishedSeoQualityEntities, loadSeoQualitySources } from "../lib/admin-seo-quality-entities.ts";
 import { auditSeoQualityEntity, isSeoMetadataFinding, isSeoProfileAgenda } from "../lib/admin-seo-quality-rules.ts";
 import { selectAdminSeoQualityPage } from "../lib/admin-seo-quality-page.ts";
 
@@ -147,14 +148,14 @@ test("ADMIN-SEO-QUALITY-1 reports explicit noindex and only non-self custom cano
   assert.equal(crossCanonical.some((item) => item.code === "canonical-nonstandard"), true);
 });
 
-test("ADMIN-SEO-QUALITY performance: keep global counts and filter only the paged items", () => {
+test("ADMIN-SEO-QUALITY performance: keep scoped counts and filter only the paged items", () => {
   const store = fs.readFileSync(new URL("../lib/admin-seo-quality-store.ts", import.meta.url), "utf8");
   const page = fs.readFileSync(new URL("../lib/admin-seo-quality-page.ts", import.meta.url), "utf8");
   assert.match(store, /selectAdminSeoQualityPage\(filtered, filters, filters\.page, PAGE_SIZE\)/);
   assert.match(page, /const visible = filtered\.filter\(\(item\) => item\.findings\.some\(matchesVisibleFinding\)\)/);
   assert.match(page, /visible\.slice\(offset, offset \+ pageSize\)\.map\(\(item\)/);
-  assert.match(store, /resultCount: selected\.total/);
-  assert.match(store, /itemsWithAnyFinding: inbox\.length/);
+  assert.match(store, /resultCount: available \? selected\.total : null/);
+  assert.match(store, /itemsWithAnyFinding: available \? inbox\.length : null/);
   assert.match(store, /agendaCounts,/);
   assert.doesNotMatch(store, /filtered\.map\(\(item\)/);
 });
@@ -425,4 +426,117 @@ test("V6-01 audits SQL-only schemas and never resurrects retired JSON", async ()
   } finally {
     sqlite.close();
   }
+});
+
+const v6AuditScans = [
+  ["directory", "FROM directory_profiles"],
+  ["events", "FROM managed_events"],
+  ["help", "FROM help_cases"],
+  ["lostFound", "FROM lost_found_dog_reports"],
+  ["organizations", "FROM help_organizations o"],
+  ["adoptions", "FROM adoption_dogs"],
+  ["breeds", "FROM managed_breeds"],
+  ["articles", "FROM managed_articles"],
+];
+
+function v6AuditDatabase(rows = {}, fail = []) {
+  const calls = [];
+  const database = {
+    prepare(sql) {
+      const source = v6AuditScans.find(([, marker]) => sql.includes(marker))?.[0];
+      assert.ok(source, "unexpected D1 query");
+      calls.push(source);
+      if (fail.includes(source + ":prepare")) throw new Error("prepare failed");
+      return {
+        bind() { return this; },
+        async all() {
+          if (fail.includes(source)) throw new Error("query failed");
+          if (fail.includes(source + ":result")) return { success: false, results: [] };
+          return { results: rows[source] ?? [] };
+        },
+      };
+    },
+  };
+  return { database, calls };
+}
+
+test("V6-02 limits detail D1 reads to requested sources, including on later pages", async () => {
+  const rows = { articles: Array.from({ length: 134 }, (_, i) => ({
+    id: i + 1, title: "Článok " + (i + 1), slug: "clanok-" + (i + 1),
+    category: "zdravie", portal_section: "clanky", seo_title: "", meta_description: "",
+  })) };
+  const { database, calls } = v6AuditDatabase(rows);
+  const all = await buildAdminSeoQualityAudit(database, { agenda: "all", scope: "custom" });
+  assert.equal(calls.length, 8);
+  assert.equal(all.entityCount, 134);
+  calls.length = 0;
+  const scoped = await buildAdminSeoQualityAudit(database, { agenda: "articles", scope: "custom", page: 2 });
+  assert.deepEqual(calls, ["articles"], "one rather than eight detail queries");
+  assert.equal(scoped.entityCount, 134);
+  assert.equal(scoped.resultCount, all.resultCount);
+  assert.equal(scoped.items.length, 50);
+  assert.equal(scoped.items[0].entity.id, 51);
+  assert.equal(scoped.agendaAvailability.directory, "not-requested");
+  assert.equal(scoped.agendaCounts.directory, null);
+  calls.length = 0;
+  await buildAdminSeoQualityAudit(database, { agenda: "profiles" });
+  assert.deepEqual(calls, ["directory", "help", "lostFound", "organizations", "adoptions", "breeds"]);
+});
+
+test("V6-02 preserves successful help sources and explicitly marks partial totals", async () => {
+  const { database, calls } = v6AuditDatabase({
+    help: [{ id: 1, title: "Pomoc", slug: "pomoc", category: "zbierky" }],
+  }, ["lostFound:prepare"]);
+  const report = await buildAdminSeoQualityAudit(database, { agenda: "help", scope: "all" });
+  assert.deepEqual(calls, ["help", "lostFound"]);
+  assert.equal(report.availability, "partial");
+  assert.equal(report.agendaAvailability.help, "partial");
+  assert.deepEqual(report.failedSources, ["lostFound"]);
+  assert.equal(report.agendaCounts.help.entities, 1);
+  assert.equal(report.entityCount, 1);
+  assert.equal(report.items[0].entity.id, 1);
+});
+
+test("V6-02 distinguishes empty, unavailable and partially available scopes", async () => {
+  const { database } = v6AuditDatabase({}, ["events:result", "articles"]);
+  const empty = await buildAdminSeoQualityAudit(database, { agenda: "adoptions" });
+  assert.equal(empty.availability, "complete");
+  assert.equal(empty.resultCount, 0);
+  const error = await buildAdminSeoQualityAudit(database, { agenda: "events" });
+  assert.equal(error.availability, "error");
+  assert.equal(error.resultCount, null);
+  assert.equal(error.issueCounts, null);
+  assert.equal(error.agendaCounts.events, null);
+  const partial = await buildAdminSeoQualityAudit(database, { agenda: "all" });
+  assert.equal(partial.availability, "partial");
+  assert.deepEqual(partial.failedSources, ["events", "articles"]);
+  assert.equal(partial.agendaAvailability.adoptions, "complete");
+  const noDb = await buildAdminSeoQualityAudit(undefined, { agenda: "articles" });
+  assert.equal(noDb.availability, "error");
+  assert.equal(noDb.entityCount, null);
+});
+
+test("V6-02 reads fresh values on subsequent requests and ignores unrelated failures", async () => {
+  const rows = { articles: [{ id: 1, title: "Článok", slug: "clanok", category: "zdravie", seo_title: "", meta_description: "" }] };
+  const { database, calls } = v6AuditDatabase(rows, ["directory"]);
+  const first = await buildAdminSeoQualityAudit(database, { agenda: "articles", scope: "custom" });
+  assert.equal(first.resultCount, 1);
+  rows.articles[0].seo_title = "Nový dostatočne dlhý SEO titulok článku";
+  rows.articles[0].meta_description = "Nový meta popis článku, ktorý opisuje obsah a poskytuje návštevníkom dostatok informácií.";
+  const second = await buildAdminSeoQualityAudit(database, { agenda: "articles", scope: "custom" });
+  assert.equal(second.availability, "complete");
+  assert.equal(second.resultCount, 0);
+  assert.deepEqual(calls, ["articles", "articles"]);
+});
+
+test("V6-02 isolates entity conversion errors and keeps the other source", async () => {
+  const { database } = v6AuditDatabase({
+    directory: [{ id: 1, service_choices: "invalid" }],
+    articles: [{ id: 2, title: "Článok", slug: "clanok" }],
+  });
+  const sources = await loadSeoQualitySources(database, "all");
+  assert.equal(sources.find((source) => source.source === "directory").status, "error");
+  const article = sources.find((source) => source.source === "articles");
+  assert.equal(article.status, "available");
+  assert.equal(article.entities[0].id, 2);
 });

@@ -115,25 +115,33 @@ export type AdminSeoQualityFilters = {
   page?: number;
 };
 
+export type AdminSeoAuditAvailability = "complete" | "partial" | "error";
+export type AdminSeoAgendaAvailability = AdminSeoAuditAvailability | "not-requested";
+
+export type AdminSeoAgendaCounts = {
+  entities: number;
+  qualityEntities: number;
+  customGapEntities: number;
+  findings: number;
+};
+
 export type AdminSeoQualityReport = {
+  availability: AdminSeoAuditAvailability;
+  agendaAvailability: Record<AdminSeoAgenda, AdminSeoAgendaAvailability>;
+  failedSources: string[];
   generatedAt: string;
-  entityCount: number;
-  filteredEntityCount: number;
-  filteredCustomGapEntities: number;
-  filteredIssueCounts: Record<AdminSeoIssueCode, number>;
-  itemsWithAnyFinding: number;
-  entitiesWithQualityFindings: number;
-  entitiesWithCustomGaps: number;
-  explicitNoindex: number;
-  resultCount: number;
+  entityCount: number | null;
+  filteredEntityCount: number | null;
+  filteredCustomGapEntities: number | null;
+  filteredIssueCounts: Record<AdminSeoIssueCode, number> | null;
+  itemsWithAnyFinding: number | null;
+  entitiesWithQualityFindings: number | null;
+  entitiesWithCustomGaps: number | null;
+  explicitNoindex: number | null;
+  resultCount: number | null;
   items: AdminSeoQualityItem[];
-  agendaCounts: Record<AdminSeoAgenda, {
-    entities: number;
-    qualityEntities: number;
-    customGapEntities: number;
-    findings: number;
-  }>;
-  issueCounts: Record<AdminSeoIssueCode, number>;
+  agendaCounts: Record<AdminSeoAgenda, AdminSeoAgendaCounts | null>;
+  issueCounts: Record<AdminSeoIssueCode, number> | null;
   filters: Required<Pick<AdminSeoQualityFilters, "agenda" | "scope" | "issue">> & { query: string };
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
 };

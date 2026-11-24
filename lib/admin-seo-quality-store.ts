@@ -1,14 +1,15 @@
 import { env } from "cloudflare:workers";
-import { loadPublishedSeoQualityEntities } from "@/lib/admin-seo-quality-entities";
+import { loadSeoQualitySources } from "@/lib/admin-seo-quality-entities";
 import { selectAdminSeoQualityPage } from "@/lib/admin-seo-quality-page";
 import {
   adminSeoAgendas,
   adminSeoIssueDefinitions,
   auditSeoQualityEntity,
-  isSeoMetadataFinding,
-  isSeoProfileAgenda,
   normalizeSeoComparable,
   seoAuditText,
+  type AdminSeoAgendaCounts,
+  type AdminSeoAgendaAvailability,
+  type AdminSeoAuditAvailability,
   type AdminSeoQualityFilters,
   type AdminSeoQualityItem,
   type AdminSeoQualityReport,
@@ -29,89 +30,98 @@ function normalizeFilters(input: AdminSeoQualityFilters) {
   return { agenda, scope, issue, query, page } as const;
 }
 
-function emptyAgendaCounts(): AdminSeoQualityReport["agendaCounts"] {
-  return Object.fromEntries(adminSeoAgendas.map((agenda) => [agenda, {
-    entities: 0,
-    qualityEntities: 0,
-    customGapEntities: 0,
-    findings: 0,
-  }])) as AdminSeoQualityReport["agendaCounts"];
+function emptyCounts(): AdminSeoAgendaCounts {
+  return { entities: 0, qualityEntities: 0, customGapEntities: 0, findings: 0 };
 }
 
-function emptyIssueCounts(): AdminSeoQualityReport["issueCounts"] {
-  return Object.fromEntries(adminSeoIssueDefinitions.map((issue) => [issue.code, 0])) as AdminSeoQualityReport["issueCounts"];
+function emptyIssueCounts(): NonNullable<AdminSeoQualityReport["issueCounts"]> {
+  return Object.fromEntries(adminSeoIssueDefinitions.map((issue) => [issue.code, 0])) as NonNullable<AdminSeoQualityReport["issueCounts"]>;
 }
 
-export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {}): Promise<AdminSeoQualityReport> {
-  const database = (env as unknown as { DB?: D1Database }).DB;
-  if (!database) throw new Error("SEO quality audit vyžaduje pripojenú D1 databázu.");
-
+export async function buildAdminSeoQualityAudit(
+  database: D1Database | undefined,
+  input: AdminSeoQualityFilters = {},
+): Promise<AdminSeoQualityReport> {
   const filters = normalizeFilters(input);
-  const entities = await loadPublishedSeoQualityEntities(database, env);
-  const audited = entities.map((entity): AdminSeoQualityItem => {
-    const findings = auditSeoQualityEntity(entity);
-    const customGapCount = findings.filter((finding) => finding.scope === "custom").length;
-    return {
-      entity,
-      findings,
-      customGapCount,
-      qualityFindingCount: findings.length - customGapCount,
-    };
-  });
+  const sources = await loadSeoQualitySources(database, filters.agenda);
+  const failedSources = sources.filter((source) => source.status === "error").map((source) => source.source);
+  const available = sources.some((source) => source.status === "available");
+  const availability: AdminSeoAuditAvailability = !available
+    ? "error"
+    : failedSources.length ? "partial" : "complete";
 
-  const agendaCounts = emptyAgendaCounts();
+  const agendaCounts = Object.fromEntries(adminSeoAgendas.map((agenda) => [agenda, null])) as AdminSeoQualityReport["agendaCounts"];
+  const agendaAvailability = Object.fromEntries(adminSeoAgendas.map((agenda) => {
+    const group = sources.filter((source) => source.agenda === agenda);
+    const status: AdminSeoAgendaAvailability = !group.length
+      ? "not-requested"
+      : group.every((source) => source.status === "error")
+        ? "error"
+        : group.some((source) => source.status === "error") ? "partial" : "complete";
+    return [agenda, status];
+  })) as AdminSeoQualityReport["agendaAvailability"];
+
   const issueCounts = emptyIssueCounts();
-  for (const item of audited) {
-    const counts = agendaCounts[item.entity.agenda];
-    counts.entities += 1;
-    counts.findings += item.findings.length;
-    if (item.qualityFindingCount > 0) counts.qualityEntities += 1;
-    if (item.customGapCount > 0) counts.customGapEntities += 1;
-    for (const finding of item.findings) issueCounts[finding.code] += 1;
+  const totals = emptyCounts();
+  const inbox: AdminSeoQualityItem[] = [];
+  const filtered: AdminSeoQualityItem[] = [];
+  const needle = normalizeSeoComparable(filters.query);
+  let explicitNoindex = 0;
+
+  // Exactly one audit per entity in the requested scope. No global detail scan,
+  // no cross-request cache, and no materialization of an extra audited list.
+  for (const source of sources) {
+    if (source.status === "error") continue;
+    const counts = agendaCounts[source.agenda] ?? emptyCounts();
+    agendaCounts[source.agenda] = counts;
+    for (const entity of source.entities) {
+      const findings = auditSeoQualityEntity(entity);
+      const customGapCount = findings.filter((finding) => finding.scope === "custom").length;
+      const qualityFindingCount = findings.length - customGapCount;
+      counts.entities += 1;
+      counts.findings += findings.length;
+      if (qualityFindingCount > 0) counts.qualityEntities += 1;
+      if (customGapCount > 0) counts.customGapEntities += 1;
+      for (const finding of findings) issueCounts[finding.code] += 1;
+      if (findings.some((finding) => finding.code === "noindex-explicit")) explicitNoindex += 1;
+      if (findings.length === 0) continue;
+      const item = { entity, findings, customGapCount, qualityFindingCount };
+      inbox.push(item);
+      if (needle && !normalizeSeoComparable([
+        entity.title, entity.slug, entity.city ?? "", entity.category ?? "",
+      ].join(" ")).includes(needle)) continue;
+      filtered.push(item);
+    }
   }
 
-  const inbox = audited.filter((item) => item.findings.length > 0);
-  const matchesAgenda = (item: AdminSeoQualityItem) => filters.agenda === "all" ||
-    (filters.agenda === "profiles" ? isSeoProfileAgenda(item.entity.agenda) : item.entity.agenda === filters.agenda);
-  const agendaItems = audited.filter(matchesAgenda);
-  const filteredIssueCounts = emptyIssueCounts();
-  for (const item of agendaItems) for (const finding of item.findings) filteredIssueCounts[finding.code] += 1;
-  const needle = normalizeSeoComparable(filters.query);
-  const filtered = inbox.filter((item) => {
-    if (!matchesAgenda(item)) return false;
-    if (filters.scope === "quality" && item.qualityFindingCount === 0) return false;
-    if (filters.scope === "custom" && item.customGapCount === 0) return false;
-    if (filters.scope === "metadata" && !item.findings.some(isSeoMetadataFinding)) return false;
-    if (filters.issue !== "all" && !item.findings.some((finding) => finding.code === filters.issue)) return false;
-    if (needle) {
-      const haystack = normalizeSeoComparable([
-        item.entity.title,
-        item.entity.slug,
-        item.entity.city ?? "",
-        item.entity.category ?? "",
-      ].join(" "));
-      if (!haystack.includes(needle)) return false;
-    }
-    return true;
-  });
+  for (const counts of Object.values(agendaCounts)) {
+    if (!counts) continue;
+    totals.entities += counts.entities;
+    totals.findings += counts.findings;
+    totals.qualityEntities += counts.qualityEntities;
+    totals.customGapEntities += counts.customGapEntities;
+  }
 
-  // Keep global counts exact; project detailed findings only for the visible page.
+  // The shared page selector applies finding scope and issue exactly once.
   const selected = selectAdminSeoQualityPage(filtered, filters, filters.page, PAGE_SIZE);
 
   return {
     generatedAt: new Date().toISOString(),
-    entityCount: entities.length,
-    filteredEntityCount: agendaItems.length,
-    filteredCustomGapEntities: agendaItems.filter((item) => item.customGapCount > 0).length,
-    filteredIssueCounts,
-    itemsWithAnyFinding: inbox.length,
-    entitiesWithQualityFindings: audited.filter((item) => item.qualityFindingCount > 0).length,
-    entitiesWithCustomGaps: audited.filter((item) => item.customGapCount > 0).length,
-    explicitNoindex: audited.filter((item) => item.findings.some((finding) => finding.code === "noindex-explicit")).length,
-    resultCount: selected.total,
+    availability,
+    agendaAvailability,
+    failedSources,
+    entityCount: available ? totals.entities : null,
+    filteredEntityCount: available ? totals.entities : null,
+    filteredCustomGapEntities: available ? totals.customGapEntities : null,
+    filteredIssueCounts: available ? issueCounts : null,
+    itemsWithAnyFinding: available ? inbox.length : null,
+    entitiesWithQualityFindings: available ? totals.qualityEntities : null,
+    entitiesWithCustomGaps: available ? totals.customGapEntities : null,
+    explicitNoindex: available ? explicitNoindex : null,
+    resultCount: available ? selected.total : null,
     items: selected.items,
     agendaCounts,
-    issueCounts,
+    issueCounts: available ? issueCounts : null,
     filters: {
       agenda: filters.agenda,
       scope: filters.scope,
@@ -125,4 +135,11 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
       totalPages: selected.totalPages,
     },
   };
+}
+
+export async function loadAdminSeoQualityAudit(
+  input: AdminSeoQualityFilters = {},
+): Promise<AdminSeoQualityReport> {
+  const database = (env as unknown as { DB?: D1Database }).DB;
+  return buildAdminSeoQualityAudit(database, input);
 }

@@ -26,6 +26,8 @@ import {
   parseSeoAuditJson,
   seoAuditText,
   seoStringsFromJson,
+  isSeoProfileAgenda,
+  type AdminSeoAgenda,
   type AdminSeoQualityEntity,
 } from "@/lib/admin-seo-quality-rules";
 
@@ -407,18 +409,34 @@ export function articleEntity(row: RawRow): AdminSeoQualityEntity {
   });
 }
 
-export async function loadPublishedSeoQualityEntities(
-  database: D1Database,
-  _bindings: { BREED_SQL_V2_READ_MODE?: string } = {},
-): Promise<AdminSeoQualityEntity[]> {
-  const now = new Date().toISOString();
-  const entities: AdminSeoQualityEntity[] = [];
+export type SeoQualitySourceResult =
+  | { source: string; agenda: AdminSeoAgenda; status: "available"; entities: AdminSeoQualityEntity[] }
+  | { source: string; agenda: AdminSeoAgenda; status: "error"; error: unknown };
 
-  // These eight read-only public-agenda scans are independent. Launch together
-  // to remove seven serialized D1 network waits; map results afterwards in the
-  // same stable agenda order for identical quality counts and pagination.
-  const [directory, events, help, lostFound, organizations, adoptions, breeds, articles] = await Promise.all([
-    database.prepare(`
+type SeoQualitySource = {
+  source: string;
+  agenda: AdminSeoAgenda;
+  load: (database: D1Database) => Promise<AdminSeoQualityEntity[]>;
+};
+
+function checkedRows(result: D1Result<RawRow>): RawRow[] {
+  if ((result as { success?: boolean }).success === false || !Array.isArray(result.results)) {
+    throw new Error("SEO_AUDIT_D1_READ_FAILED");
+  }
+  return result.results;
+}
+
+export async function loadSeoQualitySources(
+  database: D1Database | undefined,
+  scope: AdminSeoAgenda | "all" | "profiles",
+): Promise<SeoQualitySourceResult[]> {
+  const now = new Date().toISOString();
+  const sources: SeoQualitySource[] = [
+    {
+      source: "directory",
+      agenda: "directory",
+      async load(database) {
+        const rows = checkedRows(await database.prepare(`
         SELECT id, slug, name, category, excerpt, description,
           ${directoryServicesSqlExpression()} AS sql_services,
           ${directory0173QualificationsSqlExpression()} AS sql_qualifications,
@@ -434,20 +452,45 @@ export async function loadPublishedSeoQualityEntities(
         FROM directory_profiles
         WHERE status = 'published'
         ORDER BY id
-      `).all<RawRow>(),
-    database.prepare(`
+      `).all<RawRow>());
+        // Resolve the live catalog only for directory audits with SQL choices.
+        const catalog = rows.some((row) => directoryServiceChoices(row).length)
+          ? await loadResolvedServiceDefinitions(database)
+          : [];
+        return rows.map((row) => directoryEntity(row, catalog));
+      },
+    },
+    {
+      source: "events",
+      agenda: "events",
+      async load(database) {
+        const rows = checkedRows(await database.prepare(`
         SELECT id, slug, title, excerpt, event_type, city, description, practical_info, image_url, seo_json
         FROM managed_events
         WHERE status = 'published'
         ORDER BY id
-      `).all<RawRow>(),
-    database.prepare(`
+      `).all<RawRow>());
+        return rows.map(eventEntity);
+      },
+    },
+    {
+      source: "help",
+      agenda: "help",
+      async load(database) {
+        const rows = checkedRows(await database.prepare(`
         SELECT id, slug, title, category, excerpt, description, dog_name, city, location_note, contact_note, image_url, seo_json
         FROM help_cases
         WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky', 'stratene-a-najdene')
         ORDER BY id
-      `).all<RawRow>(),
-    database.prepare(`
+      `).all<RawRow>());
+        return rows.map(helpEntity);
+      },
+    },
+    {
+      source: "lostFound",
+      agenda: "help",
+      async load(database) {
+        const rows = checkedRows(await database.prepare(`
         SELECT id, type, slug, dog_name, breed, description, distinguishing_marks, collar_description,
           main_image, city, location_description, public_contact_note
         FROM lost_found_dog_reports
@@ -456,8 +499,15 @@ export async function loadPublishedSeoQualityEntities(
           AND duplicate_of_id IS NULL
           AND (expires_at IS NULL OR expires_at > ?)
         ORDER BY id
-      `).bind(now).all<RawRow>(),
-    database.prepare(`
+      `).bind(now).all<RawRow>());
+        return rows.map(lostFoundEntity);
+      },
+    },
+    {
+      source: "organizations",
+      agenda: "organizations",
+      async load(database) {
+        const rows = checkedRows(await database.prepare(`
         SELECT o.id, o.name, o.slug, o.type, o.short_description, o.description, o.image_url,
           COALESCE(
             NULLIF((SELECT l.city FROM organization_locations l
@@ -468,41 +518,84 @@ export async function loadPublishedSeoQualityEntities(
         FROM help_organizations o
         WHERE o.status = 'PUBLISHED' AND o.published_at IS NOT NULL AND o.archived_at IS NULL
         ORDER BY o.id
-      `).all<RawRow>(),
-    database.prepare(`
+      `).all<RawRow>());
+        return rows.map(organizationEntity);
+      },
+    },
+    {
+      source: "adoptions",
+      agenda: "adoptions",
+      async load(database) {
+        const rows = checkedRows(await database.prepare(`
         SELECT id, name, slug, city, main_image, short_description, description, temperament,
           health_notes, adoption_requirements
         FROM adoption_dogs
         WHERE status IN ('ACTIVE', 'RESERVED')
         ORDER BY id
-      `).all<RawRow>(),
-    database.prepare(breedSqlPrimaryProjection(`
+      `).all<RawRow>());
+        return rows.map(adoptionEntity);
+      },
+    },
+    {
+      source: "breeds",
+      agenda: "breeds",
+      async load(database) {
+        const rows = checkedRows(await database.prepare(breedSqlPrimaryProjection(`
         SELECT id, slug, name, fci_group, image_url, intro, character, needs, history, exercise, training, health,
           editorial_json, seo_json
         FROM managed_breeds
         WHERE status = 'published'
         ORDER BY id
-      `)).all<RawRow>(),
-    database.prepare(`
+      `)).all<RawRow>());
+        return rows.map(breedEntity);
+      },
+    },
+    {
+      source: "articles",
+      agenda: "articles",
+      async load(database) {
+        const rows = checkedRows(await database.prepare(`
         SELECT id, slug, title, excerpt, category, portal_section, intro, takeaway, sections_json, blocks_json,
           image_url, image_alt, seo_title, meta_description, canonical_url, noindex
         FROM managed_articles
         WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
         ORDER BY id
-      `).bind(now).all<RawRow>(),
-  ]);
-  // Resolve the live catalog once per audit, not once per directory profile.
-  // SQL choices are authoritative, including explicit NO and secondary categories.
-  const catalog = directory.results.some((row) => directoryServiceChoices(row).length)
-    ? await loadResolvedServiceDefinitions(database)
-    : [];
-  entities.push(...directory.results.map((row) => directoryEntity(row, catalog)));
-  entities.push(...events.results.map(eventEntity));
-  entities.push(...help.results.map(helpEntity));
-  entities.push(...lostFound.results.map(lostFoundEntity));
-  entities.push(...organizations.results.map(organizationEntity));
-  entities.push(...adoptions.results.map(adoptionEntity));
-  entities.push(...breeds.results.map(breedEntity));
-  entities.push(...articles.results.map(articleEntity));
+      `).bind(now).all<RawRow>());
+        return rows.map(articleEntity);
+      },
+    },
+  ];
+  const requested = sources.filter(({ agenda }) =>
+    scope === "all" || (scope === "profiles" ? isSeoProfileAgenda(agenda) : agenda === scope),
+  );
+
+  // Query preparation, execution, catalog resolution and entity conversion all
+  // belong to the individual source failure boundary, including synchronous errors.
+  return Promise.all(requested.map(async (source): Promise<SeoQualitySourceResult> => {
+    try {
+      if (!database) throw new Error("SEO_AUDIT_D1_UNAVAILABLE");
+      return {
+        source: source.source,
+        agenda: source.agenda,
+        status: "available",
+        entities: await source.load(database),
+      };
+    } catch (error) {
+      return { source: source.source, agenda: source.agenda, status: "error", error };
+    }
+  }));
+}
+
+// Strict compatibility entry point for callers requiring a complete web snapshot.
+export async function loadPublishedSeoQualityEntities(
+  database: D1Database,
+  _bindings: { BREED_SQL_V2_READ_MODE?: string } = {},
+): Promise<AdminSeoQualityEntity[]> {
+  const sources = await loadSeoQualitySources(database, "all");
+  const entities: AdminSeoQualityEntity[] = [];
+  for (const source of sources) {
+    if (source.status === "error") throw source.error;
+    entities.push(...source.entities);
+  }
   return entities;
 }
