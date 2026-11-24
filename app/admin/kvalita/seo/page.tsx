@@ -7,6 +7,7 @@ import {
   adminSeoAgendaLabels,
   adminSeoAgendas,
   adminSeoIssueDefinitions,
+  isSeoMetadataIssue,
   type AdminSeoAgenda,
   type AdminSeoIssueCode,
 } from "@/lib/admin-seo-quality-rules";
@@ -74,8 +75,8 @@ export default async function AdminSeoQualityPage({
   const requestedScope = first(raw.scope);
   const requestedIssue = first(raw.issue);
   const report = await loadAdminSeoQualityAudit({
-    agenda: (requestedAgenda || "all") as AdminSeoAgenda | "all",
-    scope: requestedScope === "quality" || requestedScope === "custom" ? requestedScope : "all",
+    agenda: (requestedAgenda || "profiles") as AdminSeoAgenda | "all" | "profiles",
+    scope: requestedScope === "quality" || requestedScope === "custom" || requestedScope === "all" ? requestedScope : "metadata",
     issue: (requestedIssue || "all") as AdminSeoIssueCode | "all",
     query: first(raw.q),
     page: positivePage(raw.page),
@@ -91,16 +92,16 @@ export default async function AdminSeoQualityPage({
     <AdminShell
       user={user}
       eyebrow="Admin · Kvalita údajov"
-      title="SEO quality audit"
-      description="Read-only inbox publikovaných canonical entít. Oddeľuje chýbajúce custom SEO od reálne slabej výslednej metadata, obsahu, indexácie a crawlability."
+      title="SEO metadáta profilov"
+      description="Kontrola SEO titulkov, meta popisov, ALT, canonical a indexačných nastavení publikovaných profilov. Bez automatických zápisov."
       actions={<Link href="/admin/kvalita">Späť na kvalitu údajov</Link>}
     >
       <AdminQualityWorkspaceTabs active="seo" />
       <section className="admin-stats" aria-label="SEO quality súhrn">
-        <div><span>Publikované canonical entity</span><strong>{report.entityCount}</strong></div>
-        <div><span>Reálny quality problém</span><strong>{report.entitiesWithQualityFindings}</strong></div>
-        <div><span>Chýba custom SEO</span><strong>{report.entitiesWithCustomGaps}</strong></div>
-        <div><span>Explicitný noindex</span><strong>{report.explicitNoindex}</strong></div>
+        <div><span>Publikované v zvolenej oblasti</span><strong>{report.filteredEntityCount}</strong></div>
+        <div><span>SEO nálezy na kontrolu</span><strong>{report.resultCount}</strong></div>
+        <div><span>Chýbajúce vlastné SEO</span><strong>{report.filteredCustomGapEntities}</strong></div>
+        <div><span>Všetky publikované záznamy webu</span><strong>{report.entityCount}</strong></div>
       </section>
 
       <section className="admin-panel">
@@ -141,17 +142,17 @@ export default async function AdminSeoQualityPage({
       </section>
 
       <section className="admin-panel">
-        <h2>Nálezy podľa problému</h2>
+        <h2>SEO nálezy podľa typu</h2>
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr><th>Kontrola</th><th>Počet entít</th><th></th></tr>
             </thead>
             <tbody>
-              {adminSeoIssueDefinitions.map((issue) => (
+              {adminSeoIssueDefinitions.filter((issue) => report.filters.scope !== "metadata" || isSeoMetadataIssue(issue.code)).map((issue) => (
                 <tr key={issue.code}>
                   <td>{issue.label}</td>
-                  <td><strong>{report.issueCounts[issue.code]}</strong></td>
+                  <td><strong>{report.filteredIssueCounts[issue.code]}</strong></td>
                   <td>
                     <Link className={styles.edit} href={auditHref(filterState, { issue: issue.code, page: 1 })}>
                       Zobraziť →
@@ -173,16 +174,18 @@ export default async function AdminSeoQualityPage({
           <label className="admin-select-filter">
             <span>Agenda</span>
             <select name="agenda" defaultValue={report.filters.agenda}>
-              <option value="all">Všetky agendy</option>
+              <option value="profiles">Všetky profily</option>
+              <option value="all">Celý web vrátane článkov a podujatí</option>
               {adminSeoAgendas.map((agenda) => <option key={agenda} value={agenda}>{adminSeoAgendaLabels[agenda]}</option>)}
             </select>
           </label>
           <label className="admin-select-filter">
             <span>Typ</span>
             <select name="scope" defaultValue={report.filters.scope}>
-              <option value="all">Všetky nálezy</option>
-              <option value="quality">Výsledná kvalita</option>
-              <option value="custom">Iba chýbajúce custom SEO</option>
+              <option value="metadata">SEO polia a metadáta</option>
+              <option value="custom">Len chýbajúce vlastné SEO polia</option>
+              <option value="all">Všetky kontroly</option>
+              <option value="quality">Rozšírená kvalita obsahu</option>
             </select>
           </label>
           <label className="admin-select-filter">
@@ -196,8 +199,9 @@ export default async function AdminSeoQualityPage({
           <Link href="/admin/kvalita/seo">Vyčistiť filtre</Link>
         </form>
         <p>
-          Nájdené entity: <strong>{report.resultCount}</strong>. Prázdny custom title/description je informačný nález,
-          nie automatická SEO chyba. Audit nič neopravuje ani nemení publikačný stav.
+          Profily s nálezmi: <strong>{report.resultCount}</strong>. Vlastné SEO polia sa vyžadujú iba tam, kde ich editor podporuje.
+          Adopcie, stratené a nájdené psy a organizácie zatiaľ používajú automaticky generované metadáta;
+          pri nich kontrolujeme výsledný titulok a meta popis. Audit nič neopravuje.
         </p>
       </section>
 
@@ -208,7 +212,7 @@ export default async function AdminSeoQualityPage({
               <tr>
                 <th>Entita</th>
                 <th>Agenda</th>
-                <th>SEO / obsah nálezy</th>
+                <th>Chýbajúce SEO údaje a upozornenia</th>
                 <th>Canonical parent</th>
                 <th></th>
               </tr>
@@ -220,6 +224,7 @@ export default async function AdminSeoQualityPage({
                     <div className={styles.rowTitle}>
                       <strong>{item.entity.title || "(bez názvu)"}</strong>
                       <small>{item.entity.slug || "(bez slugu)"}</small>
+                      <small>{item.entity.customSeoSupported ? "Vlastné SEO polia" : "Automatické SEO metadáta"}</small>
                     </div>
                   </td>
                   <td><span className={styles.type}>{adminSeoAgendaLabels[item.entity.agenda]}</span></td>
@@ -245,7 +250,7 @@ export default async function AdminSeoQualityPage({
             </tbody>
           </table>
         </div>
-        {report.items.length === 0 ? <p>Pre zvolené filtre nie sú žiadne SEO quality nálezy.</p> : null}
+        {report.items.length === 0 ? <p>Pre zvolené filtre nie sú žiadne chýbajúce SEO údaje alebo upozornenia.</p> : null}
       </section>
 
       {report.pagination.totalPages > 1 ? (
