@@ -80,3 +80,21 @@ test("commercial workflow stays pre-sales and does not mutate monetization or or
   assert.doesNotMatch(combined,/UPDATE\s+directory_profiles|UPDATE\s+help_organizations|UPDATE\s+managed_events/i);
   assert.doesNotMatch(migration,/partner_campaigns|partner_promotions|payments|subscriptions|invoices|stripe/i);
 });
+
+test("commercial overview counts all new requests independently of the list filter", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const { countNewPartnerCommercialInterests } = await importTs("lib/partner-commercial-admin.ts");
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    sqlite.exec("CREATE TABLE partner_commercial_interests (status TEXT)");
+    const insert = sqlite.prepare("INSERT INTO partner_commercial_interests VALUES (?)");
+    for (let index = 0; index < 251; index++) insert.run("NEW");
+    insert.run("CLOSED");
+    const database = { prepare: (query) => ({ first: async () => sqlite.prepare(query).get() }) };
+    assert.equal(await countNewPartnerCommercialInterests(database), 251);
+    assert.match(adminList, /countNewPartnerCommercialInterests\(\)/);
+    assert.doesNotMatch(adminList, /items\.filter\(/);
+  } finally {
+    sqlite.close();
+  }
+});
