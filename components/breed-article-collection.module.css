@@ -7,7 +7,9 @@
   border: 0;
   background: transparent;
 }
-.groupHeading { margin-bottom: 14px; }
+.groupHeading {
+  margin-bottom: 14px;
+}
 .eyebrow {
   display: block;
   margin-bottom: 5px;
@@ -20,7 +22,10 @@
 .groupHeading h3 {
   margin: 0;
   color: var(--forest-dark);
-  font-size: clamp(1.15rem, 1.65vw, 1.45rem);
+  font-family: var(--ps-public-heading-font);
+  font-size: clamp(1.125rem, 1.45vw, 1.3rem);
+  font-weight: 750;
+  letter-spacing: -0.02em;
   line-height: 1.2;
 }
 .link {
@@ -37,10 +42,22 @@
   font-weight: 800;
   text-decoration: none;
 }
-.link:hover { background: var(--sage-light); }
-.link:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
-.compact { margin: 20px 0 0; }
+.link:hover {
+  background: var(--sage-light);
+}
+.link:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 3px;
+}
+.compact {
+  margin: 20px 0 0;
+}
 @media (max-width: 720px) {
-  .section { margin-block: 14px 22px; }
-  .link { width: 100%; justify-content: center; }
+  .section {
+    margin-block: 14px 22px;
+  }
+  .link {
+    width: 100%;
+    justify-content: center;
+  }
 }
