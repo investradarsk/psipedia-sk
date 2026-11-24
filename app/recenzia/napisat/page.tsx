@@ -14,7 +14,8 @@ import {
 import { getReviewAuthorSession } from "@/lib/review-author-auth";
 import { REVIEW_AUTHOR_SESSION_COOKIE } from "@/lib/review-author-auth-store";
 import { reviewAuthorAuthHref, reviewSubmissionHref } from "@/lib/review-author-return-to";
-import { profileReviewEmailRequired, profileReviewSubmissionEnabled } from "@/lib/submission-feature-flags";
+import { profileReviewSubmissionEnabled } from "@/lib/submission-feature-flags";
+import { profileReviewEmailRequired } from "@/lib/profile-review-verification-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -95,7 +96,7 @@ export default async function ReviewSubmissionPage({
     token: jar.get(REVIEW_AUTHOR_SESSION_COOKIE)?.value,
   });
 
-  const guest = !identity && target.entityType === "DIRECTORY_PROFILE" && !profileReviewEmailRequired() && !jar.get(REVIEW_AUTHOR_SESSION_COOKIE)?.value;
+  const guest = !identity && target.entityType === "DIRECTORY_PROFILE" && !(await profileReviewEmailRequired()) && !jar.get(REVIEW_AUTHOR_SESSION_COOKIE)?.value;
   if (!identity && !guest) {
     redirect(reviewAuthorAuthHref(submissionHref));
   }
