@@ -106,7 +106,7 @@ export function normalizePartnerHelpCreate(type: unknown, payload: unknown) {
 }
 function summary(type: PartnerHelpCreateType, data: Record<string, unknown>) {
   if (type === "ADOPTION_DOG") return String(data.name);
-  if (type === "LOST_FOUND_DOG") return `${data.type === "LOST" ? "Stratený" : "Nájdený"} pes: ${data.dogName || data.city}`;
+  if (type === "LOST_FOUND_DOG") return `${data.type === "LOST" ? "Stratený" : "Nájdený"} pes: ${data.dog_name || data.dogName || data.city || "Bez názvu"}`;
   return String(data.title);
 }
 function statusLabel(status: string) {
