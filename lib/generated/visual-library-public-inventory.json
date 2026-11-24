@@ -744,6 +744,10 @@
       "coverage": "live-preview"
     },
     {
+      "path": "components/service-review-catalog.tsx",
+      "coverage": "page-composite"
+    },
+    {
       "path": "components/site-header.tsx",
       "coverage": "needs-preview"
     },
