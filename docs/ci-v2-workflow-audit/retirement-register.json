@@ -1,0 +1,1956 @@
+{
+  "reviewedRevision": "53f362a2dad56f8648167f7b45f6b35c3085c931",
+  "sourceBlobVerification": "36/36 matched against current branch tree",
+  "stats": {
+    "candidates": 36,
+    "manualOnly": 36,
+    "liveReadOnly": 11,
+    "protectedOperations": 25,
+    "hasSuccessfulMainRun": 32,
+    "hasDocumentedCompletionReceipt": 2,
+    "archivedActiveWorkflows": 0,
+    "dispatchHistoryRows": 444,
+    "apiReportedTotal": 444
+  },
+  "historyMethod": "Paginated workflow_dispatch history; unique run IDs. Workflow success does not establish input mode, production effect or current state. No live D1/Notion access. Offline literal npm references are candidates for parity, not verified equivalent runtime coverage.",
+  "policy": "Keep manual-only operational workflows outside new PR CI. No active workflow is deleted or disabled without proven replacement and separate production approval. Existing source history is preserved in Git, no redundant YAML copies.",
+  "candidates": [
+    {
+      "file": "automation-cleanup-legacy.yml",
+      "sourceBlob": "815e442f3ad0a4d857e76eccf6badad07f9262b3",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/automation-cleanup-legacy.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/automation-cleanup-legacy.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 1,
+        "latest": {
+          "id": 36341283126,
+          "conclusion": "success",
+          "createdAt": "2026-09-27T18:36:36Z",
+          "branch": "main",
+          "sha": "6eb8d20fbc0294d20aceebeef06b0f7f103eca09"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 36341283126,
+            "createdAt": "2026-09-27T18:36:36Z",
+            "sha": "6eb8d20fbc0294d20aceebeef06b0f7f103eca09"
+          }
+        ],
+        "conclusions": {
+          "success": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/legacy-automation-retirement-20261024.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "automation-detach-drafts.yml",
+      "sourceBlob": "297a7043e603557e9fc0e21a21449f0c070fb30e",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/automation-detach-drafts.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/automation-detach-drafts.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 1,
+        "latest": {
+          "id": 36346077522,
+          "conclusion": "failure",
+          "createdAt": "2026-09-27T19:54:50Z",
+          "branch": "main",
+          "sha": "6fe2c560d6fa631a89249e4e1a954e1db7806a25"
+        },
+        "successfulMainRuns": [],
+        "conclusions": {
+          "failure": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/legacy-automation-retirement-20261024.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "automation-finalize-v1.yml",
+      "sourceBlob": "d30939d759a46c7ce8038bf8b6ddf3bf1e472f7f",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/data-automation-apply.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/data-automation-background-run.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/automation-detach-drafts.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/automation-cleanup-legacy.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/automation-finalize-v1.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/g5-canonical-apply.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/automation-detach-drafts.mjs",
+        "scripts/automation-cleanup-legacy.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 4,
+        "latest": {
+          "id": 36349420331,
+          "conclusion": "success",
+          "createdAt": "2026-09-27T20:49:01Z",
+          "branch": "main",
+          "sha": "e5b7c2e6195e44e5cb6d488bf396943c60885b36"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 36349420331,
+            "createdAt": "2026-09-27T20:49:01Z",
+            "sha": "e5b7c2e6195e44e5cb6d488bf396943c60885b36"
+          }
+        ],
+        "conclusions": {
+          "success": 1,
+          "failure": 3
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/legacy-automation-retirement-20261024.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "automation-source-ux-reset.yml",
+      "sourceBlob": "822fb1ecb203eafae43692048ba8402e27c280e5",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/automation-source-ux-reset.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/automation-source-ux-reset.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 11,
+        "latest": {
+          "id": 36401472054,
+          "conclusion": "success",
+          "createdAt": "2026-09-28T09:07:14Z",
+          "branch": "main",
+          "sha": "6be7e07edeb31a65426ba9b363c2349cb27acbc4"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 36401472054,
+            "createdAt": "2026-09-28T09:07:14Z",
+            "sha": "6be7e07edeb31a65426ba9b363c2349cb27acbc4"
+          },
+          {
+            "id": 36401138494,
+            "createdAt": "2026-09-28T09:03:54Z",
+            "sha": "6be7e07edeb31a65426ba9b363c2349cb27acbc4"
+          },
+          {
+            "id": 36397894139,
+            "createdAt": "2026-09-28T08:31:45Z",
+            "sha": "d1b776a6a92ca619b36deb55c1b1e48087dc3828"
+          },
+          {
+            "id": 36397055700,
+            "createdAt": "2026-09-28T08:23:19Z",
+            "sha": "d1b776a6a92ca619b36deb55c1b1e48087dc3828"
+          },
+          {
+            "id": 36387199411,
+            "createdAt": "2026-09-28T06:35:05Z",
+            "sha": "1c44d22a03229f5b3162b09b76d4ed24ead333d4"
+          },
+          {
+            "id": 36386329550,
+            "createdAt": "2026-09-28T06:24:46Z",
+            "sha": "1c44d22a03229f5b3162b09b76d4ed24ead333d4"
+          },
+          {
+            "id": 36381519657,
+            "createdAt": "2026-09-28T05:20:55Z",
+            "sha": "43769da8837467f8294da0be0e8539f7c61b9bad"
+          }
+        ],
+        "conclusions": {
+          "success": 7,
+          "failure": 4
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-breed-controlled-mirrors.yml",
+      "sourceBlob": "491589fd535f06cb6e4d5a18d2f67fafa4061871",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/breed-controlled-mirror-backfill.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/check-migration-safety.mjs",
+        "scripts/production-breed-controlled-mirror-backfill.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 6,
+        "latest": {
+          "id": 44601495993,
+          "conclusion": "success",
+          "createdAt": "2026-11-19T19:44:46Z",
+          "branch": "main",
+          "sha": "b23e1ec9ce7fb3a34b9725516718c077c51ec17f"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44601495993,
+            "createdAt": "2026-11-19T19:44:46Z",
+            "sha": "b23e1ec9ce7fb3a34b9725516718c077c51ec17f"
+          },
+          {
+            "id": 44601118264,
+            "createdAt": "2026-11-19T19:42:36Z",
+            "sha": "b23e1ec9ce7fb3a34b9725516718c077c51ec17f"
+          },
+          {
+            "id": 44596760629,
+            "createdAt": "2026-11-19T19:17:23Z",
+            "sha": "60d3c361f0dede3d5fc7a5c338ffdf1bb2200c04"
+          }
+        ],
+        "conclusions": {
+          "success": 3,
+          "failure": 3
+        }
+      },
+      "documentedReceipt": {
+        "document": "docs/BREEDS-SQL-JSON-STEP6-20261119.md",
+        "run": 44601495993,
+        "claim": "Document records 344 mirror rows, missing=0, issues=[] after successful transfer."
+      },
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-breed-json-audit.yml",
+      "sourceBlob": "f944e82ed0ff6b9992ba8255080b7bc04bf08116",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/breed-json-legacy-audit.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-breed-json-audit.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 0,
+        "latest": null,
+        "successfulMainRuns": [],
+        "conclusions": {}
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-breed-sql-v2-backfill.yml",
+      "sourceBlob": "7126fa11d779a981a4594d111641efb3ea287ac7",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/breed-sql-0174-foundation.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/breed-sql-v2-backfill.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/check-migration-safety.mjs",
+        "scripts/production-breed-sql-v2-backfill.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 4,
+        "latest": {
+          "id": 44613223144,
+          "conclusion": "success",
+          "createdAt": "2026-11-19T20:53:25Z",
+          "branch": "main",
+          "sha": "c94307461403dbd51300ae0b1333516d43eaca91"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44613223144,
+            "createdAt": "2026-11-19T20:53:25Z",
+            "sha": "c94307461403dbd51300ae0b1333516d43eaca91"
+          },
+          {
+            "id": 44612747671,
+            "createdAt": "2026-11-19T20:50:32Z",
+            "sha": "c94307461403dbd51300ae0b1333516d43eaca91"
+          }
+        ],
+        "conclusions": {
+          "success": 2,
+          "failure": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-breed-sql-v2-shadow-audit.yml",
+      "sourceBlob": "7179b071603352feb5e5a0ec7b08d6e0671c72b1",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/breed-sql-v2-shadow-readiness.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/breed-sql-v2-primary-health.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-breed-sql-v2-shadow-audit.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 4,
+        "latest": {
+          "id": 44730582774,
+          "conclusion": "success",
+          "createdAt": "2026-11-20T11:48:28Z",
+          "branch": "main",
+          "sha": "56b360c7e80e813886dbbe645b689d99b04e5d8d"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44730582774,
+            "createdAt": "2026-11-20T11:48:28Z",
+            "sha": "56b360c7e80e813886dbbe645b689d99b04e5d8d"
+          },
+          {
+            "id": 44698188713,
+            "createdAt": "2026-11-20T07:52:39Z",
+            "sha": "b90e797ed7a90de1ccfa82161553abe6186458b3"
+          },
+          {
+            "id": 44630547127,
+            "createdAt": "2026-11-19T22:38:40Z",
+            "sha": "da6fc08b960b67d7db9f78642c986d0d6683c107"
+          }
+        ],
+        "conclusions": {
+          "success": 3,
+          "failure": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-breed-workcopy-postflight.yml",
+      "sourceBlob": "c760203c608f6df2f82c6beaa44f7d30231eaa7b",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-breed-workcopy-step3-postflight.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        },
+        {
+          "file": "tests/production-breed-workcopy-step4-field-audit.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        },
+        {
+          "file": "tests/production-breed-workcopy-baseline-step2.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        },
+        {
+          "file": "tests/notion-breed-workcopy-receipt.test.mjs",
+          "npmAliases": [
+            "test:breed-concurrency"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-breed-workcopy-postflight.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 4,
+        "latest": {
+          "id": 42672201139,
+          "conclusion": "success",
+          "createdAt": "2026-11-09T18:13:56Z",
+          "branch": "main",
+          "sha": "19ab525946b65895c00a738bdc910b2ffb6b0340"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 42672201139,
+            "createdAt": "2026-11-09T18:13:56Z",
+            "sha": "19ab525946b65895c00a738bdc910b2ffb6b0340"
+          },
+          {
+            "id": 42525426016,
+            "createdAt": "2026-11-08T21:29:06Z",
+            "sha": "c2851add0ec551199b8b2c397a17197059dd0472"
+          },
+          {
+            "id": 42521769727,
+            "createdAt": "2026-11-08T20:45:51Z",
+            "sha": "70a8d6e8d3b77d8d0bc80203babd4e2ad2330345"
+          }
+        ],
+        "conclusions": {
+          "success": 3,
+          "failure": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-breed-workcopy-stage.yml",
+      "sourceBlob": "dc3dc9d8b220d1089f238a54f5f7c3496fd84d05",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-breed-workcopy-stage.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        },
+        {
+          "file": "tests/production-d1-0159-shadow.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        },
+        {
+          "file": "tests/notion-breed-workcopy-identity-plan.test.mjs",
+          "npmAliases": [
+            "test:breed-concurrency"
+          ]
+        },
+        {
+          "file": "tests/notion-breed-workcopy-shadow-plan.test.mjs",
+          "npmAliases": [
+            "test:breed-concurrency"
+          ]
+        },
+        {
+          "file": "tests/notion-breed-workcopy-preflight.test.mjs",
+          "npmAliases": [
+            "test:breed-concurrency"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-breed-workcopy-stage.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 4,
+        "latest": {
+          "id": 42511518758,
+          "conclusion": "success",
+          "createdAt": "2026-11-08T18:44:48Z",
+          "branch": "main",
+          "sha": "91f3db7460f83f8cf495d23a0efbeb4622aed647"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 42511518758,
+            "createdAt": "2026-11-08T18:44:48Z",
+            "sha": "91f3db7460f83f8cf495d23a0efbeb4622aed647"
+          },
+          {
+            "id": 42511321392,
+            "createdAt": "2026-11-08T18:42:19Z",
+            "sha": "91f3db7460f83f8cf495d23a0efbeb4622aed647"
+          }
+        ],
+        "conclusions": {
+          "success": 2,
+          "failure": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0123-0124-preflight.yml",
+      "sourceBlob": "14eaf855ab103d067a316a478187fd1cd3146192",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0123-0124-preflight.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0123-0124-preflight.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 38642122564,
+          "conclusion": "success",
+          "createdAt": "2026-10-14T21:41:02Z",
+          "branch": "main",
+          "sha": "fb6b3da84f2a145ecd5091601b2f147dbcdb77f9"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 38642122564,
+            "createdAt": "2026-10-14T21:41:02Z",
+            "sha": "fb6b3da84f2a145ecd5091601b2f147dbcdb77f9"
+          },
+          {
+            "id": 38459351339,
+            "createdAt": "2026-10-13T20:00:26Z",
+            "sha": "d9f0fa8f0c4c5458c9335380ba70a128421b6baa"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0127-readonly.yml",
+      "sourceBlob": "f3d528f37d83d3932a1de8fe2173c821f78c34c1",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0127-readonly.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0127-readonly.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 3,
+        "latest": {
+          "id": 38772203137,
+          "conclusion": "success",
+          "createdAt": "2026-10-15T16:49:31Z",
+          "branch": "main",
+          "sha": "42798725b19d340d0bbc227615f04c92bd6045e1"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 38772203137,
+            "createdAt": "2026-10-15T16:49:31Z",
+            "sha": "42798725b19d340d0bbc227615f04c92bd6045e1"
+          },
+          {
+            "id": 38764683807,
+            "createdAt": "2026-10-15T15:56:11Z",
+            "sha": "ee4e8566b9a60e8331ea8894a57604f2bde2434f"
+          }
+        ],
+        "conclusions": {
+          "success": 2,
+          "failure": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0128-readonly.yml",
+      "sourceBlob": "c987a613e438aab2f2196c3e4c312f874e530f7b",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0128-readonly.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0128-readonly.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 0,
+        "latest": null,
+        "successfulMainRuns": [],
+        "conclusions": {}
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0133-readonly.yml",
+      "sourceBlob": "54ce3f4d141ab13cb03e4dda28be0eba0a058b8e",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0133-readonly.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        },
+        {
+          "file": "tests/production-d1-0133-rollout.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0133-readonly.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 1,
+        "latest": {
+          "id": 39213531283,
+          "conclusion": "success",
+          "createdAt": "2026-10-19T07:03:18Z",
+          "branch": "main",
+          "sha": "51cca5fd2d127e27e0928746ad8ba954489849cb"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 39213531283,
+            "createdAt": "2026-10-19T07:03:18Z",
+            "sha": "51cca5fd2d127e27e0928746ad8ba954489849cb"
+          }
+        ],
+        "conclusions": {
+          "success": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/PRODUCTION-D1-0133-READONLY.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0134-readonly.yml",
+      "sourceBlob": "c7594212ba9818048c7e01daa731c841ae61a716",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0134-readonly.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0134-readonly.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 39468173127,
+          "conclusion": "success",
+          "createdAt": "2026-10-20T17:40:48Z",
+          "branch": "main",
+          "sha": "9baaee3ec897fc75108c524e75e50105138138df"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 39468173127,
+            "createdAt": "2026-10-20T17:40:48Z",
+            "sha": "9baaee3ec897fc75108c524e75e50105138138df"
+          }
+        ],
+        "conclusions": {
+          "success": 1,
+          "failure": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/production-d1-0134-readonly.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0158-0162-ledger.yml",
+      "sourceBlob": "d1aa89c34190a90999d50fc67747fe691eb96282",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0158-0162-history.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0158-0162-ledger.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 42796791680,
+          "conclusion": "success",
+          "createdAt": "2026-11-10T10:09:52Z",
+          "branch": "main",
+          "sha": "933ef15f86e461dce458e9a52690f5b3fb4da340"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 42796791680,
+            "createdAt": "2026-11-10T10:09:52Z",
+            "sha": "933ef15f86e461dce458e9a52690f5b3fb4da340"
+          },
+          {
+            "id": 42796507096,
+            "createdAt": "2026-11-10T10:07:51Z",
+            "sha": "933ef15f86e461dce458e9a52690f5b3fb4da340"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0158-0162.yml",
+      "sourceBlob": "e6d1fb14f77691b3d6f73bf9b72abc8448443ae3",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0158-0162.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0158-0162.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 5,
+        "latest": {
+          "id": 42776335241,
+          "conclusion": "success",
+          "createdAt": "2026-11-10T07:35:19Z",
+          "branch": "main",
+          "sha": "b1e4474761f752c6158aa920dca3ddf751465257"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 42776335241,
+            "createdAt": "2026-11-10T07:35:19Z",
+            "sha": "b1e4474761f752c6158aa920dca3ddf751465257"
+          },
+          {
+            "id": 42775723402,
+            "createdAt": "2026-11-10T07:30:14Z",
+            "sha": "b1e4474761f752c6158aa920dca3ddf751465257"
+          }
+        ],
+        "conclusions": {
+          "success": 2,
+          "failure": 3
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0159-shadow.yml",
+      "sourceBlob": "da1229838b5ca07ba5edfe8b8a75e275882ba452",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0159-shadow.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0159-shadow.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 42422495738,
+          "conclusion": "success",
+          "createdAt": "2026-11-07T22:50:40Z",
+          "branch": "main",
+          "sha": "80dd43ef47ee3dd4e2f797ad73d0e0a939f0dced"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 42422495738,
+            "createdAt": "2026-11-07T22:50:40Z",
+            "sha": "80dd43ef47ee3dd4e2f797ad73d0e0a939f0dced"
+          },
+          {
+            "id": 42422047100,
+            "createdAt": "2026-11-07T22:44:54Z",
+            "sha": "80dd43ef47ee3dd4e2f797ad73d0e0a939f0dced"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0160-events.yml",
+      "sourceBlob": "2977ceec20bc5c8fd8fa31b1ce718b29e212a10a",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0160-events.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0160-events.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 42425276033,
+          "conclusion": "success",
+          "createdAt": "2026-11-07T23:26:46Z",
+          "branch": "main",
+          "sha": "a069821ada46f0259e2c0a7f239a1bfae93b7a6a"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 42425276033,
+            "createdAt": "2026-11-07T23:26:46Z",
+            "sha": "a069821ada46f0259e2c0a7f239a1bfae93b7a6a"
+          },
+          {
+            "id": 42425158463,
+            "createdAt": "2026-11-07T23:25:09Z",
+            "sha": "a069821ada46f0259e2c0a7f239a1bfae93b7a6a"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/0160-event-contacts-admission-rollout.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0161-event-metadata.yml",
+      "sourceBlob": "187144a5e33f3888868b7b6931128997aaf69197",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0161-event-metadata.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0161-event-metadata.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 42535389106,
+          "conclusion": "success",
+          "createdAt": "2026-11-08T23:29:14Z",
+          "branch": "main",
+          "sha": "ac6ed54c71bc662c4d6e490c7cfdc747a05f4a56"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 42535389106,
+            "createdAt": "2026-11-08T23:29:14Z",
+            "sha": "ac6ed54c71bc662c4d6e490c7cfdc747a05f4a56"
+          },
+          {
+            "id": 42535161308,
+            "createdAt": "2026-11-08T23:26:11Z",
+            "sha": "ac6ed54c71bc662c4d6e490c7cfdc747a05f4a56"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0163-breed-controlled.yml",
+      "sourceBlob": "2b718df262166cd322b0c129a9ea6b525a8c1e9e",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-0163-breed-controlled.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0163-breed-controlled.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 42781032016,
+          "conclusion": "success",
+          "createdAt": "2026-11-10T08:14:09Z",
+          "branch": "main",
+          "sha": "c3864c9f093af2d6094d3fed4b47cd1042d99c5f"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 42781032016,
+            "createdAt": "2026-11-10T08:14:09Z",
+            "sha": "c3864c9f093af2d6094d3fed4b47cd1042d99c5f"
+          },
+          {
+            "id": 42777671918,
+            "createdAt": "2026-11-10T07:46:45Z",
+            "sha": "c3864c9f093af2d6094d3fed4b47cd1042d99c5f"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0164-lifecycle.yml",
+      "sourceBlob": "d25f910e493347d06f641a0d1dad2871f271394d",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/admin-record-lifecycle-migration.test.mjs",
+          "npmAliases": [
+            "test:record-lifecycle",
+            "test:migration-safety"
+          ]
+        },
+        {
+          "file": "tests/production-d1-0164-lifecycle.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0164-lifecycle.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 42989142803,
+          "conclusion": "success",
+          "createdAt": "2026-11-11T08:42:20Z",
+          "branch": "main",
+          "sha": "3f3ba94659c3691f3bd75d3a270a0a5099d05d1c"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 42989142803,
+            "createdAt": "2026-11-11T08:42:20Z",
+            "sha": "3f3ba94659c3691f3bd75d3a270a0a5099d05d1c"
+          },
+          {
+            "id": 42988655881,
+            "createdAt": "2026-11-11T08:38:34Z",
+            "sha": "3f3ba94659c3691f3bd75d3a270a0a5099d05d1c"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-0165-contacts.yml",
+      "sourceBlob": "6d9ad7764ce99f4e7fadbd2beddc0669c5bcb5e3",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/lost-found-public-contacts.test.mjs",
+          "npmAliases": [
+            "test:lost-found"
+          ]
+        },
+        {
+          "file": "tests/production-d1-0165-contacts.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-0165-contacts.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 43119961676,
+          "conclusion": "success",
+          "createdAt": "2026-11-11T23:27:29Z",
+          "branch": "main",
+          "sha": "c1657f0af95a9a6ff2399b3acc9816a075e4c786"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 43119961676,
+            "createdAt": "2026-11-11T23:27:29Z",
+            "sha": "c1657f0af95a9a6ff2399b3acc9816a075e4c786"
+          },
+          {
+            "id": 43119005214,
+            "createdAt": "2026-11-11T23:20:04Z",
+            "sha": "c1657f0af95a9a6ff2399b3acc9816a075e4c786"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-analytics-0167-0168.yml",
+      "sourceBlob": "c2de5076d1ece7d0acff9bb193cac62d10c76936",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-analytics-0167-0168.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-analytics-0167-0168.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 4,
+        "latest": {
+          "id": 43649031799,
+          "conclusion": "success",
+          "createdAt": "2026-11-14T22:37:04Z",
+          "branch": "main",
+          "sha": "2d8ba9995387241d9344564aa41e6570601eb722"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 43649031799,
+            "createdAt": "2026-11-14T22:37:04Z",
+            "sha": "2d8ba9995387241d9344564aa41e6570601eb722"
+          },
+          {
+            "id": 43648829678,
+            "createdAt": "2026-11-14T22:34:46Z",
+            "sha": "2d8ba9995387241d9344564aa41e6570601eb722"
+          },
+          {
+            "id": 43648597657,
+            "createdAt": "2026-11-14T22:32:10Z",
+            "sha": "2d8ba9995387241d9344564aa41e6570601eb722"
+          },
+          {
+            "id": 43648409679,
+            "createdAt": "2026-11-14T22:30:09Z",
+            "sha": "2d8ba9995387241d9344564aa41e6570601eb722"
+          }
+        ],
+        "conclusions": {
+          "success": 4
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-backlog-verify.yml",
+      "sourceBlob": "ef5c3ce7a4564c691c85d88764a96b9f0c2709db",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [],
+      "operations": [
+        "scripts/production-d1-backlog-rollout.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 1,
+        "latest": {
+          "id": 35787425029,
+          "conclusion": "success",
+          "createdAt": "2026-09-22T21:34:06Z",
+          "branch": "main",
+          "sha": "a08667b764dc77b1a8ff609698670cf3f5351424"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 35787425029,
+            "createdAt": "2026-09-22T21:34:06Z",
+            "sha": "a08667b764dc77b1a8ff609698670cf3f5351424"
+          }
+        ],
+        "conclusions": {
+          "success": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/PRODUCTION-D1-MIGRATIONS.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-backlog.yml",
+      "sourceBlob": "6a3437412ad0e1edfdd128cda578569edbe32b81",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [],
+      "operations": [
+        "scripts/production-d1-backlog-rollout.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 35783381470,
+          "conclusion": "failure",
+          "createdAt": "2026-09-22T20:55:17Z",
+          "branch": "main",
+          "sha": "5d181a2faffb931f3faf416594078bad00dbc835"
+        },
+        "successfulMainRuns": [],
+        "conclusions": {
+          "failure": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/PRODUCTION-D1-MIGRATIONS.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-breed-0174.yml",
+      "sourceBlob": "9d0ee9497838340318d87c225f3437425cfa35b0",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/breed-sql-0174-foundation.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/breed-sql-v2-backfill.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/production-d1-breed-0174.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-breed-0174.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 44611472194,
+          "conclusion": "success",
+          "createdAt": "2026-11-19T20:42:54Z",
+          "branch": "main",
+          "sha": "11c388a4ac2e4ac68fa06f6e5bf166fc21d8c0fd"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44611472194,
+            "createdAt": "2026-11-19T20:42:54Z",
+            "sha": "11c388a4ac2e4ac68fa06f6e5bf166fc21d8c0fd"
+          },
+          {
+            "id": 44610921020,
+            "createdAt": "2026-11-19T20:39:36Z",
+            "sha": "11c388a4ac2e4ac68fa06f6e5bf166fc21d8c0fd"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-breed-0175.yml",
+      "sourceBlob": "f74f3a9de5ce45acc046b66f274f54be99784d7b",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/breed-sql-v2-legacy-drop.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-breed-0175.mjs",
+        "scripts/production-breed-sql-v2-shadow-audit.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 44778923160,
+          "conclusion": "success",
+          "createdAt": "2026-11-20T17:00:00Z",
+          "branch": "main",
+          "sha": "953a6903451181cc3bd0f02a20220c452c276d2f"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44778923160,
+            "createdAt": "2026-11-20T17:00:00Z",
+            "sha": "953a6903451181cc3bd0f02a20220c452c276d2f"
+          },
+          {
+            "id": 44778087321,
+            "createdAt": "2026-11-20T16:54:49Z",
+            "sha": "953a6903451181cc3bd0f02a20220c452c276d2f"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/BREEDS-SQL-V2-LEGACY-DROP-20261120.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-breeder-0169.yml",
+      "sourceBlob": "fc9618a44125aa86e885ad8cf9b7de18e856ecbb",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-breeder-0169.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-breeder-0169.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 44194911141,
+          "conclusion": "success",
+          "createdAt": "2026-11-17T22:57:00Z",
+          "branch": "main",
+          "sha": "5d76205d9e021f1aba587a980e82218279d3a547"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44194911141,
+            "createdAt": "2026-11-17T22:57:00Z",
+            "sha": "5d76205d9e021f1aba587a980e82218279d3a547"
+          },
+          {
+            "id": 44194579636,
+            "createdAt": "2026-11-17T22:54:49Z",
+            "sha": "5d76205d9e021f1aba587a980e82218279d3a547"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-breeder-cutover.yml",
+      "sourceBlob": "068480c72966bbbe82ed4d2d15a8714c67e68110",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-breeder-0169.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        },
+        {
+          "file": "tests/production-d1-breeder-cutover.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-breeder-cutover.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 3,
+        "latest": {
+          "id": 44266613686,
+          "conclusion": "success",
+          "createdAt": "2026-11-18T08:23:51Z",
+          "branch": "main",
+          "sha": "2d2015f394f13fb0b954586d3e98559fe0c089f8"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44266613686,
+            "createdAt": "2026-11-18T08:23:51Z",
+            "sha": "2d2015f394f13fb0b954586d3e98559fe0c089f8"
+          },
+          {
+            "id": 44256747818,
+            "createdAt": "2026-11-18T07:10:00Z",
+            "sha": "e12765b576474a9a6d760279558ec0982283ff27"
+          },
+          {
+            "id": 44255765355,
+            "createdAt": "2026-11-18T07:02:16Z",
+            "sha": "e12765b576474a9a6d760279558ec0982283ff27"
+          }
+        ],
+        "conclusions": {
+          "success": 3
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-breeder-link-reset.yml",
+      "sourceBlob": "0d515dcd0b3d2380046cbbe5ef0aa4679fb8caeb",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-breeder-0169.test.mjs",
+          "npmAliases": [
+            "test:migration-safety"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-breeder-link-reset.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 1,
+        "latest": {
+          "id": 44252717336,
+          "conclusion": "success",
+          "createdAt": "2026-11-18T06:37:34Z",
+          "branch": "main",
+          "sha": "a20dbf0567dfeb81f14d67c2f89410bf4c1fb720"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44252717336,
+            "createdAt": "2026-11-18T06:37:34Z",
+            "sha": "a20dbf0567dfeb81f14d67c2f89410bf4c1fb720"
+          }
+        ],
+        "conclusions": {
+          "success": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-directory-0170.yml",
+      "sourceBlob": "cf36338110a60bb187c8c4f2913deaa824354acc",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-directory-0170.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/directory-sql-0170-schema.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-directory-0170.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 44351646340,
+          "conclusion": "success",
+          "createdAt": "2026-11-18T16:49:21Z",
+          "branch": "main",
+          "sha": "e895949ba75d25ec2fbc56035b1df781836bf371"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44351646340,
+            "createdAt": "2026-11-18T16:49:21Z",
+            "sha": "e895949ba75d25ec2fbc56035b1df781836bf371"
+          },
+          {
+            "id": 44342246455,
+            "createdAt": "2026-11-18T16:00:57Z",
+            "sha": "e895949ba75d25ec2fbc56035b1df781836bf371"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-directory-0173.yml",
+      "sourceBlob": "68a65268b5b62f79a35739ef1bce650e638e4024",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/directory-sql-0173-foundation.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-directory-0173.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 2,
+        "latest": {
+          "id": 44604743812,
+          "conclusion": "success",
+          "createdAt": "2026-11-19T20:03:44Z",
+          "branch": "main",
+          "sha": "b207299ce8a0c12e46bc0ae92f71e98f1d2604e6"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44604743812,
+            "createdAt": "2026-11-19T20:03:44Z",
+            "sha": "b207299ce8a0c12e46bc0ae92f71e98f1d2604e6"
+          },
+          {
+            "id": 44604419687,
+            "createdAt": "2026-11-19T20:01:52Z",
+            "sha": "b207299ce8a0c12e46bc0ae92f71e98f1d2604e6"
+          }
+        ],
+        "conclusions": {
+          "success": 2
+        }
+      },
+      "documentedReceipt": {
+        "document": "docs/BREEDS-SQL-JSON-STEP6-20261119.md",
+        "run": 44604743812,
+        "claim": "Document records successful apply postflight with installed/applied true."
+      },
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-facebook-weekly-0166.yml",
+      "sourceBlob": "1cb23e7ee631f63fc37aa450b6de386c1f2dbddc",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/facebook-weekly-0166-rollout.test.mjs",
+          "npmAliases": [
+            "test:facebook-images-ui"
+          ]
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-facebook-0166.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 1,
+        "latest": {
+          "id": 43390519017,
+          "conclusion": "success",
+          "createdAt": "2026-11-13T08:05:41Z",
+          "branch": "main",
+          "sha": "1b76854ec64539de4419922d91aeeea5eb5db8e9"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 43390519017,
+            "createdAt": "2026-11-13T08:05:41Z",
+            "sha": "1b76854ec64539de4419922d91aeeea5eb5db8e9"
+          }
+        ],
+        "conclusions": {
+          "success": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "production-d1-partner-0171-0172.yml",
+      "sourceBlob": "2b0f307a769c8a5366353e09b59dadb43815b3ea",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-protected-production-operation",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Operation can write or has owner-selected operational modes; historical success is not proof of retirement, and production operation changes require separate owner approval.",
+      "offlineReferences": [
+        {
+          "file": "tests/production-d1-partner-0171-0172.test.mjs",
+          "npmAliases": []
+        },
+        {
+          "file": "tests/production-partner-owner-compatibility.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/production-d1-partner-0171-0172.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 5,
+        "latest": {
+          "id": 44599721437,
+          "conclusion": "success",
+          "createdAt": "2026-11-19T19:34:27Z",
+          "branch": "main",
+          "sha": "c99e59e7d4e5ca3acbadbfc439e52d628540f4e1"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 44599721437,
+            "createdAt": "2026-11-19T19:34:27Z",
+            "sha": "c99e59e7d4e5ca3acbadbfc439e52d628540f4e1"
+          },
+          {
+            "id": 44598610382,
+            "createdAt": "2026-11-19T19:28:06Z",
+            "sha": "c99e59e7d4e5ca3acbadbfc439e52d628540f4e1"
+          },
+          {
+            "id": 44597738067,
+            "createdAt": "2026-11-19T19:23:03Z",
+            "sha": "60d3c361f0dede3d5fc7a5c338ffdf1bb2200c04"
+          },
+          {
+            "id": 44593637744,
+            "createdAt": "2026-11-19T18:59:48Z",
+            "sha": "c61bb67b171026a88e507dbbdd261d54e9578301"
+          }
+        ],
+        "conclusions": {
+          "success": 4,
+          "failure": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/PRODUCTION-PARTNER-0171-0172-ROLLOUT.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    },
+    {
+      "file": "services-v3-production-readonly.yml",
+      "sourceBlob": "dbce0e12347b709e5dd244b386536708ff18051f",
+      "trigger": "workflow_dispatch",
+      "classification": "retain-independent-live-verifier",
+      "decision": "retain-active-manual; excluded from proposed PR-CI consolidation",
+      "reason": "Offline tests cannot replace live schema/data verification or smoke. No verified live replacement.",
+      "offlineReferences": [
+        {
+          "file": "tests/services-v3-production-readonly.test.mjs",
+          "npmAliases": []
+        }
+      ],
+      "operations": [
+        "scripts/services-v3-production-readonly.mjs"
+      ],
+      "manualHistory": {
+        "sampleCount": 1,
+        "latest": {
+          "id": 39753514114,
+          "conclusion": "success",
+          "createdAt": "2026-10-22T09:11:39Z",
+          "branch": "main",
+          "sha": "7a1d426957f00d6b5aa264d10aa8b87b6ce2f1c5"
+        },
+        "successfulMainRuns": [
+          {
+            "id": 39753514114,
+            "createdAt": "2026-10-22T09:11:39Z",
+            "sha": "7a1d426957f00d6b5aa264d10aa8b87b6ce2f1c5"
+          }
+        ],
+        "conclusions": {
+          "success": 1
+        }
+      },
+      "documentedReceipt": null,
+      "relatedRunbooks": [
+        "docs/services-v3-0139-production-rollout-20261022.md"
+      ],
+      "retirementPrerequisites": [
+        "Verified current production completion or durable live diagnostic replacement",
+        "Verify every offline contract and reference has equivalent coverage",
+        "Retain authorized receipts/recovery evidence and tested restoration instructions",
+        "Separate owner approval for any removal of a protected operation"
+      ]
+    }
+  ]
+}

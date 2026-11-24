@@ -163,6 +163,14 @@ Scope union doplnený o bootstrap, kontrakt, spoločný sidecar a directory fixt
 
 Lokálne overenie 07: shell zdroj bol skopírovaný do izolovaného dočasného adresára a jeho git blob hash 6b9078abd76d422881d2b0133871d484784ec24a sa presne zhodoval s PR. Bash syntax, 4 odmietnutia neplatných kontextov/profilu, 3 scenáre obnovy migrácií (úspech, návratový kód 7, čiastočný presun) prešli. Npx bol mock, bez prístupu k D1. Staticky overené poradie fixtures vo všetkých 4 workflowoch, samostatné výstupy desktop/mobile a zhodný review scope union. Reálne GitHub browser testy zatiaľ nepotvrdené.
 
+## 08 – Historické workflowy: rozhodnutie o archivácii
+
+[Retirement register](ci-v2-workflow-audit/retirement-register.json) overuje všetkých 36 historických kandidátov z kroku 02 na aktuálnej revízii 53f362a; všetky blob SHA zhodné. Všetkých 36 je iba workflow_dispatch, nie PR testy. Rozdelenie: 11 nezávislých live read-only diagnostík a 25 chránených produkčných operácií (vrátane režimov audit/apply). Pre každý je zaznamenaná konkrétna funkcia, testové a npm referencie, dostupná história a dôvod ponechania.
+
+GitHub vrátil 444 unikátnych dispatch behov z 444 reportovaných v piatich stranách. 32 kandidátov má úspešný main run v dostupnej histórii; dva majú explicitne zdokumentovaný postflight (0173 apply, 344 breed mirrors), overené run IDs. Úspech workflowu nepreukazuje, či išlo o audit alebo apply, ani aktuálny stav produkcie. Independent read-only verifier nenahradí offline test.
+
+Rozhodnutie: **0 aktívnych workflowov archivovaných alebo odstránených**, pretože žiadny z 36 nemá preukázanú bezpečnú prevádzkovú náhradu a zmena chránených produkčných operácií vyžaduje samostatný súhlas vlastníka. Odstránenie manual-only workflowov navyše nezrýchli PR CI. Všetkých 36 je vylúčených z navrhovanej konsolidácie PR CI. Retire až po doložení aktuálnej produkčnej completion/replacement, parity offline kontraktov, zachovaní recovery/receipts a owner approval. Existujúce required contexts, produkčný migrátor, scheduled a mixed joby zostávajú nedotknuté. Nevykonané žiadne produkčné operácie ani zmeny nastavení.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
@@ -172,7 +180,7 @@ Lokálne overenie 07: shell zdroj bol skopírovaný do izolovaného dočasného 
 - [x] CI-V2-05 – fail-closed per-file scope, report 8 skupín, selektívny pilot reviews, regresné kontrakty; reálne CI ešte overiť.
 - [x] CI-V2-06 – deduplikácia troch skupín a aktívneho entity CI, parity kontrakt; ďalšie workflow-only testy a runtime CI otvorené.
 - [x] CI-V2-07 – spoločný review E2E bootstrap pre 4 workflowy, Directory sidecar, oddelené reporty; ostatné browser workflowy a runtime CI otvorené.
-- [ ] CI-V2-08 – bezpečná archivácia historických workflowov až po dokázaní náhrady.
+- [x] CI-V2-08 – rozhodovací audit 36/36; žiadny bezpečne odstrániteľný bez ďalšej prevádzkovej náhrady/súhlasu; všetky vyňaté z PR CI konsolidácie.
 - [ ] CI-V2-09 – výsledné CI a zachovanie povinných kontextov.
 - [ ] CI-V2-10 – overenie parity, výkonu, spoľahlivosti; kontrola vlastníkom pred merge.
 
