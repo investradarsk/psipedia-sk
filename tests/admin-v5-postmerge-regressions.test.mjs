@@ -54,7 +54,11 @@ test("V5 post-merge: Notion audit reports a safe failing stage and stays read-on
 test("V5 post-merge: invalid transfer mapping remains fail closed with understandable error", () => {
   const queue = read("lib/notion-manual-transfer-queue.ts");
   const transfer = read("components/admin-notion-manual-transfer.tsx");
-  assert.match(queue, /!pageValid\(row\.notion_page_id\)\)throw Error\("TRANSFER_MAPPING_INVALID"\)/);
+  assert.match(queue, /throw new InvalidManualTransferMapping\(scope,row\.profile_id,"NOTION_PAGE_ID"\)/);
+  const api = read("app/api/admin/notion-manual-transfer/route.ts");
+  assert.match(api, /error instanceof InvalidManualTransferMapping/);
+  assert.match(api, /profileId:error\.profileId/);
   assert.match(transfer, /TRANSFER_MAPPING_INVALID:"Našla sa neplatná väzba/);
+  assert.match(transfer, /Oblasť: \$\{scope\}\$\{id\}/);
   assert.match(transfer, /TRANSFER_DUPLICATE_NOTION_PAGE:"Jedna Notion stránka/);
 });
