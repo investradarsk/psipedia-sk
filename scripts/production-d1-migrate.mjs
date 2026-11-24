@@ -69,6 +69,7 @@ export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([
   "0174_breeds_sql_json_foundation.sql",
   "0175_partner_private_chat.sql",
   "0176_notion_help_admin_writeback_outbox.sql",
+  "0177_profile_review_verification_settings.sql",
 ]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {
