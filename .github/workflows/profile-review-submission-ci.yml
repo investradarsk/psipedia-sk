@@ -97,6 +97,7 @@ jobs:
             printf 'TURNSTILE_SITE_KEY=%s\n' 'reviews-2b-site-key'
             printf 'TURNSTILE_SECRET_KEY=%s\n' 'reviews-2b-secret-key'
             printf 'PROFILE_REVIEW_SUBMISSIONS_ENABLED=%s\n' 'true'
+            printf 'PROFILE_REVIEW_EMAIL_REQUIRED=%s\n' 'true'
           } > .dev.vars
       - name: Apply migrations to isolated local D1
         run: |
