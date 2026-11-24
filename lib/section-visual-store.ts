@@ -31,7 +31,7 @@ type SectionVisualRow = {
 
 // Public hero visual rows are shared by anonymous visitors and change rarely.
 // Cache only public rendering reads; the admin editor continues to read D1 directly.
-// Bounded per-isolate cache deduplicates concurrent hero reads without KV, new
+// Bounded per-isolate cache reuses completed hero reads without KV, new
 // bindings, or cross-request personalization. Writes invalidate this isolate;
 // other isolates expire their entry shortly after (HTML already has an edge TTL).
 const PUBLIC_HERO_VISUAL_CACHE_TTL_MS = 15_000;

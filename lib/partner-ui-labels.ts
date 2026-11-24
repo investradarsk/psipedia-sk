@@ -14,6 +14,7 @@ const RESOURCE_STATUS_LABELS: Record<string, string> = {
   archived: "Archivované",
   ARCHIVED: "Archivované",
   ACTIVE: "Aktívne",
+  RESOLVED: "Vyriešené",
   PAUSED: "Pozastavené",
   EXPIRED: "Ukončené",
   CANCELLED: "Zrušené",

@@ -1,0 +1,106 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+import { normalizePartnerReturnTo } from "../lib/partner-return-to.ts";
+
+const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+
+test("only safe local Partner destinations are retained through registration", () => {
+  const lost = "/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=LOST";
+  const found = "/partner/koncepty/novy?typ=LOST_FOUND_DOG&druh=FOUND";
+  assert.equal(normalizePartnerReturnTo(lost), lost);
+  assert.equal(normalizePartnerReturnTo(found), found);
+  assert.equal(normalizePartnerReturnTo("/partner/koncepty/novy?typ=HELP_CASE"), "/partner/koncepty/novy?typ=HELP_CASE");
+  for (const unsafe of ["https://evil.example/", "//evil.example/", "/admin", "/api/partner/auth/consume", "/\\evil.example"]) {
+    assert.equal(normalizePartnerReturnTo(unsafe), null, unsafe);
+  }
+});
+
+test("canonical create entry remembers both type and dog report kind before session gate", () => {
+  const page = read("app/partner/koncepty/novy/page.tsx");
+  const typedPage = read("app/partner/koncepty/novy/[kind]/page.tsx");
+  const worker = read("worker/index.ts");
+  const form = read("components/partner-canonical-draft-form.tsx");
+  assert.match(page, /const \{typ,druh\}=await searchParams/);
+  assert.match(page, /initialType==="LOST_FOUND_DOG"&&\(druh==="LOST"\|\|druh==="FOUND"\)/);
+  assert.match(page, /const returnTo="\/partner\/koncepty\/novy\?typ="/);
+  assert.match(page, /await requirePartnerPageIdentity\(\{returnTo\}\)/);
+  assert.match(page, /initialReportType=\{reportType\?\?undefined\}/);
+  assert.match(typedPage, /kind === "strateny" \? "LOST"/);
+  assert.match(typedPage, /kind === "najdeny" \? "FOUND"/);
+  assert.match(typedPage, /initialType=\{initialType\}/);
+  for (const [slug, type] of [["adresar", "DIRECTORY_PROFILE"], ["organizacia", "HELP_ORGANIZATION"], ["podujatie", "MANAGED_EVENT"], ["adopcia", "ADOPTION_DOG"], ["pomoc", "HELP_CASE"], ["strateny", "LOST_FOUND_DOG"], ["najdeny", "LOST_FOUND_DOG"], ["nahlasit", "LOST_FOUND_DOG"]]) {
+    assert.ok(typedPage.includes(`${slug}: "${type}"`), `Canonical route missing ${slug}`);
+  }
+  assert.match(typedPage, /requirePartnerPageIdentity\(\{ returnTo:/);
+  assert.match(worker, /url\.searchParams\.get\("typ"\)/);
+  assert.match(worker, /draftType === "LOST_FOUND_DOG"/);
+  assert.match(worker, /draftType === "MANAGED_EVENT"/);
+  assert.match(worker, /url\.searchParams\.get\("druh"\)/);
+  assert.match(worker, /Response\.redirect\(new URL\(`/);
+  assert.match(form, /initialReportType\?:"LOST"\|"FOUND"/);
+  assert.match(form, /initial\?\.values\?\?\(initialType==="LOST_FOUND_DOG"&&initialReportType\?\{type:initialReportType\}:\{\}\)/);
+  assert.match(form, /const \[values,setValues\]=useState/);
+});
+
+test("published dog lists route to the signed-in draft editor, never the anonymous POST", () => {
+  const listing = read("components/lost-found-dogs-page.tsx");
+  const preset = read("lib/help-banner-presets.ts");
+  assert.match(listing, /\/partner\/koncepty\/novy\/strateny/);
+  assert.match(listing, /\/partner\/koncepty\/novy\/najdeny/);
+  assert.doesNotMatch(listing, /lostFoundSubmissionEnabled|stratene-a-najdene\/nahlasit/);
+  assert.match(preset, /href: "\/partner\/koncepty\/novy\/nahlasit"/);
+  assert.match(preset, /Prihláste sa alebo si vytvorte účet/);
+});
+
+test("all legacy Partner creation aliases defer authentication to the canonical page", () => {
+  for (const [path, slug] of [
+    ["app/partner/profily/novy/page.tsx", "adresar"],
+    ["app/partner/podujatia/nove/page.tsx", "podujatie"],
+    ["app/partner/pomoc/nova/page.tsx", "adopcia"],
+  ]) {
+    const source = read(path);
+    assert.ok(source.includes(`redirect("/partner/koncepty/novy/${slug}")`), path);
+    assert.doesNotMatch(source, /requirePartnerPageIdentity/);
+  }
+});
+
+test("bookmarked Partner draft and profile editors return to the exact record after login", () => {
+  for (const [path, parameter] of [
+    ["app/partner/koncepty/[id]/page.tsx", "id"],
+    ["app/partner/pomoc/[resourceId]/upravit/page.tsx", "resourceId"],
+    ["app/partner/profily/[resourceId]/upravit/page.tsx", "resourceId"],
+    ["app/partner/podujatia/[resourceId]/upravit/page.tsx", "resourceId"],
+  ]) {
+    const source = read(path);
+    assert.match(source, /requirePartnerPageIdentity\(\{returnTo:/);
+    assert.ok(source.includes("encodeURIComponent("+parameter+")"), path);
+  }
+});
+
+test("password, magic-link, Google and onboarding keep the validated returnTo", () => {
+  const password = read("components/partner-password-auth-form.tsx");
+  const magic = read("components/partner-auth-form.tsx");
+  const verification = read("components/partner-verification.tsx");
+  const google = read("lib/partner-google-auth.ts");
+  const onboarding = read("components/partner-contact-profile-form.tsx");
+  const login = read("app/partner/prihlasenie/page.tsx");
+  const register = read("app/partner/registracia/page.tsx");
+  assert.match(password, /window\.location\.replace\(destination\(data\.onboardingComplete, returnTo\)\)/);
+  assert.match(magic, /body: JSON\.stringify\(\{ email, turnstileToken, returnTo/);
+  assert.match(verification, /window\.location\.replace\(returnTo \|\| "\/partner"\)/);
+  assert.match(google, /postAuthTarget\(onboardingComplete,flow\.returnTo\)/);
+  assert.match(onboarding, /window\.location\.replace\(returnTo \|\| "\/partner"\)/);
+  assert.match(login, /Pre majiteľov psov, poskytovateľov služieb/);
+  assert.match(register, /Organizáciu ani firmu mať nemusíte/);
+  assert.match(magic, /<span>E-mail<\/span>/);
+});
+
+test("step 3 cutover retires anonymous creation while keeping historic moderation support", () => {
+  const oldPage = read("app/pomoc-psom/stratene-a-najdene/nahlasit/page.tsx");
+  const oldApi = read("app/api/lost-found/submissions/route.ts");
+  const history = read("lib/lost-found-public-moderation.ts");
+  assert.match(oldPage, /redirect\(target\)/);
+  assert.match(oldApi, /status: 410/);
+  assert.match(history, /PUBLIC_REPORTER/);
+});

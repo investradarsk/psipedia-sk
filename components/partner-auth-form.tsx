@@ -47,7 +47,7 @@ export function PartnerAuthForm({ mode, siteKey, returnTo = null }: Props) {
   return (
     <form className="partner-auth-form" onSubmit={submit}>
       <label className="partner-field">
-        <span>Pracovný e-mail</span>
+        <span>E-mail</span>
         <input
           type="email"
           autoComplete="email"

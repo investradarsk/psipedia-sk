@@ -3,6 +3,7 @@
  */
 import { env } from "cloudflare:workers";
 import { getPartnerDatabase } from "./partner-auth-store";
+import { isCanonicalReturnedNotice } from "./partner-canonical-notices";
 
 const descriptions:Record<string,string>={
   CLAIM_SUBMITTED:"Žiadosť o správu profilu bola prijatá",
@@ -33,11 +34,11 @@ export type PartnerActivity={id:string;title:string;createdAt:string;href:string
 export async function listPartnerActivity(input:{accountId:string;database?:D1Database}){
   const db=getPartnerDatabase(input.database??(env as unknown as {DB?:D1Database}).DB);
   const [notices,chat]=await Promise.all([
-    db.prepare("SELECT id,notification_type notificationType,created_at createdAt "+
+    db.prepare("SELECT id,notification_type notificationType,dedupe_key dedupeKey,created_at createdAt "+
       "FROM partner_notification_outbox WHERE partner_account_id=? "+
       "AND notification_type NOT IN ('AUTH_MAGIC_LINK','PASSWORD_RESET') "+
       "ORDER BY created_at DESC LIMIT 40")
-      .bind(input.accountId).all<{id:string;notificationType:string;createdAt:string}>(),
+      .bind(input.accountId).all<{id:string;notificationType:string;dedupeKey:string;createdAt:string}>(),
     db.prepare("SELECT id,created_at createdAt FROM partner_chat_messages "+
       "WHERE partner_account_id=? AND sender_role='ADMIN' "+
       "ORDER BY created_at DESC LIMIT 40")
@@ -45,9 +46,14 @@ export async function listPartnerActivity(input:{accountId:string;database?:D1Da
   ]);
   const combined:PartnerActivity[]=[
     ...notices.results.map(row=>({
-      id:"notice-"+row.id,title:descriptions[row.notificationType]??"Aktualizácia partnerského účtu",
+      id:"notice-"+row.id,
+      title:isCanonicalReturnedNotice(row.notificationType,row.dedupeKey)
+        ?row.notificationType==="EVENT_SUBMITTED"?"Podujatie bolo vrátené na doplnenie":"Profil alebo hlásenie bolo vrátené na doplnenie"
+        :descriptions[row.notificationType]??"Aktualizácia partnerského účtu",
       createdAt:row.createdAt,
-      href:row.notificationType.startsWith("COMMERCIAL_")||row.notificationType.startsWith("ENTITLEMENT_")||
+      href:isCanonicalReturnedNotice(row.notificationType,row.dedupeKey)
+        ?"/partner/koncepty/"+row.dedupeKey.split("/")[1]
+        :row.notificationType.startsWith("COMMERCIAL_")||row.notificationType.startsWith("ENTITLEMENT_")||
         row.notificationType==="PAYMENT_MARKED_PAID"?"/partner/propagacia":"/partner/ziadosti",
       kind:"DECISION" as const,
     })),

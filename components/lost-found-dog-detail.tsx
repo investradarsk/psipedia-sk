@@ -97,7 +97,9 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
   return <main id="obsah" tabIndex={-1} className={styles.detail}>
     <StructuredData value={schema} />
     <DetailHero kind="lost-found" breadcrumbs={    <nav className={styles.crumbs} aria-label="Omrvinková navigácia"><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><Link href={dogReportBasePath(type)}>{type === "LOST" ? "Stratené psy" : "Nájdené psy"}</Link><span aria-hidden="true">/</span><span>{breadcrumbLabel}</span></nav>}
-      copy={<>    <div className={styles.statusBanner} data-state={report.status}><strong>{dogReportStatusLabel[report.status]}</strong><span>{active ? "Hlásenie je stále aktuálne." : "Tento prípad už nie je vedený ako aktívny."}</span></div>
+      copy={<>    <div className={styles.statusBanner} data-state={report.status}><strong>{dogReportStatusLabel[report.status]}</strong><span>{active ? "Hlásenie je stále aktuálne." : report.status === "RESOLVED"
+          ? (type === "LOST" ? "Pes sa našiel. Hlásenie je uzavreté." : "Pes sa vrátil majiteľovi. Hlásenie je uzavreté.")
+          : "Tento prípad už nie je vedený ako aktívny."}</span></div>
         <span className={`${styles.badge} ${type === "LOST" ? styles.lost : styles.found}`}>{dogReportTypeLabel(type)}</span>
         <h1 className={styles.reportTitle} id={`dog-report-${report.id}`}>{dogReportTitle(report)}</h1>
         <div className={styles.detailMeta}><span><strong>Lokalita</strong> {report.city}{report.district ? ` · ${report.district}` : ""} · {report.region}</span><span><strong>Dátum</strong> {formatDogReportDate(report.eventDate)}</span></div>
@@ -136,6 +138,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
         {active && !report.sourceUrl && !publicPhoneHref && !publicEmailHref
           ? <DetailActions><PublicActionLink href={relayHref}>Kontaktovať cez Psipediu</PublicActionLink></DetailActions>
           : null}
+        {active && <p><Link href={`/partner/prevziat-profil/LOST_FOUND_DOG/${report.id}`}>Spravujete toto hlásenie? Požiadať o správu</Link></p>}
         <div className={styles.safetyPanel}><DetailSection compactHeading title="Bezpečný kontakt">
           <p>Pri osobnom stretnutí dbajte na vlastnú bezpečnosť a presnú súkromnú adresu nezverejňujte verejne. Ak je pes vystrašený alebo sa správa nepredvídateľne, neprenasledujte ho bez vhodného zabezpečenia.</p>
         </DetailSection></div>
@@ -146,6 +149,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
         </DetailSection> : null}
         <DetailFactsCard title="Aktuálnosť a zdroj" facts={[
           {label:"Aktualizované",value:formatDogReportDate(report.updatedAt,true)},
+          ...(report.status === "RESOLVED" && report.resolvedAt ? [{label:"Vyriešené",value:formatDogReportDate(report.resolvedAt,true)}] : []),
           ...(report.source ? [{label:"Zdroj",value:report.source}] : []),
         ]} />
       </aside>

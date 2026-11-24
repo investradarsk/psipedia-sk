@@ -254,6 +254,7 @@ export async function approvePartnerClaimAdmin(input: {
   database?: D1Database;
   now?: Date;
   hashKey?: string;
+  reporterIdentityVerified?: unknown;
 }) {
   if (!safeId(input.id)) throw new PartnerClaimAdminError("Neplatný claim.");
   if(input.id.startsWith("help-claim-"))return decidePartnerHelpClaimAdmin({...input,action:"APPROVE"});

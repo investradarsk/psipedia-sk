@@ -81,7 +81,8 @@ test("alerts center, shared bell and active/history controls are accessible and 
   await expect(adminNavigation.getByRole("link", { name: "Profilové recenzie", exact: true })).toHaveAttribute("href", "/admin/recenzie-profilov");
   await expect(adminNavigation.getByRole("link", { name: "Tipy", exact: true })).toHaveAttribute("href", "/admin/tipy");
   await expect(adminNavigation.getByRole("link", { name: "Hodnotenia", exact: true })).toHaveAttribute("href", "/admin/hodnotenia");
-  await expect(adminNavigation.getByRole("link", { name: "Dopyty", exact: true })).toHaveAttribute("href", "/admin/dopyty");
+  // Partner intake unifies public requests and partner submissions in one inbox.
+  await expect(adminNavigation.getByRole("link", { name: "Podania a dopyty", exact: true })).toHaveAttribute("href", "/admin/podania");
   await expect(adminNavigation.getByRole("link", { name: "Návrhy úprav", exact: true })).toHaveCount(0);
   await expect(adminNavigation.getByRole("link", { name: "Operácie", exact: true })).toHaveCount(0);
 

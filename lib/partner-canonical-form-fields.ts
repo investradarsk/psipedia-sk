@@ -9,7 +9,7 @@ import { directoryCategories } from "./directory";
 import { directoryFilterRegistry } from "./directory-filter-contract";
 import type { PartnerCanonicalType } from "./partner-canonical-workflow";
 
-export type CanonicalFieldKind="text"|"textarea"|"select"|"url"|"date"|"time"|"number"|"checkbox"|"nullableBoolean"|"list";
+export type CanonicalFieldKind="text"|"textarea"|"select"|"url"|"date"|"time"|"datetime-local"|"number"|"checkbox"|"nullableBoolean"|"list";
 export type CanonicalFormField={
   key:string;label:string;kind:CanonicalFieldKind;
   required:boolean;options?:string[];max?:number;minimum?:number;maximum?:number;categoryScope?:string;
@@ -51,7 +51,8 @@ export function getPartnerCanonicalFormFields():Record<PartnerCanonicalType,Cano
     ADOPTION_DOG:help("ADOPTION_DOG"),
     LOST_FOUND_DOG:[
       {...make("type","Typ hlásenia","select",["LOST","FOUND"]),required:true},
-      ...help("LOST_FOUND_DOG"),
+      ...help("LOST_FOUND_DOG").map(field=>field.key==="last_seen_date_time"
+        ?{...field,kind:"datetime-local" as const}:field),
     ],
     HELP_CASE:help("HELP_CASE").map(field=>
       field.key==="category"?{...field,required:true}:field),

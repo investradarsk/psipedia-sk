@@ -141,6 +141,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
           {accounts.page < accounts.totalPages && <Link href={pageUrl(accounts.page+1)}>Ďalšia →</Link>}
         </nav>
       </section>
+      <p><Link href="/admin/podania?kind=PARTNER">Otvoriť spoločný prehľad podaní a dopytov →</Link></p>
       <section className="admin-partner-v2-legacy" data-admin-partner-attention>
         <details>
           <summary>Staršie prehľady žiadostí {pending.total > 0 ? `(${pending.total} položiek na vybavenie)` : ""}</summary>

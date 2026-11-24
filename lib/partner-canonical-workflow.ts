@@ -19,6 +19,8 @@ import { organizationPublicationTypes } from "./help-organization-publication";
 import { partnerHelpCaseCategories } from "./partner-help-create";
 import { enqueueAdminNotificationEvent } from "./admin-notifications";
 import { helpEditorFields } from "./partner-help-editor-fields";
+import { getPartnerLostFoundSubmitIssue } from "./partner-lost-found-intake";
+import { canonicalNoticeStatement } from "./partner-canonical-notices";
 import { normalizeProfileGalleryUrls, mergeProfileGallery, readProfileGallery } from "./partner-profile-gallery";
 import { normalizeAdditionalDirectoryCategories } from "./directory-multi-category";
 import { planDirectorySecondaryCategorySqlMirror } from "./directory-secondary-category-sql";
@@ -70,6 +72,7 @@ const kinds:Record<PartnerCanonicalType,DraftKind> = {
       ...textFields(["name","sex","size","approximateAgeMonths","breedName","region","district","city",
         "organizationName","shortDescription","description"]),
       ...Object.fromEntries(helpEditorFields.ADOPTION_DOG.map(field=>[field.key,field.key])),
+      galleryUrls:"gallery_json",
     },
   },
   LOST_FOUND_DOG:{
@@ -78,6 +81,7 @@ const kinds:Record<PartnerCanonicalType,DraftKind> = {
       ...textFields(["type","dogName","sex","breed","color","size","eventDate","region","district","city",
         "locationDescription","description"]),
       ...Object.fromEntries(helpEditorFields.LOST_FOUND_DOG.map(field=>[field.key,field.key])),
+      galleryUrls:"gallery_json",
     },
   },
   HELP_CASE:{
@@ -90,7 +94,10 @@ const kinds:Record<PartnerCanonicalType,DraftKind> = {
 };
 const helpers:ReadonlySet<PartnerCanonicalType>=new Set(partnerCanonicalTypes);
 const pendingStates=["SUBMITTED","PENDING_REVIEW","QUARANTINED"];
-const editableStates=["DRAFT",...pendingStates,"RETURNED"];
+// Partner may edit only an unsubmitted draft or one explicitly returned by Admin.
+// Freeze the canonical snapshot while review is pending: Admin must never
+// approve data silently changed after the reviewer opened the submission.
+const editableStates=["DRAFT","RETURNED"];
 const CAS_GUARD_SQL="SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('PARTNER_CANONICAL_DRAFT_REVISION_CONFLICT',char(36)) END AS accepted";
 const accountActor=(id:string)=>"partner:"+id;
 function database(input?:D1Database){return getPartnerDatabase(input??(env as unknown as {DB?:D1Database}).DB);}
@@ -165,6 +172,12 @@ function cleanFields(type:PartnerCanonicalType,raw:unknown){
     if(typeof value!=="string"||value.length>20000||/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value))
       throw new PartnerCanonicalWorkflowError("Pole "+key+" obsahuje neplatnú hodnotu.");
     const text=value.trim();
+    // Keep SQL CHECK defaults when incomplete LOST/FOUND drafts are saved.
+    // A draft must be saveable before a partner fills the mandatory report details.
+    if(type==="LOST_FOUND_DOG"&&text===""){
+      const defaults:Record<string,string>={sex:"UNKNOWN",size:"UNKNOWN",chipped:"UNKNOWN",public_location_precision:"MUNICIPALITY"};
+      if(Object.hasOwn(defaults,key)){clean[key]=defaults[key];continue;}
+    }
     if(detail?.kind==="select"&&text&&!(detail.options??[]).includes(text))
       throw new PartnerCanonicalWorkflowError("Neplatná možnosť: "+key);
     if(detail?.kind==="date"&&text&&!/^\d{4}-\d{2}-\d{2}$/.test(text))
@@ -298,7 +311,7 @@ export async function getPartnerCanonicalDraft(input:{accountId:string;id:string
   const values:Record<string,unknown>={};
   for(const key of Object.keys(mapping)){
     const v=current[key];
-    if(key==="services"||key==="qualifications"){
+    if(key==="services"||key==="qualifications"||key==="galleryUrls"){
       try{values[key]=JSON.parse(String(v??"[]"))}catch{values[key]=[]}
     }else{
       const def=helpFieldDefinitions[row.resourceType]?.[key];
@@ -362,7 +375,7 @@ export async function savePartnerCanonicalDraft(input:{
     " AND EXISTS(SELECT 1 FROM moderation_submissions s WHERE s.id=?"+
     (entries.length+(row.resourceType==="LOST_FOUND_DOG"?4:5))+
     " AND s.submitter_ref=?"+(entries.length+(row.resourceType==="LOST_FOUND_DOG"?5:6))+
-    " AND s.status IN ('DRAFT','SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED'))";
+    " AND s.status IN ('DRAFT','RETURNED'))";
   const params=[...bindings,nowIso,...(row.resourceType==="LOST_FOUND_DOG"?[]:[accountActor(input.accountId)]),
     row.canonicalId,input.baseUpdatedAt,row.id,input.accountId];
   try{
@@ -371,7 +384,7 @@ export async function savePartnerCanonicalDraft(input:{
       guard(db),
       ...relationStatements,
       db.prepare("UPDATE moderation_submissions SET proposed_patch_json=json_patch(COALESCE(proposed_patch_json,'{}'),?1),updated_at=?2 "+
-        "WHERE id=?3 AND submitter_ref=?4 AND status IN ('DRAFT','SUBMITTED','PENDING_REVIEW','QUARANTINED','RETURNED')")
+        "WHERE id=?3 AND submitter_ref=?4 AND status IN ('DRAFT','RETURNED')")
         .bind(JSON.stringify(data),nowIso,row.id,input.accountId),
       guard(db),
       ...(mediaPlan?.statements??[]),
@@ -397,6 +410,13 @@ export async function submitPartnerCanonicalDraft(input:{accountId:string;id:str
   const current=await canonicalRevision(row,db);
   if(!current||!["draft","DRAFT"].includes(current.status))
     throw new PartnerCanonicalWorkflowError("Koncept už nie je neverejný.",409);
+  if(row.resourceType==="LOST_FOUND_DOG"){
+    const draft=await getPartnerCanonicalDraft({accountId:input.accountId,id:row.id,database:db});
+    if(draft.baseUpdatedAt!==current.updatedAt)
+      throw new PartnerCanonicalWorkflowError("Koncept sa počas odosielania zmenil. Obnovte ho.",409);
+    const issue=getPartnerLostFoundSubmitIssue(draft.values,input.now??new Date());
+    if(issue)throw new PartnerCanonicalWorkflowError(issue.message,422,"INCOMPLETE_LOST_FOUND_REPORT");
+  }
   // The old new-profile page now redirects here. Preserve its HIGH-duplicate
   // confirmation gate, and never match the draft against its own canonical row.
   const duplicateStatements:D1PreparedStatement[]=[];
@@ -419,15 +439,19 @@ export async function submitPartnerCanonicalDraft(input:{accountId:string;id:str
       "WHERE submission_id=?3 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?3 AND status='SUBMITTED')")
       .bind(confidence,JSON.stringify(candidates.map(partnerSafeDuplicateCandidate)),row.id));
   }
-  const now=input.now??new Date(),nowIso=now.toISOString();
+  const now=input.now??new Date(),nowIso=now.toISOString(),eventId=crypto.randomUUID();
   await applyAtomicModerationTransition(db,{
     id:row.id,expectedStatus:row.status,toStatus:"SUBMITTED",actorType:"PARTNER",
-    actorRef:accountActor(input.accountId),eventId:crypto.randomUUID(),changedFieldsJson:'["status"]',now:nowIso,
-    transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+" WHERE id=? AND status IN ('draft','DRAFT'))",
-      bindings:[row.canonicalId]},
-    extraStatements:duplicateStatements,
+    actorRef:accountActor(input.accountId),eventId,changedFieldsJson:'["status"]',now:nowIso,
+    transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+" WHERE id=? AND status IN ('draft','DRAFT') AND updated_at=?)",
+      bindings:[row.canonicalId,current.updatedAt]},
+    // Abort the D1 batch before creating any receipt if moderation CAS lost.
+    extraStatements:[guard(db),...duplicateStatements,canonicalNoticeStatement(db,{
+      submissionId:row.id,accountId:row.accountId,resourceType:row.resourceType,
+      phase:"SUBMITTED",transitionId:eventId,nowIso,
+    })],
   });
-  // Notifications must never accidentally expose a still-unsubmitted draft.
+  // Both transition and recipient receipt are committed atomically in D1.
   try{
     await enqueueAdminNotificationEvent(db,{
       eventType:"partner_new_profile_submitted",sourceType:"PARTNER_NEW_PROFILE_REVIEW",
@@ -537,8 +561,11 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
   const revision=await canonicalRevision(row,db);
   if(!revision||!["draft","DRAFT"].includes(revision.status))
     throw new PartnerCanonicalWorkflowError("Kanonický profil už nie je koncept.",409);
-  if(input.expectedCanonicalUpdatedAt&&revision.updatedAt!==input.expectedCanonicalUpdatedAt)
-    throw new PartnerCanonicalWorkflowError("Profil sa počas kontroly zmenil. Obnovte editor.",409);
+  // Admin approval must be tied to the exact canonical revision reviewed on
+  // the detail page, not merely whatever happens to be current at PATCH time.
+  // Reject clients that omit the precondition as well as stale review tabs.
+  if(input.action==="APPROVE"&&(!input.expectedCanonicalUpdatedAt||revision.updatedAt!==input.expectedCanonicalUpdatedAt))
+    throw new PartnerCanonicalWorkflowError("Profil sa počas kontroly zmenil alebo chýba overená verzia. Obnovte kontrolu.",409,"STALE_CANONICAL_REVIEW");
   const outcome=input.action==="APPROVE"?"APPROVED":input.action==="RETURN"?"RETURNED":"REJECTED";
   const extras:D1PreparedStatement[]=[];
   if(input.action==="APPROVE"){
@@ -557,12 +584,10 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
       "VALUES(?1,'ADMIN',?2,?3,'MODERATION_SUBMISSION',?4,?5,?6)")
       .bind(crypto.randomUUID(),actorRef,action,row.id,JSON.stringify({canonicalId:row.canonicalId,
         resourceType:row.resourceType,accountId:row.accountId}),nowIso));
-    const notice=row.resourceType==="MANAGED_EVENT"?"EVENT_CREATED":"NEW_PROFILE_CREATED";
-    extras.push(db.prepare("INSERT OR IGNORE INTO partner_notification_outbox "+
-      "(id,partner_account_id,notification_type,dedupe_key,status,expires_at,attempts,created_at,updated_at) "+
-      "VALUES(?1,?2,?3,?4,'PENDING',?5,0,?6,?6)")
-      .bind(crypto.randomUUID(),row.accountId,notice,"partner-canonical-approved/"+row.id,
-        new Date(Date.parse(nowIso)+30*86400000).toISOString(),nowIso));
+    extras.push(canonicalNoticeStatement(db,{
+      submissionId:row.id,accountId:row.accountId,resourceType:row.resourceType,
+      phase:"APPROVED",transitionId:"final",nowIso,
+    }));
   }
   if(input.action==="REJECT"){
     const {coverId,galleryIds}=parseCanonicalDraftMedia(row.proposedPatchJson);
@@ -570,14 +595,20 @@ export async function decidePartnerCanonicalDraftAdmin(input:{
       extras.push(db.prepare("UPDATE media_assets SET state='REJECTED',reviewed_at=? WHERE id=? AND owner_id=? AND state='ATTACHED'")
         .bind(nowIso,id,row.accountId));
   }
+  const decisionEventId=crypto.randomUUID();
+  if(input.action==="RETURN"||input.action==="REJECT")extras.push(canonicalNoticeStatement(db,{
+    submissionId:row.id,accountId:row.accountId,resourceType:row.resourceType,
+    phase:input.action==="RETURN"?"RETURNED":"REJECTED",transitionId:decisionEventId,nowIso,
+  }));
   await applyAtomicModerationTransition(db,{
     id:row.id,expectedStatus:"PENDING_REVIEW",toStatus:outcome,actorType:"ADMIN",actorRef,
-    eventId:crypto.randomUUID(),changedFieldsJson:'["status"]',now:nowIso,
+    eventId:decisionEventId,changedFieldsJson:'["status"]',now:nowIso,
     reasonCode:input.action==="RETURN"?input.note?.trim():input.action==="REJECT"?"OTHER":null,
     transitionGuard:{sql:"EXISTS(SELECT 1 FROM "+tableFor(row.resourceType)+
       " WHERE id=? AND status IN ('draft','DRAFT') AND updated_at=?)",
       bindings:[row.canonicalId,revision.updatedAt]},
-    extraStatements:extras,
+    // The moderation CAS must succeed before publication, media and email rows.
+    extraStatements:[guard(db),...extras],
   });
   return {id:row.id,resourceType:row.resourceType,canonicalId:row.canonicalId,
     status:outcome,editorHref:canonicalHref(row.resourceType,row.canonicalId)};
@@ -601,7 +632,7 @@ export async function listPartnerCanonicalDrafts(accountId:string,dbInput?:D1Dat
     try{const parsed=JSON.parse(proposedPatchJson) as unknown;
       if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed))values=parsed as Record<string,unknown>;
     }catch{}
-    return {...row,title:String(values.name??values.title??values.dogName??"Bez názvu")||"Bez názvu",
+    return {...row,title:String(values.name||values.title||values.dog_name||values.dogName||(row.resourceType==="LOST_FOUND_DOG"?values.city:"")||"Bez názvu"),
       partnerHref:"/partner/koncepty/"+encodeURIComponent(row.id)};
   });
 }

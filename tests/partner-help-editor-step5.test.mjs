@@ -77,7 +77,7 @@ test("Approved Help editor is linked from managed resources and uses shared medi
   ].map(read));
   assert.match(dashboard,/\/partner\/pomoc\/\$\{id\}\/upravit/);
   assert.match(profiles,/\/partner\/pomoc\/\$\{encodeURIComponent\(item.resourceId\)\}\/upravit/);
-  assert.match(page,/requirePartnerPageIdentity\(\)/);
+  assert.match(page,/requirePartnerPageIdentity\(\{returnTo:"\/partner\/pomoc\/"\+encodeURIComponent\(resourceId\)\+"\/upravit"\}\)/);
   assert.match(page,/getPartnerHelpEditor\(identity.accountId, resourceId\)/);
   assert.match(form,/PartnerMediaField/);
   assert.match(form,/PartnerGalleryField/);

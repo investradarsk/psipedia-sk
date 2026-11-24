@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminPartnerCanonicalReturn } from "@/components/admin-partner-canonical-return";
 import { AdminPartnerNewProfileActions, AdminPartnerNewProfileCandidateLinkButton } from "@/components/admin-partner-new-profile-actions";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getPartnerNewProfileAdmin } from "@/lib/partner-new-profile-admin";
@@ -57,6 +58,7 @@ export default async function Page({params}:{params:Promise<{id:string}>}){
 
     <section className="admin-form-card"><h2>História rozhodnutí</h2><div className="admin-audit-list">{submission.moderation.length?submission.moderation.map((event)=><article key={String((event as {id?:unknown}).id)}><strong>{String((event as {action?:unknown}).action??"")}</strong><span>{String((event as {fromStatus?:unknown}).fromStatus??"—")} → {String((event as {toStatus?:unknown}).toStatus??"—")}</span><small>{new Date(String((event as {createdAt?:unknown}).createdAt)).toLocaleString("sk-SK")}</small></article>):<p>Bez udalostí.</p>}</div></section>
 
-    {submission.active?<AdminPartnerNewProfileActions id={submission.id} candidateIds={submission.duplicateCandidates.map((candidate)=>candidate.canonicalId)} hasImage={Boolean(submission.media)} isCanonicalDraft={Boolean(submission.subjectId)}/>:<section className="admin-form-card"><h2>Výsledok</h2><p>{submission.statusLabel}</p>{submission.rejectionReason?<p>Dôvod: {submission.rejectionReason}</p>:null}</section>}
+    {submission.active?<AdminPartnerNewProfileActions id={submission.id} candidateIds={submission.duplicateCandidates.map((candidate)=>candidate.canonicalId)} hasImage={Boolean(submission.media)} isCanonicalDraft={Boolean(submission.subjectId)} canonicalUpdatedAt={submission.canonicalUpdatedAt}/>:<section className="admin-form-card"><h2>Výsledok</h2><p>{submission.statusLabel}</p>{submission.rejectionReason?<p>Dôvod: {submission.rejectionReason}</p>:null}</section>}
+    {submission.active&&submission.subjectId?<AdminPartnerCanonicalReturn submissionId={submission.id}/>:null}
   </AdminShell>;
 }

@@ -1184,6 +1184,7 @@
 
 /* Compact public desktop typography, shared with homepage-derived sections. */
 :root {
+  --ps-public-heading-font: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
   --ps-heading-page: clamp(1.8rem, 2.5vw, 2.4rem);
   --ps-heading-content-section: clamp(1.2rem, 1.65vw, 1.5rem);
   --ps-heading-panel: 0.78rem;

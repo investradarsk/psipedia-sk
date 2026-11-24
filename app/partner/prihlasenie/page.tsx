@@ -26,7 +26,7 @@ export default async function PartnerLoginPage({ searchParams }: { searchParams:
         <div className="partner-auth-copy">
           <span className="eyebrow">Partner účet Psipedia.sk</span>
           <h1>Prihlásenie do Partner účtu</h1>
-          <p className="lead">Pre poskytovateľov služieb, organizácie, správcov profilov a organizátorov podujatí na Psipedii.</p>
+          <p className="lead">Pre majiteľov psov, poskytovateľov služieb, organizácie a organizátorov podujatí. Spravujte svoje profily, hlásenia aj komunikáciu s redakciou na jednom mieste.</p>
           <p className="partner-auth-help">Nemám Partner účet: <Link href={returnTo ? `/partner/registracia?returnTo=${encodeURIComponent(returnTo)}` : "/partner/registracia"}>Vytvoriť Partner účet</Link></p>
         </div>
         <div className="partner-auth-card">

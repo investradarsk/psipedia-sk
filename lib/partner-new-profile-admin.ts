@@ -197,7 +197,12 @@ export async function getPartnerNewProfileAdmin(id:string,input:{database?:D1Dat
       reason_code reasonCode,changed_fields_json changedFieldsJson,created_at createdAt
     FROM moderation_events WHERE submission_id=?1 ORDER BY created_at ASC,id ASC
   `).bind(id).all()).results;
-  return {...item,moderation};
+  const idNumber=row.subjectId?Number(row.subjectId):null;
+  const table=row.resourceType==="DIRECTORY_PROFILE"?"directory_profiles":"help_organizations";
+  const canonicalUpdatedAt=idNumber&&Number.isSafeInteger(idNumber)&&idNumber>0
+    ?(await database.prepare("SELECT updated_at updatedAt FROM "+table+" WHERE id=?1 LIMIT 1")
+        .bind(idNumber).first<{updatedAt:string}>())?.updatedAt??null:null;
+  return {...item,moderation,canonicalUpdatedAt};
 }
 
 async function ensurePendingReview(id:string,status:string,actorRef:string,database:D1Database,requestId?:string|null){
@@ -395,13 +400,15 @@ async function currentMembershipAndVerification(input:{
 
 export async function createPartnerNewProfileAdmin(input:{
   id:string;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date;
+  expectedCanonicalUpdatedAt?:string;
 }){
   const database=db(input.database);
   let row=await raw(input.id,database);
   if(!row)throw new PartnerNewProfileError("Návrh sa nenašiel.",404);
   if(row.status==="APPROVED"&&row.resolutionType)return getPartnerNewProfileAdmin(input.id,{database});
   if(row.subjectId){
-    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"APPROVE",database,now:input.now});
+    await decidePartnerCanonicalDraftAdmin({id:input.id,adminEmail:input.adminEmail,action:"APPROVE",database,now:input.now,
+      expectedCanonicalUpdatedAt:input.expectedCanonicalUpdatedAt});
     return getPartnerNewProfileAdmin(input.id,{database});
   }
   await assertNewProfileIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,database});

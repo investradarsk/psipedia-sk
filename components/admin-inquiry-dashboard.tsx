@@ -17,10 +17,11 @@ function formatDate(value: string) {
 
 const statusLabels: Record<DirectoryInquiryStatus, string> = { new: "Nový", read: "Prečítaný", resolved: "Vybavený" };
 
-export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: DirectoryInquiry[] }) {
+export function AdminInquiryDashboard({ initialInquiries, initialFocusedId=null }: { initialInquiries: DirectoryInquiry[]; initialFocusedId?:number|null }) {
   const router = useRouter();
   const [inquiries, setInquiries] = useState(initialInquiries);
-  const [page, setPage] = useState(1);
+  const initialIndex=initialFocusedId===null?-1:initialInquiries.findIndex(item=>item.id===initialFocusedId);
+  const [page, setPage] = useState(initialIndex<0?1:Math.floor(initialIndex/COMMUNITY_PAGE_SIZE)+1);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [busyId, setBusyId] = useState<number | null>(null);

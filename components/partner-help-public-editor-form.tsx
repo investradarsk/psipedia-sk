@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { HelpEditorField, HelpEditorType, HelpEditorValue } from "@/lib/partner-help-editor-fields";
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { usePartnerUnsavedGuard } from "@/lib/use-partner-unsaved-guard";
@@ -14,6 +15,8 @@ type Props = {
   fields: readonly HelpEditorField[];
   originalValues: Record<string, HelpEditorValue>;
   initialRevision: string;
+  reportStatus?: string;
+  reportType?: "LOST" | "FOUND" | null;
   imageUrl: string | null;
   gallery: string[];
 };
@@ -29,7 +32,8 @@ function asApiValue(field:HelpEditorField,value:string|boolean){
   if(field.kind==="number")return String(value).trim() === ""?null:Number(value);
   return String(value);
 }
-export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,originalValues,initialRevision,imageUrl,gallery}:Props) {
+export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,originalValues,initialRevision,reportStatus,reportType,imageUrl,gallery}:Props) {
+  const router=useRouter();
   const initial = () => Object.fromEntries(fields.map(field=>[field.key,asInputValue(field,originalValues[field.key])])) as Record<string,string|boolean>;
   const [values,setValues] = useState<Record<string,string|boolean>>(initial);
   const [baseline,setBaseline] = useState<Record<string,string|boolean>>(initial);
@@ -39,6 +43,8 @@ export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,origin
   const [mediaAssetId,setMediaAssetId] = useState<string|null>(null);
   const [galleryUrls,setGalleryUrls] = useState<string[]>(gallery);
   const [galleryMediaIds,setGalleryMediaIds] = useState<string[]>([]);
+  const [resolutionState,setResolutionState]=useState<"idle"|"sending"|"success"|"error">("idle");
+  const [resolutionMessage,setResolutionMessage]=useState("");
 
   const dirty=JSON.stringify(values)!==JSON.stringify(baseline)
     ||Boolean(mediaAssetId)||galleryMediaIds.length>0||JSON.stringify(galleryUrls)!==JSON.stringify(gallery);
@@ -69,6 +75,34 @@ export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,origin
       setState("success");
       setMessage("Zmeny sú uložené. Pred ďalšou úpravou obnovte editor, aby ste pracovali s aktuálnou verziou.");
     }catch(error){setState("error");setMessage(error instanceof Error?error.message:"Uloženie zlyhalo.");}
+  }
+  async function resolveReport(){
+    if(entityType!=="LOST_FOUND_DOG"||reportStatus!=="ACTIVE"||resolutionState==="sending"||resolutionState==="success")return;
+    if(dirty||state==="sending"||state==="success"){
+      setResolutionState("error");
+      setResolutionMessage("Najprv uložte rozpracované úpravy a obnovte editor.");
+      return;
+    }
+    const question=reportType==="FOUND"
+      ?"Naozaj sa nájdený pes vrátil majiteľovi? Hlásenie označíme za vyriešené."
+      :"Naozaj sa stratený pes našiel? Hlásenie označíme za vyriešené.";
+    if(!window.confirm(question))return;
+    setResolutionState("sending");setResolutionMessage("");
+    try{
+      const response=await fetch(`/api/partner/help-records/${encodeURIComponent(resourceId)}/resolve`,{
+        method:"PATCH",headers:{"content-type":"application/json"},
+        body:JSON.stringify({baseRevision:revision}),
+      });
+      const result=await response.json() as {error?:string;result?:{status:string}};
+      if(!response.ok||result.result?.status!=="RESOLVED")
+        throw new Error(result.error??"Hlásenie sa nepodarilo uzavrieť.");
+      setResolutionState("success");
+      setResolutionMessage("Hlásenie je vyriešené. Už sa nezobrazuje medzi aktívnymi prípadmi.");
+      router.refresh();
+    }catch(error){
+      setResolutionState("error");
+      setResolutionMessage(error instanceof Error?error.message:"Uzavretie hlásenia zlyhalo.");
+    }
   }
   return <form className="partner-profile-edit-form" onSubmit={submit}>
     <div className="partner-profile-edit-grid">
@@ -107,5 +141,18 @@ export function PartnerHelpPublicEditorForm({resourceId,entityType,fields,origin
     </div>
     {message?<p role="status" className={`partner-form-message ${state==="success"?"is-success":"is-error"}`}>{message}
       {state==="success"?<> <Link href="/partner/profily">Späť na profily →</Link></>:null}</p>:null}
+    {entityType==="LOST_FOUND_DOG"&&reportStatus==="ACTIVE"&&<section className="partner-lifecycle-actions" aria-label="Ukončenie hlásenia psa">
+      <h3>{reportType==="FOUND"?"Pes sa vrátil majiteľovi":"Pes sa našiel"}</h3>
+      <p>Ak je prípad uzavretý, označte ho ako vyriešený. Záznam zostane dostupný na pôvodnej adrese, ale zmizne z aktívnych hlásení. Nie je potrebná ďalšia žiadosť o schválenie.</p>
+      {(dirty||state==="success")&&<p>Pred uzavretím uložte zmeny a obnovte editor.</p>}
+      <button type="button" className="button button--dark" onClick={()=>{void resolveReport();}}
+        disabled={dirty||state==="sending"||state==="success"||resolutionState==="sending"||resolutionState==="success"}>
+        {resolutionState==="sending"?"Uzatváram…":reportType==="FOUND"?"Označiť ako vráteného majiteľovi":"Označiť psa ako nájdeného"}
+      </button>
+      {resolutionMessage&&<p role={resolutionState==="error"?"alert":"status"}
+        className={`partner-form-message ${resolutionState==="success"?"is-success":"is-error"}`}>
+        {resolutionMessage}
+      </p>}
+    </section>}
   </form>;
 }

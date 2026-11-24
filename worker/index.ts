@@ -299,6 +299,26 @@ const worker = {
       return Response.redirect(url, 301);
     }
 
+    // Resolve canonical draft kind before Vinext's query-based RSC entry:
+    // all paths still enforce session, onboarding and write permissions.
+    if (request.method === "GET") {
+      const legacyReportPath = url.pathname === "/pomoc-psom/stratene-a-najdene/nahlasit";
+      const canonicalQueryPath = url.pathname === "/partner/koncepty/novy";
+      const draftType = legacyReportPath ? "LOST_FOUND_DOG" : canonicalQueryPath
+        ? url.searchParams.get("typ") : null;
+      const kind = url.searchParams.get("druh") ?? url.searchParams.get("type");
+      const destination = draftType === "LOST_FOUND_DOG"
+        ? kind === "LOST" ? "strateny" : kind === "FOUND" ? "najdeny" : "nahlasit"
+        : draftType === "DIRECTORY_PROFILE" ? "adresar"
+        : draftType === "HELP_ORGANIZATION" ? "organizacia"
+        : draftType === "MANAGED_EVENT" ? "podujatie"
+        : draftType === "ADOPTION_DOG" ? "adopcia"
+        : draftType === "HELP_CASE" ? "pomoc" : null;
+      if (destination) {
+        return Response.redirect(new URL(`/partner/koncepty/novy/${destination}`, url), 307);
+      }
+    }
+
     // Public XML only: a warm POP may safely serve its most recent validated
     // snapshot when D1/SSR has a transient error. Never cache authenticated,
     // queried or private requests; public HTML caching remains separate.

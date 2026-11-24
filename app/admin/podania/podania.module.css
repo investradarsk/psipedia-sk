@@ -1,0 +1,30 @@
+.workspace{display:grid;gap:12px;min-width:0}
+.filters{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
+.filters label{display:grid;gap:4px;font-size:12px;min-width:150px;color:var(--admin-ink,#27352d)}
+.filters label:first-child{flex:1 1 240px}
+.filters input,.filters select{box-sizing:border-box;width:100%;min-height:36px;font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--admin-line,#d7ddd5);border-radius:5px;background:var(--admin-surface,#fff);color:inherit}
+.filters button{min-height:36px;padding:5px 14px;border:0;border-radius:5px;background:#273d33;color:#fff;font-weight:600;cursor:pointer}
+.reset{font-size:12px;align-self:center}
+.summary{display:flex;gap:7px;flex-wrap:wrap;align-items:center;font-size:12px}
+.tableScroll{min-width:0;overflow:auto;border:1px solid var(--admin-line,#d7ddd5);border-radius:6px;background:var(--admin-surface,#fff)}
+.table{border-collapse:collapse;width:100%;min-width:790px;font-size:12px;line-height:1.3;text-align:left}
+.table thead{background:var(--admin-bg,#f5f7f4)}
+.table th{padding:9px 8px;white-space:nowrap;font-weight:650}
+.table td{border-top:1px solid var(--admin-line,#e2e6e1);padding:6px 8px;vertical-align:middle;min-height:36px}
+.table tbody tr:hover{background:var(--admin-hover,#f8faf8)}
+.table td:first-child{min-width:160px;max-width:310px}
+.table td small{display:block;color:var(--admin-muted,#657369);font-size:11px;padding-top:2px}
+.title{font-size:12px;overflow-wrap:anywhere;font-weight:600}
+.date{white-space:nowrap;font-variant-numeric:tabular-nums}
+.actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;white-space:nowrap}
+.actions a{font-size:12px;font-weight:600}
+.pending,.closed{font-size:11px;font-weight:650;white-space:nowrap}
+.pending{color:var(--admin-accent,#9c382f)}
+.closed{color:var(--admin-muted,#657369)}
+.pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}
+.pagination>span{color:var(--admin-muted,#657369)}
+.origins{display:flex;gap:8px 14px;flex-wrap:wrap;align-items:center;padding-top:8px;border-top:1px solid var(--admin-line,#d7ddd5);font-size:12px}
+.origins>span{font-weight:600}
+.error{font-size:13px;padding:12px;border:1px solid #b97e71;border-radius:5px}
+.empty{text-align:center;padding:20px!important}
+@media(max-width:700px){.filters label{flex:1 1 140px}.filters label:first-child{flex:1 1 100%}.table{min-width:740px}.workspace{gap:10px}}

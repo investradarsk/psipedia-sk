@@ -19,7 +19,7 @@ type PendingResolution = {
   reasonCode?: string;
 };
 
-export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false, isCanonicalDraft=false }: { id: string; candidateIds: number[]; hasImage?:boolean; isCanonicalDraft?:boolean }) {
+export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false, isCanonicalDraft=false, canonicalUpdatedAt=null }: { id: string; candidateIds: number[]; hasImage?:boolean; isCanonicalDraft?:boolean; canonicalUpdatedAt?:string|null }) {
   const router=useRouter();
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
@@ -56,6 +56,7 @@ export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false
           action: decision.action,
           ...(decision.action === "LINK_EXISTING" ? { canonicalId: decision.canonicalId, applyImage: decision.applyImage } : {}),
           ...(decision.action === "REJECT" ? { reasonCode: decision.reasonCode } : {}),
+          ...(isCanonicalDraft&&decision.action==="CREATE_NEW"?{expectedCanonicalUpdatedAt:canonicalUpdatedAt}:{}),
         }),
       });
       const data = await response.json() as { error?: string };
@@ -81,7 +82,7 @@ export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false
       ? "Partner už vytvoril kanonický koncept. Schválením sa tento profil publikuje a pridelí sa správa partnerovi. Prepojenie na iný profil tu nie je možné."
       : "Create New vytvorí iba DRAFT. Link Existing nevytvorí nový canonical záznam. Verification zostáva samostatná."}</p>
     <div className="admin-partner-button-row">
-      <button type="button" disabled={busy} onClick={()=>requestDecision("CREATE_NEW")}>{isCanonicalDraft?"Schváliť a publikovať":"Vytvoriť nový profil"}</button>
+      <button type="button" disabled={busy||(isCanonicalDraft&&!canonicalUpdatedAt)} onClick={()=>requestDecision("CREATE_NEW")}>{isCanonicalDraft?"Schváliť a publikovať":"Vytvoriť nový profil"}</button>
     </div>
     {!isCanonicalDraft&&<div className="admin-commercial-actions">
       <label>Canonical ID existujúceho profilu<input inputMode="numeric" value={canonicalId} onChange={(e)=>setCanonicalId(e.target.value)}/></label>

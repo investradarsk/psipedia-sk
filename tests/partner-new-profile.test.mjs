@@ -648,7 +648,7 @@ test("HIGH duplicate requires explicit Partner confirmation and server rescans o
   );
   assert.match(domain, /DUPLICATE_CONFIRMATION_REQUIRED/);
   assert.match(domain, /Rovnaký\s*návrh\s*nového\s*profilu\s*už\s*čaká/);
-  assert.match(newPage, /redirect\("\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE"\)/);
+  assert.match(newPage, /redirect\("\/partner\/koncepty\/novy\/adresar"\)/);
   assert.match(canonicalNewPage,/PartnerCanonicalDraftForm/);
   assert.match(canonicalWorkflow,/scanPartnerNewProfileDuplicates/);
   assert.match(canonicalWorkflow,/candidate\.canonicalId!==row\.canonicalId/);
@@ -783,7 +783,7 @@ test("Partner UX exposes new profile, history and claim-existing handoff", () =>
   assert.match(profilesPage, /Spravujete\s*tento\s*profil\?/);
   assert.match(requestsPage, /Moje\s*návrhy\s*nových\s*profilov/);
   assert.match(requestsPage, /PartnerNewProfileWithdrawButton/);
-  assert.match(newPage, /redirect\("\/partner\/koncepty\/novy\?typ=DIRECTORY_PROFILE"\)/);
+  assert.match(newPage, /redirect\("\/partner\/koncepty\/novy\/adresar"\)/);
   assert.match(canonicalNewPage,/Vytvoriť nový záznam/);
   assert.match(canonicalNewPage,/PartnerCanonicalDraftForm/);
 });

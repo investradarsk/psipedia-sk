@@ -1,8 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PartnerClaimForm } from "@/components/partner-claim-form";
 import { PartnerShell } from "@/components/partner-shell";
 import { getClaimablePartnerResourcePreview } from "@/lib/partner-claims";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
+import { getPartnerHelpMembership, helpResourceId, isPartnerHelpType } from "@/lib/partner-help-claims";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,12 @@ export default async function PartnerClaimPage({ params }: Props) {
   if (!resource) notFound();
 
   const returnTo = `/partner/prevziat-profil/${encodeURIComponent(resource.entityType)}/${resource.canonicalId}`;
-  await requirePartnerPageIdentity({ returnTo });
+  const identity = await requirePartnerPageIdentity({ returnTo });
+  if (isPartnerHelpType(resource.entityType)) {
+    const resourceId = helpResourceId(resource.entityType,resource.canonicalId);
+    const owned = await getPartnerHelpMembership(identity.accountId,resourceId);
+    if (owned) redirect(`/partner/pomoc/${encodeURIComponent(resourceId)}/upravit`);
+  }
 
   return (
     <PartnerShell

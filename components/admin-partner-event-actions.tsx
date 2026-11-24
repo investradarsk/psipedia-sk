@@ -15,7 +15,7 @@ function actionDescription(action: PartnerEventAction) {
   return "zamietnuť návrh";
 }
 
-export function AdminPartnerEventActions({id,operation,candidateId,hasImage=false}:{id:string;operation:"CREATE"|"UPDATE";candidateId?:number|null;hasImage?:boolean}) {
+export function AdminPartnerEventActions({id,operation,candidateId,hasImage=false,isCanonicalDraft=false,canonicalUpdatedAt=null}:{id:string;operation:"CREATE"|"UPDATE";candidateId?:number|null;hasImage?:boolean;isCanonicalDraft?:boolean;canonicalUpdatedAt?:string|null}) {
   const router = useRouter();
   const [reasonCode,setReasonCode] = useState("INCORRECT_INFORMATION");
   const [canonicalId,setCanonicalId] = useState(candidateId ? String(candidateId) : "");
@@ -36,6 +36,7 @@ export function AdminPartnerEventActions({id,operation,candidateId,hasImage=fals
           canonicalId:action==="LINK_EXISTING"?Number(canonicalId):undefined,
           applyImage:action==="LINK_EXISTING"?applyImage:undefined,
           reasonCode:action==="REJECT"?reasonCode:undefined,
+          expectedCanonicalUpdatedAt:action==="CREATE_EVENT"&&isCanonicalDraft?canonicalUpdatedAt:undefined,
         }),
       });
       const data = await response.json() as {error?:string};
@@ -56,10 +57,12 @@ export function AdminPartnerEventActions({id,operation,candidateId,hasImage=fals
     <h2>Rozhodnutie</h2>
     <div className="admin-commercial-actions">
       {operation==="CREATE" ? <>
-        <AdminActionButton disabled={busy} onClick={()=>request("CREATE_EVENT")}>CREATE EVENT (DRAFT)</AdminActionButton>
-        <label>Existujúce event ID<input type="number" min="1" value={canonicalId} onChange={e=>setCanonicalId(e.target.value)} disabled={busy}/></label>
-        {hasImage ? <label className="admin-partner-checkbox"><input type="checkbox" checked={applyImage} onChange={e=>setApplyImage(e.target.checked)} disabled={busy}/><span>Použiť nahraný obrázok aj pre existujúce podujatie</span></label> : null}
-        <AdminActionButton disabled={busy||!canonicalId} onClick={()=>request("LINK_EXISTING")}>LINK EXISTING</AdminActionButton>
+        <AdminActionButton disabled={busy||(isCanonicalDraft&&!canonicalUpdatedAt)} onClick={()=>request("CREATE_EVENT")}>
+          {isCanonicalDraft?"Schváliť a publikovať podujatie":"Vytvoriť koncept podujatia"}
+        </AdminActionButton>
+        {!isCanonicalDraft&&<label>Existujúce event ID<input type="number" min="1" value={canonicalId} onChange={e=>setCanonicalId(e.target.value)} disabled={busy}/></label>}
+        {!isCanonicalDraft&&hasImage ? <label className="admin-partner-checkbox"><input type="checkbox" checked={applyImage} onChange={e=>setApplyImage(e.target.checked)} disabled={busy}/><span>Použiť nahraný obrázok aj pre existujúce podujatie</span></label> : null}
+        {!isCanonicalDraft&&<AdminActionButton disabled={busy||!canonicalId} onClick={()=>request("LINK_EXISTING")}>Prepojiť existujúce podujatie</AdminActionButton>}
       </> : <AdminActionButton disabled={busy} onClick={()=>request("APPROVE")}>Schváliť zmeny</AdminActionButton>}
       <label>Dôvod pri zamietnutí<select value={reasonCode} onChange={e=>setReasonCode(e.target.value)} disabled={busy}>{reasons.map(([v,l])=><option value={v} key={v}>{l}</option>)}</select></label>
       <AdminActionButton variant="destructive" disabled={busy} onClick={()=>request("REJECT")}>Zamietnuť</AdminActionButton>
@@ -67,9 +70,11 @@ export function AdminPartnerEventActions({id,operation,candidateId,hasImage=fals
     </div>
     <AdminDestructiveConfirmDialog open={pendingAction!==null}
       title="Potvrdiť partnerské rozhodnutie"
-      description={pendingAction ? `Naozaj chcete ${actionDescription(pendingAction)}?` : undefined}
+      description={pendingAction ? pendingAction==="CREATE_EVENT"&&isCanonicalDraft
+        ? "Publikovať už vytvorený kanonický koncept a priradiť správu Partnerovi? Ak sa zmenil od posledného načítania, schválenie sa odmietne."
+        : `Naozaj chcete ${actionDescription(pendingAction)}?` : undefined}
       affectedCount={pendingAction ? 1 : 0} affectedLabel="partnerský návrh"
-      confirmLabel={pendingAction==="REJECT" ? "Zamietnuť" : "Potvrdiť"}
+      confirmLabel={pendingAction==="REJECT" ? "Zamietnuť" : pendingAction==="CREATE_EVENT"&&isCanonicalDraft?"Schváliť a publikovať":"Potvrdiť"}
       confirmVariant={pendingAction==="REJECT" ? "destructive" : "primary"}
       pending={busy}
       onCancel={()=>{if(!busy)setPendingAction(null);}}

@@ -9,8 +9,8 @@ import { getPartnerCanonicalDraft, PartnerCanonicalWorkflowError } from "@/lib/p
 
 export const dynamic="force-dynamic";
 export default async function Page({params}:{params:Promise<{id:string}>}){
-  const identity=await requirePartnerPageIdentity();
   const {id}=await params;
+  const identity=await requirePartnerPageIdentity({returnTo:"/partner/koncepty/"+encodeURIComponent(id)});
   let draft;
   try{draft=await getPartnerCanonicalDraft({accountId:identity.accountId,id});}
   catch(error){if(error instanceof PartnerCanonicalWorkflowError&&error.status===404)notFound();throw error;}
