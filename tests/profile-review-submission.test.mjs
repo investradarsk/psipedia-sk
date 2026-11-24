@@ -32,6 +32,8 @@ function fixture() {
       help_organization_id INTEGER REFERENCES help_organizations(id),
       managed_event_id INTEGER REFERENCES managed_events(id)
     );
+    CREATE TABLE profile_review_verification_settings (id INTEGER PRIMARY KEY,email_required INTEGER NOT NULL,updated_at TEXT NOT NULL,updated_by TEXT);
+    INSERT INTO profile_review_verification_settings VALUES (1,0,CURRENT_TIMESTAMP,NULL);
     CREATE TABLE review_authors (
       id TEXT PRIMARY KEY, email_ciphertext TEXT NOT NULL, email_hash TEXT NOT NULL UNIQUE,
       display_name TEXT, status TEXT NOT NULL, email_verified_at TEXT, deactivated_at TEXT,
@@ -580,6 +582,10 @@ test("guest can submit a moderated service review without an email and the same 
     assert.equal(row.status, "PENDING_REVIEW");
     assert.ok(JSON.parse(row.risk_flags_json).includes("GUEST_UNVERIFIED"));
     assert.equal((await POST(request({}, cookie))).status, 409);
+    const settings = await importTs("lib/profile-review-verification-settings.ts");
+    await settings.saveProfileReviewVerificationSettings(true, "admin@test.invalid", database);
+    assert.equal((await POST(request())).status, 401);
+    await settings.saveProfileReviewVerificationSettings(false, "admin@test.invalid", database);
     envObject.PROFILE_REVIEW_EMAIL_REQUIRED = "true";
     assert.equal((await POST(request())).status, 401);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM profile_reviews").get().count, 1);
