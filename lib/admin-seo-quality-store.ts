@@ -5,6 +5,8 @@ import {
   adminSeoAgendas,
   adminSeoIssueDefinitions,
   auditSeoQualityEntity,
+  isSeoMetadataFinding,
+  isSeoProfileAgenda,
   normalizeSeoComparable,
   seoAuditText,
   type AdminSeoQualityFilters,
@@ -15,10 +17,10 @@ import {
 const PAGE_SIZE = 50;
 
 function normalizeFilters(input: AdminSeoQualityFilters) {
-  const agenda = input.agenda && (input.agenda === "all" || (adminSeoAgendas as readonly string[]).includes(input.agenda))
+  const agenda = input.agenda && (input.agenda === "all" || input.agenda === "profiles" || (adminSeoAgendas as readonly string[]).includes(input.agenda))
     ? input.agenda
-    : "all";
-  const scope = input.scope === "quality" || input.scope === "custom" ? input.scope : "all";
+    : "profiles";
+  const scope = input.scope === "quality" || input.scope === "custom" || input.scope === "all" ? input.scope : "metadata";
   const issue = input.issue && (input.issue === "all" || adminSeoIssueDefinitions.some((item) => item.code === input.issue))
     ? input.issue
     : "all";
@@ -69,11 +71,17 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
   }
 
   const inbox = audited.filter((item) => item.findings.length > 0);
+  const matchesAgenda = (item: AdminSeoQualityItem) => filters.agenda === "all" ||
+    (filters.agenda === "profiles" ? isSeoProfileAgenda(item.entity.agenda) : item.entity.agenda === filters.agenda);
+  const agendaItems = audited.filter(matchesAgenda);
+  const filteredIssueCounts = emptyIssueCounts();
+  for (const item of agendaItems) for (const finding of item.findings) filteredIssueCounts[finding.code] += 1;
   const needle = normalizeSeoComparable(filters.query);
   const filtered = inbox.filter((item) => {
-    if (filters.agenda !== "all" && item.entity.agenda !== filters.agenda) return false;
+    if (!matchesAgenda(item)) return false;
     if (filters.scope === "quality" && item.qualityFindingCount === 0) return false;
     if (filters.scope === "custom" && item.customGapCount === 0) return false;
+    if (filters.scope === "metadata" && !item.findings.some(isSeoMetadataFinding)) return false;
     if (filters.issue !== "all" && !item.findings.some((finding) => finding.code === filters.issue)) return false;
     if (needle) {
       const haystack = normalizeSeoComparable([
@@ -93,6 +101,9 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
   return {
     generatedAt: new Date().toISOString(),
     entityCount: entities.length,
+    filteredEntityCount: agendaItems.length,
+    filteredCustomGapEntities: agendaItems.filter((item) => item.customGapCount > 0).length,
+    filteredIssueCounts,
     itemsWithAnyFinding: inbox.length,
     entitiesWithQualityFindings: audited.filter((item) => item.qualityFindingCount > 0).length,
     entitiesWithCustomGaps: audited.filter((item) => item.customGapCount > 0).length,
