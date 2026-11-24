@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import test from "node:test";
+import { findActiveAdminNavigationItem } from "../lib/admin-navigation.ts";
 
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const inventory = JSON.parse(read("docs/audits/admin-ui-unification-inventory.json"));
@@ -14,8 +15,8 @@ test("step 18: complete admin navigation inventory has seven groups and all expe
   assert.equal(new Set(inventory.entries.map(item => item.href)).size, 28);
   const currentNav = read("lib/admin-navigation.ts");
   for (const item of inventory.entries) {
-    if (item.href === "/admin/nastavenia/statistiky") continue; // added on main; merge blocker is documented
-    assert.ok(currentNav.includes(`href: "${item.href}"`), item.href);
+    assert.ok(findActiveAdminNavigationItem(item.href), item.href);
+    assert.ok(currentNav.includes(`"${item.href}"`), item.href);
     assert.equal(item.verification, "source_inventory_only", item.href);
   }
 });
