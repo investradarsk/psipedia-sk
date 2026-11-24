@@ -135,7 +135,7 @@ test("Admin Help keeps bulk selection page-scoped and publishes only the current
   await expect(publishButton).toBeVisible();
   await publishButton.click();
 
-  const dialog = page.getByRole("dialog", { name: "Publikovať vybrané Help záznamy" });
+  const dialog = page.getByRole("dialog", { name: "Publikovať vybrané prípady pomoci" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText(/Zmení sa\s*15\s*z 15 označených záznamov\./)).toBeVisible();
   await dialog.getByRole("button", { name: "Publikovať", exact: true }).click();

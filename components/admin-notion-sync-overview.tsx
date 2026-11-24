@@ -336,11 +336,13 @@ const workspaceTabs: {value:NotionWorkspaceTab;label:string}[] = [
 
 export function AdminNotionWorkspace({initialTab="status"}:{initialTab?:NotionWorkspaceTab}) {
   const [tab,setTab] = useState<NotionWorkspaceTab>(initialTab);
+  const [ready,setReady] = useState(false);
+  useEffect(() => { setReady(true); }, []);
   return <div data-admin-content-module="notion-workspace">
     <nav role="tablist" aria-label="Pracovisko Notion" className={styles.controls}>
       {workspaceTabs.map(item => <button key={item.value} type="button" role="tab"
         id={"notion-tab-"+item.value} aria-controls={"notion-panel-"+item.value}
-        aria-selected={tab===item.value} tabIndex={0}
+        aria-selected={tab===item.value} tabIndex={0} disabled={!ready}
         className={tab===item.value?"admin-primary-action":styles.secondary}
         onClick={()=>setTab(item.value)}>{item.label}</button>)}
     </nav>

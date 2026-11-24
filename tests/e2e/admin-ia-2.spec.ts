@@ -465,7 +465,10 @@ test("V6-07 dashboard shortcuts and guarded Ctrl+K return use canonical routes",
   }
   await expect(nav.getByRole("link", { name: "Všetky profily", exact: true })).toHaveAttribute("aria-current", "page");
   if (mobile) await page.keyboard.press("Escape");
-  if (mobile) await page.locator("[data-admin-quick-nav-trigger]").click();
+  const quickTrigger = page.locator("[data-admin-quick-nav-trigger]");
+  await expect(quickTrigger).toHaveAttribute("data-admin-hydrated", "true");
+  await expect(quickTrigger).toBeEnabled();
+  if (mobile) await quickTrigger.click();
   else await page.keyboard.press("Control+k");
   const palette = page.locator("[data-admin-quick-navigation]");
   await expect(palette).toBeVisible();
@@ -513,7 +516,10 @@ test("V6-09 mapping diagnosis uses GET only and explains a typed collision at de
   });
   const response=await page.goto("/admin/nastavenia/notion",{waitUntil:"domcontentloaded"});
   expect(response?.status()).toBe(200);
-  await page.getByRole("tab",{name:"Manuálny prenos",exact:true}).click();
+  const transferTab = page.getByRole("tab",{name:"Manuálny prenos",exact:true});
+  await expect(transferTab).toBeEnabled();
+  await transferTab.click();
+  await expect(transferTab).toHaveAttribute("aria-selected","true");
   await page.getByLabel("Psipedia ID").fill("17");
   const panel=page.getByRole("region",{name:"Diagnostika mapovaní iba na čítanie"});
   await panel.getByRole("button",{name:"Skontrolovať mapovania v D1"}).click();
@@ -542,7 +548,9 @@ test("V6-08 read-only Notion audit exposes incomplete evidence without claiming 
     const response = await page.goto("/admin/nastroje/notion-audit", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     const panel = page.getByRole("region", { name: "Bezpečná kontrola synchronizácie" });
-    await panel.getByRole("button", { name: "Spustiť kontrolu prvých 100" }).click();
+    const auditButton = panel.getByRole("button", { name: "Spustiť kontrolu prvých 100" });
+    await expect(auditButton).toBeEnabled();
+    await auditButton.click();
     await expect(panel.getByRole("alert")).toContainText("D1 vrátil neúplnú odpoveď.");
     await expect(panel.getByRole("alert")).toContainText("Žiadne údaje sa nezmenili.");
     await expect(page.getByRole("heading", { name: /^Výsledky —/ })).toHaveCount(0);
