@@ -110,12 +110,20 @@ Odstránené štyri opakované referencie: tri z priameho zoznamu `test:admin-pw
 
 Pridaný regresný kontrakt `npm run test:ci:contract`. Pred merge overiť reálne CI, npm test a admin PWA. Statická parita nenahrádza vykonanie. Po migrácii workflowov v ďalších etapách zmenšiť počet verejných aliasov; teraz bolo 110 zachovaných a pridané dva vstupy.
 
+## 04 – Zdieľaný build a artefakty
+
+Pilot: REVIEWS-2A + REVIEWS-2B. Pri prekrývajúcom sa PR pôvodne bežali štyri buildy (dva štandardné a dva s lokálnym bootstrapom). Nová orchestrácia v `profile-review-submission-ci.yml` vytvorí dva artefakty v jednom behu: standard a local-e2e. Reviewer-auth workflow sa volá ako reusable workflow, samostatný workflow_dispatch zostáva. Trigger PR je zjednotením oboch pôvodných path filtrov plus súbory build kontraktu. Pri PR zasiahnutom iba jedným starým filtrom sa môžu spustiť aj súvisiace testy druhého workflowu; presné zúženie patrí do kroku 05. Manuálne spustenie submission workflowu zachová vlastné testy; manuálny author workflow si buduje vlastné artefakty ako doteraz.
+
+Dôvod dvoch profilov: `vite.config.ts` číta PSIPEDIA_E2E_LOCAL_BOOTSTRAP a mení lokálnu auth konfiguráciu; nesmie sa zamieňať s produkčným buildom. Každý artefakt obsahuje dist, generovaný component registry a identitu SHA, Node verzie, lockfile hash, registry hash, dist fingerprint a počet súborov. Validácia používa existujúci validatePreparedDeployArtifact. Download iba v rovnakom workflow rune (bez cross-run tokenov), pred lokálnymi fixtures. Chýbajúci/nesprávny artefakt zlyhá; žiadny tichý fallback. PII .dev.vars, lokálne D1 migrácie, fixtures a E2E zostávajú izolované po joboch. Admin interaction v hlavnom CI navyše overuje existujúci stiahnutý build pred migráciami, rovnako ako search a full breed E2E.
+
+Zachované oba povinné check contexts, existujúce produkčné workflowy, lokálna bezpečnosť a rozsahy testov. Nezlučujeme REVIEWS-3 (odlišné .dev.vars pred buildom), Partner, DS-0B (odlišná revízia PR HEAD) ani produkčné operácie. Ďalšie skupiny až po kontrole profilu a úspešnej pilotnej runtime validácii. Teoretické zníženie 4 -> 2 buildy pri prekryve; reálny čas a úspešné CI zatiaľ neoverené. Artefakt kontrakt je pridaný do hlavného povinného workflowu.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
 - [ ] CI-V2-02 – analýza a predbežná klasifikácia uložená; otvorené: source audit 114 workflowov a porovnateľný časový baseline.
 - [x] CI-V2-03 – spoločný NPM vstup, zachované aliasy, odstránené potvrdené duplicitné invokácie; runtime CI ešte overiť.
-- [ ] CI-V2-04 – zdieľanie kompatibilných build artefaktov.
+- [x] CI-V2-04 – pilot zdieľania dvoch oddelených build profilov v review CI, verifikácia existujúceho admin artefaktu; runtime CI a ďalšie skupiny otvorené.
 - [ ] CI-V2-05 – rozšírenie existujúceho ci-scope, fail-closed pri neznámych zmenách.
 - [ ] CI-V2-06 – unit/integration: deduplikácia bez straty loaderov a kontraktov.
 - [ ] CI-V2-07 – Playwright, izolované fixtures a diagnostika.

@@ -65,6 +65,8 @@ jobs:
         run: node scripts/check-ci-scope.mjs
       - name: Validate two-stage editor CI guard
         run: node --test tests/ci-two-stage-guards.test.mjs
+      - name: Validate shared-build contract
+        run: node --test tests/ci-v2-shared-build.test.mjs
       - name: Install dependencies
         if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm ci
@@ -641,6 +643,16 @@ jobs:
         with:
           name: validated-build-${{ github.sha }}
           path: .
+      - name: Verify build revision and deployment artifact
+        run: |
+          test "$(cat ci-build-revision.txt)" = "$(git rev-parse HEAD)"
+          npm run validate:deploy-artifact
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { fingerprintDirectory } from './scripts/validate-deploy-artifact.mjs';
+          const expected = readFileSync('ci-build-fingerprint.txt', 'utf8').trim();
+          if ((await fingerprintDirectory('dist')).fingerprint !== expected) throw new Error('Validated build fingerprint mismatch');
+          NODE
       - name: Apply schema to isolated local D1 only
         run: |
           mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql

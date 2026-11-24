@@ -27,6 +27,24 @@ on:
       - "tests/e2e/review-author-auth.spec.ts"
       - "tests/fixtures/profile-review-submission-e2e.sql"
       - ".github/workflows/profile-review-submission-ci.yml"
+      - "app/api/review-author/**"
+      - "components/review-author-*"
+      - "components/profile-review-section.module.css"
+      - "components/cookie-consent.tsx"
+      - "components/programmatic-ad-loader.tsx"
+      - "lib/review-author-*"
+      - "lib/resource-access.ts"
+      - "lib/resource-access-store.ts"
+      - "lib/pii-crypto.ts"
+      - "tests/fixtures/review-author-auth-e2e.sql"
+      - ".github/workflows/review-author-auth-ci.yml"
+      - "scripts/ci-build-artifact.mjs"
+      - "tests/ci-v2-shared-build.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+      - "scripts/build-verified.sh"
+      - "scripts/validate-deploy-artifact.mjs"
   workflow_dispatch:
 
 concurrency:
@@ -37,7 +55,60 @@ permissions:
   contents: read
 
 jobs:
+  shared-build:
+    name: Shared review build (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [standard, local-e2e]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Standard build
+        if: matrix.profile == 'standard'
+        run: npm run build
+      - name: Isolated local E2E build
+        if: matrix.profile == 'local-e2e'
+        env:
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run build
+      - name: Record standard build identity
+        if: matrix.profile == 'standard'
+        run: node scripts/ci-build-artifact.mjs record standard
+      - name: Record local E2E build identity
+        if: matrix.profile == 'local-e2e'
+        env:
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+          E2E_BASE_URL: http://localhost:5173
+        run: node scripts/ci-build-artifact.mjs record local-e2e
+      - name: Publish verified build from this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-v2-review-${{ matrix.profile }}-${{ github.sha }}
+          path: |
+            dist/
+            lib/generated/component-registry.json
+            ci-v2-build-identity.json
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 2
+
+  reviewer-auth:
+    name: Reviewer authentication
+    if: github.event_name == 'pull_request'
+    needs: shared-build
+    uses: ./.github/workflows/review-author-auth-ci.yml
+
   validation:
+    needs: shared-build
     name: Review submission — security, D1, regressions, lint and build
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -67,8 +138,13 @@ jobs:
         run: npm run db:validate-clean
       - name: Lint
         run: npm run lint
-      - name: Build
-        run: npm run build
+      - name: Download shared standard build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-v2-review-standard-${{ github.sha }}
+          path: .
+      - name: Verify shared standard build revision and integrity
+        run: node scripts/ci-build-artifact.mjs verify standard
 
   e2e:
     name: Review submission — desktop/mobile accessibility and security
@@ -86,7 +162,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run build
+      - name: Download shared local-e2e build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-v2-review-local-e2e-${{ github.sha }}
+          path: .
+      - name: Verify shared local-e2e build revision and integrity
+        run: node scripts/ci-build-artifact.mjs verify local-e2e
       - name: Configure CI-only local PII keys and isolated review runtime
         run: |
           PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"

@@ -1,26 +1,7 @@
 name: REVIEWS-2A Review Author Authentication
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "app/recenzia/**"
-      - "app/api/review-author/**"
-      - "components/review-author-*"
-      - "components/profile-review-section.tsx"
-      - "components/profile-review-section.module.css"
-      - "components/cookie-consent.tsx"
-      - "components/programmatic-ad-loader.tsx"
-      - "lib/review-author-*"
-      - "lib/resource-access.ts"
-      - "lib/resource-access-store.ts"
-      - "lib/pii-crypto.ts"
-      - "lib/rate-limit.ts"
-      - "lib/turnstile.ts"
-      - "tests/review-author-auth.test.mjs"
-      - "tests/e2e/review-author-auth.spec.ts"
-      - "tests/fixtures/review-author-auth-e2e.sql"
-      - ".github/workflows/review-author-auth-ci.yml"
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
@@ -57,8 +38,18 @@ jobs:
         run: npm run db:validate-clean
       - name: Lint
         run: npm run lint
-      - name: Build
+      - name: Build (standalone manual run)
+        if: github.event_name != 'pull_request'
         run: npm run build
+      - name: Download shared standard build from this run
+        if: github.event_name == 'pull_request'
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-v2-review-standard-${{ github.sha }}
+          path: .
+      - name: Verify shared standard build revision and integrity
+        if: github.event_name == 'pull_request'
+        run: node scripts/ci-build-artifact.mjs verify standard
 
   e2e:
     name: Reviewer auth — desktop/mobile accessibility and security
@@ -76,7 +67,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run build
+      - name: Local build (standalone manual run)
+        if: github.event_name != 'pull_request'
+        run: npm run build
+      - name: Download shared local-e2e build from this run
+        if: github.event_name == 'pull_request'
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-v2-review-local-e2e-${{ github.sha }}
+          path: .
+      - name: Verify shared local-e2e build revision and integrity
+        if: github.event_name == 'pull_request'
+        run: node scripts/ci-build-artifact.mjs verify local-e2e
       - name: Configure CI-only local PII keys
         run: |
           PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
