@@ -1,5 +1,7 @@
 .modernArticle {
-  --article-reading-width: 800px;
+  /* Keep the article's shared prose measure aligned with its 800px editorial grid. */
+  --ps-reading-measure: 800px;
+  --article-reading-width: min(800px, var(--ps-reading-measure));
   --article-sidebar-width: 290px;
   --article-layout-gap: clamp(20px, 2vw, 30px);
   min-width: 0;
@@ -225,7 +227,7 @@
 
 .readingShell :global(.article-prose) {
   width: 100%;
-  max-width: var(--article-reading-width);
+  max-width: var(--ps-reading-measure);
   min-width: 0;
   margin: 0;
   color: var(--ps-reading-color);
@@ -832,7 +834,7 @@
   }
 
   .readingShell :global(.article-prose) {
-    max-width: var(--article-reading-width);
+    max-width: var(--ps-reading-measure);
     font-size: var(--ps-reading-size);
     line-height: var(--ps-reading-leading);
   }
