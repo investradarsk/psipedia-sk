@@ -35,6 +35,37 @@ export type Directory0173SqlRead = {
   galleryUrls: string[] | null;
 };
 
+// The same canonical projection is used for single-profile and bulk audit reads.
+// JSON here is a transport shape constructed from SQL, not a stored legacy document.
+function qualificationsExpression(profileId: string) {
+  return "(SELECT json_group_array(qualification_text) FROM " +
+    "(SELECT qualification_text FROM directory_profile_qualifications " +
+    "WHERE profile_id=" + profileId + " ORDER BY item_order))";
+}
+
+function seoExpression(profileId: string) {
+  return "(SELECT json_object('title',title,'description',description," +
+    "'focusKeyword',focus_keyword,'canonicalUrl',canonical_url," +
+    "'ogTitle',og_title,'ogDescription',og_description," +
+    "'ogImage',og_image_url,'noindex',noindex) " +
+    "FROM directory_profile_seo WHERE profile_id=" + profileId + ")";
+}
+
+function profileIdExpression(alias: string) {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(alias)) {
+    throw new Error("DIRECTORY_SQL_INVALID_ALIAS");
+  }
+  return alias + ".id";
+}
+
+export function directory0173QualificationsSqlExpression(alias = "directory_profiles") {
+  return qualificationsExpression(profileIdExpression(alias));
+}
+
+export function directory0173SeoSqlExpression(alias = "directory_profiles") {
+  return seoExpression(profileIdExpression(alias));
+}
+
 export const DIRECTORY_0173_DETAIL_READ_SQL = [
   "SELECT",
   "1 AS categories_confirmed,",
@@ -44,14 +75,8 @@ export const DIRECTORY_0173_DETAIL_READ_SQL = [
   "(SELECT json_object('reviewedAt',COALESCE(reviewed_at,''),",
   "'reviewedBy',COALESCE(reviewed_by,''),'unlockPending',unlock_pending)",
   "FROM directory_profile_review_state WHERE profile_id=?1) AS review_json,",
-  "(SELECT json_group_array(qualification_text) FROM",
-  "(SELECT qualification_text FROM directory_profile_qualifications",
-  "WHERE profile_id=?1 ORDER BY item_order)) AS qualifications_json,",
-  "(SELECT json_object('title',title,'description',description,",
-  "'focusKeyword',focus_keyword,'canonicalUrl',canonical_url,",
-  "'ogTitle',og_title,'ogDescription',og_description,",
-  "'ogImage',og_image_url,'noindex',noindex)",
-  "FROM directory_profile_seo WHERE profile_id=?1) AS seo_json,",
+  qualificationsExpression("?1") + " AS qualifications_json,",
+  seoExpression("?1") + " AS seo_json,",
   "(SELECT hours_text FROM directory_profile_opening_hours",
   "WHERE profile_id=?1 AND day_of_week=0) AS hours_text,",
   "(SELECT json_group_array(json_object('field',quality_field,",
