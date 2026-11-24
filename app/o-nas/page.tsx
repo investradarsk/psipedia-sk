@@ -1,3 +1,4 @@
+import infoStyles from "@/app/info-premium.module.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
@@ -13,7 +14,7 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function AboutPage() {
   return (
-    <main id="obsah">
+    <main id="obsah" className={infoStyles.document}>
       <UniversalPageHero
         variant="compact"
         eyebrow="O projekte"

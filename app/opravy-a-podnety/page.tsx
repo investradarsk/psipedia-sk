@@ -1,3 +1,4 @@
+import infoStyles from "@/app/info-premium.module.css";
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
 import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
@@ -13,7 +14,7 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function CorrectionsPage() {
   return (
-    <main id="obsah">
+    <main id="obsah" className={infoStyles.document}>
       <UniversalPageHero
         variant="compact"
         eyebrow="Presnosť obsahu"

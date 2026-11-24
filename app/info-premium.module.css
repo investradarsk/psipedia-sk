@@ -1,0 +1,221 @@
+/* V2-13 — route-local legal/information content and editorial tip form.
+ * Shared hero, footer, consent handlers and global primitives are not changed.
+ * Existing global class names remain as functional/legacy hooks. */
+.document[id="obsah"] :global(.prose-page) {
+  box-sizing: border-box;
+  width: min(100% - 32px, 860px);
+  max-width: var(--ps-reading-measure, 76ch);
+  padding-block: clamp(28px, 4vw, 48px) clamp(48px, 7vw, 88px);
+  color: var(--ink);
+  font-family: var(--ps-font-body);
+  overflow-wrap: anywhere;
+}
+.document[id="obsah"] :global(.prose-page) :is(h2, h3) {
+  color: var(--ink);
+  font-family: var(--ps-font-heading);
+  font-weight: var(--ps-component-heading-weight);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+.document[id="obsah"] :global(.prose-page) > h2 {
+  margin: clamp(28px, 4vw, 40px) 0 12px;
+  font-size: clamp(1.65rem, 2.5vw, 2.1rem);
+}
+.document[id="obsah"] :global(.prose-page) > h2:first-child {
+  margin-top: 0;
+}
+.document[id="obsah"] :global(.prose-page) h3 {
+  margin: 0 0 10px;
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+}
+.document[id="obsah"] :global(.prose-page) :is(p, li, dd) {
+  color: var(--ps-reading-color, var(--ink-2));
+  font-family: var(--ps-font-body);
+  font-size: var(--ps-reading-size, 1rem);
+  line-height: var(--ps-reading-leading, 1.7);
+}
+.document[id="obsah"] :global(.prose-page) > :is(p, ul, ol) {
+  margin-block: 0 var(--ps-reading-paragraph-gap, 1rem);
+}
+.document[id="obsah"] :global(.prose-page) :is(ul, ol) {
+  padding-inline-start: 1.45em;
+}
+.document[id="obsah"] :global(.prose-page) li + li {
+  margin-top: .45em;
+}
+.document[id="obsah"] :global(.prose-page) a:not(:global(.button)) {
+  color: var(--forest);
+  text-decoration: underline;
+  text-decoration-thickness: .08em;
+  text-underline-offset: .18em;
+}
+.document :global(.prose-page) a:hover {
+  text-decoration-thickness: .12em;
+}
+.document :global(.prose-page) :is(a, button):focus-visible,
+.tip :global(.news-tip-layout) :is(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid var(--brand-focus, var(--forest));
+  outline-offset: 2px;
+}
+.document[id="obsah"] :global(.prose-page) :global(.button) {
+  min-height: 44px;
+  max-width: 100%;
+  border-radius: var(--ps-radius-control);
+  font-family: var(--ps-font-body);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.document :global(.prose-page) :is(:global(.legal-status-note), :global(.legal-contact-box), :global(.legal-data-list), :global(.about-contact), :global(.privacy-controls)),
+.document :global(.privacy-purpose-list) > section {
+  min-width: 0;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
+}
+.document :global(.prose-page) :is(:global(.legal-status-note), :global(.legal-contact-box)) {
+  border-inline-start: var(--ps-premium-accent-width) solid var(--ps-premium-accent);
+  margin-block: 24px 32px;
+}
+.document :global(.prose-page) :is(:global(.legal-status-note), :global(.legal-contact-box)) > strong {
+  color: var(--ink);
+  font-family: var(--ps-font-body);
+  font-weight: var(--ps-component-label-weight);
+}
+.document :global(.prose-page) :global(.legal-data-list) {
+  padding: 0;
+  margin-block: 16px 32px;
+  overflow: visible;
+}
+.document :global(.legal-data-list) > div {
+  min-width: 0;
+  grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr);
+  gap: 14px;
+  padding: 14px 18px;
+}
+.document :global(.legal-data-list) dt {
+  color: var(--ink-2);
+  font-family: var(--ps-font-body);
+  font-weight: var(--ps-component-label-weight);
+}
+.document :global(.legal-data-list) dd {
+  min-width: 0;
+  font-weight: 600;
+}
+.document :global(.privacy-purpose-list) {
+  gap: 12px;
+}
+.document :global(.privacy-controls) {
+  gap: 12px;
+  margin-block: 18px 28px;
+}
+.document[id="obsah"] :global(.privacy-controls) p {
+  margin: 0;
+}
+.document[id="obsah"] :global(.prose-page) :global(.about-contact) h2 {
+  margin: 8px 0 12px;
+}
+.document :global(.prose-page) :global(.about-contact) {
+  margin-block: 32px 24px;
+}
+.document :global(.prose-page) code {
+  background: var(--cream);
+  border-radius: var(--ps-radius-control);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+/* Override the legacy !important date color only on these document routes. */
+.document[id="obsah"] :global(.prose-page) :global(.legal-updated) {
+  color: var(--ink-2) !important;
+  font-size: .85rem;
+  margin-top: 36px;
+}
+
+.tip :global(.news-tip-layout) {
+  gap: clamp(18px, 3vw, 40px);
+  font-family: var(--ps-font-body);
+}
+.tip :global(.news-tip-layout) :is(:global(.news-tip-form), :global(.news-tip-process), :global(.news-tip-contact-box)) {
+  min-width: 0;
+  border-radius: var(--ps-radius-card);
+  border-color: var(--line);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
+}
+.tip :global(.news-tip-form) {
+  padding: clamp(16px, 3vw, 32px);
+}
+.tip :global(.news-tip-form-heading) > span {
+  border-radius: var(--ps-radius-media);
+  background: var(--cream);
+}
+.tip :global(.news-tip-layout) h2 {
+  color: var(--ink);
+  font-family: var(--ps-font-heading);
+  font-weight: var(--ps-component-heading-weight);
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.tip :global(.news-tip-form-grid) > label {
+  min-width: 0;
+}
+.tip :global(.news-tip-form) :is(input:not([type="checkbox"]), select, textarea) {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 44px;
+  max-width: 100%;
+  border-radius: var(--ps-radius-control);
+  border-color: var(--ps-component-control-border);
+  background: var(--ps-component-control-surface);
+  font-family: var(--ps-font-body);
+  font-size: 1rem;
+  transition: border-color var(--ps-motion-fast) var(--ps-motion-ease);
+}
+.tip :global(.news-tip-form) :is(input, select, textarea):focus {
+  border-color: var(--forest);
+}
+.tip :global(.news-tip-form) :is(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--coral-dark);
+}
+.tip :global(.news-tip-form) :is(:global(.news-tip-consent), :global(.news-tip-submit)) {
+  min-height: 44px;
+}
+.tip :global(.news-tip-form) :global(.news-tip-submit) {
+  border-radius: var(--ps-radius-control);
+  font-family: var(--ps-font-body);
+  max-width: 100%;
+  white-space: normal;
+}
+.tip :global(.news-tip-layout) :global(.news-tip-safety) {
+  border-radius: var(--ps-radius-card);
+  border-inline-start: var(--ps-premium-accent-width) solid var(--coral-dark);
+  background: var(--cream);
+  color: var(--ink);
+}
+.tip :global(.news-tip-safety) a {
+  color: var(--forest);
+}
+@media (max-width: 560px) {
+  .document :global(.legal-data-list) > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+  .document :global(.privacy-controls) :global(.button) {
+    width: 100%;
+  }
+  .tip :global(.news-tip-form-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tip :global(.news-tip-process) {
+    padding: 18px;
+  }
+}
+@media (forced-colors: active) {
+  .document :global(.prose-page) :is(a, button):focus-visible,
+  .tip :global(.news-tip-layout) :is(a, button, input, select, textarea):focus-visible {
+    outline-color: Highlight;
+  }
+}

@@ -1,3 +1,4 @@
+import infoStyles from "@/app/info-premium.module.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { NewsTipForm } from "@/components/news-tip-form";
@@ -13,7 +14,7 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function SendNewsTipPage() {
   return (
-    <main id="obsah" className="news-tip-page">
+    <main id="obsah" className={`news-tip-page ${infoStyles.tip}`}>
       <UniversalPageHero
         breadcrumbs={<nav className="article-breadcrumbs" aria-label="Navigácia">
           <Link href="/">Domov</Link><span>/</span><Link href="/novinky">Novinky</Link><span>/</span><span>Pošli tip</span>
