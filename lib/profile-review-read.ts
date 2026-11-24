@@ -430,13 +430,13 @@ export async function listLatestPublicProfileReviews(
     ORDER BY COALESCE(review.published_at, review.created_at) DESC, review.id DESC
     LIMIT ?`).bind(safeLimit).all<PublicProfileReviewFeedRow>();
 
-  return results.flatMap((row) => {
+  return results.flatMap<PublicProfileReviewFeedItem>((row) => {
     if (row.entity_type === "DIRECTORY_PROFILE") {
       if (!row.directory_name || !row.directory_slug || !row.directory_category) return [];
       return [{
         id: row.id,
         displayName: safePublicReviewDisplayName(row.display_name),
-    ...(row.guest_unverified === 1 ? { guestUnverified: true } : {}),
+        ...(row.guest_unverified === 1 ? { guestUnverified: true } : {}),
         overallRating: Number(row.overall_rating),
         body: row.body,
         publishedAt: row.published_at || row.created_at,
@@ -451,7 +451,7 @@ export async function listLatestPublicProfileReviews(
       return [{
         id: row.id,
         displayName: safePublicReviewDisplayName(row.display_name),
-    ...(row.guest_unverified === 1 ? { guestUnverified: true } : {}),
+        ...(row.guest_unverified === 1 ? { guestUnverified: true } : {}),
         overallRating: Number(row.overall_rating),
         body: row.body,
         publishedAt: row.published_at || row.created_at,
