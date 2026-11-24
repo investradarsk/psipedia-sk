@@ -254,7 +254,7 @@
 
 .homeV2 :global(.home-latest-lead-copy > h3) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(1.45rem, 2.25vw, 2rem);
   font-weight: 500;
   line-height: 1.18;
@@ -287,7 +287,7 @@
   width: 112px;
   height: 78px;
   overflow: hidden;
-  border-radius: 0;
+  border-radius: var(--ps-radius-media, 10px);
   background: var(--sage-light);
 }
 
@@ -303,7 +303,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.02rem;
   font-weight: 500;
   line-height: 1.3;
@@ -409,7 +409,7 @@
 
 .homeV2 :global(.home-editorial-copy > h3) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.08rem;
   font-weight: 500;
   line-height: 1.28;
@@ -423,7 +423,7 @@
 
 .homeV2 :global(.home-editorial-empty strong) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.05rem;
   font-weight: 500;
 }
@@ -628,7 +628,7 @@
 
 .homeV2 :global(.home-help-copy > strong) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.05rem;
   font-weight: 500;
   line-height: 1.28;
@@ -917,7 +917,7 @@
   }
 
   .homeV2 :global(.home-latest-lead-link) {
-    border-radius: 17px;
+    border-radius: var(--ps-radius-card, 14px);
   }
 
   .homeV2 :global(.home-latest-lead-copy) {
@@ -1335,7 +1335,7 @@
   grid-template-rows: auto 1fr;
   scroll-snap-align: start;
   border: 1px solid rgba(23, 53, 43, 0.13);
-  border-radius: 18px;
+  border-radius: var(--ps-radius-card, 14px);
   color: var(--forest);
   background: var(--paper);
   box-shadow: 0 8px 24px rgba(23, 53, 43, 0.045);
@@ -1363,7 +1363,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 17px 17px 0 0;
+  border-radius: var(--ps-radius-media, 10px) var(--ps-radius-media, 10px) 0 0;
   object-fit: cover;
 }
 
@@ -1394,7 +1394,7 @@
 
 .homeV2 :global(.home-service-card-copy > strong) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.45rem;
   font-weight: 500;
   line-height: 1.08;
@@ -1485,7 +1485,7 @@
   }
 
   .homeV2 :global(.home-service-card) {
-    border-radius: 17px;
+    border-radius: var(--ps-radius-card, 14px);
   }
 
   .homeV2 :global(.home-service-card-media) {
@@ -1493,7 +1493,7 @@
   }
 
   .homeV2 :global(.home-service-card-media img) {
-    border-radius: 16px 16px 0 0;
+    border-radius: var(--ps-radius-media, 10px) var(--ps-radius-media, 10px) 0 0;
   }
 
   .homeV2 :global(.home-service-card-icon) {
@@ -1553,7 +1553,7 @@
     overflow: hidden;
     gap: 0;
     border: 1px solid rgba(23, 53, 43, 0.11);
-    border-radius: 14px;
+    border-radius: var(--ps-radius-card, 14px);
     background: var(--paper);
     box-shadow: 0 5px 18px rgba(23, 53, 43, 0.04);
     transition:
@@ -1586,7 +1586,7 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     color: var(--forest);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
     font-size: 1rem;
     font-weight: 600;
     line-height: 1.24;
@@ -1767,7 +1767,7 @@
 .homeV2 :global(.home-magazine-main .home-latest-lead .article-card) {
   overflow: hidden;
   border: 1px solid rgba(23, 53, 43, 0.1);
-  border-radius: 15px;
+  border-radius: var(--ps-radius-card, 14px);
   background: var(--paper);
 }
 
@@ -1998,7 +1998,7 @@
   display: grid;
   overflow: hidden;
   border: 1px solid rgba(23, 53, 43, 0.1);
-  border-radius: 15px;
+  border-radius: var(--ps-radius-card, 14px);
   background: var(--paper);
 }
 
@@ -2032,7 +2032,7 @@
 
 .homeV2 :global(.home-breed-feature-copy strong) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(1.5rem, 2.5vw, 2.05rem);
   line-height: 1.16;
 }
@@ -2064,7 +2064,7 @@
   width: 112px;
   aspect-ratio: 4 / 3;
   overflow: hidden;
-  border-radius: 9px;
+  border-radius: var(--ps-radius-media, 10px);
 }
 
 .homeV2 :global(.home-breed-list-item > a > span:last-child) {
@@ -2075,7 +2075,7 @@
 
 .homeV2 :global(.home-breed-list-item strong) {
   color: var(--forest);
-  font-family: Georgia, serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.08rem;
   font-weight: 600;
 }
@@ -2201,10 +2201,17 @@
 /* Keep the approved homepage geometry; share the exact public hero accent. */
 .homeV2 :global(.hero-kicker) {
   width: fit-content;
-  padding: 5px 9px;
-  border-radius: 5px;
-  color: #fff;
-  background: var(--brand-accent-strong, #b94732);
+  padding: 0;
+  color: var(--ps-premium-kicker-on-dark, #fff);
+  background: transparent;
+}
+.homeV2 :global(.hero-kicker)::before {
+  display: inline-block;
+  width: 22px;
+  height: 3px;
+  margin-inline-end: 7px;
+  background: var(--ps-premium-accent, #b44939);
+  content: "";
 }
 .homeV2 :global(.hero-copy h1 em) {
   color: #fff;
@@ -2225,9 +2232,9 @@
 
 .homeV2 :global(.home-magazine-section .home-section-heading h2),
 .homeV2 :global(.home-profile-categories .home-services-wide-copy h2) {
-  font-family: inherit;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(1.7rem, 2.45vw, 2.3rem);
-  font-weight: 780;
+  font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1.13;
 }
@@ -2300,7 +2307,7 @@
 }
 
 .homeV2 :global(.home-profile-categories .home-service-card) {
-  border-radius: 14px;
+  border-radius: var(--ps-radius-card, 14px);
   box-shadow: 0 3px 14px rgba(23, 53, 43, 0.045);
 }
 
@@ -2309,7 +2316,7 @@
 }
 
 .homeV2 :global(.home-profile-categories .home-service-card-media img) {
-  border-radius: 13px 13px 0 0;
+  border-radius: var(--ps-radius-media, 10px) var(--ps-radius-media, 10px) 0 0;
 }
 
 .homeV2 :global(.home-profile-categories .home-service-card-icon) {
@@ -2328,9 +2335,9 @@
 }
 
 .homeV2 :global(.home-profile-categories .home-service-card-copy > strong) {
-  font-family: inherit;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: 1.13rem;
-  font-weight: 760;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.22;
 }
@@ -3024,4 +3031,27 @@
     ) {
     display: none;
   }
+}
+
+/* V2-05: editorial titles and small labels use the same hierarchy as landings.
+ * Keep the side-panel, banner and search component owners independent. */
+.homeV2 :global(.home-magazine-main .home-breed-feature-copy strong),
+.homeV2 :global(.home-magazine-main .home-help-copy > strong) {
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
+  font-weight: 600;
+}
+.homeV2 :global(.home-magazine-section .home-section-heading .eyebrow),
+.homeV2 :global(.home-profile-categories .eyebrow) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--ps-font-body, inherit);
+}
+.homeV2 :global(.home-magazine-section .home-section-heading .eyebrow)::before,
+.homeV2 :global(.home-profile-categories .eyebrow)::before {
+  width: 18px;
+  height: 2px;
+  flex: 0 0 18px;
+  background: var(--ps-premium-accent, #b44939);
+  content: "";
 }
