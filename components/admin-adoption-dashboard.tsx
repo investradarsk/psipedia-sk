@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAdminProfilePageSelection } from "@/components/admin-profile-page-selection";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordId } from "./admin-record-id";
 import { AdminRecordTable } from "./admin-record-table";
@@ -62,8 +63,8 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [selected, setSelected] = useState<Set<number>>(new Set());
   const viewKey = JSON.stringify([filters, result.pagination.page, result.items.map(item => item.id)]);
+  const [selected, setSelected] = useAdminProfilePageSelection(viewKey, result.items.map((item) => item.id));
   const activeInline = inlineDraft?.key === viewKey && result.items.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.updatedAt)
     ? inlineDraft : null;
   function beginInline(item: AdoptionAdminSummary) {
@@ -200,7 +201,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
         const isPublic = item.status === "ACTIVE" || item.status === "RESERVED";
         return <article key={item.id} className={styles.adoptionCard}>
           <label className={styles.mobileCardSelect}>
-            <input type="checkbox" checked={selected.has(item.id)}
+            <input type="checkbox" checked={selected.has(item.id)} disabled={busy || Boolean(inlineDraft)}
               aria-label={"Označiť adopciu " + item.name}
               onChange={event => setSelected(current => {
                 const next = new Set(current);

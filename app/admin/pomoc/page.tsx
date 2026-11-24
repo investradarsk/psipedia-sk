@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
-import { profileWorkspace, profileQuickHref } from "@/lib/admin-profile-workspace";
+import { profileWorkspace } from "@/lib/admin-profile-workspace";
 import { Suspense } from "react";
 import { AdminHelpDashboard } from "@/components/admin-help-dashboard";
 import { AdminDataLoading } from "@/components/admin-data-loading";
@@ -38,7 +37,7 @@ export default async function AdminHelpPage({ searchParams }: { searchParams: Pr
   return <AdminShell
     user={user}
     {...profileWorkspace("ostatna-pomoc")}
-    actions={<AdminProfileActions active="ostatna-pomoc"><Link className="admin-secondary-action" prefetch={false} href={profileQuickHref(filters.category === "all" ? "ostatna-pomoc" : filters.category, filters.q)}>Rýchla úprava</Link></AdminProfileActions>}
+    actions={<AdminProfileActions active="ostatna-pomoc" />}
   >
     <AdminProfileTypeTabs active="ostatna-pomoc" />
     <Suspense fallback={<AdminDataLoading label="Pomoc psom" />}>

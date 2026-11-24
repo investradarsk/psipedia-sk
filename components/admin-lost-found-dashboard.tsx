@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAdminProfilePageSelection } from "@/components/admin-profile-page-selection";
 import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
@@ -43,8 +44,8 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; expectedUpdatedAt: string; dogName: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [selected, setSelected] = useState<Set<number>>(new Set());
   const viewKey = JSON.stringify([filters, result.page, result.items.map(item => item.id)]);
+  const [selected, setSelected] = useAdminProfilePageSelection(viewKey, result.items.map((item) => item.id));
   const activeInline = inlineDraft?.key === viewKey && result.items.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.expectedUpdatedAt)
     ? inlineDraft : null;
   function beginInline(item: AdminDogReport) {

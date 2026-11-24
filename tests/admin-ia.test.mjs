@@ -370,7 +370,7 @@ test("V6-05 canonical saves never imply Notion sync success", () => {
 });
 
 test("V6-05 all inline profile grids protect their drafts and reuse the shared save receipt", () => {
-  for (const name of ["directory-dashboard", "adoption-dashboard", "lost-found-dashboard", "organization-publication-dashboard", "help-unified-table"]) {
+  for (const name of ["directory-dashboard", "adoption-dashboard", "lost-found-dashboard", "organization-publication-dashboard", "help-dashboard", "help-unified-table"]) {
     const source = read("components/admin-" + name + ".tsx");
     assert.match(source, /<AdminRecordTable/);
     assert.match(source, /<AdminInlineDraftGuard/);
@@ -392,4 +392,18 @@ test("V6-05 all inline profile grids protect their drafts and reuse the shared s
   const api = read("app/api/admin/organizations/[id]/route.ts");
   assert.match(api, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(api, /organizationInputWithShelterInlineChanges/);
+});
+
+
+test("V6-05 profile selections cannot cross filtered pages and native help edits retain category isolation", () => {
+  const selection = read("components/admin-profile-page-selection.ts");
+  assert.match(selection, /selection\.key === viewKey/);
+  assert.match(selection, /visible\.has\(id\)/);
+  for (const name of ["adoption-dashboard", "lost-found-dashboard", "help-dashboard"]) {
+    assert.match(read("components/admin-" + name + ".tsx"), /useAdminProfilePageSelection\(/);
+  }
+  const help = read("components/admin-help-dashboard.tsx");
+  assert.match(help, /isHelpAdminCreateCategory\(item.category\)/);
+  assert.match(help, /expectedCategory: activeDraft.category/);
+  assert.match(help, /bulkReviewState\?\.key === viewFingerprint/);
 });

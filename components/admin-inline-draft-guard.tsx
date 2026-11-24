@@ -32,7 +32,7 @@ export function AdminInlineDraftGuard({ active, stale, busy, onCancel }: {
       {busy ? "Ukladám zmeny. Počkajte na výsledok." : stale
         ? "Záznam alebo zobrazenie sa medzitým zmenili. Rozpracovaná úprava sa neodošle so starou verziou."
         : "Rozpracovaná úprava. Pred filtrovaním, triedením alebo ďalšou úpravou ju uložte alebo zrušte."}
-      {stale && <AdminActionButton variant="neutral" disabled={busy} onClick={onCancel}>Zrušiť rozpracovanú úpravu</AdminActionButton>}
+      <AdminActionButton variant="neutral" disabled={busy} onClick={onCancel}>Zrušiť rozpracovanú úpravu</AdminActionButton>
     </div>}
     <EditorUnsavedChangesGuard active={active} open={navigation.confirmOpen}
       allowNativeExitRef={navigation.allowNativeExitRef} onStay={navigation.stay}
