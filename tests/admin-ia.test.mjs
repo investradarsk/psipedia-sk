@@ -23,8 +23,7 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
   assert.deepEqual(adminNavigationGroups.map((group) => group.label), [
     "Prehľad",
     "Redakcia",
-    "Adresár",
-    "Pomoc psom",
+    "Profily",
     "Partneri",
     "Kvalita a automatizácie",
     "Systém",
