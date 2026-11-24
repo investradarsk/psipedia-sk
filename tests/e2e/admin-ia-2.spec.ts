@@ -184,7 +184,7 @@ test("legacy article-list URLs preserve filters and the explicit article route o
   await expectAxeClean(page);
 });
 
-test("V3 all seven navigation groups, focus and header actions work at 1440px, 390px and 320px", async ({ page }, testInfo) => {
+test("V3 all six navigation groups, focus and header actions work at 1440px, 390px and 320px", async ({ page }, testInfo) => {
   const mobile = testInfo.project.name === "mobile-chromium";
   for (const width of mobile ? [390, 320] : [1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -525,4 +525,34 @@ test("V6-09 mapping diagnosis uses GET only and explains a typed collision at de
   expect(mutations).toBe(0);
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
   await page.screenshot({path:".e2e-artifacts/admin-ia-2/v6-09-mapping-diagnostic-fixture-"+width+".png",fullPage:true,animations:"disabled"});
+});
+
+
+test("V6-08 read-only Notion audit exposes incomplete evidence without claiming success", async ({ page }, info) => {
+  const widths = info.project.name === "mobile-chromium" ? [320, 390] : [1440];
+  const requests: { method: string; payload: unknown }[] = [];
+  await page.route("**/api/admin/notion-data-quality-audit", async (route) => {
+    requests.push({ method: route.request().method(), payload: route.request().postDataJSON() });
+    await route.fulfill({ status: 503, json: {
+      error: "NOTION_AUDIT_UNAVAILABLE", stage: "D1_EVIDENCE", reason: "D1_RESPONSE_INCOMPLETE",
+    } });
+  });
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/nastroje/notion-audit", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const panel = page.getByRole("region", { name: "Bezpečná kontrola synchronizácie" });
+    await panel.getByRole("button", { name: "Spustiť kontrolu prvých 100" }).click();
+    await expect(panel.getByRole("alert")).toContainText("D1 vrátil neúplnú odpoveď.");
+    await expect(panel.getByRole("alert")).toContainText("Žiadne údaje sa nezmenili.");
+    await expect(page.getByRole("heading", { name: /^Výsledky —/ })).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "Spustiť kontrolu prvých 100" })).toBeEnabled();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-08-notion-audit-incomplete-" + width + ".png", fullPage: true, animations: "disabled" });
+  }
+  expect(requests).toHaveLength(widths.length);
+  for (const request of requests) {
+    expect(request.method).toBe("POST");
+    expect(request.payload).toMatchObject({ agenda: "directory", mode: "dry-run", pass: 1 });
+  }
 });
