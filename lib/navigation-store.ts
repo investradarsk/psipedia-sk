@@ -22,7 +22,7 @@ type RuntimeBindings = {
 let navigationSchemaReady: Promise<void> | null = null;
 let lastSuccessfulPublicNavigationRows: { rows: NavigationRow[]; at: number } | null = null;
 // The same anonymous menu is rendered on every public page. Avoid repeating D1
-// reads on each RSC navigation or simultaneous SSR miss; edits invalidate it.
+// reads on each RSC navigation or warm SSR hit; edits invalidate it.
 const publicNavigationRows = createShortLivedAsyncCache<NavigationRow[]>(30_000);
 
 function getD1Binding() {
