@@ -1,0 +1,2844 @@
+{
+  "baseline": "39d42c72cf60ec41c4b18a114a966144449f1105",
+  "date": "2026-11-24",
+  "scope": "Tracked repository inventory. Direct references are lexical, not execution coverage. Workflow trigger/job details require a separate per-file scan; no removal decisions are authorized by this inventory.",
+  "counts": {
+    "workflowFiles": 156,
+    "testScripts": 110,
+    "allScripts": 144,
+    "trackedTestDirectoryFiles": 1200,
+    "nodeTests": 999,
+    "playwrightSpecs": 113,
+    "fixtures": 55,
+    "directNodeRefs": 424,
+    "duplicateDirectNodeRefs": 22,
+    "nodeTestsWithoutDirectPackageReference": 575
+  },
+  "requiredChecks": [
+    "Build, lint and unit/integration tests",
+    "Breed CI bootstrap, all-breed regression and Playwright"
+  ],
+  "workflows": [
+    "address-enrichment-ci.yml",
+    "admin-article-bulk-e2e.yml",
+    "admin-duplication-inventory.yml",
+    "admin-editor-workspace-v3.yml",
+    "admin-event-editor-v3-pilot.yml",
+    "admin-ia-2.yml",
+    "admin-image-review-v2.yml",
+    "admin-legacy-mutation-csrf.yml",
+    "admin-operations-ci.yml",
+    "admin-perf-comparator-v2.yml",
+    "admin-perf-url-guard.yml",
+    "admin-performance-v2.yml",
+    "admin-photo-gallery.yml",
+    "admin-puppy-coverage-ci.yml",
+    "admin-pwa-ci.yml",
+    "admin-runtime-1.yml",
+    "admin-stability-regressions.yml",
+    "admin-typography-contracts.yml",
+    "admin-v5-mutation-origin.yml",
+    "ai-internal-discovery-click-value-ci.yml",
+    "article-admin-ci.yml",
+    "article-ux-ci.yml",
+    "auto-update-automerge-prs.yml",
+    "automation-cleanup-legacy.yml",
+    "automation-detach-drafts.yml",
+    "automation-finalize-v1.yml",
+    "automation-source-ux-reset.yml",
+    "breed-controlled-mirror-341-offline.yml",
+    "breed-sql-0174-offline.yml",
+    "breeds-admin-ci.yml",
+    "category-visual-ci.yml",
+    "ci-smoke-history-analyzer.yml",
+    "clean-d1-migration-validation.yml",
+    "code-quality-policy.yml",
+    "content-relations-1.yml",
+    "d1-directory-canonical-reads.yml",
+    "d1-insights-report-ci.yml",
+    "data-automation-ci.yml",
+    "data-automation-v2-ci.yml",
+    "data-quality-contact-sql-parity.yml",
+    "directory-0170-backfill-readonly.yml",
+    "directory-0173-review-lock-bridge.yml",
+    "directory-0173-review-lock-sql-read.yml",
+    "directory-0173-sql-detail-read.yml",
+    "directory-0176-sql-fields.yml",
+    "directory-notion-0173-atomic-fields.yml",
+    "directory-sql-0173-offline.yml",
+    "events-fallback-images.yml",
+    "facebook-admin-notion-authority.yml",
+    "facebook-gmail-notion-bridge-ci.yml",
+    "gemini-automation-foundation-ci.yml",
+    "gemini-dashboard-v3-visual.yml",
+    "gemini-global-stop-ci.yml",
+    "gemini-notion-agent.yml",
+    "gemini22-dedupe-gate-tests.yml",
+    "google-places-budget-guard-ci.yml",
+    "help-legacy-sql-cleanup-once.yml",
+    "homepage-name-days-ci.yml",
+    "image-editor-2-ci.yml",
+    "knip-audit.yml",
+    "link-health-audit.yml",
+    "map-data-row-level-export.yml",
+    "map-geo-foundation-ci.yml",
+    "map-production-launch-ci.yml",
+    "map-production-live-audit.yml",
+    "map-production-readiness.yml",
+    "map-public-ui-ci.yml",
+    "map-read-api-ci.yml",
+    "mobile-firstpaint-lcp-20261112.yml",
+    "notion-article-sync-ci.yml",
+    "notion-conflict-quality-ci.yml",
+    "notion-cross-batch-ci.yml",
+    "notion-events-help-sync-ci.yml",
+    "notion-manual-transfer-ci.yml",
+    "notion-profile-lossless-sync.yml",
+    "notion-schema-drift-guard.yml",
+    "open-source-production-ui.yml",
+    "open-source-seo-suite.yml",
+    "organization-profile-e2e.yml",
+    "outreach-ci.yml",
+    "pagespeed-css-hero-1322.yml",
+    "pagespeed-mobile-5.yml",
+    "partner-auth-ci.yml",
+    "playwright-e2e.yml",
+    "pr-visual-evidence.yml",
+    "production-breed-controlled-mirrors.yml",
+    "production-breed-json-audit.yml",
+    "production-breed-sql-v2-backfill.yml",
+    "production-breed-sql-v2-shadow-audit.yml",
+    "production-breed-workcopy-postflight.yml",
+    "production-breed-workcopy-stage.yml",
+    "production-d1-0123-0124-preflight.yml",
+    "production-d1-0127-readonly.yml",
+    "production-d1-0128-readonly.yml",
+    "production-d1-0133-readonly.yml",
+    "production-d1-0134-offline-ci.yml",
+    "production-d1-0134-readonly.yml",
+    "production-d1-0158-0162-contract.yml",
+    "production-d1-0158-0162-ledger-contract.yml",
+    "production-d1-0158-0162-ledger.yml",
+    "production-d1-0158-0162.yml",
+    "production-d1-0159-shadow.yml",
+    "production-d1-0160-events.yml",
+    "production-d1-0161-event-metadata.yml",
+    "production-d1-0163-breed-controlled.yml",
+    "production-d1-0164-lifecycle.yml",
+    "production-d1-0165-contacts.yml",
+    "production-d1-analytics-0167-0168.yml",
+    "production-d1-backlog-verify.yml",
+    "production-d1-backlog.yml",
+    "production-d1-breed-0174.yml",
+    "production-d1-breed-0175.yml",
+    "production-d1-breeder-0169.yml",
+    "production-d1-breeder-cutover.yml",
+    "production-d1-breeder-link-reset.yml",
+    "production-d1-directory-0170.yml",
+    "production-d1-directory-0173.yml",
+    "production-d1-facebook-weekly-0166.yml",
+    "production-d1-history-audit.yml",
+    "production-d1-migrate.yml",
+    "production-d1-partner-0171-0172.yml",
+    "production-directory-contact-legacy-cleanup.yml",
+    "production-directory-contact-null-backfill.yml",
+    "production-directory-legacy-readonly.yml",
+    "production-directory-onetime-notion-import.yml",
+    "production-directory-sql-step2.yml",
+    "production-directory-sql-step3.yml",
+    "production-editorial-storage-readonly.yml",
+    "production-help-org-contact-json-cleanup.yml",
+    "production-help-sql-cutover.yml",
+    "profile-review-admin-ci.yml",
+    "profile-review-submission-ci.yml",
+    "profile-reviews-public-ci.yml",
+    "public-ds5-cards.yml",
+    "public-html-cache-safety-guard.yml",
+    "public-listings-qa.yml",
+    "public-visual-screenshots.yml",
+    "public-web-perf-10-final.yml",
+    "review-author-auth-ci.yml",
+    "section-hero-v2-ci.yml",
+    "service-catalog-contract-ci.yml",
+    "services-v2-directory-ci.yml",
+    "services-v2-filter-contract-ci.yml",
+    "services-v3-admin-mobile-polish-ci.yml",
+    "services-v3-hourly-auto-sync.yml",
+    "services-v3-map-canonical-filter.yml",
+    "services-v3-notion-mirror-offline.yml",
+    "services-v3-notion-receipt-proof-ci.yml",
+    "services-v3-production-readonly.yml",
+    "services-v3-public-canonical-filter.yml",
+    "sitemap-edge-resilience.yml",
+    "sitewide-ai-entity-surface-ci.yml",
+    "submission-foundation-ci.yml",
+    "unified-section-hero-ci.yml",
+    "web-perf-compare-ci.yml",
+    "web-perf-observability.yml"
+  ],
+  "packageScripts": {
+    "install:ci": "bash scripts/install-ci.sh",
+    "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
+    "prebuild": "npm run config:check && npm run components:generate",
+    "build": "bash scripts/build-verified.sh",
+    "deploy:cloudflare": "node scripts/deploy-cloudflare-safe.mjs",
+    "deploy:staging": "npm run build && wrangler deploy",
+    "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
+    "config:check": "node --experimental-strip-types scripts/check-config-contract.mjs",
+    "test:config": "node --experimental-strip-types --test tests/config-contract.test.mjs",
+    "test:functional-audit": "node --experimental-strip-types --test tests/http-response-security.test.mjs tests/admin-pwa.test.mjs tests/home-magazine-accessibility.test.mjs",
+    "test:outreach-foundation": "node --experimental-strip-types --test tests/outreach-foundation.test.mjs",
+    "test:ai-referral": "node --experimental-strip-types --test tests/ai-referral.test.mjs",
+    "test:notion-bulk-backfill": "node --experimental-strip-types --test tests/notion-bulk-backfill.test.mjs",
+    "test:notion-events-help-sync": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-events-help-bidirectional.test.mjs tests/notion-geo-mirror.test.mjs tests/notion-data-quality-recovery.test.mjs tests/notion-sync-health.test.mjs tests/notion-sync-overview.test.mjs tests/notion-sync-overview-ui.test.mjs tests/notion-events-help-runtime-integration.test.mjs tests/notion-targeted-webhook.test.mjs tests/directory-notion-reviewed-sync.test.mjs tests/directory-reviewed-sync-lock.test.mjs tests/notion-breeder-field-events.test.mjs tests/notion-trainer-service-field-events.test.mjs tests/notion-trainer-trust-training-facets.test.mjs tests/notion-official-sdk.test.mjs",
+    "test:deploy-safety": "node --test tests/deploy-safety.test.mjs",
+    "test:record-lifecycle": "node --test tests/admin-record-lifecycle-migration.test.mjs tests/admin-record-lifecycle-contract.test.mjs tests/admin-record-lifecycle-event-mapping.test.mjs tests/admin-record-lifecycle-resume.test.mjs tests/admin-record-lifecycle-notion-identity.test.mjs tests/admin-record-lifecycle-media-safety.test.mjs && node --experimental-strip-types --test tests/admin-record-list-delete.test.mjs",
+    "test:migration-safety": "node --test tests/migration-safety.test.mjs tests/production-d1-migration.test.mjs tests/production-d1-history-audit.test.mjs tests/production-d1-backlog-rollout.test.mjs tests/production-d1-0123-0125-rollout.test.mjs tests/production-d1-0126-rollout.test.mjs tests/production-d1-0127-rollout.test.mjs tests/production-d1-0128-rollout.test.mjs tests/production-d1-0128-readonly.test.mjs tests/production-d1-0129-rollout.test.mjs tests/production-d1-0130-rollout.test.mjs tests/production-d1-0131-rollout.test.mjs tests/production-d1-0132-rollout.test.mjs tests/production-d1-0133-rollout.test.mjs tests/production-d1-0133-readonly.test.mjs tests/production-d1-0134-rollout.test.mjs tests/production-d1-0135-rollout.test.mjs tests/production-d1-0136-rollout.test.mjs tests/production-d1-0137-rollout.test.mjs tests/production-d1-0138-rollout.test.mjs tests/production-d1-0140-0141-rollout.test.mjs tests/production-d1-0144-rollout.test.mjs tests/production-d1-0145-rollout.test.mjs tests/production-d1-0146-rollout.test.mjs tests/production-d1-0151-rollout.test.mjs && node --test tests/production-d1-0152-rollout.test.mjs && node --test tests/production-d1-0159-shadow.test.mjs && node --test tests/production-breed-workcopy-stage.test.mjs && node --test tests/production-breed-workcopy-baseline-step2.test.mjs && node --experimental-strip-types --test tests/production-breed-workcopy-step3-postflight.test.mjs && node --experimental-strip-types --test tests/production-breed-workcopy-step4-field-audit.test.mjs && node --test tests/production-d1-0161-event-metadata.test.mjs && node --test tests/production-d1-0163-breed-controlled.test.mjs && node --test tests/admin-record-lifecycle-migration.test.mjs && node --test tests/production-d1-0165-contacts.test.mjs && node --test tests/production-d1-analytics-0167-0168.test.mjs && node --test tests/production-d1-breeder-0169.test.mjs tests/production-d1-breeder-cutover.test.mjs",
+    "test:lost-found": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/lost-found-lifecycle.test.mjs tests/lost-found-admin-contract.test.mjs tests/lost-found-public-submission.test.mjs tests/lost-found-gallery-preservation.test.mjs tests/lost-found-short-description-e2e.test.mjs tests/lost-found-public-contacts.test.mjs",
+    "test:org-fundraising": "node --experimental-strip-types --test tests/organization-fundraising-contract.test.mjs",
+    "test:org-fundraising-foundation": "node --experimental-strip-types --test tests/organization-fundraising-foundation.test.mjs",
+    "test:org-fundraising-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/organization-fundraising-admin.test.mjs tests/organization-fundraising-verification.test.mjs",
+    "test:org-adoption-hardening": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/adoption-foundation.test.mjs tests/adoption-organization-hardening.test.mjs tests/organization-adoption-relation.test.mjs",
+    "test:help-sql-schema": "node --test tests/help-sql-schema-preflight.test.mjs",
+    "test:help-sql-backfill": "node --test tests/help-sql-reviewed-backfill.test.mjs",
+    "test:help-sql-sync-step4": "node --test tests/help-sql-canonical-sync-step4.test.mjs && node --test tests/help-notion-outbox.test.mjs",
+    "test:help-sql-cutover-step5": "node --test tests/help-sql-legacy-public-cutover-step5.test.mjs",
+    "test:help-sql-production-step6": "node --test tests/production-help-sql-cutover.test.mjs && node --test tests/help-legacy-sql-cleanup.test.mjs",
+    "test:foundation": "npm run test:help-sql-production-step6 && npm run test:help-sql-cutover-step5 && npm run test:help-sql-sync-step4 && npm run test:help-sql-backfill && npm run test:help-sql-schema && node --experimental-strip-types --test tests/admin-record-list-delete.test.mjs && npm run test:breed-concurrency && npm run test:migration-safety && npm run test:reviews-foundation && npm run test:reviews-public-read && npm run test:review-author-auth && npm run test:reviews-submission && npm run test:reviews-admin && npm run test:monetization && npm run test:name-days && npm run test:deploy-safety && npm run test:editorial-foundation && npm run test:article-admin-editor && npm run test:article-promo && node --experimental-strip-types --test tests/submission-foundation.test.mjs tests/moderation-atomicity.test.mjs tests/help-detail-presentation.test.mjs tests/help-public-v2.test.mjs tests/directory-detail-presentation.test.mjs tests/detail-primitives.test.mjs tests/shared-service-profile-compact.test.mjs tests/public-shared-six-ux.test.mjs tests/public-visual-system.test.mjs tests/organization-profile-presentation.test.mjs tests/organization-profile-route.test.mjs tests/help-organization-locations.test.mjs tests/help-organization-public-read.test.mjs tests/organization-adoption-presentation.test.mjs tests/organization-seo.test.mjs tests/organization-sitemap.test.mjs tests/organization-public-hub.test.mjs tests/help-organizations-import.test.mjs tests/adoption-staging-data.test.mjs tests/admin-attention-queue.test.mjs tests/help-organization-publication.test.mjs tests/help-shelter-inline-edit.test.mjs tests/admin-inline-edit-cross-modules.test.mjs tests/admin-help-inline-edit.test.mjs tests/admin-inline-edit-organizations-lost-found.test.mjs tests/admin-inline-edit-adoptions.test.mjs tests/admin-inline-edit-articles-breeds.test.mjs tests/admin-inline-edit-facebook-catalog.test.mjs tests/admin-help-unified-dog-inline-edit.test.mjs tests/admin-inline-edit-ops-queues.test.mjs tests/admin-inline-edit-gemini-quality.test.mjs && npm run test:org-adoption-hardening && npm run test:org-fundraising && npm run test:org-fundraising-foundation && npm run test:org-fundraising-admin && npm run test:org-fundraising-public && npm run test:org-locations-admin && npm run test:admin-buttons && npm run test:public-integrity && npm run test:partner-auth && npm run test:geo-foundation && npm run test:map-read-api && npm run test:map-public-ui && npm run test:map-production-launch",
+    "test:social-metadata": "node --experimental-strip-types --test tests/social-metadata.test.mjs",
+    "test:seo-metadata": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/seo-metadata-listing-schema.test.mjs",
+    "test:seo-structured-data": "node --experimental-strip-types --test tests/seo-structured-data-2.test.mjs",
+    "test:sitewide-ai-entity-surface": "node --experimental-strip-types --test tests/sitewide-ai-entity-surface.test.mjs tests/events-phase4.test.mjs tests/adoption-detail.test.mjs tests/organization-profile-presentation.test.mjs tests/organization-seo.test.mjs tests/seo-structured-data-2.test.mjs tests/directory-detail-presentation.test.mjs",
+    "test:social-metadata-rendered": "node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/social-metadata-rendered.test.mjs",
+    "test:homepage-media": "node --experimental-strip-types --test tests/homepage-media-quality.test.mjs tests/homepage-directory-query-performance.test.mjs tests/public-location-presentation.test.mjs tests/responsive-media.test.mjs tests/public-media-responsiveness-1216.test.mjs tests/public-photo-gallery.test.mjs tests/smart-card-images.test.mjs",
+    "test:perf-fastpaths": "node --experimental-strip-types --test tests/public-read-retry.test.mjs tests/performance-fastpaths.test.mjs tests/public-route-performance-step8.test.mjs tests/public-third-party-inp-step9.test.mjs tests/public-anonymous-html-cache.test.mjs tests/public-html-cache-safety.test.mjs tests/public-html-cache.test.mjs tests/web-perf-html-cache-probe.test.mjs",
+    "perf:html-cache:probe": "node --experimental-strip-types scripts/web-perf-html-cache-probe.mjs",
+    "test:public-css-scope": "node --test tests/public-css-scope.test.mjs",
+    "test:article-ux": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/content-hub-context-cta.test.mjs && node --experimental-strip-types --test tests/article-modern-reading-experience.test.mjs && node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/article-discovery.test.mjs && npm run test:article-hardening && npm run test:article-popularity && npm run test:content-discovery-v3 && npm run test:analytics",
+    "test:article-hardening": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/article-hardening.test.mjs",
+    "test:article-popularity": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/article-popularity.test.mjs",
+    "test:analytics": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/content-analytics.test.mjs tests/profile-view-tracking.test.mjs tests/directory-popularity.test.mjs tests/admin-traffic-analytics.test.mjs tests/article-public-read-count.test.mjs tests/admin-record-view-stats.test.mjs tests/qualified-analytics-consent.test.mjs tests/analytics-query-plan.test.mjs tests/sitewide-analytics.test.mjs tests/sitewide-analytics-route.test.mjs tests/admin-site-category-report.test.mjs",
+    "test:directory-read": "node --experimental-strip-types --test tests/trainer-breed-unification.test.mjs tests/directory-read-facets.test.mjs tests/d1-canonical-breed-cost.test.mjs tests/directory-main-image-action.test.mjs tests/breeder-profile-relations.test.mjs tests/breeder-club-single-source.test.mjs tests/breeder-relation-text.test.mjs tests/directory-multi-category.test.mjs tests/directory-secondary-category-labels.test.mjs tests/directory-duplicate-audit.test.mjs && node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-breeder-preview-step3.test.mjs",
+    "test:breed-concurrency": "node --experimental-strip-types --test tests/breed-concurrency-guard.test.mjs tests/admin-breed-list-projection.test.mjs tests/notion-breed-identity-backfill.test.mjs tests/breed-notion-field-delta.test.mjs tests/notion-field-authority.test.mjs tests/notion-sync-reported-regressions.test.mjs tests/breed-notion-compact-consolidation.test.mjs tests/breed-compact-public.test.mjs tests/breed-notion-60-ui-fields.test.mjs tests/breed-notion-stage-read.test.mjs tests/notion-breed-workcopy-preflight.test.mjs tests/notion-breed-workcopy-adapter.test.mjs tests/notion-breed-workcopy-identity-plan.test.mjs tests/notion-breed-workcopy-shadow-plan.test.mjs tests/notion-breed-workcopy-compatible-page.test.mjs tests/notion-breed-workcopy-field-patch.test.mjs tests/notion-breed-workcopy-patch-bridge.test.mjs tests/notion-breed-workcopy-runtime-contract.test.mjs tests/notion-breed-workcopy-value.test.mjs tests/notion-breed-workcopy-activation-plan.test.mjs tests/notion-breed-workcopy-activation-route.test.mjs tests/notion-breed-workcopy-receipt.test.mjs tests/notion-breed-workcopy-activation-sql.test.mjs tests/notion-breed-workcopy-cutover-window.test.mjs tests/notion-breed-workcopy-rebaseline-step5.test.mjs tests/breed-controlled-fields.test.mjs tests/breed-workcopy-controlled.test.mjs tests/breed-notion-workcopy-74-field-contract.test.mjs tests/notion-breed-workcopy-id-only-transfer.test.mjs tests/notion-breed-breeder-style-field-events.test.mjs tests/breed-public-facts-v4.test.mjs",
+    "test": "npm run test:visual-library && npm run test:component-registry && npm run build && npm run validate:deploy-artifact && npm run test:facebook-images && npm run test:facebook-publisher && npm run test:facebook-admin-v2 && npm run test:facebook-images-ui && npm run test:notion-facebook-images && npm run test:directory-read && npm run test:config && npm run test:functional-audit && npm run test:outreach-foundation && npm run test:ai-referral && npm run test:notion-bulk-backfill && npm run test:notion-events-help-sync && npm run test:foundation && npm run test:section-visuals && npm run test:unified-section-hero && npm run test:section-hero-v2 && npm run test:public-landing-alignment && npm run test:breed-crawl-hierarchy && npm run test:breeding-station-ai-landings && npm run test:directory-ai-landings-scale && npm run test:social-metadata && npm run test:seo-structured-data && npm run test:social-metadata-rendered && npm run test:article-ux && npm run test:homepage-media && npm run test:public-css-scope && npm run test:perf-fastpaths && npm run test:automation-schedule && node --experimental-strip-types --test tests/public-html-cache.test.mjs && node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/worker-performance.test.mjs tests/event-dates.test.mjs tests/events-phase4.test.mjs tests/reviews-phase5.test.mjs tests/sitemap-seo.test.mjs tests/directory-admin-query.test.mjs tests/admin-bulk-foundation.test.mjs tests/admin-bulk-execution.test.mjs tests/admin-bulk-v2.test.mjs tests/directory-import-sql.test.mjs tests/directory-import-preservation.test.mjs tests/directory-clubs.test.mjs tests/directory-change-requests.test.mjs tests/directory-inquiry-notifications.test.mjs tests/breed-fci-import.test.mjs tests/production-audit.test.mjs tests/section-navigation.test.mjs tests/events-phase3.test.mjs tests/navigation-progress.test.mjs && npm run test:events-public-ux && npm run test:lost-found && npm run test:search && npm run test:admin-events && npm run test:automation-operations",
+    "validate:artifact": "bash scripts/validate-artifact.sh",
+    "validate:deploy-artifact": "node scripts/validate-deploy-artifact.mjs",
+    "prelint": "npm run config:check && npm run db:check-migrations",
+    "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
+    "db:check-migrations": "node scripts/check-migration-safety.mjs",
+    "db:validate-clean": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs scripts/validate-clean-d1.mjs",
+    "db:generate": "node scripts/block-db-generate.mjs",
+    "audit:breeds": "node scripts/audit-breeds.mjs",
+    "audit:production": "node scripts/audit-production-site.mjs",
+    "preflight:adoptions": "node --experimental-strip-types scripts/preflight-adoption-migration.mjs",
+    "audit:breed-profiles": "node scripts/audit-breed-profiles.mjs",
+    "e2e:install": "playwright install chromium",
+    "e2e": "playwright test",
+    "e2e:production": "node --experimental-strip-types scripts/run-production-e2e.mjs",
+    "test:admin-events": "node --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-events.test.mjs tests/admin-event-pagination.test.mjs tests/event-lexical-markdown.test.mjs tests/publishing-optional-fields.test.mjs",
+    "test:org-fundraising-public": "node --experimental-strip-types --test tests/organization-fundraising-public.test.mjs",
+    "test:org-locations-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/organization-location-admin.test.mjs",
+    "test:editorial-foundation": "node --experimental-strip-types --test tests/editorial-content-foundation.test.mjs tests/notion-article-sync.test.mjs tests/article-notion-publish-writeback.test.mjs tests/article-publish-notion-reconciliation.test.mjs tests/article-effective-status.test.mjs tests/public-editorial-guard.test.mjs",
+    "test:article-admin-editor": "node --experimental-strip-types --test tests/article-admin-editor.test.mjs tests/article-tiptap-step3.test.mjs tests/article-content-qa.test.mjs tests/admin-editor-read-performance.test.mjs tests/admin-article-list-count-reuse.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/article-tiptap-step4.test.mjs tests/tiptap-editorial-bridge.test.mjs tests/article-continuous-step1.test.mjs tests/article-continuous-step2.test.mjs tests/article-continuous-step4.test.mjs",
+    "test:image-editor-2": "node --experimental-strip-types --test tests/image-editor-2.test.mjs tests/admin-media-loading-performance.test.mjs",
+    "test:article-promo": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/article-promo.test.mjs",
+    "test:name-days": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/dog-name-days.test.mjs tests/dog-name-day-import.test.mjs tests/name-day-admin-contract.test.mjs",
+    "test:monetization": "node --experimental-strip-types --test tests/monetization-foundation.test.mjs tests/internal-traffic.test.mjs tests/affiliate-banner-rotation.test.mjs",
+    "test:help-source": "node --test tests/help-source-daily.test.mjs tests/help-source-quick-actions.test.mjs",
+    "test:admin-d1-step5": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-d1-reads-step5.test.mjs tests/adoption-admin-list.test.mjs",
+    "test:admin-react-step6": "node --experimental-strip-types --test tests/admin-react-performance-step6.test.mjs tests/admin-record-table-selection.test.mjs",
+    "test:admin-mobile-step7": "node --experimental-strip-types --test tests/admin-mobile-pwa-step7.test.mjs tests/admin-mobile-document-navigation.test.mjs tests/admin-pwa.test.mjs",
+    "test:admin-error-step8": "node --experimental-strip-types --test tests/admin-error-recovery-step8.test.mjs tests/admin-page-streaming-step4.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/organization-admin-read-recovery-integration.test.mjs",
+    "test:admin-editor-source-step9": "node --test tests/admin-stability-verification-step9.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/help-organization-publication.test.mjs tests/directory-admin-query.test.mjs",
+    "test:admin-merge-step10": "node --test tests/admin-merge-step10.test.mjs",
+    "test:admin-stability-step10": "npm run test:admin-stability-step9 && npm run test:admin-merge-step10 && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-editor-text-change-contract.test.mjs tests/directory-editor-field-verification.test.mjs tests/directory-admin-raw-text.test.mjs tests/directory-admin-full-profile-save.test.mjs tests/directory-one-save-authority.test.mjs tests/directory-notion-full-mirror.test.mjs tests/directory-field-sync-parity-contract.test.mjs tests/directory-category-filter-editor.test.mjs",
+    "test:admin-stability-step9": "npm run test:admin-pwa && npm run test:admin-editor-source-step9",
+    "benchmark:admin-search-v2": "node --experimental-strip-types scripts/benchmark-admin-search-v2.mjs",
+    "test:admin-performance-v2-steps2-9": "node --experimental-strip-types --test tests/admin-performance-v2-steps2-9.test.mjs",
+    "test:admin-performance-v2": "npm run test:admin-performance-v2-step1 && npm run test:admin-performance-v2-steps2-9 && npm run test:admin-pwa && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-global-search.test.mjs tests/admin-global-search-performance.test.mjs tests/admin-attention-header-performance.test.mjs && node --experimental-strip-types --test tests/admin-search-query-plans-v2.test.mjs && node --test tests/admin-global-search-ui-step6.test.mjs && node --test tests/admin-performance-v2-typecheck.test.mjs",
+    "audit:admin-performance-v2": "node scripts/audit-admin-performance-v2.mjs",
+    "test:admin-performance-v2-step1": "node --test tests/admin-performance-v2-step1.test.mjs",
+    "benchmark:admin-step9": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs scripts/benchmark-admin-step9.mjs",
+    "e2e:admin-stability-step9": "playwright test tests/e2e/admin-performance-step9.spec.ts tests/e2e/admin-mobile-pwa-step7.spec.ts tests/e2e/admin-error-recovery-step8.spec.ts tests/e2e/admin-stability-navigation.spec.ts tests/e2e/admin-editor-navigation-guard.spec.ts",
+    "test:admin-pwa": "node --experimental-strip-types --test tests/admin-pwa.test.mjs tests/admin-mobile-document-navigation.test.mjs tests/admin-navigation-recovery.test.mjs tests/admin-editor-navigation-guard.test.mjs tests/admin-universal-push.test.mjs tests/admin-automation-push.test.mjs tests/admin-automation-history-detail.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-quality-pending-summary.test.mjs tests/admin-operations-streaming.test.mjs tests/admin-page-streaming-step4.test.mjs tests/help-source-daily.test.mjs tests/help-source-quick-actions.test.mjs && npm run test:admin-d1-step5 && npm run test:admin-react-step6 && npm run test:admin-mobile-step7 && npm run test:admin-error-step8",
+    "test:admin-buttons": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-button-system.test.mjs tests/admin-seo-quality.test.mjs && node --experimental-strip-types --test tests/admin-global-search.test.mjs",
+    "audit:public-integrity": "node scripts/check-public-integrity.mjs",
+    "test:public-integrity": "node --experimental-strip-types --test tests/public-integrity.test.mjs && npm run audit:public-integrity",
+    "test:partner-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-auth-foundation.test.mjs tests/partner-auth-onboarding-hardening.test.mjs tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs tests/partner-single-manager.test.mjs && npm run test:partner-profile-changes && npm run test:partner-new-profile && npm run test:partner-events && npm run test:partner-media && npm run test:partner-commercial-v1 && npm run test:partner-h2 && npm run test:partner-h3 && npm run test:partner-h4 && npm run test:partner-claims-step3 && npm run test:partner-help-step3 && npm run test:partner-help-step4 && npm run test:partner-help-step5 && npm run test:partner-step6 && npm run test:partner-step7 && npm run test:partner-step8",
+    "test:partner-media": "node --experimental-strip-types --test tests/partner-media.test.mjs",
+    "test:partner-h2": "node --test tests/partner-production-ux-polish.test.mjs && npm run test:partner-dashboard",
+    "test:partner-h4": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-public-profile-integration.test.mjs",
+    "test:partner-platform": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs tests/partner-single-manager.test.mjs && npm run test:partner-profile-changes && npm run test:partner-new-profile && npm run test:partner-events && npm run test:partner-commercial-v1 && npm run test:partner-dashboard && npm run test:partner-claims-step3 && npm run test:partner-help-step3 && npm run test:partner-help-step4 && npm run test:partner-help-step5 && npm run test:partner-step6 && npm run test:partner-step7 && npm run test:partner-step8",
+    "test:reviews-foundation": "node --experimental-strip-types --test tests/reviews-foundation.test.mjs tests/reviews-foundation-d1.test.mjs",
+    "test:geo-foundation": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/geoapify-fetch-receiver.test.mjs tests/notion-directory-runtime-atomicity.test.mjs tests/notion-directory-r2-cleanup.test.mjs tests/notion-directory-canonical-d1-integration.test.mjs tests/notion-directory-apply-sql-r2-integration.test.mjs tests/admin-google-address-preview.test.mjs tests/directory-service-address.test.mjs tests/geo-foundation.test.mjs tests/address-simple-1a.test.mjs tests/directory-exact-geo-auto.test.mjs tests/geo-a2-admin-ui.test.mjs tests/google-place-1b.test.mjs tests/directory-google-first.test.mjs tests/google-place-bulk.test.mjs tests/map-admin-unified.test.mjs tests/geo-admin-operator.test.mjs tests/geo-admin-moderation-sql.test.mjs tests/map-admin-perf-google-1.test.mjs tests/map-admin-ux-2.test.mjs tests/map-address-numberless.test.mjs tests/map-address-freetext.test.mjs tests/profile-google-unified.test.mjs tests/maps-workflow-simplify-1.test.mjs && node --experimental-strip-types --experimental-loader ./tests/google-confirmation-loader.mjs --test tests/google-confirmation-e2e.test.mjs",
+    "test:map-read-api": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/map-read-api.test.mjs tests/map-read-api-contract.test.mjs tests/map-read-api-benchmark.test.mjs",
+    "test:partner-profile-changes": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-profile-changes.test.mjs tests/partner-profile-gallery.test.mjs",
+    "test:reviews-public-read": "node --experimental-strip-types --test tests/profile-review-read.test.mjs tests/reviews-hub.test.mjs",
+    "test:map-public-ui": "node --experimental-strip-types --test tests/map-public-ui.test.mjs tests/map-public-ui-contract.test.mjs tests/public-location-map-contract.test.mjs tests/map-type-idle-suppression.test.mjs",
+    "test:partner-new-profile": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-new-profile.test.mjs",
+    "test:map-production-launch": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/map-production-launch.test.mjs",
+    "test:review-author-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/review-author-auth.test.mjs",
+    "test:partner-events": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-events.test.mjs",
+    "test:reviews-submission": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/profile-review-submission.test.mjs tests/eshop-ratings.test.mjs",
+    "test:partner-commercial-v1": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-commercial-agreements.test.mjs",
+    "test:reviews-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/profile-review-admin.test.mjs tests/admin-attention-queue.test.mjs tests/admin-attention-header-performance.test.mjs tests/admin-attention-zero-skip.test.mjs tests/admin-attention-grouped-probes.test.mjs tests/reviews-admin-hub.test.mjs tests/notion-eshop-sync.test.mjs",
+    "test:partner-h3": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-multimethod-auth.test.mjs",
+    "test:search": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/portal-search.test.mjs tests/public-live-search.test.mjs",
+    "test:canonical-draft-delete": "node --experimental-strip-types --test tests/canonical-draft-delete.test.mjs",
+    "test:automation-schedule": "node --experimental-strip-types --test tests/automation-schedule.test.mjs tests/automation-schedule-integration.test.mjs",
+    "test:automation-operations": "node --experimental-strip-types --test tests/automation-operations.test.mjs tests/automation-operations-scheduling.test.mjs tests/legacy-automation-retirement.test.mjs tests/quality-manual-search-contract.test.mjs tests/quality-tavily-query.test.mjs tests/admin-missing-quality-overview.test.mjs",
+    "test:section-visuals": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/section-visuals.test.mjs",
+    "test:unified-section-hero": "node --test tests/unified-section-hero.test.mjs tests/public-ux-foundation-v3.test.mjs",
+    "test:section-hero-v2": "node --test tests/section-hero-v2.test.mjs",
+    "test:public-landing-alignment": "node --test tests/public-landing-alignment.test.mjs",
+    "test:breed-crawl-hierarchy": "node --test tests/breed-crawl-hierarchy.test.mjs",
+    "test:breeding-station-ai-landings": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breeding-station-ai-landings.test.mjs",
+    "test:directory-ai-landings-scale": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-ai-landings-scale.test.mjs",
+    "test:internal-discovery": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/internal-discovery.test.mjs",
+    "test:public-search-simplify": "node --test tests/public-search-simplify.test.mjs",
+    "test:content-discovery-v3": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/content-discovery-v3.test.mjs",
+    "test:events-public-ux": "node --experimental-strip-types --test tests/events-calendar-v1.test.mjs tests/events-public-ux-v2.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/event-listing.test.mjs tests/event-calendar-d1-cost.test.mjs",
+    "test:facebook-images": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-post.test.mjs tests/facebook-video.test.mjs",
+    "test:facebook-publisher": "node --experimental-strip-types --test tests/facebook-image-publisher.test.mjs",
+    "test:facebook-admin-v2": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-admin-v2.test.mjs",
+    "test:notion-facebook-images": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-facebook-images-sync.test.mjs tests/notion-facebook-images-integration.test.mjs tests/notion-facebook-images-admin-export.test.mjs",
+    "test:facebook-images-ui": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-ui.test.mjs tests/facebook-image-destructive-v4-contract.test.mjs tests/facebook-content-picker.test.mjs && node --experimental-strip-types --test tests/facebook-weekly-plan.test.mjs && node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-weekly-template.test.mjs && node --test tests/facebook-weekly-0166-rollout.test.mjs",
+    "test:notion-data-quality-audit": "node --experimental-strip-types --test tests/notion-data-quality-audit-v2.test.mjs",
+    "predev": "npm run components:generate",
+    "components:generate": "node scripts/generate-component-registry.mjs",
+    "test:component-registry": "node --test tests/component-registry.test.mjs tests/admin-component-visual-preview.test.mjs tests/admin-component-registry-coverage.test.mjs",
+    "graph:react": "npm exec --yes --package=@reactgraph-ui/core@0.1.9 -- reactgraph analyze .",
+    "graph:dependencies": "npm exec --yes --package=dependency-cruiser@18.7.0 -- depcruise --no-config --ts-config tsconfig.json --output-type json app components lib",
+    "test:visual-library": "node --test tests/visual-library.test.mjs tests/visual-library-gallery.test.mjs tests/visual-library-dynamic-urls.test.mjs tests/visual-library-anchors.test.mjs tests/visual-library-stage4.test.mjs tests/visual-library-release.test.mjs && node --experimental-strip-types --test tests/visual-library-similarity.test.mjs tests/visual-library-drafts.test.mjs tests/visual-library-route-evidence.test.mjs tests/visual-library-source-comparison.test.mjs tests/visual-library-component-proposals.test.mjs tests/visual-library-html-evidence.test.mjs tests/visual-library-deep-audit.test.mjs tests/visual-library-visual-catalog.test.mjs tests/visual-library-extra-previews.test.mjs tests/visual-library-related-profile-urls.test.mjs tests/visual-library-owner-evidence.test.mjs tests/visual-library-owner-decision.test.mjs tests/visual-library-canonical-renderers.test.mjs tests/visual-library-component-html-check.test.mjs tests/visual-library-shared-foundations.test.mjs tests/visual-library-full-inventory.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/visual-library-owner-suggestions.test.mjs tests/visual-library-usage.test.mjs tests/visual-library-owner-queue.test.mjs tests/visual-library-owner-queue-store.test.mjs",
+    "audit:knip": "npm exec --yes --package=knip@6.45.1 -- knip --no-exit-code",
+    "audit:knip:report": "npm exec --yes --package=knip@6.45.1 -- knip --no-exit-code --reporter json --reporter markdown --output-file json=reports/knip/findings.json --output-file markdown=reports/knip/findings.md",
+    "test:partner-single-manager": "node --experimental-strip-types --test tests/partner-single-manager.test.mjs",
+    "test:partner-dashboard": "node --experimental-strip-types --test tests/partner-dashboard-step2.test.mjs",
+    "test:partner-claims-step3": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-existing-record-claim-step3.test.mjs",
+    "test:partner-help-step3": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-help-claims-step3.test.mjs",
+    "test:partner-help-step4": "node --test tests/partner-help-create-step4.test.mjs",
+    "test:partner-help-step5": "node --experimental-strip-types --test tests/partner-help-editor-step5.test.mjs",
+    "test:partner-step6": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-direct-save-step6.test.mjs",
+    "test:partner-step7": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-help-review-step7.test.mjs",
+    "test:partner-step8": "node --experimental-strip-types --test tests/partner-step8-regression.test.mjs"
+  },
+  "directPackageReferences": {
+    "tests/config-contract.test.mjs": [
+      "test:config"
+    ],
+    "tests/http-response-security.test.mjs": [
+      "test:functional-audit"
+    ],
+    "tests/admin-pwa.test.mjs": [
+      "test:functional-audit",
+      "test:admin-mobile-step7",
+      "test:admin-pwa"
+    ],
+    "tests/home-magazine-accessibility.test.mjs": [
+      "test:functional-audit"
+    ],
+    "tests/outreach-foundation.test.mjs": [
+      "test:outreach-foundation"
+    ],
+    "tests/ai-referral.test.mjs": [
+      "test:ai-referral"
+    ],
+    "tests/notion-bulk-backfill.test.mjs": [
+      "test:notion-bulk-backfill"
+    ],
+    "tests/notion-events-help-bidirectional.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-geo-mirror.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-data-quality-recovery.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-sync-health.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-sync-overview.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-sync-overview-ui.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-events-help-runtime-integration.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-targeted-webhook.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/directory-notion-reviewed-sync.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/directory-reviewed-sync-lock.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-breeder-field-events.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-trainer-service-field-events.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-trainer-trust-training-facets.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/notion-official-sdk.test.mjs": [
+      "test:notion-events-help-sync"
+    ],
+    "tests/deploy-safety.test.mjs": [
+      "test:deploy-safety"
+    ],
+    "tests/admin-record-lifecycle-migration.test.mjs": [
+      "test:record-lifecycle",
+      "test:migration-safety"
+    ],
+    "tests/admin-record-lifecycle-contract.test.mjs": [
+      "test:record-lifecycle"
+    ],
+    "tests/admin-record-lifecycle-event-mapping.test.mjs": [
+      "test:record-lifecycle"
+    ],
+    "tests/admin-record-lifecycle-resume.test.mjs": [
+      "test:record-lifecycle"
+    ],
+    "tests/admin-record-lifecycle-notion-identity.test.mjs": [
+      "test:record-lifecycle"
+    ],
+    "tests/admin-record-lifecycle-media-safety.test.mjs": [
+      "test:record-lifecycle"
+    ],
+    "tests/admin-record-list-delete.test.mjs": [
+      "test:record-lifecycle",
+      "test:foundation"
+    ],
+    "tests/migration-safety.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-migration.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-history-audit.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-backlog-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0123-0125-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0126-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0127-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0128-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0128-readonly.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0129-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0130-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0131-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0132-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0133-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0133-readonly.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0134-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0135-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0136-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0137-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0138-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0140-0141-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0144-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0145-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0146-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0151-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0152-rollout.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0159-shadow.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-breed-workcopy-stage.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-breed-workcopy-baseline-step2.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-breed-workcopy-step3-postflight.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-breed-workcopy-step4-field-audit.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0161-event-metadata.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0163-breed-controlled.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-0165-contacts.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-analytics-0167-0168.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-breeder-0169.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/production-d1-breeder-cutover.test.mjs": [
+      "test:migration-safety"
+    ],
+    "tests/lost-found-lifecycle.test.mjs": [
+      "test:lost-found"
+    ],
+    "tests/lost-found-admin-contract.test.mjs": [
+      "test:lost-found"
+    ],
+    "tests/lost-found-public-submission.test.mjs": [
+      "test:lost-found"
+    ],
+    "tests/lost-found-gallery-preservation.test.mjs": [
+      "test:lost-found"
+    ],
+    "tests/lost-found-short-description-e2e.test.mjs": [
+      "test:lost-found"
+    ],
+    "tests/lost-found-public-contacts.test.mjs": [
+      "test:lost-found"
+    ],
+    "tests/organization-fundraising-contract.test.mjs": [
+      "test:org-fundraising"
+    ],
+    "tests/organization-fundraising-foundation.test.mjs": [
+      "test:org-fundraising-foundation"
+    ],
+    "tests/organization-fundraising-admin.test.mjs": [
+      "test:org-fundraising-admin"
+    ],
+    "tests/organization-fundraising-verification.test.mjs": [
+      "test:org-fundraising-admin"
+    ],
+    "tests/adoption-foundation.test.mjs": [
+      "test:org-adoption-hardening"
+    ],
+    "tests/adoption-organization-hardening.test.mjs": [
+      "test:org-adoption-hardening"
+    ],
+    "tests/organization-adoption-relation.test.mjs": [
+      "test:org-adoption-hardening"
+    ],
+    "tests/help-sql-schema-preflight.test.mjs": [
+      "test:help-sql-schema"
+    ],
+    "tests/help-sql-reviewed-backfill.test.mjs": [
+      "test:help-sql-backfill"
+    ],
+    "tests/help-sql-canonical-sync-step4.test.mjs": [
+      "test:help-sql-sync-step4"
+    ],
+    "tests/help-notion-outbox.test.mjs": [
+      "test:help-sql-sync-step4"
+    ],
+    "tests/help-sql-legacy-public-cutover-step5.test.mjs": [
+      "test:help-sql-cutover-step5"
+    ],
+    "tests/production-help-sql-cutover.test.mjs": [
+      "test:help-sql-production-step6"
+    ],
+    "tests/help-legacy-sql-cleanup.test.mjs": [
+      "test:help-sql-production-step6"
+    ],
+    "tests/submission-foundation.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/moderation-atomicity.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/help-detail-presentation.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/help-public-v2.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/directory-detail-presentation.test.mjs": [
+      "test:foundation",
+      "test:sitewide-ai-entity-surface"
+    ],
+    "tests/detail-primitives.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/shared-service-profile-compact.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/public-shared-six-ux.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/public-visual-system.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/organization-profile-presentation.test.mjs": [
+      "test:foundation",
+      "test:sitewide-ai-entity-surface"
+    ],
+    "tests/organization-profile-route.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/help-organization-locations.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/help-organization-public-read.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/organization-adoption-presentation.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/organization-seo.test.mjs": [
+      "test:foundation",
+      "test:sitewide-ai-entity-surface"
+    ],
+    "tests/organization-sitemap.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/organization-public-hub.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/help-organizations-import.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/adoption-staging-data.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-attention-queue.test.mjs": [
+      "test:foundation",
+      "test:reviews-admin"
+    ],
+    "tests/help-organization-publication.test.mjs": [
+      "test:foundation",
+      "test:admin-editor-source-step9"
+    ],
+    "tests/help-shelter-inline-edit.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-inline-edit-cross-modules.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-help-inline-edit.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-inline-edit-organizations-lost-found.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-inline-edit-adoptions.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-inline-edit-articles-breeds.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-inline-edit-facebook-catalog.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-help-unified-dog-inline-edit.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-inline-edit-ops-queues.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/admin-inline-edit-gemini-quality.test.mjs": [
+      "test:foundation"
+    ],
+    "tests/social-metadata.test.mjs": [
+      "test:social-metadata"
+    ],
+    "tests/seo-metadata-listing-schema.test.mjs": [
+      "test:seo-metadata"
+    ],
+    "tests/seo-structured-data-2.test.mjs": [
+      "test:seo-structured-data",
+      "test:sitewide-ai-entity-surface"
+    ],
+    "tests/sitewide-ai-entity-surface.test.mjs": [
+      "test:sitewide-ai-entity-surface"
+    ],
+    "tests/events-phase4.test.mjs": [
+      "test:sitewide-ai-entity-surface",
+      "test"
+    ],
+    "tests/adoption-detail.test.mjs": [
+      "test:sitewide-ai-entity-surface"
+    ],
+    "tests/social-metadata-rendered.test.mjs": [
+      "test:social-metadata-rendered"
+    ],
+    "tests/homepage-media-quality.test.mjs": [
+      "test:homepage-media"
+    ],
+    "tests/homepage-directory-query-performance.test.mjs": [
+      "test:homepage-media"
+    ],
+    "tests/public-location-presentation.test.mjs": [
+      "test:homepage-media"
+    ],
+    "tests/responsive-media.test.mjs": [
+      "test:homepage-media"
+    ],
+    "tests/public-media-responsiveness-1216.test.mjs": [
+      "test:homepage-media"
+    ],
+    "tests/public-photo-gallery.test.mjs": [
+      "test:homepage-media"
+    ],
+    "tests/smart-card-images.test.mjs": [
+      "test:homepage-media"
+    ],
+    "tests/public-read-retry.test.mjs": [
+      "test:perf-fastpaths"
+    ],
+    "tests/performance-fastpaths.test.mjs": [
+      "test:perf-fastpaths"
+    ],
+    "tests/public-route-performance-step8.test.mjs": [
+      "test:perf-fastpaths"
+    ],
+    "tests/public-third-party-inp-step9.test.mjs": [
+      "test:perf-fastpaths"
+    ],
+    "tests/public-anonymous-html-cache.test.mjs": [
+      "test:perf-fastpaths"
+    ],
+    "tests/public-html-cache-safety.test.mjs": [
+      "test:perf-fastpaths"
+    ],
+    "tests/public-html-cache.test.mjs": [
+      "test:perf-fastpaths",
+      "test"
+    ],
+    "tests/web-perf-html-cache-probe.test.mjs": [
+      "test:perf-fastpaths"
+    ],
+    "tests/public-css-scope.test.mjs": [
+      "test:public-css-scope"
+    ],
+    "tests/content-hub-context-cta.test.mjs": [
+      "test:article-ux"
+    ],
+    "tests/article-modern-reading-experience.test.mjs": [
+      "test:article-ux"
+    ],
+    "tests/article-discovery.test.mjs": [
+      "test:article-ux"
+    ],
+    "tests/article-hardening.test.mjs": [
+      "test:article-hardening"
+    ],
+    "tests/article-popularity.test.mjs": [
+      "test:article-popularity"
+    ],
+    "tests/content-analytics.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/profile-view-tracking.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/directory-popularity.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/admin-traffic-analytics.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/article-public-read-count.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/admin-record-view-stats.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/qualified-analytics-consent.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/analytics-query-plan.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/sitewide-analytics.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/sitewide-analytics-route.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/admin-site-category-report.test.mjs": [
+      "test:analytics"
+    ],
+    "tests/trainer-breed-unification.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/directory-read-facets.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/d1-canonical-breed-cost.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/directory-main-image-action.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/breeder-profile-relations.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/breeder-club-single-source.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/breeder-relation-text.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/directory-multi-category.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/directory-secondary-category-labels.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/directory-duplicate-audit.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/directory-breeder-preview-step3.test.mjs": [
+      "test:directory-read"
+    ],
+    "tests/breed-concurrency-guard.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/admin-breed-list-projection.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-identity-backfill.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/breed-notion-field-delta.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-field-authority.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-sync-reported-regressions.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/breed-notion-compact-consolidation.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/breed-compact-public.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/breed-notion-60-ui-fields.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/breed-notion-stage-read.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-preflight.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-adapter.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-identity-plan.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-shadow-plan.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-compatible-page.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-field-patch.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-patch-bridge.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-runtime-contract.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-value.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-activation-plan.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-activation-route.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-receipt.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-activation-sql.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-cutover-window.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-rebaseline-step5.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/breed-controlled-fields.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/breed-workcopy-controlled.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/breed-notion-workcopy-74-field-contract.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-workcopy-id-only-transfer.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/notion-breed-breeder-style-field-events.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/breed-public-facts-v4.test.mjs": [
+      "test:breed-concurrency"
+    ],
+    "tests/rendered-html.test.mjs": [
+      "test"
+    ],
+    "tests/worker-performance.test.mjs": [
+      "test"
+    ],
+    "tests/event-dates.test.mjs": [
+      "test"
+    ],
+    "tests/reviews-phase5.test.mjs": [
+      "test"
+    ],
+    "tests/sitemap-seo.test.mjs": [
+      "test"
+    ],
+    "tests/directory-admin-query.test.mjs": [
+      "test",
+      "test:admin-editor-source-step9"
+    ],
+    "tests/admin-bulk-foundation.test.mjs": [
+      "test"
+    ],
+    "tests/admin-bulk-execution.test.mjs": [
+      "test"
+    ],
+    "tests/admin-bulk-v2.test.mjs": [
+      "test"
+    ],
+    "tests/directory-import-sql.test.mjs": [
+      "test"
+    ],
+    "tests/directory-import-preservation.test.mjs": [
+      "test"
+    ],
+    "tests/directory-clubs.test.mjs": [
+      "test"
+    ],
+    "tests/directory-change-requests.test.mjs": [
+      "test"
+    ],
+    "tests/directory-inquiry-notifications.test.mjs": [
+      "test"
+    ],
+    "tests/breed-fci-import.test.mjs": [
+      "test"
+    ],
+    "tests/production-audit.test.mjs": [
+      "test"
+    ],
+    "tests/section-navigation.test.mjs": [
+      "test"
+    ],
+    "tests/events-phase3.test.mjs": [
+      "test"
+    ],
+    "tests/navigation-progress.test.mjs": [
+      "test"
+    ],
+    "tests/admin-events.test.mjs": [
+      "test:admin-events"
+    ],
+    "tests/admin-event-pagination.test.mjs": [
+      "test:admin-events"
+    ],
+    "tests/event-lexical-markdown.test.mjs": [
+      "test:admin-events"
+    ],
+    "tests/publishing-optional-fields.test.mjs": [
+      "test:admin-events"
+    ],
+    "tests/organization-fundraising-public.test.mjs": [
+      "test:org-fundraising-public"
+    ],
+    "tests/organization-location-admin.test.mjs": [
+      "test:org-locations-admin"
+    ],
+    "tests/editorial-content-foundation.test.mjs": [
+      "test:editorial-foundation"
+    ],
+    "tests/notion-article-sync.test.mjs": [
+      "test:editorial-foundation"
+    ],
+    "tests/article-notion-publish-writeback.test.mjs": [
+      "test:editorial-foundation"
+    ],
+    "tests/article-publish-notion-reconciliation.test.mjs": [
+      "test:editorial-foundation"
+    ],
+    "tests/article-effective-status.test.mjs": [
+      "test:editorial-foundation"
+    ],
+    "tests/public-editorial-guard.test.mjs": [
+      "test:editorial-foundation"
+    ],
+    "tests/article-admin-editor.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/article-tiptap-step3.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/article-content-qa.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/admin-editor-read-performance.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/admin-article-list-count-reuse.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/article-tiptap-step4.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/tiptap-editorial-bridge.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/article-continuous-step1.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/article-continuous-step2.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/article-continuous-step4.test.mjs": [
+      "test:article-admin-editor"
+    ],
+    "tests/image-editor-2.test.mjs": [
+      "test:image-editor-2"
+    ],
+    "tests/admin-media-loading-performance.test.mjs": [
+      "test:image-editor-2"
+    ],
+    "tests/article-promo.test.mjs": [
+      "test:article-promo"
+    ],
+    "tests/dog-name-days.test.mjs": [
+      "test:name-days"
+    ],
+    "tests/dog-name-day-import.test.mjs": [
+      "test:name-days"
+    ],
+    "tests/name-day-admin-contract.test.mjs": [
+      "test:name-days"
+    ],
+    "tests/monetization-foundation.test.mjs": [
+      "test:monetization"
+    ],
+    "tests/internal-traffic.test.mjs": [
+      "test:monetization"
+    ],
+    "tests/affiliate-banner-rotation.test.mjs": [
+      "test:monetization"
+    ],
+    "tests/help-source-daily.test.mjs": [
+      "test:help-source",
+      "test:admin-pwa"
+    ],
+    "tests/help-source-quick-actions.test.mjs": [
+      "test:help-source",
+      "test:admin-pwa"
+    ],
+    "tests/admin-d1-reads-step5.test.mjs": [
+      "test:admin-d1-step5"
+    ],
+    "tests/adoption-admin-list.test.mjs": [
+      "test:admin-d1-step5"
+    ],
+    "tests/admin-react-performance-step6.test.mjs": [
+      "test:admin-react-step6"
+    ],
+    "tests/admin-record-table-selection.test.mjs": [
+      "test:admin-react-step6"
+    ],
+    "tests/admin-mobile-pwa-step7.test.mjs": [
+      "test:admin-mobile-step7"
+    ],
+    "tests/admin-mobile-document-navigation.test.mjs": [
+      "test:admin-mobile-step7",
+      "test:admin-pwa"
+    ],
+    "tests/admin-error-recovery-step8.test.mjs": [
+      "test:admin-error-step8"
+    ],
+    "tests/admin-page-streaming-step4.test.mjs": [
+      "test:admin-error-step8",
+      "test:admin-pwa"
+    ],
+    "tests/organization-admin-read-recovery-integration.test.mjs": [
+      "test:admin-error-step8"
+    ],
+    "tests/admin-stability-verification-step9.test.mjs": [
+      "test:admin-editor-source-step9"
+    ],
+    "tests/admin-merge-step10.test.mjs": [
+      "test:admin-merge-step10"
+    ],
+    "tests/directory-editor-text-change-contract.test.mjs": [
+      "test:admin-stability-step10"
+    ],
+    "tests/directory-editor-field-verification.test.mjs": [
+      "test:admin-stability-step10"
+    ],
+    "tests/directory-admin-raw-text.test.mjs": [
+      "test:admin-stability-step10"
+    ],
+    "tests/directory-admin-full-profile-save.test.mjs": [
+      "test:admin-stability-step10"
+    ],
+    "tests/directory-one-save-authority.test.mjs": [
+      "test:admin-stability-step10"
+    ],
+    "tests/directory-notion-full-mirror.test.mjs": [
+      "test:admin-stability-step10"
+    ],
+    "tests/directory-field-sync-parity-contract.test.mjs": [
+      "test:admin-stability-step10"
+    ],
+    "tests/directory-category-filter-editor.test.mjs": [
+      "test:admin-stability-step10"
+    ],
+    "tests/admin-performance-v2-steps2-9.test.mjs": [
+      "test:admin-performance-v2-steps2-9"
+    ],
+    "tests/admin-global-search.test.mjs": [
+      "test:admin-performance-v2",
+      "test:admin-buttons"
+    ],
+    "tests/admin-global-search-performance.test.mjs": [
+      "test:admin-performance-v2"
+    ],
+    "tests/admin-attention-header-performance.test.mjs": [
+      "test:admin-performance-v2",
+      "test:reviews-admin"
+    ],
+    "tests/admin-search-query-plans-v2.test.mjs": [
+      "test:admin-performance-v2"
+    ],
+    "tests/admin-global-search-ui-step6.test.mjs": [
+      "test:admin-performance-v2"
+    ],
+    "tests/admin-performance-v2-typecheck.test.mjs": [
+      "test:admin-performance-v2"
+    ],
+    "tests/admin-performance-v2-step1.test.mjs": [
+      "test:admin-performance-v2-step1"
+    ],
+    "tests/e2e/admin-performance-step9.spec.ts": [
+      "e2e:admin-stability-step9"
+    ],
+    "tests/e2e/admin-mobile-pwa-step7.spec.ts": [
+      "e2e:admin-stability-step9"
+    ],
+    "tests/e2e/admin-error-recovery-step8.spec.ts": [
+      "e2e:admin-stability-step9"
+    ],
+    "tests/e2e/admin-stability-navigation.spec.ts": [
+      "e2e:admin-stability-step9"
+    ],
+    "tests/e2e/admin-editor-navigation-guard.spec.ts": [
+      "e2e:admin-stability-step9"
+    ],
+    "tests/admin-navigation-recovery.test.mjs": [
+      "test:admin-pwa"
+    ],
+    "tests/admin-editor-navigation-guard.test.mjs": [
+      "test:admin-pwa"
+    ],
+    "tests/admin-universal-push.test.mjs": [
+      "test:admin-pwa"
+    ],
+    "tests/admin-automation-push.test.mjs": [
+      "test:admin-pwa"
+    ],
+    "tests/admin-automation-history-detail.test.mjs": [
+      "test:admin-pwa"
+    ],
+    "tests/admin-workspace-notifications-v2.test.mjs": [
+      "test:admin-pwa"
+    ],
+    "tests/admin-quality-pending-summary.test.mjs": [
+      "test:admin-pwa"
+    ],
+    "tests/admin-operations-streaming.test.mjs": [
+      "test:admin-pwa"
+    ],
+    "tests/admin-button-system.test.mjs": [
+      "test:admin-buttons"
+    ],
+    "tests/admin-seo-quality.test.mjs": [
+      "test:admin-buttons"
+    ],
+    "tests/public-integrity.test.mjs": [
+      "test:public-integrity"
+    ],
+    "tests/partner-auth-foundation.test.mjs": [
+      "test:partner-auth"
+    ],
+    "tests/partner-auth-onboarding-hardening.test.mjs": [
+      "test:partner-auth"
+    ],
+    "tests/partner-memberships-admin.test.mjs": [
+      "test:partner-auth",
+      "test:partner-platform"
+    ],
+    "tests/partner-commercial-interest.test.mjs": [
+      "test:partner-auth",
+      "test:partner-platform"
+    ],
+    "tests/partner-claims-verification.test.mjs": [
+      "test:partner-auth",
+      "test:partner-platform"
+    ],
+    "tests/partner-single-manager.test.mjs": [
+      "test:partner-auth",
+      "test:partner-platform",
+      "test:partner-single-manager"
+    ],
+    "tests/partner-media.test.mjs": [
+      "test:partner-media"
+    ],
+    "tests/partner-production-ux-polish.test.mjs": [
+      "test:partner-h2"
+    ],
+    "tests/partner-public-profile-integration.test.mjs": [
+      "test:partner-h4"
+    ],
+    "tests/reviews-foundation.test.mjs": [
+      "test:reviews-foundation"
+    ],
+    "tests/reviews-foundation-d1.test.mjs": [
+      "test:reviews-foundation"
+    ],
+    "tests/geoapify-fetch-receiver.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/notion-directory-runtime-atomicity.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/notion-directory-r2-cleanup.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/notion-directory-canonical-d1-integration.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/notion-directory-apply-sql-r2-integration.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/admin-google-address-preview.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/directory-service-address.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/geo-foundation.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/address-simple-1a.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/directory-exact-geo-auto.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/geo-a2-admin-ui.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/google-place-1b.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/directory-google-first.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/google-place-bulk.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/map-admin-unified.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/geo-admin-operator.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/geo-admin-moderation-sql.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/map-admin-perf-google-1.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/map-admin-ux-2.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/map-address-numberless.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/map-address-freetext.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/profile-google-unified.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/maps-workflow-simplify-1.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/google-confirmation-e2e.test.mjs": [
+      "test:geo-foundation"
+    ],
+    "tests/map-read-api.test.mjs": [
+      "test:map-read-api"
+    ],
+    "tests/map-read-api-contract.test.mjs": [
+      "test:map-read-api"
+    ],
+    "tests/map-read-api-benchmark.test.mjs": [
+      "test:map-read-api"
+    ],
+    "tests/partner-profile-changes.test.mjs": [
+      "test:partner-profile-changes"
+    ],
+    "tests/partner-profile-gallery.test.mjs": [
+      "test:partner-profile-changes"
+    ],
+    "tests/profile-review-read.test.mjs": [
+      "test:reviews-public-read"
+    ],
+    "tests/reviews-hub.test.mjs": [
+      "test:reviews-public-read"
+    ],
+    "tests/map-public-ui.test.mjs": [
+      "test:map-public-ui"
+    ],
+    "tests/map-public-ui-contract.test.mjs": [
+      "test:map-public-ui"
+    ],
+    "tests/public-location-map-contract.test.mjs": [
+      "test:map-public-ui"
+    ],
+    "tests/map-type-idle-suppression.test.mjs": [
+      "test:map-public-ui"
+    ],
+    "tests/partner-new-profile.test.mjs": [
+      "test:partner-new-profile"
+    ],
+    "tests/map-production-launch.test.mjs": [
+      "test:map-production-launch"
+    ],
+    "tests/review-author-auth.test.mjs": [
+      "test:review-author-auth"
+    ],
+    "tests/partner-events.test.mjs": [
+      "test:partner-events"
+    ],
+    "tests/profile-review-submission.test.mjs": [
+      "test:reviews-submission"
+    ],
+    "tests/eshop-ratings.test.mjs": [
+      "test:reviews-submission"
+    ],
+    "tests/partner-commercial-agreements.test.mjs": [
+      "test:partner-commercial-v1"
+    ],
+    "tests/profile-review-admin.test.mjs": [
+      "test:reviews-admin"
+    ],
+    "tests/admin-attention-zero-skip.test.mjs": [
+      "test:reviews-admin"
+    ],
+    "tests/admin-attention-grouped-probes.test.mjs": [
+      "test:reviews-admin"
+    ],
+    "tests/reviews-admin-hub.test.mjs": [
+      "test:reviews-admin"
+    ],
+    "tests/notion-eshop-sync.test.mjs": [
+      "test:reviews-admin"
+    ],
+    "tests/partner-multimethod-auth.test.mjs": [
+      "test:partner-h3"
+    ],
+    "tests/portal-search.test.mjs": [
+      "test:search"
+    ],
+    "tests/public-live-search.test.mjs": [
+      "test:search"
+    ],
+    "tests/canonical-draft-delete.test.mjs": [
+      "test:canonical-draft-delete"
+    ],
+    "tests/automation-schedule.test.mjs": [
+      "test:automation-schedule"
+    ],
+    "tests/automation-schedule-integration.test.mjs": [
+      "test:automation-schedule"
+    ],
+    "tests/automation-operations.test.mjs": [
+      "test:automation-operations"
+    ],
+    "tests/automation-operations-scheduling.test.mjs": [
+      "test:automation-operations"
+    ],
+    "tests/legacy-automation-retirement.test.mjs": [
+      "test:automation-operations"
+    ],
+    "tests/quality-manual-search-contract.test.mjs": [
+      "test:automation-operations"
+    ],
+    "tests/quality-tavily-query.test.mjs": [
+      "test:automation-operations"
+    ],
+    "tests/admin-missing-quality-overview.test.mjs": [
+      "test:automation-operations"
+    ],
+    "tests/section-visuals.test.mjs": [
+      "test:section-visuals"
+    ],
+    "tests/unified-section-hero.test.mjs": [
+      "test:unified-section-hero"
+    ],
+    "tests/public-ux-foundation-v3.test.mjs": [
+      "test:unified-section-hero"
+    ],
+    "tests/section-hero-v2.test.mjs": [
+      "test:section-hero-v2"
+    ],
+    "tests/public-landing-alignment.test.mjs": [
+      "test:public-landing-alignment"
+    ],
+    "tests/breed-crawl-hierarchy.test.mjs": [
+      "test:breed-crawl-hierarchy"
+    ],
+    "tests/breeding-station-ai-landings.test.mjs": [
+      "test:breeding-station-ai-landings"
+    ],
+    "tests/directory-ai-landings-scale.test.mjs": [
+      "test:directory-ai-landings-scale"
+    ],
+    "tests/internal-discovery.test.mjs": [
+      "test:internal-discovery"
+    ],
+    "tests/public-search-simplify.test.mjs": [
+      "test:public-search-simplify"
+    ],
+    "tests/content-discovery-v3.test.mjs": [
+      "test:content-discovery-v3"
+    ],
+    "tests/events-calendar-v1.test.mjs": [
+      "test:events-public-ux"
+    ],
+    "tests/events-public-ux-v2.test.mjs": [
+      "test:events-public-ux"
+    ],
+    "tests/event-listing.test.mjs": [
+      "test:events-public-ux"
+    ],
+    "tests/event-calendar-d1-cost.test.mjs": [
+      "test:events-public-ux"
+    ],
+    "tests/facebook-image-post.test.mjs": [
+      "test:facebook-images"
+    ],
+    "tests/facebook-video.test.mjs": [
+      "test:facebook-images"
+    ],
+    "tests/facebook-image-publisher.test.mjs": [
+      "test:facebook-publisher"
+    ],
+    "tests/facebook-image-admin-v2.test.mjs": [
+      "test:facebook-admin-v2"
+    ],
+    "tests/notion-facebook-images-sync.test.mjs": [
+      "test:notion-facebook-images"
+    ],
+    "tests/notion-facebook-images-integration.test.mjs": [
+      "test:notion-facebook-images"
+    ],
+    "tests/notion-facebook-images-admin-export.test.mjs": [
+      "test:notion-facebook-images"
+    ],
+    "tests/facebook-image-ui.test.mjs": [
+      "test:facebook-images-ui"
+    ],
+    "tests/facebook-image-destructive-v4-contract.test.mjs": [
+      "test:facebook-images-ui"
+    ],
+    "tests/facebook-content-picker.test.mjs": [
+      "test:facebook-images-ui"
+    ],
+    "tests/facebook-weekly-plan.test.mjs": [
+      "test:facebook-images-ui"
+    ],
+    "tests/facebook-weekly-template.test.mjs": [
+      "test:facebook-images-ui"
+    ],
+    "tests/facebook-weekly-0166-rollout.test.mjs": [
+      "test:facebook-images-ui"
+    ],
+    "tests/notion-data-quality-audit-v2.test.mjs": [
+      "test:notion-data-quality-audit"
+    ],
+    "tests/component-registry.test.mjs": [
+      "test:component-registry"
+    ],
+    "tests/admin-component-visual-preview.test.mjs": [
+      "test:component-registry"
+    ],
+    "tests/admin-component-registry-coverage.test.mjs": [
+      "test:component-registry"
+    ],
+    "tests/visual-library.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-gallery.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-dynamic-urls.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-anchors.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-stage4.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-release.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-similarity.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-drafts.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-route-evidence.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-source-comparison.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-component-proposals.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-html-evidence.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-deep-audit.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-visual-catalog.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-extra-previews.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-related-profile-urls.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-owner-evidence.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-owner-decision.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-canonical-renderers.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-component-html-check.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-shared-foundations.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-full-inventory.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-owner-suggestions.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-usage.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-owner-queue.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/visual-library-owner-queue-store.test.mjs": [
+      "test:visual-library"
+    ],
+    "tests/partner-dashboard-step2.test.mjs": [
+      "test:partner-dashboard"
+    ],
+    "tests/partner-existing-record-claim-step3.test.mjs": [
+      "test:partner-claims-step3"
+    ],
+    "tests/partner-help-claims-step3.test.mjs": [
+      "test:partner-help-step3"
+    ],
+    "tests/partner-help-create-step4.test.mjs": [
+      "test:partner-help-step4"
+    ],
+    "tests/partner-help-editor-step5.test.mjs": [
+      "test:partner-help-step5"
+    ],
+    "tests/partner-direct-save-step6.test.mjs": [
+      "test:partner-step6"
+    ],
+    "tests/partner-help-review-step7.test.mjs": [
+      "test:partner-step7"
+    ],
+    "tests/partner-step8-regression.test.mjs": [
+      "test:partner-step8"
+    ]
+  },
+  "trackedNodeTests": [
+    "tests/address-admin-d1.test.mjs",
+    "tests/address-enrichment.test.mjs",
+    "tests/address-research-import.test.mjs",
+    "tests/address-simple-1a.test.mjs",
+    "tests/admin-address-contract.test.mjs",
+    "tests/admin-article-list-count-reuse.test.mjs",
+    "tests/admin-article-save-receipts.test.mjs",
+    "tests/admin-article-search.test.mjs",
+    "tests/admin-attention-grouped-probes.test.mjs",
+    "tests/admin-attention-header-performance.test.mjs",
+    "tests/admin-attention-queue.test.mjs",
+    "tests/admin-attention-zero-skip.test.mjs",
+    "tests/admin-auto-ux-2.test.mjs",
+    "tests/admin-automation-decision-first.test.mjs",
+    "tests/admin-automation-history-detail.test.mjs",
+    "tests/admin-automation-history-performance.test.mjs",
+    "tests/admin-automation-push.test.mjs",
+    "tests/admin-breed-list-projection.test.mjs",
+    "tests/admin-bulk-execution.test.mjs",
+    "tests/admin-bulk-foundation.test.mjs",
+    "tests/admin-bulk-v2.test.mjs",
+    "tests/admin-button-system.test.mjs",
+    "tests/admin-community-step13.test.mjs",
+    "tests/admin-compact-global.test.mjs",
+    "tests/admin-component-registry-coverage.test.mjs",
+    "tests/admin-component-visual-preview.test.mjs",
+    "tests/admin-content-history.test.mjs",
+    "tests/admin-content-step9.test.mjs",
+    "tests/admin-controls-step5.test.mjs",
+    "tests/admin-d1-reads-step5.test.mjs",
+    "tests/admin-data-quality-image-review-v2.test.mjs",
+    "tests/admin-density-step4.test.mjs",
+    "tests/admin-directory-grid.test.mjs",
+    "tests/admin-directory-publication-recovery.test.mjs",
+    "tests/admin-directory-visual-step10.test.mjs",
+    "tests/admin-duplication-inventory.test.mjs",
+    "tests/admin-editor-adoption-single-section-step13.test.mjs",
+    "tests/admin-editor-article-single-section-step8.test.mjs",
+    "tests/admin-editor-breed-single-section-step7.test.mjs",
+    "tests/admin-editor-directory-single-section-step9.test.mjs",
+    "tests/admin-editor-event-single-section-step10.test.mjs",
+    "tests/admin-editor-event-ux-step11.test.mjs",
+    "tests/admin-editor-footer-step6.test.mjs",
+    "tests/admin-editor-form-controls-step4.test.mjs",
+    "tests/admin-editor-help-single-section-step12.test.mjs",
+    "tests/admin-editor-lost-found-single-section-step14.test.mjs",
+    "tests/admin-editor-mobile-a11y-step17.test.mjs",
+    "tests/admin-editor-navigation-guard.test.mjs",
+    "tests/admin-editor-organization-single-section-step15.test.mjs",
+    "tests/admin-editor-read-performance.test.mjs",
+    "tests/admin-editor-save-navigation.test.mjs",
+    "tests/admin-editor-tools-step5.test.mjs",
+    "tests/admin-editor-unified-navigation-step3.test.mjs",
+    "tests/admin-editor-workspace-v3.test.mjs",
+    "tests/admin-error-recovery-step8.test.mjs",
+    "tests/admin-event-admin-flow.test.mjs",
+    "tests/admin-event-editor-v3.test.mjs",
+    "tests/admin-event-pagination.test.mjs",
+    "tests/admin-event-save-concurrency.test.mjs",
+    "tests/admin-events-help-reviewed-lock.test.mjs",
+    "tests/admin-events-visual-step11.test.mjs",
+    "tests/admin-events.test.mjs",
+    "tests/admin-final-visual-step18.test.mjs",
+    "tests/admin-form-control-unification-point-2.test.mjs",
+    "tests/admin-gallery-sortable-ids.test.mjs",
+    "tests/admin-gemini-dashboard-reliability.test.mjs",
+    "tests/admin-global-search-performance.test.mjs",
+    "tests/admin-global-search-ui-step6.test.mjs",
+    "tests/admin-global-search.test.mjs",
+    "tests/admin-google-address-preview.test.mjs",
+    "tests/admin-help-inline-edit.test.mjs",
+    "tests/admin-help-modules-step12.test.mjs",
+    "tests/admin-help-unified-dog-inline-edit.test.mjs",
+    "tests/admin-help-v5-04.test.mjs",
+    "tests/admin-ia.test.mjs",
+    "tests/admin-inline-edit-adoptions.test.mjs",
+    "tests/admin-inline-edit-articles-breeds.test.mjs",
+    "tests/admin-inline-edit-cross-modules.test.mjs",
+    "tests/admin-inline-edit-facebook-catalog.test.mjs",
+    "tests/admin-inline-edit-gemini-quality.test.mjs",
+    "tests/admin-inline-edit-ops-queues.test.mjs",
+    "tests/admin-inline-edit-organizations-lost-found.test.mjs",
+    "tests/admin-knip-cleanup-step17.test.mjs",
+    "tests/admin-legacy-mutation-csrf.test.mjs",
+    "tests/admin-lexical-text-field.test.mjs",
+    "tests/admin-list-foundation-step8.test.mjs",
+    "tests/admin-list-parallel-reads.test.mjs",
+    "tests/admin-lists-unification-point-4.test.mjs",
+    "tests/admin-main-reconciliation.test.mjs",
+    "tests/admin-media-loading-performance.test.mjs",
+    "tests/admin-media-speed.test.mjs",
+    "tests/admin-media-text-unification-point-3.test.mjs",
+    "tests/admin-merge-step10.test.mjs",
+    "tests/admin-missing-quality-overview.test.mjs",
+    "tests/admin-mobile-document-navigation.test.mjs",
+    "tests/admin-mobile-pwa-step7.test.mjs",
+    "tests/admin-mobile-stability-step7.test.mjs",
+    "tests/admin-navigation-device.test.mjs",
+    "tests/admin-navigation-fallback.test.mjs",
+    "tests/admin-navigation-path-performance.test.mjs",
+    "tests/admin-navigation-recovery.test.mjs",
+    "tests/admin-open-source-unification.test.mjs",
+    "tests/admin-operations-step15.test.mjs",
+    "tests/admin-operations-streaming.test.mjs",
+    "tests/admin-overview-intent.test.mjs",
+    "tests/admin-overview-navigation.test.mjs",
+    "tests/admin-overview-read.test.mjs",
+    "tests/admin-page-streaming-step4.test.mjs",
+    "tests/admin-perf-analyze.test.mjs",
+    "tests/admin-perf-tooling.test.mjs",
+    "tests/admin-perf-url.test.mjs",
+    "tests/admin-performance-v2-step1.test.mjs",
+    "tests/admin-performance-v2-steps2-9.test.mjs",
+    "tests/admin-performance-v2-typecheck.test.mjs",
+    "tests/admin-profile-review.test.mjs",
+    "tests/admin-puppy-coverage.test.mjs",
+    "tests/admin-pwa.test.mjs",
+    "tests/admin-quality-pending-summary.test.mjs",
+    "tests/admin-query-integration.test.mjs",
+    "tests/admin-react-performance-step6.test.mjs",
+    "tests/admin-record-bulk-delete.test.mjs",
+    "tests/admin-record-lifecycle-contract.test.mjs",
+    "tests/admin-record-lifecycle-event-mapping.test.mjs",
+    "tests/admin-record-lifecycle-media-safety.test.mjs",
+    "tests/admin-record-lifecycle-migration.test.mjs",
+    "tests/admin-record-lifecycle-notion-identity.test.mjs",
+    "tests/admin-record-lifecycle-partner-resource-cleanup.test.mjs",
+    "tests/admin-record-lifecycle-resume.test.mjs",
+    "tests/admin-record-lifecycle-retry.test.mjs",
+    "tests/admin-record-list-delete.test.mjs",
+    "tests/admin-record-table-selection.test.mjs",
+    "tests/admin-record-view-stats.test.mjs",
+    "tests/admin-return-navigation.test.mjs",
+    "tests/admin-runtime-1.test.mjs",
+    "tests/admin-search-query-plans-v2.test.mjs",
+    "tests/admin-sections-v2.test.mjs",
+    "tests/admin-seo-quality-parallel.test.mjs",
+    "tests/admin-seo-quality.test.mjs",
+    "tests/admin-settings-step16.test.mjs",
+    "tests/admin-shared-form-feedback.test.mjs",
+    "tests/admin-shared-grid-step3.test.mjs",
+    "tests/admin-shell-step6.test.mjs",
+    "tests/admin-single-image-unification.test.mjs",
+    "tests/admin-site-category-report.test.mjs",
+    "tests/admin-social-visual-step14.test.mjs",
+    "tests/admin-sortable-order-preview.test.mjs",
+    "tests/admin-stability-verification-step9.test.mjs",
+    "tests/admin-traffic-analytics.test.mjs",
+    "tests/admin-typography-step3.test.mjs",
+    "tests/admin-ui-unification-inventory.test.mjs",
+    "tests/admin-unified-editor-shadcn-step2.test.mjs",
+    "tests/admin-unified-mobile-ui.test.mjs",
+    "tests/admin-unified-organization-confirmations.test.mjs",
+    "tests/admin-unified-partner-confirmations.test.mjs",
+    "tests/admin-unified-review-confirmations.test.mjs",
+    "tests/admin-unified-ui-foundation.test.mjs",
+    "tests/admin-universal-push.test.mjs",
+    "tests/admin-unsaved-form-links.test.mjs",
+    "tests/admin-unsaved-navigation-shared.test.mjs",
+    "tests/admin-uppy-gallery.test.mjs",
+    "tests/admin-v3-compact-finish-02.test.mjs",
+    "tests/admin-v3-compactness.test.mjs",
+    "tests/admin-v3-directory-services-eshop-ux.test.mjs",
+    "tests/admin-v3-shared-visual.test.mjs",
+    "tests/admin-v5-01-puppy-consolidation.test.mjs",
+    "tests/admin-v5-02-canonical-directory.test.mjs",
+    "tests/admin-v5-10-navigation-inbox.test.mjs",
+    "tests/admin-v5-css-consolidation.test.mjs",
+    "tests/admin-v5-editor-surfaces.test.mjs",
+    "tests/admin-v5-lists.test.mjs",
+    "tests/admin-v5-mobile-responsive.test.mjs",
+    "tests/admin-v5-mutation-origin.test.mjs",
+    "tests/admin-v5-postmerge-regressions.test.mjs",
+    "tests/admin-v5-quality-workspace.test.mjs",
+    "tests/admin-v5-shared-controls.test.mjs",
+    "tests/admin-v5-shared-density.test.mjs",
+    "tests/admin-work-audit-round2.test.mjs",
+    "tests/admin-work-audit-step7.test.mjs",
+    "tests/admin-workspace-notifications-v2.test.mjs",
+    "tests/admin-workspace-overview-performance.test.mjs",
+    "tests/adoption-admin-editor.test.mjs",
+    "tests/adoption-admin-list.test.mjs",
+    "tests/adoption-card-projection.test.mjs",
+    "tests/adoption-catalog.test.mjs",
+    "tests/adoption-detail.test.mjs",
+    "tests/adoption-foundation.test.mjs",
+    "tests/adoption-migration-safety.test.mjs",
+    "tests/adoption-organization-hardening.test.mjs",
+    "tests/adoption-sitemap-integration.test.mjs",
+    "tests/adoption-staging-data.test.mjs",
+    "tests/affiliate-banner-rotation.test.mjs",
+    "tests/ai-referral.test.mjs",
+    "tests/analytics-query-plan.test.mjs",
+    "tests/article-admin-editor.test.mjs",
+    "tests/article-affiliate-disclosure.test.mjs",
+    "tests/article-callout-author-copy.test.mjs",
+    "tests/article-canonical-placement-step4.test.mjs",
+    "tests/article-content-qa.test.mjs",
+    "tests/article-continuous-step1.test.mjs",
+    "tests/article-continuous-step2.test.mjs",
+    "tests/article-continuous-step4.test.mjs",
+    "tests/article-discovery.test.mjs",
+    "tests/article-editor-calendar.test.mjs",
+    "tests/article-editor-notion-parity.test.mjs",
+    "tests/article-effective-status.test.mjs",
+    "tests/article-gallery-shared-upload.test.mjs",
+    "tests/article-hardening.test.mjs",
+    "tests/article-listing-v2.test.mjs",
+    "tests/article-modern-reading-experience.test.mjs",
+    "tests/article-notion-publish-writeback.test.mjs",
+    "tests/article-popularity.test.mjs",
+    "tests/article-promo.test.mjs",
+    "tests/article-public-read-count.test.mjs",
+    "tests/article-publish-notion-reconciliation.test.mjs",
+    "tests/article-reading-progress.test.mjs",
+    "tests/article-source-dedup.test.mjs",
+    "tests/article-tiptap-step3.test.mjs",
+    "tests/article-tiptap-step4.test.mjs",
+    "tests/article-topics.test.mjs",
+    "tests/article-update-concurrency.test.mjs",
+    "tests/automation-admin-v2-ux.test.mjs",
+    "tests/automation-cleanup-legacy.test.mjs",
+    "tests/automation-cluster-admin-integration.test.mjs",
+    "tests/automation-detach-drafts.test.mjs",
+    "tests/automation-direct-discovery-budget-message.test.mjs",
+    "tests/automation-direct-discovery-hotfix.test.mjs",
+    "tests/automation-direct-discovery-retry-source-contract.test.mjs",
+    "tests/automation-direct-discovery-retry.test.mjs",
+    "tests/automation-discovery-manual-run.test.mjs",
+    "tests/automation-finalize-v1.test.mjs",
+    "tests/automation-operations-scheduling.test.mjs",
+    "tests/automation-operations.test.mjs",
+    "tests/automation-schedule-integration.test.mjs",
+    "tests/automation-schedule.test.mjs",
+    "tests/automation-search-budget-controls.test.mjs",
+    "tests/automation-source-only-ux.test.mjs",
+    "tests/automation-source-ux-reset.test.mjs",
+    "tests/automation-update-review.test.mjs",
+    "tests/breed-admin-v2.test.mjs",
+    "tests/breed-category-urls.test.mjs",
+    "tests/breed-compact-public.test.mjs",
+    "tests/breed-concurrency-guard.test.mjs",
+    "tests/breed-controlled-fields.test.mjs",
+    "tests/breed-controlled-mirror-backfill.test.mjs",
+    "tests/breed-crawl-hierarchy.test.mjs",
+    "tests/breed-editorial-hub-fci.test.mjs",
+    "tests/breed-editorial-notion-category.test.mjs",
+    "tests/breed-fci-import.test.mjs",
+    "tests/breed-fci-section-readback.test.mjs",
+    "tests/breed-gallery-upload.test.mjs",
+    "tests/breed-help-detail-layout-v5.test.mjs",
+    "tests/breed-integrity.test.mjs",
+    "tests/breed-json-legacy-audit.test.mjs",
+    "tests/breed-long-description.test.mjs",
+    "tests/breed-notion-60-ui-fields.test.mjs",
+    "tests/breed-notion-compact-consolidation.test.mjs",
+    "tests/breed-notion-field-delta.test.mjs",
+    "tests/breed-notion-stage-read.test.mjs",
+    "tests/breed-notion-workcopy-74-field-contract.test.mjs",
+    "tests/breed-origin-options.test.mjs",
+    "tests/breed-public-facts-v4.test.mjs",
+    "tests/breed-public-shared-visual.test.mjs",
+    "tests/breed-shared-editorial-topic-cards.test.mjs",
+    "tests/breed-sql-0174-foundation.test.mjs",
+    "tests/breed-sql-v2-atomic-writers.test.mjs",
+    "tests/breed-sql-v2-backfill.test.mjs",
+    "tests/breed-sql-v2-bridge.test.mjs",
+    "tests/breed-sql-v2-cleanup-gated.test.mjs",
+    "tests/breed-sql-v2-cutover-gate.test.mjs",
+    "tests/breed-sql-v2-legacy-drop.test.mjs",
+    "tests/breed-sql-v2-preview-runtime.test.mjs",
+    "tests/breed-sql-v2-primary-health.test.mjs",
+    "tests/breed-sql-v2-primary-read.test.mjs",
+    "tests/breed-sql-v2-shadow-readiness.test.mjs",
+    "tests/breed-static-navigation.test.mjs",
+    "tests/breed-storage-decision.test.mjs",
+    "tests/breed-workcopy-controlled.test.mjs",
+    "tests/breeder-club-single-source.test.mjs",
+    "tests/breeder-profile-relations.test.mjs",
+    "tests/breeder-relation-text.test.mjs",
+    "tests/breeder-sql-only-legacy-drop.test.mjs",
+    "tests/breeding-station-ai-landings.test.mjs",
+    "tests/canonical-draft-delete.test.mjs",
+    "tests/category-visual.test.mjs",
+    "tests/ci-two-stage-guards.test.mjs",
+    "tests/code-quality-policy.test.mjs",
+    "tests/component-registry.test.mjs",
+    "tests/config-contract.test.mjs",
+    "tests/content-analytics.test.mjs",
+    "tests/content-discovery-v3.test.mjs",
+    "tests/content-hub-context-cta.test.mjs",
+    "tests/content-hub-template.test.mjs",
+    "tests/content-relations.test.mjs",
+    "tests/d1-0163-0169-schema-readonly-audit.test.mjs",
+    "tests/d1-canonical-breed-cost.test.mjs",
+    "tests/d1-insights-report.test.mjs",
+    "tests/data-automation-address-review.test.mjs",
+    "tests/data-automation-adoption-d1-e2e.test.mjs",
+    "tests/data-automation-adoption-ingest.test.mjs",
+    "tests/data-automation-adoption-source-pilot.test.mjs",
+    "tests/data-automation-apply.test.mjs",
+    "tests/data-automation-background-run.test.mjs",
+    "tests/data-automation-candidate-lifecycle.test.mjs",
+    "tests/data-automation-clustering.test.mjs",
+    "tests/data-automation-direct-entity-d1-e2e.test.mjs",
+    "tests/data-automation-direct-entity-identity.test.mjs",
+    "tests/data-automation-directory-address-description.test.mjs",
+    "tests/data-automation-directory-address-enrichment-contract.test.mjs",
+    "tests/data-automation-directory-exact-address-enrichment.test.mjs",
+    "tests/data-automation-directory-matching.test.mjs",
+    "tests/data-automation-directory-provisioning-integration.test.mjs",
+    "tests/data-automation-discovery-evidence.test.mjs",
+    "tests/data-automation-dynamic-identity.test.mjs",
+    "tests/data-automation-entity-enrichment.test.mjs",
+    "tests/data-automation-event-source-pilot-d1.test.mjs",
+    "tests/data-automation-event-source-pilot.test.mjs",
+    "tests/data-automation-foster-d1-e2e.test.mjs",
+    "tests/data-automation-foster-ingest.test.mjs",
+    "tests/data-automation-foster-source-pilot.test.mjs",
+    "tests/data-automation-generic-source-extractor.test.mjs",
+    "tests/data-automation-governance.test.mjs",
+    "tests/data-automation-help-source-readiness.test.mjs",
+    "tests/data-automation-lifecycle.test.mjs",
+    "tests/data-automation-lost-found-d1-e2e.test.mjs",
+    "tests/data-automation-lost-found-ingest.test.mjs",
+    "tests/data-automation-lost-found-source-pilot.test.mjs",
+    "tests/data-automation-organization-ingest.test.mjs",
+    "tests/data-automation-organization-root.test.mjs",
+    "tests/data-automation-product-model.test.mjs",
+    "tests/data-automation-rss.test.mjs",
+    "tests/data-automation-search-budget.test.mjs",
+    "tests/data-automation-search-provider.test.mjs",
+    "tests/data-automation-sitemap.test.mjs",
+    "tests/data-automation-source-provider-usage.test.mjs",
+    "tests/data-automation-source-scoped-extraction-contract.test.mjs",
+    "tests/data-automation-structured-directory.test.mjs",
+    "tests/data-automation-tavily-directory-roots.test.mjs",
+    "tests/data-automation-tavily-help-roots.test.mjs",
+    "tests/data-automation-tavily-internet-only.test.mjs",
+    "tests/data-automation-tavily-root.test.mjs",
+    "tests/data-automation-tavily-source-scoped.test.mjs",
+    "tests/data-automation-tavily-strategy-chain.test.mjs",
+    "tests/data-automation-universal.test.mjs",
+    "tests/data-automation-v2.test.mjs",
+    "tests/data-automation-v4.test.mjs",
+    "tests/data-automation-v5.test.mjs",
+    "tests/data-automation.test.mjs",
+    "tests/data-quality-contact-sql-parity.test.mjs",
+    "tests/deploy-safety.test.mjs",
+    "tests/detail-primitives.test.mjs",
+    "tests/directory-0170-backfill-audit.test.mjs",
+    "tests/directory-0170-editorial-read.test.mjs",
+    "tests/directory-0170-editorial-sql-mirror.test.mjs",
+    "tests/directory-0170-manual-contacts.test.mjs",
+    "tests/directory-0170-secondary-category-dualwrite.test.mjs",
+    "tests/directory-0170-secondary-sql-authority.test.mjs",
+    "tests/directory-0173-editorial-sql-read.test.mjs",
+    "tests/directory-0173-review-lock-bridge.test.mjs",
+    "tests/directory-0176-sql-schema.test.mjs",
+    "tests/directory-address-policy.test.mjs",
+    "tests/directory-admin-full-profile-save.test.mjs",
+    "tests/directory-admin-query.test.mjs",
+    "tests/directory-admin-raw-text.test.mjs",
+    "tests/directory-ai-landings-scale.test.mjs",
+    "tests/directory-banner-visual-unification.test.mjs",
+    "tests/directory-breeder-preview-step3.test.mjs",
+    "tests/directory-canonical-attributes-public.test.mjs",
+    "tests/directory-canonical-storage-preflight.test.mjs",
+    "tests/directory-category-filter-editor.test.mjs",
+    "tests/directory-category-page-range.test.mjs",
+    "tests/directory-change-requests.test.mjs",
+    "tests/directory-clubs.test.mjs",
+    "tests/directory-contact-legacy-cleanup.test.mjs",
+    "tests/directory-contact-null-backfill.test.mjs",
+    "tests/directory-contact-save-contract.test.mjs",
+    "tests/directory-description-dedupe.test.mjs",
+    "tests/directory-detail-presentation.test.mjs",
+    "tests/directory-duplicate-audit.test.mjs",
+    "tests/directory-editor-field-verification.test.mjs",
+    "tests/directory-editor-text-change-contract.test.mjs",
+    "tests/directory-exact-geo-auto.test.mjs",
+    "tests/directory-exact-geo-migration.test.mjs",
+    "tests/directory-extra-sql-mirror.test.mjs",
+    "tests/directory-facet-coverage-sql.test.mjs",
+    "tests/directory-field-sync-parity-contract.test.mjs",
+    "tests/directory-filter-contract.test.mjs",
+    "tests/directory-filter-sticky-scroll.test.mjs",
+    "tests/directory-google-first.test.mjs",
+    "tests/directory-import-no-replay-guard.test.mjs",
+    "tests/directory-import-preservation.test.mjs",
+    "tests/directory-import-sql.test.mjs",
+    "tests/directory-inquiry-notifications.test.mjs",
+    "tests/directory-legacy-cutover-candidates.test.mjs",
+    "tests/directory-legacy-cutover-readiness.test.mjs",
+    "tests/directory-main-image-action.test.mjs",
+    "tests/directory-multi-category.test.mjs",
+    "tests/directory-notion-facet-schema-plan.test.mjs",
+    "tests/directory-notion-full-mirror.test.mjs",
+    "tests/directory-notion-onetime-import.test.mjs",
+    "tests/directory-notion-reviewed-sync.test.mjs",
+    "tests/directory-notion-sql-0173-atomic-fields.test.mjs",
+    "tests/directory-one-save-authority.test.mjs",
+    "tests/directory-online-removal.test.mjs",
+    "tests/directory-opening-hours.test.mjs",
+    "tests/directory-owner-unlock-sql.test.mjs",
+    "tests/directory-partner-0170-0173-parity.test.mjs",
+    "tests/directory-partner-public-hours-parity.test.mjs",
+    "tests/directory-popularity.test.mjs",
+    "tests/directory-presentation-sql-read.test.mjs",
+    "tests/directory-profile-ux.test.mjs",
+    "tests/directory-public-editor-parity.test.mjs",
+    "tests/directory-public-filters.test.mjs",
+    "tests/directory-public-source-contract.test.mjs",
+    "tests/directory-read-facets.test.mjs",
+    "tests/directory-reviewed-sync-lock.test.mjs",
+    "tests/directory-secondary-category-labels.test.mjs",
+    "tests/directory-service-address.test.mjs",
+    "tests/directory-sql-0170-schema.test.mjs",
+    "tests/directory-sql-0173-editorial-mirror.test.mjs",
+    "tests/directory-sql-0173-foundation.test.mjs",
+    "tests/directory-sql-0173-reviewed-lock.test.mjs",
+    "tests/directory-sql-cutover-parity-phase3.test.mjs",
+    "tests/directory-sql-cutover-write-phase3.test.mjs",
+    "tests/directory-sql-step2.test.mjs",
+    "tests/directory-sql-step3-field-parity.test.mjs",
+    "tests/directory-sql-step3-live-mirror.test.mjs",
+    "tests/directory-sql-step3.test.mjs",
+    "tests/directory-sql-unification-phase2.test.mjs",
+    "tests/directory-step4-drop-source-json.test.mjs",
+    "tests/directory-sync-recovery-policy.test.mjs",
+    "tests/directory-ten-category-field-save.test.mjs",
+    "tests/directory-unified-layout.test.mjs",
+    "tests/dog-name-day-calendar.test.mjs",
+    "tests/dog-name-day-import.test.mjs",
+    "tests/dog-name-days.test.mjs",
+    "tests/ds6-compact-public-layout.test.mjs",
+    "tests/editorial-article-card-a11y.test.mjs",
+    "tests/editorial-calendar-interactions.test.mjs",
+    "tests/editorial-calendar.test.mjs",
+    "tests/editorial-cleanup-readiness-phase4.test.mjs",
+    "tests/editorial-content-foundation.test.mjs",
+    "tests/editorial-legacy-reader-inventory-phase4.test.mjs",
+    "tests/eshop-ratings.test.mjs",
+    "tests/event-calendar-d1-cost.test.mjs",
+    "tests/event-calendar-fast-navigation.test.mjs",
+    "tests/event-contacts-0160-compat.test.mjs",
+    "tests/event-dates.test.mjs",
+    "tests/event-fallback-images.test.mjs",
+    "tests/event-lexical-markdown.test.mjs",
+    "tests/event-listing-card-date-step4.test.mjs",
+    "tests/event-listing.test.mjs",
+    "tests/event-related-card-performance.test.mjs",
+    "tests/event-service-listing-cards.test.mjs",
+    "tests/event-type-group-cta-step5.test.mjs",
+    "tests/events-calendar-v1.test.mjs",
+    "tests/events-phase3.test.mjs",
+    "tests/events-phase4.test.mjs",
+    "tests/events-public-ux-v2.test.mjs",
+    "tests/facebook-content-picker.test.mjs",
+    "tests/facebook-image-admin-v2.test.mjs",
+    "tests/facebook-image-destructive-v4-contract.test.mjs",
+    "tests/facebook-image-post.test.mjs",
+    "tests/facebook-image-publisher.test.mjs",
+    "tests/facebook-image-ui.test.mjs",
+    "tests/facebook-profile-intro-template.test.mjs",
+    "tests/facebook-video.test.mjs",
+    "tests/facebook-weekly-0166-rollout.test.mjs",
+    "tests/facebook-weekly-plan.test.mjs",
+    "tests/facebook-weekly-template.test.mjs",
+    "tests/g4-possible-review-decisions.test.mjs",
+    "tests/g5-canonical-apply.test.mjs",
+    "tests/gemini-867-868-combined-ui.test.mjs",
+    "tests/gemini-adoption-contract.test.mjs",
+    "tests/gemini-all-concepts-v4.test.mjs",
+    "tests/gemini-automation-admin.test.mjs",
+    "tests/gemini-automation-category-memory.test.mjs",
+    "tests/gemini-automation-category-prompts.test.mjs",
+    "tests/gemini-automation-concept-review.test.mjs",
+    "tests/gemini-automation-dedupe.test.mjs",
+    "tests/gemini-automation-discovery.test.mjs",
+    "tests/gemini-automation-foundation.test.mjs",
+    "tests/gemini-automation-notion-bridge.test.mjs",
+    "tests/gemini-automation-pilot.test.mjs",
+    "tests/gemini-automation-scale.test.mjs",
+    "tests/gemini-canonical-publish-handoff.test.mjs",
+    "tests/gemini-canonical-resource-integrity.test.mjs",
+    "tests/gemini-canonical-save-sync.test.mjs",
+    "tests/gemini-concept-manager-v3.test.mjs",
+    "tests/gemini-dashboard-v3.test.mjs",
+    "tests/gemini-direct-deep-link.test.mjs",
+    "tests/gemini-draft-import-fields.test.mjs",
+    "tests/gemini-events-1.test.mjs",
+    "tests/gemini-events-background-queue.test.mjs",
+    "tests/gemini-events-candidate-normalization-hotfix.test.mjs",
+    "tests/gemini-events-direct-sources-hotfix.test.mjs",
+    "tests/gemini-events-provider-contract-hotfix.test.mjs",
+    "tests/gemini-events-search-latency-hotfix.test.mjs",
+    "tests/gemini-events-timeout-diagnostics-hotfix.test.mjs",
+    "tests/gemini-events-validation-diagnostics-hotfix.test.mjs",
+    "tests/gemini-external-agent.test.mjs",
+    "tests/gemini-external-dedupe.test.mjs",
+    "tests/gemini-external-feed-quality.test.mjs",
+    "tests/gemini-external-help-dedupe.test.mjs",
+    "tests/gemini-external-quality-proposals.test.mjs",
+    "tests/gemini-external-worker-offline.test.mjs",
+    "tests/gemini-global-stop.test.mjs",
+    "tests/gemini-import-d1-verification.test.mjs",
+    "tests/gemini-lost-found-contract.test.mjs",
+    "tests/gemini-native-editor-origin.test.mjs",
+    "tests/gemini-notion-agenda-review.test.mjs",
+    "tests/gemini-notion-api.test.mjs",
+    "tests/gemini-notion-canonical-drafts.test.mjs",
+    "tests/gemini-notion-drafts.test.mjs",
+    "tests/gemini-notion-events-help-fields.test.mjs",
+    "tests/gemini-notion-identity.test.mjs",
+    "tests/gemini-notion-lock.test.mjs",
+    "tests/gemini-notion-preflight.test.mjs",
+    "tests/gemini-notion-provenance.test.mjs",
+    "tests/gemini-notion-review-ui.test.mjs",
+    "tests/gemini-public-slug.test.mjs",
+    "tests/gemini-published-browser.test.mjs",
+    "tests/gemini-published-cleanup.test.mjs",
+    "tests/gemini-schedule-presentation.test.mjs",
+    "tests/gemini-scheduler-admin-v2.test.mjs",
+    "tests/gemini-shelter-privacy-identity.test.mjs",
+    "tests/gemini-stale-lock-recovery.test.mjs",
+    "tests/gemini-worker-search-result.test.mjs",
+    "tests/geo-a2-admin-ui.test.mjs",
+    "tests/geo-admin-moderation-sql.test.mjs",
+    "tests/geo-admin-operator.test.mjs",
+    "tests/geo-foundation.test.mjs",
+    "tests/geo-lifecycle-helper.test.mjs",
+    "tests/geoapify-fetch-receiver.test.mjs",
+    "tests/global-design-unification.test.mjs",
+    "tests/google-confirmation-e2e.test.mjs",
+    "tests/google-place-1a.test.mjs",
+    "tests/google-place-1b.test.mjs",
+    "tests/google-place-bulk.test.mjs",
+    "tests/help-admin-bulk.test.mjs",
+    "tests/help-admin-query.test.mjs",
+    "tests/help-category-card-projection.test.mjs",
+    "tests/help-detail-presentation.test.mjs",
+    "tests/help-import-preview.test.mjs",
+    "tests/help-import-write-safety.test.mjs",
+    "tests/help-landing-cache-performance.test.mjs",
+    "tests/help-landing-performance.test.mjs",
+    "tests/help-legacy-sql-cleanup.test.mjs",
+    "tests/help-notion-outbox.test.mjs",
+    "tests/help-org-contact-json-cleanup.test.mjs",
+    "tests/help-organization-locations.test.mjs",
+    "tests/help-organization-notion-contacts.test.mjs",
+    "tests/help-organization-public-read.test.mjs",
+    "tests/help-organization-publication.test.mjs",
+    "tests/help-organizations-foundation.test.mjs",
+    "tests/help-organizations-import.test.mjs",
+    "tests/help-public-v2.test.mjs",
+    "tests/help-shared-profile-template.test.mjs",
+    "tests/help-shelter-card-performance.test.mjs",
+    "tests/help-shelter-inline-edit.test.mjs",
+    "tests/help-source-daily.test.mjs",
+    "tests/help-source-quick-actions.test.mjs",
+    "tests/help-sql-canonical-sync-step4.test.mjs",
+    "tests/help-sql-legacy-public-cutover-step5.test.mjs",
+    "tests/help-sql-reviewed-backfill.test.mjs",
+    "tests/help-sql-schema-preflight.test.mjs",
+    "tests/home-magazine-accessibility.test.mjs",
+    "tests/homepage-directory-grouped.test.mjs",
+    "tests/homepage-directory-query-performance.test.mjs",
+    "tests/homepage-magazine-v2.test.mjs",
+    "tests/homepage-media-quality.test.mjs",
+    "tests/homepage-rotation.test.mjs",
+    "tests/http-response-security.test.mjs",
+    "tests/image-editor-2.test.mjs",
+    "tests/image-editor-3.test.mjs",
+    "tests/internal-discovery.test.mjs",
+    "tests/internal-traffic.test.mjs",
+    "tests/legacy-automation-retirement.test.mjs",
+    "tests/link-health.test.mjs",
+    "tests/lost-found-admin-contract.test.mjs",
+    "tests/lost-found-gallery-preservation.test.mjs",
+    "tests/lost-found-lifecycle.test.mjs",
+    "tests/lost-found-public-contacts.test.mjs",
+    "tests/lost-found-public-submission.test.mjs",
+    "tests/lost-found-short-description-e2e.test.mjs",
+    "tests/map-address-freetext.test.mjs",
+    "tests/map-address-numberless.test.mjs",
+    "tests/map-admin-perf-google-1.test.mjs",
+    "tests/map-admin-unified.test.mjs",
+    "tests/map-admin-ux-2.test.mjs",
+    "tests/map-auto-1b-directory.test.mjs",
+    "tests/map-auto-1e-hardening.test.mjs",
+    "tests/map-cost-and-mobile-1216.test.mjs",
+    "tests/map-data-row-level-export.test.mjs",
+    "tests/map-production-launch.test.mjs",
+    "tests/map-public-ui-contract.test.mjs",
+    "tests/map-public-ui.test.mjs",
+    "tests/map-public-v2-ux.test.mjs",
+    "tests/map-read-api-benchmark.test.mjs",
+    "tests/map-read-api-contract.test.mjs",
+    "tests/map-read-api-trigger.test.mjs",
+    "tests/map-read-api.test.mjs",
+    "tests/map-type-idle-suppression.test.mjs",
+    "tests/maps-workflow-simplify-1.test.mjs",
+    "tests/media-source-quality.test.mjs",
+    "tests/media-source-review-decisions.test.mjs",
+    "tests/migration-safety.test.mjs",
+    "tests/mobile-firstpaint-css.test.mjs",
+    "tests/mobile-menu-grip-step11.test.mjs",
+    "tests/moderation-atomicity.test.mjs",
+    "tests/monetization-foundation.test.mjs",
+    "tests/name-day-admin-contract.test.mjs",
+    "tests/native-history-navigation.test.mjs",
+    "tests/navigation-progress.test.mjs",
+    "tests/news-landing-canonical.test.mjs",
+    "tests/notion-article-content-writeback.test.mjs",
+    "tests/notion-article-editorial-retry.test.mjs",
+    "tests/notion-article-image-source.test.mjs",
+    "tests/notion-article-related-publication.test.mjs",
+    "tests/notion-article-seo-clears.test.mjs",
+    "tests/notion-article-seo-inbound.test.mjs",
+    "tests/notion-article-seo-writeback.test.mjs",
+    "tests/notion-article-sync.test.mjs",
+    "tests/notion-breed-breeder-style-field-events.test.mjs",
+    "tests/notion-breed-identity-backfill.test.mjs",
+    "tests/notion-breed-immediate-webhook-contract.test.mjs",
+    "tests/notion-breed-manual-transfer-guards.test.mjs",
+    "tests/notion-breed-sync.test.mjs",
+    "tests/notion-breed-text.test.mjs",
+    "tests/notion-breed-workcopy-activation-plan.test.mjs",
+    "tests/notion-breed-workcopy-activation-route.test.mjs",
+    "tests/notion-breed-workcopy-activation-sql.test.mjs",
+    "tests/notion-breed-workcopy-adapter.test.mjs",
+    "tests/notion-breed-workcopy-baseline-receipt.test.mjs",
+    "tests/notion-breed-workcopy-compatible-page.test.mjs",
+    "tests/notion-breed-workcopy-cutover-window.test.mjs",
+    "tests/notion-breed-workcopy-d1-readiness.test.mjs",
+    "tests/notion-breed-workcopy-field-events.test.mjs",
+    "tests/notion-breed-workcopy-field-patch.test.mjs",
+    "tests/notion-breed-workcopy-id-only-transfer.test.mjs",
+    "tests/notion-breed-workcopy-identity-plan.test.mjs",
+    "tests/notion-breed-workcopy-partial-read.test.mjs",
+    "tests/notion-breed-workcopy-patch-bridge.test.mjs",
+    "tests/notion-breed-workcopy-preflight.test.mjs",
+    "tests/notion-breed-workcopy-rebaseline-step5.test.mjs",
+    "tests/notion-breed-workcopy-receipt.test.mjs",
+    "tests/notion-breed-workcopy-runtime-contract.test.mjs",
+    "tests/notion-breed-workcopy-shadow-plan.test.mjs",
+    "tests/notion-breed-workcopy-value.test.mjs",
+    "tests/notion-breeder-field-events.test.mjs",
+    "tests/notion-bulk-backfill.test.mjs",
+    "tests/notion-conflict-quality-triage.test.mjs",
+    "tests/notion-data-quality-audit-v2.test.mjs",
+    "tests/notion-data-quality-cross-batch.test.mjs",
+    "tests/notion-data-quality-recovery.test.mjs",
+    "tests/notion-directory-admin-website-echo.test.mjs",
+    "tests/notion-directory-all-category-trust-services.test.mjs",
+    "tests/notion-directory-apply-sql-r2-integration.test.mjs",
+    "tests/notion-directory-canonical-d1-integration.test.mjs",
+    "tests/notion-directory-kennel-club-field-events.test.mjs",
+    "tests/notion-directory-r2-cleanup.test.mjs",
+    "tests/notion-directory-runtime-atomicity.test.mjs",
+    "tests/notion-directory-sync.test.mjs",
+    "tests/notion-directory-veterinary-field-events.test.mjs",
+    "tests/notion-eshop-sync.test.mjs",
+    "tests/notion-event-contact-sync.test.mjs",
+    "tests/notion-event-field-contract.test.mjs",
+    "tests/notion-event-legacy-explicit-clear.test.mjs",
+    "tests/notion-event-sync.test.mjs",
+    "tests/notion-events-help-bidirectional.test.mjs",
+    "tests/notion-events-help-reviewed-mirror.test.mjs",
+    "tests/notion-events-help-runtime-integration.test.mjs",
+    "tests/notion-facebook-images-admin-export.test.mjs",
+    "tests/notion-facebook-images-integration.test.mjs",
+    "tests/notion-facebook-images-sync.test.mjs",
+    "tests/notion-field-authority.test.mjs",
+    "tests/notion-geo-mirror.test.mjs",
+    "tests/notion-help-eshop-field-events.test.mjs",
+    "tests/notion-manual-transfer-contract.test.mjs",
+    "tests/notion-manual-transfer-plan.test.mjs",
+    "tests/notion-manual-transfer-throughput.test.mjs",
+    "tests/notion-official-sdk.test.mjs",
+    "tests/notion-per-category-authority.test.mjs",
+    "tests/notion-profile-field-reconciliation.test.mjs",
+    "tests/notion-profile-manual-import-contract.test.mjs",
+    "tests/notion-progressive-manual-transfer.test.mjs",
+    "tests/notion-schema-contract.test.mjs",
+    "tests/notion-sync-health.test.mjs",
+    "tests/notion-sync-overview-ui.test.mjs",
+    "tests/notion-sync-overview.test.mjs",
+    "tests/notion-sync-reported-regressions.test.mjs",
+    "tests/notion-targeted-webhook.test.mjs",
+    "tests/notion-trainer-service-field-events.test.mjs",
+    "tests/notion-trainer-trust-training-facets.test.mjs",
+    "tests/notion-transfer-audit.test.mjs",
+    "tests/open-source-final-adoption.test.mjs",
+    "tests/open-source-lab-contract.test.mjs",
+    "tests/open-source-production-ui.test.mjs",
+    "tests/open-source-visual-integrations.test.mjs",
+    "tests/organization-address-unified-save.test.mjs",
+    "tests/organization-admin-read-recovery-integration.test.mjs",
+    "tests/organization-adoption-presentation.test.mjs",
+    "tests/organization-adoption-relation.test.mjs",
+    "tests/organization-dashboard-hydration.test.mjs",
+    "tests/organization-fundraising-admin.test.mjs",
+    "tests/organization-fundraising-contract.test.mjs",
+    "tests/organization-fundraising-foundation.test.mjs",
+    "tests/organization-fundraising-public.test.mjs",
+    "tests/organization-fundraising-verification.test.mjs",
+    "tests/organization-location-admin.test.mjs",
+    "tests/organization-profile-presentation.test.mjs",
+    "tests/organization-profile-route.test.mjs",
+    "tests/organization-public-hub.test.mjs",
+    "tests/organization-seo.test.mjs",
+    "tests/organization-sitemap.test.mjs",
+    "tests/outreach-foundation.test.mjs",
+    "tests/pagespeed-css-hero-20261112.test.mjs",
+    "tests/pagespeed-mobile-5-steps.test.mjs",
+    "tests/partner-admin-dossier.test.mjs",
+    "tests/partner-admin-search.test.mjs",
+    "tests/partner-auth-foundation.test.mjs",
+    "tests/partner-auth-onboarding-hardening.test.mjs",
+    "tests/partner-canonical-step4.test.mjs",
+    "tests/partner-claims-verification.test.mjs",
+    "tests/partner-commercial-agreements.test.mjs",
+    "tests/partner-commercial-interest.test.mjs",
+    "tests/partner-dashboard-step2.test.mjs",
+    "tests/partner-direct-save-step6.test.mjs",
+    "tests/partner-directory-review-lock.test.mjs",
+    "tests/partner-directory-sql-fields.test.mjs",
+    "tests/partner-events.test.mjs",
+    "tests/partner-existing-record-claim-step3.test.mjs",
+    "tests/partner-help-claims-step3.test.mjs",
+    "tests/partner-help-create-step4.test.mjs",
+    "tests/partner-help-editor-step5.test.mjs",
+    "tests/partner-help-review-step7.test.mjs",
+    "tests/partner-intake-step2.test.mjs",
+    "tests/partner-intake-step3.test.mjs",
+    "tests/partner-intake-step4.test.mjs",
+    "tests/partner-intake-step5.test.mjs",
+    "tests/partner-intake-step6.test.mjs",
+    "tests/partner-intake-step7.test.mjs",
+    "tests/partner-intake-step8.test.mjs",
+    "tests/partner-media.test.mjs",
+    "tests/partner-memberships-admin.test.mjs",
+    "tests/partner-multimethod-auth.test.mjs",
+    "tests/partner-new-profile.test.mjs",
+    "tests/partner-private-chat-step7.test.mjs",
+    "tests/partner-production-ux-polish.test.mjs",
+    "tests/partner-profile-changes.test.mjs",
+    "tests/partner-profile-gallery.test.mjs",
+    "tests/partner-public-profile-integration.test.mjs",
+    "tests/partner-single-manager.test.mjs",
+    "tests/partner-step8-regression.test.mjs",
+    "tests/partner-v2-lifecycle-step5.test.mjs",
+    "tests/partner-v2-step8-integration.test.mjs",
+    "tests/performance-fastpaths.test.mjs",
+    "tests/portal-search.test.mjs",
+    "tests/pr-visual-baseline-compare.test.mjs",
+    "tests/pr-visual-route-selection.test.mjs",
+    "tests/pr-visual-screenshots.test.mjs",
+    "tests/production-audit.test.mjs",
+    "tests/production-breed-workcopy-baseline-step2.test.mjs",
+    "tests/production-breed-workcopy-stage.test.mjs",
+    "tests/production-breed-workcopy-step3-postflight.test.mjs",
+    "tests/production-breed-workcopy-step4-field-audit.test.mjs",
+    "tests/production-d1-0123-0124-preflight.test.mjs",
+    "tests/production-d1-0123-0125-rollout.test.mjs",
+    "tests/production-d1-0126-rollout.test.mjs",
+    "tests/production-d1-0127-readonly.test.mjs",
+    "tests/production-d1-0127-rollout.test.mjs",
+    "tests/production-d1-0128-readonly.test.mjs",
+    "tests/production-d1-0128-rollout.test.mjs",
+    "tests/production-d1-0129-rollout.test.mjs",
+    "tests/production-d1-0130-rollout.test.mjs",
+    "tests/production-d1-0131-rollout.test.mjs",
+    "tests/production-d1-0132-rollout.test.mjs",
+    "tests/production-d1-0133-readonly.test.mjs",
+    "tests/production-d1-0133-rollout.test.mjs",
+    "tests/production-d1-0134-readonly.test.mjs",
+    "tests/production-d1-0134-rollout.test.mjs",
+    "tests/production-d1-0135-rollout.test.mjs",
+    "tests/production-d1-0136-rollout.test.mjs",
+    "tests/production-d1-0137-rollout.test.mjs",
+    "tests/production-d1-0138-rollout.test.mjs",
+    "tests/production-d1-0139-rollout.test.mjs",
+    "tests/production-d1-0140-0141-rollout.test.mjs",
+    "tests/production-d1-0142-rollout.test.mjs",
+    "tests/production-d1-0144-rollout.test.mjs",
+    "tests/production-d1-0145-rollout.test.mjs",
+    "tests/production-d1-0146-rollout.test.mjs",
+    "tests/production-d1-0151-rollout.test.mjs",
+    "tests/production-d1-0152-rollout.test.mjs",
+    "tests/production-d1-0158-0162-history.test.mjs",
+    "tests/production-d1-0158-0162.test.mjs",
+    "tests/production-d1-0159-shadow.test.mjs",
+    "tests/production-d1-0160-events.test.mjs",
+    "tests/production-d1-0161-event-metadata.test.mjs",
+    "tests/production-d1-0163-breed-controlled.test.mjs",
+    "tests/production-d1-0164-lifecycle.test.mjs",
+    "tests/production-d1-0165-contacts.test.mjs",
+    "tests/production-d1-analytics-0167-0168.test.mjs",
+    "tests/production-d1-backlog-rollout.test.mjs",
+    "tests/production-d1-breed-0174.test.mjs",
+    "tests/production-d1-breeder-0169.test.mjs",
+    "tests/production-d1-breeder-cutover.test.mjs",
+    "tests/production-d1-directory-0170.test.mjs",
+    "tests/production-d1-history-audit.test.mjs",
+    "tests/production-d1-migration.test.mjs",
+    "tests/production-d1-partner-0171-0172.test.mjs",
+    "tests/production-directory-legacy-readonly.test.mjs",
+    "tests/production-editorial-storage-readonly.test.mjs",
+    "tests/production-help-sql-cutover.test.mjs",
+    "tests/production-partner-owner-compatibility.test.mjs",
+    "tests/production-smoke-history-report.test.mjs",
+    "tests/profile-google-unified.test.mjs",
+    "tests/profile-review-admin.test.mjs",
+    "tests/profile-review-read.test.mjs",
+    "tests/profile-review-submission.test.mjs",
+    "tests/profile-view-tracking.test.mjs",
+    "tests/psipedia-fb-gmail-schedule-extension.test.mjs",
+    "tests/public-adoption-pagination.test.mjs",
+    "tests/public-anchor-realignment-step12.test.mjs",
+    "tests/public-anonymous-html-cache.test.mjs",
+    "tests/public-approved-batch-contract.test.mjs",
+    "tests/public-audit-reviews-map-help-20261113.test.mjs",
+    "tests/public-banner-variants.test.mjs",
+    "tests/public-banners-phase2.test.mjs",
+    "tests/public-banners-step10.test.mjs",
+    "tests/public-batch-20261030.test.mjs",
+    "tests/public-breed-detail-fallback.test.mjs",
+    "tests/public-calendar-mobile-visual.test.mjs",
+    "tests/public-category-banner-unification.test.mjs",
+    "tests/public-component-css-unification.test.mjs",
+    "tests/public-contact-relay-1216.test.mjs",
+    "tests/public-context-banner-media.test.mjs",
+    "tests/public-css-scope.test.mjs",
+    "tests/public-cta-semantic-adoption.test.mjs",
+    "tests/public-design-system-v1.test.mjs",
+    "tests/public-design-tokens.test.mjs",
+    "tests/public-desktop-followup.test.mjs",
+    "tests/public-desktop-unified-batch-20261030.test.mjs",
+    "tests/public-detail-flow.test.mjs",
+    "tests/public-detail-visual-consistency.test.mjs",
+    "tests/public-details-phase2.test.mjs",
+    "tests/public-details-v2-ui.test.mjs",
+    "tests/public-ds5-cards.test.mjs",
+    "tests/public-editorial-detail-consistency.test.mjs",
+    "tests/public-editorial-guard.test.mjs",
+    "tests/public-favorites-articles.test.mjs",
+    "tests/public-favorites-storage.test.mjs",
+    "tests/public-filter-unification.test.mjs",
+    "tests/public-filters-phase2.test.mjs",
+    "tests/public-final-qa-step12.test.mjs",
+    "tests/public-form-controls.test.mjs",
+    "tests/public-fundraising.test.mjs",
+    "tests/public-header-payload.test.mjs",
+    "tests/public-help-adoption-fallback.test.mjs",
+    "tests/public-help-followup-20261113.test.mjs",
+    "tests/public-help-overview-cta-step9.test.mjs",
+    "tests/public-help-search-description.test.mjs",
+    "tests/public-hero-brand-consistency.test.mjs",
+    "tests/public-hero-transform-cache.test.mjs",
+    "tests/public-html-cache-safety.test.mjs",
+    "tests/public-html-cache.test.mjs",
+    "tests/public-integrity.test.mjs",
+    "tests/public-landing-alignment.test.mjs",
+    "tests/public-layout-phase2.test.mjs",
+    "tests/public-listing-card-consistency.test.mjs",
+    "tests/public-listing-previews-step2.test.mjs",
+    "tests/public-live-search.test.mjs",
+    "tests/public-location-map-contract.test.mjs",
+    "tests/public-location-presentation.test.mjs",
+    "tests/public-map-wide-layout.test.mjs",
+    "tests/public-media-edge-cache.test.mjs",
+    "tests/public-media-fallback.test.mjs",
+    "tests/public-media-responsiveness-1216.test.mjs",
+    "tests/public-navigation-cache.test.mjs",
+    "tests/public-page-template-contracts.test.mjs",
+    "tests/public-pagination-step6.test.mjs",
+    "tests/public-photo-gallery.test.mjs",
+    "tests/public-profile-field-parity.test.mjs",
+    "tests/public-profile-photo-lightbox.test.mjs",
+    "tests/public-profile-provenance-parity-7.test.mjs",
+    "tests/public-profile-visual-audit.test.mjs",
+    "tests/public-read-retry.test.mjs",
+    "tests/public-reading-typography.test.mjs",
+    "tests/public-result-states.test.mjs",
+    "tests/public-route-performance-step8.test.mjs",
+    "tests/public-s22-s25-unified.test.mjs",
+    "tests/public-search-simplify.test.mjs",
+    "tests/public-section-audit-followup-20261114.test.mjs",
+    "tests/public-service-event-template-step16.test.mjs",
+    "tests/public-share-copy.test.mjs",
+    "tests/public-shared-nav-banner-images.test.mjs",
+    "tests/public-shared-six-ux.test.mjs",
+    "tests/public-static-asset-cache.test.mjs",
+    "tests/public-subcategory-media.test.mjs",
+    "tests/public-subcategory-paging-step7.test.mjs",
+    "tests/public-third-party-inp-step9.test.mjs",
+    "tests/public-unification-completion.test.mjs",
+    "tests/public-unification.test.mjs",
+    "tests/public-unified-hero-copy.test.mjs",
+    "tests/public-ux-foundation-v3.test.mjs",
+    "tests/public-visual-approved-batch.test.mjs",
+    "tests/public-visual-consistency-actions.test.mjs",
+    "tests/public-visual-screenshots.test.mjs",
+    "tests/public-visual-system.test.mjs",
+    "tests/publishing-optional-fields.test.mjs",
+    "tests/qualified-analytics-consent.test.mjs",
+    "tests/quality-cron-single-owner.test.mjs",
+    "tests/quality-manual-search-contract.test.mjs",
+    "tests/quality-missing-hourly-source-contract.test.mjs",
+    "tests/quality-missing-reliability.test.mjs",
+    "tests/quality-stale-findings-regression.test.mjs",
+    "tests/quality-tavily-query.test.mjs",
+    "tests/rendered-html.test.mjs",
+    "tests/responsive-media.test.mjs",
+    "tests/review-author-auth.test.mjs",
+    "tests/reviews-admin-hub.test.mjs",
+    "tests/reviews-foundation-d1.test.mjs",
+    "tests/reviews-foundation.test.mjs",
+    "tests/reviews-hub-step8.test.mjs",
+    "tests/reviews-hub.test.mjs",
+    "tests/reviews-phase5.test.mjs",
+    "tests/section-hero-v2.test.mjs",
+    "tests/section-navigation.test.mjs",
+    "tests/section-public-readonly.test.mjs",
+    "tests/section-visuals.test.mjs",
+    "tests/seo-indexation-recovery.test.mjs",
+    "tests/seo-metadata-listing-schema.test.mjs",
+    "tests/seo-recovery.test.mjs",
+    "tests/seo-serp-landing-targeting.test.mjs",
+    "tests/seo-structured-data-2.test.mjs",
+    "tests/service-catalog-admin-api-contract.test.mjs",
+    "tests/service-catalog-admin-editor.test.mjs",
+    "tests/service-catalog-admin-lifecycle.test.mjs",
+    "tests/service-catalog-admin-mirror-controls.test.mjs",
+    "tests/service-catalog-contract.test.mjs",
+    "tests/service-catalog-d1-foundation.test.mjs",
+    "tests/service-catalog-map-canonical-filter.test.mjs",
+    "tests/service-catalog-mobile-polish.test.mjs",
+    "tests/service-catalog-multi-category-v5-08.test.mjs",
+    "tests/service-catalog-notion-auto-sweep.test.mjs",
+    "tests/service-catalog-notion-mirror-executor.test.mjs",
+    "tests/service-catalog-notion-receipt-proof.test.mjs",
+    "tests/service-catalog-notion-relation-plan.test.mjs",
+    "tests/service-catalog-public-filter.test.mjs",
+    "tests/service-catalog-public-parity-e2e.test.mjs",
+    "tests/service-catalog-resolved.test.mjs",
+    "tests/service-catalog-simple-sync.test.mjs",
+    "tests/service-catalog-sync-feedback.test.mjs",
+    "tests/services-v3-production-readonly.test.mjs",
+    "tests/shared-service-profile-compact.test.mjs",
+    "tests/sitemap-edge-cache.test.mjs",
+    "tests/sitemap-seo.test.mjs",
+    "tests/sitemap-xml-hardening.test.mjs",
+    "tests/sitewide-ai-entity-surface.test.mjs",
+    "tests/sitewide-analytics-route.test.mjs",
+    "tests/sitewide-analytics.test.mjs",
+    "tests/smart-card-images.test.mjs",
+    "tests/social-metadata-rendered.test.mjs",
+    "tests/social-metadata.test.mjs",
+    "tests/submission-foundation.test.mjs",
+    "tests/tavily-canary-control.test.mjs",
+    "tests/tiptap-editorial-bridge.test.mjs",
+    "tests/trainer-breed-unification.test.mjs",
+    "tests/two-banner-visuals.test.mjs",
+    "tests/unified-google-place-event-editorial.test.mjs",
+    "tests/unified-section-hero.test.mjs",
+    "tests/visual-library-anchors.test.mjs",
+    "tests/visual-library-canonical-renderers.test.mjs",
+    "tests/visual-library-component-html-check.test.mjs",
+    "tests/visual-library-component-proposals.test.mjs",
+    "tests/visual-library-deep-audit.test.mjs",
+    "tests/visual-library-drafts.test.mjs",
+    "tests/visual-library-dynamic-urls.test.mjs",
+    "tests/visual-library-extra-previews.test.mjs",
+    "tests/visual-library-full-inventory.test.mjs",
+    "tests/visual-library-gallery.test.mjs",
+    "tests/visual-library-html-evidence.test.mjs",
+    "tests/visual-library-owner-decision.test.mjs",
+    "tests/visual-library-owner-evidence.test.mjs",
+    "tests/visual-library-owner-queue-store.test.mjs",
+    "tests/visual-library-owner-queue.test.mjs",
+    "tests/visual-library-owner-suggestions.test.mjs",
+    "tests/visual-library-related-profile-urls.test.mjs",
+    "tests/visual-library-release.test.mjs",
+    "tests/visual-library-route-evidence.test.mjs",
+    "tests/visual-library-shared-foundations.test.mjs",
+    "tests/visual-library-similarity.test.mjs",
+    "tests/visual-library-source-comparison.test.mjs",
+    "tests/visual-library-stage4.test.mjs",
+    "tests/visual-library-usage.test.mjs",
+    "tests/visual-library-visual-catalog.test.mjs",
+    "tests/visual-library.test.mjs",
+    "tests/web-perf-compare.test.mjs",
+    "tests/web-perf-html-cache-probe.test.mjs",
+    "tests/web-perf-observability.test.mjs",
+    "tests/worker-performance.test.mjs"
+  ],
+  "trackedPlaywrightSpecs": [
+    "tests/e2e/admin-article-bulk-execution.spec.ts",
+    "tests/e2e/admin-article-search.spec.ts",
+    "tests/e2e/admin-community-step13.spec.ts",
+    "tests/e2e/admin-content-step9.spec.ts",
+    "tests/e2e/admin-desktop-visual-evidence.spec.ts",
+    "tests/e2e/admin-directory-filters.spec.ts",
+    "tests/e2e/admin-directory-visual-step10.spec.ts",
+    "tests/e2e/admin-editor-navigation-guard.spec.ts",
+    "tests/e2e/admin-editor-workspace-v3.spec.ts",
+    "tests/e2e/admin-error-recovery-step8.spec.ts",
+    "tests/e2e/admin-event-editor-v3.spec.ts",
+    "tests/e2e/admin-events-visual-step11.spec.ts",
+    "tests/e2e/admin-events.spec.ts",
+    "tests/e2e/admin-gemini-all-concepts-v4.spec.ts",
+    "tests/e2e/admin-gemini-dashboard-v3.spec.ts",
+    "tests/e2e/admin-geo-foundation.spec.ts",
+    "tests/e2e/admin-help-modules-step12.spec.ts",
+    "tests/e2e/admin-help-v5-04.spec.ts",
+    "tests/e2e/admin-ia-2.spec.ts",
+    "tests/e2e/admin-image-review-v2.spec.ts",
+    "tests/e2e/admin-interaction-system.spec.ts",
+    "tests/e2e/admin-list-foundation-step8.spec.ts",
+    "tests/e2e/admin-mobile-blank-route-recovery.spec.ts",
+    "tests/e2e/admin-mobile-pwa-step7.spec.ts",
+    "tests/e2e/admin-mobile-stability-step7.spec.ts",
+    "tests/e2e/admin-operations-step15.spec.ts",
+    "tests/e2e/admin-operations.spec.ts",
+    "tests/e2e/admin-organization-fundraising.spec.ts",
+    "tests/e2e/admin-organization-publication.spec.ts",
+    "tests/e2e/admin-organization-unsaved.spec.ts",
+    "tests/e2e/admin-overview-navigation.spec.ts",
+    "tests/e2e/admin-performance-step9.spec.ts",
+    "tests/e2e/admin-puppy-coverage.spec.ts",
+    "tests/e2e/admin-pwa.spec.ts",
+    "tests/e2e/admin-runtime-1.spec.ts",
+    "tests/e2e/admin-sections-v2.spec.ts",
+    "tests/e2e/admin-services-catalog-3b.spec.ts",
+    "tests/e2e/admin-settings-step16.spec.ts",
+    "tests/e2e/admin-social-visual-step14.spec.ts",
+    "tests/e2e/admin-stability-navigation.spec.ts",
+    "tests/e2e/admin-ux-unification.spec.ts",
+    "tests/e2e/admin-v5-editor-surfaces.spec.ts",
+    "tests/e2e/admin-v5-mobile-responsive.spec.ts",
+    "tests/e2e/admin-v5-shared-density.spec.ts",
+    "tests/e2e/admin-work-audit-round2.spec.ts",
+    "tests/e2e/adoption.spec.ts",
+    "tests/e2e/ai-discovery-hardening.spec.ts",
+    "tests/e2e/article-admin-editor.spec.ts",
+    "tests/e2e/article-reading-experience.spec.ts",
+    "tests/e2e/breed-profile.spec.ts",
+    "tests/e2e/breeds-admin-v2.spec.ts",
+    "tests/e2e/breeds-public-ux-v2.spec.ts",
+    "tests/e2e/canonical-draft-delete.spec.ts",
+    "tests/e2e/category-visual.spec.ts",
+    "tests/e2e/contact-v2.spec.ts",
+    "tests/e2e/content-discovery-v3.spec.ts",
+    "tests/e2e/content-hub-context-cta.spec.ts",
+    "tests/e2e/content-relations-1.spec.ts",
+    "tests/e2e/data-automation-v2.spec.ts",
+    "tests/e2e/directory-unified-layout.spec.ts",
+    "tests/e2e/editorial-calendar-interactions.spec.ts",
+    "tests/e2e/editorial-desktop-layout.spec.ts",
+    "tests/e2e/event-detail-phase4.spec.ts",
+    "tests/e2e/events-calendar-redesign.spec.ts",
+    "tests/e2e/events-calendar-v1.spec.ts",
+    "tests/e2e/events-fallback-images.spec.ts",
+    "tests/e2e/events-hero-search.spec.ts",
+    "tests/e2e/events-listing-redesign.spec.ts",
+    "tests/e2e/events-public-v2.spec.ts",
+    "tests/e2e/help-detail-primitives.spec.ts",
+    "tests/e2e/help-financial-spacing.spec.ts",
+    "tests/e2e/help-public-v2.spec.ts",
+    "tests/e2e/home-desktop-spacing.spec.ts",
+    "tests/e2e/home-mobile-refinement.spec.ts",
+    "tests/e2e/home-name-days-calendar.spec.ts",
+    "tests/e2e/home-v2.spec.ts",
+    "tests/e2e/home-v3.spec.ts",
+    "tests/e2e/internal-discovery.spec.ts",
+    "tests/e2e/lost-found-dogs.spec.ts",
+    "tests/e2e/map-mobile-ux-v3.spec.ts",
+    "tests/e2e/map-production-launch.spec.ts",
+    "tests/e2e/map-production-live.spec.ts",
+    "tests/e2e/map-public-ui.spec.ts",
+    "tests/e2e/map-read-api.spec.ts",
+    "tests/e2e/mobile-swipe-navigation.spec.ts",
+    "tests/e2e/monetization.spec.ts",
+    "tests/e2e/name-days.spec.ts",
+    "tests/e2e/navigation-loading.spec.ts",
+    "tests/e2e/organization-profile.spec.ts",
+    "tests/e2e/outreach.spec.ts",
+    "tests/e2e/partner-auth.spec.ts",
+    "tests/e2e/photo-banner-copy.spec.ts",
+    "tests/e2e/profile-review-admin.spec.ts",
+    "tests/e2e/profile-review-submission.spec.ts",
+    "tests/e2e/profile-reviews-public.spec.ts",
+    "tests/e2e/psipedia.spec.ts",
+    "tests/e2e/public-banner-art-layout.spec.ts",
+    "tests/e2e/public-detail-maps.spec.ts",
+    "tests/e2e/public-fallbacks.spec.ts",
+    "tests/e2e/public-landing-alignment.spec.ts",
+    "tests/e2e/public-navigation.spec.ts",
+    "tests/e2e/public-polish-v2.spec.ts",
+    "tests/e2e/public-ux-foundation-v3.spec.ts",
+    "tests/e2e/public-ux-polish.spec.ts",
+    "tests/e2e/public-ux2a.spec.ts",
+    "tests/e2e/review-author-auth.spec.ts",
+    "tests/e2e/reviews-phase5.spec.ts",
+    "tests/e2e/search.spec.ts",
+    "tests/e2e/section-public-v2.spec.ts",
+    "tests/e2e/seo-recovery.spec.ts",
+    "tests/e2e/services-detail-shell.spec.ts",
+    "tests/e2e/services-search-layout.spec.ts",
+    "tests/e2e/unified-section-hero.spec.ts"
+  ],
+  "otherTestFiles": [
+    "tests/admin-events-loader.mjs",
+    "tests/admin-legacy-csrf-loader.mjs",
+    "tests/admin-photo-gallery.browser.mjs",
+    "tests/admin-v5-mutation-loader.mjs",
+    "tests/breed-store-loader.mjs",
+    "tests/cloudflare-loader.mjs",
+    "tests/directory-category-filter-editor-loader.mjs",
+    "tests/e2e/admin-image-review-v2.config.ts",
+    "tests/e2e/fixtures/admin-image-review-v2/index.html",
+    "tests/e2e/fixtures/admin-image-review-v2/main.tsx",
+    "tests/e2e/fixtures/admin-image-review-v2/vite.config.ts",
+    "tests/e2e/fixtures/public-fallbacks/data-stubs.ts",
+    "tests/e2e/fixtures/public-fallbacks/index.html",
+    "tests/e2e/fixtures/public-fallbacks/main.tsx",
+    "tests/e2e/fixtures/public-fallbacks/style.css",
+    "tests/e2e/fixtures/public-fallbacks/turnstile-stub.tsx",
+    "tests/e2e/fixtures/public-fallbacks/vite.config.ts",
+    "tests/e2e/public-fallbacks.config.ts",
+    "tests/events-fallback.playwright.config.ts",
+    "tests/facebook-image-loader.mjs",
+    "tests/facebook-image-test-fixture.mjs",
+    "tests/fixtures/admin-article-search-e2e.sql",
+    "tests/fixtures/admin-attention-pagination-e2e.sql",
+    "tests/fixtures/adoption-sql-migration-fixture.mjs",
+    "tests/fixtures/article-admin-bulk-e2e.sql",
+    "tests/fixtures/article-admin-editor-e2e.sql",
+    "tests/fixtures/breed-notion-workcopy-74-schema.json",
+    "tests/fixtures/breed-notion-workcopy-90-schema.json",
+    "tests/fixtures/breeds-admin-v2-e2e.sql",
+    "tests/fixtures/breeds-ci-source.lean.br.b64.part01",
+    "tests/fixtures/breeds-ci-source.lean.br.b64.part02",
+    "tests/fixtures/breeds-ci-source.lean.br.b64.part03",
+    "tests/fixtures/canonical-draft-delete-e2e.sql",
+    "tests/fixtures/content-relations-1-e2e.sql",
+    "tests/fixtures/d1-insights-sample.json",
+    "tests/fixtures/data-automation/agility-sk-events.html",
+    "tests/fixtures/data-automation/kosice-found-dog-detail.html",
+    "tests/fixtures/data-automation/mushing-szpz-detail.html",
+    "tests/fixtures/data-automation/mushing-szpz-events.html",
+    "tests/fixtures/data-automation/organization-enrichment-contact.html",
+    "tests/fixtures/data-automation/organization-enrichment-directory.html",
+    "tests/fixtures/data-automation/organization-enrichment-site.html",
+    "tests/fixtures/data-automation/skj-calendar.html",
+    "tests/fixtures/data-automation/skj-club-links.html",
+    "tests/fixtures/data-automation/spektravet-like-directory.html",
+    "tests/fixtures/data-automation/svps-shelters.html",
+    "tests/fixtures/data-automation/zatulane-psiky-sala-foster-detail.html",
+    "tests/fixtures/data-automation/zsk-sr-calendar-root.html",
+    "tests/fixtures/data-automation/zsk-sr-category-national.html",
+    "tests/fixtures/data-automation/zsk-sr-category-obedience.html",
+    "tests/fixtures/data-automation/zsk-sr-category-sport.html",
+    "tests/fixtures/data-automation/zsk-sr-table-national.html",
+    "tests/fixtures/data-automation/zsk-sr-table-obedience.html",
+    "tests/fixtures/data-automation/zsk-sr-table-sport.html",
+    "tests/fixtures/directory-admin-e2e.sql",
+    "tests/fixtures/editorial-calendar-interactions-e2e.sql",
+    "tests/fixtures/events-calendar-redesign.sql",
+    "tests/fixtures/events-listing-redesign.sql",
+    "tests/fixtures/gemini-external-agent-fetch-mock.mjs",
+    "tests/fixtures/help-detail-e2e.sql",
+    "tests/fixtures/lost-found-e2e.sql",
+    "tests/fixtures/map-read-api-e2e.sql",
+    "tests/fixtures/monetization-e2e.sql",
+    "tests/fixtures/organization-profile-e2e.sql",
+    "tests/fixtures/outreach-e2e.sql",
+    "tests/fixtures/partner-auth-e2e.sql",
+    "tests/fixtures/pr-visual-breeder-e2e.sql",
+    "tests/fixtures/profile-review-admin-e2e.sql",
+    "tests/fixtures/profile-review-submission-e2e.sql",
+    "tests/fixtures/profile-reviews-e2e.sql",
+    "tests/fixtures/public-details-media/adoption.avif",
+    "tests/fixtures/public-details-media/directory.webp",
+    "tests/fixtures/public-regression-ci.sql",
+    "tests/fixtures/review-author-auth-e2e.sql",
+    "tests/fixtures/search-e2e.sql",
+    "tests/fixtures/unified-public-details-v2.json",
+    "tests/gemini-notion-api-loader.mjs",
+    "tests/gemini-notion-bridge-test-loader.mjs",
+    "tests/gemini-notion-bridge-test-stub.mjs",
+    "tests/google-confirmation-harness.mjs",
+    "tests/google-confirmation-loader.mjs",
+    "tests/helpers/events-fallback-preview.mjs",
+    "tests/helpers/events-fallback-preview.tsx",
+    "tests/helpers/events-final-local-fixtures.mjs",
+    "tests/helpers/events-listing-profile.mjs",
+    "tests/helpers/events-performance-audit.mjs",
+    "tests/helpers/events-preview-link.tsx",
+    "tests/helpers/events-preview-navigation.ts"
+  ]
+}
