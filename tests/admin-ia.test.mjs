@@ -7,6 +7,7 @@ import {
   findActiveAdminNavigationItem,
   getAdminBreadcrumbs,
 } from "../lib/admin-navigation.ts";
+import { inlineSaveMessage } from "../lib/admin-inline-save-status.ts";
 import { adminProfileTypes, profileDetailedHref, profileQuickHref } from "../lib/admin-profile-workspace.ts";
 import { adminDetailHref, adminReturnHref } from "../lib/admin-return-navigation.ts";
 import { summarizeAdminAutomationReads } from "../lib/admin-automation-reliability.ts";
@@ -354,4 +355,41 @@ test("V6-04 all five profile types share their canonical navigation and creation
   assert.equal(profileDetailedHref("utulky", "Nitra"), "/admin/organizacie?q=Nitra&type=SHELTER");
   assert.equal(profileDetailedHref("zbierky", "pes"), "/admin/pomoc?q=pes&category=zbierky");
   assert.equal(profileQuickHref("utulky", "Nitra"), "/admin/pomoc-psom?category=utulky&q=Nitra");
+});
+
+
+test("V6-05 canonical saves never imply Notion sync success", () => {
+  for (const [status, label] of [
+    ["synced", "synchronizované"], ["unchanged", "bez potrebnej zmeny"],
+    ["pending", "čaká na potvrdenie"], ["disabled", "vypnutá alebo zablokovaná"],
+    ["unlinked", "nie je prepojený"], [undefined, "nepotvrdený"],
+  ]) {
+    assert.match(inlineSaveMessage(status), /^Zmeny uložené v databáze\./);
+    assert.ok(inlineSaveMessage(status).includes(label));
+  }
+});
+
+test("V6-05 all inline profile grids protect their drafts and reuse the shared save receipt", () => {
+  for (const name of ["directory-dashboard", "adoption-dashboard", "lost-found-dashboard", "organization-publication-dashboard", "help-unified-table"]) {
+    const source = read("components/admin-" + name + ".tsx");
+    assert.match(source, /<AdminRecordTable/);
+    assert.match(source, /<AdminInlineDraftGuard/);
+    assert.match(source, /inlineSaveMessage\(\w+\.notionFieldSync\)/);
+    assert.match(source, /expectedUpdatedAt/);
+    assert.match(source, /Uloženie nepotvrdené/);
+  }
+  const guard = read("components/admin-inline-draft-guard.tsx");
+  assert.match(guard, /useAdminEditorNavigationGuard\(\{ dirty: active \}\)/);
+  assert.match(guard, /form\.method\.toLowerCase\(\) === "get"/);
+  assert.match(guard, /if \(busy\) \{ navigation\.stay\(\); return; \}/);
+  assert.match(guard, /EditorUnsavedChangesGuard/);
+  const quick = read("components/admin-help-unified-table.tsx");
+  assert.match(quick, /canInlineEditOrganizations = canInlineEditShelters \|\| category === "organizacie"/);
+  assert.match(quick, /JSON\.stringify\(canInlineEditShelters \?/);
+  assert.match(quick, /action: "set-inline-summary", expectedUpdatedAt: draft\.expectedUpdatedAt/);
+  assert.match(quick, /row\.updatedAt === shelterDraft\.expectedUpdatedAt/);
+  assert.match(quick, /if \(hasDraft \|\| !activeReview/);
+  const api = read("app/api/admin/organizations/[id]/route.ts");
+  assert.match(api, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
+  assert.match(api, /organizationInputWithShelterInlineChanges/);
 });

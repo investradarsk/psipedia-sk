@@ -396,3 +396,24 @@ test("V6-04 all five profile lists share one compact navigation and correct crea
     await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-04-" + route.split("/").at(-1) + "-" + width + ".png", fullPage: true, animations: "disabled" });
   }
 });
+
+
+test("V6-05 compact profile tables remain usable at 320px and desktop", async ({ page }, info) => {
+  const widths = info.project.name === "mobile-chromium" ? [320, 390] : [1440];
+  const routes = ["/admin/adresar", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie", "/admin/pomoc", "/admin/pomoc-psom?category=utulky", "/admin/pomoc-psom?category=organizacie", "/admin/pomoc-psom?category=zbierky"];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 850 });
+    for (const route of routes) {
+      const response = await page.goto(route, { waitUntil: "domcontentloaded" });
+      expect(response?.status(), route).toBe(200);
+      await expect(page.locator("[data-admin-list-filters]")).toBeVisible();
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+      if (width <= 390) {
+        for (const link of await page.locator("[data-admin-profile-types] a").all()) {
+          expect(await link.evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+        }
+      }
+      await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-05-" + route.replace(/[^a-z0-9]+/gi, "-") + "-" + width + ".png", fullPage: true, animations: "disabled" });
+    }
+  }
+});

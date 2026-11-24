@@ -118,7 +118,7 @@ export function AdminHelpUnifiedTable({
   const active = categories.find(item => item.slug === activeScope) ?? categories[0];
 
   function changeSelection(ids: number[]) {
-    if (bulkBusy || !canBulkEdit) return;
+    if (hasDraft || bulkBusy || !canBulkEdit) return;
     setSelectionState({ key: viewKey, ids: ids.filter(id => visibleIds.has(id)) });
     setBulkReview(null);
     setMessage("");
@@ -319,7 +319,7 @@ export function AdminHelpUnifiedTable({
       cell: item => item.updatedAt ? new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "short", year: "numeric" }).format(new Date(item.updatedAt)) : "—",
     },
     {
-      id: "actions", label: "Akcia", width: canInlineEditShelters || canInlineEditHelp || canInlineEditDogs ? 180 : 125,
+      id: "actions", label: "Akcia", width: canInlineEditOrganizations || canInlineEditHelp || canInlineEditDogs ? 180 : 125,
       cell: item => canInlineEditOrganizations
         ? <span className={styles.inlineActions}>
             {item.inline?.editable && <AdminInlineRowActions
@@ -333,7 +333,7 @@ export function AdminHelpUnifiedTable({
           ? <span className={styles.inlineActions}>
             <AdminInlineRowActions
               editing={activeDogDraft?.id === item.id} busy={dogBusy}
-              disabled={Boolean(activeDogDraft && activeDogDraft.id !== item.id) ||
+              disabled={(hasDraft && activeDogDraft?.id !== item.id) ||
                 (activeDogDraft?.id === item.id && activeDogDraft.kind === "adopcia" && !activeDogDraft.name.trim())}
               onEdit={() => beginDogEdit(item)}
               onSave={() => void saveDogEdit()}
@@ -345,7 +345,7 @@ export function AdminHelpUnifiedTable({
           ? <span className={styles.inlineActions}>
               <AdminInlineRowActions
                 editing={activeHelpDraft?.id === item.id} busy={helpBusy}
-                disabled={Boolean(activeHelpDraft && activeHelpDraft.id !== item.id) ||
+                disabled={(hasDraft && activeHelpDraft?.id !== item.id) ||
                   (activeHelpDraft?.id === item.id && !activeHelpDraft.title.trim())}
                 onEdit={() => beginHelpEdit(item)}
                 onSave={() => void saveHelpEdit()}
@@ -433,7 +433,7 @@ export function AdminHelpUnifiedTable({
             aria-current={item.slug === category ? "page" : undefined}>{item.label}</Link>
         ))}
       </nav>}
-      <form key={category + ":" + query} className={styles.search} method="get">
+      <form key={category + ":" + query} className={styles.search} method="get" role="search" data-admin-list-filters>
         <input type="hidden" name="category" value={category} />
         <label htmlFor="help-unified-query">Hľadať v kategórii</label>
         <input id="help-unified-query" name="q" defaultValue={query} placeholder="Admin ID, meno psa, názov alebo mesto…" maxLength={80} />
