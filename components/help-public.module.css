@@ -67,7 +67,7 @@
   border: 1px solid rgba(23, 75, 56, 0.14);
   border-radius: 16px;
   background: #fff;
-  box-shadow: 0 7px 22px rgba(23, 53, 43, 0.055);
+  box-shadow: var(--ps-ds5-card-shadow);
 }
 .toolbar label {
   min-width: 0;
@@ -88,7 +88,7 @@
   min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--help-border);
-  border-radius: 11px;
+  border-radius: var(--ps-radius-control);
   background: #fff;
 }
 .searchBox:focus-within {
@@ -132,7 +132,7 @@
   min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--help-border);
-  border-radius: 11px;
+  border-radius: var(--ps-radius-control);
   background: #fff;
   color: #35483e;
   font-size: 0.82rem;
@@ -175,7 +175,7 @@
 .categoryHeading h2 {
   margin: 4px 0 0;
   color: var(--help-ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: clamp(1.55rem, 2.6vw, 2.25rem);
   font-weight: 500;
   letter-spacing: -0.025em;
@@ -201,7 +201,7 @@
   gap: 7px;
   padding: 8px 11px;
   border: 1px solid rgba(23, 75, 56, 0.13);
-  border-radius: 11px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest-dark, #173f2d);
   background: rgba(237, 243, 233, 0.56);
   font-size: 0.76rem;
@@ -254,7 +254,7 @@
 .resultHeading h2 {
   margin: 0;
   color: var(--help-ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: var(--ps-list-heading-size);
   line-height: var(--ps-list-heading-leading);
   font-weight: 500;
@@ -285,9 +285,9 @@
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--help-border);
-  border-radius: var(--ps-radius-card, 16px);
+  border-radius: var(--ps-radius-card);
   background: #fff;
-  box-shadow: 0 8px 24px rgba(23, 63, 45, 0.05);
+  box-shadow: var(--ps-ds5-card-shadow);
 }
 .cardUrgent {
   border-color: #e7b9ad;
@@ -551,7 +551,7 @@
   border-radius: 17px;
   color: var(--help-ink);
   background: #fff;
-  box-shadow: 0 6px 20px rgba(23, 53, 43, 0.04);
+  box-shadow: var(--ps-ds5-card-shadow);
   text-decoration: none;
   transition:
     transform 160ms ease,
@@ -560,7 +560,7 @@
 }
 .overviewCategoryGrid > a:hover {
   border-color: rgba(23, 75, 56, 0.28);
-  box-shadow: 0 10px 26px rgba(23, 53, 43, 0.075);
+  box-shadow: var(--ps-ds5-card-shadow);
   transform: translateY(-2px);
 }
 .overviewCategoryGrid > a:focus-visible {
@@ -583,7 +583,7 @@
   min-width: 0;
 }
 .overviewCategoryCopy strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.08rem;
   font-weight: 600;
   line-height: 1.15;
@@ -640,7 +640,7 @@
   border: 1px solid rgba(23, 53, 43, 0.115);
   border-radius: 16px;
   background: #fff;
-  box-shadow: 0 7px 22px rgba(23, 53, 43, 0.045);
+  box-shadow: var(--ps-ds5-card-shadow);
   transition:
     transform 160ms ease,
     border-color 160ms ease,
@@ -648,7 +648,7 @@
 }
 .overviewCard:hover {
   border-color: rgba(23, 75, 56, 0.26);
-  box-shadow: 0 12px 28px rgba(23, 53, 43, 0.075);
+  box-shadow: var(--ps-ds5-card-shadow);
   transform: translateY(-2px);
 }
 .overviewMedia {
@@ -714,7 +714,7 @@
 .overviewCard h3 {
   margin: 0;
   color: var(--help-ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, serif);
   font-size: 1.2rem;
   font-weight: 600;
   line-height: 1.18;
@@ -877,7 +877,7 @@
   justify-content: center;
   box-sizing: border-box;
   border: 1px solid var(--help-border);
-  border-radius: 11px;
+  border-radius: var(--ps-radius-control);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 800;
@@ -1044,10 +1044,10 @@
   width: 100%;
   max-width: var(--ps-list-search-max);
   grid-template-columns: minmax(0, 1fr) auto auto;
-  border-radius: var(--ps-radius-filter, 18px);
+  border-radius: var(--ps-radius-filter);
 }
 .card {
-  border-radius: var(--ps-radius-card, 22px);
+  border-radius: var(--ps-radius-card);
 }
 @media (max-width: 760px) {
   .toolbar {
@@ -1085,7 +1085,7 @@
   gap: var(--ps-ds5-grid-gap, 16px);
 }
 .card {
-  border-radius: var(--ps-radius-card, 22px);
+  border-radius: var(--ps-radius-card);
   box-shadow: var(--ps-ds5-card-shadow);
   transition: var(--ps-ds5-card-transition);
 }
@@ -1130,7 +1130,7 @@
   gap: var(--ps-ds5-grid-gap, 14px);
 }
 .overviewCard {
-  border-radius: var(--ps-radius-card, 22px);
+  border-radius: var(--ps-radius-card);
   box-shadow: var(--ps-ds5-card-shadow);
 }
 .overviewCardCopy {
@@ -1166,3 +1166,9 @@
   overflow-wrap: break-word;
   hyphens: manual;
 }
+
+/* V2-10: local Help surfaces; state badge colors remain independent. */
+.toolbar, .overviewCard, .overviewEmpty, .card { background: var(--paper); border-radius: var(--ps-radius-card); }
+.overviewMediaFallback { border-radius: var(--ps-radius-media); }
+.sectionEyebrow, .overviewEyebrow { color: var(--ps-premium-accent); }
+.categoryHeading h2, .resultHeading h2, .overviewCard h3, .card h3 { font-family: var(--ps-font-heading, Georgia, serif); font-weight: var(--ps-component-heading-weight, 500); }

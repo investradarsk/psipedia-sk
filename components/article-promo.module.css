@@ -13,7 +13,7 @@
   background: linear-gradient(135deg, var(--brand-surface, #fffdf8), var(--sage-light, #edf3e9));
   color: var(--ink, #17352b);
   box-shadow: 0 10px 30px rgba(23, 53, 43, 0.07);
-  font-family: "Avenir Next", Avenir, sans-serif;
+  font-family: var(--ps-font-body, "Avenir Next", Avenir, sans-serif);
 }
 
 .accent {
@@ -40,7 +40,7 @@
 .headline {
   margin: 0;
   color: var(--forest-dark, #0f392a);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(1.2rem, 2.1vw, 1.48rem);
   font-weight: 600;
   line-height: 1.2;

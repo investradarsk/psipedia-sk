@@ -1,4 +1,5 @@
 import Link from "next/link";
+import premiumStyles from "./help-public-premium.module.css";
 import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 
 const steps = [
@@ -10,7 +11,7 @@ const steps = [
 ];
 
 export function HelpReportGuide() {
-  return <main id="obsah"><UniversalPageHero
+  return <main id="obsah" className={premiumStyles.guide}><UniversalPageHero
     breadcrumbs={<nav className="article-breadcrumbs" aria-label="Navigácia">
       <Link href="/">Domov</Link><span>/</span><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span>
       <span>Nahlásiť psa v núdzi</span>

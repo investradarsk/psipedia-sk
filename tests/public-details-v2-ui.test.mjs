@@ -32,15 +32,15 @@ test(
  import {OrganizationProfileDetail} from './components/organization-profile-detail';
  import {SiteHeader} from './components/site-header';
  import {defaultNavigationItems} from './lib/navigation';
- import './app/globals.css'; import './app/design-system.css'; import './app/navigation-loading.css'; import './app/navigation-hotfix.css';
+ import './app/globals.css'; import './app/design-system.css'; import './app/banner-visuals.css'; import './app/breed-hero-safe-zone.css'; import './app/navigation-loading.css'; import './app/premium-foundation.css';
  const name = new URLSearchParams(location.search).get('case') || 'directory';
  const minimal = name.includes('minimal');
  const runtime = {googleApiKey:'',googleMapId:'',rendererEnabled:true,testRendererEnvironment:true};
  const map = {...fixtures.maps.directory,...runtime};
  let view;
  if(name.startsWith('directory')) view=<DirectoryProfileDetail presentation={{...fixtures.directory,...(minimal?{imageUrl:null,phone:null,emails:[],websites:[],services:[],openingHours:'',address:'',health:null}:{}),...(name.includes('blur')?{detailImageDisplay:{mode:'blur',x:50,y:50,zoom:1}}:{}),...(name.includes('crop')?{detailImageDisplay:{mode:'crop',x:30,y:40,zoom:1.2}}:{}),...(name.includes('long')?{name:'Test dlhého názvu služby a nepretržitého kontaktu '.repeat(4)}:{})}} reviews={fixtures.review} publicMap={minimal?undefined:map}/>;
- else if(name.startsWith('event')) view=<EventDetail event={buildPublicEventPresentation({...fixtures.event,...(minimal?{imageUrl:null,organizer:'',websiteUrl:'',registrationUrl:''}:{}),...(name==='event-two-actions'?{contactPhone:'+421 900 123 456'}:{}),...(name.includes('cancelled')?{cancelled:true}:{}),...(name.includes('long')?{title:'Test dlhého názvu kynologického podujatia a organizačných údajov '.repeat(3)}:{})})} publicMap={minimal?undefined:{...fixtures.maps.event,...runtime}}/>;
- else if(name.startsWith('adoption')) view=<AdoptionDetail dog={{...fixtures.adoption,...(minimal?{mainImage:null,contactPhone:'',contactEmail:''}:{}),...(name.includes('reserved')?{status:'RESERVED'}:{}),...(name.includes('breed-duplicate')?{breedMix:true,breedName:'kríženec'}:{})}} organization={fixtures.organizationLink}/>;
+ else if(name.startsWith('event')) view=<EventDetail event={buildPublicEventPresentation({...fixtures.event,...(minimal?{imageUrl:null,organizer:'',websiteUrl:'',registrationUrl:''}:{}),...(name==='event-two-actions'?{contactPhone:'+421 900 123 456'}:{}),...(name==='event-portrait'?{imageUrl:'/event-portrait.svg',detailImageDisplay:{mode:'natural',x:50,y:50,zoom:1}}:{}),...(name.includes('cancelled')?{cancelled:true}:{}),...(name.includes('long')?{title:'Test dlhého názvu kynologického podujatia a organizačných údajov '.repeat(3)}:{})})} publicMap={minimal?undefined:{...fixtures.maps.event,...runtime}}/>;
+ else if(name.startsWith('adoption')) view=<AdoptionDetail dog={{...fixtures.adoption,...(minimal?{mainImage:null,contactPhone:'',contactEmail:''}:{}),...(name.includes('reserved')?{status:'RESERVED'}:{}),...(name.includes('breed-duplicate')?{breedMix:true,breedName:'kríženec (kríženec čivavy)'}:{})}} organization={fixtures.organizationLink}/>;
  else if(name.startsWith('help')) {
  const category=name.split('-').slice(1).join('-');
  const item={id:1,slug:'synthetic-fixture',title:'Test rozloženia pomoci psom',category,status:'published',excerpt:'Testovací prípad bez fotografie a bez dopĺňania neoverených údajov.',description:'Testovací popis.',organization:'',dogName:'',breed:'',ageNote:'',city:'Trnava',region:'Trnavský kraj',locationNote:'',reportedDate:null,deadlineDate:null,actionLabel:'Podporiť výzvu',actionUrl:'https://example.test/support',contactNote:'',goalAmount:null,raisedAmount:null,imageUrl:null,imageKey:null,verified:false,urgent:false,resolved:false,createdAt:'2026-10-18',updatedAt:'2026-10-18',publishedAt:'2026-10-18',createdBy:'',updatedBy:''};
@@ -65,6 +65,11 @@ test(
           {
             name: "platform-fixtures",
             setup(b) {
+              // Preserve production public font and banner asset URLs; the fixture serves actual files.
+              b.onResolve({ filter: /^\/(?:fonts\/(?:inter|newsreader)-variable\.woff2|images\/psipedia-banner-(?:waves-light|waves-dark|dog-outline)\.svg)$/ }, (a) => ({
+                path: a.path,
+                external: true,
+              }));
               b.onResolve({ filter: /^(next\/(link|navigation)|cloudflare:workers)$/ }, (a) => ({
                 path: a.path,
                 namespace: "fixture",
@@ -114,6 +119,7 @@ test(
         "directory-long",
         "event-minimal",
         "event-two-actions",
+        "event-portrait",
         "event-cancelled",
         "event-long",
         "adoption-minimal",
@@ -153,6 +159,11 @@ test(
             }
             if (url.pathname.includes("/api/name-days/today"))
               return route.fulfill({ json: { names: [] } });
+            if (url.pathname === "/event-portrait.svg")
+              return route.fulfill({
+                contentType: "image/svg+xml",
+                body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="900"><rect width="400" height="900" fill="#215640"/></svg>',
+              });
             if (url.pathname === sources.directory.imageUrl)
               return route.fulfill({
                 contentType: "image/webp",
@@ -167,7 +178,9 @@ test(
               try {
                 const file = await readFile(join(process.cwd(), "public", url.pathname));
                 return route.fulfill({
-                  contentType: extname(url.pathname) === ".svg" ? "image/svg+xml" : "image/webp",
+                  contentType: extname(url.pathname) === ".woff2"
+                    ? "font/woff2"
+                    : extname(url.pathname) === ".svg" ? "image/svg+xml" : "image/webp",
                   body: file,
                 });
               } catch {}
@@ -178,6 +191,22 @@ test(
           await page.goto("https://fixture.test/?case=" + name);
           await page.locator("main h1").waitFor();
           await page.evaluate(() => document.fonts.ready);
+          // A computed fallback is not evidence of the approved V2 typography.
+          const typography = await page.evaluate(async () => {
+            const heading = document.querySelector("main h1");
+            const faces = await Promise.all([
+              document.fonts.load('500 32px "Psipedia Newsreader"'),
+              document.fonts.load('400 16px "Psipedia Inter"'),
+            ]);
+            return {
+              heading: getComputedStyle(heading).fontFamily,
+              body: getComputedStyle(document.body).fontFamily,
+              loaded: faces.every((group) => group.some((face) => face.status === "loaded")),
+            };
+          });
+          assert.match(typography.heading, /Psipedia Newsreader/, name + " V2 headline");
+          assert.match(typography.body, /Psipedia Inter/, name + " V2 body");
+          assert.ok(typography.loaded, name + " V2 local font files loaded");
           await page.locator("main img").evaluateAll((imgs) =>
             Promise.all(
               imgs.map((i) =>
@@ -267,7 +296,7 @@ test(
             // before showing its category illustration. Wait for the *decoded final*
             // illustration rather than inspecting the DOM between React replacements.
             // This keeps the real nonzero-media assertion and fails if fallback breaks.
-            if (name.startsWith("event") && !name.includes("minimal")) {
+            if (name.startsWith("event") && !["event-minimal", "event-portrait"].includes(name)) {
               const finalImage = image.locator('img[data-event-image-source="fallback"]');
               await finalImage.waitFor({ state: "visible", timeout: 15000 });
               await finalImage.evaluate(async (img) => {
@@ -292,6 +321,12 @@ test(
               visualBox && visualBox.width > 0 && visualBox.height > 0,
               `${name} ${width} visible media or fallback must have nonzero dimensions`,
             );
+            if (name === "event-portrait") {
+              assert.equal(await visual.evaluate((img) => img.naturalHeight), 900);
+              const fit = await visual.evaluate((img) => getComputedStyle(img).objectFit);
+              assert.equal(fit, "contain");
+              if (width <= 800) assert.ok(visualBox.height <= 301, "portrait stays compact");
+            }
             const m = await image.boundingBox(),
               h = await hero.locator("h1").boundingBox();
             if (width > 800) assert.ok(m.x > h.x, `${name} desktop media right`);
@@ -299,13 +334,17 @@ test(
           }
           if (name === "lost") {
             const notice = await hero
-              .getByText("Naposledy videný:", { exact: true })
+              .getByText(/^(Posledné videnie|Dátum straty)$/)
               .locator("..")
               .boundingBox();
             const contact = await hero
               .getByRole("link", { name: "Kontaktovať cez Psipediu" })
               .boundingBox();
             assert.ok(notice && contact, "lost report notice and contact visible");
+            assert.equal(
+              await page.getByRole("link", { name: "Kontaktovať cez Psipediu" }).count(),
+              1,
+            );
             assert.ok(
               contact.y - notice.y - notice.height >= 11.5,
               `lost ${width} contact must be separated from last-seen notice`,
@@ -321,11 +360,15 @@ test(
               );
             else assert.ok(aside.x > body.x, "organization desktop sidebar on right");
           }
-          if (name.startsWith("adoption"))
+          if (name.startsWith("adoption")) {
+            const status = name === "adoption-reserved" ? "RESERVED" : "ACTIVE";
+            assert.equal(await hero.locator(`[data-state="${status}"]`).count(), 1);
+            assert.equal(await hero.getByText("Pes na adopciu", { exact: true }).count(), 0);
             assert.ok(
               !/\b0 kg\b/.test(await page.locator("main").innerText()),
               "unknown weight hidden",
             );
+          }
           if (name === "adoption-breed-duplicate")
             assert.doesNotMatch(
               await page.locator("main").innerText(),
@@ -413,7 +456,9 @@ test(
             });
             // New scenarios have no ancestor image. Keep their evidence outside
             // paired comparisons; do not relax missing-screenshot checks.
-            const screenshotDir = name === "event-two-actions" ? `${shots}-supplemental` : shots;
+            const screenshotDir = ["event-two-actions", "event-portrait"].includes(name)
+              ? `${shots}-supplemental`
+              : shots;
             await mkdir(screenshotDir, { recursive: true });
             await page.screenshot({
               path: join(screenshotDir, `${name}-${width}.png`),

@@ -31,14 +31,25 @@
 .partnerChat{gap:.65rem}
 .partnerChat .description p{line-height:1.4}
 .partnerChat .timeline{gap:.5rem;min-height:130px;max-height:390px;padding:.75rem;background:var(--paper,#fffdf8);border-color:var(--line,#dfe3d9)}
-.partnerChat .mine,.partnerChat .theirs{padding:.55rem .75rem;border-radius:10px}
+.partnerChat .mine,.partnerChat .theirs{padding:.55rem .75rem;border-radius:var(--ps-radius-card)}
 .partnerChat .mine{background:var(--sage-light,#edf3e9)}
 .partnerChat .composer{gap:.4rem;padding:.7rem;background:var(--paper,#fffdf8);border-color:var(--line,#dfe3d9)}
 .partnerChat .composer textarea{min-height:78px;border-color:#c9d5ce}
-.partnerChat .sendRow button,.partnerChat .older{background:var(--forest,#174b38);border-color:var(--forest,#174b38);border-radius:9px}
+.partnerChat .sendRow button,.partnerChat .older{background:var(--forest);border-color:var(--forest);border-radius:var(--ps-radius-control)}
 .partnerChat .older{background:var(--paper,#fffdf8);color:var(--forest,#174b38)}
 @media(max-width:650px){.partnerChat .timeline{max-height:340px;padding:.6rem}.partnerChat .composer{padding:.6rem}.partnerChat .sendRow button{min-height:44px}}
 
 /* Read receipts come from the existing D1 per-participant read cursors. */
 .receipt{align-self:flex-end;margin:-.1rem .2rem .3rem;color:#52665d;font-size:.73rem;font-weight:650}
 .typing{align-self:flex-start;margin:0;padding:.52rem .8rem;border:1px solid #dae6dd;border-radius:12px;background:#edf3e9;color:#174b38;font-size:.83rem;font-style:italic}
+
+/* V2-12: only Partner mode; shared Admin chat rules above are unchanged. */
+.partnerChat{font-family:var(--ps-font-body)}
+.partnerChat .description strong,.partnerChat .attachments a{color:var(--forest)}
+.partnerChat .description p,.partnerChat .messageHeader time,.partnerChat .attachments small,.partnerChat .sendRow span,.partnerChat .empty,.partnerChat .receipt{color:var(--muted)}
+.partnerChat .timeline,.partnerChat .composer,.partnerChat .typing{border-radius:var(--ps-radius-card);border-color:var(--line)}
+.partnerChat .theirs{background:var(--paper);border-color:var(--line)}
+.partnerChat .typing{background:var(--sage-light);color:var(--forest)}
+.partnerChat .composer textarea{border-radius:var(--ps-radius-control);border-color:var(--ps-component-control-border);background:var(--paper)}
+.partnerChat :is(button,a,textarea,input):focus-visible{outline:2px solid var(--coral-dark);outline-offset:2px}
+@media(forced-colors:active){.partnerChat :is(button,a,textarea,input):focus-visible{outline:2px solid Highlight}}

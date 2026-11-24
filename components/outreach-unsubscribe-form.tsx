@@ -40,7 +40,6 @@ export function OutreachUnsubscribeForm({ token }: { token: string }) {
     <div>
       {result && (
         <PublicNotice
-          appearance="context"
           tone={result.type === "error" ? "error" : "success"}
           role="status"
         >

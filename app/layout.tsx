@@ -22,6 +22,7 @@ import "./design-system.css";
 import "./banner-visuals.css";
 import "./breed-hero-safe-zone.css";
 import "./navigation-loading.css";
+import "./premium-foundation.css";
 
 
 // The shared navigation is D1-backed. Keep the layout runtime-rendered; public

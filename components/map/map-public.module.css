@@ -89,9 +89,9 @@
   gap: 10px;
   padding: 0 14px;
   border: 1px solid var(--map-panel-border);
-  border-radius: var(--ps-radius-filter, 18px);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 8px 26px rgba(23, 53, 43, 0.045);
+  border-radius: var(--ps-radius-control);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
 }
 
 .searchField svg {
@@ -175,8 +175,8 @@
   padding: 12px;
   border: 1px solid var(--map-panel-border);
   border-radius: var(--ps-radius-filter, 18px);
-  background: rgba(255, 253, 248, 0.92);
-  box-shadow: 0 10px 30px rgba(23, 53, 43, 0.05);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
 }
 
 .secondaryFilters label {
@@ -198,7 +198,7 @@
   border-radius: var(--ps-radius-control, 12px);
   outline: 0;
   color: var(--ink, #17352b);
-  background: white;
+  background: var(--paper);
   font: inherit;
   font-size: 0.8rem;
 }
@@ -236,7 +236,7 @@
   border: 1px solid var(--map-panel-border);
   border-radius: var(--ps-radius-card, 22px);
   background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 18px 48px rgba(23, 53, 43, 0.08);
+  box-shadow: var(--ps-component-shadow);
 }
 
 .resultsPanel {
@@ -247,7 +247,7 @@
   min-height: 0;
   grid-template-rows: auto 1fr auto;
   border-right: 1px solid var(--map-panel-border);
-  background: rgba(255, 253, 248, 0.97);
+  background: var(--paper);
 }
 
 .resultsHead {
@@ -297,7 +297,7 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--map-panel-border);
-  border-radius: 17px;
+  border-radius: var(--ps-radius-card);
   background: white;
   transition:
     border-color 160ms ease,
@@ -388,10 +388,10 @@
 .externalMapLink,
 .navigationLink {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 44px;
   align-items: center;
   padding: 7px 10px;
-  border-radius: 10px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest, #174b38);
   background: #f2f5ee;
   font-size: 0.72rem;
@@ -544,7 +544,7 @@
   top: 14px;
   left: 14px;
   padding: 7px 9px;
-  border-radius: 9px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest, #174b38);
   background: rgba(255, 255, 255, 0.86);
   font-size: 0.68rem;
@@ -579,16 +579,16 @@
   gap: 2px;
   padding: 3px;
   border: 1px solid rgba(23, 53, 43, 0.14);
-  border-radius: 12px;
+  border-radius: var(--ps-radius-control);
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 5px 18px rgba(23, 53, 43, 0.08);
 }
 
 .mapTypeControl button {
-  min-height: 36px;
+  min-height: 44px;
   padding: 7px 10px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest, #174b38);
   background: transparent;
   font: inherit;
@@ -734,7 +734,7 @@
     grid-template-rows: auto 1fr auto;
     overflow: hidden;
     border: 1px solid var(--map-panel-border);
-    border-radius: 20px 20px 14px 14px;
+    border-radius: var(--ps-radius-card);
     box-shadow: 0 -12px 35px rgba(20, 47, 37, 0.18);
     overscroll-behavior: contain;
     transform: translateY(calc(100% - 132px + var(--map-sheet-drag-y, 0px)));
@@ -834,7 +834,7 @@
     grid-template-rows: auto minmax(0, 1fr) auto;
     overflow: hidden;
     border: 1px solid var(--map-panel-border);
-    border-radius: 22px;
+    border-radius: var(--ps-radius-card);
     background: var(--paper, #f8f4eb);
     box-shadow: 0 24px 70px rgba(13, 34, 27, 0.28);
   }
@@ -886,7 +886,7 @@
     min-height: 46px;
     padding: 8px 11px;
     border: 1px solid var(--map-panel-border);
-    border-radius: 11px;
+    border-radius: var(--ps-radius-control);
     color: var(--ink, #17352b);
     background: white;
     font: inherit;
@@ -903,7 +903,7 @@
   .mobileFilterActions button {
     min-height: 46px;
     border: 1px solid var(--forest, #174b38);
-    border-radius: 12px;
+    border-radius: var(--ps-radius-control);
     color: var(--forest, #174b38);
     background: transparent;
     font: inherit;
@@ -963,7 +963,7 @@
   display: inline-flex;
   gap: 10px;
   align-items: center;
-  min-height: 42px;
+  min-height: 44px;
   padding: 7px 15px;
   border: 1px solid var(--map-panel-border);
   border-radius: 999px;
@@ -1062,7 +1062,7 @@
     min-width: 44px;
     min-height: 44px;
     border: 1px solid var(--map-panel-border);
-    border-radius: 12px;
+    border-radius: var(--ps-radius-control);
     color: var(--forest, #174b38);
     background: white;
     font: inherit;
@@ -1228,7 +1228,7 @@
     min-height: 39px;
     padding: 6px;
     border: 0;
-    border-radius: 9px;
+    border-radius: var(--ps-radius-control);
     background: transparent;
     color: var(--forest-dark);
     font: inherit;
@@ -1260,9 +1260,9 @@
   min-height: 64px;
   padding: 14px;
   border: 1px solid #d9e4dc;
-  border-radius: 14px;
-  background: #fffdf8;
-  color: #173e2d;
+  border-radius: var(--ps-radius-control);
+  background: var(--paper);
+  color: var(--forest-dark);
   text-align: left;
   cursor: pointer;
 }

@@ -50,8 +50,8 @@
   margin-bottom: 24px;
   padding: 18px 20px;
   border: 1px solid rgba(23, 75, 56, 0.12);
-  border-radius: 14px;
-  background: #fff;
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
 }
 
 .trust h2 {
@@ -128,3 +128,10 @@
 .empty {
   composes: newsEmpty from "./public-visual-system/public-result-variants.module.css";
 }
+
+/* News archives use the same editorial type hierarchy as other sections. */
+.foundation { font-family: var(--ps-font-body); }
+.trust h2,
+.footerTools h2 { font-family: var(--ps-font-heading); }
+.trust :global(.eyebrow),
+.footerTools :global(.eyebrow) { color: var(--coral-dark); }

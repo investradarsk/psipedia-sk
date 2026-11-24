@@ -1,3 +1,4 @@
+import infoStyles from "@/app/info-premium.module.css";
 import type { Metadata } from "next";
 import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import Link from "next/link";
@@ -11,7 +12,7 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function EditorialPolicyPage() {
   return (
-    <main id="obsah">
+    <main id="obsah" className={infoStyles.document}>
       <UniversalPageHero
         variant="compact"
         eyebrow="Transparentnosť"

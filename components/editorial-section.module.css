@@ -1,27 +1,17 @@
 .foundation {
   --section-border: var(--ps-border-soft, rgba(23, 53, 43, 0.1));
-  --section-card: var(--white, #fff);
+  --section-card: var(--paper);
   --section-accent: var(--forest);
   --section-accent-soft: var(--sage-light);
   --section-accent-border: rgba(23, 75, 56, 0.18);
 }
 
-.puppyTone {
-  --section-accent: #326b4a;
-  --section-accent-soft: #eaf3eb;
-  --section-accent-border: rgba(50, 107, 74, 0.2);
-}
-
-.careTone {
-  --section-accent: #387c88;
-  --section-accent-soft: #e7f2f4;
-  --section-accent-border: rgba(56, 124, 136, 0.22);
-}
-
+.puppyTone,
+.careTone,
 .activityTone {
-  --section-accent: #9d542d;
-  --section-accent-soft: #faeee2;
-  --section-accent-border: rgba(157, 84, 45, 0.22);
+  --section-accent: var(--forest);
+  --section-accent-soft: var(--sage-light);
+  --section-accent-border: rgba(23, 77, 58, 0.18);
 }
 
 .main {
@@ -315,7 +305,7 @@
   min-width: 0;
   padding: 19px;
   border: 1px solid var(--section-border);
-  border-radius: 14px;
+  border-radius: var(--ps-radius-card);
   background: var(--section-card);
 }
 
@@ -354,7 +344,7 @@
   margin-top: 12px;
   padding: 17px 19px;
   border: 1px solid var(--section-accent-border);
-  border-radius: 14px;
+  border-radius: var(--ps-radius-card);
   background: var(--section-accent-soft);
 }
 
@@ -497,7 +487,7 @@
   overflow: hidden;
   grid-template-columns: minmax(138px, 34%) minmax(0, 1fr);
   border: 1px solid rgba(23, 53, 43, 0.13);
-  border-radius: 18px;
+  border-radius: var(--ps-radius-card);
   color: inherit;
   background: var(--section-card);
   box-shadow: 0 7px 22px rgba(23, 53, 43, 0.05);
@@ -555,9 +545,10 @@
 }
 
 .topicCardTitle {
+  font-family: var(--ps-font-heading);
   color: var(--forest);
   font-size: 1.2rem;
-  font-weight: 840;
+  font-weight: 600;
   line-height: 1.18;
   overflow-wrap: anywhere;
 }
@@ -612,7 +603,7 @@
   grid-template-rows: auto 1fr;
   scroll-snap-align: start;
   border: 1px solid rgba(23, 53, 43, 0.13);
-  border-radius: 18px;
+  border-radius: var(--ps-radius-card);
   color: var(--section-accent);
   background: var(--section-card);
   box-shadow: 0 8px 24px rgba(23, 53, 43, 0.045);
@@ -641,7 +632,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 17px 17px 0 0;
+  border-radius: var(--ps-radius-card) var(--ps-radius-card) 0 0;
   object-fit: cover;
 }
 
@@ -676,7 +667,7 @@
 
 .nextCardCopy > strong {
   color: var(--forest);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: 1.42rem;
   font-weight: 500;
   line-height: 1.08;
@@ -1082,7 +1073,7 @@
 }
 .topicGroupTitle {
   margin: 0 0 10px;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(1.4rem, 2.3vw, 1.85rem);
   font-weight: 600;
   line-height: 1.24;
@@ -1158,7 +1149,7 @@
   gap: 5px;
   margin-bottom: 12px;
   padding-left: 13px;
-  border-left: 3px solid var(--section-accent);
+  border-left: var(--ps-premium-accent-width, 4px) solid var(--ps-premium-accent, #b44939);
 }
 .topicStageHeading h2 {
   margin: 0;
@@ -1319,7 +1310,7 @@
 }
 .topicStageGrid .featuredContentList > :first-child [data-article-title] {
   color: var(--forest-dark);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(1.18rem, 2vw, 1.55rem);
   line-height: 1.2;
 }
@@ -1361,4 +1352,36 @@
 }
 .topicEmergency [data-banner-semantic="urgent"] .eyebrow {
   color: #387c88;
+}
+
+/* V2-06: local editorial content uses shared visual tokens. Urgent medical
+   callouts keep their existing semantic accents and banner renderer. */
+.foundation {
+  font-family: var(--ps-font-body);
+}
+.topicBody :is(h2, h3),
+.topicStageHeading h2,
+.topicGroupTitle {
+  font-family: var(--ps-font-heading);
+}
+.topicCardEyebrow,
+.topicBody .eyebrow {
+  color: var(--coral-dark);
+  font-family: var(--ps-font-body);
+}
+.topicCard,
+.nextCard {
+  box-shadow: var(--ps-ds5-card-shadow);
+  transition: var(--ps-ds5-card-transition);
+}
+.topicCard:hover,
+.nextCard:hover {
+  box-shadow: var(--ps-ds5-card-hover-shadow);
+  transform: var(--ps-ds5-card-hover-transform);
+}
+.chips a {
+  border-radius: var(--ps-radius-control);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }

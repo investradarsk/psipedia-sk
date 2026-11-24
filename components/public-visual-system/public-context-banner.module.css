@@ -30,7 +30,7 @@
   width: 42px;
   height: 42px;
   margin-bottom: 2px;
-  border-radius: 12px;
+  border-radius: var(--ps-radius-media);
   color: currentColor;
   background: rgba(255, 255, 255, 0.68);
 }
@@ -53,7 +53,7 @@
   max-width: 680px;
   margin: 0;
   color: inherit;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(1.75rem, 3vw, 2.7rem);
   font-weight: 500;
   letter-spacing: -0.03em;
@@ -94,11 +94,12 @@
 }
 
 .tone_forest {
-  --context-banner-ink: #fff;
-  --context-banner-muted: rgba(255, 255, 255, 0.84);
-  --context-banner-eyebrow: #f4c6b5;
+  --context-banner-ink: var(--ps-premium-on-dark);
+  --context-banner-muted: var(--ps-premium-muted-on-dark);
+  --context-banner-eyebrow: var(--ps-premium-kicker-on-dark);
   border-color: rgba(23, 53, 43, 0.18);
-  background: linear-gradient(135deg, #17352b, #24503b);
+  border-left: var(--ps-premium-accent-width) solid var(--ps-premium-accent);
+  background: var(--ps-premium-gradient);
 }
 
 .tone_sage {

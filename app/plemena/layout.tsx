@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 // suspends rendering until styles are ready. Unlike a Vite CSS import,
 // this public file cannot be concatenated into the homepage's index CSS.
 // Change the fingerprint whenever its contents change.
-const BREED_STYLESHEET = "/styles/breed-reference-3f5dab25d000.css";
+const BREED_STYLESHEET = "/styles/breed-reference-ddc60a0fefaa.css";
 
 export default function BreedLayout({ children }: { children: ReactNode }) {
   return (

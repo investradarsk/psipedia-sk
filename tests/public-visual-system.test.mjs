@@ -242,7 +242,7 @@ test("PUBLIC-POLISH-2 keeps public photography square without flattening UI cont
   assert.match(homeStyles, /\.homeV2 :global\(\.hero-card\)[\s\S]*?border-radius:\s*0/);
   assert.match(
     articleDetailStyles,
-    /PUBLIC-POLISH-2 photo contract[\s\S]*?\.modernArticle \.heroMedia,[\s\S]*?border-radius:\s*0/,
+    /V2-06: approved photo radius[\s\S]*?\.modernArticle \.heroMedia,[\s\S]*?border-radius:\s*var\(--ps-radius-media\)/,
   );
   assert.match(
     adoptionStyles,

@@ -36,7 +36,7 @@
   max-width: 20ch;
   margin: 0;
   color: var(--forest-dark);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(1.8rem, 4vw, 3rem);
   line-height: 1.13;
 }
@@ -50,9 +50,9 @@
   min-width: 0;
   padding: clamp(14px, 3vw, 27px);
   border: 1px solid var(--ps-border-soft, var(--line));
-  border-radius: 22px;
+  border-radius: var(--ps-radius-card);
   background: var(--paper);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ps-component-shadow);
 }
 .heading {
   display: flex;
@@ -64,7 +64,7 @@
 }
 .heading h2 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(1.45rem, 3vw, 2rem);
   color: var(--forest-dark);
 }
@@ -82,8 +82,8 @@
   justify-content: center;
   padding-inline: 12px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--white);
+  border-radius: var(--ps-radius-control);
+  background: var(--paper);
   color: var(--forest);
   font-size: 0.85rem;
   font-weight: 800;
@@ -119,8 +119,8 @@
   flex-direction: column;
   gap: 4px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--white);
+  border-radius: var(--ps-radius-control);
+  background: var(--paper);
   color: var(--forest-dark);
   font-size: 0.98rem;
   font-weight: 750;
@@ -149,14 +149,14 @@
   background: var(--coral-dark);
 }
 .day[data-selected="true"] .marker {
-  background: var(--white);
+  background: var(--paper);
 }
 .detail {
   min-width: 0;
   min-height: 86px;
   margin-top: 16px;
   padding: 18px;
-  border-radius: 14px;
+  border-radius: var(--ps-radius-card);
   background: var(--sage-light);
   overflow-wrap: anywhere;
 }
@@ -193,7 +193,7 @@
 .homeCopy h2 {
   margin: 0;
   color: var(--forest);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading);
   font-size: clamp(1.5rem, 3vw, 2rem);
 }
 .homeCopy p {
@@ -221,7 +221,7 @@
   gap: 12px;
   padding: 10px 14px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--ps-radius-control);
   color: var(--forest);
   background: var(--paper);
   font-size: 0.83rem;
@@ -253,11 +253,9 @@
   }
   .calendar {
     padding: 12px;
-    border-radius: 16px;
   }
   .day {
     min-height: 44px;
-    border-radius: 8px;
     font-size: 0.86rem;
   }
   .weekday {
@@ -301,7 +299,7 @@
 .nameSearchControls input {
   flex: 1 1 auto; min-width: 0; min-height: 46px; padding: 10px 12px;
   border: 1px solid var(--ps-border-strong, var(--line));
-  border-radius: var(--ps-radius-control, 12px); background: var(--white);
+  border-radius: var(--ps-radius-control, 12px); background: var(--paper);
   color: var(--ink); font: inherit;
 }
 .nameSearchControls button {
@@ -315,7 +313,7 @@
 .nameSearchResults ul { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; }
 .nameSearchResults a {
   display: flex; min-height: 44px; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 8px 10px; border-radius: 10px;
+  gap: 12px; padding: 8px 10px; border-radius: var(--ps-radius-control);
   background: var(--sage-light); color: var(--forest-dark);
   font-weight: 750; text-decoration: none;
 }

@@ -59,7 +59,7 @@ test("directory, help and adoption cards follow compact shell and intentional me
   ]) {
     const ds5 = css.slice(css.lastIndexOf("/* DS-5"));
     assert.ok(ds5.startsWith("/* DS-5"), kind + " dedicated extension");
-    assert.match(ds5, /border-radius:\s*var\(\s*--ps-radius-card,\s*22px\s*\)/, kind);
+    assert.match(ds5, /border-radius:\s*var\(\s*--ps-radius-card(?:,\s*(?:14|22)px)?\s*\)/, kind);
     assert.match(ds5, /--ps-ds5-card-padding/, kind);
   }
   assert.match(
@@ -84,7 +84,7 @@ test("event listing retains category art and remains two-column at 768px", () =>
   const ds5 = events.slice(events.lastIndexOf("/* DS-5"));
   assert.match(
     ds5,
-    /\s*\.gridCard\s*\{\s*[\s\S]*?border-radius:\s*var\(\s*--ps-radius-card,\s*22px\s*\)/,
+    /\s*\.gridCard\s*\{\s*[\s\S]*?border-radius:\s*var\(\s*--ps-radius-card(?:,\s*(?:14|22)px)?\s*\)/,
   );
   assert.match(ds5, /min-width:\s*761px\s*\)\s*and\s*\(\s*max-width:\s*900px\s*\)/);
   assert.match(ds5, /grid-template-columns:\s*repeat\(\s*2,\s*minmax\(\s*0,\s*1fr\s*\)\s*\)/);

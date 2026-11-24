@@ -61,7 +61,7 @@
   max-width: 48ch;
   margin: 10px 0 0;
   color: var(--muted);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(.86rem, 1.25vw, 1rem);
   font-style: italic;
   font-weight: 500;

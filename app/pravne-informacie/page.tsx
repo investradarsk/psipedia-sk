@@ -1,3 +1,4 @@
+import infoStyles from "@/app/info-premium.module.css";
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
 import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
@@ -27,7 +28,7 @@ export default async function LegalInformationPage() {
   const publicEmail = settings.email || EDITORIAL_EMAIL_ADDRESS;
 
   return (
-    <main id="obsah">
+    <main id="obsah" className={infoStyles.document}>
       <UniversalPageHero
         variant="compact"
         eyebrow="Transparentnosť"
