@@ -46,3 +46,22 @@ FROM managed_breeds AS b
 JOIN directory_profiles AS p
   ON p.slug = 'malkia-garden' AND p.category = 'chovatelske-stanice'
 WHERE b.slug = 'irsky-vlkodav' AND b.status = 'published';
+
+-- Disposable organization photo to compare the compact mobile hero in natural mode.
+INSERT OR IGNORE INTO help_organizations (
+  slug, name, type, status, short_description, description, image_url,
+  published_at, created_at, updated_at, created_by, updated_by
+) VALUES (
+  'vizualna-ukazka-organizacie',
+  'Vizuálna ukážka organizácie',
+  'CIVIC_ASSOCIATION',
+  'PUBLISHED',
+  'Izolovaný profil na kontrolu zobrazenia celej fotografie na mobile.',
+  'Ukážkový obsah pre vizuálnu kontrolu.',
+  '/images/hero-labrador.webp',
+  '2026-11-17T12:00:00.000Z',
+  '2026-11-17T12:00:00.000Z',
+  '2026-11-17T12:00:00.000Z',
+  'pr-visual@psipedia.local',
+  'pr-visual@psipedia.local'
+);
