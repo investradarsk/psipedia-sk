@@ -35,3 +35,4 @@ export function lostFoundSubmissionEnabled() {
   const runtime = env as unknown as SubmissionFeatureEnv;
   return enabled(runtime.LOST_FOUND_SUBMISSIONS_ENABLED);
 }
+

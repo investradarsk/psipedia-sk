@@ -140,3 +140,13 @@ export const profileReviewReports = sqliteTable("profile_review_reports", {
   index("profile_review_reports_status_created_idx").on(table.status, table.createdAt),
   index("profile_review_reports_review_status_idx").on(table.reviewId, table.status, table.createdAt),
 ]);
+
+export const profileReviewVerificationSettings = sqliteTable("profile_review_verification_settings", {
+  id: integer("id").primaryKey(),
+  emailRequired: integer("email_required").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by"),
+}, table => [
+  check("profile_review_verification_singleton_check", sql`${table.id} = 1`),
+  check("profile_review_verification_email_required_check", sql`${table.emailRequired} IN (0,1)`),
+]);

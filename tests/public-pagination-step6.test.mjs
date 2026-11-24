@@ -39,7 +39,7 @@ test("all public listing consumers have numbered links and targeted scroll posit
     ["components/event-listing-results.tsx", "pageHref={href}", "#events-list"],
     ["components/adoption-catalog.tsx", "pageHref={(page) => adoptionCatalogHref(", "#adoption-results"],
     ["components/lost-found-dogs-page.tsx", "pageHref={(page) => pageHref(type, params, page)}", "#lost-found-results"],
-    ["components/profile-review-section.tsx", "pageHref={(page) => reviewPageHref(", "#recenzie"],
+    ["components/profile-review-section.tsx", "pageHref={(page) => pageHref(page)}", "#recenzie"],
     ["app/hladat/page.tsx", "pageHref={(page) => searchHref(", "#search-results"],
   ]) {
     const source = read(file);
@@ -61,4 +61,15 @@ test("old oversized listing pagination layouts no longer override the shared com
   assert.doesNotMatch(variants, /\.searchPagination\s*\{\s*display: grid/);
   assert.doesNotMatch(variants, /\.reviewPagination\s*\{\s*display: flex/);
   assert.doesNotMatch(adoption, /\.pagination span,\s*\.pagination strong\s*\{\s*background:/);
+});
+
+
+test("profile reviews retain the canonical detail pagination and support catalog pagination", () => {
+  const source = read("components/profile-review-section.tsx");
+  assert.ok(source.includes("paginationHref ?? ((page: number) => reviewPageHref(baseHref, page))"));
+  assert.ok(source.includes("pageHref(data.pagination.page - 1)"));
+  assert.ok(source.includes("pageHref(data.pagination.page + 1)"));
+  const catalog = read("components/service-review-catalog.tsx");
+  assert.ok(catalog.includes("paginationHref={(p) => href(listing.page, row.id, p)}"));
+  assert.ok(catalog.includes('params.set("reviewsPage"'));
 });

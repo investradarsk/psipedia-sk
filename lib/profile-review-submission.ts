@@ -345,7 +345,8 @@ function isUniqueConflict(error: unknown) {
 
 export async function createPendingProfileReview(input: {
   request: Request;
-  reviewer: ReviewAuthorIdentity;
+  reviewer: Pick<ReviewAuthorIdentity, "authorId">;
+  guest?: { displayName: string };
   target: ProfileReviewSubmissionTarget;
   normalized: ReturnType<typeof normalizeProfileReviewSubmission>;
   database?: D1Database;
@@ -361,6 +362,20 @@ export async function createPendingProfileReview(input: {
   const nowIso = now.toISOString();
   const reviewId = crypto.randomUUID();
   const riskFlags = evaluateProfileReviewRiskFlags(input.normalized.body);
+  const guestStatements = [];
+  if (input.guest) {
+    if (!input.reviewer.authorId.startsWith("guest-review:")) throw new Error("Invalid guest identity");
+    const author = await getReviewAuthorById(input.reviewer.authorId, db);
+    if (author && author.status !== "PENDING_VERIFICATION") {
+      throw new ProfileReviewSubmissionError("Tento autor momentálne nemôže odosielať recenzie.", 403, "REVIEWER_SUSPENDED");
+    }
+    riskFlags.push("GUEST_UNVERIFIED");
+    // No email, no verified timestamp, no authentication/session privilege.
+    guestStatements.push(db.prepare(`INSERT INTO review_authors
+      (id,email_ciphertext,email_hash,display_name,status,created_at,updated_at)
+      VALUES (?1,'',?1,?2,'PENDING_VERIFICATION',?3,?3)
+      ON CONFLICT(id) DO NOTHING`).bind(input.reviewer.authorId, input.guest.displayName, nowIso));
+  }
   const reviewStatement = db.prepare(`
     INSERT INTO profile_reviews (
       id,resource_id,author_id,overall_rating,body,service_month,service_type_key,
@@ -407,7 +422,7 @@ export async function createPendingProfileReview(input: {
   );
 
   try {
-    await db.batch([reviewStatement, ...dimensionStatements, moderationEvent]);
+    await db.batch([...guestStatements, reviewStatement, ...dimensionStatements, moderationEvent]);
   } catch (error) {
     if (isUniqueConflict(error)) {
       const duplicate = await findExistingProfileReview(input.target.resourceId, input.reviewer.authorId, db);

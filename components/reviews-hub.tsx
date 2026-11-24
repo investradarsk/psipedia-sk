@@ -26,6 +26,8 @@ import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
 import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import styles from "./reviews-hub.module.css";
+import { ServiceReviewCatalog } from "@/components/service-review-catalog";
+import type { ServiceReviewSort } from "@/lib/service-review-catalog";
 
 export type ReviewsHubView = "all" | "products" | "services" | "eshops";
 
@@ -84,7 +86,7 @@ function ReviewFeedCard({ review }: { review: PublicProfileReviewFeedItem }) {
       </header>
       <p>{reviewExcerpt(review.body)}</p>
       <footer>
-        <span>{review.displayName}</span>
+        <span>{review.displayName}{review.guestUnverified ? " · bez e-mailového overenia" : ""}</span>
         {date ? <time dateTime={review.publishedAt}>{date}</time> : null}
         <Link href={`${review.targetHref}#recenzie`}>
           Celá recenzia <ArrowIcon size={16} />
@@ -103,33 +105,34 @@ function productArticleKind(article: Article): "test" | "guide" | "article" {
   return "article";
 }
 
-const serviceCategorySlugs = new Set([
-  "veterinari",
-  "treneri",
-  "kynologicke-kluby",
-  "salony-a-sluzby",
-  "hotely-a-opatrovanie",
-  "fyzioterapia",
-]);
-
 export async function ReviewsHub({
   section,
   articles,
   profileReviews,
   eshops,
   view = "all",
+  serviceCategory = "",
+  serviceQuery = "",
+  serviceSort = "rating",
+  servicePage = 1,
+  serviceOpen = 0,
+  serviceReviewPage = 1,
 }: {
   section: PortalSection;
   articles: Article[];
   profileReviews: PublicProfileReviewFeedItem[];
   eshops: PublicEshop[];
   view?: ReviewsHubView;
+  serviceCategory?: string;
+  serviceQuery?: string;
+  serviceSort?: ServiceReviewSort;
+  servicePage?: number;
+  serviceOpen?: number;
+  serviceReviewPage?: number;
 }) {
   const reviewArticles = articles.filter((article) => articlePortalSection(article) === "recenzie");
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
-  const serviceCategories = directoryCategories.filter((category) =>
-    serviceCategorySlugs.has(category.slug),
-  );
+  const serviceCategories = directoryCategories;
   const showProducts = view === "all" || view === "products";
   const showServices = view === "all" || view === "services";
   const showEshops = view === "all" || view === "eshops";
@@ -278,10 +281,10 @@ export async function ReviewsHub({
             <PageContainer>
               <PublicLandingSectionHeading
                 eyebrow="Skúsenosti používateľov"
-                title="Najnovšie recenzie služieb"
-                description="Ide o publikované recenzie priamo z profilov Psipedia. Hodnotenie služby zostáva naviazané na konkrétny profil a jeho vlastný priemer."
+                title={view === "all" ? "Najnovšie recenzie služieb" : "Hodnotenia služieb pre psov"}
+                description="Vyberte kategóriu a porovnajte skúsenosti používateľov. Do priemeru sa započítavajú iba zverejnené recenzie Psipedia."
               />
-              {profileReviews.length ? (
+              {view === "all" ? (profileReviews.length ? (
                 <div className={styles.reviewGrid}>
                   {profileReviews.map((review) => (
                     <ReviewFeedCard key={review.id} review={review} />
@@ -295,18 +298,21 @@ export async function ReviewsHub({
                     automaticky zobrazia aj tu.
                   </p>
                 </PublicEmptyState>
-              )}
+              )) : null}
               <div className={styles.serviceLinks} aria-label="Kategórie služieb">
                 {serviceCategories.map((category) => (
                   <PublicDataCard
                     key={category.slug}
-                    href={`/adresar/${category.slug}`}
+                    href={`/recenzie?typ=sluzby&kategoria=${category.slug}#hodnotenia-sluzieb`}
                     title={category.label}
                     icon={<span aria-hidden="true">{category.icon}</span>}
-                    actionLabel="Zobraziť"
+                    actionLabel="Pozrieť hodnotenia"
                   />
                 ))}
               </div>
+              {view === "services" && serviceCategories.some((category) => category.slug === serviceCategory) ? (
+                <ServiceReviewCatalog category={serviceCategory} query={serviceQuery} sort={serviceSort} page={servicePage} open={serviceOpen} reviewPage={serviceReviewPage} />
+              ) : null}
               {view === "all" ? (
                 <div className={styles.sectionFooter}>
                   <PublicActionLink href={viewHref("services")} variant="tertiary" icon={<ArrowIcon size={16} />} rel="nofollow">

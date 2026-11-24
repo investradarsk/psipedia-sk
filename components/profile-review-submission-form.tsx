@@ -26,6 +26,7 @@ type Props = {
   schemaVersion: number;
   dimensions: readonly Dimension[];
   siteKey: string;
+  guest?: boolean;
 };
 
 type ApiResponse = {
@@ -80,8 +81,11 @@ export function ProfileReviewSubmissionForm({
   schemaVersion,
   dimensions,
   siteKey,
+  guest = false,
 }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [ownExperience, setOwnExperience] = useState(false);
   const [overallRating, setOverallRating] = useState<number | null>(null);
   const [dimensionValues, setDimensionValues] = useState<Record<string, number>>({});
   const [body, setBody] = useState("");
@@ -145,6 +149,7 @@ export function ProfileReviewSubmissionForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           resourceId,
+          ...(guest ? { displayName, ownExperience } : {}),
           overallRating,
           body,
           serviceMonth,
@@ -206,6 +211,19 @@ export function ProfileReviewSubmissionForm({
           Hodnotíte <strong>{profileName}</strong>. Recenziu pred zverejnením skontrolujeme.
         </p>
       </header>
+
+      {guest ? (
+        <>
+          <label className={styles.field} htmlFor="review-display-name">
+            <span>Meno alebo prezývka *</span>
+            <PublicTextInput id="review-display-name" appearance="context" value={displayName} onChange={(event) => setDisplayName(event.target.value)} minLength={2} maxLength={60} required />
+          </label>
+          <label>
+            <PublicChoiceInput type="checkbox" checked={ownExperience} onChange={(event) => setOwnExperience(event.target.checked)} required />
+            Potvrdzujem, že hodnotím vlastnú skúsenosť so službou.
+          </label>
+        </>
+      ) : null}
 
       <fieldset
         className={styles.fieldset}
@@ -360,8 +378,7 @@ export function ProfileReviewSubmissionForm({
       </div>
 
       <p className={styles.privacy}>
-        Recenzia sa viaže iba na vašu reviewer identitu. Neukladáme do nej IP adresu, browser
-        fingerprint ani Partner účet.
+        {guest ? "Na odoslanie nepotrebujete e-mail. Bezpečnostné overenie nepreukazuje vašu totožnosť; recenzia čaká na moderovanie." : "Recenzia sa viaže na vašu reviewer identitu."}
       </p>
     </form>
   );

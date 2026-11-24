@@ -9,6 +9,8 @@ import {
 } from "@/lib/profile-review-admin";
 import { profileReviewStatuses } from "@/lib/profile-review-domain";
 import { profileReviewStatusLabel, profileReviewEntityTypeLabel, profileReviewCategoryLabel } from "@/lib/admin-profile-review-labels";
+import { AdminProfileReviewVerification } from "@/components/admin-profile-review-verification";
+import { readProfileReviewVerificationSettings } from "@/lib/profile-review-verification-settings";
 import "./reviews.css";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +40,7 @@ export default async function AdminProfileReviewsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const user = await requireAdminPageUser("/admin/recenzie-profilov");
+  const verification = await readProfileReviewVerificationSettings();
   const raw = await searchParams;
   const status = first(raw.status) || "PENDING_REVIEW";
   const entityType = first(raw.type) || "all";
@@ -67,6 +70,7 @@ export default async function AdminProfileReviewsPage({
       title="Moderácia profilových recenzií"
       description="Kontrola a schvaľovanie recenzií. Meniť možno ich stav a viditeľnosť; text ani počet hviezdičiek používateľa sa neupravujú."
     >
+      <AdminProfileReviewVerification initial={verification} />
       <section className="admin-review-card" data-admin-community-moderation>
         <form className="admin-review-filters" method="get" role="search" aria-label="Filtrovať profilové recenzie" data-admin-list-filters>
           <label>
@@ -126,7 +130,7 @@ export default async function AdminProfileReviewsPage({
               <p>{excerpt(item.body)}</p>
               <div className="admin-review-meta">
                 <span>{profileReviewEntityTypeLabel(item.entityType)}{item.targetCategory ? ` · ${profileReviewCategoryLabel(item.targetCategory)}` : ""}</span>
-                <span>Recenzent: {item.reviewerDisplayName}</span>
+                <span>Recenzent: {item.reviewerDisplayName}{item.riskFlags.includes("GUEST_UNVERIFIED") ? " · bez e-mailového overenia" : ""}</span>
                 <span>Vytvorené: {formatDate(item.createdAt)}</span>
               </div>
             </div>

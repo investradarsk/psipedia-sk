@@ -32,6 +32,8 @@ function fixture() {
       help_organization_id INTEGER REFERENCES help_organizations(id),
       managed_event_id INTEGER REFERENCES managed_events(id)
     );
+    CREATE TABLE profile_review_verification_settings (id INTEGER PRIMARY KEY,email_required INTEGER NOT NULL,updated_at TEXT NOT NULL,updated_by TEXT);
+    INSERT INTO profile_review_verification_settings VALUES (1,0,CURRENT_TIMESTAMP,NULL);
     CREATE TABLE review_authors (
       id TEXT PRIMARY KEY, email_ciphertext TEXT NOT NULL, email_hash TEXT NOT NULL UNIQUE,
       display_name TEXT, status TEXT NOT NULL, email_verified_at TEXT, deactivated_at TEXT,
@@ -515,6 +517,114 @@ test("actual review submission API creates one pending canonical review through 
     globalThis.fetch = originalFetch;
     for (const key of Object.keys(envObject)) delete envObject[key];
     Object.assign(envObject, previousEnv);
+    sqlite.close();
+  }
+});
+
+test("guest can submit a moderated service review without an email and the same cookie cannot submit twice", async () => {
+  const { sqlite, database } = fixture();
+  const envObject = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
+  const previousEnv = { ...envObject };
+  const originalFetch = globalThis.fetch;
+  Object.assign(envObject, {
+    DB: database,
+    PROFILE_REVIEW_SUBMISSIONS_ENABLED: "true",
+    PROFILE_REVIEW_EMAIL_REQUIRED: "false",
+    TURNSTILE_SECRET_KEY: "test-secret",
+    PII_HASH_KEY: key32(56),
+    PII_ENCRYPTION_KEY: key32(57),
+  });
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    success: true,
+    hostname: "psipedia.sk",
+    action: "profile_review_submit",
+    challenge_ts: new Date().toISOString(),
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const { POST } = await importTs("app/api/review-author/reviews/route.ts");
+    function request(overrides = {}, cookie = "") {
+      return new Request("https://psipedia.sk/api/review-author/reviews", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://psipedia.sk",
+          "sec-fetch-site": "same-origin",
+          "cf-connecting-ip": "203.0.113.78",
+          cookie,
+        },
+        body: JSON.stringify({
+          resourceId: "opaque.directory.1",
+          overallRating: 5,
+          body: "Dobrá skúsenosť s veterinárom a profesionálnym prístupom.",
+          serviceMonth: "",
+          ratingSchemaVersion: 1,
+          dimensions: [],
+          displayName: "Návštevník",
+          ownExperience: true,
+          turnstileToken: "guest-test-" + crypto.randomUUID(),
+          ...overrides,
+        }),
+      });
+    }
+    assert.equal((await POST(request({ ownExperience: false }))).status, 422);
+    assert.equal((await POST(request({ displayName: "<script>" }))).status, 422);
+    assert.equal((await POST(request({ resourceId: "opaque.org.11" }))).status, 401);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM profile_reviews").get().count, 0);
+    const response = await POST(request());
+    assert.equal(response.status, 201);
+    const cookie = response.headers.get("set-cookie").split(";")[0];
+    assert.match(cookie, /^__Host-psipedia_review_guest=/);
+    const row = sqlite.prepare("SELECT a.status AS author_status,a.email_verified_at,a.email_ciphertext,a.display_name,r.status,r.risk_flags_json FROM profile_reviews r JOIN review_authors a ON a.id=r.author_id").get();
+    assert.equal(row.author_status, "PENDING_VERIFICATION");
+    assert.equal(row.email_verified_at, null);
+    assert.equal(row.email_ciphertext, "");
+    assert.equal(row.display_name, "Návštevník");
+    assert.equal(row.status, "PENDING_REVIEW");
+    assert.ok(JSON.parse(row.risk_flags_json).includes("GUEST_UNVERIFIED"));
+    assert.equal((await POST(request({}, cookie))).status, 409);
+    const settings = await importTs("lib/profile-review-verification-settings.ts");
+    await settings.saveProfileReviewVerificationSettings(true, "admin@test.invalid", database);
+    assert.equal((await POST(request())).status, 401);
+    await settings.saveProfileReviewVerificationSettings(false, "admin@test.invalid", database);
+    envObject.PROFILE_REVIEW_EMAIL_REQUIRED = "true";
+    assert.equal((await POST(request())).status, 401);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM profile_reviews").get().count, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const key of Object.keys(envObject)) delete envObject[key];
+    Object.assign(envObject, previousEnv);
+    sqlite.close();
+  }
+});
+
+test("service review catalog includes secondary categories, unrated profiles and visible reviews only", async () => {
+  const { sqlite, database } = fixture();
+  try {
+    sqlite.exec(`
+      ALTER TABLE directory_profiles ADD COLUMN city TEXT;
+      ALTER TABLE directory_profiles ADD COLUMN district TEXT;
+      CREATE TABLE directory_profile_additional_categories (profile_id INTEGER,category TEXT);
+      UPDATE directory_profiles SET city='Nitra' WHERE id=1;
+      INSERT INTO directory_profiles(id,name,slug,category,status,city) VALUES
+        (3,'Salon','salon','salony-a-sluzby','published','Nitra'),
+        (4,'Veterina bez hodnotenia','bez','veterinari','published','Levice'),
+        (5,'Archived','archived','veterinari','archived','Nitra');
+      INSERT INTO directory_profile_additional_categories VALUES (3,'veterinari');
+      INSERT INTO profile_reviews(id,resource_id,author_id,overall_rating,body,rating_schema_version,status,created_at,updated_at)
+        VALUES ('visible','opaque.directory.1','author-1',5,'Skutočný text recenzie veterinára.',1,'VISIBLE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+        ('pending','opaque.directory.1','author-suspended',1,'Druhá ešte neschválená recenzia.',1,'PENDING_REVIEW',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
+    `);
+    const { listServiceReviewCatalog } = await importTs("lib/service-review-catalog.ts");
+    const result = await listServiceReviewCatalog(database, "veterinari", "", "rating", 1);
+    assert.equal(result.total, 3);
+    assert.equal(result.rows[0].id, 1);
+    assert.equal(result.rows[0].review_count, 1);
+    assert.equal(result.rows[0].average_rating, 5);
+    assert.equal(result.rows.find(row => row.id === 3).average_rating, null);
+    assert.equal(result.rows.find(row => row.id === 4).review_count, 0);
+    assert.equal((await listServiceReviewCatalog(database, "veterinari", "Nitra", "name", 1)).total, 2);
+    assert.equal((await listServiceReviewCatalog(database, "veterinari", "%", "name", 1)).total, 0);
+  } finally {
     sqlite.close();
   }
 });
