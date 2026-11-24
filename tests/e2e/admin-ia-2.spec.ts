@@ -482,3 +482,47 @@ test("V6-07 dashboard shortcuts and guarded Ctrl+K return use canonical routes",
   await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
   await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-07-overview-" + (mobile ? "390" : "1440") + ".png", fullPage: true, animations: "disabled" });
 });
+
+
+test("V6-09 mapping diagnosis uses GET only and explains a typed collision at desktop and mobile", async ({ page }, info) => {
+  const width=info.project.name==="mobile-chromium"?390:1440;
+  await page.setViewportSize({width,height:900});
+  let diagnosticRequests=0;
+  let mutations=0;
+  await page.route("**/api/admin/notion-manual-transfer**",async route=>{
+    const url=new URL(route.request().url());
+    if(route.request().method()!=="GET"){
+      mutations++;
+      await route.abort();
+      return;
+    }
+    if(url.pathname.endsWith("/capabilities")){
+      await route.fulfill({json:{executable:false,migrationReady:true,note:"Izolovaný test",areas:[{area:"breeds",label:"Plemená",scopes:[{id:"breeds",label:"Plemená",editable:1,locked:0,fields:[]}]}]}});
+      return;
+    }
+    if(url.searchParams.get("diagnostics")==="1"){
+      diagnosticRequests++;
+      await route.fulfill({json:{readOnly:true,offset:0,hasMore:false,ambiguousSelection:false,checkedAt:"2026-11-24T12:00:00Z",items:[{
+        scope:"breeds",profileId:17,name:"Testovací profil (fixture)",editorHref:"/admin/plemena/17",mappingTable:"breed_notion_workcopy_links",
+        canonicalStatus:"published",category:null,expectedSource:"Plemená — aktívna pracovná kópia",
+        issues:["PAGE_DUPLICATE"],remote:"NOT_CHECKED",relatedMappings:[{kind:"breeds",profileId:17},{kind:"events",profileId:17}],relatedMappingsTruncated:false,
+      }]}});
+      return;
+    }
+    await route.fulfill({json:{runs:[]}});
+  });
+  const response=await page.goto("/admin/nastavenia/notion",{waitUntil:"domcontentloaded"});
+  expect(response?.status()).toBe(200);
+  await page.getByRole("tab",{name:"Manuálny prenos",exact:true}).click();
+  await page.getByLabel("Psipedia ID").fill("17");
+  const panel=page.getByRole("region",{name:"Diagnostika mapovaní iba na čítanie"});
+  await panel.getByRole("button",{name:"Skontrolovať mapovania v D1"}).click();
+  await expect(panel.getByText("Testovací profil (fixture)",{exact:false})).toBeVisible();
+  await expect(panel.getByText("Rovnaká Notion stránka má viac aktívnych väzieb.",{exact:false})).toBeVisible();
+  await expect(panel.getByRole("link",{name:"Otvoriť Admin editor"})).toHaveAttribute("href","/admin/plemena/17");
+  await expect(panel.getByText("breeds #17, events #17",{exact:false})).toBeVisible();
+  expect(diagnosticRequests).toBe(1);
+  expect(mutations).toBe(0);
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
+  await page.screenshot({path:".e2e-artifacts/admin-ia-2/v6-09-mapping-diagnostic-fixture-"+width+".png",fullPage:true,animations:"disabled"});
+});
