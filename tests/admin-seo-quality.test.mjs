@@ -619,3 +619,52 @@ test("V6-03 all eight editor routes accept the exact filtered audit return URL",
     assert.equal(adminReturnHref(invalid, ["/admin/adresar", "/admin/kvalita/seo"]), "/admin/adresar");
   }
 });
+
+
+test("V6-03 all agenda, scope, issue and page combinations select exact records and findings", () => {
+  const codes = adminSeoIssueDefinitions.map((item) => item.code);
+  const metadata = new Set([
+    "custom-title-missing", "custom-description-missing", "result-title-weak",
+    "result-description-weak", "image-missing", "image-alt-missing",
+    "noindex-explicit", "canonical-nonstandard", "slug-missing",
+  ]);
+  const custom = new Set(["custom-title-missing", "custom-description-missing"]);
+  const rows = adminSeoAgendas.flatMap((agenda) => Array.from({ length: 53 }, (_, i) => {
+    const findings = codes.filter((_, j) => (i + j) % 3 !== 0).map((code) => ({
+      code, scope: custom.has(code) ? "custom" : "content",
+    }));
+    return {
+      entity: { id: i + 1, entityType: agenda, agenda, title: "Profil " + i },
+      findings, customGapCount: findings.filter((finding) => custom.has(finding.code)).length,
+      qualityFindingCount: findings.filter((finding) => !custom.has(finding.code)).length,
+    };
+  }));
+  for (const agenda of ["all", "profiles", ...adminSeoAgendas]) {
+    const scoped = rows.filter((item) => agenda === "all" ||
+      (agenda === "profiles" ? !["articles", "events"].includes(item.entity.agenda) : item.entity.agenda === agenda));
+    for (const scope of ["all", "metadata", "quality", "custom"]) {
+      for (const issue of ["all", ...codes]) {
+        const matches = (finding) => (issue === "all" || finding.code === issue) &&
+          (scope === "all" || (scope === "metadata" ? metadata.has(finding.code) :
+            scope === "custom" ? custom.has(finding.code) : !custom.has(finding.code)));
+        const expected = scoped.map((item) => ({ ...item, findings: item.findings.filter(matches) }))
+          .filter((item) => item.findings.length);
+        const pages = Math.max(1, Math.ceil(expected.length / 50));
+        for (const requestedPage of [1, 2, 999]) {
+          const result = selectAdminSeoQualityPage(scoped, { scope, issue }, requestedPage);
+          const page = Math.min(requestedPage, pages);
+          assert.equal(result.total, expected.length);
+          assert.equal(result.findingCount, expected.reduce((sum, item) => sum + item.findings.length, 0));
+          assert.equal(result.profileCount, expected.filter((item) => !["articles", "events"].includes(item.entity.agenda)).length);
+          assert.equal(result.customGapEntities, expected.filter((item) => item.findings.some((finding) => custom.has(finding.code))).length);
+          assert.equal(result.totalPages, pages);
+          assert.equal(result.page, page);
+          assert.deepEqual(
+            result.items.map(({ entity, findings }) => ({ entity, findings })),
+            expected.slice((page - 1) * 50, page * 50).map(({ entity, findings }) => ({ entity, findings })),
+          );
+        }
+      }
+    }
+  }
+});
