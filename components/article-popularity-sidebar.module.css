@@ -1,4 +1,4 @@
-/* One canonical most-read card across every article detail route. */
+/* Shared editorial sidebar surface, used by rankings and homepage context panels. */
 .popularity {
   min-width: 0;
   overflow: hidden;
@@ -18,7 +18,8 @@
   background: var(--ps-premium-gradient, #174d3a);
 }
 
-.header h2 {
+.header h2,
+.header h3 {
   margin: 0;
   color: var(--ps-premium-on-dark, #fffaf0);
   font: 500 1.35rem/1.2 var(--ps-font-heading, Georgia, serif);
@@ -64,7 +65,8 @@
 }
 
 .tabs button:focus-visible,
-.list a:focus-visible {
+.list a:focus-visible,
+.contextRow:focus-visible {
   outline: 3px solid rgba(23, 75, 56, 0.35);
   outline-offset: 2px;
 }
@@ -98,7 +100,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.list a {
+.list a,
+.contextRow {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
   align-items: center;
@@ -145,7 +148,8 @@
   gap: 5px;
 }
 
-.list strong {
+.list strong,
+.contextRow strong {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -162,7 +166,8 @@
   overflow-wrap: anywhere;
 }
 
-.list a:hover .itemText strong {
+.list a:hover .itemText strong,
+.contextRow:hover .itemText strong {
   color: var(--forest, #174b38);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -187,7 +192,8 @@
     gap: 7px;
   }
 
-  .list a {
+  .list a,
+  .contextRow {
     grid-template-columns: 58px minmax(0, 1fr);
   }
 
@@ -197,7 +203,8 @@
   }
 }
 
-.header h2::after {
+.header h2::after,
+.header h3::after {
   content: "";
   display: block;
   width: 24px;
@@ -220,4 +227,18 @@
 .tabs .activeTab {
   background: var(--ps-glass-selected, var(--cream));
   box-shadow: var(--ps-glass-edge, none);
+}
+
+/* Context rows are not rankings: keep the same photo/text rhythm without fake ranks. */
+.contextRow {
+  padding: 11px 5px;
+  border-bottom: 1px solid var(--ps-border-soft, #dfe7e4);
+  border-radius: 0;
+}
+
+.contextRow .itemText small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }

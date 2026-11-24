@@ -238,7 +238,7 @@
 }
 
 .readingShell .standfirst {
-  margin: 0 0 18px;
+  margin: 0 0 var(--ps-reading-paragraph-gap);
   color: var(--ps-reading-color);
   font-family: var(--ps-reading-font);
   font-size: var(--ps-reading-lead-size);
@@ -402,7 +402,7 @@
 
 .readingShell :global(.article-blocks) {
   min-width: 0;
-  gap: 14px;
+  gap: var(--ps-reading-paragraph-gap);
 }
 
 /* An article's inline promo already lives inside the reader column.
@@ -767,7 +767,7 @@
   }
 
   .readingShell .standfirst {
-    margin-bottom: 14px;
+    margin-bottom: var(--ps-reading-paragraph-gap);
     font-size: var(--ps-reading-lead-size);
     line-height: var(--ps-reading-leading);
   }
@@ -847,7 +847,7 @@
   }
 
   .readingShell :global(.article-blocks) {
-    gap: 10px;
+    gap: var(--ps-reading-paragraph-gap);
   }
 
   .readingShell :global(.article-block-text) {

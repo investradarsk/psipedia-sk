@@ -1263,13 +1263,20 @@
    Keep navigation, cards, controls and admin on their own type scales. */
 :root {
   --ps-reading-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --ps-reading-size: clamp(1.0625rem, calc(0.92rem + 0.35vw), 1.125rem);
-  --ps-reading-lead-size: clamp(1.125rem, calc(0.98rem + 0.35vw), 1.1875rem);
-  --ps-reading-leading: 1.72;
+  --ps-reading-size: 0.9375rem;
+  --ps-reading-lead-size: 1rem;
+  --ps-reading-leading: 1.55;
   --ps-reading-color: var(--ink-2);
   --ps-reading-heading-color: var(--forest-dark);
   --ps-reading-measure: 70ch;
-  --ps-reading-paragraph-gap: 1.25em;
+  --ps-reading-paragraph-gap: 0.75rem;
+  --ps-reading-card-padding: 1rem;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --ps-reading-card-padding: 0.875rem;
+  }
 }
 
 /* Informational and legal prose follows the same public reading scale,
