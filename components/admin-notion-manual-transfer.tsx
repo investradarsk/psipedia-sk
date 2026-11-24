@@ -40,8 +40,18 @@ function errorLabel(code:string|null|undefined){
   return reasonText[code]??code;
 }
 async function readJson<T>(response:Response):Promise<T>{
-  const body=await response.json() as T & {error?:string};
-  if(!response.ok)throw Error(body.error??"SERVER_ERROR");
+  const body=await response.json() as T & {
+    error?:string;scope?:string;profileId?:number|null;invalidPart?:string;
+  };
+  if(!response.ok){
+    if(body.error==="TRANSFER_MAPPING_INVALID"){
+      const scope=typeof body.scope==="string"?body.scope:"nezistená oblasť";
+      const id=Number.isSafeInteger(body.profileId)?` · Psipedia ID ${body.profileId}`:"";
+      const part=body.invalidPart==="NOTION_PAGE_ID"?"neplatné Notion page ID":"neplatné Psipedia ID";
+      throw Error(`${reasonText.TRANSFER_MAPPING_INVALID} Oblasť: ${scope}${id} · ${part}.`);
+    }
+    throw Error(body.error??"SERVER_ERROR");
+  }
   return body;
 }
 export function AdminNotionManualTransfer(){
