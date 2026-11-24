@@ -4,14 +4,14 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("desktop Prehľad header navigates home, not just expands a disclosure", () => {
+test("desktop Prehľad header navigates with a fresh document, not just disclosure", () => {
   const source = read("components/admin-navigation.tsx");
   assert.match(source, /const navigatesToOverview = !mobile && pathname !== "\/admin" &&\s*group\.items\.some\(\(item\) => item\.href === "\/admin"\)/);
   assert.match(source, /if \(navigatesToOverview\) \{\s*navigateToOverview\(\);\s*return;/);
   assert.match(source, /aria-expanded=\{navigatesToOverview \? undefined : expanded\}/);
   assert.match(source, /aria-controls=\{navigatesToOverview \? undefined : /);
   assert.match(source, /aria-label=\{navigatesToOverview \? "Prejsť na pracovný prehľad" : undefined\}/);
-  assert.match(source, /dispatchAdminOverviewNavigation\(\(\) => router\.push\("\/admin"\)\)/);
+  assert.match(source, /dispatchAdminOverviewNavigation\(\(\) => window\.location\.assign\("\/admin"\)\)/);
   assert.match(source, /setExpandedDesktopGroup\(\{ pathname, group: expanded \? "" : group\.label \}\)/);
 });
 
@@ -28,7 +28,7 @@ test("programmatic header navigation honors the dirty-editor confirmation", () =
   const nav = read("components/admin-navigation.tsx");
   const intent = read("lib/admin-overview-navigation.ts");
   const guard = read("components/admin-editor-navigation-guard.tsx");
-  assert.match(nav, /dispatchAdminOverviewNavigation\(\(\) => router\.push\("\/admin"\)\)/);
+  assert.match(nav, /dispatchAdminOverviewNavigation\(\(\) => window\.location\.assign\("\/admin"\)\)/);
   assert.match(intent, /new CustomEvent<AdminNavigationIntent>\(ADMIN_NAVIGATION_INTENT_EVENT, \{/);
   assert.match(intent, /cancelable: true,\s*detail: \{ href: "\/admin", navigate \}/);
   assert.match(intent, /if \(dispatch\(intent\)\) navigate\(\)/);
@@ -44,12 +44,14 @@ test("stalled navigation retry uses the shared dirty-editor intent guard", () =>
   assert.match(recovery, /const navigate = \(\) => \{[\s\S]*?router\.push\(pending\.href\)/);
 });
 
-test("authenticated streamed dashboard is never manually prefetched on hover or focus", () => {
+test("authenticated streamed dashboard uses native guarded navigation without prefetch", () => {
   const nav = read("components/admin-navigation.tsx");
   assert.match(nav, /if \(href === "\/admin"\) return;/);
   assert.ok(nav.indexOf('if (href === "/admin") return;') < nav.indexOf("router.prefetch(href)"));
   assert.match(nav, /prefetch=\{false\}/);
-  assert.doesNotMatch(nav, /window\.location\.(?:assign|reload|replace)/);
+  assert.match(nav, /onClick=\{item\.href === "\/admin" \? handleAdminOverviewLink : undefined\}/);
+  assert.match(nav, /dispatchAdminOverviewNavigation\(\(\) => window\.location\.assign\("\/admin"\)\)/);
+  assert.doesNotMatch(nav, /router\.push\("\/admin"\)/);
 });
 
 test("slow attention, quality and activity reads remain isolated from workspace shell", () => {
