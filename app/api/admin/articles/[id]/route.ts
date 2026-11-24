@@ -142,6 +142,10 @@ export async function PUT(request: Request, { params }: RouteProps) {
         updatedAt: payload.expectedUpdatedAt,
       });
     } catch (writeError) {
+      // A concurrent Notion/Admin update is an explicit CAS conflict, NOT evidence
+      // that this request committed its own article row or relation writes.
+      if (writeError instanceof ArticleUpdateConflictError ||
+          writeError instanceof ArticleRescheduleConflictError) throw writeError;
       const current = await getManagedArticleById(id).catch(() => null);
       if (current && current.updatedAt !== before.updatedAt) {
         return Response.json({
