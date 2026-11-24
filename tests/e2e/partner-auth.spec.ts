@@ -977,8 +977,8 @@ test("internal admin Partner overview and account detail are protected admin pag
   await createEventRow.getByRole("link",{name:"Detail →"}).click();
   await expect(page.getByRole("heading",{name:"Údaje na vytvorenie"})).toBeVisible();
   // The shared in-page admin dialog replaces the former native browser confirm.
-  // Closing it must never create an event or change the moderation state.
-  await page.getByRole("button",{name:"CREATE EVENT (DRAFT)"}).click();
+  // Closing it must never publish the existing draft or change moderation state.
+  await page.getByRole("button",{name:"Schváliť a publikovať podujatie",exact:true}).click();
   const createEventDialog=page.getByRole("dialog",{name:"Potvrdiť partnerské rozhodnutie"});
   await expect(createEventDialog).toBeVisible();
   await createEventDialog.getByRole("button",{name:"Zrušiť"}).click();
@@ -989,10 +989,10 @@ test("internal admin Partner overview and account detail are protected admin pag
     response.url().includes("/api/admin/partners/events/") &&
     response.request().method()==="PATCH" && response.ok(),
   );
-  await page.getByRole("button",{name:"CREATE EVENT (DRAFT)"}).click();
+  await page.getByRole("button",{name:"Schváliť a publikovať podujatie",exact:true}).click();
   await expect(createEventDialog).toBeVisible();
-  await expect(createEventDialog).toContainText("vytvoriť canonical podujatie ako DRAFT");
-  await createEventDialog.getByRole("button",{name:"Potvrdiť"}).click();
+  await expect(createEventDialog).toContainText("Publikovať už vytvorený kanonický koncept");
+  await createEventDialog.getByRole("button",{name:"Schváliť a publikovať",exact:true}).click();
   await createEventResponse;
   await expect(page.getByText("CREATED_NEW")).toBeVisible();
 
