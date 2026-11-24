@@ -1,0 +1,78 @@
+/* Public Design System V2 — Premium Editorial, approved prototype V9.
+ * Scope the canonical theme to public and Partner routes. Root is required
+ * so semantic aliases resolve against the new values, not inherited V1 values.
+ * Admin retains V1 defaults, including on client-side route transitions.
+ * Component-specific hardcoded typography and surfaces migrate in steps 2–14.
+ */
+@font-face {
+  font-family: "Psipedia Inter";
+  src: url("/fonts/inter-variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Psipedia Newsreader";
+  src: url("/fonts/newsreader-variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+:root:not(:has([data-admin-workspace])) {
+  --ps-font-body: "Psipedia Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ps-font-heading: "Psipedia Newsreader", Georgia, "Times New Roman", serif;
+  --ps-public-heading-font: var(--ps-font-heading);
+  --ps-reading-font: var(--ps-font-body);
+
+  --ink: #17352b;
+  --ink-2: #29483e;
+  --forest: #174d3a;
+  --forest-dark: #102f26;
+  --cream: #f7f2e9;
+  --paper: #fffdf9;
+  --coral: #b44939;
+  --coral-dark: #b44939;
+  --ps-premium-gradient-start: #36735e;
+  --ps-premium-gradient-middle: #235743;
+  --ps-premium-gradient-end: var(--forest-dark);
+  --ps-premium-gradient: linear-gradient(115deg, var(--ps-premium-gradient-start) 0%, var(--ps-premium-gradient-middle) 42%, var(--ps-premium-gradient-end) 100%);
+  --ps-premium-on-dark: #fffaf0;
+  --ps-premium-kicker-on-dark: var(--cream);
+  --ps-premium-muted-on-dark: #e5eee6;
+  --ps-premium-accent: var(--coral-dark);
+  --ps-premium-accent-width: 4px;
+
+  --ps-radius-banner-large: 18px;
+  --ps-radius-banner-small: 16px;
+  --ps-radius-card: 14px;
+  --ps-radius-filter: var(--ps-radius-card);
+  --ps-radius-media: 10px;
+  --ps-radius-control: 9px;
+
+  --shadow-sm: 0 2px 8px rgba(23, 53, 43, 0.05);
+  --ps-ds5-card-shadow: none;
+  --ps-motion-fast: 180ms;
+  --ps-motion-media: 350ms;
+  --ps-motion-ease: ease;
+}
+
+/* Low specificity: component semantics and layout remain authoritative.
+ * Never use a blanket !important or force serif on utility text.
+ */
+:where(:root:not(:has([data-admin-workspace]))) body {
+  font-family: var(--ps-font-body);
+}
+:where(:root:not(:has([data-admin-workspace]))) :is(h1, h2, h3) {
+  font-family: var(--ps-font-heading);
+}
+:where(:root:not(:has([data-admin-workspace]))) :is(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not(:has([data-admin-workspace])) {
+    --ps-motion-fast: 0ms;
+    --ps-motion-media: 0ms;
+  }
+}

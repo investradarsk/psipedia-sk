@@ -156,6 +156,7 @@ test("public and admin route import order keeps shared tokens without admin CSS 
     "./banner-visuals.css",
     "./breed-hero-safe-zone.css",
     "./navigation-loading.css",
+    "./premium-foundation.css",
   ]);
   // Banner themes are a public-only extension; preserve the separation from admin CSS.
   const bannerStyles = read("app/banner-visuals.css");

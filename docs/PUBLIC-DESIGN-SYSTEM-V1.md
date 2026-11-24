@@ -50,3 +50,8 @@ VISUAL_REVIEW_ROUTES: /,/clanky,/plemena,/podujatia
 - **Podkategórie**: neúčinné skoršie CSS prepísané finálnym gridom bolo odstránené, bez presunu finálnych selektorov či mobilných breakpointov.
 - **Register**: tematické rodiny, zrozumiteľné názvy a odkazy len na existujúce statické cesty. Vizuálne duplicity nemožno potvrdiť len podľa názvov súborov.
 - **Ďalšia fáza**: vizuálne ukážky konkrétnych inštancií bannerov a dátové URL profilov (vyžadujú samostatný spoľahlivý zdroj používateľských profilov).
+
+
+## Superseding approved V2 migration
+
+See [Public Design System V2 — Premium Editorial](./PUBLIC-DESIGN-SYSTEM-V2.md). The V1 appearance freeze remains the historical production baseline; V2 intentionally replaces its public visual values after the full migration and visual review.
