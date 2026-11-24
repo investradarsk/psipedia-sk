@@ -10038,3 +10038,16 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
     font-size: clamp(1.45rem, 7vw, 1.85rem);
   }
 }
+
+/* PhotoSwipe is a third-party overlay: keep its focus, zoom, gestures and
+ * native controls, while inheriting the public typography and dark surface. */
+:where(:root:not(:has([data-admin-workspace]))) .pswp {
+  --pswp-bg: var(--forest-dark);
+  --pswp-icon-color: var(--ps-premium-on-dark);
+  --pswp-icon-color-secondary: var(--forest-dark);
+  font-family: var(--ps-font-body);
+}
+:where(:root:not(:has([data-admin-workspace]))) .pswp__button:focus-visible {
+  outline: 3px solid var(--ps-premium-on-dark);
+  outline-offset: -4px;
+}

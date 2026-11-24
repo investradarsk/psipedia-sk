@@ -8,7 +8,7 @@ import { gzipSync, brotliCompressSync } from "node:zlib";
 
 const publicRoot = resolve("dist/client");
 const cssDir = join(publicRoot, "assets");
-const routeAsset = "styles/breed-reference-3f5dab25d000.css";
+const routeAsset = "styles/breed-reference-ddc60a0fefaa.css";
 const directoryAsset = "styles/directory-cd5bd5dee982.css";
 assert.ok(existsSync(cssDir), "CSS build output not found at dist/client/assets");
 assert.ok(existsSync(join(publicRoot, routeAsset)), "Route-only breed asset was not copied to dist/client");

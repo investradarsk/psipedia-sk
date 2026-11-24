@@ -33,3 +33,30 @@ test("V2-14 cookie panel and not-found styles use canonical tokens without remov
   assert.ok(css.includes('body:has([data-testid="map-filter-dialog"]) .cookie-consent'));
   assert.match(read("components/outreach-unsubscribe-form.tsx"), /<PublicNotice[\s\S]*tone=\{result.type/);
 });
+
+test("V2-14 fingerprinted breed CSS and shared font declarations use canonical typography", () => {
+  const layout = read("app/plemena/layout.tsx");
+  const asset = layout.match(/BREED_STYLESHEET = "(\/styles\/breed-reference-[a-f0-9]{12}\.css)"/)?.[1];
+  assert.ok(asset);
+  const breed = read("public" + asset);
+  assert.doesNotMatch(breed, /font-family:\s*(Georgia|"Avenir Next")/);
+  assert.match(breed, /font-family: var\(--ps-font-heading\)/);
+  assert.match(breed, /border-radius: var\(--ps-radius-card\)/);
+  assert.match(layout, /precedence="high"/);
+  assert.doesNotMatch(read("app/globals.css"), /font-family:\s*(Georgia|"Avenir Next")/);
+  const variants = read("components/public-visual-system/public-result-variants.module.css");
+  assert.equal((variants.match(/\.eventEmpty \{/g) ?? []).length, 1);
+  assert.equal((variants.match(/\.adoptionEmptyIcon \{/g) ?? []).length, 1);
+});
+
+test("V2-14 outreach routes share the information layout without changing token handling", () => {
+  for (const [path, method] of [
+    ["app/overenie-profilu/[token]/page.tsx", "getOutreachVerificationContext"],
+    ["app/odhlasenie-osloveni/[token]/page.tsx", "getOutreachUnsubscribeContext"],
+  ]) {
+    const page = read(path);
+    assert.ok(page.includes("className={infoStyles.document}"));
+    assert.ok(page.includes(method + "(token)"));
+    assert.ok(page.includes("index: false, follow: false, nocache: true"));
+  }
+});
