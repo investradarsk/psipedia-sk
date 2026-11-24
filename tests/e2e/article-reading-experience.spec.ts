@@ -246,8 +246,8 @@ for (const articleCase of cases) {
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
     }
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 24 + 1);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(16.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(14.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(15.1);
     expect(metrics.canvasColor).toBe("rgb(247, 242, 233)");
     expect(metrics.bodyColor).toBe("rgb(41, 72, 62)");
     expect(metrics.proseFontFamily).toMatch(/^"?Psipedia Inter"?,/);
@@ -265,8 +265,8 @@ for (const articleCase of cases) {
     expect(metrics.introHyphens).toBe("none");
     if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
     if (metrics.bodyHyphens !== null) expect(metrics.bodyHyphens).toBe("none");
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.69);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.75);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.53);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.57);
     expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
 
     if (articleCase.id === "bikejoring") {
@@ -467,10 +467,10 @@ for (const articleCase of cases) {
     }
     expect(metrics.proseWidth).toBeGreaterThanOrEqual(790);
     expect(metrics.proseWidth).toBeLessThanOrEqual(805);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(16.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.69);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.75);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(14.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(15.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.53);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.57);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
     // Natural photos may be narrower than the article column to preserve their full aspect ratio.
     if (articleCase.hasImage) {

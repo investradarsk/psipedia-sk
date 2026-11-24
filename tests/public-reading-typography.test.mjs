@@ -24,7 +24,10 @@ test("long-form reading values have one canonical public token source", () => {
   ]) {
     assert.match(foundation, new RegExp("--ps-reading-" + token + ":"));
   }
-  assert.match(foundation, /--ps-reading-leading:\s*1\.72/);
+  assert.match(foundation, /--ps-reading-size:\s*0\.9375rem;/);
+  assert.match(foundation, /--ps-reading-lead-size:\s*1rem;/);
+  assert.match(foundation, /--ps-reading-leading:\s*1\.55;/);
+  assert.match(foundation, /--ps-reading-paragraph-gap:\s*0\.75rem;/);
   assert.match(foundation, /--ps-reading-measure:\s*70ch/);
   assert.match(foundation, /--ps-reading-color:\s*var\(--ink-2\)/);
 });
