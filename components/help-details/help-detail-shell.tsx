@@ -1,3 +1,4 @@
+import { PublicHelpSectionNav } from "@/components/public-visual-system/public-help-category-nav";
 import { applyHelpLifecycle } from "@/lib/help-lifecycle";
 import { PublicHeading } from "@/components/public-heading";
 import { HelpFinancialProgress } from "@/components/help-financial-progress";
@@ -158,6 +159,7 @@ export function HelpDetailShell({
         }
       />
 
+      <PublicHelpSectionNav current={item.category} />
       <section className={styles.content}>
         <PublicHelpProfileDetailLayout aside={sidebar} asideLabel="Praktické informácie">
           <article className={styles.copy}>{children}</article>

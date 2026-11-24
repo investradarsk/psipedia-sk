@@ -257,3 +257,25 @@ test("V2-10 Help uses premium tokens without losing semantic states", () => {
   assert.match(guideCss, /data-report-kind="LOST"[^}]*#a13d28/);
   assert.match(guideCss, /data-report-kind="FOUND"[^}]*#31588a/);
 });
+
+test("Help navigation remains present in the report hub, lists and profile details", () => {
+  const nav = readFileSync(new URL("../components/public-visual-system/public-help-category-nav.tsx", import.meta.url), "utf8");
+  assert.match(nav, /export function PublicHelpSectionNav/);
+  assert.match(nav, /reportScope && <PublicHelpReportNav/);
+  assert.match(nav, /dogReportBasePath\("LOST"\)/);
+  assert.match(nav, /dogReportBasePath\("FOUND"\)/);
+  assert.match(nav, /current: current === tab.key/);
+  assert.doesNotMatch(nav, /<Link\b/);
+  const paths = [
+    ["app/pomoc-psom/stratene-a-najdene/page.tsx", /<PublicHelpSectionNav current="stratene-a-najdene" reportScope="all"/],
+    ["components/lost-found-dogs-page.tsx", /reportScope=\{type\}/],
+    ["components/lost-found-dog-detail.tsx", /<PublicHelpSectionNav current="stratene-a-najdene" reportScope=\{type\}/],
+    ["components/adoption-detail.tsx", /<PublicHelpSectionNav current="adopcia"/],
+    ["components/help-details/help-detail-shell.tsx", /<PublicHelpSectionNav current=\{item.category\}/],
+    ["app/organizacie/page.tsx", /<PublicHelpSectionNav current="utulky"/],
+    ["components/organization-profile-detail.tsx", /<PublicHelpSectionNav current="utulky"/],
+  ];
+  for (const [path, pattern] of paths) {
+    assert.match(readFileSync(new URL("../" + path, import.meta.url), "utf8"), pattern, path);
+  }
+});

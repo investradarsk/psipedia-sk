@@ -1,3 +1,4 @@
+import { PublicHelpSectionNav } from "@/components/public-visual-system/public-help-category-nav";
 import Link from "next/link";
 import premiumStyles from "./help-public-premium.module.css";
 import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
@@ -19,5 +20,5 @@ export function HelpReportGuide() {
     eyebrow="Keď rozhodujú minúty"
     title="Našiel si psa v núdzi?"
     intro="Zostaň pokojný a postupuj v tomto poradí. Bezpečnosť ľudí aj psa má vždy prednosť pred fotografiou či odchytom."
-  /><section className="section shell help-guide-layout"><div className="help-guide-steps">{steps.map((step) => <article key={step.number}><span>{step.number}</span><div><h2>{step.title}</h2><p>{step.text}</p></div></article>)}</div><aside><span aria-hidden="true">📌</span><h2>Priprav si</h2><ul><li>presnú lokalitu a čas,</li><li>fotografiu alebo opis psa,</li><li>smer, ktorým sa pohyboval,</li><li>informáciu o zranení či ohrození,</li><li>kontakt, na ktorom si dostupný.</li></ul><Link className="button button--primary" href="/adresar/utulky-a-zachrana">Nájsť útulok alebo organizáciu</Link><Link className="text-link" href="/pomoc-psom/stratene-a-najdene">Pozrieť stratené a nájdené psy →</Link></aside></section></main>;
+  /><PublicHelpSectionNav current="stratene-a-najdene" /><section className="section shell help-guide-layout"><div className="help-guide-steps">{steps.map((step) => <article key={step.number}><span>{step.number}</span><div><h2>{step.title}</h2><p>{step.text}</p></div></article>)}</div><aside><span aria-hidden="true">📌</span><h2>Priprav si</h2><ul><li>presnú lokalitu a čas,</li><li>fotografiu alebo opis psa,</li><li>smer, ktorým sa pohyboval,</li><li>informáciu o zranení či ohrození,</li><li>kontakt, na ktorom si dostupný.</li></ul><Link className="button button--primary" href="/adresar/utulky-a-zachrana">Nájsť útulok alebo organizáciu</Link><Link className="text-link" href="/pomoc-psom/stratene-a-najdene">Pozrieť stratené a nájdené psy →</Link></aside></section></main>;
 }
