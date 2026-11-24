@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useAdminProfilePageSelection } from "@/components/admin-profile-page-selection";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { removeAdminRecordFromList, adminListRemovalMessage } from "@/lib/admin-record-list-delete";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { AdminInlineDraftGuard } from "@/components/admin-inline-draft-guard";
+import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
+import { inlineSaveMessage } from "@/lib/admin-inline-save-status";
 import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import {
@@ -14,7 +18,7 @@ import {
   AdminModalDialog,
 } from "@/components/admin-interaction-system";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
-import { HELP_ADMIN_CATEGORIES, type HelpAdminFilters } from "@/lib/help-admin-query";
+import { HELP_ADMIN_CATEGORIES, isHelpAdminCreateCategory, type HelpAdminFilters } from "@/lib/help-admin-query";
 import { adminFilteredListHref } from "@/lib/admin-list-query";
 import { adminDetailHref } from "@/lib/admin-return-navigation";
 import type { ManagedHelpCaseSummary } from "@/lib/help-store";
@@ -52,30 +56,54 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ManagedHelpCaseSummary | null>(null);
   const [message, setMessage] = useState("");
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [draft, setDraft] = useState<{ id: number; key: string; category: string; updatedAt: string; title: string; excerpt: string } | null>(null);
+  const [inlineBusy, setInlineBusy] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkReview, setBulkReview] = useState<{ targetStatus: BulkStatus; preview: BulkPreflight } | null>(null);
+  const [bulkReviewState, setBulkReview] = useState<{ key: string; targetStatus: BulkStatus; preview: BulkPreflight } | null>(null);
   const { items, totals, categoryCounts, resultCount, page, pages } = data;
   const viewFingerprint = [
     filters.category, filters.status, filters.urgent, filters.state,
     filters.organization, filters.location, filters.q, filters.sort ?? "updated", filters.direction ?? "desc", String(page),
   ].join("|");
+  const bulkReview = bulkReviewState?.key === viewFingerprint ? bulkReviewState : null;
+  const [selected, setSelected] = useAdminProfilePageSelection(viewFingerprint, items.map((item) => item.id));
   const selectedCount = selected.size;
+  const activeDraft = draft?.key === viewFingerprint && items.some((item) => item.id === draft.id && item.updatedAt === draft.updatedAt && item.category === draft.category) ? draft : null;
 
-  useEffect(() => {
-    let active = true;
-    queueMicrotask(() => {
-      if (active) setSelected(new Set());
-    });
-    return () => { active = false; };
-  }, [viewFingerprint]);
+  function beginInline(item: ManagedHelpCaseSummary) {
+    if (draft || bulkBusy || deletingId !== null || !isHelpAdminCreateCategory(item.category)) return;
+    setMessage("");
+    setBulkReview(null);
+    setDraft({ id: item.id, key: viewFingerprint, category: item.category, updatedAt: item.updatedAt, title: item.title, excerpt: item.excerpt });
+  }
+
+  async function saveInline() {
+    if (!activeDraft || inlineBusy || !activeDraft.title.trim()) return;
+    setInlineBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/help/" + activeDraft.id, {
+        method: "PATCH", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "set-inline-editorial", expectedCategory: activeDraft.category,
+          expectedUpdatedAt: activeDraft.updatedAt, changes: { title: activeDraft.title, excerpt: activeDraft.excerpt } }),
+      });
+      const result = await response.json() as { error?: string; notionFieldSync?: unknown };
+      if (!response.ok) throw new Error(result.error || "Rýchlu úpravu sa nepodarilo uložiť.");
+      setDraft(null);
+      setMessage(inlineSaveMessage(result.notionFieldSync));
+      router.refresh();
+    } catch (error) {
+      setMessage("Uloženie nepotvrdené: " + (error instanceof Error ? error.message : "Rýchla úprava zlyhala."));
+    } finally { setInlineBusy(false); }
+  }
 
   function clearSelection() {
     setSelected(new Set());
   }
 
   async function prepareBulk(targetStatus: BulkStatus) {
-    if (!selectedCount || bulkBusy) return;
+    if (draft || !selectedCount || bulkBusy) return;
     setBulkBusy(true);
     setMessage("");
     try {
@@ -90,7 +118,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         setMessage("Označené záznamy už majú požadovaný publikačný stav.");
         return;
       }
-      setBulkReview({ targetStatus, preview });
+      setBulkReview({ key: viewFingerprint, targetStatus, preview });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Hromadnú zmenu sa nepodarilo pripraviť.");
     } finally {
@@ -99,7 +127,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
   }
 
   async function applyBulk() {
-    if (!bulkReview || bulkBusy) return;
+    if (draft || !bulkReview || bulkBusy) return;
     setBulkBusy(true);
     setMessage("");
     try {
@@ -122,7 +150,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
   }
 
   async function removeItem(item: ManagedHelpCaseSummary) {
-    if (deletingId !== null || bulkBusy) return;
+    if (draft || deletingId !== null || bulkBusy) return;
     setDeletingId(item.id); setMessage("");
     try {
       const result = await removeAdminRecordFromList("help", item.id, item.title);
@@ -135,19 +163,9 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
   }
 
   return <div className={styles.dashboard} data-admin-content-module="help-list">
-    <section className={styles.boundary} aria-label="Pomoc psom">
-      <div>
-        <span className="admin-eyebrow">Pomoc psom</span>
-        <h2>Správa prípadov a výziev</h2>
-        <p>Ostatné agendy Pomoci psom majú vlastné editory.</p>
-      </div>
-      <nav className={styles.moduleLinks} aria-label="Pomoc psom">
-        <Link prefetch={false} href="/admin/pomoc-psom">Všetky kategórie</Link>
-      </nav>
-    </section>
-
-    <section className={`admin-stats ${styles.stats}`} aria-label="Stav generic Help záznamov">
-      <div><span>Všetky Help záznamy</span><strong>{totals.total}</strong></div>
+    <AdminInlineDraftGuard active={Boolean(draft)} stale={Boolean(draft && !activeDraft)} busy={inlineBusy} onCancel={() => setDraft(null)} />
+    <section className={`admin-stats ${styles.stats}`} aria-label="Stav prípadov pomoci">
+      <div><span>Všetky prípady pomoci</span><strong>{totals.total}</strong></div>
       <div><span>Publikované</span><strong>{totals.published}</strong></div>
       <div><span>Koncepty</span><strong>{totals.draft}</strong></div>
       <div><span>Aktívne</span><strong>{totals.current}</strong></div>
@@ -156,7 +174,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
     </section>
 
     <section className="admin-panel" data-admin-help-list>
-      <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať Help záznamy" data-admin-list-filters>
+      <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať prípady pomoci" data-admin-list-filters>
         <label className={styles.searchField}><span>Hľadať</span><input name="q" defaultValue={filters.q} placeholder="Názov, Admin ID, pes, mesto alebo organizácia" maxLength={120} /></label>
         <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="all">Všetky kategórie ({totals.total})</option>{HELP_ADMIN_CATEGORIES.map((slug) => <option value={slug} key={slug}>{slug === "utulky" ? "Útulky" : getHelpCategory(slug)?.label ?? slug} ({categoryCounts[slug] ?? 0})</option>)}</select></label>
         <label><span>Publikácia</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
@@ -173,12 +191,12 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
       {selectedCount > 0 && <AdminBulkActionToolbar
         selectedCount={selectedCount}
         selectionDescription="Výber patrí iba aktuálnej filtrovanej strane."
-        primaryAction={<AdminActionButton variant="primary" disabled={bulkBusy} onClick={() => void prepareBulk("published")}>Publikovať</AdminActionButton>}
-        destructiveAction={<AdminActionButton variant="destructive" disabled={bulkBusy} onClick={() => void prepareBulk("draft")}>Prepnúť na koncept</AdminActionButton>}
+        primaryAction={<AdminActionButton variant="primary" disabled={Boolean(draft) || bulkBusy} onClick={() => void prepareBulk("published")}>Publikovať</AdminActionButton>}
+        destructiveAction={<AdminActionButton variant="destructive" disabled={Boolean(draft) || bulkBusy} onClick={() => void prepareBulk("draft")}>Prepnúť na koncept</AdminActionButton>}
         onClear={clearSelection}
       />}
       {selectedCount > 0 && <AdminRecordBulkDelete
-        kind="help" selectedIds={[...selected]} disabled={bulkBusy}
+        kind="help" selectedIds={[...selected]} disabled={Boolean(draft) || bulkBusy}
         onFinished={() => { setSelected(new Set()); router.refresh(); }}
       />}
       {message && <p className="admin-flash" role="status">{message}</p>}
@@ -187,19 +205,21 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         stickyActions
         rows={items}
         label="Prípady Pomoci psom"
-        busy={bulkBusy}
+        busy={bulkBusy || inlineBusy}
         serverSorted
         serverSorting={{
           id: filters.sort ?? "updated",
           desc: (filters.direction ?? "desc") === "desc",
           allowedIds: ["title", "city", "status", "updated"],
           onChange: next => {
+            if (draft) return;
             if (!["title", "city", "status", "updated"].includes(next.id)) return;
             router.push(url({ ...filters, sort: next.id as NonNullable<HelpAdminFilters["sort"]>,
               direction: next.desc ? "desc" : "asc", page: 1 }));
           },
         }}
         selection={{
+          disabled: Boolean(draft),
           selectedIds: [...selected],
           rowInputDataAttribute: "data-help-row-select",
           selectAllLabel: "Označiť všetky na tejto strane",
@@ -207,27 +227,29 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
           onChange: ids => setSelected(new Set(ids)),
         }}
         columns={[
-          { id: "title", label: "Záznam", width: 270, sortValue: (item) => item.title, cell: (item) => <Link prefetch={false} href={adminDetailHref("/admin/pomoc/" + item.id, url(filters))}><strong>{item.title}</strong></Link> },
+          { id: "title", label: "Záznam", width: 270, sortValue: (item) => item.title, cell: (item) => activeDraft?.id === item.id ? <AdminInlineCellInput label={"Názov prípadu " + item.title} value={activeDraft.title} maxLength={180} required disabled={inlineBusy} onChange={title => setDraft(current => current ? { ...current, title } : null)} /> : <Link prefetch={false} href={adminDetailHref("/admin/pomoc/" + item.id, url({ ...filters, page }))}><strong>{item.title}</strong></Link> },
+          { id: "excerpt", label: "Krátky popis", width: 230, cell: (item) => activeDraft?.id === item.id ? <AdminInlineCellInput label={"Krátky popis " + item.title} value={activeDraft.excerpt} maxLength={700} disabled={inlineBusy} onChange={excerpt => setDraft(current => current ? { ...current, excerpt } : null)} /> : <span title={item.excerpt}>{item.excerpt || "—"}</span> },
           { id: "category", label: "Kategória", width: 160, sortValue: (item) => item.category, cell: (item) => item.category === "utulky" ? "Útulok" : getHelpCategory(item.category)?.label ?? item.category },
           { id: "city", label: "Mesto", width: 140, sortValue: (item) => item.city || "", cell: (item) => item.city || "—" },
           { id: "organization", label: "Organizácia", width: 180, sortValue: (item) => item.organization || "", cell: (item) => item.organization || "—" },
           { id: "status", label: "Publikácia", width: 130, sortValue: (item) => item.status, cell: (item) => <span className={"admin-status admin-status--" + item.status}>{item.status === "published" ? "Publikované" : "Koncept"}</span> },
           { id: "resolved", label: "Stav prípadu", width: 130, sortValue: (item) => item.resolved ? 1 : 0, cell: (item) => item.resolved ? "Vybavené" : item.urgent ? "Urgentné" : "Aktívne" },
           { id: "updated", label: "Aktualizované", width: 148, sortValue: (item) => item.updatedAt, cell: (item) => new Date(item.updatedAt).toLocaleDateString("sk-SK") },
-          { id: "reviewed", label: "AI kontrola", width: 145, cell: (item) => <AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact /> },
+          { id: "reviewed", label: "AI kontrola", width: 145, cell: (item) => <AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={reviewed.has(item.id)} disabled={Boolean(draft)} compact /> },
           { id: "actions", label: "Akcie", width: 240, cell: (item) => <div className={styles.tableActions}>
-            <Link prefetch={false} href={"/admin/pomoc/" + item.id}>Upraviť</Link>
+            {isHelpAdminCreateCategory(item.category) && <AdminInlineRowActions editing={activeDraft?.id === item.id} busy={inlineBusy} disabled={bulkBusy || deletingId !== null || (Boolean(draft) && activeDraft?.id !== item.id) || (activeDraft?.id === item.id && !activeDraft.title.trim())} onEdit={() => beginInline(item)} onSave={() => void saveInline()} onCancel={() => { if (!inlineBusy) setDraft(null); }} />}
+            <Link prefetch={false} href={adminDetailHref("/admin/pomoc/" + item.id, url({ ...filters, page }))}>Detail</Link>
             {item.status === "published" && <Link prefetch={false} href={helpCaseHref(item)} target="_blank" rel="noreferrer">Web ↗</Link>}
-            <AdminActionButton variant="destructive" disabled={deletingId !== null || bulkBusy} onClick={() => setPendingDelete(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</AdminActionButton>
+            <AdminActionButton variant="destructive" disabled={Boolean(draft) || deletingId !== null || bulkBusy} onClick={() => setPendingDelete(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</AdminActionButton>
           </div> },
         ]}
-      />  : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
-      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov" data-admin-list-pagination>{page > 1 ? <Link prefetch={false} href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link>  : <span aria-disabled="true">← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link prefetch={false} href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link>  : <span aria-disabled="true">Ďalšia →</span>}</nav>
+      />  : <div className="admin-empty"><span>🔎</span><h2>Žiadne prípady pomoci pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
+      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie prípadov pomoci" data-admin-list-pagination>{page > 1 ? <Link prefetch={false} href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link>  : <span aria-disabled="true">← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link prefetch={false} href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link>  : <span aria-disabled="true">Ďalšia →</span>}</nav>
     </section>
 
     <AdminModalDialog
       open={bulkReview !== null}
-      title={bulkReview?.targetStatus === "published" ? "Publikovať vybrané Help záznamy" : "Presunúť vybrané Help záznamy do konceptu"}
+      title={bulkReview?.targetStatus === "published" ? "Publikovať vybrané prípady pomoci" : "Presunúť vybrané prípady pomoci do konceptu"}
       description="Zmena sa týka iba publikačného stavu. Server pri potvrdení znovu overí verziu a publikačné pravidlá."
       onClose={() => { if (!bulkBusy) setBulkReview(null); }}
       footer={<>

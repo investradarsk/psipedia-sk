@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import { directorySyncErrorKinds, classifyDirectorySyncError } from "../lib/notion-data-quality-recovery.ts";
+import { summarizeNotionAuditBatch } from "../lib/notion-data-quality-audit.ts";
 import { triageNotionQuality } from "../lib/notion-conflict-quality-triage.ts";
 import { analyzeNotionCrossBatch } from "../lib/notion-data-quality-cross-batch.ts";
 
@@ -105,4 +107,27 @@ test("manual conflict playbook never applies bulk Notion/D1 writes", async () =>
   assert.match(section, /Správnu hodnotu musí potvrdiť človek/);
   assert.match(section, /Táto kontrola nevykonáva žiadny zápis/);
   assert.match(section, /Otvoriť editor/);
+});
+
+
+test("V6-08 every supported historic error passes the live triage allowlist", () => {
+  for (const kind of directorySyncErrorKinds) {
+    const result = analyze([row(1)], [flag(1, kind)]);
+    assert.equal(result.items[0].historicKind, kind);
+    assert.equal(result.counts.CONFIRMED, 0);
+  }
+  for (const [message, kind, issue] of [
+    ["baseline_unavailable", "MISSING_VERIFIED_BASELINE", "SYNC_CONFLICT"],
+    ["services_relation_unverified_delete", "SERVICE_RELATION_UNVERIFIED_DELETE", "SYNC_CONFLICT"],
+    ["services_relation_sync_error", "SERVICE_RELATION_SYNC_ERROR", "RUNTIME"],
+  ]) {
+    assert.equal(classifyDirectorySyncError(message), kind);
+    const summary = summarizeNotionAuditBatch("directory", [{ id: uuid(1), properties: {
+      "Psipedia ID": { number: 1 }, "Sync chyba": { rich_text: [{ plain_text: message }] },
+    } }]);
+    assert.equal(summary.linked, 1);
+    const result = analyze([row(1)], summary.reviewItems);
+    assert.equal(result.items[0].issue, issue);
+    assert.equal(result.items[0].verdict, "NEEDS_REVIEW");
+  }
 });

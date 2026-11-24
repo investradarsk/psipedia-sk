@@ -169,7 +169,7 @@ test("organization admin finalization keeps create draft-only, OCC edits and exp
   assert.match(storeSource, /o\.directory_profile_id/);
   assert.match(storeSource, /directoryProfileId: row\.directory_profile_id/);
   assert.match(listSource, /<AdminRecordTable/);
-  assert.match(listSource, /adminDetailHref\(`\/admin\/organizacie\/\$\{item\.id\}`, organizationAdminHref\(filters\)\)/);
+  assert.match(listSource, /adminDetailHref\(`\/admin\/organizacie\/\$\{item\.id\}`, organizationAdminHref\(\{ \.\.\.filters, page: data\.pagination\.page \}\)\)/);
 });
 
 

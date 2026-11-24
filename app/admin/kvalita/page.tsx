@@ -1,3 +1,4 @@
+import { qualityWorkspace } from "@/lib/admin-quality-workspace";
 import { AdminQualityWorkspaceTabs } from "@/components/admin-quality-workspace-tabs";
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
@@ -9,7 +10,14 @@ import { getQualityMissingDatabase, loadMissingQualityDashboard } from "@/lib/da
 export const dynamic = "force-dynamic";
 
 async function QualityContent({ promise }: { promise: ReturnType<typeof loadMissingQualityDashboard> }) {
-  return <AdminMissingQualityDashboard data={await promise} />;
+  let data: Awaited<typeof promise>;
+  try {
+    data = await promise;
+  } catch (error) {
+    console.error("Quality proposal queue unavailable", error);
+    return <p role="alert" className="admin-panel">Evidencia návrhov je nedostupná. Počty ani stav návrhov sa nepodarilo overiť.</p>;
+  }
+  return <AdminMissingQualityDashboard data={data} />;
 }
 
 export default async function AdminDataQualityPage({
@@ -21,14 +29,12 @@ export default async function AdminDataQualityPage({
   const params = await searchParams;
   const parsed = Number(params.before);
   const before = params.before && Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
-  const dataPromise = loadMissingQualityDashboard(getQualityMissingDatabase(), { before });
+  const dataPromise = Promise.resolve().then(() => loadMissingQualityDashboard(getQualityMissingDatabase(), { before }));
 
   return (
     <AdminShell
       user={user}
-      eyebrow="Admin · Kvalita údajov"
-      title="Kvalita údajov"
-      description="Nájdené chýbajúce údaje v existujúcich profiloch. Schváľ alebo zamietni návrhy."
+      {...qualityWorkspace("findings")}
     >
       <AdminQualityWorkspaceTabs active="findings" />
       <Suspense fallback={<AdminDataLoading label="Kvalita údajov" />}>

@@ -1,3 +1,4 @@
+import { assertManualRemoteIdentity } from "./notion-manual-transfer-mapping";
 import { mirrorAdminReviewFlagToNotion } from "./notion-admin-review-field";
 import { isAdminNotionSyncLocked } from "./admin-notion-review-lock";
 import { isHelpFieldEventAgenda, changedNotionHelpFields, helpFieldSnapshot, sameHelpFieldValue } from "./notion-help-field-events.ts";
@@ -2459,12 +2460,13 @@ export async function inspectManualEventsHelpProfile(input:{
     input.bindings,"/pages/"+encodeURIComponent(input.pageId));
   const sources=await definition.load(input.database,input.profileId);
   const source=sources.find(candidate=>sourceId(candidate)===input.profileId);
-  if(!source||page.id!==input.pageId
-    ||!notionPageBelongsToDataSource(page,target.dataSourceId))
-    throw Error("TRANSFER_EVENTS_HELP_IDENTITY_MISMATCH");
   const claimed=identityPage(page);
-  if(claimed.psipediaId!==String(input.profileId)
-    ||(claimed.url&&claimed.url!==source.url))
+  assertManualRemoteIdentity({
+    page, pageId: input.pageId, profileId: input.profileId,
+    belongsToSource: notionPageBelongsToDataSource(page,target.dataSourceId),
+    claimedId: claimed.psipediaId,
+  });
+  if(!source||page.id!==input.pageId||(claimed.url&&claimed.url!==source.url))
     throw Error("TRANSFER_EVENTS_HELP_IDENTITY_MISMATCH");
   const dataSource=await fetchDataSource(input.bindings,target.dataSourceId);
   const schema=dataSource.properties??{};

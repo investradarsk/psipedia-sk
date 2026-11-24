@@ -346,3 +346,14 @@ INSERT INTO directory_profile_filter_values
   (profile_id, category, filter_id, value_text, updated_at, updated_by)
 SELECT id, 'veterinari', 'veterinari.emergency', 'yes', updated_at, updated_by
 FROM directory_profiles WHERE slug = 'health-fixture-vet-rich';
+
+-- Canonical qualification fixtures, matching the SQL-only detail reader.
+-- Seed explicit local fixture values rather than falling back to legacy JSON.
+INSERT INTO directory_profile_qualifications
+  (profile_id, item_order, qualification_text, updated_at, updated_by)
+SELECT id, 0, 'Veterinárny fyzioterapeut', updated_at, updated_by
+FROM directory_profiles WHERE slug = 'health-fixture-fyzioterapia'
+ON CONFLICT (profile_id, item_order) DO UPDATE SET
+  qualification_text = excluded.qualification_text,
+  updated_at = excluded.updated_at,
+  updated_by = excluded.updated_by;

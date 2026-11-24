@@ -30,7 +30,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   const response = await page.goto("/admin/organizacie", { waitUntil: "domcontentloaded" });
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
-  await expect(page.getByRole("heading", { name: "Organizácie", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Organizácie a útulky", exact: true })).toBeVisible();
 
   let row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toBeVisible();

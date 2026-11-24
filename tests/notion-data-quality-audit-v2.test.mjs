@@ -138,8 +138,8 @@ test("pagination 100, pass 1/2 checkpoint and one source isolation are part of r
   assert.match(route, /body\.pass === 2/);
   assert.match(route, /body\.sourceId && body\.sourceId !== dataSourceId/);
   assert.match(route, /sorts: \[\{ timestamp: "created_time"/);
-  assert.match(route, /nextPass: !hasMore && pass === 1 \? 2 : null/);
-  assert.match(route, /passesComplete: !hasMore && pass === 2/);
+  assert.match(route, /nextPass: !truncated && !hasMore && pass === 1 \? 2 : null/);
+  assert.match(route, /passesComplete: !truncated && !hasMore && pass === 2/);
   assert.match(route, /MULTIPLE_NOTION_SOURCES_REQUIRE_REVIEW/);
   assert.match(route, /NOTION_AUDIT_UNAVAILABLE/);
   assert.match(route, /allowCreate: false/);
@@ -254,4 +254,38 @@ test("paged audit merges duplicate mapping evidence without changing canonical i
   assert.equal(result.coverage,"VERIFIED");
   assert.equal(result.mappings.length,1);
   assert.ok(count>1);
+});
+
+
+test("V6-08 D1 incomplete and failed responses are not verified empty results", async () => {
+  for (const reply of [{ success: false, results: [] }, { success: true }]) {
+    const db = { prepare() { return { bind() { return { async all() { return reply; } }; } }; } };
+    const result = await loadAuditD1Evidence(db, "directory", [page("notion-test", 1)]);
+    assert.equal(result.coverage, "UNKNOWN");
+    assert.equal(result.failure, "D1_RESPONSE_INCOMPLETE");
+  }
+});
+
+
+test("V6-08 provider list contract rejects false empty results and invalid pagination", async () => {
+  const { readNotionAuditBatch, readAuditList, auditReadFailure } = await import("../lib/notion-audit-read-contract.ts");
+  const row = { object: "page", id: "00000000-0000-4000-8000-000000000001", properties: { "Psipedia ID": { rich_text: [] } } };
+  assert.throws(() => readNotionAuditBatch({ has_more: false, next_cursor: null }, null), /AUDIT_RESPONSE_INCOMPLETE/);
+  assert.throws(() => readNotionAuditBatch({ results: [row, row], has_more: false, next_cursor: null }, null), /AUDIT_DUPLICATE_PAGE/);
+  assert.throws(() => readNotionAuditBatch({ results: [{ ...row, properties: {} }], has_more: false, next_cursor: null }, null), /AUDIT_RESPONSE_INCOMPLETE/);
+  assert.throws(() => readAuditList({ results: Array(101).fill(row), has_more: false }), /AUDIT_BATCH_LIMIT/);
+  assert.equal(readNotionAuditBatch({ results: [], has_more: false, next_cursor: null }, null).truncated, false);
+  assert.equal(readNotionAuditBatch({ results: [row], has_more: true, next_cursor: null }, null).truncated, true);
+  assert.equal(readNotionAuditBatch({ results: [row], has_more: true, next_cursor: "repeat" }, "repeat").truncated, true);
+  assert.equal(readNotionAuditBatch({ results: [row], has_more: false }, null).truncated, true);
+  assert.equal(readNotionAuditBatch({ results: [row], has_more: true, next_cursor: "next" }, null).nextCursor, "next");
+  assert.equal(auditReadFailure(new Error("Notion API 429: private provider body")), "NOTION_RATE_LIMIT");
+  assert.equal(auditReadFailure(new Error("untrusted private string")), "AUDIT_READ_FAILED");
+});
+
+test("V6-08 partial audit batches never produce a verified checkpoint", async () => {
+  const ui = await readFile(new URL("../components/admin-notion-data-quality-audit.tsx", import.meta.url), "utf8");
+  assert.match(ui, /batches\.some\(batch => batch\.status === "PARTIAL"/);
+  assert.match(ui, /passesComplete === true && !partial && !error/);
+  assert.match(ui, /checkpointVerified: false/);
 });

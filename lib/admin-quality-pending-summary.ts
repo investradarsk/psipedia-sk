@@ -23,5 +23,8 @@ export async function loadAdminQualityPendingSummary(
 
   const row = await db.prepare("SELECT COUNT(*) AS n FROM quality_missing_proposals WHERE status='OPEN'")
     .first<{n: number}>();
-  return {total: Number(row?.n ?? 0), schemaReady: true};
+  if (!row || !Number.isSafeInteger(row.n) || row.n < 0) {
+    throw new Error("Počet otvorených návrhov je nedostupný.");
+  }
+  return { total: row.n, schemaReady: true };
 }

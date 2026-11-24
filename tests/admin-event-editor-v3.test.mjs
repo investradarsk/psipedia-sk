@@ -26,8 +26,11 @@ test("events V3 integrates the existing canonical editor, not a new form engine"
 });
 
 test("action bar keeps one guarded back navigation and full meaning of buttons", () => {
-  assert.match(editor, /closeLabel="Späť na podujatia"/);
-  assert.match(editor, /onClose=\{\(\) => router\.push\("\/admin\/podujatia"\)\}/);
+  assert.match(editor, /returnHref = "\/admin\/podujatia"/);
+  assert.match(editor, /closeLabel=\{returnHref\.startsWith\("\/admin\/kvalita\/seo\?"\) \? "Späť na SEO audit" : "Späť na podujatia"\}/);
+  assert.match(editor, /onClose=\{\(\) => router\.push\(returnHref\)\}/);
+  assert.match(eventPage, /adminReturnHref\(/);
+  assert.match(eventPage, /returnHref=\{returnHref\}/);
   assert.match(shell, /closeLabel\?: string/);
   assert.match(shell, /if \(dirty\) setConfirmClose\(true\)/);
   assert.match(eventPage, /<AdminPartnerReviewStatus entityType="EVENT" entityId=\{id\}/);

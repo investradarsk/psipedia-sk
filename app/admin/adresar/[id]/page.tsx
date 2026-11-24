@@ -91,7 +91,7 @@ async function DirectoryServiceValues({
 }
 
 export default async function EditDirectoryProfilePage({ params, searchParams }: Props) {
-  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/adresar", "/admin/sluzby-pre-psov"]);
+  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/adresar", "/admin/sluzby-pre-psov", "/admin/kvalita/seo"]);
   const { id: rawId } = await params;
   const id = Number.parseInt(rawId, 10);
   if (!Number.isSafeInteger(id) || id < 1) notFound();
@@ -136,7 +136,7 @@ export default async function EditDirectoryProfilePage({ params, searchParams }:
       ? "Archivovaný profil je mimo verejného webu. Obnov ho do konceptu, ak ho chceš znovu upravovať."
       : "Zmeny ulož ako koncept alebo ich rovno publikuj v adresári."}
     actions={<>
-      <Link href={returnHref}>← Späť na adresár</Link>
+      <Link href={returnHref}>{returnHref.startsWith("/admin/kvalita/seo?") ? "← Späť na SEO audit" : "← Späť na adresár"}</Link>
       {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
     </>}>
     <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="DIRECTORY_PROFILE" canonicalId={profile.id} /></Suspense>

@@ -7,6 +7,9 @@ import {
   findActiveAdminNavigationItem,
   getAdminBreadcrumbs,
 } from "../lib/admin-navigation.ts";
+import { inlineSaveMessage } from "../lib/admin-inline-save-status.ts";
+import { adminProfileTypes, profileDetailedHref, profileQuickHref } from "../lib/admin-profile-workspace.ts";
+import { adminDetailHref, adminReturnHref } from "../lib/admin-return-navigation.ts";
 import { summarizeAdminAutomationReads } from "../lib/admin-automation-reliability.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -41,7 +44,6 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
     "/admin/adresar",
     "/admin/sluzby-pre-psov/katalog",
     "/admin/podujatia",
-    "/admin/pomoc-psom",
     "/admin/mapy",
     "/admin/recenzie-profilov",
     "/admin/tipy",
@@ -68,11 +70,11 @@ test("active state uses the most specific top-level owner for detail and legacy 
     ["/admin/novy", "/admin/clanky"],
     ["/admin/sluzby-pre-psov", "/admin/adresar"],
     ["/admin/adresar/42", "/admin/adresar"],
-    ["/admin/pomoc-psom", "/admin/pomoc-psom"],
-    ["/admin/pomoc/42", "/admin/pomoc-psom"],
-    ["/admin/adopcie/42", "/admin/pomoc-psom"],
-    ["/admin/stratene-najdene/42", "/admin/pomoc-psom"],
-    ["/admin/organizacie/42", "/admin/pomoc-psom"],
+    ["/admin/pomoc-psom", "/admin/adresar"],
+    ["/admin/pomoc/42", "/admin/adresar"],
+    ["/admin/adopcie/42", "/admin/adresar"],
+    ["/admin/stratene-najdene/42", "/admin/adresar"],
+    ["/admin/organizacie/42", "/admin/adresar"],
     ["/admin/partners/claims/claim-1", "/admin/partners"],
     ["/admin/podania", "/admin/podania"],
     ["/admin/dopyty", "/admin/podania"],
@@ -196,7 +198,7 @@ test("admin landing is the read-only workspace and old article filters redirect 
   assert.match(articles, /listManagedArticleSummaries/);
   assert.match(articles, /listPath="\/admin\/clanky"/);
   assert.match(articleDashboard, /const routePath = fixedPortalSection \? "\/admin\/steniatka" : listPath;/);
-  assert.match(articleEditor, /router\.push\("\/admin\/clanky"\)/);
+  assert.match(articleEditor, /router\.push\(returnHref\)/);
 });
 
 test("dashboard uses bounded existing summaries and never treats unavailable data as a successful zero", () => {
@@ -243,7 +245,8 @@ test("dashboard count cards point to current canonical filtered work queues", ()
   assert.match(dashboard, /<QueueLink key=\{source\} title=\{title\} source=\{source\} summary=\{attention\}/);
   assert.match(dashboard, /href=\{\x60\/admin\/operations\?source=\$\{source\}\x60\}/);
   assert.match(dashboard, /href="\/admin\/kvalita"/);
-  assert.match(dashboard, /href="\/admin\/automatizacie-gemini"/);
+  assert.match(read("components/admin-workspace-activity.tsx"), /href="\/admin\/automatizacie-gemini"/);
+  assert.match(dashboard, /href=\{ADMIN_PROFILE_HOME\}/);
 });
 
 test("all previous admin agendas and technical deep-link owners still exist", () => {
@@ -330,4 +333,78 @@ test("admin logo uses a Next Link with a full document reload instead of a raw H
   assert.match(brand, /<Link[\s\S]*?href="\/admin"/);
   assert.match(brand, /window\.location\.assign\("\/admin"\)/);
   assert.match(brand, /event\.preventDefault\(\)/);
+});
+
+
+test("V6-04 all five profile types share their canonical navigation and creation actions", () => {
+  const group = adminNavigationGroups.find((entry) => entry.label === "Profily");
+  assert.deepEqual(group.items.map((item) => item.href), ["/admin/adresar", "/admin/sluzby-pre-psov/katalog"]);
+  assert.equal(adminProfileTypes.length, 5);
+  for (const type of adminProfileTypes) {
+    const segment = type.href.split("/").at(-1);
+    const page = read("app/admin/" + segment + "/page.tsx");
+    assert.ok(page.includes('profileWorkspace("' + type.id + '")'));
+    assert.ok(page.includes('<AdminProfileTypeTabs active="' + type.id + '"'));
+    assert.ok(page.includes('<AdminProfileActions active="' + type.id + '"'));
+    assert.equal(type.createHref, type.href + "/novy");
+    assert.equal(findActiveAdminNavigationItem(type.href + "/7")?.href, "/admin/adresar");
+    assert.ok(getAdminBreadcrumbs(type.href + "/7").some((crumb) => crumb.href === type.href));
+    const listing = type.href + "?q=pes&page=2";
+    const detail = new URL(adminDetailHref(type.href + "/7", listing), "https://admin.invalid");
+    assert.equal(adminReturnHref(detail.searchParams.get("returnTo"), type.href), listing);
+  }
+  assert.equal(profileDetailedHref("utulky", "Nitra"), "/admin/organizacie?q=Nitra&type=SHELTER");
+  assert.equal(profileDetailedHref("zbierky", "pes"), "/admin/pomoc?q=pes&category=zbierky");
+  assert.equal(profileQuickHref("utulky", "Nitra"), "/admin/pomoc-psom?category=utulky&q=Nitra");
+});
+
+
+test("V6-05 canonical saves never imply Notion sync success", () => {
+  for (const [status, label] of [
+    ["synced", "synchronizované"], ["unchanged", "bez potrebnej zmeny"],
+    ["pending", "čaká na potvrdenie"], ["disabled", "vypnutá alebo zablokovaná"],
+    ["unlinked", "nie je prepojený"], [undefined, "nepotvrdený"],
+  ]) {
+    assert.match(inlineSaveMessage(status), /^Zmeny uložené v databáze\./);
+    assert.ok(inlineSaveMessage(status).includes(label));
+  }
+});
+
+test("V6-05 all inline profile grids protect their drafts and reuse the shared save receipt", () => {
+  for (const name of ["directory-dashboard", "adoption-dashboard", "lost-found-dashboard", "organization-publication-dashboard", "help-dashboard", "help-unified-table"]) {
+    const source = read("components/admin-" + name + ".tsx");
+    assert.match(source, /<AdminRecordTable/);
+    assert.match(source, /<AdminInlineDraftGuard/);
+    assert.match(source, /inlineSaveMessage\(\w+\.notionFieldSync\)/);
+    assert.match(source, /expectedUpdatedAt/);
+    assert.match(source, /Uloženie nepotvrdené/);
+  }
+  const guard = read("components/admin-inline-draft-guard.tsx");
+  assert.match(guard, /useAdminEditorNavigationGuard\(\{ dirty: active \}\)/);
+  assert.match(guard, /form\.method\.toLowerCase\(\) === "get"/);
+  assert.match(guard, /if \(busy\) \{ navigation\.stay\(\); return; \}/);
+  assert.match(guard, /EditorUnsavedChangesGuard/);
+  const quick = read("components/admin-help-unified-table.tsx");
+  assert.match(quick, /canInlineEditOrganizations = canInlineEditShelters \|\| category === "organizacie"/);
+  assert.match(quick, /JSON\.stringify\(canInlineEditShelters \?/);
+  assert.match(quick, /action: "set-inline-summary", expectedUpdatedAt: draft\.expectedUpdatedAt/);
+  assert.match(quick, /row\.updatedAt === shelterDraft\.expectedUpdatedAt/);
+  assert.match(quick, /if \(hasDraft \|\| !activeReview/);
+  const api = read("app/api/admin/organizations/[id]/route.ts");
+  assert.match(api, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
+  assert.match(api, /organizationInputWithShelterInlineChanges/);
+});
+
+
+test("V6-05 profile selections cannot cross filtered pages and native help edits retain category isolation", () => {
+  const selection = read("components/admin-profile-page-selection.ts");
+  assert.match(selection, /selection\.key === viewKey/);
+  assert.match(selection, /visible\.has\(id\)/);
+  for (const name of ["adoption-dashboard", "lost-found-dashboard", "help-dashboard"]) {
+    assert.match(read("components/admin-" + name + ".tsx"), /useAdminProfilePageSelection\(/);
+  }
+  const help = read("components/admin-help-dashboard.tsx");
+  assert.match(help, /isHelpAdminCreateCategory\(item.category\)/);
+  assert.match(help, /expectedCategory: activeDraft.category/);
+  assert.match(help, /bulkReviewState\?\.key === viewFingerprint/);
 });

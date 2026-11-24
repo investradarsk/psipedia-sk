@@ -119,3 +119,13 @@
 .inlineSave:disabled, .inlineCancel:disabled, .inlineTrigger:disabled {
   cursor: not-allowed; opacity: .55;
 }
+
+/* Shared controls retain compact density; contact editing can expand the row. */
+.search :is(input, button), .filters a, .pagination :is(a, span), .action, .inlineInput {
+  min-height: var(--admin-ui-control-height, 38px);
+  box-sizing: border-box;
+}
+@media (max-width: 820px) {
+  .inlineInput, .inlineTextarea { min-height: 44px; font-size: 16px; }
+  .inlineActions :is(a, button), .filters a, .search :is(input, button), .pagination a { min-height: 44px; }
+}

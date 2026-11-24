@@ -15,9 +15,10 @@ test("V5-04 has four Help tabs and no duplicate mobile navigation", () => {
       .map(match => match[1]),
     ["adopcia", "stratene-a-najdene", "organizacie", "ostatna-pomoc"],
   );
-  assert.match(grid, /aria-label="Typ pomoci"/);
+  assert.doesNotMatch(grid, /aria-label="Typ pomoci"/);
+  assert.match(page, /<AdminProfileTypeTabs active=\{active\}/);
   assert.match(grid, /aria-label="Podkategórie Pomoci psom"/);
-  assert.match(grid, /item\.slug === activeScope/);
+  assert.match(grid, /item\.slug === category/);
   assert.doesNotMatch(page, /AdminSectionHub|AdminDirectoryModuleNav|mobileHub/);
   assert.doesNotMatch(css, /\.workspace\s*\{\s*display:\s*none/);
   assert.match(css, /\.workspace \{ display: grid; max-width: 100%; \}/);
