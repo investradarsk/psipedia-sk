@@ -32,6 +32,19 @@ async function openMobileMenu(page: Page) {
   await expect(page.getByRole("button", { name: "Zavrieť menu" })).toHaveAttribute("aria-expanded", "true");
 }
 
+// Canonical forms render on the server before React installs their handlers.
+// Wait for the form's actual onSubmit prop, not a fixed delay or network idle.
+async function waitForCanonicalFormHydration(page: Page) {
+  await page.waitForFunction(() => {
+    const form = document.querySelector("form.partner-canonical-form");
+    return form !== null && Object.keys(form).some((key) => {
+      if (!key.startsWith("__reactProps$")) return false;
+      const props = (form as unknown as Record<string, { onSubmit?: unknown }>)[key];
+      return typeof props?.onSubmit === "function";
+    });
+  });
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const metrics = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -382,6 +395,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
     await expect(page).toHaveURL(/\/partner\/koncepty\/novy\/adresar$/);
     await expect(page.getByRole("heading", { name: "Vytvoriť nový záznam" })).toBeVisible();
+    await waitForCanonicalFormHydration(page);
     const newDirectory = page.locator("form.partner-canonical-form");
     await expect(newDirectory.getByLabel("Druh záznamu")).toHaveValue("DIRECTORY_PROFILE");
     await expect(page.getByText(/Koncept zostane súkromný/)).toBeVisible();
@@ -421,6 +435,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     }
     await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
     await expect(page.getByText("Rozpracovaný súkromný koncept", { exact: true })).toBeVisible();
+    await waitForCanonicalFormHydration(page);
     await page.getByRole("button", { name: "Odoslať na schválenie" }).click();
     await expect(page).toHaveURL(/\/partner\/ziadosti$/);
     await expect(
@@ -469,6 +484,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
     await expect(page).toHaveURL(/\/partner\/koncepty\/novy\/adresar$/);
+    await waitForCanonicalFormHydration(page);
     await page.getByLabel("Druh záznamu").selectOption("HELP_ORGANIZATION");
     const newOrganization = page.locator("form.partner-canonical-form");
     await expect(newOrganization.getByLabel("Druh záznamu")).toHaveValue("HELP_ORGANIZATION");
@@ -483,6 +499,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await newOrganization.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/partner\/koncepty\/[0-9a-f-]+$/);
     await expect(page.getByText("Rozpracovaný súkromný koncept", { exact: true })).toBeVisible();
+    await waitForCanonicalFormHydration(page);
     await page.getByRole("button", { name: "Odoslať na schválenie" }).click();
     // The existing seeded organization is intentionally a similar match.
     // Explicit duplicate acknowledgment is required; do not bypass the
@@ -538,6 +555,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   const reportName=project==="desktop-chromium"?"Partner E2E Nájdený Pes":"Partner E2E Stratený Pes";
   await page.goto(reportKind === "LOST" ? "/partner/koncepty/novy/strateny" : "/partner/koncepty/novy/najdeny");
   await expect(page.getByRole("heading",{name:"Vytvoriť nový záznam"})).toBeVisible();
+  await waitForCanonicalFormHydration(page);
   const dogReportForm=page.locator("form.partner-canonical-form");
   await expect(dogReportForm.getByLabel("Druh záznamu")).toHaveValue("LOST_FOUND_DOG");
   await expect(dogReportForm.getByLabel("Typ hlásenia *")).toHaveValue(reportKind);
@@ -571,7 +589,20 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   const publicMarkup=await page.content();
   expect(publicMarkup).not.toContain(expectedEmail);
   await page.goto(dogDraftUrl);
+  await waitForCanonicalFormHydration(page);
+  await expect(dogReportForm.getByLabel("Dátum udalosti")).toHaveValue("2026-11-22");
+  await expect(dogReportForm.getByLabel("Kraj")).toHaveValue("Nitriansky kraj");
+  await expect(dogReportForm.getByRole("textbox", { name: "Obec", exact: true })).toHaveValue("Nitra");
+  const dogSubmitResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/partner/canonical-drafts/" + dogDraftUrl.split("/").pop() &&
+    response.request().method() === "PATCH" &&
+    response.request().postDataJSON()?.action === "SUBMIT",
+  );
   await page.getByRole("button",{name:"Odoslať na schválenie"}).click();
+  const dogSubmitted = await dogSubmitResponse;
+  if (!dogSubmitted.ok()) {
+    throw new Error("Partner dog SUBMIT " + dogSubmitted.status() + ": " + await dogSubmitted.text());
+  }
   await expect(page).toHaveURL(/\/partner\/ziadosti$/);
   await page.goto("/partner");
   await expect(page.locator(".partner-dashboard-record").filter({hasText:reportName})).toContainText("Čaká na schválenie");
@@ -613,6 +644,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   expect(partnerLayout!.headingTop).toBeGreaterThanOrEqual(partnerLayout!.headerBottom - 1);
   expect(partnerLayout!.introTop).toBeGreaterThanOrEqual(partnerLayout!.headerBottom - 1);
   if (project === "mobile-chromium") expect(partnerLayout!.viewportWidth).toBe(390);
+  await waitForCanonicalFormHydration(page);
   const newEventForm = page.locator("form.partner-canonical-form");
   await newEventForm.getByLabel("Názov",{exact:true}).fill(newEventTitle);
   await newEventForm.getByLabel("Krátky popis").fill("Nové moderované Partner podujatie pre izolovaný E2E scenár.");
@@ -638,6 +670,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   expect(canonicalBeforeApproval.ok()).toBeTruthy();
   const unpublishedEvents=await canonicalBeforeApproval.json() as {events?:Array<{title?:string;status?:string}>};
   expect(unpublishedEvents.events?.find(item=>item.title===newEventTitle)?.status).not.toBe("published");
+  await waitForCanonicalFormHydration(page);
   await page.getByRole("button",{name:"Odoslať na schválenie"}).click();
   await expect(page).toHaveURL(/\/partner\/ziadosti$/);
   await page.goto("/partner");
