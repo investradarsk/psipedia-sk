@@ -127,7 +127,7 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
         return [];
       }),
     ]);
-    return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(rawSearchParams.typ))} />;
+    return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(rawSearchParams.typ))} serviceCategory={scalar(rawSearchParams.kategoria)} serviceQuery={scalar(rawSearchParams.q)?.slice(0, 100)} serviceSort={scalar(rawSearchParams.zoradenie) === "count" ? "count" : scalar(rawSearchParams.zoradenie) === "name" ? "name" : "rating"} servicePage={Number(scalar(rawSearchParams.strana) ?? 1)} serviceOpen={Number(scalar(rawSearchParams.profil) ?? 0)} serviceReviewPage={Number(scalar(rawSearchParams.reviewsPage) ?? 1)} />;
   }
   if (slug === "podujatia") return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={eventList} calendarEvents={monthEvents?.events ?? []} calendarSummaries={monthEvents?.summaries} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events?.events} />;
