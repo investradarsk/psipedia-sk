@@ -125,6 +125,56 @@
   }
 }
 
+/* Brick is darker than the legacy coral: use a light label in every state. */
+:root:not(:has([data-admin-workspace])) .button--coral {
+  color: #fff;
+  background-color: var(--coral);
+  box-shadow: none;
+}
+
+:root:not(:has([data-admin-workspace])) .button--coral:is(:hover, :focus-visible) {
+  color: #fff;
+  background-color: #963c2e;
+}
+
+/* Keep navigation visibility in the root stylesheet as well as the header
+ * module: the shared header persists during route CSS transitions. */
+@media (min-width: 1200px) {
+  :root:not(:has([data-admin-workspace])) .site-header [data-header-nav-band] {
+    display: block;
+  }
+
+  :root:not(:has([data-admin-workspace])) .site-header [data-header-nav-band] .desktop-nav {
+    display: flex;
+  }
+
+  :root:not(:has([data-admin-workspace])) .site-header [data-header-mobile-controls] {
+    display: none;
+  }
+}
+
+@media (max-width: 1199px) {
+  :root:not(:has([data-admin-workspace])) .site-header [data-header-nav-band] {
+    display: none;
+  }
+
+  :root:not(:has([data-admin-workspace])) .site-header [data-header-mobile-controls] {
+    display: flex;
+    align-items: center;
+    grid-column: 1;
+  }
+
+  :root:not(:has([data-admin-workspace])) .site-header [data-header-mobile-controls] .menu-trigger {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  :root:not(:has([data-admin-workspace])) .site-header .header-actions .menu-trigger {
+    display: none;
+  }
+}
+
 /* All root-level shared controls are explicitly public/Partner scoped.
  * Header pseudo-element provides the optical layer without a containing block
  * on .site-header for fixed search-modal/mobile-menu/backdrop descendants.
