@@ -38,11 +38,12 @@ WHERE NOT EXISTS (
 
 -- Disposable homepage card with a long provider name. The local media key
 -- intentionally has no object; the fallback still exercises the title layout.
+-- Explicit local-only ID keeps the numeric Admin detail route deterministic.
 INSERT OR IGNORE INTO directory_profiles (
-  slug, name, category, status, excerpt, description, city, region, image_url, image_key,
+  id, slug, name, category, status, excerpt, description, city, region, image_url, image_key,
   created_at, updated_at, published_at, created_by, updated_by
 ) VALUES (
-  'vizualna-ukazka-veterinara',
+  980001, 'vizualna-ukazka-veterinara',
   'Veterinárna ambulancia MVDr. Ukážkové meno',
   'veterinari',
   'published',
