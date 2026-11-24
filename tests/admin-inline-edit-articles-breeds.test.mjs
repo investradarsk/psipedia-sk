@@ -10,7 +10,12 @@ test("Articles and Puppies reuse one grid and an authenticated excerpt-only edit
   const store = read("lib/article-store.ts");
   const ui = read("components/admin-dashboard.tsx");
   assert.match(read("app/admin/clanky/page.tsx"), /AdminDashboard/);
-  assert.match(read("app/admin/steniatka/page.tsx"), /AdminDashboard/);
+  const puppies = read("app/admin/steniatka/page.tsx");
+  assert.match(puppies, /await requireAdminPageUser\("\/admin\/steniatka"\)/);
+  assert.match(puppies, /parseArticleAdminListFilters\(/);
+  assert.match(puppies, /redirect\(articleAdminListHref\("\/admin\/clanky", \{ \.\.\.filters, portalSection: "steniatka" \}\)\)/);
+  assert.match(puppies, /redirect\("\/admin\/sekcie\?sekcia=steniatka"\)/);
+  assert.doesNotMatch(puppies, /<AdminDashboard|listManagedArticleSummaries/);
   assert.match(route, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(route, /action === "set-inline-excerpt"/);
   assert.match(route, /Object\.keys\(values\)\.length !== 3/);

@@ -144,7 +144,7 @@ test("empty states and 390px mobile contract are explicit", () => {
   assert.doesNotMatch(styles, /overflow-x:\s*(?:scroll|auto)/);
 });
 
-test("Help Admin owns only generic Help and routes dedicated domains to their canonical admins", () => {
+test("Help Admin unified workspace uses canonical domain stores and dedicated editors", () => {
   assert.match(
     adminQuery,
     /HELP_ADMIN_DEDICATED_CATEGORIES = \["adopcia", "utulky", "stratene-a-najdene"\]/,
@@ -153,9 +153,24 @@ test("Help Admin owns only generic Help and routes dedicated domains to their ca
     adminQuery,
     /HELP_ADMIN_CREATE_CATEGORIES = \["docasna-opatera", "zbierky", "dobrovolnictvo"\]/,
   );
-  assert.match(adminHelpHub, /adopcia: "\/admin\/adopcie"/);
-  assert.match(adminHelpHub, /"stratene-a-najdene": "\/admin\/stratene-najdene"/);
-  assert.match(adminHelpHub, /utulky: "\/admin\/organizacie\?type=SHELTER"/);
+  assert.match(adminHelpHub, /await requireAdminPageUser\("\/admin\/pomoc-psom"\)/);
+  assert.match(adminHelpHub, /slug: "adopcia"[^\n]*href: "\/admin\/adopcie"/);
+  assert.match(adminHelpHub, /slug: "stratene-a-najdene"[^\n]*href: "\/admin\/stratene-najdene"/);
+  assert.match(adminHelpHub, /slug: "organizacie"[^\n]*href: "\/admin\/organizacie"/);
+  assert.match(adminHelpHub, /slug: "ostatna-pomoc"[^\n]*href: "\/admin\/pomoc"/);
+  assert.match(adminHelpHub, /listAdoptionAdminDashboard\(\{ q, page \}\)/);
+  assert.match(adminHelpHub, /listAdminDogReports\(\{ q, page, pageSize: 50 \}\)/);
+  assert.match(adminHelpHub, /getOrganizationAdminPage\(parseOrganizationAdminFilters/);
+  assert.match(adminHelpHub, /key === "type" && category === "utulky" \? "SHELTER" : null/);
+  assert.match(adminHelpHub, /getManagedHelpDashboard\(parseHelpAdminFilters/);
+  assert.match(adminHelpHub, /href: "\/admin\/adopcie\/" \+ item\.id/);
+  assert.match(adminHelpHub, /href: "\/admin\/stratene-najdene\/" \+ item\.id/);
+  assert.match(adminHelpHub, /href: "\/admin\/organizacie\/" \+ item\.id/);
+  assert.match(adminHelpHub, /href: "\/admin\/pomoc\/" \+ item\.id/);
+  assert.match(adminHelpHub, /adminDetailHref\(row\.href, returnHref\)/);
+  const unified = read("components/admin-help-unified-table.tsx");
+  assert.match(unified, /params\.set\("category", slug\)/);
+  assert.match(unified, /return "\/admin\/pomoc-psom\?" \+ params/);
   assert.match(adminDashboard, /href="\/admin\/pomoc-psom"/);
   assert.match(adminEditor, /HELP_ADMIN_CREATE_CATEGORIES/);
   assert.doesNotMatch(adminEditor, /helpCategories\.filter/);
