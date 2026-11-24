@@ -138,8 +138,8 @@ test("pagination 100, pass 1/2 checkpoint and one source isolation are part of r
   assert.match(route, /body\.pass === 2/);
   assert.match(route, /body\.sourceId && body\.sourceId !== dataSourceId/);
   assert.match(route, /sorts: \[\{ timestamp: "created_time"/);
-  assert.match(route, /nextPass: !hasMore && pass === 1 \? 2 : null/);
-  assert.match(route, /passesComplete: !hasMore && pass === 2/);
+  assert.match(route, /nextPass: !truncated && !hasMore && pass === 1 \? 2 : null/);
+  assert.match(route, /passesComplete: !truncated && !hasMore && pass === 2/);
   assert.match(route, /MULTIPLE_NOTION_SOURCES_REQUIRE_REVIEW/);
   assert.match(route, /NOTION_AUDIT_UNAVAILABLE/);
   assert.match(route, /allowCreate: false/);
@@ -254,4 +254,14 @@ test("paged audit merges duplicate mapping evidence without changing canonical i
   assert.equal(result.coverage,"VERIFIED");
   assert.equal(result.mappings.length,1);
   assert.ok(count>1);
+});
+
+
+test("V6-08 D1 incomplete and failed responses are not verified empty results", async () => {
+  for (const reply of [{ success: false, results: [] }, { success: true }]) {
+    const db = { prepare() { return { bind() { return { async all() { return reply; } }; } }; } };
+    const result = await loadAuditD1Evidence(db, "directory", [page("notion-test", 1)]);
+    assert.equal(result.coverage, "UNKNOWN");
+    assert.equal(result.failure, "D1_RESPONSE_INCOMPLETE");
+  }
 });

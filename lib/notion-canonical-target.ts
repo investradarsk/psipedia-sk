@@ -1,3 +1,4 @@
+import { readAuditList } from "./notion-audit-read-contract.ts";
 import { notionRequest, type NotionSyncBindings } from "./notion-sync-shared.ts";
 
 export type NotionCanonicalTargetDefinition = {
@@ -385,4 +386,76 @@ export async function resolveNotionCanonicalTarget(args: {
     targetMissing: false,
     duplicateDataSourceIds: [],
   };
+}
+
+/** Audit-only resolution: no candidate scoring, provisioning or persistence.
+ * Ambiguous or incomplete discovery must stop instead of picking a winner. */
+export async function resolveReadOnlyNotionAuditTarget(args: {
+  database: D1Database;
+  bindings: NotionSyncBindings;
+  definition: NotionCanonicalTargetDefinition;
+  configuredId?: string;
+  allowCreate: false;
+  persist: false;
+  deadline: number;
+}): Promise<NotionCanonicalTarget> {
+  const request = <T>(path: string, init?: RequestInit) => {
+    const remaining = args.deadline - Date.now();
+    if (remaining <= 0) throw new Error("AUDIT_TIMEOUT");
+    return notionRequest<T>(args.bindings, path, init, {
+      retryTransient: false, timeoutMs: Math.min(8_000, remaining),
+    });
+  };
+  const inspect = async (id: string) => {
+    const source = await request<DataSourceResponse>("/data_sources/" + encodeURIComponent(id));
+    if (!source || typeof source.id !== "string" || !source.properties) throw new Error("AUDIT_SOURCE_INCOMPLETE");
+    return source;
+  };
+  const found = (source: DataSourceResponse, duplicateDataSourceIds: string[] = []): NotionCanonicalTarget => ({
+    dataSourceId: source.id, databaseId: clean(source.parent?.database_id) || null,
+    provisioned: false, targetMissing: false, duplicateDataSourceIds,
+  });
+  if (args.configuredId) {
+    const source = await inspect(args.configuredId);
+    if (!notionDataSourceMatchesCanonicalSchema(source, args.definition)) throw new Error("AUDIT_SOURCE_SCHEMA");
+    return found(source);
+  }
+  const persisted = await loadPersistedTarget(args.database, args.definition.key);
+  const persistedId = clean(persisted?.data_source_id);
+  const candidates = new Map<string, DataSourceResponse>();
+  if (persistedId) {
+    const source = await inspect(persistedId);
+    if (!notionDataSourceMatchesCanonicalSchema(source, args.definition)) throw new Error("AUDIT_SOURCE_SCHEMA");
+    candidates.set(source.id, source);
+  }
+  const seen = new Set<string>();
+  let cursor: string | null = null;
+  for (let index = 0; index < 5; index++) {
+    const raw = await request<unknown>("/search", {
+      method: "POST",
+      body: JSON.stringify({ query: args.definition.targetTitle, page_size: 100,
+        filter: { property: "object", value: "data_source" }, ...(cursor ? { start_cursor: cursor } : {}) }),
+    });
+    const response = readAuditList(raw);
+    if (response.inconsistent) throw new Error("AUDIT_SOURCE_INCOMPLETE");
+    for (const value of response.results) {
+      if (!value || typeof value !== "object" || typeof (value as SearchItem).id !== "string") throw new Error("AUDIT_SOURCE_INCOMPLETE");
+      const item = value as SearchItem;
+      if (searchItemTitle(item) !== args.definition.targetTitle || candidates.has(item.id)) continue;
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      if (seen.size > 8) throw new Error("AUDIT_SOURCE_DISCOVERY_LIMIT");
+      const source = await inspect(item.id);
+      if (notionDataSourceMatchesCanonicalSchema(source, args.definition)) candidates.set(source.id, source);
+    }
+    if (!response.hasMore) {
+      const all = [...candidates.values()];
+      if (!all.length) return { dataSourceId: null, databaseId: null, provisioned: false, targetMissing: true, duplicateDataSourceIds: [] };
+      return found(all[0], all.slice(1).map(source => source.id));
+    }
+    if (!response.nextCursor || response.nextCursor === cursor || seen.has("cursor:" + response.nextCursor)) throw new Error("AUDIT_SOURCE_INCOMPLETE");
+    cursor = response.nextCursor;
+    seen.add("cursor:" + cursor);
+  }
+  throw new Error("AUDIT_SOURCE_DISCOVERY_LIMIT");
 }
