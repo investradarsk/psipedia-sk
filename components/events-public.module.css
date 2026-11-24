@@ -2093,7 +2093,9 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-.pagination { margin-top: 12px; }
+.pagination {
+  margin-top: 12px;
+}
 @media (max-width: 1199px) {
   .cardGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2421,7 +2423,11 @@
   margin-bottom: 12px;
 }
 .relatedHeading h2 {
-  font-size: clamp(1.65rem, 3.5vw, 2.45rem);
+  font-family: var(--ps-public-heading-font);
+  font-size: var(--ps-heading-content-section);
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
 }
 .relatedList.cardGrid {
   gap: var(--ps-ds5-grid-gap, 16px);
@@ -2966,7 +2972,6 @@
   font-weight: 850;
 }
 
-
 /* PODUJATIA-DESKTOP-WIDE-COMPACT: the month sits above the filters/results.
    Scope to desktop: keep the existing mobile calendar and filters unchanged. */
 @media (min-width: 821px) {
@@ -3212,7 +3217,6 @@
   }
 }
 
-
 /* One compact category CTA after each visible five-per-type event group.
    Shared action styling is kept; no redundant CTA on filtered results. */
 .eventTypeGroupFooter {
@@ -3253,15 +3257,39 @@
 /* EVENTS-DESKTOP-COMPACT: shorten the photo introduction without changing
    the shared hero renderer or approved mobile sizing. */
 @media (min-width: 821px) {
-  .homeHeroShell :global([data-unified-section-hero][data-hero-variant="homepage-style"] [data-unified-section-hero-visual]),
-  .heroShell :global([data-unified-section-hero][data-hero-variant="homepage-style"] [data-unified-section-hero-visual]),
-  .homeHeroShell :global([data-unified-section-hero][data-hero-variant="homepage-style"] [data-unified-section-hero-copy]),
-  .heroShell :global([data-unified-section-hero][data-hero-variant="homepage-style"] [data-unified-section-hero-copy]) {
+  .homeHeroShell
+    :global(
+      [data-unified-section-hero][data-hero-variant="homepage-style"]
+        [data-unified-section-hero-visual]
+    ),
+  .heroShell
+    :global(
+      [data-unified-section-hero][data-hero-variant="homepage-style"]
+        [data-unified-section-hero-visual]
+    ),
+  .homeHeroShell
+    :global(
+      [data-unified-section-hero][data-hero-variant="homepage-style"]
+        [data-unified-section-hero-copy]
+    ),
+  .heroShell
+    :global(
+      [data-unified-section-hero][data-hero-variant="homepage-style"]
+        [data-unified-section-hero-copy]
+    ) {
     min-height: 250px;
   }
 
-  .homeHeroShell :global([data-unified-section-hero][data-hero-variant="homepage-style"] [data-unified-section-hero-copy]),
-  .heroShell :global([data-unified-section-hero][data-hero-variant="homepage-style"] [data-unified-section-hero-copy]) {
+  .homeHeroShell
+    :global(
+      [data-unified-section-hero][data-hero-variant="homepage-style"]
+        [data-unified-section-hero-copy]
+    ),
+  .heroShell
+    :global(
+      [data-unified-section-hero][data-hero-variant="homepage-style"]
+        [data-unified-section-hero-copy]
+    ) {
     padding: 28px 0 32px 40px;
   }
 
@@ -3313,20 +3341,30 @@
   text-transform: uppercase;
 }
 /* The organizer CTA lives right below the hero instead of after the results. */
-.calendarOrganizer { margin: 8px 0 12px; }
-
+.calendarOrganizer {
+  margin: 8px 0 12px;
+}
 
 /* The sitewide small-banner preset stacks its CTA by default. On the events
    landing this makes the organizer banner taller than the compact desktop
    acceptance contract. Keep the CTA alongside the copy without changing
    other public banners or the stacked mobile layout. */
 @media (min-width: 821px) {
-  .calendarOrganizer :global([data-public-context-banner-layout="inline"][data-banner-size="small"] [data-public-banner-content]) {
+  .calendarOrganizer
+    :global(
+      [data-public-context-banner-layout="inline"][data-banner-size="small"]
+        [data-public-banner-content]
+    ) {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px 16px;
   }
-  .calendarOrganizer :global([data-public-context-banner-layout="inline"][data-banner-size="small"] [data-public-banner-content] > a[data-public-action]) {
+  .calendarOrganizer
+    :global(
+      [data-public-context-banner-layout="inline"][data-banner-size="small"]
+        [data-public-banner-content]
+        > a[data-public-action]
+    ) {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;

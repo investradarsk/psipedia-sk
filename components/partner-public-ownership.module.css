@@ -31,8 +31,8 @@
 .correction h3 {
   margin: 0;
   color: #173f31;
-  font-family: Georgia, serif;
-  font-weight: 500;
+  font-family: var(--ps-public-heading-font);
+  font-weight: 750;
 }
 
 .management h2 {

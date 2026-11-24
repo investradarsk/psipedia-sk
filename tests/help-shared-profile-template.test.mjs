@@ -79,7 +79,6 @@ test("broken media uses same fallback system throughout Help profile cards and d
   }
 });
 
-
 test("S-27 organizations reuse the Help list card and automatic photo display without local card geometry", () => {
   const organizations = read("app/organizacie/page.tsx");
   const styles = read("app/organizacie/organization-hub.module.css");
@@ -111,14 +110,18 @@ test("global public details share one actual content layout across events, servi
     ["directory", service],
     ["organization adapter", orgAdapter],
     ["Help adapter", helpAdapter],
-  ]) assert.match(source, /<PublicDetailLayout\b/, name);
+  ])
+    assert.match(source, /<PublicDetailLayout\b/, name);
   assert.match(read("components/organization-profile-detail.tsx"), /<PublicProfileContentLayout/);
   for (const path of [
     "components/adoption-detail.tsx",
     "components/lost-found-dog-detail.tsx",
     "components/help-details/help-detail-shell.tsx",
-  ]) assert.match(read(path), /<PublicHelpProfileDetailLayout\b/, path);
-  const helpCss = read("components/public-visual-system/public-help-profile-detail-layout.module.css");
+  ])
+    assert.match(read(path), /<PublicHelpProfileDetailLayout\b/, path);
+  const helpCss = read(
+    "components/public-visual-system/public-help-profile-detail-layout.module.css",
+  );
   assert.doesNotMatch(helpCss, /grid-template-columns|width:\s*min\(/);
 });
 
@@ -131,7 +134,9 @@ test("global details preserve domain-specific data, safe contacts and shared pho
     adoption: "components/adoption-detail.tsx",
     lostFound: "components/lost-found-dog-detail.tsx",
   };
-  const sources = Object.fromEntries(Object.entries(paths).map(([name, path]) => [name, read(path)]));
+  const sources = Object.fromEntries(
+    Object.entries(paths).map(([name, path]) => [name, read(path)]),
+  );
   for (const source of Object.values(sources)) {
     assert.match(source, /<DetailHero\b|<PublicProfileHero\b/);
   }
@@ -149,7 +154,6 @@ test("global details preserve domain-specific data, safe contacts and shared pho
   assert.match(sources.event, /<EventImage/);
 });
 
-
 test("Help dog detail shares service/organization contacts, actions and facts", () => {
   const css = read("components/detail-primitives/detail-primitives.module.css");
   for (const kind of ["lost-found", "adoption", "help"]) {
@@ -159,25 +163,44 @@ test("Help dog detail shares service/organization contacts, actions and facts", 
   assert.match(css, /max-height: 390px/);
   const detail = read("components/lost-found-dog-detail.tsx");
   const detailCss = read("components/lost-found-dogs.module.css");
-  for (const token of ["<DetailContactsCard", "<DetailSection", "<DetailFactsCard", "<DetailActions", "<PublicActionLink", "<PublicPhotoGallery"]) {
+  for (const token of [
+    "<DetailContactsCard",
+    "<DetailSection",
+    "<DetailFactsCard",
+    "<DetailActions",
+    "<PublicActionLink",
+    "<PublicPhotoGallery",
+  ]) {
     assert.ok(detail.includes(token), token);
   }
   assert.match(detail, /<DetailContactsCard title="Adresa a kontakt"/);
   assert.match(detail, /styles\.safetyPanel/);
-  assert.match(detail, /variant="linked" fit="contain"/);
+  assert.match(detail, /variant="linked"\s+fit="contain"/);
   assert.match(detail, /Zobrazuje sa len približná lokalita/);
-  assert.ok(detail.indexOf('<DetailContactsCard title="Adresa a kontakt"') < detail.indexOf("styles.safetyPanel"));
+  assert.ok(
+    detail.indexOf('<DetailContactsCard title="Adresa a kontakt"') <
+      detail.indexOf("styles.safetyPanel"),
+  );
   assert.ok(detail.indexOf("styles.safetyPanel") < detail.indexOf("{hasFacts ?"));
   assert.match(detailCss, /\.reportGallery\s*\{/);
-  for (const field of ["publicPhone","publicEmail","publicWebsiteUrl","publicFacebookUrl","publicInstagramUrl"]) {
-    assert.ok(detail.includes("report." + field),field);
+  for (const field of [
+    "publicPhone",
+    "publicEmail",
+    "publicWebsiteUrl",
+    "publicFacebookUrl",
+    "publicInstagramUrl",
+  ]) {
+    assert.ok(detail.includes("report." + field), field);
   }
   assert.match(detail, /Telefón a e-mail oznamovateľa nie sú automaticky publikované/);
 });
 
 test("unnamed lost/found reports show human-readable breadcrumb instead of URL slug", () => {
   const detail = read("components/lost-found-dog-detail.tsx");
-  assert.match(detail, /const breadcrumbLabel = report\.dogName\?\.trim\(\) \|\| report\.breed\?\.trim\(\)/);
+  assert.match(
+    detail,
+    /const breadcrumbLabel = report\.dogName\?\.trim\(\) \|\| report\.breed\?\.trim\(\)/,
+  );
   assert.match(detail, /type === "LOST" \? "Stratený" : "Nájdený"/);
   assert.match(detail, /<span>\{breadcrumbLabel\}<\/span><\/nav>/);
   assert.doesNotMatch(detail, /<span>\{report\.dogName \|\| report\.slug\}<\/span>/);
@@ -186,7 +209,6 @@ test("unnamed lost/found reports show human-readable breadcrumb instead of URL s
   assert.match(detail, /<PublicPhotoGallery/);
 });
 
-
 test("adoption details reuse the exact lost/found dog template, contacts and public actions", () => {
   const adoption = read("components/adoption-detail.tsx");
   const lost = read("components/lost-found-dog-detail.tsx");
@@ -194,19 +216,35 @@ test("adoption details reuse the exact lost/found dog template, contacts and pub
   const sharedCss = read("components/lost-found-dogs.module.css");
 
   for (const component of [
-    "DetailHero", "PublicHelpProfileDetailLayout", "DetailContactsCard",
-    "DetailSection", "DetailParagraphs", "DetailFactsCard",
-    "DetailActions", "PublicActionLink", "PublicPhotoGallery",
+    "DetailHero",
+    "PublicHelpProfileDetailLayout",
+    "DetailContactsCard",
+    "DetailSection",
+    "DetailParagraphs",
+    "DetailFactsCard",
+    "DetailActions",
+    "PublicActionLink",
+    "PublicPhotoGallery",
   ]) {
     assert.ok(adoption.includes("<" + component), component + " not used by adoption");
     assert.ok(lost.includes("<" + component), component + " not used by lost/found");
   }
-  for (const className of ["detail", "detailCopy", "detailAside", "detailMeta", "detailLead", "statusBanner", "badge", "safetyPanel", "reportGallery"]) {
+  for (const className of [
+    "detail",
+    "detailCopy",
+    "detailAside",
+    "detailMeta",
+    "detailLead",
+    "statusBanner",
+    "badge",
+    "safetyPanel",
+    "reportGallery",
+  ]) {
     assert.ok(adoption.includes("dogStyles." + className), "adoption must share " + className);
     assert.ok(sharedCss.includes("." + className), "shared dog CSS must own " + className);
   }
-  assert.match(adoption, /<DetailContactsCard title="Adresa a kontakt" id="adoption-contact"/);
-  assert.match(adoption, /variant="linked" fit="contain"/);
+  assert.match(adoption, /<DetailContactsCard\s+title="Adresa a kontakt"\s+id="adoption-contact"/);
+  assert.match(adoption, /variant="linked"\s+fit="contain"/);
   assert.match(adoption, /dog\.gallery\.filter\(Boolean\)\.slice\(0, 6\)/);
   assert.match(adoption, /dog\.contactPhone/);
   assert.match(adoption, /dog\.contactEmail/);
@@ -220,5 +258,8 @@ test("adoption details reuse the exact lost/found dog template, contacts and pub
   assert.match(adoption, /dog\.healthNotes/);
   assert.match(adoption, /dog\.specialNeeds/);
   assert.doesNotMatch(adoption, /private_details|encrypted|contact_name_encrypted/);
-  assert.doesNotMatch(adoptionCss, /\.detailGrid|\.detailPanel|\.contactCard|\.detailFacts|\.heroActions/);
+  assert.doesNotMatch(
+    adoptionCss,
+    /\.detailGrid|\.detailPanel|\.contactCard|\.detailFacts|\.heroActions/,
+  );
 });

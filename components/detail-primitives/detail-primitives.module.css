@@ -74,6 +74,11 @@
   color: var(--detail-ink, #092d36);
   overflow-wrap: anywhere;
 }
+.hero:not([data-public-detail-hero="breed"]) .heroCopy h1 {
+  font-family: var(--ps-public-heading-font);
+  font-weight: 750;
+  text-wrap: balance;
+}
 .heroCopy p {
   line-height: 1.6;
   overflow-wrap: anywhere;
@@ -127,6 +132,15 @@
 .heroMedia:has([data-image-display="natural"]) img {
   height: auto;
   object-fit: contain;
+}
+@media (max-width: 800px) {
+  .hero[data-public-detail-hero="event"] .heroMedia:has([data-image-display="natural"]) {
+    min-height: 96px;
+    align-content: center;
+  }
+  .hero[data-public-detail-hero="event"] .heroMedia [data-image-display="natural"] img {
+    max-height: min(300px, 50svh);
+  }
 }
 .tags {
   display: flex;
@@ -1051,7 +1065,7 @@
 .section h2.compactHeading {
   margin: 0 0 13px;
   color: var(--brand-accent-strong, #b94732);
-  font-family: inherit;
+  font-family: var(--ps-public-heading-font);
   font-size: 0.78rem;
   font-weight: 850;
   letter-spacing: 0.085em;

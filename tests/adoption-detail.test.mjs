@@ -36,7 +36,8 @@ function dog(status = "ACTIVE", overrides = {}) {
     mainImage: "/images/ben.webp",
     gallery: [],
     shortDescription: "Priateľský labrador hľadá zodpovedný a trvalý domov.",
-    description: "Ben je priateľský a aktívny pes, ktorý hľadá zodpovedný domov. Má rád ľudí, prechádzky a pravidelný kontakt so svojou rodinou.",
+    description:
+      "Ben je priateľský a aktívny pes, ktorý hľadá zodpovedný domov. Má rád ľudí, prechádzky a pravidelný kontakt so svojou rodinou.",
     temperament: "priateľský a aktívny",
     activityLevel: "HIGH",
     suitableForChildren: "YES",
@@ -69,7 +70,8 @@ function dog(status = "ACTIVE", overrides = {}) {
 test("ACTIVE and RESERVED details are public; private lifecycle states are not", () => {
   assert.equal(asPublicAdoptionDetail(dog("ACTIVE"))?.status, "ACTIVE");
   assert.equal(asPublicAdoptionDetail(dog("RESERVED"))?.status, "RESERVED");
-  for (const status of ["DRAFT", "ADOPTED", "ARCHIVED"]) assert.equal(asPublicAdoptionDetail(dog(status)), null);
+  for (const status of ["DRAFT", "ADOPTED", "ARCHIVED"])
+    assert.equal(asPublicAdoptionDetail(dog(status)), null);
 });
 
 test("RESERVED detail has an explicit public label", () => {
@@ -82,25 +84,45 @@ test("RESERVED detail has an explicit public label", () => {
 test("detail SEO follows active quality and stale/indexability rules", () => {
   const now = new Date("2026-09-14T12:00:00.000Z");
   assert.equal(buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE")), now).indexable, true);
-  assert.equal(buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("RESERVED")), now).indexable, false);
-  assert.equal(buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE", { lastVerifiedAt: "2026-06-01T08:00:00.000Z" })), now).indexable, false);
-  assert.equal(buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE", { mainImage: null })), now).indexable, true);
+  assert.equal(
+    buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("RESERVED")), now).indexable,
+    false,
+  );
+  assert.equal(
+    buildAdoptionDetailSeo(
+      asPublicAdoptionDetail(dog("ACTIVE", { lastVerifiedAt: "2026-06-01T08:00:00.000Z" })),
+      now,
+    ).indexable,
+    false,
+  );
+  assert.equal(
+    buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE", { mainImage: null })), now)
+      .indexable,
+    true,
+  );
   const seo = buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE")), now);
   assert.equal(seo.path, "/pomoc-psom/adopcia/ben");
   assert.match(seo.description, /Priateľský labrador/);
 });
 
 test("structured data uses a canonical privacy-safe dog entity with WebPage and BreadcrumbList", () => {
-  const minimal = asPublicAdoptionDetail(dog("ACTIVE", { shortDescription: "", mainImage: null, publishedAt: null }));
+  const minimal = asPublicAdoptionDetail(
+    dog("ACTIVE", { shortDescription: "", mainImage: null, publishedAt: null }),
+  );
   const schema = buildAdoptionDetailStructuredData(minimal, "https://psipedia.sk");
-  assert.deepEqual(schema["@graph"].map((item) => item["@type"]), ["WebPage", "Thing", "BreadcrumbList"]);
+  assert.deepEqual(
+    schema["@graph"].map((item) => item["@type"]),
+    ["WebPage", "Thing", "BreadcrumbList"],
+  );
   const page = schema["@graph"][0];
   const entity = schema["@graph"][1];
   assert.equal(page.description, undefined);
   assert.equal(page.primaryImageOfPage, undefined);
   assert.equal(page.datePublished, minimal.createdAt);
   assert.deepEqual(page.mainEntity, { "@id": "https://psipedia.sk/pomoc-psom/adopcia/ben#dog" });
-  assert.deepEqual(page.breadcrumb, { "@id": "https://psipedia.sk/pomoc-psom/adopcia/ben#breadcrumb" });
+  assert.deepEqual(page.breadcrumb, {
+    "@id": "https://psipedia.sk/pomoc-psom/adopcia/ben#breadcrumb",
+  });
   assert.equal(entity["@id"], "https://psipedia.sk/pomoc-psom/adopcia/ben#dog");
   assert.equal(entity.name, "Ben");
   assert.equal("contactEmail" in entity, false);
@@ -109,24 +131,26 @@ test("structured data uses a canonical privacy-safe dog entity with WebPage and 
 });
 
 test("missing optional data does not create empty information sections", () => {
-  const sections = buildAdoptionDetailSections(dog("ACTIVE", {
-    breedName: "",
-    temperament: "",
-    vaccinationStatus: "UNKNOWN",
-    chipped: null,
-    neutered: null,
-    healthNotes: "",
-    specialNeeds: "",
-    suitableForChildren: "UNKNOWN",
-    suitableForDogs: "UNKNOWN",
-    suitableForCats: "UNKNOWN",
-    suitableForOtherAnimals: "UNKNOWN",
-    apartmentSuitable: null,
-    beginnerSuitable: null,
-    needsExperiencedOwner: false,
-    adoptionRequirements: "",
-    gallery: [],
-  }));
+  const sections = buildAdoptionDetailSections(
+    dog("ACTIVE", {
+      breedName: "",
+      temperament: "",
+      vaccinationStatus: "UNKNOWN",
+      chipped: null,
+      neutered: null,
+      healthNotes: "",
+      specialNeeds: "",
+      suitableForChildren: "UNKNOWN",
+      suitableForDogs: "UNKNOWN",
+      suitableForCats: "UNKNOWN",
+      suitableForOtherAnimals: "UNKNOWN",
+      apartmentSuitable: null,
+      beginnerSuitable: null,
+      needsExperiencedOwner: false,
+      adoptionRequirements: "",
+      gallery: [],
+    }),
+  );
   assert.equal(sections.breed, false);
   assert.equal(sections.temperament, false);
   assert.equal(sections.health, false);
@@ -143,13 +167,16 @@ test("detail route is canonical-only and cannot reach the legacy Help renderer",
   assert.match(route, /getPublicAdoptionOrganizationById\(dog\.organizationId\)/);
   assert.match(route, /<AdoptionDetail dog=\{dog\} organization=\{organization\}/);
   assert.match(route, /notFound\(\)/);
-  assert.doesNotMatch(route, /getPublishedHelpCase|getLegacyAdoption|HelpDetail|help_cases|resolveAdoptionDetailSource/);
+  assert.doesNotMatch(
+    route,
+    /getPublishedHelpCase|getLegacyAdoption|HelpDetail|help_cases|resolveAdoptionDetailSource/,
+  );
 });
 
 test("detail links only to the resolved canonical organization profile", () => {
   const component = read("../components/adoption-detail.tsx");
-  assert.match(component, /organization \? \[\{/);
-  assert.match(component, /<Link className=\{styles\.organizationLink\}/);
+  assert.match(component, /organization\s*\?\s*\[\s*\{/);
+  assert.match(component, /<Link\s+className=\{styles\.organizationLink\}/);
   assert.match(component, /organization\.slug/);
   assert.doesNotMatch(component, /dog\.organizationSlug.*organizacie/);
 });
