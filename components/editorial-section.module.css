@@ -6,22 +6,12 @@
   --section-accent-border: rgba(23, 75, 56, 0.18);
 }
 
-.puppyTone {
-  --section-accent: #326b4a;
-  --section-accent-soft: #eaf3eb;
-  --section-accent-border: rgba(50, 107, 74, 0.2);
-}
-
-.careTone {
-  --section-accent: #387c88;
-  --section-accent-soft: #e7f2f4;
-  --section-accent-border: rgba(56, 124, 136, 0.22);
-}
-
+.puppyTone,
+.careTone,
 .activityTone {
-  --section-accent: #9d542d;
-  --section-accent-soft: #faeee2;
-  --section-accent-border: rgba(157, 84, 45, 0.22);
+  --section-accent: var(--forest);
+  --section-accent-soft: var(--sage-light);
+  --section-accent-border: rgba(23, 77, 58, 0.18);
 }
 
 .main {
@@ -1159,7 +1149,7 @@
   gap: 5px;
   margin-bottom: 12px;
   padding-left: 13px;
-  border-left: 3px solid var(--section-accent);
+  border-left: var(--ps-premium-accent-width, 4px) solid var(--ps-premium-accent, #b44939);
 }
 .topicStageHeading h2 {
   margin: 0;
