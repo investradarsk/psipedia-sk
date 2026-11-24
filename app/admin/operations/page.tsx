@@ -65,7 +65,7 @@ async function AdminOperationsContent({
     <>
       <section className={styles.hubGrid} aria-label="Rýchly prehľad upozornení">
         <a className={`${styles.hubCard} ${attention.summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="#centrum-pozornosti">
-          <span className={styles.hubKicker}>Čaká na teba</span>
+          <span className={styles.hubKicker}>Na vybavenie</span>
           <div className={styles.hubMetric}>
             <strong>{attention.availability === "UNAVAILABLE" ? "—" : attention.summary.active}</strong>
             <span>{attention.availability === "PARTIAL" ? "aktívnych úloh v dostupných zdrojoch" : "aktívnych úloh"}</span>
@@ -104,7 +104,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
   const filters: AdminAttentionFilters = {
     sourceType: isAdminAttentionQueueSourceType(source) ? source : "all",
     priority: isAdminAttentionPriority(priority) ? priority : "all",
-    view: isAdminAttentionView(view) ? view : "active",
+    view: isAdminAttentionView(view) ? view : "unread",
   };
 
   const cursor = first(raw.cursor) || undefined;
