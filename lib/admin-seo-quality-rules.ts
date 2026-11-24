@@ -53,8 +53,11 @@ const seoMetadataCodes: ReadonlySet<AdminSeoIssueCode> = new Set([
   "image-missing", "image-alt-missing",
   "noindex-explicit", "canonical-nonstandard", "slug-missing",
 ]);
+export function isSeoMetadataIssue(code: AdminSeoIssueCode) {
+  return seoMetadataCodes.has(code);
+}
 export function isSeoMetadataFinding(finding: AdminSeoQualityFinding) {
-  return seoMetadataCodes.has(finding.code);
+  return isSeoMetadataIssue(finding.code);
 }
 export function isSeoProfileAgenda(agenda: AdminSeoAgenda) {
   return agenda !== "articles" && agenda !== "events";
