@@ -83,27 +83,29 @@ export function notionConflictMetadataNeedsWrite(input: {
   return input.syncStatus !== "Chyba" || input.syncError !== expected;
 }
 
-export type DirectorySyncErrorKind =
-  | "BIDIRECTIONAL_CONFLICT"
-  | "MISSING_VERIFIED_BASELINE"
-  | "SERVICE_RELATION_UNVERIFIED_DELETE"
-  | "SERVICE_RELATION_SYNC_ERROR"
-  | "CONFIRMED_SITE_REVIEW_REQUIRED"
-  | "MISSING_HOUSE_NUMBER"
-  | "INVALID_LOCALITY"
-  | "ILLEGAL_INVOCATION"
-  | "INVALID_PHONE"
-  | "INVALID_EMAIL"
-  | "INVALID_WEBSITE"
-  | "REMOTE_IMAGE_HTTP_403"
-  | "REMOTE_IMAGE_HTTP_522"
-  | "INVALID_IMAGE_FORMAT"
-  | "REMOTE_IMAGE_BLOCKED"
-  | "DUPLICATE_IDENTITY"
-  | "GOOGLE_PLACE_MISMATCH"
-  | "PRIVACY_REVIEW_REQUIRED"
-  | "LEGACY_BASELINE_MISMATCH"
-  | "OTHER";
+export const directorySyncErrorKinds = [
+  "BIDIRECTIONAL_CONFLICT",
+  "MISSING_VERIFIED_BASELINE",
+  "SERVICE_RELATION_UNVERIFIED_DELETE",
+  "SERVICE_RELATION_SYNC_ERROR",
+  "CONFIRMED_SITE_REVIEW_REQUIRED",
+  "MISSING_HOUSE_NUMBER",
+  "INVALID_LOCALITY",
+  "ILLEGAL_INVOCATION",
+  "INVALID_PHONE",
+  "INVALID_EMAIL",
+  "INVALID_WEBSITE",
+  "REMOTE_IMAGE_HTTP_403",
+  "REMOTE_IMAGE_HTTP_522",
+  "INVALID_IMAGE_FORMAT",
+  "REMOTE_IMAGE_BLOCKED",
+  "DUPLICATE_IDENTITY",
+  "GOOGLE_PLACE_MISMATCH",
+  "PRIVACY_REVIEW_REQUIRED",
+  "LEGACY_BASELINE_MISMATCH",
+  "OTHER",
+] as const;
+export type DirectorySyncErrorKind = (typeof directorySyncErrorKinds)[number];
 
 export function classifyDirectorySyncError(message: string): DirectorySyncErrorKind {
   const error = message.trim().toLowerCase();

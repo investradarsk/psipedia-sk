@@ -139,7 +139,7 @@ export async function notionRequest<T>(
   bindings: NotionSyncBindings,
   path: string,
   init: RequestInit = {},
-  options: { retryTransient?: boolean } = {},
+  options: { retryTransient?: boolean; timeoutMs?: number } = {},
 ): Promise<T> {
   const token = bindings.NOTION_API_TOKEN?.trim();
   if (!token) throw new Error("NOTION_API_TOKEN nie je nakonfigurovaný.");
@@ -175,6 +175,7 @@ export async function notionRequest<T>(
     auth: token,
     notionVersion: NOTION_VERSION,
     retry: false,
+    ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
     logLevel: LogLevel.ERROR,
     logger: () => { /* do not log provider data, tokens or HTTP bodies */ },
   });

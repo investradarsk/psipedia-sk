@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
+import { profileWorkspace, profileQuickHref } from "@/lib/admin-profile-workspace";
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminOrganizationPublicationDashboard } from "@/components/admin-organization-publication-dashboard";
@@ -7,7 +9,6 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listReviewedAdminEntityIds } from "@/lib/admin-entity-review-store";
 import { parseOrganizationAdminFilters } from "@/lib/help-organization-admin-query";
 import { getOrganizationAdminPage } from "@/lib/help-organization-admin-store";
-import styles from "@/components/admin-organization-publication.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -36,11 +37,10 @@ export default async function OrganizationPublicationAdminPage({ searchParams }:
 
   return <AdminShell
     user={user}
-    eyebrow="Pomoc psom"
-    title="Organizácie"
-    description="Vyhľadávaj a upravuj organizácie, ich kontakty, lokality a stav publikovania."
-    actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/organizacie/novy">+ Nová organizácia</Link>}
+    {...profileWorkspace("organizacie")}
+    actions={<AdminProfileActions active="organizacie"><Link className="admin-secondary-action" prefetch={false} href={profileQuickHref(filters.type === "SHELTER" ? "utulky" : "organizacie", filters.q)}>Rýchla úprava</Link></AdminProfileActions>}
   >
+    <AdminProfileTypeTabs active="organizacie" />
     <Suspense fallback={<AdminDataLoading label="Organizácie" />}>
       <OrganizationList promise={pagePromise} filters={filters} />
     </Suspense>

@@ -19,6 +19,8 @@ import {
 } from "@/components/admin-interaction-system";
 import { AdminPagination } from "@/components/admin-pagination";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+import { AdminInlineDraftGuard } from "@/components/admin-inline-draft-guard";
+import { inlineSaveMessage } from "@/lib/admin-inline-save-status";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { SearchIcon } from "@/components/icons";
 import { organizationAdminHref, type OrganizationAdminFilters } from "@/lib/help-organization-admin-query";
@@ -90,7 +92,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
       ? inlineDraft : null;
 
   function editInline(item: OrganizationPublicationAdminItem) {
-    if (inlineBusy || busyId !== null || bulkBusy || item.status === "ARCHIVED") return;
+    if (inlineDraft || inlineBusy || busyId !== null || bulkBusy || item.status === "ARCHIVED") return;
     setError("");
     setMessage("");
     setInlineDraft({
@@ -115,13 +117,13 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
           changes: { name: draft.name, shortDescription: draft.shortDescription },
         }),
       });
-      const result = await response.json() as { error?: string };
+      const result = await response.json() as { error?: string; notionFieldSync?: unknown };
       if (!response.ok) throw new Error(result.error || "Organizáciu sa nepodarilo upraviť.");
       setInlineDraft(null);
-      setMessage("Názov a krátky popis organizácie boli uložené.");
+      setMessage(inlineSaveMessage(result.notionFieldSync));
       router.refresh();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Rýchla úprava zlyhala.");
+      setError("Uloženie nepotvrdené: " + (error instanceof Error ? error.message : "Rýchla úprava zlyhala."));
     } finally {
       setInlineBusy(false);
     }
@@ -211,6 +213,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
   }
 
   return <>
+    <AdminInlineDraftGuard active={Boolean(inlineDraft)} stale={Boolean(inlineDraft && !activeInline)} busy={inlineBusy} onCancel={() => setInlineDraft(null)} />
     <section className="admin-stats" aria-label="Stav organizácií" data-admin-content-module="organizations-list">
       <div><span>Všetky</span><strong>{data.counts.total}</strong></div>
       <div><span>Koncepty</span><strong>{data.counts.draft}</strong></div>
@@ -246,12 +249,12 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
         <AdminBulkActionToolbar
           selectedCount={bulkSelection.selectedCount}
           selectionDescription="Výber patrí iba aktuálnej filtrovanej strane."
-          primaryAction={<AdminActionButton variant="primary" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction("publish")}>Publikovať</AdminActionButton>}
+          primaryAction={<AdminActionButton variant="primary" disabled={Boolean(inlineDraft) || !hydrated || bulkBusy} onClick={() => setBulkAction("publish")}>Publikovať</AdminActionButton>}
           secondaryActions={<>
-            <AdminActionButton variant="secondary" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction("unpublish")}>Do konceptu</AdminActionButton>
-            <AdminActionButton variant="secondary" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction("restore")}>Obnoviť</AdminActionButton>
+            <AdminActionButton variant="secondary" disabled={Boolean(inlineDraft) || !hydrated || bulkBusy} onClick={() => setBulkAction("unpublish")}>Do konceptu</AdminActionButton>
+            <AdminActionButton variant="secondary" disabled={Boolean(inlineDraft) || !hydrated || bulkBusy} onClick={() => setBulkAction("restore")}>Obnoviť</AdminActionButton>
           </>}
-          destructiveAction={<AdminActionButton variant="destructive" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction("archive")}>Archivovať</AdminActionButton>}
+          destructiveAction={<AdminActionButton variant="destructive" disabled={Boolean(inlineDraft) || !hydrated || bulkBusy} onClick={() => setBulkAction("archive")}>Archivovať</AdminActionButton>}
           onClear={bulkSelection.clear}
         />
       )}
@@ -259,7 +262,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
       {bulkSelection.selectedCount > 0 && <AdminRecordBulkDelete
         kind="organizations"
         selectedIds={bulkSelection.selection.mode === "explicit" ? bulkSelection.selection.ids : []}
-        disabled={!hydrated || !bulkSelection.ready || bulkBusy || busyId !== null || inlineBusy}
+        disabled={Boolean(inlineDraft) || !hydrated || !bulkSelection.ready || bulkBusy || busyId !== null || inlineBusy}
         onFinished={() => { bulkSelection.clear(); router.refresh(); }}
       />}
 
@@ -276,6 +279,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
           desc: (filters.direction ?? "desc") === "desc",
           allowedIds: ["name", "city", "status", "updated"],
           onChange: next => {
+              if (inlineDraft) return;
             const sort = ["name", "city", "status"].includes(next.id)
               ? next.id as "name" | "city" | "status" : "updated";
             router.push(organizationAdminHref({ ...filters, sort, direction: next.desc ? "desc" : "asc", page: 1 }));
@@ -283,7 +287,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
         }}
         selection={{
           selectedIds: bulkSelection.selection.mode === "explicit" ? bulkSelection.selection.ids : [],
-          disabled: !hydrated || !bulkSelection.ready || bulkBusy,
+          disabled: Boolean(inlineDraft) || !hydrated || !bulkSelection.ready || bulkBusy,
           selectAllLabel: "Označiť všetky zobrazené organizácie",
           labelForRow: item => `Označiť organizáciu ${item.name}`,
           onChange: ids => {
@@ -303,7 +307,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
                 ? <AdminInlineCellInput label={"Názov organizácie " + item.name} value={activeInline.name}
                     maxLength={180} required disabled={inlineBusy}
                     onChange={name => setInlineDraft(current => current ? { ...current, name } : null)} />
-                : <strong><Link href={adminDetailHref(`/admin/organizacie/${item.id}`, organizationAdminHref(filters))}>{item.name || "Bez názvu"}</Link></strong>}
+                : <strong><Link href={adminDetailHref(`/admin/organizacie/${item.id}`, organizationAdminHref({ ...filters, page: data.pagination.page }))}>{item.name || "Bez názvu"}</Link></strong>}
               <small>/{item.slug || "—"}</small>
             </div> },
           { id: "status", label: "Publikovanie", width: 130, sortValue: item => item.status,
@@ -327,7 +331,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
             const isPublic = item.status === "PUBLISHED" && Boolean(item.publishedAt) && !item.archivedAt;
             return <div className={styles.gridActions}>
               {reviewed
-                ? <AdminReviewCheckbox entityType="ORGANIZATION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+                ? <AdminReviewCheckbox entityType="ORGANIZATION" entityId={item.id} initialReviewed={reviewed.has(item.id)} disabled={Boolean(inlineDraft)} compact />
                 : <span aria-label="Stav redakčnej kontroly nedostupný">—</span>}
               {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank" rel="noreferrer">Web ↗</Link>}
               {item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
@@ -337,19 +341,19 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
                 onEdit={() => editInline(item)} onSave={() => void saveInline()}
                 onCancel={() => { if (!inlineBusy) setInlineDraft(null); }}
               /></span>}
-              <Link href={adminDetailHref("/admin/organizacie/" + item.id, organizationAdminHref(filters))}>Spravovať</Link>
-              <Link href={adminDetailHref(`/admin/organizacie/${item.id}#fundraising`, organizationAdminHref(filters))}>Fundraising</Link>
+              <Link href={adminDetailHref("/admin/organizacie/" + item.id, organizationAdminHref({ ...filters, page: data.pagination.page }))}>Spravovať</Link>
+              <Link href={adminDetailHref(`/admin/organizacie/${item.id}#fundraising`, organizationAdminHref({ ...filters, page: data.pagination.page }))}>Fundraising</Link>
               {item.status === "DRAFT" && <AdminActionButton variant="primary"
-                disabled={!hydrated || !item.preflight.ready || busyId !== null || bulkBusy}
+                disabled={Boolean(inlineDraft) || !hydrated || !item.preflight.ready || busyId !== null || bulkBusy}
                 onClick={() => requestPublication(item, "publish")}>Publikovať</AdminActionButton>}
               {item.status === "PUBLISHED" && <AdminActionButton variant="secondary"
-                disabled={!hydrated || busyId !== null || bulkBusy}
+                disabled={Boolean(inlineDraft) || !hydrated || busyId !== null || bulkBusy}
                 onClick={() => requestPublication(item, "unpublish")}>Presunúť do konceptu</AdminActionButton>}
               {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive"
-                disabled={!hydrated || busyId !== null || bulkBusy}
+                disabled={Boolean(inlineDraft) || !hydrated || busyId !== null || bulkBusy}
                 onClick={() => requestPublication(item, "archive")}>Archivovať</AdminActionButton>}
               {item.status === "ARCHIVED" && <AdminActionButton variant="secondary"
-                disabled={!hydrated || busyId !== null || bulkBusy}
+                disabled={Boolean(inlineDraft) || !hydrated || busyId !== null || bulkBusy}
                 onClick={() => requestPublication(item, "restore")}>Obnoviť do konceptu</AdminActionButton>}
             </div>;
           } },
@@ -388,7 +392,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
       onClose={() => { if (!bulkBusy) setBulkAction(null); }}
       preferExplicitAutofocus
       footer={<>
-        <AdminActionButton variant="neutral" data-admin-autofocus="true" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction(null)}>Zrušiť</AdminActionButton>
+        <AdminActionButton variant="neutral" data-admin-autofocus="true" disabled={Boolean(inlineDraft) || !hydrated || bulkBusy} onClick={() => setBulkAction(null)}>Zrušiť</AdminActionButton>
         <AdminActionButton
           variant={bulkAction === "archive" ? "destructive" : "primary"}
           disabled={!hydrated || bulkBusy || bulkTargets.length === 0}

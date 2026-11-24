@@ -46,7 +46,7 @@ function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
 }
 
-export function AdminEventEditor({ event, initialInternalNotes = "", automationSuggestions = [] }: { event?: DogEvent; initialInternalNotes?: string; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
+export function AdminEventEditor({ event, initialInternalNotes = "", automationSuggestions = [], returnHref = "/admin/podujatia" }: { event?: DogEvent; initialInternalNotes?: string; automationSuggestions?: CanonicalUpdateSuggestion[]; returnHref?: string }) {
   const router = useRouter();
   const [title, setTitle] = useState(event?.title ?? "");
   const [slug, setSlug] = useState(event?.slug ?? "");
@@ -247,8 +247,8 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         previewTitle="Živý súhrn podujatia"
         dirty={dirty}
         allowNativeExitRef={allowNavigationRef}
-        onClose={() => router.push("/admin/podujatia")}
-        closeLabel="Späť na podujatia"
+        onClose={() => router.push(returnHref)}
+        closeLabel={returnHref.startsWith("/admin/kvalita/seo?") ? "Späť na SEO audit" : "Späť na podujatia"}
         actions={
           <EditorActionBar
             message={dirty ? "Neuložené zmeny" : undefined}
@@ -259,7 +259,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
                   <AdminNotionProfileImportButton scope="events" profileId={event.id}
                     dirty={dirty} disabled={saving || uploading} />
                   <AdminRecordLifecycleActions kind="events" recordId={event.id} status={status} disabled={saving || uploading}
-                    returnHref="/admin/podujatia" onUnpublished={(next) => setStatus(next as EventStatus)} />
+                    returnHref={returnHref} onUnpublished={(next) => setStatus(next as EventStatus)} />
                 </div>
               </details>}
               {status === "draft" && <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>}

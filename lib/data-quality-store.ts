@@ -6,13 +6,13 @@ import {
   type AdminAutomationReliabilitySummary,
 } from "@/lib/admin-automation-reliability";
 import {
-  DIRECTORY_QUALITY_RECHECK_DAYS,
   directoryQualityFields,
   directoryQualityResolutionStatuses,
   isDirectoryQualityResolutionCurrent,
   type DirectoryQualityMetadata,
   type DirectoryQualityField,
 } from "@/lib/directory-profile-metadata";
+import { qualityResolutionCurrentSql } from "@/lib/directory-quality-resolution-sql";
 import { directoryCategories } from "@/lib/directory";
 import { RAW_MISSING_PHONE_SQL, RAW_MISSING_EMAIL_SQL, RAW_MISSING_WEBSITE_SQL } from "@/lib/data-quality-contact-sql";
 import {
@@ -158,18 +158,6 @@ const RAW_INCOMPLETE_ADDRESS_SQL = `COALESCE(online, 0) = 0 AND (
   AND ${GOOGLE_MAPS_NOT_REQUIRED_SQL}
 )`;
 
-function qualityResolutionCurrentSql(field: DirectoryQualityField) {
-  // The five quality statuses live in one indexed SQL relation. Never read
-  // retired _psipedia_quality_* aliases from historic source JSON.
-  const statuses = directoryQualityResolutionStatuses.map(status=>`'${status}'`).join(",");
-  return `EXISTS (
-    SELECT 1 FROM directory_profile_quality_resolutions qr
-    WHERE qr.profile_id=directory_profiles.id
-      AND qr.quality_field='${field}'
-      AND qr.resolution_status IN (${statuses})
-      AND datetime(qr.checked_at) >= datetime('now', '-${DIRECTORY_QUALITY_RECHECK_DAYS} days')
-  )`;
-}
 
 const MISSING_PHONE_SQL = `(${RAW_MISSING_PHONE_SQL}) AND NOT ${qualityResolutionCurrentSql("phone")}`;
 const MISSING_EMAIL_SQL = `(${RAW_MISSING_EMAIL_SQL}) AND NOT ${qualityResolutionCurrentSql("email")}`;

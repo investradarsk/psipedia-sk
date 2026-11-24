@@ -14,6 +14,11 @@ automatické schválenie vzhľadu.
    `VISUAL_REVIEW_ROUTES: /,/podujatia,/adresar,/pomoc-psom`.
    To má prednosť pred automatickým výberom. Voliteľný riadok
    `VISUAL_ACCEPTANCE_ROUTES:` doplní ďalšie cesty, spolu najviac štyri.
+   Pri PR z rovnakého repozitára môže vlastník explicitne vyžiadať dôkazy
+   ešte v stave Draft riadkom `PRE_REVIEW_VISUAL_EVIDENCE: true` v popise PR.
+   Tento opt-in povoľuje príslušné vizuálne joby pri najbližšom podporovanom
+   PR evente (nemení path filtre). Admin-only zmeny naďalej primárne použí­vajú
+   cielené ADMIN-IA-2 E2E. Bez opt-in sa Draft vizuálne joby preskočia.
 3. Na GitHub Actions sa pripraví lokálna PR verzia aj lokálna verzia
    spoločného Git predka. Použije sa **oddelená lokálna databáza D1**,
    rovnaké testovacie príklady a Chromium. Bez produkčných údajov,

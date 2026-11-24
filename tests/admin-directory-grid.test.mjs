@@ -50,12 +50,15 @@ test("all canonical actions and versioned mutation endpoints stay owned by exist
   assert.match(events, /\/admin\/podujatia\/\$\{event.id\}/);
 });
 
-test("the sidebar groups all three modules within Adresár", () => {
+test("Profiles has one primary owner; Events remain a separate editorial agenda", () => {
   const nav = read("lib/admin-navigation.ts");
-  const start = nav.indexOf('{ label: "Adresár", items: [');
+  const start = nav.indexOf('{ label: "Profily", items: [');
   const end = nav.indexOf('] },', start);
   const group = nav.slice(start, end);
-  for (const path of ["/admin/sluzby-pre-psov", "/admin/pomoc-psom", "/admin/podujatia"]) {
+  assert.match(group, /href: ADMIN_PROFILE_HOME/);
+  for (const path of ["/admin/sluzby-pre-psov", "/admin/pomoc-psom", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie", "/admin/pomoc"]) {
     assert.ok(group.includes(path), path);
   }
+  assert.doesNotMatch(group, /\/admin\/podujatia/);
+  assert.match(nav, /label: "Podujatia", href: "\/admin\/podujatia"/);
 });

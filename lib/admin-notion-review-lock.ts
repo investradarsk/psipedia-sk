@@ -48,6 +48,23 @@ export async function isAdminNotionSyncLocked(database:D1Database,agenda:Lockabl
   return Boolean(row.locked);
 }
 
+/** Bounded read-only diagnostic projection; uses the same review/owner predicates. */
+export async function readAdminNotionReviewLocks(database:D1Database,agenda:LockableAgenda,ids:readonly number[]){
+  const unique=[...new Set(ids)];
+  if(unique.length>50||unique.some(id=>!Number.isSafeInteger(id)||id<1))
+    throw Error("ADMIN_REVIEW_INVALID_ENTITY_ID");
+  if(!unique.length)return new Map<number,{reviewed:number;owned:number}>();
+  const type=reviewTypeForAgenda(agenda);
+  const sql="WITH requested(entity_id) AS (VALUES "+unique.map(()=>"(?)").join(",")+") "+
+    "SELECT q.entity_id,EXISTS(SELECT 1 FROM admin_entity_reviews ar WHERE ar.entity_type=? AND ar.entity_id=q.entity_id) AS reviewed,"+
+    partnerReviewOwnerSql(type,"q.entity_id")+" AS owned FROM requested q";
+  const rows=await database.prepare(sql).bind(...unique,type).all<{entity_id:number;reviewed:number;owned:number}>();
+  if(!rows.success||!Array.isArray(rows.results)||rows.results.length!==unique.length||
+    new Set(rows.results.map(row=>row.entity_id)).size!==unique.length)
+    throw Error("ADMIN_REVIEW_LOCK_UNAVAILABLE");
+  return new Map(rows.results.map(row=>[row.entity_id,row]));
+}
+
 /** Run after an owner-grant in its existing D1 batch; identical metadata is preserved. */
 export function partnerAdminReviewStatement(database:D1Database,input:{
   type:AdminReviewEntityType;entitySql:string;nowIso:string;actorRef:string;

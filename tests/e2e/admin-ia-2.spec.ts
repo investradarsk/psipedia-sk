@@ -24,10 +24,10 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Čo potrebuje pozornosť", exact: true })).toBeVisible();
 
-  await expect(page.getByRole("link", { name: /Aktívne upozornenia/ })).toHaveAttribute("href", "/admin/operations");
+  await expect(page.locator('a[href="/admin/operations"][class*="metricCard"]')).toHaveAttribute("href", "/admin/operations");
   // Old Tavily attention cards are retired: Gemini and Quality own active work.
   await expect(page.getByRole("link", { name: /Automatizácie na kontrolu/ })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Automatizácie Gemini →", exact: true })).toHaveAttribute("href", "/admin/automatizacie-gemini");
+  await expect(page.locator('a[href="/admin/automatizacie-gemini"][class*="linkCard"]')).toHaveAttribute("href", "/admin/automatizacie-gemini");
   // Quality has one priority shortcut; known empty queues live in a compact disclosure.
   await expect(page.locator('a[href="/admin/operations?source=PARTNER_CLAIM_REVIEW"]')).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
   await expect(page.getByRole("link", { name: "Kvalita údajov →", exact: true })).toHaveCount(0);
@@ -184,7 +184,7 @@ test("legacy article-list URLs preserve filters and the explicit article route o
   await expectAxeClean(page);
 });
 
-test("V3 all seven navigation groups, focus and header actions work at 1440px, 390px and 320px", async ({ page }, testInfo) => {
+test("V3 all six navigation groups, focus and header actions work at 1440px, 390px and 320px", async ({ page }, testInfo) => {
   const mobile = testInfo.project.name === "mobile-chromium";
   for (const width of mobile ? [390, 320] : [1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -363,5 +363,196 @@ test("step 6: compact topbar, drawer and navigation remain collision-free", asyn
       animations: "disabled",
       fullPage: true,
     });
+  }
+});
+
+
+test("V6-04 all five profile lists share one compact navigation and correct creation action", async ({ page }, info) => {
+  const width = info.project.name === "mobile-chromium" ? 390 : 1440;
+  await page.setViewportSize({ width, height: 850 });
+  const routes = [
+    ["/admin/adresar", "Služby a prevádzky"],
+    ["/admin/adopcie", "Adopcie"],
+    ["/admin/stratene-najdene", "Stratené a nájdené psy"],
+    ["/admin/organizacie", "Organizácie a útulky"],
+    ["/admin/pomoc", "Ostatná pomoc"],
+  ] as const;
+  await page.goto(routes[0][0], { waitUntil: "domcontentloaded" });
+  for (const [route, label] of routes) {
+    const tabs = page.getByRole("navigation", { name: "Typy profilov" });
+    await expect(tabs).toHaveCount(1);
+    await expect(tabs.getByRole("link")).toHaveCount(5);
+    await tabs.getByRole("link", { name: label, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(route + "$"));
+    await expect(tabs.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.locator("[data-admin-profile-create]")).toHaveAttribute("href", route + "/novy");
+    await expect(page.locator("[data-admin-list-filters]")).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    if (width === 390) {
+      for (const link of await tabs.getByRole("link").all()) {
+        expect(await link.evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+      }
+    }
+    await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-04-" + route.split("/").at(-1) + "-" + width + ".png", fullPage: true, animations: "disabled" });
+  }
+});
+
+
+test("V6-05 compact profile tables remain usable at 320px and desktop", async ({ page }, info) => {
+  const widths = info.project.name === "mobile-chromium" ? [320, 390] : [1440];
+  const routes = ["/admin/adresar", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie", "/admin/pomoc", "/admin/pomoc-psom?category=utulky", "/admin/pomoc-psom?category=organizacie", "/admin/pomoc-psom?category=zbierky"];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 850 });
+    for (const route of routes) {
+      const response = await page.goto(route, { waitUntil: "domcontentloaded" });
+      expect(response?.status(), route).toBe(200);
+      await expect(page.locator("[data-admin-list-filters]")).toBeVisible();
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+      if (width <= 390) {
+        for (const link of await page.locator("[data-admin-profile-types] a").all()) {
+          expect(await link.evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+        }
+      }
+      await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-05-" + route.replace(/[^a-z0-9]+/gi, "-") + "-" + width + ".png", fullPage: true, animations: "disabled" });
+    }
+  }
+});
+
+
+test("V6-06 one quality workspace on desktop and mobile", async ({ page }, info) => {
+  const widths = info.project.name === "mobile-chromium" ? [320, 390] : [1440];
+  const routes = [
+    ["/admin/kvalita", "Nálezy na schválenie"],
+    ["/admin/kvalita/prehlad", "Chýbajúce polia"],
+    ["/admin/kvalita/seo", "SEO audit"],
+    ["/admin/kontrola-odkazov", "Kontrola odkazov"],
+  ] as const;
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 850 });
+    await page.goto(routes[0][0], { waitUntil: "domcontentloaded" });
+    for (const [route, label] of routes) {
+      const tabs = page.locator("[data-admin-quality-tabs]");
+      await expect(tabs).toHaveCount(1);
+      await expect(tabs.getByRole("link")).toHaveCount(4);
+      await tabs.getByRole("link", { name: label, exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(route + "$"));
+      await expect(tabs.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+      if (width <= 390) {
+        for (const link of await tabs.getByRole("link").all()) {
+          expect(await link.evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+        }
+      }
+      await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-06-" + route.replace(/[^a-z0-9]+/gi, "-") + "-" + width + ".png", fullPage: true, animations: "disabled" });
+    }
+  }
+});
+
+
+test("V6-07 dashboard shortcuts and guarded Ctrl+K return use canonical routes", async ({ page }, info) => {
+  const mobile = info.project.name === "mobile-chromium";
+  await page.setViewportSize({ width: mobile ? 390 : 1440, height: 850 });
+  await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  const shortcuts = page.locator("[data-admin-dashboard-shortcuts]");
+  await expect(shortcuts.getByRole("link", { name: "Všetky profily" })).toHaveAttribute("href", "/admin/adresar");
+  await expect(shortcuts.locator('a[href="/admin/sluzby-pre-psov"], a[href="/admin/pomoc-psom"]')).toHaveCount(0);
+  await shortcuts.getByRole("link", { name: "Všetky profily" }).click();
+  await expect(page).toHaveURL(/\/admin\/adresar$/);
+  const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
+  if (mobile) {
+    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Navigácia administrácie" })).toBeVisible();
+  }
+  await expect(nav.getByRole("link", { name: "Všetky profily", exact: true })).toHaveAttribute("aria-current", "page");
+  if (mobile) await page.keyboard.press("Escape");
+  if (mobile) await page.locator("[data-admin-quick-nav-trigger]").click();
+  else await page.keyboard.press("Control+k");
+  const palette = page.locator("[data-admin-quick-navigation]");
+  await expect(palette).toBeVisible();
+  const overview = palette.getByRole("option", { name: /Pracovný prehľad/ });
+  await expect(overview).toBeVisible();
+  await page.evaluate(() => {
+    window.addEventListener("psipedia:admin-navigation-intent", event => event.preventDefault(), { once: true });
+  });
+  await overview.click();
+  await expect(page).toHaveURL(/\/admin\/adresar$/);
+  await expect(palette).toBeVisible();
+  await overview.click();
+  await expect(page).toHaveURL(/\/admin\/?$/);
+  await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
+  await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-07-overview-" + (mobile ? "390" : "1440") + ".png", fullPage: true, animations: "disabled" });
+});
+
+
+test("V6-09 mapping diagnosis uses GET only and explains a typed collision at desktop and mobile", async ({ page }, info) => {
+  const width=info.project.name==="mobile-chromium"?390:1440;
+  await page.setViewportSize({width,height:900});
+  let diagnosticRequests=0;
+  let mutations=0;
+  await page.route("**/api/admin/notion-manual-transfer**",async route=>{
+    const url=new URL(route.request().url());
+    if(route.request().method()!=="GET"){
+      mutations++;
+      await route.abort();
+      return;
+    }
+    if(url.pathname.endsWith("/capabilities")){
+      await route.fulfill({json:{executable:false,migrationReady:true,note:"Izolovaný test",areas:[{area:"breeds",label:"Plemená",scopes:[{id:"breeds",label:"Plemená",editable:1,locked:0,fields:[]}]}]}});
+      return;
+    }
+    if(url.searchParams.get("diagnostics")==="1"){
+      diagnosticRequests++;
+      await route.fulfill({json:{readOnly:true,offset:0,hasMore:false,ambiguousSelection:false,checkedAt:"2026-11-24T12:00:00Z",items:[{
+        scope:"breeds",profileId:17,name:"Testovací profil (fixture)",editorHref:"/admin/plemena/17",mappingTable:"breed_notion_workcopy_links",
+        canonicalStatus:"published",category:null,expectedSource:"Plemená — aktívna pracovná kópia",
+        issues:["PAGE_DUPLICATE"],remote:"NOT_CHECKED",relatedMappings:[{kind:"breeds",profileId:17},{kind:"events",profileId:17}],relatedMappingsTruncated:false,
+      }]}});
+      return;
+    }
+    await route.fulfill({json:{runs:[]}});
+  });
+  const response=await page.goto("/admin/nastavenia/notion",{waitUntil:"domcontentloaded"});
+  expect(response?.status()).toBe(200);
+  await page.getByRole("tab",{name:"Manuálny prenos",exact:true}).click();
+  await page.getByLabel("Psipedia ID").fill("17");
+  const panel=page.getByRole("region",{name:"Diagnostika mapovaní iba na čítanie"});
+  await panel.getByRole("button",{name:"Skontrolovať mapovania v D1"}).click();
+  await expect(panel.getByText("Testovací profil (fixture)",{exact:false})).toBeVisible();
+  await expect(panel.getByText("Rovnaká Notion stránka má viac aktívnych väzieb.",{exact:false})).toBeVisible();
+  await expect(panel.getByRole("link",{name:"Otvoriť Admin editor"})).toHaveAttribute("href","/admin/plemena/17");
+  await expect(panel.getByText("breeds #17, events #17",{exact:false})).toBeVisible();
+  expect(diagnosticRequests).toBe(1);
+  expect(mutations).toBe(0);
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
+  await page.screenshot({path:".e2e-artifacts/admin-ia-2/v6-09-mapping-diagnostic-fixture-"+width+".png",fullPage:true,animations:"disabled"});
+});
+
+
+test("V6-08 read-only Notion audit exposes incomplete evidence without claiming success", async ({ page }, info) => {
+  const widths = info.project.name === "mobile-chromium" ? [320, 390] : [1440];
+  const requests: { method: string; payload: unknown }[] = [];
+  await page.route("**/api/admin/notion-data-quality-audit", async (route) => {
+    requests.push({ method: route.request().method(), payload: route.request().postDataJSON() });
+    await route.fulfill({ status: 503, json: {
+      error: "NOTION_AUDIT_UNAVAILABLE", stage: "D1_EVIDENCE", reason: "D1_RESPONSE_INCOMPLETE",
+    } });
+  });
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/nastroje/notion-audit", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const panel = page.getByRole("region", { name: "Bezpečná kontrola synchronizácie" });
+    await panel.getByRole("button", { name: "Spustiť kontrolu prvých 100" }).click();
+    await expect(panel.getByRole("alert")).toContainText("D1 vrátil neúplnú odpoveď.");
+    await expect(panel.getByRole("alert")).toContainText("Žiadne údaje sa nezmenili.");
+    await expect(page.getByRole("heading", { name: /^Výsledky —/ })).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "Spustiť kontrolu prvých 100" })).toBeEnabled();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: ".e2e-artifacts/admin-ia-2/v6-08-notion-audit-incomplete-" + width + ".png", fullPage: true, animations: "disabled" });
+  }
+  expect(requests).toHaveLength(widths.length);
+  for (const request of requests) {
+    expect(request.method).toBe("POST");
+    expect(request.payload).toMatchObject({ agenda: "directory", mode: "dry-run", pass: 1 });
   }
 });

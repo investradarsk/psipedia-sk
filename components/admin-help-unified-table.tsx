@@ -5,6 +5,8 @@ import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminRecordTable, type AdminRecordColumn } from "@/components/admin-record-table";
+import { AdminInlineDraftGuard } from "@/components/admin-inline-draft-guard";
+import { inlineSaveMessage } from "@/lib/admin-inline-save-status";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import {
   AdminActionButton,
@@ -93,10 +95,12 @@ export function AdminHelpUnifiedTable({
   const activeReview = bulkReview?.key === viewKey ? bulkReview : null;
   const canBulkEdit = isHelpAdminCreateCategory(category);
   const canInlineEditShelters = category === "utulky";
+  const canInlineEditOrganizations = canInlineEditShelters || category === "organizacie";
+  const hasDraft = Boolean(shelterDraft || helpDraft || dogDraft);
   const canInlineEditHelp = canBulkEdit;
   const canInlineEditDogs = category === "adopcia" || category === "stratene-a-najdene";
-  const activeShelterDraft = canInlineEditShelters && shelterDraft?.key === viewKey &&
-    visibleIds.has(shelterDraft.id) ? shelterDraft : null;
+  const activeShelterDraft = canInlineEditOrganizations && shelterDraft?.key === viewKey &&
+    rows.some(row => row.id === shelterDraft.id && row.updatedAt === shelterDraft.expectedUpdatedAt) ? shelterDraft : null;
   const activeHelpDraft = canInlineEditHelp && helpDraft?.key === viewKey &&
     rows.some(row => row.id === helpDraft.id && row.updatedAt === helpDraft.updatedAt) ? helpDraft : null;
   const activeDogDraft = canInlineEditDogs && dogDraft?.key === viewKey &&
@@ -114,14 +118,14 @@ export function AdminHelpUnifiedTable({
   const active = categories.find(item => item.slug === activeScope) ?? categories[0];
 
   function changeSelection(ids: number[]) {
-    if (bulkBusy || !canBulkEdit) return;
+    if (hasDraft || bulkBusy || !canBulkEdit) return;
     setSelectionState({ key: viewKey, ids: ids.filter(id => visibleIds.has(id)) });
     setBulkReview(null);
     setMessage("");
   }
 
   function beginShelterEdit(item: HelpDirectoryRow) {
-    if (shelterBusy || !canInlineEditShelters || !item.inline?.editable) return;
+    if (hasDraft || shelterBusy || !canInlineEditOrganizations || !item.inline?.editable) return;
     setBulkReview(null);
     setMessage("");
     setShelterDraft({
@@ -152,31 +156,28 @@ export function AdminHelpUnifiedTable({
         credentials: "same-origin",
         cache: "no-store",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(canInlineEditShelters ? {
           expectedUpdatedAt: draft.expectedUpdatedAt,
-          changes: {
-            name: draft.name,
-            shortDescription: draft.shortDescription,
-            publicEmail: draft.publicEmail,
-            publicPhone: draft.publicPhone,
-            websiteUrl: draft.websiteUrl,
-          },
+          changes: { name: draft.name, shortDescription: draft.shortDescription, publicEmail: draft.publicEmail, publicPhone: draft.publicPhone, websiteUrl: draft.websiteUrl },
+        } : {
+          action: "set-inline-summary", expectedUpdatedAt: draft.expectedUpdatedAt,
+          changes: { name: draft.name, shortDescription: draft.shortDescription },
         }),
       });
-      const data = await response.json() as { error?: string };
+      const data = await response.json() as { error?: string; notionFieldSync?: unknown };
       if (!response.ok) throw new Error(data.error || "Rýchlu úpravu sa nepodarilo uložiť.");
       setShelterDraft(null);
-      setMessage("Zmeny útulku boli uložené. Aktualizujem tabuľku.");
+      setMessage(inlineSaveMessage(data.notionFieldSync));
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Úprava zlyhala. Obnov tabuľku a skús znova.");
+      setMessage("Uloženie nepotvrdené: " + (error instanceof Error ? error.message : "Úprava zlyhala. Obnov tabuľku a skús znova."));
     } finally {
       setShelterBusy(false);
     }
   }
 
   function beginHelpEdit(item: HelpDirectoryRow) {
-    if (!canInlineEditHelp || !item.inlineHelp?.editable || helpBusy) return;
+    if (hasDraft || !canInlineEditHelp || !item.inlineHelp?.editable || helpBusy) return;
     setMessage("");
     setBulkReview(null);
     setHelpDraft({
@@ -203,20 +204,20 @@ export function AdminHelpUnifiedTable({
           changes: { title: draft.title, excerpt: draft.excerpt },
         }),
       });
-      const result = await response.json() as { error?: string };
+      const result = await response.json() as { error?: string; notionFieldSync?: unknown };
       if (!response.ok) throw new Error(result.error || "Rýchlu úpravu sa nepodarilo uložiť.");
       setHelpDraft(null);
-      setMessage("Názov a krátky popis boli uložené.");
+      setMessage(inlineSaveMessage(result.notionFieldSync));
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Úpravu sa nepodarilo uložiť.");
+      setMessage("Uloženie nepotvrdené: " + (error instanceof Error ? error.message : "Úpravu sa nepodarilo uložiť."));
     } finally {
       setHelpBusy(false);
     }
   }
 
   function beginDogEdit(item: HelpDirectoryRow) {
-    if (!canInlineEditDogs || !item.inlineDog?.editable || dogBusy) return;
+    if (hasDraft || !canInlineEditDogs || !item.inlineDog?.editable || dogBusy) return;
     setMessage("");
     setDogDraft({
       key: viewKey, id: item.id, updatedAt: item.updatedAt,
@@ -238,13 +239,13 @@ export function AdminHelpUnifiedTable({
           ? { action: "set-inline-name", name: draft.name, expectedUpdatedAt: draft.updatedAt }
           : { action: "set-inline-dog-name", dogName: draft.name || null, expectedUpdatedAt: draft.updatedAt }),
       });
-      const result = await response.json() as { error?: string };
+      const result = await response.json() as { error?: string; notionFieldSync?: unknown };
       if (!response.ok) throw new Error(result.error || "Meno psa sa nepodarilo uložiť.");
       setDogDraft(null);
-      setMessage("Meno psa bolo uložené v kanonickom profile.");
+      setMessage(inlineSaveMessage(result.notionFieldSync));
       router.refresh();
     } catch(error) {
-      setMessage(error instanceof Error ? error.message : "Rýchlu úpravu sa nepodarilo uložiť.");
+      setMessage("Uloženie nepotvrdené: " + (error instanceof Error ? error.message : "Rýchlu úpravu sa nepodarilo uložiť."));
     } finally { setDogBusy(false); }
   }
 
@@ -254,7 +255,7 @@ export function AdminHelpUnifiedTable({
       sortValue: item => item.title,
       cell: item => activeShelterDraft?.id === item.id
         ? <input
-          className={styles.inlineInput} aria-label={"Názov útulku " + item.title}
+          className={styles.inlineInput} aria-label={"Názov organizácie " + item.title}
           value={activeShelterDraft.name} maxLength={180} required disabled={shelterBusy}
           onChange={event => changeShelterField("name", event.target.value)}
         />
@@ -272,19 +273,19 @@ export function AdminHelpUnifiedTable({
     { id: "detail", label: "Typ / doplnenie", width: canInlineEditShelters ? 140 : 205, sortValue: item => item.detail, cell: item => item.detail || "—" },
     { id: "city", label: "Lokalita", width: canInlineEditShelters ? 130 : 160, sortValue: item => item.city, cell: item => item.city || "—" },
     { id: "status", label: "Stav", width: canInlineEditShelters ? 115 : 150, sortValue: item => item.status, cell: item => item.status },
-    ...(canInlineEditShelters ? [
+    ...(canInlineEditOrganizations ? [
       {
         id: "description", label: "Krátky popis", width: 220,
         sortValue: (item: HelpDirectoryRow) => item.inline?.shortDescription || "",
         cell: (item: HelpDirectoryRow) => activeShelterDraft?.id === item.id
           ? <textarea
-            className={styles.inlineTextarea} aria-label={"Krátky popis útulku " + item.title}
+            className={styles.inlineTextarea} aria-label={"Krátky popis organizácie " + item.title}
             value={activeShelterDraft.shortDescription} maxLength={700} rows={3} disabled={shelterBusy}
             onChange={event => changeShelterField("shortDescription", event.target.value)}
           />
           : <span title={item.inline?.shortDescription}>{item.inline?.shortDescription || "—"}</span>,
       },
-      {
+      ...(canInlineEditShelters ? [{
         id: "contact", label: "Verejný kontakt", width: 245,
         cell: (item: HelpDirectoryRow) => activeShelterDraft?.id === item.id
           ? <div className={styles.inlineContacts}>
@@ -301,7 +302,7 @@ export function AdminHelpUnifiedTable({
           : <span className={styles.inlineContactPreview}>
             {item.inline?.publicEmail || item.inline?.publicPhone || item.inline?.websiteUrl || "—"}
           </span>,
-      },
+      }] : []),
     ] : []),
     ...(canInlineEditHelp ? [{
       id: "helpExcerpt", label: "Krátky popis", width: 255,
@@ -318,25 +319,21 @@ export function AdminHelpUnifiedTable({
       cell: item => item.updatedAt ? new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "short", year: "numeric" }).format(new Date(item.updatedAt)) : "—",
     },
     {
-      id: "actions", label: "Akcia", width: canInlineEditShelters || canInlineEditHelp || canInlineEditDogs ? 180 : 125,
-      cell: item => canInlineEditShelters
-        ? activeShelterDraft?.id === item.id
-          ? <span className={styles.inlineActions}>
-            <button type="button" className={styles.inlineSave} disabled={shelterBusy || !activeShelterDraft.name.trim()}
-              onClick={() => void saveShelterEdit()}>{shelterBusy ? "Ukladám…" : "Uložiť"}</button>
-            <button type="button" className={styles.inlineCancel} disabled={shelterBusy}
-              onClick={() => { setShelterDraft(null); setMessage(""); }}>Zrušiť</button>
-          </span>
-          : <span className={styles.inlineActions}>
-            {item.inline?.editable && <button type="button" className={styles.inlineTrigger} disabled={shelterBusy}
-              onClick={() => beginShelterEdit(item)}>Upraviť v tabuľke</button>}
+      id: "actions", label: "Akcia", width: canInlineEditOrganizations || canInlineEditHelp || canInlineEditDogs ? 180 : 125,
+      cell: item => canInlineEditOrganizations
+        ? <span className={styles.inlineActions}>
+            {item.inline?.editable && <AdminInlineRowActions
+              editing={activeShelterDraft?.id === item.id} busy={shelterBusy}
+              disabled={hasDraft && activeShelterDraft?.id !== item.id || (activeShelterDraft?.id === item.id && !activeShelterDraft.name.trim())}
+              onEdit={() => beginShelterEdit(item)} onSave={() => void saveShelterEdit()}
+              onCancel={() => { if (!shelterBusy) setShelterDraft(null); }} />}
             <Link className={styles.action} href={item.href}>Detail →</Link>
           </span>
         : canInlineEditDogs && item.inlineDog?.editable
           ? <span className={styles.inlineActions}>
             <AdminInlineRowActions
               editing={activeDogDraft?.id === item.id} busy={dogBusy}
-              disabled={Boolean(activeDogDraft && activeDogDraft.id !== item.id) ||
+              disabled={(hasDraft && activeDogDraft?.id !== item.id) ||
                 (activeDogDraft?.id === item.id && activeDogDraft.kind === "adopcia" && !activeDogDraft.name.trim())}
               onEdit={() => beginDogEdit(item)}
               onSave={() => void saveDogEdit()}
@@ -348,7 +345,7 @@ export function AdminHelpUnifiedTable({
           ? <span className={styles.inlineActions}>
               <AdminInlineRowActions
                 editing={activeHelpDraft?.id === item.id} busy={helpBusy}
-                disabled={Boolean(activeHelpDraft && activeHelpDraft.id !== item.id) ||
+                disabled={(hasDraft && activeHelpDraft?.id !== item.id) ||
                   (activeHelpDraft?.id === item.id && !activeHelpDraft.title.trim())}
                 onEdit={() => beginHelpEdit(item)}
                 onSave={() => void saveHelpEdit()}
@@ -361,7 +358,7 @@ export function AdminHelpUnifiedTable({
   ];
 
   async function prepareBulk(targetStatus: BulkStatus) {
-    if (!canBulkEdit || bulkBusy || !selectedIds.length) return;
+    if (hasDraft || !canBulkEdit || bulkBusy || !selectedIds.length) return;
     setBulkBusy(true);
     setBulkReview(null);
     setMessage("");
@@ -394,7 +391,7 @@ export function AdminHelpUnifiedTable({
   }
 
   async function applyBulk() {
-    if (!activeReview || bulkBusy || !canBulkEdit) return;
+    if (hasDraft || !activeReview || bulkBusy || !canBulkEdit) return;
     setBulkBusy(true);
     setMessage("");
     try {
@@ -428,24 +425,15 @@ export function AdminHelpUnifiedTable({
 
   return (
     <section className={styles.workspace} aria-label="Pomoc psom – spoločná tabuľka" data-admin-help-unified-grid>
-      <div className={styles.intro}>
-        <span>Vyber typ pomoci a otvor konkrétny záznam.</span>
-        <Link prefetch={false} className={styles.categoryAction} href={active.href}>Správa a vytvorenie záznamov</Link>
-      </div>
-      <nav className={styles.categories} aria-label="Typ pomoci">
-        {categories.map(item => (
-          <Link key={item.slug} prefetch={false} href={categoryHref(item.slug)} aria-current={item.slug === activeScope ? "page" : undefined}>
-            <span aria-hidden="true">{item.icon}</span> {item.label}
-          </Link>
-        ))}
-      </nav>
+      <AdminInlineDraftGuard active={hasDraft} stale={hasDraft && !activeShelterDraft && !activeHelpDraft && !activeDogDraft} busy={shelterBusy || helpBusy || dogBusy} onCancel={() => { setShelterDraft(null); setHelpDraft(null); setDogDraft(null); }} />
+      <p className={styles.count}>Rýchla úprava vybraných polí. Podrobný zoznam ponúka ďalšie filtre a akcie.</p>
       {filterOptions.length > 0 && <nav className={styles.filters} aria-label="Podkategórie Pomoci psom">
         {filterOptions.map(item => (
           <Link key={item.slug} prefetch={false} href={categoryHref(item.slug)}
             aria-current={item.slug === category ? "page" : undefined}>{item.label}</Link>
         ))}
       </nav>}
-      <form key={category + ":" + query} className={styles.search} method="get">
+      <form key={category + ":" + query} className={styles.search} method="get" role="search" data-admin-list-filters>
         <input type="hidden" name="category" value={category} />
         <label htmlFor="help-unified-query">Hľadať v kategórii</label>
         <input id="help-unified-query" name="q" defaultValue={query} placeholder="Admin ID, meno psa, názov alebo mesto…" maxLength={80} />
@@ -463,12 +451,12 @@ export function AdminHelpUnifiedTable({
               selectionDescription="Iba aktuálna strana a kategória. Pred zmenou server overí aktuálny stav."
               onClear={() => changeSelection([])}
               primaryAction={
-                <AdminActionButton variant="primary" disabled={bulkBusy} onClick={() => void prepareBulk("published")}>
+                <AdminActionButton variant="primary" disabled={hasDraft || bulkBusy} onClick={() => void prepareBulk("published")}>
                   Skontrolovať publikovanie
                 </AdminActionButton>
               }
               destructiveAction={
-                <AdminActionButton variant="destructive" disabled={bulkBusy} onClick={() => void prepareBulk("draft")}>
+                <AdminActionButton variant="destructive" disabled={hasDraft || bulkBusy} onClick={() => void prepareBulk("draft")}>
                   Skontrolovať presun do konceptov
                 </AdminActionButton>
               }
@@ -478,7 +466,7 @@ export function AdminHelpUnifiedTable({
       )}
       {canBulkEdit && selectedIds.length > 0 && <AdminRecordBulkDelete
         kind="help" selectedIds={selectedIds}
-        disabled={bulkBusy || helpBusy || shelterBusy || dogBusy}
+        disabled={hasDraft || bulkBusy || helpBusy || shelterBusy || dogBusy}
         onFinished={ids => {
           changeSelection(selectedIds.filter(id => !ids.includes(id)));
           router.refresh();
@@ -504,16 +492,16 @@ export function AdminHelpUnifiedTable({
         busy={bulkBusy || shelterBusy || helpBusy || dogBusy}
         serverSorted
         stickyActions
-        stretch={canInlineEditShelters || canInlineEditHelp || canInlineEditDogs}
+        stretch={canInlineEditOrganizations || canInlineEditHelp || canInlineEditDogs}
         selection={canBulkEdit ? {
           selectedIds,
-          disabled: bulkBusy,
+          disabled: bulkBusy || hasDraft,
           labelForRow: item => "Označiť " + item.title,
           onChange: changeSelection,
         } : undefined}
         columns={tableColumns}
       /> : <p className={styles.empty}>Pre tento výber nie sú záznamy. Skús vyhľadávať iné slovo alebo zmeniť kategóriu.</p>}
-      {!canBulkEdit && rows.length > 0 && !canInlineEditShelters && !canInlineEditDogs && (
+      {!canBulkEdit && rows.length > 0 && !canInlineEditOrganizations && !canInlineEditDogs && (
         <p className={styles.bulkHint}>Táto kategória má vlastné pravidlá zmien. Hromadné úpravy sa vykonávajú iba v príslušnom module, nie cez spoločnú tabuľku.</p>
       )}
       {pages > 1 && <nav className={styles.pagination} aria-label="Stránkovanie Pomoci psom">

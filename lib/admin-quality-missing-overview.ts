@@ -2,6 +2,8 @@
  * Read-only completeness report for Admin / Kvalita údajov.
  * Exact canonical D1 counts, bounded pages; no Tavily or D1 writes.
  */
+import { qualityResolutionCurrentSql } from "./directory-quality-resolution-sql.ts";
+import type { DirectoryQualityField } from "./directory-profile-metadata.ts";
 import { allDirectoryCategories } from "./directory.ts";
 import { eventTypes } from "./events.ts";
 import { allHelpCategories } from "./help.ts";
@@ -46,7 +48,7 @@ export function overviewCategoryOptions(area:OverviewArea){
 
 export type OverviewFilters={
   area:OverviewArea;category:string;field:OverviewField|"all";
-  q:string;state:"current"|"all";page:number;
+  q:string;state:"current"|"all";page:number; exceptions?: boolean;
 };
 export function parseOverviewFilters(search:Record<string,string|string[]|undefined>):OverviewFilters{
   const first=(key:string)=>typeof search[key]==="string"?(search[key] as string):"";
@@ -57,6 +59,7 @@ export function parseOverviewFilters(search:Record<string,string|string[]|undefi
   return {
     area,category,field,q:first("q").trim().slice(0,100),
     state:first("state")==="all"?"all":"current",
+    exceptions: area === "services" && first("view") === "exceptions",
     page:Number.isSafeInteger(rawPage)&&rawPage>0?Math.min(rawPage,100000):1,
   };
 }
@@ -68,19 +71,20 @@ export function overviewHref(f:OverviewFilters,patch:Partial<OverviewFilters>={}
   if(current.field!=="all")params.set("field",current.field);
   if(current.q)params.set("q",current.q);
   if(current.state==="all")params.set("state","all");
+  if(current.exceptions && current.area === "services") params.set("view","exceptions");
   if(current.page>1)params.set("page",String(current.page));
   return "/admin/kvalita/prehlad?"+params.toString();
 }
 
-type MetricKey = `m_${OverviewField}`;
+type MetricKey = `m_${OverviewField}` | `e_${OverviewField}`;
 type OverviewRow = {
   id:number;kind:QualityResearchKind;name:string;category:string;status:string;city:string;
 } & Record<MetricKey,number>;
 export type OverviewItem={
   id:number;kind:QualityResearchKind;name:string;category:string;status:string;city:string;
-  missing:OverviewField[];editorHref:string;
+  missing:OverviewField[];exceptions:OverviewField[];editorHref:string;
 };
-export type OverviewSummary={totalProfiles:number;incompleteProfiles:number;byField:Record<OverviewField,number>};
+export type OverviewSummary={totalProfiles:number;incompleteProfiles:number;byField:Record<OverviewField,number>; exceptionProfiles:number; exceptionByField:Record<OverviewField,number>};
 export type OverviewResult={
   filters:OverviewFilters;summary:OverviewSummary;visibleCount:number;
   page:number;pages:number;items:OverviewItem[];
@@ -161,7 +165,18 @@ export function overviewSqlSource(f:OverviewFilters,today:string){
       conditions.push(x.active);
       if(x.usesToday)bindings.push(today);
     }
-    const flags=fieldIds.map(k=>"CASE WHEN "+(x.missing[k]??"0")+" THEN 1 ELSE 0 END AS m_"+k).join(", ");
+    const resolutionFields: Partial<Record<OverviewField, DirectoryQualityField>> = {
+      address: "address", image: "image", web: "website", phone: "phone", email: "email",
+    };
+    const flags=fieldIds.flatMap(k=>{
+      const raw = x.missing[k] ?? "0";
+      const field = x.kind === "DIRECTORY" ? resolutionFields[k] : undefined;
+      const exception = field ? qualityResolutionCurrentSql(field) : "0";
+      return [
+        "CASE WHEN ("+raw+") AND NOT ("+exception+") THEN 1 ELSE 0 END AS m_"+k,
+        "CASE WHEN ("+raw+") AND ("+exception+") THEN 1 ELSE 0 END AS e_"+k,
+      ];
+    }).join(", ");
     return "SELECT id, '"+x.kind+"' AS kind, "+x.name+" AS name, "+x.category+
       " AS category, "+x.status+" AS status, "+x.city+" AS city, "+flags+
       " FROM "+x.table+" WHERE "+conditions.map(condition=>"("+condition+")").join(" AND ");
@@ -183,31 +198,36 @@ export async function loadMissingDataOverview(db:ReadDb,filters:OverviewFilters,
   if(filters.category){predicates.push("category=?");bind.push(filters.category);}
   if(filters.q){predicates.push("name LIKE ? COLLATE NOCASE");bind.push("%"+filters.q+"%");}
   const where=predicates.length?" WHERE "+predicates.join(" AND "):"";
-  const columns=fieldIds.map(k=>"COALESCE(SUM(m_"+k+"),0) AS m_"+k).join(",");
+  const columns=fieldIds.map(k=>"COALESCE(SUM(m_"+k+"),0) AS m_"+k).join(",") + "," + fieldIds.map(k=>"COALESCE(SUM(e_"+k+"),0) AS e_"+k).join(",");
   const anyMissing=fieldIds.map(k=>"m_"+k).join("+");
+  const anyException=fieldIds.map(k=>"e_"+k).join("+");
   const aggregate=await db.prepare(source.sql+
     " SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN ("+anyMissing+")>0 THEN 1 ELSE 0 END),0) AS incomplete,"+
-    columns+" FROM profiles"+where).bind(...source.bindings,...bind)
+    "COALESCE(SUM(CASE WHEN ("+anyException+")>0 THEN 1 ELSE 0 END),0) AS exceptions,"+columns+" FROM profiles"+where).bind(...source.bindings,...bind)
     .first<Record<string,number>>();
   const byField=Object.fromEntries(fieldIds.map(k=>[k,Number(aggregate?.["m_"+k]??0)])) as Record<OverviewField,number>;
   const totalProfiles=Number(aggregate?.total??0);
   const incompleteProfiles=Number(aggregate?.incomplete??0);
-  const visibleCount=filters.field==="all"?incompleteProfiles:byField[filters.field];
+  const exceptionByField=Object.fromEntries(fieldIds.map(k=>[k,Number(aggregate?.["e_"+k]??0)])) as Record<OverviewField,number>;
+  const exceptionProfiles=Number(aggregate?.exceptions??0);
+  const exceptions=filters.area==="services" && filters.exceptions;
+  const visibleCount=filters.field==="all"?(exceptions?exceptionProfiles:incompleteProfiles):(exceptions?exceptionByField:byField)[filters.field];
   const pages=Math.max(1,Math.ceil(visibleCount/OVERVIEW_PAGE_SIZE));
   const page=Math.min(filters.page,pages);
   const selectPredicates=[...predicates,
-    filters.field==="all"?"("+anyMissing+")>0":"m_"+filters.field+"=1"];
+    filters.field==="all"?"("+(exceptions?anyException:anyMissing)+")>0":(exceptions?"e_":"m_")+filters.field+"=1"];
   const listWhere=" WHERE "+selectPredicates.join(" AND ");
   const result=visibleCount?await db.prepare(source.sql+
     " SELECT * FROM profiles"+listWhere+" ORDER BY name COLLATE NOCASE,kind,id LIMIT ? OFFSET ?")
     .bind(...source.bindings,...bind,OVERVIEW_PAGE_SIZE,(page-1)*OVERVIEW_PAGE_SIZE)
     .all<OverviewRow>():{results:[] as OverviewRow[]};
   return {
-    filters,summary:{totalProfiles,incompleteProfiles,byField},
+    filters,summary:{totalProfiles,incompleteProfiles,byField,exceptionProfiles,exceptionByField},
     visibleCount,page,pages,
     items:result.results.map(x=>({
       id:x.id,kind:x.kind,name:x.name,category:x.category,status:x.status,city:x.city??"",
       missing:fieldIds.filter(k=>Number(x[("m_"+k) as MetricKey])===1),
+      exceptions:fieldIds.filter(k=>Number(x[("e_"+k) as MetricKey])===1),
       editorHref:editorHref(x.kind,x.id),
     })),
   };

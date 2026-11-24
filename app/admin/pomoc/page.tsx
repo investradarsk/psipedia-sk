@@ -1,6 +1,6 @@
-import Link from "next/link";
+import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
+import { profileWorkspace } from "@/lib/admin-profile-workspace";
 import { Suspense } from "react";
-import { AdminDirectoryModuleNav } from "@/components/admin-directory-module-nav";
 import { AdminHelpDashboard } from "@/components/admin-help-dashboard";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminShell } from "@/components/admin-shell";
@@ -8,7 +8,6 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listReviewedAdminEntityIds } from "@/lib/admin-entity-review-store";
 import { parseHelpAdminFilters } from "@/lib/help-admin-query";
 import { getManagedHelpDashboard } from "@/lib/help-store";
-import styles from "@/components/admin-help-bulk.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -37,12 +36,10 @@ export default async function AdminHelpPage({ searchParams }: { searchParams: Pr
   const selectionKey = [filters.category, filters.status, filters.urgent, filters.state, filters.organization, filters.location, filters.q].join("|");
   return <AdminShell
     user={user}
-    eyebrow="Pomoc psom"
-    title="Prípady a výzvy"
-    description="Spravuj dočasnú opateru, zbierky a dobrovoľnícke výzvy. Adopcie, stratené a nájdené psy aj organizácie nájdeš v samostatných sekciách."
-    actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/pomoc/novy">+ Nová výzva</Link>}
+    {...profileWorkspace("ostatna-pomoc")}
+    actions={<AdminProfileActions active="ostatna-pomoc" />}
   >
-    <AdminDirectoryModuleNav active="help" />
+    <AdminProfileTypeTabs active="ostatna-pomoc" />
     <Suspense fallback={<AdminDataLoading label="Pomoc psom" />}>
       <HelpContent promise={overviewPromise} filters={filters} selectionKey={selectionKey} />
     </Suspense>

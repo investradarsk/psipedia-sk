@@ -1,4 +1,8 @@
 import { env } from "cloudflare:workers";
+import { NOTION_AUTHORITY_GROUPS } from "@/lib/notion-field-authority";
+import { areaOfManualTransferScope, validateManualTransferRequest } from "@/lib/notion-manual-transfer-contract";
+import { readManualMappingDiagnostics, manualRemoteDiagnostic } from "@/lib/notion-manual-transfer-mapping";
+import { inspectManualTransferRecord, type ManualInspectionBindings } from "@/lib/notion-manual-transfer-inspect";
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
   manualTransferSchemaReady,
@@ -28,6 +32,34 @@ export async function GET(request:Request){
   if(!bindings.DB)return json({error:"TRANSFER_DB_UNAVAILABLE"},503);
   try{
     const url=new URL(request.url);
+    if (url.searchParams.get("diagnostics") === "1") {
+      const rawId = url.searchParams.get("profileId");
+      const scope = url.searchParams.get("scope");
+      const selection = rawId === null ? "ALL" : "ONE";
+      if (rawId !== null && !/^[1-9]\d*$/.test(rawId))
+        return json({error:"TRANSFER_PROFILE_ID_INVALID"},400);
+      const query = validateManualTransferRequest({
+        area: url.searchParams.get("area"), direction: "NOTION_TO_ADMIN", selection,
+        ...(scope ? { scope } : {}), ...(rawId === null ? {} : { profileId: Number(rawId) }),
+      }, NOTION_AUTHORITY_GROUPS);
+      const offset = Number(url.searchParams.get("offset") ?? "0");
+      const verify = url.searchParams.get("verify") === "1";
+      if (verify && (selection !== "ONE" || offset !== 0))
+        return json({error:"TRANSFER_DIAGNOSTIC_REQUEST_INVALID"},400);
+      const allowed = new Set(NOTION_AUTHORITY_GROUPS.filter(group => group.active && areaOfManualTransferScope(group.scope) !== null).map(group => group.scope));
+      const report = await readManualMappingDiagnostics(bindings.DB, { ...query, offset }, allowed);
+      if (verify && report.result.length === 1 && !report.hasMore) {
+        const { diagnostic, pageId } = report.result[0];
+        if (diagnostic.issues.length || !diagnostic.profileId || !pageId) diagnostic.remote = "BLOCKED";
+        else try {
+          await inspectManualTransferRecord({ database: bindings.DB, bindings: env as unknown as ManualInspectionBindings,
+            link: {scope: diagnostic.scope, profile_id: diagnostic.profileId, notion_page_id: pageId}, direction: query.direction });
+          diagnostic.remote = "VERIFIED";
+        } catch (error) { diagnostic.remote = manualRemoteDiagnostic(error); }
+      }
+      return json({items: report.result.map(row => row.diagnostic), offset: report.offset, hasMore: report.hasMore,
+        ambiguousSelection: verify && report.result.length > 1, checkedAt: new Date().toISOString(), readOnly: true});
+    }
     const runId=url.searchParams.get("runId");
     if(!runId)return json({runs:await listManualTransferRuns(bindings.DB)});
     const offset=Number(url.searchParams.get("offset")??"0");

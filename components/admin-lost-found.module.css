@@ -580,3 +580,12 @@
   .editorBody .card { padding:.65rem; }
   .editorBody :is(input:not([type="checkbox"]):not([type="file"]),select,textarea) { font-size:16px; }
 }
+
+@media (min-width: 821px) {
+  .gridRowActions :is(a, button), .gridSelection button, .pagination :is(a, span), .tabs a {
+    min-height: var(--admin-ui-control-height, 38px);
+  }
+}
+@media (max-width: 820px) {
+  .mobileCardSelect { min-height: 44px; }
+}

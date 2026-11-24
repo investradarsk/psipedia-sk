@@ -57,9 +57,8 @@ test("SEO quality audit SQL mode reconstructs editorial and SEO without reading 
   assert.doesNotMatch(breeds,/SELECT[\s\S]*?\beditorial_json\s*,\s*seo_json\s*FROM managed_breeds/);
   sql.length = 0;
   await loadPublishedSeoQualityEntities(database, {BREED_SQL_V2_READ_MODE:"off"});
-  const legacy = sql.find(query=>query.includes("FROM managed_breeds"));
-  assert.match(legacy,/editorial_json, seo_json/);
-  assert.doesNotMatch(legacy,/breed_editorial_text/);
+  const stillCanonical = sql.find(query=>query.includes("FROM managed_breeds"));
+  assert.equal(stillCanonical, breeds, "SEO audit never falls back to migrated JSON");
 });
 
 test("breed Admin full-save returns canonical SQL projection inside CAS batch", () => {

@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string | string[] }> };
 
 export default async function EditHelpCasePage({ params, searchParams }: Props) {
-  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/pomoc", "/admin/pomoc-psom"]);
+  const returnHref = adminReturnHref((await searchParams).returnTo, ["/admin/pomoc", "/admin/pomoc-psom", "/admin/kvalita/seo"]);
   const { id } = await params; const numericId = Number.parseInt(id, 10);
   if (!Number.isSafeInteger(numericId) || numericId < 1) notFound();
   const user = await requireAdminPageUser(`/admin/pomoc/${id}`);
@@ -41,7 +41,7 @@ export default async function EditHelpCasePage({ params, searchParams }: Props) 
    actions={<>
     <AdminPartnerReviewStatus entityType="HELP_CASE" entityId={item.id} />
     {item.status === "published" && <Link href={helpCaseHref(item)} target="_blank" rel="noreferrer">Otvoriť verejný záznam ↗</Link>}
-    <Link href={returnHref}>← Späť na pomoc psom</Link>
+    <Link href={returnHref}>{returnHref.startsWith("/admin/kvalita/seo?") ? "← Späť na SEO audit" : "← Späť na pomoc psom"}</Link>
    </>}>
     <Suspense fallback={null}><AdminPartnerCanonicalDraft resourceType="HELP_CASE" canonicalId={item.id} /></Suspense><Suspense fallback={null}><AdminPartnerCanonicalAudit resourceType="HELP_CASE" canonicalId={item.id} /></Suspense><AdminGeminiOriginBadge agenda="help-cases" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminHelpEditor item={item} automationSuggestions={automationSuggestions} returnHref={returnHref} />

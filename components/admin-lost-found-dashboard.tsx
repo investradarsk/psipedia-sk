@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useAdminProfilePageSelection } from "@/components/admin-profile-page-selection";
 import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AdminInlineDraftGuard } from "@/components/admin-inline-draft-guard";
+import { inlineSaveMessage } from "@/lib/admin-inline-save-status";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminNumberedPagination } from "@/components/admin-pagination";
@@ -41,12 +44,12 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; expectedUpdatedAt: string; dogName: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [selected, setSelected] = useState<Set<number>>(new Set());
   const viewKey = JSON.stringify([filters, result.page, result.items.map(item => item.id)]);
+  const [selected, setSelected] = useAdminProfilePageSelection(viewKey, result.items.map((item) => item.id));
   const activeInline = inlineDraft?.key === viewKey && result.items.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.expectedUpdatedAt)
     ? inlineDraft : null;
   function beginInline(item: AdminDogReport) {
-    if (busy || item.status === "ARCHIVED" || item.duplicateOfId !== null) return;
+    if (inlineDraft || busy || item.status === "ARCHIVED" || item.duplicateOfId !== null) return;
     setMessage("");
     setInlineDraft({ id: item.id, key: viewKey, expectedUpdatedAt: item.updatedAt, dogName: item.dogName || "" });
   }
@@ -62,25 +65,26 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
         body: JSON.stringify({ action: "set-inline-dog-name", dogName: draft.dogName || null,
           expectedUpdatedAt: draft.expectedUpdatedAt }),
       });
-      const answer = await response.json() as { error?: string };
+      const answer = await response.json() as { error?: string; notionFieldSync?: unknown };
       if (!response.ok) throw new Error(answer.error || "Meno psa sa nepodarilo uložiť.");
       setInlineDraft(null);
-      setMessage("Meno psa bolo aktualizované.");
+      setMessage(inlineSaveMessage(answer.notionFieldSync));
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Rýchlu úpravu sa nepodarilo uložiť.");
+      setMessage("Uloženie nepotvrdené: " + (error instanceof Error ? error.message : "Rýchlu úpravu sa nepodarilo uložiť."));
     } finally {
       setBusy(false);
     }
   }
   return <>
+    <AdminInlineDraftGuard active={Boolean(inlineDraft)} stale={Boolean(inlineDraft && !activeInline)} busy={busy} onCancel={() => setInlineDraft(null)} />
     <nav className={styles.tabs} aria-label="Stavy hlásení">{tabs.map((tab)=><Link key={tab.key||"all"} data-active={filters.status===tab.key} href={href(filters,1,tab.key)}>{tab.label} <strong>{counts ? tab.count(counts) : "—"}</strong></Link>)}</nav>
-    <form className={styles.filters} method="get" role="search" aria-label="Filtrovať stratené a nájdené psy" data-admin-list-filters data-admin-content-module="lost-found-list"><input name="q" defaultValue={filters.q} aria-label="Fulltext" placeholder="Meno, obec, farba, popis…"/><select name="type" defaultValue={filters.type} aria-label="Typ"><option value="">Všetky hlásenia</option><option value="LOST">Stratené</option><option value="FOUND">Nájdené</option></select><input name="region" defaultValue={filters.region} aria-label="Kraj" placeholder="Kraj"/><input name="locality" defaultValue={filters.locality} aria-label="Okres alebo lokalita" placeholder="Okres / lokalita"/>{filters.status&&<input type="hidden" name="status" value={filters.status}/>}<input type="hidden" name="sort" value={filters.sort || "priority"}/><input type="hidden" name="direction" value={filters.direction || "desc"}/><button type="submit">Filtrovať</button></form>
+    <form className={styles.filters} method="get" role="search" aria-label="Filtrovať stratené a nájdené psy" data-admin-list-filters data-admin-content-module="lost-found-list"><input name="q" defaultValue={filters.q} aria-label="Vyhľadávanie" placeholder="Meno, obec, farba, popis…"/><select name="type" defaultValue={filters.type} aria-label="Typ"><option value="">Všetky hlásenia</option><option value="LOST">Stratené</option><option value="FOUND">Nájdené</option></select><input name="region" defaultValue={filters.region} aria-label="Kraj" placeholder="Kraj"/><input name="locality" defaultValue={filters.locality} aria-label="Okres alebo lokalita" placeholder="Okres / lokalita"/>{filters.status&&<input type="hidden" name="status" value={filters.status}/>}<input type="hidden" name="sort" value={filters.sort || "priority"}/><input type="hidden" name="direction" value={filters.direction || "desc"}/><button type="submit">Filtrovať</button></form>
     {message && <p role="status">{message}</p>}
     {selected.size > 0 && <div className={styles.gridSelection}>
       <strong>Označené: {selected.size}</strong>
       <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
-      <AdminRecordBulkDelete kind="lost-found" selectedIds={[...selected]} disabled={busy}
+      <AdminRecordBulkDelete kind="lost-found" selectedIds={[...selected]} disabled={busy || Boolean(inlineDraft)}
         onFinished={ids => {
           setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
           router.refresh();
@@ -98,11 +102,13 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
           desc: filters.direction !== "asc",
           allowedIds: ["name", "city", "status", "date", "updated"],
           onChange: next => {
+              if (inlineDraft) return;
             if (!["name", "city", "status", "date", "updated"].includes(next.id)) return;
             router.push(href({ ...filters, sort: next.id as Filters["sort"], direction: next.desc ? "desc" : "asc" }, 1));
           },
         }}
         selection={{
+            disabled: Boolean(inlineDraft),
           selectedIds: [...selected],
           labelForRow: report => `Označiť hlásenie ${report.dogName || report.breed || report.id}`,
           onChange: ids => setSelected(new Set(ids)),
@@ -131,7 +137,7 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
           { id: "actions", label: "Akcie", width: 245, cell: report =>
             <div className={styles.gridRowActions}>
               {reviewed
-                ? <AdminReviewCheckbox entityType="LOST_FOUND" entityId={report.id} initialReviewed={reviewed.has(report.id)} compact />
+                ? <AdminReviewCheckbox entityType="LOST_FOUND" entityId={report.id} initialReviewed={reviewed.has(report.id)} disabled={Boolean(inlineDraft)} compact />
                 : <span aria-label="Stav redakčnej kontroly nedostupný">—</span>}
               {report.status !== "ARCHIVED" && report.duplicateOfId === null && <span className={styles.inlineDesktop}>
                 <AdminInlineRowActions editing={activeInline?.id === report.id} busy={busy}
@@ -139,7 +145,7 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
                   onEdit={() => beginInline(report)} onSave={() => void saveInline()}
                   onCancel={() => { if (!busy) setInlineDraft(null); }} />
               </span>}
-              <Link className={styles.edit} href={`/admin/stratene-najdene/${report.id}`}>Upraviť →</Link>
+              <Link className={styles.edit} href={adminDetailHref(`/admin/stratene-najdene/${report.id}`, href(filters, result.page))}>Upraviť →</Link>
             </div> },
         ]}
       />

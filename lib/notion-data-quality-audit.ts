@@ -28,6 +28,11 @@ function field(page: NotionAuditPage, name: string) {
   if (!property) return "";
   if (Array.isArray(property.rich_text)) return plainText(property.rich_text);
   if (Array.isArray(property.title)) return plainText(property.title);
+  if (typeof property.number === "number" && Number.isFinite(property.number)) return String(property.number);
+  if (property.status && typeof property.status === "object") {
+    const name = (property.status as Record<string, unknown>).name;
+    return typeof name === "string" ? name : "";
+  }
   if (property.select && typeof property.select === "object") {
     const name = (property.select as Record<string, unknown>).name;
     return typeof name === "string" ? name : "";
