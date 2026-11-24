@@ -227,6 +227,7 @@ test("article storage keeps legacy compatibility while takeaway and article sour
   const store = readFileSync("lib/article-store.ts", "utf8");
   const detail = readFileSync("components/article-detail.tsx", "utf8");
   const editor = readFileSync("components/admin-article-editor.tsx", "utf8");
+  const continuousEditor = readFileSync("components/admin-article-continuous-editor.tsx", "utf8");
 
   assert.match(store, /parseRichTextDocument\(row\.intro_rich_text_json, row\.intro\)/);
   assert.match(store, /parseRichTextDocument\(row\.takeaway_rich_text_json, row\.takeaway\)/);
@@ -238,9 +239,11 @@ test("article storage keeps legacy compatibility while takeaway and article sour
   assert.match(store, /getEditorialAuthorProfile\(database, existingAuthorProfileId, false\)/);
   assert.doesNotMatch(store, /takeaway\.length\s*</);
   assert.doesNotMatch(store, /Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj/);
-  assert.match(editor, /Odborné zdroje sú nepovinné aj pri zdravotných článkoch/);
+  assert.match(editor, /sources: preservedMetadata\.sources/);
+  assert.doesNotMatch(editor, /sources:\s*\[\]/);
   assert.match(detail, /showTakeaway \? \(\s*<aside className="takeaway-box"/);
-  assert.match(editor, /To najdôležitejšie <small>nepovinné<\/small>/);
+  assert.match(continuousEditor, /Zhrnutie je nepovinné\./);
+  assert.match(editor, /takeawayRichText=\{takeawayRichText\}/);
   assert.doesNotMatch(editor, /id="article-takeaway"[^\n>]*required/);
 });
 
