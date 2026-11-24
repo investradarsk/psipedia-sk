@@ -102,7 +102,7 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
       :scope==="eshops"?"eshop_id"
       :scope.startsWith("directory:")?"m.directory_profile_id":"entity_id";
     sql+=(bind.length?" AND ":" WHERE ")+(byId?idColumn+"=?":"1=1");
-    if(scope==="breeds")sql+=" AND status='ACTIVE' AND work_sync_receipt IS NOT NULL";
+    if(scope==="breeds")sql+=" AND status='ACTIVE' AND NULLIF(TRIM(work_sync_receipt),'') IS NOT NULL";
     if(byId)bind.push(request.profileId);
     // Invalid IDs must not disappear behind the positive keyset cursor.
     const invalid=await db.prepare(sql+" AND ("+idColumn+" IS NULL OR "+idColumn+"<=0 OR typeof("+idColumn+")<>'integer') LIMIT 1")
@@ -116,7 +116,8 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
       const q=await db.prepare(sql+" AND "+idColumn+">? ORDER BY profile_id LIMIT ?")
         .bind(...bind,cursor,pageSize)
         .all<{profile_id:number;notion_page_id:string}>();
-      const rows=q.results??[];
+      if(!q.success||!Array.isArray(q.results))throw Error("TRANSFER_MAPPING_CHECK_UNAVAILABLE");
+      const rows=q.results;
       for(const row of rows){
         if(!Number.isSafeInteger(row.profile_id)||row.profile_id<=0)
           throw new InvalidManualTransferMapping(scope,null,"PROFILE_ID");
@@ -180,7 +181,7 @@ export async function prepareManualTransferRun(input:{
 async function mappingStillLinked(db:D1Database,link:LinkRow):Promise<boolean>{
   let sql:string,bind:unknown[];
   if(link.scope==="breeds"){
-    sql="SELECT work_notion_page_id AS page FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE' AND work_sync_receipt IS NOT NULL";
+    sql="SELECT work_notion_page_id AS page FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE' AND NULLIF(TRIM(work_sync_receipt),'') IS NOT NULL";
     bind=[link.profile_id];
   }else if(link.scope.startsWith("directory:")){
     sql="SELECT m.notion_page_id AS page FROM directory_notion_sync m " +
@@ -583,11 +584,16 @@ export async function readManualTransferRun(
       "WHERE f.item_id=i.id AND f.status IN ('CHANGE','UPDATED','FAILED')))":"");
   const rows=await db.prepare(
     "SELECT i.id,i.scope,i.profile_id,i.status,i.attempts,i.changed_fields,i.failed_fields,"+
-    "i.last_error_code,i.updated_at,COALESCE(d.name,b.name,e.title,'') AS profile_name "+
+    "i.last_error_code,i.updated_at,COALESCE(d.name,b.name,e.title,o.name,a.name,h.title,l.dog_name,s.name,'') AS profile_name "+
     "FROM notion_manual_transfer_items i "+
     "LEFT JOIN directory_profiles d ON i.scope LIKE 'directory:%' AND d.id=i.profile_id "+
     "LEFT JOIN managed_breeds b ON i.scope='breeds' AND b.id=i.profile_id "+
     "LEFT JOIN managed_events e ON i.scope='events' AND e.id=i.profile_id "+
+    "LEFT JOIN help_organizations o ON i.scope='organizations' AND o.id=i.profile_id "+
+    "LEFT JOIN adoption_dogs a ON i.scope='adoptions' AND a.id=i.profile_id "+
+    "LEFT JOIN help_cases h ON i.scope='help-cases' AND h.id=i.profile_id "+
+    "LEFT JOIN lost_found_dog_reports l ON i.scope='lost-found' AND l.id=i.profile_id "+
+    "LEFT JOIN managed_eshops s ON i.scope='eshops' AND s.id=i.profile_id "+
     "WHERE i.run_id=?"+clause+
     " ORDER BY CASE WHEN i.preview_hash IS NOT NULL AND i.changed_fields>0 THEN 0 "+
     "WHEN i.preview_hash IS NOT NULL THEN 1 ELSE 2 END,i.id LIMIT 100 OFFSET ?"

@@ -41,6 +41,6 @@ jobs:
         with:
           node-version: '24'
       - name: Read-only field planning and SQLite journal tests
-        run: node --experimental-strip-types --test tests/notion-manual-transfer-contract.test.mjs tests/notion-manual-transfer-plan.test.mjs tests/notion-breed-manual-transfer-guards.test.mjs tests/breed-long-description.test.mjs tests/breed-fci-section-readback.test.mjs tests/notion-manual-transfer-throughput.test.mjs tests/notion-progressive-manual-transfer.test.mjs
+        run: node --experimental-strip-types --test tests/notion-manual-transfer-contract.test.mjs tests/notion-manual-transfer-plan.test.mjs tests/notion-breed-manual-transfer-guards.test.mjs tests/breed-long-description.test.mjs tests/breed-fci-section-readback.test.mjs tests/notion-manual-transfer-throughput.test.mjs tests/notion-progressive-manual-transfer.test.mjs tests/notion-manual-transfer-mapping.test.mjs tests/directory-reviewed-sync-lock.test.mjs
       - name: GitHub revision evidence
         run: echo "validated_head=$(git rev-parse HEAD)"

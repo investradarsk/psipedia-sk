@@ -38,6 +38,7 @@ const reasonText:Record<string,string>={
   TRANSFER_PROFILE_LOCKED:"Profil je uzamknutý pre Notion synchronizáciu. Prenos nie je povolený.",
   TRANSFER_PROFILE_ARCHIVED:"Profil je archivovaný. Prenos nie je povolený.",
   TRANSFER_CANONICAL_MISSING:"Kanonický profil v D1 chýba.",
+  TRANSFER_CATEGORY_MISMATCH:"Záznam patrí mimo vybranej agendy. Over jeho kategóriu.",
   TRANSFER_MAPPING_CHECK_UNAVAILABLE:"Mapovania sa nepodarilo bezpečne overiť. Prenos sa nespustí.",
   TRANSFER_REMOTE_SOURCE_MISMATCH:"Notion stránka patrí do nesprávnej databázy.",
   TRANSFER_REMOTE_IDENTITY_MISMATCH:"Notion stránka nemá očakávanú identitu Psipedia.",
@@ -369,7 +370,8 @@ function MappingDiagnostics({report,busy,error,disabled,single,onScan}:{
           {item.editorHref?<a href={item.editorHref}>Otvoriť Admin editor →</a>:null}
         </div>
         <div className={styles.itemActions}>
-          <span>{item.mappingTable} · {item.canonicalStatus??"kanonický záznam chýba"}</span>
+          <span>{item.mappingTable} · {item.canonicalStatus??"kanonický záznam chýba"}{item.category?" · "+item.category:""}</span>
+          <span>Očakávaný zdroj: {item.expectedSource}</span>
           <span>{item.issues.length?"Vyžaduje kontrolu / uzamknuté":"Bez zisteného lokálneho problému"}</span>
         </div>
         {item.issues.length?<ul>{item.issues.map(issue=><li key={issue}>{mappingAdvice[issue]}</li>)}</ul>:null}

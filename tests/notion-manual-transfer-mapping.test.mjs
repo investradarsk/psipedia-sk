@@ -94,6 +94,12 @@ test("missing, malformed, stale and locked mappings are distinguished without an
     sqlite.prepare("INSERT INTO breed_notion_workcopy_links VALUES(?,?,?,?)").run(1,PAGE,"SHADOW",null);
     const breed=await readManualMappingDiagnostics(db,{area:"breeds",offset:0},allowed);
     assert.deepEqual(breed.result[0].diagnostic.issues,["MAPPING_INACTIVE"]);
+    sqlite.exec("INSERT INTO help_cases VALUES(7,'Legacy adoption','adopcia','published');");
+    sqlite.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?)").run("help-cases",7,OTHER);
+    const legacy=await readManualMappingDiagnostics(db,{area:"help",scope:"help-cases",profileId:7,offset:0},allowed);
+    assert.ok(legacy.result[0].diagnostic.issues.includes("CATEGORY_UNSUPPORTED"));
+    assert.equal(legacy.result[0].diagnostic.editorHref,null);
+    assert.equal(legacy.result[0].diagnostic.category,"adopcia");
   }finally{sqlite.close();}
 });
 

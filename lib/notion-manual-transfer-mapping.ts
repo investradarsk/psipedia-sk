@@ -1,5 +1,6 @@
 import { areaOfManualTransferScope, type NotionManualTransferArea } from "./notion-manual-transfer-contract.ts";
-import { readDirectoryReviewLock, directoryReviewLockedFromProjection } from "./directory-reviewed-sync-lock.ts";
+import { helpAdminDomainSql, isHelpAdminDedicatedCategory } from "./help-admin-query.ts";
+import { readDirectoryReviewLock, readDirectoryReviewLocks, directoryReviewLockedFromProjection } from "./directory-reviewed-sync-lock.ts";
 
 /** Static SQL registry; no caller-supplied table/column names. */
 const specs = [
@@ -79,7 +80,7 @@ export type ManualMappingIssue = "MAPPING_MISSING" | "PROFILE_ID_INVALID" | "PAG
 
 export type ManualMappingDiagnostic = {
   scope: string; profileId: number | null; name: string; editorHref: string | null;
-  mappingTable: string; canonicalStatus: string | null; issues: ManualMappingIssue[];
+  mappingTable: string; canonicalStatus: string | null; category: string | null; expectedSource: string; issues: ManualMappingIssue[];
   remote: "NOT_CHECKED" | "VERIFIED" | "BLOCKED" | "UNAVAILABLE" | "IDENTITY_MISMATCH" |
     "SOURCE_MISMATCH" | "PAGE_ARCHIVED" | "PAGE_INACCESSIBLE";
 };
@@ -87,22 +88,33 @@ export type ManualMappingDiagnostic = {
 type DiagnosticRow = {
   kind: string; scope: string; profile_id: number | null; name: string | null;
   canonical_status: string | null; canonical_exists: number; mapping_exists: number;
+  category: string | null; domain_allowed: number;
   page_id: string | null; eligible: number | null; identity_count: number; page_count: number;
 };
 
+function expectedSource(kind: string) {
+  const labels: Record<string,string> = {
+    breeds: "Plemená — aktívna pracovná kópia", directory: "Adresár", events: "Podujatia",
+    eshops: "E-shopy", organizations: "Organizácie", adoptions: "Adopcie",
+    "help-cases": "Pomoc psom — prípady", "lost-found": "Stratené a nájdené",
+  };
+  return labels[kind] ?? "Neznámy zdroj";
+}
+
 function canonicalSelect(spec: Spec) {
   const scope = spec.kind === "directory" ? "'directory:' || p.category" : "'" + spec.kind + "'";
-  const domain = spec.kind === "help-cases"
-    ? " WHERE p.category NOT IN ('adopcia','utulky','stratene-a-najdene')" : "";
+  const category = spec.kind === "directory" || spec.kind === "help-cases" ? "p.category" : "NULL";
+  const domain = spec.kind === "help-cases" ? "CASE WHEN " + helpAdminDomainSql("p.category") + " THEN 1 ELSE 0 END" : "1";
   return "SELECT '" + spec.kind + "' AS kind," + scope + " AS scope,p.id AS profile_id,p." +
-    spec.name + " AS name,p.status AS canonical_status FROM " + spec.table + " p" + domain;
+    spec.name + " AS name,p.status AS canonical_status," + category + " AS category," +
+    domain + " AS domain_allowed FROM " + spec.table + " p";
 }
 
 export function classifyManualMapping(row: DiagnosticRow, allowedScopes: ReadonlySet<string>): ManualMappingIssue[] {
   const issues: ManualMappingIssue[] = [];
   if (!eligibleId(row.profile_id)) issues.push("PROFILE_ID_INVALID");
   if (!row.canonical_exists) issues.push("CANONICAL_MISSING");
-  if (row.canonical_exists && !allowedScopes.has(row.scope)) issues.push("CATEGORY_UNSUPPORTED");
+  if (row.canonical_exists && (!allowedScopes.has(row.scope) || !row.domain_allowed)) issues.push("CATEGORY_UNSUPPORTED");
   if (!row.mapping_exists) issues.push("MAPPING_MISSING");
   else {
     if (row.page_id === null || (typeof row.page_id === "string" && !row.page_id.trim())) issues.push("PAGE_ID_MISSING");
@@ -133,10 +145,10 @@ export async function readManualMappingDiagnostics(
   const canonical = selected.map(canonicalSelect).join(" UNION ALL ");
   const kindList = selected.map(spec => "'" + spec.kind + "'").join(",");
   const sql = mappingCte + ", canonical AS (" + canonical + "), rows AS (" +
-    " SELECT c.kind,c.scope,c.profile_id,c.name,c.canonical_status,1 AS canonical_exists," +
+    " SELECT c.kind,c.scope,c.profile_id,c.name,c.canonical_status,c.category,c.domain_allowed,1 AS canonical_exists," +
     " CASE WHEN m.kind IS NULL THEN 0 ELSE 1 END AS mapping_exists,m.page_id,m.eligible" +
     " FROM canonical c LEFT JOIN mapped m ON m.kind=c.kind AND m.profile_id=c.profile_id" +
-    " UNION ALL SELECT m.kind,m.kind,m.profile_id,NULL,NULL,0,1,m.page_id,m.eligible" +
+    " UNION ALL SELECT m.kind,m.kind,m.profile_id,NULL,NULL,NULL,0,0,1,m.page_id,m.eligible" +
     " FROM mapped m WHERE m.kind IN (" + kindList + ") AND NOT EXISTS" +
     " (SELECT 1 FROM canonical c WHERE c.kind=m.kind AND c.profile_id=m.profile_id)" +
     "), identities AS (SELECT kind,profile_id,COUNT(*) AS n FROM mapped WHERE eligible=1 GROUP BY kind,profile_id)," +
@@ -144,7 +156,7 @@ export async function readManualMappingDiagnostics(
     " SELECT r.*,COALESCE(i.n,0) AS identity_count,COALESCE(p.n,0) AS page_count" +
     " FROM rows r LEFT JOIN identities i ON i.kind=r.kind AND i.profile_id=r.profile_id" +
     " LEFT JOIN pages p ON p.page_key=lower(replace(r.page_id,'-',''))" +
-    " WHERE (? IS NULL OR r.scope=?) AND (? IS NULL OR r.profile_id=?)" +
+    " WHERE (r.domain_allowed=1 OR r.mapping_exists=1) AND (? IS NULL OR r.scope=?) AND (? IS NULL OR r.profile_id=?)" +
     " ORDER BY r.kind,r.profile_id,r.page_id LIMIT ? OFFSET ?";
   const response = await db.prepare(sql).bind(
     input.scope ?? null,input.scope ?? null,input.profileId ?? null,input.profileId ?? null,
@@ -152,11 +164,13 @@ export async function readManualMappingDiagnostics(
   ).all<DiagnosticRow>();
   if (!response.success || !Array.isArray(response.results)) throw Error("TRANSFER_MAPPING_CHECK_UNAVAILABLE");
   const rows = response.results.slice(0, MANUAL_MAPPING_DIAGNOSTIC_LIMIT);
-  const result = await Promise.all(rows.map(async row => {
+  const directoryIds=rows.filter(row=>row.kind==="directory"&&row.canonical_exists&&eligibleId(row.profile_id)).map(row=>row.profile_id!);
+  const locks=await readDirectoryReviewLocks(db,directoryIds).catch(()=>null);
+  const result = rows.map(row => {
     const issues = classifyManualMapping(row, allowedScopes);
     if (row.kind === "directory" && row.canonical_exists && eligibleId(row.profile_id)) {
       try {
-        const lock = await readDirectoryReviewLock(db, row.profile_id);
+        const lock = locks?.get(row.profile_id);
         if (!lock) issues.push("LOCK_CHECK_UNAVAILABLE");
         else {
           if (lock.sql_reviewed_at?.trim()) issues.push("PROFILE_REVIEWED");
@@ -174,14 +188,16 @@ export async function readManualMappingDiagnostics(
       scope: row.scope,
       profileId: eligibleId(row.profile_id) ? row.profile_id : null,
       name: row.name ?? "",
-      editorHref: row.canonical_exists ? manualMappingEditorHref(row.scope, row.profile_id) : null,
+      editorHref: row.canonical_exists && row.domain_allowed ? manualMappingEditorHref(row.scope, row.profile_id) : null,
       mappingTable: specFor(row.kind)!.mapping,
       canonicalStatus: row.canonical_status,
+      category: row.category,
+      expectedSource: expectedSource(row.kind),
       issues,
       remote: "NOT_CHECKED",
     };
     return { diagnostic, pageId: row.page_id };
-  }));
+  });
   return { result, offset: input.offset, hasMore: response.results.length > MANUAL_MAPPING_DIAGNOSTIC_LIMIT };
 }
 
@@ -192,9 +208,14 @@ export async function assertManualMappingEligible(db: D1Database, link: MappingL
     throw Error("TRANSFER_MAPPING_INVALID");
   const spec = specFor(link.scope);
   if (!spec) throw Error("TRANSFER_SCOPE_UNSUPPORTED");
-  const row = await db.prepare("SELECT status FROM " + spec.table + " WHERE id=?")
-    .bind(link.profile_id).first<{status: string}>();
+  const category = spec.kind === "directory" || spec.kind === "help-cases" ? ",category" : "";
+  const row = await db.prepare("SELECT status" + category + " FROM " + spec.table + " WHERE id=?")
+    .bind(link.profile_id).first<{status: string;category?:string}>();
   if (!row) throw Error("TRANSFER_CANONICAL_MISSING");
+  if (spec.kind === "directory" && "directory:" + row.category !== link.scope)
+    throw Error("TRANSFER_CATEGORY_MISMATCH");
+  if (spec.kind === "help-cases" && (!row.category || isHelpAdminDedicatedCategory(row.category)))
+    throw Error("TRANSFER_CATEGORY_MISMATCH");
   if (row.status.toLowerCase() === "archived") throw Error("TRANSFER_PROFILE_ARCHIVED");
   if (spec.kind === "directory" &&
     directoryReviewLockedFromProjection(await readDirectoryReviewLock(db,link.profile_id)))
@@ -204,6 +225,7 @@ export async function assertManualMappingEligible(db: D1Database, link: MappingL
 
 export function manualRemoteDiagnostic(error: unknown): ManualMappingDiagnostic["remote"] {
   const code = error instanceof Error ? error.message : "";
+  if (code === "TRANSFER_CATEGORY_MISMATCH") return "IDENTITY_MISMATCH";
   if (code === "TRANSFER_REMOTE_SOURCE_MISMATCH") return "SOURCE_MISMATCH";
   if (code === "TRANSFER_REMOTE_PAGE_ARCHIVED") return "PAGE_ARCHIVED";
   if (/^Notion API (?:403|404):/.test(code)) return "PAGE_INACCESSIBLE";

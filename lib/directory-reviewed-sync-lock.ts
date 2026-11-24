@@ -37,8 +37,8 @@ export function isDirectoryReviewedSourceLocked(sourceJson: string): boolean {
  * One indexed, read-only D1 statement. SQL review, partner membership and
  * pending deletion are checked in one database snapshot, without JSON reads.
  */
-export const DIRECTORY_REVIEW_LOCK_SQL = [
-  "SELECT p.status,",
+const DIRECTORY_REVIEW_LOCK_COLUMNS = [
+  "p.status,",
   "s.reviewed_at AS sql_reviewed_at,s.unlock_pending AS sql_unlock_pending,",
   "EXISTS (SELECT 1 FROM partner_resources r",
   "JOIN partner_memberships m ON m.resource_id=r.id",
@@ -46,10 +46,9 @@ export const DIRECTORY_REVIEW_LOCK_SQL = [
   "AND m.revoked_at IS NULL) AS partner_active,",
   "EXISTS (SELECT 1 FROM admin_record_tombstones t",
   "WHERE t.kind='directory' AND t.record_id=p.id) AS deletion_pending",
-  "FROM directory_profiles p",
-  "LEFT JOIN directory_profile_review_state s ON s.profile_id=p.id",
-  "WHERE p.id=?1 LIMIT 1",
 ].join(" ");
+const DIRECTORY_REVIEW_LOCK_FROM = "FROM directory_profiles p LEFT JOIN directory_profile_review_state s ON s.profile_id=p.id";
+export const DIRECTORY_REVIEW_LOCK_SQL = "SELECT " + DIRECTORY_REVIEW_LOCK_COLUMNS + " " + DIRECTORY_REVIEW_LOCK_FROM + " WHERE p.id=?1 LIMIT 1";
 
 type DirectoryReviewLockRow = {
   status: string;
@@ -77,6 +76,20 @@ export async function readDirectoryReviewLock(database: D1Database, profileId: n
   }
   return database.prepare(DIRECTORY_REVIEW_LOCK_SQL)
     .bind(profileId).first<DirectoryReviewLockRow>();
+}
+
+/** Batched read-only projection for bounded diagnostic pages, same lock policy. */
+export async function readDirectoryReviewLocks(database: D1Database, ids: readonly number[]) {
+  const unique = [...new Set(ids)];
+  if (unique.length > 50 || unique.some(id => !Number.isSafeInteger(id) || id <= 0))
+    throw Error("DIRECTORY_REVIEW_LOCK_INVALID_ID");
+  if (!unique.length) return new Map<number, DirectoryReviewLockRow>();
+  const sql = "SELECT p.id AS profile_id," + DIRECTORY_REVIEW_LOCK_COLUMNS + " " +
+    DIRECTORY_REVIEW_LOCK_FROM + " WHERE p.id IN (" + unique.map(() => "?").join(",") + ")";
+  const rows = await database.prepare(sql).bind(...unique).all<DirectoryReviewLockRow & {profile_id: number}>();
+  if (!rows.success || !Array.isArray(rows.results) || new Set(rows.results.map(row => row.profile_id)).size !== rows.results.length)
+    throw Error("DIRECTORY_REVIEW_LOCK_UNAVAILABLE");
+  return new Map(rows.results.map(row => [row.profile_id,row]));
 }
 
 export async function directoryProfileNotionSyncLocked(
