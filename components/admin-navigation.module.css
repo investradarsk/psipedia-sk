@@ -450,3 +450,16 @@
     animation: admin-nav-pending-fade 150ms 120ms forwards;
   }
 }
+
+/* Overview is a real link off the home route, including before hydration. Match group-button styling. */
+.desktopGroup > a.groupButton {
+  box-sizing: border-box;
+  color: #e1eee5;
+  font-size: .82rem;
+  font-weight: 760;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  text-decoration: none;
+}
+.desktopGroup > a.groupButton:hover { color: #fff; background: rgba(255,255,255,.1); }

@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { flushSync } from "react-dom";
 import { useMemo,useState } from "react";
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { PartnerGalleryField } from "@/components/partner-gallery-field";
@@ -173,10 +174,12 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
       if(action==="SUBMIT"){
         if(submitted)throw new Error("Tento koncept už bol odoslaný.");
         await send("/api/partner/canonical-drafts/"+encodeURIComponent(draftId),{action:"SUBMIT",confirmDuplicate});
-        setStatus("SUBMITTED");
-        // Navigation loads the destination afresh. Refreshing the old route
-        // immediately after push can cancel this transition (vinext/Next).
-        router.push("/partner/ziadosti");
+        flushSync(() => {
+          setBaseline(jsonSnapshot(values, coverId, galleryIds, galleryUrls, additionalCategories));
+          setStatus("SUBMITTED");
+        });
+        // Load the request list from the server after the submission is committed.
+        window.location.assign("/partner/ziadosti");
         return;
       }
       setSuccess("Všetky zadané polia aj fotografie boli uložené do súkromného konceptu.");
@@ -298,7 +301,7 @@ export function PartnerCanonicalDraftForm({categories,definitions,initial,initia
       </section>}
       <div className="partner-profile-edit-submit partner-canonical-actions">
         <div><strong>{dirty?"Máte neuložené zmeny.":"Všetky uložené údaje zostávajú súkromné."}</strong>
-          <p>Po odoslaní môžete koncept dopĺňať, kým o ňom administrátor nerozhodne.</p></div>
+          {editable && <p>Po odoslaní môžete návrh upraviť, ak ho redakcia vráti na doplnenie.</p>}</div>
         <div className="partner-canonical-buttons">
           <button type="submit" className="button" disabled={!editable||busy}>{busy?"Ukladám…":"Uložiť koncept"}</button>
           {!submitted&&<button type="button" className="button button--dark" disabled={!editable||busy}

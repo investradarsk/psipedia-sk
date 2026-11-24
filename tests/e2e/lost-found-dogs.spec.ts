@@ -97,6 +97,20 @@ for (const entry of cases) {
     }
   });
 
+  test(`${entry.listPath}: redirects stale pages while keeping the selected region`, async ({
+    page,
+  }) => {
+    await page.goto(`${entry.listPath}?region=Nitriansky%20kraj&page=99`);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === entry.listPath &&
+        url.searchParams.get("region") === "Nitriansky kraj" &&
+        !url.searchParams.has("page") &&
+        url.hash === "#lost-found-results",
+    );
+    await expect(page.locator("[data-dog-report-card]").first()).toBeVisible();
+  });
+
   test(`${entry.detailPath}: renders public detail without private PII and passes accessibility`, async ({
     page,
   }, testInfo) => {

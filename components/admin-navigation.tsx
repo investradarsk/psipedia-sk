@@ -2,7 +2,7 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   adminNavigationGroups,
   findActiveAdminNavigationItem,
@@ -55,8 +55,15 @@ function useAdminIntentPrefetch() {
   };
 }
 
+/** The Admin home is streamed and uncached. A fresh document avoids reusing a stalled authenticated RSC transition. */
+function handleAdminOverviewLink(event: MouseEvent<HTMLAnchorElement>) {
+  if (event.defaultPrevented || event.button !== 0 ||
+    event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  dispatchAdminOverviewNavigation(() => window.location.assign("/admin"));
+}
+
 function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
-  const router = useRouter();
   const pathname = usePathname();
   const prefetchOnIntent = useAdminIntentPrefetch();
   const active = findActiveAdminNavigationItem(pathname);
@@ -64,10 +71,6 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<{ pathname: string; group: string } | null>(null);
   const selectedGroup = expandedDesktopGroup?.pathname === pathname ? expandedDesktopGroup.group : null;
   const groupGlyphs = ["⌂", "▤", "♧", "⚙", "◎", "◇", "⚙"];
-
-  function navigateToOverview() {
-    dispatchAdminOverviewNavigation(() => router.push("/admin"));
-  }
 
   return (
     <>
@@ -80,21 +83,23 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
         <div className={mobile ? styles.mobileGroup : styles.desktopGroup} key={group.label} data-admin-nav-group={group.label}>
           {mobile ? (
             <span>{group.label}</span>
+          ) : navigatesToOverview ? (
+            // A real href works even before hydration; the client handler keeps
+            // dirty-editor confirmation and avoids stalled cached RSC transitions.
+            <Link href="/admin" prefetch={false} className={styles.groupButton}
+              aria-label="Prejsť na pracovný prehľad" onClick={handleAdminOverviewLink}>
+              <span className={styles.groupGlyph} aria-hidden="true">{groupGlyphs[groupIndex]}</span>
+              <span>{group.label}</span>
+              <span className={styles.groupChevron} aria-hidden="true">→</span>
+            </Link>
           ) : (
             <button
               type="button"
               className={styles.groupButton}
-              aria-expanded={navigatesToOverview ? undefined : expanded}
-              aria-controls={navigatesToOverview ? undefined : `admin-group-${groupIndex}`}
-              aria-label={navigatesToOverview ? "Prejsť na pracovný prehľad" : undefined}
+              aria-expanded={expanded}
+              aria-controls={`admin-group-${groupIndex}`}
               data-active={groupActive ? "true" : undefined}
-              onClick={() => {
-                if (navigatesToOverview) {
-                  navigateToOverview();
-                  return;
-                }
-                setExpandedDesktopGroup({ pathname, group: expanded ? "" : group.label });
-              }}
+              onClick={() => setExpandedDesktopGroup({ pathname, group: expanded ? "" : group.label })}
             >
               <span className={styles.groupGlyph} aria-hidden="true">{groupGlyphs[groupIndex]}</span>
               <span>{group.label}</span>
@@ -108,6 +113,7 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
                 <Link
                   href={item.href}
                   prefetch={false}
+                  onClick={item.href === "/admin" ? handleAdminOverviewLink : undefined}
                   onMouseEnter={() => prefetchOnIntent(item.href)}
                   onFocus={() => prefetchOnIntent(item.href)}
                   key={item.href}
@@ -321,6 +327,7 @@ export function AdminBreadcrumbs() {
               : <Link
                   href={item.href}
                   prefetch={false}
+                  onClick={item.href === "/admin" ? handleAdminOverviewLink : undefined}
                   onMouseEnter={() => prefetchOnIntent(item.href)}
                   onFocus={() => prefetchOnIntent(item.href)}
                 >{item.label}</Link>}

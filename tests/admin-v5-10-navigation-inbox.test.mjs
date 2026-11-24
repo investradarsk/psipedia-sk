@@ -18,13 +18,14 @@ const NOW = new Date("2026-11-24T08:00:00.000Z");
 
 test("V5-10: seven compact work areas preserve canonical and historic destinations", () => {
   assert.deepEqual(adminNavigationGroups.map(group => group.label), [
-    "Prehľad", "Redakcia", "Adresár", "Pomoc psom", "Partneri",
+    "Prehľad", "Redakcia", "Profily", "Partneri",
     "Kvalita a automatizácie", "Systém",
   ]);
   const groupFor = href => adminNavigationGroups.find(group => group.items.some(item => item.href === href))?.label;
   assert.equal(groupFor("/admin/podujatia"), "Redakcia");
   assert.equal(groupFor("/admin/facebook-obrazky"), "Redakcia");
-  assert.equal(groupFor("/admin/adresar"), "Adresár");
+  assert.equal(groupFor("/admin/adresar"), "Profily");
+  assert.equal(groupFor("/admin/pomoc-psom"), "Profily");
   assert.equal(groupFor("/admin/podania"), "Partneri");
   assert.equal(groupFor("/admin/mapy"), "Systém");
   assert.equal(groupFor("/admin/nastroje"), "Systém");

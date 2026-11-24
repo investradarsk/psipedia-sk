@@ -1,6 +1,6 @@
-import type { AdminSeoQualityItem } from "./admin-seo-quality-rules";
+import { isSeoMetadataFinding, type AdminSeoQualityItem } from "./admin-seo-quality-rules";
 
-type FindingFilter = { scope: "all" | "quality" | "custom"; issue: string };
+type FindingFilter = { scope: "all" | "quality" | "custom" | "metadata"; issue: string };
 
 export function selectAdminSeoQualityPage(
   filtered: ReadonlyArray<AdminSeoQualityItem>,
@@ -11,6 +11,7 @@ export function selectAdminSeoQualityPage(
   const matchesVisibleFinding = (finding: AdminSeoQualityItem["findings"][number]) => {
     if (filters.scope === "quality" && finding.scope === "custom") return false;
     if (filters.scope === "custom" && finding.scope !== "custom") return false;
+    if (filters.scope === "metadata" && !isSeoMetadataFinding(finding)) return false;
     if (filters.issue !== "all" && finding.code !== filters.issue) return false;
     return true;
   };

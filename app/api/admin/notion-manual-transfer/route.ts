@@ -8,6 +8,7 @@ import {
   confirmManualTransferRun,
   confirmManualTransferItem,
   retryManualTransferFailed,
+  InvalidManualTransferMapping,
 } from "@/lib/notion-manual-transfer-queue";
 
 export const dynamic="force-dynamic";
@@ -87,5 +88,11 @@ export async function POST(request:Request){
       return json(await retryManualTransferFailed(bindings.DB,runId,actor),202);
     }
     return json({error:"TRANSFER_ACTION_INVALID"},400);
-  }catch(error){return json({error:code(error)},409)}
+  }catch(error){
+    // No raw Notion ID, email, field value or provider response leaves this endpoint.
+    if(error instanceof InvalidManualTransferMapping)
+      return json({error:code(error),scope:error.scope,profileId:error.profileId,
+        invalidPart:error.invalidPart},409);
+    return json({error:code(error)},409);
+  }
 }

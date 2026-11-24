@@ -23,8 +23,7 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
   assert.deepEqual(adminNavigationGroups.map((group) => group.label), [
     "Prehľad",
     "Redakcia",
-    "Adresár",
-    "Pomoc psom",
+    "Profily",
     "Partneri",
     "Kvalita a automatizácie",
     "Systém",
@@ -147,8 +146,8 @@ test("sidebar links are mounted only for expanded groups and prefetched only on 
   assert.match(navigation, /router\.prefetch\(href\)/);
   assert.match(navigation, /prefetched\.current\.clear\(\)/);
   assert.doesNotMatch(navigation, /router\.prefetch\(href,\s*\{\s*onInvalidate/);
-  assert.match(navigation, /aria-expanded=\{navigatesToOverview \? undefined : expanded\}/);
-  assert.match(navigation, /aria-label=\{navigatesToOverview \? "Prejsť na pracovný prehľad" : undefined\}/);
+  assert.match(navigation, /aria-expanded=\{expanded\}/);
+  assert.match(navigation, /aria-label="Prejsť na pracovný prehľad" onClick=\{handleAdminOverviewLink\}/);
   assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
   assert.match(shell, /<AdminNavigation/);
   assert.match(navigation, /<NavigationGroups mobile \/>/);
