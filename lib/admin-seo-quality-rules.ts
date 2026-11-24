@@ -46,6 +46,21 @@ export const adminSeoIssueDefinitions = [
 
 export type AdminSeoIssueCode = (typeof adminSeoIssueDefinitions)[number]["code"];
 
+/** Metadata checks remain meaningful for generated metadata on profiles without editable custom SEO. */
+const seoMetadataCodes: ReadonlySet<AdminSeoIssueCode> = new Set([
+  "custom-title-missing", "custom-description-missing",
+  "result-title-weak", "result-description-weak",
+  "image-missing", "image-alt-missing",
+  "noindex-explicit", "canonical-nonstandard", "slug-missing",
+]);
+export function isSeoMetadataFinding(finding: AdminSeoQualityFinding) {
+  return seoMetadataCodes.has(finding.code);
+}
+export function isSeoProfileAgenda(agenda: AdminSeoAgenda) {
+  return agenda !== "articles" && agenda !== "events";
+}
+
+
 export type AdminSeoQualityEntity = {
   agenda: AdminSeoAgenda;
   id: number;
@@ -90,8 +105,8 @@ export type AdminSeoQualityItem = {
 };
 
 export type AdminSeoQualityFilters = {
-  agenda?: AdminSeoAgenda | "all";
-  scope?: "all" | "quality" | "custom";
+  agenda?: AdminSeoAgenda | "all" | "profiles";
+  scope?: "all" | "quality" | "custom" | "metadata";
   issue?: AdminSeoIssueCode | "all";
   query?: string;
   page?: number;
@@ -100,6 +115,9 @@ export type AdminSeoQualityFilters = {
 export type AdminSeoQualityReport = {
   generatedAt: string;
   entityCount: number;
+  filteredEntityCount: number;
+  filteredCustomGapEntities: number;
+  filteredIssueCounts: Record<AdminSeoIssueCode, number>;
   itemsWithAnyFinding: number;
   entitiesWithQualityFindings: number;
   entitiesWithCustomGaps: number;
