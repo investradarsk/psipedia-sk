@@ -86,7 +86,7 @@ function ReviewFeedCard({ review }: { review: PublicProfileReviewFeedItem }) {
       </header>
       <p>{reviewExcerpt(review.body)}</p>
       <footer>
-        <span>{review.displayName}</span>
+        <span>{review.displayName}{review.guestUnverified ? " · bez e-mailového overenia" : ""}</span>
         {date ? <time dateTime={review.publishedAt}>{date}</time> : null}
         <Link href={`${review.targetHref}#recenzie`}>
           Celá recenzia <ArrowIcon size={16} />
@@ -281,8 +281,8 @@ export async function ReviewsHub({
             <PageContainer>
               <PublicLandingSectionHeading
                 eyebrow="Skúsenosti používateľov"
-                title="Najnovšie recenzie služieb"
-                description="Ide o publikované recenzie priamo z profilov Psipedia. Hodnotenie služby zostáva naviazané na konkrétny profil a jeho vlastný priemer."
+                title={view === "all" ? "Najnovšie recenzie služieb" : "Hodnotenia služieb pre psov"}
+                description="Vyberte kategóriu a porovnajte skúsenosti používateľov. Do priemeru sa započítavajú iba zverejnené recenzie Psipedia."
               />
               {view === "all" ? (profileReviews.length ? (
                 <div className={styles.reviewGrid}>
