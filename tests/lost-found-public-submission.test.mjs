@@ -176,7 +176,8 @@ test("lost/found report route keeps shared header CSS and help overview exposes 
   const overview = readFileSync(new URL("../components/help-overview.tsx", import.meta.url), "utf8");
 
   assert.match(page, /redirect\(target\)/);
-  assert.match(page, /druh=/);
+  assert.match(page, /kind === "LOST" \? "\/partner\/koncepty\/novy\/strateny"/);
+  assert.match(page, /kind === "FOUND" \? "\/partner\/koncepty\/novy\/najdeny"/);
   const banner = readFileSync(new URL("../components/public-visual-system/public-help-banner.tsx", import.meta.url), "utf8");
   const presets = readFileSync(new URL("../lib/help-banner-presets.ts", import.meta.url), "utf8");
   assert.match(overview, /lostFoundSubmitPromo/);
