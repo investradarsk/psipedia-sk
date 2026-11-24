@@ -24,7 +24,8 @@ test("V5 post-merge: Profiles does not duplicate Help or Events navigation", () 
   assert.match(registry, /\{ label: "Profily", items:/);
   assert.match(directory, /<AdminProfileTypeTabs active="services"/);
   const help = read("app/admin/pomoc-psom/page.tsx");
-  assert.match(help, /<AdminProfileTypeTabs active=\{category\}/);
+  assert.match(help, /actions=\{<Link href="\/admin\/adresar"/);
+  assert.doesNotMatch(help, /AdminProfileTypeTabs/);
   assert.match(registry, /label: "Podujatia", href: "\/admin\/podujatia"/);
 });
 
