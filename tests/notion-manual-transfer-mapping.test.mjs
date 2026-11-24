@@ -27,8 +27,10 @@ function fixture(){
     CREATE TABLE eshop_notion_sync(eshop_id INTEGER,notion_page_id TEXT);
     CREATE TABLE notion_agenda_sync(agenda TEXT,entity_id INTEGER,notion_page_id TEXT);
     CREATE TABLE directory_profile_review_state(profile_id INTEGER,reviewed_at TEXT,unlock_pending INTEGER);
-    CREATE TABLE partner_resources(id INTEGER,entity_type TEXT,directory_profile_id INTEGER);
+    CREATE TABLE partner_resources(id INTEGER,entity_type TEXT,directory_profile_id INTEGER,managed_event_id INTEGER,help_organization_id INTEGER);
     CREATE TABLE partner_memberships(resource_id INTEGER,revoked_at TEXT);
+    CREATE TABLE admin_entity_reviews(entity_type TEXT,entity_id INTEGER);
+    CREATE TABLE partner_help_claims(adoption_dog_id INTEGER,lost_found_report_id INTEGER,help_case_id INTEGER,status TEXT);
     CREATE TABLE admin_record_tombstones(kind TEXT,record_id INTEGER);
     INSERT INTO adoption_dogs VALUES(7,'Adoption','ACTIVE');
     INSERT INTO lost_found_dog_reports VALUES(7,'Lost','ACTIVE');
@@ -78,7 +80,7 @@ test("missing, malformed, stale and locked mappings are distinguished without an
     sqlite.prepare("INSERT INTO directory_notion_sync VALUES (?,?)").run(8,PAGE);
     sqlite.prepare("INSERT INTO directory_notion_sync VALUES (?,?)").run(9,OTHER);
     sqlite.prepare("INSERT INTO directory_notion_sync VALUES (?,?)").run(99,"broken");
-    sqlite.exec("INSERT INTO directory_profile_review_state VALUES(8,'2026-11-24',0); INSERT INTO partner_resources VALUES(1,'DIRECTORY_PROFILE',8); INSERT INTO partner_memberships VALUES(1,NULL);");
+    sqlite.exec("INSERT INTO directory_profile_review_state VALUES(8,'2026-11-24',0); INSERT INTO partner_resources(id,entity_type,directory_profile_id) VALUES(1,'DIRECTORY_PROFILE',8); INSERT INTO partner_memberships VALUES(1,NULL);");
     const report=await readManualMappingDiagnostics(db,{area:"directory",offset:0},allowed);
     const rows=new Map(report.result.map(row=>[row.diagnostic.profileId,row.diagnostic]));
     assert.deepEqual(rows.get(8).issues,["PROFILE_REVIEWED","PARTNER_MANAGED"]);
@@ -115,4 +117,22 @@ test("remote identity requires exact typed ID, correct data source and active pa
   assert.equal(validManualPageId("events",PAGE.replaceAll("-","")),false);
   assert.equal(manualMappingEditorHref("unknown",7),null);
   assert.equal(manualMappingEditorHref("adoptions","7"),null);
+});
+
+test("review and partner locks in Help/Events reuse typed agenda ownership",async()=>{
+  const {sqlite,db}=fixture();
+  try{
+    sqlite.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?)").run("adoptions",7,PAGE);
+    sqlite.prepare("INSERT INTO notion_agenda_sync VALUES (?,?,?)").run("lost-found",7,OTHER);
+    sqlite.exec("INSERT INTO admin_entity_reviews VALUES('ADOPTION',7); INSERT INTO partner_help_claims(adoption_dog_id,status) VALUES(7,'APPROVED');");
+    const report=await readManualMappingDiagnostics(db,{area:"help",profileId:7,offset:0},allowed);
+    assert.deepEqual(report.result[0].diagnostic.issues,["PROFILE_REVIEWED","PARTNER_MANAGED"]);
+    assert.deepEqual(report.result[1].diagnostic.issues,[]);
+    await assert.rejects(assertManualMappingEligible(db,{scope:"adoptions",profile_id:7,notion_page_id:PAGE}),/TRANSFER_PROFILE_LOCKED/);
+    await assertManualMappingEligible(db,{scope:"lost-found",profile_id:7,notion_page_id:OTHER});
+    sqlite.exec("INSERT INTO managed_events VALUES(7,'Event','published'); INSERT INTO partner_resources(id,entity_type,managed_event_id) VALUES(2,'MANAGED_EVENT',7); INSERT INTO partner_memberships VALUES(2,NULL);");
+    const events=await readManualMappingDiagnostics(db,{area:"events",profileId:7,offset:0},allowed);
+    assert.ok(events.result[0].diagnostic.issues.includes("PARTNER_MANAGED"));
+    assert.ok(events.result[0].diagnostic.issues.includes("MAPPING_MISSING"));
+  }finally{sqlite.close();}
 });

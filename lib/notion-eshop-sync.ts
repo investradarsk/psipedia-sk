@@ -1107,6 +1107,7 @@ export async function inspectManualEshopProfile(input:{
   database:D1Database;bindings:NotionEshopSyncBindings;
   profileId:number;pageId:string;
 }):Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}>{
+  if(!input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID?.trim())throw Error("TRANSFER_ESHOP_TARGET_MISSING");
   const mapping=await loadMappingByShop(input.database,input.profileId);
   const shop=await getManagedEshopById(input.profileId,input.database);
   if(!shop||mapping?.notion_page_id!==input.pageId)

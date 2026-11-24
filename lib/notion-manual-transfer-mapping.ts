@@ -1,5 +1,6 @@
 import { areaOfManualTransferScope, type NotionManualTransferArea } from "./notion-manual-transfer-contract.ts";
 import { helpAdminDomainSql, isHelpAdminDedicatedCategory } from "./help-admin-query.ts";
+import { isAdminNotionSyncLocked, readAdminNotionReviewLocks, type LockableAgenda } from "./admin-notion-review-lock.ts";
 import { readDirectoryReviewLock, readDirectoryReviewLocks, directoryReviewLockedFromProjection } from "./directory-reviewed-sync-lock.ts";
 
 /** Static SQL registry; no caller-supplied table/column names. */
@@ -15,6 +16,10 @@ const specs = [
 ] as const;
 type Spec = (typeof specs)[number];
 type MappingLink = { scope: string; profile_id: number; notion_page_id: string };
+
+function lockableAgenda(kind:string):kind is LockableAgenda {
+  return ["events","organizations","adoptions","help-cases","lost-found"].includes(kind);
+}
 
 function kindOf(scope: string) {
   return scope.startsWith("directory:") ? "directory" : scope;
@@ -166,6 +171,12 @@ export async function readManualMappingDiagnostics(
   const rows = response.results.slice(0, MANUAL_MAPPING_DIAGNOSTIC_LIMIT);
   const directoryIds=rows.filter(row=>row.kind==="directory"&&row.canonical_exists&&eligibleId(row.profile_id)).map(row=>row.profile_id!);
   const locks=await readDirectoryReviewLocks(db,directoryIds).catch(()=>null);
+  const agendaLocks=new Map<string,Awaited<ReturnType<typeof readAdminNotionReviewLocks>>|null>();
+  for(const kind of new Set(rows.map(row=>row.kind))){
+    if(!lockableAgenda(kind))continue;
+    const ids=rows.filter(row=>row.kind===kind&&row.canonical_exists&&eligibleId(row.profile_id)).map(row=>row.profile_id!);
+    agendaLocks.set(kind,await readAdminNotionReviewLocks(db,kind,ids).catch(()=>null));
+  }
   const result = rows.map(row => {
     const issues = classifyManualMapping(row, allowedScopes);
     if (row.kind === "directory" && row.canonical_exists && eligibleId(row.profile_id)) {
@@ -182,6 +193,14 @@ export async function readManualMappingDiagnostics(
         }
       } catch {
         issues.push("LOCK_CHECK_UNAVAILABLE");
+      }
+    }
+    if(lockableAgenda(row.kind)&&row.canonical_exists&&eligibleId(row.profile_id)){
+      const lock=agendaLocks.get(row.kind)?.get(row.profile_id);
+      if(!lock)issues.push("LOCK_CHECK_UNAVAILABLE");
+      else {
+        if(Number(lock.reviewed)===1)issues.push("PROFILE_REVIEWED");
+        if(Number(lock.owned)===1)issues.push("PARTNER_MANAGED");
       }
     }
     const diagnostic: ManualMappingDiagnostic = {
@@ -219,6 +238,8 @@ export async function assertManualMappingEligible(db: D1Database, link: MappingL
   if (row.status.toLowerCase() === "archived") throw Error("TRANSFER_PROFILE_ARCHIVED");
   if (spec.kind === "directory" &&
     directoryReviewLockedFromProjection(await readDirectoryReviewLock(db,link.profile_id)))
+    throw Error("TRANSFER_PROFILE_LOCKED");
+  if(lockableAgenda(spec.kind)&&await isAdminNotionSyncLocked(db,spec.kind,link.profile_id))
     throw Error("TRANSFER_PROFILE_LOCKED");
   await assertManualMappingsUnique(db,[link]);
 }

@@ -3799,6 +3799,7 @@ export async function inspectManualDirectoryProfile(input:{
   database:D1Database;bindings:NotionDirectorySyncBindings;
   profileId:number;pageId:string;scope:string;
 }):Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}>{
+  if(!input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim())throw Error("TRANSFER_DIRECTORY_TARGET_MISSING");
   const profile=await getManagedDirectoryProfileById(input.profileId,input.database);
   if(!profile||"directory:"+profile.category!==input.scope)
     throw Error("TRANSFER_DIRECTORY_IDENTITY_MISMATCH");
