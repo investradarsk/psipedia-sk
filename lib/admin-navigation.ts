@@ -123,7 +123,9 @@ export function getAdminBreadcrumbs(pathname: string) {
     { label: active.label, href: active.href },
   ];
 
-  const isLegacyRoot = (active.matches ?? []).some((alias) => normalizedPath(alias) === normalizedPath(pathname));
+  // /admin/novy is a real create editor, not a legacy list-root alias.
+  const isLegacyRoot = normalizedPath(pathname) !== "/admin/novy" &&
+    (active.matches ?? []).some((alias) => normalizedPath(alias) === normalizedPath(pathname));
   if (normalizedPath(pathname) !== normalizedPath(active.href) && !isLegacyRoot) {
     breadcrumbs.push({ label: detailLabel(pathname), href: normalizedPath(pathname), current: true });
   } else {
