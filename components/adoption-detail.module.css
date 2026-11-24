@@ -42,7 +42,7 @@
   padding: 12px 14px;
   border: 1px solid #eadab7;
   border-left: 4px solid #ae7c2e;
-  border-radius: 12px;
+  border-radius: var(--ps-radius-card);
   background: #fffaf0;
   color: #6e4912;
   font-size: 0.8rem;
