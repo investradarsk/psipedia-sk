@@ -478,7 +478,7 @@ export function SiteHeader({
 
       <header className="site-header" ref={headerRef}>
         <div className={`header-inner shell public-shell ${styles.masthead}`} data-header-masthead>
-          <div className={styles.mobileNavControls} data-header-mobile-controls>
+          <div className={styles.mobileNavControls}>
             {menuButton(styles.mobileLeftTrigger)}
           </div>
           <div className={styles.brandCluster}>
