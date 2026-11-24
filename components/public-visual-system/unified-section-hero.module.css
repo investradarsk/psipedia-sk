@@ -19,10 +19,10 @@
   min-width: 0;
   min-height: 330px;
   overflow: hidden;
-  border-radius: var(--ps-radius-card, 22px);
+  border-radius: var(--ps-radius-banner-large, 22px);
   color: #fff;
-  background: #17352b;
-  box-shadow: var(--shadow-lg);
+  background: var(--ps-premium-gradient, #17352b);
+  box-shadow: var(--shadow-sm);
 }
 
 .media,
@@ -37,7 +37,7 @@
 .media {
   z-index: -2;
   overflow: hidden;
-  background: #17352b;
+  background: var(--ps-premium-gradient, #17352b);
 }
 
 .image {
@@ -115,21 +115,29 @@
   align-items: center;
   margin-bottom: 10px;
   gap: 7px;
-  padding: 5px 9px;
-  border-radius: 5px;
-  color: #fff;
-  background: var(--brand-accent-strong, #b94732);
+  padding: 0;
+  color: var(--ps-premium-kicker-on-dark, #fff);
+  background: transparent;
+  font-family: var(--ps-font-body, inherit);
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
 
+.eyebrow::before {
+  width: 22px;
+  height: 3px;
+  flex: 0 0 22px;
+  background: var(--ps-premium-accent, #b44939);
+  content: "";
+}
+
 .copy h1 {
   max-width: 610px;
   margin: 0;
   color: #fff;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
   font-size: clamp(2.45rem, 4.35vw, 3.7rem);
   font-weight: 500;
   letter-spacing: -0.035em;
@@ -168,9 +176,9 @@
   margin: 14px auto 0;
   padding: 14px 16px;
   border: 1px solid rgba(23, 53, 43, 0.11);
-  border-radius: 18px;
+  border-radius: var(--ps-radius-card, 14px);
   background: #fff;
-  box-shadow: 0 14px 34px rgba(23, 53, 43, 0.11);
+  box-shadow: var(--shadow-sm);
 }
 
 .search,
@@ -229,8 +237,8 @@
   align-items: center;
   padding: 8px 10px;
   border: 1px solid rgba(23, 75, 56, 0.14);
-  border-radius: 999px;
-  color: #174b38;
+  border-radius: var(--ps-radius-control, 9px);
+  color: var(--forest, #174b38);
   background: #f6f8f4;
   font-size: 0.72rem;
   font-weight: 800;
@@ -387,8 +395,8 @@
     width: 100%;
     margin: 12px auto 0;
     padding: 13px;
-    border-radius: 16px;
-    box-shadow: 0 8px 22px rgba(23, 53, 43, 0.08);
+    border-radius: var(--ps-radius-card, 14px);
+    box-shadow: var(--shadow-sm);
   }
   .cta {
     justify-content: stretch;
@@ -427,7 +435,7 @@
 /* Homepage V2 is the canonical visual contract, including its final
    module-scoped overrides (not the older app/globals.css rules). */
 .hero[data-hero-variant="homepage-style"] .visual {
-  border-radius: 0;
+  border-radius: var(--ps-radius-banner-large, 18px);
 }
 .portalSearch {
   position: relative;
@@ -551,7 +559,7 @@
 }
 
 .hero[data-unified-section-hero] .visual {
-  border-radius: 0;
+  border-radius: var(--ps-radius-banner-large, 18px);
 }
 
 .hero[data-unified-section-hero] .copy {
@@ -582,6 +590,10 @@
 }
 
 @media (max-width: 620px) {
+  /* The established full-bleed mobile crop has no surrounding card gutter. */
+  .hero[data-unified-section-hero] .visual {
+    border-radius: 0;
+  }
   .hero[data-unified-section-hero] .visual,
   .hero[data-unified-section-hero] .copy {
     min-height: 318px;
