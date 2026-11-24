@@ -30,6 +30,10 @@ const reasonText:Record<string,string>={
   TRANSFER_FIELD_NOT_MATCHED:"Hodnoty sa po zápise nezhodujú",
   TRANSFER_FIELD_VERIFICATION_FAILED:"Niektoré polia sa po zápise nezhodujú",
   TRANSFER_ADAPTER_FAILED:"Prenos zlyhal v synchronizačnom adaptéri",
+  TRANSFER_MAPPING_INVALID:"Našla sa neplatná väzba medzi profilom a Notion stránkou (ID alebo formát stránky). Kontrola sa bezpečne zastavila bez prenosu. Skús konkrétnu podkategóriu alebo profil a prever jeho mapovanie v D1.",
+  TRANSFER_DUPLICATE_NOTION_PAGE:"Jedna Notion stránka je priradená k viacerým profilom. Prenos sa bezpečne zastavil; najprv treba overiť prepojenia.",
+  TRANSFER_NO_LINKED_PROFILES:"Pre tento výber nie je v D1 potvrdené prepojenie na Notion. Bez prepojenia sa prenos nespustí.",
+  TRANSFER_PROFILE_AMBIGUOUS:"Vybranému ID zodpovedá viac väzieb. Vyber presnú podkategóriu a over identitu profilu.",
 };
 function errorLabel(code:string|null|undefined){
   if(!code)return "Bez uvedeného dôvodu";
