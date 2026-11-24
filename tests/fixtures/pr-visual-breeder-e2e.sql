@@ -36,6 +36,29 @@ WHERE NOT EXISTS (
   SELECT 1 FROM directory_profiles WHERE slug = 'malkia-garden'
 );
 
+-- Disposable homepage card with a long provider name. The local media key
+-- intentionally has no object; the fallback still exercises the title layout.
+INSERT OR IGNORE INTO directory_profiles (
+  slug, name, category, status, excerpt, description, city, region, image_url, image_key,
+  created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'vizualna-ukazka-veterinara',
+  'Veterinárna ambulancia MVDr. Ukážkové meno',
+  'veterinari',
+  'published',
+  'Ukážka dlhého názvu pre vizuálnu kontrolu.',
+  'Izolovaný profil bez produkčných údajov.',
+  'Bratislava - Nové Mesto',
+  'Bratislavský kraj',
+  '/media/visual-ci/provider.webp',
+  'visual-ci/provider.webp',
+  '2026-11-17T12:00:00.000Z',
+  '2026-11-17T12:00:00.000Z',
+  '2026-11-17T12:00:00.000Z',
+  'pr-visual@psipedia.local',
+  'pr-visual@psipedia.local'
+);
+
 -- The same canonical Irish wolfhound is seeded by bootstrap-breed-e2e on
 -- the PR and common-ancestor builds; show a real relational breed link.
 INSERT OR IGNORE INTO breed_directory_relations (
