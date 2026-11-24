@@ -9,7 +9,11 @@ import {
   readDirectoryPresentationSql,
 } from "./directory-presentation-sql-read";
 import { readDirectory0170EditorialFields, withoutLegacyDirectoryFacetValues } from "./directory-0170-editorial-read";
-import { readDirectory0173EditorialSql } from "./directory-0173-editorial-sql-read";
+import {
+  directory0173QualificationsSqlExpression,
+  directory0173SeoSqlExpression,
+  readDirectory0173EditorialSql,
+} from "./directory-0173-editorial-sql-read";
 import { env } from "cloudflare:workers";
 import {
   directoryLocationFacetStatement,
@@ -548,7 +552,8 @@ function directorySearchText(input: {
 
 const DIRECTORY_PROFILE_COLUMNS = `
   id, slug, name, category, status, excerpt, description,
-  ${directoryServicesSqlExpression()} AS services_json, qualifications_json,
+  ${directoryServicesSqlExpression()} AS services_json,
+  ${directory0173QualificationsSqlExpression()} AS qualifications_json,
   city, district, region, address, postal_code, street, house_number,
   address_format, service_address_confirmation, online, price_note, website_url,
   public_phone, public_email, facebook_url, instagram_url, internal_email, image_url,
@@ -556,7 +561,8 @@ const DIRECTORY_PROFILE_COLUMNS = `
   ${directoryImageSqlExpression("thumbnail")} AS thumbnail_display_json,
   ${directoryImageSqlExpression("detail")} AS detail_display_json, import_key,
   json_object('_psipedia_additional_categories', (${directoryAdditionalCategoryJsonSql()}) || '') AS source_data_json,
-  search_text, verified, featured, seo_json,
+  search_text, verified, featured,
+  COALESCE(${directory0173SeoSqlExpression()}, '{}') AS seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
@@ -744,7 +750,7 @@ function parseSeo(value: string): EditableSeo {
       ogTitle: text(raw?.ogTitle),
       ogDescription: text(raw?.ogDescription),
       ogImage: text(raw?.ogImage),
-      noindex: raw?.noindex === true,
+      noindex: raw?.noindex === true || Number(raw?.noindex) === 1,
     };
   } catch {
     return {};
@@ -754,8 +760,7 @@ function parseSeo(value: string): EditableSeo {
 /**
  * Use the new D1 relational owner for detail/editor projections. This is a
  * read model only; it neither changes the old JSON payload nor writes Notion.
- * Missing sidecar rows retain an older untouched profile until the explicit
- * per-profile final SQL-only cutover.
+ * Missing SEO/qualification rows mean empty canonical data, not a legacy fallback.
  */
 async function withDirectory0173SqlPublic(
   db: D1Database,
@@ -765,8 +770,7 @@ async function withDirectory0173SqlPublic(
     readDirectory0173EditorialSql(db,profile.id),
     readDirectoryPresentationSql(db,profile.id),
   ]);
-  const qualifications=sql.qualifications
-    ? directoryQualificationSections(sql.qualifications) : null;
+  const qualifications = directoryQualificationSections(sql.qualifications ?? []);
   const importData={
     ...(withoutLegacyDirectoryFacetValues(profile.importData)??{}),
     ...(sql.hoursText!==null?{"Ordinačné hodiny":sql.hoursText}:{}),
@@ -784,8 +788,8 @@ async function withDirectory0173SqlPublic(
         sql.additionalCategories,profile.category,
       ),
     }:{}),
-    ...(qualifications??{}),
-    ...(sql.seo?{seo:sql.seo}:{}),
+    ...qualifications,
+    seo: sql.seo ?? {},
     ...(sql.galleryUrls?{galleryUrls:sql.galleryUrls}:{}),
   };
 }
@@ -829,8 +833,8 @@ async function withDirectory0173SqlManaged(
     reviewed:Boolean(reviewedAt),
     reviewedAt,
     reviewedBy:sqlReviewedAt?(sql.review?.reviewedBy??""):"",
-    ...(sql.qualifications?{qualifications:sql.qualifications}:{}),
-    ...(sql.seo?{seo:sql.seo}:{}),
+    qualifications: sql.qualifications ?? [],
+    seo: sql.seo ?? {},
     ...(sql.galleryUrls?{galleryUrls:sql.galleryUrls}:{}),
   };
 }
