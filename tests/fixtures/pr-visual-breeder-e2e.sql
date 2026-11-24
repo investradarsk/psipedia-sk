@@ -36,17 +36,6 @@ WHERE NOT EXISTS (
   SELECT 1 FROM directory_profiles WHERE slug = 'malkia-garden'
 );
 
--- The same canonical Irish wolfhound is seeded by bootstrap-breed-e2e on
--- the PR and common-ancestor builds; show a real relational breed link.
-INSERT OR IGNORE INTO breed_directory_relations (
-  breed_id, profile_id, relation_type, source, created_at, created_by
-)
-SELECT b.id, p.id, 'BREED', 'e2e', '2026-11-17T12:00:00.000Z', 'pr-visual@psipedia.local'
-FROM managed_breeds AS b
-JOIN directory_profiles AS p
-  ON p.slug = 'malkia-garden' AND p.category = 'chovatelske-stanice'
-WHERE b.slug = 'irsky-vlkodav' AND b.status = 'published';
-
 -- Disposable homepage card with a long provider name. The local media key
 -- intentionally has no object; the fallback still exercises the title layout.
 INSERT OR IGNORE INTO directory_profiles (
@@ -69,3 +58,14 @@ INSERT OR IGNORE INTO directory_profiles (
   'pr-visual@psipedia.local',
   'pr-visual@psipedia.local'
 );
+
+-- The same canonical Irish wolfhound is seeded by bootstrap-breed-e2e on
+-- the PR and common-ancestor builds; show a real relational breed link.
+INSERT OR IGNORE INTO breed_directory_relations (
+  breed_id, profile_id, relation_type, source, created_at, created_by
+)
+SELECT b.id, p.id, 'BREED', 'e2e', '2026-11-17T12:00:00.000Z', 'pr-visual@psipedia.local'
+FROM managed_breeds AS b
+JOIN directory_profiles AS p
+  ON p.slug = 'malkia-garden' AND p.category = 'chovatelske-stanice'
+WHERE b.slug = 'irsky-vlkodav' AND b.status = 'published';
