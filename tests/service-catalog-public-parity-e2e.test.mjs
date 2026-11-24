@@ -245,7 +245,7 @@ test("Services V3 provenance UI previews public rules without writing through le
   const projection=read("lib/service-catalog-public-profile-services.ts");
   assert.match(server,/loadResolvedServiceDefinitions\(database\)/);
   assert.match(server,/legacyServices=\{profile\.services\}/);
-  assert.match(client,/projectPublicProfileServices\(currentLegacyServices,category,choices,resolvedServices\)/);
+  assert.match(client,/projectPublicProfileServices\(currentLegacyServices,categories,choices,resolvedServices\)/);
   assert.match(client,/data-service-provenance=\{item\.source\}/);
   assert.match(client,/data-services-v3-public-preview/);
   assert.match(client,/psipedia:directory-services-saved/);
