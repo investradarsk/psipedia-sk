@@ -71,16 +71,19 @@ export function directoryReviewLockedFromProjection(row: DirectoryReviewLockRow 
     Number(row.deletion_pending) === 1;
 }
 
+export async function readDirectoryReviewLock(database: D1Database, profileId: number) {
+  if (!Number.isSafeInteger(profileId) || profileId <= 0) {
+    throw new Error("DIRECTORY_REVIEW_LOCK_INVALID_ID");
+  }
+  return database.prepare(DIRECTORY_REVIEW_LOCK_SQL)
+    .bind(profileId).first<DirectoryReviewLockRow>();
+}
+
 export async function directoryProfileNotionSyncLocked(
   database: D1Database,
   profileId: number,
 ): Promise<boolean> {
-  if (!Number.isSafeInteger(profileId) || profileId <= 0) {
-    throw new Error("DIRECTORY_REVIEW_LOCK_INVALID_ID");
-  }
-  const row = await database.prepare(DIRECTORY_REVIEW_LOCK_SQL)
-    .bind(profileId).first<DirectoryReviewLockRow>();
-  return directoryReviewLockedFromProjection(row);
+  return directoryReviewLockedFromProjection(await readDirectoryReviewLock(database, profileId));
 }
 
 /**

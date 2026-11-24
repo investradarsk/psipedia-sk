@@ -1,0 +1,213 @@
+import { areaOfManualTransferScope, type NotionManualTransferArea } from "./notion-manual-transfer-contract.ts";
+import { readDirectoryReviewLock, directoryReviewLockedFromProjection } from "./directory-reviewed-sync-lock.ts";
+
+/** Static SQL registry; no caller-supplied table/column names. */
+const specs = [
+  { kind: "breeds", table: "managed_breeds", name: "name", mapping: "breed_notion_workcopy_links", id: "breed_id", page: "work_notion_page_id", editor: "/admin/plemena" },
+  { kind: "directory", table: "directory_profiles", name: "name", mapping: "directory_notion_sync", id: "directory_profile_id", page: "notion_page_id", editor: "/admin/adresar" },
+  { kind: "events", table: "managed_events", name: "title", mapping: "event_notion_sync", id: "event_id", page: "notion_page_id", editor: "/admin/podujatia" },
+  { kind: "eshops", table: "managed_eshops", name: "name", mapping: "eshop_notion_sync", id: "eshop_id", page: "notion_page_id", editor: "/admin/recenzie/eshopy" },
+  { kind: "organizations", table: "help_organizations", name: "name", mapping: "notion_agenda_sync", id: "entity_id", page: "notion_page_id", editor: "/admin/organizacie" },
+  { kind: "adoptions", table: "adoption_dogs", name: "name", mapping: "notion_agenda_sync", id: "entity_id", page: "notion_page_id", editor: "/admin/adopcie" },
+  { kind: "help-cases", table: "help_cases", name: "title", mapping: "notion_agenda_sync", id: "entity_id", page: "notion_page_id", editor: "/admin/pomoc" },
+  { kind: "lost-found", table: "lost_found_dog_reports", name: "dog_name", mapping: "notion_agenda_sync", id: "entity_id", page: "notion_page_id", editor: "/admin/stratene-najdene" },
+] as const;
+type Spec = (typeof specs)[number];
+type MappingLink = { scope: string; profile_id: number; notion_page_id: string };
+
+function kindOf(scope: string) {
+  return scope.startsWith("directory:") ? "directory" : scope;
+}
+function specFor(scope: string) {
+  return specs.find(spec => spec.kind === kindOf(scope));
+}
+function eligibleId(id: unknown): id is number {
+  return typeof id === "number" && Number.isSafeInteger(id) && id > 0;
+}
+export function normalizeManualPageId(value: unknown): string | null {
+  if (typeof value !== "string" ||
+    !/^(?:[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/i.test(value)) return null;
+  return value.replaceAll("-", "").toLowerCase();
+}
+export function validManualPageId(scope: string, value: unknown): boolean {
+  // Only the breed work-copy adapter explicitly supports compact historical IDs.
+  return normalizeManualPageId(value) !== null &&
+    (scope === "breeds" || (typeof value === "string" && value.length === 36));
+}
+export function manualMappingEditorHref(scope: string, id: unknown): string | null {
+  const spec = specFor(scope);
+  return spec && eligibleId(id) ? spec.editor + "/" + id : null;
+}
+
+const pageKey = "lower(replace(page_id,'-',''))";
+const mapped = specs.map(spec => {
+  const condition = spec.mapping === "notion_agenda_sync" ? " WHERE agenda='" + spec.kind + "'" : "";
+  const state = spec.kind === "breeds"
+    ? "CASE WHEN status='ACTIVE' AND NULLIF(TRIM(work_sync_receipt),'') IS NOT NULL THEN 1 ELSE 0 END"
+    : "1";
+  return "SELECT '" + spec.kind + "' AS kind," + spec.id + " AS profile_id," +
+    spec.page + " AS page_id," + state + " AS eligible FROM " + spec.mapping + condition;
+}).join(" UNION ALL ");
+const mappingCte = "WITH mapped AS (" + mapped + ")";
+
+/** Check across all supported manual-transfer agendas. Equal numeric IDs in
+ * different canonical tables are NOT an identity collision. */
+export async function assertManualMappingsUnique(db: D1Database, links: readonly MappingLink[]) {
+  const response = await db.prepare(mappingCte +
+    " SELECT kind,profile_id,NULL AS page_key FROM mapped WHERE eligible=1" +
+    " GROUP BY kind,profile_id HAVING COUNT(*)>1" +
+    " UNION ALL SELECT NULL,NULL," + pageKey + " FROM mapped WHERE eligible=1 AND page_id IS NOT NULL" +
+    " GROUP BY " + pageKey + " HAVING COUNT(*)>1")
+    .all<{ kind: string | null; profile_id: number | null; page_key: string | null }>();
+  if (!response.success || !Array.isArray(response.results)) throw Error("TRANSFER_MAPPING_CHECK_UNAVAILABLE");
+  const ambiguous = new Set(response.results.filter(row => row.kind !== null)
+    .map(row => row.kind + ":" + row.profile_id));
+  const duplicatePages = new Set(response.results.map(row => row.page_key).filter(Boolean));
+  for (const link of links) {
+    if (ambiguous.has(kindOf(link.scope) + ":" + link.profile_id))
+      throw Error("TRANSFER_PROFILE_AMBIGUOUS");
+    const key = normalizeManualPageId(link.notion_page_id);
+    if (key && duplicatePages.has(key)) throw Error("TRANSFER_DUPLICATE_NOTION_PAGE");
+  }
+}
+
+export type ManualMappingIssue = "MAPPING_MISSING" | "PROFILE_ID_INVALID" | "PAGE_ID_MISSING" |
+  "PAGE_ID_INVALID" | "PAGE_ID_FORMAT_UNSUPPORTED" | "CANONICAL_MISSING" |
+  "MAPPING_INACTIVE" | "PAGE_DUPLICATE" | "PROFILE_AMBIGUOUS" | "CATEGORY_UNSUPPORTED" |
+  "PROFILE_ARCHIVED" | "PROFILE_REVIEWED" | "PARTNER_MANAGED" | "UNLOCK_PENDING" |
+  "DELETION_PENDING" | "LOCK_CHECK_UNAVAILABLE";
+
+export type ManualMappingDiagnostic = {
+  scope: string; profileId: number | null; name: string; editorHref: string | null;
+  mappingTable: string; canonicalStatus: string | null; issues: ManualMappingIssue[];
+  remote: "NOT_CHECKED" | "VERIFIED" | "BLOCKED" | "UNAVAILABLE" | "IDENTITY_MISMATCH" |
+    "SOURCE_MISMATCH" | "PAGE_ARCHIVED" | "PAGE_INACCESSIBLE";
+};
+
+type DiagnosticRow = {
+  kind: string; scope: string; profile_id: number | null; name: string | null;
+  canonical_status: string | null; canonical_exists: number; mapping_exists: number;
+  page_id: string | null; eligible: number | null; identity_count: number; page_count: number;
+};
+
+function canonicalSelect(spec: Spec) {
+  const scope = spec.kind === "directory" ? "'directory:' || p.category" : "'" + spec.kind + "'";
+  const domain = spec.kind === "help-cases"
+    ? " WHERE p.category NOT IN ('adopcia','utulky','stratene-a-najdene')" : "";
+  return "SELECT '" + spec.kind + "' AS kind," + scope + " AS scope,p.id AS profile_id,p." +
+    spec.name + " AS name,p.status AS canonical_status FROM " + spec.table + " p" + domain;
+}
+
+export function classifyManualMapping(row: DiagnosticRow, allowedScopes: ReadonlySet<string>): ManualMappingIssue[] {
+  const issues: ManualMappingIssue[] = [];
+  if (!eligibleId(row.profile_id)) issues.push("PROFILE_ID_INVALID");
+  if (!row.canonical_exists) issues.push("CANONICAL_MISSING");
+  if (row.canonical_exists && !allowedScopes.has(row.scope)) issues.push("CATEGORY_UNSUPPORTED");
+  if (!row.mapping_exists) issues.push("MAPPING_MISSING");
+  else {
+    if (row.page_id === null || (typeof row.page_id === "string" && !row.page_id.trim())) issues.push("PAGE_ID_MISSING");
+    else if (!normalizeManualPageId(row.page_id)) issues.push("PAGE_ID_INVALID");
+    else if (!validManualPageId(row.scope, row.page_id)) issues.push("PAGE_ID_FORMAT_UNSUPPORTED");
+    if (!row.eligible) issues.push("MAPPING_INACTIVE");
+    if (row.identity_count > 1) issues.push("PROFILE_AMBIGUOUS");
+    if (row.page_count > 1) issues.push("PAGE_DUPLICATE");
+  }
+  if (row.canonical_status?.toLowerCase() === "archived") issues.push("PROFILE_ARCHIVED");
+  return issues;
+}
+
+export const MANUAL_MAPPING_DIAGNOSTIC_LIMIT = 50;
+
+/** Pure D1 SELECTs. No queue creation, provider call or mapping changes.
+ * Scan canonical records and orphaned mappings, including unmapped profiles. */
+export async function readManualMappingDiagnostics(
+  db: D1Database,
+  input: { area: NotionManualTransferArea; scope?: string; profileId?: number; offset: number },
+  allowedScopes: ReadonlySet<string>,
+) {
+  const selected = specs.filter(spec => input.scope
+    ? kindOf(input.scope) === spec.kind
+    : spec.kind === input.area || areaOfManualTransferScope(spec.kind) === input.area);
+  if (!selected.length || !Number.isSafeInteger(input.offset) || input.offset < 0 || input.offset > 10000)
+    throw Error("TRANSFER_DIAGNOSTIC_REQUEST_INVALID");
+  const canonical = selected.map(canonicalSelect).join(" UNION ALL ");
+  const kindList = selected.map(spec => "'" + spec.kind + "'").join(",");
+  const sql = mappingCte + ", canonical AS (" + canonical + "), rows AS (" +
+    " SELECT c.kind,c.scope,c.profile_id,c.name,c.canonical_status,1 AS canonical_exists," +
+    " CASE WHEN m.kind IS NULL THEN 0 ELSE 1 END AS mapping_exists,m.page_id,m.eligible" +
+    " FROM canonical c LEFT JOIN mapped m ON m.kind=c.kind AND m.profile_id=c.profile_id" +
+    " UNION ALL SELECT m.kind,m.kind,m.profile_id,NULL,NULL,0,1,m.page_id,m.eligible" +
+    " FROM mapped m WHERE m.kind IN (" + kindList + ") AND NOT EXISTS" +
+    " (SELECT 1 FROM canonical c WHERE c.kind=m.kind AND c.profile_id=m.profile_id)" +
+    "), identities AS (SELECT kind,profile_id,COUNT(*) AS n FROM mapped WHERE eligible=1 GROUP BY kind,profile_id)," +
+    " pages AS (SELECT " + pageKey + " AS page_key,COUNT(*) AS n FROM mapped WHERE eligible=1 GROUP BY " + pageKey + ")" +
+    " SELECT r.*,COALESCE(i.n,0) AS identity_count,COALESCE(p.n,0) AS page_count" +
+    " FROM rows r LEFT JOIN identities i ON i.kind=r.kind AND i.profile_id=r.profile_id" +
+    " LEFT JOIN pages p ON p.page_key=lower(replace(r.page_id,'-',''))" +
+    " WHERE (? IS NULL OR r.scope=?) AND (? IS NULL OR r.profile_id=?)" +
+    " ORDER BY r.kind,r.profile_id,r.page_id LIMIT ? OFFSET ?";
+  const response = await db.prepare(sql).bind(
+    input.scope ?? null,input.scope ?? null,input.profileId ?? null,input.profileId ?? null,
+    MANUAL_MAPPING_DIAGNOSTIC_LIMIT + 1,input.offset,
+  ).all<DiagnosticRow>();
+  if (!response.success || !Array.isArray(response.results)) throw Error("TRANSFER_MAPPING_CHECK_UNAVAILABLE");
+  const rows = response.results.slice(0, MANUAL_MAPPING_DIAGNOSTIC_LIMIT);
+  const result = await Promise.all(rows.map(async row => {
+    const issues = classifyManualMapping(row, allowedScopes);
+    if (row.kind === "directory" && row.canonical_exists && eligibleId(row.profile_id)) {
+      try {
+        const lock = await readDirectoryReviewLock(db, row.profile_id);
+        if (!lock) issues.push("LOCK_CHECK_UNAVAILABLE");
+        else {
+          if (lock.sql_reviewed_at?.trim()) issues.push("PROFILE_REVIEWED");
+          if (Number(lock.partner_active) === 1) issues.push("PARTNER_MANAGED");
+          if (Number(lock.sql_unlock_pending) === 1) issues.push("UNLOCK_PENDING");
+          if (Number(lock.deletion_pending) === 1) issues.push("DELETION_PENDING");
+          if (directoryReviewLockedFromProjection(lock) && !issues.length)
+            issues.push("LOCK_CHECK_UNAVAILABLE");
+        }
+      } catch {
+        issues.push("LOCK_CHECK_UNAVAILABLE");
+      }
+    }
+    const diagnostic: ManualMappingDiagnostic = {
+      scope: row.scope,
+      profileId: eligibleId(row.profile_id) ? row.profile_id : null,
+      name: row.name ?? "",
+      editorHref: row.canonical_exists ? manualMappingEditorHref(row.scope, row.profile_id) : null,
+      mappingTable: specFor(row.kind)!.mapping,
+      canonicalStatus: row.canonical_status,
+      issues,
+      remote: "NOT_CHECKED",
+    };
+    return { diagnostic, pageId: row.page_id };
+  }));
+  return { result, offset: input.offset, hasMore: response.results.length > MANUAL_MAPPING_DIAGNOSTIC_LIMIT };
+}
+
+/** Re-check canonical existence and archive/lock state before each preview or
+ * execution. The existing adapters remain responsible for remote identity and writes. */
+export async function assertManualMappingEligible(db: D1Database, link: MappingLink) {
+  if (!eligibleId(link.profile_id) || !validManualPageId(link.scope,link.notion_page_id))
+    throw Error("TRANSFER_MAPPING_INVALID");
+  const spec = specFor(link.scope);
+  if (!spec) throw Error("TRANSFER_SCOPE_UNSUPPORTED");
+  const row = await db.prepare("SELECT status FROM " + spec.table + " WHERE id=?")
+    .bind(link.profile_id).first<{status: string}>();
+  if (!row) throw Error("TRANSFER_CANONICAL_MISSING");
+  if (row.status.toLowerCase() === "archived") throw Error("TRANSFER_PROFILE_ARCHIVED");
+  if (spec.kind === "directory" &&
+    directoryReviewLockedFromProjection(await readDirectoryReviewLock(db,link.profile_id)))
+    throw Error("TRANSFER_PROFILE_LOCKED");
+  await assertManualMappingsUnique(db,[link]);
+}
+
+export function manualRemoteDiagnostic(error: unknown): ManualMappingDiagnostic["remote"] {
+  const code = error instanceof Error ? error.message : "";
+  if (code === "TRANSFER_REMOTE_SOURCE_MISMATCH") return "SOURCE_MISMATCH";
+  if (code === "TRANSFER_REMOTE_PAGE_ARCHIVED") return "PAGE_ARCHIVED";
+  if (/^Notion API (?:403|404):/.test(code)) return "PAGE_INACCESSIBLE";
+  if (/^(?:TRANSFER_REMOTE_IDENTITY_MISMATCH|TRANSFER_(?:DIRECTORY|ESHOP|EVENTS_HELP)_IDENTITY_MISMATCH|BREED_WORKCOPY_ID_MISMATCH|TRANSFER_IDENTITY_CHANGED)$/.test(code))
+    return "IDENTITY_MISMATCH";
+  return "UNAVAILABLE";
+}
