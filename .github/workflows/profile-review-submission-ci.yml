@@ -47,6 +47,10 @@ on:
       - "scripts/validate-deploy-artifact.mjs"
       - "scripts/ci-scope.mjs"
       - "tests/ci-v2-scope.test.mjs"
+      - "tests/fixtures/directory-admin-e2e.sql"
+      - "db/isolated/directory_admin_sql_completion.sql"
+      - "tests/ci-v2-review-e2e.test.mjs"
+      - "scripts/review-e2e-local.sh"
   workflow_dispatch:
 
 concurrency:
@@ -208,11 +212,7 @@ jobs:
             printf 'PROFILE_REVIEW_SUBMISSIONS_ENABLED=%s\n' 'true'
           } > .dev.vars
       - name: Apply migrations to isolated local D1
-        run: |
-          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
-          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
-          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
-          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+        run: bash scripts/review-e2e-local.sh migrate reviews-2b
       # Directory service-text and image presentation tables are intentionally
       # outside the generic migration chain. Both review E2E fixtures use them.
       # Apply only to isolated --local D1, never to production.
@@ -223,26 +223,15 @@ jobs:
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/profile-review-submission-e2e.sql
       - name: Start isolated local app
-        run: |
-          mkdir -p .e2e-artifacts/reviews-2b
-          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/reviews-2b/server.log 2>&1 &
-          echo $! > .e2e-artifacts/reviews-2b/server.pid
-          ready=0
-          for attempt in $(seq 1 90); do
-            if curl --silent --fail http://localhost:5173/recenzia/napisat?resourceId=reviews-2b-directory-resource >/dev/null; then
-              ready=1
-              break
-            fi
-            sleep 1
-          done
-          if [ "$ready" -ne 1 ]; then
-            tail -200 .e2e-artifacts/reviews-2b/server.log
-            exit 1
-          fi
+        run: bash scripts/review-e2e-local.sh start reviews-2b
       - name: REVIEWS-2B Playwright — desktop
-        run: npm run e2e -- tests/e2e/profile-review-submission.spec.ts --project=desktop-chromium --workers=1 --retries=0
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: .e2e-artifacts/reviews-2b/desktop-report
+        run: npm run e2e -- tests/e2e/profile-review-submission.spec.ts --project=desktop-chromium --workers=1 --retries=0 --output=.e2e-artifacts/reviews-2b/desktop-results
       - name: REVIEWS-2B Playwright — mobile
-        run: npm run e2e -- tests/e2e/profile-review-submission.spec.ts --project=mobile-chromium --workers=1 --retries=0
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: .e2e-artifacts/reviews-2b/mobile-report
+        run: npm run e2e -- tests/e2e/profile-review-submission.spec.ts --project=mobile-chromium --workers=1 --retries=0 --output=.e2e-artifacts/reviews-2b/mobile-results
       - name: Assert browser flow did not publish review fixtures
         run: |
           mkdir -p .e2e-artifacts/reviews-2b
@@ -250,10 +239,7 @@ jobs:
           node -e 'const fs=require("node:fs");const data=JSON.parse(fs.readFileSync(".e2e-artifacts/reviews-2b/review-status-counts.json","utf8"));const rows=data.flatMap(x=>x.results||[]);const visible=rows.find(x=>x.status==="VISIBLE");if(visible && Number(visible.count)!==0){console.error(data);process.exit(1)}'
       - name: Stop isolated local app
         if: always()
-        run: |
-          if [ -f .e2e-artifacts/reviews-2b/server.pid ]; then
-            kill "$(cat .e2e-artifacts/reviews-2b/server.pid)" 2>/dev/null || true
-          fi
+        run: bash scripts/review-e2e-local.sh stop reviews-2b
       - name: Upload failure evidence
         if: failure()
         uses: actions/upload-artifact@v4

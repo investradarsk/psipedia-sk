@@ -17,6 +17,10 @@ on:
       - "tests/e2e/profile-reviews-public.spec.ts"
       - "tests/fixtures/profile-reviews-e2e.sql"
       - ".github/workflows/profile-reviews-public-ci.yml"
+      - "tests/fixtures/directory-admin-e2e.sql"
+      - "db/isolated/directory_admin_sql_completion.sql"
+      - "tests/ci-v2-review-e2e.test.mjs"
+      - "scripts/review-e2e-local.sh"
   workflow_dispatch:
 
 concurrency:
@@ -68,11 +72,7 @@ jobs:
             printf 'PII_HASH_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
           } > .dev.vars
       - name: Apply non-adoption migrations to isolated local D1
-        run: |
-          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
-          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
-          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
-          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+        run: bash scripts/review-e2e-local.sh migrate reviews-1b
       # Directory presentation tables are SQL-only sidecars, not generic migrations.
       # This fixture references directory_profile_service_texts; local D1 needs
       # the same schema before seeding. Never run this command against production.
@@ -84,30 +84,12 @@ jobs:
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/profile-reviews-e2e.sql
       - name: Start isolated local app
-        run: |
-          mkdir -p .e2e-artifacts/reviews-1b
-          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/reviews-1b/server.log 2>&1 &
-          echo $! > .e2e-artifacts/reviews-1b/server.pid
-          ready=0
-          for attempt in $(seq 1 90); do
-            if curl --silent --fail http://localhost:5173/adresar/veterinari/health-fixture-vet-rich >/dev/null; then
-              ready=1
-              break
-            fi
-            sleep 1
-          done
-          if [ "$ready" -ne 1 ]; then
-            tail -200 .e2e-artifacts/reviews-1b/server.log
-            exit 1
-          fi
+        run: bash scripts/review-e2e-local.sh start reviews-1b
       - name: REVIEWS-1B public E2E — desktop and mobile
         run: npx playwright test tests/e2e/profile-reviews-public.spec.ts --workers=1 --retries=0
       - name: Stop isolated local app
         if: always()
-        run: |
-          if [ -f .e2e-artifacts/reviews-1b/server.pid ]; then
-            kill "$(cat .e2e-artifacts/reviews-1b/server.pid)" 2>/dev/null || true
-          fi
+        run: bash scripts/review-e2e-local.sh stop reviews-1b
       - name: Upload failure evidence
         if: failure()
         uses: actions/upload-artifact@v4

@@ -317,6 +317,10 @@ const REVIEW_SHARED_PATHS = [
   "scripts/validate-deploy-artifact.mjs",
   "scripts/ci-scope.mjs",
   "tests/ci-v2-scope.test.mjs",
+  "scripts/review-e2e-local.sh",
+  "tests/ci-v2-review-e2e.test.mjs",
+  "db/isolated/directory_admin_sql_completion.sql",
+  "tests/fixtures/directory-admin-e2e.sql",
 ];
 
 export const REVIEW_PR_PATHS = Object.freeze([

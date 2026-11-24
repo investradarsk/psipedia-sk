@@ -153,6 +153,14 @@ Statická parita všetkých existujúcich npm príkazov a všetkých ôsmich sku
 - Porovnanie pred/po rovnakých workloadov, opakovaných meraní na rovnakom profile runnera, fixture, revízii a scope patrí do finálneho kroku 10; tento audit poskytuje reálny referenčný baseline. Nevykonané produkčné operácie, nezmenené aktívne workflowy.
 
 
+## 07 – Playwright a izolované fixtures
+
+Štyri review workflowy (1B public, 2A auth, 2B submission, 3 admin) zdieľajú `scripts/review-e2e-local.sh`: rovnaký bezpečný non-adoption migration bootstrap, lokálny server s pevnou adresou a portom, readiness endpoint podľa profilu a cleanup. Explicitná GitHub Actions + local bootstrap + localhost podmienka; žiadne remote D1, žiadne spúšťanie produkčných smoke operácií. Dočasný adresár pre dve vynechané adopčné migrácie je unikátny, trap obnovuje súbory aj po chybe alebo čiastočnom presune. Všetky štyri workflowy si ponechávajú samostatnú D1 state, pôvodné security keys, feature flags, build profily, fixture poradie a postflight SQL kontroly.
+
+REVIEWS-3 doplnený chýbajúci izolovaný Directory SQL sidecar pred directory-admin-e2e.sql: fixture priamo vkladá do directory_profile_service_texts, ktorá je definovaná v db/isolated/directory_admin_sql_completion.sql. Ostatné tri review workflowy už tento krok mali. Auth/submission desktop a mobile stále bežia sekvenčne (mutácie/tokeny), ale reporty a výsledky majú odlišné adresáre a zostávajú v pôvodnom failure artefakte. Fixture SQL súbory sa nezlučujú: rôzne scenáre očakávajú odlišné dáta, napr. nulové review riadky verzus existujúci pending review. Produkčné smoke, ostatné Playwright workflowy, browser matrix a počty spec spustení nezmenené.
+
+Scope union doplnený o bootstrap, kontrakt, spoločný sidecar a directory fixture. Nový dependency-free regresný test kontroluje bash syntax, odmietnutie remote/invalid kontextu, obnovu migrácií cez fake npx (bez DB), poradie fixture a oddelenú diagnostiku. Spúšťa sa v povinnom CI. Reálne browser/D1 CI ešte nie je overené. Ide o konsolidáciu review pilotu, nie úplné zjednotenie všetkých Playwright workflowov; ďalšie kandidáty z auditu vyžadujú paritu prostredia.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
@@ -161,7 +169,7 @@ Statická parita všetkých existujúcich npm príkazov a všetkých ôsmich sku
 - [x] CI-V2-04 – pilot zdieľania dvoch oddelených build profilov v review CI, verifikácia existujúceho admin artefaktu; runtime CI a ďalšie skupiny otvorené.
 - [x] CI-V2-05 – fail-closed per-file scope, report 8 skupín, selektívny pilot reviews, regresné kontrakty; reálne CI ešte overiť.
 - [x] CI-V2-06 – deduplikácia troch skupín a aktívneho entity CI, parity kontrakt; ďalšie workflow-only testy a runtime CI otvorené.
-- [ ] CI-V2-07 – Playwright, izolované fixtures a diagnostika.
+- [x] CI-V2-07 – spoločný review E2E bootstrap pre 4 workflowy, Directory sidecar, oddelené reporty; ostatné browser workflowy a runtime CI otvorené.
 - [ ] CI-V2-08 – bezpečná archivácia historických workflowov až po dokázaní náhrady.
 - [ ] CI-V2-09 – výsledné CI a zachovanie povinných kontextov.
 - [ ] CI-V2-10 – overenie parity, výkonu, spoľahlivosti; kontrola vlastníkom pred merge.
