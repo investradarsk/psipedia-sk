@@ -1,6 +1,6 @@
 .page { min-height: 0; padding: 28px 0 28px; background: var(--cream); }
 .hero { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 28px; align-items: end; padding: 30px; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-card); background: var(--ps-surface-raised); }
-.hero h1 { margin: 8px 0 12px; color: var(--ink); font: 500 clamp(2rem, 3.8vw, 3.5rem)/1.06 var(--ps-font-heading); letter-spacing: -.035em; overflow-wrap: anywhere; }
+.hero h1 { margin: 8px 0 12px; color: var(--ink); font: 500 var(--ps-heading-page) / 1.12 var(--ps-font-heading); letter-spacing: -.035em; overflow-wrap: anywhere; }
 .hero p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.65; overflow-wrap: anywhere; }
 .heroActions { display: flex; min-width: 0; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
 .summary { display: grid; grid-template-columns: minmax(190px,.7fr) minmax(0,2fr); gap: 14px; margin-top: 18px; }
@@ -39,7 +39,6 @@
 .hero { align-items: start; gap: 20px; padding: clamp(18px, 2.2vw, 28px); }
 .heroIdentity { align-items: start; gap: 16px; }
 .hero p { max-width: 63ch; line-height: 1.55; font-size: .94rem; }
-.hero h1 { font-size: clamp(1.8rem, 3vw, 2.65rem); }
 .logo { width: 94px; height: 82px; }
 .summary { gap: 12px; margin-top: 14px; }
 .score, .dimensions { padding: 17px; }
@@ -47,7 +46,7 @@
 .dimension { padding: 12px; }
 .dimension strong { font-size: 1.09rem; }
 .about { margin-top: 15px; padding: 22px; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-card); background: var(--ps-surface-raised); }
-.about h2 { margin: 0 0 10px; color: var(--forest-dark); font: 600 clamp(1.3rem, 2vw, 1.7rem)/1.2 var(--ps-font-heading); }
+.about h2 { margin: 0 0 10px; color: var(--forest-dark); font: 500 var(--ps-heading-content-section) / 1.25 var(--ps-font-heading); }
 .about p { margin: 0; max-width: 76ch; color: var(--muted); font-size: .89rem; line-height: 1.65; overflow-wrap: anywhere; }
 .info { margin-top: 14px; padding: 18px 20px; }
 .source { margin-bottom: 0; }

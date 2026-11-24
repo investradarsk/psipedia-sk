@@ -44,3 +44,100 @@ Audit baseline: 85 non-Admin page templates (58 public, 27 Partner), including d
 ### Step 2: shared primitives
 
 Shared component modules now consume the scoped font, radius, control, shadow and motion tokens. Editorial title roles use Newsreader; labels, metadata, actions and form controls use Inter. Keep featured media edge-to-edge inside its clipped card; thumbnails use the shared radius. Preserve component HTML, link semantics, GET params, labels, disabled/loading/invalid states, 44px public target sizes and forced-color focus. Context-specific variants and the partner/local page styling remain migration work in their respective stages.
+
+
+## V2-15 integration preflight — 24 November 2026
+
+All stage prefixes V2-01 through V2-14 are present in the PR commit list at `827be774de9958f811a3fa210460d76362cfc97c`; this is implementation evidence, not acceptance. Integrated PR #1582's scoped public-detail changes against its own base, preserving V2's 500 display weight, shared Newsreader role, gradient, radius tokens and small utility-label typography. The 15 non-overlapping files were checked against #1582's base blobs; the four overlapping CSS files were reconciled without replacing V2 with V1. Existing Partner ownership heading styling already satisfies the V2 font role. The review is still Draft pending CI and rendered evidence.
+
+### Route inventory
+
+85 non-Admin page files (27 Partner); dynamic patterns below are templates, not concrete data instances. `app/not-found.tsx`, if present, is an additional non-page state to audit. No claim of visual or functional verification is made.
+
+- `/[section]/[slug]`
+- `/[section]`
+- `/adresar/[category]/[slug]`
+- `/adresar/[category]/[slug]/upravit`
+- `/adresar/[category]/kraj/[locationSlug]`
+- `/adresar/[category]/mesto/[locationSlug]`
+- `/adresar/[category]/okres/[locationSlug]`
+- `/adresar/[category]`
+- `/adresar/chovatelske-stanice/kraj/[regionSlug]`
+- `/adresar/chovatelske-stanice/plemeno/[breedSlug]/kraj/[regionSlug]`
+- `/adresar/chovatelske-stanice/plemeno/[breedSlug]`
+- `/adresar`
+- `/adresar/utulky-a-zachrana`
+- `/clanky/[slug]`
+- `/clanky`
+- `/clanky/plemena`
+- `/cookies`
+- `/hladat`
+- `/kontakt`
+- `/mapa`
+- `/novinky/poslat-tip`
+- `/o-nas`
+- `/oblubene`
+- `/odhlasenie-osloveni/[token]`
+- `/opravy-a-podnety`
+- `/organizacie/[slug]`
+- `/organizacie`
+- `/overenie-profilu/[token]`
+- `/`
+- `/partner/google-navrat`
+- `/partner/koncepty/[id]`
+- `/partner/koncepty/novy/[kind]`
+- `/partner/koncepty/novy`
+- `/partner/nastavenia`
+- `/partner/obnova-hesla`
+- `/partner/onboarding`
+- `/partner/overenie`
+- `/partner`
+- `/partner/podujatia/[resourceId]/upravit`
+- `/partner/podujatia/nove`
+- `/partner/podujatia`
+- `/partner/pomoc/[resourceId]/upravit`
+- `/partner/pomoc/nova`
+- `/partner/prepojit-google`
+- `/partner/prevziat-profil/[type]/[id]`
+- `/partner/prevziat`
+- `/partner/prihlasenie`
+- `/partner/profily/[resourceId]/upravit`
+- `/partner/profily/novy`
+- `/partner/profily`
+- `/partner/propagacia`
+- `/partner/registracia`
+- `/partner/spravy`
+- `/partner/upozornenia`
+- `/partner/zabudnute-heslo`
+- `/partner/ziadosti`
+- `/plemena/[slug]/[breed]/fci-standard`
+- `/plemena/[slug]/[breed]`
+- `/plemena/[slug]/fci-standard`
+- `/plemena/[slug]`
+- `/plemena`
+- `/podmienky-pouzivania`
+- `/pomoc-psom/[category]/[slug]`
+- `/pomoc-psom/[category]`
+- `/pomoc-psom/adopcia/[slug]`
+- `/pomoc-psom/adopcia`
+- `/pomoc-psom/nahlasit-psa-v-nudzi`
+- `/pomoc-psom/najdene-psy/[slug]`
+- `/pomoc-psom/najdene-psy`
+- `/pomoc-psom`
+- `/pomoc-psom/stratene-a-najdene/nahlasit`
+- `/pomoc-psom/stratene-a-najdene`
+- `/pomoc-psom/stratene-psy/[slug]`
+- `/pomoc-psom/stratene-psy`
+- `/porovnat-plemena`
+- `/pravne-informacie`
+- `/psie-meniny`
+- `/recenzia/napisat`
+- `/recenzia/overenie`
+- `/recenzia/prihlasenie`
+- `/recenzie/eshopy/[slug]/hodnotit`
+- `/recenzie/eshopy/[slug]`
+- `/sukromie`
+- `/tema/[slug]`
+- `/zasady-obsahu`
+
+Required next checks: six viewport widths, authenticated Partner, Admin isolation, maps, contrast, keyboard, SEO/data integrity, and all failing CI. No screenshot or browser pass was established by this integration.

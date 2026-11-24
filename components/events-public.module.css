@@ -2421,7 +2421,11 @@
   margin-bottom: 12px;
 }
 .relatedHeading h2 {
-  font-size: clamp(1.65rem, 3.5vw, 2.45rem);
+  font-family: var(--ps-font-heading);
+  font-size: var(--ps-heading-content-section);
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
 }
 .relatedList.cardGrid {
   gap: var(--ps-ds5-grid-gap, 16px);

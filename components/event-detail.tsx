@@ -75,8 +75,10 @@ export function EventDetail({
   // free-text contacts readable even if they cannot form a valid tel:/mailto:.
   const normalizedPhone = event.contactPhone?.trim().replace(/[^+\d]/g, "") ?? "";
   const contactPhoneHref = /^\+?\d{6,15}$/.test(normalizedPhone) ? `tel:${normalizedPhone}` : null;
-  const contactEmailHref = event.contactEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(event.contactEmail.trim())
-    ? `mailto:${event.contactEmail.trim()}` : null;
+  const contactEmailHref =
+    event.contactEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(event.contactEmail.trim())
+      ? `mailto:${event.contactEmail.trim()}`
+      : null;
   const hasActions = Boolean(showRegistration || event.websiteUrl || contactPhoneHref);
   const publicCity = publicLocationValue(event.city, "city");
   const publicRegion = publicLocationValue(event.region, "region");
@@ -186,13 +188,25 @@ export function EventDetail({
                 {event.contactPhone && (
                   <div>
                     <dt>Verejný telefón</dt>
-                    <dd>{contactPhoneHref ? <a href={contactPhoneHref}>{event.contactPhone}</a> : event.contactPhone}</dd>
+                    <dd>
+                      {contactPhoneHref ? (
+                        <a href={contactPhoneHref}>{event.contactPhone}</a>
+                      ) : (
+                        event.contactPhone
+                      )}
+                    </dd>
                   </div>
                 )}
                 {event.contactEmail && (
                   <div>
                     <dt>Verejný e-mail</dt>
-                    <dd>{contactEmailHref ? <a href={contactEmailHref}>{event.contactEmail}</a> : event.contactEmail}</dd>
+                    <dd>
+                      {contactEmailHref ? (
+                        <a href={contactEmailHref}>{event.contactEmail}</a>
+                      ) : (
+                        event.contactEmail
+                      )}
+                    </dd>
                   </div>
                 )}
               </dl>
@@ -244,8 +258,9 @@ export function EventDetail({
           aside={
             hasMap && publicMap ? (
               <PublicLocationMap
-                eyebrow="Miesto"
+                eyebrow="Miesto podujatia"
                 title="Miesto podujatia"
+                compactHeading
                 items={publicMap.items}
                 attribution={publicMap.attribution}
                 googleApiKey={publicMap.googleApiKey}
@@ -259,12 +274,12 @@ export function EventDetail({
         >
           <article className={detailStyles.body}>
             {event.description && (
-              <DetailSection title="O podujatí">
+              <DetailSection compactHeading title="O podujatí">
                 <EventMarkdown value={event.description} />
               </DetailSection>
             )}
             {event.practicalInfo && (
-              <DetailSection title="Praktické informácie">
+              <DetailSection compactHeading title="Praktické informácie">
                 <EventMarkdown value={event.practicalInfo} />
               </DetailSection>
             )}

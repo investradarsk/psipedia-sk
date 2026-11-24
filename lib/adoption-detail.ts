@@ -11,6 +11,16 @@ import { buildGenericMainEntityJsonLd } from "./seo.ts";
 
 export type PublicAdoptionDetailDog = AdoptionDog & { status: AdoptionPublicStatus };
 
+export function adoptionBreedNameIncludesMix(name: string): boolean {
+  const [firstWord] = name
+    .trim()
+    .normalize("NFD")
+    .toLocaleLowerCase("sk")
+    .replace(/\p{M}/gu, "")
+    .split(/[^\p{L}]+/u, 1);
+  return firstWord === "krizenec";
+}
+
 export const adoptionDetailStatusLabels: Record<AdoptionPublicStatus, string> = {
   ACTIVE: "Na adopciu",
   RESERVED: "Rezervovaný",
@@ -57,7 +67,7 @@ export function adoptionDetailPath(slug: string) {
 }
 
 export function asPublicAdoptionDetail(dog: AdoptionDog | null): PublicAdoptionDetailDog | null {
-  return dog && isAdoptionPublicStatus(dog.status) ? dog as PublicAdoptionDetailDog : null;
+  return dog && isAdoptionPublicStatus(dog.status) ? (dog as PublicAdoptionDetailDog) : null;
 }
 
 export function formatAdoptionDetailAge(
@@ -70,7 +80,8 @@ export function formatAdoptionDetailAge(
   // not evidence that the dog is a newborn.
   if (!dog.birthDate && dog.approximateAgeMonths === 0) return "neoverený";
   if (months === 0) return "menej ako 1 mesiac";
-  if (months < 12) return `${months} ${months === 1 ? "mesiac" : months >= 2 && months <= 4 ? "mesiace" : "mesiacov"}`;
+  if (months < 12)
+    return `${months} ${months === 1 ? "mesiac" : months >= 2 && months <= 4 ? "mesiace" : "mesiacov"}`;
   const years = Math.max(1, Math.round(months / 12));
   return `približne ${years} ${years === 1 ? "rok" : years >= 2 && years <= 4 ? "roky" : "rokov"}`;
 }
@@ -92,20 +103,22 @@ export function adoptionDetailBooleanLabel(value: boolean | null) {
 }
 
 export function buildAdoptionDetailSections(dog: AdoptionDog) {
-  const compatibility = [
-    dog.suitableForChildren,
-    dog.suitableForDogs,
-    dog.suitableForCats,
-    dog.suitableForOtherAnimals,
-  ].some((value) => value !== "UNKNOWN")
-    || dog.apartmentSuitable !== null
-    || dog.beginnerSuitable !== null
-    || dog.needsExperiencedOwner;
-  const health = dog.vaccinationStatus !== "UNKNOWN"
-    || dog.chipped !== null
-    || dog.neutered !== null
-    || Boolean(dog.healthNotes.trim())
-    || Boolean(dog.specialNeeds.trim());
+  const compatibility =
+    [
+      dog.suitableForChildren,
+      dog.suitableForDogs,
+      dog.suitableForCats,
+      dog.suitableForOtherAnimals,
+    ].some((value) => value !== "UNKNOWN") ||
+    dog.apartmentSuitable !== null ||
+    dog.beginnerSuitable !== null ||
+    dog.needsExperiencedOwner;
+  const health =
+    dog.vaccinationStatus !== "UNKNOWN" ||
+    dog.chipped !== null ||
+    dog.neutered !== null ||
+    Boolean(dog.healthNotes.trim()) ||
+    Boolean(dog.specialNeeds.trim());
   return {
     breed: Boolean(dog.breedName.trim()),
     temperament: Boolean(dog.temperament.trim()),
@@ -114,13 +127,20 @@ export function buildAdoptionDetailSections(dog: AdoptionDog) {
     health,
     requirements: Boolean(dog.adoptionRequirements.trim()),
     gallery: dog.gallery.some((item) => item.trim().length > 0),
-    contact: Boolean(dog.organizationName.trim() || dog.contactEmail || dog.contactPhone || dog.contactUrl || dog.externalSourceUrl),
+    contact: Boolean(
+      dog.organizationName.trim() ||
+        dog.contactEmail ||
+        dog.contactPhone ||
+        dog.contactUrl ||
+        dog.externalSourceUrl,
+    ),
   };
 }
 
 export function buildAdoptionDetailSeo(dog: PublicAdoptionDetailDog, now = new Date()) {
-  const description = dog.shortDescription.trim()
-    || `${dog.name}${dog.city ? ` hľadá nový domov v lokalite ${dog.city}` : " hľadá nový domov"}.`;
+  const description =
+    dog.shortDescription.trim() ||
+    `${dog.name}${dog.city ? ` hľadá nový domov v lokalite ${dog.city}` : " hľadá nový domov"}.`;
   return {
     title: `${dog.name} – pes na adopciu`,
     description,
@@ -174,7 +194,12 @@ export function buildAdoptionDetailStructuredData(dog: PublicAdoptionDetailDog, 
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Domov", item: siteUrl },
           { "@type": "ListItem", position: 2, name: "Pomoc psom", item: `${siteUrl}/pomoc-psom` },
-          { "@type": "ListItem", position: 3, name: "Psy na adopciu", item: `${siteUrl}/pomoc-psom/adopcia` },
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: "Psy na adopciu",
+            item: `${siteUrl}/pomoc-psom/adopcia`,
+          },
           { "@type": "ListItem", position: 4, name: dog.name, item: canonical },
         ],
       },

@@ -30,14 +30,35 @@ test("long-form reading values have one canonical public token source", () => {
 });
 
 test("articles share green high-contrast prose, legible mobile size and reading measure", () => {
-  assert.match(articles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*max-width:\s*var\(--ps-reading-measure\)/s);
-  assert.match(articles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-family:\s*var\(--ps-reading-font\)/s);
-  assert.match(articles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-size:\s*var\(--ps-reading-size\)/s);
-  assert.match(articles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*line-height:\s*var\(--ps-reading-leading\)/s);
-  assert.match(articles, /\.readingShell :global\(\.article-blocks h2\),\s*\.readingShell :global\(\.article-blocks h3\)[^{]*\{[^}]*color:\s*var\(--ps-reading-heading-color\)/s);
+  assert.match(
+    articles,
+    /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*max-width:\s*var\(--ps-reading-measure\)/s,
+  );
+  assert.match(
+    articles,
+    /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-family:\s*var\(--ps-reading-font\)/s,
+  );
+  assert.match(
+    articles,
+    /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-size:\s*var\(--ps-reading-size\)/s,
+  );
+  assert.match(
+    articles,
+    /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*line-height:\s*var\(--ps-reading-leading\)/s,
+  );
+  assert.match(
+    articles,
+    /\.readingShell :global\(\.article-blocks h2\),\s*\.readingShell :global\(\.article-blocks h3\)[^{]*\{[^}]*color:\s*var\(--ps-reading-heading-color\)/s,
+  );
   const mobile = articles.slice(articles.indexOf("@media (max-width: 767px)"));
-  assert.match(mobile, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-size:\s*var\(--ps-reading-size\)/s);
-  assert.doesNotMatch(mobile, /\.readingShell :global\(\.article-prose\)\s*\{[^}]*font-size:\s*16px/s);
+  assert.match(
+    mobile,
+    /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-size:\s*var\(--ps-reading-size\)/s,
+  );
+  assert.doesNotMatch(
+    mobile,
+    /\.readingShell :global\(\.article-prose\)\s*\{[^}]*font-size:\s*16px/s,
+  );
 });
 
 test("breeds and all shared profile details consume the same reading scale", () => {
@@ -47,12 +68,15 @@ test("breeds and all shared profile details consume the same reading scale", () 
   assert.match(details, /\.section p\s*\{[^}]*font-size:\s*var\(--ps-reading-size\)/s);
   assert.match(details, /\.section p\s*\{[^}]*line-height:\s*var\(--ps-reading-leading\)/s);
   assert.match(details, /\.section :global\(\.event-markdown li\)/);
-  assert.match(events, /<DetailSection title="O podujatí">/);
+  assert.match(events, /<DetailSection compactHeading title="O podujatí">/);
   assert.match(directory, /<DetailSection/);
 });
 
 test("informational pages opt into readability without globally enlarging controls or admin", () => {
-  assert.match(foundation, /\.prose-page:is\(\.legal-page, \.info-page\)[\s\S]*?font-family:\s*var\(--ps-reading-font\)/);
+  assert.match(
+    foundation,
+    /\.prose-page:is\(\.legal-page, \.info-page\)[\s\S]*?font-family:\s*var\(--ps-reading-font\)/,
+  );
   assert.doesNotMatch(read("app/admin/admin-editorial-foundation.css"), /--ps-reading-size/);
   const globals = read("app/globals.css");
   assert.match(globals, /body\s*\{[^}]*font-family:\s*"Avenir Next"/s);
