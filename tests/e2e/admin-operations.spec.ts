@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
 
-test("alerts center, shared bell and active/history controls are accessible and responsive", async ({ page }, testInfo) => {
+test("alerts center, shared bell and four inbox views are accessible and responsive", async ({ page }, testInfo) => {
   if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
   const response = await page.goto("/admin/operations", { waitUntil: "domcontentloaded" });
   expect(response).not.toBeNull();
@@ -45,7 +45,7 @@ test("alerts center, shared bell and active/history controls are accessible and 
 
   const filter = page.getByRole("search", { name: "Filtrovať upozornenia" });
   await expect(filter).toHaveAttribute("method", "get");
-  await expect(filter.getByLabel("Zobrazenie")).toHaveValue("active");
+  await expect(filter.getByLabel("Zobrazenie")).toHaveValue("unread");
   await expect(filter.getByLabel("Zdroj")).toHaveValue("all");
   await expect(filter.getByLabel("Priorita")).toHaveValue("all");
 
@@ -74,15 +74,16 @@ test("alerts center, shared bell and active/history controls are accessible and 
   }
   await expect(adminNavigation.getByRole("link", { name: "Upozornenia", exact: true })).toBeVisible();
   await expect(adminNavigation.getByRole("link", { name: "Upozornenia", exact: true })).toHaveAttribute("aria-current", "page");
-  if (!mobile) await adminNavigation.getByText("Kvalita dát", { exact: true }).click();
+  if (!mobile) await adminNavigation.getByText("Systém", { exact: true }).click();
   await expect(adminNavigation.getByRole("link", { name: "Mapy", exact: true })).toHaveAttribute("href", "/admin/mapy");
   await expect(adminNavigation.getByRole("link", { name: "Nástroje", exact: true })).toHaveAttribute("href", "/admin/nastroje");
-  if (!mobile) await adminNavigation.getByText("Komunita", { exact: true }).click();
+  if (!mobile) await adminNavigation.getByRole("button", { name: "Partneri", exact: true }).click();
   await expect(adminNavigation.getByRole("link", { name: "Profilové recenzie", exact: true })).toHaveAttribute("href", "/admin/recenzie-profilov");
-  await expect(adminNavigation.getByRole("link", { name: "Tipy", exact: true })).toHaveAttribute("href", "/admin/tipy");
-  await expect(adminNavigation.getByRole("link", { name: "Hodnotenia", exact: true })).toHaveAttribute("href", "/admin/hodnotenia");
   // Partner intake unifies public requests and partner submissions in one inbox.
   await expect(adminNavigation.getByRole("link", { name: "Podania a dopyty", exact: true })).toHaveAttribute("href", "/admin/podania");
+  if (!mobile) await adminNavigation.getByRole("button", { name: "Redakcia", exact: true }).click();
+  await expect(adminNavigation.getByRole("link", { name: "Tipy", exact: true })).toHaveAttribute("href", "/admin/tipy");
+  await expect(adminNavigation.getByRole("link", { name: "Hodnotenia", exact: true })).toHaveAttribute("href", "/admin/hodnotenia");
   await expect(adminNavigation.getByRole("link", { name: "Návrhy úprav", exact: true })).toHaveCount(0);
   await expect(adminNavigation.getByRole("link", { name: "Operácie", exact: true })).toHaveCount(0);
 
