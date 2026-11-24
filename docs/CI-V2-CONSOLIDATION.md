@@ -142,10 +142,21 @@ Admin stabilita už spúšťa celý PWA balík; skupina admin pridáva iba jeho 
 
 Statická parita všetkých existujúcich npm príkazov a všetkých ôsmich skupín bola porovnaná. Nový dependency-free test overuje živé aliasy, presné loader kontexty, multiplicitu a poradie opaque príkazov a zachovanie SEO testu v aktívnom workflow; zapojený do povinného CI. 22 odstránených opakovaných explicitných spustení v skupinách (nie počet vymazaných testov ani garantovaná úspora na každom PR). Ďalšie workflow-only testy a cross-workflow duplicity zostávajú do úplnej klasifikácie; skupiny zatiaľ nie sú náhradou kompletného CI. Runtime CI a porovnateľný čas ešte neoverené.
 
+## 02 – Doplnenie úplného source auditu po kroku 06
+
+- Preskúmaných všetkých 156 YAML zdrojov na revízii 6d4e59f, 156/156 blob SHA sa zhoduje s aktuálnou vetvou, 203 staticky identifikovaných jobov. Žiadny záznam už nie je len odhad podľa názvu.
+- [Súhrn source auditu, overlap a historické kandidáty](ci-v2-workflow-audit/summary.json) a 10 batch JSON súborov obsahujú konkrétne triggery, joby, kroky, príkazy, referencie testov a skriptov, bezpečnostné indikátory a odporúčaný disposition pre každý workflow.
+- 111 PR triggerov, 116 manual triggerov, 1 reusable trigger, 4 scheduled a 2 push; kategórie sa prekrývajú. 54 explicitných zmienok npm build, 31 lint a 45 Playwright/Chromium (vrátane zmienok v podmienkach/komentároch).
+- 452 statických kontextov Node súbor + rovnaké flags v rôznych workflowoch a 85 kandidátov opakovania v jednom jobe; 301 explicitne spustených Node súborov bez priamej referencie v npm. Výsledky sú konzervatívne kandidáty; dynamické/glob/multiline príkazy a podmienky sa nesmú automaticky zahodiť.
+- 36 špecifických historických manuálnych operácií na posúdenie archivácie v kroku 08. Žiadny nie je bez dôkazu označený za bezpečne odstrániteľný. Povinné checky, vizuálne dôkazy, scheduled/live audity, produkčný migrátor a mixed offline + produkčné joby zostávajú chránené.
+- [Časový baseline](ci-v2-workflow-audit/timing.json): 100 úspešných PR workflow behov, 14 detailných behov s reálnymi started_at/completed_at jobov a krokov. Napr. tri admin-performance joby 77/72/75 s; admin stability build 26/32/23 s; Notion article build 36/24/39 s; MAP-1E build 41 s; organization profile build 27 s; admin PWA build 22 s. Vzorka ukazuje variabilitu, nie garantovanú úsporu ani účet runner minút.
+- Porovnanie pred/po rovnakých workloadov, opakovaných meraní na rovnakom profile runnera, fixture, revízii a scope patrí do finálneho kroku 10; tento audit poskytuje reálny referenčný baseline. Nevykonané produkčné operácie, nezmenené aktívne workflowy.
+
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
-- [ ] CI-V2-02 – analýza a predbežná klasifikácia uložená; otvorené: source audit 114 workflowov a porovnateľný časový baseline.
+- [x] CI-V2-02 – kompletný statický source audit 156 workflowov, historické kandidáty, overlap a reálne časové vzorky; kontrolovaný before/after benchmark v kroku 10.
 - [x] CI-V2-03 – spoločný NPM vstup, zachované aliasy, odstránené potvrdené duplicitné invokácie; runtime CI ešte overiť.
 - [x] CI-V2-04 – pilot zdieľania dvoch oddelených build profilov v review CI, verifikácia existujúceho admin artefaktu; runtime CI a ďalšie skupiny otvorené.
 - [x] CI-V2-05 – fail-closed per-file scope, report 8 skupín, selektívny pilot reviews, regresné kontrakty; reálne CI ešte overiť.
