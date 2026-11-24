@@ -790,7 +790,7 @@ export function AdminArticleEditor({
           </div>
         }
         actions={<EditorActionBar
-          message={<span className="admin-editor-dirty-state">{dirty ? "Neuložené zmeny" : pendingFacebookSave ? "Článok uložený · Facebook čaká" : savedArticleRef.current ? "Článok uložený v D1" : "Nový článok zatiaľ nie je uložený"}</span>}
+          message={<span className="admin-editor-dirty-state">{dirty ? "Neuložené zmeny" : pendingFacebookSave ? "Článok uložený · Facebook čaká" : (article || saveReceipt?.d1.status === "saved") ? "Článok uložený v D1" : "Nový článok zatiaľ nie je uložený"}</span>}
           destructive={article ? <AdminRecordLifecycleActions kind="articles" recordId={article.id} status={displayedStatus} disabled={saving || uploading} returnHref="/admin/clanky" onUnpublished={(_next,updatedAt)=>{setStatus("draft");if(updatedAt)lastSavedUpdatedAtRef.current=updatedAt;}} /> : undefined}
           primary={<>
             <span className={editorStyles.desktopActions}>
