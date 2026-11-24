@@ -116,10 +116,16 @@ test("admin visual save and shared upload remain admin-authenticated", async () 
     readFile(path.join(repoRoot, "app/api/admin/section-visuals/route.ts"), "utf8"),
     readFile(path.join(repoRoot, "app/api/admin/uploads/route.ts"), "utf8"),
   ]);
-  for (const source of [visualRoute, uploadRoute]) {
-    assert.match(source, /getAdminApiUser/);
-    assert.match(source, /unauthorizedAdminResponse/);
-  }
+  assert.match(visualRoute, /export async function PUT\(request: Request\)[\s\S]*?await getAdminApiUser\(\)[\s\S]*?if \(!user\) return unauthorizedAdminResponse\(\)/);
+  assert.match(uploadRoute, /await requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
+  assert.match(uploadRoute, /if \(auth\.response \|\| !auth\.user\) return auth\.response \?\? unauthorizedAdminResponse\(\)/);
+  assert.ok(uploadRoute.indexOf("await requireAdminMutation(request") < uploadRoute.indexOf("await bucket.put("));
+  const authSource = await readFile(path.join(repoRoot, "lib/admin-auth.ts"), "utf8");
+  const mutation = authSource.slice(authSource.indexOf("export async function requireAdminMutation("));
+  assert.match(mutation, /const user = await getAdminApiUser\(\)/);
+  assert.match(mutation, /if \(!user\) return \{ response: unauthorizedAdminResponse\(\) as Response, user: null \}/);
+  assert.match(mutation, /rejectUntrustedAdminMutationOrigin\(request, \{ allowMissingProvenance: !options\.strictProvenance \}\)/);
+  assert.match(mutation, /if \(rejected\) return \{ response: rejected, user: null \}/);
   assert.match(uploadRoute, /"section-visuals"/);
   assert.match(uploadRoute, /detectedImageType/);
   assert.match(uploadRoute, /MAX_FILE_SIZE/);

@@ -195,6 +195,10 @@ Reálny pred-V2 párový baseline na rovnakom HEAD 56c1dea35455f6c0988e311b69104
 
 Spoločný parent teraz spúšťa migration safety, clean D1 a lint v jedinom common-validation jobe súbežne s build matrix. Obe vybrané doménové validácie naň čakajú. Standalone manuálny auth ponecháva všetky tri pôvodné kontroly (workflow_call boolean default false, explicit true iba v callerovi závislom od common-validation). Všetky doménové testy, vrátane reviewer auth regresie v submission, zostali; spoločný výsledok vyžaduje success common-validation. Pri výbere oboch agend odpadá jedno db:check-migrations, jedno db:validate-clean a jeden lint, historická opakovaná práca približne 213–220 sekúnd (nie garantovaná wall-clock úspora). Žiadna zmena produkčných alebo povinných branch protection nastavení.
 
+### 10 – rýchlejšie odhalenie regresie
+
+Run 45494794277 / job 138802876566 failed in section-visuals.test.mjs: shared upload now correctly delegates authentication and strict origin to requireAdminMutation, legacy assertion expected getAdminApiUser directly. Contract updated to assert real guard, rejection, guard before R2 write, and delegated authentication and provenance; visual PUT retains direct auth contract. No application code change. Source-only section visual suite now runs first in npm test (same alias/flags, no removed command), before expensive build. Exact source assertions passed in JS replay; runtime CI pending. Review run 45494794519 had successful shared migration/lint, both build profiles and both security validation consumers; browser jobs still in progress at observation. No controlled latency benchmark.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
