@@ -550,9 +550,24 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await toolbar.locator("[data-article-insert-picker]").getByRole("button", { name: "Video / embed" }).click();
     const video = canvas.locator('[data-article-continuous-widget="embed"]');
     await expect(video).toHaveCount(1);
-    await video.getByRole("button", { name: "Upraviť", exact: true }).click();
-    await video.locator(".admin-video-editor input[type='url']").fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    const edit = video.getByRole("button", { name: "Upraviť", exact: true });
+    // Scroll as a reader would: clear both sticky bars before activating the
+    // inline button, rather than clicking a partially covered viewport edge.
+    await edit.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await expect(edit).toBeInViewport({ ratio: 1 });
+    await edit.click();
+    const urlInput = video.locator(".admin-video-editor input[type='url']");
+    await expect(video.getByRole("button", { name: "Zavrieť úpravu", exact: true })).toHaveAttribute("aria-expanded", "true");
+    await expect(urlInput).toBeVisible();
+    await urlInput.fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     await expect(video.locator(".admin-video-editor iframe")).toBeVisible();
+    const close = video.getByRole("button", { name: "Zavrieť úpravu", exact: true });
+    await close.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await close.click();
+    await expect(urlInput).toHaveCount(0);
+    await edit.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await edit.click();
+    await expect(urlInput).toHaveValue("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     await expect(page.locator('[data-article-tiptap-invalid="true"]')).toHaveCount(0);
     await expect(page.locator("[data-article-legacy-toggle]")).toHaveCount(0);
   });
