@@ -29,6 +29,7 @@ export type AuditMapping = {
 };
 export type AuditD1Evidence = {
   coverage: "VERIFIED" | "UNKNOWN";
+  failure?: "D1_READ_FAILED" | "D1_RESPONSE_INCOMPLETE" | "D1_EVIDENCE_LIMIT";
   mappings: AuditMapping[];
   canonicalIds: number[];
 };
@@ -123,14 +124,16 @@ export async function loadAuditD1Evidence(
         + cfg.mapping + " WHERE " + (cfg.agenda ? "agenda = ? AND " : "") + "(" + clauses.join(" OR ") + ")"
         + " ORDER BY notion_page_id ASC LIMIT 201";
       const rows = await database.prepare(sql).bind(...(cfg.agenda ? [cfg.agenda, ...params] : params)).all<AuditMapping>();
-      if ((rows.results ?? []).length > 200) return { coverage: "UNKNOWN", mappings: [], canonicalIds: [] };
+      if (!Array.isArray(rows.results) || rows.success === false) return { coverage: "UNKNOWN", failure: "D1_RESPONSE_INCOMPLETE", mappings: [], canonicalIds: [] };
+      if (rows.results.length > 200) return { coverage: "UNKNOWN", failure: "D1_EVIDENCE_LIMIT", mappings: [], canonicalIds: [] };
       for (const row of rows.results ?? []) mappings.set(row.notion_page_id + ":" + row.entity_id, row);
-      if (mappings.size > 200) return { coverage: "UNKNOWN", mappings: [], canonicalIds: [] };
+      if (mappings.size > 200) return { coverage: "UNKNOWN", failure: "D1_EVIDENCE_LIMIT", mappings: [], canonicalIds: [] };
     }
     const canonical = ids.length
       ? await database.prepare("SELECT id FROM " + cfg.table + " WHERE id IN " + placeholders(ids.length) + " ORDER BY id ASC LIMIT 100")
         .bind(...ids).all<{ id: number }>()
-      : { results: [] as { id: number }[] };
+      : { success: true, results: [] as { id: number }[] };
+    if (!Array.isArray(canonical.results) || canonical.success === false) return { coverage: "UNKNOWN", failure: "D1_RESPONSE_INCOMPLETE", mappings: [], canonicalIds: [] };
     return {
       coverage: "VERIFIED",
       mappings: [...mappings.values()],
@@ -139,7 +142,7 @@ export async function loadAuditD1Evidence(
   } catch {
     // Old installations/missing tables/temporary D1 failures are UNKNOWN,
     // never assumed absent. Do not leak SQL exceptions in a public log.
-    return { coverage: "UNKNOWN", mappings: [], canonicalIds: [] };
+    return { coverage: "UNKNOWN", failure: "D1_READ_FAILED", mappings: [], canonicalIds: [] };
   }
 }
 
