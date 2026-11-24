@@ -1,3 +1,4 @@
+import { PublicHelpSectionNav } from "@/components/public-visual-system/public-help-category-nav";
 import Link from "next/link";
 import {
   DetailActions,
@@ -266,6 +267,7 @@ export function AdoptionDetail({
         }
       />
 
+      <PublicHelpSectionNav current="adopcia" />
       <PublicHelpProfileDetailLayout>
         <article className={dogStyles.detailCopy}>
           {sections.story && (

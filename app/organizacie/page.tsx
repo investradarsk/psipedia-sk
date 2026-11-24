@@ -1,3 +1,4 @@
+import { PublicHelpSectionNav } from "@/components/public-visual-system/public-help-category-nav";
 import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
@@ -103,6 +104,7 @@ export default async function OrganizationsHubPage() {
             />
           </UnifiedSectionHeroShell>
 
+          <PublicHelpSectionNav current="utulky" />
           <section className="page-body" aria-labelledby="organization-list-heading">
             <PublicContentShell variant="listing">
               <PublicLandingSectionHeading

@@ -1,3 +1,4 @@
+import { PublicHelpSectionNav } from "@/components/public-visual-system/public-help-category-nav";
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
@@ -151,6 +152,7 @@ export function OrganizationProfileDetail({
       <PublicProfileHero
         breadcrumbs={<>
           <Link href="/">Domov</Link><span aria-hidden="true">›</span>
+          <Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">›</span>
           <Link href="/organizacie">Organizácie</Link><span aria-hidden="true">›</span>
           <span aria-current="page">{organization.name}</span>
         </>}
@@ -177,6 +179,7 @@ export function OrganizationProfileDetail({
         ]}
       />
 
+      <PublicHelpSectionNav current="utulky" />
       <PublicProfileContentLayout aside={aside}>
 
 

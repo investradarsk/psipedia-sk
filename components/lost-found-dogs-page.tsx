@@ -204,20 +204,6 @@ export async function LostFoundDogsPage({
               }
               ctaSlot={
                 <div className={styles.headerActions}>
-                  <nav className={styles.switcher} aria-label="Typ hlásenia">
-                    <Link
-                      href="/pomoc-psom/stratene-psy"
-                      aria-current={type === "LOST" ? "page" : undefined}
-                    >
-                      Stratené psy
-                    </Link>
-                    <Link
-                      href="/pomoc-psom/najdene-psy"
-                      aria-current={type === "FOUND" ? "page" : undefined}
-                    >
-                      Nájdené psy
-                    </Link>
-                  </nav>
                   <Link
                     className="button button--dark"
                     href={
@@ -240,7 +226,10 @@ export async function LostFoundDogsPage({
 
           <PublicContentShell variant="listing" className={styles.listingShell}>
             <div className={styles.categoryNavShell}>
-              <PublicHelpCategoryNav items={publicHelpCategoryItems("stratene-a-najdene")} />
+              <PublicHelpCategoryNav
+                items={publicHelpCategoryItems("stratene-a-najdene")}
+                reportScope={type}
+              />
             </div>
             <PublicFilterLayout>
               <PublicFilterPanel title="Filtrovať hlásenia" resetHref={basePath}>

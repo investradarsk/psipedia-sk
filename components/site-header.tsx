@@ -12,6 +12,7 @@ import { NavigationProgress } from "./navigation-progress";
 import styles from "./site-header.module.css";
 
 function isPathActive(pathname: string, href: string) {
+  if (href === "/pomoc-psom" && (pathname === "/organizacie" || pathname.startsWith("/organizacie/"))) return true;
   return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 }
 
