@@ -124,7 +124,7 @@ export async function loadAuditD1Evidence(
         + cfg.mapping + " WHERE " + (cfg.agenda ? "agenda = ? AND " : "") + "(" + clauses.join(" OR ") + ")"
         + " ORDER BY notion_page_id ASC LIMIT 201";
       const rows = await database.prepare(sql).bind(...(cfg.agenda ? [cfg.agenda, ...params] : params)).all<AuditMapping>();
-      if (!Array.isArray(rows.results) || rows.success === false) return { coverage: "UNKNOWN", failure: "D1_RESPONSE_INCOMPLETE", mappings: [], canonicalIds: [] };
+      if (!Array.isArray(rows.results) || Object.is(rows.success, false)) return { coverage: "UNKNOWN", failure: "D1_RESPONSE_INCOMPLETE", mappings: [], canonicalIds: [] };
       if (rows.results.length > 200) return { coverage: "UNKNOWN", failure: "D1_EVIDENCE_LIMIT", mappings: [], canonicalIds: [] };
       for (const row of rows.results ?? []) mappings.set(row.notion_page_id + ":" + row.entity_id, row);
       if (mappings.size > 200) return { coverage: "UNKNOWN", failure: "D1_EVIDENCE_LIMIT", mappings: [], canonicalIds: [] };
@@ -133,7 +133,7 @@ export async function loadAuditD1Evidence(
       ? await database.prepare("SELECT id FROM " + cfg.table + " WHERE id IN " + placeholders(ids.length) + " ORDER BY id ASC LIMIT 100")
         .bind(...ids).all<{ id: number }>()
       : { success: true, results: [] as { id: number }[] };
-    if (!Array.isArray(canonical.results) || canonical.success === false) return { coverage: "UNKNOWN", failure: "D1_RESPONSE_INCOMPLETE", mappings: [], canonicalIds: [] };
+    if (!Array.isArray(canonical.results) || Object.is(canonical.success, false)) return { coverage: "UNKNOWN", failure: "D1_RESPONSE_INCOMPLETE", mappings: [], canonicalIds: [] };
     return {
       coverage: "VERIFIED",
       mappings: [...mappings.values()],

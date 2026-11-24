@@ -40,7 +40,7 @@ function fixture(){
   `);
   const reads=[];
   const db={prepare(sql){
-    assert.match(sql,/^(WITH|SELECT) /);
+    assert.match(sql.trimStart(),/^(WITH|SELECT)\s/i);
     reads.push(sql);
     const stmt=sqlite.prepare(sql);
     const bind=(...args)=>({

@@ -67,9 +67,13 @@ test("event and Help use existing indeterminate checkbox without changing explic
     assert.match(src, /<AdminRecordTable/);
     assert.match(src, /serverSorted/);
     assert.match(src, /selection=\{\{/);
-    assert.match(src, /const \[selected, setSelected\] = useState<Set<number>>\(new Set\(\)\)/);
     assert.doesNotMatch(src, /useAdminBulkSelection\(/);
   }
+  assert.match(event, /const \[selected, setSelected\] = useState<Set<number>>\(new Set\(\)\)/);
+  assert.match(help, /useAdminProfilePageSelection\(viewFingerprint, items\.map\(\(item\) => item\.id\)\)/);
+  const scoped = read("components/admin-profile-page-selection.ts");
+  assert.match(scoped, /selection\.key === viewKey/);
+  assert.match(scoped, /filter\(\(id\) => visible\.has\(id\)\)/);
   assert.match(help, /rowInputDataAttribute: "data-help-row-select"/);
   assert.match(help, /selectAllLabel: "Označiť všetky na tejto strane"/);
   assert.match(help, /mode: "ids" as const, ids: \[\.\.\.selected\]/);

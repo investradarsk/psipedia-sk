@@ -10,8 +10,14 @@ import { getQualityMissingDatabase, loadMissingQualityDashboard } from "@/lib/da
 export const dynamic = "force-dynamic";
 
 async function QualityContent({ promise }: { promise: ReturnType<typeof loadMissingQualityDashboard> }) {
-  try { return <AdminMissingQualityDashboard data={await promise} />; }
-  catch (error) { console.error("Quality proposal queue unavailable", error); return <p role="alert" className="admin-panel">Evidencia návrhov je nedostupná. Počty ani stav návrhov sa nepodarilo overiť.</p>; }
+  let data: Awaited<typeof promise>;
+  try {
+    data = await promise;
+  } catch (error) {
+    console.error("Quality proposal queue unavailable", error);
+    return <p role="alert" className="admin-panel">Evidencia návrhov je nedostupná. Počty ani stav návrhov sa nepodarilo overiť.</p>;
+  }
+  return <AdminMissingQualityDashboard data={data} />;
 }
 
 export default async function AdminDataQualityPage({
