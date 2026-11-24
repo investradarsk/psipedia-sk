@@ -298,8 +298,7 @@ export async function ReviewsHub({
                     automaticky zobrazia aj tu.
                   </p>
                 </PublicEmptyState>
-              )}
-              ) : null}
+              )) : null}
               <div className={styles.serviceLinks} aria-label="Kategórie služieb">
                 {serviceCategories.map((category) => (
                   <PublicDataCard
