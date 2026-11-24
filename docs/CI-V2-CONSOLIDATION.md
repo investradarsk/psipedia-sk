@@ -102,11 +102,19 @@ Najprv konsolidovať iba dokázané rovnaké príkazy, zachovať aliasy a bezpe�
 
 Stav: analýza duplicít a predbežná klasifikácia všetkých workflowov uložená; úplná source kontrola 114 workflowov a porovnateľný výkonový baseline ostávajú otvorené. Žiadny test, workflow, trigger ani produkčná operácia nebola zmenená.
 
+## 03 – NPM konsolidácia
+
+Jednotný vstup pre vývojára: `npm run test:ci -- <group>`. Bez argumentu vypíše skupiny; `--plan` ukáže plán bez spustenia. Osem skupín: `code-quality`, `build`, `database`, `public`, `admin`, `partner`, `integrations`, `seo-performance`. Existujúce príkazy ostávajú kompatibilné; nové skupiny zatiaľ nie sú náhrada úplného CI ani záruka pokrytia workflow-only testov. Niektoré skupiny sa ešte prekrývajú, najmä admin, preto sa nesmú bez ďalšej deduplikácie používať ako jediný agregovaný gate.
+
+Odstránené štyri opakované referencie: tri z priameho zoznamu `test:admin-pwa` (zostávajú vo vnorených step7/step8) a jedna z `npm test` (zostáva v `test:perf-fastpaths`). Rozdielne loader kontexty ponechané. Statická kontrola všetkých pôvodných testovacích príkazov potvrdila rovnaké množiny súbor + Node flags a ostatných príkazov. Poradie troch PWA súborov sa presunulo do existujúcich podskupín; ide o samostatné read-only testovacie procesy. Žiadne workflowy ani testovacie súbory sa neodstraňujú.
+
+Pridaný regresný kontrakt `npm run test:ci:contract`. Pred merge overiť reálne CI, npm test a admin PWA. Statická parita nenahrádza vykonanie. Po migrácii workflowov v ďalších etapách zmenšiť počet verejných aliasov; teraz bolo 110 zachovaných a pridané dva vstupy.
+
 ## Plán
 
 - [x] CI-V2-01 – baseline inventár sledovaných súborov a npm príkazov, ochrana main, reprodukovateľný scanner.
 - [ ] CI-V2-02 – analýza a predbežná klasifikácia uložená; otvorené: source audit 114 workflowov a porovnateľný časový baseline.
-- [ ] CI-V2-03 – konsolidácia npm testovacích príkazov s kompatibilnými aliasmi.
+- [x] CI-V2-03 – spoločný NPM vstup, zachované aliasy, odstránené potvrdené duplicitné invokácie; runtime CI ešte overiť.
 - [ ] CI-V2-04 – zdieľanie kompatibilných build artefaktov.
 - [ ] CI-V2-05 – rozšírenie existujúceho ci-scope, fail-closed pri neznámych zmenách.
 - [ ] CI-V2-06 – unit/integration: deduplikácia bez straty loaderov a kontraktov.
