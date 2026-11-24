@@ -253,7 +253,7 @@ export function ProfileReviewSection({
           label="Stránkovanie recenzií"
           currentPage={data.pagination.page}
           totalPages={data.pagination.totalPages}
-          pageHref={pageHref}
+          pageHref={(page) => pageHref(page)}
           previousHref={
             data.pagination.page > 1
               ? pageHref(data.pagination.page - 1)
