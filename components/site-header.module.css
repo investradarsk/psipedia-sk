@@ -62,7 +62,7 @@
 
 .mobileNameDay:hover,
 .desktopNameDay:hover {
-  background-color: color-mix(in srgb, var(--coral-dark) 8%, var(--cream));
+  background-color: color-mix(in srgb, var(--forest) 3%, var(--paper));
 }
 .mobileNameDay:focus-visible,
 .desktopNameDay:focus-visible {
@@ -678,4 +678,10 @@
     outline: 2px solid var(--forest);
     outline-offset: -3px;
   }
+}
+
+/* Keep the brick brand accent, but use an AA-safe text tone on the
+ * name-day hover surface (axe reported 4.27:1 for the old color). */
+:global(:root:not(:has([data-admin-workspace]))) :is(.mobileNameDay, .desktopNameDay):hover span {
+  color: #963c2e;
 }

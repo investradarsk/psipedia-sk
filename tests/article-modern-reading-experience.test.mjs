@@ -364,7 +364,7 @@ test("mobile article composition hides sidebar and keeps compact readable contro
   assert.match(styles, /\.article-block-table-wrap\)[^{]*\{[^}]*overflow-x:\s*auto/s);
   assert.match(
     styles,
-    /\.article-block-image--wide\)[^{]*\{[^}]*max-width:\s*calc\(100vw - 16px\)/s,
+    /\.article-block-image--wide\)[^{]*\{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*margin-inline:\s*0/s,
   );
   assert.doesNotMatch(styles, /width:\s*calc\(100vw \+/);
 });
