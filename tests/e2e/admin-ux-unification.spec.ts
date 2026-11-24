@@ -333,7 +333,7 @@ test("shared navigation keeps its layout and active section after client navigat
       ? page.getByRole("dialog", { name: "Navigácia administrácie" }).getByRole("navigation", { name: "Redakčné moduly", exact: true })
       : page.getByRole("navigation", { name: "Redakčné moduly", exact: true });
     if (!mobile) {
-      const contentGroup = nav.getByRole("button", { name: "Obsah", exact: true });
+      const contentGroup = nav.getByRole("button", { name: "Redakcia", exact: true });
       if (await contentGroup.getAttribute("aria-expanded") !== "true") await contentGroup.click();
     }
     await nav.getByRole("link", { name: label, exact: true }).click();
