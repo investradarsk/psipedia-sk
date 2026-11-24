@@ -428,17 +428,7 @@ export function AdminHelpUnifiedTable({
 
   return (
     <section className={styles.workspace} aria-label="Pomoc psom – spoločná tabuľka" data-admin-help-unified-grid>
-      <div className={styles.intro}>
-        <span>Vyber typ pomoci a otvor konkrétny záznam.</span>
-        <Link prefetch={false} className={styles.categoryAction} href={active.href}>Správa a vytvorenie záznamov</Link>
-      </div>
-      <nav className={styles.categories} aria-label="Typ pomoci">
-        {categories.map(item => (
-          <Link key={item.slug} prefetch={false} href={categoryHref(item.slug)} aria-current={item.slug === activeScope ? "page" : undefined}>
-            <span aria-hidden="true">{item.icon}</span> {item.label}
-          </Link>
-        ))}
-      </nav>
+      <p className={styles.count}>Rýchla úprava vybraných polí. Podrobný zoznam ponúka ďalšie filtre a akcie.</p>
       {filterOptions.length > 0 && <nav className={styles.filters} aria-label="Podkategórie Pomoci psom">
         {filterOptions.map(item => (
           <Link key={item.slug} prefetch={false} href={categoryHref(item.slug)}

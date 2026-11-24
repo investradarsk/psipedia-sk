@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
+import { profileWorkspace, profileQuickHref } from "@/lib/admin-profile-workspace";
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminAdoptionDashboard } from "@/components/admin-adoption-dashboard";
@@ -53,11 +55,10 @@ export default async function AdoptionAdminPage({ searchParams }: { searchParams
 
   return <AdminShell
     user={user}
-    eyebrow="Pomoc psom"
-    title="Adopcie"
-    description="Prehľad psov na adopciu, ich aktuálneho stavu a údajov, ktoré treba znova overiť."
-    actions={<Link className="admin-primary-action" href="/admin/adopcie/novy">+ Pridať psa</Link>}
+    {...profileWorkspace("adopcia")}
+    actions={<AdminProfileActions active="adopcia"><Link className="admin-secondary-action" prefetch={false} href={profileQuickHref("adopcia", filters.q)}>Rýchla úprava</Link></AdminProfileActions>}
   >
+    <AdminProfileTypeTabs active="adopcia" />
     <Suspense fallback={<AdminDataLoading label="Adopcie" />}>
       <AdoptionContent promise={pagePromise} filters={filters} />
     </Suspense>

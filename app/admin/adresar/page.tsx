@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { AdminDirectoryCategoryNav } from "@/components/admin-directory-module-nav";
-import { AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
+import { AdminProfileActions, AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
 import { AdminDirectoryDashboard } from "@/components/admin-directory-dashboard";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminShell } from "@/components/admin-shell";
@@ -9,7 +9,7 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { parseDirectoryAdminFilters } from "@/lib/directory-admin-query";
 import { getManagedDirectoryAdminPage } from "@/lib/directory-admin-store";
 import { isDirectoryCategory } from "@/lib/directory";
-import styles from "@/components/admin-directory-dashboard.module.css";
+import { profileWorkspace } from "@/lib/admin-profile-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +39,8 @@ export default async function AdminDirectoryPage({ searchParams }: { searchParam
   return (
     <AdminShell
       user={user}
-      eyebrow="Adresár"
-      title="Profily adresára"
-      description="Spravuj profily všetkých kategórií na jednom mieste. Verejné sú iba publikované profily."
-      actions={<><Link className="admin-secondary-action" href="/admin/adresar/migracia">Duplicity a migrácia</Link><Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/adresar/novy">+ Nový profil</Link></>}
+      {...profileWorkspace("services")}
+    actions={<AdminProfileActions active="services"><Link className="admin-secondary-action" href="/admin/adresar/migracia">Duplicity a migrácia</Link></AdminProfileActions>}
     >
       <AdminProfileTypeTabs active="services" />
       <AdminDirectoryCategoryNav filters={filters} />
