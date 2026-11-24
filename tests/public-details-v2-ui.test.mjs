@@ -32,7 +32,7 @@ test(
  import {OrganizationProfileDetail} from './components/organization-profile-detail';
  import {SiteHeader} from './components/site-header';
  import {defaultNavigationItems} from './lib/navigation';
- import './app/globals.css'; import './app/design-system.css'; import './app/navigation-loading.css'; import './app/navigation-hotfix.css';
+ import './app/globals.css'; import './app/design-system.css'; import './app/banner-visuals.css'; import './app/breed-hero-safe-zone.css'; import './app/navigation-loading.css'; import './app/premium-foundation.css';
  const name = new URLSearchParams(location.search).get('case') || 'directory';
  const minimal = name.includes('minimal');
  const runtime = {googleApiKey:'',googleMapId:'',rendererEnabled:true,testRendererEnvironment:true};
@@ -65,6 +65,11 @@ test(
           {
             name: "platform-fixtures",
             setup(b) {
+              // Match production's public asset URLs instead of embedding or substituting fonts.
+              b.onResolve({ filter: /^\/fonts\/(?:inter|newsreader)-variable\.woff2$/ }, (a) => ({
+                path: a.path,
+                external: true,
+              }));
               b.onResolve({ filter: /^(next\/(link|navigation)|cloudflare:workers)$/ }, (a) => ({
                 path: a.path,
                 namespace: "fixture",
@@ -173,7 +178,9 @@ test(
               try {
                 const file = await readFile(join(process.cwd(), "public", url.pathname));
                 return route.fulfill({
-                  contentType: extname(url.pathname) === ".svg" ? "image/svg+xml" : "image/webp",
+                  contentType: extname(url.pathname) === ".woff2"
+                    ? "font/woff2"
+                    : extname(url.pathname) === ".svg" ? "image/svg+xml" : "image/webp",
                   body: file,
                 });
               } catch {}
@@ -184,6 +191,22 @@ test(
           await page.goto("https://fixture.test/?case=" + name);
           await page.locator("main h1").waitFor();
           await page.evaluate(() => document.fonts.ready);
+          // A computed fallback is not evidence of the approved V2 typography.
+          const typography = await page.evaluate(async () => {
+            const heading = document.querySelector("main h1");
+            const faces = await Promise.all([
+              document.fonts.load('500 32px "Psipedia Newsreader"'),
+              document.fonts.load('400 16px "Psipedia Inter"'),
+            ]);
+            return {
+              heading: getComputedStyle(heading).fontFamily,
+              body: getComputedStyle(document.body).fontFamily,
+              loaded: faces.every((group) => group.some((face) => face.status === "loaded")),
+            };
+          });
+          assert.match(typography.heading, /Psipedia Newsreader/, name + " V2 headline");
+          assert.match(typography.body, /Psipedia Inter/, name + " V2 body");
+          assert.ok(typography.loaded, name + " V2 local font files loaded");
           await page.locator("main img").evaluateAll((imgs) =>
             Promise.all(
               imgs.map((i) =>
