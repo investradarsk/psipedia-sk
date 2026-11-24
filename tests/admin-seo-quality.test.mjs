@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { adminDetailHref, adminReturnHref } from "../lib/admin-return-navigation.ts";
 import { DatabaseSync } from "node:sqlite";
 import { buildAdminSeoQualityAudit } from "../lib/admin-seo-quality-store.ts";
 import { articleEntity, eventEntity, loadPublishedSeoQualityEntities, loadSeoQualitySources } from "../lib/admin-seo-quality-entities.ts";
@@ -600,4 +601,21 @@ test("V6-03 separates help and lost-found IDs and keeps correct editor routes", 
   assert.equal(report.resultProfileCount, 2);
   assert.deepEqual(report.items.map((item) => seoEntityKey(item.entity)), ["help:7", "lostFound:7"]);
   assert.deepEqual(report.items.map((item) => item.entity.adminHref), ["/admin/pomoc/7", "/admin/stratene-najdene/7"]);
+});
+
+
+test("V6-03 all eight editor routes accept the exact filtered audit return URL", () => {
+  const href = auditHref({ agenda: "all", scope: "all", issue: "image-missing", query: "Žilina & Nitra" }, { page: 3 });
+  for (const segment of ["adresar", "podujatia", "pomoc", "stratene-najdene", "organizacie", "adopcie", "plemena", "clanky"]) {
+    const editor = adminDetailHref("/admin/" + segment + "/7", href);
+    const back = new URL(editor, "https://admin.invalid").searchParams.get("returnTo");
+    assert.equal(adminReturnHref(back, ["/admin/" + segment, "/admin/kvalita/seo"]), href);
+    const page = fs.readFileSync(new URL("../app/admin/" + segment + "/[id]/page.tsx", import.meta.url), "utf8");
+    assert.match(page, /adminReturnHref\(/);
+    assert.ok(page.includes('"/admin/kvalita/seo"'));
+    assert.ok(page.includes("returnHref={returnHref}"));
+  }
+  for (const invalid of ["https://evil.example", "//evil.example", "/admin/operations", "/admin/kvalita/seo#fragment"]) {
+    assert.equal(adminReturnHref(invalid, ["/admin/adresar", "/admin/kvalita/seo"]), "/admin/adresar");
+  }
 });

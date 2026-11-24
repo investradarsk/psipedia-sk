@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import styles from "@/components/admin-data-table.module.css";
 import { auditHref, isSeoIssueInScope } from "@/lib/admin-seo-quality-page";
+import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import {
   adminSeoAgendaLabels,
@@ -267,7 +268,7 @@ export default async function AdminSeoQualityPage({
                       ALT: {altModeLabel(item.entity.imageAltMode)}
                     </small>
                   </td>
-                  <td><Link className={styles.edit} href={item.entity.adminHref}>Spravovať →</Link></td>
+                  <td><Link className={styles.edit} prefetch={false} href={adminDetailHref(item.entity.adminHref, auditHref(filterState, { page: report.pagination.page }))}>Spravovať →</Link></td>
                 </tr>
               ))}
             </tbody>

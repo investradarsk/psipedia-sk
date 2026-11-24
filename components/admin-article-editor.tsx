@@ -107,6 +107,7 @@ export function AdminArticleEditor({
   topicOptions = [],
   promoUtcDay,
   returnToCalendar,
+  returnHref = "/admin/clanky",
 }: {
   article?: ManagedArticle;
   defaultPortalSection?: ArticlePortalSection;
@@ -116,6 +117,7 @@ export function AdminArticleEditor({
   topicOptions?: ArticleTopic[];
   promoUtcDay?: string;
   returnToCalendar?: string;
+  returnHref?: string;
 }) {
   const router = useRouter();
   const initialPortalSection = article?.portalSection ?? defaultPortalSection;
@@ -661,7 +663,7 @@ export function AdminArticleEditor({
     allowNavigationRef.current = true;
     setEditorDirty(false);
     if (returnToCalendar) router.push(returnToCalendar);
-    else router.push("/admin/clanky");
+    else router.push(returnHref);
   }
 
   // Hidden required controls cannot be reached by native form validation.
@@ -699,7 +701,7 @@ export function AdminArticleEditor({
         dirty={dirty}
         allowNativeExitRef={allowNavigationRef}
         onClose={cancelEditing}
-        closeLabel={returnToCalendar ? "Späť do kalendára" : "Späť na články"}
+        closeLabel={returnToCalendar ? "Späť do kalendára" : returnHref.startsWith("/admin/kvalita/seo?") ? "Späť na SEO audit" : "Späť na články"}
         previewTitle="Živý náhľad článku"
         preview={
           <div className={editorStyles.rightRail} data-article-editor-rail>
@@ -791,7 +793,7 @@ export function AdminArticleEditor({
         }
         actions={<EditorActionBar
           message={<span className="admin-editor-dirty-state">{dirty ? "Neuložené zmeny" : pendingFacebookSave ? "Článok uložený · Facebook čaká" : (article || saveReceipt?.d1.status === "saved") ? "Článok uložený v D1" : "Nový článok zatiaľ nie je uložený"}</span>}
-          destructive={article ? <AdminRecordLifecycleActions kind="articles" recordId={article.id} status={displayedStatus} disabled={saving || uploading} returnHref="/admin/clanky" onUnpublished={(_next,updatedAt)=>{setStatus("draft");if(updatedAt)lastSavedUpdatedAtRef.current=updatedAt;}} /> : undefined}
+          destructive={article ? <AdminRecordLifecycleActions kind="articles" recordId={article.id} status={displayedStatus} disabled={saving || uploading} returnHref={returnHref} onUnpublished={(_next,updatedAt)=>{setStatus("draft");if(updatedAt)lastSavedUpdatedAtRef.current=updatedAt;}} /> : undefined}
           primary={<>
             <span className={editorStyles.desktopActions}>
               <AdminActionButton variant="secondary" type="submit" form="article-canonical-editor-form" disabled={saving || uploading}>{saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť zmeny" : displayedStatus === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}</AdminActionButton>
@@ -870,7 +872,7 @@ export function AdminArticleEditor({
             {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("published")}>Publikovať {portalSection === "novinky" ? "novinku" : "článok"}</AdminActionButton>}
             {article && <div className={editorStyles.mobileLifecycleActions}>
               <AdminRecordLifecycleActions kind="articles" recordId={article.id} status={displayedStatus}
-                disabled={saving || uploading} returnHref="/admin/clanky"
+                disabled={saving || uploading} returnHref={returnHref}
                 onUnpublished={(_next,updatedAt)=>{setStatus("draft");if(updatedAt)lastSavedUpdatedAtRef.current=updatedAt;}} />
             </div>}
           </div>
