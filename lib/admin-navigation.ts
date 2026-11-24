@@ -26,13 +26,11 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
     { label: "Hodnotenia", href: "/admin/hodnotenia" },
     { label: "Psie meniny", href: "/admin/meniny" },
   ] },
-  { label: "Adresár", items: [
-    { label: "Profily", href: "/admin/adresar", matches: ["/admin/sluzby-pre-psov"] },
-    { label: "Katalóg služieb", href: "/admin/sluzby-pre-psov/katalog" },
-  ] },
-  { label: "Pomoc psom", items: [
-    { label: "Pomoc psom", href: "/admin/pomoc-psom",
+  { label: "Profily", items: [
+    { label: "Služby a prevádzky", href: "/admin/adresar", matches: ["/admin/sluzby-pre-psov"] },
+    { label: "Adopcie a hlásenia", href: "/admin/pomoc-psom",
       matches: ["/admin/pomoc", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie"] },
+    { label: "Katalóg služieb", href: "/admin/sluzby-pre-psov/katalog" },
   ] },
   { label: "Partneri", items: [
     { label: "Podania a dopyty", href: "/admin/podania", matches: ["/admin/dopyty"] },
