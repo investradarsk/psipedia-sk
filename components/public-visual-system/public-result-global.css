@@ -75,9 +75,9 @@
   margin-inline: auto;
   padding: clamp(34px, 6vw, 70px);
   border: 1px solid var(--line);
-  border-radius: 28px;
-  background: white;
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--ps-component-shadow);
   text-align: left;
 }
 .portal-search-start > span {
@@ -85,7 +85,7 @@
   width: 68px;
   height: 68px;
   place-items: center;
-  border-radius: 20px;
+  border-radius: var(--ps-radius-media);
   background: var(--sage-light);
   font-size: 1.9rem;
 }
@@ -107,14 +107,16 @@
 .portal-search-start > div a {
   padding: 9px 13px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--ps-radius-control);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   font-size: 0.8rem;
   font-weight: 750;
 }
 @media (max-width: 620px) {
   .portal-search-start {
     padding: 26px;
-    border-radius: 22px;
   }
 }
 .article-feedback-result {

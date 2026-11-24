@@ -11,20 +11,20 @@
   border: 1px solid rgba(255, 255, 255, .24);
   border-radius: 999px;
   color: #fff;
-  background: #174b38;
-  box-shadow: 0 10px 30px rgba(16, 47, 37, .24);
+  background: var(--forest);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  transition: transform var(--ps-motion-fast) var(--ps-motion-ease), background var(--ps-motion-fast) var(--ps-motion-ease);
 }
 
 .button:hover {
-  background: #102f25;
+  background: var(--forest-dark);
   transform: translateY(-2px);
-  box-shadow: 0 13px 34px rgba(16, 47, 37, .3);
+  
 }
 
 .button:focus-visible {
-  outline: 3px solid #f47757;
+  outline: 3px solid var(--coral-dark);
   outline-offset: 3px;
 }
 
@@ -53,8 +53,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .button {
+  .button,
+  .button:hover {
     transition: none;
+    transform: none;
   }
 }
 

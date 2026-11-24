@@ -3679,7 +3679,7 @@ h3 {
 }
 
 .favorites-loading {
-  padding: 80px;
+  padding: clamp(24px, 8vw, 80px) 16px;
   text-align: center;
   color: var(--muted);
 }
@@ -4447,13 +4447,15 @@ h3 {
 
 .not-found h1 {
   margin: 10px 0 14px;
-  font-size: clamp(3rem, 7vw, 6rem);
+  font-family: var(--ps-font-heading);
+  overflow-wrap: anywhere;
+  font-size: clamp(2rem, 7vw, 5rem);
   font-weight: 500;
 }
 
 .not-found p {
   max-width: 500px;
-  margin-bottom: 25px;
+  margin: 0 auto 25px;
   color: var(--muted);
 }
 
@@ -8629,10 +8631,10 @@ h3 {
   align-items: center;
   padding: 1.25rem;
   border: 1px solid rgba(31, 54, 42, 0.18);
-  border-radius: 18px;
-  background: #fffdf8;
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
   box-shadow: 0 18px 60px rgba(24, 43, 33, 0.22);
-  color: #21382c;
+  color: var(--ink);
 }
 
 /* Keep the browsing consent panel non-modal; only the active map filter
@@ -8645,7 +8647,9 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 .cookie-consent strong {
   display: block;
   margin-bottom: 0.35rem;
-  font-size: 1.08rem;
+  font-family: var(--ps-font-heading);
+  font-weight: 600;
+  font-size: 1.25rem;
 }
 .cookie-consent p {
   margin: 0;
@@ -8654,7 +8658,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 .cookie-consent small {
   display: block;
   margin-top: 0.45rem;
-  color: #5e6d65;
+  color: var(--muted);
 }
 .cookie-consent a {
   color: inherit;
@@ -8697,7 +8701,6 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
     align-items: start;
     bottom: 0.5rem;
     padding: 0.75rem;
-    border-radius: 14px;
     max-height: calc(100vh - 1rem);
     max-height: calc(100dvh - 1rem);
     overflow-y: auto;
