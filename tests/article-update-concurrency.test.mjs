@@ -142,6 +142,15 @@ function createHarness(status, injectConcurrentWrite = null) {
       [...new Set(previous)].filter((key) => key && !current.includes(key)),
     isArticlePublishIntegrityError: () => false,
     isArticleSlugConflict: () => false,
+    // V5-07 receipt helpers are read-only follow-ups; the CAS fixture does
+    // not connect Notion but must expose their real route dependencies.
+    isBreedArticleNotionChange: (before, after) =>
+      JSON.stringify(before.relatedBreedIds) !== JSON.stringify(after.relatedBreedIds),
+    articleSeoChangedFields: () => [],
+    articleSaveReceipt: (article, notion, lifecycle, media) => ({
+      d1: { status: "saved", updatedAt: article.updatedAt },
+      assignments: { status: "synced" }, notion, lifecycle, media,
+    }),
   };
   const updateManagedArticle = vm.runInNewContext(
     stripTypeScriptTypes(breedSync + "\n" + update + "\nupdateManagedArticle"), scope);
