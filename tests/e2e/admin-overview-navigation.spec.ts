@@ -18,16 +18,20 @@ function overviewGroup(page: Page) {
   return page.locator('[data-admin-sidebar] [data-admin-nav-group="Prehľad"] > button');
 }
 
-async function clickOverviewGroup(page: Page) {
-  // Server HTML can render well before the client navigation button hydrates.
-  await expect(page.locator('[data-admin-sidebar][data-admin-hydrated="true"]')).toBeAttached();
-  await expect(overviewGroup(page)).toBeVisible();
-  await expect(overviewGroup(page)).toHaveAttribute("aria-label", "Prejsť na pracovný prehľad");
-  await expect(overviewGroup(page)).not.toHaveAttribute("aria-expanded", /.+/);
-  await overviewGroup(page).click();
+function overviewShortcut(page: Page) {
+  return page.locator('[data-admin-sidebar] [data-admin-nav-group="Prehľad"] > a[href="/admin"]');
 }
 
-test("repeated Prehľad → Adresár → Prehľad client transitions do not stall", async ({ page }, info) => {
+async function clickOverviewGroup(page: Page) {
+  // The real href works even before React hydration; the handler adds a guarded
+  // native navigation after hydration instead of reusing stale authenticated RSC.
+  await expect(overviewShortcut(page)).toBeVisible();
+  await expect(overviewShortcut(page)).toHaveAttribute("aria-label", "Prejsť na pracovný prehľad");
+  await expect(overviewShortcut(page)).not.toHaveAttribute("aria-expanded", /.+/);
+  await overviewShortcut(page).click();
+}
+
+test("repeated Prehľad → Adresár → Prehľad fresh navigations do not stall", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop-chromium", "Desktop sidebar behavior");
   await page.goto("/admin", { waitUntil: "domcontentloaded" });
   await expectOverview(page);
@@ -38,7 +42,7 @@ test("repeated Prehľad → Adresár → Prehľad client transitions do not stal
     await page.locator('[data-admin-shell] a[href="/admin/adresar"]').first().click();
     await expect(page).toHaveURL(/\/admin\/adresar$/);
     await expect(page.getByRole("heading", { level: 1, name: "Profily adresára" })).toBeVisible();
-    await expect(overviewGroup(page)).toBeVisible();
+    await expect(overviewShortcut(page)).toBeVisible();
     await clickOverviewGroup(page);
     await expectOverview(page);
   }
@@ -56,7 +60,7 @@ test("Prehľad opens from an actual directory record editor", async ({ page }, i
   await expect(detail).toBeVisible();
   await detail.click();
   await expect(page).toHaveURL(/\/admin\/adresar\/\d+(?:\?.*)?$/);
-  await expect(overviewGroup(page)).toBeVisible();
+  await expect(overviewShortcut(page)).toBeVisible();
   await clickOverviewGroup(page);
   await expectOverview(page);
 });
