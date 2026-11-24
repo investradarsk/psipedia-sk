@@ -10,7 +10,8 @@ const types = [
 ] as const;
 
 export function AdminProfileTypeTabs({ active }: { active: string }) {
-  const selected = active === "utulky" ? "organizacie" : active;
+  const selected = active === "utulky" ? "organizacie"
+    : types.some((item) => item.id === active) ? active : "ostatna-pomoc";
   return (
     <nav aria-label="Typy profilov" className={styles.tabs} data-admin-profile-types>
       {types.map((item) => (
