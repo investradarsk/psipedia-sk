@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { AdminDirectoryModuleNav, AdminDirectoryCategoryNav } from "@/components/admin-directory-module-nav";
+import { AdminDirectoryCategoryNav } from "@/components/admin-directory-module-nav";
+import { AdminProfileTypeTabs } from "@/components/admin-profile-type-tabs";
 import { AdminDirectoryDashboard } from "@/components/admin-directory-dashboard";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminShell } from "@/components/admin-shell";
@@ -43,7 +44,7 @@ export default async function AdminDirectoryPage({ searchParams }: { searchParam
       description="Spravuj profily všetkých kategórií na jednom mieste. Verejné sú iba publikované profily."
       actions={<><Link className="admin-secondary-action" href="/admin/adresar/migracia">Duplicity a migrácia</Link><Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/adresar/novy">+ Nový profil</Link></>}
     >
-      <AdminDirectoryModuleNav active="services" />
+      <AdminProfileTypeTabs active="services" />
       <AdminDirectoryCategoryNav filters={filters} />
       <Suspense fallback={<AdminDataLoading label="Profily a služby" />}>
         <DirectoryList dataPromise={dataPromise} filters={filters} />

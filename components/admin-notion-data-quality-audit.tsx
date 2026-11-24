@@ -59,7 +59,13 @@ type AuditBatch = {
   nextCursor: string | null;
   truncated: boolean;
 };
-type AuditError = { error?: string };
+type AuditError = { error?: string; stage?: "SOURCE" | "NOTION_QUERY" | "D1_EVIDENCE" | "TRIAGE" };
+const auditFailureStages = {
+  SOURCE: "vyhľadanie Notion zdroja",
+  NOTION_QUERY: "čítanie dát z Notionu",
+  D1_EVIDENCE: "overovanie väzieb v D1",
+  TRIAGE: "vyhodnotenie výsledkov",
+} as const;
 
 const errorLabels: Record<string, string> = {
   MISSING_HOUSE_NUMBER: "Chýba číslo domu",
@@ -183,7 +189,13 @@ export function AdminNotionDataQualityAudit() {
         }),
       });
       const data = await response.json() as Partial<AuditBatch> & AuditError;
-      if (!response.ok || data.error) throw new Error(data.error || `Kontrola zlyhala (HTTP ${response.status}).`);
+      if (!response.ok || data.error) {
+        if (data.error === "NOTION_AUDIT_UNAVAILABLE") {
+          const step = data.stage ? auditFailureStages[data.stage] : "neznámy krok";
+          throw new Error(`Bezpečný audit sa nepodaril: ${step}. Žiadne údaje sa nezmenili. Skontroluj diagnostiku Workera a prístup k Notionu/D1.`);
+        }
+        throw new Error(data.error || `Kontrola zlyhala (HTTP ${response.status}).`);
+      }
       if (
         data.agenda !== category || data.mode !== "dry-run" || data.readOnly !== true
         || data.batchSize !== 100 || !Array.isArray(data.reviewItems)

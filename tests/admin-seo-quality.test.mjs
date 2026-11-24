@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { articleEntity, eventEntity } from "../lib/admin-seo-quality-entities.ts";
-import { auditSeoQualityEntity } from "../lib/admin-seo-quality-rules.ts";
+import { auditSeoQualityEntity, isSeoMetadataFinding, isSeoProfileAgenda } from "../lib/admin-seo-quality-rules.ts";
 import { selectAdminSeoQualityPage } from "../lib/admin-seo-quality-page.ts";
 
 function entity(overrides = {}) {
@@ -219,4 +219,40 @@ test("SEO page selection exactly matches original complete projection on 134 mix
   assert.equal(empty.total, 0);
   assert.equal(empty.page, 1);
   assert.deepEqual(empty.items, []);
+});
+
+test("SEO defaults prioritize missing profile metadata without inventing custom fields for rescue records", () => {
+  assert.equal(isSeoProfileAgenda("directory"), true);
+  assert.equal(isSeoProfileAgenda("help"), true);
+  assert.equal(isSeoProfileAgenda("adoptions"), true);
+  assert.equal(isSeoProfileAgenda("organizations"), true);
+  assert.equal(isSeoProfileAgenda("breeds"), true);
+  assert.equal(isSeoProfileAgenda("events"), false);
+  assert.equal(isSeoProfileAgenda("articles"), false);
+
+  const directoryFindings = auditSeoQualityEntity(entity());
+  const rescueFindings = auditSeoQualityEntity(entity({
+    agenda: "adoptions", id: 2, customSeoSupported: false, customSeoTitle: null,
+    customSeoDescription: null, resultTitle: "Pes", resultDescription: "",
+  }));
+  assert.equal(rescueFindings.some(finding => finding.scope === "custom"), false,
+    "generated rescue metadata must not be falsely reported as missing editable custom SEO");
+  assert.equal(rescueFindings.some(finding => finding.code === "result-description-weak"), true);
+
+  const items = [
+    { entity: entity(), findings: directoryFindings, customGapCount: 2, qualityFindingCount: directoryFindings.length - 2 },
+    { entity: entity({ agenda: "adoptions", id: 2 }), findings: rescueFindings, customGapCount: 0,
+      qualityFindingCount: rescueFindings.length },
+  ];
+  const paged = selectAdminSeoQualityPage(items, { scope: "metadata", issue: "all" }, 1);
+  assert.equal(paged.total, 2);
+  assert.equal(paged.items[0].findings.every(isSeoMetadataFinding), true);
+  assert.equal(paged.items[1].findings.every(isSeoMetadataFinding), true);
+
+  const store = fs.readFileSync(new URL("../lib/admin-seo-quality-store.ts", import.meta.url), "utf8");
+  const page = fs.readFileSync(new URL("../app/admin/kvalita/seo/page.tsx", import.meta.url), "utf8");
+  assert.match(store, /: "profiles"/);
+  assert.match(store, /: "metadata"/);
+  assert.match(page, /SEO metadáta profilov/);
+  assert.match(page, /Automatické SEO metadáta/);
 });
