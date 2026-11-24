@@ -34,7 +34,8 @@ export type AdminAttentionPriority = (typeof adminAttentionPriorities)[number];
 export const adminAttentionStates = ["NEW", "IN_PROGRESS", "RESOLVED", "DISMISSED"] as const;
 export type AdminAttentionState = (typeof adminAttentionStates)[number];
 
-export const adminAttentionViews = ["active", "history", "all"] as const;
+// Keep legacy active/all URLs working; only the first four views appear in the inbox tabs.
+export const adminAttentionViews = ["unread", "pending", "snoozed", "history", "active", "all"] as const;
 export type AdminAttentionView = (typeof adminAttentionViews)[number];
 
 export type AdminAttentionMetadata = { label: string; value: string };
@@ -1014,11 +1015,17 @@ export function sortAdminAttentionItems(items: AdminAttentionItem[]) {
   });
 }
 
-export function filterAdminAttentionItems(items: AdminAttentionItem[], filters: AdminAttentionFilters) {
-  const view = filters.view ?? "active";
+export function filterAdminAttentionItems(items: AdminAttentionItem[], filters: AdminAttentionFilters, now = new Date()) {
+  const view = filters.view ?? "unread";
   return items.filter((item) => {
     const active = isAdminAttentionActive(item);
-    const matchesView = view === "all" || (view === "active" ? active : !active);
+    const deferred = active && Boolean(item.snoozedUntil && Date.parse(item.snoozedUntil) > now.getTime());
+    const unread = active && !deferred && !item.readAt;
+    const matchesView = view === "all"
+      || (view === "unread" && unread)
+      || ((view === "pending" || view === "active") && active)
+      || (view === "snoozed" && deferred)
+      || (view === "history" && !active);
     return matchesView
       && (!filters.sourceType || filters.sourceType === "all" || item.sourceType === filters.sourceType)
       && (!filters.priority || filters.priority === "all" || item.priority === filters.priority);
