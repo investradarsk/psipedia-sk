@@ -24,10 +24,11 @@ export type PublicServiceProjection=Readonly<{
 /** Never infer an ID or YES/NO from historical prose. Only a uniquely matched
  * alias and a confirmed V3 choice can override the corresponding old label. */
 export function projectPublicProfileServices(
-  legacy:readonly string[],category:string,
+  legacy:readonly string[],category:string|readonly string[],
   choices:readonly PublicServiceChoice[],
   catalog:readonly ResolvedServiceDefinition[],
 ):PublicServiceProjection {
+  const profileCategories=typeof category==="string"?[category]:category;
   const current=new Map(catalog.map(option=>[option.id,option]));
   const selection=new Map(choices.map(choice=>[choice.option_id,choice.choice]));
   const aliases=new Map<string,string|null>();
@@ -65,7 +66,7 @@ export function projectPublicProfileServices(
       suppressed.push({label,reason:"explicit_no",canonicalName:option.label});
       continue;
     }
-    if(!option.categories.includes(category)){
+    if(!option.categories.some(value=>profileCategories.includes(value))){
       suppressed.push({label,reason:"different_category",canonicalName:option.label});
       continue;
     }
@@ -79,7 +80,7 @@ export function projectPublicProfileServices(
   for(const {option_id:id,choice} of choices){
     if(choice!=="yes"||shownCatalog.has(id))continue;
     const option=current.get(id);
-    if(option?.categories.includes(category)){
+    if(option?.categories.some(value=>profileCategories.includes(value))){
       visible.push({label:option.label,source:"catalog",optionId:id});
       shownCatalog.add(id);
     }
@@ -88,7 +89,7 @@ export function projectPublicProfileServices(
 }
 
 export function canonicalPublicProfileServices(
-  legacy:readonly string[],category:string,
+  legacy:readonly string[],category:string|readonly string[],
   choices:readonly PublicServiceChoice[],
   catalog:readonly ResolvedServiceDefinition[],
 ):string[]{

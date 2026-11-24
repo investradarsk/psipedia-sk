@@ -11,7 +11,7 @@ import {
   AdminBulkActionToolbar,
   AdminModalDialog,
 } from "@/components/admin-interaction-system";
-import { isHelpAdminCreateCategory } from "@/lib/help-admin-query";
+import { isHelpAdminCreateCategory, isHelpAdminManagedCategory } from "@/lib/help-admin-query";
 import styles from "./admin-help-unified-table.module.css";
 
 export type HelpDirectoryRow = {
@@ -60,10 +60,11 @@ type HelpDraft = { key: string; id: number; updatedAt: string; title: string; ex
 type DogDraft = { key: string; id: number; updatedAt: string; name: string; kind: "adopcia" | "stratene-a-najdene" };
 
 export function AdminHelpUnifiedTable({
-  category, categories, rows, query, page, pages, total,
+  category, categories, filterOptions, rows, query, page, pages, total,
 }: {
   category: string;
   categories: HelpDirectoryCategory[];
+  filterOptions: Array<{ slug: string; label: string }>;
   rows: HelpDirectoryRow[];
   query: string;
   page: number;
@@ -101,14 +102,16 @@ export function AdminHelpUnifiedTable({
   const activeDogDraft = canInlineEditDogs && dogDraft?.key === viewKey &&
     rows.some(row => row.id === dogDraft.id && row.updatedAt === dogDraft.updatedAt) ? dogDraft : null;
 
-  const categoryHref = (slug: string, nextPage = 1) => {
+  const categoryHref = (slug: string, nextPage = 1, nextQuery = query) => {
     const params = new URLSearchParams();
     params.set("category", slug);
-    if (query) params.set("q", query);
+    if (nextQuery) params.set("q", nextQuery);
     if (nextPage > 1) params.set("page", String(nextPage));
     return "/admin/pomoc-psom?" + params;
   };
-  const active = categories.find(item => item.slug === category) ?? categories[0];
+  const activeScope = category === "utulky" ? "organizacie"
+    : isHelpAdminManagedCategory(category) ? "ostatna-pomoc" : category;
+  const active = categories.find(item => item.slug === activeScope) ?? categories[0];
 
   function changeSelection(ids: number[]) {
     if (bulkBusy || !canBulkEdit) return;
@@ -426,25 +429,28 @@ export function AdminHelpUnifiedTable({
   return (
     <section className={styles.workspace} aria-label="Pomoc psom – spoločná tabuľka" data-admin-help-unified-grid>
       <div className={styles.intro}>
-        <div>
-          <strong>Profily a prípady</strong>
-          <p>Vyber kategóriu, uprav povolené údaje priamo v tabuľke alebo otvor kompletný editor.</p>
-        </div>
-        <Link className={styles.categoryAction} href={active.href}>Pokročilá správa kategórie</Link>
+        <span>Vyber typ pomoci a otvor konkrétny záznam.</span>
+        <Link prefetch={false} className={styles.categoryAction} href={active.href}>Správa a vytvorenie záznamov</Link>
       </div>
-      <nav className={styles.categories} aria-label="Kategórie Pomoci psom">
+      <nav className={styles.categories} aria-label="Typ pomoci">
         {categories.map(item => (
-          <Link key={item.slug} href={categoryHref(item.slug)} aria-current={item.slug === category ? "page" : undefined}>
+          <Link key={item.slug} prefetch={false} href={categoryHref(item.slug)} aria-current={item.slug === activeScope ? "page" : undefined}>
             <span aria-hidden="true">{item.icon}</span> {item.label}
           </Link>
         ))}
       </nav>
-      <form className={styles.search} method="get">
+      {filterOptions.length > 0 && <nav className={styles.filters} aria-label="Podkategórie Pomoci psom">
+        {filterOptions.map(item => (
+          <Link key={item.slug} prefetch={false} href={categoryHref(item.slug)}
+            aria-current={item.slug === category ? "page" : undefined}>{item.label}</Link>
+        ))}
+      </nav>}
+      <form key={category + ":" + query} className={styles.search} method="get">
         <input type="hidden" name="category" value={category} />
         <label htmlFor="help-unified-query">Hľadať v kategórii</label>
         <input id="help-unified-query" name="q" defaultValue={query} placeholder="Admin ID, meno psa, názov alebo mesto…" maxLength={80} />
         <button type="submit">Hľadať</button>
-        {query && <Link href={categoryHref(category).split("&q=")[0]}>Vyčistiť</Link>}
+        {query && <Link prefetch={false} href={categoryHref(category, 1, "")}>Vyčistiť</Link>}
       </form>
       <p className={styles.count}>Nájdených záznamov: <strong>{total}</strong> · Strana {page} z {pages}</p>
 
@@ -497,6 +503,7 @@ export function AdminHelpUnifiedTable({
         label={active.label}
         busy={bulkBusy || shelterBusy || helpBusy || dogBusy}
         serverSorted
+        stickyActions
         stretch={canInlineEditShelters || canInlineEditHelp || canInlineEditDogs}
         selection={canBulkEdit ? {
           selectedIds,

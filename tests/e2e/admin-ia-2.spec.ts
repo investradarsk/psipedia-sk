@@ -71,7 +71,7 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
     await expect(nav).toHaveAttribute("data-admin-sidebar", "true");
     await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(nav).toHaveAttribute("data-admin-hydrated", "true");
-    const contentGroup = nav.getByRole("button", { name: "Obsah", exact: true });
+    const contentGroup = nav.getByRole("button", { name: "Redakcia", exact: true });
     await contentGroup.click();
     await expect(contentGroup).toHaveAttribute("aria-expanded", "true");
     await expect(nav.getByRole("link", { name: "Články", exact: true })).toBeVisible();
@@ -116,9 +116,9 @@ test("desktop admin navigation mounts only the active section and supports direc
   await expect(nav).toHaveAttribute("data-admin-hydrated", "true");
   await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("link", { name: "Články", exact: true })).toHaveCount(0);
-  await expect(nav.getByRole("button", { name: "Obsah", exact: true })).toHaveAttribute("aria-expanded", "false");
+  await expect(nav.getByRole("button", { name: "Redakcia", exact: true })).toHaveAttribute("aria-expanded", "false");
 
-  await nav.getByRole("button", { name: "Obsah", exact: true }).click();
+  await nav.getByRole("button", { name: "Redakcia", exact: true }).click();
   const articles = nav.getByRole("link", { name: "Články", exact: true });
   await expect(articles).toBeVisible();
   await expect(articles).toHaveAttribute("href", "/admin/clanky");
@@ -193,7 +193,7 @@ test("V3 all seven navigation groups, focus and header actions work at 1440px, 3
     await expect(page.getByTestId("admin-notification-bell")).toBeVisible();
     await expect(page.getByRole("link", { name: "Návrat na Psipedia.sk" })).toBeVisible();
     if (!mobile) await expect(page.getByRole("link", { name: "Odhlásiť" })).toBeVisible();
-    const groups = ["Prehľad", "Obsah", "Adresár", "Komunita", "Automatizácie", "Kvalita dát", "Nastavenia"];
+    const groups = ["Prehľad", "Redakcia", "Adresár", "Pomoc psom", "Partneri", "Kvalita a automatizácie", "Systém"];
     let nav = page.getByRole("navigation", { name: "Redakčné moduly" });
     if (mobile) {
       const menu = page.getByRole("button", { name: "Menu", exact: true });

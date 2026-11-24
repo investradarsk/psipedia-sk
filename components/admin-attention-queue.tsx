@@ -63,7 +63,7 @@ function safeSourceHref(value?: string) {
 
 function queueHref(filters: AdminAttentionFilters, cursor?: string | null) {
   const params = new URLSearchParams();
-  if (filters.view && filters.view !== "active") params.set("view", filters.view);
+  if (filters.view && filters.view !== "unread") params.set("view", filters.view);
   if (filters.sourceType && filters.sourceType !== "all") params.set("source", filters.sourceType);
   if (filters.priority && filters.priority !== "all") params.set("priority", filters.priority);
   if (cursor) params.set("cursor", cursor);
@@ -81,13 +81,13 @@ export function AdminAttentionQueue({
   const unavailable = page.sourceAvailability.filter((source) => source.state === "UNAVAILABLE");
   const hasFilters = (filters.sourceType && filters.sourceType !== "all")
     || (filters.priority && filters.priority !== "all")
-    || (filters.view && filters.view !== "active");
+    || (filters.view && filters.view !== "unread");
   const selectedSource = filters.sourceType && filters.sourceType !== "all"
     ? page.sourceAvailability.find((source) => source.sourceType === filters.sourceType)
     : undefined;
   const selectedUnavailable = selectedSource?.state === "UNAVAILABLE";
   const selectedEmpty = selectedSource?.state === "EMPTY"
-    && (filters.view ?? "active") === "active"
+    && (filters.view ?? "unread") === "unread"
     && (!filters.priority || filters.priority === "all");
   // A forest of zero-count chips is not actionable. Preserve an explicit
   // selection and unavailable sources; the source dropdown still offers all.
@@ -96,15 +96,32 @@ export function AdminAttentionQueue({
     return count === null || (count ?? 0) > 0 || filters.sourceType === sourceType;
   });
 
+  const currentView = filters.view === "active" ? "pending" : filters.view ?? "unread";
+  const inboxViews = [
+    { value: "unread", label: "Neprečítané", count: page.summary.unread },
+    { value: "pending", label: "Na vybavenie", count: page.summary.active },
+    { value: "snoozed", label: "Odložené", count: page.summary.snoozed },
+    { value: "history", label: "História", count: page.summary.history },
+  ] as const;
+
   return (
     <div className={styles.workspace} data-testid="admin-attention-queue">
       <section className="admin-stats" aria-label="Súhrn upozornení">
-        <div><span>Aktívne</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.active}</strong></div>
-        <div><span>Nové</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.byState.NEW}</strong></div>
-        <div><span>Rieši sa</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.byState.IN_PROGRESS}</strong></div>
+        <div><span>Neprečítané</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.unread}</strong></div>
+        <div><span>Na vybavenie</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.active}</strong></div>
+        <div><span>Odložené</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.snoozed}</strong></div>
         <div><span>História</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.history}</strong></div>
       </section>
 
+      <nav aria-label="Zobrazenie upozornení" className={styles.sourceCounts}>
+        {inboxViews.map((view) => (
+          <Link key={view.value} href={queueHref({ ...filters, view: view.value })}
+            aria-current={currentView === view.value ? "page" : undefined}>
+            {view.label} · {page.availability === "UNAVAILABLE" ? "—" : view.count}
+          </Link>
+        ))}
+      </nav>
+      <p>Prečítanie alebo odloženie upozornenia nikdy neschváli ani neuzavrie moderované podanie.</p>
       {page.pagination.invalidCursor && (
         <p className="admin-flash" role="alert">
           Odkaz na stránku už nie je platný. Zobrazuje sa prvá strana s rovnakými filtrami.
@@ -145,9 +162,12 @@ export function AdminAttentionQueue({
       <form className={styles.filters} method="get" action="/admin/operations" role="search" aria-label="Filtrovať upozornenia" data-admin-list-filters>
         <label>
           <span>Zobrazenie</span>
-          <select name="view" defaultValue={filters.view ?? "active"}>
-            <option value="active">Aktívne</option>
+          <select name="view" defaultValue={filters.view ?? "unread"}>
+            <option value="unread">Neprečítané</option>
+            <option value="pending">Na vybavenie</option>
+            <option value="snoozed">Odložené</option>
             <option value="history">História</option>
+            <option value="active">Aktívne (starší odkaz)</option>
             <option value="all">Všetko</option>
           </select>
         </label>
@@ -185,10 +205,12 @@ export function AdminAttentionQueue({
               data-source={item.sourceType}
               data-priority={item.priority}
               data-attention-state={item.attentionState}
+              data-inbox-state={item.snoozedUntil ? "snoozed" : item.readAt ? "read" : "unread"}
             >
               <header>
                 <div className={styles.kicker}>
                   <span className={`${styles.state} ${stateClass(item.attentionState)}`}>{adminAttentionStateLabels[item.attentionState]}</span>
+                  {isAdminAttentionActive(item) && <span>{item.snoozedUntil ? "Odložené" : item.readAt ? "Prečítané" : "Neprečítané"}</span>}
                   <span className={`${styles.priority} ${priorityClass(item.priority)}`}>{adminAttentionPriorityLabels[item.priority]}</span>
                   <span>{adminAttentionSourceLabels[item.sourceType]}{item.contextLabel ? ` · ${item.contextLabel}` : ""}</span>
                 </div>

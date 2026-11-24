@@ -123,29 +123,23 @@ test("ADMIN V3 article hidden file inputs cannot escape their labels", () => {
   assert.match(css, /clip-path:\s*inset\(50%\)/);
 });
 
-test("ADMIN V3 section and puppy editors use guarded workspace without replacing their canonical PUT APIs", () => {
+test("ADMIN V5-01 keeps one guarded sections editor and canonical PUT for puppy subpages", () => {
   const section = read("components/admin-section-editor.tsx");
-  const puppy = read("components/admin-puppy-area-editor.tsx");
-  for (const source of [section, puppy]) {
-    assert.match(source, /<EditorWorkspace/);
-    assert.match(source, /<EditorActionBar/);
-    assert.match(source, /<EditorStatus/);
-    assert.match(source, /dirty={dirty}/);
-    assert.match(source, /data-admin-editor-section/);
-    assert.match(source, /"\/api\/admin\/sections"/);
-    assert.match(source, /method: "PUT"/);
-    assert.match(source, /setDirty\(false\)/);
-  }
+  assert.match(section, /<EditorWorkspace/);
+  assert.match(section, /<EditorActionBar/);
+  assert.match(section, /<EditorStatus/);
+  assert.match(section, /dirty={dirty}/);
+  assert.match(section, /data-admin-editor-section/);
+  assert.match(section, /"\/api\/admin\/sections"/);
+  assert.match(section, /method: "PUT"/);
+  assert.match(section, /setDirty\(false\)/);
   assert.match(section, /initialOpenSlug/);
-  assert.match(section, /subpages/);
   assert.match(section, /updateSections/);
   assert.match(section, /data-admin-section-hydrated/);
   assert.match(section, /disabled={!hydrated}/);
   assert.match(section, /useSyncExternalStore/);
-  assert.match(puppy, /section\.subpages\.map/);
-  assert.match(puppy, /subpage\.href \? subpage/);
-  assert.match(puppy, /uploadAdminImage/);
-  assert.match(puppy, /imageAlt/);
+  assert.match(section, /uploadAdminImage/);
+  assert.match(section, /imageAlt/);
 });
 
 test("ARTICLE-MOBILE-COMPACT: six changes remain scoped to the canonical article editor", () => {

@@ -40,6 +40,7 @@ import {
 import { serviceFilterCategories } from "@/lib/directory-filter-contract";
 import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
 import {canonicalPublicProfileServices,type PublicServiceChoice} from "./service-catalog-public-profile-services";
+import {loadServiceProfileMembership} from "./service-catalog-profile-membership";
 import {
   canonicalPublicServiceWhere,
   canonicalPublicServiceOptions,
@@ -1773,9 +1774,13 @@ const getPublishedDirectoryProfileUncached = async (category: string, slug: stri
       "SELECT option_id,choice FROM service_profile_option_choices WHERE profile_id=?1"
     ).bind(profile.id).all<PublicServiceChoice>();
     if(!records.results?.length)return profile;
-    const catalog=await loadResolvedServiceDefinitions(database);
+    const [catalog,membership]=await Promise.all([
+      loadResolvedServiceDefinitions(database),loadServiceProfileMembership(database,profile.id),
+    ]);
+    if(!membership||membership.status!=="published"||membership.primary!==profile.category)
+      return profile;
     return {...profile,services:canonicalPublicProfileServices(
-      profile.services,profile.category,records.results,catalog,
+      profile.services,membership.categories,records.results,catalog,
     )};
   }catch(error){
     // An optional service-catalog read must not make a published profile 500.

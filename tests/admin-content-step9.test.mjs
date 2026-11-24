@@ -4,22 +4,17 @@ import test from "node:test";
 
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("step 9: puppy areas use one page title, retained save guard and compact accordion", () => {
-  const page = read("app/admin/steniatka/page.tsx");
-  const editor = read("components/admin-puppy-area-editor.tsx");
-  const css = read("app/admin/admin-editorial-foundation.css");
-  assert.match(page, /title="Šteniatka"/);
-  assert.match(editor, /title="Obsah oblastí Šteniatok"\s+hidePageTitle/);
-  assert.match(editor, /data-admin-content-module="puppy-areas"/);
-  assert.match(editor, /<h2>Oblasti na úpravu<\/h2>/);
-  assert.doesNotMatch(editor, /<h2>Obsah oblastí Šteniatok<\/h2>/);
-  assert.match(editor, /dirty=\{dirty\}/);
-  assert.match(editor, /onClick=\{\(\) => void save\(\)\}/);
+test("step 9 / V5-01: puppy areas are consolidated into the canonical sections editor", () => {
+  const legacy = read("app/admin/steniatka/page.tsx");
+  const editor = read("components/admin-section-editor.tsx");
+  assert.match(legacy, /redirect\(articleAdminListHref/);
+  assert.match(legacy, /redirect\("\/admin\/sekcie\?sekcia=steniatka"\)/);
+  assert.doesNotMatch(legacy, /AdminPuppyAreaEditor|AdminDashboard/);
+  assert.match(editor, /data-admin-content-module="sections"/);
   assert.match(editor, /<AdminSingleImageUpload/);
+  assert.match(editor, /<AdminLexicalAppendButton/);
   assert.match(editor, /<AdminLexicalTextField/);
-  assert.match(css, /CONTENT UNIFICATION 9\/18/);
-  assert.match(css, /\[data-admin-content-module="puppy-areas"\] \.admin-puppy-content-item summary/);
-  assert.match(css, /grid-template-columns: 1\.8rem minmax\(0, 1fr\)/);
+  assert.match(editor, /Pokrytie tém/);
 });
 
 test("step 9: sections editor shares page heading and compact controls without altering hierarchy", () => {
@@ -74,7 +69,8 @@ test("step 9: articles, breeds and reviews keep the canonical editors and compac
   assert.match(breed, /hidePageTitle/);
   assert.match(breed, /<AdminNotionProfileImportButton/);
   assert.match(reviews, /data-admin-content-module="reviews"/);
-  assert.match(reviews, /<details className=\{styles\.rules\}/);
+  assert.match(reviews, /<nav aria-labelledby="reviews-workspaces-title">/);
+  assert.match(reviews, /<details className=\{styles\.notes\}/);
   assert.match(reviews, /href="\/admin\/recenzie-profilov"/);
 });
 

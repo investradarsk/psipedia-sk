@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { NOTION_SYNC_OVERVIEW_AREAS, readNotionSyncOverview } from "../lib/notion-sync-overview.ts";
+import { NOTION_SYNC_OVERVIEW_AREAS, readNotionSyncOverview, notionDeliveryState } from "../lib/notion-sync-overview.ts";
 
 function mockDb(names, values = {}, failures = []) {
   const statements = [];
@@ -22,6 +22,10 @@ function mockDb(names, values = {}, failures = []) {
         if (failures.includes(key)) throw Error("PRIVATE_PROVIDER_ERROR");
         return values[key] ?? { count: 0, last_at: null };
       }
+      if (sql.includes("FROM notion_help_admin_writeback_outbox")) return {
+        all: async () => ({ results: sql.includes("GROUP BY agenda,status")
+          ? (values["help-outbox-totals"] ?? []) : (values["help-outbox-items"] ?? []) }),
+      };
       return {
         all: async () => ({ results: names.map((name) => ({ name })) }),
         first: async () => lookup(),
@@ -208,4 +212,47 @@ test("pending evidence is bounded, honest, and missing tables never become a zer
   assert.ok(statements.every(sql => /^SELECT\b/.test(sql)));
   assert.ok(statements.every(sql => !/\b(INSERT|UPDATE|DELETE|ALTER|DROP|REPLACE)\b/i.test(sql)));
   assert.ok(statements.some(sql => sql.includes("FROM article_notion_editorial_outbox")));
+});
+
+test("Help delivery statuses are based on the durable outbox and never infer confirmation", async () => {
+  assert.equal(notionDeliveryState({ status:"PENDING",attempts:0,errorCode:null }),"AWAITING_NOTION");
+  assert.equal(notionDeliveryState({ status:"PROCESSING",attempts:3,errorCode:null }),"IN_PROGRESS");
+  assert.equal(notionDeliveryState({ status:"REVIEW",attempts:1,errorCode:"NOTION_FIELD_CHANGED" }),"CONFLICT");
+  assert.equal(notionDeliveryState({ status:"REVIEW",attempts:12,errorCode:"NOTION_RETRY_FAILED" }),"PERMANENT_FAILURE");
+  assert.equal(notionDeliveryState({ status:"REVIEW",attempts:11,errorCode:"NOTION_RETRY_FAILED" }),"CONFLICT");
+
+  const {db, statements} = mockDb(
+    ["notion_agenda_sync","notion_help_admin_writeback_outbox"],
+    {
+      "help-outbox-totals":[
+        {agenda:"lost-found",status:"PENDING",count:2,permanent:0},
+        {agenda:"lost-found",status:"REVIEW",count:2,permanent:1},
+        {agenda:"adoptions",status:"PROCESSING",count:1,permanent:0},
+      ],
+      "help-outbox-items":[
+        {agenda:"lost-found",entity_id:21,status:"REVIEW",attempts:12,error_code:"NOTION_RETRY_FAILED",updated_at:1763982000},
+        {agenda:"lost-found",entity_id:24,status:"PENDING",attempts:2,error_code:"NOTION_RETRY_PENDING",updated_at:1763983000},
+        {agenda:"adoptions",entity_id:33,status:"PROCESSING",attempts:1,error_code:null,updated_at:1763983000},
+      ],
+    },
+  );
+  const rows=await readNotionSyncOverview(db);
+  const lost=rows.find(row=>row.area==="lost-found");
+  assert.equal(lost.delivery?.pending,2);
+  assert.equal(lost.delivery?.review,2);
+  assert.equal(lost.delivery?.permanentFailure,1);
+  assert.equal(lost.delivery?.truncated,true); // 4 open, 2 shown
+  assert.equal(lost.delivery?.cases[0].entityId,21);
+  assert.equal(rows.find(row=>row.area==="adoptions").delivery?.processing,1);
+  assert.equal(rows.find(row=>row.area==="events").delivery,undefined);
+  assert.ok(statements.every(sql=>/^SELECT\b/.test(sql)));
+  assert.equal(statements.filter(sql=>sql.includes("FROM notion_help_admin_writeback_outbox")).length,2);
+  assert.ok(statements.some(sql=>sql.includes("LIMIT 51")));
+  assert.ok(statements.every(sql=>!sql.includes("fields_json")));
+});
+
+test("missing Help outbox is unknown, not an empty or synchronized queue", async () => {
+  const {db}=mockDb(["notion_agenda_sync"]);
+  const rows=await readNotionSyncOverview(db);
+  assert.equal(rows.find(row=>row.area==="lost-found").delivery,undefined);
 });

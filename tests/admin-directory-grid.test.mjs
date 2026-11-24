@@ -4,14 +4,18 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("services opens category navigation and the paginated canonical profile loader", () => {
-  const page = read("app/admin/sluzby-pre-psov/page.tsx");
+test("canonical Adresár owns the only paginated profile list and Services V3 stays reachable", () => {
+  const page = read("app/admin/adresar/page.tsx");
+  const legacy = read("app/admin/sluzby-pre-psov/page.tsx");
   const hub = read("components/admin-directory-module-nav.tsx");
   assert.match(page, /getManagedDirectoryAdminPage\(filters\)/);
-  assert.match(page, /<AdminDirectoryCategoryNav selected=\{filters.category\}/);
+  assert.match(page, /<AdminDirectoryCategoryNav filters=\{filters\}/);
+  assert.match(legacy, /redirect\(directoryAdminHref\(filters\)\)/);
+  assert.doesNotMatch(legacy, /getManagedDirectoryAdminPage|AdminDirectoryDashboard|AdminShell/);
   assert.match(hub, /allDirectoryCategories\.map/);
+  assert.match(hub, /href: "\/admin\/adresar"/);
   assert.match(hub, /\/admin\/sluzby-pre-psov\/katalog/);
-  assert.match(hub, /\/admin\/adresar\/navrhy/);
+  assert.doesNotMatch(hub, /\/admin\/adresar\/navrhy/);
 });
 
 test("directory, help and events all use the same read-first TanStack grid", () => {
@@ -34,9 +38,9 @@ test("all canonical actions and versioned mutation endpoints stay owned by exist
   assert.match(directory, /changeReviewed\(profile/);
   assert.match(directory, /removeProfile\(profile/);
   const editorLink = read("components/admin-directory-editor-link.tsx");
-  assert.match(directory, /<AdminDirectoryEditorLink profileId=\{profile.id\}/);
+  assert.match(directory, /<AdminDirectoryEditorLink[^>]*profileId=\{profile.id\}/);
   assert.match(editorLink, /\/admin\/adresar\/\$\{profileId\}/);
-  assert.match(editorLink, /<a href=\{`\/admin\/adresar\/\$\{profileId\}`\}/);
+  assert.match(editorLink, /<a href=\{returnHref \? adminDetailHref/);
   assert.doesNotMatch(editorLink, /onClick|window\.location\.assign/);
   assert.match(help, /prepareBulk\("published"\)/);
   assert.match(help, /\/api\/admin\/help\/bulk/);

@@ -30,13 +30,42 @@ export type NotionOverviewRow = {
   /** Evidence of locally changed revisions/outbox work, NOT a Notion delivery queue. */
   pendingCount: number | null;
   pendingBasis: "REVISION_GAP" | "EDITORIAL_OUTBOX" | "NOT_RECORDED";
+  /** Real durable Admin -> Notion outbox, if the rollout exists; never inferred from mapping count. */
+  delivery?: NotionDeliverySummary | null;
 };
+
+export type NotionDeliveryItem = {
+  agenda: "organizations" | "adoptions" | "help-cases" | "lost-found";
+  entityId: number;
+  status: "PENDING" | "PROCESSING" | "REVIEW";
+  attempts: number;
+  errorCode: string | null;
+  updatedAt: number | null;
+};
+export type NotionDeliverySummary = {
+  pending: number;
+  processing: number;
+  review: number;
+  permanentFailure: number;
+  cases: NotionDeliveryItem[];
+  truncated: boolean;
+};
+
+/** REVIEW after exhausted retry is a terminal intervention, not a successful delivery. */
+export function notionDeliveryState(item: Pick<NotionDeliveryItem, "status" | "attempts" | "errorCode">):
+  "AWAITING_NOTION" | "IN_PROGRESS" | "CONFLICT" | "PERMANENT_FAILURE" {
+  if (item.status === "PENDING") return "AWAITING_NOTION";
+  if (item.status === "PROCESSING") return "IN_PROGRESS";
+  return item.attempts >= 12 && item.errorCode === "NOTION_RETRY_FAILED"
+    ? "PERMANENT_FAILURE" : "CONFLICT";
+}
+
 
 // Names come only from our static allowlist; none can come from a request.
 const KNOWN_TABLES = new Set<string>([
   ...NOTION_SYNC_OVERVIEW_AREAS.map((area) => area.table),
   "directory_profiles", "managed_eshops", "eshop_ratings",
-  "article_notion_editorial_outbox",
+  "article_notion_editorial_outbox", "notion_help_admin_writeback_outbox",
 ]);
 
 function finiteCount(value: unknown): number | null {
@@ -123,7 +152,7 @@ export async function readNotionSyncOverview(db: D1Database): Promise<NotionOver
     "name IN ('directory_notion_sync','breed_notion_sync','article_notion_sync','eshop_notion_sync'," +
     "'event_notion_sync','notion_agenda_sync','service_catalog_notion_auto_attempts'," +
     "'facebook_image_posts','directory_profiles','managed_eshops','eshop_ratings'," +
-    "'article_notion_editorial_outbox')",
+    "'article_notion_editorial_outbox','notion_help_admin_writeback_outbox')",
   ).all<{ name: string }>();
 
   const existing = new Set(
@@ -167,6 +196,55 @@ export async function readNotionSyncOverview(db: D1Database): Promise<NotionOver
         pendingCount: null,
         pendingBasis: "NOT_RECORDED",
       });
+    }
+  }
+  // Optional delivery evidence exists only for the four Help SQL agendas.
+  // Read counts across all rows, and cap the detail list. Never return field values,
+  // Notion page IDs or other private data from the outbox.
+  if (existing.has("notion_help_admin_writeback_outbox")) {
+    const agendas = new Set(["organizations", "adoptions", "help-cases", "lost-found"]);
+    try {
+      const totals = await db.prepare(
+        "SELECT agenda,status,COUNT(*) AS count," +
+        "SUM(CASE WHEN status='REVIEW' AND attempts>=12 AND error_code='NOTION_RETRY_FAILED' " +
+        "THEN 1 ELSE 0 END) AS permanent FROM notion_help_admin_writeback_outbox " +
+        "GROUP BY agenda,status",
+      ).all<{agenda:string;status:string;count:number;permanent:number}>();
+      const details = await db.prepare(
+        "SELECT agenda,entity_id,status,attempts,error_code,updated_at " +
+        "FROM notion_help_admin_writeback_outbox " +
+        "ORDER BY CASE WHEN status='REVIEW' AND attempts>=12 AND error_code='NOTION_RETRY_FAILED' THEN 0 " +
+        "WHEN status='REVIEW' THEN 1 ELSE 2 END,updated_at DESC LIMIT 51",
+      ).all<{agenda:string;entity_id:number;status:string;attempts:number;error_code:string|null;updated_at:number}>();
+      if (!Array.isArray(totals.results) || !Array.isArray(details.results)) throw Error("OUTBOX_EVIDENCE_UNAVAILABLE");
+      const cases: NotionDeliveryItem[] = details.results.filter(
+        item => agendas.has(item.agenda) && ["PENDING","PROCESSING","REVIEW"].includes(item.status)
+          && Number.isSafeInteger(item.entity_id) && item.entity_id > 0,
+      ).slice(0,50).map(item => ({
+        agenda: item.agenda as NotionDeliveryItem["agenda"],
+        entityId: item.entity_id,
+        status: item.status as NotionDeliveryItem["status"],
+        attempts: finiteCount(item.attempts) ?? 0,
+        errorCode: typeof item.error_code === "string" ? item.error_code : null,
+        updatedAt: finiteCount(item.updated_at),
+      }));
+      for (const row of result) {
+        if (!agendas.has(row.area)) continue;
+        const relevant = (totals.results ?? []).filter(x => x.agenda === row.area);
+        const count = (status: string) => relevant.filter(x => x.status === status)
+          .reduce((sum, x) => sum + (finiteCount(x.count) ?? 0), 0);
+        const pending = count("PENDING"), processing = count("PROCESSING"), review = count("REVIEW");
+        row.delivery = {
+          pending, processing, review,
+          permanentFailure: relevant.filter(x => x.status === "REVIEW")
+            .reduce((sum, x) => sum + (finiteCount(x.permanent) ?? 0), 0),
+          cases: cases.filter(x => x.agenda === row.area),
+          truncated: pending + processing + review > cases.filter(x => x.agenda === row.area).length,
+        };
+      }
+    } catch {
+      // An unreadable outbox is unknown. It must never appear as zero backlog.
+      for (const row of result) if (agendas.has(row.area)) row.delivery = null;
     }
   }
   return result;

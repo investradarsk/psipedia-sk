@@ -47,8 +47,9 @@ export function catalogEditorItems(
 }
 
 /** Never show a draft, conflicted or retired dynamic service as selectable on a profile. */
-export function eligibleProfileServiceItems(items:readonly CatalogEditorItem[],category:ServiceFilterCategory):CatalogEditorItem[]{
-  return items.filter(item=>item.categories.includes(category)&&(
+export function eligibleProfileServiceItems(items:readonly CatalogEditorItem[],category:ServiceFilterCategory|readonly string[]):CatalogEditorItem[]{
+  const categories=typeof category==="string"?[category]:category;
+  return items.filter(item=>item.categories.some(value=>categories.includes(value))&&(
     item.source==="built_in" || item.status==="ACTIVE"
   ));
 }

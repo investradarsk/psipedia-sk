@@ -53,7 +53,7 @@ test("EDITOR-8: submit validation reveals hidden required fields, publication de
   assert.match(src, /chooseArticleSection\(missing\.section\)/);
   assert.match(src, /void save\(displayedStatus\)/);
   assert.match(src, /onSubmit=\{\(event\) => \{ event\.preventDefault\(\); submitArticleForm\(\); \}\}/);
-  assert.match(src, /method: article \? "PUT" : "POST"/);
+  assert.match(src, /method: currentArticle \? "PUT" : "POST"/);
   assert.match(src, /expectedUpdatedAt: lastSavedUpdatedAtRef\.current/);
   assert.match(src, /<EditorActionBar/);
   assert.match(src, /<ArticleEditorCalendar/);
@@ -109,7 +109,7 @@ test("ARTICLE-VISUAL-3: the right rail reuses existing status, schedule, SEO and
   assert.match(css, /\.railCard/);
   assert.match(css, /\.railPreviewCard/);
   // No separate publication/SEO payload or API path is introduced by the visual rail.
-  assert.equal((src.match(/method: article \? "PUT" : "POST"/g) ?? []).length, 1);
+  assert.equal((src.match(/method: currentArticle \? "PUT" : "POST"/g) ?? []).length, 1);
   assert.equal((src.match(/expectedUpdatedAt: lastSavedUpdatedAtRef\.current/g) ?? []).length, 1);
 });
 

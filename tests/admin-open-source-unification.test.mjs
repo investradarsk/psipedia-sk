@@ -131,18 +131,18 @@ test("all unpublish editors use one accessible status-only lifecycle confirmatio
   assert.doesNotMatch(dialog,/window\.confirm/);
 });
 
-test("e-shop and puppy area reuse one safe content drafting and single-image picker",()=>{
+test("e-shop and canonical sections editor share safe drafting and image picker",()=>{
   const eshop=read("components/admin-eshop-editor.tsx");
-  const puppy=read("components/admin-puppy-area-editor.tsx");
-  for(const src of [eshop,puppy]){
+  const sections=read("components/admin-section-editor.tsx");
+  for(const src of [eshop,sections]){
     assert.match(src,/AdminLexicalAppendButton/);
     assert.match(src,/appendLexicalPlainText/);
     assert.match(src,/AdminSingleImageUpload/);
-    assert.match(src,/adminSelectedImage/);
   }
+  assert.match(eshop,/adminSelectedImage/);
   assert.match(eshop,/uploadAdminImage\(file, "eshops"\)/);
-  assert.match(puppy,/uploadAdminImage\(file, "articles"\)/);
-  assert.match(puppy,/update\(index, \{ intro: appendLexicalPlainText/);
+  assert.match(sections,/uploadAdminImage\(file, "articles"\)/);
+  assert.match(sections,/intro: appendLexicalPlainText\(subpage\.intro/);
 });
 
 test("navigation and section edits use shared staged destructive dialogs",()=>{

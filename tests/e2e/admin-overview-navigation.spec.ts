@@ -32,9 +32,12 @@ test("repeated Prehľad → Adresár → Prehľad client transitions do not stal
   await page.goto("/admin", { waitUntil: "domcontentloaded" });
   await expectOverview(page);
   for (let attempt = 0; attempt < 3; attempt++) {
-    await page.locator('[data-admin-shell] a[href="/admin/sluzby-pre-psov"]').first().click();
-    await expect(page).toHaveURL(/\/admin\/sluzby-pre-psov$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
+    const directoryGroup = page.locator('[data-admin-sidebar] [data-admin-nav-group="Adresár"] > button');
+    await directoryGroup.click();
+    await expect(directoryGroup).toHaveAttribute("aria-expanded", "true");
+    await page.locator('[data-admin-shell] a[href="/admin/adresar"]').first().click();
+    await expect(page).toHaveURL(/\/admin\/adresar$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Profily adresára" })).toBeVisible();
     await expect(overviewGroup(page)).toBeVisible();
     await clickOverviewGroup(page);
     await expectOverview(page);
@@ -48,7 +51,7 @@ test("Prehľad opens from an actual directory record editor", async ({ page }, i
   await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", {
     waitUntil: "domcontentloaded",
   });
-  await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Profily adresára" })).toBeVisible();
   const detail = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
   await expect(detail).toBeVisible();
   await detail.click();
@@ -65,8 +68,11 @@ test("breadcrumbs and Admin logo both return from directory without leaving an e
   await breadcrumbs.getByRole("link", { name: "Pracovný prehľad", exact: true }).click();
   await expectOverview(page);
 
-  await page.locator('[data-admin-shell] a[href="/admin/sluzby-pre-psov"]').first().click();
-  await expect(page).toHaveURL(/\/admin\/sluzby-pre-psov$/);
+  const directoryGroup = page.locator('[data-admin-sidebar] [data-admin-nav-group="Adresár"] > button');
+  await directoryGroup.click();
+  await expect(directoryGroup).toHaveAttribute("aria-expanded", "true");
+  await page.locator('[data-admin-shell] a[href="/admin/adresar"]').first().click();
+  await expect(page).toHaveURL(/\/admin\/adresar$/);
   await page.locator('[data-admin-sidebar-shell] a[aria-label="Psipedia Admin – pracovný prehľad"]').click();
   await expectOverview(page);
 });
@@ -82,9 +88,9 @@ test("mobile drawer returns from Adresár to Prehľad repeatedly", async ({ page
     await menu.click();
     const drawer = page.getByRole("dialog", { name: "Navigácia administrácie" });
     await expect(drawer).toBeVisible();
-    await drawer.getByRole("link", { name: "Služby pre psov", exact: true }).click();
-    await expect(page).toHaveURL(/\/admin\/sluzby-pre-psov$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
+    await drawer.getByRole("link", { name: "Profily", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/adresar$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Profily adresára" })).toBeVisible();
 
     await menu.click();
     const home = page.getByRole("dialog", { name: "Navigácia administrácie" })

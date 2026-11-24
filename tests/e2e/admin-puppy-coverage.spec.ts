@@ -43,3 +43,14 @@ test("puppy coverage matrix is authenticated, readable, responsive and mutation-
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
+
+test("V5-01: puppy coverage is discoverable from Sections and links back without mutation", async ({ page }) => {
+  await page.goto("/admin/sekcie?sekcia=steniatka", { waitUntil: "domcontentloaded" });
+  const sections = page.getByTestId("admin-section-management");
+  const link = sections.getByRole("link", { name: "Pokrytie tém" });
+  await expect(link).toBeVisible();
+  await link.click();
+  await expect(page.getByTestId("admin-puppy-coverage")).toBeVisible();
+  await page.getByRole("link", { name: "← Sekcie a podsekcie", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/sekcie\?sekcia=steniatka/);
+});

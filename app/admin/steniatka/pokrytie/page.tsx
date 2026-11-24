@@ -19,7 +19,7 @@ export default async function AdminPuppyCoveragePage() {
       eyebrow="Redakčné plánovanie"
       title="Pokrytie tém: Šteniatka"
       description="Redakčný prehľad ukazuje, ktoré oblasti už majú publikovaný obsah, ktoré sú rozpracované a kde obsah chýba. Stav sa odvodzuje iba z existujúcich článkov a nič tu nemení dáta."
-      actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link>}
+      actions={<><Link className="admin-secondary-action" href="/admin/sekcie?sekcia=steniatka">← Sekcie a podsekcie</Link><Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link></>}
     >
       <AdminPuppyCoverage rows={rows} />
     </AdminShell>

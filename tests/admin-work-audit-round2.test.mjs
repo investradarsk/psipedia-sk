@@ -57,16 +57,19 @@ test("Work P3: moderation labels are Slovak but stored filter enums remain uncha
   assert.doesNotMatch(detail, /HMAC hash|Audit history|Risk flag/);
 });
 
-test("Work P3: reviews hub is compact with all original navigation destinations", () => {
+test("Work P3: reviews hub links to its canonical workspaces without large cards", () => {
+  const page = read("app/admin/recenzie/page.tsx");
   const hub = read("components/admin-reviews-hub.tsx");
   const css = read("components/admin-reviews-hub.module.css");
+  assert.match(page, /href="\/admin\/novy\?sekcia=recenzie"/);
   for (const dest of [
-    "/admin/novy?sekcia=recenzie", "/admin/clanky?section=recenzie",
-    "/admin/recenzie-profilov", "/admin/sekcie?sekcia=recenzie", "/admin/recenzie/eshopy",
+    "/admin/clanky?section=recenzie", "/admin/recenzie-profilov",
+    "/admin/sekcie?sekcia=recenzie", "/admin/recenzie/eshopy",
   ]) assert.ok(hub.includes('href="' + dest + '"'), dest);
-  assert.match(hub, /<details className=\{styles\.rules\}/);
-  assert.match(hub, /<details className=\{styles\.eshopDetails\}/);
-  assert.match(css, /\.workspace \{ gap: var\(--admin-ui-section-gap, 10px\)/);
-  assert.match(css, /\.card \{ padding: 12px 13px/);
+  assert.match(hub, /<nav aria-labelledby="reviews-workspaces-title">/);
+  assert.match(hub, /<details className=\{styles\.notes\}/);
+  assert.doesNotMatch(hub, /cardGrid|styles\.card/);
+  assert.match(css, /min-height:44px/);
+  assert.match(css, /:focus-visible/);
   assert.doesNotMatch(hub, /canonical modul|review workflow/);
 });

@@ -22,12 +22,12 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
   assert.ok(adminNavigationGroups.length <= 7);
   assert.deepEqual(adminNavigationGroups.map((group) => group.label), [
     "Prehľad",
-    "Obsah",
+    "Redakcia",
     "Adresár",
-    "Komunita",
-    "Automatizácie",
-    "Kvalita dát",
-    "Nastavenia",
+    "Pomoc psom",
+    "Partneri",
+    "Kvalita a automatizácie",
+    "Systém",
   ]);
 
   const hrefs = adminNavigationItems.map((item) => item.href);
@@ -36,11 +36,11 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
     "/admin",
     "/admin/operations",
     "/admin/clanky",
-    "/admin/steniatka",
     "/admin/plemena",
     "/admin/sekcie",
     "/admin/meniny",
-    "/admin/sluzby-pre-psov",
+    "/admin/adresar",
+    "/admin/sluzby-pre-psov/katalog",
     "/admin/podujatia",
     "/admin/pomoc-psom",
     "/admin/mapy",
@@ -67,8 +67,8 @@ test("active state uses the most specific top-level owner for detail and legacy 
     ["/admin", "/admin"],
     ["/admin/clanky/123", "/admin/clanky"],
     ["/admin/novy", "/admin/clanky"],
-    ["/admin/sluzby-pre-psov", "/admin/sluzby-pre-psov"],
-    ["/admin/adresar/42", "/admin/sluzby-pre-psov"],
+    ["/admin/sluzby-pre-psov", "/admin/adresar"],
+    ["/admin/adresar/42", "/admin/adresar"],
     ["/admin/pomoc-psom", "/admin/pomoc-psom"],
     ["/admin/pomoc/42", "/admin/pomoc-psom"],
     ["/admin/adopcie/42", "/admin/pomoc-psom"],

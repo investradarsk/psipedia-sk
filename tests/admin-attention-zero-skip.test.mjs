@@ -17,6 +17,9 @@ function probeRow(source, activeTip) {
     highCount: 0, mediumCount: 0, lowCount: count,
     activeHighCount: 0, activeMediumCount: 0, activeLowCount: count,
     historyHighCount: 0, historyMediumCount: 0, historyLowCount: 0,
+    unreadCount: count, snoozedCount: 0,
+    unreadHighCount: 0, unreadMediumCount: 0, unreadLowCount: count,
+    snoozedHighCount: 0, snoozedMediumCount: 0, snoozedLowCount: 0,
   };
 }
 

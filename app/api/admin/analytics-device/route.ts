@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response) return auth.response;
 
   if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) {

@@ -1,0 +1,34 @@
+name: Admin V5 Mutation Origin
+on:
+  pull_request:
+    paths:
+      - 'app/api/admin/uploads/**'
+      - 'app/api/admin/analytics-device/**'
+      - 'app/api/admin/address-research-import/apply/**'
+      - 'app/api/admin/name-days/**'
+      - 'app/api/admin/monetization/**'
+      - 'app/api/admin/outreach/**'
+      - 'lib/admin-auth.ts'
+      - 'lib/admin-mutation-origin.ts'
+      - 'tests/admin-v5-mutation-origin.test.mjs'
+      - 'tests/admin-v5-mutation-loader.mjs'
+      - 'tests/facebook-image-post.test.mjs'
+      - '.github/workflows/admin-v5-mutation-origin.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  origin-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check tests/admin-v5-mutation-loader.mjs
+          node --check tests/admin-v5-mutation-origin.test.mjs
+          node --experimental-strip-types --check lib/admin-mutation-origin.ts
+      - name: Test origin, Fetch Metadata, identity and write side effects
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-v5-mutation-loader.mjs --test tests/admin-v5-mutation-origin.test.mjs

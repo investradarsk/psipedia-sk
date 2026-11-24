@@ -31,7 +31,7 @@ test("section editor drafts section and subpage card order until explicit existi
   assert.match(source, /onReorder=\{\(from, to\) => reorderSubpages/);
   assert.match(source, /fetch\("\/api\/admin\/sections"/);
   assert.match(source, /method: "PUT"/);
-  assert.match(source, /disabled=\{saving \|\| !dirty\}/);
+  assert.match(source, /disabled=\{saving \|\| Boolean\(uploading\) \|\| !dirty\}/);
 });
 
 test("hero quick link cards retain full label, href and visibility when reordered", () => {

@@ -4,6 +4,7 @@ import { isGeoSchemaAvailable } from "./geo-store";
 import { normalizeDirectorySearchText, sqlNormalizedExpression } from "./directory-store";
 import { directoryPublicFacetSql } from "./directory-public-filters";
 import { canonicalPublicServiceWhere } from "./service-catalog-public-service-filter";
+import { directoryCategoryMembershipSql } from "./directory-multi-category";
 import {
   MAP_CACHE_TTL_SECONDS,
   MAP_INTERNAL_ROW_LIMIT,
@@ -223,7 +224,7 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database, builtinOverri
   );
   const canonicalCategory =
     query.canonicalService && query.subcategory
-      ? { clause: "AND d.category = ?", bindings: [query.subcategory] }
+      ? { clause: "AND " + directoryCategoryMembershipSql("d"), bindings: [query.subcategory, query.subcategory] }
       : { clause: "", bindings: [] as string[] };
   const search = parameterizedSearch(
     query,
@@ -610,7 +611,11 @@ function candidateMatchesQuery(candidate: MapCandidate, query: MapQueryInput, to
         ? "organizations"
         : "events";
   if (query.category && query.category !== category) return false;
-  if (query.subcategory && !sameText(candidate.subcategory, query.subcategory)) return false;
+  // An exact canonical service filter was already SQL-scoped to current
+  // primary OR secondary membership. The candidate still carries its primary
+  // category for canonical URL generation; do not discard it here.
+  if (query.subcategory && !sameText(candidate.subcategory, query.subcategory) &&
+      !(candidate.entityType === "service" && query.canonicalService)) return false;
   if (query.region && !sameText(candidate.region, query.region)) return false;
   if (query.district && !sameText(candidate.district, query.district)) return false;
   if (query.city && !sameText(candidate.city, query.city)) return false;

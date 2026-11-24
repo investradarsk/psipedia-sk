@@ -13,7 +13,6 @@ async function expectNoPageOverflow(page: import("@playwright/test").Page, width
 }
 
 for (const route of [
-  { path: "/admin/steniatka", module: "puppy-areas", title: "Šteniatka" },
   { path: "/admin/sekcie", module: "sections", title: "Sekcie a podsekcie" },
   { path: "/admin/recenzie", module: "reviews", title: "Recenzie a testy" },
   { path: "/admin/meniny", module: "name-days", title: "Psie meniny" },
@@ -32,18 +31,20 @@ for (const route of [
   });
 }
 
-test("step 9: puppy accordion keeps edit and article links accessible", async ({ page }) => {
-  const response = await page.goto("/admin/steniatka", { waitUntil: "domcontentloaded" });
-  expect(response?.status()).toBe(200);
-  const content = page.locator('[data-admin-content-module="puppy-areas"]');
-  const area = content.locator("details.admin-puppy-content-item").first();
-  test.skip(!(await area.count()), "No puppy area in local fixture");
+test("V5-01: legacy puppy tabs lead to Articles or Sections without losing filters", async ({ page }) => {
+  await page.goto("/admin/steniatka?status=published&query=pes&page=2", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/admin\/clanky\?.*section=steniatka/);
+  await expect(page).toHaveURL(/status=published/);
+  await expect(page).toHaveURL(/query=pes/);
+  await expect(page).toHaveURL(/page=2/);
+
+  await page.goto("/admin/steniatka?tab=oblasti", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/admin\/sekcie\?sekcia=steniatka/);
+  await expect(page.getByTestId("admin-section-management")).toBeVisible();
+  const puppySection = page.locator("#portal-section-steniatka");
+  await expect(puppySection).toBeVisible();
+  await expect(puppySection.getByRole("link", { name: "Pokrytie tém" })).toHaveAttribute("href", "/admin/steniatka/pokrytie");
   await page.setViewportSize({ width: 320, height: 844 });
-  const summary = area.locator("summary");
-  await expect(summary).toBeVisible();
-  expect(await summary.evaluate(x => x.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-  if (!(await area.evaluate(x => (x as HTMLDetailsElement).open))) await summary.click();
-  await expect(area.getByRole("link", { name: /Pridať článok do oblasti/ })).toBeVisible();
   await expectNoPageOverflow(page, 320);
 });
 

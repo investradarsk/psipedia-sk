@@ -1,3 +1,4 @@
+import { AdminQualityWorkspaceTabs } from "@/components/admin-quality-workspace-tabs";
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import styles from "@/components/admin-data-table.module.css";
@@ -94,6 +95,7 @@ export default async function AdminSeoQualityPage({
       description="Read-only inbox publikovaných canonical entít. Oddeľuje chýbajúce custom SEO od reálne slabej výslednej metadata, obsahu, indexácie a crawlability."
       actions={<Link href="/admin/kvalita">Späť na kvalitu údajov</Link>}
     >
+      <AdminQualityWorkspaceTabs active="seo" />
       <section className="admin-stats" aria-label="SEO quality súhrn">
         <div><span>Publikované canonical entity</span><strong>{report.entityCount}</strong></div>
         <div><span>Reálny quality problém</span><strong>{report.entitiesWithQualityFindings}</strong></div>

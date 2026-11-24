@@ -66,11 +66,12 @@ test("directory inline mutation refuses stale, archived, and foreign IDs and lea
   } finally { db.close(); }
 });
 
-test("directory service list and main directory both use same grid, inline controls and compare-and-set", () => {
+test("canonical directory alone renders the inline grid while the old services list redirects", () => {
   const one = read("app/admin/adresar/page.tsx");
   const two = read("app/admin/sluzby-pre-psov/page.tsx");
   assert.match(one, /<AdminDirectoryDashboard/);
-  assert.match(two, /<AdminDirectoryDashboard/);
+  assert.match(two, /redirect\(directoryAdminHref\(filters\)\)/);
+  assert.doesNotMatch(two, /AdminDirectoryDashboard|AdminInlineRowActions/);
   assert.match(directory, /AdminInlineRowActions/);
   assert.match(directory, /AdminInlineCellInput/);
   assert.match(directory, /"set-inline-editorial"/);

@@ -84,11 +84,11 @@ test("Quality single-field rejection uses shared confirmation without changing o
   noNativeConfirm("components/admin-data-quality-dashboard.tsx");
 });
 
-test("Puppy area feedback reuses the existing live-region priority", () => {
-  const src = read("components/admin-puppy-area-editor.tsx");
-  assert.match(src, /feedback=\{<AdminFormFeedback/);
-  assert.match(src, /error=\{error\}/);
-  assert.match(src, /pending=\{saving\}/);
+test("V5-01 sections editor retains accessible save feedback for puppy areas", () => {
+  const src = read("components/admin-section-editor.tsx");
+  assert.match(src, /role={error \? "alert" : "status"}/);
+  assert.match(src, /error \|\| message/);
+  assert.match(src, /saving \|\| Boolean\(uploading\) \|\| !dirty/);
   assert.match(src, /\/api\/admin\/sections/);
   assert.match(src, /method: "PUT"/);
   assert.match(src, /setDirty\(false\)/);

@@ -22,20 +22,31 @@ const shouldSearchRecords = (value: string) => value.trim().length >= 2 || /^\d$
 // Keep the regular sidebar as the single authority for main destinations.
 // Only deeper, verified admin routes are added below for fast access.
 const additionalDestinations: Destination[] = [
-  { label: "Adopcie", category: "Pomoc psom", href: "/admin/adopcie", keywords: "adoptovať adopcia pes psi" },
-  { label: "Stratené a nájdené psy", category: "Pomoc psom", href: "/admin/stratene-najdene", keywords: "strateny najdeny hladam psa" },
-  { label: "Organizácie", category: "Pomoc psom", href: "/admin/organizacie", keywords: "utulky ochrana pomoc organizacia" },
-  { label: "Katalóg služieb", category: "Služby pre psov", href: "/admin/sluzby-pre-psov/katalog", keywords: "veterinari treneri salony vlastnosti sluzby" },
-  { label: "Nastavenia Notion", category: "Nastavenia", href: "/admin/nastavenia/notion", keywords: "notion synchronizacia sync polia diagnostika" },
+  {label:"Adopcie",category:"Pomoc psom",href:"/admin/adopcie",keywords:"adopcia psy"},
+  {label:"Stratené a nájdené",category:"Pomoc psom",href:"/admin/stratene-najdene",keywords:"stratene najdene psy"},
+  {label:"Organizácie",category:"Pomoc psom",href:"/admin/organizacie",keywords:"utulky organizacie"},
+  {label:"Pokrytie šteniatok",category:"Redakcia",href:"/admin/steniatka/pokrytie",keywords:"steniatka pokrytie temy"},
+  {label:"Kalendár článkov",category:"Redakcia",href:"/admin/clanky/kalendar",keywords:"redakcny plan publikovanie"},
+  {label:"E-shopy a recenzie",category:"Redakcia",href:"/admin/recenzie/eshopy",keywords:"eshop hodnotenie testy"},
+  {label:"Koncepty automatizácií",category:"Kvalita a automatizácie",href:"/admin/automatizacie-gemini/koncepty",keywords:"gemini koncepty navrhy"},
+  {label:"Overovanie zdrojov",category:"Pomoc psom",href:"/admin/operations/overovanie-zdrojov",keywords:"adopcia stratene kontrola zdrojov"},
+  {label:"Partner podania",category:"Partneri",href:"/admin/partners/submissions",keywords:"registracia podanie moderacia"},
+  {label:"Partner hlásenia",category:"Partneri",href:"/admin/partners/help-submissions",keywords:"stratene adopcie nahlasene"},
+  {label:"Žiadosti o profil",category:"Partneri",href:"/admin/partners/claims",keywords:"claim profil schvalovanie"},
+  {label:"Nastavenia Notion",category:"Systém",href:"/admin/nastavenia/notion",keywords:"notion synchronizacia konflikty"},
+  {label:"Notion audit",category:"Systém",href:"/admin/nastroje/notion-audit",keywords:"notion diagnostika audit"},
+  {label:"Google Place nástroje",category:"Systém",href:"/admin/nastroje/google-places",keywords:"adresy mapy"},
 ];
 const aliases: Record<string, string> = {
-  "/admin/sluzby-pre-psov": "veterinari veterina veterinár salóny treneri fyzioterapia služby",
+  "/admin/adresar": "sluzby profily veterinari salony treneri fyzioterapia",
   "/admin/podujatia": "kalendar akcie podujatie vystavy seminare",
-  "/admin/komponenty": "bannery sablony komponent znovupouzitie",
-  "/admin/clanky": "novinky clanky obsah publikovanie",
-  "/admin/plemena": "plemena psi labrador FCI",
-  "/admin/facebook-obrazky": "grafiky prispevky facebook socialne siete",
-  "/admin/kvalita": "kvalita dat kontrola AI opravy",
+  "/admin/podania": "hlasenia dopyty ziadosti moderacia partner",
+  "/admin/komponenty": "bannery sablony komponenty",
+  "/admin/clanky": "novinky clanky publikovanie",
+  "/admin/plemena": "plemena FCI labrador",
+  "/admin/facebook-obrazky": "grafiky facebook socialne siete",
+  "/admin/kvalita": "kvalita data AI opravy",
+  "/admin/automatizacie-gemini": "automatizacie AI gemini"
 };
 const destinations: Destination[] = [
   ...adminNavigationGroups.flatMap(group => group.items.map(item => ({
@@ -51,8 +62,8 @@ const search = new Fuse(destinations, {
   ignoreDiacritics: true,
 });
 const suggestedHrefs = new Set([
-  "/admin/podujatia", "/admin/sluzby-pre-psov", "/admin/adopcie",
-  "/admin/clanky", "/admin/nastavenia/notion", "/admin/komponenty",
+  "/admin/clanky", "/admin/podujatia", "/admin/adresar", "/admin/pomoc-psom",
+  "/admin/podania", "/admin/kvalita", "/admin/nastavenia/notion",
 ]);
 
 export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (value: boolean) => void }) {
@@ -154,8 +165,11 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
     setRetryCount(count => count + 1);
   }
   function go(href: string) {
+    // Search results can only navigate within the authenticated Admin namespace.
+    const target = new URL(href, window.location.origin);
+    if (target.origin !== window.location.origin ||
+      (target.pathname !== "/admin" && !target.pathname.startsWith("/admin/"))) return;
     const navigate = () => {
-      const target = new URL(href, window.location.origin);
       if (target.origin === window.location.origin &&
         (target.pathname === "/admin" || target.pathname === "/admin/clanky") &&
         window.matchMedia("(max-width: 820px)").matches &&

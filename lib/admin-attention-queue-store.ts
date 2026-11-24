@@ -79,6 +79,8 @@ export type AdminAttentionExactSummary = {
 export type AdminAttentionPageSummary = {
   total: number;
   active: number;
+  unread: number;
+  snoozed: number;
   history: number;
   byState: Record<AdminAttentionState, number>;
   byPriority: Record<AdminAttentionPriority, number>;
@@ -126,15 +128,27 @@ type AttentionSourceProbeRow = {
   historyHighCount: number;
   historyMediumCount: number;
   historyLowCount: number;
+  unreadCount: number;
+  snoozedCount: number;
+  unreadHighCount: number;
+  unreadMediumCount: number;
+  unreadLowCount: number;
+  snoozedHighCount: number;
+  snoozedMediumCount: number;
+  snoozedLowCount: number;
 };
 
 type AttentionSourceSnapshot = AdminAttentionSourceAvailability & {
   total: number;
   historyCount: number;
+  unreadCount: number;
+  snoozedCount: number;
   byState: Record<AdminAttentionState, number>;
   byPriority: Record<AdminAttentionPriority, number>;
   activeByPriority: Record<AdminAttentionPriority, number>;
   historyByPriority: Record<AdminAttentionPriority, number>;
+  unreadByPriority: Record<AdminAttentionPriority, number>;
+  snoozedByPriority: Record<AdminAttentionPriority, number>;
 };
 
 type CursorPayload = {
@@ -718,6 +732,15 @@ function paramsCte() {
 // Reuse exactly the same grouped and isolated aggregate projections.
 // The payload is only needed when fetching page rows, so do not compute its
 // total length or the unused MIN(relevantAt) when counting each source.
+// An inbox acknowledgement applies only to the exact relevant event version.
+// READ and SNOOZE must never update a moderation submission's domain status.
+const UNREAD_INBOX_PREDICATE = `base.activeRank=0 AND
+  (ack.relevant_at IS NULL OR ack.relevant_at<>base.relevantAt
+    OR (ack.read_at IS NULL AND (ack.snoozed_until IS NULL
+      OR ack.snoozed_until<=(SELECT nowIso FROM params))))`;
+const SNOOZED_INBOX_PREDICATE = `base.activeRank=0 AND ack.relevant_at=base.relevantAt
+  AND ack.snoozed_until>(SELECT nowIso FROM params)`;
+
 function sourceProbeSelectSql(source: AdminAttentionQueueSourceType) {
   return `SELECT '${source}' AS sourceType,
       COUNT(*) AS total,
@@ -735,8 +758,17 @@ function sourceProbeSelectSql(source: AdminAttentionQueueSourceType) {
       COALESCE(SUM(CASE WHEN activeRank=0 AND priority='LOW' THEN 1 ELSE 0 END),0) AS activeLowCount,
       COALESCE(SUM(CASE WHEN activeRank=1 AND priority='HIGH' THEN 1 ELSE 0 END),0) AS historyHighCount,
       COALESCE(SUM(CASE WHEN activeRank=1 AND priority='MEDIUM' THEN 1 ELSE 0 END),0) AS historyMediumCount,
-      COALESCE(SUM(CASE WHEN activeRank=1 AND priority='LOW' THEN 1 ELSE 0 END),0) AS historyLowCount
-    FROM (${ATTENTION_SOURCE_SELECTS[source]})`;
+      COALESCE(SUM(CASE WHEN activeRank=1 AND priority='LOW' THEN 1 ELSE 0 END),0) AS historyLowCount,
+      COALESCE(SUM(CASE WHEN ${UNREAD_INBOX_PREDICATE} THEN 1 ELSE 0 END),0) AS unreadCount,
+      COALESCE(SUM(CASE WHEN ${SNOOZED_INBOX_PREDICATE} THEN 1 ELSE 0 END),0) AS snoozedCount,
+      COALESCE(SUM(CASE WHEN (${UNREAD_INBOX_PREDICATE}) AND priority='HIGH' THEN 1 ELSE 0 END),0) AS unreadHighCount,
+      COALESCE(SUM(CASE WHEN (${UNREAD_INBOX_PREDICATE}) AND priority='MEDIUM' THEN 1 ELSE 0 END),0) AS unreadMediumCount,
+      COALESCE(SUM(CASE WHEN (${UNREAD_INBOX_PREDICATE}) AND priority='LOW' THEN 1 ELSE 0 END),0) AS unreadLowCount,
+      COALESCE(SUM(CASE WHEN (${SNOOZED_INBOX_PREDICATE}) AND priority='HIGH' THEN 1 ELSE 0 END),0) AS snoozedHighCount,
+      COALESCE(SUM(CASE WHEN (${SNOOZED_INBOX_PREDICATE}) AND priority='MEDIUM' THEN 1 ELSE 0 END),0) AS snoozedMediumCount,
+      COALESCE(SUM(CASE WHEN (${SNOOZED_INBOX_PREDICATE}) AND priority='LOW' THEN 1 ELSE 0 END),0) AS snoozedLowCount
+    FROM (${ATTENTION_SOURCE_SELECTS[source]}) base
+    LEFT JOIN admin_attention_ack ack ON ack.source_type=base.sourceType AND ack.source_id=base.sourceId`;
 }
 
 function sourceProbeSql(source: AdminAttentionQueueSourceType) {
@@ -765,10 +797,14 @@ function unavailableSnapshot(sourceType: AdminAttentionQueueSourceType): Attenti
     errorCode: "ATTENTION_SOURCE_UNAVAILABLE",
     total: 0,
     historyCount: 0,
+    unreadCount: 0,
+    snoozedCount: 0,
     byState: { NEW: 0, IN_PROGRESS: 0, RESOLVED: 0, DISMISSED: 0 },
     byPriority: { HIGH: 0, MEDIUM: 0, LOW: 0 },
     activeByPriority: { HIGH: 0, MEDIUM: 0, LOW: 0 },
     historyByPriority: { HIGH: 0, MEDIUM: 0, LOW: 0 },
+    unreadByPriority: { HIGH: 0, MEDIUM: 0, LOW: 0 },
+    snoozedByPriority: { HIGH: 0, MEDIUM: 0, LOW: 0 },
   };
 }
 
@@ -780,6 +816,8 @@ function rowToSnapshot(sourceType: AdminAttentionQueueSourceType, row: Attention
     activeCount,
     total: Number(row?.total ?? 0),
     historyCount: Number(row?.historyCount ?? 0),
+    unreadCount: Number(row?.unreadCount ?? 0),
+    snoozedCount: Number(row?.snoozedCount ?? 0),
     byState: {
       NEW: Number(row?.newCount ?? 0),
       IN_PROGRESS: Number(row?.inProgressCount ?? 0),
@@ -800,6 +838,16 @@ function rowToSnapshot(sourceType: AdminAttentionQueueSourceType, row: Attention
       HIGH: Number(row?.historyHighCount ?? 0),
       MEDIUM: Number(row?.historyMediumCount ?? 0),
       LOW: Number(row?.historyLowCount ?? 0),
+    },
+    unreadByPriority: {
+      HIGH: Number(row?.unreadHighCount ?? 0),
+      MEDIUM: Number(row?.unreadMediumCount ?? 0),
+      LOW: Number(row?.unreadLowCount ?? 0),
+    },
+    snoozedByPriority: {
+      HIGH: Number(row?.snoozedHighCount ?? 0),
+      MEDIUM: Number(row?.snoozedMediumCount ?? 0),
+      LOW: Number(row?.snoozedLowCount ?? 0),
     },
   };
 }
@@ -847,6 +895,9 @@ async function probeSourcesGrouped(
           row.highCount, row.mediumCount, row.lowCount,
           row.activeHighCount, row.activeMediumCount, row.activeLowCount,
           row.historyHighCount, row.historyMediumCount, row.historyLowCount,
+          row.unreadCount, row.snoozedCount,
+          row.unreadHighCount, row.unreadMediumCount, row.unreadLowCount,
+          row.snoozedHighCount, row.snoozedMediumCount, row.snoozedLowCount,
         ];
         if (!sources.includes(row.sourceType) || counts.has(row.sourceType)
           || values.some((value) => !Number.isSafeInteger(Number(value)) || Number(value) < 0)) {
@@ -974,14 +1025,18 @@ function sourceCounts(sources: AdminAttentionSourceAvailability[]) {
 
 function filteredSnapshotCount(snapshot: AttentionSourceSnapshot, filters: AdminAttentionFilters) {
   if (snapshot.state === "UNAVAILABLE") return 0;
-  const view = filters.view ?? "active";
+  const view = filters.view ?? "unread";
   const priority = filters.priority ?? "all";
   if (priority === "all") {
-    if (view === "active") return snapshot.activeCount ?? 0;
+    if (view === "active" || view === "pending") return snapshot.activeCount ?? 0;
+    if (view === "unread") return snapshot.unreadCount;
+    if (view === "snoozed") return snapshot.snoozedCount;
     if (view === "history") return snapshot.historyCount;
     return snapshot.total;
   }
-  if (view === "active") return snapshot.activeByPriority[priority];
+  if (view === "active" || view === "pending") return snapshot.activeByPriority[priority];
+  if (view === "unread") return snapshot.unreadByPriority[priority];
+  if (view === "snoozed") return snapshot.snoozedByPriority[priority];
   if (view === "history") return snapshot.historyByPriority[priority];
   return snapshot.byPriority[priority];
 }
@@ -998,6 +1053,8 @@ function summarizeSnapshots(
   return {
     total: available.reduce((sum, source) => sum + source.total, 0),
     active: available.reduce((sum, source) => sum + (source.activeCount ?? 0), 0),
+    unread: available.reduce((sum, source) => sum + source.unreadCount, 0),
+    snoozed: available.reduce((sum, source) => sum + source.snoozedCount, 0),
     history: available.reduce((sum, source) => sum + source.historyCount, 0),
     byState: {
       NEW: available.reduce((sum, source) => sum + source.byState.NEW, 0),
@@ -1018,7 +1075,7 @@ function filtersFingerprint(filters: AdminAttentionFilters) {
   return JSON.stringify({
     sourceType: filters.sourceType ?? "all",
     priority: filters.priority ?? "all",
-    view: filters.view ?? "active",
+    view: filters.view ?? "unread",
   });
 }
 
@@ -1078,8 +1135,11 @@ function filterClause(filters: AdminAttentionFilters, tableAlias = "") {
     clauses.push(`${prefix}priority=?`);
     bindings.push(filters.priority);
   }
-  if ((filters.view ?? "active") === "active") clauses.push(`${prefix}activeRank=0`);
-  if (filters.view === "history") clauses.push(`${prefix}activeRank=1`);
+  const view = filters.view ?? "unread";
+  if (view === "pending" || view === "active") clauses.push(`${prefix}activeRank=0`);
+  if (view === "unread") clauses.push(`(${UNREAD_INBOX_PREDICATE})`);
+  if (view === "snoozed") clauses.push(`(${SNOOZED_INBOX_PREDICATE})`);
+  if (view === "history") clauses.push(`${prefix}activeRank=1`);
   return { sql: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "", bindings };
 }
 
@@ -1157,7 +1217,8 @@ function sourcePageQuery(
   return {
     sql: `${paramsCte()}, source_rows AS (${ATTENTION_SOURCE_SELECTS[source]})
       SELECT sourceType,sourceId,activeRank,attentionState,priority,priorityRank,relevantAt,payload
-      FROM source_rows
+      FROM source_rows base
+      LEFT JOIN admin_attention_ack ack ON ack.source_type=base.sourceType AND ack.source_id=base.sourceId
       ${where.sql}
       ${ATTENTION_ORDER_SQL}
       LIMIT ?`,
@@ -1203,6 +1264,8 @@ function emptyPageSummary(bySource: Record<AdminAttentionQueueSourceType, number
   return {
     total: 0,
     active: Object.values(bySource).reduce((sum, value) => sum + (value ?? 0), 0),
+    unread: 0,
+    snoozed: 0,
     history: 0,
     byState: { NEW: 0, IN_PROGRESS: 0, RESOLVED: 0, DISMISSED: 0 },
     byPriority: { HIGH: 0, MEDIUM: 0, LOW: 0 },
@@ -1234,7 +1297,7 @@ export async function loadAdminAttentionPage(
   now = new Date(),
 ): Promise<AdminAttentionPage> {
   const db = requireD1Binding(database);
-  const filters = options.filters ?? { sourceType: "all", priority: "all", view: "active" };
+  const filters = options.filters ?? { sourceType: "all", priority: "all", view: "unread" };
   const pageSize = Math.max(1, Math.min(ADMIN_ATTENTION_MAX_PAGE_SIZE, Math.trunc(options.pageSize ?? ADMIN_ATTENTION_PAGE_SIZE)));
   const requestedCursor = options.cursor?.trim() || "";
   const cursor = decodeAdminAttentionCursor(requestedCursor || undefined, filters);
