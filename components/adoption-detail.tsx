@@ -342,11 +342,6 @@ export function AdoptionDetail({
             </DetailSection>
           </div>
           <DetailFactsCard title="Základné údaje" facts={basicFacts} />
-          {location && (
-            <DetailSection compactHeading title="Lokalita">
-              <p>{location}</p>
-            </DetailSection>
-          )}
           <DetailFactsCard
             title="Aktuálnosť a zdroj"
             facts={[

@@ -173,14 +173,11 @@ test("Help dog detail shares service/organization contacts, actions and facts", 
   ]) {
     assert.ok(detail.includes(token), token);
   }
-  assert.match(detail, /<DetailContactsCard title="Adresa a kontakt"/);
+  assert.match(detail, /<DetailContactsCard\s+title="Verejné kontakty"/);
   assert.match(detail, /styles\.safetyPanel/);
   assert.match(detail, /variant="linked"\s+fit="contain"/);
   assert.match(detail, /Zobrazuje sa len približná lokalita/);
-  assert.ok(
-    detail.indexOf('<DetailContactsCard title="Adresa a kontakt"') <
-      detail.indexOf("styles.safetyPanel"),
-  );
+  assert.ok(detail.indexOf('title="Verejné kontakty"') < detail.indexOf("styles.safetyPanel"));
   assert.ok(detail.indexOf("styles.safetyPanel") < detail.indexOf("{hasFacts ?"));
   assert.match(detailCss, /\.reportGallery\s*\{/);
   for (const field of [
@@ -199,10 +196,10 @@ test("unnamed lost/found reports show human-readable breadcrumb instead of URL s
   const detail = read("components/lost-found-dog-detail.tsx");
   assert.match(
     detail,
-    /const breadcrumbLabel = report\.dogName\?\.trim\(\) \|\| report\.breed\?\.trim\(\)/,
+    /const breadcrumbLabel =\s*report\.dogName\?\.trim\(\) \|\|\s*report\.breed\?\.trim\(\)/,
   );
   assert.match(detail, /type === "LOST" \? "Stratený" : "Nájdený"/);
-  assert.match(detail, /<span>\{breadcrumbLabel\}<\/span><\/nav>/);
+  assert.match(detail, /<span>\{breadcrumbLabel\}<\/span>\s*<\/nav>/);
   assert.doesNotMatch(detail, /<span>\{report\.dogName \|\| report\.slug\}<\/span>/);
   // Editing presentation must not change the protected contact and media paths.
   assert.match(detail, /report\.publicContactNote/);

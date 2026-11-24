@@ -311,13 +311,17 @@ test(
           }
           if (name === "lost") {
             const notice = await hero
-              .getByText("Naposledy videný:", { exact: true })
+              .getByText(/^(Posledné videnie|Dátum straty)$/)
               .locator("..")
               .boundingBox();
             const contact = await hero
               .getByRole("link", { name: "Kontaktovať cez Psipediu" })
               .boundingBox();
             assert.ok(notice && contact, "lost report notice and contact visible");
+            assert.equal(
+              await page.getByRole("link", { name: "Kontaktovať cez Psipediu" }).count(),
+              1,
+            );
             assert.ok(
               contact.y - notice.y - notice.height >= 11.5,
               `lost ${width} contact must be separated from last-seen notice`,

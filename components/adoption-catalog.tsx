@@ -66,11 +66,10 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
       title={dog.name}
       actionLabel="Zobraziť profil"
       category="Pes na adopciu"
-      badge={
-        dog.status === "RESERVED" ? (
-          <span className={styles.cardReservedBadge}>Rezervovaný</span>
-        ) : null
-      }
+      titleLevel="h2"
+      badge={dog.status === "RESERVED"
+        ? <span className={styles.cardReservedBadge}>Rezervovaný</span>
+        : null}
       media={
         <Link href={href} aria-label={`Otvoriť: ${dog.name}`}>
           {dog.mainImage ? (
@@ -90,23 +89,20 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
         </Link>
       }
       meta={meta}
-      extras={
-        confirmationDate || (dog.organizationSlug && dog.organizationName) ? (
-          <div>
-            {confirmationDate ? (
-              <p>
-                Dostupnosť potvrdená:{" "}
-                <time dateTime={dog.lastVerifiedAt ?? undefined}>{confirmationDate}</time>
-              </p>
-            ) : null}
-            {dog.organizationSlug && dog.organizationName ? (
-              <Link href={"/organizacie/" + dog.organizationSlug}>
-                Profil organizácie: {dog.organizationName}
-              </Link>
-            ) : null}
-          </div>
-        ) : null
-      }
+      extras={confirmationDate || (dog.organizationSlug && dog.organizationName) ? (
+        <div>
+          {confirmationDate ? (
+            <p>
+              Dostupnosť potvrdená: <time dateTime={dog.lastVerifiedAt ?? undefined}>{confirmationDate}</time>
+            </p>
+          ) : null}
+          {dog.organizationSlug && dog.organizationName ? (
+            <Link href={"/organizacie/" + dog.organizationSlug}>
+              Profil organizácie: {dog.organizationName}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
     />
   );
 }
@@ -232,6 +228,9 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
       </UnifiedSectionHeroShell>
 
       <PublicContentShell variant="listing">
+        <div className={styles.categoryNavShell}>
+          <PublicHelpCategoryNav items={publicHelpCategoryItems("adopcia")} />
+        </div>
         <PublicFilterLayout>
           <PublicFilterPanel title="Filtrovať psy" resetHref="/pomoc-psom/adopcia">
             <PublicFilterDisclosure
@@ -407,7 +406,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
             <PublicResultsToolbar className={styles.summary}>
               <div>
                 <PublicHeading role="section" as="h2">
-                  Psy, ktoré hľadajú domov
+                  Aktuálne profily
                 </PublicHeading>
                 <p>
                   {formatSlovakCount(pagination.total, { one: "pes", few: "psy", many: "psov" })}
@@ -458,23 +457,18 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
               pageHref={(page) => adoptionCatalogHref(filters, { page }) + "#adoption-results"}
               previousHref={
                 pagination.page > 1
-                  ? adoptionCatalogHref(filters, { page: pagination.page - 1 }) +
-                    "#adoption-results"
+                  ? adoptionCatalogHref(filters, { page: pagination.page - 1 }) + "#adoption-results"
                   : undefined
               }
               nextHref={
                 pagination.page < pagination.totalPages
-                  ? adoptionCatalogHref(filters, { page: pagination.page + 1 }) +
-                    "#adoption-results"
+                  ? adoptionCatalogHref(filters, { page: pagination.page + 1 }) + "#adoption-results"
                   : undefined
               }
               showDisabledControls={false}
             />
           </div>
         </PublicFilterLayout>
-        <div className={styles.categoryNavShell}>
-          <PublicHelpCategoryNav items={publicHelpCategoryItems("adopcia")} />
-        </div>
       </PublicContentShell>
     </PublicFoundation>
   );

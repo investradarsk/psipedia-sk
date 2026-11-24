@@ -114,8 +114,6 @@
 .summary h2 {
   margin: 0;
   color: #173f2d;
-  font: 750 var(--ps-heading-content-section) / 1.25 var(--ps-public-heading-font);
-  letter-spacing: -0.025em;
 }
 .summary p {
   margin: 0;
@@ -613,9 +611,8 @@
     grid-template-columns: 1fr;
   }
   .summary {
-    flex-wrap: wrap;
-    gap: 5px 12px;
-    margin-block: 12px;
+    align-items: flex-start;
+    flex-direction: column;
   }
   .detail {
     padding-top: 20px;
@@ -658,8 +655,7 @@
 .listingShell {
   padding-bottom: 72px;
 }
-
-/* HELP-PUBLIC 2.0: canonical listing refinements */
+\n\n/* HELP-PUBLIC 2.0: canonical listing refinements */
 .foundation {
   min-width: 0;
 }
@@ -806,8 +802,9 @@
   composes: animalEmpty from "./public-visual-system/public-result-variants.module.css";
 }
 
+/* S-24/S-25: same category navigation, filters and cards across Help family. */
 .categoryNavShell {
-  margin-top: 20px;
+  margin-bottom: 15px;
 }
 .filterToggle {
   display: none;
@@ -816,6 +813,9 @@
   min-width: 0;
 }
 @media (max-width: 650px) {
+  .categoryNavShell {
+    margin-bottom: 12px;
+  }
   .filterToggle {
     display: flex;
     min-height: 48px;
@@ -991,38 +991,4 @@
   font-weight: 820;
   line-height: 1.1;
   letter-spacing: -0.025em;
-}
-
-/* Hub choices use the same typography as the report lists. */
-.hubChoices {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.hubChoice {
-  display: grid;
-  justify-items: start;
-  align-content: start;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid var(--ps-border-soft);
-  border-radius: var(--ps-radius-card);
-  background: var(--ps-surface-raised);
-}
-.hubChoice h2 {
-  margin: 0;
-  color: var(--forest-dark);
-  font: 750 var(--ps-heading-content-section) / 1.25 var(--ps-public-heading-font);
-  letter-spacing: -0.025em;
-}
-.hubChoice p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.86rem;
-}
-@media (max-width: 620px) {
-  .hubChoices {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
