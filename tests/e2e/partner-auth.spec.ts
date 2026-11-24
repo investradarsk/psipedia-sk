@@ -423,6 +423,9 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByText("Rozpracovaný súkromný koncept", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Odoslať na schválenie" }).click();
     await expect(page).toHaveURL(/\/partner\/ziadosti$/);
+    await expect(
+      page.locator(".partner-request-list article").filter({ hasText: "Partner E2E Nová Služba" }),
+    ).toContainText("Čaká na kontrolu");
     await page.goto("/partner");
     await expect(page.locator(".partner-dashboard-record").filter({ hasText: "Partner E2E Nová Služba" })).toContainText("Čaká na schválenie");
     await page.goto("/partner/profily");

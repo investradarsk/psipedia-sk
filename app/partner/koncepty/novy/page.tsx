@@ -16,7 +16,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{typ?:st
   await requirePartnerPageIdentity({returnTo});
   return <PartnerShell title="Vytvoriť nový záznam"
     description="Uložte si neverejný koncept alebo ho odošlite na prvé schválenie.">
-    <p><Link href="/partner">← Späť na moje profily</Link></p>
+    <p><Link href="/partner/profily">← Späť na moje profily</Link></p>
     <PartnerCanonicalDraftForm categories={directoryCategories.map(({slug,label})=>({slug,label}))} definitions={getPartnerCanonicalFormFields()} initialType={initialType} initialReportType={reportType??undefined}/>
   </PartnerShell>;
 }
