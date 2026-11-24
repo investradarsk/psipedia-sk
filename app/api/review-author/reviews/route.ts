@@ -15,7 +15,8 @@ import {
 } from "@/lib/review-author-security";
 import { prepareGuestReviewAuthor } from "@/lib/guest-review-author";
 import { reviewAuthorSessionTokenFromCookieHeader } from "@/lib/review-author-auth";
-import { profileReviewEmailRequired, profileReviewSubmissionEnabled } from "@/lib/submission-feature-flags";
+import { profileReviewSubmissionEnabled } from "@/lib/submission-feature-flags";
+import { profileReviewEmailRequired } from "@/lib/profile-review-verification-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
     const hashKey = requiredBinding(bindings.PII_HASH_KEY);
     const turnstileSecret = requiredBinding(bindings.TURNSTILE_SECRET_KEY);
     const cookieHeader = request.headers.get("cookie");
-    const guestAllowed = target.entityType === "DIRECTORY_PROFILE" && !profileReviewEmailRequired() && !reviewAuthorSessionTokenFromCookieHeader(cookieHeader);
+    const guestAllowed = target.entityType === "DIRECTORY_PROFILE" && !(await profileReviewEmailRequired(database)) && !reviewAuthorSessionTokenFromCookieHeader(cookieHeader);
     const guest = guestAllowed ? await prepareGuestReviewAuthor(request, body.displayName, body.ownExperience, hashKey) : null;
     const reviewer = guest ?? await requireProfileReviewSubmissionReviewer({ cookieHeader, database });
 
