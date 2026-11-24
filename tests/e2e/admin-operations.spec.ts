@@ -204,8 +204,14 @@ test("technical tools and maps have separate working admin entries without horiz
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: "Nástroje", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Import dát", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Profilový outreach", exact: true })).toBeVisible();
+  const importLink = page.getByRole("navigation", { name: "Základné nástroje" })
+    .getByRole("link", { name: /Import dát/ });
+  await expect(importLink).toBeVisible();
+  await expect(importLink).toHaveAttribute("href", "/admin/import");
+  const outreachLink = page.getByRole("navigation", { name: "Základné nástroje" })
+    .getByRole("link", { name: /Profilový outreach/ });
+  await expect(outreachLink).toBeVisible();
+  await expect(outreachLink).toHaveAttribute("href", "/admin/operations/outreach");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 
