@@ -31,7 +31,7 @@ export function AdminWorkspaceActivity({ initial }: { initial: WorkspaceOverview
           <strong>Automatizácie Gemini</strong>
           <span>{initial.nextGemini
             ? `Najbližšie: ${initial.nextGemini.label}, ${formatTime(initial.nextGemini.nextRunAt)}`
-             : initial.status === "UNAVAILABLE"
+            : initial.status === "UNAVAILABLE"
               ? "Plán spustení je nedostupný"
               : "Žiadne potvrdené budúce spustenie"}</span>
           <b>Otvoriť plánovač →</b>

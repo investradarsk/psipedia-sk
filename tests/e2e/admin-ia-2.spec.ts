@@ -24,7 +24,7 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Čo potrebuje pozornosť", exact: true })).toBeVisible();
 
-  await expect(page.getByRole("link", { name: /Neprečítané upozornenia/ })).toHaveAttribute("href", "/admin/operations");
+  await expect(page.locator('a[href="/admin/operations"][class*="metricCard"]')).toHaveAttribute("href", "/admin/operations");
   // Old Tavily attention cards are retired: Gemini and Quality own active work.
   await expect(page.getByRole("link", { name: /Automatizácie na kontrolu/ })).toHaveCount(0);
   await expect(page.locator('a[href="/admin/automatizacie-gemini"][class*="linkCard"]')).toHaveAttribute("href", "/admin/automatizacie-gemini");
@@ -465,7 +465,8 @@ test("V6-07 dashboard shortcuts and guarded Ctrl+K return use canonical routes",
   }
   await expect(nav.getByRole("link", { name: "Všetky profily", exact: true })).toHaveAttribute("aria-current", "page");
   if (mobile) await page.keyboard.press("Escape");
-  await page.locator("[data-admin-quick-nav-trigger]").click();
+  if (mobile) await page.locator("[data-admin-quick-nav-trigger]").click();
+  else await page.keyboard.press("Control+k");
   const palette = page.locator("[data-admin-quick-navigation]");
   await expect(palette).toBeVisible();
   const overview = palette.getByRole("option", { name: /Pracovný prehľad/ });

@@ -253,6 +253,7 @@ export function AdminWorkspaceDashboard({
             <span>Teraz</span>
             <h2 id="admin-priority-title">Čo potrebuje pozornosť</h2>
           </div>
+          <Link prefetch={false} href="/admin/operations?view=pending">Všetky nevybavené úlohy →</Link>
         </div>
         <div className={styles.priorityGrid}>
           <Suspense fallback={<PendingMetric label="Neprečítané upozornenia" />}>

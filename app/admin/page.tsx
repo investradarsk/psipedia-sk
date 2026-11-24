@@ -30,7 +30,7 @@ function legacyArticleListHref(params: SearchParams) {
 }
 
 function loadWorkspaceQuality() {
-  return readAdminAutomationData({
+  return readAdminAutomationData<{ pendingProposals: number | null }>({
     key: "admin-workspace:data-quality",
     load: async () => {
       const result = await loadAdminQualityPendingSummary((env as unknown as {DB?: D1Database}).DB);
