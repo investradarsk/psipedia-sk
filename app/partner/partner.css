@@ -2624,3 +2624,34 @@
   .partner-workspace-nav .partner-nav-account { margin-left: 0; }
   .partner-workspace-nav > a { width: 100%; }
 }
+
+/* Shared workspace and auth type roles; no route-specific font scale. */
+.partner-shell {
+  font-family: var(--ps-font-body);
+  font-size: var(--ps-type-profile, 1rem);
+  line-height: var(--ps-type-body-leading, 1.6);
+}
+.partner-shell--workspace .partner-page-heading h1 {
+  font: 500 var(--ps-type-page-heading, 1.75rem)/1.2 var(--ps-font-heading);
+}
+.partner-shell--workspace :is(.partner-dashboard-section-heading, .partner-section-heading, .partner-dashboard-welcome-copy) h2 {
+  font: 500 var(--ps-type-section-heading, 1.5rem)/1.25 var(--ps-font-heading);
+}
+.partner-shell--workspace :is(.partner-dashboard-record h3, .partner-request-title h3, .partner-resource-card h2, .partner-empty h2, .partner-settings-card h2, .partner-commercial-history h2, .partner-claim-summary h2, .partner-lifecycle-actions h3) {
+  font: 600 var(--ps-type-card-heading, 1rem)/1.4 var(--ps-font-body);
+}
+.partner-shell--workspace :is(.partner-page-heading p, .partner-dashboard-welcome-copy p, .partner-canonical-intro > p, .partner-request-list > article > p, .partner-dashboard-record p, .partner-dashboard-empty p, .partner-settings-card p, .partner-notification-settings > p, .partner-lifecycle-actions p) {
+  font-size: var(--ps-type-profile, 1rem);
+  line-height: var(--ps-type-body-leading, 1.6);
+}
+.partner-shell :is(.button, .partner-field, .partner-profile-check, .partner-canonical-categories-grid label, .partner-notification-channel strong, .partner-chat-alert strong, .partner-chat-alert a, .partner-profile-edit-submit p) {
+  font-size: var(--ps-type-control, .875rem);
+  line-height: var(--ps-type-compact-leading, 1.5);
+}
+.partner-shell :is(.partner-field input:not([type="checkbox"]):not([type="radio"]), .partner-field select, .partner-field textarea) {
+  font-size: var(--ps-type-input, 1rem);
+  line-height: 1.5;
+}
+.partner-shell--workspace :is(.partner-dashboard-stat > small, .partner-dashboard-stat > span, .partner-dashboard-type, .partner-request-title > strong, .partner-canonical-status, .partner-notification-channel small, .partner-claim-suggestions small, .partner-claim-suggest-note, .partner-page-heading .eyebrow) {
+  font-size: var(--ps-type-meta, .75rem);
+}

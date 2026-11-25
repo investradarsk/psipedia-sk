@@ -1692,3 +1692,20 @@
   --ps-reading-size: var(--ps-type-profile, 1rem);
   --ps-reading-leading: 1.6;
 }
+
+/* Breed facts follow the same compact scale as directory/Help facts. */
+.page .quickFacts .factGrid :is(dt, dd),
+.page .coatSummary > strong,
+.page .coatSummary p,
+.page .coatSummary summary > span:first-child,
+.page .ratingItem :is(strong, span) {
+  font-size: var(--ps-type-compact, .875rem);
+  line-height: var(--ps-type-compact-leading, 1.5);
+}
+.page .sidebarEditorial h2,
+.page .contentLayout .ratingSection h2 {
+  font: 600 var(--ps-type-card-heading, 1rem)/1.4 var(--ps-font-body);
+}
+.page {
+  --ps-reading-lead-size: var(--ps-type-profile-lead, 1rem);
+}

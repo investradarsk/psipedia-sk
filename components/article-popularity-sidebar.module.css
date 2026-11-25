@@ -256,3 +256,20 @@
 .itemText small {
   font-size: var(--ps-type-meta, .75rem);
 }
+
+/* Canonical rail typography, shared by homepage context rows and article ranking. */
+.header h2,
+.header h3 {
+  font-size: var(--ps-type-sidebar-heading, 1.375rem);
+}
+.tabs button {
+  font-size: var(--ps-type-label, .8125rem);
+}
+.contextRow .itemText small:first-child {
+  color: var(--coral-dark, #b44939);
+  font-size: var(--ps-type-meta, .75rem);
+  font-weight: 600;
+}
+.contextRow .itemText small:last-child:not(:first-child) {
+  font-size: var(--ps-type-meta, .75rem);
+}
