@@ -223,7 +223,7 @@ test("month, day, period and category navigation change without reloading the do
   await page.locator('[data-calendar-date="2026-10-15"]').click();
   await expect(page).toHaveURL((url) => url.searchParams.get("den") === "2026-10-15");
   await expect(page.locator('[data-selected-day="2026-10-15"]')).toBeVisible();
-  await expect(page.locator('[data-selected-day="2026-10-15"] li')).toHaveCount(7);
+  await expect(page.locator('[data-selected-day="2026-10-15"] [data-event-card]')).toHaveCount(7);
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();
   await expect(page).toHaveURL((url) => url.searchParams.get("termin") === "ukoncene");
   await page.locator("[data-event-category-navigation] nav")
