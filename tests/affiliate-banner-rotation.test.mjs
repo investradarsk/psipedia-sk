@@ -61,7 +61,8 @@ test("ads have fixed mobile/desktop geometry, label and sponsored link", () => {
   assert.doesNotMatch(component, /sessionStorage|localStorage|setInterval/);
   assert.match(component, /nextAffiliateRotation/);
   assert.match(css, /min-height: 100px/);
-  assert.match(css, /min-height: 600px/);
+  assert.match(css, /\.sidebar \.creative,[\s\S]*?min-height: 0/);
+  assert.match(css, /\.horizontal \.image\s*\{\s*max-height: 100px/);
   assert.match(css, /max-width: 767px/);
   assert.match(component, /nextBannerIndexBySlot/);
   assert.match(component, /<img[\s\S]*src=\{original\.src\}/);
@@ -78,15 +79,14 @@ test("only original Dognet images appear in compatible placements", () => {
 
   assert.deepEqual(horizontal.map((item) => item.id), ["zoohit"]);
   assert.deepEqual(mobile.map((item) => item.id), ["abc-zoo"]);
-  assert.deepEqual(sidebar.map((item) => item.id), ["zoohit", "abc-zoo", "abc-zoo"]);
-  const adaptive = getAvailableAffiliateOriginalBanners("adaptive");
-  assert.equal(adaptive.length, 5);
-  assert.deepEqual(new Set(adaptive.map((item) => item.creative.src)), new Set([...horizontal, ...mobile, ...sidebar].map((item) => item.creative.src)));
-  assert.ok(adaptive.some((item) => item.creative.height === 1920));
+  assert.deepEqual(sidebar.map((item) => item.id), ["zoohit", "abc-zoo", "abc-zoo", "abc-zoo"]);
+  assert.ok(horizontal.every(({ creative }) => creative.width > creative.height));
+  assert.ok(mobile.every(({ creative }) => creative.width === creative.height));
+  assert.ok(sidebar.every(({ creative }) => creative.width <= creative.height));
   assert.equal(AFFILIATE_BANNER_ORIGINAL_CREATIVES.fera, undefined);
 
   assert.deepEqual(
-    [...mobile, ...sidebar.filter((item) => item.id === "abc-zoo")].map((item) => item.creative),
+    [...mobile, ...sidebar.filter((item) => item.id === "abc-zoo" && item.creative.height > item.creative.width)].map((item) => item.creative),
     [
       {
         src: "https://api.app.dognet.com/files/t/a4f/a4f633806f17fbe0b73988aa2f02eadd1eef84f1.png",
@@ -117,12 +117,13 @@ test("only original Dognet images appear in compatible placements", () => {
   assert.deepEqual(nextAffiliateRotation(2, 3), { selected: 2, next: 0 });
 });
 
-test("mobile uses square originals and sidebar uses tall originals", () => {
+test("mobile uses square originals and sidebar uses tall or square originals", () => {
   const component = source("components/affiliate-rotating-banner.tsx");
   const css = source("components/affiliate-rotating-banner.module.css");
   assert.match(component, /matchMedia/);
   assert.match(component, /"mobile"/);
-  assert.match(component, /"adaptive"/);
+  assert.match(component, /"horizontal"/);
+  assert.doesNotMatch(component, /"adaptive"/);
   assert.match(component, /referrerPolicy="no-referrer"/);
   assert.match(component, /getAvailableAffiliateOriginalBanners\(format\)/);
   assert.match(css, /min-height: 300px/);
@@ -178,15 +179,15 @@ test("sitewide fallback reuses the existing component and yields to loaded conte
   assert.match(css, /:not\(\[data-sitewide-affiliate-banner\] \*\)/);
 });
 
-test("every placement can retry each approved creative exactly once", () => {
-  const all = getAvailableAffiliateOriginalBanners("adaptive");
-  for (const format of ["mobile", "horizontal", "sidebar", "adaptive"]) {
+test("every placement can retry each compatible creative exactly once", () => {
+  for (const format of ["mobile", "horizontal", "sidebar"]) {
     const primary = getAvailableAffiliateOriginalBanners(format);
     for (let index = 0; index < primary.length; index++) {
       const candidates = getAffiliateBannerCandidates(format, index);
       assert.equal(candidates[0].creative.src, primary[index].creative.src);
-      assert.equal(candidates.length, all.length);
-      assert.equal(new Set(candidates.map((item) => item.creative.src)).size, all.length);
+      assert.equal(candidates.length, primary.length);
+      assert.deepEqual(new Set(candidates.map((item) => item.creative.src)), new Set(primary.map((item) => item.creative.src)));
+      assert.equal(new Set(candidates.map((item) => item.creative.src)).size, primary.length);
     }
   }
 });
