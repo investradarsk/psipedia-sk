@@ -1,3 +1,5 @@
+import { commitEventAdminEdit } from "./notion-unified-admin-edits.ts";
+import type { EventNotionField } from "./notion-event-field-contract.ts";
 import { eventListingSql, EVENT_PAGE_SIZE, type EventListingFilters } from './event-listing';
 import { publicEventCalendarSummarySql } from './event-calendar-summary-sql';
 import { bulkEventUpdateSql, validateBulkEvents } from "./admin-events";
@@ -726,7 +728,7 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
   return event;
 }
 
-export async function updateManagedEvent(id: number, payload: ManagedEventInput, editorEmail: string, existingEvent?: DogEvent) {
+export async function updateManagedEvent(id: number, payload: ManagedEventInput, editorEmail: string, existingEvent?: DogEvent, unifiedEditFields?: readonly EventNotionField[]) {
   const database = requireD1Binding();
   await ensureEventStore(database);
   const existing = existingEvent ?? await getManagedEventById(id);
@@ -740,7 +742,7 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
   const hasContactColumns = await eventContactColumnsReady(database, contactValues);
   const now = nextManagedEventUpdatedAt(existing.updatedAt);
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
-  const row = await database.prepare(`
+  const statement = database.prepare(`
     UPDATE managed_events SET
       slug = ?, title = ?, excerpt = ?, event_type = ?, status = ?, start_date = ?, start_time = ?,
       end_date = ?, end_time = ?, venue = ?, city = ?, region = ?, address = ?, organizer = ?,
@@ -762,7 +764,12 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
     JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
     JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
     input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id, existing.updatedAt,
-  ).first<EventRow>();
+  );
+  const row = unifiedEditFields
+    ? await commitEventAdminEdit<EventRow>(database, statement, {
+      id, expectedRevision: existing.updatedAt, nextRevision: now, editor: editorEmail, fields: unifiedEditFields,
+    })
+    : await statement.first<EventRow>();
   if (!row) throw new EventWriteConflictError();
   const event = rowToEvent(row);
   if (managedEventGeoSourceChanged(existing, event)) {
@@ -818,20 +825,26 @@ export type ManagedEventQuickEditInput = {
   updatedAt?: string;
 };
 
-export async function quickEditManagedEvent(id: number, payload: ManagedEventQuickEditInput, editorEmail: string) {
+export async function quickEditManagedEvent(id: number, payload: ManagedEventQuickEditInput, editorEmail: string, unifiedEdit = false) {
   const eventType = (eventTypes as readonly string[]).includes(payload.eventType ?? "") ? payload.eventType as EventType : null;
   const cancelled = payload.cancelled;
   const updatedAt = payload.updatedAt?.trim() ?? "";
   if (!eventType || typeof cancelled !== "boolean" || !updatedAt) throw new Error("Rýchla úprava nie je platná.");
 
   const now = nextManagedEventUpdatedAt(updatedAt);
-  const row = await requireD1Binding().prepare(`
+  const database = requireD1Binding();
+  const statement = database.prepare(`
     UPDATE managed_events
     SET event_type = ?, cancelled = ?, updated_at = ?, updated_by = ?
     WHERE id = ? AND updated_at = ?
     RETURNING id, slug, title, event_type, status, start_date, start_time, end_date, end_time,
       city, venue, region, organizer, cancelled, image_url, created_at, updated_at
-  `).bind(eventType, cancelled ? 1 : 0, now, editorEmail, id, updatedAt).first<EventSummaryRow>();
+  `).bind(eventType, cancelled ? 1 : 0, now, editorEmail, id, updatedAt);
+  const row = unifiedEdit
+    ? await commitEventAdminEdit<EventSummaryRow>(database, statement, {
+      id, expectedRevision: updatedAt, nextRevision: now, editor: editorEmail, fields: ["eventType"],
+    })
+    : await statement.first<EventSummaryRow>();
   if (!row) throw new Error("Podujatie sa medzičasom zmenilo alebo bolo odstránené. Obnov zoznam a skús úpravu znova.");
   await reconcileManagedEventGeo(id, editorEmail, requireD1Binding());
   return rowToEventSummary(row);
