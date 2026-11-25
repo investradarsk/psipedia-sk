@@ -1090,3 +1090,12 @@
   font-family: var(--ps-font-body);
   min-width: 0;
 }
+
+/* Desktop editorial reading only; keep the existing mobile reading tokens. */
+@media (min-width: 801px) {
+  .modernArticle .readingShell {
+    --ps-reading-size: var(--ps-type-article-desktop, 1.1875rem);
+    --ps-reading-lead-size: var(--ps-type-article-lead-desktop, 1.25rem);
+    --ps-reading-leading: 1.7;
+  }
+}

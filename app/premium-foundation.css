@@ -251,18 +251,8 @@
   --ps-type-sidebar-title: .9375rem;
   --ps-type-card-heading: 1rem;
   --ps-type-meta: .75rem;
-  --ps-reading-size: var(--ps-type-profile);
-  --ps-reading-leading: 1.6;
 }
 @media (min-width: 801px) {
-  :root:not(:has([data-admin-workspace])) .article-prose {
-    font-size: var(--ps-type-article-desktop);
-    line-height: 1.7;
-  }
-  :root:not(:has([data-admin-workspace])) .article-prose .article-intro {
-    font-size: var(--ps-type-article-lead-desktop);
-    line-height: 1.6;
-  }
   :root:not(:has([data-admin-workspace])) {
     --ps-type-card-heading: 1.125rem;
   }

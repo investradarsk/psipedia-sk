@@ -1686,3 +1686,9 @@
   font-size: var(--ps-reading-size);
   line-height: var(--ps-reading-leading);
 }
+
+/* Match the shared public profile reading scale, not article prose. */
+.page {
+  --ps-reading-size: var(--ps-type-profile, 1rem);
+  --ps-reading-leading: 1.6;
+}

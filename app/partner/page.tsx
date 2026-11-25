@@ -136,30 +136,30 @@ export default async function PartnerHomePage() {
         {summary.events > 0 && <Link className="partner-dashboard-more" href="/partner/podujatia">Zobraziť všetky podujatia</Link>}
       </section>
 
-        <section className="partner-dashboard-section" aria-labelledby="partner-requests-heading">
-          <div className="partner-dashboard-section-heading">
-            <div><span className="eyebrow">Stav vybavovania</span><h2 id="partner-requests-heading">Moje žiadosti</h2></div>
-            <Link href="/partner/ziadosti">Zobraziť všetky</Link>
+      <section className="partner-dashboard-section" aria-labelledby="partner-requests-heading">
+        <div className="partner-dashboard-section-heading">
+          <div><span className="eyebrow">Stav vybavovania</span><h2 id="partner-requests-heading">Moje žiadosti</h2></div>
+          <Link href="/partner/ziadosti">Zobraziť všetky</Link>
+        </div>
+        {summary.recentRequests.length > 0 ? (
+          <ul className="partner-dashboard-requests">
+            {summary.recentRequests.map((item) => (
+              <li key={`${item.type}:${item.id}`}>
+                <div>
+                  <span>{item.category}</span>
+                  <strong>{item.title}</strong>
+                </div>
+                <span className={item.pending ? "partner-dashboard-request-status is-pending" : "partner-dashboard-request-status"}>{item.statusLabel}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="partner-dashboard-empty partner-dashboard-empty--compact">
+            <h3>Zatiaľ nemáte žiadne žiadosti</h3>
+            <p>Nové žiadosti o správu alebo vytvorenie profilu tu budete vidieť spolu s ich stavom.</p>
           </div>
-          {summary.recentRequests.length > 0 ? (
-            <ul className="partner-dashboard-requests">
-              {summary.recentRequests.map((item) => (
-                <li key={`${item.type}:${item.id}`}>
-                  <div>
-                    <span>{item.category}</span>
-                    <strong>{item.title}</strong>
-                  </div>
-                  <span className={item.pending ? "partner-dashboard-request-status is-pending" : "partner-dashboard-request-status"}>{item.statusLabel}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="partner-dashboard-empty partner-dashboard-empty--compact">
-              <h3>Zatiaľ nemáte žiadne žiadosti</h3>
-              <p>Nové žiadosti o správu alebo vytvorenie profilu tu budete vidieť spolu s ich stavom.</p>
-            </div>
-          )}
-        </section>
+        )}
+      </section>
     </PartnerShell>
   );
 }

@@ -627,7 +627,6 @@ export function DirectoryProfileDetail({
           }
         />
         <PublicDetailFlow blocks={blocks} className={styles.layout} />
-
       </PublicFoundation>
     </main>
   );
