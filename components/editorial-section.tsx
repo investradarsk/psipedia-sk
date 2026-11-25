@@ -393,7 +393,7 @@ function HubCallout({ sectionSlug, subpage }: { sectionSlug: EditorialSectionSlu
           <h2 id={`${sectionSlug}-hub-callout`}>{config.title}</h2>
           <p>{config.description}</p>
         </div>
-        <div className={styles.calloutActions}>
+        <div className={styles.calloutActions} data-public-banner-actions>
           {config.actions.map((action) => (
             <PublicActionLink
               href={action.href}
