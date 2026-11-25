@@ -15,7 +15,11 @@ test("inquiries use the existing status API and preserve original customer messa
   assert.match(ui,/method: "PUT"/);
   assert.match(ui,/inquiry\.message/);
   assert.match(ui,/onClick=\{\(\) => void removeInquiry\(inquiry\)\}/);
-  assert.match(route,/updateDirectoryInquiryStatus\(id, body\.status\)/);
+  assert.match(route,/updateDirectoryInquiryStatus\(id, body\.status, expectedUpdatedAt\)/);
+  assert.match(ui, /rowDraft\.status === inquiry\.status \|\| await updateStatus\(inquiry, rowDraft\.status\)\) setRowDraft\(null\)/);
+  assert.match(ui, /expectedUpdatedAt: inquiry\.updatedAt/);
+  assert.match(ui, /statusOrder\[a\.status\] - statusOrder\[b\.status\]/);
+  assert.match(ui, /setRowDraft\(\(draft\) => draft\?\.id === inquiry\.id \? null : draft\)/);
   assert.doesNotMatch(ui,/action: "set-inline-message"|message: rowDraft/);
 });
 

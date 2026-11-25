@@ -44,3 +44,28 @@ test("all Help editors can return to the explicitly allowed unified hub", () => 
     assert.equal(adminReturnHref(source, [root, "/admin/pomoc-psom"]), source);
   }
 });
+
+test("partner detail and messages preserve a filtered account list", () => {
+  const root = "/admin/partners";
+  const list = root + "?q=neo&status=ACTIVE&verified=VERIFIED&access=LINKED&pageSize=50&page=2";
+  const detail = root + "/accounts/partner-id";
+  for (const href of [detail, detail + "?tab=spravy", detail + "?tab=historia&page=2"]) {
+    const parsed = new URL(adminDetailHref(href, list), "https://admin.invalid");
+    const original = new URL(href, "https://admin.invalid");
+    assert.equal(parsed.searchParams.get("tab"), original.searchParams.get("tab"));
+    assert.equal(parsed.searchParams.get("page"), original.searchParams.get("page"));
+    assert.equal(adminReturnHref(parsed.searchParams.get("returnTo") ?? undefined, root), list);
+  }
+  assert.equal(adminReturnHref(root + "/accounts/partner-id", root), root);
+});
+
+test("an account opened from the inbox keeps its inbox filters across detail tabs", () => {
+  const inbox = "/admin/podania?kind=PARTNER&state=history&q=Mia&page=2";
+  const allowed = ["/admin/partners", "/admin/podania"];
+  const account = "/admin/partners/accounts/partner-id";
+  for (const path of [account, account + "?tab=spravy", account + "?tab=historia&page=3"]) {
+    const detail = new URL(adminDetailHref(path, inbox), "https://admin.invalid");
+    assert.equal(adminReturnHref(detail.searchParams.get("returnTo"), allowed), inbox);
+  }
+  assert.equal(adminReturnHref("/admin/podania-example?page=2", allowed), "/admin/partners");
+});

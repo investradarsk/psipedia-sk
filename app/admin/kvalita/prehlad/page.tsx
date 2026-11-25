@@ -106,17 +106,33 @@ export default async function AdminMissingOverviewPage({searchParams}:{searchPar
           <p>{result.visibleCount.toLocaleString("sk-SK")} profilov · zobrazené {from}–{to}</p>
         </div>
         {result.items.length===0?<p className={styles.empty}>Pre zvolené filtre nie sú žiadne výsledky.</p>:
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
-              <thead><tr><th>Profil</th><th>Kategória / miesto</th><th>{exceptions?"Evidované výnimky":"Chýbajúce údaje"}</th><th>Stav</th><th>Akcia</th></tr></thead>
-              <tbody>{result.items.map(item=><tr key={item.kind+"-"+item.id}>
-                <td className={styles.name}>{item.name}</td>
-                <td>{categoryLabel.get(item.category)??item.category}{item.city?<small>{item.city}</small>:null}</td>
-                <td><div className={styles.missing}>
-                  {(exceptions?item.exceptions:item.missing).map(key=><span key={key}>{fieldLabel.get(key)}</span>)}
-                </div></td>
-                <td>{item.status}</td>
-                <td><a href={item.editorHref} target="_blank" rel="noopener noreferrer" className={styles.editor}>Otvoriť profil ↗</a></td>
+          <div className={styles.tableScroll} role="region" aria-label="Výsledky kontroly údajov" tabIndex={0}>
+            <table className={styles.table} role="table">
+              <thead role="rowgroup">
+                <tr role="row">
+                  {["Profil", "Kategória / miesto", exceptions ? "Evidované výnimky" : "Chýbajúce údaje", "Stav", "Akcia"].map(label =>
+                    <th key={label} scope="col" role="columnheader">{label}</th>,
+                  )}
+                </tr>
+              </thead>
+              <tbody role="rowgroup">{result.items.map(item=><tr role="row" key={item.kind+"-"+item.id}>
+                <td role="cell" className={styles.name}>{item.name}</td>
+                <td role="cell">
+                  <span aria-hidden="true" className={styles.mobileLabel}>Kategória / miesto</span>
+                  {categoryLabel.get(item.category)??item.category}{item.city?<small>{item.city}</small>:null}
+                </td>
+                <td role="cell" className={styles.findings}>
+                  <span aria-hidden="true" className={styles.mobileLabel}>{exceptions ? "Evidované výnimky" : "Chýbajúce údaje"}</span>
+                  <div className={styles.missing}>
+                    {(exceptions?item.exceptions:item.missing).map(key=><span key={key}>{fieldLabel.get(key)}</span>)}
+                  </div>
+                </td>
+                <td role="cell">
+                  <span aria-hidden="true" className={styles.mobileLabel}>Stav</span>{item.status}
+                </td>
+                <td role="cell" className={styles.actionCell}>
+                  <a href={item.editorHref} target="_blank" rel="noopener noreferrer" className={styles.editor}>Otvoriť profil ↗</a>
+                </td>
               </tr>)}</tbody>
             </table>
           </div>}
