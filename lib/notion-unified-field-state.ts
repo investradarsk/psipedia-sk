@@ -2,6 +2,7 @@ import type { FieldIdentity, ScopedFieldEdit } from "./notion-unified-field-sync
 
 export type UnifiedFieldState = {
   version: number;
+  updatedAt: string;
   baseline: unknown | undefined;
   notion: unknown | undefined;
   psipedia: unknown | undefined;
@@ -13,6 +14,7 @@ export type UnifiedFieldState = {
 
 type Row = {
   version: number;
+  updated_at: string;
   baseline_json: string | null;
   notion_json: string | null;
   psipedia_json: string | null;
@@ -34,12 +36,13 @@ export async function readUnifiedFieldState(
   db: D1Database, id: FieldIdentity,
 ): Promise<UnifiedFieldState | null> {
   const row = await db.prepare(
-    "SELECT version,baseline_json,notion_json,psipedia_json,notion_edit_json,psipedia_edit_json,status,reason " +
+    "SELECT version,updated_at,baseline_json,notion_json,psipedia_json,notion_edit_json,psipedia_edit_json,status,reason " +
     "FROM notion_unified_field_state WHERE agenda=? AND entity_id=? AND notion_page_id=? AND field_key=?",
   ).bind(...key(id)).first<Row>();
   if (!row) return null;
   return {
     version: row.version,
+    updatedAt: row.updated_at,
     baseline: decode(row.baseline_json),
     notion: decode(row.notion_json),
     psipedia: decode(row.psipedia_json),
@@ -55,7 +58,7 @@ export async function readUnifiedFieldState(
  * A PENDING row is durable evidence, not proof that a transfer completed. */
 export async function writeUnifiedFieldState(
   db: D1Database, id: FieldIdentity, expectedVersion: number | null,
-  state: Omit<UnifiedFieldState, "version">,
+  state: Omit<UnifiedFieldState, "version" | "updatedAt">,
 ): Promise<number | null> {
   const values = [
     encode(state.baseline), encode(state.notion), encode(state.psipedia),
