@@ -597,7 +597,7 @@ test("ARTICLE-READING-EDITORIAL-2 keeps original editor blocks and makes two-col
     styles,
     /article-block-table-wrap\[data-columns="2"\] td:first-child\)[^{]*\{[^}]*font-weight:\s*700;/s,
   );
-  assert.match(styles, /article-block-callout--warning\)[^{]*\{[^}]*background:\s*#fff6ed;/s);
+  assert.match(styles, /article-block-callout--warning\)[^{]*\{[^}]*background:\s*#fcebdc;/s);
   assert.match(
     styles,
     /article-blocks h2\),[\s\S]*article-blocks h3\)[^{]*\{[^}]*font-family:\s*var\(--ps-font-heading\)/,
@@ -620,7 +620,7 @@ test("ARTICLE-READING-COMPACT-3 reduces only prose and paragraph spacing without
   );
   assert.match(
     styles,
-    /\.readingShell :global\(\.article-block-callout--warning\)\s*\{[^}]*background:\s*#fff6ed;/s,
+    /\.readingShell :global\(\.article-block-callout--warning\)\s*\{[^}]*background:\s*#fcebdc;/s,
   );
   assert.match(
     styles,
@@ -679,4 +679,12 @@ test("PUBLIC-MOBILE-GUTTER-1 keeps titles and prose aligned with the homepage mo
   );
   assert.match(styles, /color:\s*var\(--ps-reading-color\);/);
   assert.doesNotMatch(mobile, /margin-inline:\s*-8px;/);
+});
+
+test("editorial callouts and tables retain subtle contrast and existing geometry", () => {
+  assert.match(styles, /article-block-callout--warning\)[^{]*\{[^}]*border: 1px solid #ead1b8;[^}]*background: #fcebdc;/s);
+  assert.match(styles, /article-block-callout--tip\)[^{]*\{[^}]*background: #eaf3ec;/s);
+  const globalStyles = readFileSync("app/globals.css", "utf8");
+  assert.match(globalStyles, /\.article-block-table-wrap th\s*\{[^}]*background: #e1ebe3;/s);
+  assert.match(globalStyles, /\.article-block-table-wrap tbody tr:nth-child\(even\)/);
 });
