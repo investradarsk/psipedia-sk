@@ -112,7 +112,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     const rawSearchParams = await searchParams;
     const typeRedirect = eventTypeSelectionRedirect(rawSearchParams);
     if (typeRedirect) redirect(typeRedirect);
-    const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
+    const calendarMonth = resolveCalendarMonth(parseEventListing(rawSearchParams).day?.slice(0, 7) || eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
     const [managedSection, events, calendarEvents] = await Promise.all([
       getManagedPortalSection(section),
       getPublishedEventListing(parseEventListing(rawSearchParams, eventType)),
@@ -146,7 +146,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     const rawSearchParams = await searchParams;
     const typeRedirect = eventTypeSelectionRedirect(rawSearchParams);
     if (typeRedirect) redirect(typeRedirect);
-    const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
+    const calendarMonth = resolveCalendarMonth(parseEventListing(rawSearchParams).day?.slice(0, 7) || eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
     const [events, calendarEvents] = await Promise.all([getPublishedEventListing(parseEventListing(rawSearchParams)), getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? '')]);
     return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={events.events} calendarEvents={calendarEvents.events} calendarSummaries={calendarEvents.summaries} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   }
