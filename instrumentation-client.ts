@@ -1,3 +1,4 @@
+import { navigationRecovery } from "./lib/navigation-recovery";
 import { eligibleNavigationClick, navigationProgress, routeKey } from "./lib/navigation-progress";
 import { adminNavigationTarget, ADMIN_NAVIGATION_START_EVENT, type AdminNavigationStartDetail } from "./lib/admin-navigation-recovery";
 
@@ -27,11 +28,19 @@ document.addEventListener("click", (event) => {
 window.addEventListener("psipedia:route-committed", () => {
   committedHref = window.location.href;
   navigationProgress.complete();
+  navigationRecovery.clear();
 });
-window.addEventListener("pagehide", () => navigationProgress.reset());
+window.addEventListener("pagehide", () => {
+  navigationProgress.reset();
+  navigationRecovery.clear();
+});
 window.addEventListener("pageshow", () => {
   committedHref = window.location.href;
   navigationProgress.reset();
+  navigationRecovery.clear();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") navigationRecovery.clear();
 });
 window.addEventListener("error", () => navigationProgress.reset());
 window.addEventListener("unhandledrejection", () => navigationProgress.reset());
@@ -41,10 +50,14 @@ export function onRouterTransitionStart(href: string, navigationType: "push" | "
   if (target === null || (navigationType !== "traverse" && clickAllowed === false)) return;
   if (target === routeKey(committedHref, window.location.href)) {
     // Back to the already-rendered route also cancels any older in-flight UI.
-    if (navigationType === "traverse") navigationProgress.reset();
+    if (navigationType === "traverse") {
+      navigationProgress.reset();
+      navigationRecovery.clear();
+    }
     return;
   }
   navigationProgress.begin();
+  navigationRecovery.begin(href, committedHref);
   const adminHref = adminNavigationTarget(href, window.location.href);
   if (adminHref) {
     window.dispatchEvent(new CustomEvent<AdminNavigationStartDetail>(ADMIN_NAVIGATION_START_EVENT, {
