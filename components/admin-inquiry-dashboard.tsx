@@ -15,6 +15,7 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("sk-SK", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Bratislava" }).format(new Date(value));
 }
 
+const statusOrder: Record<DirectoryInquiryStatus, number> = { new: 0, read: 1, resolved: 2 };
 const statusLabels: Record<DirectoryInquiryStatus, string> = { new: "Nový", read: "Prečítaný", resolved: "Vybavený" };
 
 export function AdminInquiryDashboard({ initialInquiries, initialFocusedId=null }: { initialInquiries: DirectoryInquiry[]; initialFocusedId?:number|null }) {
@@ -26,7 +27,7 @@ export function AdminInquiryDashboard({ initialInquiries, initialFocusedId=null 
   const [status, setStatus] = useState<StatusFilter>("all");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
-  const [rowDraft, setRowDraft] = useState<{ id: number; status: DirectoryInquiryStatus; initialStatus: DirectoryInquiryStatus } | null>(null);
+  const [rowDraft, setRowDraft] = useState<{ id: number; status: DirectoryInquiryStatus; updatedAt: string } | null>(null);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
@@ -35,40 +36,49 @@ export function AdminInquiryDashboard({ initialInquiries, initialFocusedId=null 
   }, [inquiries, query, status]);
 
   async function updateStatus(inquiry: DirectoryInquiry, nextStatus: DirectoryInquiryStatus) {
+    if (busyId !== null) return false;
     setBusyId(inquiry.id); setMessage("");
     try {
-      const response = await fetch(`/api/admin/inquiries/${inquiry.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: nextStatus }) });
-      const data = await response.json() as { inquiry?: DirectoryInquiry; error?: string };
-      if (!response.ok || !data.inquiry) throw new Error(data.error || "Stav sa nepodarilo zmeniť.");
-      setInquiries((current) => current.map((item) => item.id === inquiry.id ? data.inquiry as DirectoryInquiry : item));
+      const response = await fetch(`/api/admin/inquiries/${inquiry.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: nextStatus, expectedUpdatedAt: inquiry.updatedAt }) });
+      const data = await response.json().catch(() => null) as { inquiry?: DirectoryInquiry; error?: string } | null;
+      if (!response.ok || !data?.inquiry) throw new Error(data?.error || "Stav sa nepodarilo zmeniť.");
+      const updated = data.inquiry;
+      setInquiries((current) => current.map((item) => item.id === updated.id ? updated : item)
+        .sort((a, b) => statusOrder[a.status] - statusOrder[b.status] ||
+          b.createdAt.localeCompare(a.createdAt) || b.id - a.id));
+      setMessage("Stav dopytu bol uložený.");
       router.refresh();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Stav sa nepodarilo zmeniť."); }
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Stav sa nepodarilo zmeniť.");
+      return false;
+    }
     finally { setBusyId(null); }
   }
 
   function beginRow(inquiry: DirectoryInquiry) {
     if (busyId !== null) return;
     setMessage("");
-    setRowDraft({ id: inquiry.id, status: inquiry.status, initialStatus: inquiry.status });
+    setRowDraft({ id: inquiry.id, status: inquiry.status, updatedAt: inquiry.updatedAt });
   }
   async function saveRow(inquiry: DirectoryInquiry) {
     if (!rowDraft || rowDraft.id !== inquiry.id || busyId !== null) return;
-    if (inquiry.status !== rowDraft.initialStatus) {
+    if (inquiry.updatedAt !== rowDraft.updatedAt) {
       setMessage("Dopyt sa medzitým zmenil. Obnov zoznam.");
       return;
     }
-    if (rowDraft.status !== inquiry.status) await updateStatus(inquiry, rowDraft.status);
-    setRowDraft(null);
+    if (rowDraft.status === inquiry.status || await updateStatus(inquiry, rowDraft.status)) setRowDraft(null);
   }
 
   async function removeInquiry(inquiry: DirectoryInquiry) {
-    if (!window.confirm(`Naozaj chceš natrvalo vymazať dopyt od ${inquiry.senderName}?`)) return;
+    if (busyId !== null || !window.confirm(`Naozaj chceš natrvalo vymazať dopyt od ${inquiry.senderName}?`)) return;
     setBusyId(inquiry.id); setMessage("");
     try {
       const response = await fetch(`/api/admin/inquiries/${inquiry.id}`, { method: "DELETE" });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Dopyt sa nepodarilo vymazať.");
       setInquiries((current) => current.filter((item) => item.id !== inquiry.id));
+      setRowDraft((draft) => draft?.id === inquiry.id ? null : draft);
       setMessage("Dopyt bol vymazaný.");
       router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Dopyt sa nepodarilo vymazať."); }
@@ -101,9 +111,9 @@ export function AdminInquiryDashboard({ initialInquiries, initialFocusedId=null 
             />
             </span>
             <span className={rowStyles.mobile}>
-              {inquiry.status !== "new" && <button type="button" disabled={busyId === inquiry.id} onClick={() => void updateStatus(inquiry,"new")}>Označiť ako nový</button>}
-              {inquiry.status !== "read" && <button type="button" disabled={busyId === inquiry.id} onClick={() => void updateStatus(inquiry,"read")}>Prečítané</button>}
-              {inquiry.status !== "resolved" && <button className="is-primary" type="button" disabled={busyId === inquiry.id} onClick={() => void updateStatus(inquiry,"resolved")}>Vybavené</button>}
+              {inquiry.status !== "new" && <button type="button" disabled={busyId !== null || rowDraft !== null} onClick={() => void updateStatus(inquiry,"new")}>Označiť ako nový</button>}
+              {inquiry.status !== "read" && <button type="button" disabled={busyId !== null || rowDraft !== null} onClick={() => void updateStatus(inquiry,"read")}>Prečítané</button>}
+              {inquiry.status !== "resolved" && <button className="is-primary" type="button" disabled={busyId !== null || rowDraft !== null} onClick={() => void updateStatus(inquiry,"resolved")}>Vybavené</button>}
             </span>
             <button className="is-danger" type="button" disabled={busyId !== null || Boolean(rowDraft && rowDraft.id === inquiry.id)} onClick={() => void removeInquiry(inquiry)}>Vymazať</button>
           </footer>
