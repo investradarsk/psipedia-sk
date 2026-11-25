@@ -205,6 +205,7 @@ export function EventListingResults({
       <section
         className={styles.upcomingSection}
         id="events-list"
+        data-selected-day={day || undefined}
         aria-labelledby="events-upcoming-heading"
       >
         {beforeResults ? <div data-event-organizer>{beforeResults}</div> : null}

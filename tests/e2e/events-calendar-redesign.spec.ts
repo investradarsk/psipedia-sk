@@ -52,7 +52,7 @@ test("calendar has six static legend entries, one canonical category navigation 
   ).toHaveCount(1);
   await expect(page.locator('[data-calendar-date="2026-10-17"] [data-event-type]')).toHaveCount(0);
   await day.click();
-  await expect(page.locator("[data-selected-day] li")).toHaveCount(7);
+  await expect(page.locator("[data-selected-day] [data-event-card]")).toHaveCount(7);
   await expect(page.locator("[data-selected-day]")).toContainText("Zrušené");
   await expect(page.locator('[data-calendar-date="2026-10-15"]')).toHaveAttribute(
     "data-selected",
@@ -60,35 +60,24 @@ test("calendar has six static legend entries, one canonical category navigation 
   );
 });
 
-test("desktop calendar is compact above results and selected-day details remain available", async ({
+test("desktop calendar is compact in the right sidebar and selected-day results remain available", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(target);
-  const calendar = page.locator("[data-fullcalendar-desktop]");
-  const dayPanel = page.locator("[data-calendar-day-panel]");
+  const calendar = page.locator("#events-calendar");
   await expect(calendar).toBeVisible();
-  await expect(page.locator("[data-calendar-day-placeholder]")).toBeHidden();
   const columns = await page.locator("[data-event-workspace]").evaluate((element) => {
-    const first = element.querySelector('[class*="calendarMonthColumn"]')!.getBoundingClientRect();
-    const second = element.querySelector("#events-list")!.getBoundingClientRect();
-    return {
-      left: first.left,
-      right: first.right,
-      bottom: first.bottom,
-      panelTop: second.top,
-      panelLeft: second.left,
-      panelRight: second.right,
-    };
+    const calendar = element.querySelector("#events-calendar")!.getBoundingClientRect();
+    const list = element.querySelector("#events-list")!.getBoundingClientRect();
+    return { calendarLeft: calendar.left, listRight: list.right, calendarWidth: calendar.width };
   });
-  // The owner-approved calendar now sits above the results on desktop.
-  expect(columns.bottom).toBeLessThan(columns.panelTop);
-  expect(columns.right).toBeGreaterThan(columns.left);
-  expect(columns.panelRight).toBeGreaterThan(columns.panelLeft);
+  expect(columns.calendarLeft).toBeGreaterThanOrEqual(columns.listRight - 2);
+  expect(columns.calendarWidth).toBeGreaterThan(0);
   await page.locator('[data-calendar-date="2026-10-15"]').click();
   const detail = page.locator('[data-selected-day="2026-10-15"]');
   await expect(detail).toBeVisible();
-  await expect(detail.locator("li")).toHaveCount(7);
+  await expect(detail.locator("[data-event-card]")).toHaveCount(7);
   await expect(detail.getByRole("link").filter({ hasText: /.+/ }).first()).toBeVisible();
   await expect(page.locator("[data-calendar-day-placeholder]")).toHaveCount(0);
 
@@ -97,11 +86,11 @@ test("desktop calendar is compact above results and selected-day details remain 
   await expect(
     page.locator('[data-events-month-calendar] [data-calendar-date="2026-10-15"]'),
   ).toBeVisible();
-  await expect(calendar).toHaveCount(0);
+  await expect(calendar).toBeVisible();
   await expect(page.locator("[data-calendar-day-placeholder]")).toHaveCount(0);
 });
 
-test("calendar retains selected-day details and the single organizer banner appears above categories", async ({
+test("calendar filters the main listing and the single organizer banner follows categories", async ({
   page,
 }) => {
   await page.locator('[data-calendar-date="2026-10-15"]').click();
@@ -115,7 +104,7 @@ test("calendar retains selected-day details and the single organizer banner appe
   await expect(page.getByRole("group", { name: "Spôsob prezerania podujatí" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Vyberte si, čo vás zaujíma" })).toHaveCount(0);
   await expect(page.locator("[data-public-subcategory-mode=landing]")).toHaveCount(0);
-  await expect(page.locator("[data-public-context-banner]")).toHaveCount(1);
+  await expect(page.locator("[data-home-banner=\"events-organizer-cta\"]")).toHaveCount(1);
   await expect(page.getByRole("link", { name: "Pridať podujatie", exact: true })).toHaveAttribute(
     "href",
     "/podujatia/pridat-podujatie",
@@ -124,14 +113,13 @@ test("calendar retains selected-day details and the single organizer banner appe
     await page.evaluate(() => {
       const calendar = document.querySelector("#events-calendar")!;
       const detail = document.querySelector("[data-selected-day]")!;
-      const banner = document.querySelector("[data-public-context-banner]")!;
-      const organizer = document.querySelector('section[aria-label="Pre organizátorov"]')!;
+      const banner = document.querySelector("[data-home-banner=\"events-organizer-cta\"]")!;
       const categories = document.querySelector("[data-event-category-navigation]")!;
       const list = document.querySelector("#events-list")!;
-      return calendar.contains(detail)
-        && organizer.contains(banner)
+      return list === detail
+        && !calendar.contains(detail)
         && !list.contains(banner)
-        && Boolean(organizer.compareDocumentPosition(categories) & Node.DOCUMENT_POSITION_FOLLOWING);
+        && Boolean(categories.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING);
     }),
   ).toBe(true);
   await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
