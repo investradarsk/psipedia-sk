@@ -1,6 +1,5 @@
-import { PublicHeading } from "@/components/public-heading";
 import type { ReactNode } from "react";
-import { DetailHero, PublicDetailLayout } from "@/components/detail-primitives/detail-primitives";
+import { DetailHero, DetailProfileTitle, PublicDetailLayout } from "@/components/detail-primitives/detail-primitives";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
@@ -51,9 +50,12 @@ export function PublicProfileHero({
       breadcrumbs={<Breadcrumbs label="Drobečková navigácia">{breadcrumbs}</Breadcrumbs>}
       copy={
         <>
-          <div className={styles.badges}>
-            <span className={styles.typeBadge}>{typeLabel}</span>
-            {badges.map((badge) => (
+          <DetailProfileTitle
+            title={title}
+            category={typeLabel}
+            categoryClassName={styles.typeBadge}
+            badgeClassName={styles.badges}
+            badges={badges.map((badge) => (
               <span
                 className={styles[badge.tone]}
                 key={badge.tone + badge.label}
@@ -63,10 +65,7 @@ export function PublicProfileHero({
                 {badge.label}
               </span>
             ))}
-          </div>
-          <PublicHeading role="page" as="h1" data-long-title={title.length >= 70 ? "" : undefined}>
-            {title}
-          </PublicHeading>
+          />
           {location ? <p className={styles.location}>{location}</p> : null}
           {lead ? <p className={styles.lead}>{lead}</p> : null}
           {actions.length > 0 ? (
