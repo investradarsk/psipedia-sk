@@ -115,7 +115,6 @@ async function HomeBelowHero({
         articles={articleSelection.latest}
         sidebar={
           <>
-            <AffiliateRotatingBanner placement="sidebar" />
             <HomeMagazineSidebar
               title="Najbližšie podujatia"
               href="/podujatia"
@@ -158,10 +157,13 @@ async function HomeBelowHero({
                 </PublicEmptyState>
               )}
             </HomeMagazineSidebar>
+            <AffiliateRotatingBanner placement="sidebar" />
           </>
         }
       />
-      <AffiliateRotatingBanner placement="horizontal" />
+      <div data-affiliate-stacked-fallback>
+        <AffiliateRotatingBanner placement="horizontal" />
+      </div>
       <div className="home-desktop-interlude">
         <PublicHelpPhotoBanner
           promo={lostFoundSubmitPromo}
