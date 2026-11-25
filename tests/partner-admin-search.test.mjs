@@ -108,6 +108,29 @@ test("server page, status/verification filters and stable order work without sea
     assert.deepEqual(normalizePartnerAccountAdminFilters({page:-5,pageSize:10000,status:"INJECT"}),{q:"",page:1,pageSize:100,status:"",verified:"",access:""});
   }finally{sql.close();}
 });
+test("falls back to the last matching page for stale links", async () => {
+  await setup();
+  try {
+    for (const q of [undefined, "@example.sk"]) {
+      const filters = { q, status: "ACTIVE", pageSize: 25, database, encryptionKey: key };
+      const last = await listPartnerAccountsAdmin({ ...filters, page: 7 });
+      const stale = await listPartnerAccountsAdmin({ ...filters, page: 999 });
+      assert.equal(stale.total, 163);
+      assert.equal(stale.page, 7);
+      assert.equal(stale.totalPages, 7);
+      assert.equal(stale.items.length, 13);
+      assert.deepEqual(stale.items, last.items);
+    }
+
+    const empty = await listPartnerAccountsAdmin({ q: "%", page: 999, database, encryptionKey: key });
+    assert.equal(empty.total, 0);
+    assert.equal(empty.page, 1);
+    assert.equal(empty.totalPages, 1);
+    assert.deepEqual(empty.items, []);
+  } finally {
+    sql.close();
+  }
+});
 test("partner overview counts pending requests from all current sources and approved Help management", async () => {
   await setup();
   try {
