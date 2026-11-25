@@ -633,7 +633,7 @@
   background: color-mix(in srgb, var(--brand-accent) 7%, white);
 }
 
-/* The in-reading affiliate slot exists only on phones; desktop retains sidebar placement. */
+/* Single-column reading layouts use an inline ad; only true sidebars use portrait ads. */
 .mobileAffiliateBanner {
   display: none;
 }
@@ -715,9 +715,12 @@
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1199px) {
   .mobileAffiliateBanner {
     display: block;
+  }
+
+  .mobileAffiliateBanner:has(:global([data-affiliate-rotating-banner])) {
     margin: 22px 0 26px;
   }
 
@@ -725,6 +728,12 @@
     margin-block: 0;
   }
 
+  .sidebar :global([data-affiliate-rotating-banner="sidebar"]) {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
   .modernArticle .hero {
     padding: 8px 0 10px;
   }
@@ -1091,10 +1100,10 @@
   min-width: 0;
 }
 
-/* Apply the reduced reading scale only inside article content, not its sidebar. */
+/* Increase mobile article body and lead text by 5%; keep desktop and sidebar unchanged. */
 .modernArticle .readingShell {
-  --ps-reading-size: var(--ps-type-article-mobile, 0.84375rem);
-  --ps-reading-lead-size: var(--ps-type-article-lead-mobile, 0.9rem);
+  --ps-reading-size: calc(var(--ps-type-article-mobile, 0.84375rem) * 1.05);
+  --ps-reading-lead-size: calc(var(--ps-type-article-lead-mobile, 0.9rem) * 1.05);
 }
 
 /* Desktop keeps its separate reading scale. */

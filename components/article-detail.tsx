@@ -407,6 +407,7 @@ export function ArticleDetail({
             data-article-discovery-sidebar
           >
             <div className={styles.sidebarSticky}>
+              <AffiliateRotatingBanner placement="sidebar" />
               <ArticlePopularitySidebar
                 popularity={discovery.popularity}
                 initialWindow={discovery.initialWindow}
@@ -423,7 +424,6 @@ export function ArticleDetail({
                   />
                 </div>
               ) : null}
-              <AffiliateRotatingBanner placement="sidebar" />
             </div>
           </aside>
         ) : null}

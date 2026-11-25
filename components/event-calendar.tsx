@@ -1,4 +1,5 @@
 "use client";
+import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { formatSlovakCount } from "@/lib/slovak-count";
 
 import { EventListingResults } from "./event-listing-results";
@@ -631,6 +632,7 @@ export function EventCalendar({
         </section>
       </div>
       )}
+            <AffiliateRotatingBanner placement="sidebar" />
             <div data-events-popularity>{sidebar}</div>
           </>}
         />

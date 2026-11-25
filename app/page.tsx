@@ -115,6 +115,7 @@ async function HomeBelowHero({
       <HomeLatestArticles
         articles={articleSelection.latest}
         sidebar={
+          <>
           <HomeMagazineSidebar
             title="Najbližšie podujatia"
             href="/podujatia"
@@ -157,6 +158,8 @@ async function HomeBelowHero({
               </PublicEmptyState>
             )}
           </HomeMagazineSidebar>
+          <AffiliateRotatingBanner placement="sidebar" />
+          </>
         }
       />
       <AffiliateRotatingBanner placement="horizontal" />

@@ -35,6 +35,9 @@ function createHarness(status, injectConcurrentWrite = null) {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("CREATE TABLE managed_articles (id INTEGER PRIMARY KEY, " +
     [...new Set(columns)].map((col) => col + " TEXT").join(", ") + ")");
+  assert.ok(!columns.includes("sections_json"), "production UPDATE must not depend on retired sections_json");
+  sqlite.exec("ALTER TABLE managed_articles ADD COLUMN sections_json TEXT NOT NULL DEFAULT '[]'");
+  sqlite.exec("ALTER TABLE managed_articles DROP COLUMN sections_json");
   sqlite.exec("CREATE TABLE article_topic_assignments (article_id INTEGER, topic_id INTEGER, created_at TEXT)");
   sqlite.exec("CREATE TABLE breed_article_relations (breed_id INTEGER, article_id INTEGER, created_at TEXT, created_by TEXT)");
   sqlite.exec("CREATE TABLE managed_breeds (id INTEGER PRIMARY KEY)");
