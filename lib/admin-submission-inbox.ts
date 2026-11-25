@@ -3,6 +3,7 @@
  * shadow queue, stored duplicate or alternative moderation decision logic.
  */
 import { env } from "cloudflare:workers";
+import { sqlFoldAdminText } from "./admin-list-query";
 import { getPartnerDatabase } from "./partner-auth-store";
 
 export type InboxKind = "PARTNER"|"PUBLIC"|"CLAIM"|"INQUIRY";
@@ -29,6 +30,8 @@ export function normalizeInboxFilters(raw:{kind?:unknown;state?:unknown;q?:unkno
   return {kind,state,q,page};
 }
 
+const submissionPatchJson = "CASE WHEN json_valid(s.proposed_patch_json) THEN s.proposed_patch_json ELSE '{}' END";
+
 /** The one automated, approved help-owner grant made on publication is NOT a
  * new takeover request; its decision_note is a known system-generated marker.
  * Public unverified submitter_ref is never interpreted as a Partner account.
@@ -39,13 +42,24 @@ WITH combined AS (
    CASE WHEN s.submitter_type='PUBLIC_REPORTER' THEN 'PUBLIC' ELSE 'PARTNER' END AS kind,
    s.id AS id,
    COALESCE(NULLIF(dp.name,''),NULLIF(ho.name,''),NULLIF(me.title,''),
-     NULLIF(ad.name,''),NULLIF(lf.dog_name,''),NULLIF(hc.title,''),'Podanie '||substr(s.id,1,8)) AS title,
+     NULLIF(ad.name,''),NULLIF(lf.dog_name,''),NULLIF(hc.title,''),
+     NULLIF(new_profile.display_name,''),NULLIF(event_submission.display_title,''),
+     CASE WHEN s.resource_type IN ('ADOPTION_DOG','LOST_FOUND_DOG','HELP_CASE') THEN
+       COALESCE(
+         NULLIF(json_extract(${submissionPatchJson}, '$.name'),''),
+         NULLIF(json_extract(${submissionPatchJson}, '$.dogName'),''),
+         NULLIF(json_extract(${submissionPatchJson}, '$.title'),'')
+       ) END,
+     'Podanie '||substr(s.id,1,8)) AS title,
    s.status AS status,s.resource_type AS resourceType,
    CASE WHEN s.submitter_type='PARTNER_ACCOUNT' THEN s.submitter_ref ELSE NULL END AS accountId,
-   CASE WHEN s.subject_id IS NOT NULL THEN CAST(s.subject_id AS INTEGER) ELSE NULL END AS canonicalId,
+   COALESCE(new_profile.resolved_canonical_id,event_submission.resolved_event_id,
+     CAST(s.subject_id AS INTEGER)) AS canonicalId,
    s.operation AS operation,s.created_at AS createdAt,s.updated_at AS updatedAt,
    CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN 1 ELSE 0 END AS pending
  FROM moderation_submissions s
+ LEFT JOIN partner_new_profile_metadata new_profile ON new_profile.submission_id=s.id
+ LEFT JOIN partner_event_submission_metadata event_submission ON event_submission.submission_id=s.id
  LEFT JOIN directory_profiles dp ON s.resource_type='DIRECTORY_PROFILE' AND dp.id=CAST(s.subject_id AS INTEGER)
  LEFT JOIN help_organizations ho ON s.resource_type='HELP_ORGANIZATION' AND ho.id=CAST(s.subject_id AS INTEGER)
  LEFT JOIN managed_events me ON s.resource_type='MANAGED_EVENT' AND me.id=CAST(s.subject_id AS INTEGER)
@@ -75,7 +89,7 @@ WITH combined AS (
  LEFT JOIN adoption_dogs ad ON ad.id=c.adoption_dog_id
  LEFT JOIN lost_found_dog_reports lf ON lf.id=c.lost_found_report_id
  LEFT JOIN help_cases hc ON hc.id=c.help_case_id
- WHERE NOT (c.status='APPROVED' AND c.decision_note='Schválený nový partnerský profil')
+ WHERE NOT (c.status='APPROVED' AND c.decision_note IS 'Schválený nový partnerský profil')
  UNION ALL
  SELECT 'inquiry:'||CAST(i.id AS TEXT),'INQUIRY',CAST(i.id AS TEXT),
    COALESCE(NULLIF(i.profile_name,''),'Dopyt pre službu'),
@@ -87,7 +101,7 @@ filtered AS (
  SELECT * FROM combined
  WHERE (?1='all' OR kind=?1)
    AND (?2='all' OR (?2='pending' AND pending=1) OR (?2='history' AND pending=0))
-   AND (?3='' OR instr(lower(title),lower(?3))>0
+   AND (?3='' OR instr(${sqlFoldAdminText("title")},${sqlFoldAdminText("?3")})>0
      OR instr(lower(COALESCE(accountId,'')),lower(?3))>0 OR instr(lower(id),lower(?3))>0)
 )
 `;

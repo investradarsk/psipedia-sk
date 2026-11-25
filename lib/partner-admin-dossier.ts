@@ -44,8 +44,12 @@ const activeStatuses = new Set(["PENDING", "SUBMITTED", "PENDING_REVIEW", "QUARA
 type RequestRow = Omit<PartnerDossierRequest, "requestHref" | "editorHref" | "pending">;
 type ProfileRow = Omit<PartnerDossierProfile, "editorHref">;
 
-function pageNumber(value: number) {
-  return Number.isSafeInteger(value) && value >= 1 ? Math.min(value, 10000) : 1;
+function dossierPagination(requestedPage: number, total: number) {
+  const pageSize = PARTNER_REQUEST_PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const validPage = Number.isSafeInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
+  const page = Math.min(validPage, totalPages, 10000);
+  return { page, pageSize, totalPages, offset: (page - 1) * pageSize };
 }
 
 export function partnerDossierEditorHref(entityType: string, canonicalId: number | null) {
@@ -206,7 +210,6 @@ function compareRequestRows(left:RequestRow,right:RequestRow){
 }
 
 export async function listPartnerAccountDossierRequests(accountId:string,database:D1Database,page=1) {
-  const current=pageNumber(page);
   // Each branch has one SELECT, so none can exceed SQLite's compound
   // SELECT limit. Counts cover all records, not only the visible page.
   const summaries=await Promise.all(REQUEST_BRANCHES.map(branch=>
@@ -215,11 +218,8 @@ export async function listPartnerAccountDossierRequests(accountId:string,databas
   ));
   const total=summaries.reduce((count,row)=>count+Number(row?.total??0),0);
   const pending=summaries.reduce((count,row)=>count+Number(row?.pending??0),0);
-  const offset=(current-1)*PARTNER_REQUEST_PAGE_SIZE;
-  if(offset>=total)return {
-    items:[],total,pending,page:current,pageSize:PARTNER_REQUEST_PAGE_SIZE,
-    totalPages:Math.max(1,Math.ceil(total/PARTNER_REQUEST_PAGE_SIZE)),
-  };
+  const { offset, ...pagination } = dossierPagination(page, total);
+  if (total === 0) return { items: [], total, pending, ...pagination };
 
   // Any branch can supply the entire requested global prefix; requesting up
   // to (offset + page size) from each guarantees exact cross-kind pagination.
@@ -239,10 +239,7 @@ export async function listPartnerAccountDossierRequests(accountId:string,databas
         :requestHref(row.kind,row.id),
       editorHref:partnerDossierEditorHref(row.entityType,row.canonicalId),
     }));
-  return {
-    items,total,pending,page:current,pageSize:PARTNER_REQUEST_PAGE_SIZE,
-    totalPages:Math.max(1,Math.ceil(total/PARTNER_REQUEST_PAGE_SIZE)),
-  };
+  return { items, total, pending, ...pagination };
 }
 
 const PROFILE_UNION = `
@@ -270,21 +267,22 @@ const PROFILE_UNION = `
 `;
 
 export async function listPartnerAccountDossierProfiles(accountId:string,database:D1Database,page=1) {
-  const current=pageNumber(page);
-  const [totalRow,rows]=await Promise.all([
-    database.prepare(`SELECT COUNT(*) total FROM (${PROFILE_UNION})`).bind(accountId).first<{total:number}>(),
-    database.prepare(`SELECT * FROM (${PROFILE_UNION}) ORDER BY grantedAt DESC,id DESC LIMIT ?2 OFFSET ?3`)
-      .bind(accountId,PARTNER_REQUEST_PAGE_SIZE,(current-1)*PARTNER_REQUEST_PAGE_SIZE).all<ProfileRow>(),
-  ]);
-  const total=Number(totalRow?.total??0);
+  const totalRow = await database.prepare(`SELECT COUNT(*) total FROM (${PROFILE_UNION})`)
+    .bind(accountId).first<{ total: number }>();
+  const total = Number(totalRow?.total ?? 0);
+  const { offset, ...pagination } = dossierPagination(page, total);
+  if (total === 0) return { items: [], total, ...pagination };
+
+  const rows = await database.prepare(`SELECT * FROM (${PROFILE_UNION}) ORDER BY grantedAt DESC,id DESC LIMIT ?2 OFFSET ?3`)
+    .bind(accountId, pagination.pageSize, offset).all<ProfileRow>();
   return {
-    items:rows.results.map(row=>({...row,editorHref:partnerDossierEditorHref(row.entityType,row.canonicalId)})),
-    total,page:current,pageSize:PARTNER_REQUEST_PAGE_SIZE,totalPages:Math.max(1,Math.ceil(total/PARTNER_REQUEST_PAGE_SIZE)),
+    items: rows.results.map((row) => ({ ...row, editorHref: partnerDossierEditorHref(row.entityType, row.canonicalId) })),
+    total,
+    ...pagination,
   };
 }
 
 export async function listPartnerAccountDossierHistory(accountId:string,database:D1Database,page=1) {
-  const current=pageNumber(page);
   const query=`FROM partner_audit_events a WHERE
     a.actor_ref=?1
     OR (a.target_type='PARTNER_ACCOUNT' AND a.target_id=?2)
@@ -303,15 +301,15 @@ export async function listPartnerAccountDossierHistory(accountId:string,database
     OR (a.target_type='PARTNER_MEMBERSHIP' AND a.target_id IN (
       SELECT id FROM partner_memberships WHERE account_id=?2
     ))`;
-  const [totalRow,rows]=await Promise.all([
-    database.prepare("SELECT COUNT(*) total "+query).bind(`partner:${accountId}`,accountId).first<{total:number}>(),
-    database.prepare("SELECT a.id,a.action,a.actor_type actorType,a.actor_ref actorRef,a.metadata_json metadataJson,a.created_at createdAt "+query+
-      " ORDER BY a.created_at DESC,a.id DESC LIMIT ?3 OFFSET ?4")
-      .bind(`partner:${accountId}`,accountId,PARTNER_REQUEST_PAGE_SIZE,(current-1)*PARTNER_REQUEST_PAGE_SIZE).all<PartnerDossierHistory>(),
-  ]);
-  const total=Number(totalRow?.total??0);
-  return {
-    items:rows.results,total,page:current,pageSize:PARTNER_REQUEST_PAGE_SIZE,
-    totalPages:Math.max(1,Math.ceil(total/PARTNER_REQUEST_PAGE_SIZE)),
-  };
+  const totalRow = await database.prepare("SELECT COUNT(*) total " + query)
+    .bind(`partner:${accountId}`, accountId).first<{ total: number }>();
+  const total = Number(totalRow?.total ?? 0);
+  const { offset, ...pagination } = dossierPagination(page, total);
+  if (total === 0) return { items: [], total, ...pagination };
+
+  const rows = await database.prepare(
+    "SELECT a.id,a.action,a.actor_type actorType,a.actor_ref actorRef,a.metadata_json metadataJson,a.created_at createdAt " +
+      query + " ORDER BY a.created_at DESC,a.id DESC LIMIT ?3 OFFSET ?4",
+  ).bind(`partner:${accountId}`, accountId, pagination.pageSize, offset).all<PartnerDossierHistory>();
+  return { items: rows.results, total, ...pagination };
 }

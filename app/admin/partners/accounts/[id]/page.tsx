@@ -7,6 +7,7 @@ import { getPartnerChatUnread,listPartnerChat } from "@/lib/partner-chat";
 import { AdminPartnerLifecycleDecision } from "@/components/admin-partner-lifecycle-decision";
 import { AdminPartnerAuditDiff } from "@/components/admin-partner-audit-diff";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { adminDetailHref, adminReturnHref } from "@/lib/admin-return-navigation";
 import { getPartnerAccountAdmin, getPartnerAccountDossierAdmin } from "@/lib/partner-admin-store";
 import { partnerAdminStatusLabel, partnerAdminResourceLabel, partnerAdminRoleLabel } from "@/lib/admin-partner-labels";
 import "../../partners.css";
@@ -78,7 +79,7 @@ export default async function Page({
   params,searchParams,
 }:{
   params:Promise<{id:string}>;
-  searchParams:Promise<{tab?:string|string[];page?:string|string[]}>;
+  searchParams:Promise<{tab?:string|string[];page?:string|string[];returnTo?:string|string[]}>;
 }) {
   const {id}=await params;
   const user=await requireAdminPageUser(`/admin/partners/accounts/${id}`);
@@ -98,7 +99,17 @@ export default async function Page({
   const memberships=account.memberships as Membership[];
   const profile=account.contactProfile;
   const mainHref=`/admin/partners/accounts/${encodeURIComponent(id)}`;
-  const tabHref=(next:Tab,number=1)=>`${mainHref}?tab=${next}${number>1?`&page=${number}`:""}`;
+  const partnerListHref = "/admin/partners";
+  const inboxHref = "/admin/podania";
+  const returnHref = adminReturnHref(options.returnTo, [partnerListHref, inboxHref]);
+  const fromInbox = returnHref.split("?")[0] === inboxHref;
+  const backLabel = fromInbox
+    ? "Späť na podania a dopyty"
+    : returnHref === partnerListHref ? "Všetci partneri" : "Späť na zoznam partnerov";
+  const tabHref = (next: Tab, number = 1) => {
+    const href = `${mainHref}?tab=${next}${number > 1 ? `&page=${number}` : ""}`;
+    return returnHref === partnerListHref ? href : adminDetailHref(href, returnHref);
+  };
   const pagination=(current:number,totalPages:number)=>{
     if(totalPages<=1)return null;
     return (
@@ -115,7 +126,7 @@ export default async function Page({
       title={profile?.contactName||account.email}
       description={`${partnerAdminStatusLabel(account.status)} · registrovaný ${new Date(account.createdAt).toLocaleDateString("sk-SK")}`}>
       <div className="admin-partner-v2-back">
-        <Link href="/admin/partners">← Všetci partneri</Link>
+        <Link href={returnHref}>← {backLabel}</Link>
       </div>
       <section className="admin-form-card admin-partner-v2-summary" aria-label="Prehľad partnera">
         <div className="admin-partner-v2-contact">

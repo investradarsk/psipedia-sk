@@ -142,3 +142,44 @@ test("admin list, detail and counts are read-pure and never invoke lifecycle per
   assert.match(maintenance, /status = 'ARCHIVED'/);
   assert.match(store, /Explicit write-side maintenance only/);
 });
+
+test("stale lost and found links use the last filtered page in both admin lists", async () => {
+  const { listAdminDogReports } = await import("../lib/lost-found-dog-store.ts");
+  const env = globalThis.__CLOUDFLARE_WORKERS_ENV__;
+  const previous = { DB: env.DB, PII_ENCRYPTION_KEY: env.PII_ENCRYPTION_KEY, PII_HASH_KEY: env.PII_HASH_KEY };
+  const ids = [3, 2, 1];
+  env.PII_ENCRYPTION_KEY = "test-encryption-key";
+  env.PII_HASH_KEY = "test-hash-key";
+  env.DB = {
+    prepare(sql) {
+      if (sql.startsWith("PRAGMA")) return { all: async () => ({ results: [] }) };
+      assert.match(sql, /WHERE r\.type = \?/);
+      return {
+        bind(type, limit, offset) {
+          const matches = type === "LOST" ? ids : [];
+          return {
+            first: async () => ({ count: matches.length }),
+            all: async () => ({
+              results: matches.slice(offset, offset + limit).map((id) => ({ id, status: "DRAFT" })),
+            }),
+          };
+        },
+      };
+    },
+  };
+  try {
+    const last = await listAdminDogReports({ type: "LOST", page: 999, pageSize: 2 });
+    assert.equal(last.total, 3);
+    assert.equal(last.page, 2);
+    assert.equal(last.pages, 2);
+    assert.deepEqual(last.items.map((item) => item.id), [1]);
+
+    const empty = await listAdminDogReports({ type: "FOUND", page: 999, pageSize: 2 });
+    assert.equal(empty.total, 0);
+    assert.equal(empty.page, 1);
+    assert.equal(empty.pages, 1);
+    assert.deepEqual(empty.items, []);
+  } finally {
+    Object.assign(env, previous);
+  }
+});

@@ -342,6 +342,27 @@
 .admin-partner-v2-count strong { font-size:1rem; font-variant-numeric:tabular-nums; }
 .admin-partner-v2-count .admin-partner-v2-alert { color:#a34b22; }
 .admin-partner-v2-messages { color:var(--admin-ui-muted,#607568); font-variant-numeric:tabular-nums; }
+.admin-partner-v2-messages .admin-partner-v2-message-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: .3rem .5rem;
+  border: 1px solid #96aa9d;
+  border-radius: var(--admin-ui-field-radius, 8px);
+  background: #f5faf6;
+  color: #24543d;
+  font-size: .78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.admin-partner-v2-messages .admin-partner-v2-message-link:hover { background: #e7f1ea; }
+.admin-partner-v2-message-link:focus-visible,
+.admin-partner-v2-filters summary:focus-visible {
+  outline: 2px solid var(--admin-ui-focus, #a26a1b);
+  outline-offset: 2px;
+}
 .admin-partner-v2-messages small { margin-top:.18rem; font-size:.68rem; }
 .admin-partner-v2-empty { padding:1rem .5rem; font-size:.88rem; color:var(--admin-ui-muted,#607568); }
 .admin-partner-v2-legacy { margin-top:.65rem; color:var(--admin-ui-muted,#607568); font-size:.83rem; }
@@ -363,6 +384,8 @@
   .admin-partner-v2-search > label { grid-column:1 / -1; }
   .admin-partner-v2-search > button { grid-column:1 / -1; grid-row:3; width:100%; }
   .admin-partner-v2-filters { grid-row:2; }
+  .admin-partner-v2-filters summary { min-height: 44px; align-content: center; }
+  .admin-partner-v2-messages .admin-partner-v2-message-link { min-height: 44px; margin-inline-start: auto; }
   .admin-partner-v2-columns { display:none; }
   .admin-partner-table.admin-partner-v2-table article { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
   .admin-partner-table.admin-partner-v2-table article > [data-label="Partner"],
@@ -374,6 +397,7 @@
   .admin-partner-table.admin-partner-v2-table article > [data-label]:not([data-label="Partner"])::before {
     content:attr(data-label); color:var(--admin-ui-muted,#607568); font-size:.75rem; font-weight:700;
   }
+  .admin-partner-table.admin-partner-v2-table article > [data-label="E-mail"]::before { margin-inline-end: .4rem; }
   .admin-partner-table.admin-partner-v2-table article > [data-label="Správy"] { grid-column:1 / -1; }
   .admin-partner-v2-messages small { display:inline; margin:0; }
   .admin-partner-v2-filter-grid { grid-template-columns:minmax(0,1fr); }

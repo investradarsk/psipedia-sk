@@ -403,7 +403,7 @@ export async function listSitemapDogReports() {
 
 export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   const database = requireD1Binding();
-  const page = clampPage(filters.page);
+  const requestedPage = clampPage(filters.page);
   const pageSize = clampPageSize(filters.pageSize, 50);
   const where: string[] = [];
   const args: unknown[] = [];
@@ -426,6 +426,8 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
     selectWithOptionalShortDescription(database, adminSelect),
   ]);
   const total = Number(count?.count || 0);
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPage, pages);
   const sortExpressions: Record<string, string> = {
     priority: "CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC",
     name: "r.dog_name COLLATE NOCASE",
@@ -442,7 +444,7 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   const result = await database.prepare(`SELECT ${projection} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
   const { encryptionKey } = requirePiiKeys();
   const items = await Promise.all((result.results ?? []).map((row) => rowToAdmin(row, encryptionKey)));
-  return { items, total, page, pageSize, pages: Math.ceil(total / pageSize) };
+  return { items, total, page, pageSize, pages };
 }
 
 export async function getAdminDogReport(id: number) {

@@ -361,6 +361,49 @@ test("central attention badge counts unresolved inquiries and read remains in pr
   assert.doesNotMatch(afterHtml, /aria-label="Upozornenia: najmenej 2 neprečítaných upozornení/);
 });
 
+test("an older admin view cannot overwrite a newer inquiry status", async () => {
+  const { sqlite, d1 } = createDatabase();
+  const version = "2026-11-24T09:00:00.000Z";
+  try {
+    const id = seedInquiry(sqlite, { createdAt: version });
+    configureRuntime(d1);
+    const worker = await loadWorker("inquiry-status-conflict");
+    const save = (path, body) => request(worker, d1, `/api/admin/inquiries/${path}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body,
+    }, true);
+
+    const first = await save(id, JSON.stringify({ status: "read", expectedUpdatedAt: version }));
+    assert.equal(first.status, 200);
+    const { inquiry } = await first.json();
+    assert.equal(inquiry.status, "read");
+    assert.notEqual(inquiry.updatedAt, version);
+
+    const stale = await save(id, JSON.stringify({ status: "resolved", expectedUpdatedAt: version }));
+    assert.equal(stale.status, 409);
+    assert.equal(sqlite.prepare("SELECT status FROM directory_inquiries WHERE id=?").get(id).status, "read");
+
+    const saved = await save(id, JSON.stringify({ status: "resolved", expectedUpdatedAt: inquiry.updatedAt }));
+    assert.equal(saved.status, 200);
+    assert.equal((await saved.json()).inquiry.status, "resolved");
+
+    assert.equal((await save(id, "{")).status, 400);
+    assert.equal((await save(id, JSON.stringify({ status: "resolved", expectedUpdatedAt: 42 }))).status, 400);
+    assert.equal((await save(id + "extra", JSON.stringify({ status: "new" }))).status, 400);
+    assert.equal((await save(id + 1, JSON.stringify({ status: "new", expectedUpdatedAt: version }))).status, 404);
+    assert.equal(sqlite.prepare("SELECT status FROM directory_inquiries WHERE id=?").get(id).status, "resolved");
+
+    const futureVersion = "2099-01-01T00:00:00.000Z";
+    const futureId = seedInquiry(sqlite, { createdAt: futureVersion });
+    const futureSave = await save(futureId, JSON.stringify({ status: "read", expectedUpdatedAt: futureVersion }));
+    assert.equal(futureSave.status, 200);
+    assert.equal((await futureSave.json()).inquiry.updatedAt, "2099-01-01T00:00:00.001Z");
+  } finally {
+    sqlite.close();
+  }
+});
+
 test("hourly reminder sends only for new inquiries older than 24h and only once", async () => {
   const { sqlite, d1 } = createDatabase();
   const now = Date.now();
