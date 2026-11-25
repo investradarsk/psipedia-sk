@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { normalizeSmartImageMode, normalizeImageFocus, type SmartImageMode } from "@/lib/smart-image";
@@ -1039,7 +1040,7 @@ const getPublishedArticleUncached = async (slug: string): Promise<PublishedArtic
     return seedArticle ? { ...seedArticle, topics: [] } : null;
   }
   await ensureArticleStore(database);
-  const row = await database
+  const row = await retryTransientPublicRead(async () => database
     .prepare(`SELECT id, slug, title, excerpt, category, portal_section, portal_subpage, news_category,
       status, accent, author, author_profile_id, intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json,
       image_url, image_key, ${await articleImageProjection(database)}, image_alt, image_caption, image_credit, image_credit_url, reading_minutes, created_at, updated_at, published_at, created_by,
@@ -1049,7 +1050,7 @@ const getPublishedArticleUncached = async (slug: string): Promise<PublishedArtic
       WHERE slug = ? AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?))
       LIMIT 1`)
     .bind(slug, new Date().toISOString())
-    .first<ArticleRow>();
+    .first<ArticleRow>());
   if (!row) return null;
 
   let topics: ArticleTopic[] = [];
