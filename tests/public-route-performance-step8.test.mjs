@@ -189,7 +189,7 @@ test("directory preview read overlaps independent hero and editorial sidebar ins
   );
   assert.match(
     directory,
-    /isOverview \? getDirectoryCategoryPreviews\(5\) : Promise\.resolve\(null\)/,
+    /isOverview \? retryTransientPublicRead\(\(\) => getDirectoryCategoryPreviews\(5\), \{ stage: "directory_category_previews" \}\) : Promise\.resolve\(null\)/,
   );
   assert.match(directory, /getSectionHeroVisual\(/);
   assert.match(directory, /getArticleDiscoveryData\(/);
