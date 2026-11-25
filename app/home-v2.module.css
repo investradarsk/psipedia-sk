@@ -2772,6 +2772,10 @@
     grid-row: 2 / 4;
   }
 
+  .homeV2 :global(.home-editorial-section:has([data-home-article-panel]) > .home-magazine-grid > .home-magazine-main) {
+    grid-row: 2 / 4;
+  }
+
   .homeV2
     :global(
       .home-editorial-section:has(> .home-magazine-grid > .home-magazine-side) > .home-section-cta
@@ -2843,4 +2847,25 @@
 .homeV2 :global(.home-side-muted),
 .homeV2 :global(.home-side-quicklinks a) {
   font-size: var(--ps-type-compact, .875rem);
+}
+
+/* Secondary articles and their archive action share the contextual rail surface.
+   Keep the existing article typography, image sizes and row geometry. */
+.homeV2 :global(.home-article-list-panel) {
+  min-width: 0;
+}
+
+.homeV2 :global(.home-article-list-panel .home-latest-item:first-child) {
+  border-top: 0;
+}
+
+.homeV2 :global(.home-article-list-panel > .home-section-cta) {
+  margin-top: 0;
+  padding: 4px 12px;
+}
+
+@media (max-width: 900px) {
+  .homeV2 :global(.home-article-list-panel .home-latest-list) {
+    padding-inline: 10px;
+  }
 }
