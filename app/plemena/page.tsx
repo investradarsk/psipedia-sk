@@ -1,3 +1,4 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { breedProfileHref } from "@/lib/breed-canonical";
 import type { Metadata } from "next";
@@ -47,7 +48,7 @@ export default async function BreedsPage({ searchParams }: Props) {
     listPublishedCanonicalBreedAtlasCards(),
     retryTransientPublicRead(() => getSectionHeroVisual("section.plemena")),
     retryTransientPublicRead(() => getPublishedDesktopBannerColors("plemena:kluby")),
-    retryTransientPublicRead(() => getPublishedArticleSummaries({ portalSection: "clanky", category: "Plemená", limit: 3 })),
+    settleOptionalRead("breed_editorial_teasers", retryTransientPublicRead(() => getPublishedArticleSummaries({ portalSection: "clanky", category: "Plemená", limit: 3 })), []),
     getPublishedBreedArticleGroupTeasers().catch((error) => {
       console.error("Breed atlas FCI editorial relations unavailable", error);
       return {};
