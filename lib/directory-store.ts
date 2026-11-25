@@ -1141,19 +1141,17 @@ export function buildManagedDirectoryProfileCreateStatement(
 ) {
   // New public fields are written exclusively to SQL owners and sidecar tables.
   // A retired directory JSON column must not be required to create profiles.
-  const columns = `slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  const columns = `slug, name, category, status, excerpt, description,
     city, district, region, address, postal_code, street, house_number, address_format, service_address_confirmation,
     online, price_note, website_url, public_phone, public_email, facebook_url, instagram_url,
-    internal_email, image_url, image_key, thumbnail_display_json, detail_display_json,
-    verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by`;
+    internal_email, image_url, image_key,
+    verified, featured, search_text, created_at, updated_at, published_at, created_by, updated_by`;
   const commonValues = [
     input.slug,
     input.name,
     input.category,
     input.excerpt,
     input.description,
-    JSON.stringify(input.services),
-    JSON.stringify(input.qualifications),
     input.city,
     input.district,
     input.region,
@@ -1173,11 +1171,8 @@ export function buildManagedDirectoryProfileCreateStatement(
     input.internalEmail,
     input.imageUrl,
     input.imageKey,
-    input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
-    input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
     input.verified ? 1 : 0,
     input.featured ? 1 : 0,
-    JSON.stringify(input.seo),
     input.searchText,
   ];
   if (!guard) {
@@ -1188,8 +1183,6 @@ export function buildManagedDirectoryProfileCreateStatement(
       input.status,
       input.excerpt,
       input.description,
-      JSON.stringify(input.services),
-      JSON.stringify(input.qualifications),
       input.city,
       input.district,
       input.region,
@@ -1209,11 +1202,8 @@ export function buildManagedDirectoryProfileCreateStatement(
       input.internalEmail,
       input.imageUrl,
       input.imageKey,
-      input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
-      input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
       input.verified ? 1 : 0,
       input.featured ? 1 : 0,
-      JSON.stringify(input.seo),
       input.searchText,
       nowIso,
       nowIso,
@@ -1234,7 +1224,7 @@ export function buildManagedDirectoryProfileCreateStatement(
     "?",
     "?",
     "'draft'",
-    ...Array.from({ length: 31 }, () => "?"),
+    ...Array.from({ length: commonValues.length - 1 }, () => "?"),
     "NULL",
     "?",
     "?",
@@ -2072,8 +2062,6 @@ export function buildManagedDirectoryProfileUpdateStatement(
     input.status,
     input.excerpt,
     input.description,
-    JSON.stringify(input.services),
-    JSON.stringify(input.qualifications),
     input.city,
     input.district,
     input.region,
@@ -2093,19 +2081,8 @@ export function buildManagedDirectoryProfileUpdateStatement(
     input.internalEmail,
     input.imageUrl,
     input.imageKey,
-    JSON.stringify(
-      payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl
-        ? (existing.thumbnailImageDisplay ?? null)
-        : (input.thumbnailImageDisplay ?? null),
-    ),
-    JSON.stringify(
-      payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl
-        ? (existing.detailImageDisplay ?? null)
-        : (input.detailImageDisplay ?? null),
-    ),
     input.verified ? 1 : 0,
     input.featured ? 1 : 0,
-    JSON.stringify(input.seo),
     input.searchText,
     now,
     publishedAt,
@@ -2121,14 +2098,14 @@ export function buildManagedDirectoryProfileUpdateStatement(
     .prepare(
       `
     UPDATE directory_profiles SET
-      slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
-      qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
+      slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?,
+      city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = ?, online = ?, price_note = ?, website_url = ?,
       public_phone = CASE WHEN ?=1 THEN ? ELSE public_phone END,
       public_email = CASE WHEN ?=1 THEN ? ELSE public_email END,
       facebook_url = CASE WHEN ?=1 THEN ? ELSE facebook_url END,
       instagram_url = CASE WHEN ?=1 THEN ? ELSE instagram_url END,
-      internal_email = ?, image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, archived_at = CASE WHEN ?=1 THEN NULL ELSE archived_at END, updated_by = ?
+      internal_email = ?, image_url = ?, image_key = ?, verified = ?, featured = ?, search_text = ?, updated_at = ?, published_at = ?, archived_at = CASE WHEN ?=1 THEN NULL ELSE archived_at END, updated_by = ?
     WHERE id = ?${updatedAtGuard}${reviewGuard} RETURNING *
   `,
     )
