@@ -180,21 +180,27 @@ export async function listAdoptionAdminDashboard(
   // count and bounded page are independent. Three concurrent reads replace
   // four serialized round trips without adding schema/index assumptions.
   const threshold = new Date(now.getTime() - ADOPTION_STALE_DAYS * 86_400_000).toISOString();
-  const [countRow, result, statusRows] = await Promise.all([
+  const loadPage = (offset: number) => db.prepare(`
+    SELECT id, name, slug, status, breed_name, organization_name, city, district, region,
+      main_image, description, last_verified_at, published_at, updated_at
+    FROM adoption_dogs
+    ${query.where}
+    ORDER BY ${query.orderBy}
+    LIMIT ? OFFSET ?
+  `).bind(...query.bindings, query.pageSize, offset).all<AdoptionAdminRow>();
+  const [countRow, requestedResult, statusRows] = await Promise.all([
     db.prepare(`SELECT COUNT(*) AS count FROM adoption_dogs ${query.where}`)
       .bind(...query.bindings).first<CountRow>(),
-    db.prepare(`
-      SELECT id, name, slug, status, breed_name, organization_name, city, district, region,
-        main_image, description, last_verified_at, published_at, updated_at
-      FROM adoption_dogs
-      ${query.where}
-      ORDER BY ${query.orderBy}
-      LIMIT ? OFFSET ?
-    `).bind(...query.bindings, query.pageSize, query.offset).all<AdoptionAdminRow>(),
+    loadPage(query.offset),
     db.prepare(ADOPTION_ADMIN_STATUS_SUMMARY_SQL)
       .bind(threshold).all<{ status: string; count: number; staleCount: number }>(),
   ]);
   const total = Number(countRow?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
+  const page = Math.min(query.page, totalPages);
+  const result = page === query.page || total === 0
+    ? requestedResult
+    : await loadPage((page - 1) * query.pageSize);
   const lifecycle = Object.fromEntries(adoptionStatuses.map((status) => [status, 0])) as Record<AdoptionStatus, number>;
   let staleCount = 0;
   for (const row of statusRows.results) {
@@ -229,10 +235,10 @@ export async function listAdoptionAdminDashboard(
   return {
     items,
     pagination: {
-      page: query.page,
+      page,
       pageSize: query.pageSize,
       total,
-      totalPages: Math.ceil(total / query.pageSize),
+      totalPages,
     },
     counts: {
       ...lifecycle,
