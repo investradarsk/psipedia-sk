@@ -48,25 +48,25 @@ async function InboxContent({filters}:{filters:InboxFilters}){
           <span>· Strana {result.page}/{result.totalPages}</span>
         </div>
         <div className={styles.tableScroll} role="region" aria-label="Zoznam podaní a dopytov" tabIndex={0}>
-          <table className={styles.table}>
-            <thead><tr><th>Podanie</th><th>Typ</th><th>Stav</th><th>Prijaté</th><th>Akcie</th></tr></thead>
-            <tbody>
-              {result.items.map(item=><tr key={item.key}>
-                <td>
+          <table className={styles.table} role="table">
+            <thead role="rowgroup"><tr role="row">{["Podanie", "Typ", "Stav", "Prijaté", "Akcie"].map(label => <th key={label} scope="col" role="columnheader">{label}</th>)}</tr></thead>
+            <tbody role="rowgroup">
+              {result.items.map(item=><tr key={item.key} role="row">
+                <td role="cell" className={styles.subject}>
                   <strong className={styles.title}>{item.title}</strong>
                   <small>{item.kind==="INQUIRY"?"Dopyt":partnerAdminResourceLabel(item.resourceType)} · {item.operation==="UPDATE"?"Úprava":item.operation==="CREATE"?"Nový záznam":item.operation==="CLAIM"?"Žiadosť o správu":"Správa"}</small>
                 </td>
-                <td>{labels[item.kind]}</td>
-                <td><span className={item.pending?styles.pending:styles.closed}>{statusLabel(item)}</span></td>
-                <td className={styles.date}>{dateLabel(item.createdAt)}</td>
-                <td><div className={styles.actions}>
-                  <Link href={item.reviewHref}>{item.pending?"Otvoriť podanie":"Detail"}</Link>
+                <td role="cell"><span aria-hidden="true" className={styles.mobileLabel}>Typ</span>{labels[item.kind]}</td>
+                <td role="cell"><span aria-hidden="true" className={styles.mobileLabel}>Stav</span><span className={item.pending?styles.pending:styles.closed}>{statusLabel(item)}</span></td>
+                <td role="cell" className={styles.date}><span aria-hidden="true" className={styles.mobileLabel}>Prijaté</span>{dateLabel(item.createdAt)}</td>
+                <td role="cell" className={styles.actionCell}><div className={styles.actions}>
+                  <Link href={item.reviewHref} className={styles.primaryAction}>{item.pending?"Otvoriť podanie":"Detail"}</Link>
                   {item.editorHref&&item.editorHref!==item.reviewHref?<Link href={item.editorHref}>Profil</Link>:null}
                   {item.partnerHref?<Link href={adminDetailHref(item.partnerHref, returnHref)}>Partner</Link>:null}
                   {item.chatHref?<Link href={adminDetailHref(item.chatHref, returnHref)}>Správy</Link>:null}
                 </div></td>
               </tr>)}
-              {result.items.length===0&&<tr><td colSpan={5} className={styles.empty}>Pre zadané filtre sa nenašli podania ani dopyty.</td></tr>}
+              {result.items.length===0&&<tr role="row"><td role="cell" colSpan={5} className={styles.empty}>Pre zadané filtre sa nenašli podania ani dopyty.</td></tr>}
             </tbody>
           </table>
         </div>

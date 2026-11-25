@@ -125,6 +125,10 @@ test("Admin-only page is a compact read-only view; original routes remain edit a
  assert.match(page,/Otvoriť podanie/);
  assert.doesNotMatch(page,/fetch\(|INSERT INTO|UPDATE |DELETE FROM|\.run\(/);
  assert.match(style,/min-width:790px/);
+ assert.match(page, /className=\{styles\.primaryAction\}/);
+ assert.match(page, /<table className=\{styles\.table\} role="table">/);
+ assert.match(style, /@media \(max-width: 900px\)[\s\S]*\.table \{ display: block; min-width: 0; \}/);
+ assert.match(style, /\.actions a \{ min-height: 44px; \}/);
  assert.match(menu,/label: "Podania a dopyty", href: "\/admin\/podania", matches: \["\/admin\/dopyty"\]/);
  assert.match(oldPage,/initialFocusedId=\{focusedId\}/);
  assert.match(dashboard,/initialIndex\/COMMUNITY_PAGE_SIZE/);

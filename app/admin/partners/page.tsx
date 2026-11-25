@@ -126,7 +126,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
                 <strong className={a.unreadMessageCount?"admin-partner-v2-alert":""}>
                   {a.unreadMessageCount}
                 </strong>
-                <Link href={adminDetailHref(`/admin/partners/accounts/${encodeURIComponent(a.id)}?tab=spravy`, returnHref)}>
+                <Link href={adminDetailHref(`/admin/partners/accounts/${encodeURIComponent(a.id)}?tab=spravy`, returnHref)} className="admin-partner-v2-message-link">
                   Otvoriť správy
                 </Link>
               </div>
