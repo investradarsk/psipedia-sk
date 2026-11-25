@@ -103,7 +103,6 @@ test("filter-first landings use the explicit listing variant", () => {
     helpBrowser,
     adoption,
     lostFoundListing,
-    lostFoundHub,
     portalTopic,
   ]) {
     assert.match(source, /PublicContentShell/);
@@ -155,9 +154,10 @@ test("adoption keeps hero outside the canonical listing content shell", () => {
 
 test("lost-found hub is no longer a legacy page-hero route", () => {
   assert.doesNotMatch(lostFoundHub, /page-hero/);
-  assert.match(lostFoundHub, /UnifiedSectionHeroShell/);
-  assert.match(lostFoundHub, /getSectionHeroVisual\("help\.stratene-a-najdene"\)/);
-  assert.match(lostFoundHub, /PublicContentShell variant="listing"/);
+  assert.match(lostFoundHub, /<LostFoundDogsPage/);
+  assert.match(lostFoundListing, /UnifiedSectionHeroShell/);
+  assert.match(lostFoundListing, /getSectionHeroVisual/);
+  assert.match(lostFoundListing, /PublicContentShell variant="listing"/);
 });
 
 test("directory has one canonical search in the homepage hero and category navigation", () => {
