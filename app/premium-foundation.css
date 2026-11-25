@@ -241,3 +241,53 @@
   text-decoration: underline;
   text-underline-offset: .2em;
 }
+
+/* Typography V1 — semantic sizes for public/Partner, never Admin. */
+:root:not(:has([data-admin-workspace])) {
+  --ps-type-article-desktop: 1.1875rem;
+  --ps-type-article-lead-desktop: 1.25rem;
+  --ps-type-profile: 1rem;
+  --ps-type-profile-lead: 1rem;
+  --ps-type-page-heading: 1.75rem;
+  --ps-type-section-heading: 1.5rem;
+  --ps-type-subheading: 1.25rem;
+  --ps-type-sidebar-heading: 1.375rem;
+  --ps-type-control: .875rem;
+  --ps-type-input: 1rem;
+  --ps-type-label: .8125rem;
+  --ps-type-body-leading: 1.6;
+  --ps-type-compact-leading: 1.5;
+  --ps-type-heading-weight: 500;
+  --ps-type-label-weight: 600;
+  --ps-heading-panel: var(--ps-type-card-heading);
+  --ps-heading-eyebrow: var(--ps-type-meta);
+  --ps-heading-page: var(--ps-type-page-heading);
+  --ps-heading-content-section: var(--ps-type-section-heading);
+  --ps-detail-fact-label-size: var(--ps-type-compact);
+  --ps-detail-fact-value-size: var(--ps-type-compact);
+  --ps-type-compact: .875rem;
+  --ps-type-sidebar-title: .9375rem;
+  --ps-type-card-heading: 1rem;
+  --ps-type-meta: .75rem;
+}
+@media (min-width: 801px) {
+  :root:not(:has([data-admin-workspace])) {
+    --ps-type-card-heading: 1.125rem;
+    --ps-type-profile-lead: 1.0625rem;
+    --ps-type-page-heading: 2.25rem;
+    --ps-type-section-heading: 1.75rem;
+    --ps-type-subheading: 1.375rem;
+  }
+}
+
+/* Shared public controls and metadata. Exclude editor/Admin and do not change article prose. */
+:root:not(:has([data-admin-workspace])) :is(.site-header .desktop-nav a, .site-header .mobile-menu a, .button, .text-link) {
+  font-family: var(--ps-font-body);
+  font-size: var(--ps-type-control);
+}
+:root:not(:has([data-admin-workspace])) :is(.page-breadcrumbs, .article-breadcrumbs) {
+  font-size: var(--ps-type-label);
+}
+:root:not(:has([data-admin-workspace])) :is(.directory-contact-form, .partner-shell) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  font-size: var(--ps-type-input);
+}

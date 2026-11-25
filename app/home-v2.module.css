@@ -2820,3 +2820,27 @@
   background: var(--ps-premium-accent, #b44939);
   content: "";
 }
+
+/* Homepage context rows consume the same role scale as Najčítanejšie. */
+.homeV2 :global(.home-side-unified-copy strong),
+.homeV2 :global(.home-independent-events .home-side-unified-copy strong) {
+  font-family: var(--ps-font-body);
+  font-size: var(--ps-type-sidebar-title, .9375rem);
+  line-height: 1.35;
+}
+.homeV2 :global(.home-side-unified-eyebrow),
+.homeV2 :global(.home-side-unified-eyebrow time),
+.homeV2 :global(.home-independent-events .home-side-unified-eyebrow) {
+  font-size: var(--ps-type-meta, .75rem);
+  color: var(--coral-dark);
+}
+.homeV2 :global(.home-side-unified-description),
+.homeV2 :global(.home-independent-events .home-side-unified-description) {
+  font-size: var(--ps-type-meta, .75rem);
+  line-height: 1.4;
+}
+.homeV2 :global(.home-magazine-sidebar-action),
+.homeV2 :global(.home-side-muted),
+.homeV2 :global(.home-side-quicklinks a) {
+  font-size: var(--ps-type-compact, .875rem);
+}

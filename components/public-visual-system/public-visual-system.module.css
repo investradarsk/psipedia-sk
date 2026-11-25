@@ -1,11 +1,11 @@
 .foundation {
-  --pv-type-body: .9375rem;
-  --pv-type-body-dense: .875rem;
-  --pv-type-meta: .75rem;
-  --pv-type-eyebrow: .6875rem;
+  --pv-type-body: var(--ps-type-profile, 1rem);
+  --pv-type-body-dense: var(--ps-type-compact, .875rem);
+  --pv-type-meta: var(--ps-type-meta, .75rem);
+  --pv-type-eyebrow: var(--ps-type-meta, .75rem);
   --pv-type-data-heading: clamp(1.9rem, 3.4vw, 3.15rem);
   --pv-type-editorial-heading: clamp(2.35rem, 5vw, 4.25rem);
-  --pv-leading-body: 1.62;
+  --pv-leading-body: var(--ps-type-body-leading, 1.6);
   --pv-leading-tight: 1.08;
   --pv-space-section: clamp(24px, 3.4vw, 42px);
   --pv-space-card: 18px;
@@ -120,8 +120,8 @@
   max-width: 720px;
   margin-top: 12px;
   color: var(--muted);
-  font-size: var(--pv-type-body, .9375rem);
-  line-height: var(--pv-leading-body, 1.62);
+  font-size: var(--pv-type-body, 1rem);
+  line-height: var(--pv-leading-body, 1.6);
   overflow-wrap: anywhere;
 }
 
@@ -563,8 +563,6 @@
 
 @media (max-width: 600px) {
   .foundation {
-    --pv-type-body: .9rem;
-    --pv-type-body-dense: .8375rem;
     --pv-type-data-heading: clamp(1.7rem, 8vw, 2.35rem);
     --pv-type-editorial-heading: clamp(2rem, 10.5vw, 3rem);
     --pv-space-section: 26px;
@@ -1025,4 +1023,23 @@
   border-radius: 50%;
   background: var(--ps-glass-control, var(--sage-light));
   box-shadow: var(--ps-glass-edge, none);
+}
+
+/* Shared listing cards and actions, preserving featured/hero title variants. */
+.contentTitle,
+.dataCardTitle {
+  font-size: var(--ps-type-card-heading, 1rem);
+  line-height: 1.35;
+}
+.action,
+.actionCue,
+.dataCardAction {
+  font-size: var(--ps-type-control, .875rem);
+}
+.categoryTileCopy strong {
+  font-size: var(--ps-type-sidebar-title, .9375rem);
+}
+.categoryTileCopy > span,
+.categoryTileCopy small {
+  font-size: var(--ps-type-meta, .75rem);
 }

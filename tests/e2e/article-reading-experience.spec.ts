@@ -467,10 +467,10 @@ for (const articleCase of cases) {
     }
     expect(metrics.proseWidth).toBeGreaterThanOrEqual(790);
     expect(metrics.proseWidth).toBeLessThanOrEqual(805);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(14.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(15.1);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.53);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.57);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(18.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(19.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.68);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.72);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
     // Natural photos may be narrower than the article column to preserve their full aspect ratio.
     if (articleCase.hasImage) {

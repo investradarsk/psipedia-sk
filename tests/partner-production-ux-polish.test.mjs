@@ -135,8 +135,10 @@ test("password controls are accessible and preserve password-manager semantics",
   assert.match(partnerCss, /\.partner-password-toggle\s*\{[^}]*min-width:\s*48px\s*;[^}]*min-height:\s*48px\s*;/);
 });
 
-test("logout is discoverable in the Partner shell and keeps the secure backend flow", () => {
-  assert.match(partnerShell, /<PartnerLogoutButton \/>/);
+test("logout is discoverable in the Partner shell and keeps the secure backend flow", async () => {
+  const navigation = await read("components/partner-workspace-navigation.tsx");
+  assert.match(partnerShell, /<PartnerWorkspaceNavigation \/>/);
+  assert.match(navigation, /<details className="partner-nav-account">[\s\S]*?Môj účet[\s\S]*?<PartnerLogoutButton \/>[\s\S]*?<\/details>/);
   assert.match(settingsActions, /<PartnerLogoutButton[\s\S]*accessibleName="Odhlásiť sa"[\s\S]*onBusyChange=\{setLogoutBusy\}/);
   assert.match(logoutButton, /fetch\("\/api\/partner\/auth\/logout"/);
   assert.match(logoutButton, /method: "POST"/);

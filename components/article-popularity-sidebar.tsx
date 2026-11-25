@@ -90,7 +90,7 @@ export function ArticlePopularitySidebar({
                 <a href={item.href}>
                   <span className={styles.thumbnail}>{item.image ? <img src={item.image} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback />}</span>
                   <span className={styles.itemText}><strong>{item.title}</strong>
-                  <small>{item.contentType === "profile" ? `Profil · ${item.label}` : item.label}</small>
+                  <small className={styles.contentType}>{item.contentType === "profile" ? ({ "Veterinári": "Veterinár", "Chovateľské stanice": "Chovateľská stanica", "Psí tréneri a psie školy": "Tréner / psia škola", "Kynologické kluby": "Kynologický klub", "Chovateľské kluby": "Chovateľský klub", "Salóny": "Salón", "Hotely a opatrovanie": "Hotel / opatrovanie" } as Record<string, string>)[item.label] ?? item.label : "Článok"}</small>
                   {item.contentType === "profile" && typeof item.qualifiedViews === "number" ? (
                     <small className={styles.readCount}>
                       Zobrazenia profilu: {new Intl.NumberFormat("sk-SK").format(item.qualifiedViews)}

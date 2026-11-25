@@ -100,7 +100,10 @@ test("claim discovery is linked from dashboard, Partner shell, resource listings
   assert.match(await read("components/partner-claim-search-form.tsx"), /role="search"/);
   assert.match(page, /Požiadať o správu/);
   assert.match(dashboard, /\/partner\/prevziat/);
-  assert.match(shell, /\/partner\/prevziat/);
+  assert.match(shell, /<PartnerWorkspaceNavigation \/>/);
+  const navigation = await read("components/partner-workspace-navigation.tsx");
+  assert.match(navigation, /const requests = \[[\s\S]*?\["\/partner\/prevziat", "Požiadať o správu"\]/);
+  assert.match(navigation, /requests\.map\(\(\[href, label\]\) => link\(href, label\)\)/);
   assert.match(profiles, /\/partner\/prevziat/);
   assert.match(events, /\/partner\/prevziat\?type=MANAGED_EVENT/);
   assert.match(adminPage, /value="MANAGED_EVENT"/);

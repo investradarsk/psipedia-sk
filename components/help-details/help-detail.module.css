@@ -31,3 +31,20 @@
 .progressNumbers { flex-wrap: wrap; }
 
 .detail h1 { font-family: var(--ps-font-heading, Georgia, serif); font-weight: var(--ps-component-heading-weight, 500); }
+
+/* Help notices remain readable and keep their existing urgency semantics. */
+.trust h2,
+.safety h2 {
+  font: 600 var(--ps-type-card-heading, 1rem)/1.4 var(--ps-font-body);
+}
+.trust p,
+.safety p,
+.safety a,
+.progressNumbers strong {
+  font-size: var(--ps-type-compact, .875rem);
+  line-height: var(--ps-type-compact-leading, 1.5);
+}
+.trustMeta,
+.progressNumbers {
+  font-size: var(--ps-type-meta, .75rem);
+}
