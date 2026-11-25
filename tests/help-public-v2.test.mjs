@@ -144,7 +144,7 @@ test("empty states and 390px mobile contract are explicit", () => {
   assert.doesNotMatch(styles, /overflow-x:\s*(?:scroll|auto)/);
 });
 
-test("Help Admin owns only generic Help and routes dedicated domains to their canonical admins", () => {
+test("Help Admin unified workspace uses canonical domain stores and dedicated editors", () => {
   assert.match(
     adminQuery,
     /HELP_ADMIN_DEDICATED_CATEGORIES = \["adopcia", "utulky", "stratene-a-najdene"\]/,
@@ -153,10 +153,37 @@ test("Help Admin owns only generic Help and routes dedicated domains to their ca
     adminQuery,
     /HELP_ADMIN_CREATE_CATEGORIES = \["docasna-opatera", "zbierky", "dobrovolnictvo"\]/,
   );
-  assert.match(adminHelpHub, /adopcia: "\/admin\/adopcie"/);
-  assert.match(adminHelpHub, /"stratene-a-najdene": "\/admin\/stratene-najdene"/);
-  assert.match(adminHelpHub, /utulky: "\/admin\/organizacie\?type=SHELTER"/);
-  assert.match(adminDashboard, /href="\/admin\/pomoc-psom"/);
+  assert.match(adminHelpHub, /await requireAdminPageUser\("\/admin\/pomoc-psom"\)/);
+  assert.match(adminHelpHub, /slug: "adopcia"[^\n]*href: "\/admin\/adopcie"/);
+  assert.match(adminHelpHub, /slug: "stratene-a-najdene"[^\n]*href: "\/admin\/stratene-najdene"/);
+  assert.match(adminHelpHub, /slug: "organizacie"[^\n]*href: "\/admin\/organizacie"/);
+  assert.match(adminHelpHub, /slug: "ostatna-pomoc"[^\n]*href: "\/admin\/pomoc"/);
+  assert.match(adminHelpHub, /listAdoptionAdminDashboard\(\{ q, page \}\)/);
+  assert.match(adminHelpHub, /listAdminDogReports\(\{ q, page, pageSize: 50 \}\)/);
+  assert.match(adminHelpHub, /getOrganizationAdminPage\(parseOrganizationAdminFilters/);
+  assert.match(adminHelpHub, /key === "type" && category === "utulky" \? "SHELTER" : null/);
+  assert.match(adminHelpHub, /getManagedHelpDashboard\(parseHelpAdminFilters/);
+  assert.match(adminHelpHub, /href: "\/admin\/adopcie\/" \+ item\.id/);
+  assert.match(adminHelpHub, /href: "\/admin\/stratene-najdene\/" \+ item\.id/);
+  assert.match(adminHelpHub, /href: "\/admin\/organizacie\/" \+ item\.id/);
+  assert.match(adminHelpHub, /href: "\/admin\/pomoc\/" \+ item\.id/);
+  assert.match(adminHelpHub, /adminDetailHref\(row\.href, returnHref\)/);
+  const unified = read("components/admin-help-unified-table.tsx");
+  assert.match(unified, /params\.set\("category", slug\)/);
+  assert.match(unified, /return "\/admin\/pomoc-psom\?" \+ params/);
+  const helpPage = read("app/admin/pomoc/page.tsx");
+  const profileTabs = read("components/admin-profile-type-tabs.tsx");
+  const workspace = read("lib/admin-profile-workspace.ts");
+  assert.match(helpPage, /await requireAdminPageUser\("\/admin\/pomoc"\)/);
+  assert.match(helpPage, /<AdminProfileTypeTabs active="ostatna-pomoc" \/>/);
+  assert.match(helpPage, /<AdminProfileActions active="ostatna-pomoc" \/>/);
+  assert.match(helpPage, /<AdminHelpDashboard\b/);
+  assert.match(profileTabs, /adminProfileTypes\.map\(/);
+  assert.match(profileTabs, /href=\{item\.href\}/);
+  assert.match(profileTabs, /aria-current=\{item\.id === active \? "page" : undefined\}/);
+  assert.match(workspace, /id: "ostatna-pomoc"[^\n]*href: "\/admin\/pomoc"/);
+  assert.match(workspace, /return "\/admin\/pomoc-psom\?" \+ params\.toString\(\)/);
+  assert.match(adminDashboard, /adminDetailHref\("\/admin\/pomoc\/" \+ item\.id, url\(\{ \.\.\.filters, page \}\)\)/);
   assert.match(adminEditor, /HELP_ADMIN_CREATE_CATEGORIES/);
   assert.doesNotMatch(adminEditor, /helpCategories\.filter/);
   assert.match(adminStore, /Adopcie sa spravujú v canonical sekcii Adopcie/);
@@ -229,4 +256,26 @@ test("V2-10 Help uses premium tokens without losing semantic states", () => {
   assert.match(genericCss, /\.tags \.resolved[^}]*#f0f1ee/);
   assert.match(guideCss, /data-report-kind="LOST"[^}]*#a13d28/);
   assert.match(guideCss, /data-report-kind="FOUND"[^}]*#31588a/);
+});
+
+test("Help navigation remains present in the report hub, lists and profile details", () => {
+  const nav = readFileSync(new URL("../components/public-visual-system/public-help-category-nav.tsx", import.meta.url), "utf8");
+  assert.match(nav, /export function PublicHelpSectionNav/);
+  assert.match(nav, /reportScope && <PublicHelpReportNav/);
+  assert.match(nav, /dogReportBasePath\("LOST"\)/);
+  assert.match(nav, /dogReportBasePath\("FOUND"\)/);
+  assert.match(nav, /current: current === tab.key/);
+  assert.doesNotMatch(nav, /<Link\b/);
+  const paths = [
+    ["app/pomoc-psom/stratene-a-najdene/page.tsx", /<PublicHelpSectionNav current="stratene-a-najdene" reportScope="all"/],
+    ["components/lost-found-dogs-page.tsx", /reportScope=\{type\}/],
+    ["components/lost-found-dog-detail.tsx", /<PublicHelpSectionNav current="stratene-a-najdene" reportScope=\{type\}/],
+    ["components/adoption-detail.tsx", /<PublicHelpSectionNav current="adopcia"/],
+    ["components/help-details/help-detail-shell.tsx", /<PublicHelpSectionNav current=\{item.category\}/],
+    ["app/organizacie/page.tsx", /<PublicHelpSectionNav current="utulky"/],
+    ["components/organization-profile-detail.tsx", /<PublicHelpSectionNav current="utulky"/],
+  ];
+  for (const [path, pattern] of paths) {
+    assert.match(readFileSync(new URL("../" + path, import.meta.url), "utf8"), pattern, path);
+  }
 });

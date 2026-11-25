@@ -1,0 +1,2965 @@
+{
+  "baseline": "39d42c72cf60ec41c4b18a114a966144449f1105",
+  "limitations": [
+    "All names classified for planning, only 42 YAML sources inspected. Remaining classifications are filename triage, not execution/safety proof.",
+    "Lexical npm && expansion only; same file with different loaders is not equivalent. Globs, dynamic scripts and workflow conditions require additional review.",
+    "Timing samples are elapsed workflow/run intervals and selected job step intervals, not billed runner minutes, not whole-PR elapsed time; active/skipped runs are not comparable.",
+    "No workflow or test removal authorized. Operational/mixed jobs stay isolated; PR checks in mixed files can be extracted only after source and safety review."
+  ],
+  "workflows": [
+    {
+      "file": "address-enrichment-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "admin-article-bulk-e2e.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "admin-duplication-inventory.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "admin-editor-workspace-v3.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "admin-event-editor-v3-pilot.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "admin-ia-2.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "admin-image-review-v2.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "admin-legacy-mutation-csrf.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "admin-operations-ci.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "admin-perf-comparator-v2.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "admin-perf-url-guard.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "admin-performance-v2.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "admin-photo-gallery.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "admin-puppy-coverage-ci.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "admin-pwa-ci.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "admin-runtime-1.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "admin-stability-regressions.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "admin-typography-contracts.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "admin-v5-mutation-origin.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "ai-internal-discovery-click-value-ci.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "article-admin-ci.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "article-ux-ci.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "auto-update-automerge-prs.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "automation-cleanup-legacy.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "automation-detach-drafts.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "automation-finalize-v1.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "automation-source-ux-reset.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "breed-controlled-mirror-341-offline.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "breed-sql-0174-offline.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "breeds-admin-ci.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "category-visual-ci.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "ci-smoke-history-analyzer.yml",
+      "group": "code-quality",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "clean-d1-migration-validation.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "code-quality-policy.yml",
+      "group": "code-quality",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "content-relations-1.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "d1-directory-canonical-reads.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "d1-insights-report-ci.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "data-automation-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "data-automation-v2-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "data-quality-contact-sql-parity.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "directory-0170-backfill-readonly.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "directory-0173-review-lock-bridge.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "directory-0173-review-lock-sql-read.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "directory-0173-sql-detail-read.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "directory-0176-sql-fields.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "directory-notion-0173-atomic-fields.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "directory-sql-0173-offline.yml",
+      "group": "database-sql",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "events-fallback-images.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "facebook-admin-notion-authority.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "facebook-gmail-notion-bridge-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "gemini-automation-foundation-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "gemini-dashboard-v3-visual.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "gemini-global-stop-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "gemini-notion-agent.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "gemini22-dedupe-gate-tests.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "google-places-budget-guard-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "help-legacy-sql-cleanup-once.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "homepage-name-days-ci.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "image-editor-2-ci.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "knip-audit.yml",
+      "group": "code-quality",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "link-health-audit.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "map-data-row-level-export.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "map-geo-foundation-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "map-production-launch-ci.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "map-production-live-audit.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "map-production-readiness.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "map-public-ui-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "map-read-api-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "mobile-firstpaint-lcp-20261112.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "notion-article-sync-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "notion-conflict-quality-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "notion-cross-batch-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "notion-events-help-sync-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "notion-manual-transfer-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "notion-profile-lossless-sync.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "notion-schema-drift-guard.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "open-source-production-ui.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "open-source-seo-suite.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "organization-profile-e2e.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "outreach-ci.yml",
+      "group": "partner-security-reviews",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "pagespeed-css-hero-1322.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "pagespeed-mobile-5.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "partner-auth-ci.yml",
+      "group": "partner-security-reviews",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "playwright-e2e.yml",
+      "group": "required-gate",
+      "disposition": "preserve",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "pr-visual-evidence.yml",
+      "group": "visual-evidence",
+      "disposition": "preserve",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "production-breed-controlled-mirrors.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-breed-json-audit.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-breed-sql-v2-backfill.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-breed-sql-v2-shadow-audit.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-breed-workcopy-postflight.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-breed-workcopy-stage.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0123-0124-preflight.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0127-readonly.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0128-readonly.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0133-readonly.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0134-offline-ci.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0134-readonly.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0158-0162-contract.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0158-0162-ledger-contract.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0158-0162-ledger.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0158-0162.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0159-shadow.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0160-events.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0161-event-metadata.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0163-breed-controlled.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0164-lifecycle.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-0165-contacts.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-analytics-0167-0168.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-backlog-verify.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-backlog.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-breed-0174.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-breed-0175.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-breeder-0169.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-breeder-cutover.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-breeder-link-reset.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-directory-0170.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-directory-0173.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "production-d1-facebook-weekly-0166.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-history-audit.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-d1-migrate.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "production-d1-partner-0171-0172.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-directory-contact-legacy-cleanup.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-directory-contact-null-backfill.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-directory-legacy-readonly.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-directory-onetime-notion-import.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-directory-sql-step2.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-directory-sql-step3.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-editorial-storage-readonly.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-help-org-contact-json-cleanup.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "production-help-sql-cutover.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "profile-review-admin-ci.yml",
+      "group": "partner-security-reviews",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "profile-review-submission-ci.yml",
+      "group": "partner-security-reviews",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "profile-reviews-public-ci.yml",
+      "group": "partner-security-reviews",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "public-ds5-cards.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "public-html-cache-safety-guard.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "public-listings-qa.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "public-visual-screenshots.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "public-web-perf-10-final.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "review-author-auth-ci.yml",
+      "group": "partner-security-reviews",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "section-hero-v2-ci.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "service-catalog-contract-ci.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "services-v2-directory-ci.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "services-v2-filter-contract-ci.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "services-v3-admin-mobile-polish-ci.yml",
+      "group": "admin",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "services-v3-hourly-auto-sync.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": false
+    },
+    {
+      "file": "services-v3-map-canonical-filter.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "services-v3-notion-mirror-offline.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "services-v3-notion-receipt-proof-ci.yml",
+      "group": "integrations",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "services-v3-production-readonly.yml",
+      "group": "protected-operational-or-mixed",
+      "disposition": "manual-review-no-removal",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "services-v3-public-canonical-filter.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "sitemap-edge-resilience.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "sitewide-ai-entity-surface-ci.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "source-reviewed",
+      "explicitNpmBuildMention": true
+    },
+    {
+      "file": "submission-foundation-ci.yml",
+      "group": "partner-security-reviews",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "unified-section-hero-ci.yml",
+      "group": "public",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "web-perf-compare-ci.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    },
+    {
+      "file": "web-perf-observability.yml",
+      "group": "seo-performance",
+      "disposition": "consolidation-candidate",
+      "evidence": "filename-triage-only",
+      "explicitNpmBuildMention": null
+    }
+  ],
+  "suites": [
+    {
+      "name": "test:config",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:functional-audit",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:outreach-foundation",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:ai-referral",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:notion-bulk-backfill",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:notion-events-help-sync",
+      "occurrences": 14,
+      "uniqueFiles": 14,
+      "uniqueFileContextPairs": 14,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:deploy-safety",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:record-lifecycle",
+      "occurrences": 7,
+      "uniqueFiles": 7,
+      "uniqueFileContextPairs": 7,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:migration-safety",
+      "occurrences": 38,
+      "uniqueFiles": 38,
+      "uniqueFileContextPairs": 38,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:lost-found",
+      "occurrences": 6,
+      "uniqueFiles": 6,
+      "uniqueFileContextPairs": 6,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:org-fundraising",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:org-fundraising-foundation",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:org-fundraising-admin",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:org-adoption-hardening",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:help-sql-schema",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:help-sql-backfill",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:help-sql-sync-step4",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:help-sql-cutover-step5",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:help-sql-production-step6",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:foundation",
+      "occurrences": 214,
+      "uniqueFiles": 213,
+      "uniqueFileContextPairs": 214,
+      "duplicateFiles": [
+        {
+          "file": "tests/admin-attention-queue.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:reviews-admin",
+              "context": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test"
+            },
+            {
+              "script": "test:foundation",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "test:social-metadata",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:seo-metadata",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:seo-structured-data",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:sitewide-ai-entity-surface",
+      "occurrences": 7,
+      "uniqueFiles": 7,
+      "uniqueFileContextPairs": 7,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:social-metadata-rendered",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:homepage-media",
+      "occurrences": 7,
+      "uniqueFiles": 7,
+      "uniqueFileContextPairs": 7,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:perf-fastpaths",
+      "occurrences": 8,
+      "uniqueFiles": 8,
+      "uniqueFileContextPairs": 8,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:public-css-scope",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:article-ux",
+      "occurrences": 17,
+      "uniqueFiles": 17,
+      "uniqueFileContextPairs": 17,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:article-hardening",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:article-popularity",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:analytics",
+      "occurrences": 11,
+      "uniqueFiles": 11,
+      "uniqueFileContextPairs": 11,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:directory-read",
+      "occurrences": 11,
+      "uniqueFiles": 11,
+      "uniqueFileContextPairs": 11,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:breed-concurrency",
+      "occurrences": 31,
+      "uniqueFiles": 31,
+      "uniqueFileContextPairs": 31,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test",
+      "occurrences": 377,
+      "uniqueFiles": 375,
+      "uniqueFileContextPairs": 376,
+      "duplicateFiles": [
+        {
+          "file": "tests/admin-attention-queue.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:reviews-admin",
+              "context": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test"
+            },
+            {
+              "script": "test:foundation",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        },
+        {
+          "file": "tests/public-html-cache.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:perf-fastpaths",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "test:admin-events",
+      "occurrences": 4,
+      "uniqueFiles": 4,
+      "uniqueFileContextPairs": 4,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:org-fundraising-public",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:org-locations-admin",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:editorial-foundation",
+      "occurrences": 6,
+      "uniqueFiles": 6,
+      "uniqueFileContextPairs": 6,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:article-admin-editor",
+      "occurrences": 10,
+      "uniqueFiles": 10,
+      "uniqueFileContextPairs": 10,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:image-editor-2",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:article-promo",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:name-days",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:monetization",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:help-source",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:admin-d1-step5",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:admin-react-step6",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:admin-mobile-step7",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:admin-error-step8",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:admin-editor-source-step9",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:admin-merge-step10",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:admin-stability-step10",
+      "occurrences": 35,
+      "uniqueFiles": 32,
+      "uniqueFileContextPairs": 32,
+      "duplicateFiles": [
+        {
+          "file": "tests/admin-pwa.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-mobile-step7",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        },
+        {
+          "file": "tests/admin-mobile-document-navigation.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-mobile-step7",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        },
+        {
+          "file": "tests/admin-page-streaming-step4.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-error-step8",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "test:admin-stability-step9",
+      "occurrences": 26,
+      "uniqueFiles": 23,
+      "uniqueFileContextPairs": 23,
+      "duplicateFiles": [
+        {
+          "file": "tests/admin-pwa.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-mobile-step7",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        },
+        {
+          "file": "tests/admin-mobile-document-navigation.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-mobile-step7",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        },
+        {
+          "file": "tests/admin-page-streaming-step4.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-error-step8",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "test:admin-performance-v2-steps2-9",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:admin-performance-v2",
+      "occurrences": 31,
+      "uniqueFiles": 28,
+      "uniqueFileContextPairs": 28,
+      "duplicateFiles": [
+        {
+          "file": "tests/admin-pwa.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-mobile-step7",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        },
+        {
+          "file": "tests/admin-mobile-document-navigation.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-mobile-step7",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        },
+        {
+          "file": "tests/admin-page-streaming-step4.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-error-step8",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "test:admin-performance-v2-step1",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:admin-pwa",
+      "occurrences": 23,
+      "uniqueFiles": 20,
+      "uniqueFileContextPairs": 20,
+      "duplicateFiles": [
+        {
+          "file": "tests/admin-pwa.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-mobile-step7",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        },
+        {
+          "file": "tests/admin-mobile-document-navigation.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-mobile-step7",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        },
+        {
+          "file": "tests/admin-page-streaming-step4.test.mjs",
+          "occurrences": [
+            {
+              "script": "test:admin-pwa",
+              "context": "node --experimental-strip-types --test"
+            },
+            {
+              "script": "test:admin-error-step8",
+              "context": "node --experimental-strip-types --test"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "test:admin-buttons",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:public-integrity",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-auth",
+      "occurrences": 23,
+      "uniqueFiles": 23,
+      "uniqueFileContextPairs": 23,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-media",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-h2",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-h4",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-platform",
+      "occurrences": 17,
+      "uniqueFiles": 17,
+      "uniqueFileContextPairs": 17,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:reviews-foundation",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:geo-foundation",
+      "occurrences": 24,
+      "uniqueFiles": 24,
+      "uniqueFileContextPairs": 24,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:map-read-api",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-profile-changes",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:reviews-public-read",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:map-public-ui",
+      "occurrences": 4,
+      "uniqueFiles": 4,
+      "uniqueFileContextPairs": 4,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-new-profile",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:map-production-launch",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:review-author-auth",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-events",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:reviews-submission",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-commercial-v1",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:reviews-admin",
+      "occurrences": 7,
+      "uniqueFiles": 7,
+      "uniqueFileContextPairs": 7,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-h3",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:search",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:canonical-draft-delete",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:automation-schedule",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:automation-operations",
+      "occurrences": 6,
+      "uniqueFiles": 6,
+      "uniqueFileContextPairs": 6,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:section-visuals",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:unified-section-hero",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:section-hero-v2",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:public-landing-alignment",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:breed-crawl-hierarchy",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:breeding-station-ai-landings",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:directory-ai-landings-scale",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:internal-discovery",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:public-search-simplify",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:content-discovery-v3",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:events-public-ux",
+      "occurrences": 4,
+      "uniqueFiles": 4,
+      "uniqueFileContextPairs": 4,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:facebook-images",
+      "occurrences": 2,
+      "uniqueFiles": 2,
+      "uniqueFileContextPairs": 2,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:facebook-publisher",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:facebook-admin-v2",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:notion-facebook-images",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:facebook-images-ui",
+      "occurrences": 6,
+      "uniqueFiles": 6,
+      "uniqueFileContextPairs": 6,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:notion-data-quality-audit",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:component-registry",
+      "occurrences": 3,
+      "uniqueFiles": 3,
+      "uniqueFileContextPairs": 3,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:visual-library",
+      "occurrences": 26,
+      "uniqueFiles": 26,
+      "uniqueFileContextPairs": 26,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-single-manager",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-dashboard",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-claims-step3",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-help-step3",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-help-step4",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-help-step5",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-step6",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-step7",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    },
+    {
+      "name": "test:partner-step8",
+      "occurrences": 1,
+      "uniqueFiles": 1,
+      "uniqueFileContextPairs": 1,
+      "duplicateFiles": []
+    }
+  ],
+  "timing": [
+    {
+      "head": "72c4369cc2769ce25ebab04fa30a61f56492c648",
+      "total": 28,
+      "returned": 28,
+      "runs": [
+        {
+          "id": 45486075874,
+          "name": "SERVICES-V2 Directory layout",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:08Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486075907,
+          "name": "PAGESPEED-CSS-HERO build evidence",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:14Z",
+          "elapsedSeconds": 7
+        },
+        {
+          "id": 45486075648,
+          "name": "PUBLIC-WEB-PERF-10 focused regression gate",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:08Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486075974,
+          "name": "CATEGORY-VISUAL-1 preview validation",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:16Z",
+          "elapsedSeconds": 9
+        },
+        {
+          "id": 45486075811,
+          "name": "UNIFIED-SECTION-HERO-1 validation",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:08Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486075938,
+          "name": "PAGESPEED-MOBILE-5 focused regression gate",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:08Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486076105,
+          "name": "REVIEWS-1B Public Read UI",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:28Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486075673,
+          "name": "MOBILE-FIRSTPAINT-LCP performance regression",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:09Z",
+          "elapsedSeconds": 2
+        },
+        {
+          "id": 45486075905,
+          "name": "PR Visual Evidence",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:14Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486075994,
+          "name": "Public listings and mobile UX QA",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:24Z",
+          "elapsedSeconds": 17
+        },
+        {
+          "id": 45486075967,
+          "name": "SECTION-HERO-V2 validation",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:08Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486076684,
+          "name": "MAP-1C Map Read API",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:14Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486076110,
+          "name": "Public DS-5 card and media contract",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:37Z",
+          "elapsedSeconds": 30
+        },
+        {
+          "id": 45486076180,
+          "name": "IMAGE-EDITOR-2 focused checks",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:57:25Z",
+          "elapsedSeconds": 18
+        },
+        {
+          "id": 45486075975,
+          "name": "MAP-1D Public Map UI",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:58:16Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486075869,
+          "name": "ADMIN-PWA-1",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:59:14Z",
+          "elapsedSeconds": 127
+        },
+        {
+          "id": 45486075989,
+          "name": "Admin Stability Read-Only Regression",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:00:37Z",
+          "elapsedSeconds": 210
+        },
+        {
+          "id": 45486076181,
+          "name": "HOMEPAGE-UX-ENHANCEMENTS-1 name-day calendar",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:01:40Z",
+          "elapsedSeconds": 273
+        },
+        {
+          "id": 45486076029,
+          "name": "Organization profile E2E",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:00:19Z",
+          "elapsedSeconds": 192
+        },
+        {
+          "id": 45486076297,
+          "name": "SITEWIDE-AI-ENTITY-SURFACE-1 validation",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:00:43Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486076035,
+          "name": "Playwright E2E and production smoke",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:01:51Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486075879,
+          "name": "ARTICLE-UX-1 focused validation",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:02:00Z",
+          "elapsedSeconds": 293
+        },
+        {
+          "id": 45486075871,
+          "name": "MAP-1E Launch Hardening",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:02:17Z",
+          "elapsedSeconds": 310
+        },
+        {
+          "id": 45486075882,
+          "name": "REVIEWS-2A Review Author Authentication",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:59:55Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486075932,
+          "name": "Event fallback artwork",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T20:59:58Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486075977,
+          "name": "Partner platform security and UX",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:02:22Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486076303,
+          "name": "REVIEWS-2B Review Submission",
+          "event": "pull_request",
+          "status": "in_progress",
+          "conclusion": null,
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:03:05Z",
+          "elapsedSeconds": null
+        },
+        {
+          "id": 45486076138,
+          "name": "OUTREACH-1 controlled outreach foundation",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:07Z",
+          "updated": "2026-11-24T21:03:27Z",
+          "elapsedSeconds": 380
+        }
+      ]
+    },
+    {
+      "head": "f91e57bd124ca36b64e20743bcad83f8854f99d9",
+      "total": 26,
+      "returned": 26,
+      "runs": [
+        {
+          "id": 45486633403,
+          "name": "SERVICES-V2 Directory layout",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:30Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486633401,
+          "name": "ADMIN-IA-2 admin navigation and workspace",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:38Z",
+          "elapsedSeconds": 9
+        },
+        {
+          "id": 45486633240,
+          "name": "D1 canonical directory reads (read-only regressions)",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:10Z",
+          "elapsedSeconds": 41
+        },
+        {
+          "id": 45486633270,
+          "name": "Open-source production UI integration",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:43Z",
+          "elapsedSeconds": 74
+        },
+        {
+          "id": 45486633325,
+          "name": "Directory 0173 – SQL-first profile detail read",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:42Z",
+          "elapsedSeconds": 73
+        },
+        {
+          "id": 45486633352,
+          "name": "ADMIN duplication inventory (read-only)",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:22Z",
+          "elapsedSeconds": 53
+        },
+        {
+          "id": 45486633447,
+          "name": "NOTION-SYNC focused validation",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:36Z",
+          "elapsedSeconds": 67
+        },
+        {
+          "id": 45486633411,
+          "name": "IMAGE-EDITOR-2 focused checks",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:48Z",
+          "elapsedSeconds": 79
+        },
+        {
+          "id": 45486633592,
+          "name": "Admin Stability Read-Only Regression",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:46Z",
+          "elapsedSeconds": 77
+        },
+        {
+          "id": 45486633320,
+          "name": "ADMIN-RUNTIME-1 admin runtime safety",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:50Z",
+          "elapsedSeconds": 81
+        },
+        {
+          "id": 45486633633,
+          "name": "NOTION-BIDIRECTIONAL events help validation",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:02:21Z",
+          "elapsedSeconds": 112
+        },
+        {
+          "id": 45486633358,
+          "name": "Services V3 public canonical filter",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:45Z",
+          "elapsedSeconds": 16
+        },
+        {
+          "id": 45486633377,
+          "name": "Admin Operations attention queue",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:30Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486633426,
+          "name": "ADMIN-EVENT-EDITOR-V3 pilot E2E acceptance",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:30Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486633472,
+          "name": "Gemini automation foundation contracts",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:30Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486633612,
+          "name": "BREEDS-ADMIN Plemená Admin 2.0",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:31Z",
+          "elapsedSeconds": 2
+        },
+        {
+          "id": 45486633407,
+          "name": "ADMIN-PWA-1",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:30Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486633180,
+          "name": "Partner platform security and UX",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:30Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486633248,
+          "name": "ADMIN-2E Article Bulk Execution",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:30Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486633231,
+          "name": "MAP-1C Map Read API",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:30Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486633297,
+          "name": "ARTICLE-ADMIN editor",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:00:30Z",
+          "elapsedSeconds": 1
+        },
+        {
+          "id": 45486633596,
+          "name": "Directory 0173 canonical SQL foundation (offline)",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:01Z",
+          "elapsedSeconds": 32
+        },
+        {
+          "id": 45486633315,
+          "name": "Data Quality Contact SQL Parity (offline)",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "success",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:00Z",
+          "elapsedSeconds": 31
+        },
+        {
+          "id": 45486633462,
+          "name": "Admin Performance V2 Read-Only",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:19Z",
+          "elapsedSeconds": 50
+        },
+        {
+          "id": 45486633435,
+          "name": "Admin visual foundation, controls and shell contracts (read-only)",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:01:55Z",
+          "elapsedSeconds": 86
+        },
+        {
+          "id": 45486633754,
+          "name": "Playwright E2E and production smoke",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "started": "2026-11-24T21:00:29Z",
+          "updated": "2026-11-24T21:03:22Z",
+          "elapsedSeconds": 173
+        }
+      ]
+    }
+  ],
+  "jobs": [
+    {
+      "runId": 45486075871,
+      "jobs": [
+        {
+          "name": "Migration gates, map regressions and build",
+          "conclusion": "success",
+          "seconds": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Log revision evidence",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run npm ci",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Production migration and history safety",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "MAP-1E launch, consent and privacy contracts",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "MAP-1B privacy regression",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "MAP-1C API regression",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "MAP-1D UI contract regression",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Config contract",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Clean D1 validation",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Lint",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Production build",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Verify scoped 0063 manifest excludes later migrations",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Verify scoped 0064 manifest excludes 0065+",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "seconds": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runId": 45486076029,
+      "jobs": [
+        {
+          "name": "Organization profile — desktop/mobile, Axe and overflow",
+          "conclusion": "success",
+          "seconds": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Checkout PR merge ref",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Log revision evidence",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Set up Node.js",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Install dependencies",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Install Chromium and system dependencies",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Build PR code",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Configure CI-only local PII keys",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Apply foundation migrations to isolated local D1 only",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Seed adoption staging prerequisites into isolated local CI only",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Apply canonical adoption staging and activation to isolated local D1 only",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Verify canonical adoption activation in isolated local D1 only",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Seed ORG-3B disposable profile fixture into isolated local D1 only",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Start isolated local app",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Organization profile Playwright — desktop",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Organization profile Playwright — mobile",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "UX-2A organization viewport matrix",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Stop isolated local app",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Upload organization profile failure evidence",
+              "conclusion": "skipped",
+              "seconds": null
+            },
+            {
+              "name": "Post Set up Node.js",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Post Checkout PR merge ref",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "seconds": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runId": 45486075869,
+      "jobs": [
+        {
+          "name": "PWA contract, build, mobile Axe and offline safety",
+          "conclusion": "success",
+          "seconds": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Log revision evidence",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run npm ci",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run npm run test:admin-pwa",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run npm run db:check-migrations",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run npm run build",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run npx playwright install --with-deps chromium",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Configure CI-only local security keys",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Apply schema migrations to isolated local D1 only",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Start isolated local app",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Run PWA mobile, Axe and offline E2E",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Stop local app",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Upload failure evidence",
+              "conclusion": "skipped",
+              "seconds": null
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "seconds": null
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "seconds": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -102,10 +102,9 @@ jobs:
           path: .e2e-artifacts/unified-public-details-v2-1/after/
           if-no-files-found: warn
           retention-days: 14
-      - name: Focused sitewide entity regressions
+      # The entity suite includes the exact structured-data Node test already.
+      - name: Focused sitewide entity and structured data regressions
         run: npm run test:sitewide-ai-entity-surface
-      - name: Structured data suite
-        run: npm run test:seo-structured-data
       - name: Social and metadata suite
         run: npm run test:social-metadata
       - name: Lint

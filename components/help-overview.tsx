@@ -169,7 +169,7 @@ export async function HelpOverview({
                 slug: section.slug,
                 label: section.label,
                 count: section.count,
-                href: section.href,
+                href: section.slug === "utulky" ? "/organizacie" : section.href,
               }))} />
             </PublicCategorySection>
           </PublicContentShell>

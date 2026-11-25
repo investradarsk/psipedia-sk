@@ -40,8 +40,8 @@
   max-width: 760px;
   margin: 0;
   color: var(--ink-2);
-  font-size: clamp(1rem, 2vw, 1.16rem);
-  line-height: 1.7;
+  font-size: var(--ps-reading-lead-size);
+  line-height: var(--ps-reading-leading);
 }
 
 .location {

@@ -27,3 +27,20 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+.detailNav {
+  margin-block: 16px;
+}
+.reportNav {
+  margin-top: 12px;
+}
+.nav .reportNav :global([data-public-subcategory-track]) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+@media (max-width: 480px) {
+  .nav .reportNav :global([data-public-subcategory-track]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

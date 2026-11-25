@@ -1,0 +1,135 @@
+{
+  "reviewedHead": "b440a4f7c37cb5e0abe54f7927a44a1a643c09d4",
+  "baseline": "39d42c72cf60ec41c4b18a114a966144449f1105",
+  "decision": "NO-GO for merge: latest corrected revision not green; pilot rollout incomplete",
+  "sourceParity": {
+    "originalTestScriptAliases": 110,
+    "aliasesWithChangedExpandedCommandContextSet": 0,
+    "originalNodeTestFiles": 999,
+    "currentNodeTestFiles": 1005,
+    "originalPlaywrightSpecs": 113,
+    "currentPlaywrightSpecs": 113,
+    "originalFixtures": 55,
+    "currentFixtures": 55,
+    "originalWorkflowFiles": 156,
+    "currentWorkflowFiles": 156,
+    "removedTrackedFiles": 0,
+    "modifiedExistingTestFiles": [
+      "tests/admin-inline-edit-articles-breeds.test.mjs",
+      "tests/help-public-v2.test.mjs"
+    ],
+    "limitations": "Static file/explicit command context parity does not establish dynamic workflow runtime, assertions, environment or browser coverage parity."
+  },
+  "actualEvidence": {
+    "centralRun": 45493256526,
+    "centralJob": 138796900423,
+    "centralContractSteps": [
+      "Validate CI scope policy",
+      "Validate two-stage editor CI guard",
+      "Validate shared-build contract",
+      "Validate CI V2 changed-file selection"
+    ],
+    "centralContractStepsConclusion": "success",
+    "fullUnitIntegrationConclusion": "failure",
+    "legacyFailuresCorrected": [
+      "tests/admin-inline-edit-articles-breeds.test.mjs",
+      "tests/help-public-v2.test.mjs"
+    ],
+    "correctionCommit": "b440a4f7c37cb5e0abe54f7927a44a1a643c09d4",
+    "reviewRun": 45493256954,
+    "sharedBuilds": [
+      {
+        "profile": "standard",
+        "seconds": 38,
+        "uploadSeconds": 4,
+        "conclusion": "success"
+      },
+      {
+        "profile": "local-e2e",
+        "seconds": 40,
+        "uploadSeconds": 4,
+        "conclusion": "success"
+      }
+    ],
+    "reviewConsumers": "Cancelled or not completed on measured revision; no successful complete E2E pilot established."
+  },
+  "efficiency": {
+    "legacyGroupFileContextInvocations": 149,
+    "currentGroupFileContextInvocations": 127,
+    "removedRepeats": 22,
+    "mainNpmTestExplicitOccurrencesBefore": 377,
+    "after": 2,
+    "reviewBuildStepsWhenBothSuitesSelectedBefore": 4,
+    "measuredBuildStepSeconds": 78,
+    "measuredUploadStepSeconds": 8,
+    "wholePrSpeedup": "not established; no controlled paired successful run"
+  },
+  "requiredContexts": [
+    "Build, lint and unit/integration tests",
+    "Breed CI bootstrap, all-breed regression and Playwright"
+  ],
+  "unchangedRuleSet": 23739696,
+  "latestRuns": [
+    {
+      "id": 45493969698,
+      "name": "REVIEWS-2B Review Submission",
+      "status": "queued",
+      "conclusion": null
+    },
+    {
+      "id": 45493969573,
+      "name": "Admin Performance V2 Read-Only",
+      "status": "in_progress",
+      "conclusion": null
+    },
+    {
+      "id": 45493969511,
+      "name": "Playwright E2E and production smoke",
+      "status": "in_progress",
+      "conclusion": null
+    },
+    {
+      "id": 45493969348,
+      "name": "SITEWIDE-AI-ENTITY-SURFACE-1 validation",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 45493969522,
+      "name": "REVIEWS-3 Admin Moderation",
+      "status": "in_progress",
+      "conclusion": null
+    },
+    {
+      "id": 45493969376,
+      "name": "PUBLIC-WEB-PERF-10 focused regression gate",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 45493969423,
+      "name": "REVIEWS-1B Public Read UI",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 45493969586,
+      "name": "PSIPEDIA — Knip unused-code audit",
+      "status": "in_progress",
+      "conclusion": null
+    },
+    {
+      "id": 45493969604,
+      "name": "Admin Stability Read-Only Regression",
+      "status": "queued",
+      "conclusion": null
+    }
+  ],
+  "open": [
+    "Obtain green required and relevant independent checks on exact final head.",
+    "Validate all four review browser workflows and artifact consumers in actual CI, including ready-for-review paths.",
+    "Prove coverage parity for remaining independent workflow-only tests before replacing or retiring them.",
+    "Run a controlled paired benchmark using equivalent workloads and runner profiles; report end-to-end duration and runner time separately.",
+    "Separate owner approval for merge and production operations."
+  ]
+}

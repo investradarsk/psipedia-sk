@@ -14,6 +14,7 @@ const AdminQuickNavigationDialog = dynamic(
 
 export function AdminQuickNavigation() {
   const [open, setOpen] = useState(false);
+  const [ready, setReady] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -24,7 +25,11 @@ export function AdminQuickNavigation() {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const frame = window.requestAnimationFrame(() => setReady(true));
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, []);
 
   function changeOpen(value: boolean) {
@@ -42,6 +47,8 @@ export function AdminQuickNavigation() {
         aria-haspopup="dialog"
         aria-expanded={open}
         data-admin-quick-nav-trigger
+        data-admin-hydrated={ready ? "true" : "false"}
+        disabled={!ready}
         onClick={() => setOpen(true)}
       >
         <Search size={16} aria-hidden="true" />

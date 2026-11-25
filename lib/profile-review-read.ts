@@ -51,6 +51,7 @@ export type PublicReviewProviderReply = {
 export type PublicProfileReview = {
   id: string;
   displayName: string;
+  guestUnverified?: boolean;
   overallRating: number;
   body: string;
   serviceMonth: string | null;
@@ -101,6 +102,7 @@ type ReviewRow = {
   created_at: string;
   published_at: string | null;
   display_name: string | null;
+  guest_unverified?: number;
   reply_body: string | null;
   reply_created_at: string | null;
   helpful_count: number;
@@ -235,6 +237,7 @@ async function loadReviewRows(
       review.created_at,
       review.published_at,
       author.display_name,
+      CASE WHEN author.id LIKE 'guest-review:%' THEN 1 ELSE 0 END AS guest_unverified,
       reply.body AS reply_body,
       reply.created_at AS reply_created_at,
       COALESCE(helpful.helpful_count, 0) AS helpful_count
@@ -320,6 +323,7 @@ export async function getPublicProfileReviewData(
   const reviews: PublicProfileReview[] = reviewRows.map((row) => ({
     id: row.id,
     displayName: safePublicReviewDisplayName(row.display_name),
+    ...(row.guest_unverified === 1 ? { guestUnverified: true } : {}),
     overallRating: Number(row.overall_rating),
     body: row.body,
     serviceMonth: safePublicServiceMonth(row.service_month),
@@ -354,6 +358,7 @@ export async function getPublicProfileReviewData(
 export type PublicProfileReviewFeedItem = {
   id: string;
   displayName: string;
+  guestUnverified?: boolean;
   overallRating: number;
   body: string;
   publishedAt: string;
@@ -370,6 +375,7 @@ type PublicProfileReviewFeedRow = {
   created_at: string;
   published_at: string | null;
   display_name: string | null;
+  guest_unverified?: number;
   entity_type: string;
   directory_name: string | null;
   directory_slug: string | null;
@@ -390,6 +396,7 @@ export async function listLatestPublicProfileReviews(
       review.created_at,
       review.published_at,
       author.display_name,
+      CASE WHEN author.id LIKE 'guest-review:%' THEN 1 ELSE 0 END AS guest_unverified,
       resource.entity_type,
       directory.name AS directory_name,
       directory.slug AS directory_slug,
@@ -423,12 +430,13 @@ export async function listLatestPublicProfileReviews(
     ORDER BY COALESCE(review.published_at, review.created_at) DESC, review.id DESC
     LIMIT ?`).bind(safeLimit).all<PublicProfileReviewFeedRow>();
 
-  return results.flatMap((row) => {
+  return results.flatMap<PublicProfileReviewFeedItem>((row) => {
     if (row.entity_type === "DIRECTORY_PROFILE") {
       if (!row.directory_name || !row.directory_slug || !row.directory_category) return [];
       return [{
         id: row.id,
         displayName: safePublicReviewDisplayName(row.display_name),
+        ...(row.guest_unverified === 1 ? { guestUnverified: true } : {}),
         overallRating: Number(row.overall_rating),
         body: row.body,
         publishedAt: row.published_at || row.created_at,
@@ -443,6 +451,7 @@ export async function listLatestPublicProfileReviews(
       return [{
         id: row.id,
         displayName: safePublicReviewDisplayName(row.display_name),
+        ...(row.guest_unverified === 1 ? { guestUnverified: true } : {}),
         overallRating: Number(row.overall_rating),
         body: row.body,
         publishedAt: row.published_at || row.created_at,

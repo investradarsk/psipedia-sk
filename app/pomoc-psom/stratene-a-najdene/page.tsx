@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicHelpSectionNav } from "@/components/public-visual-system/public-help-category-nav";
 import premiumStyles from "@/components/help-public-premium.module.css";
 import { Breadcrumbs } from "@/components/page-system";
 import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
@@ -65,6 +66,7 @@ export default async function LostFoundHubPage() {
             />
           </UnifiedSectionHeroShell>
 
+          <PublicHelpSectionNav current="stratene-a-najdene" reportScope="all" />
           <PublicHelpPhotoBanner promo={lostFoundSubmitPromo} />
 
           <PublicContentShell variant="listing" className="page-body">

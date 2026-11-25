@@ -65,6 +65,16 @@ jobs:
         run: node scripts/check-ci-scope.mjs
       - name: Validate two-stage editor CI guard
         run: node --test tests/ci-two-stage-guards.test.mjs
+      - name: Validate shared-build contract
+        run: node --test tests/ci-v2-shared-build.test.mjs
+      - name: Validate CI V2 changed-file selection
+        run: node --test tests/ci-v2-scope.test.mjs tests/ci-v2-npm-groups.test.mjs tests/ci-v2-unit-integration.test.mjs tests/ci-v2-review-e2e.test.mjs tests/ci-v2-result-gate.test.mjs
+      - name: Report selected test groups
+        env:
+          TEST_GROUPS: ${{ steps.required-scope.outputs.test_groups }}
+          UNKNOWN_COUNT: ${{ steps.required-scope.outputs.unknown_count }}
+        run: |
+          printf 'CI V2 groups (transition plan): %s\nUnclassified files: %s\n' "$TEST_GROUPS" "$UNKNOWN_COUNT"
       - name: Install dependencies
         if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm ci
@@ -184,7 +194,7 @@ jobs:
           const files = readFileSync(process.env.RUNNER_TEMP + "/ds0b-changed-files", "utf8").split("\0").filter(Boolean);
           if (!files.length) throw new Error("Untrusted empty DS-0B diff range");
           const publicContracts = [
-            /^app\/(?:layout\.tsx|globals\.css)$/,
+            /^app\/(?:layout\.tsx|globals\.css|design-system\.css|premium-foundation\.css)$/,
             /^scripts\/start-public-regression-ci\.sh$/,
             /^tests\/fixtures\/public-regression-ci\.sql$/,
             /^components\/(?:public-visual-system\/|detail-primitives\/|directory-|help-|events?-|reviews-hub\.tsx$|editorial-|home-portal-search\.tsx$|public-filter-disclosure\.tsx$|page-system\.tsx$|site-header|site-footer|cookie-consent)/,
@@ -305,14 +315,21 @@ jobs:
   # Run the actual breed regression separately on manual/scheduled full-core runs.
   required-breed-check:
     name: Breed CI bootstrap, all-breed regression and Playwright
-    needs: validate
+    needs: [validate, ds-0b-focused-regression, admin-interaction-e2e, admin-events-e2e, search-e2e, directory-e2e, seo-recovery-e2e, lost-found-public-e2e]
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Honor mandatory build and regression gate
-        run: |
-          test "${{ needs.validate.result }}" = "success"
-          echo "Required build/scope validation passed; full breed browser regression is reserved for full-core manual/scheduled runs."
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Evaluate selected job outcomes and publish CI summary
+        env:
+          CI_GATE_NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci-result-gate.mjs central
 
   pull-request-e2e:
     name: Full breed CI bootstrap, all-breed regression and Playwright (manual/scheduled)
@@ -641,6 +658,16 @@ jobs:
         with:
           name: validated-build-${{ github.sha }}
           path: .
+      - name: Verify build revision and deployment artifact
+        run: |
+          test "$(cat ci-build-revision.txt)" = "$(git rev-parse HEAD)"
+          npm run validate:deploy-artifact
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { fingerprintDirectory } from './scripts/validate-deploy-artifact.mjs';
+          const expected = readFileSync('ci-build-fingerprint.txt', 'utf8').trim();
+          if ((await fingerprintDirectory('dist')).fingerprint !== expected) throw new Error('Validated build fingerprint mismatch');
+          NODE
       - name: Apply schema to isolated local D1 only
         run: |
           mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql

@@ -121,6 +121,7 @@ function ProfileReviewCard({ review }: { review: PublicProfileReview }) {
       <header className={styles.reviewHeader}>
         <div>
           <strong className={styles.author}>{review.displayName}</strong>
+          {review.guestUnverified ? <small>Autor bez e-mailového overenia</small> : null}
           {reviewDate ? <time dateTime={review.publishedAt}>{reviewDate}</time> : null}
         </div>
         <RatingStars rating={review.overallRating} />
@@ -185,19 +186,25 @@ export function ProfileReviewSection({
   baseHref,
   readError = false,
   compactHeading = false,
+  sectionId = "recenzie",
+  paginationHref,
 }: {
   data: PublicProfileReviewData | null;
   baseHref: string;
   readError?: boolean;
   compactHeading?: boolean;
+  sectionId?: string;
+  paginationHref?: (page: number) => string;
 }) {
+  const headingId = sectionId === "recenzie" ? "profile-reviews-heading" : `${sectionId}-heading`;
   const reviewSubmissionEnabled = profileReviewSubmissionEnabled();
+  const pageHref = paginationHref ?? ((page: number) => reviewPageHref(baseHref, page));
 
   if (readError || !data) {
     return (
-      <section className={styles.section} id="recenzie" aria-labelledby="profile-reviews-heading">
+      <section className={styles.section} id={sectionId} aria-labelledby={headingId}>
         {!compactHeading ? <span className={styles.eyebrow}>Skúsenosti používateľov</span> : null}
-        <h2 className={compactHeading ? styles.compactHeading : undefined} id="profile-reviews-heading">Recenzie</h2>
+        <h2 className={compactHeading ? styles.compactHeading : undefined} id={headingId}>Recenzie</h2>
         <div className={styles.zeroState}>
           <strong>Recenzie sa momentálne nepodarilo načítať.</strong>
           <p>Profil zostáva dostupný; hodnotenia skúste zobraziť neskôr.</p>
@@ -208,9 +215,9 @@ export function ProfileReviewSection({
 
   if (data.summary.count === 0) {
     return (
-      <section className={styles.section} id="recenzie" aria-labelledby="profile-reviews-heading">
+      <section className={styles.section} id={sectionId} aria-labelledby={headingId}>
         {!compactHeading ? <span className={styles.eyebrow}>Skúsenosti používateľov</span> : null}
-        <h2 className={compactHeading ? styles.compactHeading : undefined} id="profile-reviews-heading">Recenzie</h2>
+        <h2 className={compactHeading ? styles.compactHeading : undefined} id={headingId}>Recenzie</h2>
         <div className={styles.zeroState} data-review-zero-state>
           <strong>Zatiaľ bez recenzií</strong>
           <p>Tento profil zatiaľ nemá hodnotenia používateľov Psipedia.sk.</p>
@@ -222,9 +229,9 @@ export function ProfileReviewSection({
 
   const average = formatRating(data.summary.average);
   return (
-    <section className={styles.section} id="recenzie" aria-labelledby="profile-reviews-heading">
+    <section className={styles.section} id={sectionId} aria-labelledby={headingId}>
       {!compactHeading ? <span className={styles.eyebrow}>Skúsenosti používateľov</span> : null}
-      <h2 className={compactHeading ? styles.compactHeading : undefined} id="profile-reviews-heading">Recenzie</h2>
+      <h2 className={compactHeading ? styles.compactHeading : undefined} id={headingId}>Recenzie</h2>
       {reviewSubmissionEnabled ? <ReviewSubmissionCta resourceId={data.resourceId} /> : null}
 
       <div className={styles.summary}>
@@ -246,15 +253,15 @@ export function ProfileReviewSection({
           label="Stránkovanie recenzií"
           currentPage={data.pagination.page}
           totalPages={data.pagination.totalPages}
-          pageHref={(page) => reviewPageHref(baseHref, page)}
+          pageHref={(page) => pageHref(page)}
           previousHref={
             data.pagination.page > 1
-              ? reviewPageHref(baseHref, data.pagination.page - 1)
+              ? pageHref(data.pagination.page - 1)
               : undefined
           }
           nextHref={
             data.pagination.page < data.pagination.totalPages
-              ? reviewPageHref(baseHref, data.pagination.page + 1)
+              ? pageHref(data.pagination.page + 1)
               : undefined
           }
           previousLabel="← Predchádzajúce"

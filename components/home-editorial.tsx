@@ -8,6 +8,7 @@ import { articlePortalSection } from "@/lib/portal";
 import { ArticleCard } from "@/components/article-card";
 import { BreedPhoto } from "@/components/breed-photo";
 import { ArrowIcon } from "@/components/icons";
+import sidebarStyles from "./article-popularity-sidebar.module.css";
 
 function HomeArticleFeatureLayout({ articles, testId }: { articles: Article[]; testId: string }) {
   const [lead, ...secondary] = articles;
@@ -84,16 +85,20 @@ export function HomeSidebarRow({
   description?: ReactNode;
 }) {
   return (
-    <Link prefetch={false} href={href} className="home-side-unified-row" data-home-sidebar-row>
-      <span className="home-side-unified-media">{media}</span>
-      <span className="home-side-unified-copy">
+    <Link
+      prefetch={false}
+      href={href}
+      className={`home-side-unified-row ${sidebarStyles.contextRow}`}
+      data-home-sidebar-row
+    >
+      <span className={`home-side-unified-media ${sidebarStyles.thumbnail}`}>{media}</span>
+      <span className={`home-side-unified-copy ${sidebarStyles.itemText}`}>
         {eyebrow ? <small className="home-side-unified-eyebrow">{eyebrow}</small> : null}
         <strong>{title}</strong>
         {description ? (
           <small className="home-side-unified-description">{description}</small>
         ) : null}
       </span>
-      <ArrowIcon size={17} />
     </Link>
   );
 }
@@ -110,8 +115,8 @@ export function HomeMagazineSidebar({
   children: ReactNode;
 }) {
   return (
-    <section className="home-magazine-sidebar-block">
-      <div className="home-magazine-sidebar-heading">
+    <section className={`home-magazine-sidebar-block ${sidebarStyles.popularity}`}>
+      <div className={`home-magazine-sidebar-heading ${sidebarStyles.header}`}>
         <h3>{title}</h3>
       </div>
       {children}

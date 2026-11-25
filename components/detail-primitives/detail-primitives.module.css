@@ -170,10 +170,10 @@
   font-size: 0.85rem;
 }
 .lead {
-  margin: 12px 0 16px;
+  margin: 12px 0 var(--ps-reading-paragraph-gap);
   color: var(--ps-reading-color);
   font-family: var(--ps-reading-font);
-  font-size: var(--ps-reading-size);
+  font-size: var(--ps-reading-lead-size);
   line-height: var(--ps-reading-leading);
 }
 .heroActions {
@@ -1402,4 +1402,10 @@
 .card[data-public-contact-panel] .facts dd {
   font-size: 1rem;
   line-height: 1.6;
+}
+
+/* Compact main reading cards; facts and contact panels retain their own scale. */
+.body .section,
+.contentMain .section {
+  padding: var(--ps-reading-card-padding);
 }

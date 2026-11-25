@@ -1,0 +1,2945 @@
+{
+  "method": "Successful PR workflow sample with run timestamps; selected jobs use actual started_at/completed_at and step durations. Compare same workflow and same step labels only as observational reference. Different revisions, scope, runners and queue conditions are confounders. Exclude canceled/skipped from timing baseline; elapsed run is not billed runner time. Not a before-after CI V2 benchmark.",
+  "sample": [
+    {
+      "id": 45490453371,
+      "path": ".github/workflows/public-listings-qa.yml",
+      "head": "56c1dea35455f6c0988e311b69104feec886bf8d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:22:33Z",
+      "updated": "2026-11-24T21:22:48Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 15
+    },
+    {
+      "id": 45490453708,
+      "path": ".github/workflows/image-editor-2-ci.yml",
+      "head": "56c1dea35455f6c0988e311b69104feec886bf8d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:22:33Z",
+      "updated": "2026-11-24T21:23:23Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 50
+    },
+    {
+      "id": 45490453593,
+      "path": ".github/workflows/public-ds5-cards.yml",
+      "head": "56c1dea35455f6c0988e311b69104feec886bf8d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:22:33Z",
+      "updated": "2026-11-24T21:23:05Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 32
+    },
+    {
+      "id": 45490339724,
+      "path": ".github/workflows/notion-manual-transfer-ci.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:04Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 11
+    },
+    {
+      "id": 45490339847,
+      "path": ".github/workflows/services-v3-public-canonical-filter.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:09Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 16
+    },
+    {
+      "id": 45490340026,
+      "path": ".github/workflows/directory-0173-sql-detail-read.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:11Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 18
+    },
+    {
+      "id": 45490340158,
+      "path": ".github/workflows/admin-typography-contracts.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:18Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 25
+    },
+    {
+      "id": 45490340173,
+      "path": ".github/workflows/admin-duplication-inventory.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:29Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 36
+    },
+    {
+      "id": 45490339926,
+      "path": ".github/workflows/notion-profile-lossless-sync.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:28Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 35
+    },
+    {
+      "id": 45490340041,
+      "path": ".github/workflows/data-quality-contact-sql-parity.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:19Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 26
+    },
+    {
+      "id": 45490339907,
+      "path": ".github/workflows/directory-sql-0173-offline.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:22Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 29
+    },
+    {
+      "id": 45490340000,
+      "path": ".github/workflows/d1-directory-canonical-reads.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:26Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 33
+    },
+    {
+      "id": 45490340092,
+      "path": ".github/workflows/directory-notion-0173-atomic-fields.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:59Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 66
+    },
+    {
+      "id": 45490339961,
+      "path": ".github/workflows/image-editor-2-ci.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:07Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 14
+    },
+    {
+      "id": 45490339787,
+      "path": ".github/workflows/directory-0173-review-lock-sql-read.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:11Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 18
+    },
+    {
+      "id": 45490340097,
+      "path": ".github/workflows/open-source-production-ui.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:22:42Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 49
+    },
+    {
+      "id": 45490339809,
+      "path": ".github/workflows/notion-article-sync-ci.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:23:20Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 87
+    },
+    {
+      "id": 45490340104,
+      "path": ".github/workflows/admin-performance-v2.yml",
+      "head": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:21:53Z",
+      "updated": "2026-11-24T21:23:28Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 95
+    },
+    {
+      "id": 45490117127,
+      "path": ".github/workflows/admin-duplication-inventory.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:20:45Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 12
+    },
+    {
+      "id": 45490117255,
+      "path": ".github/workflows/data-quality-contact-sql-parity.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:21:00Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 27
+    },
+    {
+      "id": 45490117159,
+      "path": ".github/workflows/directory-0173-sql-detail-read.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:20:58Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 25
+    },
+    {
+      "id": 45490117121,
+      "path": ".github/workflows/image-editor-2-ci.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:20:48Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 15
+    },
+    {
+      "id": 45490117179,
+      "path": ".github/workflows/notion-manual-transfer-ci.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:20:43Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 10
+    },
+    {
+      "id": 45490116015,
+      "path": ".github/workflows/services-v3-public-canonical-filter.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:20:49Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 16
+    },
+    {
+      "id": 45490116368,
+      "path": ".github/workflows/directory-notion-0173-atomic-fields.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:21:07Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 34
+    },
+    {
+      "id": 45490116307,
+      "path": ".github/workflows/notion-profile-lossless-sync.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:21:02Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 29
+    },
+    {
+      "id": 45490117161,
+      "path": ".github/workflows/directory-sql-0173-offline.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:21:04Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 31
+    },
+    {
+      "id": 45490117128,
+      "path": ".github/workflows/admin-typography-contracts.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:21:14Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 41
+    },
+    {
+      "id": 45490117174,
+      "path": ".github/workflows/open-source-production-ui.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:21:19Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 46
+    },
+    {
+      "id": 45490117137,
+      "path": ".github/workflows/directory-0173-review-lock-sql-read.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:21:21Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 48
+    },
+    {
+      "id": 45490117157,
+      "path": ".github/workflows/d1-directory-canonical-reads.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:21:38Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 65
+    },
+    {
+      "id": 45490117254,
+      "path": ".github/workflows/notion-article-sync-ci.yml",
+      "head": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:20:33Z",
+      "updated": "2026-11-24T21:21:32Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 59
+    },
+    {
+      "id": 45489814474,
+      "path": ".github/workflows/knip-audit.yml",
+      "head": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+      "branch": "feat/ci-v2-consolidation-20261124",
+      "started": "2026-11-24T21:18:47Z",
+      "updated": "2026-11-24T21:19:49Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 62
+    },
+    {
+      "id": 45489814469,
+      "path": ".github/workflows/admin-performance-v2.yml",
+      "head": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+      "branch": "feat/ci-v2-consolidation-20261124",
+      "started": "2026-11-24T21:18:47Z",
+      "updated": "2026-11-24T21:20:21Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 94
+    },
+    {
+      "id": 45489814418,
+      "path": ".github/workflows/admin-stability-regressions.yml",
+      "head": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+      "branch": "feat/ci-v2-consolidation-20261124",
+      "started": "2026-11-24T21:18:47Z",
+      "updated": "2026-11-24T21:21:18Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 151
+    },
+    {
+      "id": 45489465777,
+      "path": ".github/workflows/directory-notion-0173-atomic-fields.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:19:30Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 164
+    },
+    {
+      "id": 45489465895,
+      "path": ".github/workflows/notion-profile-lossless-sync.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:19:32Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 166
+    },
+    {
+      "id": 45489465782,
+      "path": ".github/workflows/image-editor-2-ci.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:17:20Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 34
+    },
+    {
+      "id": 45489465531,
+      "path": ".github/workflows/d1-directory-canonical-reads.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:17:21Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 35
+    },
+    {
+      "id": 45489465987,
+      "path": ".github/workflows/notion-manual-transfer-ci.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:17:22Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 36
+    },
+    {
+      "id": 45489465324,
+      "path": ".github/workflows/directory-0173-sql-detail-read.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:17:02Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 16
+    },
+    {
+      "id": 45489465310,
+      "path": ".github/workflows/directory-0173-review-lock-sql-read.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:17:20Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 34
+    },
+    {
+      "id": 45489465384,
+      "path": ".github/workflows/notion-article-sync-ci.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:18:08Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 82
+    },
+    {
+      "id": 45489465735,
+      "path": ".github/workflows/open-source-production-ui.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:17:48Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 62
+    },
+    {
+      "id": 45489465592,
+      "path": ".github/workflows/admin-duplication-inventory.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:18:43Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 117
+    },
+    {
+      "id": 45489465395,
+      "path": ".github/workflows/data-quality-contact-sql-parity.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:18:42Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 116
+    },
+    {
+      "id": 45489466026,
+      "path": ".github/workflows/services-v3-public-canonical-filter.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:19:05Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 139
+    },
+    {
+      "id": 45489465980,
+      "path": ".github/workflows/notion-conflict-quality-ci.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:19:07Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 141
+    },
+    {
+      "id": 45489465810,
+      "path": ".github/workflows/admin-typography-contracts.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:19:02Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 136
+    },
+    {
+      "id": 45489465876,
+      "path": ".github/workflows/directory-sql-0173-offline.yml",
+      "head": "b44bea58eba59792526553464090b00a4c1e6e6f",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:46Z",
+      "updated": "2026-11-24T21:18:30Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 104
+    },
+    {
+      "id": 45489356276,
+      "path": ".github/workflows/data-quality-contact-sql-parity.yml",
+      "head": "869f2ba6836c0f792ef302c97762585a9c9db3c7",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:08Z",
+      "updated": "2026-11-24T21:17:07Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 59
+    },
+    {
+      "id": 45489356337,
+      "path": ".github/workflows/admin-duplication-inventory.yml",
+      "head": "869f2ba6836c0f792ef302c97762585a9c9db3c7",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:08Z",
+      "updated": "2026-11-24T21:17:15Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 67
+    },
+    {
+      "id": 45489356451,
+      "path": ".github/workflows/directory-0173-review-lock-sql-read.yml",
+      "head": "869f2ba6836c0f792ef302c97762585a9c9db3c7",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:08Z",
+      "updated": "2026-11-24T21:16:34Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 26
+    },
+    {
+      "id": 45489356369,
+      "path": ".github/workflows/image-editor-2-ci.yml",
+      "head": "869f2ba6836c0f792ef302c97762585a9c9db3c7",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:08Z",
+      "updated": "2026-11-24T21:16:42Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 34
+    },
+    {
+      "id": 45489356618,
+      "path": ".github/workflows/directory-sql-0173-offline.yml",
+      "head": "869f2ba6836c0f792ef302c97762585a9c9db3c7",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:08Z",
+      "updated": "2026-11-24T21:16:35Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 27
+    },
+    {
+      "id": 45489356708,
+      "path": ".github/workflows/open-source-production-ui.yml",
+      "head": "869f2ba6836c0f792ef302c97762585a9c9db3c7",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:08Z",
+      "updated": "2026-11-24T21:16:47Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 39
+    },
+    {
+      "id": 45489356268,
+      "path": ".github/workflows/services-v3-public-canonical-filter.yml",
+      "head": "869f2ba6836c0f792ef302c97762585a9c9db3c7",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:16:08Z",
+      "updated": "2026-11-24T21:17:03Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 55
+    },
+    {
+      "id": 45489144022,
+      "path": ".github/workflows/admin-performance-v2.yml",
+      "head": "d21f4c6e22ad9f9a27a191717b07963eeda1ec1e",
+      "branch": "feat/ci-v2-consolidation-20261124",
+      "started": "2026-11-24T21:14:55Z",
+      "updated": "2026-11-24T21:16:29Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 94
+    },
+    {
+      "id": 45489143878,
+      "path": ".github/workflows/knip-audit.yml",
+      "head": "d21f4c6e22ad9f9a27a191717b07963eeda1ec1e",
+      "branch": "feat/ci-v2-consolidation-20261124",
+      "started": "2026-11-24T21:14:55Z",
+      "updated": "2026-11-24T21:15:45Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 50
+    },
+    {
+      "id": 45488719067,
+      "path": ".github/workflows/article-ux-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:29Z",
+      "updated": "2026-11-24T21:19:05Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 396
+    },
+    {
+      "id": 45488719030,
+      "path": ".github/workflows/outreach-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:29Z",
+      "updated": "2026-11-24T21:19:08Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 399
+    },
+    {
+      "id": 45488718861,
+      "path": ".github/workflows/map-read-api-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:29Z",
+      "updated": "2026-11-24T21:19:17Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 408
+    },
+    {
+      "id": 45488719031,
+      "path": ".github/workflows/partner-auth-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:29Z",
+      "updated": "2026-11-24T21:22:08Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 579
+    },
+    {
+      "id": 45488718950,
+      "path": ".github/workflows/public-listings-qa.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:29Z",
+      "updated": "2026-11-24T21:12:51Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 22
+    },
+    {
+      "id": 45488718851,
+      "path": ".github/workflows/public-ds5-cards.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:29Z",
+      "updated": "2026-11-24T21:13:02Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 33
+    },
+    {
+      "id": 45488718547,
+      "path": ".github/workflows/profile-review-submission-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:28Z",
+      "updated": "2026-11-24T21:20:09Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 461
+    },
+    {
+      "id": 45488718648,
+      "path": ".github/workflows/profile-reviews-public-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:28Z",
+      "updated": "2026-11-24T21:20:10Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 462
+    },
+    {
+      "id": 45488718491,
+      "path": ".github/workflows/review-author-auth-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:28Z",
+      "updated": "2026-11-24T21:21:19Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 531
+    },
+    {
+      "id": 45488718606,
+      "path": ".github/workflows/pr-visual-evidence.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:28Z",
+      "updated": "2026-11-24T21:18:25Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 357
+    },
+    {
+      "id": 45488718481,
+      "path": ".github/workflows/admin-stability-regressions.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:28Z",
+      "updated": "2026-11-24T21:14:51Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 143
+    },
+    {
+      "id": 45488718447,
+      "path": ".github/workflows/organization-profile-e2e.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:28Z",
+      "updated": "2026-11-24T21:16:16Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 228
+    },
+    {
+      "id": 45488718754,
+      "path": ".github/workflows/admin-pwa-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:28Z",
+      "updated": "2026-11-24T21:16:24Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 236
+    },
+    {
+      "id": 45488718442,
+      "path": ".github/workflows/map-production-launch-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:28Z",
+      "updated": "2026-11-24T21:16:22Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 234
+    },
+    {
+      "id": 45488718595,
+      "path": ".github/workflows/homepage-name-days-ci.yml",
+      "head": "bbe9689da2b083b8c874b3f99f08f8c1e94ad01d",
+      "branch": "feat/public-design-system-v2-premium-editorial",
+      "started": "2026-11-24T21:12:28Z",
+      "updated": "2026-11-24T21:17:02Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 274
+    },
+    {
+      "id": 45488573202,
+      "path": ".github/workflows/admin-stability-regressions.yml",
+      "head": "f3cf0b39df0b6acf275b4d59e313989df70bacfd",
+      "branch": "feat/ci-v2-consolidation-20261124",
+      "started": "2026-11-24T21:11:38Z",
+      "updated": "2026-11-24T21:13:47Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 129
+    },
+    {
+      "id": 45488573203,
+      "path": ".github/workflows/knip-audit.yml",
+      "head": "f3cf0b39df0b6acf275b4d59e313989df70bacfd",
+      "branch": "feat/ci-v2-consolidation-20261124",
+      "started": "2026-11-24T21:11:38Z",
+      "updated": "2026-11-24T21:12:20Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 42
+    },
+    {
+      "id": 45488573293,
+      "path": ".github/workflows/admin-performance-v2.yml",
+      "head": "f3cf0b39df0b6acf275b4d59e313989df70bacfd",
+      "branch": "feat/ci-v2-consolidation-20261124",
+      "started": "2026-11-24T21:11:38Z",
+      "updated": "2026-11-24T21:13:16Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 98
+    },
+    {
+      "id": 45488511631,
+      "path": ".github/workflows/d1-directory-canonical-reads.yml",
+      "head": "28b9ac40a56169cbc9b082873a88f7402cbc39f2",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:11:17Z",
+      "updated": "2026-11-24T21:12:26Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 69
+    },
+    {
+      "id": 45488511656,
+      "path": ".github/workflows/data-quality-contact-sql-parity.yml",
+      "head": "28b9ac40a56169cbc9b082873a88f7402cbc39f2",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:11:17Z",
+      "updated": "2026-11-24T21:11:47Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 30
+    },
+    {
+      "id": 45488511687,
+      "path": ".github/workflows/directory-0173-sql-detail-read.yml",
+      "head": "28b9ac40a56169cbc9b082873a88f7402cbc39f2",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:11:17Z",
+      "updated": "2026-11-24T21:11:45Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 28
+    },
+    {
+      "id": 45488511792,
+      "path": ".github/workflows/directory-0173-review-lock-sql-read.yml",
+      "head": "28b9ac40a56169cbc9b082873a88f7402cbc39f2",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:11:17Z",
+      "updated": "2026-11-24T21:12:01Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 44
+    },
+    {
+      "id": 45488511728,
+      "path": ".github/workflows/directory-sql-0173-offline.yml",
+      "head": "28b9ac40a56169cbc9b082873a88f7402cbc39f2",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:11:17Z",
+      "updated": "2026-11-24T21:12:05Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 48
+    },
+    {
+      "id": 45488511450,
+      "path": ".github/workflows/services-v3-public-canonical-filter.yml",
+      "head": "28b9ac40a56169cbc9b082873a88f7402cbc39f2",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:11:17Z",
+      "updated": "2026-11-24T21:11:40Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 23
+    },
+    {
+      "id": 45488511454,
+      "path": ".github/workflows/image-editor-2-ci.yml",
+      "head": "28b9ac40a56169cbc9b082873a88f7402cbc39f2",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:11:17Z",
+      "updated": "2026-11-24T21:11:41Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 24
+    },
+    {
+      "id": 45488511623,
+      "path": ".github/workflows/directory-notion-0173-atomic-fields.yml",
+      "head": "28b9ac40a56169cbc9b082873a88f7402cbc39f2",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:11:17Z",
+      "updated": "2026-11-24T21:11:56Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 39
+    },
+    {
+      "id": 45488511652,
+      "path": ".github/workflows/notion-profile-lossless-sync.yml",
+      "head": "28b9ac40a56169cbc9b082873a88f7402cbc39f2",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:11:17Z",
+      "updated": "2026-11-24T21:12:14Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 57
+    },
+    {
+      "id": 45488437971,
+      "path": ".github/workflows/data-quality-contact-sql-parity.yml",
+      "head": "0a65d6093036c426b4e7a6ea72e460634df978bc",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:10:52Z",
+      "updated": "2026-11-24T21:11:30Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 38
+    },
+    {
+      "id": 45488437813,
+      "path": ".github/workflows/services-v3-public-canonical-filter.yml",
+      "head": "0a65d6093036c426b4e7a6ea72e460634df978bc",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:10:52Z",
+      "updated": "2026-11-24T21:11:04Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 12
+    },
+    {
+      "id": 45488437902,
+      "path": ".github/workflows/image-editor-2-ci.yml",
+      "head": "0a65d6093036c426b4e7a6ea72e460634df978bc",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:10:52Z",
+      "updated": "2026-11-24T21:11:18Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 26
+    },
+    {
+      "id": 45488216705,
+      "path": ".github/workflows/notion-profile-lossless-sync.yml",
+      "head": "7b8e635e1b88c880beda9626d47aa4f5a1e207df",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:09:35Z",
+      "updated": "2026-11-24T21:10:29Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 54
+    },
+    {
+      "id": 45488216840,
+      "path": ".github/workflows/image-editor-2-ci.yml",
+      "head": "7b8e635e1b88c880beda9626d47aa4f5a1e207df",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:09:35Z",
+      "updated": "2026-11-24T21:10:23Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 48
+    },
+    {
+      "id": 45488216765,
+      "path": ".github/workflows/directory-0173-sql-detail-read.yml",
+      "head": "7b8e635e1b88c880beda9626d47aa4f5a1e207df",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:09:35Z",
+      "updated": "2026-11-24T21:10:37Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 62
+    },
+    {
+      "id": 45488216970,
+      "path": ".github/workflows/services-v3-public-canonical-filter.yml",
+      "head": "7b8e635e1b88c880beda9626d47aa4f5a1e207df",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:09:35Z",
+      "updated": "2026-11-24T21:10:57Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 82
+    },
+    {
+      "id": 45488216842,
+      "path": ".github/workflows/directory-sql-0173-offline.yml",
+      "head": "7b8e635e1b88c880beda9626d47aa4f5a1e207df",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:09:35Z",
+      "updated": "2026-11-24T21:09:57Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 22
+    },
+    {
+      "id": 45488216942,
+      "path": ".github/workflows/d1-directory-canonical-reads.yml",
+      "head": "7b8e635e1b88c880beda9626d47aa4f5a1e207df",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:09:35Z",
+      "updated": "2026-11-24T21:10:08Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 33
+    },
+    {
+      "id": 45488078920,
+      "path": ".github/workflows/notion-manual-transfer-ci.yml",
+      "head": "535566a1c40ee13c1b41dc56e1666a7a3fe0b725",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:08:45Z",
+      "updated": "2026-11-24T21:08:59Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 14
+    },
+    {
+      "id": 45488078972,
+      "path": ".github/workflows/directory-0173-sql-detail-read.yml",
+      "head": "535566a1c40ee13c1b41dc56e1666a7a3fe0b725",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:08:45Z",
+      "updated": "2026-11-24T21:09:14Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 29
+    },
+    {
+      "id": 45488078961,
+      "path": ".github/workflows/directory-sql-0173-offline.yml",
+      "head": "535566a1c40ee13c1b41dc56e1666a7a3fe0b725",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:08:45Z",
+      "updated": "2026-11-24T21:09:14Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 29
+    },
+    {
+      "id": 45488078834,
+      "path": ".github/workflows/notion-profile-lossless-sync.yml",
+      "head": "535566a1c40ee13c1b41dc56e1666a7a3fe0b725",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:08:45Z",
+      "updated": "2026-11-24T21:09:10Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 25
+    },
+    {
+      "id": 45488078927,
+      "path": ".github/workflows/services-v3-public-canonical-filter.yml",
+      "head": "535566a1c40ee13c1b41dc56e1666a7a3fe0b725",
+      "branch": "feat/admin-v6-postmerge-audit-20261124",
+      "started": "2026-11-24T21:08:45Z",
+      "updated": "2026-11-24T21:09:13Z",
+      "attempt": 1,
+      "conclusion": "success",
+      "elapsedSeconds": 28
+    }
+  ],
+  "selectedJobRuns": [
+    {
+      "id": 45486075989,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138772181077,
+          "name": "regression",
+          "workflow": "Admin Stability Read-Only Regression",
+          "sha": "72c4369cc2769ce25ebab04fa30a61f56492c648",
+          "branch": "feat/public-design-system-v2-premium-editorial",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T20:58:42Z",
+          "completed": "2026-11-24T21:00:36Z",
+          "seconds": 114,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:42Z",
+              "completed": "2026-11-24T20:58:43Z",
+              "seconds": 1
+            },
+            {
+              "name": "Check out requested commit",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:43Z",
+              "completed": "2026-11-24T20:58:46Z",
+              "seconds": 3
+            },
+            {
+              "name": "Configure Node",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:46Z",
+              "completed": "2026-11-24T20:58:54Z",
+              "seconds": 8
+            },
+            {
+              "name": "Install pinned dependencies (no production credentials)",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:54Z",
+              "completed": "2026-11-24T20:59:04Z",
+              "seconds": 10
+            },
+            {
+              "name": "Admin regression suite – steps 1 to 10",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:04Z",
+              "completed": "2026-11-24T20:59:09Z",
+              "seconds": 5
+            },
+            {
+              "name": "Synthetic SQLite query parity and diagnostic timings",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:09Z",
+              "completed": "2026-11-24T20:59:10Z",
+              "seconds": 1
+            },
+            {
+              "name": "TypeScript project regression gate against current main",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:10Z",
+              "completed": "2026-11-24T21:00:04Z",
+              "seconds": 54
+            },
+            {
+              "name": "Production-style build diagnostic (never deploy)",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:04Z",
+              "completed": "2026-11-24T21:00:30Z",
+              "seconds": 26
+            },
+            {
+              "name": "Upload full type diagnostic logs",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:30Z",
+              "completed": "2026-11-24T21:00:31Z",
+              "seconds": 1
+            },
+            {
+              "name": "Save local SQLite diagnostic artifact",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:31Z",
+              "completed": "2026-11-24T21:00:33Z",
+              "seconds": 2
+            },
+            {
+              "name": "Post Configure Node",
+              "number": 19,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:33Z",
+              "completed": "2026-11-24T21:00:33Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Check out requested commit",
+              "number": 20,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:33Z",
+              "completed": "2026-11-24T21:00:33Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 21,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:33Z",
+              "completed": "2026-11-24T21:00:33Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45486075871,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138771692659,
+          "name": "Migration gates, map regressions and build",
+          "workflow": "MAP-1E Launch Hardening",
+          "sha": "72c4369cc2769ce25ebab04fa30a61f56492c648",
+          "branch": "feat/public-design-system-v2-premium-editorial",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:12Z",
+          "completed": "2026-11-24T21:02:16Z",
+          "seconds": 304,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:13Z",
+              "completed": "2026-11-24T20:57:14Z",
+              "seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:14Z",
+              "completed": "2026-11-24T20:57:15Z",
+              "seconds": 1
+            },
+            {
+              "name": "Log revision evidence",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:15Z",
+              "completed": "2026-11-24T20:57:15Z",
+              "seconds": 0
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:15Z",
+              "completed": "2026-11-24T20:57:24Z",
+              "seconds": 9
+            },
+            {
+              "name": "Run npm ci",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:24Z",
+              "completed": "2026-11-24T20:57:39Z",
+              "seconds": 15
+            },
+            {
+              "name": "Production migration and history safety",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:39Z",
+              "completed": "2026-11-24T20:57:42Z",
+              "seconds": 3
+            },
+            {
+              "name": "MAP-1E launch, consent and privacy contracts",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:42Z",
+              "completed": "2026-11-24T20:57:42Z",
+              "seconds": 0
+            },
+            {
+              "name": "MAP-1B privacy regression",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:42Z",
+              "completed": "2026-11-24T20:57:48Z",
+              "seconds": 6
+            },
+            {
+              "name": "MAP-1C API regression",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:48Z",
+              "completed": "2026-11-24T20:57:49Z",
+              "seconds": 1
+            },
+            {
+              "name": "MAP-1D UI contract regression",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:49Z",
+              "completed": "2026-11-24T20:57:50Z",
+              "seconds": 1
+            },
+            {
+              "name": "Config contract",
+              "number": 11,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:50Z",
+              "completed": "2026-11-24T20:57:50Z",
+              "seconds": 0
+            },
+            {
+              "name": "Clean D1 validation",
+              "number": 12,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:50Z",
+              "completed": "2026-11-24T21:00:04Z",
+              "seconds": 134
+            },
+            {
+              "name": "Lint",
+              "number": 13,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:04Z",
+              "completed": "2026-11-24T21:01:31Z",
+              "seconds": 87
+            },
+            {
+              "name": "Production build",
+              "number": 14,
+              "conclusion": "success",
+              "started": "2026-11-24T21:01:31Z",
+              "completed": "2026-11-24T21:02:12Z",
+              "seconds": 41
+            },
+            {
+              "name": "Verify scoped 0063 manifest excludes later migrations",
+              "number": 15,
+              "conclusion": "success",
+              "started": "2026-11-24T21:02:12Z",
+              "completed": "2026-11-24T21:02:12Z",
+              "seconds": 0
+            },
+            {
+              "name": "Verify scoped 0064 manifest excludes 0065+",
+              "number": 16,
+              "conclusion": "success",
+              "started": "2026-11-24T21:02:12Z",
+              "completed": "2026-11-24T21:02:12Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "number": 31,
+              "conclusion": "success",
+              "started": "2026-11-24T21:02:12Z",
+              "completed": "2026-11-24T21:02:12Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "number": 32,
+              "conclusion": "success",
+              "started": "2026-11-24T21:02:12Z",
+              "completed": "2026-11-24T21:02:12Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 33,
+              "conclusion": "success",
+              "started": "2026-11-24T21:02:12Z",
+              "completed": "2026-11-24T21:02:12Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45486076029,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138771706130,
+          "name": "Organization profile — desktop/mobile, Axe and overflow",
+          "workflow": "Organization profile E2E",
+          "sha": "72c4369cc2769ce25ebab04fa30a61f56492c648",
+          "branch": "feat/public-design-system-v2-premium-editorial",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:13Z",
+          "completed": "2026-11-24T21:00:18Z",
+          "seconds": 185,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:14Z",
+              "completed": "2026-11-24T20:57:16Z",
+              "seconds": 2
+            },
+            {
+              "name": "Checkout PR merge ref",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:16Z",
+              "completed": "2026-11-24T20:57:22Z",
+              "seconds": 6
+            },
+            {
+              "name": "Log revision evidence",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:22Z",
+              "completed": "2026-11-24T20:57:22Z",
+              "seconds": 0
+            },
+            {
+              "name": "Set up Node.js",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:22Z",
+              "completed": "2026-11-24T20:57:31Z",
+              "seconds": 9
+            },
+            {
+              "name": "Install dependencies",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:31Z",
+              "completed": "2026-11-24T20:57:40Z",
+              "seconds": 9
+            },
+            {
+              "name": "Install Chromium and system dependencies",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:40Z",
+              "completed": "2026-11-24T20:58:08Z",
+              "seconds": 28
+            },
+            {
+              "name": "Build PR code",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:08Z",
+              "completed": "2026-11-24T20:58:35Z",
+              "seconds": 27
+            },
+            {
+              "name": "Configure CI-only local PII keys",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:35Z",
+              "completed": "2026-11-24T20:58:35Z",
+              "seconds": 0
+            },
+            {
+              "name": "Apply foundation migrations to isolated local D1 only",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:35Z",
+              "completed": "2026-11-24T20:59:07Z",
+              "seconds": 32
+            },
+            {
+              "name": "Seed adoption staging prerequisites into isolated local CI only",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:07Z",
+              "completed": "2026-11-24T20:59:08Z",
+              "seconds": 1
+            },
+            {
+              "name": "Apply canonical adoption staging and activation to isolated local D1 only",
+              "number": 11,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:08Z",
+              "completed": "2026-11-24T20:59:09Z",
+              "seconds": 1
+            },
+            {
+              "name": "Verify canonical adoption activation in isolated local D1 only",
+              "number": 12,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:09Z",
+              "completed": "2026-11-24T20:59:09Z",
+              "seconds": 0
+            },
+            {
+              "name": "Seed ORG-3B disposable profile fixture into isolated local D1 only",
+              "number": 13,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:09Z",
+              "completed": "2026-11-24T20:59:10Z",
+              "seconds": 1
+            },
+            {
+              "name": "Start isolated local app",
+              "number": 14,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:10Z",
+              "completed": "2026-11-24T20:59:33Z",
+              "seconds": 23
+            },
+            {
+              "name": "Organization profile Playwright — desktop",
+              "number": 15,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:33Z",
+              "completed": "2026-11-24T20:59:53Z",
+              "seconds": 20
+            },
+            {
+              "name": "Organization profile Playwright — mobile",
+              "number": 16,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:53Z",
+              "completed": "2026-11-24T21:00:09Z",
+              "seconds": 16
+            },
+            {
+              "name": "UX-2A organization viewport matrix",
+              "number": 17,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:09Z",
+              "completed": "2026-11-24T21:00:14Z",
+              "seconds": 5
+            },
+            {
+              "name": "Stop isolated local app",
+              "number": 18,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:14Z",
+              "completed": "2026-11-24T21:00:14Z",
+              "seconds": 0
+            },
+            {
+              "name": "Upload organization profile failure evidence",
+              "number": 19,
+              "conclusion": "skipped",
+              "started": "2026-11-24T21:00:14Z",
+              "completed": "2026-11-24T21:00:14Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Set up Node.js",
+              "number": 37,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:14Z",
+              "completed": "2026-11-24T21:00:14Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Checkout PR merge ref",
+              "number": 38,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:14Z",
+              "completed": "2026-11-24T21:00:15Z",
+              "seconds": 1
+            },
+            {
+              "name": "Complete job",
+              "number": 39,
+              "conclusion": "success",
+              "started": "2026-11-24T21:00:15Z",
+              "completed": "2026-11-24T21:00:15Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45486075869,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138771692227,
+          "name": "PWA contract, build, mobile Axe and offline safety",
+          "workflow": "ADMIN-PWA-1",
+          "sha": "72c4369cc2769ce25ebab04fa30a61f56492c648",
+          "branch": "feat/public-design-system-v2-premium-editorial",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T20:57:11Z",
+          "completed": "2026-11-24T20:59:13Z",
+          "seconds": 122,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:11Z",
+              "completed": "2026-11-24T20:57:12Z",
+              "seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:12Z",
+              "completed": "2026-11-24T20:57:14Z",
+              "seconds": 2
+            },
+            {
+              "name": "Log revision evidence",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:14Z",
+              "completed": "2026-11-24T20:57:14Z",
+              "seconds": 0
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:14Z",
+              "completed": "2026-11-24T20:57:22Z",
+              "seconds": 8
+            },
+            {
+              "name": "Run npm ci",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:22Z",
+              "completed": "2026-11-24T20:57:31Z",
+              "seconds": 9
+            },
+            {
+              "name": "Run npm run test:admin-pwa",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:31Z",
+              "completed": "2026-11-24T20:57:33Z",
+              "seconds": 2
+            },
+            {
+              "name": "Run npm run db:check-migrations",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:33Z",
+              "completed": "2026-11-24T20:57:33Z",
+              "seconds": 0
+            },
+            {
+              "name": "Run npm run build",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:33Z",
+              "completed": "2026-11-24T20:57:55Z",
+              "seconds": 22
+            },
+            {
+              "name": "Run npx playwright install --with-deps chromium",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T20:57:55Z",
+              "completed": "2026-11-24T20:58:08Z",
+              "seconds": 13
+            },
+            {
+              "name": "Configure CI-only local security keys",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:08Z",
+              "completed": "2026-11-24T20:58:08Z",
+              "seconds": 0
+            },
+            {
+              "name": "Apply schema migrations to isolated local D1 only",
+              "number": 11,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:08Z",
+              "completed": "2026-11-24T20:58:41Z",
+              "seconds": 33
+            },
+            {
+              "name": "Start isolated local app",
+              "number": 12,
+              "conclusion": "success",
+              "started": "2026-11-24T20:58:41Z",
+              "completed": "2026-11-24T20:59:01Z",
+              "seconds": 20
+            },
+            {
+              "name": "Run PWA mobile, Axe and offline E2E",
+              "number": 13,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:01Z",
+              "completed": "2026-11-24T20:59:11Z",
+              "seconds": 10
+            },
+            {
+              "name": "Stop local app",
+              "number": 14,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:11Z",
+              "completed": "2026-11-24T20:59:11Z",
+              "seconds": 0
+            },
+            {
+              "name": "Upload failure evidence",
+              "number": 15,
+              "conclusion": "skipped",
+              "started": "2026-11-24T20:59:11Z",
+              "completed": "2026-11-24T20:59:11Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "number": 29,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:11Z",
+              "completed": "2026-11-24T20:59:11Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "number": 30,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:11Z",
+              "completed": "2026-11-24T20:59:11Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 31,
+              "conclusion": "success",
+              "started": "2026-11-24T20:59:11Z",
+              "completed": "2026-11-24T20:59:11Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45490340104,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138786749220,
+          "name": "source-audit",
+          "workflow": "Admin Performance V2 Read-Only",
+          "sha": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+          "branch": "feat/admin-v6-postmerge-audit-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:22:11Z",
+          "completed": "2026-11-24T21:23:28Z",
+          "seconds": 77,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:12Z",
+              "completed": "2026-11-24T21:22:13Z",
+              "seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:13Z",
+              "completed": "2026-11-24T21:22:15Z",
+              "seconds": 2
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:15Z",
+              "completed": "2026-11-24T21:22:23Z",
+              "seconds": 8
+            },
+            {
+              "name": "Install locked dependencies",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:23Z",
+              "completed": "2026-11-24T21:22:34Z",
+              "seconds": 11
+            },
+            {
+              "name": "Validate phase 2 regressions and existing Admin/PWA invariants",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:34Z",
+              "completed": "2026-11-24T21:22:41Z",
+              "seconds": 7
+            },
+            {
+              "name": "Check new TypeScript diagnostics in changed Admin files",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:41Z",
+              "completed": "2026-11-24T21:23:23Z",
+              "seconds": 42
+            },
+            {
+              "name": "Capture local SQLite query-plan experiment",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:23Z",
+              "completed": "2026-11-24T21:23:23Z",
+              "seconds": 0
+            },
+            {
+              "name": "Validate captured SQL-plan JSON",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:23Z",
+              "completed": "2026-11-24T21:23:23Z",
+              "seconds": 0
+            },
+            {
+              "name": "Capture reproducible source baseline",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:23Z",
+              "completed": "2026-11-24T21:23:24Z",
+              "seconds": 1
+            },
+            {
+              "name": "Save source metrics (not runtime/browser metrics)",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:24Z",
+              "completed": "2026-11-24T21:23:25Z",
+              "seconds": 1
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "number": 19,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:25Z",
+              "completed": "2026-11-24T21:23:25Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "number": 20,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:25Z",
+              "completed": "2026-11-24T21:23:25Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 21,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:25Z",
+              "completed": "2026-11-24T21:23:25Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45489814469,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138784802820,
+          "name": "source-audit",
+          "workflow": "Admin Performance V2 Read-Only",
+          "sha": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+          "branch": "feat/ci-v2-consolidation-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:19:08Z",
+          "completed": "2026-11-24T21:20:20Z",
+          "seconds": 72,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:08Z",
+              "completed": "2026-11-24T21:19:09Z",
+              "seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:09Z",
+              "completed": "2026-11-24T21:19:12Z",
+              "seconds": 3
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:12Z",
+              "completed": "2026-11-24T21:19:20Z",
+              "seconds": 8
+            },
+            {
+              "name": "Install locked dependencies",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:20Z",
+              "completed": "2026-11-24T21:19:32Z",
+              "seconds": 12
+            },
+            {
+              "name": "Validate phase 2 regressions and existing Admin/PWA invariants",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:32Z",
+              "completed": "2026-11-24T21:19:38Z",
+              "seconds": 6
+            },
+            {
+              "name": "Check new TypeScript diagnostics in changed Admin files",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:38Z",
+              "completed": "2026-11-24T21:20:15Z",
+              "seconds": 37
+            },
+            {
+              "name": "Capture local SQLite query-plan experiment",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:15Z",
+              "completed": "2026-11-24T21:20:15Z",
+              "seconds": 0
+            },
+            {
+              "name": "Validate captured SQL-plan JSON",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:15Z",
+              "completed": "2026-11-24T21:20:15Z",
+              "seconds": 0
+            },
+            {
+              "name": "Capture reproducible source baseline",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:15Z",
+              "completed": "2026-11-24T21:20:16Z",
+              "seconds": 1
+            },
+            {
+              "name": "Save source metrics (not runtime/browser metrics)",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:16Z",
+              "completed": "2026-11-24T21:20:17Z",
+              "seconds": 1
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "number": 19,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:17Z",
+              "completed": "2026-11-24T21:20:17Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "number": 20,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:17Z",
+              "completed": "2026-11-24T21:20:17Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 21,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:17Z",
+              "completed": "2026-11-24T21:20:18Z",
+              "seconds": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45489144022,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138782533730,
+          "name": "source-audit",
+          "workflow": "Admin Performance V2 Read-Only",
+          "sha": "d21f4c6e22ad9f9a27a191717b07963eeda1ec1e",
+          "branch": "feat/ci-v2-consolidation-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:15:13Z",
+          "completed": "2026-11-24T21:16:28Z",
+          "seconds": 75,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:15:13Z",
+              "completed": "2026-11-24T21:15:14Z",
+              "seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:15:14Z",
+              "completed": "2026-11-24T21:15:16Z",
+              "seconds": 2
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:15:16Z",
+              "completed": "2026-11-24T21:15:23Z",
+              "seconds": 7
+            },
+            {
+              "name": "Install locked dependencies",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:15:23Z",
+              "completed": "2026-11-24T21:15:36Z",
+              "seconds": 13
+            },
+            {
+              "name": "Validate phase 2 regressions and existing Admin/PWA invariants",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T21:15:36Z",
+              "completed": "2026-11-24T21:15:43Z",
+              "seconds": 7
+            },
+            {
+              "name": "Check new TypeScript diagnostics in changed Admin files",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T21:15:43Z",
+              "completed": "2026-11-24T21:16:24Z",
+              "seconds": 41
+            },
+            {
+              "name": "Capture local SQLite query-plan experiment",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:24Z",
+              "completed": "2026-11-24T21:16:25Z",
+              "seconds": 1
+            },
+            {
+              "name": "Validate captured SQL-plan JSON",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:25Z",
+              "completed": "2026-11-24T21:16:25Z",
+              "seconds": 0
+            },
+            {
+              "name": "Capture reproducible source baseline",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:25Z",
+              "completed": "2026-11-24T21:16:25Z",
+              "seconds": 0
+            },
+            {
+              "name": "Save source metrics (not runtime/browser metrics)",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:25Z",
+              "completed": "2026-11-24T21:16:26Z",
+              "seconds": 1
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "number": 19,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:26Z",
+              "completed": "2026-11-24T21:16:26Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "number": 20,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:26Z",
+              "completed": "2026-11-24T21:16:27Z",
+              "seconds": 1
+            },
+            {
+              "name": "Complete job",
+              "number": 21,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:27Z",
+              "completed": "2026-11-24T21:16:27Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45489814418,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138784885840,
+          "name": "regression",
+          "workflow": "Admin Stability Read-Only Regression",
+          "sha": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+          "branch": "feat/ci-v2-consolidation-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:19:04Z",
+          "completed": "2026-11-24T21:21:17Z",
+          "seconds": 133,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:04Z",
+              "completed": "2026-11-24T21:19:05Z",
+              "seconds": 1
+            },
+            {
+              "name": "Check out requested commit",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:05Z",
+              "completed": "2026-11-24T21:19:09Z",
+              "seconds": 4
+            },
+            {
+              "name": "Configure Node",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:09Z",
+              "completed": "2026-11-24T21:19:15Z",
+              "seconds": 6
+            },
+            {
+              "name": "Install pinned dependencies (no production credentials)",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:15Z",
+              "completed": "2026-11-24T21:19:27Z",
+              "seconds": 12
+            },
+            {
+              "name": "Admin regression suite – steps 1 to 10",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:27Z",
+              "completed": "2026-11-24T21:19:34Z",
+              "seconds": 7
+            },
+            {
+              "name": "Synthetic SQLite query parity and diagnostic timings",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:34Z",
+              "completed": "2026-11-24T21:19:35Z",
+              "seconds": 1
+            },
+            {
+              "name": "TypeScript project regression gate against current main",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:19:35Z",
+              "completed": "2026-11-24T21:20:41Z",
+              "seconds": 66
+            },
+            {
+              "name": "Production-style build diagnostic (never deploy)",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:41Z",
+              "completed": "2026-11-24T21:21:13Z",
+              "seconds": 32
+            },
+            {
+              "name": "Upload full type diagnostic logs",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:13Z",
+              "completed": "2026-11-24T21:21:14Z",
+              "seconds": 1
+            },
+            {
+              "name": "Save local SQLite diagnostic artifact",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:14Z",
+              "completed": "2026-11-24T21:21:15Z",
+              "seconds": 1
+            },
+            {
+              "name": "Post Configure Node",
+              "number": 19,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:15Z",
+              "completed": "2026-11-24T21:21:15Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Check out requested commit",
+              "number": 20,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:15Z",
+              "completed": "2026-11-24T21:21:15Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 21,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:15Z",
+              "completed": "2026-11-24T21:21:15Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45488573202,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138780451808,
+          "name": "regression",
+          "workflow": "Admin Stability Read-Only Regression",
+          "sha": "f3cf0b39df0b6acf275b4d59e313989df70bacfd",
+          "branch": "feat/ci-v2-consolidation-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:12:07Z",
+          "completed": "2026-11-24T21:13:47Z",
+          "seconds": 100,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:12:08Z",
+              "completed": "2026-11-24T21:12:08Z",
+              "seconds": 0
+            },
+            {
+              "name": "Check out requested commit",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:12:08Z",
+              "completed": "2026-11-24T21:12:11Z",
+              "seconds": 3
+            },
+            {
+              "name": "Configure Node",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:12:11Z",
+              "completed": "2026-11-24T21:12:17Z",
+              "seconds": 6
+            },
+            {
+              "name": "Install pinned dependencies (no production credentials)",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:12:17Z",
+              "completed": "2026-11-24T21:12:25Z",
+              "seconds": 8
+            },
+            {
+              "name": "Admin regression suite – steps 1 to 10",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T21:12:25Z",
+              "completed": "2026-11-24T21:12:30Z",
+              "seconds": 5
+            },
+            {
+              "name": "Synthetic SQLite query parity and diagnostic timings",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T21:12:30Z",
+              "completed": "2026-11-24T21:12:31Z",
+              "seconds": 1
+            },
+            {
+              "name": "TypeScript project regression gate against current main",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:12:31Z",
+              "completed": "2026-11-24T21:13:19Z",
+              "seconds": 48
+            },
+            {
+              "name": "Production-style build diagnostic (never deploy)",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:13:19Z",
+              "completed": "2026-11-24T21:13:42Z",
+              "seconds": 23
+            },
+            {
+              "name": "Upload full type diagnostic logs",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:13:42Z",
+              "completed": "2026-11-24T21:13:43Z",
+              "seconds": 1
+            },
+            {
+              "name": "Save local SQLite diagnostic artifact",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T21:13:43Z",
+              "completed": "2026-11-24T21:13:44Z",
+              "seconds": 1
+            },
+            {
+              "name": "Post Configure Node",
+              "number": 19,
+              "conclusion": "success",
+              "started": "2026-11-24T21:13:44Z",
+              "completed": "2026-11-24T21:13:44Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Check out requested commit",
+              "number": 20,
+              "conclusion": "success",
+              "started": "2026-11-24T21:13:44Z",
+              "completed": "2026-11-24T21:13:44Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 21,
+              "conclusion": "success",
+              "started": "2026-11-24T21:13:44Z",
+              "completed": "2026-11-24T21:13:44Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45490339809,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138786645991,
+          "name": "Notion sync contract and build",
+          "workflow": "NOTION-SYNC focused validation",
+          "sha": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+          "branch": "feat/admin-v6-postmerge-audit-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:22:06Z",
+          "completed": "2026-11-24T21:23:19Z",
+          "seconds": 73,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:06Z",
+              "completed": "2026-11-24T21:22:07Z",
+              "seconds": 1
+            },
+            {
+              "name": "Checkout",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:07Z",
+              "completed": "2026-11-24T21:22:09Z",
+              "seconds": 2
+            },
+            {
+              "name": "Revision evidence",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:09Z",
+              "completed": "2026-11-24T21:22:09Z",
+              "seconds": 0
+            },
+            {
+              "name": "Set up Node.js",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:09Z",
+              "completed": "2026-11-24T21:22:17Z",
+              "seconds": 8
+            },
+            {
+              "name": "Install dependencies",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:17Z",
+              "completed": "2026-11-24T21:22:31Z",
+              "seconds": 14
+            },
+            {
+              "name": "Configuration contract",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:31Z",
+              "completed": "2026-11-24T21:22:31Z",
+              "seconds": 0
+            },
+            {
+              "name": "Migration safety",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:31Z",
+              "completed": "2026-11-24T21:22:34Z",
+              "seconds": 3
+            },
+            {
+              "name": "Notion sync safety contract",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:34Z",
+              "completed": "2026-11-24T21:22:38Z",
+              "seconds": 4
+            },
+            {
+              "name": "Notion article media and published-link safety",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:38Z",
+              "completed": "2026-11-24T21:22:38Z",
+              "seconds": 0
+            },
+            {
+              "name": "Article content writeback focused test",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:38Z",
+              "completed": "2026-11-24T21:22:40Z",
+              "seconds": 2
+            },
+            {
+              "name": "Production build",
+              "number": 11,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:40Z",
+              "completed": "2026-11-24T21:23:16Z",
+              "seconds": 36
+            },
+            {
+              "name": "Post Set up Node.js",
+              "number": 21,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:16Z",
+              "completed": "2026-11-24T21:23:16Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Checkout",
+              "number": 22,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:16Z",
+              "completed": "2026-11-24T21:23:17Z",
+              "seconds": 1
+            },
+            {
+              "name": "Complete job",
+              "number": 23,
+              "conclusion": "success",
+              "started": "2026-11-24T21:23:17Z",
+              "completed": "2026-11-24T21:23:17Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45490117254,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138785856087,
+          "name": "Notion sync contract and build",
+          "workflow": "NOTION-SYNC focused validation",
+          "sha": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+          "branch": "feat/admin-v6-postmerge-audit-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:20:36Z",
+          "completed": "2026-11-24T21:21:32Z",
+          "seconds": 56,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:37Z",
+              "completed": "2026-11-24T21:20:37Z",
+              "seconds": 0
+            },
+            {
+              "name": "Checkout",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:37Z",
+              "completed": "2026-11-24T21:20:39Z",
+              "seconds": 2
+            },
+            {
+              "name": "Revision evidence",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:39Z",
+              "completed": "2026-11-24T21:20:39Z",
+              "seconds": 0
+            },
+            {
+              "name": "Set up Node.js",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:39Z",
+              "completed": "2026-11-24T21:20:47Z",
+              "seconds": 8
+            },
+            {
+              "name": "Install dependencies",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:47Z",
+              "completed": "2026-11-24T21:20:58Z",
+              "seconds": 11
+            },
+            {
+              "name": "Configuration contract",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:58Z",
+              "completed": "2026-11-24T21:20:58Z",
+              "seconds": 0
+            },
+            {
+              "name": "Migration safety",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:58Z",
+              "completed": "2026-11-24T21:21:01Z",
+              "seconds": 3
+            },
+            {
+              "name": "Notion sync safety contract",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:01Z",
+              "completed": "2026-11-24T21:21:03Z",
+              "seconds": 2
+            },
+            {
+              "name": "Notion article media and published-link safety",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:03Z",
+              "completed": "2026-11-24T21:21:03Z",
+              "seconds": 0
+            },
+            {
+              "name": "Article content writeback focused test",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:03Z",
+              "completed": "2026-11-24T21:21:05Z",
+              "seconds": 2
+            },
+            {
+              "name": "Production build",
+              "number": 11,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:05Z",
+              "completed": "2026-11-24T21:21:29Z",
+              "seconds": 24
+            },
+            {
+              "name": "Post Set up Node.js",
+              "number": 21,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:29Z",
+              "completed": "2026-11-24T21:21:29Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Checkout",
+              "number": 22,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:29Z",
+              "completed": "2026-11-24T21:21:30Z",
+              "seconds": 1
+            },
+            {
+              "name": "Complete job",
+              "number": 23,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:30Z",
+              "completed": "2026-11-24T21:21:30Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45489465384,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138783578222,
+          "name": "Notion sync contract and build",
+          "workflow": "NOTION-SYNC focused validation",
+          "sha": "b44bea58eba59792526553464090b00a4c1e6e6f",
+          "branch": "feat/admin-v6-postmerge-audit-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:16:52Z",
+          "completed": "2026-11-24T21:18:08Z",
+          "seconds": 76,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:53Z",
+              "completed": "2026-11-24T21:16:53Z",
+              "seconds": 0
+            },
+            {
+              "name": "Checkout",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:53Z",
+              "completed": "2026-11-24T21:16:55Z",
+              "seconds": 2
+            },
+            {
+              "name": "Revision evidence",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:55Z",
+              "completed": "2026-11-24T21:16:55Z",
+              "seconds": 0
+            },
+            {
+              "name": "Set up Node.js",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:16:55Z",
+              "completed": "2026-11-24T21:17:02Z",
+              "seconds": 7
+            },
+            {
+              "name": "Install dependencies",
+              "number": 5,
+              "conclusion": "success",
+              "started": "2026-11-24T21:17:02Z",
+              "completed": "2026-11-24T21:17:16Z",
+              "seconds": 14
+            },
+            {
+              "name": "Configuration contract",
+              "number": 6,
+              "conclusion": "success",
+              "started": "2026-11-24T21:17:16Z",
+              "completed": "2026-11-24T21:17:17Z",
+              "seconds": 1
+            },
+            {
+              "name": "Migration safety",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:17:17Z",
+              "completed": "2026-11-24T21:17:20Z",
+              "seconds": 3
+            },
+            {
+              "name": "Notion sync safety contract",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:17:20Z",
+              "completed": "2026-11-24T21:17:24Z",
+              "seconds": 4
+            },
+            {
+              "name": "Notion article media and published-link safety",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:17:24Z",
+              "completed": "2026-11-24T21:17:24Z",
+              "seconds": 0
+            },
+            {
+              "name": "Article content writeback focused test",
+              "number": 10,
+              "conclusion": "success",
+              "started": "2026-11-24T21:17:24Z",
+              "completed": "2026-11-24T21:17:27Z",
+              "seconds": 3
+            },
+            {
+              "name": "Production build",
+              "number": 11,
+              "conclusion": "success",
+              "started": "2026-11-24T21:17:27Z",
+              "completed": "2026-11-24T21:18:06Z",
+              "seconds": 39
+            },
+            {
+              "name": "Post Set up Node.js",
+              "number": 21,
+              "conclusion": "success",
+              "started": "2026-11-24T21:18:06Z",
+              "completed": "2026-11-24T21:18:06Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Checkout",
+              "number": 22,
+              "conclusion": "success",
+              "started": "2026-11-24T21:18:06Z",
+              "completed": "2026-11-24T21:18:06Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 23,
+              "conclusion": "success",
+              "started": "2026-11-24T21:18:06Z",
+              "completed": "2026-11-24T21:18:06Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45490339907,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138786645660,
+          "name": "Verify additive SQL foundation without D1 access",
+          "workflow": "Directory 0173 canonical SQL foundation (offline)",
+          "sha": "102ff81f7095a9c310682eb01c13f2dbc934ad8b",
+          "branch": "feat/admin-v6-postmerge-audit-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:22:12Z",
+          "completed": "2026-11-24T21:22:22Z",
+          "seconds": 10,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:12Z",
+              "completed": "2026-11-24T21:22:13Z",
+              "seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:13Z",
+              "completed": "2026-11-24T21:22:15Z",
+              "seconds": 2
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:15Z",
+              "completed": "2026-11-24T21:22:19Z",
+              "seconds": 4
+            },
+            {
+              "name": "Test isolated SQLite schema and constraints",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:19Z",
+              "completed": "2026-11-24T21:22:19Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:19Z",
+              "completed": "2026-11-24T21:22:20Z",
+              "seconds": 1
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:20Z",
+              "completed": "2026-11-24T21:22:20Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:22:20Z",
+              "completed": "2026-11-24T21:22:20Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 45490117161,
+      "total": 1,
+      "returned": 1,
+      "jobs": [
+        {
+          "id": 138785855183,
+          "name": "Verify additive SQL foundation without D1 access",
+          "workflow": "Directory 0173 canonical SQL foundation (offline)",
+          "sha": "fcdcbd8d2e80ba2eff9924c69ca1641fd6382d5d",
+          "branch": "feat/admin-v6-postmerge-audit-20261124",
+          "attempt": 1,
+          "conclusion": "success",
+          "started": "2026-11-24T21:20:51Z",
+          "completed": "2026-11-24T21:21:03Z",
+          "seconds": 12,
+          "steps": [
+            {
+              "name": "Set up job",
+              "number": 1,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:52Z",
+              "completed": "2026-11-24T21:20:53Z",
+              "seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "number": 2,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:53Z",
+              "completed": "2026-11-24T21:20:55Z",
+              "seconds": 2
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "number": 3,
+              "conclusion": "success",
+              "started": "2026-11-24T21:20:55Z",
+              "completed": "2026-11-24T21:21:00Z",
+              "seconds": 5
+            },
+            {
+              "name": "Test isolated SQLite schema and constraints",
+              "number": 4,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:00Z",
+              "completed": "2026-11-24T21:21:00Z",
+              "seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "number": 7,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:00Z",
+              "completed": "2026-11-24T21:21:01Z",
+              "seconds": 1
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "number": 8,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:01Z",
+              "completed": "2026-11-24T21:21:01Z",
+              "seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "number": 9,
+              "conclusion": "success",
+              "started": "2026-11-24T21:21:01Z",
+              "completed": "2026-11-24T21:21:01Z",
+              "seconds": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

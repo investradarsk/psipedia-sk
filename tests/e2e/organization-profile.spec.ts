@@ -47,8 +47,11 @@ test.describe("organization public profile", () => {
     await expect(
       main.getByText("Pomáhame psom v núdzi a hľadáme im bezpečné domovy.", { exact: true }),
     ).toBeVisible();
-    await expect(main.getByRole("navigation", { name: "Drobečková navigácia" })).toContainText(
-      "Domov›Organizácie›E2E Kanonická organizácia",
+    const breadcrumbs = main.getByRole("navigation", { name: "Drobečková navigácia" });
+    await expect(breadcrumbs).toContainText("Domov›Pomoc psom›Organizácie›E2E Kanonická organizácia");
+    await expect(breadcrumbs.getByRole("link", { name: "Pomoc psom", exact: true })).toHaveAttribute(
+      "href",
+      "/pomoc-psom",
     );
 
     await expect(main.getByRole("link", { name: "org3b-e2e@example.invalid" })).toHaveAttribute(

@@ -240,6 +240,7 @@ test("migrates club locations idempotently and serves server-filtered, paginated
       if (/^CREATE (?:TABLE|INDEX)\b/i.test(sql) &&
           !/directory_profile_additional_categories/.test(sql)) sqlite.exec(sql);
     }
+    applySqlMigration(sqlite, "../drizzle/0173_directory_structured_sql_foundation.sql");
     applySqlMigration(sqlite, "../db/isolated/directory_admin_sql_completion.sql");
     assert.equal(sqlite.prepare("SELECT count(*) AS n FROM pragma_table_info('directory_profiles') WHERE name='source_data_json'").get().n,0);
     const workerUrl = new URL("../dist/server/index.js", import.meta.url);

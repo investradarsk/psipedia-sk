@@ -47,7 +47,7 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // 0153 is eligible ONLY for a protected owner-dispatched D1 migration.
 // 0154 and 0157 are additive manual Facebook checklists; each requires the same owner-dispatched protected process.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
-// 0158–0176 are not selectable through the generic production migration runner.
+// 0158–0177 are not selectable through the generic production migration runner.
 // 0169 was installed via isolated owner dispatch; 0170 requires its own guarded cutover.
 export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([
   "0158_admin_directory_list_indexes.sql",
@@ -69,6 +69,7 @@ export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([
   "0174_breeds_sql_json_foundation.sql",
   "0175_partner_private_chat.sql",
   "0176_notion_help_admin_writeback_outbox.sql",
+  "0177_profile_review_verification_settings.sql",
 ]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {

@@ -43,7 +43,8 @@ jobs:
   admin-ia-2:
     # Drafts normally skip comprehensive E2E. Same-repository PRs can explicitly
     # request before-review evidence without marking an unverified PR ready.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.body, 'PRE_REVIEW_VISUAL_EVIDENCE: true')) }}
+    if: >-
+      ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.body, 'PRE_REVIEW_VISUAL_EVIDENCE: true')) }}
     name: ADMIN-IA-2 — contracts, build, lint and Playwright
     runs-on: ubuntu-latest
     timeout-minutes: 35

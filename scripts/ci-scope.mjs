@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-export const CI_SCOPE_VERSION = 7;
+export const CI_SCOPE_VERSION = 8;
 
 const RULES = {
   ADMIN: [
@@ -160,7 +160,7 @@ const RULES = {
   ],
   VISUAL: [
     // Shared public shell needs visual contracts, not every domain integration suite.
-    /^app\/(?:layout\.tsx|globals\.css)$/,
+    /^app\/(?:layout\.tsx|globals\.css|design-system\.css|premium-foundation\.css)$/,
     /^components\/public-visual-system\//,
     /^components\/admin-section-visuals/,
     /^lib\/section-(?:visual|store)/,
@@ -195,11 +195,35 @@ const RULES = {
     /^tests\/e2e\/(?:event-detail-phase4|adoption|breed-profile|lost-found-dogs|help-detail-primitives)\.spec\.ts$/,
     /^\.github\/workflows\/sitewide-ai-entity-surface-ci\.yml$/,
   ],
+  HOME: [
+    /^app\/page\.tsx$/,
+    /^components\/(?:home-|homepage-|name-day)/,
+    /^lib\/(?:homepage-|home-|dog-name-day|name-day)/,
+    /^tests\/(?:homepage-|home-|name-day)/,
+  ],
+  PUBLIC_CONTENT: [
+    /^app\/(?:steniatka|starostlivost|aktivity|novinky|zdravie|vycvik)\//,
+    /^app\/\[section\]\//,
+  ],
+  SEO_PERFORMANCE: [
+    /^app\/(?:sitemap|robots)\.ts$/,
+    /^lib\/(?:seo|sitemap|public-html-cache|public-anonymous-html-cache|public-read-retry|performance-|web-perf)/,
+    /^tests\/(?:seo-|sitemap-|performance-|public-html-cache|web-perf)/,
+    /^scripts\/start-public-regression-ci\.sh$/,
+    /^tests\/fixtures\/public-regression-ci\.sql$/,
+  ],
+  FACEBOOK: [
+    /^(?:lib|components|tests|scripts)\/(?:admin-)?(?:notion-)?facebook-/,
+    /^app\/(?:api\/)?admin\/facebook\//,
+  ],
   SHARED_CORE: [
-    /^lib\/(?:auth|admin-auth|partner-auth(?:-store)?|pii-crypto|private-media|resource-access|turnstile|rate-limit)\.ts$/,
+    /^lib\/(?:auth|admin-auth|admin-mutation-origin|partner-auth(?:-store)?|partner-origin|pii-crypto|private-media|resource-access(?:-store)?|turnstile|rate-limit)\.ts$/,
     /^worker\/index\.ts$/,
     /^db\/index\.ts$/,
     /^config\/(?:runtime-env|public-site)\.ts$/,
+    /^config\/cloudflare-resources\.json$/,
+    /^build\//,
+    /^\.openai\/hosting\.json$/,
     /^(?:vite\.config\.ts|playwright\.config\.ts|tsconfig\.json|eslint\.config\.mjs|wrangler\.jsonc)$/,
     /^scripts\/(?:build-verified\.sh|check-config-contract\.mjs|validate-artifact\.sh|validate-deploy-artifact\.mjs|sites-env\.sh)$/,
   ],
@@ -213,17 +237,17 @@ function normalizeFiles(files) {
 
 function isDocsOnlyFile(file) {
   // Served text and executable MDX routes are product changes, not documentation.
-  if (file.startsWith("public/") || /^app\/(?:.*\/)?(?:page|layout)\.mdx$/.test(file)) return false;
+  if (file.startsWith("public/") || (/^(?:app|components|lib|worker|config|db|build)\//.test(file) && !/\/README\.md$/i.test(file))) return false;
   return DOC_RE.test(file) || /\.(?:md|mdx|txt)$/i.test(file);
 }
 
-const CI_CONTROL_RE = /^(?:\.github\/workflows\/|scripts\/(?:ci-scope(?:-conditions)?|check-ci-scope)\.mjs$)/;
+const CI_CONTROL_RE = /^(?:\.github\/workflows\/|scripts\/(?:ci-scope(?:-conditions)?|check-ci-scope|ci-test-groups|ci-build-artifact|ci-result-gate|ci-v2-inventory)\.mjs$|tests\/ci-v2-[^/]+\.test\.mjs$)/;
 
 // Deliberately a superset of DS-0B's internal selection so we may cheaply skip
 // the whole job for unrelated PRs without losing relevant visual regressions.
 const PUBLIC_DS0B_RE = [
   /^\.github\/workflows\/playwright-e2e\.yml$/,
-  /^app\/(?:layout\.tsx|globals\.css|design-system\.css)$/,
+  /^app\/(?:layout\.tsx|globals\.css|design-system\.css|premium-foundation\.css)$/,
   /^app\/(?:adresar|pomoc-psom|podujatia|recenzie|steniatka|starostlivost|aktivity|\[section\])\//,
   /^components\/(?:public-visual-system\/|detail-primitives\/|directory-|help-|events?-|reviews-hub\.tsx$|editorial-|home-portal-search\.tsx$|public-filter-disclosure\.tsx$|page-system\.tsx$|site-header|site-footer|cookie-consent)/,
   /^lib\/navigation-store\.ts$/,
@@ -237,6 +261,120 @@ const PUBLIC_DS0B_RE = [
 const AUTOMATION_BROAD_RE = /^(?:lib\/(?:data-automation(?:\.ts|-apply\.ts|-canonical-apply\.ts|-store\.ts|-runner\.ts|-governance\.ts|-identity\.ts|-dynamic-identity\.ts|-matching\.ts|-clustering\.ts|-capability-registry\.ts|-draft-mapper\.ts|-enrichment-normalize\.ts|-enrichment-template\.ts|-http-policy\.ts|-source-store\.ts|-source-provisioning\.ts|-source-scoped-extraction\.ts|-generic-source-extractor\.ts|-ingestion-receipts\.ts|-lifecycle(?:-apply|-store)?\.ts)|automation-record-suppressions\.ts|canonical-draft-delete\.ts)|drizzle\/(?:0050|0052|0055|0056|0057|0073|0075|0076|0078|0079|0080|0081|0082|0083|0084|0085|0086|0087|0088|0089|0091|0092|0093|0094|0095|0096|0097)_|tests\/fixtures\/data-automation\/|\.github\/workflows\/data-automation-(?:ci|v2-ci)\.yml$)/;
 
 const AUTOMATION_ADMIN_E2E_RE = /^(?:app\/admin\/(?:operations\/automation|automatizacie)\/|app\/api\/admin\/(?:automation-sources|automation-source-candidates|automation-lifecycle|canonical-drafts)\/|components\/admin-automation-(?:source|lifecycle)-|components\/admin-canonical-draft-delete\.tsx$|lib\/(?:admin-automation-api|data-automation-(?:source-admin|source-activation|source-matching|source-presets|update-review|address-review(?:-store)?|cluster-admin|match-review))\.ts$|tests\/e2e\/(?:data-automation-v2|canonical-draft-delete)\.spec\.ts$|tests\/fixtures\/canonical-draft-delete-e2e\.sql$)/;
+
+
+const REVIEW_AUTH_PATHS = [
+  "app/recenzia/**",
+  "app/api/review-author/**",
+  "components/review-author-*",
+  "components/profile-review-section.tsx",
+  "components/profile-review-section.module.css",
+  "components/cookie-consent.tsx",
+  "components/programmatic-ad-loader.tsx",
+  "lib/review-author-*",
+  "lib/resource-access.ts",
+  "lib/resource-access-store.ts",
+  "lib/pii-crypto.ts",
+  "lib/rate-limit.ts",
+  "lib/turnstile.ts",
+  "tests/review-author-auth.test.mjs",
+  "tests/e2e/review-author-auth.spec.ts",
+  "tests/fixtures/review-author-auth-e2e.sql",
+  ".github/workflows/review-author-auth-ci.yml",
+];
+const REVIEW_SUBMISSION_PATHS = [
+  "app/recenzia/**",
+  "app/api/review-author/reviews/**",
+  "components/profile-review-section.tsx",
+  "components/profile-review-submission-form.tsx",
+  "components/profile-review-submission-form.module.css",
+  "lib/profile-review-domain.ts",
+  "lib/profile-review-read.ts",
+  "lib/profile-review-submission.ts",
+  "lib/review-author-auth.ts",
+  "lib/review-author-auth-store.ts",
+  "lib/review-author-return-to.ts",
+  "lib/review-author-security.ts",
+  "lib/submission-feature-flags.ts",
+  "lib/submission-security.ts",
+  "lib/turnstile.ts",
+  "lib/rate-limit.ts",
+  "tests/profile-review-submission.test.mjs",
+  "tests/review-author-auth.test.mjs",
+  "tests/profile-review-read.test.mjs",
+  "tests/e2e/profile-review-submission.spec.ts",
+  "tests/e2e/review-author-auth.spec.ts",
+  "tests/fixtures/profile-review-submission-e2e.sql",
+  ".github/workflows/profile-review-submission-ci.yml",
+];
+const REVIEW_SHARED_PATHS = [
+  "scripts/ci-build-artifact.mjs",
+  "tests/ci-v2-shared-build.test.mjs",
+  "package.json",
+  "package-lock.json",
+  "vite.config.ts",
+  "scripts/build-verified.sh",
+  "scripts/validate-deploy-artifact.mjs",
+  "scripts/ci-scope.mjs",
+  "tests/ci-v2-scope.test.mjs",
+  "scripts/review-e2e-local.sh",
+  "tests/ci-v2-review-e2e.test.mjs",
+  "tests/ci-v2-result-gate.test.mjs",
+  "scripts/ci-result-gate.mjs",
+  "db/isolated/directory_admin_sql_completion.sql",
+  "tests/fixtures/directory-admin-e2e.sql",
+];
+
+export const REVIEW_PR_PATHS = Object.freeze([
+  ...new Set([...REVIEW_AUTH_PATHS, ...REVIEW_SUBMISSION_PATHS, ...REVIEW_SHARED_PATHS]),
+]);
+
+// Only the positive, simple GitHub globs listed above are accepted. Brackets
+// are literal route names, not regex character classes.
+function reviewPathMatches(file, pattern) {
+  const regex = pattern.split(/(\*\*|\*)/).map((part) => {
+    if (part === "**") return ".*";
+    if (part === "*") return "[^/]*";
+    return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }).join("");
+  return new RegExp("^" + regex + "$").test(file);
+}
+
+export function reviewPrSelection(inputFiles, { eventName = "pull_request", trusted = true } = {}) {
+  if (eventName === "workflow_dispatch") return { auth: false, submission: true };
+  const files = normalizeFiles(inputFiles);
+  const matches = (patterns) => files.some((file) => patterns.some((pattern) => reviewPathMatches(file, pattern)));
+  if (!trusted || !files.length || matches(REVIEW_SHARED_PATHS)) return { auth: true, submission: true };
+  const auth = matches(REVIEW_AUTH_PATHS);
+  const submission = matches(REVIEW_SUBMISSION_PATHS);
+  // If a triggered workflow cannot establish its ownership, keep both suites.
+  return auth || submission ? { auth, submission } : { auth: true, submission: true };
+}
+
+const TEST_GROUPS = Object.freeze(["code-quality", "build", "database", "public", "admin", "partner", "integrations", "seo-performance"]);
+const SCOPE_GROUPS = {
+  ADMIN: ["admin"], MAPS: ["public", "integrations"],
+  ORGANIZATION_PROFILES: ["public", "database"], DIRECTORY_SERVICES: ["public", "database", "seo-performance"],
+  EVENTS: ["public", "admin"], HELP: ["public", "admin", "database"],
+  ARTICLES: ["public", "seo-performance"], BREEDS: ["public", "seo-performance"],
+  SEARCH: ["public"], REVIEWS: ["partner"], PARTNER: ["partner", "admin"],
+  NOTION: ["integrations"], AUTOMATION: ["integrations", "admin"],
+  GEMINI_AUTOMATION: ["integrations", "admin"], PWA: ["admin"],
+  SUBMISSIONS: ["partner", "public"], DATABASE_MIGRATIONS: ["database"],
+  VISUAL: ["public"], AI_DISCOVERY: ["seo-performance"], ENTITY_SURFACES: ["public", "seo-performance"],
+  HOME: ["public"], PUBLIC_CONTENT: ["public", "seo-performance"],
+  SEO_PERFORMANCE: ["seo-performance"], FACEBOOK: ["integrations"], SHARED_CORE: TEST_GROUPS,
+};
+
+// Reporting/transition plan only. Legacy required and domain gates remain the
+// authority until the complete workflow-only test inventory has parity.
+export function plannedTestGroups(result) {
+  if (result.fullCore) return [...TEST_GROUPS];
+  if (result.docsOnly || result.ciControlOnly) return ["code-quality"];
+  const groups = new Set(["code-quality", "build"]);
+  for (const name of result.scopes) for (const group of SCOPE_GROUPS[name] ?? TEST_GROUPS) groups.add(group);
+  return TEST_GROUPS.filter((name) => groups.has(name));
+}
 
 function isCiControlFile(file) {
   return CI_CONTROL_RE.test(file);
@@ -315,7 +453,15 @@ export function classifyChangedFiles(inputFiles, { packageTestScriptsOnly = fals
   // CI-only changes are validated by the required policy gate and their own
   // scoped workflows. Editing a migration workflow must not trigger npm test
   // for the entire application when no runtime or schema file changed.
-  const fullCore = files.length === 0 || (!ciControlOnly && !docsOnly && (dependency || sharedCore || migration));
+  // Check ownership per file: a known Admin edit must not conceal an unknown
+  // shared module in the same commit. Test-only package changes have a separate gate.
+  const unknownFiles = files.filter((file) =>
+    !isDocsOnlyFile(file) && !isCiControlFile(file) &&
+    !(file === "package.json" && packageTestScriptsOnly) &&
+    !Object.values(RULES).some((patterns) => patterns.some((pattern) => pattern.test(file)))
+  );
+  const fullCore = files.length === 0 || (!ciControlOnly && !docsOnly &&
+    (dependency || sharedCore || migration || unknownFiles.length > 0));
   const boundedCore = runtimeChanged && !fullCore && !docsOnly;
   const core = runtimeChanged && !docsOnly;
   const automationBroad = scopes.includes("AUTOMATION") && files.some((file) => AUTOMATION_BROAD_RE.test(file));
@@ -327,6 +473,7 @@ export function classifyChangedFiles(inputFiles, { packageTestScriptsOnly = fals
   return {
     version: CI_SCOPE_VERSION,
     files,
+    unknownFiles,
     core,
     fullCore,
     boundedCore,
@@ -363,7 +510,7 @@ export function resolveChangedFiles({
     git(["cat-file", "-e", `${baseSha}^{commit}`]);
     git(["cat-file", "-e", `${headSha}^{commit}`]);
     if (eventName === "push") git(["merge-base", "--is-ancestor", baseSha, headSha]);
-    const output = git(["diff", "--name-only", "-z", baseSha, headSha]);
+    const output = git(["diff", "--no-renames", "--name-only", "-z", baseSha, headSha]);
     const files = normalizeFiles(output.split("\0"));
     // An empty diff is not evidence for skipping checks (reruns/ambiguous events).
     if (!files.length) return broad("empty-range");
@@ -413,13 +560,18 @@ export function focusedPrE2eFlags(result, files = result.files) {
   };
 }
 
-function writeGithubOutput(result, files) {
+function writeGithubOutput(result, files, range) {
   const output = process.env.GITHUB_OUTPUT;
   if (!output) throw new Error("GITHUB_OUTPUT is required with --github-output");
 
   const { adminInteraction, adminEvents, search, directory, seoRecovery, sitemapDiagnostic, lostFound } = focusedPrE2eFlags(result, files);
 
+  const review = reviewPrSelection(files, { eventName: range?.eventName ?? process.env.GITHUB_EVENT_NAME ?? "pull_request", trusted: range?.trusted ?? true });
   appendFileSync(output, [
+    `review_auth=${review.auth}`,
+    `review_submission=${review.submission}`,
+    `test_groups=${plannedTestGroups(result).join(",")}`,
+    `unknown_count=${result.unknownFiles.length}`,
     `core=${result.core}`,
     `full_core=${result.fullCore}`,
     `bounded_core=${result.boundedCore}`,
@@ -470,6 +622,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.stdout.write(`Running changed npm test command: ${name}\n`);
       execFileSync("npm", ["run", name], { stdio: "inherit" });
     }
-  } else if (githubOutput) writeGithubOutput(result, result.files);
-  else process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+  } else if (githubOutput) writeGithubOutput(result, result.files, range);
+  else process.stdout.write(JSON.stringify({ ...result, testGroups: plannedTestGroups(result) }, null, 2) + "\n");
 }

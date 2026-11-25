@@ -504,8 +504,8 @@
   max-width: 760px;
   margin: 24px 0 0;
   color: var(--ink-2);
-  font-size: 1.06rem;
-  line-height: 1.72;
+  font-size: var(--ps-reading-size);
+  line-height: var(--ps-reading-leading);
 }
 .backLink {
   display: inline-flex;
@@ -1085,7 +1085,7 @@
 .page .lead {
   color: var(--ps-reading-color);
   font-family: var(--ps-reading-font);
-  font-size: var(--ps-reading-size);
+  font-size: var(--ps-reading-lead-size);
   line-height: var(--ps-reading-leading);
 }
 .page .quickFacts {
@@ -1387,8 +1387,8 @@
 .page .fitSection { padding: 28px 0; }
 .page .sectionIntro { margin-bottom: 16px; }
 .characterBlock {
-  margin-top: 19px;
-  padding-top: 16px;
+  margin-top: var(--ps-reading-paragraph-gap);
+  padding-top: var(--ps-reading-paragraph-gap);
   border-top: 1px solid var(--ps-border-soft);
 }
 .characterBlock h3 {
@@ -1678,4 +1678,11 @@
 @media (max-width: 380px) {
   .page .dataCardGrid,
   .page .fciFacts { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Only prose-bearing content sections, never the quick-facts/sidebar cards. */
+.page .fitGrid li,
+.page .riskBlock li {
+  font-size: var(--ps-reading-size);
+  line-height: var(--ps-reading-leading);
 }

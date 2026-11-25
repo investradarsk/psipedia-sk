@@ -1,0 +1,1122 @@
+{
+  "ref": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+  "start": 144,
+  "end": 156,
+  "rows": [
+    {
+      "file": "services-v3-hourly-auto-sync.yml",
+      "blob": "1329c07aec9b8ae92da33fd1af7127ca9844d588",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    # Only map/Gemini/service-specific changes belong here; generic D1\n    # migration tooling is already covered by required CI and Clean D1.\n    paths:\n      - \"lib/service-catalog-notion-auto-sweep.ts\"\n      - \"lib/service-catalog-notion-internal-runner.ts\"\n      - \"drizzle/0139_services_catalog_notion_auto_attempts.sql\"\n      - \"tests/service-catalog-notion-auto-sweep.test.mjs\"\n      - \".github/workflows/services-v3-hourly-auto-sync.yml\"\n      - \".github/workflows/services-v3-production-readonly.yml\"\n      - \"scripts/services-v3-production-readonly.mjs\"\n      - \"tests/services-v3-production-readonly.test.mjs\"\n      - \"scripts/production-d1-0139-schema.mjs\"\n      - \"tests/production-d1-0139-rollout.test.mjs\"",
+      "concurrency": [
+        "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "once-per-version-auto-sync",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Dependencies for existing TypeScript test loader",
+              "commands": [
+                "run: npm ci --no-audit --no-fund"
+              ]
+            },
+            {
+              "name": "name: Durable intent, source D1 authority and cron safety",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-notion-auto-sweep.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Simple Admin-to-Notion catalog sync regression",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-simple-sync.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Protected migration preflight contract",
+              "commands": [
+                "run: node --test tests/production-d1-0139-rollout.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Live read-only verifier offline fail-closed contract",
+              "commands": [
+                "run: node --test tests/services-v3-production-readonly.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/service-catalog-notion-auto-sweep.test.mjs",
+        "tests/services-v3-production-readonly.test.mjs",
+        "tests/production-d1-0139-rollout.test.mjs",
+        "tests/service-catalog-simple-sync.test.mjs"
+      ],
+      "scripts": [
+        "scripts/services-v3-production-readonly.mjs",
+        "scripts/production-d1-0139-schema.mjs"
+      ]
+    },
+    {
+      "file": "services-v3-map-canonical-filter.yml",
+      "blob": "2288dfa43bd52011d9d4b7971048ce61b77c3c34",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"lib/map-contract.ts\"\n      - \"lib/map-query.ts\"\n      - \"lib/map-public-ui.ts\"\n      - \"lib/service-catalog-public-service-filter.ts\"\n      - \"components/map/map-experience.tsx\"\n      - \"components/directory-page.tsx\"\n      - \"components/directory-filter-form.tsx\"\n      - \"tests/service-catalog-map-canonical-filter.test.mjs\"\n      - \"tests/service-catalog-public-parity-e2e.test.mjs\"\n      - \"lib/service-catalog-public-profile-services.ts\"\n      - \".github/workflows/services-v3-map-canonical-filter.yml\"",
+      "concurrency": [
+        "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "map-canonical-filter",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install TypeScript loader dependencies",
+              "commands": [
+                "run: npm ci --no-audit --no-fund"
+              ]
+            },
+            {
+              "name": "name: Confirm public list and map parity, strict scoped URL, zero inference",
+              "commands": [
+                "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-map-canonical-filter.test.mjs tests/service-catalog-public-parity-e2e.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/service-catalog-map-canonical-filter.test.mjs",
+        "tests/service-catalog-public-parity-e2e.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "services-v3-notion-mirror-offline.yml",
+      "blob": "f68b9614131d61261922498d8b50e007b1a3f962",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"lib/service-catalog-notion-mirror-executor.ts\"\n      - \"lib/service-catalog-notion-http-port.ts\"\n      - \"lib/service-catalog-notion-bootstrap-plan.ts\"\n      - \"lib/service-catalog-notion-page-provisioner.ts\"\n      - \"lib/service-catalog-notion-durable-lease.ts\"\n      - \"lib/service-catalog-notion-internal-runner.ts\"\n      - \"app/api/admin/service-catalog/notion-mirror/route.ts\"\n      - \"app/admin/sluzby-pre-psov/katalog/page.tsx\"\n      - \"components/admin-service-catalog-workspace.tsx\"\n      - \"components/admin-service-catalog.module.css\"\n      - \"lib/service-catalog-admin-mirror-controls.ts\"\n      - \"tests/service-catalog-admin-mirror-controls.test.mjs\"\n      - \"lib/service-catalog-notion-receipt-proof.ts\"\n      - \"tests/service-catalog-notion-mirror-executor.test.mjs\"\n      - \"tests/service-catalog-notion-receipt-proof.test.mjs\"\n      - \".github/workflows/services-v3-notion-mirror-offline.yml\"\n      - \"docs/services-v3-notion-mirror-executor-01.md\"\n  workflow_dispatch:",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline-mirror-proof",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Syntax / TS strip parse",
+              "commands": [
+                "node --experimental-strip-types --input-type=module -e \"await import('./lib/service-catalog-notion-mirror-executor.ts')\"",
+                "node --experimental-strip-types --input-type=module -e \"await import('./lib/service-catalog-notion-http-port.ts')\"",
+                "node --experimental-strip-types --input-type=module -e \"await import('./lib/service-catalog-notion-bootstrap-plan.ts')\"",
+                "node --experimental-strip-types --input-type=module -e \"await import('./lib/service-catalog-notion-page-provisioner.ts')\"",
+                "node --experimental-strip-types --input-type=module -e \"await import('./lib/service-catalog-notion-durable-lease.ts')\"",
+                "node --experimental-strip-types --input-type=module -e \"await import('./lib/service-catalog-notion-internal-runner.ts')\""
+              ]
+            },
+            {
+              "name": "name: Offline verified receipt and synthetic D1 transaction tests",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/service-catalog-notion-receipt-proof.test.mjs tests/service-catalog-notion-mirror-executor.test.mjs tests/service-catalog-admin-mirror-controls.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/service-catalog-admin-mirror-controls.test.mjs",
+        "tests/service-catalog-notion-mirror-executor.test.mjs",
+        "tests/service-catalog-notion-receipt-proof.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "services-v3-notion-receipt-proof-ci.yml",
+      "blob": "79e2d99439f56992b0d5d62b54962beca63dfdd3",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - 'lib/service-catalog-notion-receipt-proof.ts'\n      - 'tests/service-catalog-notion-receipt-proof.test.mjs'\n      - 'docs/services-v3-notion-receipt-proof-contract-01.md'\n      - '.github/workflows/services-v3-notion-receipt-proof-ci.yml'\n  workflow_dispatch:",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "receipt-proof-offline",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Offline proof contract tests — no secrets or network writes",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/service-catalog-notion-receipt-proof.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/service-catalog-notion-receipt-proof.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "services-v3-production-readonly.yml",
+      "blob": "dbce0e12347b709e5dd244b386536708ff18051f",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: Type AUDIT-SERVICES-V3-0139-psipedia-sk-db (READ ONLY)\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "services-v3-readonly",
+          "name": "Inspect 0138/0139 history and schema without writes",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Owner dispatch only; exact confirmation and main",
+              "commands": [
+                "input=\"$(node -e 'const e=require(process.env.GITHUB_EVENT_PATH); process.stdout.write(e.inputs?.confirmation || \"\")')\""
+              ]
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Refuse stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Dependencies",
+              "commands": [
+                "run: npm ci --no-audit --no-fund"
+              ]
+            },
+            {
+              "name": "name: Offline strict SELECT and ledger/classifier regressions",
+              "commands": [
+                "node --test tests/services-v3-production-readonly.test.mjs",
+                "npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Set canonical D1 account only",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Read live 0138/0139 and sanitized service selection aggregates",
+              "commands": [
+                "node scripts/services-v3-production-readonly.mjs"
+              ]
+            },
+            {
+              "name": "name: Upload redacted read-only production result, even on NO-GO",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations"
+      ],
+      "tests": [
+        "tests/services-v3-production-readonly.test.mjs"
+      ],
+      "scripts": [
+        "scripts/services-v3-production-readonly.mjs"
+      ]
+    },
+    {
+      "file": "services-v3-public-canonical-filter.yml",
+      "blob": "22d15733f455e5ecac85586de6831d0fc26bf60b",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"lib/service-catalog-public-service-filter.ts\"\n      - \"lib/directory-store.ts\"\n      - \"lib/directory-query.ts\"\n      - \"components/directory-filter-form.tsx\"\n      - \"components/directory-page.tsx\"\n      - \"tests/service-catalog-public-filter.test.mjs\"\n      - \"tests/service-catalog-public-parity-e2e.test.mjs\"\n      - \"lib/service-catalog-public-profile-services.ts\"\n      - \".github/workflows/services-v3-public-canonical-filter.yml\"",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "public-canonical-filter",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Canonical SQL, legacy filter compatibility, no inference",
+              "commands": [
+                "node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs tests/service-catalog-public-parity-e2e.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/service-catalog-public-filter.test.mjs",
+        "tests/service-catalog-public-parity-e2e.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "sitemap-edge-resilience.yml",
+      "blob": "5341fcf0f975eab3d7d3a382ef02e5c0c7866648",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"lib/sitemap-edge-cache.ts\"\n      - \"lib/sitemap-xml-validator.ts\"\n      - \"app/sitemap.ts\"\n      - \"tests/sitemap-edge-cache.test.mjs\"\n      - \"tests/sitemap-xml-hardening.test.mjs\"\n      - \".github/workflows/sitemap-edge-resilience.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "sitemap-resilience",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Validate sitemap last-good cache offline",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/sitemap-edge-cache.test.mjs tests/sitemap-xml-hardening.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/sitemap-edge-cache.test.mjs",
+        "tests/sitemap-xml-hardening.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "sitewide-ai-entity-surface-ci.yml",
+      "blob": "ae00a8d336f7fe47e481f8dd019ee2abe5d0a975",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"app/sitemap.ts\"\n      - \"app/[section]/[slug]/page.tsx\"\n      - \"app/plemena/[slug]/page.tsx\"\n      - \"app/pomoc-psom/adopcia/[slug]/page.tsx\"\n      - \"app/pomoc-psom/[category]/[slug]/page.tsx\"\n      - \"app/adresar/[category]/[slug]/page.tsx\"\n      - \"app/organizacie/[slug]/page.tsx\"\n      - \"components/article-detail.tsx\"\n      - \"components/event-detail.tsx\"\n      - \"components/organization-profile-detail.tsx\"\n      - \"components/adoption-detail.tsx\"\n      - \"components/lost-found-dog-detail.tsx\"\n      - \"components/directory-profile-detail.tsx\"\n      - \"components/help-details/**\"\n      - \"components/detail-primitives/**\"\n      - \"components/structured-data.tsx\"\n      - \"lib/event-schema.ts\"\n      - \"lib/organization-profile-presentation.ts\"\n      - \"lib/organization-seo.ts\"\n      - \"lib/adoption-detail.ts\"\n      - \"lib/directory-detail-presentation.ts\"\n      - \"lib/directory-profile-metadata.ts\"\n      - \"lib/directory-profile-schema.ts\"\n      - \"lib/article-seo.ts\"\n      - \"lib/content-seo.ts\"\n      - \"lib/seo.ts\"\n      - \"lib/canonical-resource.ts\"\n      - \"lib/sitemap-parity.ts\"\n      - \"lib/sitemap-runtime.ts\"\n      - \"lib/sitemap-seo.ts\"\n      - \"lib/entity-sitemap.ts\"\n      - \"lib/organization-sitemap.ts\"\n      - \"lib/adoption-sitemap.ts\"\n      - \"tests/public-details-v2-ui.test.mjs\"\n      - \"tests/fixtures/unified-public-details-v2.json\"\n      - \"tests/fixtures/public-details-media/**\"\n      - \"components/public-profile/**\"\n      - \"tests/sitewide-ai-entity-surface.test.mjs\"\n      - \"tests/events-phase4.test.mjs\"\n      - \"tests/adoption-detail.test.mjs\"\n      - \"tests/organization-profile-presentation.test.mjs\"\n      - \"tests/organization-seo.test.mjs\"\n      - \"tests/seo-structured-data-2.test.mjs\"\n      - \"tests/directory-detail-presentation.test.mjs\"\n      - \"tests/sitemap-seo.test.mjs\"\n      - \"tests/rendered-html.test.mjs\"\n      - \"tests/social-metadata.test.mjs\"\n      - \"tests/social-metadata-rendered.test.mjs\"\n      - \"tests/e2e/event-detail-phase4.spec.ts\"\n      - \"tests/e2e/adoption.spec.ts\"\n      - \"tests/e2e/breed-profile.spec.ts\"\n      - \"tests/e2e/lost-found-dogs.spec.ts\"\n      - \"tests/e2e/help-detail-primitives.spec.ts\"\n      - \"scripts/bootstrap-admin-events-e2e.mjs\"\n      - \"scripts/bootstrap-breed-e2e.mjs\"\n      - \"scripts/bootstrap-adoption-e2e.mjs\"\n      - \"scripts/bootstrap-adoption-staging-ci.mjs\"\n      - \"tests/fixtures/lost-found-e2e.sql\"\n      - \"tests/fixtures/help-detail-e2e.sql\"\n      - \"playwright.config.ts\"\n      - \".github/workflows/sitewide-ai-entity-surface-ci.yml\"\n",
+      "concurrency": [
+        "  group: sitewide-ai-entity-surface-1-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "entity-contracts",
+          "name": "Entity contracts, SEO, rendered HTML, lint and build",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Install isolated browser",
+              "commands": [
+                "run: npx playwright install --with-deps chromium"
+              ]
+            },
+            {
+              "name": "name: Unified public detail browser regressions (no D1 or external writes)",
+              "commands": [
+                "run: node --test tests/public-details-v2-ui.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Upload V2.1 browser screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Focused sitewide entity and structured data regressions",
+              "commands": [
+                "run: npm run test:sitewide-ai-entity-surface"
+              ]
+            },
+            {
+              "name": "name: Social and metadata suite",
+              "commands": [
+                "run: npm run test:social-metadata"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Build",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Rendered HTML and sitemap parity",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/sitemap-seo.test.mjs"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "public-entity-playwright",
+          "name": "Public entity Playwright — desktop/mobile",
+          "needs": "entity-contracts",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Build branch code",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Configure CI-only local PII keys",
+              "commands": [
+                "PII_ENCRYPTION_KEY=\"$(node -e 'process.stdout.write(Buffer.from(\"0123456789abcdef\".repeat(2)).toString(\"base64url\"))')\"",
+                "PII_HASH_KEY=\"$(node -e 'process.stdout.write(Buffer.from(\"fedcba9876543210\".repeat(2)).toString(\"base64url\"))')\""
+              ]
+            },
+            {
+              "name": "name: Apply foundation migrations to isolated local D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Seed adoption staging prerequisites",
+              "commands": [
+                "run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs"
+              ]
+            },
+            {
+              "name": "name: Apply canonical adoption migrations",
+              "commands": [
+                "run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state"
+              ]
+            },
+            {
+              "name": "name: Verify canonical adoption activation",
+              "commands": [
+                "run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs verify"
+              ]
+            },
+            {
+              "name": "name: Prepare deterministic breed assets",
+              "commands": [
+                "run: node scripts/bootstrap-breed-e2e.mjs prepare"
+              ]
+            },
+            {
+              "name": "name: Seed event, help and lost-found fixtures",
+              "commands": [
+                "node scripts/bootstrap-admin-events-e2e.mjs",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command \"INSERT INTO portal_section_settings (slug,label,eyebrow,description,intro,hero_config_json,subpages_json,position,visible,updated_at,updated_by) VALUES ('podujatia','Podujatia','Čo sa deje','Kalendár podujatí so psami.','Lokálny E2E seed verejnej sekcie podujatí.','{}','[]',0,1,'2026-10-06T00:00:00.000Z','e2e@psipedia.sk') ON CONFLICT(slug) DO UPDATE SET visible=1;\"",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/lost-found-e2e.sql",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/sitewide-ai-entity-surface/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/ >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Seed runtime breed and adoption fixtures",
+              "commands": [
+                "node scripts/bootstrap-breed-e2e.mjs seed",
+                "node scripts/bootstrap-adoption-e2e.mjs"
+              ]
+            },
+            {
+              "name": "name: Entity Playwright — desktop",
+              "commands": [
+                "run: npm run e2e -- tests/e2e/event-detail-phase4.spec.ts tests/e2e/adoption.spec.ts tests/e2e/breed-profile.spec.ts tests/e2e/lost-found-dogs.spec.ts tests/e2e/help-detail-primitives.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Entity Playwright — mobile",
+              "commands": [
+                "run: npm run e2e -- tests/e2e/event-detail-phase4.spec.ts tests/e2e/adoption.spec.ts tests/e2e/breed-profile.spec.ts tests/e2e/lost-found-dogs.spec.ts tests/e2e/help-detail-primitives.spec.ts --project=mobile-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": true,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:sitewide-ai-entity-surface",
+        "npm run test:social-metadata",
+        "npm run lint",
+        "npm run build",
+        "npm run e2e"
+      ],
+      "tests": [
+        "tests/public-details-v2-ui.test.mjs",
+        "tests/sitewide-ai-entity-surface.test.mjs",
+        "tests/events-phase4.test.mjs",
+        "tests/adoption-detail.test.mjs",
+        "tests/organization-profile-presentation.test.mjs",
+        "tests/organization-seo.test.mjs",
+        "tests/seo-structured-data-2.test.mjs",
+        "tests/directory-detail-presentation.test.mjs",
+        "tests/sitemap-seo.test.mjs",
+        "tests/rendered-html.test.mjs",
+        "tests/social-metadata.test.mjs",
+        "tests/social-metadata-rendered.test.mjs",
+        "tests/e2e/event-detail-phase4.spec.ts",
+        "tests/e2e/adoption.spec.ts",
+        "tests/e2e/breed-profile.spec.ts",
+        "tests/e2e/lost-found-dogs.spec.ts",
+        "tests/e2e/help-detail-primitives.spec.ts"
+      ],
+      "scripts": [
+        "scripts/bootstrap-admin-events-e2e.mjs",
+        "scripts/bootstrap-breed-e2e.mjs",
+        "scripts/bootstrap-adoption-e2e.mjs",
+        "scripts/bootstrap-adoption-staging-ci.mjs"
+      ]
+    },
+    {
+      "file": "submission-foundation-ci.yml",
+      "blob": "2b7937aa64cb8f03c62f285183de1f215fc20575",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/api/admin/moderation/**\"\n      - \"db/foundation-schema.ts\"\n      - \"drizzle/0029_submission_moderation_security_foundation.sql\"\n      - \"lib/audit-identity.ts\"\n      - \"lib/moderation-store.ts\"\n      - \"lib/pii-crypto.ts\"\n      - \"lib/private-media.ts\"\n      - \"lib/rate-limit.ts\"\n      - \"lib/resource-access.ts\"\n      - \"lib/resource-access-store.ts\"\n      - \"lib/submission-feature-flags.ts\"\n      - \"lib/submission-security.ts\"\n      - \"lib/turnstile.ts\"\n      - \"tests/submission-foundation.test.mjs\"\n      - \".github/workflows/submission-foundation-ci.yml\"\n  workflow_dispatch:\n\n# Superseded PR runs share a per-PR group; manual runs remain isolated by run_id.",
+      "concurrency": [
+        "  group: submission-foundation-${{ github.event.pull_request.number || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "foundation-security",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npm run test:foundation",
+              "commands": []
+            },
+            {
+              "name": "run: npm run lint",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": true,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:foundation",
+        "npm run lint"
+      ],
+      "tests": [
+        "tests/submission-foundation.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "unified-section-hero-ci.yml",
+      "blob": "9a3e5bf75126bca3a01a1d9eb2f47bbb37818c2a",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"components/public-visual-system/**\"\n      - \"components/admin-section-visuals.tsx\"\n      - \"components/admin-section-visuals.module.css\"\n      - \"components/editorial-section*\"\n      - \"components/portal-hub*\"\n      - \"components/portal-topic*\"\n      - \"components/directory-page*\"\n      - \"components/events-page*\"\n      - \"components/help-overview*\"\n      - \"components/help-page*\"\n      - \"components/adoption-catalog*\"\n      - \"components/lost-found-dogs-page*\"\n      - \"components/reviews-hub*\"\n      - \"app/page.tsx\"\n      - \"app/clanky/page.tsx\"\n      - \"app/hladat/page.tsx\"\n      - \"app/plemena/page.tsx\"\n      - \"app/[section]/page.tsx\"\n      - \"app/[section]/[slug]/page.tsx\"\n      - \"lib/portal.ts\"\n      - \"lib/portal-search.ts\"\n      - \"lib/section-store.ts\"\n      - \"lib/section-visual-contract.ts\"\n      - \"lib/section-visual-store.ts\"\n      - \"drizzle/0107_section_hero_config.sql\"\n      - \"tests/section-hero-v2.test.mjs\"\n      - \"tests/unified-section-hero.test.mjs\"\n      - \"tests/e2e/unified-section-hero.spec.ts\"\n      - \".github/workflows/unified-section-hero-ci.yml\"\n",
+      "concurrency": [
+        "  group: unified-section-hero-1-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "source-contracts",
+          "if": "github.head_ref == 'codex/unified-section-hero-1' || github.head_ref == 'feat/services-v2-global-hero-unify' || github.head_ref == 'design/unified-homepage-hero-v1' || github.head_ref == 'fix/public-hero-brand-name-days-20261018'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Unified hero source contracts",
+              "commands": [
+                "run: npm run test:unified-section-hero"
+              ]
+            },
+            {
+              "name": "name: Global hero focused regression contracts",
+              "if": "github.head_ref == 'feat/services-v2-global-hero-unify'",
+              "commands": [
+                "npm run test:section-hero-v2",
+                "npm run test:public-landing-alignment",
+                "npm run test:public-css-scope",
+                "npm run test:image-editor-2",
+                "npm run test:homepage-media"
+              ]
+            },
+            {
+              "name": "name: Full test suite",
+              "if": "github.head_ref != 'feat/services-v2-global-hero-unify'",
+              "commands": [
+                "run: npm test"
+              ]
+            },
+            {
+              "name": "name: Lint",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Typecheck diagnostic",
+              "commands": [
+                "run: npx tsc --noEmit"
+              ]
+            },
+            {
+              "name": "name: Production build",
+              "commands": [
+                "run: npm run build"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "preview-visual",
+          "needs": "source-contracts",
+          "if": "github.head_ref == 'codex/unified-section-hero-1' || github.head_ref == 'feat/services-v2-global-hero-unify' || github.head_ref == 'design/unified-homepage-hero-v1' || github.head_ref == 'fix/public-hero-brand-name-days-20261018'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Resolve exact Cloudflare preview for PR head",
+              "commands": [
+                "payload=\"$(curl --silent --show-error --fail \\",
+                "state=\"$(printf '%s' \"${payload}\" | node -e '",
+                "preview_url=\"$(printf '%s' \"${payload}\" | node -e '"
+              ]
+            },
+            {
+              "name": "name: 320 390 430 768 1180 1280 1440 visual audit",
+              "commands": [
+                "run: npx playwright test tests/e2e/unified-section-hero.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Upload unified hero screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Upload Playwright failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run test:unified-section-hero",
+        "npm run test:section-hero-v2",
+        "npm run test:public-landing-alignment",
+        "npm run test:public-css-scope",
+        "npm run test:image-editor-2",
+        "npm run test:homepage-media",
+        "npm test",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/section-hero-v2.test.mjs",
+        "tests/unified-section-hero.test.mjs",
+        "tests/e2e/unified-section-hero.spec.ts"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "web-perf-compare-ci.yml",
+      "blob": "2645bcc351f10287e9c85d9f820639445a9a8dfb",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - 'scripts/web-perf-compare.mjs'\n      - 'tests/web-perf-compare.test.mjs'\n      - 'docs/web-perf-compare.md'\n      - '.github/workflows/web-perf-compare-ci.yml'\n",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "comparator-tests",
+          "name": "Full comparator suite (Node 22, offline)",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "name: Checkout PR without persisted credentials",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Set up Node 22",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Check comparator and test syntax",
+              "commands": [
+                "node --check scripts/web-perf-compare.mjs",
+                "node --check tests/web-perf-compare.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Run every comparator test, including CLI/filesystem",
+              "commands": [
+                "run: node --test tests/web-perf-compare.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/web-perf-compare.test.mjs"
+      ],
+      "scripts": [
+        "scripts/web-perf-compare.mjs"
+      ]
+    },
+    {
+      "file": "web-perf-observability.yml",
+      "blob": "332ab00b107659fb457381ce4d3bbb924705991d",
+      "events": [
+        "pull_request",
+        "workflow_dispatch",
+        "schedule"
+      ],
+      "trigger": "on:\n  # Offline regression tests only; never run Chrome/Lighthouse for pull requests.\n  pull_request:\n    paths:\n      - 'scripts/web-perf-observability.mjs'\n      - 'tests/web-perf-observability.test.mjs'\n      - '.github/workflows/web-perf-observability.yml'\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: 'weekly: 2 URLs x 2 devices x 1; quick: 8 x 2 x 1; baseline: 8 x 2 x 3'\n        type: choice\n        required: true\n        default: quick\n        options: [weekly, quick, baseline]\n  schedule:\n    # Mondays at 04:17 UTC; bounded to four Lighthouse runs.\n    - cron: '17 4 * * 1'\n",
+      "concurrency": [
+        "  group: web-perf-observability-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'measure' }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "offline-tests",
+          "name": "Lighthouse diagnostic unit tests (no live requests)",
+          "if": "github.event_name == 'pull_request'",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/web-perf-observability.test.mjs",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "measure",
+          "name": "Public site measurements (not a PR check)",
+          "if": "github.event_name != 'pull_request'",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "name: Checkout measured source revision",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Record source revision",
+              "commands": [
+                "echo \"checkout_sha=$(git rev-parse HEAD)\"",
+                "test \"$(git rev-parse HEAD)\" = \"${{ github.sha }}\""
+              ]
+            },
+            {
+              "name": "name: Set up Node (no project build or npm ci)",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Use preinstalled Chrome",
+              "commands": []
+            },
+            {
+              "name": "name: Install pinned standalone Lighthouse only",
+              "commands": []
+            },
+            {
+              "name": "name: Verify measurement tests",
+              "commands": [
+                "run: node --test tests/web-perf-observability.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Measure live public pages, sequentially",
+              "commands": [
+                "node scripts/web-perf-observability.mjs --mode \"$MEASURE_MODE\" --out reports/web-perf --bin \"$LIGHTHOUSE_BIN\""
+              ]
+            },
+            {
+              "name": "name: Upload JSON/CSV and sanitized Lighthouse HTML",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/web-perf-observability.test.mjs"
+      ],
+      "scripts": [
+        "scripts/web-perf-observability.mjs"
+      ]
+    }
+  ]
+}

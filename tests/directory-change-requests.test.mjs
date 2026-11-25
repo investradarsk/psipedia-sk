@@ -103,6 +103,10 @@ function createDatabase() {
     const sql = chunk.replace(/^--[^\n]*\n/gm, "").trim();
     if (/^CREATE (?:TABLE|INDEX)\b/i.test(sql)) sqlite.exec(sql);
   }
+  const structured = readFileSync(new URL("../drizzle/0173_directory_structured_sql_foundation.sql", import.meta.url), "utf8");
+  for (const sql of structured.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) {
+    sqlite.exec(sql);
+  }
   const presentation = readFileSync(new URL("../db/isolated/directory_admin_sql_completion.sql", import.meta.url), "utf8");
   for (const sql of presentation.split("--> statement-breakpoint").map(value => value.trim()).filter(Boolean))
     sqlite.exec(sql);
@@ -256,6 +260,11 @@ function createDatabase() {
       (profile_id,item_order,service_text,updated_at,updated_by) VALUES (?,?,?,?,?)`);
     for (const [index,service] of profile[5].entries())
       services.run(profileId,index,service,now,"seed@psipedia.sk");
+    const qualifications = sqlite.prepare(`INSERT INTO directory_profile_qualifications
+      (profile_id,item_order,qualification_text,updated_at,updated_by) VALUES (?,?,?,?,?)`);
+    for (const [index, qualification] of profile[6].entries()) {
+      qualifications.run(profileId, index, qualification, now, "seed@psipedia.sk");
+    }
     const storedContacts = profile[15];
     sqlite.prepare(`UPDATE directory_profiles SET
       public_phone=?,public_email=?,facebook_url=? WHERE id=?`).run(

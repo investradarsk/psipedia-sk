@@ -242,7 +242,7 @@ test("article header follows compact editorial hierarchy and aligns with the rea
 });
 test("desktop magazine layout widens the reading column and scrolls the sidebar naturally", () => {
   assert.match(styles, /--article-sidebar-width:\s*290px/);
-  assert.match(styles, /\.readingShell \.standfirst\s*\{[^}]*margin:\s*0 0 18px/);
+  assert.match(styles, /\.readingShell \.standfirst\s*\{[^}]*margin:\s*0 0 var\(--ps-reading-paragraph-gap\)/);
   assert.doesNotMatch(detail, /<h1>\{article\.title\}<\/h1>\s*<p>\{article\.excerpt\}<\/p>/);
   assert.match(styles, /--article-reading-width:\s*min\(800px,\s*var\(--ps-reading-measure\)\)/);
   assert.match(
@@ -671,7 +671,7 @@ test("PUBLIC-MOBILE-GUTTER-1 keeps titles and prose aligned with the homepage mo
   );
   assert.match(mobile, /\.articleLayout\s*\{[^}]*padding-inline:\s*0;/s);
   assert.match(mobile, /\.article-intro > p\)[\s\S]*?margin-inline:\s*0;/);
-  assert.match(mobile, /\.readingShell :global\(\.article-blocks\)\s*\{\s*gap:\s*10px;/);
+  assert.match(mobile, /\.readingShell :global\(\.article-blocks\)\s*\{\s*gap:\s*var\(--ps-reading-paragraph-gap\);/);
   assert.match(mobile, /\.readingShell :global\(\.article-block-text\)\s*\{\s*gap:\s*0\.55em;/);
   assert.match(
     mobile,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import styles from "./admin-notion-data-quality-audit.module.css";
 
@@ -125,6 +125,12 @@ export function AdminNotionDataQualityAudit() {
   const [category, setCategory] = useState<Category>("directory");
   const [batches, setBatches] = useState<AuditBatch[]>([]);
   const [running, setRunning] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    // Enable interactive controls only after client hydration has committed.
+    const frame = window.requestAnimationFrame(() => setReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
 
@@ -276,11 +282,11 @@ export function AdminNotionDataQualityAudit() {
         <div className={styles.controls}>
           <label className={styles.field}>
             <span>Kategória</span>
-            <select value={category} disabled={running} onChange={(event) => reset(event.target.value as Category)}>
+            <select value={category} disabled={!ready || running} onChange={(event) => reset(event.target.value as Category)}>
               {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </label>
-          <button type="button" className="admin-primary-action" disabled={running || (batches.length > 0 && !hasMore && lastBatch?.nextPass !== 2) || (hasMore && !nextCursor)} onClick={checkNextBatch}>
+          <button type="button" className="admin-primary-action" disabled={!ready || running || (batches.length > 0 && !hasMore && lastBatch?.nextPass !== 2) || (hasMore && !nextCursor)} onClick={checkNextBatch}>
             {running ? "Kontrolujem…" : lastBatch?.nextPass === 2 ? "Začať 2. prechod" : batches.length ? "Skontrolovať ďalších 100" : "Spustiť kontrolu prvých 100"}
           </button>
           {batches.length > 0 ? (

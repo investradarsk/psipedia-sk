@@ -1,3 +1,4 @@
+import { PublicHelpSectionNav } from "@/components/public-visual-system/public-help-category-nav";
 import {
   PublicActionLink,
   PublicMediaFallback,
@@ -381,6 +382,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
         }
       />
 
+      <PublicHelpSectionNav current="stratene-a-najdene" reportScope={type} />
       <PublicHelpProfileDetailLayout>
         <article className={styles.detailCopy}>
           <DetailSection compactHeading title="Popis">

@@ -1,0 +1,1633 @@
+{
+  "ref": "6d4e59fcc59ec5d2a97dcc4bad0cd39e82ed22c9",
+  "start": 32,
+  "end": 48,
+  "rows": [
+    {
+      "file": "clean-d1-migration-validation.yml",
+      "blob": "a87b14478f2c4b08f5eb501cd801aad038230a2c",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"drizzle/**\"\n      - \"db/**\"\n      - \"tests/fixtures/adoption-sql-migration-fixture.mjs\"\n      - \"scripts/check-migration-safety.mjs\"\n      - \"scripts/validate-clean-d1.mjs\"\n      - \"scripts/production-d1-migrate.mjs\"\n      - \"tests/production-d1-migration.test.mjs\"\n      - \"tests/production-d1-0132-rollout.test.mjs\"\n      - \"tests/production-d1-0133-rollout.test.mjs\"\n      - \"tests/production-d1-0123-0125-rollout.test.mjs\"\n      - \".github/workflows/production-d1-migrate.yml\"\n      - \"package-lock.json\"\n      - \"migration-safety.baseline.json\"\n      - \".github/workflows/clean-d1-migration-validation.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: clean-d1-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "clean-d1",
+          "name": "Fresh local D1 — full migration chain",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Migration safety contract",
+              "commands": [
+                "run: npm run db:check-migrations"
+              ]
+            },
+            {
+              "name": "name: Offline migration regression suite",
+              "commands": [
+                "run: npm run test:migration-safety"
+              ]
+            },
+            {
+              "name": "name: Empty local D1 → full chain → current schema",
+              "commands": [
+                "run: npm run db:validate-clean"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run test:migration-safety",
+        "npm run db:validate-clean"
+      ],
+      "tests": [
+        "tests/production-d1-migration.test.mjs",
+        "tests/production-d1-0132-rollout.test.mjs",
+        "tests/production-d1-0133-rollout.test.mjs",
+        "tests/production-d1-0123-0125-rollout.test.mjs"
+      ],
+      "scripts": [
+        "scripts/check-migration-safety.mjs",
+        "scripts/validate-clean-d1.mjs",
+        "scripts/production-d1-migrate.mjs"
+      ]
+    },
+    {
+      "file": "code-quality-policy.yml",
+      "blob": "dc6e02af612b202c845e67add5651296c07e7209",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"AGENTS.md\"\n      - \".prettierrc.json\"\n      - \".prettierignore\"\n      - \"docs/AI-CODE-QUALITY.md\"\n      - \"tests/code-quality-policy.test.mjs\"\n      - \".github/workflows/code-quality-policy.yml\"\n  workflow_dispatch:",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contract",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/code-quality-policy.test.mjs",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/code-quality-policy.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "content-relations-1.yml",
+      "blob": "3e38190098183bad6f170009377ff1452803a018",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - \"app/[section]/[slug]/page.tsx\"\n      - \"app/clanky/[slug]/page.tsx\"\n      - \"app/plemena/[slug]/page.tsx\"\n      - \"app/adresar/[category]/[slug]/page.tsx\"\n      - \"components/article-detail.tsx\"\n      - \"components/directory-profile-detail.tsx\"\n      - \"components/organization-profile-detail.tsx\"\n      - \"components/related-entity-list.tsx\"\n      - \"components/related-entity-list.module.css\"\n      - \"lib/content-relations.ts\"\n      - \"lib/breed-canonical.ts\"\n      - \"lib/breed-store.ts\"\n      - \"lib/help-organization-store.ts\"\n      - \"lib/organization-adoption-store.ts\"\n      - \"tests/content-relations.test.mjs\"\n      - \"tests/organization-adoption-relation.test.mjs\"\n      - \"tests/e2e/content-relations-1.spec.ts\"\n      - \"tests/fixtures/content-relations-1-e2e.sql\"\n      - \".github/workflows/content-relations-1.yml\"\n      - \"playwright.config.ts\"\n",
+      "concurrency": [
+        "  group: content-relations-1-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "content-relations",
+          "name": "Explicit relations — unit, build, desktop/mobile",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "name: Checkout PR merge ref",
+              "uses": "actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "name: Set up Node.js",
+              "uses": "actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Focused relation and SEO regression tests",
+              "commands": [
+                "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test             tests/content-relations.test.mjs             tests/organization-adoption-relation.test.mjs             tests/sitemap-seo.test.mjs             tests/organization-sitemap.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Lint PR code",
+              "commands": [
+                "run: npm run lint"
+              ]
+            },
+            {
+              "name": "name: Build PR code",
+              "commands": [
+                "run: npm run build"
+              ]
+            },
+            {
+              "name": "name: Install Chromium and system dependencies",
+              "commands": [
+                "run: npx playwright install chromium"
+              ]
+            },
+            {
+              "name": "name: Configure CI-only local PII keys",
+              "commands": []
+            },
+            {
+              "name": "name: Apply migrations to isolated local D1 only",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql"
+              ]
+            },
+            {
+              "name": "name: Seed disposable relation fixtures into isolated local D1 only",
+              "commands": [
+                "run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/content-relations-1-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/content-relations/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/ >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: CONTENT-RELATIONS Playwright — desktop",
+              "commands": [
+                "run: npx playwright test tests/e2e/content-relations-1.spec.ts --project=desktop-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: CONTENT-RELATIONS Playwright — mobile 390 px",
+              "commands": [
+                "run: npx playwright test tests/e2e/content-relations-1.spec.ts --project=mobile-chromium --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop isolated local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload desktop/mobile screenshots",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": true,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/content-relations.test.mjs",
+        "tests/organization-adoption-relation.test.mjs",
+        "tests/e2e/content-relations-1.spec.ts",
+        "tests/sitemap-seo.test.mjs",
+        "tests/organization-sitemap.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "d1-directory-canonical-reads.yml",
+      "blob": "dbbb912871b8c40d2f46122ffb333648ad1cdfe0",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"lib/breed-canonical.ts\"\n      - \"lib/directory-store.ts\"\n      - \"lib/directory-sql-contacts.ts\"\n      - \"lib/directory-secondary-category-sql.ts\"\n      - \"lib/directory-0170-editorial-sql-mirror.ts\"\n      - \"lib/directory-0170-editorial-read.ts\"\n      - \"tests/directory-0170-editorial-read.test.mjs\"\n      - \"app/api/admin/directory/[id]/route.ts\"\n      - \"app/admin/adresar/[id]/page.tsx\"\n      - \"tests/directory-0170-editorial-sql-mirror.test.mjs\"\n      - \"tests/directory-0170-secondary-category-dualwrite.test.mjs\"\n      - \"tests/directory-0170-secondary-sql-authority.test.mjs\"\n      - \"lib/directory-multi-category.ts\"\n      - \"tests/directory-multi-category.test.mjs\"\n      - \"tests/directory-0170-manual-contacts.test.mjs\"\n      - \"lib/directory-breeder-card.ts\"\n      - \"lib/directory-read-facets.ts\"\n      - \"lib/directory-public-filters.ts\"\n      - \"tests/directory-public-filters.test.mjs\"\n      - \"tests/directory-canonical-attributes-public.test.mjs\"\n      - \"lib/breeder-profile-relations.ts\"\n      - \"lib/notion-directory-sync.ts\"\n      - \"tests/breeder-club-single-source.test.mjs\"\n      - \"tests/d1-0163-0169-schema-readonly-audit.test.mjs\"\n      - \"scripts/d1-0163-0169-schema-readonly-audit.sql\"\n      - \"drizzle/0169_directory_breeder_club_relations.sql\"\n      - \"tests/d1-canonical-breed-cost.test.mjs\"\n      - \"tests/directory-read-facets.test.mjs\"\n      - \"tests/directory-breeder-preview-step3.test.mjs\"\n      - \"tests/breeder-sql-only-legacy-drop.test.mjs\"\n      - \"tests/trainer-breed-unification.test.mjs\"\n      - \"scripts/d1-trainer-breed-links-preflight.sql\"\n      - \"scripts/d1-trainer-breed-links-backfill.sql\"\n      - \"lib/breeder-profile-relations.ts\"\n      - \".github/workflows/d1-directory-canonical-reads.yml\"\n",
+      "concurrency": [
+        "  group: d1-directory-canonical-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "parity",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Exact canonical identity, source facets and secondary-category parity",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/directory-0170-manual-contacts.test.mjs tests/directory-0170-secondary-category-dualwrite.test.mjs tests/directory-0170-secondary-sql-authority.test.mjs tests/directory-multi-category.test.mjs tests/directory-0170-editorial-sql-mirror.test.mjs tests/directory-0170-editorial-read.test.mjs tests/d1-canonical-breed-cost.test.mjs tests/directory-read-facets.test.mjs tests/breeder-club-single-source.test.mjs tests/d1-0163-0169-schema-readonly-audit.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Install dependencies for alias-aware public tests",
+              "commands": [
+                "run: npm ci --ignore-scripts --no-audit --no-fund"
+              ]
+            },
+            {
+              "name": "name: Public SQL-first provider facet and Services V3 separation",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-public-filters.test.mjs tests/directory-canonical-attributes-public.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Historical trainer relation migration regression (not a production instruction)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/trainer-breed-unification.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Breeder-card canonical links and safe fallback",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-breeder-preview-step3.test.mjs tests/breeder-sql-only-legacy-drop.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/directory-0170-editorial-read.test.mjs",
+        "tests/directory-0170-editorial-sql-mirror.test.mjs",
+        "tests/directory-0170-secondary-category-dualwrite.test.mjs",
+        "tests/directory-0170-secondary-sql-authority.test.mjs",
+        "tests/directory-multi-category.test.mjs",
+        "tests/directory-0170-manual-contacts.test.mjs",
+        "tests/directory-public-filters.test.mjs",
+        "tests/directory-canonical-attributes-public.test.mjs",
+        "tests/breeder-club-single-source.test.mjs",
+        "tests/d1-0163-0169-schema-readonly-audit.test.mjs",
+        "tests/d1-canonical-breed-cost.test.mjs",
+        "tests/directory-read-facets.test.mjs",
+        "tests/directory-breeder-preview-step3.test.mjs",
+        "tests/breeder-sql-only-legacy-drop.test.mjs",
+        "tests/trainer-breed-unification.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "d1-insights-report-ci.yml",
+      "blob": "3568822b616109d7a35faed7f7bf5d6877ff8a52",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"scripts/d1-insights-report.mjs\"\n      - \"tests/d1-insights-report.test.mjs\"\n      - \"tests/fixtures/d1-insights-sample.json\"\n      - \".github/workflows/d1-insights-report-ci.yml\"\n",
+      "concurrency": [
+        "  group: d1-insights-report-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "report-tests",
+          "name": "Offline parser and privacy tests",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: JavaScript syntax",
+              "commands": [
+                "run: node --check scripts/d1-insights-report.mjs"
+              ]
+            },
+            {
+              "name": "name: Fixture and privacy regressions",
+              "commands": [
+                "run: node --test tests/d1-insights-report.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Synthetic example report",
+              "commands": [
+                "run: node scripts/d1-insights-report.mjs --input tests/fixtures/d1-insights-sample.json --period 1d --origin fixture --output /tmp/d1-insights-fixture-report.json"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/d1-insights-report.test.mjs"
+      ],
+      "scripts": [
+        "scripts/d1-insights-report.mjs"
+      ]
+    },
+    {
+      "file": "data-automation-ci.yml",
+      "blob": "005d42f02b5fc09189d948ce61c947d3af8d1170",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/admin/operations/**\"\n      - \"app/api/admin/automation-findings/**\"\n      - \"components/admin-automation-finding-review.tsx\"\n      - \"lib/data-automation.ts\"\n      - \"lib/data-automation-apply.ts\"\n      - \"lib/data-automation-canonical-apply.ts\"\n      - \"lib/data-automation-clustering.ts\"\n      - \"lib/data-automation-capability-registry.ts\"\n      - \"lib/data-automation-draft-mapper.ts\"\n      - \"lib/data-automation-enrichment-normalize.ts\"\n      - \"lib/data-automation-enrichment-template.ts\"\n      - \"lib/data-automation-http-policy.ts\"\n      - \"lib/data-automation-governance.ts\"\n      - \"lib/data-automation-identity.ts\"\n      - \"lib/data-automation-dynamic-identity.ts\"\n      - \"lib/data-automation-ingestion-receipts.ts\"\n      - \"lib/data-automation-lifecycle.ts\"\n      - \"lib/data-automation-lifecycle-apply.ts\"\n      - \"lib/data-automation-lifecycle-store.ts\"\n      - \"lib/data-automation-matching.ts\"\n      - \"lib/data-automation-runner.ts\"\n      - \"lib/data-automation-source-provisioning.ts\"\n      - \"lib/data-automation-source-scoped-extraction.ts\"\n      - \"lib/data-automation-source-store.ts\"\n      - \"lib/data-automation-store.ts\"\n      - \"lib/data-automation-generic-source-extractor.ts\"\n      - \"lib/automation-record-suppressions.ts\"\n      - \"lib/canonical-draft-delete.ts\"\n      - \"lib/admin-attention-queue*.ts\"\n      - \"lib/editorial-email.ts\"\n      - \"lib/editorial-notifications.ts\"\n      - \"drizzle/0050_data_automation_foundation.sql\"\n      - \"drizzle/0055_data_automation_apply.sql\"\n      - \"drizzle/0056_scheduled_source_discovery.sql\"\n      - \"drizzle/0057_automation_background_run_lock.sql\"\n      - \"drizzle/0073_automation_multisource_entity_resolution.sql\"\n      - \"drizzle/0075_automation_zsk_event_source.sql\"\n      - \"drizzle/0076_automation_non_event_entity_resolution_foundation.sql\"\n      - \"drizzle/0079_automation_agility_event_source.sql\"\n      - \"drizzle/0080_automation_canonical_apply.sql\"\n      - \"drizzle/0084_automation_governance_registry.sql\"\n      - \"drizzle/0052_data_automation_sources_discovery.sql\"\n      - \"drizzle/0078_automation_possible_match_reviews.sql\"\n      - \"drizzle/0081_automation_mushing_event_source.sql\"\n      - \"drizzle/0082_automation_discovery_candidate_evidence.sql\"\n      - \"drizzle/0083_automation_search_budgets.sql\"\n      - \"drizzle/0085_automation_tavily_discovery_root.sql\"\n      - \"drizzle/0086_automation_tavily_event_cadence.sql\"\n      - \"drizzle/0087_automation_tavily_help_roots.sql\"\n      - \"drizzle/0088_automation_tavily_organization_root.sql\"\n      - \"drizzle/0089_automation_tavily_directory_roots.sql\"\n      - \"drizzle/0091_automation_detach_drafts.sql\"\n      - \"drizzle/0092_automation_product_model.sql\"\n      - \"drizzle/0093_automation_address_review.sql\"\n      - \"drizzle/0094_canonical_draft_delete.sql\"\n      - \"drizzle/0095_automation_calendar_schedule.sql\"\n      - \"drizzle/0096_automation_update_field_reviews.sql\"\n      - \"drizzle/0097_automation_operations_metrics.sql\"\n      - \"tests/data-automation.test.mjs\"\n      - \"tests/data-automation-governance.test.mjs\"\n      - \"tests/data-automation-apply.test.mjs\"\n      - \"tests/data-automation-background-run.test.mjs\"\n      - \"tests/data-automation-clustering.test.mjs\"\n      - \"tests/data-automation-dynamic-identity.test.mjs\"\n      - \"tests/data-automation-generic-source-extractor.test.mjs\"\n      - \"tests/data-automation-lifecycle.test.mjs\"\n      - \"tests/automation-detach-drafts.test.mjs\"\n      - \"tests/automation-cleanup-legacy.test.mjs\"\n      - \"tests/automation-finalize-v1.test.mjs\"\n      - \"scripts/automation-detach-drafts.mjs\"\n      - \"scripts/automation-cleanup-legacy.mjs\"\n      - \".github/workflows/automation-finalize-v1.yml\"\n      - \"tests/g5-canonical-apply.test.mjs\"\n      - \"tests/fixtures/data-automation/**\"\n      - \"tests/admin-attention-queue.test.mjs\"\n      - \".github/workflows/data-automation-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: data-automation-${{ github.event.pull_request.number || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contracts",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npm run db:check-migrations",
+              "commands": []
+            },
+            {
+              "name": "name: Focused automation and Attention Center tests",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v4.test.mjs tests/data-automation-v5.test.mjs tests/data-automation-background-run.test.mjs tests/data-automation-clustering.test.mjs tests/automation-detach-drafts.test.mjs tests/automation-cleanup-legacy.test.mjs tests/automation-finalize-v1.test.mjs tests/g5-canonical-apply.test.mjs tests/admin-attention-queue.test.mjs tests/data-automation-tavily-source-scoped.test.mjs tests/data-automation-source-provider-usage.test.mjs tests/data-automation-event-source-pilot.test.mjs tests/data-automation-adoption-source-pilot.test.mjs tests/data-automation-foster-source-pilot.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Tavily source-scoped strategy chain",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-tavily-strategy-chain.test.mjs"
+              ]
+            },
+            {
+              "name": "name: HELP-INGEST-1C foster adapter tests",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-foster-ingest.test.mjs"
+              ]
+            },
+            {
+              "name": "name: DISCOVERY-4B governance tests",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-governance.test.mjs"
+              ]
+            },
+            {
+              "name": "run: npm run build",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": true,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/data-automation.test.mjs",
+        "tests/data-automation-governance.test.mjs",
+        "tests/data-automation-apply.test.mjs",
+        "tests/data-automation-background-run.test.mjs",
+        "tests/data-automation-clustering.test.mjs",
+        "tests/data-automation-dynamic-identity.test.mjs",
+        "tests/data-automation-generic-source-extractor.test.mjs",
+        "tests/data-automation-lifecycle.test.mjs",
+        "tests/automation-detach-drafts.test.mjs",
+        "tests/automation-cleanup-legacy.test.mjs",
+        "tests/automation-finalize-v1.test.mjs",
+        "tests/g5-canonical-apply.test.mjs",
+        "tests/admin-attention-queue.test.mjs",
+        "tests/data-automation-v4.test.mjs",
+        "tests/data-automation-v5.test.mjs",
+        "tests/data-automation-tavily-source-scoped.test.mjs",
+        "tests/data-automation-source-provider-usage.test.mjs",
+        "tests/data-automation-event-source-pilot.test.mjs",
+        "tests/data-automation-adoption-source-pilot.test.mjs",
+        "tests/data-automation-foster-source-pilot.test.mjs",
+        "tests/data-automation-tavily-strategy-chain.test.mjs",
+        "tests/data-automation-foster-ingest.test.mjs"
+      ],
+      "scripts": [
+        "scripts/automation-detach-drafts.mjs",
+        "scripts/automation-cleanup-legacy.mjs"
+      ]
+    },
+    {
+      "file": "data-automation-v2-ci.yml",
+      "blob": "9c972cf0a41a7120998e05bfd9f74deb15b37e35",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"app/admin/operations/automation/**\"\n      - \"app/admin/automatizacie/**\"\n      - \"app/api/admin/automation-sources/**\"\n      - \"app/api/admin/automation-source-candidates/**\"\n      - \"app/api/admin/automation-lifecycle/**\"\n      - \"components/admin-automation-source-*.tsx\"\n      - \"components/admin-automation-lifecycle-*.tsx\"\n      - \"lib/admin-automation-api.ts\"\n      - \"lib/data-automation*.ts\"\n      - \"drizzle/0052_data_automation_sources_discovery.sql\"\n      - \"drizzle/0056_scheduled_source_discovery.sql\"\n      - \"drizzle/0057_automation_background_run_lock.sql\"\n      - \"drizzle/0073_automation_multisource_entity_resolution.sql\"\n      - \"drizzle/0075_automation_zsk_event_source.sql\"\n      - \"drizzle/0076_automation_non_event_entity_resolution_foundation.sql\"\n      - \"drizzle/0079_automation_agility_event_source.sql\"\n      - \"drizzle/0080_automation_canonical_apply.sql\"\n      - \"drizzle/0084_automation_governance_registry.sql\"\n      - \"drizzle/0085_automation_tavily_discovery_root.sql\"\n      - \"drizzle/0092_automation_product_model.sql\"\n      - \"drizzle/0093_automation_address_review.sql\"\n      - \"drizzle/0094_canonical_draft_delete.sql\"\n      - \"drizzle/0096_automation_update_field_reviews.sql\"\n      - \"lib/canonical-draft-delete.ts\"\n      - \"lib/automation-record-suppressions.ts\"\n      - \"components/admin-canonical-draft-delete.tsx\"\n      - \"app/api/admin/canonical-drafts/**\"\n      - \"drizzle/0050_data_automation_foundation.sql\"\n      - \"drizzle/0055_data_automation_apply.sql\"\n      - \"drizzle/0078_automation_possible_match_reviews.sql\"\n      - \"drizzle/0081_automation_mushing_event_source.sql\"\n      - \"drizzle/0082_automation_discovery_candidate_evidence.sql\"\n      - \"drizzle/0083_automation_search_budgets.sql\"\n      - \"drizzle/0086_automation_tavily_event_cadence.sql\"\n      - \"drizzle/0087_automation_tavily_help_roots.sql\"\n      - \"drizzle/0088_automation_tavily_organization_root.sql\"\n      - \"drizzle/0089_automation_tavily_directory_roots.sql\"\n      - \"drizzle/0091_automation_detach_drafts.sql\"\n      - \"drizzle/0095_automation_calendar_schedule.sql\"\n      - \"drizzle/0097_automation_operations_metrics.sql\"\n      - \"tests/canonical-draft-delete.test.mjs\"\n      - \"tests/data-automation*.test.mjs\"\n      - \"tests/data-automation-governance.test.mjs\"\n      - \"tests/tavily-canary-control.test.mjs\"\n      - \"tests/automation-admin-v2-ux.test.mjs\"\n      - \"tests/g4-possible-review-decisions.test.mjs\"\n      - \"tests/g5-canonical-apply.test.mjs\"\n      - \"tests/automation-cluster-admin-integration.test.mjs\"\n      - \"tests/data-automation-tavily-source-scoped.test.mjs\"\n      - \"tests/data-automation-tavily-strategy-chain.test.mjs\"\n      - \"tests/data-automation-source-provider-usage.test.mjs\"\n      - \"tests/data-automation-event-source-pilot.test.mjs\"\n      - \"tests/data-automation-adoption-source-pilot.test.mjs\"\n      - \"tests/data-automation-foster-source-pilot.test.mjs\"\n      - \"tests/data-automation-foster-d1-e2e.test.mjs\"\n      - \"tests/data-automation-lost-found-source-pilot.test.mjs\"\n      - \"tests/data-automation-lost-found-d1-e2e.test.mjs\"\n      - \"scripts/automation-source-ux-reset.mjs\"\n      - \"tests/automation-source-ux-reset.test.mjs\"\n      - \"tests/automation-update-review.test.mjs\"\n      - \"tests/admin-auto-ux-2.test.mjs\"\n      - \"tests/fixtures/data-automation/**\"\n      - \"tests/e2e/data-automation-v2.spec.ts\"\n      - \"tests/e2e/canonical-draft-delete.spec.ts\"\n      - \"tests/fixtures/canonical-draft-delete-e2e.sql\"\n      - \".github/workflows/data-automation-v2-ci.yml\"\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: data-automation-v2-${{ github.event.pull_request.number || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "scope",
+          "name": "Detect automation PR scope",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "id: scope",
+              "if": "github.event_name == 'pull_request'",
+              "commands": [
+                "run: node scripts/ci-scope.mjs --github-output"
+              ]
+            },
+            {
+              "name": "id: manual",
+              "if": "github.event_name != 'pull_request'",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "contracts",
+          "needs": "scope",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Log revision evidence",
+              "commands": [
+                "echo \"checked_out_sha=$(git rev-parse HEAD)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npm run db:check-migrations",
+              "commands": []
+            },
+            {
+              "name": "run: npm run lint",
+              "commands": []
+            },
+            {
+              "name": "name: Broad AUTOMATION-1 + AUTOMATION-2 regression",
+              "if": "needs.scope.outputs.automation_broad == 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v2.test.mjs tests/data-automation-v4.test.mjs tests/data-automation-v5.test.mjs tests/data-automation-background-run.test.mjs tests/data-automation-clustering.test.mjs tests/data-automation-sitemap.test.mjs tests/data-automation-rss.test.mjs tests/data-automation-structured-directory.test.mjs tests/data-automation-search-provider.test.mjs tests/data-automation-search-budget.test.mjs tests/data-automation-tavily-root.test.mjs tests/data-automation-tavily-directory-roots.test.mjs tests/data-automation-universal.test.mjs tests/data-automation-direct-entity-identity.test.mjs tests/data-automation-directory-matching.test.mjs tests/data-automation-organization-ingest.test.mjs tests/canonical-draft-delete.test.mjs tests/data-automation-entity-enrichment.test.mjs tests/lost-found-lifecycle.test.mjs tests/data-automation-directory-address-description.test.mjs tests/data-automation-directory-exact-address-enrichment.test.mjs tests/data-automation-directory-address-enrichment-contract.test.mjs tests/admin-attention-queue.test.mjs tests/automation-admin-v2-ux.test.mjs tests/automation-source-only-ux.test.mjs tests/g5-canonical-apply.test.mjs tests/data-automation-tavily-source-scoped.test.mjs tests/data-automation-source-provider-usage.test.mjs tests/data-automation-event-source-pilot.test.mjs tests/data-automation-adoption-source-pilot.test.mjs tests/data-automation-foster-source-pilot.test.mjs tests/data-automation-lost-found-source-pilot.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Retired legacy automation routes stay fail-closed",
+              "if": "needs.scope.outputs.automation_broad == 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/legacy-automation-retirement.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Parser and provider local contracts",
+              "if": "needs.scope.outputs.automation_broad != 'true' && needs.scope.outputs.automation_admin_e2e != 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/data-automation-direct-entity-identity.test.mjs tests/data-automation-tavily-source-scoped.test.mjs tests/data-automation-source-provider-usage.test.mjs tests/data-automation-search-provider.test.mjs tests/data-automation-search-budget.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Source-management admin contracts",
+              "if": "needs.scope.outputs.automation_broad != 'true' && needs.scope.outputs.automation_admin_e2e == 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/data-automation-v2.test.mjs tests/canonical-draft-delete.test.mjs tests/automation-admin-v2-ux.test.mjs tests/automation-source-only-ux.test.mjs tests/automation-source-ux-reset.test.mjs tests/automation-update-review.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Tavily internet-only production policy",
+              "if": "needs.scope.outputs.automation_broad == 'true' || needs.scope.outputs.automation_admin_e2e != 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-tavily-internet-only.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Tavily source-scoped strategy chain",
+              "if": "needs.scope.outputs.automation_broad == 'true' || needs.scope.outputs.automation_admin_e2e != 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-tavily-strategy-chain.test.mjs"
+              ]
+            },
+            {
+              "name": "name: ORGANIZATION root regression",
+              "if": "needs.scope.outputs.automation_broad == 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-organization-root.test.mjs"
+              ]
+            },
+            {
+              "name": "name: DIRECTORY + EVENT provisioning approval integration regression",
+              "if": "needs.scope.outputs.automation_broad == 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-directory-provisioning-integration.test.mjs"
+              ]
+            },
+            {
+              "name": "name: DIRECTORY service-address safety regression",
+              "if": "needs.scope.outputs.automation_broad == 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-service-address.test.mjs"
+              ]
+            },
+            {
+              "name": "name: DISCOVERY-4B governance tests",
+              "if": "needs.scope.outputs.automation_broad == 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-governance.test.mjs tests/tavily-canary-control.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Automation source UX reset contract",
+              "if": "needs.scope.outputs.automation_broad == 'true'",
+              "commands": [
+                "run: node --test tests/automation-source-ux-reset.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Automation update review contract",
+              "if": "needs.scope.outputs.automation_broad == 'true'",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/automation-update-review.test.mjs"
+              ]
+            },
+            {
+              "name": "run: npm run build",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "admin-e2e",
+          "needs": "[contracts, scope]",
+          "if": "needs.scope.outputs.automation_admin_e2e == 'true'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "run: npm run build",
+              "commands": []
+            },
+            {
+              "name": "name: Configure CI-only local PII keys",
+              "commands": []
+            },
+            {
+              "name": "name: Apply foundation migrations to isolated local D1",
+              "commands": [
+                "npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state",
+                "npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/canonical-draft-delete-e2e.sql"
+              ]
+            },
+            {
+              "name": "name: DIRECT_ENTITY identity/evidence local D1 E2E",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-direct-entity-d1-e2e.test.mjs"
+              ]
+            },
+            {
+              "name": "name: EVENT source-scoped isolated local D1 pilot",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-event-source-pilot-d1.test.mjs"
+              ]
+            },
+            {
+              "name": "name: ADOPTION source-scoped local D1 E2E",
+              "commands": [
+                "d1_path=\"$(node - <<'NODE'",
+                "PSIPEDIA_E2E_D1_PATH=\"$d1_path\" node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-adoption-d1-e2e.test.mjs"
+              ]
+            },
+            {
+              "name": "name: FOSTER source-scoped local D1 E2E",
+              "commands": [
+                "d1_path=\"$(node - <<'NODE'",
+                "PSIPEDIA_E2E_D1_PATH=\"$d1_path\" node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-foster-d1-e2e.test.mjs"
+              ]
+            },
+            {
+              "name": "name: LOST_FOUND source-scoped local D1 E2E",
+              "commands": [
+                "d1_path=\"$(node - <<'NODE'",
+                "PSIPEDIA_E2E_D1_PATH=\"$d1_path\" node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-lost-found-d1-e2e.test.mjs"
+              ]
+            },
+            {
+              "name": "name: Start isolated local app",
+              "commands": [
+                "nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/data-automation-v2/server.log 2>&1 &",
+                "if curl --silent --fail http://localhost:5173/admin/automatizacie/zdroje >/dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Source admin desktop/mobile + Axe",
+              "commands": [
+                "run: npx playwright test tests/e2e/data-automation-v2.spec.ts tests/e2e/canonical-draft-delete.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop local app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "name: Upload failure evidence",
+              "if": "failure()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": true,
+        "secrets": false,
+        "local": true,
+        "build": true,
+        "lint": true,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run db:check-migrations",
+        "npm run lint",
+        "npm run build"
+      ],
+      "tests": [
+        "tests/canonical-draft-delete.test.mjs",
+        "tests/data-automation-governance.test.mjs",
+        "tests/tavily-canary-control.test.mjs",
+        "tests/automation-admin-v2-ux.test.mjs",
+        "tests/g4-possible-review-decisions.test.mjs",
+        "tests/g5-canonical-apply.test.mjs",
+        "tests/automation-cluster-admin-integration.test.mjs",
+        "tests/data-automation-tavily-source-scoped.test.mjs",
+        "tests/data-automation-tavily-strategy-chain.test.mjs",
+        "tests/data-automation-source-provider-usage.test.mjs",
+        "tests/data-automation-event-source-pilot.test.mjs",
+        "tests/data-automation-adoption-source-pilot.test.mjs",
+        "tests/data-automation-foster-source-pilot.test.mjs",
+        "tests/data-automation-foster-d1-e2e.test.mjs",
+        "tests/data-automation-lost-found-source-pilot.test.mjs",
+        "tests/data-automation-lost-found-d1-e2e.test.mjs",
+        "tests/automation-source-ux-reset.test.mjs",
+        "tests/automation-update-review.test.mjs",
+        "tests/admin-auto-ux-2.test.mjs",
+        "tests/e2e/data-automation-v2.spec.ts",
+        "tests/e2e/canonical-draft-delete.spec.ts",
+        "tests/data-automation.test.mjs",
+        "tests/data-automation-apply.test.mjs",
+        "tests/data-automation-v2.test.mjs",
+        "tests/data-automation-v4.test.mjs",
+        "tests/data-automation-v5.test.mjs",
+        "tests/data-automation-background-run.test.mjs",
+        "tests/data-automation-clustering.test.mjs",
+        "tests/data-automation-sitemap.test.mjs",
+        "tests/data-automation-rss.test.mjs",
+        "tests/data-automation-structured-directory.test.mjs",
+        "tests/data-automation-search-provider.test.mjs",
+        "tests/data-automation-search-budget.test.mjs",
+        "tests/data-automation-tavily-root.test.mjs",
+        "tests/data-automation-tavily-directory-roots.test.mjs",
+        "tests/data-automation-universal.test.mjs",
+        "tests/data-automation-direct-entity-identity.test.mjs",
+        "tests/data-automation-directory-matching.test.mjs",
+        "tests/data-automation-organization-ingest.test.mjs",
+        "tests/data-automation-entity-enrichment.test.mjs",
+        "tests/lost-found-lifecycle.test.mjs",
+        "tests/data-automation-directory-address-description.test.mjs",
+        "tests/data-automation-directory-exact-address-enrichment.test.mjs",
+        "tests/data-automation-directory-address-enrichment-contract.test.mjs",
+        "tests/admin-attention-queue.test.mjs",
+        "tests/automation-source-only-ux.test.mjs",
+        "tests/legacy-automation-retirement.test.mjs",
+        "tests/data-automation-tavily-internet-only.test.mjs",
+        "tests/data-automation-organization-root.test.mjs",
+        "tests/data-automation-directory-provisioning-integration.test.mjs",
+        "tests/directory-service-address.test.mjs",
+        "tests/data-automation-direct-entity-d1-e2e.test.mjs",
+        "tests/data-automation-event-source-pilot-d1.test.mjs",
+        "tests/data-automation-adoption-d1-e2e.test.mjs"
+      ],
+      "scripts": [
+        "scripts/automation-source-ux-reset.mjs",
+        "scripts/ci-scope.mjs"
+      ]
+    },
+    {
+      "file": "data-quality-contact-sql-parity.yml",
+      "blob": "343104c5291c94c6d2496e57163fa5162078a154",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    paths:\n      - \"lib/data-quality-contact-sql.ts\"\n      - \"lib/data-quality-store.ts\"\n      - \"lib/directory-profile-metadata.ts\"\n      - \"tests/data-quality-contact-sql-parity.test.mjs\"\n      - \".github/workflows/data-quality-contact-sql-parity.yml\"\n  workflow_dispatch:",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contact-parity",
+          "name": "Canonical contacts and SQLite filters",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Offline source and SQLite regression",
+              "commands": [
+                "node --experimental-strip-types --input-type=module -e \"await import('./lib/data-quality-contact-sql.ts')\"",
+                "node --experimental-strip-types --test tests/data-quality-contact-sql-parity.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/data-quality-contact-sql-parity.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "directory-0170-backfill-readonly.yml",
+      "blob": "22143a9377dab37406ae81272f54f1dbb7f9e637",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"scripts/directory-0170-backfill-readonly.mjs\"\n      - \"tests/directory-0170-backfill-audit.test.mjs\"\n      - \".github/workflows/directory-0170-backfill-readonly.yml\"\n      - \"docs/audits/DIRECTORY-0170-BACKFILL-READONLY.md\"\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: \"Enter AUDIT-0170-BACKFILL-psipedia-sk-db (read only)\"\n        type: string\n        required: true\n",
+      "concurrency": [
+        "  group: directory-0170-readonly-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contract",
+          "name": "Safe auditor regression",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: No live D1 or Notion access",
+              "commands": [
+                "run: node --test tests/directory-0170-backfill-audit.test.mjs"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "production-inventory",
+          "name": "Production D1 SELECT-only inventory",
+          "needs": "contract",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Fail closed on repository, branch and confirmation",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Reject stale main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Install locked dependencies",
+              "commands": [
+                "run: npm ci"
+              ]
+            },
+            {
+              "name": "name: Bind configured Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Read-only production audit",
+              "commands": [
+                "run: node scripts/directory-0170-backfill-readonly.mjs"
+              ]
+            },
+            {
+              "name": "name: Upload counts and field-class samples only",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": true,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/directory-0170-backfill-audit.test.mjs"
+      ],
+      "scripts": [
+        "scripts/directory-0170-backfill-readonly.mjs"
+      ]
+    },
+    {
+      "file": "directory-0173-review-lock-bridge.yml",
+      "blob": "841c7bdca981d68893b1b0b3d5f82bb3c0cfc5c8",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"lib/directory-0173-review-lock-bridge.mjs\"\n      - \"scripts/production-directory-0173-review-lock-bridge.mjs\"\n      - \"tests/directory-0173-review-lock-bridge.test.mjs\"\n      - \".github/workflows/directory-0173-review-lock-bridge.yml\"\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        type: string\n        required: true\n        description: \"APPLY-DIRECTORY-REVIEW-0173-psipedia-sk-db\"\n",
+      "concurrency": [
+        "  group: production-d1-migration",
+        "  cancel-in-progress: false"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contract",
+          "name": "SQLite bridge / eight locks fail-closed",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: node --test tests/directory-0173-review-lock-bridge.test.mjs",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "production",
+          "name": "Add only missing historical SQL review locks",
+          "needs": "contract",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "name: Reject non-owner or unconfirmed request",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Require current main",
+              "commands": [
+                "git fetch --no-tags origin main",
+                "test \"$(git rev-parse HEAD)\" = \"$(git rev-parse origin/main)\""
+              ]
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Use exact configured Cloudflare account",
+              "commands": [
+                "account=\"$(node -e 'process.stdout.write(require(\"./config/cloudflare-resources.json\").account_id || \"\")')\""
+              ]
+            },
+            {
+              "name": "name: Project at most eight historical SQL review locks",
+              "commands": [
+                "run: node scripts/production-directory-0173-review-lock-bridge.mjs"
+              ]
+            },
+            {
+              "name": "name: Audit output, aggregate counts only",
+              "if": "always()",
+              "uses": "actions/upload-artifact@v4",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": true,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "protected-review",
+      "npm": [],
+      "tests": [
+        "tests/directory-0173-review-lock-bridge.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-directory-0173-review-lock-bridge.mjs"
+      ]
+    },
+    {
+      "file": "directory-0173-review-lock-sql-read.yml",
+      "blob": "7db33b7b8f2c8b4fd65da8ff906e6e3ee3d8ceff",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"lib/directory-reviewed-sync-lock.ts\"\n      - \"tests/directory-reviewed-sync-lock.test.mjs\"\n      - \"tests/partner-directory-review-lock.test.mjs\"\n      - \"tests/directory-sql-0173-reviewed-lock.test.mjs\"\n      - \".github/workflows/directory-0173-review-lock-sql-read.yml\"\n",
+      "concurrency": [
+        "  group: directory-0173-review-lock-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "read-lock",
+          "name": "SQL-reviewed lock / partner / tombstone SQLite safety",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Offline read-only SQLite regression (no Notion/D1 production)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/directory-reviewed-sync-lock.test.mjs tests/partner-directory-review-lock.test.mjs tests/directory-sql-0173-reviewed-lock.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/directory-reviewed-sync-lock.test.mjs",
+        "tests/partner-directory-review-lock.test.mjs",
+        "tests/directory-sql-0173-reviewed-lock.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "directory-0173-sql-detail-read.yml",
+      "blob": "b1619f27ec8ba32a8ad9a4c9ef333aee0668e8cb",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"lib/directory-0173-editorial-sql-read.ts\"\n      - \"lib/directory-store.ts\"\n      - \"tests/directory-0173-editorial-sql-read.test.mjs\"\n      - \".github/workflows/directory-0173-sql-detail-read.yml\"\n      - \"docs/audits/DIRECTORY-0173-SQL-FIRST-DETAIL-READ-20261120.md\"\n",
+      "concurrency": [
+        "  group: directory-0173-read-pr-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "contract",
+          "name": "SQLite sidecar / protected read regression",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Real SQLite + Node TS strip tests (no D1/Notion writes)",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/directory-0173-editorial-sql-read.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/directory-0173-editorial-sql-read.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "directory-0176-sql-fields.yml",
+      "blob": "c31cd58668aaeb10f5228557d20464500eaa592b",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"db/isolated/directory_admin_sql_completion.sql\"\n      - \"db/directory-storage-schema.ts\"\n      - \"lib/directory-admin-sql-field-owners.mjs\"\n      - \"tests/directory-0176-sql-schema.test.mjs\"\n      - \".github/workflows/directory-0176-sql-fields.yml\"\n",
+      "concurrency": [],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "schema",
+          "name": "Directory 0176 SQLite schema + Admin field coverage",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Validate full SQL schema and field coverage without production access",
+              "commands": [
+                "run: node --test tests/directory-0176-sql-schema.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/directory-0176-sql-schema.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "directory-notion-0173-atomic-fields.yml",
+      "blob": "5834b176f1d62f050af4073e87c80897537e31e2",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"lib/notion-directory-sync.ts\"\n      - \"lib/directory-0173-editorial-sql-mirror.ts\"\n      - \"tests/directory-notion-sql-0173-atomic-fields.test.mjs\"\n      - \"tests/notion-breeder-field-events.test.mjs\"\n      - \"tests/directory-ten-category-field-save.test.mjs\"\n      - \".github/workflows/directory-notion-0173-atomic-fields.yml\"\n",
+      "concurrency": [
+        "  group: directory-notion-0173-atomic-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "sql-atomic",
+          "name": "Signed Notion field writes / SQLite atomic SQL mirror",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Field event SQL transaction and existing per-field regressions",
+              "commands": [
+                "node --experimental-strip-types --test tests/directory-notion-sql-0173-atomic-fields.test.mjs",
+                "node --experimental-strip-types --test tests/notion-breeder-field-events.test.mjs tests/directory-ten-category-field-save.test.mjs tests/notion-directory-veterinary-field-events.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci"
+      ],
+      "tests": [
+        "tests/directory-notion-sql-0173-atomic-fields.test.mjs",
+        "tests/notion-breeder-field-events.test.mjs",
+        "tests/directory-ten-category-field-save.test.mjs",
+        "tests/notion-directory-veterinary-field-events.test.mjs"
+      ],
+      "scripts": []
+    },
+    {
+      "file": "directory-sql-0173-offline.yml",
+      "blob": "5c46a90dcc72ec8e7b89366609b81866ed557ef8",
+      "events": [
+        "pull_request"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    paths:\n      - \"drizzle/0173_directory_structured_sql_foundation.sql\"\n      - \"db/directory-storage-schema.ts\"\n      - \"db/index.ts\"\n      - \"tests/directory-sql-0173-foundation.test.mjs\"\n      - \"tests/directory-sql-0173-editorial-mirror.test.mjs\"\n      - \"lib/directory-0173-editorial-sql-mirror.ts\"\n      - \"lib/directory-store.ts\"\n      - \".github/workflows/directory-sql-0173-offline.yml\"\n      - \"docs/audits/DIRECTORY-SQL-0173-FOUNDATION.md\"\n      - \"scripts/production-d1-directory-0173.mjs\"\n      - \".github/workflows/production-d1-directory-0173.yml\"\n",
+      "concurrency": [
+        "  group: directory-0173-offline-${{ github.event.pull_request.number || github.run_id }}",
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "schema",
+          "name": "Verify additive SQL foundation without D1 access",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "name: Test isolated SQLite schema and constraints",
+              "commands": [
+                "run: node --experimental-strip-types --test tests/directory-sql-0173-foundation.test.mjs tests/directory-sql-0173-editorial-mirror.test.mjs"
+              ]
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": false,
+        "build": false,
+        "lint": false,
+        "browser": false,
+        "historical": false,
+        "guard": false
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [],
+      "tests": [
+        "tests/directory-sql-0173-foundation.test.mjs",
+        "tests/directory-sql-0173-editorial-mirror.test.mjs"
+      ],
+      "scripts": [
+        "scripts/production-d1-directory-0173.mjs"
+      ]
+    },
+    {
+      "file": "events-fallback-images.yml",
+      "blob": "28e8432c66277678ad7d83b89085b9094fbe8164",
+      "events": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
+      "trigger": "on:\n  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, ready_for_review]\n    paths:\n      - 'components/event-listing-results.tsx'\n      - 'components/event-calendar.tsx'\n      - 'components/events-page.tsx'\n      - 'components/event-image.tsx'\n      - 'components/event-card.tsx'\n      - 'components/event-detail.tsx'\n      - 'components/events-public.module.css'\n      - 'lib/event-type-presentation.ts'\n      - 'public/images/events/defaults/**'\n      - 'tests/event-fallback-images.test.mjs'\n      - 'tests/e2e/events-fallback-images.spec.ts'\n      - 'tests/e2e/events-listing-redesign.spec.ts'\n      - 'tests/helpers/events-final-local-fixtures.mjs'\n      - 'tests/events-fallback.playwright.config.ts'\n      - 'tests/helpers/events-fallback-preview.*'\n      - 'tests/helpers/events-preview-*'\n      - '.github/workflows/events-fallback-images.yml'\n  workflow_dispatch:\n",
+      "concurrency": [
+        "  group: event-fallback-artwork-${{ github.event.pull_request.number || github.ref }}",
+        "  cancel-in-progress: true"
+      ],
+      "permissions": [
+        "  contents: read"
+      ],
+      "jobs": [
+        {
+          "id": "scope",
+          "name": "Detect events regression ownership",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "id: scope",
+              "commands": [
+                "run: node scripts/ci-scope.mjs --github-output"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "artwork",
+          "name": "Event artwork SSR, desktop and mobile",
+          "if": "${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}",
+          "runner": "ubuntu-24.04",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "name: Category mappings and server-rendered image priority",
+              "commands": [
+                "run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/event-fallback-images.test.mjs"
+              ]
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Real event components with in-memory test data only",
+              "commands": [
+                "run: npx playwright test --config tests/events-fallback.playwright.config.ts"
+              ]
+            },
+            {
+              "name": "uses: actions/upload-artifact@v4",
+              "if": "always()",
+              "commands": []
+            }
+          ]
+        },
+        {
+          "id": "public-events",
+          "name": "Events final acceptance — real routes desktop and mobile",
+          "needs": "scope",
+          "if": "github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'",
+          "runner": "ubuntu-latest",
+          "steps": [
+            {
+              "name": "uses: actions/checkout@v4",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/setup-node@v4",
+              "commands": []
+            },
+            {
+              "name": "run: npm ci",
+              "commands": []
+            },
+            {
+              "name": "run: npx playwright install --with-deps chromium",
+              "commands": []
+            },
+            {
+              "name": "name: Start isolated local app and create local D1 storage",
+              "commands": [
+                "if curl --silent --max-time 2 http://localhost:5173/podujatia > /dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Existing schema and deterministic fixtures in local D1 only",
+              "commands": [
+                "run: node tests/helpers/events-final-local-fixtures.mjs"
+              ]
+            },
+            {
+              "name": "name: Restart isolated app after local D1 schema bootstrap",
+              "commands": [
+                "if ! curl --silent --max-time 2 http://localhost:5173/images/events/defaults/vystavy.webp > /dev/null; then",
+                "if curl --fail --silent --max-time 3 http://localhost:5173/podujatia > /dev/null; then"
+              ]
+            },
+            {
+              "name": "name: Events hero, calendar, filtering and final acceptance",
+              "commands": [
+                "run: npm run e2e -- tests/e2e/events-hero-search.spec.ts tests/e2e/events-calendar-redesign.spec.ts tests/e2e/events-listing-redesign.spec.ts --workers=1 --retries=0"
+              ]
+            },
+            {
+              "name": "name: Stop isolated app",
+              "if": "always()",
+              "commands": []
+            },
+            {
+              "name": "uses: actions/upload-artifact@v4",
+              "if": "always()",
+              "commands": []
+            }
+          ]
+        }
+      ],
+      "flags": {
+        "remote": false,
+        "write": false,
+        "secrets": false,
+        "local": true,
+        "build": false,
+        "lint": false,
+        "browser": true,
+        "historical": false,
+        "guard": true
+      },
+      "disposition": "ci-consolidation-candidate",
+      "npm": [
+        "npm ci",
+        "npm run e2e"
+      ],
+      "tests": [
+        "tests/event-fallback-images.test.mjs",
+        "tests/e2e/events-fallback-images.spec.ts",
+        "tests/e2e/events-listing-redesign.spec.ts",
+        "tests/e2e/events-hero-search.spec.ts",
+        "tests/e2e/events-calendar-redesign.spec.ts"
+      ],
+      "scripts": [
+        "scripts/ci-scope.mjs"
+      ]
+    }
+  ]
+}
