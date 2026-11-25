@@ -18,9 +18,9 @@ export const dynamic = "force-dynamic";
 export default async function PartnerSettingsPage() {
   const identity = await requirePartnerPageIdentity({ allowIncompleteOnboarding: true });
   const [contactProfile, authMethods, preferences] = await Promise.all([
-    settleOptionalRead("partner_contact_profile", retryTransientRead(() => getPartnerContactProfile(identity.accountId)), undefined),
+    settleOptionalRead("partner_contact_profile", retryTransientRead(() => getPartnerContactProfile(identity.accountId), { stage: "partner_contact_profile" }), undefined),
     settleOptionalRead("partner_auth_method_summary", getPartnerAuthMethodSummary(identity.accountId), undefined),
-    settleOptionalRead("partner_notification_preferences", retryTransientRead(() => getPartnerNotificationPreferences({accountId:identity.accountId})), undefined),
+    settleOptionalRead("partner_notification_preferences", retryTransientRead(() => getPartnerNotificationPreferences({accountId:identity.accountId}), { stage: "partner_notification_preferences" }), undefined),
   ]);
 
   return (
