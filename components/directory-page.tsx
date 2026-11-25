@@ -117,6 +117,27 @@ export async function DirectoryPage({
   const hasPopularity =
     discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
 
+  const mapBanner = (
+    <div data-directory-map-cta>
+      <PublicMagazineBanner
+        compact
+        visual="light"
+        size="small"
+        testId="directory-map-cta"
+        eyebrow="Služby v okolí"
+        title="Nájdi služby na mape"
+        description={
+          filters.canonicalService
+            ? "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality. Mapa používa rovnaký filter potvrdenej služby ako zoznam."
+            : "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality."
+        }
+        label="Zobraziť na mape"
+        href={mapHref(filters, active?.slug)}
+        anchorId={CTA_DIRECTORY_MAP_ANCHOR}
+      />
+    </div>
+  );
+
   return (
     <main id="obsah" className={styles.page}>
       <PublicFoundation className={styles.foundation}>
@@ -188,7 +209,7 @@ export async function DirectoryPage({
                     compact
                     visual="dark"
                     photoTone="care"
-                    size="medium"
+                    size="small"
                     testId="directory-provider-cta"
                     eyebrow="Pre poskytovateľov"
                     title="Poskytuješ služby pre psov?"
@@ -243,16 +264,15 @@ export async function DirectoryPage({
                         <Link className={styles.categoryPreviewMore} href={href}>
                           Zobraziť kategóriu {category.label} <span aria-hidden="true">→</span>
                         </Link>
-                        {category.slug !== directoryCategories.at(-1)?.slug && (
-                          <div data-directory-map-cta={category.slug === directoryCategories[0]?.slug ? "" : undefined}>
-                            <PublicMagazineBanner compact size="small" testId={category.slug === directoryCategories[0]?.slug ? "directory-map-cta" : `directory-category-${category.slug}`} anchorId={category.slug === directoryCategories[0]?.slug ? CTA_DIRECTORY_MAP_ANCHOR : undefined} eyebrow={category.label} title={`Nájdite ${category.searchObject} vo svojom okolí`} description={`Pozrite si kategóriu ${category.label} na mape.`} label="Zobraziť na mape" href={mapHref(filters, category.slug)} />
-                          </div>
-                        )}
+                        {category.slug === directoryCategories[0]?.slug ? mapBanner : category.slug !== directoryCategories.at(-1)?.slug ? (
+                          <PublicMagazineBanner compact size="small" testId={`directory-category-${category.slug}`} eyebrow={category.label} title={`Nájdite ${category.searchObject} vo svojom okolí`} description={`Pozrite si kategóriu ${category.label} na mape.`} label="Zobraziť na mape" href={mapHref(filters, category.slug)} />
+                        ) : null}
                       </section>
                     );
                   })}
                 </div>
               ) : (
+                <div className={styles.categoryPreviewResults}>
                 <DirectoryResults
                   result={result}
                   filters={filters}
@@ -265,6 +285,8 @@ export async function DirectoryPage({
                         : "Všetky služby pre psov"
                   }
                 />
+                {mapBanner}
+                </div>
               )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
