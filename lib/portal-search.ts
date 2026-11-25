@@ -1,3 +1,4 @@
+import { directory0173QualificationsSqlExpression } from "./directory-0173-editorial-sql-read.ts";
 import { directoryServicesSqlExpression } from "./directory-presentation-sql-read.ts";
 import { breedProfileHref } from "@/lib/breed-canonical";
 import { directoryEffectiveDistrictSql } from "@/lib/directory-public-source-contract";
@@ -206,9 +207,8 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
   });
   const tokens = parsed.directoryCategory ? parsed.residualTokens : parsed.contentTokens;
   if (!parsed.directoryCategory && !tokens.length) return null;
-  clauses.push(...persistedTokenClauses(
-    "p.search_text",
-    `p.name || ' ' || p.excerpt || ' ' || p.description || ' ' || ${directoryServicesSqlExpression("p")} || ' ' || p.city || ' ' || p.district || ' ' || p.region || ' ' || p.address`,
+  clauses.push(...tokenClauses(
+    `p.name || ' ' || p.excerpt || ' ' || p.description || ' ' || ${directoryServicesSqlExpression("p")} || ' ' || ${directory0173QualificationsSqlExpression("p")} || ' ' || p.city || ' ' || p.district || ' ' || p.region || ' ' || p.address`,
     tokens,
     bindings,
   ));
