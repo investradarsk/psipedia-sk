@@ -140,7 +140,9 @@ test("required category/dimension combinations build selective server-side SQL",
     assert.match(query.sql, locationPattern);
     assert.match(query.sql, /d\.status = 'published'/);
     assert.match(query.sql, /d\.archived_at IS NULL/);
-    assert.match(query.sql, /canonicalUrl/);
+    assert.match(query.sql, /canonical_url/);
+    assert.match(query.sql, /directory_profile_seo/);
+    assert.doesNotMatch(query.sql, /\bseo_json\b/);
     assert.doesNotMatch(query.sql, /SELECT \*/);
     assert.doesNotMatch(query.sql, /source_data_json/);
   }
