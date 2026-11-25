@@ -9,7 +9,7 @@ test("recovery accepts same-area page transitions only", () => {
   assert.equal(safeNavigationRecoveryTarget("/partner/profily", "https://psipedia.sk/partner"), "/partner/profily");
   for (const href of ["/api/public", "/admin", "/partner", "https://evil.test/a",
     "javascript:alert(1)", "/adresar#obsah", "/plemena.rsc", "https://psipedia.sk//evil.test",
-    "/%2fadmin", "https://user@psipedia.sk/plemena"]) {
+    "/%2fadmin", "/%61dmin", "/%61pi/test", "https://user@psipedia.sk/plemena"]) {
     assert.equal(safeNavigationRecoveryTarget(href, current), null, href);
   }
   assert.equal(safeNavigationRecoveryTarget("/partner/profily", "https://psipedia.sk/admin"), null);
