@@ -1414,9 +1414,9 @@
 .page,
 .publicDetailShell,
 .section {
-  --ps-reading-size: var(--ps-type-profile, 1rem);
+  --ps-reading-size: var(--ps-type-profile-detail, 0.9rem);
   --ps-reading-leading: var(--ps-type-body-leading, 1.6);
-  --ps-reading-lead-size: var(--ps-type-profile-lead, 1rem);
+  --ps-reading-lead-size: var(--ps-type-profile-detail-lead, 0.9rem);
 }
 .section h2.compactHeading,
 .card[data-public-contact-panel] h2 {
