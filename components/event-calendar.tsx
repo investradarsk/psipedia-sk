@@ -295,7 +295,7 @@ export function EventCalendar({
     }
 
     setPendingDay(false);
-    const calendarOnly = sameListing && !pending && !loadError && (!next.day || data.calendarUnavailable);
+    const calendarOnly = sameListing && !pending && !loadError && (!next.day || data.calendarUnavailable === true);
     setPendingCalendarOnly(calendarOnly);
     setPending(true);
     const cached = cacheRef.current.get(key);
