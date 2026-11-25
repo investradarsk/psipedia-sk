@@ -126,7 +126,7 @@ export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedS
   const stored = definition
     ? await settleOptionalRead(
         "public_hero_visual",
-        retryTransientPublicRead(() => publicHeroVisualCache(visualKey).get(() => getStoredSectionVisual(visualKey))),
+        retryTransientPublicRead(() => publicHeroVisualCache(visualKey).get(() => getStoredSectionVisual(visualKey)), { stage: "public_hero_visual" }),
         null,
       )
     : null;
