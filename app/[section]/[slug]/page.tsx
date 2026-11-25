@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { parseEventListing, eventTypeSelectionRedirect, eventListingPageHref } from '@/lib/event-listing';
 import { getPublishedEventListing, getPublicEventCalendar } from '@/lib/event-store';
 import type { Metadata } from "next";
@@ -115,8 +116,8 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
     const [managedSection, events, calendarEvents] = await Promise.all([
       getManagedPortalSection(section),
-      getPublishedEventListing(parseEventListing(rawSearchParams, eventType)),
-      getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? ''),
+      retryTransientPublicRead(() => getPublishedEventListing(parseEventListing(rawSearchParams, eventType))),
+      retryTransientPublicRead(() => getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? '')),
     ]);
     if (!managedSection?.visible) notFound();
     const path = `/podujatia/${slug}`;
@@ -147,7 +148,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     const typeRedirect = eventTypeSelectionRedirect(rawSearchParams);
     if (typeRedirect) redirect(typeRedirect);
     const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
-    const [events, calendarEvents] = await Promise.all([getPublishedEventListing(parseEventListing(rawSearchParams)), getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? '')]);
+    const [events, calendarEvents] = await Promise.all([retryTransientPublicRead(() => getPublishedEventListing(parseEventListing(rawSearchParams))), retryTransientPublicRead(() => getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? ''))]);
     return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={events.events} calendarEvents={calendarEvents.events} calendarSummaries={calendarEvents.summaries} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
