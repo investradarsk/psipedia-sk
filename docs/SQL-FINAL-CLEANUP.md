@@ -10,17 +10,17 @@ Base inspected: `f95b2c26495f9d0a8fe39bee6e97411484fee635`. PR #1597 is open and
 | qualifications_json | directory_profile_qualifications | Notion bulk and directory search projection changed; other writers/readers open |
 | seo_json | directory_profile_seo | directory sitemap and Notion bulk changed; field-event writes only relational owner; other writers open |
 | source_data_json | contacts on directory_profiles, additional categories, directory_profile_review_state, media, facts and existing relation owners | already retired in production per owner; remaining direct partner/automation paths require review |
-| thumbnail_display_json / detail_display_json | directory_profile_image_display_settings with display_context | existing detail/homepage projections are relational; create/update writes remain |
+| thumbnail_display_json / detail_display_json | directory_profile_image_display_settings with display_context | existing detail/homepage projections are relational; shared create/update writes removed |
 
 Projection aliases such as AS services_json are transport shapes, not reads of the retired physical column. Keep JSON API, technical payloads, JSON-LD, ordered SQL projections, and independently authoritative documents. Identically named SEO and image columns on events, articles, help/adoption/lost-found and organizations are NOT automatically retired: identify their actual SQL owner before touching them. Breed legacy readers, entity sitemap and SEO quality audit require additional verification.
 
 ## Remaining blockers
 
-- Directory create/update builders and partner-new-profile approval: partner path calls the shared create builder without an observed services/qualifications relational write; implement and test the atomic companion writes before removing legacy bindings.
+- Directory create/update builders no longer bind the five historical columns; the separate partner-new-profile moderation path now adds guarded services, qualifications, SEO and image SQL statements to the same transaction. Verify all callers, fixture compatibility and guarded binding counts in CI. Other partner and import writers remain open.
 - Direct writes/mappings in app/api/admin/import/route.ts, lib/canonical-draft-service.ts, lib/partner-profile-changes.ts, lib/partner-canonical-workflow.ts, lib/data-automation-apply.ts, lib/data-automation-store.ts, lib/data-automation-update-review.ts. Audit exact live call sites, guards, Notion locks, and search_text refresh.
 - Review all references in lib/directory-filter-contract.ts, lib/directory-sql-cutover-contract.ts, lib/admin-seo-quality-entities.ts, lib/breed-audit.ts, lib/entity-sitemap.ts, lib/breed-canonical.ts, lib/content-relations.ts and other scripts/schema. Historical migration/fixture references are not automatically runtime dependencies.
 - Map query inspected: services SQL owner already used. Full runtime route coverage, search derived text parity, synchronization integration, remaining entity agendas and tests are not yet verified. Code search is indexed and bounded; no complete checkout was available.
-- No full lint/build/CI/local repository tests executed in this session; fixtures modified for conflicting historical data. Check all fixture schemas, including search and Notion integration, and run required CI. No claim of merge readiness.
+- No full lint/build/CI/local repository tests executed in this session; fixtures modified for conflicting historical data; added an isolated Admin test for physical column drop and explicit empty services. Check all fixture schemas, including search and Notion integration, and run required CI. No claim of merge readiness.
 
 ## Production read-only preflight (owner runs; no mutation)
 
