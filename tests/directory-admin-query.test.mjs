@@ -3,6 +3,14 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  directoryServicesSqlExpression,
+  directoryImageSqlExpression,
+} from "../lib/directory-presentation-sql-read.ts";
+import {
+  directory0173QualificationsSqlExpression,
+  directory0173SeoSqlExpression,
+} from "../lib/directory-0173-editorial-sql-read.ts";
+import {
   DIRECTORY_ADMIN_PAGE_SIZE,
   directoryAdminHref,
   directoryAdminMembershipFilters,
@@ -392,6 +400,92 @@ test("Admin SQL services remain authoritative after the physical legacy column i
     sqlite.exec("DELETE FROM directory_profile_service_texts WHERE profile_id=61");
     const empty = await queryDirectoryAdmin(db, filters({ q: "#61" }), categories);
     assert.deepEqual(JSON.parse(empty.items[0].services_json), []);
+  } finally {
+    sqlite.close();
+  }
+});
+
+test("all six retired columns can be removed together without breaking canonical projections", async () => {
+  const { db, sqlite } = fixture();
+  try {
+    sqlite.exec(`
+      PRAGMA foreign_keys = ON;
+      ALTER TABLE directory_profiles ADD COLUMN qualifications_json TEXT DEFAULT '[]';
+      ALTER TABLE directory_profiles ADD COLUMN seo_json TEXT DEFAULT '{}';
+      ALTER TABLE directory_profiles ADD COLUMN thumbnail_display_json TEXT;
+      ALTER TABLE directory_profiles ADD COLUMN detail_display_json TEXT;
+      CREATE TABLE directory_profile_qualifications (
+        profile_id INTEGER REFERENCES directory_profiles(id), item_order INTEGER,
+        qualification_text TEXT
+      );
+      CREATE TABLE directory_profile_seo (
+        profile_id INTEGER PRIMARY KEY REFERENCES directory_profiles(id),
+        title TEXT, description TEXT, focus_keyword TEXT, canonical_url TEXT,
+        og_title TEXT, og_description TEXT, og_image_url TEXT, noindex INTEGER
+      );
+      CREATE TABLE directory_profile_image_display_settings (
+        profile_id INTEGER REFERENCES directory_profiles(id), display_context TEXT,
+        display_mode TEXT, focus_x REAL, focus_y REAL, zoom REAL
+      );
+      CREATE TABLE managed_articles (
+        id INTEGER PRIMARY KEY, sections_json TEXT NOT NULL DEFAULT '[]',
+        blocks_json TEXT NOT NULL, sources_json TEXT NOT NULL,
+        thumbnail_display_json TEXT, detail_display_json TEXT
+      );
+      CREATE TABLE article_topic_assignments (
+        article_id INTEGER REFERENCES managed_articles(id), topic_id INTEGER
+      );
+      INSERT INTO directory_profile_qualifications VALUES (61, 0, 'SQL qualification');
+      INSERT INTO directory_profile_seo VALUES (61, 'SQL title', '', '', '', '', '', '', 0);
+      INSERT INTO directory_profile_image_display_settings VALUES
+        (61, 'thumbnail', 'crop', 20, 30, 1.5),
+        (61, 'detail', 'natural', 50, 50, 1);
+      INSERT INTO managed_articles VALUES (7, '["retired"]', '[{"type":"p","text":"Canonical"}]', '[]', '{}', '{}');
+      INSERT INTO article_topic_assignments VALUES (7, 3);
+    `);
+    const projection = `SELECT
+      ${directoryServicesSqlExpression()} AS services,
+      ${directory0173QualificationsSqlExpression()} AS qualifications,
+      ${directory0173SeoSqlExpression()} AS seo,
+      ${directoryImageSqlExpression("thumbnail")} AS thumbnail,
+      ${directoryImageSqlExpression("detail")} AS detail
+      FROM directory_profiles WHERE id = 61`;
+    const read = () => sqlite.prepare(projection).get();
+    const before = read();
+    const retired = {
+      directory_profiles: [
+        "services_json", "qualifications_json", "seo_json",
+        "thumbnail_display_json", "detail_display_json",
+      ],
+      managed_articles: ["sections_json"],
+    };
+    for (const [table, columns] of Object.entries(retired)) {
+      for (const column of columns) {
+        sqlite.exec("ALTER TABLE " + table + " DROP COLUMN " + column);
+      }
+      const remaining = sqlite.prepare("PRAGMA table_info(" + table + ")").all();
+      assert.ok(columns.every(column => !remaining.some(row => row.name === column)));
+    }
+
+    assert.deepEqual(read(), before);
+    assert.deepEqual(JSON.parse(before.qualifications), ["SQL qualification"]);
+    assert.equal(JSON.parse(before.seo).title, "SQL title");
+    assert.equal(JSON.parse(before.thumbnail).zoom, 1.5);
+    assert.equal(JSON.parse(before.detail).mode, "natural");
+    const result = await queryDirectoryAdmin(db, filters({ q: "Fyzioterapia" }), categories);
+    assert.equal(result.resultCount, 1);
+    assert.equal(result.items[0].id, 61);
+
+    sqlite.exec("DELETE FROM directory_profile_qualifications WHERE profile_id = 61");
+    assert.deepEqual(JSON.parse(read().qualifications), []);
+    sqlite.prepare("UPDATE managed_articles SET blocks_json = ? WHERE id = 7").run("[]");
+    assert.deepEqual(
+      { ...sqlite.prepare("SELECT blocks_json, sources_json, thumbnail_display_json, detail_display_json FROM managed_articles").get() },
+      { blocks_json: "[]", sources_json: "[]", thumbnail_display_json: "{}", detail_display_json: "{}" },
+    );
+    assert.equal(sqlite.prepare("SELECT topic_id FROM article_topic_assignments").get().topic_id, 3);
+    assert.deepEqual(sqlite.prepare("PRAGMA foreign_key_check").all(), []);
+    assert.equal(sqlite.prepare("PRAGMA integrity_check").get().integrity_check, "ok");
   } finally {
     sqlite.close();
   }
