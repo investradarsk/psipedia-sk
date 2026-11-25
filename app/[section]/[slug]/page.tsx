@@ -1,3 +1,4 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { parseEventListing, eventTypeSelectionRedirect, eventListingPageHref } from '@/lib/event-listing';
 import { getPublishedEventListing, getPublicEventCalendar } from '@/lib/event-store';
@@ -191,7 +192,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
       const canonical = resolvedCanonical(event.seo, eventHref(event));
       const schema = buildEventJsonLd(event, canonical);
       const [related, publicMap] = await Promise.all([
-        getUpcomingEventCards(8).then((events) => selectRelatedEvents(event, events)),
+        settleOptionalRead("related_events", getUpcomingEventCards(8).then((events) => selectRelatedEvents(event, events)), []),
         getPublicMapItemsForEntity({ entityType: "MANAGED_EVENT", entityId: event.id })
           .catch((error) => {
             console.error("Public event map read failed", {
@@ -215,7 +216,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads] = await Promise.all([
     getArticleMagazineData(article),
     getArticleDiscoveryData(storedArticle),
-    getPublishedArticleAuthorProfile(article),
+    settleOptionalRead("article_author_profile", getPublishedArticleAuthorProfile(article), null),
     listRelatedBreedsForArticle(article.slug).catch((error) => {
       console.error("Public article breed relations read failed", {
         articleSlug: article.slug,
