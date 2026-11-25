@@ -1,3 +1,5 @@
+import { legacyArticleBlocks, normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
+import type { ArticleSection, ArticleSource } from "@/lib/content";
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { buildGeneralImportPlan } from "@/lib/admin-import-plan";
@@ -117,14 +119,14 @@ export async function POST(request: Request) {
       statements.push(database.prepare(`
         INSERT INTO managed_articles (
           slug, title, excerpt, category, portal_section, news_category, status, accent, author, intro,
-          takeaway, sections_json, sources_json, image_url, image_key, reading_minutes,
+          takeaway, blocks_json, sources_json, image_url, image_key, reading_minutes,
           created_at, updated_at, published_at, created_by, updated_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(slug) DO UPDATE SET
           title=excluded.title, excerpt=excluded.excerpt, category=excluded.category,
           portal_section=excluded.portal_section, news_category=excluded.news_category,
           status=excluded.status, accent=excluded.accent, author=excluded.author, intro=excluded.intro,
-          takeaway=excluded.takeaway, sections_json=excluded.sections_json, sources_json=excluded.sources_json,
+          takeaway=excluded.takeaway, blocks_json=excluded.blocks_json, sources_json=excluded.sources_json,
           image_url=excluded.image_url, reading_minutes=excluded.reading_minutes,
           created_at=excluded.created_at, updated_at=excluded.updated_at, published_at=excluded.published_at,
           created_by=excluded.created_by, updated_by=excluded.updated_by
@@ -132,7 +134,11 @@ export async function POST(request: Request) {
         required(row.slug, "adresa článku"), required(row.title, "názov článku"), text(row.excerpt),
         text(row.category, "Život so psom"), text(row.portalSection, "clanky"), nullableText(row.newsCategory),
         "draft", text(row.accent, "forest"), text(row.author, "Redakcia Psipedia"),
-        text(row.intro), text(row.takeaway), jsonArray(row.sections), jsonArray(row.sources), migratedImage(row),
+        text(row.intro), text(row.takeaway),
+        JSON.stringify(normalizeArticleBlocks(Array.isArray(row.blocks) ? row.blocks as ArticleBlock[] : legacyArticleBlocks(
+          Array.isArray(row.sections) ? row.sections as ArticleSection[] : [],
+          Array.isArray(row.sources) ? row.sources as ArticleSource[] : [],
+        ))), jsonArray(row.sources), migratedImage(row),
         integer(row.readingMinutes, 5), required(row.createdAt, "dátum vytvorenia"),
         required(row.updatedAt, "dátum úpravy"), null,
         text(row.createdBy, user.email), text(row.updatedBy, user.email),
