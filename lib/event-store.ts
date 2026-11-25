@@ -430,7 +430,7 @@ export async function getPublicEventCalendar(filters: EventListingFilters, month
   const database = getD1Binding();
   const empty = {events: [] as PublicEventDayPreview[], summaries: [] as {date:string;count:number;types:EventType[]}[]};
   if (!database || !/^20\d{2}-(?:0[1-9]|1[0-2])$/.test(month)) return empty;
-  const sql = eventListingSql(filters);
+  const sql = eventListingSql({ ...filters, day: undefined });
   const start = `${month}-01`;
   const [year, number] = month.split('-').map(Number);
   const end = `${month}-${String(new Date(Date.UTC(year, number, 0)).getUTCDate()).padStart(2,'0')}`;
