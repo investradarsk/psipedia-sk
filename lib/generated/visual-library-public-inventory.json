@@ -560,6 +560,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/partner-workspace-navigation.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/portal-hub.tsx",
       "coverage": "page-composite"
     },

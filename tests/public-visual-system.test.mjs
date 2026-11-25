@@ -69,13 +69,17 @@ test("header policy distinguishes editorial, compact, image and data/service pre
 });
 
 test("typography is compact and keeps editorial versus data heading hierarchy", () => {
-  assert.match(styles, /--pv-type-body:\s*\.9375rem/);
-  assert.match(styles, /--pv-type-body-dense:\s*\.875rem/);
+  assert.match(styles, /--pv-type-body:\s*var\(--ps-type-profile, 1rem\)/);
+  assert.match(styles, /--pv-type-body-dense:\s*var\(--ps-type-compact, \.875rem\)/);
   assert.match(styles, /--pv-type-data-heading:\s*clamp\(1\.9rem, 3\.4vw, 3\.15rem\)/);
   assert.match(styles, /--pv-type-editorial-heading:\s*clamp\(2\.35rem, 5vw, 4\.25rem\)/);
-  assert.match(styles, /--pv-leading-body:\s*1\.62/);
+  assert.match(styles, /--pv-leading-body:\s*var\(--ps-type-body-leading, 1\.6\)/);
   assert.match(styles, /@media \(max-width: 600px\)/);
-  assert.match(styles, /--pv-type-body:\s*\.9rem/);
+  assert.doesNotMatch(styles, /--pv-type-body(?:-dense)?:\s*\d*\.\d+rem/);
+  const premium = read("app/premium-foundation.css");
+  assert.match(premium, /--ps-type-profile:\s*1rem;/);
+  assert.match(premium, /--ps-type-compact:\s*\.875rem;/);
+  assert.match(premium, /--ps-type-body-leading:\s*1\.6;/);
 });
 
 test("content list and data cards are compact, explicit interactive surfaces", () => {
@@ -273,17 +277,16 @@ test("Premium Editorial V2 uses scoped media and control radii without changing 
 });
 
 test("PUBLIC-POLISH-2 homepage section CTAs follow their content", () => {
-  const editorialLayout = homeEditorial.indexOf(
-    "<HomeArticleFeatureLayout articles={articles} testId={testId} />",
+  const layout = homeEditorial.slice(
+    homeEditorial.indexOf("function HomeArticleFeatureLayout("),
+    homeEditorial.indexOf("function HomeMagazineColumns("),
   );
-  const editorialCta = homeEditorial.indexOf("data-home-section-cta={testId}");
-  assert.ok(editorialLayout >= 0 && editorialCta > editorialLayout);
-
-  const latestLayout = homeEditorial.indexOf(
-    '<HomeArticleFeatureLayout articles={articles} testId="latest" />',
-  );
-  const latestCta = homeEditorial.indexOf('data-home-section-cta="latest"');
-  assert.ok(latestLayout >= 0 && latestCta > latestLayout);
+  assert.match(layout, /data-home-article-panel/);
+  assert.ok(layout.indexOf("{action}") > layout.indexOf("secondary.map"));
+  assert.match(homeEditorial, /<HomeArticleFeatureLayout articles=\{articles\} testId=\{testId\} action=\{action\} \/>/);
+  assert.match(homeEditorial, /<HomeArticleFeatureLayout articles=\{articles\} testId="latest" action=\{action\} \/>/);
+  assert.match(homeEditorial, /data-home-section-cta=\{testId\}/);
+  assert.match(homeEditorial, /data-home-section-cta="latest"/);
 
   // PR #815 moved these CTAs to shared magazine components. The sidebar
   // action must follow its children, and editorial section CTAs follow features

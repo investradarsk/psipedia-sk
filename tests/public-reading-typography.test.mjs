@@ -87,3 +87,68 @@ test("informational pages opt into readability without globally enlarging contro
   assert.match(premium, /:root:not\(:has\(\[data-admin-workspace\]\)\)\s*\{[^}]*--ps-font-body:\s*"Psipedia Inter"/s);
   assert.match(premium, /--ps-reading-font:\s*var\(--ps-font-body\)/);
 });
+
+test("Typography shares semantic roles while keeping navigation and detail prose on independent scales", () => {
+  const premium = read("app/premium-foundation.css");
+  const tokens = {
+    "article-desktop": "1.06875rem",
+    "article-lead-desktop": "1.125rem",
+    "article-mobile": "0.84375rem",
+    "article-lead-mobile": "0.9rem",
+    profile: "1rem",
+    "profile-detail": "0.9rem",
+    "profile-detail-lead": "0.9rem",
+    navigation: "0.7875rem",
+    compact: ".875rem",
+    "sidebar-title": ".9375rem",
+    meta: ".75rem",
+    control: ".875rem",
+    input: "1rem",
+  };
+  for (const [name, value] of Object.entries(tokens)) {
+    assert.ok(premium.includes("--ps-type-" + name + ": " + value + ";"), name);
+  }
+  assert.ok(premium.includes("--ps-type-card-heading: 1rem;"));
+  assert.ok(premium.includes("--ps-type-card-heading: 1.125rem;"));
+  const desktopReading = articles.match(/@media \(min-width: 801px\)\s*\{\s*\.modernArticle \.readingShell\s*\{([^}]+)\}/);
+  assert.ok(desktopReading, "article override must be desktop-only");
+  assert.ok(desktopReading[1].includes("var(--ps-type-article-desktop"));
+  assert.ok(desktopReading[1].includes("var(--ps-type-article-lead-desktop"));
+  assert.doesNotMatch(premium, /--ps-reading-size:\s*var\(--ps-type-article-desktop/);
+  assert.ok(articles.includes("var(--ps-type-article-mobile"));
+  assert.ok(articles.includes("var(--ps-type-article-lead-mobile"));
+  assert.ok(details.includes("var(--ps-type-profile-detail,"));
+  assert.ok(breeds.includes("var(--ps-type-profile-detail,"));
+  assert.match(
+    premium,
+    /:is\(\.site-header \.desktop-nav a, \.site-header \.mobile-menu a\)\s*\{[^}]*font-size:\s*var\(--ps-type-navigation\)/s,
+  );
+  assert.match(
+    premium,
+    /:is\(\.button, \.text-link\)\s*\{[^}]*font-size:\s*var\(--ps-type-control\)/s,
+  );
+  for (const file of [
+    "components/public-heading.module.css",
+    "components/detail-primitives/detail-primitives.module.css",
+    "components/organization-profile-detail.module.css",
+    "components/help-details/help-detail.module.css",
+    "app/plemena/[slug]/breed-profile.module.css",
+    "components/public-visual-system/public-visual-system.module.css",
+    "app/partner/partner.css",
+  ]) {
+    assert.ok(read(file).includes("var(--ps-type-card-heading"), file);
+  }
+  for (const file of [
+    "components/article-popularity-sidebar.module.css",
+    "components/related-entity-list.module.css",
+    "app/home-v2.module.css",
+  ]) {
+    const css = read(file);
+    assert.ok(css.includes("var(--ps-type-sidebar-title"), file);
+    assert.ok(css.includes("var(--ps-type-meta"), file);
+  }
+  const partner = read("app/partner/partner.css");
+  assert.ok(partner.includes("var(--ps-type-input"));
+  assert.ok(partner.includes("var(--ps-type-control"));
+  assert.doesNotMatch(read("app/admin/admin-editorial-foundation.css"), /--ps-type-/);
+});

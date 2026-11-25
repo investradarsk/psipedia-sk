@@ -110,3 +110,15 @@ test("homepage alternates editorial topics, real directory categories and partne
   assert.match(css, /HOMEPAGE-COMPACT-1/);
   assert.ok(css.includes("@media (max-width: 620px)"));
 });
+
+test("editorial secondary rows and archive action share the sidebar panel surface", async () => {
+  const [editorial, sidebar, css] = await Promise.all([
+    source("components/home-editorial.tsx"),
+    source("components/article-popularity-sidebar.module.css"),
+    source("app/home-v2.module.css"),
+  ]);
+  assert.match(editorial, /home-article-list-panel \$\{sidebarStyles\.panelSurface\}/);
+  assert.match(editorial, /data-home-article-panel[\s\S]*secondary\.map[\s\S]*\{action\}/);
+  assert.match(sidebar, /\.popularity,\s*\.panelSurface\s*\{[^}]*background: var\(--paper,/);
+  assert.match(css, /\.home-article-list-panel > \.home-section-cta/);
+});

@@ -194,7 +194,7 @@ test("adoption uses canonical organization and canonical breed", () => {
   assert.match(c, /\/organizacie\/\$\{\s*organization\s*\.slug\s*\}/);
   assert.match(
     c,
-    /dog\s*\.breedSlug\s*\?\s*<Link\s*href=\{breedProfileHref\(dog\.breedSlug, dog\.breedFciGroup \?\? undefined\)\}/,
+    /dog\s*\.breedSlug\s*\?\s*\(?\s*<Link\s*href=\{breedProfileHref\(dog\.breedSlug, dog\.breedFciGroup \?\? undefined\)\}/,
   );
   assert.match(s, /b\.fci_group AS breed_fci_group/);
   assert.match(s, /b\s*\.id\s*IN\s*\(\s*\$\{\s*canonicalBreedIdsForRead\(env\)\s*\}\s*\)/);

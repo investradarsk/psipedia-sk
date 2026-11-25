@@ -1090,3 +1090,31 @@
   font-family: var(--ps-font-body);
   min-width: 0;
 }
+
+/* Apply the reduced reading scale only inside article content, not its sidebar. */
+.modernArticle .readingShell {
+  --ps-reading-size: var(--ps-type-article-mobile, 0.84375rem);
+  --ps-reading-lead-size: var(--ps-type-article-lead-mobile, 0.9rem);
+}
+
+/* Desktop keeps its separate reading scale. */
+@media (min-width: 801px) {
+  .modernArticle .readingShell {
+    --ps-reading-size: var(--ps-type-article-desktop, 1.06875rem);
+    --ps-reading-lead-size: var(--ps-type-article-lead-desktop, 1.125rem);
+    --ps-reading-leading: 1.7;
+  }
+}
+
+/* Keep the mobile reading size intact; desktop editorial section hierarchy. */
+@media (min-width: 801px) {
+  .modernArticle .readingShell :global(.article-blocks h2) {
+    font-size: var(--ps-type-section-heading, 1.75rem);
+  }
+  .modernArticle .readingShell :global(.article-blocks h3) {
+    font-size: var(--ps-type-subheading, 1.375rem);
+  }
+}
+.sidebar {
+  font-size: var(--ps-type-compact, .875rem);
+}
