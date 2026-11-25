@@ -54,6 +54,7 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
   if (cleanedUrl) redirect(cleanedUrl);
   const result = await retryTransientPublicRead(() =>
     listPublishedDirectoryProfiles({ category: category.slug, filters }),
+    { stage: "directory_listing" },
   );
   if (filters.page > result.page) redirect(directoryPageHref(path, filters, result.page));
   const policy = resolveListingIndexPolicy(path, rawSearchParams, { indexPagination: true });
