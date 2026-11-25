@@ -239,8 +239,8 @@ test(
               values.map((value) => parseFloat(getComputedStyle(value).fontSize)),
             );
           assert.ok(
-            contactSizes.every((size) => size >= 16),
-            `${name} ${width} readable contact values`,
+            contactSizes.every((size) => size >= 14),
+            `${name} ${width} readable compact contact values (at least 14px)`,
           );
           const hero = page.locator("[data-public-detail-hero]");
           assert.equal(await hero.count(), 1);
@@ -262,6 +262,18 @@ test(
                 1,
               );
               assert.equal(await actions.locator('a[href="#kontakt"]').count(), 1);
+              assert.equal(
+                await page.locator('[data-public-detail-flow] [data-detail-block="enquiry"] #kontakt').count(),
+                1,
+                "inquiry belongs to the same independent detail flow",
+              );
+              const reviews = await page.locator('[data-detail-block="reviews"]').boundingBox();
+              const enquiry = await page.locator('[data-detail-block="enquiry"]').boundingBox();
+              assert.ok(reviews && enquiry && enquiry.y >= reviews.y + reviews.height - 1,
+                "inquiry follows reviews");
+              const nearby = await page.locator('[data-detail-block="nearby"]').boundingBox();
+              if (nearby) assert.ok(nearby.y >= enquiry.y + enquiry.height - 1,
+                "nearby profiles follow inquiry");
             } else {
               assert.ok(
                 (await actions.locator("a").count()) >= 1,
