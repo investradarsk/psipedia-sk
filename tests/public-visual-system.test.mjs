@@ -492,14 +492,14 @@ test("mobile public shells use one 12px gutter and bottom grip supports keyboard
 
 // DS-4 regression contract: approved Hero and primary search are intentionally
 // outside this change; test only banner composition and responsive ownership.
-test("DS-4 contextual banners own organizer layout without page-local CSS overrides", () => {
+test("DS-4 shared banners own organizer layout without page-local CSS overrides", () => {
   const component = read("components/public-visual-system/public-context-banner.tsx");
   const styles = read("components/public-visual-system/public-context-banner.module.css");
   const events = read("components/events-page.tsx");
   const eventsCss = read("components/events-public.module.css");
   assert.match(component, /inline\?: boolean/);
   assert.match(component, /data-public-context-banner-layout/);
-  assert.match(events, /<PublicContextBanner[\s\S]*?tone="coral"\s+inline/);
+  assert.match(events, /<PublicMagazineBanner\s+compact\s+size="medium"\s+photoTone="volunteer"\s+testId="events-organizer-cta"/);
   assert.match(styles, /\.inline > \.copy[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto/);
   assert.match(
     styles,
