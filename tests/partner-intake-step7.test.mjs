@@ -168,3 +168,13 @@ test("inbox search uses submission names and resolved IDs if the subject link is
     sql.close();
   }
 });
+
+test("inbox finds Slovak titles with or without accents", async () => {
+  const { sql, db } = fixture();
+  try {
+    const result = await listAdminInbox(normalizeInboxFilters({ q: "PSIA VYSTAVA", state: "all" }), db);
+    assert.deepEqual(result.items.map((item) => item.id), ["m3"]);
+  } finally {
+    sql.close();
+  }
+});

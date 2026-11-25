@@ -107,7 +107,7 @@ test("V6-06 confirmed directory resolutions are not treated as missing; expired 
         (2,'phone','NOT_PUBLIC',datetime('now','-366 days')),
         (3,'phone','NOT_PUBLIC',datetime('now'));`);
     const filters = parseOverviewFilters({ area: "services", field: "phone" });
-    const source = overviewSqlSource(filters, "2026-11-24");
+    const source = overviewSqlSource(filters, new Date("2026-11-24T12:00:00Z"));
     const flags = db.prepare(source.sql + " SELECT id,m_phone,e_phone FROM profiles ORDER BY id").all();
     assert.deepEqual(flags.map(row => [row.id,row.m_phone,row.e_phone]), [[1,0,1],[2,1,0],[3,0,0]]);
     const d1 = { prepare: sql => ({ bind: (...args) => ({
@@ -158,6 +158,60 @@ test("missing fields include primary and secondary category members once", async
     assert.equal(result.summary.totalProfiles, 2);
     assert.equal(result.visibleCount, 2);
     assert.deepEqual(result.items.map((item) => item.id), [1, 2]);
+  } finally {
+    db.close();
+  }
+});
+
+test("quality search folds Slovak accents and treats percent and underscore as literal characters", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(`
+      CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY, name TEXT, category TEXT, status TEXT, city TEXT, address TEXT, image_url TEXT, website_url TEXT, public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT);
+      CREATE TABLE directory_profile_quality_resolutions(profile_id INTEGER, quality_field TEXT, resolution_status TEXT, checked_at TEXT);
+      INSERT INTO directory_profiles(id,name,category,status) VALUES
+        (1,'Žltý salón 100%','veterinari','published'),(2,'Čistý salón','veterinari','published'),
+        (3,'Salón_2','veterinari','published'),(4,'Björk','veterinari','published');
+    `);
+    const d1 = { prepare: (sql) => ({ bind: (...args) => ({
+      first: async () => db.prepare(sql).get(...args),
+      all: async () => ({ results: db.prepare(sql).all(...args) }),
+    }) }) };
+    for (const [q, id] of [["ZLTY SALON", 1], ["%", 1], ["_", 3], ["Björk", 4]]) {
+      const result = await loadMissingDataOverview(d1, parseOverviewFilters({ q }));
+      assert.deepEqual(result.items.map((item) => item.id), [id]);
+    }
+  } finally {
+    db.close();
+  }
+});
+
+test("help quality excludes retired duplicate categories and reports expiring earlier today", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(`
+      CREATE TABLE help_organizations(id INTEGER, name TEXT, status TEXT, city TEXT, image_url TEXT, website_url TEXT, public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT, registration_number TEXT);
+      CREATE TABLE adoption_dogs(id INTEGER, name TEXT, status TEXT, city TEXT, main_image TEXT, contact_url TEXT, external_source_url TEXT, contact_phone TEXT, contact_email TEXT);
+      CREATE TABLE help_cases(id INTEGER, title TEXT, category TEXT, status TEXT, city TEXT, resolved INTEGER, image_url TEXT, action_url TEXT);
+      CREATE TABLE lost_found_dog_reports(id INTEGER, dog_name TEXT, type TEXT, status TEXT, city TEXT, expires_at TEXT, main_image TEXT, source_url TEXT);
+      INSERT INTO help_cases(id,title,category,status) VALUES (1,'Stará adopcia','adopcia','published'),
+        (2,'Zbierka','zbierky','published'), (3,'Opatera','docasna-opatera','published');
+      INSERT INTO lost_found_dog_reports(id,dog_name,type,status,expires_at) VALUES
+        (10,'Vypršal','LOST','ACTIVE','2026-11-25T08:00:00.000Z'),
+        (11,'Ešte aktívny','FOUND','ACTIVE','2026-11-25T20:00:00.000Z'),
+        (12,'Vyprší práve teraz','FOUND','ACTIVE','2026-11-25T12:00:00.000Z');
+    `);
+    const filters = parseOverviewFilters({ area: "help" });
+    const now = new Date("2026-11-25T12:00:00.000Z");
+    const source = overviewSqlSource(filters, now);
+    const rows = db.prepare(source.sql + " SELECT id FROM profiles ORDER BY id").all(...source.bindings);
+    assert.deepEqual(rows.map((row) => row.id), [2, 3, 11]);
+    const all = overviewSqlSource(parseOverviewFilters({ area: "help", state: "all" }), now);
+    assert.deepEqual(db.prepare(all.sql + " SELECT id FROM profiles ORDER BY id")
+      .all(...all.bindings).map((row) => row.id), [2, 3, 10, 11, 12]);
+    assert.equal(parseOverviewFilters({ area: "help", category: "case:adopcia" }).category, "");
+    assert.equal(parseOverviewFilters({ area: "help", category: "category-not-supported" }).category, "");
+    assert.equal(parseOverviewFilters({ area: "help", category: "case:zbierky" }).category, "case:zbierky");
   } finally {
     db.close();
   }

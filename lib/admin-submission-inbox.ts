@@ -3,6 +3,7 @@
  * shadow queue, stored duplicate or alternative moderation decision logic.
  */
 import { env } from "cloudflare:workers";
+import { sqlFoldAdminText } from "./admin-list-query";
 import { getPartnerDatabase } from "./partner-auth-store";
 
 export type InboxKind = "PARTNER"|"PUBLIC"|"CLAIM"|"INQUIRY";
@@ -100,7 +101,7 @@ filtered AS (
  SELECT * FROM combined
  WHERE (?1='all' OR kind=?1)
    AND (?2='all' OR (?2='pending' AND pending=1) OR (?2='history' AND pending=0))
-   AND (?3='' OR instr(lower(title),lower(?3))>0
+   AND (?3='' OR instr(${sqlFoldAdminText("title")},${sqlFoldAdminText("?3")})>0
      OR instr(lower(COALESCE(accountId,'')),lower(?3))>0 OR instr(lower(id),lower(?3))>0)
 )
 `;
