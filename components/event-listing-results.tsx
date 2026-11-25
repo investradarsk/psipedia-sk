@@ -16,6 +16,8 @@ import {
 import Link from "next/link";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { EventCard } from "./event-card";
+import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import { ArrowIcon } from "@/components/icons";
 import {
   PublicActionButton,
@@ -41,6 +43,8 @@ type Props = {
   calendarMonth: string;
   day: string;
   beforeResults?: ReactNode;
+  sidebar?: ReactNode;
+  pending?: boolean;
 };
 
 export function EventListingResults({
@@ -53,8 +57,10 @@ export function EventListingResults({
   calendarMonth,
   day,
   beforeResults,
+  sidebar,
+  pending = false,
 }: Props) {
-  const groupedByType = eventTypeBatchGroupingEnabled(f);
+  const groupedByType = !day && eventTypeBatchGroupingEnabled(f);
   const params = eventListingParams(f);
   params.set("kalendar", calendarMonth);
   if (day) params.set("den", day);
@@ -69,6 +75,7 @@ export function EventListingResults({
     return `${pathname}?${next.toString()}#events-list`;
   }
   const active = [
+    { key: "den", label: "Vybraný dátum", value: day },
     { key: "q", label: "Hľadanie", value: f.query },
     { key: "region", label: "Kraj", value: f.region },
     { key: "mesiac", label: "Mesiac", value: f.month },
@@ -103,7 +110,7 @@ export function EventListingResults({
   const pages = publicPaginationPages(listing.page, listing.pages);
 
   return (
-    <PublicFilterLayout className={styles.listingLayout} data-events-listing-layout>
+    <PublicFilterLayout extra={Boolean(sidebar)} className={styles.listingLayout} data-events-listing-layout>
       <PublicFilterPanel
         title="Filtrovať podujatia"
         resetHref={pathname}
@@ -252,7 +259,7 @@ export function EventListingResults({
             {f.error}
           </PublicNotice>
         ) : null}
-        {events.length ? (
+        {pending ? <p role="status">Načítavajú sa podujatia…</p> : events.length ? (
           <>
             <p data-event-range>
               Zobrazených {(listing.page - 1) * EVENT_PAGE_SIZE + 1}–
@@ -284,6 +291,7 @@ export function EventListingResults({
                           ? "ostatné podujatia"
                           : eventTypePresentation[event.eventType].label.toLocaleLowerCase("sk")}
                       </PublicActionLink>
+                      {index < events.length - 1 && <PublicMagazineBanner compact size="small" testId={`event-category-${event.eventType}`} eyebrow={eventTypePresentation[event.eventType].label} title={publicSectionPhotoPromos.events.title} description={publicSectionPhotoPromos.events.text} label={publicSectionPhotoPromos.events.action} href={publicSectionPhotoPromos.events.href} />}
                     </div>
                   ) : null}
                 </Fragment>
@@ -311,6 +319,7 @@ export function EventListingResults({
           </PublicEmptyState>
         )}
       </section>
+      {sidebar ? <aside className={directoryStyles.directorySidebar} aria-label="Kalendár a najčítanejšie">{sidebar}</aside> : null}
     </PublicFilterLayout>
   );
 }
