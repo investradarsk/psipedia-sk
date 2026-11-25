@@ -68,6 +68,7 @@ export async function PUT(request: Request, { params }: Props) {
     // Bad optional contacts cannot cancel unrelated edits. They are omitted
     // from publication and returned as warnings, never used as unsafe links.
     const fieldWarnings: string[] = [];
+    const sanitizedFields = new Set<EventNotionField>();
     for (const key of ["websiteUrl", "registrationUrl"] as const) {
       const value = safe[key];
       if (typeof value !== "string" || !value.trim()) continue;
@@ -78,15 +79,20 @@ export async function PUT(request: Request, { params }: Props) {
       } catch { /* Isolate the optional invalid URL. */ }
       if (valid) continue;
       safe[key] = null;
+      sanitizedFields.add(key);
       fieldWarnings.push("Neplatný nepovinný odkaz bol vynechaný: " + key);
     }
     if (safe.contactEmail &&
         (safe.contactEmail.length > 254 ||
          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safe.contactEmail))) {
       safe.contactEmail = null;
+      sanitizedFields.add("contactEmail");
       fieldWarnings.push("Neplatný nepovinný e-mail bol vynechaný");
     }
-    const event = await updateManagedEvent(id, safe, user.email, before);
+    const unifiedEdit = (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string })
+      .NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+    const receiptFields = unifiedEdit ? (edited ?? []).filter(field => !sanitizedFields.has(field)) : undefined;
+    const event = await updateManagedEvent(id, safe, user.email, before, receiptFields);
     if (!event) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
     // The D1 write has committed. Remote Notion mirroring and auxiliary
     // acknowledgements are separate outcomes, never a failed Admin save.
@@ -146,7 +152,9 @@ export async function PATCH(request: Request, { params }: Props) {
   }
   try {
     const before = await getManagedEventById(id);
-    const event = await quickEditManagedEvent(id, await request.json() as ManagedEventQuickEditInput, user.email);
+    const unifiedEdit = (env as unknown as { NOTION_UNIFIED_FIELD_SYNC_ENABLED?: string })
+      .NOTION_UNIFIED_FIELD_SYNC_ENABLED === "true";
+    const event = await quickEditManagedEvent(id, await request.json() as ManagedEventQuickEditInput, user.email, unifiedEdit);
     const notionFieldSync = event ? await syncSavedNotionRecord({
       bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id,
       changedEventFields:before?eventChangedAdminFields(
