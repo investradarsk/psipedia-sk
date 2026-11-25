@@ -833,6 +833,8 @@ async function syncMapped(input: {
     protectedFields: new Set(["slug", "status"]),
     canonicalFieldsWin: true,
     authorities: await readNotionFieldAuthorities(input.database,"eshops"),
+    // Match Directory: never let historical source priority undo a verified edit.
+    changedSideWins: true,
   });
   if (resolution.kind === "CONFLICT") {
     throw new Error("ESHOP_FIELD_REVIEW_REQUIRED (" +
