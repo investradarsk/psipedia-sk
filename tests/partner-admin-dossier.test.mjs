@@ -129,6 +129,7 @@ test("dossier: paginates the combined request history without losing older types
     assert.equal(second.items.length,15);
     assert.equal(new Set([...first.items,...second.items].map(item=>item.id)).size,65);
     assert.equal(first.totalPages,2);
+    assert.deepEqual(await listPartnerAccountDossierRequests("partner-a", db, 999), second);
   }finally{sqlite.close();}
 });
 
@@ -158,6 +159,28 @@ test("dossier: history includes partner actions and admin decisions for their su
     ]));
     assert.equal((await listPartnerAccountDossierHistory("partner-b",db)).total,0);
   }finally{sqlite.close();}
+});
+
+test("dossier: stale page links show the last available records across tabs", async () => {
+  const { sqlite, db } = setup();
+  try {
+    for (const load of [
+      listPartnerAccountDossierRequests,
+      listPartnerAccountDossierProfiles,
+      listPartnerAccountDossierHistory,
+    ]) {
+      const first = await load("partner-a", db, 1);
+      const stale = await load("partner-a", db, 999);
+      assert.ok(first.items.length > 0);
+      assert.deepEqual(stale, first);
+      const empty = await load("missing-partner", db, 999);
+      assert.equal(empty.page, 1);
+      assert.equal(empty.totalPages, 1);
+      assert.deepEqual(empty.items, []);
+    }
+  } finally {
+    sqlite.close();
+  }
 });
 
 test("dossier: five navigation tabs, account-scoped loaders and safe placeholder for not-yet-built chat",()=>{

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { getPartnerAdminSummary, listPartnerAccountsAdmin, normalizePartnerAccountAdminFilters } from "@/lib/partner-admin-store";
 import { loadPartnerPendingSummary } from "@/lib/partner-attention";
 import { partnerAdminStatusLabel } from "@/lib/admin-partner-labels";
@@ -39,6 +40,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     params.set("page", String(page));
     return "/admin/partners?" + params.toString();
   };
+
+  const returnHref = pageUrl(accounts.page);
 
   return (
     <AdminShell user={user} eyebrow="Správa partnerov" title="Partneri"
@@ -123,11 +126,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
                 <strong className={a.unreadMessageCount?"admin-partner-v2-alert":""}>
                   {a.unreadMessageCount}
                 </strong>
-                <Link href={"/admin/partners/accounts/"+encodeURIComponent(a.id)+"?tab=spravy"}>
+                <Link href={adminDetailHref(`/admin/partners/accounts/${encodeURIComponent(a.id)}?tab=spravy`, returnHref)}>
                   Otvoriť správy
                 </Link>
               </div>
-              <Link href={`/admin/partners/accounts/${a.id}`} aria-label={`Otvoriť partnera ${a.contactName || a.email}`}>
+              <Link href={adminDetailHref(`/admin/partners/accounts/${encodeURIComponent(a.id)}`, returnHref)} aria-label={`Otvoriť partnera ${a.contactName || a.email}`}>
                 Otvoriť
               </Link>
             </article>

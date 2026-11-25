@@ -259,7 +259,8 @@ test("Partneri V2 opens on registered accounts with six useful columns and prese
   assert.match(page,/a\.managedProfileCount/);
   assert.match(page,/a\.contactName/);
   assert.match(page,/unreadMessageCount/,"Admin list must show actual unread Partner messages");
-  assert.match(page,/\/admin\/partners\/accounts\/\$\{a\.id\}/);
+  assert.match(page, /adminDetailHref\(`\/admin\/partners\/accounts\/\$\{encodeURIComponent\(a\.id\)\}`, returnHref\)/);
+  assert.match(page, /adminDetailHref\(`\/admin\/partners\/accounts\/\$\{encodeURIComponent\(a\.id\)\}\?tab=spravy`, returnHref\)/);
   assert.doesNotMatch(page,/className="admin-partner-stats"/,"old eight-stat dashboard removed");
   assert.match(css,/\.admin-partner-table\.admin-partner-v2-table/);
   assert.match(css,/@media \(max-width:760px\)/);

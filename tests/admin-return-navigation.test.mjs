@@ -44,3 +44,17 @@ test("all Help editors can return to the explicitly allowed unified hub", () => 
     assert.equal(adminReturnHref(source, [root, "/admin/pomoc-psom"]), source);
   }
 });
+
+test("partner detail and messages preserve a filtered account list", () => {
+  const root = "/admin/partners";
+  const list = root + "?q=neo&status=ACTIVE&verified=VERIFIED&access=LINKED&pageSize=50&page=2";
+  const detail = root + "/accounts/partner-id";
+  for (const href of [detail, detail + "?tab=spravy", detail + "?tab=historia&page=2"]) {
+    const parsed = new URL(adminDetailHref(href, list), "https://admin.invalid");
+    const original = new URL(href, "https://admin.invalid");
+    assert.equal(parsed.searchParams.get("tab"), original.searchParams.get("tab"));
+    assert.equal(parsed.searchParams.get("page"), original.searchParams.get("page"));
+    assert.equal(adminReturnHref(parsed.searchParams.get("returnTo") ?? undefined, root), list);
+  }
+  assert.equal(adminReturnHref(root + "/accounts/partner-id", root), root);
+});
