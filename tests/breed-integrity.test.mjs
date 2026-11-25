@@ -80,7 +80,7 @@ test('an ineligible older duplicate cannot suppress the valid profile',()=>{
 });
 test('a cross-FCI canonical URL never redirects to an unrelated breed',async()=>{
  const db=database();db.add(1,'one',1);db.add(2,'two',2);
- db.sqlite.exec(`UPDATE managed_breeds SET seo_json='{"canonicalUrl":"/plemena/one"}' WHERE id=2`);
+ db.sqlite.exec(`UPDATE managed_breeds SET seo_json='{"canonicalUrl":"/plemena/one"}',seo_canonical_url='/plemena/one' WHERE id=2`);
  assert.throws(()=>assertCanonicalIdentities(db.sqlite.prepare('SELECT * FROM managed_breeds').all()),/broken-canonical-relation/);
  assert.equal(await canonicalBreedRedirect(db,'two'),null);db.sqlite.close();
 });
