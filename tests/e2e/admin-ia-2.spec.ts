@@ -458,13 +458,25 @@ test("V6-07 dashboard shortcuts and guarded Ctrl+K return use canonical routes",
   await expect(shortcuts.locator('a[href="/admin/sluzby-pre-psov"], a[href="/admin/pomoc-psom"]')).toHaveCount(0);
   await shortcuts.getByRole("link", { name: "Všetky profily" }).click();
   await expect(page).toHaveURL(/\/admin\/adresar$/);
-  const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
+  // The URL can commit before the mobile menu hydrates on a document fallback.
+  // Wait for the existing hydration signal before interacting, as in the desktop checks.
+  await expect(page.locator("[data-admin-sidebar]")).toHaveAttribute("data-admin-hydrated", "true");
+  const menuDialog = page.getByRole("dialog", { name: "Navigácia administrácie" });
   if (mobile) {
-    await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Navigácia administrácie" })).toBeVisible();
+    const menu = page.getByRole("button", { name: "Menu", exact: true });
+    await expect(menu).toBeVisible();
+    await expect.poll(async () => {
+      if (await menu.getAttribute("aria-expanded") !== "true") await menu.click();
+      return menu.getAttribute("aria-expanded");
+    }).toBe("true");
+    await expect(menuDialog).toBeVisible();
   }
+  const nav = (mobile ? menuDialog : page).getByRole("navigation", { name: "Redakčné moduly" });
   await expect(nav.getByRole("link", { name: "Všetky profily", exact: true })).toHaveAttribute("aria-current", "page");
-  if (mobile) await page.keyboard.press("Escape");
+  if (mobile) {
+    await page.keyboard.press("Escape");
+    await expect(menuDialog).toHaveCount(0);
+  }
   const quickTrigger = page.locator("[data-admin-quick-nav-trigger]");
   await expect(quickTrigger).toHaveAttribute("data-admin-hydrated", "true");
   await expect(quickTrigger).toBeEnabled();
