@@ -57,11 +57,14 @@ test("production CREATE and FCI preview are compatible with post-DROP schema",()
   const store=read("../lib/breed-store.ts");
   const importer=read("../lib/breed-import.ts");
   const route=read("../app/api/admin/import/route.ts");
-  assert.match(store,/pragma_table_info\('managed_breeds'\)/);
-  assert.match(store,/breedSqlV2InsertColumns\(BREED_ROW_VALUE_COLUMNS,legacyCount\)/);
+  assert.doesNotMatch(store,/pragma_table_info\('managed_breeds'\)/);
+  const insertColumns = store.match(/const BREED_ROW_VALUE_COLUMNS="([^"]+)"/)[1].split(",");
+  for (const col of BREED_LEGACY_OBJECT_COLUMNS) assert.ok(!insertColumns.includes(col), col);
+  assert.match(store,/breedSqlV2NewBreedStatements\(database, value.slug, value\)/);
   assert.match(store,/BREED_SQL_ONLY_INSERT_COLUMNS_MISMATCH/);
-  assert.match(importer,/sqlPrimary \? "'{}' AS editorial_json"/);
-  assert.match(route,/sqlPrimary:\(env as RuntimeBindings/);
+  assert.doesNotMatch(importer,/fci_standard_json|editorial_json|related_breeds_json|seo_json/);
+  assert.match(importer,/breedSqlV2NewBreedStatements/);
+  assert.match(route,/if \(!localFixtureImport\)/);
   const schema=read("../db/schema.ts").split("export const managedBreeds =")[1]
     .split("export const breedArticleRelations =")[0];
   for(const col of BREED_LEGACY_OBJECT_COLUMNS)

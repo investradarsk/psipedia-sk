@@ -5,7 +5,7 @@
  */
 import { getManagedBreed } from "@/lib/breed-store";
 import {
-  breedSqlV2StructuredWritesEnabled,breedSqlV2ControlledStatements,breedSqlV2CasGuard,
+  breedSqlV2ControlledStatements,breedSqlV2CasGuard,
 } from "@/lib/breed-sql-v2-writer.mjs";
 import { notionRequest, notionFlagEnabled, notionRichTextProperty,
   type NotionPage, type NotionSyncBindings } from "@/lib/notion-sync-shared";
@@ -110,13 +110,13 @@ function state(row:Raw):ControlledBreedState {
   return {values,revision:row.revision,
     pendingKeys:breedControlledKeys.filter((key:string)=>!eq(values[key],notion[key]))};
 }
-async function seed(database:D1Database,link:Link,page:NotionPage,bindings:ControlledBreedBindings) {
+async function seed(database:D1Database,link:Link,page:NotionPage,_bindings:ControlledBreedBindings) {
   // The first verified encounter snapshots only current controlled properties;
   // blank and malformed fields are NOT inferred from old descriptive text.
   const parsed=readBreedControlledNotionPage(page);
   const values=parseBreedControlledValues({...emptyBreedControlledValues(),...parsed.values});
   const json=JSON.stringify(values);
-  if(breedSqlV2StructuredWritesEnabled(bindings)){
+  {
     const previous=await database.prepare("SELECT updated_at FROM managed_breeds WHERE id=?")
       .bind(link.breed_id).first<{updated_at:string}>();
     if(!previous)throw Error("BREED_CONTROLLED_BREED_MISSING");
@@ -141,11 +141,6 @@ async function seed(database:D1Database,link:Link,page:NotionPage,bindings:Contr
       if(!await record(database,link.breed_id))throw error;
       // A concurrent seeder won; leave its values untouched.
     }
-  }else{
-    await database.prepare(
-      "INSERT OR IGNORE INTO breed_notion_controlled_values "+
-      "(breed_id,values_json,notion_values_json,revision) VALUES (?,?,?,0)",
-    ).bind(link.breed_id,json,json).run();
   }
   if (parsed.errors.length)
     console.warn("breed_controlled_seed_incomplete",{breedId:link.breed_id,count:parsed.errors.length});
@@ -202,7 +197,7 @@ export async function receiveBreedControlledNotionEdit(args:{
       notion[key]=value;
     }
     if (!modified) return {updated:false,invalidKeys:parsed.errors.map((e:{key:string})=>e.key)};
-    if(breedSqlV2StructuredWritesEnabled(args.bindings)){
+    {
       const changed=Object.fromEntries(Object.entries(parsed.values)
         .filter(([key,value])=>!eq(parseBreedControlledValues(row!.values_json)[key],value)));
       try{
@@ -213,14 +208,6 @@ export async function receiveBreedControlledNotionEdit(args:{
         if(!(error instanceof Error)||error.message!=="BREED_CONTROLLED_EDIT_CONFLICT")
           throw error;
       }
-    }else{
-      const updated=await args.database.prepare(
-        "UPDATE breed_notion_controlled_values SET values_json=?,notion_values_json=?, "+
-        "revision=revision+1,updated_at=? WHERE breed_id=? AND revision=?",
-      ).bind(JSON.stringify(values),JSON.stringify(notion),new Date().toISOString(),
-        link.breed_id,row.revision).run();
-      if (updated.meta.changes===1)
-        return {updated:true,invalidKeys:parsed.errors.map((e:{key:string})=>e.key)};
     }
     row=await record(args.database,link.breed_id);
     if (!row) throw Error("BREED_CONTROLLED_RECORD_DISAPPEARED");
@@ -279,18 +266,12 @@ export async function saveBreedControlledFromAdmin(args:{
     !changed.includes(key) && !eq(values[key],notion[key]));
   if (!changed.length && !retry.length) return {...state(row),rejectedKeys};
   if (changed.length) {
-    if(breedSqlV2StructuredWritesEnabled(args.bindings)){
+    {
       await commitControlledShadow({
         database:args.database,breedId:args.breedId,row,values,notion,
         changes:Object.fromEntries(changed.map(key=>[key,values[key]])),
         incomingNotion:false,
       });
-    }else{
-      const updated=await args.database.prepare(
-        "UPDATE breed_notion_controlled_values SET values_json=?,revision=revision+1, "+
-        "updated_at=? WHERE breed_id=? AND revision=?",
-      ).bind(JSON.stringify(values),new Date().toISOString(),args.breedId,row.revision).run();
-      if (updated.meta.changes!==1) throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
     }
   }
   for (const key of [...new Set([...changed,...retry])]) {

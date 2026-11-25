@@ -1,3 +1,4 @@
+import { directoryServicesSqlExpression } from "./directory-presentation-sql-read.ts";
 import { env } from "cloudflare:workers";
 import { publicDirectoryRelationTargetSql } from "@/lib/content-relations";
 import {
@@ -302,7 +303,7 @@ export function buildDirectoryLocationLandingQuery(selector: DirectoryLocationLa
     dimension: selector.dimension,
     location,
     sql: `SELECT
-      d.id, d.slug, d.name, d.category, d.excerpt, d.services_json,
+      d.id, d.slug, d.name, d.category, d.excerpt, ${directoryServicesSqlExpression("d")} AS services_json,
       d.city, d.district, d.region, d.price_note, d.image_url, d.featured, d.updated_at
     FROM directory_profiles d
     WHERE ${publicCanonicalDirectoryLocationSql("d")}

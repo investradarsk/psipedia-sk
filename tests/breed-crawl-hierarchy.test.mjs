@@ -48,15 +48,15 @@ test("atlas projection avoids full FCI and SEO blobs while retaining canonical i
   assert.match(part, /image:\s*ownedBreedImage\(row\.image_url\)/);
   assert.doesNotMatch(part, /withAvailableBreedImages|availableBreedImage|BUCKET\.(?:head|list)/);
   assert.doesNotMatch(part, /SELECT \*|SELECT.*fci_standard_json|SELECT.*seo_json/);
-  assert.match(part, /json_extract\(fci_standard_json, '\$\.vyska_pes_cm'\)/);
-  assert.match(part, /json_extract\(fci_standard_json, '\$\.hmotnost_suka_kg'\)/);
+  assert.match(part, /SELECT f\.fci_vyska_pes_cm FROM breed_fci_standard/);
+  assert.match(part, /SELECT f\.fci_hmotnost_suka_kg FROM breed_fci_standard/);
   assert.match(page, /listPublishedCanonicalBreedAtlasCards\(\)/);
   assert.match(browser, /BreedAtlasCard\[\]/);
   assert.match(crawlIndex, /BreedAtlasCard\[\]/);
   assert.match(store, /export type BreedAtlasCard\s*=\s*Pick<\s*ManagedBreedIndexItem\s*,/);
 });
 
-test("atlas SQL scalar FCI projections preserve measurement fallbacks, reject malformed JSON", () => {
+test("atlas SQL scalar FCI projections preserve measurement fallbacks without historic JSON", () => {
   const store = readFileSync("lib/breed-store.ts", "utf8");
   const start = store.indexOf("export async function listPublishedCanonicalBreedAtlasCards");
   const part = store.slice(start, store.indexOf("export type BreedSitemapIndexItem", start));
@@ -65,40 +65,33 @@ test("atlas SQL scalar FCI projections preserve measurement fallbacks, reject ma
   assert.match(part, /retryTransientPublicRead\(\(\) => database\s*\.prepare\(/);
   const raw = part.match(/\.prepare\(\s*`([\s\S]*?)`\s*,?\s*\)\s*\.all<BreedAtlasCardRow>\(\)/)?.[1];
   assert.ok(raw, "dedicated SQL projection exists");
-  // This query is a runtime template: resolve both SQL-primary and rollback
-  // scalar projections before executing it against the isolated SQLite fixture.
-  const projectionBranch = /\$\{sqlPrimary\?"([^"]+)":\s*`([^`]+)`\}/g;
-  assert.equal([...raw.matchAll(projectionBranch)].length, 4, "four FCI scalar projections");
-  const queryForMode = (sqlPrimary) => raw
-    .replace(projectionBranch, (_match, sqlV2, legacySql) => sqlPrimary ? sqlV2 : legacySql)
-    .replace("${canonicalBreedIdsForRuntime}", "SELECT id FROM managed_breeds WHERE status = 'published'");
+  assert.equal((raw.match(/FROM breed_fci_standard/g) ?? []).length, 4, "four FCI scalar projections");
+  assert.doesNotMatch(raw, /fci_standard_json|seo_json/);
+  const sql = raw.replace("${canonicalBreedIdsForRuntime}", "SELECT id FROM managed_breeds WHERE status = 'published'");
   const db = new DatabaseSync(":memory:");
   try {
     db.exec("CREATE TABLE managed_breeds (" +
       "id INTEGER, slug TEXT, name TEXT, image_url TEXT, fci_group INTEGER, fci_section TEXT," +
       "fci_section_number TEXT, origin TEXT, group_name TEXT, official_fci_name TEXT," +
       "accent TEXT, height TEXT, weight TEXT, intro TEXT, energy INTEGER, trainability INTEGER," +
-      "family INTEGER, search_text TEXT, editorial_complete INTEGER, fci_standard_json TEXT, status TEXT)");
+      "family INTEGER, search_text TEXT, editorial_complete INTEGER, status TEXT)");
     db.exec("CREATE TABLE breed_fci_standard (" +
       "breed_id INTEGER PRIMARY KEY, fci_vyska_pes_cm TEXT, fci_vyska_suka_cm TEXT," +
       "fci_hmotnost_pes_kg TEXT, fci_hmotnost_suka_kg TEXT)");
     db.prepare("INSERT INTO breed_fci_standard VALUES (?,?,?,?,?)").run(1, "48–51", "45–48", "20–23", "17–20");
-    const insert = db.prepare("INSERT INTO managed_breeds VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-    const basics = (id, height, weight, standard, status="published") => [
+    const insert = db.prepare("INSERT INTO managed_breeds VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    const basics = (id, height, weight, status="published") => [
       id, "breed-"+id, "Breed "+id, "", 8, "Retrievers", "1",
       "Slovensko", "Retrievery", "OFFICIAL", "forest", height, weight, "Opis",
-      3, 4, 5, "search", 1, standard, status,
+      3, 4, 5, "search", 1, status,
     ];
-    insert.run(...basics(1, "", "", JSON.stringify({
-      vyska_pes_cm:"48–51", vyska_suka_cm:"45–48", hmotnost_pes_kg:"20–23", hmotnost_suka_kg:"17–20",
-    })));
-    insert.run(...basics(2, "52–62 cm", "25–30 kg", "invalid-json"));
-    insert.run(...basics(3, "", "", "{}", "draft"));
-    for (const sqlPrimary of [false, true]) {
-      const sql = queryForMode(sqlPrimary);
+    insert.run(...basics(1, "", ""));
+    insert.run(...basics(2, "52–62 cm", "25–30 kg"));
+    insert.run(...basics(3, "", "", "draft"));
+    {
       assert.doesNotMatch(sql, /\$\{/, "all runtime interpolations are resolved");
       const rows = db.prepare(sql).all();
-      assert.equal(rows.length, 2, sqlPrimary ? "SQL-primary mode" : "rollback mode");
+      assert.equal(rows.length, 2, "SQL-primary mode");
       const item = rows.find(row => row.slug === "breed-1");
       assert.equal(publicBreedMeasurement(item.height, "height",
         combinedFciMeasurement([item.standard_dog_height ?? undefined, item.standard_bitch_height ?? undefined], "cm")), "45–51 cm");

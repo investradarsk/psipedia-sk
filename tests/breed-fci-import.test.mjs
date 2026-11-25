@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
+import { importFciBreeds } from "../lib/breed-import.ts";
+import { BREED_SQL_V2_READ_EXPRESSIONS } from "../lib/breed-sql-v2-primary-read.mjs";
+const canonicalBreedRow = "managed_breeds.*, " + Object.entries(BREED_SQL_V2_READ_EXPRESSIONS).map(([key, expression]) => expression + " AS " + key).join(", ");
 import {
   breedAtlasHref,
   listFciSectionOptions,
@@ -139,7 +142,10 @@ function database() {
   // Homepage Directory now reads per-profile image presentation from the
   // isolated SQL sidecar, not from thumbnail_display_json. Without the schema
   // its content promise rejects and the homepage breed section never renders.
+  applyMigration(sqlite, "../drizzle/0173_directory_structured_sql_foundation.sql");
   applyMigration(sqlite, "../db/isolated/directory_admin_sql_completion.sql");
+  applyMigration(sqlite, "../drizzle/0174_breeds_sql_json_foundation.sql");
+  for (const column of ["fci_standard_json", "editorial_json", "seo_json", "related_breeds_json"]) sqlite.exec("ALTER TABLE managed_breeds DROP COLUMN "+column);
   return { sqlite, d1: createD1Adapter(sqlite) };
 }
 
@@ -340,7 +346,7 @@ function seedEditorialLabrador(sqlite) {
       `INSERT INTO managed_breeds (
     slug,name,status,image_url,image_key,gallery_json,fci_group,fci_section,origin,group_name,size,weight,height,lifespan,coat,
     energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,
-    training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json,created_at,updated_at,published_at,created_by,updated_by
+    training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_title,created_at,updated_at,published_at,created_by,updated_by
   ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     )
     .run(
@@ -380,7 +386,7 @@ function seedEditorialLabrador(sqlite) {
       '["sklon k priberaniu"]',
       "[]",
       "forest",
-      '{"title":"Ručné SEO"}',
+      "Ručné SEO",
       now,
       now,
       now,
@@ -565,8 +571,9 @@ test("344-record FCI import remains idempotent and production routes preserve ed
     { total: 344, created: 343, updated: 1, errors: 0 },
   );
   const importResponse = await api(worker, d1, "/api/admin/import", { breeds });
-  assert.equal(importResponse.status, 200);
-  const result = (await importResponse.json()).imported.breeds;
+  assert.equal(importResponse.status, 409, "production route remains preview-only");
+  const result = await importFciBreeds(d1, { breeds }, "admin@psipedia.sk");
+  assert.equal(result.success, true, JSON.stringify(result.errors));
   assert.deepEqual(
     {
       created: result.created,
@@ -630,12 +637,12 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   assert.doesNotMatch(emptyHomepageHtml, /href="\/plemena\/[^"/?]+"/);
   sqlite.exec("ROLLBACK TO no_breeds; RELEASE no_breeds");
 
-  const labrador = sqlite.prepare("SELECT * FROM managed_breeds WHERE fci_number=122").get();
+  const labrador = sqlite.prepare(`SELECT ${canonicalBreedRow} FROM managed_breeds WHERE fci_number=122`).get();
   assert.equal(labrador.slug, "labradorsky-retriever");
   assert.equal(labrador.image_url, "/images/hero-labrador.webp");
   assert.equal(labrador.intro, "Pôvodný redakčný úvod.");
   assert.equal(labrador.character, "Pôvodná redakčná povaha.");
-  assert.equal(labrador.seo_json, '{"title":"Ručné SEO"}');
+  assert.equal(labrador.seo_title, "Ručné SEO");
   assert.equal(
     JSON.parse(labrador.fci_standard_json).historicky_suhrn,
     "História plemena Labradorský retriever.",
@@ -646,9 +653,8 @@ test("344-record FCI import remains idempotent and production routes preserve ed
       ? { ...breed, slug: "slug-sa-nesmie-zmenit", nazov_sk: "Labradorský retriever FCI" }
       : breed,
   );
-  const repeatResponse = await api(worker, d1, "/api/admin/import", { breeds: changed });
-  assert.equal(repeatResponse.status, 200);
-  const repeat = (await repeatResponse.json()).imported.breeds;
+  const repeat = await importFciBreeds(d1, { breeds: changed }, "admin@psipedia.sk");
+  assert.equal(repeat.success, true, JSON.stringify(repeat.errors));
   assert.equal(repeat.created, 0);
   assert.equal(repeat.updated, 344);
   assert.equal(
@@ -675,10 +681,10 @@ test("344-record FCI import remains idempotent and production routes preserve ed
       ],
     },
   };
-  const enrichedResponse = await api(worker, d1, "/api/admin/import", { breeds: [enriched] });
-  assert.equal(enrichedResponse.status, 200);
+  const enrichedResult = await importFciBreeds(d1, { breeds: [enriched] }, "admin@psipedia.sk");
+  assert.equal(enrichedResult.success, true, JSON.stringify(enrichedResult.errors));
   let importedEditorial = JSON.parse(
-    sqlite.prepare("SELECT editorial_json FROM managed_breeds WHERE fci_number=122").get()
+    sqlite.prepare(`SELECT ${BREED_SQL_V2_READ_EXPRESSIONS.editorial_json} AS editorial_json FROM managed_breeds WHERE fci_number=122`).get()
       .editorial_json,
   );
   assert.equal(importedEditorial.overview, "Praktický prehľad importovaný cez admin.");
@@ -769,7 +775,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
       ).lastInsertRowid,
   );
   const editedLabrador = breedInputFromRow(
-    sqlite.prepare("SELECT * FROM managed_breeds WHERE id=?").get(labradorId),
+    sqlite.prepare(`SELECT ${canonicalBreedRow} FROM managed_breeds WHERE id=?`).get(labradorId),
     {
       editorial: {
         coatCare: "Redakčná starostlivosť o srsť.",

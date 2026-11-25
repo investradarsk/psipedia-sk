@@ -140,7 +140,9 @@ test("creation paths use the shared canonical resource helper and directory hard
   assert.match(partnerAdmin, /ensureCanonicalResource/);
   assert.doesNotMatch(partnerAdmin, /INSERT INTO partner_resources/);
   assert.match(automation, /ensureAutomationResourceAnchor/);
-  assert.match(importRoute, /ensureReviewableResourceAnchors/);
+  // Bulk directory writes are intentionally retired; the active creation paths above retain resource anchors.
+  assert.match(importRoute, /if \(profiles\.some\(\(_profile, index\) => plan\.actions\.profiles\[index\] !== "skipped"\)\) \{\s*throw new Error/);
+  assert.doesNotMatch(importRoute, /INSERT INTO directory_profiles/i);
   assert.match(directoryRoute, /archiveManagedDirectoryProfile/);
   assert.match(directoryRoute, /action !== "restore"/);
 });

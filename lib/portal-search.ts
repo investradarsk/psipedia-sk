@@ -1,3 +1,5 @@
+import { directory0173QualificationsSqlExpression } from "./directory-0173-editorial-sql-read.ts";
+import { directoryServicesSqlExpression } from "./directory-presentation-sql-read.ts";
 import { breedProfileHref } from "@/lib/breed-canonical";
 import { directoryEffectiveDistrictSql } from "@/lib/directory-public-source-contract";
 import { env } from "cloudflare:workers";
@@ -205,9 +207,8 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
   });
   const tokens = parsed.directoryCategory ? parsed.residualTokens : parsed.contentTokens;
   if (!parsed.directoryCategory && !tokens.length) return null;
-  clauses.push(...persistedTokenClauses(
-    "p.search_text",
-    `p.name || ' ' || p.excerpt || ' ' || p.description || ' ' || p.services_json || ' ' || p.city || ' ' || p.district || ' ' || p.region || ' ' || p.address`,
+  clauses.push(...tokenClauses(
+    `p.name || ' ' || p.excerpt || ' ' || p.description || ' ' || ${directoryServicesSqlExpression("p")} || ' ' || ${directory0173QualificationsSqlExpression("p")} || ' ' || p.city || ' ' || p.district || ' ' || p.region || ' ' || p.address`,
     tokens,
     bindings,
   ));
@@ -218,17 +219,17 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
     region: "p.region",
   });
   const prefixOrder = titlePrefixOrder("p.name", parsed, bindings);
-  const serviceOrder = tokenMatchOrder("p.services_json", parsed.residualTokens, bindings);
+  const serviceOrder = tokenMatchOrder(directoryServicesSqlExpression("p"), parsed.residualTokens, bindings);
   const columns = `'/adresar/' || p.category || '/' || p.slug AS href,
     p.name AS title,
     CASE WHEN p.category = 'veterinari' THEN 'Veterinár'
          WHEN p.category = 'treneri' THEN 'Psí tréner'
          ELSE 'Služba pre psov' END AS type,
     p.excerpt AS description,
-    p.category || ' ' || p.services_json || ' ' || p.city || ' ' || ${directoryEffectiveDistrictSql("p")} || ' ' || p.region AS keywords,
+    p.category || ' ' || ${directoryServicesSqlExpression("p")} || ' ' || p.city || ' ' || ${directoryEffectiveDistrictSql("p")} || ' ' || p.region AS keywords,
     'directory' AS kind, p.category AS category, p.city AS city,
     ${directoryEffectiveDistrictSql("p")} AS district,
-    p.region AS region, p.services_json AS services`;
+    p.region AS region, ${directoryServicesSqlExpression("p")} AS services`;
   return {
     sql: selectWithWindow(columns, "directory_profiles p", clauses, `${exactOrder}, ${localityOrder}, ${prefixOrder}, ${serviceOrder}, p.name COLLATE NOCASE ASC, p.category ASC, p.slug ASC`, limit),
     bindings,

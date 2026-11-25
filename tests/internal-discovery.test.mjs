@@ -61,7 +61,10 @@ test("target validation is one aggregate read without SELECT star", () => {
     buildDirectoryProfileLocationCandidates(profile()),
   );
   assert.ok(q);
-  assert.equal((q.sql.match(/\bSELECT\b/gi) ?? []).length, 1);
+  // Correlated scalar SEO lookups remain part of a single aggregate statement.
+  assert.equal((q.sql.match(/\bFROM directory_profiles d\b/gi) ?? []).length, 1);
+  assert.match(q.sql, /FROM directory_profile_seo/);
+  assert.doesNotMatch(q.sql, /\bseo_json\b/);
   assert.doesNotMatch(q.sql, /SELECT\s+\*/i);
   assert.match(q.sql, /GROUP_CONCAT\(\s*CASE\s*WHEN/);
   assert.equal(q.candidates.length, 3);

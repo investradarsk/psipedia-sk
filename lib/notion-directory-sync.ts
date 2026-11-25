@@ -1500,8 +1500,6 @@ async function saveBreederEditorialValue(
     const items = Array.isArray(raw)
       ? raw.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
       : value ? value.split(/\r?\n/).map(item => item.trim()).filter(Boolean) : [];
-    assignments.push(path === "services" ? "services_json = ?" : "qualifications_json = ?");
-    params.push(JSON.stringify(items));
     if (path === "qualifications") editedQualifications = items;
     if (path === "services") editedServices = items;
   } else if (path === "addressFormat") {
@@ -1525,11 +1523,9 @@ async function saveBreederEditorialValue(
   } else if (path === "seo.noindex") {
     // Checkbox false is an explicit action, never an omitted/empty string.
     if (typeof raw !== "boolean") throw new Error("DIRECTORY_NOINDEX_BOOLEAN_REQUIRED");
-    assignments.push("seo_json = json_set(COALESCE(seo_json, '{}'), '$.noindex', json(?))");
-    params.push(raw ? "true" : "false");
+    // The guarded SQL owner below persists the explicit boolean.
   } else if (seoKey) {
-    assignments.push("seo_json = json_set(COALESCE(seo_json, '{}'), ?, ?)");
-    params.push("$." + seoKey, value);
+    // The guarded SQL owner below persists this SEO field.
   } else {
     throw new Error("BREEDER_FIELD_UNSUPPORTED");
   }
@@ -1555,7 +1551,7 @@ async function saveBreederEditorialValue(
     "AND updated_at = ? RETURNING id",
   ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt);
   // Notion field-events must update the EXACT 0173 SQL owner inside the same
-  // D1 transaction as the compatibility column. Otherwise a fresh Notion SEO
+  // D1 transaction as the guarded profile revision. Otherwise a fresh Notion SEO
   // / qualification edit would be hidden by the now SQL-first public/Admin
   // reader, or a subsequent full Admin save could undo that edit.
   const mirrorIdentity = {kind:"id" as const,profileId:current.id,

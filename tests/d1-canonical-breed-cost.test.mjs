@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { canonicalBreedIdsSql, canonicalBreedWinnerSql, readCanonicalBreedIds } from "../lib/breed-canonical.ts";
+import { canonicalBreedIdsSqlV2 as canonicalBreedIdsSql, canonicalBreedWinnerSqlV2 as canonicalBreedWinnerSql, readCanonicalBreedIds } from "../lib/breed-canonical.ts";
 
 test("canonical breed IDs preserve eligibility and all three duplicate identities without correlated scans", async () => {
   const db = new DatabaseSync(":memory:");
@@ -33,6 +33,7 @@ test("canonical breed IDs preserve eligibility and all three duplicate identitie
     ];
     for (const row of rows) insert.run(...row);
 
+    db.exec(`ALTER TABLE managed_breeds ADD COLUMN seo_noindex INTEGER; ALTER TABLE managed_breeds ADD COLUMN seo_canonical_url TEXT; UPDATE managed_breeds SET seo_noindex=CASE WHEN json_valid(seo_json) THEN COALESCE(json_extract(seo_json,'$.noindex'),0) ELSE 1 END, seo_canonical_url=CASE WHEN json_valid(seo_json) THEN json_extract(seo_json,'$.canonicalUrl') END; ALTER TABLE managed_breeds DROP COLUMN seo_json;`);
     const oldIds = db.prepare(`SELECT b.id FROM managed_breeds b
       WHERE ${canonicalBreedWinnerSql("b")} ORDER BY b.id`).all().map((row) => row.id);
     const newIds = db.prepare(`${canonicalBreedIdsSql} ORDER BY id`).all().map((row) => row.id);
@@ -53,11 +54,11 @@ test("canonical breed IDs preserve eligibility and all three duplicate identitie
     assert.doesNotMatch(projectedSql, /OVER\s*\(/, "projection must not sort every eligible breed through three SQL windows");
 
     // No cross-request cache: moderation or SEO changes are immediately seen.
-    db.prepare("UPDATE managed_breeds SET seo_json=? WHERE id=1").run('{"noindex":true}');
+    db.prepare("UPDATE managed_breeds SET seo_noindex=1 WHERE id=1").run();
     const after = db.prepare(`${canonicalBreedIdsSql} ORDER BY id`).all().map((row) => row.id);
     assert.deepEqual(await readCanonicalBreedIds(readDatabase), after);
     // Restore the original fixture for the remaining legacy nested-SQL assertions.
-    db.prepare("UPDATE managed_breeds SET seo_json=? WHERE id=1").run("{}");
+    db.prepare("UPDATE managed_breeds SET seo_noindex=0 WHERE id=1").run();
 
     const nested = db.prepare(`SELECT id FROM managed_breeds
       WHERE id IN (${canonicalBreedIdsSql}) ORDER BY id`).all().map((row) => row.id);

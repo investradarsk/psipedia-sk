@@ -66,9 +66,9 @@ test("directory -> breed reader excludes archived, noindex and non-canonical sou
   assert.match(query.sql, /JOIN breed_directory_relations r ON r\.profile_id = d\.id/);
   assert.match(query.sql, /d\.status = 'published'/);
   assert.match(query.sql, /d\.archived_at IS NULL/);
-  assert.match(query.sql, /json_extract/);
-  assert.match(query.sql, /\$\.noindex/);
-  assert.match(query.sql, /\$\.canonicalUrl/);
+  assert.match(query.sql, /SELECT s\.noindex FROM directory_profile_seo s WHERE s\.profile_id=d\.id/);
+  assert.match(query.sql, /SELECT s\.canonical_url FROM directory_profile_seo s WHERE s\.profile_id=d\.id/);
+  assert.doesNotMatch(query.sql, /\bseo_json\b/);
   assert.match(query.sql, /'\/adresar\/' \|\| d\.category \|\| '\/' \|\| d\.slug/);
   assert.match(query.sql, /SELECT DISTINCT/);
   assert.match(query.sql, /LIMIT \?/);

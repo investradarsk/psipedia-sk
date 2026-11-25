@@ -12,7 +12,7 @@ import { getBreedOfTheDay } from '../lib/breed-store.ts';
 const runtime=globalThis.__CLOUDFLARE_WORKERS_ENV__;
 function database(){
  const sqlite=new DatabaseSync(':memory:');
- sqlite.exec(`CREATE TABLE managed_breeds(id INTEGER PRIMARY KEY,slug TEXT,name TEXT,status TEXT DEFAULT 'published',fci_number INTEGER,import_key TEXT,seo_json TEXT DEFAULT '{}',fci_group INTEGER DEFAULT 8,fci_section TEXT DEFAULT 'Water Dogs',fci_section_number TEXT DEFAULT '3',size TEXT DEFAULT '',energy INTEGER DEFAULT 3,trainability INTEGER DEFAULT 3,intro TEXT DEFAULT 'Profil',image_url TEXT DEFAULT '',editorial_complete INTEGER DEFAULT 0)`);
+ sqlite.exec(`CREATE TABLE managed_breeds(id INTEGER PRIMARY KEY,slug TEXT,name TEXT,status TEXT DEFAULT 'published',fci_number INTEGER,import_key TEXT,seo_json TEXT DEFAULT '{}',seo_noindex INTEGER DEFAULT 0,seo_canonical_url TEXT DEFAULT '',fci_group INTEGER DEFAULT 8,fci_section TEXT DEFAULT 'Water Dogs',fci_section_number TEXT DEFAULT '3',size TEXT DEFAULT '',energy INTEGER DEFAULT 3,trainability INTEGER DEFAULT 3,intro TEXT DEFAULT 'Profil',image_url TEXT DEFAULT '',editorial_complete INTEGER DEFAULT 0)`);
  const add=(id,slug,fci,image='')=>sqlite.prepare('INSERT INTO managed_breeds(id,slug,name,fci_number,import_key,image_url) VALUES(?,?,?,?,?,?)').run(id,slug,slug,fci,'fci-'+fci,image);
  const prepare=(sql,values=[])=>({bind(...v){return prepare(sql,v);},async all(){return {results:sqlite.prepare(sql).all(...values)};},async first(){return sqlite.prepare(sql).get(...values)??null;}});
  return {sqlite,add,prepare};
@@ -31,7 +31,7 @@ test('canonical SQL deduplicates all identities and audit fails on raw conflicts
  db.sqlite.close();
 });
 test('legacy canonical relation redirects only to a live valid canonical profile',async()=>{
- const db=database();db.add(1,'one',1);db.add(2,'old-one',1);
+ const db=database();db.add(1,'one',1);db.add(2,'old-one',1);db.sqlite.exec('ALTER TABLE managed_breeds DROP COLUMN seo_json');
  assert.equal(await canonicalBreedRedirect(db,'old-one'),'/plemena/retrievery-sliedice-vodne/one');
  db.sqlite.exec("UPDATE managed_breeds SET status='draft' WHERE id=1");
  assert.equal(await canonicalBreedRedirect(db,'old-one'),'/plemena/retrievery-sliedice-vodne/old-one');db.sqlite.close();
@@ -40,6 +40,7 @@ test('daily breed survives unchecked editorial flags, missing images, empty DB a
  const before={...runtime};const db=database();
  try{
    Object.assign(runtime,{DB:db,BUCKET:{async head(key){return key==='valid.webp'?{key}:null;}}});
+   db.sqlite.exec('ALTER TABLE managed_breeds DROP COLUMN seo_json');
    db.add(1,'broken',1,'/media/missing.webp');db.add(2,'valid',2,'/media/valid.webp');db.add(3,'empty',3);
    assert.equal((await getBreedOfTheDay(1)).slug,'valid');
    db.sqlite.exec("UPDATE managed_breeds SET status='draft' WHERE id=2");
@@ -79,7 +80,7 @@ test('an ineligible older duplicate cannot suppress the valid profile',()=>{
 });
 test('a cross-FCI canonical URL never redirects to an unrelated breed',async()=>{
  const db=database();db.add(1,'one',1);db.add(2,'two',2);
- db.sqlite.exec(`UPDATE managed_breeds SET seo_json='{"canonicalUrl":"/plemena/one"}' WHERE id=2`);
+ db.sqlite.exec(`UPDATE managed_breeds SET seo_json='{"canonicalUrl":"/plemena/one"}',seo_canonical_url='/plemena/one' WHERE id=2`);
  assert.throws(()=>assertCanonicalIdentities(db.sqlite.prepare('SELECT * FROM managed_breeds').all()),/broken-canonical-relation/);
  assert.equal(await canonicalBreedRedirect(db,'two'),null);db.sqlite.close();
 });

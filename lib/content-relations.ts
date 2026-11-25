@@ -56,12 +56,13 @@ export function publicArticleRelationTargetSql(alias: string) {
 }
 
 export function publicDirectoryRelationTargetSql(alias: string) {
-  const seo = `CASE WHEN json_valid(${alias}.seo_json) THEN ${alias}.seo_json ELSE '{}' END`;
+  const noindex = `(SELECT s.noindex FROM directory_profile_seo s WHERE s.profile_id=${alias}.id)`;
+  const canonical = `(SELECT s.canonical_url FROM directory_profile_seo s WHERE s.profile_id=${alias}.id)`;
   const relativeCanonical = `'/adresar/' || ${alias}.category || '/' || ${alias}.slug`;
   return `${alias}.status = 'published'
     AND ${alias}.archived_at IS NULL
-    AND COALESCE(json_extract(${seo}, '$.noindex'), 0) = 0
-    AND COALESCE(TRIM(json_extract(${seo}, '$.canonicalUrl')), '') IN (
+    AND COALESCE(${noindex}, 0) = 0
+    AND COALESCE(TRIM(${canonical}), '') IN (
       '',
       ${relativeCanonical},
       'https://psipedia.sk' || ${relativeCanonical}

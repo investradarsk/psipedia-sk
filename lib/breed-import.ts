@@ -1,4 +1,6 @@
 import { prepareFciBreedImport, publicFciSectionName, type FciImportIssue, type PreparedFciBreed } from "@/lib/breed-fci";
+import { BREED_SQL_V2_PUBLIC_KEYS, planBreedSqlV2FieldWrite } from "./breed-sql-v2-bridge.mjs";
+import { breedSqlV2NewBreedStatements } from "./breed-sql-v2-writer.mjs";
 
 type ExistingBreedRow = {
   id: number;
@@ -6,10 +8,9 @@ type ExistingBreedRow = {
   status: string;
   fci_number: number | null;
   import_key: string | null;
-  editorial_json: string;
 };
 
-type ImportAction = { kind: "create" | "update"; record: PreparedFciBreed; existingId?: number; existingEditorial?: string };
+type ImportAction = { kind: "create" | "update"; record: PreparedFciBreed; existingId?: number };
 
 export type FciImportPreview = {
   total: number;
@@ -26,11 +27,9 @@ export type FciImportPreview = {
 
 export type FciImportResult = FciImportPreview & { success: boolean };
 
-async function existingBreeds(database: D1Database, sqlPrimary = false) {
-  // Preview needs only identities. SQL mode must not read dropped legacy JSON.
-  const editorial = sqlPrimary ? "'{}' AS editorial_json" : "editorial_json";
+async function existingBreeds(database: D1Database) {
   const result = await database.prepare(
-    `SELECT id, slug, status, fci_number, import_key, ${editorial} FROM managed_breeds`
+    "SELECT id, slug, status, fci_number, import_key FROM managed_breeds"
   ).all<ExistingBreedRow>();
   return result.results;
 }
@@ -58,7 +57,7 @@ function resolveActions(records: PreparedFciBreed[], existing: ExistingBreedRow[
         continue;
       }
       targetedIds.set(match.id,record.sourceIndex);
-      actions.push({kind:"update",record,existingId:match.id,existingEditorial:match.editorial_json});
+      actions.push({kind:"update",record,existingId:match.id});
     } else {
       actions.push({kind:"create",record});
     }
@@ -79,9 +78,9 @@ function previewFrom(total:number,actions: ImportAction[], records: PreparedFciB
   };
 }
 
-export async function previewFciBreedImport(database: D1Database, payload: unknown, options: {sqlPrimary?:boolean} = {}): Promise<{ preview:FciImportPreview; actions:ImportAction[] }> {
+export async function previewFciBreedImport(database: D1Database, payload: unknown, _options: {sqlPrimary?:boolean} = {}): Promise<{ preview:FciImportPreview; actions:ImportAction[] }> {
   const prepared = prepareFciBreedImport(payload);
-  const {actions,errors:identityErrors} = await resolveActions(prepared.records,await existingBreeds(database,options.sqlPrimary===true));
+  const {actions,errors:identityErrors} = await resolveActions(prepared.records,await existingBreeds(database));
   const errors = [...prepared.errors,...identityErrors];
   return {
     preview:previewFrom(prepared.total,actions,prepared.records,errors,{
@@ -96,17 +95,11 @@ export async function previewFciBreedImport(database: D1Database, payload: unkno
 function updateStatement(database:D1Database,action:ImportAction,user:string,now:string) {
   const record=action.record;const standard=record.standard;const profile=record.profile;
   const publicSection=publicFciSectionName(record.fciGroup,record.fciSectionNumber,standard.fci_sekcia_nazov||record.fciSectionNumber);
-  let editorial:string|null=null;
-  if(profile){let current:Record<string,unknown>={};try{const parsed=JSON.parse(action.existingEditorial||"{}");if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed))current=parsed;}catch{current={};}
-    const patch={overview:profile.overview,coatCare:profile.coatCare,familyLife:profile.familyLife,otherDogsLife:profile.otherDogsLife,curiosities:profile.curiosities,commonOwnerMistakes:profile.commonOwnerMistakes,exerciseTip:profile.exerciseTip,trainingTip:profile.trainingTip,healthTip:profile.healthTip,coatTip:profile.coatTip,heroTraits:profile.heroTraits};
-    for(const [key,value] of Object.entries(patch))if((typeof value==="string"&&value.trim())||(Array.isArray(value)&&value.length))current[key]=value;
-    editorial=JSON.stringify(current);
-  }
   const ratings=profile?.ratings??{};
   return database.prepare(`UPDATE managed_breeds SET
     name=?, fci_number=?, fci_group=?, fci_section=?, fci_section_number=?, official_fci_name=?, valid_standard_date=?,
-    working_trial=?, import_key=COALESCE(import_key,?), fci_standard_json=?, search_text=?, origin=?,
-    editorial_json=COALESCE(?,editorial_json), sports_json=COALESCE(?,sports_json),
+    working_trial=?, import_key=COALESCE(import_key,?), search_text=?, origin=?,
+    sports_json=COALESCE(?,sports_json),
     intro=COALESCE(NULLIF(?,''),intro), character=COALESCE(NULLIF(?,''),character), needs=COALESCE(NULLIF(?,''),needs), history=COALESCE(NULLIF(?,''),history), exercise=COALESCE(NULLIF(?,''),exercise), training=COALESCE(NULLIF(?,''),training), health=COALESCE(NULLIF(?,''),health),
     height=COALESCE(NULLIF(?,''),height), weight=COALESCE(NULLIF(?,''),weight), lifespan=COALESCE(NULLIF(?,''),lifespan), coat=COALESCE(NULLIF(?,''),coat),
     health_risks_json=COALESCE(?,health_risks_json), good_for_json=COALESCE(?,good_for_json), consider_json=COALESCE(?,consider_json),
@@ -115,8 +108,8 @@ function updateStatement(database:D1Database,action:ImportAction,user:string,now
     published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,
     updated_at=?, updated_by=? WHERE id=?`).bind(
       record.name,record.fciNumber,record.fciGroup,publicSection,record.fciSectionNumber,
-      record.officialFciName,record.validStandardDate,record.workingTrial,record.importKey,JSON.stringify(standard),record.searchText,
-      record.origin,editorial,profile?.sports?.length?JSON.stringify(profile.sports):null,
+      record.officialFciName,record.validStandardDate,record.workingTrial,record.importKey,record.searchText,
+      record.origin,profile?.sports?.length?JSON.stringify(profile.sports):null,
       profile?.intro??"",profile?.character??"",profile?.needs??"",profile?.history??"",profile?.exercise??"",profile?.training??"",profile?.health??"",
       profile?.height??"",profile?.weight??"",profile?.lifespan??"",profile?.coat??"",
       profile?.healthRisks?.length?JSON.stringify(profile.healthRisks):null,profile?.goodFor?.length?JSON.stringify(profile.goodFor):null,profile?.consider?.length?JSON.stringify(profile.consider):null,
@@ -129,20 +122,59 @@ function createStatement(database:D1Database,action:ImportAction,user:string,now
   const record=action.record;const standard=record.standard;const profile=record.profile;
   const publicSection=publicFciSectionName(record.fciGroup,record.fciSectionNumber,standard.fci_sekcia_nazov||record.fciSectionNumber);
   const intro=(profile?.intro||standard.povaha_temperament||standard.celkovy_vzhlad||"").slice(0,1200);
-  const editorial=profile?{overview:profile.overview||"",coatCare:profile.coatCare||"",familyLife:profile.familyLife||"",otherDogsLife:profile.otherDogsLife||"",curiosities:profile.curiosities||"",commonOwnerMistakes:profile.commonOwnerMistakes||"",exerciseTip:profile.exerciseTip||"",trainingTip:profile.trainingTip||"",healthTip:profile.healthTip||"",coatTip:profile.coatTip||"",heroTraits:profile.heroTraits??[]}:{};
   const ratings=profile?.ratings??{};
   return database.prepare(`INSERT INTO managed_breeds (
     slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,
-    valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,search_text,editorial_complete,origin,group_name,
+    valid_standard_date,working_trial,import_key,sports_json,search_text,editorial_complete,origin,group_name,
     size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,
     intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,
-    accent,seo_json,created_at,updated_at,published_at,created_by,updated_by
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+    accent,created_at,updated_at,published_at,created_by,updated_by
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
     record.slug,record.name,record.status,"",null,"[]",record.fciNumber,record.fciGroup,publicSection,
-    record.fciSectionNumber,record.officialFciName,record.validStandardDate,record.workingTrial,record.importKey,JSON.stringify(standard),JSON.stringify(editorial),JSON.stringify(profile?.sports??[]),
+    record.fciSectionNumber,record.officialFciName,record.validStandardDate,record.workingTrial,record.importKey,JSON.stringify(profile?.sports??[]),
     record.searchText,profile?.editorialComplete?1:0,record.origin,standard.fci_skupina_nazov||"","",profile?.weight??"",profile?.height??"",profile?.lifespan??"",profile?.coat??"",ratings.energy??3,ratings.trainability??3,ratings.children??3,ratings.children??3,ratings.otherDogs??3,ratings.apartment??3,ratings.grooming??3,ratings.shedding??3,ratings.preyDrive??3,
-    intro,profile?.character??"",profile?.needs??"",profile?.history??"",profile?.exercise??"",profile?.training??"",profile?.health??"",JSON.stringify(profile?.healthRisks??[]),JSON.stringify(profile?.goodFor??[]),JSON.stringify(profile?.consider??[]),"[]","forest","{}",now,now,record.status==="published"?now:null,user,user,
+    intro,profile?.character??"",profile?.needs??"",profile?.history??"",profile?.exercise??"",profile?.training??"",profile?.health??"",JSON.stringify(profile?.healthRisks??[]),JSON.stringify(profile?.goodFor??[]),JSON.stringify(profile?.consider??[]),"[]","forest",now,now,record.status==="published"?now:null,user,user,
   );
+}
+
+function importStatements(database: D1Database, action: ImportAction, user: string, now: string): D1PreparedStatement[] {
+  const { record } = action;
+  const profile = record.profile;
+  const editorial = Object.fromEntries(
+    BREED_SQL_V2_PUBLIC_KEYS.editorial.flatMap((key: string) => {
+      const value = (profile as Record<string, unknown> | undefined)?.[key];
+      return (typeof value === "string" && value.trim()) || (Array.isArray(value) && value.length)
+        ? [[key, value]] : [];
+    }),
+  );
+  if (action.kind === "create") {
+    return [
+      createStatement(database, action, user, now),
+      ...breedSqlV2NewBreedStatements(database, record.slug, {
+        fciStandard: record.standard, editorial, seo: {}, relatedBreedIds: [],
+      }),
+    ];
+  }
+  if (!action.existingId) throw new Error("BREED_IMPORT_ID_MISSING");
+  const statements = [updateStatement(database, action, user, now)];
+  for (const [prefix, keys, values] of [
+    ["fciStandard", BREED_SQL_V2_PUBLIC_KEYS.fciStandard, record.standard],
+    ["editorial", Object.keys(editorial), editorial],
+  ] as const) {
+    const plans = keys.map((key: string) => planBreedSqlV2FieldWrite(
+      prefix + "." + key, (values as Record<string, unknown>)[key] ?? null,
+    ));
+    if (!plans.length) continue;
+    const table = prefix === "fciStandard" ? "breed_fci_standard" : "breed_editorial_text";
+    if (plans.some((plan) => !plan || plan.table !== table)) throw new Error("BREED_IMPORT_INVALID_SQL_PLAN");
+    const columns = plans.map((plan) => { if (!plan || !("column" in plan)) throw Error("BREED_IMPORT_INVALID_SQL_PLAN"); return plan.column; });
+    const placeholders = columns.map(() => "?").join(",");
+    statements.push(database.prepare(
+      "INSERT INTO " + table + " (breed_id," + columns.join(",") + ") VALUES (?," + placeholders +
+      ") ON CONFLICT(breed_id) DO UPDATE SET " + columns.map((col: string) => col + "=excluded." + col).join(","),
+    ).bind(action.existingId, ...plans.map((plan) => { if (!plan || !("stored" in plan)) throw Error("BREED_IMPORT_INVALID_SQL_PLAN"); return plan.stored; })));
+  }
+  return statements;
 }
 
 export async function importFciBreeds(database:D1Database,payload:unknown,user:string):Promise<FciImportResult> {
@@ -151,9 +183,9 @@ export async function importFciBreeds(database:D1Database,payload:unknown,user:s
 
   const now=new Date().toISOString();
   let created=0;let updated=0;const errors:FciImportIssue[]=[];
-  for(let start=0;start<actions.length;start+=50){
-    const batch=actions.slice(start,start+50);
-    const statements=batch.map((action)=>action.kind==="create"?createStatement(database,action,user,now):updateStatement(database,action,user,now));
+  for(let start=0;start<actions.length;start+=10){
+    const batch=actions.slice(start,start+10);
+    const statements=batch.flatMap((action)=>importStatements(database,action,user,now));
     try{
       await database.batch(statements);
       created+=batch.filter((action)=>action.kind==="create").length;
@@ -162,8 +194,7 @@ export async function importFciBreeds(database:D1Database,payload:unknown,user:s
       console.error("FCI breed import batch failed; retrying records individually.",batchError);
       for(const action of batch){
         try{
-          const statement=action.kind==="create"?createStatement(database,action,user,now):updateStatement(database,action,user,now);
-          await statement.run();
+          await database.batch(importStatements(database, action, user, now));
           if(action.kind==="create")created+=1;else updated+=1;
         }catch(error){
           errors.push({index:action.record.sourceIndex+1,field:"database",message:error instanceof Error?error.message:"Zápis plemena zlyhal."});

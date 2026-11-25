@@ -1,5 +1,5 @@
 import { auditCanonicalIdentities, canonicalBreedIdsForRead, type CanonicalIdentity } from './breed-canonical.ts';
-import { breedSqlPrimaryEnabled, BREED_SQL_V2_READ_EXPRESSIONS } from './breed-sql-v2-primary-read.mjs';
+import { BREED_SQL_V2_READ_EXPRESSIONS } from './breed-sql-v2-primary-read.mjs';
 import { inspectBreedMeasurement, publicFciSectionName } from './breed-fci.ts';
 import { withAvailableBreedImages, type ImageBindings } from './breed-image.ts';
 
@@ -55,7 +55,7 @@ export function auditBreedRows(rows:BreedAuditRow[]) {
 }
 
 export async function auditPublishedBreeds(database:D1Database,bindings:ImageBindings & {BREED_SQL_V2_READ_MODE?:string}){
-  const rows=(await database.prepare(breedSqlPrimaryEnabled(bindings)?breedAuditRowsSqlV2:breedAuditRowsSql).all<BreedAuditRow>()).results;
+  const rows=(await database.prepare(breedAuditRowsSqlV2).all<BreedAuditRow>()).results;
   const canonical=(await database.prepare(canonicalBreedIdsForRead(bindings)).all<{id:number}>()).results;
   const canonicalIds=new Set(canonical.map(row=>row.id));
   const images=await withAvailableBreedImages(rows.filter(row=>canonicalIds.has(row.id)).map(row=>({id:row.id,slug:row.slug,image:row.image_url})),bindings);

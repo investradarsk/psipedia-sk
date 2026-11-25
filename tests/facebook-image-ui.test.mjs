@@ -63,7 +63,7 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
   await expect(dialog.getByRole('button',{name:'Udeliť súhlas majiteľa'})).toBeEnabled();
   await dialog.getByRole('button',{name:'Udeliť súhlas majiteľa'}).click();
   assert.equal(sqlite.prepare('SELECT approval_status FROM facebook_image_posts WHERE id=?').get(row.id).approval_status,'APPROVED');
-  assert.equal(sqlite.prepare('SELECT direct_publish_consent FROM facebook_image_posts WHERE id=?').get(row.id).direct_publish_consent,1);
+  await expect.poll(()=>sqlite.prepare('SELECT direct_publish_consent FROM facebook_image_posts WHERE id=?').get(row.id).direct_publish_consent).toBe(1);
   await page.screenshot({path:path.join(dir,`controls-${width}.png`)});
   const editorDelete=dialog.getByRole('button',{name:'Natrvalo odstrániť z Psipedie',exact:true});
   await expect(editorDelete).toBeEnabled();await editorDelete.click();

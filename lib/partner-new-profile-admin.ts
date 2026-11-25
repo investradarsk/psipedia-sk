@@ -1,3 +1,5 @@
+import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror";
+import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror";
 import { partnerDirectoryReviewLockStatement } from "./partner-directory-review-sql";
 import { partnerAdminReviewStatement } from "./admin-notion-review-lock";
 import { env } from "cloudflare:workers";
@@ -449,6 +451,21 @@ export async function createPartnerNewProfileAdmin(input:{
       internalEmail:null,imageUrl:media?.imageUrl??null,imageKey:media?.imageKey??null,verified:false,featured:false,seo:{},
     }, null, { descriptionOptional: true });
     canonicalStatements.push(buildManagedDirectoryProfileCreateStatement(database,canonicalInput,actorRef,nowIso,{submissionId:input.id,actorRef}));
+    const identity = { kind: "category-slug" as const, category: canonicalCategory, slug, updatedAt: nowIso, actor: actorRef };
+    const sqlFields = [
+      ...planDirectory0173EditorialSqlMirror({
+        identity,
+        qualifications: canonicalInput.qualifications,
+        seo: canonicalInput.seo,
+      }),
+      ...planDirectoryStep3PresentationSqlMirror({
+        identity,
+        services: canonicalInput.services,
+        thumbnailImageDisplay: canonicalInput.thumbnailImageDisplay,
+        detailImageDisplay: canonicalInput.detailImageDisplay,
+      }),
+    ];
+    canonicalStatements.push(...sqlFields.map((item) => database.prepare(item.sql).bind(...item.bindings)));
     canonicalSql=`SELECT id FROM directory_profiles WHERE category='${canonicalCategory.replaceAll("'","''")}' AND slug='${slug.replaceAll("'","''")}' LIMIT 1`;
   }else{
     const values=normalized.values;

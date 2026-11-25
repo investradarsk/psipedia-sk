@@ -133,11 +133,10 @@ if(canonicalBreedIdsSqlV2.includes("seo_json"))
 
 /** Runtime public/admin callers can opt into SQL without changing old fixtures. */
 export function canonicalBreedIdsForRead(bindings?:{BREED_SQL_V2_READ_MODE?:string}){
-  return bindings?.BREED_SQL_V2_READ_MODE==="sql" ? canonicalBreedIdsSqlV2:canonicalBreedIdsSql;
+  return canonicalBreedIdsSqlV2;
 }
 export function canonicalBreedWinnerForRead(alias:string,bindings?:{BREED_SQL_V2_READ_MODE?:string}){
-  return bindings?.BREED_SQL_V2_READ_MODE==="sql"
-    ?canonicalBreedWinnerSqlV2(alias):canonicalBreedWinnerSql(alias);
+  return canonicalBreedWinnerSqlV2(alias);
 }
 
 /**
@@ -177,12 +176,12 @@ export function canonicalBreedIdsFromEligibleRows(rows: readonly EligibleCanonic
 
 export async function readCanonicalBreedIds(
   database: Pick<D1Database, "prepare">,
-  sqlPrimary=false,
+  _sqlPrimary=true,
 ): Promise<number[]> {
   const result = await database.prepare(`
     SELECT b.id, b.fci_number, b.slug, TRIM(b.import_key) AS normalized_import_key
     FROM managed_breeds b
-    WHERE ${sqlPrimary?canonicalBreedEligibilitySqlV2("b"):canonicalBreedEligibilitySql("b")}
+    WHERE ${canonicalBreedEligibilitySqlV2("b")}
   `).all<EligibleCanonicalBreedIdentity>();
   return canonicalBreedIdsFromEligibleRows(result.results ?? []);
 }
@@ -250,9 +249,9 @@ export function rotateBreeds<T>(items:T[],day:number):T[] {
 
 /** Resolve legacy /plemena/:slug and losing duplicates to the category URL. */
 export async function canonicalBreedRedirect(
-  database: D1Database, slug: string, sqlPrimary=false,
+  database: D1Database, slug: string, _sqlPrimary=true,
 ): Promise<string | null> {
-  const ids=sqlPrimary?canonicalBreedIdsSqlV2:canonicalBreedIdsSql;
+  const ids=canonicalBreedIdsSqlV2;
   const winner = await database.prepare(`SELECT slug, fci_group FROM managed_breeds
     WHERE slug=? AND id IN (${ids}) LIMIT 1`)
     .bind(slug).first<{ slug: string; fci_group: number }>();
@@ -261,8 +260,7 @@ export async function canonicalBreedRedirect(
   const categorySql = breedCategorySql("target");
   const loser = await database.prepare(`SELECT target.slug, target.fci_group FROM managed_breeds source
     JOIN managed_breeds target ON (source.fci_number=target.fci_number
-      OR (source.fci_number IS NULL AND ${sqlPrimary?"COALESCE(source.seo_canonical_url,'')":
-"CASE WHEN json_valid(source.seo_json) THEN json_extract(source.seo_json,'$.canonicalUrl') ELSE '' END"}
+      OR (source.fci_number IS NULL AND COALESCE(source.seo_canonical_url,'')
         IN ('https://psipedia.sk/plemena/'||target.slug, '/plemena/'||target.slug,
           'https://psipedia.sk/plemena/'||(${categorySql})||'/'||target.slug,
           '/plemena/'||(${categorySql})||'/'||target.slug)))

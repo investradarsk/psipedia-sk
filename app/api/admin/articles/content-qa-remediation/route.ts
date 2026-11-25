@@ -2,7 +2,6 @@ import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import { buildDentalArticleRemediation, DENTAL_ARTICLE_SLUG } from "@/lib/article-content-remediation";
-import type { ArticleSection } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +9,6 @@ type Bindings = { DB?: D1Database };
 type DentalRow = {
   id: number;
   slug: string;
-  sections_json: string;
   blocks_json: string;
   updated_at: string;
 };
@@ -33,7 +31,7 @@ function parseArray<T>(value: string): T[] {
 
 async function loadPreview(db: D1Database) {
   const article = await db.prepare(
-    "SELECT id, slug, sections_json, blocks_json, updated_at FROM managed_articles WHERE slug = ? LIMIT 1",
+    "SELECT id, slug, blocks_json, updated_at FROM managed_articles WHERE slug = ? LIMIT 1",
   ).bind(DENTAL_ARTICLE_SLUG).first<DentalRow>();
   if (!article) return null;
 
@@ -46,12 +44,11 @@ async function loadPreview(db: D1Database) {
     LIMIT 1
   `).bind("Ako vybrať granule bez marketingových mýtov", new Date().toISOString()).first<RelatedRow>();
 
-  const sections = parseArray<ArticleSection>(article.sections_json);
   const blocks = normalizeArticleBlocks(parseArray<ArticleBlock>(article.blocks_json));
   const relatedHref = related
     ? `/${related.portal_section === "clanky" ? "clanky" : related.portal_section}/${related.slug}`
     : null;
-  const preview = buildDentalArticleRemediation({ sections, blocks, relatedNutritionArticleHref: relatedHref });
+  const preview = buildDentalArticleRemediation({ sections: [], blocks, relatedNutritionArticleHref: relatedHref });
 
   return {
     articleId: article.id,
@@ -108,10 +105,9 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const result = await db.prepare(`
       UPDATE managed_articles
-      SET sections_json = ?, blocks_json = ?, updated_at = ?, updated_by = ?
+      SET blocks_json = ?, updated_at = ?, updated_by = ?
       WHERE id = ? AND slug = ? AND updated_at = ?
     `).bind(
-      JSON.stringify(preview.sections),
       JSON.stringify(preview.blocks),
       now,
       user.email,

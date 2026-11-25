@@ -1,4 +1,4 @@
-import { canonicalBreedIdsSql, canonicalBreedIdsSqlV2 } from "./breed-canonical.ts";
+import { canonicalBreedIdsSqlV2 } from "./breed-canonical.ts";
 
 export const CANONICAL_BREED_OPTION_LIMIT = 2000;
 
@@ -82,7 +82,7 @@ export async function readCanonicalBreedOptions(
     const result = await database.prepare(
       `SELECT id, name
        FROM managed_breeds
-       WHERE id IN (${input.sqlPrimary?canonicalBreedIdsSqlV2:canonicalBreedIdsSql})
+       WHERE id IN (${canonicalBreedIdsSqlV2})
        ORDER BY name COLLATE NOCASE ASC, id ASC
        LIMIT ?`,
     ).bind(limit).all<BreedOptionRow>();
