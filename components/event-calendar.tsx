@@ -172,7 +172,7 @@ export function EventCalendar({
       : "";
   const typePathname =
     view.type === "Všetky" ? "/podujatia" : (eventTypePortalHref(view.type) ?? "/podujatia");
-  const filtered = pending && !pendingCalendarOnly ? [] : data.events;
+  const filtered = loadError || (pending && !pendingCalendarOnly) ? [] : data.events;
   // A calendar response can contain many event previews. Avoid regenerating
   // summaries and scanning day events when unrelated UI controls rerender.
   const daySummaries = useMemo(
@@ -425,6 +425,7 @@ export function EventCalendar({
           calendarMonth={visibleMonth}
           day={selectedDay}
           pending={pending && !pendingCalendarOnly}
+          loadError={loadError}
           sidebar={<>
       <div className={styles.calendarLayout} data-events-calendar-layout>
         <section
@@ -607,7 +608,7 @@ export function EventCalendar({
           </div>
         </section>
       </div>
-            {sidebar}
+            <div data-events-popularity>{sidebar}</div>
           </>}
         />
     </div>
