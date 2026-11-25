@@ -591,7 +591,7 @@ test("production-hot canonical breeder options and source facets preserve SQL re
       "optimized linked options must not execute breed-identity windows");
 
     // No hidden persistent cache when publication or SEO is modified.
-    sqlite.prepare("UPDATE managed_breeds SET seo_json=? WHERE id=1").run('{"noindex":true}');
+    sqlite.prepare("UPDATE managed_breeds SET seo_json=?,seo_noindex=1 WHERE id=1").run('{"noindex":true}');
     assert.deepEqual(await readCanonicalBreedIds(database),
       sqlite.prepare(canonicalBreedIdsSql).all().map((row) => row.id).sort((a,b) => a-b));
   } finally {
