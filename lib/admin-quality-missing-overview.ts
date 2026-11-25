@@ -5,6 +5,7 @@
 import { qualityResolutionCurrentSql } from "./directory-quality-resolution-sql.ts";
 import type { DirectoryQualityField } from "./directory-profile-metadata.ts";
 import { allDirectoryCategories } from "./directory.ts";
+import { directoryCategoryMembershipSql } from "./directory-multi-category.ts";
 import { eventTypes } from "./events.ts";
 import { allHelpCategories } from "./help.ts";
 import { RAW_MISSING_PHONE_SQL, RAW_MISSING_EMAIL_SQL, RAW_MISSING_WEBSITE_SQL } from "./data-quality-contact-sql.ts";
@@ -165,6 +166,10 @@ export function overviewSqlSource(f:OverviewFilters,today:string){
       conditions.push(x.active);
       if(x.usesToday)bindings.push(today);
     }
+    if (x.kind === "DIRECTORY" && f.category) {
+      conditions.push(directoryCategoryMembershipSql());
+      bindings.push(f.category, f.category);
+    }
     const resolutionFields: Partial<Record<OverviewField, DirectoryQualityField>> = {
       address: "address", image: "image", web: "website", phone: "phone", email: "email",
     };
@@ -195,7 +200,7 @@ export async function loadMissingDataOverview(db:ReadDb,filters:OverviewFilters,
   const source=overviewSqlSource(filters,qualityTodayInSlovakia(now));
   const predicates:string[]=[];
   const bind:(string|number)[]=[];
-  if(filters.category){predicates.push("category=?");bind.push(filters.category);}
+  if(filters.category && filters.area !== "services"){predicates.push("category=?");bind.push(filters.category);}
   if(filters.q){predicates.push("name LIKE ? COLLATE NOCASE");bind.push("%"+filters.q+"%");}
   const where=predicates.length?" WHERE "+predicates.join(" AND "):"";
   const columns=fieldIds.map(k=>"COALESCE(SUM(m_"+k+"),0) AS m_"+k).join(",") + "," + fieldIds.map(k=>"COALESCE(SUM(e_"+k+"),0) AS e_"+k).join(",");

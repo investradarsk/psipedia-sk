@@ -16,7 +16,9 @@ function fixture(){
   "CREATE TABLE adoption_dogs(id INTEGER PRIMARY KEY,name TEXT);",
   "CREATE TABLE lost_found_dog_reports(id INTEGER PRIMARY KEY,dog_name TEXT);",
   "CREATE TABLE help_cases(id INTEGER PRIMARY KEY,title TEXT);",
-  "CREATE TABLE moderation_submissions(id TEXT PRIMARY KEY,resource_type TEXT,subject_id TEXT,operation TEXT,status TEXT,submitter_type TEXT,submitter_ref TEXT,created_at TEXT,updated_at TEXT);",
+  "CREATE TABLE moderation_submissions(id TEXT PRIMARY KEY,resource_type TEXT,subject_id TEXT,operation TEXT,status TEXT,submitter_type TEXT,submitter_ref TEXT,created_at TEXT,updated_at TEXT,proposed_patch_json TEXT DEFAULT '{}');",
+  "CREATE TABLE partner_new_profile_metadata(submission_id TEXT PRIMARY KEY, display_name TEXT, resolved_canonical_id INTEGER);",
+  "CREATE TABLE partner_event_submission_metadata(submission_id TEXT PRIMARY KEY, display_title TEXT, resolved_event_id INTEGER);",
   "CREATE TABLE partner_resources(id TEXT PRIMARY KEY,entity_type TEXT,directory_profile_id INTEGER,help_organization_id INTEGER,managed_event_id INTEGER);",
   "CREATE TABLE partner_claims(id TEXT PRIMARY KEY,account_id TEXT,resource_id TEXT,status TEXT,created_at TEXT,updated_at TEXT);",
   "CREATE TABLE partner_help_claims(id TEXT PRIMARY KEY,account_id TEXT,entity_type TEXT,adoption_dog_id INTEGER,lost_found_report_id INTEGER,help_case_id INTEGER,status TEXT,decision_note TEXT,created_at TEXT,updated_at TEXT);",
@@ -25,7 +27,7 @@ function fixture(){
   "INSERT INTO managed_events VALUES(7,'Psia výstava');",
   "INSERT INTO lost_found_dog_reports VALUES(21,'Mia'),(22,'Bady');",
   "INSERT INTO partner_resources VALUES('resource-1','DIRECTORY_PROFILE',1,NULL,NULL);",
-  "INSERT INTO moderation_submissions VALUES",
+  "INSERT INTO moderation_submissions(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,created_at,updated_at) VALUES",
   " ('m1','LOST_FOUND_DOG','21','CREATE','SUBMITTED','PARTNER_ACCOUNT','account-1','2026-11-23T10:00:00Z','2026-11-23T10:00:00Z'),",
   " ('m2','LOST_FOUND_DOG','22','CREATE','PENDING_REVIEW','PUBLIC_REPORTER','private-reporter-ref','2026-11-23T09:00:00Z','2026-11-23T09:00:00Z'),",
   " ('m3','MANAGED_EVENT','7','CREATE','APPROVED','PARTNER_ACCOUNT','account-1','2026-11-22T08:00:00Z','2026-11-22T08:00:00Z'),",
@@ -122,4 +124,42 @@ test("Admin-only page is a compact read-only view; original routes remain edit a
  assert.match(oldPage,/initialFocusedId=\{focusedId\}/);
  assert.match(dashboard,/initialIndex\/COMMUNITY_PAGE_SIZE/);
  assert.match(read("app/admin/partners/page.tsx"),/href="\/admin\/podania\?kind=PARTNER"/);
+});
+
+test("approved help claims without a decision note stay in inbox history", async () => {
+  const { sql, db } = fixture();
+  try {
+    sql.exec("UPDATE partner_help_claims SET status='APPROVED', decision_note=NULL WHERE id='help-claim-1'");
+    const history = await listAdminInbox(normalizeInboxFilters({ kind: "CLAIM", state: "history" }), db);
+    assert.deepEqual(history.items.map((item) => item.id), ["help-claim-1"]);
+  } finally {
+    sql.close();
+  }
+});
+
+test("inbox search uses submission names and resolved IDs if the subject link is missing", async () => {
+  const { sql, db } = fixture();
+  try {
+    sql.exec(`
+      UPDATE moderation_submissions SET subject_id=NULL WHERE id IN ('m1','m2','m3');
+      INSERT INTO moderation_submissions(id,resource_type,operation,status,submitter_type,submitter_ref,created_at,updated_at)
+        VALUES ('m6','DIRECTORY_PROFILE','CREATE','APPROVED','PARTNER_ACCOUNT','account-1','2026-11-22T08:00:00Z','2026-11-22T08:00:00Z');
+      UPDATE moderation_submissions SET proposed_patch_json='{"dogName":"Mia podanie"}' WHERE id='m1';
+      UPDATE moderation_submissions SET proposed_patch_json='{' WHERE id='m2';
+      INSERT INTO partner_event_submission_metadata VALUES ('m3','Psia výstava z podania',7);
+      INSERT INTO partner_new_profile_metadata VALUES ('m6','Psí salón z podania',1);
+    `);
+    for (const [label, expectedId, editorHref] of [
+      ["Mia podanie", "m1", null],
+      ["Psia výstava", "m3", "/admin/podujatia/7"],
+      ["Psí salón z podania", "m6", "/admin/adresar/1"],
+    ]) {
+      const result = await listAdminInbox(normalizeInboxFilters({ q: label, state: "all" }), db);
+      assert.equal(result.total, 1);
+      assert.equal(result.items[0].id, expectedId);
+      assert.equal(result.items[0].editorHref, editorHref);
+    }
+  } finally {
+    sql.close();
+  }
 });

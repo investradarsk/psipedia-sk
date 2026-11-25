@@ -136,3 +136,29 @@ test("V6-06 keeps direct quality shortcuts in Ctrl+K and distinguishes unavailab
   assert.match(read("components/admin-missing-quality-dashboard.tsx"), /Posledný pokus:/);
   assert.match(read("components/admin-link-health-checker.tsx"), /V tejto relácii ešte neprebehla kontrola/);
 });
+
+test("missing fields include primary and secondary category members once", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(`
+      CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY, name TEXT, category TEXT, status TEXT, city TEXT, address TEXT, image_url TEXT, website_url TEXT, public_phone TEXT, public_email TEXT, facebook_url TEXT, instagram_url TEXT);
+      CREATE TABLE directory_profile_quality_resolutions(profile_id INTEGER, quality_field TEXT, resolution_status TEXT, checked_at TEXT);
+      CREATE TABLE directory_profile_additional_categories(profile_id INTEGER, category TEXT);
+      INSERT INTO directory_profiles(id,name,category,status) VALUES
+        (1,'A','veterinari','published'),(2,'B','chovatelske-stanice','published'),
+        (3,'C','chovatelske-stanice','published');
+      INSERT INTO directory_profile_additional_categories VALUES (1,'veterinari'),(2,'veterinari');
+    `);
+    const d1 = { prepare: (sql) => ({ bind: (...args) => ({
+      first: async () => db.prepare(sql).get(...args),
+      all: async () => ({ results: db.prepare(sql).all(...args) }),
+    }) }) };
+    const filters = parseOverviewFilters({ area: "services", category: "veterinari", field: "phone" });
+    const result = await loadMissingDataOverview(d1, filters);
+    assert.equal(result.summary.totalProfiles, 2);
+    assert.equal(result.visibleCount, 2);
+    assert.deepEqual(result.items.map((item) => item.id), [1, 2]);
+  } finally {
+    db.close();
+  }
+});
