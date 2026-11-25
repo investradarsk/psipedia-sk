@@ -1,3 +1,5 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { env } from "cloudflare:workers";
 import { createShortLivedAsyncCache } from "@/lib/public-navigation-cache";
 import {
@@ -122,7 +124,11 @@ export async function getResolvedSectionVisual(visualKey: string): Promise<Resol
 export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedSectionVisual> {
   const definition = findSectionVisualDefinition(visualKey);
   const stored = definition
-    ? await publicHeroVisualCache(visualKey).get(() => getStoredSectionVisual(visualKey))
+    ? await settleOptionalRead(
+        "public_hero_visual",
+        retryTransientPublicRead(() => publicHeroVisualCache(visualKey).get(() => getStoredSectionVisual(visualKey))),
+        null,
+      )
     : null;
   const resolved = definition ? resolveSectionVisual(definition, stored) : null;
   const fallback = resolved ?? {
