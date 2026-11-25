@@ -1,3 +1,4 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { redirect } from 'next/navigation';
 import { parseEventListing, eventTypeSelectionRedirect, eventListingPageHref } from '@/lib/event-listing';
@@ -89,7 +90,7 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     listManagedPortalSections(),
     slug === "podujatia" ? Promise.resolve([]) : retryTransientPublicRead(() => getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 })),
     slug === "podujatia" ? retryTransientPublicRead(() => getPublishedEventListing(parseEventListing(rawSearchParams))) : Promise.resolve(undefined),
-    slug === "podujatia" ? retryTransientPublicRead(() => getPublicEventCalendar(parseEventListing(rawSearchParams), calendarMonth, scalar(rawSearchParams.den) ?? '')) : Promise.resolve(undefined),
+    slug === "podujatia" ? settleOptionalRead("events_calendar", retryTransientPublicRead(() => getPublicEventCalendar(parseEventListing(rawSearchParams), calendarMonth, scalar(rawSearchParams.den) ?? '')), null) : Promise.resolve(undefined),
   ]);
   if (!section?.visible) notFound();
   const eventList = events?.events ?? [];
@@ -129,6 +130,6 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     ]);
     return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(rawSearchParams.typ))} serviceCategory={scalar(rawSearchParams.kategoria)} serviceQuery={scalar(rawSearchParams.q)?.slice(0, 100)} serviceSort={scalar(rawSearchParams.zoradenie) === "count" ? "count" : scalar(rawSearchParams.zoradenie) === "name" ? "name" : "rating"} servicePage={Number(scalar(rawSearchParams.strana) ?? 1)} serviceOpen={Number(scalar(rawSearchParams.profil) ?? 0)} serviceReviewPage={Number(scalar(rawSearchParams.reviewsPage) ?? 1)} />;
   }
-  if (slug === "podujatia") return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={eventList} calendarEvents={monthEvents?.events ?? []} calendarSummaries={monthEvents?.summaries} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
+  if (slug === "podujatia") return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={eventList} calendarEvents={monthEvents?.events ?? []} calendarSummaries={monthEvents?.summaries} initialCalendarUnavailable={monthEvents === null} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events?.events} />;
 }
