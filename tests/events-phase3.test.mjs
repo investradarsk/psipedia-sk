@@ -42,7 +42,7 @@ test("/podujatia remains the primary full event listing without mutating canonic
   assert.match(eventsPage, /calendarEvents\?: PublicEventDayPreview\[\]/);
   assert.match(eventsPage, /initialCalendarMonth\?: string/);
   assert.match(eventsPage, /initialDay\?: string/);
-  assert.match(eventsPage, /ctaHref="\/podujatia\/pridat-podujatie"/);
+  assert.match(eventsPage, /<PublicMagazineBanner[\s\S]*?testId="events-organizer-cta"[\s\S]*?href="\/podujatia\/pridat-podujatie"/);
   assert.doesNotMatch(eventsPage, /createManagedEvent|updateManagedEvent|deleteManagedEvent/);
 });
 
@@ -165,7 +165,7 @@ test("legacy calendar URL stays a noindex canonical alias excluded from sitemap"
   );
   assert.match(
     contentPage,
-    /const calendarMonth = resolveCalendarMonth\(eventMonthFilterFromParam\(rawSearchParams\.kalendar\), eventMonthFilterFromParam\(rawSearchParams\.mesiac\), bratislavaDateKey\(\)\)/,
+    /const calendarMonth = resolveCalendarMonth\(\s*parseEventListing\(rawSearchParams\)\.day\?\.slice\(0, 7\) \|\| eventMonthFilterFromParam\(rawSearchParams\.kalendar\),\s*eventMonthFilterFromParam\(rawSearchParams\.mesiac\),\s*bratislavaDateKey\(\)\s*\)/,
   );
   assert.match(
     contentPage,
@@ -202,8 +202,11 @@ test("calendar data is month-scoped, publication-only and read-only", () => {
     ),
     /\b(?:UPDATE|DELETE|INSERT)\s+managed_events\b|createManagedEvent|updateManagedEvent|deleteManagedEvent/,
   );
-  // Selected-day events now come from the latest scoped JSON response.
-  assert.match(calendar, /eventsForCalendarDay\(\s*data\.calendarEvents,\s*selectedDay\s*\)/);
+  // The selected day filters the full paginated SQL listing, not calendar previews.
+  assert.match(calendar, /<EventListingResults[\s\S]*?events=\{filtered\}[\s\S]*?day=\{selectedDay\}/);
+  assert.match(calendar, /if \(state\.day\) params\.set\("den", state\.day\)/);
+  assert.match(filters, /start_date <= \? AND \$\{end\} >= \?/);
+  assert.doesNotMatch(calendar, /eventsForCalendarDay\(/);
   const ajax = readFileSync(new URL("../app/api/public/events/calendar/route.ts", import.meta.url), "utf8");
   assert.ok(ajax.includes("getPublicEventCalendar(filters, month, day)"));
   assert.ok(ajax.includes("getPublishedEventListing(filters)"));
