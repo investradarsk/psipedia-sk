@@ -85,9 +85,10 @@ test("directory SSR diagnostics cover primary listing, previews, hero and sideba
   const root = readFileSync(new URL("../app/adresar/page.tsx", import.meta.url), "utf8");
   const component = readFileSync(new URL("../components/directory-page.tsx", import.meta.url), "utf8");
   assert.match(root, /reportDirectoryPublicReadFailure\("listing", error\)/);
-  for (const stage of ["category_previews", "hero_visual", "article_discovery"]) {
-    assert.ok(component.includes('reportDirectoryPublicReadFailure("' + stage + '", error)'));
-  }
+  assert.match(component, /settleOptionalRead\("directory_category_previews", previewsRead, null\)/);
+  assert.match(component, /settleOptionalRead\("directory_article_discovery", discoveryRead, null\)/);
+  const visual = readFileSync(new URL("../lib/section-visual-store.ts", import.meta.url), "utf8");
+  assert.match(visual, /settleOptionalRead\(\s*"public_hero_visual"/);
   assert.match(component, /const \[categoryPreviews, heroVisual, discovery\] = await Promise\.all\(\[/);
 });
 
