@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArticleBrowser } from "@/components/article-browser";
@@ -36,8 +37,8 @@ export default async function ArticlesPage({ searchParams }: Props) {
   const params = await searchParams;
   const policy = resolveListingIndexPolicy("/clanky", params);
   const [articles, heroVisual, discovery] = await Promise.all([
-    getPublishedArticleSummaries({ limit: 200 }),
-    getSectionHeroVisual("section.novinky"),
+    retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 200 })),
+    retryTransientPublicRead(() => getSectionHeroVisual("section.novinky")),
     getArticleDiscoveryData({ slug: "article-listing", portalSection: "novinky" }),
   ]);
   const categories: Record<string, string> = {
