@@ -81,6 +81,22 @@ export function getAvailableAffiliateOriginalBanners(placement: AffiliateBannerF
   );
 }
 
+/** Try the selected creative first, then the remaining originals exactly once.
+ * Mobile retains the square original as its first choice; other originals are
+ * emergency fallbacks only and use the same bounded, uncropped image styling.
+ */
+export function getAffiliateBannerCandidates(format: AffiliateBannerFormat, selectedIndex: number) {
+  const primary = getAvailableAffiliateOriginalBanners(format);
+  const ordered = [...primary.slice(selectedIndex), ...primary.slice(0, selectedIndex)];
+  const remaining = getAvailableAffiliateOriginalBanners("adaptive");
+  const seen = new Set<string>();
+  return [...ordered, ...remaining].filter(({ creative }) => {
+    if (seen.has(creative.src)) return false;
+    seen.add(creative.src);
+    return true;
+  });
+}
+
 // The owner wants affiliate inventory across the public site and partner area.
 // Keep internal administration and non-page API routes ad-free.
 export function canShowGlobalAffiliateBanner(pathname: string | null | undefined) {
