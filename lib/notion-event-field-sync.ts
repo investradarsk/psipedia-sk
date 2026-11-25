@@ -4,7 +4,8 @@ import { eventTypes, slovakRegions } from "./events.ts";
 import { getManagedEventById, updateManagedEvent, nextManagedEventUpdatedAt } from "./event-store.ts";
 import { readProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { reserveUnifiedField, confirmUnifiedField, type FieldReservation } from "./notion-unified-field-transfer.ts";
-import type { FieldObservation } from "./notion-unified-field-sync.ts";
+import type { FieldIdentity, FieldObservation } from "./notion-unified-field-sync.ts";
+import { readUnifiedAdminEdit } from "./notion-unified-admin-edits.ts";
 import { loadNotionBulkEvents } from "./notion-bulk-sources.ts";
 import { hasCurrentGooglePlace } from "./notion-events-help-adapters.ts";
 import { notionRequest } from "./notion-sync-shared.ts";
@@ -118,8 +119,17 @@ async function reservePilotField(db: D1Database, bindings: EventFieldSyncBinding
   });
   const name = EVENT_NOTION_FIELDS[field];
   const historical = eventObservation(snapshot?.[name], !!snapshot && Object.hasOwn(snapshot, name), field);
+  const identity: FieldIdentity = { agenda: "events", entityId: String(id), pageId, field };
+  const receipt = await readUnifiedAdminEdit(db, identity, observation.revision);
+  const rawReceipt = receipt?.value;
+  const normalizedReceipt = receipt && eventObservation(
+    field === "seo.noindex" && (rawReceipt === 0 || rawReceipt === 1) ? rawReceipt === 1 : rawReceipt,
+    true, field,
+  );
+  const psipediaEdit = receipt && normalizedReceipt?.present
+    ? { ...receipt, value: normalizedReceipt.value } : undefined;
   const reservation = await reserveUnifiedField({
-    database: db, identity: { agenda: "events", entityId: String(id), pageId, field },
+    database: db, identity, psipediaEdit,
     historicalBaseline: historical.present ? { value: historical.value, version: mapping.content_hash } : null,
     notion: observation.notion, psipedia: observation.psipedia, direction,
   });
