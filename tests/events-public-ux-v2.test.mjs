@@ -13,8 +13,13 @@ test("EVENTS-PUBLIC-UX-V2 retains one published-data calendar and crawlable list
     page,
     /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarEvents=\{calendarEvents\}/,
   );
-  // Month-scoped event data is refreshed without a full-page navigation.
-  assert.match(calendar, /eventsForCalendarDay\(data\.calendarEvents,\s*selectedDay\)/);
+  // Month summaries refresh in place; the selected day filters the full listing.
+  assert.match(
+    calendar,
+    /<EventListingResults[\s\S]*?events=\{filtered\}[\s\S]*?day=\{selectedDay\}/,
+  );
+  assert.match(calendar, /if \(state\.day\) params\.set\("den", state\.day\)/);
+  assert.doesNotMatch(calendar, /eventsForCalendarDay\(/);
   assert.match(
     calendar,
     /new URL\("\/api\/public\/events\/calendar",\s*window\.location\.origin\)/,
@@ -25,7 +30,8 @@ test("EVENTS-PUBLIC-UX-V2 retains one published-data calendar and crawlable list
   assert.doesNotMatch(calendar, /EventBrowseMode/);
   assert.match(calendar, /useState<View>/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(calendar, /href=\{eventHref\(event\)\}/);
+  assert.match(source("components/event-listing-results.tsx"), /<EventCard event=\{event\}/);
+  assert.match(source("components/event-card.tsx"), /href=\{eventHref\(event\)\}/);
   assert.match(route, /getPublicEventCalendar\(parseEventListing/);
   assert.match(calendar, /^"use client";/);
   assert.match(calendar, /window\.history\.pushState/);
