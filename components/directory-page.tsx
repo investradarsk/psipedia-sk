@@ -223,7 +223,11 @@ export async function DirectoryPage({
                   />
                 </div>
 
-            <AffiliateRotatingBanner placement="horizontal" />
+            <div data-affiliate-stacked-fallback>
+
+              <AffiliateRotatingBanner placement="horizontal" />
+
+            </div>
             <PublicFilterLayout extra className={styles.directoryColumns} data-directory-columns>
               <PublicFilterPanel
                 title="Filtrovať služby"
