@@ -10,8 +10,8 @@ export const dynamic="force-dynamic";
 export default async function Page(){
   const identity=await requirePartnerPageIdentity();
   const [activity,preferences]=await Promise.all([
-    settleOptionalRead("partner_activity", retryTransientRead(() => listPartnerActivity({accountId:identity.accountId})), null),
-    settleOptionalRead("partner_notification_preferences", retryTransientRead(() => getPartnerNotificationPreferences({accountId:identity.accountId})), null),
+    settleOptionalRead("partner_activity", retryTransientRead(() => listPartnerActivity({accountId:identity.accountId}), { stage: "partner_activity" }), null),
+    settleOptionalRead("partner_notification_preferences", retryTransientRead(() => getPartnerNotificationPreferences({accountId:identity.accountId}), { stage: "partner_notification_preferences" }), null),
   ]);
   return <PartnerShell title="Upozornenia" description="Správy a dôležité rozhodnutia týkajúce sa vášho Partner účtu.">
     {preferences === null && <p role="status">Nastavenia upozornení sú dočasne nedostupné.</p>}
