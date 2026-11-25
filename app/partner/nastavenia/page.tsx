@@ -1,3 +1,4 @@
+import { retryTransientRead } from "@/lib/public-read-retry";
 import { PartnerLifecycleRequest } from "@/components/partner-lifecycle-request";
 import { PartnerNotificationSettings } from "@/components/partner-notification-settings";
 import { getPartnerNotificationPreferences } from "@/lib/partner-chat";
@@ -16,9 +17,9 @@ export const dynamic = "force-dynamic";
 export default async function PartnerSettingsPage() {
   const identity = await requirePartnerPageIdentity({ allowIncompleteOnboarding: true });
   const [contactProfile, authMethods, preferences] = await Promise.all([
-    getPartnerContactProfile(identity.accountId),
+    retryTransientRead(() => getPartnerContactProfile(identity.accountId)),
     getPartnerAuthMethodSummary(identity.accountId),
-    getPartnerNotificationPreferences({accountId:identity.accountId}),
+    retryTransientRead(() => getPartnerNotificationPreferences({accountId:identity.accountId})),
   ]);
 
   return (
