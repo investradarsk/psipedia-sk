@@ -380,7 +380,7 @@
 .articleListTitle {
   color: var(--ink);
   font-family: var(--ps-font-heading, Georgia, "Times New Roman", serif);
-  font-size: clamp(1rem, 1.45vw, 1.2rem);
+  font-size: clamp(1.05rem, 1.5225vw, 1.26rem);
   font-weight: var(--ps-component-heading-weight, 650);
   line-height: 1.25;
   overflow-wrap: anywhere;
