@@ -224,9 +224,7 @@ export async function DirectoryPage({
                 </div>
 
             <div data-affiliate-stacked-fallback>
-
               <AffiliateRotatingBanner placement="horizontal" />
-
             </div>
             <PublicFilterLayout extra className={styles.directoryColumns} data-directory-columns>
               <PublicFilterPanel
