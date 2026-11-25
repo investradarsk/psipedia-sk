@@ -37,7 +37,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
   const params = await searchParams;
   const policy = resolveListingIndexPolicy("/clanky", params);
   const [articles, heroVisual, discovery] = await Promise.all([
-    retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 200 })),
+    retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 200 }), { stage: "article_listing" }),
     retryTransientPublicRead(() => getSectionHeroVisual("section.novinky")),
     getArticleDiscoveryData({ slug: "article-listing", portalSection: "novinky" }),
   ]);
