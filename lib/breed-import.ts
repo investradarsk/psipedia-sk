@@ -166,13 +166,13 @@ function importStatements(database: D1Database, action: ImportAction, user: stri
     ));
     if (!plans.length) continue;
     const table = prefix === "fciStandard" ? "breed_fci_standard" : "breed_editorial_text";
-    if (plans.some((plan: any) => !plan || plan.table !== table)) throw new Error("BREED_IMPORT_INVALID_SQL_PLAN");
-    const columns = plans.map((plan: any) => plan.column);
+    if (plans.some((plan) => !plan || plan.table !== table)) throw new Error("BREED_IMPORT_INVALID_SQL_PLAN");
+    const columns = plans.map((plan) => { if (!plan || !("column" in plan)) throw Error("BREED_IMPORT_INVALID_SQL_PLAN"); return plan.column; });
     const placeholders = columns.map(() => "?").join(",");
     statements.push(database.prepare(
       "INSERT INTO " + table + " (breed_id," + columns.join(",") + ") VALUES (?," + placeholders +
       ") ON CONFLICT(breed_id) DO UPDATE SET " + columns.map((col: string) => col + "=excluded." + col).join(","),
-    ).bind(action.existingId, ...plans.map((plan: any) => plan.stored)));
+    ).bind(action.existingId, ...plans.map((plan) => { if (!plan || !("stored" in plan)) throw Error("BREED_IMPORT_INVALID_SQL_PLAN"); return plan.stored; })));
   }
   return statements;
 }
