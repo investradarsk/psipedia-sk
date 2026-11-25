@@ -342,6 +342,7 @@ export function PublicDetailFlow({
   blocks: Array<{ key: string; column: "main" | "aside"; content: ReactNode }>;
   className?: string;
 }) {
+  const hasAside = blocks.some((block) => block.column === "aside" && hasContent(block.content));
   return (
     <PublicDetailLayout mode="inline" className={className}>
       <div className={styles.flowGrid} data-public-detail-flow>
@@ -359,6 +360,12 @@ export function PublicDetailFlow({
                 </div>
               ) : null,
             )}
+            {column === "aside" && hasAside ? (
+              <AffiliateRotatingBanner placement="sidebar" />
+            ) : null}
+            {column === "main" && !hasAside ? (
+              <AffiliateRotatingBanner placement="horizontal" />
+            ) : null}
           </div>
         ))}
       </div>
