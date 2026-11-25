@@ -1,3 +1,4 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { breedProfileHref } from "@/lib/breed-canonical";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
@@ -67,11 +68,11 @@ export const metadata: Metadata = {
 function loadHomepageContent() {
   return Promise.all([
     retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 120 })),
-    retryTransientPublicRead(() => getHomepageUpcomingEventsWithImages(8)),
-    retryTransientPublicRead(() => getHomepageHighlightedHelpCasesWithImages(3)),
-    retryTransientPublicRead(() =>
+    settleOptionalRead("home_events", retryTransientPublicRead(() => getHomepageUpcomingEventsWithImages(8)), []),
+    settleOptionalRead("home_help", retryTransientPublicRead(() => getHomepageHighlightedHelpCasesWithImages(3)), []),
+    settleOptionalRead("home_directory", retryTransientPublicRead(() =>
       getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8),
-    ),
+    ), null),
     listHomepageFeaturedBreeds(8).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
@@ -95,8 +96,8 @@ async function HomeBelowHero({
     featuredBreeds,
     publishedBannerColors,
   ] = await contentPromise;
-  const veterinarians = directoryGroups.veterinari ?? [];
-  const trainers = directoryGroups.treneri ?? [];
+  const veterinarians = directoryGroups?.veterinari ?? [];
+  const trainers = directoryGroups?.treneri ?? [];
   const homeProfileBannerColors = publishedBannerColors["homepage:profil"];
   const lostFoundBannerColors = publishedBannerColors["help:lost-found"];
   const articleSelection = selectHomepageArticles(publishedArticles, {
