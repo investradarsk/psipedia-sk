@@ -69,13 +69,17 @@ test("header policy distinguishes editorial, compact, image and data/service pre
 });
 
 test("typography is compact and keeps editorial versus data heading hierarchy", () => {
-  assert.match(styles, /--pv-type-body:\s*\.9375rem/);
-  assert.match(styles, /--pv-type-body-dense:\s*\.875rem/);
+  assert.match(styles, /--pv-type-body:\s*var\(--ps-type-profile, 1rem\)/);
+  assert.match(styles, /--pv-type-body-dense:\s*var\(--ps-type-compact, \.875rem\)/);
   assert.match(styles, /--pv-type-data-heading:\s*clamp\(1\.9rem, 3\.4vw, 3\.15rem\)/);
   assert.match(styles, /--pv-type-editorial-heading:\s*clamp\(2\.35rem, 5vw, 4\.25rem\)/);
-  assert.match(styles, /--pv-leading-body:\s*1\.62/);
+  assert.match(styles, /--pv-leading-body:\s*var\(--ps-type-body-leading, 1\.6\)/);
   assert.match(styles, /@media \(max-width: 600px\)/);
-  assert.match(styles, /--pv-type-body:\s*\.9rem/);
+  assert.doesNotMatch(styles, /--pv-type-body(?:-dense)?:\s*\d*\.\d+rem/);
+  const premium = read("app/premium-foundation.css");
+  assert.match(premium, /--ps-type-profile:\s*1rem;/);
+  assert.match(premium, /--ps-type-compact:\s*\.875rem;/);
+  assert.match(premium, /--ps-type-body-leading:\s*1\.6;/);
 });
 
 test("content list and data cards are compact, explicit interactive surfaces", () => {

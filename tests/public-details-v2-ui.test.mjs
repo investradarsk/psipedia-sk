@@ -38,7 +38,7 @@ test(
  const runtime = {googleApiKey:'',googleMapId:'',rendererEnabled:true,testRendererEnvironment:true};
  const map = {...fixtures.maps.directory,...runtime};
  let view;
- if(name.startsWith('directory')) view=<DirectoryProfileDetail presentation={{...fixtures.directory,...(minimal?{imageUrl:null,phone:null,emails:[],websites:[],services:[],openingHours:'',address:'',health:null}:{}),...(name.includes('blur')?{detailImageDisplay:{mode:'blur',x:50,y:50,zoom:1}}:{}),...(name.includes('crop')?{detailImageDisplay:{mode:'crop',x:30,y:40,zoom:1.2}}:{}),...(name.includes('long')?{name:'Test dlhého názvu služby a nepretržitého kontaktu '.repeat(4)}:{})}} reviews={fixtures.review} publicMap={minimal?undefined:map}/>;
+ if(name.startsWith('directory')) view=<DirectoryProfileDetail presentation={{...fixtures.directory,...(minimal?{imageUrl:null,phone:null,emails:[],websites:[],services:[],openingHours:'',address:'',health:null}:{}),...(name.includes('blur')?{detailImageDisplay:{mode:'blur',x:50,y:50,zoom:1}}:{}),...(name.includes('crop')?{detailImageDisplay:{mode:'crop',x:30,y:40,zoom:1.2}}:{}),...(name.includes('long')?{name:'Test dlhého názvu služby a nepretržitého kontaktu '.repeat(4)}:{})}} reviews={fixtures.review} publicMap={minimal?undefined:map} locationDiscoveryLinks={minimal?[]:[{href:"/adresar",label:"Test ďalších služieb v okolí"}]}/>;
  else if(name.startsWith('event')) view=<EventDetail event={buildPublicEventPresentation({...fixtures.event,...(minimal?{imageUrl:null,organizer:'',websiteUrl:'',registrationUrl:''}:{}),...(name==='event-two-actions'?{contactPhone:'+421 900 123 456'}:{}),...(name==='event-portrait'?{imageUrl:'/event-portrait.svg',detailImageDisplay:{mode:'natural',x:50,y:50,zoom:1}}:{}),...(name.includes('cancelled')?{cancelled:true}:{}),...(name.includes('long')?{title:'Test dlhého názvu kynologického podujatia a organizačných údajov '.repeat(3)}:{})})} publicMap={minimal?undefined:{...fixtures.maps.event,...runtime}}/>;
  else if(name.startsWith('adoption')) view=<AdoptionDetail dog={{...fixtures.adoption,...(minimal?{mainImage:null,contactPhone:'',contactEmail:''}:{}),...(name.includes('reserved')?{status:'RESERVED'}:{}),...(name.includes('breed-duplicate')?{breedMix:true,breedName:'kríženec (kríženec čivavy)'}:{})}} organization={fixtures.organizationLink}/>;
  else if(name.startsWith('help')) {
@@ -271,9 +271,15 @@ test(
               const enquiry = await page.locator('[data-detail-block="enquiry"]').boundingBox();
               assert.ok(reviews && enquiry && enquiry.y >= reviews.y + reviews.height - 1,
                 "inquiry follows reviews");
-              const nearby = await page.locator('[data-detail-block="nearby"]').boundingBox();
-              if (nearby) assert.ok(nearby.y >= enquiry.y + enquiry.height - 1,
-                "nearby profiles follow inquiry");
+              const nearbyBlock = page.locator('[data-detail-block="nearby"]');
+              if (name.includes("minimal")) {
+                assert.equal(await nearbyBlock.count(), 0, "no empty nearby block");
+              } else {
+                assert.equal(await nearbyBlock.count(), 1, "fixture includes nearby links");
+                const nearby = await nearbyBlock.boundingBox();
+                assert.ok(nearby && nearby.y >= enquiry.y + enquiry.height - 1,
+                  "nearby profiles follow inquiry");
+              }
             } else {
               assert.ok(
                 (await actions.locator("a").count()) >= 1,
