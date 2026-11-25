@@ -30,11 +30,13 @@ test("selecting a day reloads the paginated main listing, not a bounded preview"
 });
 
 test("month-only requests preserve the current filtered listing and avoid refetching counts", () => {
-  assert.match(client, /const calendarOnly = sameListing && !pending && !loadError && !next\.day;/);
+  assert.match(client, /const calendarOnly = sameListing && !pending && !loadError && \(!next\.day \|\| data\.calendarUnavailable === true\);/);
   assert.match(client, /endpoint\.searchParams\.set\("calendarOnly", "1"\)/);
+  assert.match(client, /view\.day === next\.day/);
+  assert.match(client, /if \(initialCalendarUnavailable\) return;/);
   assert.match(
     client,
-    /\{\s*\.\.\.data,\s*calendarEvents: received\.calendarEvents,\s*calendarSummaries: received\.calendarSummaries,?\s*\}/,
+    /\{\s*\.\.\.data,\s*calendarEvents: received\.calendarEvents,\s*calendarSummaries: received\.calendarSummaries,\s*calendarUnavailable: false,?\s*\}/,
   );
   assert.match(calendarRoute, /if \(raw\.calendarOnly === "1"\)/);
   assert.ok(

@@ -109,7 +109,7 @@ export async function getNavigationItems() {
     rows = await retryTransientPublicRead(() => publicNavigationRows.get(async () => {
       const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
       return result.results;
-    }));
+    }), { stage: "navigation" });
     lastSuccessfulPublicNavigationRows = { rows, at: Date.now() };
   } catch (error) {
     if (!isTransientPublicReadError(error)) throw error;

@@ -1,3 +1,4 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
 import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { breedProfileHref } from "@/lib/breed-canonical";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
@@ -66,12 +67,12 @@ export const metadata: Metadata = {
 // articles, events, directory cards and rotating breed previews to complete.
 function loadHomepageContent() {
   return Promise.all([
-    retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 120 })),
-    retryTransientPublicRead(() => getHomepageUpcomingEventsWithImages(8)),
-    retryTransientPublicRead(() => getHomepageHighlightedHelpCasesWithImages(3)),
-    retryTransientPublicRead(() =>
+    retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 120 }), { stage: "home_articles" }),
+    settleOptionalRead("home_events", retryTransientPublicRead(() => getHomepageUpcomingEventsWithImages(8), { stage: "home_events" }), []),
+    settleOptionalRead("home_help", retryTransientPublicRead(() => getHomepageHighlightedHelpCasesWithImages(3), { stage: "home_help" }), []),
+    settleOptionalRead("home_directory", retryTransientPublicRead(() =>
       getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8),
-    ),
+    ), null),
     listHomepageFeaturedBreeds(8).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
@@ -95,8 +96,8 @@ async function HomeBelowHero({
     featuredBreeds,
     publishedBannerColors,
   ] = await contentPromise;
-  const veterinarians = directoryGroups.veterinari ?? [];
-  const trainers = directoryGroups.treneri ?? [];
+  const veterinarians = directoryGroups?.veterinari ?? [];
+  const trainers = directoryGroups?.treneri ?? [];
   const homeProfileBannerColors = publishedBannerColors["homepage:profil"];
   const lostFoundBannerColors = publishedBannerColors["help:lost-found"];
   const articleSelection = selectHomepageArticles(publishedArticles, {

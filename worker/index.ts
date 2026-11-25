@@ -1,3 +1,5 @@
+import { observeWorkerResponse } from "../lib/stability-diagnostics.ts";
+import { matchOptionalPublicCache, putOptionalPublicCache } from "../lib/optional-read-recovery.ts";
 import { ensureNoSniffHeader } from "../lib/http-response-security";
 import { retryTransientPublicRead } from "../lib/public-read-retry.ts";
 import {runRecordLifecycleRetrySweep} from "../lib/admin-record-lifecycle-retry.ts";
@@ -348,7 +350,7 @@ const worker = {
 
     const cache = publicHtmlCache(request, url, env.CF_VERSION_METADATA?.id);
     if (cache) {
-      const cached = await cache.storage.match(cache.key);
+      const cached = await matchOptionalPublicCache(cache.storage, cache.key, "html");
       if (cached) return responseWithHeaders(cached, publicHtmlCacheHeaders("HIT"));
     }
 
@@ -359,7 +361,7 @@ const worker = {
       ? new Request(url.toString(), { method: "GET" })
       : null;
     if (mediaStorage && mediaCacheKey) {
-      const cachedMedia = await mediaStorage.match(mediaCacheKey);
+      const cachedMedia = await matchOptionalPublicCache(mediaStorage, mediaCacheKey, "media");
       if (cachedMedia) {
         return responseWithHeaders(cachedMedia, {
           "Cache-Control": PUBLIC_MEDIA_BROWSER_CACHE_CONTROL,
@@ -417,7 +419,7 @@ const worker = {
         ? (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default
         : null;
       if (heroCache && heroCacheKey) {
-        const hit = await heroCache.match(heroCacheKey);
+        const hit = await matchOptionalPublicCache(heroCache, heroCacheKey, "hero");
         if (hit) return responseWithHeaders(hit, {
           "Cache-Control": PUBLIC_HERO_TRANSFORM_BROWSER_CACHE_CONTROL,
           "X-Psipedia-Hero-Cache": "HIT",
@@ -438,7 +440,7 @@ const worker = {
           "Cache-Control": `public, max-age=${PUBLIC_HERO_TRANSFORM_EDGE_TTL_SECONDS}`,
           "CDN-Cache-Control": `public, max-age=${PUBLIC_HERO_TRANSFORM_EDGE_TTL_SECONDS}`,
         });
-        ctx.waitUntil(heroCache.put(heroCacheKey, edgeCopy));
+        ctx.waitUntil(putOptionalPublicCache(heroCache, heroCacheKey, edgeCopy, "hero"));
         return responseWithHeaders(optimized, {
           "Cache-Control": PUBLIC_HERO_TRANSFORM_BROWSER_CACHE_CONTROL,
           "X-Psipedia-Hero-Cache": "MISS",
@@ -480,7 +482,7 @@ const worker = {
         "Cache-Control": `public, max-age=${PUBLIC_MEDIA_EDGE_TTL_SECONDS}`,
         "CDN-Cache-Control": `public, max-age=${PUBLIC_MEDIA_EDGE_TTL_SECONDS}`,
       });
-      ctx.waitUntil(mediaStorage.put(mediaCacheKey, edgeCopy));
+      ctx.waitUntil(putOptionalPublicCache(mediaStorage, mediaCacheKey, edgeCopy, "media"));
       return responseWithHeader(response, "X-Psipedia-Media-Cache", "MISS");
     }
     // The origin marks all dynamic SSR no-store. Only a cookie-free, explicitly
@@ -489,7 +491,7 @@ const worker = {
     if (!cache || (!isCacheableHtmlResponse(response) && !isExplicitAnonymousSsrHtml(response, url.pathname))) return response;
 
     const cacheable = responseWithHeaders(response, publicHtmlCacheHeaders("MISS"));
-    ctx.waitUntil(cache.storage.put(cache.key, cacheable.clone()));
+    ctx.waitUntil(putOptionalPublicCache(cache.storage, cache.key, cacheable.clone(), "html"));
     return cacheable;
   },
 
@@ -1084,7 +1086,9 @@ function isAccessJwk(value: unknown): value is AccessJwk {
 const securedWorker = {
   ...worker,
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    return ensureNoSniffHeader(await worker.fetch(request, env, ctx));
+    return observeWorkerResponse(request, async () => {
+      return ensureNoSniffHeader(await worker.fetch(request, env, ctx));
+    });
   },
 };
 

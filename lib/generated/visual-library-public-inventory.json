@@ -400,6 +400,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/navigation-recovery.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/news-hub.tsx",
       "coverage": "page-composite"
     },

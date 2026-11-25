@@ -1,3 +1,5 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
+import { retryTransientRead } from "@/lib/public-read-retry";
 import { PartnerLifecycleRequest } from "@/components/partner-lifecycle-request";
 import { PartnerNotificationSettings } from "@/components/partner-notification-settings";
 import { getPartnerNotificationPreferences } from "@/lib/partner-chat";
@@ -16,9 +18,9 @@ export const dynamic = "force-dynamic";
 export default async function PartnerSettingsPage() {
   const identity = await requirePartnerPageIdentity({ allowIncompleteOnboarding: true });
   const [contactProfile, authMethods, preferences] = await Promise.all([
-    getPartnerContactProfile(identity.accountId),
-    getPartnerAuthMethodSummary(identity.accountId),
-    getPartnerNotificationPreferences({accountId:identity.accountId}),
+    settleOptionalRead("partner_contact_profile", retryTransientRead(() => getPartnerContactProfile(identity.accountId), { stage: "partner_contact_profile" }), undefined),
+    settleOptionalRead("partner_auth_method_summary", getPartnerAuthMethodSummary(identity.accountId), undefined),
+    settleOptionalRead("partner_notification_preferences", retryTransientRead(() => getPartnerNotificationPreferences({accountId:identity.accountId}), { stage: "partner_notification_preferences" }), undefined),
   ]);
 
   return (
@@ -38,23 +40,23 @@ export default async function PartnerSettingsPage() {
       <section className="partner-settings-card">
         <h2>Kontaktná osoba</h2>
         <p>Tieto údaje slúžia iba na identifikáciu osoby, ktorá Partner účet spravuje. Údaje firmy alebo prevádzky patria na verejný profil.</p>
-        <PartnerContactProfileForm
+        {contactProfile === undefined ? <p role="status">Kontaktné údaje sú dočasne nedostupné.</p> : <PartnerContactProfileForm
           mode="settings"
           initial={{
             contactName: contactProfile?.contactName ?? "",
             phone: contactProfile?.phone ?? "",
             relationship: contactProfile?.relationship ?? "",
           }}
-        />
+        />}
       </section>
 
-      <PartnerSecuritySettings
+      {authMethods === undefined ? <p role="status">Bezpečnostné nastavenia sú dočasne nedostupné.</p> : <PartnerSecuritySettings
         passwordSet={authMethods.passwordSet}
         googleLinked={authMethods.googleLinked}
         googleEnabled={isPartnerGoogleOAuthEnabled()}
-      />
+      />}
 
-      <PartnerNotificationSettings initial={preferences}/>
+      {preferences === undefined ? <p role="status">Nastavenia upozornení sú dočasne nedostupné.</p> : <PartnerNotificationSettings initial={preferences}/>}
       <PartnerLifecycleRequest account />
       <PartnerSettingsActions siteKey={getPartnerTurnstileSiteKey()} />
     </PartnerShell>

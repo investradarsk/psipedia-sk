@@ -57,6 +57,7 @@ export function EventCalendar({
   listing,
   calendarEvents = [],
   calendarSummaries,
+  initialCalendarUnavailable = false,
   today,
   initialType = "Všetky",
   initialTime = "upcoming",
@@ -73,6 +74,7 @@ export function EventCalendar({
   listing?: { total: number; page: number; pages: number };
   calendarEvents?: PublicEventDayPreview[];
   calendarSummaries?: { date: string; count: number; types: EventType[] }[];
+  initialCalendarUnavailable?: boolean;
   today: string;
   initialType?: EventType | "Všetky";
   initialTime?: EventTimeFilter;
@@ -108,6 +110,7 @@ export function EventCalendar({
     listing: { total: number; page: number; pages: number };
     calendarEvents: PublicEventDayPreview[];
     calendarSummaries?: { date: string; count: number; types: EventType[] }[];
+    calendarUnavailable?: boolean;
   };
   const [view, setView] = useState<View>(() => ({
     month: resolveCalendarMonth(initialCalendarMonth, initialMonth, today),
@@ -122,6 +125,7 @@ export function EventCalendar({
     listing: listing ?? { total: events.length, page: 1, pages: 1 },
     calendarEvents,
     calendarSummaries,
+    calendarUnavailable: initialCalendarUnavailable,
   }));
   const [pending, setPending] = useState(false);
   const [pendingCalendarOnly, setPendingCalendarOnly] = useState(false);
@@ -145,6 +149,8 @@ export function EventCalendar({
     if (cacheRef.current.size > 24) cacheRef.current.delete(cacheRef.current.keys().next().value!);
   }
   useEffect(() => {
+    // Never cache a degraded calendar as a successful empty month.
+    if (initialCalendarUnavailable) return;
     // Reuse server-rendered data when returning to the initial month/day.
     const current = new URL(window.location.href);
     const endpoint = new URL("/api/public/events/calendar", current.origin);
@@ -212,7 +218,7 @@ export function EventCalendar({
       view.filterMonth === next.filterMonth &&
       view.page === nextPage &&
       view.day === next.day;
-    const calendarOnly = sameListing && !pending && !loadError && !next.day;
+    const calendarOnly = sameListing && !pending && !loadError && (!next.day || data.calendarUnavailable === true);
     setPendingCalendarOnly(calendarOnly);
     setPending(true);
     const cached = cacheRef.current.get(key);
@@ -244,14 +250,20 @@ export function EventCalendar({
               ...data,
               calendarEvents: received.calendarEvents,
               calendarSummaries: received.calendarSummaries,
+              calendarUnavailable: false,
             }
           : (received as CalendarData);
         remember(key, payload);
         setData(payload);
       }
     } catch {
-      if (!controller.signal.aborted)
-        setLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
+      if (!controller.signal.aborted) {
+        if (calendarOnly) {
+          setData((current) => ({ ...current, calendarEvents: [], calendarSummaries: undefined, calendarUnavailable: true }));
+        } else {
+          setLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
+        }
+      }
     } finally {
       if (!controller.signal.aborted) {
         setPending(false);
@@ -428,6 +440,16 @@ export function EventCalendar({
           pending={pending && !pendingCalendarOnly}
           loadError={loadError}
           sidebar={<>
+      {data.calendarUnavailable ? (
+        <p role="status" className={styles.monthHint}>
+          Kalendár je dočasne nedostupný. Zoznam podujatí zostáva dostupný.{" "}
+          <a href={typePathname + windowSafeQuery(view)} onClick={(event) => {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            void navigate(typePathname + windowSafeQuery(view), view, false);
+          }}>Načítať kalendár znova</a>
+        </p>
+      ) : (
       <div className={styles.calendarLayout} data-events-calendar-layout>
         <section
           className={styles.monthCalendar}
@@ -609,6 +631,7 @@ export function EventCalendar({
           </div>
         </section>
       </div>
+      )}
             <AffiliateRotatingBanner placement="sidebar" />
             <div data-events-popularity>{sidebar}</div>
           </>}

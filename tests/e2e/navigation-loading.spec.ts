@@ -191,3 +191,36 @@ test("loading UX: reduced motion and failed navigation finish idle", async ({ pa
   await page.goto("/loading-ux-missing-page");
   await expect(page.locator(".navigation-progress")).not.toHaveAttribute("data-active", "true");
 });
+
+test("recovery: a stalled RSC transition offers a native document in a new tab", async ({ page, isMobile }) => {
+  test.setTimeout(45_000);
+  await ready(page);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (new URL(request.url()).pathname === "/podujatia.rsc" && request.headers().rsc === "1") await gate;
+    await route.continue();
+  });
+  try {
+    await clearNavigationCaches(page);
+    await trustedPointerClick(page, await menuLink(page, isMobile, "/podujatia"));
+    const recovery = page.locator("[data-navigation-recovery]");
+    await expect(recovery).toBeVisible({ timeout: 18_000 });
+    const link = recovery.getByRole("link", { name: "Otvoriť v novej karte" });
+    await expect(link).toHaveAttribute("href", "/podujatia");
+    await expect(link).toHaveAttribute("target", "_blank");
+    const popupPromise = page.waitForEvent("popup");
+    await link.click();
+    const popup = await popupPromise;
+    try {
+      await expect(popup).toHaveURL(/\/podujatia$/);
+    } finally {
+      await popup.close();
+    }
+  } finally {
+    release();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+  await expect(page.locator("[data-navigation-recovery]")).toHaveCount(0);
+});

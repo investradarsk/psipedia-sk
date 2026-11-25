@@ -34,7 +34,7 @@ import { directoryCatalogFilters } from "./directory-query.ts";
 import { mergeDirectoryBreederGallery, readDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readProfileGallery } from "./partner-profile-gallery";
 import { attachBreederCardBreeds, breederBreedSourceLabel } from "./directory-breeder-card";
-import { canonicalBreedIdsForRead, readCanonicalBreedIds } from "./breed-canonical";
+import { readCanonicalBreedIds } from "./breed-canonical";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import {
   parsePublicDirectoryFacets,
@@ -594,7 +594,7 @@ const DIRECTORY_HAS_CANONICAL_BREEDS = `EXISTS (
   SELECT 1 FROM breed_directory_relations linked
   JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
   WHERE linked.profile_id = directory_profiles.id
-    AND linked_breed.id IN (${canonicalBreedIdsForRead(env)})
+    AND linked_breed.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
 )`;
 const DIRECTORY_SOURCE_FACETS = {
   ...DIRECTORY_PUBLIC_SOURCE_FACETS,
@@ -1393,7 +1393,7 @@ export async function listPublishedDirectoryProfiles(options: {
     baseClauses.push(
       `(search_text LIKE ? OR ${breedRelationsReady ? DIRECTORY_PUBLIC_FACET_SEARCH : DIRECTORY_LEGACY_PUBLIC_FACET_SEARCH} LIKE ? OR (search_text = '' AND ${LEGACY_DIRECTORY_SEARCH} LIKE ?))`,
     );
-    baseBindings.push(needle, needle, needle);
+    baseBindings.push(needle, ...(breedRelationsReady ? [canonicalBreedIdsJson] : []), needle, needle);
   }
   if (options.filters.service) {
     baseClauses.push(
@@ -1419,14 +1419,14 @@ export async function listPublishedDirectoryProfiles(options: {
         SELECT 1 FROM breed_directory_relations linked
         JOIN managed_breeds linked_breed ON linked_breed.id = linked.breed_id
         WHERE linked.profile_id = directory_profiles.id
-          AND linked_breed.id IN (${canonicalBreedIdsForRead(env)})
+          AND linked_breed.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
           AND linked_breed.name = ?
       )) OR (
         (directory_profiles.category NOT IN ('chovatelske-stanice','chovatelske-kluby') OR NOT ${DIRECTORY_HAS_CANONICAL_BREEDS})
         AND ${DIRECTORY_LEGACY_BREED} = ?
       )
     )`);
-      baseBindings.push(options.filters.breed, options.filters.breed);
+      baseBindings.push(canonicalBreedIdsJson, options.filters.breed, canonicalBreedIdsJson, options.filters.breed);
     }
   }
   addSourceFacet(options.filters.fciGroup, DIRECTORY_SOURCE_FACETS.fciGroup);
@@ -1439,6 +1439,7 @@ export async function listPublishedDirectoryProfiles(options: {
   // production D1 migration. Keep legacy read behavior until 0149 exists.
   const builtinOverridesReady =
     canonicalPublicEnabled &&
+    (serviceFilterCategories as readonly string[]).includes(category ?? "") &&
     Boolean(
       await database
         .prepare(
@@ -1730,7 +1731,7 @@ const getPublishedDirectoryProfileUncached = async (category: string, slug: stri
       `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1`,
     )
     .bind(category, slug)
-    .first<DirectoryProfileRow>());
+    .first<DirectoryProfileRow>(), { stage: "directory_detail" });
   if(!row)return null;
   let profile=rowToPublicProfile(row);
   try {

@@ -45,8 +45,7 @@ test("article detail loads one body and related summaries with a database limit"
   assert.match(articleMagazine, /getPublishedArticleSummaries\(\{ portalSection: section, limit: 120 \}\)/);
   assert.doesNotMatch(articleMagazine, /getPublishedArticleSummaries\(\{ limit: 40 \}\)|latestCandidates/);
   assert.match(articleDiscovery, /Promise\.all\(\[/);
-  assert.match(articleDiscovery, /readPopularityWindow\(article\.slug, "24h", now\)/);
-  assert.match(articleDiscovery, /readPopularityWindow\(article\.slug, "7d", now\)/);
+  assert.match(articleDiscovery, /getPopularArticlesBothWindows\(\{ excludeSlug: article\.slug, now, limit: 5 \}\)/);
   assert.match(articleDiscovery, /limit:\s*5/);
   assert.doesNotMatch(sectionDetail, /getPublishedArticles/);
   assert.doesNotMatch(legacyDetail, /getPublishedArticles/);

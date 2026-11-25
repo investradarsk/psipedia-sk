@@ -55,7 +55,7 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
   if (cleanedUrl) redirect(cleanedUrl);
   const policy = resolveListingIndexPolicy(path, rawSearchParams, { indexPagination: true });
   const [result, priorityLinks] = await Promise.all([
-    retryTransientPublicRead(() => listPublishedDirectoryProfiles({ category: category.slug, filters })),
+    retryTransientPublicRead(() => listPublishedDirectoryProfiles({ category: category.slug, filters }), { stage: "directory_listing" }),
     policy.kind === "clean" ? listPriorityEditorialLinks(path) : Promise.resolve([]),
   ]);
   if (filters.page > result.page) redirect(directoryPageHref(path, filters, result.page));
