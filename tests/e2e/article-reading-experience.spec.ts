@@ -681,7 +681,12 @@ test("ARTICLE-2 preserves canonical Article schema, dates, author and image meta
 });
 
 
-test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions", async ({ page }) => {
+test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions", async ({ page, context, baseURL }) => {
+  // The isolated Chromium context does not reliably grant clipboard access
+  // for emulated mobile devices. Exercise the real Clipboard API explicitly.
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: new URL(baseURL ?? "http://127.0.0.1:5173").origin,
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku", { waitUntil: "domcontentloaded" });
 
@@ -698,6 +703,9 @@ test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions",
   await expect(sharing.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", /wa\.me/);
   await sharing.getByRole("button", { name: "Kopírovať odkaz" }).click();
   await expect(sharing.getByRole("button", { name: "Odkaz skopírovaný" })).toBeVisible();
+  const expectedUrl = await page.locator('link[rel="canonical"]').getAttribute("href");
+  expect(expectedUrl).toBeTruthy();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(expectedUrl);
 
   await expectNoSeriousAccessibilityViolations(page);
 });
