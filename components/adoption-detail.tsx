@@ -197,27 +197,27 @@ export function AdoptionDetail({
           <>
             <DetailProfileTitle
               title={dog.name}
-              category="Pes na adopciu"
               badges={
-                <span
-                  className={`${dogStyles.badge} ${styles.adoptionBadge}`}
-                  data-state={dog.status}
-                  role="status"
-                >
-                  {adoptionDetailStatusLabels[dog.status]}
-                </span>
+                dog.status === "RESERVED" ? (
+                  <div
+                    className={`${dogStyles.statusBanner} ${styles.reservedBanner}`}
+                    data-state={dog.status}
+                    role="status"
+                  >
+                    <strong>{adoptionDetailStatusLabels[dog.status]}</strong>
+                    <span>Tento pes je momentálne rezervovaný a nemusí byť dostupný na adopciu.</span>
+                  </div>
+                ) : (
+                  <span
+                    className={`${dogStyles.badge} ${styles.adoptionBadge}`}
+                    data-state={dog.status}
+                    role="status"
+                  >
+                    {adoptionDetailStatusLabels[dog.status]}
+                  </span>
+                )
               }
             />
-            {dog.status === "RESERVED" && (
-              <div
-                className={`${dogStyles.statusBanner} ${styles.reservedBanner}`}
-                data-state={dog.status}
-                role="status"
-              >
-                <strong>{adoptionDetailStatusLabels[dog.status]}</strong>
-                <span>Tento pes je momentálne rezervovaný a nemusí byť dostupný na adopciu.</span>
-              </div>
-            )}
             <div className={dogStyles.detailMeta}>
               {location && (
                 <span>

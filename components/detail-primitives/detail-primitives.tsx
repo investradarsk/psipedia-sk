@@ -237,7 +237,7 @@ export function DetailProfileTitle({
   id,
 }: {
   title: string;
-  category: string;
+  category?: string;
   badges?: ReactNode;
   badgeClassName?: string;
   categoryClassName?: string;
@@ -246,7 +246,7 @@ export function DetailProfileTitle({
   return (
     <>
       <div className={[styles.tags, badgeClassName].filter(Boolean).join(" ")} data-help-profile-labels>
-        <span className={categoryClassName}>{category}</span>
+        {category ? <span className={categoryClassName}>{category}</span> : null}
         {badges}
       </div>
       <PublicHeading

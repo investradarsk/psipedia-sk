@@ -91,7 +91,11 @@ test("external event poster stays the preferred SSR image and is retried before 
   assert.match(component, /real && stage === "primary" \? responsiveMediaSrcSet/);
   assert.match(component, /referrerPolicy=\{remote \? "no-referrer"/);
   const calendar = readFileSync("components/event-calendar.tsx", "utf8");
-  assert.match(calendar, /<EventImage[\s\S]*?imageUrl=\{event\.imageUrl\}/);
+  const listing = readFileSync("components/event-listing-results.tsx", "utf8");
+  const card = readFileSync("components/event-card.tsx", "utf8");
+  assert.match(calendar, /<EventListingResults\b/);
+  assert.match(listing, /<EventCard\s+event=\{event\}/);
+  assert.match(card, /<EventImage[\s\S]*?imageUrl=\{event\.imageUrl\}/);
 });
 
 test("external event detail can retry a blocked poster using its published event ID", () => {
@@ -130,7 +134,8 @@ test("external event detail can retry a blocked poster using its published event
 test("all public event thumbnails pass the event ID required by the blocked-photo retry", () => {
   for (const [path, expected] of [
     ["components/event-card.tsx", 2],
-    ["components/event-calendar.tsx", 1],
+    ["components/event-calendar.tsx", 0],
+    ["components/event-listing-results.tsx", 0],
     ["app/page.tsx", 1],
   ]) {
     const source = readFileSync(path, "utf8");
