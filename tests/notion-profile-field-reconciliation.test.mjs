@@ -787,3 +787,69 @@ test("V2 shared policy preserves independent edits and never trusts obsolete aut
     });
   }
 });
+
+
+test("V2 field engine applies identical rules to all eight agendas", async () => {
+  const { decideUnifiedField, UNIFIED_SYNC_AGENDAS } = await import("../lib/notion-unified-field-sync.ts");
+  assert.equal(UNIFIED_SYNC_AGENDAS.length, 8);
+  const present = (value) => ({ present: true, value });
+  for (const agenda of UNIFIED_SYNC_AGENDAS) {
+    const identity = { agenda, entityId: "42", pageId: "page-42", field: "description" };
+    const base = { identity, baseline: { value: "old", version: "v1" } };
+    const decide = (notion, psipedia, extra = {}) =>
+      decideUnifiedField({ ...base, notion: present(notion), psipedia: present(psipedia), ...extra });
+    assert.equal(decide("new", "old").action, "pull");
+    assert.equal(decide("old", "new").action, "push");
+    assert.equal(decide("same", "same", { baseline: null }).action, "unchanged");
+    assert.equal(decide("new", "newer").reason, "AMBIGUOUS_SAME_FIELD");
+    assert.equal(decide("", "old").reason, "UNVERIFIED_NOTION_CLEAR");
+    assert.equal(decide("old", "").reason, "UNVERIFIED_ADMIN_CLEAR");
+    assert.equal(decide("old", "new", { locked: true }).reason, "LOCKED");
+    assert.equal(decide("old", "new", { protected: true }).reason, "PROTECTED_FIELD");
+    assert.equal(decide("old", "new", { baseline: null }).reason, "BASELINE_UNAVAILABLE");
+    assert.equal(decide("old", "new", { notion: { present: false } }).reason, "MISSING_FIELD");
+    const notionEdit = { identity, source: "notion", baselineVersion: "v1", editId: "n1",
+      value: "new", observedAt: "2026-11-25T09:00:00.000Z" };
+    const psipediaEdit = { identity, source: "psipedia", baselineVersion: "v1", editId: "p1",
+      value: "newer", observedAt: "2026-11-25T10:00:00.000Z" };
+    assert.equal(decide("new", "newer", { notionEdit, psipediaEdit }).action, "push");
+    assert.equal(decide("new", "newer", {
+      notionEdit: { ...notionEdit, observedAt: "2026-11-25T11:00:00.000Z" }, psipediaEdit,
+    }).action, "pull");
+    assert.equal(decide("new", "newer", {
+      notionEdit: { ...notionEdit, identity: { ...identity, pageId: "other" } }, psipediaEdit,
+    }).reason, "AMBIGUOUS_SAME_FIELD");
+    assert.equal(decide("new", "newer", {
+      notionEdit, psipediaEdit: { ...psipediaEdit, baselineVersion: "stale" },
+    }).reason, "AMBIGUOUS_SAME_FIELD");
+    assert.equal(decide("new", "newer", {
+      notionEdit: { ...notionEdit, value: "different" }, psipediaEdit,
+    }).reason, "AMBIGUOUS_SAME_FIELD");
+    assert.equal(decide("old", "", {
+      psipediaEdit: { ...psipediaEdit, value: "", explicitClear: true },
+    }).action, "push");
+  }
+});
+
+test("V2 field state proposal preserves independent scoped observations with CAS", async () => {
+  const { readUnifiedFieldState, writeUnifiedFieldState } = await import("../lib/notion-unified-field-state.ts");
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
+    const adapter = { prepare(sql) { return { bind(...args) {
+      return { async first() { return db.prepare(sql).get(...args) ?? null; } };
+    } }; } };
+    const id = { agenda: "events", entityId: "1", pageId: "page", field: "title" };
+    const pending = { baseline: "old", notion: "old", psipedia: "new",
+      notionEdit: undefined, psipediaEdit: undefined, status: "PENDING", reason: null };
+    assert.equal(await writeUnifiedFieldState(adapter, id, null, pending), 1);
+    assert.equal(await writeUnifiedFieldState(adapter, id, null, pending), null);
+    assert.equal(await readUnifiedFieldState(adapter, { ...id, field: "description" }), null);
+    assert.equal((await readUnifiedFieldState(adapter, id)).status, "PENDING");
+    assert.equal(await writeUnifiedFieldState(adapter, id, 1, {
+      ...pending, baseline: "new", notion: "new", status: "SYNCED",
+    }), 2);
+    assert.equal(await writeUnifiedFieldState(adapter, id, 1, pending), null);
+    assert.equal((await readUnifiedFieldState(adapter, id)).baseline, "new");
+  } finally { db.close(); }
+});
