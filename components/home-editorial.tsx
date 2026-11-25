@@ -10,7 +10,15 @@ import { BreedPhoto } from "@/components/breed-photo";
 import { ArrowIcon } from "@/components/icons";
 import sidebarStyles from "./article-popularity-sidebar.module.css";
 
-function HomeArticleFeatureLayout({ articles, testId }: { articles: Article[]; testId: string }) {
+function HomeArticleFeatureLayout({
+  articles,
+  testId,
+  action,
+}: {
+  articles: Article[];
+  testId: string;
+  action: ReactNode;
+}) {
   const [lead, ...secondary] = articles;
   if (!lead) return null;
 
@@ -28,22 +36,25 @@ function HomeArticleFeatureLayout({ articles, testId }: { articles: Article[]; t
       >
         <ArticleCard article={lead} variant="featured" headingLevel={3} omitMissingImage={false} />
       </div>
-      <div
-        className="home-latest-list"
-        data-home-article-secondary={testId}
-        data-home-latest-secondary={testId === "latest" ? "true" : undefined}
-      >
-        {secondary.map((article) => (
-          <article
-            className="home-latest-item"
-            key={article.slug}
-            data-home-article-slug={article.slug}
-            data-home-article-date={article.dateIso}
-            data-home-article-section={articlePortalSection(article)}
-          >
-            <ArticleCard article={article} variant="compact" listItem={false} />
-          </article>
-        ))}
+      <div className={`home-article-list-panel ${sidebarStyles.panelSurface}`} data-home-article-panel>
+        <div
+          className="home-latest-list"
+          data-home-article-secondary={testId}
+          data-home-latest-secondary={testId === "latest" ? "true" : undefined}
+        >
+          {secondary.map((article) => (
+            <article
+              className="home-latest-item"
+              key={article.slug}
+              data-home-article-slug={article.slug}
+              data-home-article-date={article.dateIso}
+              data-home-article-section={articlePortalSection(article)}
+            >
+              <ArticleCard article={article} variant="compact" listItem={false} />
+            </article>
+          ))}
+        </div>
+        {action}
       </div>
     </div>
   );
@@ -170,6 +181,14 @@ export function HomeLatestArticles({
   articles: Article[];
   sidebar?: ReactNode;
 }) {
+  const action = (
+    <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="latest">
+      <Link prefetch={false} href="/clanky" className="text-link">
+        Všetky články <ArrowIcon size={17} />
+      </Link>
+    </div>
+  );
+
   return (
     <section
       className="section shell home-latest-section home-news-section home-magazine-section"
@@ -185,22 +204,20 @@ export function HomeLatestArticles({
       </div>
       <HomeMagazineColumns sidebar={sidebar} sidebarLabel="Súvisiace podujatia k najnovším článkom">
         {articles.length ? (
-          <HomeArticleFeatureLayout articles={articles} testId="latest" />
+          <HomeArticleFeatureLayout articles={articles} testId="latest" action={action} />
         ) : (
-          <PublicEmptyState
-            variant="context"
-            className="home-editorial-empty"
-            data-home-latest-empty
-          >
-            <strong>Nové články pripravujeme</strong>
-            <p>Články zo všetkých redakčných kategórií sa tu zobrazia hneď po publikovaní.</p>
-          </PublicEmptyState>
+          <>
+            <PublicEmptyState
+              variant="context"
+              className="home-editorial-empty"
+              data-home-latest-empty
+            >
+              <strong>Nové články pripravujeme</strong>
+              <p>Články zo všetkých redakčných kategórií sa tu zobrazia hneď po publikovaní.</p>
+            </PublicEmptyState>
+            {action}
+          </>
         )}
-        <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="latest">
-          <Link prefetch={false} href="/clanky" className="text-link">
-            Všetky články <ArrowIcon size={17} />
-          </Link>
-        </div>
       </HomeMagazineColumns>
     </section>
   );
@@ -295,6 +312,15 @@ export function HomeEditorialSection({
   actionLabel: string;
   testId: string;
 }) {
+  const hasArticlePanel = !feature && articles.length > 0;
+  const action = (
+    <div className="home-section-cta home-section-cta--quiet" data-home-section-cta={testId}>
+      <Link prefetch={false} href={href} className="text-link">
+        {actionLabel} <ArrowIcon size={17} />
+      </Link>
+    </div>
+  );
+
   return (
     <section
       className="section shell home-editorial-section home-magazine-section"
@@ -311,7 +337,7 @@ export function HomeEditorialSection({
       <HomeMagazineColumns sidebar={sidebar} sidebarLabel={`Súvisiace k sekcii ${title}`}>
         {feature ??
           (articles.length ? (
-            <HomeArticleFeatureLayout articles={articles} testId={testId} />
+            <HomeArticleFeatureLayout articles={articles} testId={testId} action={action} />
           ) : (
             <PublicEmptyState
               variant="context"
@@ -323,11 +349,7 @@ export function HomeEditorialSection({
             </PublicEmptyState>
           ))}
       </HomeMagazineColumns>
-      <div className="home-section-cta home-section-cta--quiet" data-home-section-cta={testId}>
-        <Link prefetch={false} href={href} className="text-link">
-          {actionLabel} <ArrowIcon size={17} />
-        </Link>
-      </div>
+      {!hasArticlePanel ? action : null}
     </section>
   );
 }
