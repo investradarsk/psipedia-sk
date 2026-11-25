@@ -538,6 +538,7 @@ test("production-hot canonical breeder options and source facets preserve SQL re
         };
       },
     };
+    sqlite.exec(`ALTER TABLE managed_breeds ADD COLUMN seo_noindex INTEGER; ALTER TABLE managed_breeds ADD COLUMN seo_canonical_url TEXT; UPDATE managed_breeds SET seo_noindex=COALESCE(json_extract(seo_json,'$.noindex'),0), seo_canonical_url=json_extract(seo_json,'$.canonicalUrl');`);
     const canonicalIds = await readCanonicalBreedIds(database);
     assert.deepEqual(canonicalIds, sqlite.prepare(canonicalBreedIdsSql).all().map((row) => row.id).sort((a,b) => a-b));
     assert.deepEqual(canonicalIds,[1,3,5]);
