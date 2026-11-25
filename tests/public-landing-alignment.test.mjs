@@ -209,7 +209,7 @@ test("SERVICES-V2 keeps one GET search while only the clean root shows five per 
   // Step 8 starts the same bounded overview preview alongside hero and
   // editorial data. Filtered/category routes must still skip this query.
   assert.match(directory, /const \[categoryPreviews, heroVisual, discovery\] = await Promise\.all\(\[/);
-  assert.match(directory, /isOverview \? getDirectoryCategoryPreviews\(5\) : Promise\.resolve\(null\)/);
+  assert.match(directory, /isOverview \? retryTransientPublicRead\(\(\) => getDirectoryCategoryPreviews\(5\), \{ stage: "directory_category_previews" \}\) : Promise\.resolve\(null\)/);
   assert.doesNotMatch(directory, /isOverview \? await getDirectoryCategoryPreviews\(5\)/);
   assert.match(directory, /data-directory-category-previews/);
   assert.match(directory, /<DirectoryResults/);
