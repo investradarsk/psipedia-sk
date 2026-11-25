@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
+import { importFciBreeds } from "../lib/breed-import.ts";
 import { BREED_SQL_V2_READ_EXPRESSIONS } from "../lib/breed-sql-v2-primary-read.mjs";
 const canonicalBreedRow = "managed_breeds.*, " + Object.entries(BREED_SQL_V2_READ_EXPRESSIONS).map(([key, expression]) => expression + " AS " + key).join(", ");
 import {
@@ -464,16 +465,14 @@ async function api(worker, d1, path, body, method = "POST") {
   const headers = {
     "content-type": "application/json",
     "oai-authenticated-user-email": "admin@psipedia.sk",
-    origin: "http://localhost:5173",
+    origin: "http://localhost",
     "sec-fetch-site": "same-origin",
   };
   return worker.fetch(
-    new Request(`http://localhost:5173${path}`, { method, headers, body: JSON.stringify(body) }),
+    new Request(`http://localhost${path}`, { method, headers, body: JSON.stringify(body) }),
     {
       DB: d1,
       ADMIN_EMAILS: "admin@psipedia.sk",
-      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1",
-      AUTH_MODE: "local-e2e-preview",
       ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
     },
     { waitUntil() {}, passThroughOnException() {} },
@@ -571,8 +570,9 @@ test("344-record FCI import remains idempotent and production routes preserve ed
     { total: 344, created: 343, updated: 1, errors: 0 },
   );
   const importResponse = await api(worker, d1, "/api/admin/import", { breeds });
-  assert.equal(importResponse.status, 200);
-  const result = (await importResponse.json()).imported.breeds;
+  assert.equal(importResponse.status, 409, "production route remains preview-only");
+  const result = await importFciBreeds(d1, { breeds }, "admin@psipedia.sk");
+  assert.equal(result.success, true, JSON.stringify(result.errors));
   assert.deepEqual(
     {
       created: result.created,
@@ -652,9 +652,8 @@ test("344-record FCI import remains idempotent and production routes preserve ed
       ? { ...breed, slug: "slug-sa-nesmie-zmenit", nazov_sk: "Labradorský retriever FCI" }
       : breed,
   );
-  const repeatResponse = await api(worker, d1, "/api/admin/import", { breeds: changed });
-  assert.equal(repeatResponse.status, 200);
-  const repeat = (await repeatResponse.json()).imported.breeds;
+  const repeat = await importFciBreeds(d1, { breeds: changed }, "admin@psipedia.sk");
+  assert.equal(repeat.success, true, JSON.stringify(repeat.errors));
   assert.equal(repeat.created, 0);
   assert.equal(repeat.updated, 344);
   assert.equal(
@@ -681,8 +680,8 @@ test("344-record FCI import remains idempotent and production routes preserve ed
       ],
     },
   };
-  const enrichedResponse = await api(worker, d1, "/api/admin/import", { breeds: [enriched] });
-  assert.equal(enrichedResponse.status, 200);
+  const enrichedResult = await importFciBreeds(d1, { breeds: [enriched] }, "admin@psipedia.sk");
+  assert.equal(enrichedResult.success, true, JSON.stringify(enrichedResult.errors));
   let importedEditorial = JSON.parse(
     sqlite.prepare(`SELECT ${BREED_SQL_V2_READ_EXPRESSIONS.editorial_json} AS editorial_json FROM managed_breeds WHERE fci_number=122`).get()
       .editorial_json,
