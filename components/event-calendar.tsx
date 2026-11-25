@@ -295,7 +295,7 @@ export function EventCalendar({
     }
 
     setPendingDay(false);
-    const calendarOnly = sameListing && !pending && !loadError && !next.day;
+    const calendarOnly = sameListing && !pending && !loadError && (!next.day || data.calendarUnavailable);
     setPendingCalendarOnly(calendarOnly);
     setPending(true);
     const cached = cacheRef.current.get(key);
@@ -334,8 +334,13 @@ export function EventCalendar({
         setData(payload);
       }
     } catch {
-      if (!controller.signal.aborted)
-        setLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
+      if (!controller.signal.aborted) {
+        if (calendarOnly) {
+          setData((current) => ({ ...current, calendarEvents: [], calendarSummaries: undefined, calendarUnavailable: true }));
+        } else {
+          setLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
+        }
+      }
     } finally {
       if (!controller.signal.aborted) {
         setPending(false);
@@ -489,7 +494,11 @@ export function EventCalendar({
       {data.calendarUnavailable ? (
         <p role="status" className={styles.monthHint}>
           Kalendár je dočasne nedostupný. Zoznam podujatí je dostupný nižšie.{" "}
-          <a href={typePathname + windowSafeQuery(view)}>Načítať kalendár znova</a>
+          <a href={typePathname + windowSafeQuery(view)} onClick={(event) => {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            void navigate(typePathname + windowSafeQuery(view), view, false);
+          }}>Načítať kalendár znova</a>
         </p>
       ) : (
       <div className={styles.calendarLayout} data-events-calendar-layout>
