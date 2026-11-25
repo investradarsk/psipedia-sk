@@ -35,6 +35,23 @@ test("homepage featured card keeps its photograph readable beneath white metadat
   assert.match(homeStyles, /opacity:\s*1;/);
 });
 
+test("homepage urgent help badge keeps a WCAG AA contrast on premium coral", () => {
+  const badge = homeStyles.match(/\.homeV2 :global\(\.home-help-meta b\)\s*\{([^}]+)\}/)?.[1];
+  assert.ok(badge);
+  assert.match(badge, /background:\s*var\(--coral\);/);
+  assert.match(badge, /color:\s*#fff;/);
+
+  const premium = source("app/premium-foundation.css");
+  const coral = premium.match(/--coral:\s*#([\da-f]{6});/i)?.[1];
+  assert.ok(coral);
+  const channels = coral.match(/../g).map((hex) => parseInt(hex, 16) / 255);
+  const linear = channels.map((channel) =>
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+  );
+  const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  assert.ok(1.05 / (luminance + 0.05) >= 4.5, "Urgent badge must meet WCAG AA");
+});
+
 test("bookmark and share use one reusable public utility action style", () => {
   assert.match(favorite, /public-utility-action favorite-button/);
   assert.match(share, /utilityStyles.utility/);
