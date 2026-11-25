@@ -90,3 +90,66 @@ test("directory SSR diagnostics cover primary listing, previews, hero and sideba
   }
   assert.match(component, /const \[categoryPreviews, heroVisual, discovery\] = await Promise\.all\(\[/);
 });
+
+test("wrapped D1 transport failures retry once", async () => {
+  let reads = 0;
+  const value = await retryTransientPublicRead(async () => {
+    if (++reads === 1) {
+      throw new Error("D1 query failed", { cause: new Error("Network connection lost.") });
+    }
+    return 42;
+  });
+  assert.equal(value, 42);
+  assert.equal(reads, 2);
+});
+
+test("abort, permanent and framework errors veto a transient cause", () => {
+  const cause = new Error("Network connection lost.");
+  const abort = new Error("Cancelled", { cause });
+  abort.name = "AbortError";
+  const redirect = Object.assign(new Error("Render failed", { cause }), { digest: "NEXT_REDIRECT;replace" });
+  const denied = Object.assign(new Error("Request failed", { cause }), { status: 403 });
+  for (const error of [abort, redirect, denied, new Error("no such column: x", { cause })]) {
+    assert.equal(isTransientPublicReadError(error), false);
+  }
+  const cycle = new Error("Network connection lost.");
+  cycle.cause = cycle;
+  assert.equal(isTransientPublicReadError(cycle), false);
+});
+
+test("aborted requests do not start or replay reads", async () => {
+  const controller = new AbortController();
+  let reads = 0;
+  controller.abort();
+  await assert.rejects(retryTransientPublicRead(async () => ++reads, { signal: controller.signal }));
+  assert.equal(reads, 0);
+  const during = new AbortController();
+  await assert.rejects(retryTransientPublicRead(async () => {
+    reads++;
+    during.abort();
+    throw new Error("Network connection lost.");
+  }, { signal: during.signal }));
+  assert.equal(reads, 1);
+});
+
+test("abort during backoff prevents the second read", async () => {
+  const controller = new AbortController();
+  let reads = 0;
+  const promise = retryTransientPublicRead(async () => {
+    reads++;
+    setTimeout(() => controller.abort(), 0);
+    throw new Error("Network connection lost.");
+  }, { signal: controller.signal });
+  await assert.rejects(promise);
+  assert.equal(reads, 1);
+});
+
+test("second failure is returned unchanged, even if it is not transient", async () => {
+  const second = new Error("no such table: articles");
+  let reads = 0;
+  await assert.rejects(retryTransientPublicRead(async () => {
+    if (++reads === 1) throw new Error("Network connection lost.");
+    throw second;
+  }), error => error === second);
+  assert.equal(reads, 2);
+});
