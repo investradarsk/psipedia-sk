@@ -88,12 +88,17 @@ test("informational pages opt into readability without globally enlarging contro
   assert.match(premium, /--ps-reading-font:\s*var\(--ps-font-body\)/);
 });
 
-test("Typography V1 shares semantic roles across public cards, profiles and Partner without changing mobile article prose", () => {
+test("Typography shares semantic roles while keeping navigation and detail prose on independent scales", () => {
   const premium = read("app/premium-foundation.css");
   const tokens = {
-    "article-desktop": "1.1875rem",
-    "article-lead-desktop": "1.25rem",
+    "article-desktop": "1.06875rem",
+    "article-lead-desktop": "1.125rem",
+    "article-mobile": "0.84375rem",
+    "article-lead-mobile": "0.9rem",
     profile: "1rem",
+    "profile-detail": "0.9rem",
+    "profile-detail-lead": "0.9rem",
+    navigation: "0.7875rem",
     compact: ".875rem",
     "sidebar-title": ".9375rem",
     meta: ".75rem",
@@ -110,6 +115,18 @@ test("Typography V1 shares semantic roles across public cards, profiles and Part
   assert.ok(desktopReading[1].includes("var(--ps-type-article-desktop"));
   assert.ok(desktopReading[1].includes("var(--ps-type-article-lead-desktop"));
   assert.doesNotMatch(premium, /--ps-reading-size:\s*var\(--ps-type-article-desktop/);
+  assert.ok(articles.includes("var(--ps-type-article-mobile"));
+  assert.ok(articles.includes("var(--ps-type-article-lead-mobile"));
+  assert.ok(details.includes("var(--ps-type-profile-detail,"));
+  assert.ok(breeds.includes("var(--ps-type-profile-detail,"));
+  assert.match(
+    premium,
+    /:is\(\.site-header \.desktop-nav a, \.site-header \.mobile-menu a\)\s*\{[^}]*font-size:\s*var\(--ps-type-navigation\)/s,
+  );
+  assert.match(
+    premium,
+    /:is\(\.button, \.text-link\)\s*\{[^}]*font-size:\s*var\(--ps-type-control\)/s,
+  );
   for (const file of [
     "components/public-heading.module.css",
     "components/detail-primitives/detail-primitives.module.css",

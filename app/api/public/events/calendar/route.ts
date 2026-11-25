@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const today = bratislavaDateKey();
   const filters = parseEventListing(raw, type);
   const month = resolveCalendarMonth(
-    eventMonthFilterFromParam(raw.kalendar),
+    filters.day?.slice(0, 7) || eventMonthFilterFromParam(raw.kalendar),
     eventMonthFilterFromParam(raw.mesiac),
     today,
   );

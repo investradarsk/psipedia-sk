@@ -162,7 +162,6 @@ export async function HelpOverview({
             <PublicCategorySection
               eyebrow="Kategórie pomoci"
               title="Vyberte, čo chcete riešiť"
-              description="Vyberte typ pomoci a prejdite na úplný prehľad."
               id="help-categories-heading"
             >
               <PublicHelpCategoryNav items={sections.map((section) => ({

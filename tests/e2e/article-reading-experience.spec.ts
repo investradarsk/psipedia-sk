@@ -246,8 +246,8 @@ for (const articleCase of cases) {
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
     }
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 24 + 1);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(14.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(15.1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(13.4);
+    expect(metrics.proseSize).toBeLessThanOrEqual(13.6);
     expect(metrics.canvasColor).toBe("rgb(247, 242, 233)");
     expect(metrics.bodyColor).toBe("rgb(41, 72, 62)");
     expect(metrics.proseFontFamily).toMatch(/^"?Psipedia Inter"?,/);
@@ -467,8 +467,8 @@ for (const articleCase of cases) {
     }
     expect(metrics.proseWidth).toBeGreaterThanOrEqual(790);
     expect(metrics.proseWidth).toBeLessThanOrEqual(805);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(18.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(19.1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(17.0);
+    expect(metrics.proseSize).toBeLessThanOrEqual(17.2);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.68);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.72);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
@@ -681,7 +681,12 @@ test("ARTICLE-2 preserves canonical Article schema, dates, author and image meta
 });
 
 
-test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions", async ({ page }) => {
+test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions", async ({ page, context, baseURL }) => {
+  // The isolated Chromium context does not reliably grant clipboard access
+  // for emulated mobile devices. Exercise the real Clipboard API explicitly.
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: new URL(baseURL ?? "http://127.0.0.1:5173").origin,
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku", { waitUntil: "domcontentloaded" });
 
@@ -698,6 +703,9 @@ test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions",
   await expect(sharing.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", /wa\.me/);
   await sharing.getByRole("button", { name: "Kopírovať odkaz" }).click();
   await expect(sharing.getByRole("button", { name: "Odkaz skopírovaný" })).toBeVisible();
+  const expectedUrl = await page.locator('link[rel="canonical"]').getAttribute("href");
+  expect(expectedUrl).toBeTruthy();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(expectedUrl);
 
   await expectNoSeriousAccessibilityViolations(page);
 });

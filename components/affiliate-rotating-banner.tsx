@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   getAvailableAffiliateOriginalBanners,
+  getAffiliateBannerCandidates,
   nextAffiliateRotation,
   type AffiliateBannerFormat,
   type AffiliateBannerPlacement,
@@ -11,28 +12,30 @@ import {
 import styles from "./affiliate-rotating-banner.module.css";
 
 // Rotation lives in memory only: no cookies or browser storage.
-let nextBannerIndex: number | null = null;
+const nextBannerIndexBySlot = new Map<string, number>();
 
 /**
  * Renders only original merchant artwork supplied by Dognet.
- * A horizontal slot selects square artwork on phones; tall images stay in
- * article sidebars. Original image aspect ratios are preserved.
+ * Horizontal slots rotate original artwork on desktop and use square artwork on phones.
+ * Sidebar slots keep tall artwork. Original image aspect ratios are preserved.
  */
 export function AffiliateRotatingBanner({
   placement = "horizontal",
+  sitewide = false,
 }: {
   placement?: AffiliateBannerPlacement;
+  sitewide?: boolean;
 }) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [selection, setSelection] = useState<{ key: string; index: number } | null>(null);
-  const [failedImage, setFailedImage] = useState<string | null>(null);
-  const [loadedImage, setLoadedImage] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<{ key: string; sources: string[] } | null>(null);
+  const [loadedImage, setLoadedImage] = useState<{ key: string; src: string } | null>(null);
   const lastSelectionKey = useRef<string | null>(null);
 
   useEffect(() => {
     if (placement !== "horizontal") return;
-    const media = window.matchMedia("(max-width: 680px)");
+    const media = window.matchMedia("(max-width: 767px)");
     const sync = () => setIsMobile(media.matches);
     sync();
     media.addEventListener("change", sync);
@@ -45,28 +48,31 @@ export function AffiliateRotatingBanner({
       ? null
       : isMobile
         ? "mobile"
-        : "horizontal";
+        : "adaptive";
   const banners = format ? getAvailableAffiliateOriginalBanners(format) : [];
-  const selectionKey = `${pathname ?? ""}:${format ?? placement}`;
-  const selected = selection?.key === selectionKey ? banners[selection.index] : null;
+  const slotKey = `${sitewide ? "sitewide" : placement}:${format ?? placement}`;
+  const selectionKey = `${pathname ?? ""}:${slotKey}`;
+  const candidates = format && selection?.key === selectionKey
+    ? getAffiliateBannerCandidates(format, selection.index)
+    : [];
+  const failedSources = failedImages?.key === selectionKey ? failedImages.sources : [];
+  const selected = candidates.find(({ creative }) => !failedSources.includes(creative.src));
   const original = selected?.creative;
-  const imageLoaded = Boolean(original && loadedImage === original.src);
+  const imageLoaded = Boolean(original && loadedImage?.key === selectionKey && loadedImage.src === original.src);
 
   useEffect(() => {
     if (!pathname || !format || !banners.length || lastSelectionKey.current === selectionKey) return;
     lastSelectionKey.current = selectionKey;
-    const initialIndex = nextBannerIndex === null
-      ? Math.floor(Math.random() * banners.length)
-      : nextBannerIndex;
+    const initialIndex = nextBannerIndexBySlot.get(slotKey) ?? Math.floor(Math.random() * banners.length);
     const rotation = nextAffiliateRotation(initialIndex, banners.length);
-    nextBannerIndex = rotation.next;
+    nextBannerIndexBySlot.set(slotKey, rotation.next);
     setSelection({ key: selectionKey, index: rotation.selected });
-    setFailedImage(null);
-  }, [pathname, format, selectionKey, banners.length]);
+    setFailedImages(null);
+  }, [pathname, format, selectionKey, slotKey, banners.length]);
 
-  // Never display a blank ad frame or an affiliate label without a real image.
-  // Image decoding and CSP/network errors must not leave empty promotional UI.
-  if (!selected || !original || failedImage === original.src) return null;
+  // Retry the remaining original creatives on image/CSP/network errors.
+  // Once all candidates fail, do not display a broken ad or a bare label.
+  if (!selected || !original) return null;
 
   return (
     <aside
@@ -84,15 +90,20 @@ export function AffiliateRotatingBanner({
           aria-label={`Reklama ${selected.name}: otvoriť obchod v novej karte`}
         >
           <img
+            key={`${selectionKey}:${original.src}`}
             className={styles.image}
             src={original.src}
             alt={`Reklamný banner ${selected.name}`}
             width={original.width}
             height={original.height}
+            referrerPolicy="no-referrer"
             loading="lazy"
             decoding="async"
-            onLoad={() => setLoadedImage(original.src)}
-            onError={() => setFailedImage(original.src)}
+            onLoad={() => setLoadedImage({ key: selectionKey, src: original.src })}
+            onError={() => setFailedImages((previous) => ({
+              key: selectionKey,
+              sources: [...(previous?.key === selectionKey ? previous.sources : []), original.src],
+            }))}
           />
         </a>
     </aside>

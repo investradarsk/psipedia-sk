@@ -58,7 +58,7 @@ test("specific statuses, critical contact details, filters and safety stay intac
   assert.match(help, /item.raisedAmount !== null/);
   assert.match(help, /role="progressbar"/);
   assert.match(helpDetail, /Pomáhajte bezpečne/);
-  assert.match(lost, /dogReportTypeLabel\(type\)/);
+  assert.match(lost, /dogReportTypeLabel\(report\.type\)/);
   assert.match(lostDetail, /Telefón a e-mail oznamovateľa nie sú automaticky publikované/);
   assert.match(adoption, /<PublicFilterDisclosure/);
   assert.match(lost, /<PublicFilterDisclosure/);
@@ -259,4 +259,22 @@ test("adoption details reuse the exact lost/found dog template, contacts and pub
     adoptionCss,
     /\.detailGrid|\.detailPanel|\.contactCard|\.detailFacts|\.heroActions/,
   );
+});
+
+test("all Help profile categories share the same title and compact hero variant", () => {
+  const shared = read("components/detail-primitives/detail-primitives.tsx");
+  assert.match(shared, /export function DetailProfileTitle\(/);
+  assert.match(shared, /data-help-profile-title/);
+  for (const file of [
+    "components/adoption-detail.tsx",
+    "components/lost-found-dog-detail.tsx",
+    "components/help-details/help-detail-shell.tsx",
+    "components/public-profile/public-profile-hero.tsx",
+  ]) {
+    const source = read(file);
+    assert.match(source, /<DetailProfileTitle\b/, file);
+    assert.match(source, /mediaPresentation="compact"/, file);
+  }
+  const css = read("components/detail-primitives/detail-primitives.module.css");
+  assert.match(css, /data-public-detail-hero="lost-found"\],\s*\[data-public-detail-hero="organization"\]/);
 });

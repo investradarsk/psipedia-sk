@@ -51,6 +51,10 @@
   min-height: 100px;
 }
 
+.horizontal .image {
+  max-height: 300px;
+}
+
 .sidebar {
   width: min(100%, 290px);
   margin: 22px auto 0;
@@ -61,7 +65,7 @@
   min-height: 600px;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 767px) {
   .horizontal {
     width: min(calc(100% - 28px), 300px);
     margin: 20px auto 24px;

@@ -207,14 +207,30 @@ test("FCI atlas keeps native filtering, memoizes normalized input and visits eac
   assert.doesNotMatch(browser, /normalizeBreedSearchText\(/);
 });
 
-test("calendar month/day projections are memoized without changing navigation or fetch semantics", () => {
+test("calendar month summaries are memoized and selected days use the paginated SQL listing", () => {
   const calendar = read("components/event-calendar.tsx");
+  const api = read("app/api/public/events/calendar/route.ts");
+  const listing = read("lib/event-listing.ts");
   assert.match(calendar, /useMemo\(\(\) => calendarMonthDays\(visibleMonth\), \[visibleMonth\]\)/);
   assert.match(calendar, /const daySummaries = useMemo\(/);
   assert.match(calendar, /\[pending, data\.calendarSummaries, data\.calendarEvents, days\]/);
-  assert.match(calendar, /const dailyEvents = useMemo\(/);
-  assert.match(calendar, /\[selectedDay, pending, pendingDay, data\.calendarEvents\]/);
-  assert.match(calendar, /const DesktopEventFullCalendar = dynamic/);
+  assert.match(
+    calendar,
+    /const filtered = loadError \|\| \(pending && !pendingCalendarOnly\) \? \[\] : data\.events/,
+  );
+  assert.match(
+    calendar,
+    /<EventListingResults[\s\S]*?events=\{filtered\}[\s\S]*?listing=\{data\.listing\}[\s\S]*?day=\{selectedDay\}/,
+  );
+  assert.match(calendar, /if \(state\.day\) params\.set\("den", state\.day\)/);
+  assert.match(
+    calendar,
+    /const calendarOnly = sameListing && !pending && !loadError && !next\.day/,
+  );
+  assert.match(api, /const filters = parseEventListing\(raw, type\)/);
+  assert.match(api, /getPublishedEventListing\(filters\)/);
+  assert.match(listing, /add\(\x60start_date <= \? AND \$\{end\} >= \?\x60, f\.day, f\.day\)/);
+  assert.doesNotMatch(calendar, /const dailyEvents = useMemo\(/);
   assert.match(calendar, /signal: controller\.signal/);
   assert.match(calendar, /calendarOnly/);
   assert.match(calendar, /popstate/);

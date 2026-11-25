@@ -2,6 +2,7 @@ import { parseEventListing, eventTypeSelectionRedirect, eventListingPageHref } f
 import { getPublishedEventListing, getPublicEventCalendar } from '@/lib/event-store';
 import type { Metadata } from "next";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { listPriorityEditorialLinks } from "@/lib/priority-editorial-links";
 import { ArticleDetail } from "@/components/article-detail";
 import { NewsHub } from "@/components/news-hub";
 import { EventDetail } from "@/components/event-detail";
@@ -112,7 +113,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     const rawSearchParams = await searchParams;
     const typeRedirect = eventTypeSelectionRedirect(rawSearchParams);
     if (typeRedirect) redirect(typeRedirect);
-    const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
+    const calendarMonth = resolveCalendarMonth(parseEventListing(rawSearchParams).day?.slice(0, 7) || eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
     const [managedSection, events, calendarEvents] = await Promise.all([
       getManagedPortalSection(section),
       getPublishedEventListing(parseEventListing(rawSearchParams, eventType)),
@@ -146,7 +147,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     const rawSearchParams = await searchParams;
     const typeRedirect = eventTypeSelectionRedirect(rawSearchParams);
     if (typeRedirect) redirect(typeRedirect);
-    const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
+    const calendarMonth = resolveCalendarMonth(parseEventListing(rawSearchParams).day?.slice(0, 7) || eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
     const [events, calendarEvents] = await Promise.all([getPublishedEventListing(parseEventListing(rawSearchParams)), getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? '')]);
     return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={events.events} calendarEvents={calendarEvents.events} calendarSummaries={calendarEvents.summaries} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   }
@@ -211,7 +212,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   const canonical = articleHref(article);
   if (canonical !== `/${section}/${slug}`) permanentRedirect(canonical);
 
-  const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads] = await Promise.all([
+  const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads, priorityLinks] = await Promise.all([
     getArticleMagazineData(article),
     getArticleDiscoveryData(storedArticle),
     getPublishedArticleAuthorProfile(article),
@@ -229,6 +230,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
           window: "all",
         })
       : Promise.resolve(null),
+    listPriorityEditorialLinks(canonical),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} qualifiedReads={qualifiedReads} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={managedSection} />;
+  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} qualifiedReads={qualifiedReads} authorProfile={authorProfile} relatedBreeds={relatedBreeds} priorityLinks={priorityLinks} portalSection={managedSection} />;
 }

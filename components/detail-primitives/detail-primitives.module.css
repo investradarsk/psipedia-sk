@@ -1208,12 +1208,13 @@
   }
 }
 
-/* Compact Help dog heroes: top-aligned copy, bounded natural portrait images.
-   Applies to Help, adoptions and lost/found, never services or events. */
+/* One Help profile hero: identical geometry for organizations, adoptions,
+   lost/found and other Help cases. Directory, events and breeds are unaffected. */
 .hero:is(
     [data-public-detail-hero="help"],
     [data-public-detail-hero="adoption"],
-    [data-public-detail-hero="lost-found"]
+    [data-public-detail-hero="lost-found"],
+    [data-public-detail-hero="organization"]
   )
   .heroFrame {
   align-items: start;
@@ -1222,7 +1223,8 @@
 .hero:is(
     [data-public-detail-hero="help"],
     [data-public-detail-hero="adoption"],
-    [data-public-detail-hero="lost-found"]
+    [data-public-detail-hero="lost-found"],
+    [data-public-detail-hero="organization"]
   )
   .heroCopy {
   align-self: start;
@@ -1230,7 +1232,8 @@
 .hero:is(
     [data-public-detail-hero="help"],
     [data-public-detail-hero="adoption"],
-    [data-public-detail-hero="lost-found"]
+    [data-public-detail-hero="lost-found"],
+    [data-public-detail-hero="organization"]
   )
   .heroMedia {
   align-self: start;
@@ -1240,7 +1243,8 @@
 .hero:is(
     [data-public-detail-hero="help"],
     [data-public-detail-hero="adoption"],
-    [data-public-detail-hero="lost-found"]
+    [data-public-detail-hero="lost-found"],
+    [data-public-detail-hero="organization"]
   )
   .heroMedia:has([data-image-display="natural"]) {
   align-self: start;
@@ -1252,14 +1256,16 @@
 .hero:is(
     [data-public-detail-hero="help"],
     [data-public-detail-hero="adoption"],
-    [data-public-detail-hero="lost-found"]
+    [data-public-detail-hero="lost-found"],
+    [data-public-detail-hero="organization"]
   )
   .heroMedia
   [data-image-display="natural"],
 .hero:is(
     [data-public-detail-hero="help"],
     [data-public-detail-hero="adoption"],
-    [data-public-detail-hero="lost-found"]
+    [data-public-detail-hero="lost-found"],
+    [data-public-detail-hero="organization"]
   )
   .heroMedia
   [data-image-display="natural"]
@@ -1269,7 +1275,8 @@
 .hero:is(
     [data-public-detail-hero="help"],
     [data-public-detail-hero="adoption"],
-    [data-public-detail-hero="lost-found"]
+    [data-public-detail-hero="lost-found"],
+    [data-public-detail-hero="organization"]
   )
   .heroMedia
   [data-image-display="natural"]
@@ -1283,7 +1290,8 @@
   .hero:is(
       [data-public-detail-hero="help"],
       [data-public-detail-hero="adoption"],
-      [data-public-detail-hero="lost-found"]
+      [data-public-detail-hero="lost-found"],
+      [data-public-detail-hero="organization"]
     )
     .heroFrame {
     grid-template-columns: minmax(0, 1fr);
@@ -1291,13 +1299,15 @@
   .hero:is(
       [data-public-detail-hero="help"],
       [data-public-detail-hero="adoption"],
-      [data-public-detail-hero="lost-found"]
+      [data-public-detail-hero="lost-found"],
+      [data-public-detail-hero="organization"]
     )
     .heroMedia,
   .hero:is(
       [data-public-detail-hero="help"],
       [data-public-detail-hero="adoption"],
-      [data-public-detail-hero="lost-found"]
+      [data-public-detail-hero="lost-found"],
+      [data-public-detail-hero="organization"]
     )
     .heroMedia:has([data-image-display="natural"]) {
     grid-row: 1;
@@ -1306,14 +1316,16 @@
   .hero:is(
       [data-public-detail-hero="help"],
       [data-public-detail-hero="adoption"],
-      [data-public-detail-hero="lost-found"]
+      [data-public-detail-hero="lost-found"],
+      [data-public-detail-hero="organization"]
     )
     .heroMedia
     [data-image-display="natural"],
   .hero:is(
       [data-public-detail-hero="help"],
       [data-public-detail-hero="adoption"],
-      [data-public-detail-hero="lost-found"]
+      [data-public-detail-hero="lost-found"],
+      [data-public-detail-hero="organization"]
     )
     .heroMedia
     [data-image-display="natural"]
@@ -1323,7 +1335,8 @@
   .hero:is(
       [data-public-detail-hero="help"],
       [data-public-detail-hero="adoption"],
-      [data-public-detail-hero="lost-found"]
+      [data-public-detail-hero="lost-found"],
+      [data-public-detail-hero="organization"]
     )
     .heroCopy {
     grid-row: 2;
@@ -1414,9 +1427,9 @@
 .page,
 .publicDetailShell,
 .section {
-  --ps-reading-size: var(--ps-type-profile, 1rem);
+  --ps-reading-size: var(--ps-type-profile-detail, 0.9rem);
   --ps-reading-leading: var(--ps-type-body-leading, 1.6);
-  --ps-reading-lead-size: var(--ps-type-profile-lead, 1rem);
+  --ps-reading-lead-size: var(--ps-type-profile-detail-lead, 0.9rem);
 }
 .section h2.compactHeading,
 .card[data-public-contact-panel] h2 {

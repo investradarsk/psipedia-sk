@@ -317,7 +317,7 @@ test("most-read ranking uses one visual component on every article detail route"
   assert.match(sidebar, /7 dní/);
   assert.match(sidebar, /role="tablist"/);
   assert.match(sidebar, /data-popularity-window=\{activeWindow\}/);
-  assert.match(styling, /\.popularity\s*\{[^}]*border-radius:/s);
+  assert.match(styling, /\.popularity\s*,\s*\.panelSurface\s*\{[^}]*border-radius:/s);
   assert.match(styling, /\.tabs \.activeTab/);
   assert.match(styling, /\.thumbnail img/);
 });

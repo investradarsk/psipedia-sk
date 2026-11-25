@@ -2,21 +2,17 @@
 import { formatSlovakCount } from "@/lib/slovak-count";
 
 import { EventListingResults } from "./event-listing-results";
-import dynamic from "next/dynamic";
-import { EventImage } from "@/components/event-image";
 import { PublicSubcategoryNavigator } from "@/components/public-visual-system";
 import {
   eventListingParams,
   parseEventListing,
   type EventListingFilters,
 } from "@/lib/event-listing";
-import Link from "next/link";
 import {
   useEffect,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type CSSProperties,
   type ReactNode,
   type MouseEvent,
@@ -27,39 +23,23 @@ import {
   calendarDaySummary,
   calendarMonthLabel,
   calendarWeekdays,
-  eventsForCalendarDay,
   moveCalendarMonth,
   resolveCalendarMonth,
 } from "@/lib/event-calendar-view";
 import {
-  eventHref,
   eventTimeFilterParam,
   eventTimeFilterFromParam,
   eventMonthFilterFromParam,
   eventTypePortalHref,
   eventTypes,
-  formatEventDate,
   type PublicEventDayPreview,
   type PublicEventCard,
   type EventTimeFilter,
   type EventType,
   type SlovakRegion,
 } from "@/lib/events";
-import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
 import { eventsListingType, rememberEventsListing } from "./events-return-link";
-
-const DesktopEventFullCalendar = dynamic(
-  () => import("./desktop-event-fullcalendar").then((mod) => mod.DesktopEventFullCalendar),
-  { ssr: false },
-);
-const subscribeDesktopCalendar = (notify: () => void) => {
-  const media = window.matchMedia("(min-width: 761px)");
-  media.addEventListener("change", notify);
-  return () => media.removeEventListener("change", notify);
-};
-const desktopCalendarSnapshot = () => window.matchMedia("(min-width: 761px)").matches;
-const serverDesktopCalendarSnapshot = () => false;
 
 function dateLabel(day: string) {
   return new Intl.DateTimeFormat("sk-SK", {
@@ -85,6 +65,7 @@ export function EventCalendar({
   initialCalendarMonth = "",
   initialDay = "",
   afterCalendar,
+  sidebar,
 }: {
   events: PublicEventCard[];
   filters?: EventListingFilters;
@@ -100,12 +81,8 @@ export function EventCalendar({
   initialCalendarMonth?: string;
   initialDay?: string;
   afterCalendar?: ReactNode;
+  sidebar?: ReactNode;
 }) {
-  const isDesktopCalendar = useSyncExternalStore(
-    subscribeDesktopCalendar,
-    desktopCalendarSnapshot,
-    serverDesktopCalendarSnapshot,
-  );
   const initialFilters =
     filters ??
     parseEventListing(
@@ -146,10 +123,8 @@ export function EventCalendar({
     calendarSummaries,
   }));
   const [pending, setPending] = useState(false);
-  const [pendingDay, setPendingDay] = useState(false);
   const [pendingCalendarOnly, setPendingCalendarOnly] = useState(false);
   const [loadError, setLoadError] = useState("");
-  const [dayLoadError, setDayLoadError] = useState("");
   const calendarRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -181,7 +156,7 @@ export function EventCalendar({
       calendarSummaries,
     });
   }, []);
-  const f = { ...initialFilters, month: view.filterMonth, time: view.time, type: view.type };
+  const f = { ...initialFilters, day: view.day || undefined, month: view.filterMonth, time: view.time, type: view.type };
   const query = initialQuery.trim().slice(0, 120);
   const region = initialRegion;
   const month = view.filterMonth;
@@ -197,7 +172,7 @@ export function EventCalendar({
       : "";
   const typePathname =
     view.type === "Všetky" ? "/podujatia" : (eventTypePortalHref(view.type) ?? "/podujatia");
-  const filtered = pending && !pendingCalendarOnly ? [] : data.events;
+  const filtered = loadError || (pending && !pendingCalendarOnly) ? [] : data.events;
   // A calendar response can contain many event previews. Avoid regenerating
   // summaries and scanning day events when unrelated UI controls rerender.
   const daySummaries = useMemo(
@@ -213,14 +188,6 @@ export function EventCalendar({
             ),
     [pending, data.calendarSummaries, data.calendarEvents, days],
   );
-  const dailyEvents = useMemo(
-    () =>
-      selectedDay && !pending && !pendingDay
-        ? eventsForCalendarDay(data.calendarEvents, selectedDay)
-        : [],
-    [selectedDay, pending, pendingDay, data.calendarEvents],
-  );
-
   async function navigate(href: string, next: Omit<View, "page">, addHistory = true) {
     requestRef.current?.abort();
     const controller = new AbortController();
@@ -234,7 +201,6 @@ export function EventCalendar({
     }).page;
     setView({ ...next, page: nextPage });
     setLoadError("");
-    setDayLoadError("");
     const endpoint = new URL("/api/public/events/calendar", window.location.origin);
     target.searchParams.forEach((value, key) => endpoint.searchParams.set(key, value));
     if (next.type !== "Všetky") endpoint.searchParams.set("typ", next.type);
@@ -243,53 +209,8 @@ export function EventCalendar({
       view.time === next.time &&
       view.type === next.type &&
       view.filterMonth === next.filterMonth &&
-      view.page === nextPage;
-    const sameMonth = sameListing && view.month === next.month;
-
-    // A day selection changes only the right-hand panel. The list and month
-    // aggregates are already loaded, so avoid repeating their expensive D1 reads.
-    if (sameMonth && !pending && !loadError) {
-      setPendingDay(false);
-      if (next.day === view.day && !pendingDay && !dayLoadError) return;
-      if (
-        !next.day ||
-        (data.calendarSummaries &&
-          !data.calendarSummaries.some((item) => item.date === next.day && item.count > 0))
-      ) {
-        setData((current) => ({ ...current, calendarEvents: [] }));
-        return;
-      }
-      const cachedDay = cacheRef.current.get(key);
-      if (cachedDay) {
-        setData((current) => ({ ...current, calendarEvents: cachedDay.calendarEvents }));
-        return;
-      }
-      setPendingDay(true);
-      const dayEndpoint = new URL(endpoint);
-      dayEndpoint.pathname += "/day";
-      try {
-        const response = await fetch(dayEndpoint.toString(), {
-          signal: controller.signal,
-          headers: { Accept: "application/json" },
-        });
-        if (!response.ok) throw new Error("Day request failed");
-        const dayPayload = (await response.json()) as { calendarEvents: PublicEventDayPreview[] };
-        if (!Array.isArray(dayPayload.calendarEvents)) throw new Error("Invalid day response");
-        if (!controller.signal.aborted) {
-          const payload = { ...data, calendarEvents: dayPayload.calendarEvents };
-          remember(key, payload);
-          setData((current) => ({ ...current, calendarEvents: dayPayload.calendarEvents }));
-        }
-      } catch {
-        if (!controller.signal.aborted)
-          setDayLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
-      } finally {
-        if (!controller.signal.aborted) setPendingDay(false);
-      }
-      return;
-    }
-
-    setPendingDay(false);
+      view.page === nextPage &&
+      view.day === next.day;
     const calendarOnly = sameListing && !pending && !loadError && !next.day;
     setPendingCalendarOnly(calendarOnly);
     setPending(true);
@@ -385,12 +306,12 @@ export function EventCalendar({
   }, []);
 
   function calendarHref(targetMonth: string, day = "") {
-    const params = eventListingParams(f);
+    const params = eventListingParams({ ...f, day: undefined });
     if (query) params.set("q", query);
     if (region) params.set("region", region);
     // A month filter must not silently suppress every day after navigating to a different month.
     if (month && targetMonth !== month) params.delete("mesiac");
-    else if (view.page > 1) params.set("strana", String(view.page));
+    else if (!day && !view.day && view.page > 1) params.set("strana", String(view.page));
     const timeParam = eventTimeFilterParam(view.time);
     if (timeParam) params.set("termin", timeParam);
     if (targetMonth !== (month || todayMonth)) params.set("kalendar", targetMonth);
@@ -414,8 +335,8 @@ export function EventCalendar({
   }
 
   useEffect(() => {
-    if (pending || pendingDay || !selectedDay || loadError) return;
-    const target = document.getElementById("vybrany-den");
+    if (pending || !selectedDay || loadError) return;
+    const target = document.getElementById("events-list");
     if (!target) return;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ? "auto"
@@ -424,11 +345,12 @@ export function EventCalendar({
       target.scrollIntoView({ behavior: motion, block: "start" }),
     );
     return () => window.cancelAnimationFrame(id);
-  }, [selectedDay, pending, pendingDay, loadError]);
+  }, [selectedDay, pending, loadError]);
 
   const windowSafeQuery = (state: View) => {
     const params = eventListingParams({
       ...initialFilters,
+      day: state.day || undefined,
       time: state.time,
       month: state.filterMonth,
       type: state.type,
@@ -459,7 +381,7 @@ export function EventCalendar({
       className={styles.calendar}
       data-public-calendar
       data-event-workspace
-      aria-busy={pending || pendingDay}
+      aria-busy={pending}
     >
       <div className={styles.resultBar}>
         <p className={styles.periodLabel}>Obdobie podujatí</p>
@@ -480,6 +402,31 @@ export function EventCalendar({
         />
       </div>
 
+
+      {pending ? (
+        <p role="status" className={styles.monthHint}>
+          Načítavajú sa podujatia…
+        </p>
+      ) : null}
+      {loadError ? (
+        <p role="alert" className={styles.monthHint}>
+          {loadError} <a href={typePathname + windowSafeQuery(view)}>Načítať stránku</a>
+        </p>
+      ) : null}
+
+      <EventListingResults
+          beforeResults={afterCalendar}
+          events={filtered}
+          filters={f}
+          listing={data.listing}
+          today={today}
+          pathname={typePathname}
+          title={selectedDay ? `Podujatia – ${dateLabel(selectedDay)}` : upcomingTitle}
+          calendarMonth={visibleMonth}
+          day={selectedDay}
+          pending={pending && !pendingCalendarOnly}
+          loadError={loadError}
+          sidebar={<>
       <div className={styles.calendarLayout} data-events-calendar-layout>
         <section
           className={styles.monthCalendar}
@@ -544,26 +491,6 @@ export function EventCalendar({
                 </nav>
               </div>
 
-              {isDesktopCalendar ? (
-                <DesktopEventFullCalendar
-                  month={visibleMonth}
-                  today={today}
-                  selectedDay={selectedDay}
-                  summaries={Array.from(daySummaries.values())}
-                  hrefForDay={(date) => calendarHref(visibleMonth, date)}
-                  onSelectDay={(date) =>
-                    void navigate(calendarHref(visibleMonth, date) + "#vybrany-den", {
-                      ...view,
-                      day: date,
-                    })
-                  }
-                />
-              ) : (
-                <div className={styles.desktopCalendarPending} aria-hidden="true">
-                  Načítavam kalendár…
-                </div>
-              )}
-              {!isDesktopCalendar && (
                 <div
                   className={styles.monthGrid}
                   role="group"
@@ -586,11 +513,11 @@ export function EventCalendar({
                     return (
                       <a
                         key={day.date}
-                        href={calendarHref(visibleMonth, day.date) + "#vybrany-den"}
+                        href={calendarHref(visibleMonth, day.date) + "#events-list"}
                         onClick={(event) =>
                           clickNavigate(
                             event,
-                            calendarHref(visibleMonth, day.date) + "#vybrany-den",
+                            calendarHref(visibleMonth, day.date) + "#events-list",
                             { ...view, day: day.date },
                           )
                         }
@@ -656,137 +583,6 @@ export function EventCalendar({
                     );
                   })}
                 </div>
-              )}
-            </div>
-            <div className={styles.calendarDetailColumn} data-calendar-day-panel>
-              {selectedDay ? (
-                <section
-                  className={styles.dayDetail}
-                  id="vybrany-den"
-                  tabIndex={-1}
-                  aria-labelledby="selected-day-title"
-                  data-selected-day={selectedDay}
-                >
-                  <div className={styles.dayDetailHeading}>
-                    <div>
-                      <p className={styles.selectedDayEyebrow}>Vybraný dátum</p>
-                      <h3 id="selected-day-title">{dateLabel(selectedDay)}</h3>
-                    </div>
-                    <a
-                      href={calendarHref(visibleMonth)}
-                      onClick={(event) =>
-                        clickNavigate(event, calendarHref(visibleMonth), { ...view, day: "" })
-                      }
-                      aria-label="Zrušiť výber dňa"
-                    >
-                      Zavrieť výber
-                    </a>
-                  </div>
-                  {!pending &&
-                  !pendingDay &&
-                  !loadError &&
-                  !dayLoadError &&
-                  (daySummaries.get(selectedDay)?.count ?? 0) > dailyEvents.length ? (
-                    <p>
-                      Zobrazených prvých {dailyEvents.length} z{" "}
-                      {daySummaries.get(selectedDay)?.count} podujatí.{" "}
-                      <Link
-                        href={
-                          typePathname +
-                          "?" +
-                          (() => {
-                            const p = eventListingParams({
-                              ...f,
-                              from: selectedDay,
-                              to: selectedDay,
-                              page: 1,
-                            });
-                            return p.toString();
-                          })() +
-                          "#events-list"
-                        }
-                      >
-                        Zobraziť všetky podujatia tohto dňa
-                      </Link>
-                    </p>
-                  ) : null}
-                  {pending || pendingDay ? (
-                    <p role="status" className={styles.dayEmpty}>
-                      Načítavajú sa podujatia pre vybraný deň…
-                    </p>
-                  ) : dayLoadError || loadError ? (
-                    <p role="alert" className={styles.dayEmpty}>
-                      {dayLoadError || loadError}
-                    </p>
-                  ) : dailyEvents.length ? (
-                    <ul className={styles.dayEvents}>
-                      {dailyEvents.map((event) => (
-                        <li key={event.id} className={styles.dayEvent}>
-                          <Link
-                            className={styles.dayEventMedia}
-                            href={eventHref(event)}
-                            aria-label={"Otvoriť podujatie: " + event.title}
-                          >
-                            <EventImage
-                              imageUrl={event.imageUrl}
-                              eventId={event.id}
-                              eventType={event.eventType}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                              sizes="(max-width: 760px) 82px, 120px"
-                            />
-                          </Link>
-                          <div>
-                            <span className={styles.dayEventType}>
-                              {eventTypePresentation[event.eventType].label}
-                            </span>
-                            <Link href={eventHref(event)}>{event.title}</Link>
-                            <span>
-                              {formatEventDate(event)}
-                              {event.startTime ? " · " + event.startTime : ""}
-                            </span>
-                            <span>
-                              {[event.venue, publicLocationValue(event.city, "city")]
-                                .filter(Boolean)
-                                .join(" · ") ||
-                                (/\bwebin[aá]r\b/iu.test(event.title)
-                                  ? "Webinár"
-                                  : "Miesto nie je uvedené")}
-                            </span>
-                            {event.cancelled ? <strong>Zrušené</strong> : null}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className={styles.dayEmpty}>
-                      V tento deň nie sú podujatia, ktoré zodpovedajú zvoleným filtrom. Skúste iný
-                      deň alebo upravte filtre.
-                    </p>
-                  )}
-                </section>
-              ) : isDesktopCalendar ? (
-                <div className={styles.dayPanelPlaceholder} data-calendar-day-placeholder>
-                  <span className={styles.selectedDayEyebrow}>Program na vybraný deň</span>
-                  <h3>Vyberte si dátum</h3>
-                  <p>
-                    {pending
-                      ? "Načítavajú sa podujatia…"
-                      : daySummaries.size === 0
-                        ? "V tomto mesiaci nie sú podujatia zodpovedajúce aktuálnym filtrom. Zmeňte mesiac alebo upravte vyhľadávanie."
-                        : "Kliknite na deň v kalendári vľavo. Tu sa zobrazia konkrétne podujatia, ich čas, miesto a odkaz na detail."}
-                  </p>
-                </div>
-              ) : (
-                <p className={styles.monthHint}>
-                  {pending
-                    ? "Načítavajú sa podujatia…"
-                    : daySummaries.size === 0
-                      ? "V tomto mesiaci nie sú podujatia zodpovedajúce aktuálnym filtrom. Zmeňte mesiac alebo upravte vyhľadávanie."
-                      : "Vyberte deň a zobrazia sa podujatia s odkazmi na ich detail."}
-                </p>
-              )}
             </div>
           </div>
           <div
@@ -812,30 +608,9 @@ export function EventCalendar({
           </div>
         </section>
       </div>
-      {pending ? (
-        <p role="status" className={styles.monthHint}>
-          Načítavajú sa podujatia…
-        </p>
-      ) : null}
-      {loadError ? (
-        <p role="alert" className={styles.monthHint}>
-          {loadError} <a href={typePathname + windowSafeQuery(view)}>Načítať stránku</a>
-        </p>
-      ) : null}
-
-      {(!pending || pendingCalendarOnly) && !loadError && (
-        <EventListingResults
-          beforeResults={afterCalendar}
-          events={filtered}
-          filters={f}
-          listing={data.listing}
-          today={today}
-          pathname={typePathname}
-          title={upcomingTitle}
-          calendarMonth={visibleMonth}
-          day={selectedDay}
+            <div data-events-popularity>{sidebar}</div>
+          </>}
         />
-      )}
     </div>
   );
 }

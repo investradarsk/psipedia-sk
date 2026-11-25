@@ -2,12 +2,14 @@ import { env } from "cloudflare:workers";
 import {
   DIRECTORY_LOCATION_LANDING_REGISTRY,
   directoryLocationLandingPath,
+  directoryLocationCanonicalPath,
   publicCanonicalDirectoryLocationSql,
   type DirectoryLocationLandingCategory,
 } from "@/lib/directory-location-landings";
 import {
   getSlovakLandingLocationByRawValue,
   type SlovakLandingDimension,
+  type SlovakLandingLocation,
 } from "@/lib/slovak-location-landings";
 
 export type DirectoryLocationLandingSitemapRecord = {
@@ -23,6 +25,7 @@ type AggregateRow = {
   location_value: string | null;
   profile_count: number | string;
   profile_updated_at: string | null;
+  profile_ids: string | null;
 };
 
 type RuntimeBindings = { DB?: D1Database };
@@ -34,15 +37,25 @@ function runtimeDatabase(database?: D1Database) {
 }
 
 function newestTimestamp(values: Array<string | null | undefined>) {
-  const candidates = values.map((value) => value?.trim() ?? "").filter(Boolean).sort();
+  const candidates = values
+    .map((value) => value?.trim() ?? "")
+    .filter(Boolean)
+    .sort();
   return candidates.at(-1) ?? null;
 }
 
 function categoriesForDimension(dimension: SlovakLandingDimension) {
-  return (Object.entries(DIRECTORY_LOCATION_LANDING_REGISTRY) as Array<
-    [DirectoryLocationLandingCategory, (typeof DIRECTORY_LOCATION_LANDING_REGISTRY)[DirectoryLocationLandingCategory]]
-  >)
-    .filter(([, config]) => (config.dimensions as readonly SlovakLandingDimension[]).includes(dimension))
+  return (
+    Object.entries(DIRECTORY_LOCATION_LANDING_REGISTRY) as Array<
+      [
+        DirectoryLocationLandingCategory,
+        (typeof DIRECTORY_LOCATION_LANDING_REGISTRY)[DirectoryLocationLandingCategory],
+      ]
+    >
+  )
+    .filter(([, config]) =>
+      (config.dimensions as readonly SlovakLandingDimension[]).includes(dimension),
+    )
     .map(([category]) => category);
 }
 
@@ -61,6 +74,7 @@ export function buildDirectoryLocationLandingSitemapQueries() {
         d.category AS category,
         TRIM(${column}) AS location_value,
         COUNT(DISTINCT d.id) AS profile_count,
+        GROUP_CONCAT(d.id) AS profile_ids,
         MAX(d.updated_at) AS profile_updated_at
       FROM directory_profiles d
       WHERE ${publicCanonicalDirectoryLocationSql("d")}
@@ -84,6 +98,8 @@ export async function listIndexableDirectoryLocationLandingSitemapRecords(
   );
 
   const aggregate = new Map<string, DirectoryLocationLandingSitemapRecord>();
+  const memberships = new Map<string, string[]>();
+  const locations = new Map<string, SlovakLandingLocation>();
 
   results.forEach((result, index) => {
     const dimension = queries[index].dimension;
@@ -91,7 +107,8 @@ export async function listIndexableDirectoryLocationLandingSitemapRecords(
       const row = rawRow as unknown as AggregateRow;
       const category = row.category?.trim() as DirectoryLocationLandingCategory;
       const config = DIRECTORY_LOCATION_LANDING_REGISTRY[category];
-      if (!config || !(config.dimensions as readonly SlovakLandingDimension[]).includes(dimension)) continue;
+      if (!config || !(config.dimensions as readonly SlovakLandingDimension[]).includes(dimension))
+        continue;
 
       const location = getSlovakLandingLocationByRawValue(dimension, row.location_value);
       if (!location) continue;
@@ -101,6 +118,11 @@ export async function listIndexableDirectoryLocationLandingSitemapRecords(
       if (!Number.isFinite(profileCount) || profileCount <= 0) continue;
 
       const existing = aggregate.get(path);
+      locations.set(path, location);
+      memberships.set(path, [
+        ...(memberships.get(path) ?? []),
+        ...(row.profile_ids?.split(",") ?? []),
+      ]);
       aggregate.set(path, {
         path,
         profileCount: (existing?.profileCount ?? 0) + profileCount,
@@ -112,6 +134,14 @@ export async function listIndexableDirectoryLocationLandingSitemapRecords(
   });
 
   return [...aggregate.values()]
-    .filter((record) => record.profileCount >= DIRECTORY_LOCATION_LANDING_REGISTRY[record.category].indexThreshold)
+    .filter((record) => {
+      const location = locations.get(record.path);
+      return (
+        location &&
+        record.profileCount >=
+          DIRECTORY_LOCATION_LANDING_REGISTRY[record.category].indexThreshold &&
+        directoryLocationCanonicalPath(record.category, location, memberships) === record.path
+      );
+    })
     .sort((left, right) => left.path.localeCompare(right.path, "sk"));
 }

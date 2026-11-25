@@ -17,22 +17,16 @@ const backLink = readFileSync(
   "utf8",
 );
 
-test("selecting a day preserves the month and listing and fetches only its 12 bounded previews", () => {
-  const dayBranch = client.slice(
-    client.indexOf("if (sameMonth && !pending && !loadError)"),
-    client.indexOf("    const calendarOnly = sameListing && !pending && !loadError && !next.day;"),
-  );
-  assert.match(dayBranch, /setData\(\(current\) => \(\{ \.\.\.current, calendarEvents:/);
-  assert.match(dayBranch, /dayEndpoint\.pathname \+= "\/day"/);
-  assert.match(dayBranch, /if \(\s*!next\.day \|\|/);
-  assert.match(dayBranch, /cacheRef\.current\.get\(key\)/);
-  assert.doesNotMatch(dayBranch, /setPending\(true\)/);
+test("selecting a day reloads the paginated main listing, not a bounded preview", () => {
+  assert.match(client, /view\.day === next\.day/);
+  assert.match(client, /if \(day\) params\.set\("den", day\)/);
+  assert.doesNotMatch(client, /dayEndpoint\.pathname/);
+  assert.match(calendarRoute, /getPublishedEventListing\(filters\)/);
+  assert.match(store, /eventListingSql\(\{ \.\.\.filters, day: undefined \}\)/);
+  const listing = readFileSync(new URL("../lib/event-listing.ts", import.meta.url), "utf8");
+  assert.match(listing, /if \(f\.day\)/);
+  assert.match(listing, /f\.day, f\.day/);
   assert.match(client, /requestRef\.current\?\.abort\(\)/);
-  assert.match(dayRoute, /getPublicEventDayPreview\(/);
-  assert.match(dayRoute, /calendarMonthDays\(month\)\.some/);
-  assert.match(dayRoute, /Cache-Control": "private, no-store"/);
-  assert.match(store, /export async function getPublicEventDayPreview/);
-  assert.match(store, /ORDER BY \$\{sql\.order\} LIMIT 12/);
 });
 
 test("month-only requests preserve the current filtered listing and avoid refetching counts", () => {
@@ -57,8 +51,8 @@ test("calendar responses are cancellable, short-lived and bounded in browser cac
   assert.match(client, /signal: controller\.signal/);
   assert.match(client, /cacheRef\.current\.size > 24/);
   assert.match(client, /120_000/);
-  assert.match(client, /setPendingDay\(true\)/);
-  assert.match(client, /aria-busy=\{pending \|\| pendingDay\}/);
+  assert.match(client, /setPending\(true\)/);
+  assert.match(client, /aria-busy=\{pending\}/);
 });
 
 test("browser back uses latest state and detail return remembers the selected day", () => {
@@ -69,9 +63,9 @@ test("browser back uses latest state and detail return remembers the selected da
   assert.match(backLink, /export function rememberEventsListing\(href: string\)/);
 });
 
-test("failed day preview does not hide the main event listing", () => {
-  assert.match(client, /setDayLoadError\("Podujatia sa nepodarilo načítať/);
-  assert.match(client, /dayLoadError \|\| loadError/);
+test("failed day listing is not presented as valid stale results", () => {
+  assert.match(client, /const filtered = loadError \|\|/);
+  assert.match(client, /loadError=\{loadError\}/);
 });
 
 test("calendar-only navigation preserves the listing page and restores it from history", () => {
@@ -82,7 +76,7 @@ test("calendar-only navigation preserves the listing page and restores it from h
   );
   assert.match(client, /view\.page === nextPage/);
   assert.match(client, /setView\(\{ \.\.\.next, page: nextPage \}\)/);
-  assert.match(client, /else if \(view\.page > 1\) params\.set\("strana", String\(view\.page\)\)/);
+  assert.match(client, /else if \(!day && !view\.day && view\.page > 1\) params\.set\("strana", String\(view\.page\)\)/);
   assert.match(client, /if \(state\.page > 1\) params\.set\("strana", String\(state\.page\)\)/);
 });
 
@@ -109,7 +103,7 @@ test("calendar retries failed data instead of reusing an earlier month or skippi
   };
   for (const [loadError, dayLoadError, path] of [
     ["Failed month", "", "/api/public/events/calendar"],
-    ["", "Failed day", "/api/public/events/calendar/day"],
+    ["", "Failed day", "/api/public/events/calendar"],
   ]) {
     const requests = [];
     const noop = () => {};

@@ -30,6 +30,7 @@ import {
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
 import { HomePortalSearch } from "@/components/home-portal-search";
+import { PublicHelpPhotoBanner, lostFoundSubmitPromo } from "@/components/public-visual-system/public-help-banner";
 import { slovakRegions } from "@/lib/events";
 import { listPublicDogReports, listPublishedBreedOptions } from "@/lib/lost-found-dog-store";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
@@ -52,19 +53,25 @@ type Search = Record<string, string | string[] | undefined>;
 const scalar = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] || "" : value || "";
 
-function pageHref(type: DogReportType, params: URLSearchParams, page: number) {
+type ReportScope = DogReportType | "all";
+
+function reportBasePath(type: ReportScope) {
+  return type === "all" ? "/pomoc-psom/stratene-a-najdene" : dogReportBasePath(type);
+}
+
+function pageHref(type: ReportScope, params: URLSearchParams, page: number) {
   const next = new URLSearchParams(params);
   if (page <= 1) next.delete("page");
   else next.set("page", String(page));
   const query = next.toString();
-  return dogReportBasePath(type) + (query ? "?" + query : "") + "#lost-found-results";
+  return reportBasePath(type) + (query ? "?" + query : "") + "#lost-found-results";
 }
 
 export async function LostFoundDogsPage({
   type,
   searchParams,
 }: {
-  type: DogReportType;
+  type: ReportScope;
   searchParams: Promise<Search>;
 }) {
   const raw = await searchParams;
@@ -77,7 +84,7 @@ export async function LostFoundDogsPage({
   const breedIdValue = Number(scalar(raw.breed));
   const page = Math.max(1, Number.parseInt(scalar(raw.page) || "1", 10) || 1);
   const breedId = Number.isInteger(breedIdValue) && breedIdValue > 0 ? breedIdValue : null;
-  const basePath = dogReportBasePath(type);
+  const basePath = reportBasePath(type);
   const policy = resolveListingIndexPolicy(basePath, raw, { indexPagination: true });
 
   const [result, breeds, sharedHeroVisual] = await Promise.all([
@@ -134,11 +141,13 @@ export async function LostFoundDogsPage({
     next.delete(key);
     return basePath + (next.size ? "?" + next.toString() : "");
   };
-  const label = dogReportTypeShortLabel(type).toLowerCase();
-  const title = type === "LOST" ? "Stratené psy" : "Nájdené psy";
+  const label = type === "all" ? "všetky" : dogReportTypeShortLabel(type).toLowerCase();
+  const title = type === "all" ? "Stratené a nájdené psy" : type === "LOST" ? "Stratené psy" : "Nájdené psy";
   const intro =
-    type === "LOST"
-      ? "Aktívne hlásenia o stratených psoch. Lokalita je zámerne iba približná a súkromné kontaktné údaje automaticky nezverejňujeme."
+    type === "all"
+      ? "Aktuálne hlásenia o stratených a nájdených psoch na Slovensku. Vyhľadajte psa podľa lokality alebo ďalších údajov."
+      : type === "LOST"
+        ? "Aktívne hlásenia o stratených psoch. Lokalita je zámerne iba približná a súkromné kontaktné údaje automaticky nezverejňujeme."
       : "Aktívne hlásenia o nájdených psoch. Pomôžte spojiť psa s oprávneným majiteľom bez zverejňovania zbytočne presných osobných údajov.";
   const schema =
     policy.kind === "query"
@@ -153,7 +162,7 @@ export async function LostFoundDogsPage({
             { name: title, path: basePath },
           ],
           items: result.items.map((report) => ({
-            name: report.dogName || report.breed || dogReportTypeLabel(type),
+            name: report.dogName || report.breed || dogReportTypeLabel(report.type),
             path: dogReportHref(report),
           })),
         });
@@ -183,7 +192,7 @@ export async function LostFoundDogsPage({
                   action={basePath}
                   panelLabel={`Vyhľadávanie: ${title}`}
                   eyebrow="ČO HĽADÁŠ?"
-                  title={`Nájdi ${type === "FOUND" ? "nájdeného" : "strateného"} psa`}
+                  title={type === "all" ? "Nájdi psa" : `Nájdi ${type === "FOUND" ? "nájdeného" : "strateného"} psa`}
                   shortcuts={[]}
                   searchScope="lost-found"
                   buttonLabel="Hľadať"
@@ -197,13 +206,13 @@ export async function LostFoundDogsPage({
                     { name: "breed", value: breedId ? String(breedId) : "" },
                   ].filter((field) => Boolean(field.value))}
                   id={`lost-found-hero-${type.toLowerCase()}`}
-                  label={`Hľadať medzi ${type === "FOUND" ? "nájdenými" : "stratenými"} psami`}
+                  label={type === "all" ? "Hľadať medzi všetkými hláseniami" : `Hľadať medzi ${type === "FOUND" ? "nájdenými" : "stratenými"} psami`}
                   placeholder="Hľadať psa, plemeno alebo mesto…"
                   defaultValue={q}
                 />
               }
               ctaSlot={
-                <div className={styles.headerActions}>
+                type !== "all" ? <div className={styles.headerActions}>
                   <Link
                     className="button button--dark"
                     href={
@@ -214,7 +223,7 @@ export async function LostFoundDogsPage({
                   >
                     {type === "LOST" ? "Nahlásiť strateného psa" : "Nahlásiť nájdeného psa"}
                   </Link>
-                </div>
+                </div> : undefined
               }
               metaSlot={
                 <span>
@@ -231,6 +240,7 @@ export async function LostFoundDogsPage({
                 reportScope={type}
               />
             </div>
+            {type === "all" && <PublicHelpPhotoBanner promo={lostFoundSubmitPromo} />}
             <PublicFilterLayout>
               <PublicFilterPanel title="Filtrovať hlásenia" resetHref={basePath}>
                 <PublicFilterDisclosure
@@ -367,7 +377,7 @@ export async function LostFoundDogsPage({
               <div id="lost-found-results" data-public-filter-results>
                 <PublicResultsToolbar className={styles.summary}>
                   <PublicHeading role="section" as="h2">
-                    {dogReportTypeLabel(type)}
+                    {type === "all" ? "Všetky hlásenia" : title}
                   </PublicHeading>
                   <p>
                     {result.total} {activeDogReportCountNoun(result.total)}
@@ -381,7 +391,7 @@ export async function LostFoundDogsPage({
                         data-dog-report-card={report.id}
                         href={dogReportHref(report)}
                         title={report.dogName || report.breed || "Pes bez známeho mena"}
-                        category={dogReportTypeLabel(type)}
+                        category={dogReportTypeLabel(report.type)}
                         actionLabel="Zobraziť hlásenie"
                         badge={
                           report.status === "ACTIVE" ? undefined : (
@@ -406,8 +416,8 @@ export async function LostFoundDogsPage({
                                 src={report.mainImage}
                                 alt={
                                   report.dogName
-                                    ? dogReportTypeShortLabel(type) + " pes " + report.dogName
-                                    : dogReportTypeLabel(type)
+                                    ? dogReportTypeShortLabel(report.type) + " pes " + report.dogName
+                                    : dogReportTypeLabel(report.type)
                                 }
                                 loading="lazy"
                                 decoding="async"

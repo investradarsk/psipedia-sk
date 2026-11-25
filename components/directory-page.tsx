@@ -12,6 +12,8 @@ import {
 } from "@/components/public-visual-system";
 import { DirectoryCategoryNavigation } from "@/components/directory-category-navigation";
 import { DirectoryFilterForm } from "@/components/directory-filter-form";
+import { RelatedEntityLinks } from "@/components/related-entity-links";
+import type { InternalDiscoveryLink } from "@/lib/internal-discovery";
 import { DirectoryResults } from "@/components/directory-results";
 import { DirectoryCard } from "@/components/directory-card";
 import { HomePortalSearch } from "@/components/home-portal-search";
@@ -57,10 +59,12 @@ export async function DirectoryPage({
   result,
   filters,
   initialCategory = "all",
+  priorityLinks = [],
 }: {
   result: PublicDirectoryProfilePage;
   filters: DirectoryFilters;
   initialCategory?: "all" | DirectoryCategorySlug;
+  priorityLinks?: InternalDiscoveryLink[];
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
   // Only the unfiltered overview uses five bounded profiles per category.
@@ -116,6 +120,27 @@ export async function DirectoryPage({
 
   const hasPopularity =
     discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
+
+  const mapBanner = (
+    <div data-directory-map-cta>
+      <PublicMagazineBanner
+        compact
+        visual="light"
+        size="small"
+        testId="directory-map-cta"
+        eyebrow="Služby v okolí"
+        title="Nájdi služby na mape"
+        description={
+          filters.canonicalService
+            ? "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality. Mapa používa rovnaký filter potvrdenej služby ako zoznam."
+            : "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality."
+        }
+        label="Zobraziť na mape"
+        href={mapHref(filters, active?.slug)}
+        anchorId={CTA_DIRECTORY_MAP_ANCHOR}
+      />
+    </div>
+  );
 
   return (
     <main id="obsah" className={styles.page}>
@@ -173,19 +198,32 @@ export async function DirectoryPage({
           />
         </UnifiedSectionHeroShell>
 
-        <AffiliateRotatingBanner placement="horizontal" />
-
         <section className={styles.resultsSection} aria-label="Adresár služieb pre psov">
           <PublicContentShell variant="listing" className={styles.resultsShell}>
             <PublicCategorySection
               eyebrow="Kategórie služieb"
               title="Vyberte, akú službu hľadáte"
-              description="Veterinári, tréneri, salóny a ďalšie služby pre psov."
               id="directory-categories-heading"
             >
               <DirectoryCategoryNavigation items={categoryItems} />
             </PublicCategorySection>
 
+                <div data-directory-provider-cta>
+                  <PublicMagazineBanner
+                    compact
+                    visual="dark"
+                    photoTone="care"
+                    size="small"
+                    testId="directory-provider-cta"
+                    eyebrow="Pre poskytovateľov"
+                    title="Poskytuješ služby pre psov?"
+                    description="Požiadaj o pridanie alebo úpravu údajov svojho profilu."
+                    label="Pridať alebo upraviť profil"
+                    href="/o-nas#kontakt"
+                  />
+                </div>
+
+            <AffiliateRotatingBanner placement="horizontal" />
             <PublicFilterLayout extra className={styles.directoryColumns} data-directory-columns>
               <PublicFilterPanel
                 title="Filtrovať služby"
@@ -230,11 +268,15 @@ export async function DirectoryPage({
                         <Link className={styles.categoryPreviewMore} href={href}>
                           Zobraziť kategóriu {category.label} <span aria-hidden="true">→</span>
                         </Link>
+                        {category.slug === directoryCategories[0]?.slug ? mapBanner : category.slug !== directoryCategories.at(-1)?.slug ? (
+                          <PublicMagazineBanner compact size="small" testId={`directory-category-${category.slug}`} eyebrow={category.label} title={`Nájdite ${category.searchObject} vo svojom okolí`} description={`Pozrite si kategóriu ${category.label} na mape.`} label="Zobraziť na mape" href={mapHref(filters, category.slug)} />
+                        ) : null}
                       </section>
                     );
                   })}
                 </div>
               ) : (
+                <div className={styles.categoryPreviewResults}>
                 <DirectoryResults
                   result={result}
                   filters={filters}
@@ -247,42 +289,17 @@ export async function DirectoryPage({
                         : "Všetky služby pre psov"
                   }
                 />
+                {mapBanner}
+                </div>
               )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
-                <div data-directory-map-cta>
-                  <PublicMagazineBanner
-                    compact
-                    visual="light"
-                    size="small"
-                    testId="directory-map-cta"
-                    eyebrow="Služby v okolí"
-                    title="Nájdi služby na mape"
-                    description={
-                      filters.canonicalService
-                        ? "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality. Mapa používa rovnaký filter potvrdenej služby ako zoznam."
-                        : "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality."
-                    }
-                    label="Zobraziť na mape"
-                    href={mapHref(filters, active?.slug)}
-                    anchorId={CTA_DIRECTORY_MAP_ANCHOR}
-                  />
-                </div>
-
-                <div data-directory-provider-cta>
-                  <PublicMagazineBanner
-                    compact
-                    visual="dark"
-                    size="small"
-                    testId="directory-provider-cta"
-                    eyebrow="Pre poskytovateľov"
-                    title="Poskytuješ služby pre psov?"
-                    description="Požiadaj o pridanie alebo úpravu údajov svojho profilu."
-                    label="Pridať alebo upraviť profil"
-                    href="/o-nas#kontakt"
-                  />
-                </div>
-
+                {priorityLinks.length > 0 ? (
+                  <section className={styles.sidebarCard} aria-labelledby="category-priority-links">
+                    <h2 id="category-priority-links">Tipy z adresára</h2>
+                    <RelatedEntityLinks links={priorityLinks} label="Vybrané profily a prehľady" />
+                  </section>
+                ) : null}
                 <div className={styles.popularityCard} data-directory-popular-articles data-directory-popular-content>
                   {hasPopularity ? (
                     <ArticlePopularitySidebar

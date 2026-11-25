@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
+import { listIndexableDirectoryProfileLocationLinks } from "../lib/internal-discovery.ts";
 import {
   DIRECTORY_LOCATION_CATEGORY_ALIASES,
   DIRECTORY_LOCATION_LANDING_REGISTRY,
@@ -340,7 +342,7 @@ test("static route segments coexist with profile detail and routes use SSR data/
   for (const source of sources.slice(0, 3)) {
     assert.match(source, /getDirectoryLocationLanding/);
     assert.match(source, /buildCollectionPageJsonLd/);
-    assert.match(source, /canonical: landing\.path/);
+    assert.match(source, /canonical: landing\.canonicalPath/);
     assert.match(source, /NOINDEX_FOLLOW_ROBOTS/);
   }
   assert.match(sources[0], /const DIMENSION = "region"/);
@@ -370,4 +372,88 @@ test("legacy psie-skoly category listing redirects to canonical treneri", async 
   const source = await readFile(path.join(repoRoot, "app/adresar/[category]/page.tsx"), "utf8");
   assert.match(source, /category\.slug === "psie-skoly"/);
   assert.match(source, /permanentRedirect\("\/adresar\/treneri"\)/);
+});
+
+test("identical geographic listings share a canonical with sitemap and discovery parity", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    sqlite.exec(`
+      CREATE TABLE directory_profiles (
+        id INTEGER PRIMARY KEY, slug TEXT, name TEXT, category TEXT, excerpt TEXT,
+        city TEXT, district TEXT, region TEXT, price_note TEXT, image_url TEXT, featured INTEGER,
+        updated_at TEXT, status TEXT, archived_at TEXT
+      );
+      CREATE TABLE directory_profile_service_texts (
+        profile_id INTEGER, item_order INTEGER, service_text TEXT
+      );
+      CREATE TABLE directory_profile_seo (
+        profile_id INTEGER PRIMARY KEY, noindex INTEGER, canonical_url TEXT
+      );
+      INSERT INTO directory_profiles(id, slug, name, category, city, district, region, status) VALUES
+        (1, 'one', 'One', 'veterinari', 'Nitra', 'Nitra', 'Nitriansky kraj', 'published'),
+        (2, 'two', 'Two', 'veterinari', 'Nitra', 'Nitra', 'Nitriansky', 'published');
+    `);
+    const database = {
+      prepare(sql) {
+        return {
+          bind(...args) {
+            return {
+              async all() {
+                return { results: sqlite.prepare(sql).all(...args) };
+              },
+              async first() {
+                return sqlite.prepare(sql).get(...args);
+              },
+            };
+          },
+        };
+      },
+      async batch(statements) {
+        return Promise.all(statements.map((statement) => statement.all()));
+      },
+    };
+    const city = { category: "veterinari", dimension: "city", locationSlug: "nitra" };
+    const regionPath = "/adresar/veterinari/kraj/nitriansky";
+    const districtPath = "/adresar/veterinari/okres/nitra";
+    const cityPath = "/adresar/veterinari/mesto/nitra";
+    const profile = {
+      category: "veterinari",
+      city: "Nitra",
+      district: "Nitra",
+      region: "Nitriansky kraj",
+    };
+    const paths = async () =>
+      (await listIndexableDirectoryLocationLandingSitemapRecords(database)).map((r) => r.path);
+    const links = async () =>
+      (await listIndexableDirectoryProfileLocationLinks(profile, database)).map((r) => r.href);
+
+    const duplicate = await getDirectoryLocationLanding(city, database);
+    assert.equal(duplicate.canonicalPath, regionPath);
+    assert.equal(duplicate.indexable, false);
+    assert.deepEqual(
+      duplicate.profiles.map((row) => row.id),
+      [1, 2],
+    );
+    assert.deepEqual(await paths(), [regionPath]);
+    assert.deepEqual(await links(), [regionPath]);
+
+    sqlite.exec(`INSERT INTO directory_profiles(id, slug, name, category, city, district, region, status)
+      VALUES (3, 'three', 'Three', 'veterinari', 'Levice', 'Levice', 'Nitriansky kraj', 'published')`);
+    assert.equal((await getDirectoryLocationLanding(city, database)).canonicalPath, districtPath);
+    assert.deepEqual(await paths(), [regionPath, districtPath]);
+    assert.deepEqual(await links(), [districtPath, regionPath]);
+
+    sqlite.exec("UPDATE directory_profiles SET district='Nitra' WHERE id=3");
+    const distinct = await getDirectoryLocationLanding(city, database);
+    assert.equal(distinct.canonicalPath, cityPath);
+    assert.equal(distinct.indexable, true);
+    assert.deepEqual(await paths(), [regionPath, cityPath]);
+    assert.deepEqual(await links(), [cityPath, regionPath]);
+
+    // A parent of the same size with a different member is not equivalent.
+    sqlite.exec("UPDATE directory_profiles SET district='Levice' WHERE id=2");
+    assert.equal((await getDirectoryLocationLanding(city, database)).canonicalPath, cityPath);
+  } finally {
+    sqlite.close();
+  }
 });

@@ -89,3 +89,70 @@ INSERT OR IGNORE INTO help_organizations (
   'pr-visual@psipedia.local',
   'pr-visual@psipedia.local'
 );
+
+-- Local SEO visual fixture: Nitra city and district have identical profile
+-- membership, while the region has an additional hotel in another district.
+-- This exercises the actual canonical target rather than an empty 404 page.
+-- PrimaVet is a route-matching layout placeholder, not verified provider data.
+INSERT OR IGNORE INTO directory_profiles (
+  slug, name, category, status, excerpt, description,
+  city, district, region, image_url, created_at, updated_at, published_at,
+  created_by, updated_by
+) VALUES
+  (
+    'visual-ci-hotel-nitra-a', 'Ukážkový psí hotel Nitra A',
+    'hotely-a-opatrovanie', 'published',
+    'Testovací profil hotela pre vizuálnu kontrolu.',
+    'Izolované testovacie údaje, nie skutočná služba.',
+    'Nitra', 'Nitra', 'Nitriansky kraj', '/images/hero-labrador.webp',
+    '2026-11-17T12:00:00.000Z', '2026-11-17T12:00:00.000Z', '2026-11-17T12:00:00.000Z',
+    'pr-visual@psipedia.local', 'pr-visual@psipedia.local'
+  ),
+  (
+    'visual-ci-hotel-nitra-b', 'Ukážkový psí hotel Nitra B',
+    'hotely-a-opatrovanie', 'published',
+    'Testovací profil opatrovania pre vizuálnu kontrolu.',
+    'Izolované testovacie údaje, nie skutočná služba.',
+    'Nitra', 'Nitra', 'Nitriansky kraj', '/images/hero-labrador.webp',
+    '2026-11-17T12:00:00.000Z', '2026-11-17T12:00:00.000Z', '2026-11-17T12:00:00.000Z',
+    'pr-visual@psipedia.local', 'pr-visual@psipedia.local'
+  ),
+  (
+    'visual-ci-hotel-zlate-moravce', 'Ukážkový psí hotel Zlaté Moravce',
+    'hotely-a-opatrovanie', 'published',
+    'Testovací profil v inom okrese pre kontrolu odlišného zoznamu.',
+    'Izolované testovacie údaje, nie skutočná služba.',
+    'Zlaté Moravce', 'Zlaté Moravce', 'Nitriansky kraj', '/images/hero-labrador.webp',
+    '2026-11-17T12:00:00.000Z', '2026-11-17T12:00:00.000Z', '2026-11-17T12:00:00.000Z',
+    'pr-visual@psipedia.local', 'pr-visual@psipedia.local'
+  ),
+  (
+    'veterinarna-klinika-primavet', 'PrimaVet – vizuálna ukážka',
+    'veterinari', 'published',
+    'Testovací profil na zobrazenie prioritného interného odkazu.',
+    'Izolované testovacie údaje, nie overené údaje poskytovateľa.',
+    'Bratislava - Rača', 'Bratislava III', 'Bratislavský kraj', '/images/hero-labrador.webp',
+    '2026-11-17T12:00:00.000Z', '2026-11-17T12:00:00.000Z', '2026-11-17T12:00:00.000Z',
+    'pr-visual@psipedia.local', 'pr-visual@psipedia.local'
+  );
+
+-- Local editorial fixture for the SEO link source. The slug matches the
+-- reviewed route; the text and photo are disposable layout examples only.
+INSERT OR IGNORE INTO managed_articles (
+  slug, title, excerpt, category, portal_section, portal_subpage,
+  status, accent, author, intro, takeaway, sections_json,
+  image_url, image_alt, reading_minutes, published_at, created_at, updated_at,
+  created_by, updated_by
+) VALUES (
+  'kedy-ist-so-psom-k-veterinarovi',
+  'Kedy ísť so psom k veterinárovi – vizuálna ukážka',
+  'Izolovaný článok na kontrolu interných odkazov.',
+  'Zdravie', 'starostlivost', 'zdravie', 'published', 'forest',
+  'E2E Psipedia',
+  'Tento testovací text slúži výhradne na porovnanie rozloženia článku.',
+  'Ukážka pre lokálnu vizuálnu kontrolu, nie veterinárne odporúčanie.',
+  '[{"heading":"Ukážková časť článku","paragraphs":["Deterministický obsah na overenie bloku súvisiacich odkazov."]}]',
+  '/images/zdravie-veterinar.webp', 'Ukážková fotografia pre CI', 2,
+  '2026-01-15T12:00:00.000Z', '2026-01-15T12:00:00.000Z', '2026-01-15T12:00:00.000Z',
+  'pr-visual@psipedia.local', 'pr-visual@psipedia.local'
+);
