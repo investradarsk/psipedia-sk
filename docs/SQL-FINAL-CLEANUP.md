@@ -45,3 +45,7 @@ Projection aliases such as AS services_json are SQL-generated transport shapes, 
 4. Verify post-drop runtime, foreign keys, integrity, permissions and sync. Rollback must be a schema-compatible revision; an old binary that requires retired fields is not a safe rollback. If schema recovery is necessary, preserve intervening canonical writes.
 
 Status: implementation expanded; regression gate pending. Keep the PR in draft until the gate passes.
+
+## Follow-up after #1600 and #1599 (2026-11-25)
+
+The owner supplied production D1 table and sqlite_schema outputs: all six targeted columns remain, and no returned index, view or trigger depends on them. Cloudflare Deployments showed both PRs Ready and #1599 active at 100% traffic. Available completed PR checks succeeded; skipped checks and prior CI do not prove the six-column post-drop schema. The follow-up aligns live ORM declarations, removes retired columns from the internal discovery fixture, exercises all six physical drops together in isolated SQLite with real Directory SQL projections and Admin filtering, and runs article CAS regression with sections_json physically absent. Full runtime coverage and CI remain pending until verified. No production D1 mutations or migration receipts are made by this follow-up. Owner approval, recovery bookmark and post-deploy checks remain prerequisites for the targeted production DROP.
