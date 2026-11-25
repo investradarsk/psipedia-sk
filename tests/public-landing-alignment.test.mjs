@@ -223,7 +223,7 @@ test("SERVICES-V2 keeps one GET search while only the clean root shows five per 
   assert.match(query, /directoryEmptyQueryRedirect/);
 });
 
-test("SERVICES-V2 map and provider CTAs remain safe and above real popularity", () => {
+test("SERVICES-V2 map and provider CTAs remain safe with real popularity", () => {
   assert.match(directory, /data-directory-map-cta/);
   assert.match(directory, /data-directory-provider-cta/);
   assert.match(directory, /mapHref\(filters, active\?\.slug\)/);
@@ -256,8 +256,17 @@ test("SERVICES-V2 renders search, categories, filters, cards and sidebar in appr
   const nav = directory.indexOf("<DirectoryCategoryNavigation");
   const filter = directory.indexOf("<DirectoryFilterForm");
   const results = directory.indexOf("<DirectoryResults");
-  const sidebar = directory.indexOf("data-directory-map-cta");
-  assert.ok(search >= 0 && nav > search && filter > nav && results > filter && sidebar > results);
+  const provider = directory.indexOf("data-directory-provider-cta");
+  const affiliate = directory.indexOf("<AffiliateRotatingBanner");
+  const sidebar = directory.indexOf("<aside className={styles.directorySidebar}");
+  assert.ok(search >= 0 && nav > search && provider > nav && affiliate > provider);
+  assert.ok(filter > affiliate && results > filter && sidebar > results);
+  const overview = directory.indexOf("data-directory-category-previews");
+  const overviewMap = directory.indexOf("? mapBanner", overview);
+  const resultsMap = directory.indexOf("{mapBanner}", results);
+  assert.ok(overview > filter && overviewMap > overview && overviewMap < results);
+  assert.ok(resultsMap > results && resultsMap < sidebar);
+  assert.ok(directory.indexOf("data-directory-popular-content", sidebar) > sidebar);
   assert.match(directory, /data-directory-columns/);
   assert.match(read("components/directory-filter-form.tsx"), /data-directory-filter-disclosure/);
   assert.match(
