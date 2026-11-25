@@ -2594,7 +2594,7 @@ export async function listDirectoryInquiries() {
     SELECT id, profile_id, profile_name, profile_slug, profile_category, recipient_email,
       sender_name, sender_email, sender_phone, dog_info, message, status, consent, created_at, updated_at
     FROM directory_inquiries
-    ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, created_at DESC
+    ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, created_at DESC, id DESC
     -- Admin searches the entire mailbox before client pagination.
   `,
     )
@@ -2602,15 +2602,26 @@ export async function listDirectoryInquiries() {
   return result.results.map(rowToInquiry);
 }
 
-export async function updateDirectoryInquiryStatus(id: number, status: DirectoryInquiryStatus) {
+export async function updateDirectoryInquiryStatus(
+  id: number,
+  status: DirectoryInquiryStatus,
+  expectedUpdatedAt?: string,
+) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nextVersion = new Date(Date.parse(expectedUpdatedAt ?? "") + 1);
+  const updatedAt = (nextVersion > now ? nextVersion : now).toISOString();
   const row = await database
-    .prepare("UPDATE directory_inquiries SET status = ?, updated_at = ? WHERE id = ? RETURNING *")
-    .bind(status, now, id)
+    .prepare(`UPDATE directory_inquiries SET status = ?1, updated_at = ?2
+      WHERE id = ?3 AND (?4 IS NULL OR updated_at = ?4) RETURNING *`)
+    .bind(status, updatedAt, id, expectedUpdatedAt ?? null)
     .first<DirectoryInquiryRow>();
-  return row ? rowToInquiry(row) : null;
+  if (row) return { status: "updated" as const, inquiry: rowToInquiry(row) };
+
+  const exists = expectedUpdatedAt && await database.prepare("SELECT id FROM directory_inquiries WHERE id = ?")
+    .bind(id).first<{ id: number }>();
+  return { status: exists ? "conflict" as const : "missing" as const };
 }
 
 export async function deleteDirectoryInquiry(id: number) {

@@ -4,6 +4,7 @@ import test from "node:test";
 
 const source=readFileSync(new URL("../lib/admin-quality-missing-overview.ts",import.meta.url),"utf8");
 const page=readFileSync(new URL("../app/admin/kvalita/prehlad/page.tsx",import.meta.url),"utf8");
+const style=readFileSync(new URL("../components/admin-quality-missing-overview.module.css",import.meta.url),"utf8");
 const shortcut=readFileSync(new URL("../components/admin-missing-quality-dashboard.tsx",import.meta.url),"utf8");
 
 test("quality overview is an authenticated tab without a redundant shortcut",()=>{
@@ -57,6 +58,9 @@ test("status scope follows Tavily's active profile rules and current Slovak cale
 });
 test("result table has profile links and never edits canonical records",()=>{
   assert.match(page,/href=\{item\.editorHref\} target="_blank" rel="noopener noreferrer"/);
+  assert.match(page, /<table className=\{styles\.table\} role="table">/);
+  assert.match(style, /@container \(max-width: 780px\)[\s\S]*\.table \{ display: block; min-width: 0; \}/);
+  assert.match(style, /\.editor \{ display: flex; min-height: 44px; \}/);
   assert.match(page,/zobrazené \{from\}–\{to\}/);
   assert.match(page,/Strana \{result\.page\} z \{result\.pages\}/);
   assert.match(page,/Prehľad nič nemení a nespotrebúva kredity Tavily/);

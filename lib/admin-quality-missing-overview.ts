@@ -5,8 +5,11 @@
 import { qualityResolutionCurrentSql } from "./directory-quality-resolution-sql.ts";
 import type { DirectoryQualityField } from "./directory-profile-metadata.ts";
 import { allDirectoryCategories } from "./directory.ts";
+import { directoryCategoryMembershipSql } from "./directory-multi-category.ts";
 import { eventTypes } from "./events.ts";
 import { allHelpCategories } from "./help.ts";
+import { HELP_ADMIN_DOMAIN_SQL, isHelpAdminManagedCategory } from "./help-admin-query.ts";
+import { sqlFoldAdminText } from "./admin-list-query.ts";
 import { RAW_MISSING_PHONE_SQL, RAW_MISSING_EMAIL_SQL, RAW_MISSING_WEBSITE_SQL } from "./data-quality-contact-sql.ts";
 import { qualityTodayInSlovakia, type QualityResearchKind } from "./data-quality-tavily-query.ts";
 
@@ -35,7 +38,7 @@ const helpCategoryOptions=[
   {value:"organization",label:"Útulky a organizácie"},
   {value:"adoption",label:"Adopcie"},
   {value:"foster",label:"Dočasná opatera"},
-  ...allHelpCategories.filter(c=>c.slug!=="docasna-opatera")
+  ...allHelpCategories.filter((c) => c.slug !== "docasna-opatera" && isHelpAdminManagedCategory(c.slug))
     .map(c=>({value:"case:"+c.slug,label:"Prípady: "+c.label})),
   {value:"lost:LOST",label:"Stratené psy"},
   {value:"lost:FOUND",label:"Nájdené psy"},
@@ -96,7 +99,7 @@ const socialMissing="("+empty("facebook_url")+" OR "+empty("instagram_url")+")";
 /** Trusted static SQL only; user filters appear solely as bound values. */
 type KindSpec={
   kind:QualityResearchKind;area:OverviewArea;table:string;name:string;category:string;status:string;
-  city:string;valid:string;active:string;usesToday?:boolean;
+  city:string;valid:string;active:string;timeFilter?: "day" | "instant";
   missing:Partial<Record<OverviewField,string>>;
 };
 const spec:readonly KindSpec[]=[
@@ -110,7 +113,7 @@ const spec:readonly KindSpec[]=[
   },
   {
     kind:"EVENT",area:"events",table:"managed_events",name:"title",category:"event_type",
-    status:"status",city:"city",valid:"1=1",usesToday:true,
+    status:"status",city:"city",valid:"1=1",timeFilter:"day",
     active:"COALESCE(cancelled,0)=0 AND (COALESCE(NULLIF(end_date,''),start_date,'') = '' OR COALESCE(NULLIF(end_date,''),start_date) >= ?)",
     missing:{
       address:"("+empty("address")+" OR "+empty("venue")+")",
@@ -142,28 +145,32 @@ const spec:readonly KindSpec[]=[
   },
   {
     kind:"HELP_ITEM",area:"help",table:"help_cases",name:"title",category:"'case:' || COALESCE(category,'')",
-    status:"status",city:"city",valid:"category<>'docasna-opatera'",active:"COALESCE(resolved,0)=0",
+    status:"status",city:"city",valid:`category<>'docasna-opatera' AND ${HELP_ADMIN_DOMAIN_SQL}`,active:"COALESCE(resolved,0)=0",
     missing:{image:empty("image_url"),web:empty("action_url")},
   },
   {
     kind:"LOST_FOUND",area:"help",table:"lost_found_dog_reports",
     name:"COALESCE(NULLIF(dog_name,''),'Hlásenie #' || id)",
-    category:"'lost:' || COALESCE(type,'')",status:"status",city:"city",valid:"1=1",usesToday:true,
+    category:"'lost:' || COALESCE(type,'')",status:"status",city:"city",valid:"1=1",timeFilter:"instant",
     active:"UPPER(COALESCE(status,'')) NOT IN ('RESOLVED','EXPIRED','REJECTED','ARCHIVED')"+
-      " AND NOT (status='ACTIVE' AND COALESCE(expires_at,'')<>'' AND substr(expires_at,1,10) < ?)",
+      " AND NOT (status='ACTIVE' AND COALESCE(julianday(expires_at) <= julianday(?),0))",
     missing:{image:empty("main_image"),web:empty("source_url")},
   },
 ];
 
 /** Query scans only the selected area, not all unrelated domain tables. */
-export function overviewSqlSource(f:OverviewFilters,today:string){
+export function overviewSqlSource(f:OverviewFilters,now:Date){
   const types=spec.filter(x=>x.area===f.area);
   const bindings:(string|number)[]=[];
   const selects=types.map(x=>{
     const conditions=[x.valid];
     if(f.state==="current"){
       conditions.push(x.active);
-      if(x.usesToday)bindings.push(today);
+      if (x.timeFilter) bindings.push(x.timeFilter === "day" ? qualityTodayInSlovakia(now) : now.toISOString());
+    }
+    if (x.kind === "DIRECTORY" && f.category) {
+      conditions.push(directoryCategoryMembershipSql());
+      bindings.push(f.category, f.category);
     }
     const resolutionFields: Partial<Record<OverviewField, DirectoryQualityField>> = {
       address: "address", image: "image", web: "website", phone: "phone", email: "email",
@@ -192,11 +199,14 @@ function editorHref(kind:QualityResearchKind,id:number){
 }
 
 export async function loadMissingDataOverview(db:ReadDb,filters:OverviewFilters,now=new Date()):Promise<OverviewResult>{
-  const source=overviewSqlSource(filters,qualityTodayInSlovakia(now));
+  const source=overviewSqlSource(filters,now);
   const predicates:string[]=[];
   const bind:(string|number)[]=[];
-  if(filters.category){predicates.push("category=?");bind.push(filters.category);}
-  if(filters.q){predicates.push("name LIKE ? COLLATE NOCASE");bind.push("%"+filters.q+"%");}
+  if(filters.category && filters.area !== "services"){predicates.push("category=?");bind.push(filters.category);}
+  if (filters.q) {
+    predicates.push(`instr(${sqlFoldAdminText("name")}, ${sqlFoldAdminText("?")}) > 0`);
+    bind.push(filters.q);
+  }
   const where=predicates.length?" WHERE "+predicates.join(" AND "):"";
   const columns=fieldIds.map(k=>"COALESCE(SUM(m_"+k+"),0) AS m_"+k).join(",") + "," + fieldIds.map(k=>"COALESCE(SUM(e_"+k+"),0) AS e_"+k).join(",");
   const anyMissing=fieldIds.map(k=>"m_"+k).join("+");

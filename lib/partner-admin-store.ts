@@ -64,16 +64,24 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
   let total=0;
   let pageRows:Array<AccountRow & {email:string;contactName:string|null}>=[];
   if(!normalizedQuery){
-    const [count,rows]=await Promise.all([
+    const loadRows = (rowOffset: number) =>
+      database
+        .prepare(select + where + order + " LIMIT ? OFFSET ?")
+        .bind(...values, filters.pageSize, rowOffset)
+        .all<AccountRow>();
+    const [count, requestedRows] = await Promise.all([
       database.prepare("SELECT COUNT(*) total FROM partner_accounts a"+where).bind(...values).first<{total:number}>(),
-      database.prepare(select+where+order+" LIMIT ? OFFSET ?").bind(...values,filters.pageSize,offset).all<AccountRow>(),
+      loadRows(offset),
     ]);
     total=Number(count?.total??0);
+    const lastOffset = total > 0 ? Math.floor((total - 1) / filters.pageSize) * filters.pageSize : 0;
+    const rows = total > 0 && offset > lastOffset ? await loadRows(lastOffset) : requestedRows;
     pageRows=await Promise.all(rows.results.map(row=>revealPartnerAccount(row,key)));
   }else{
     // Email is AES-GCM encrypted: substring searches cannot run against SQL ciphertext
     // or the exact-match HMAC email_hash. Scan *all* filtered accounts on the server
-    // in bounded keyset batches, decrypt there, and retain only the requested page.
+    // in bounded keyset batches and retain one page. Until we reach the requested
+    // page, keep the latest page so stale links can fall back to the last result.
     let cursor:{createdAt:string;id:string}|null=null;
     while(true){
       const predicate=cursor
@@ -86,7 +94,10 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
       const decrypted=await Promise.all(batch.map(row=>revealPartnerAccount(row,key)));
       for(const item of decrypted){
         if(item.id.toLowerCase().includes(normalizedQuery)||item.email.toLocaleLowerCase("sk").includes(normalizedQuery)||item.contactName?.toLocaleLowerCase("sk").includes(normalizedQuery)){
-          if(total>=offset&&pageRows.length<filters.pageSize)pageRows.push(item);
+          if (total < offset + filters.pageSize) {
+            if (total % filters.pageSize === 0) pageRows = [];
+            pageRows.push(item);
+          }
           total++;
         }
       }
@@ -146,6 +157,7 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
       requests:Number(item.pendingRequests),helpProfiles:Number(item.helpProfiles),
     });
   }
+  const totalPages = Math.max(1, Math.ceil(total / filters.pageSize));
   return {
     items:pageRows.map(({emailCiphertext,contactNameCiphertext,...row})=>({
       ...row,
@@ -155,9 +167,9 @@ export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters=
       managedProfileCount:(memberships.get(row.id)??0)+(pending.get(row.id)?.helpProfiles??0),
     })),
     total,
-    page:filters.page,
+    page: Math.min(filters.page, totalPages),
     pageSize:filters.pageSize,
-    totalPages:Math.max(1,Math.ceil(total/filters.pageSize)),
+    totalPages,
   };
 }
 
