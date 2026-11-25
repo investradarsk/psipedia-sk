@@ -12,7 +12,6 @@ import { EventCalendar } from "@/components/event-calendar";
 import { RememberEventsListing } from "@/components/events-return-link";
 import { Breadcrumbs } from "@/components/page-system";
 import {
-  PublicContextBanner,
   PublicContentShell,
   PublicCategorySection,
   PublicActionLink,
@@ -37,6 +36,7 @@ import {
 import type { PortalSection } from "@/lib/portal";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { PublicPhotoCallout } from "@/components/public-visual-system/public-photo-callout";
+import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { publicSectionPhotoPromos } from "@/lib/public-section-photo-promos";
 import styles from "./events-public.module.css";
 
@@ -229,14 +229,16 @@ export async function EventsPage({
                 />
               </PublicCategorySection>
             </div>
-            <PublicContextBanner
-              eyebrow="PRE ORGANIZÁTOROV"
+            <PublicMagazineBanner
+              compact
+              size="medium"
+              photoTone="volunteer"
+              testId="events-organizer-cta"
+              eyebrow="Pre organizátorov"
               title="Organizujete podujatie?"
-              text="Pridajte výstavu, preteky, tréning alebo inú kynologickú akciu do kalendára Psipedie."
-              ctaLabel="Pridať podujatie"
-              ctaHref="/podujatia/pridat-podujatie"
-              tone="coral"
-              inline
+              description="Pridajte výstavu, preteky, tréning alebo inú kynologickú akciu do kalendára Psipedie."
+              label="Pridať podujatie"
+              href="/podujatia/pridat-podujatie"
             />
             <AffiliateRotatingBanner placement="horizontal" />
             <EventCalendar
