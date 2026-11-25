@@ -1,3 +1,4 @@
+import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { PublicHeading } from "@/components/public-heading";
 import type { ReactNode } from "react";
 import styles from "./detail-primitives.module.css";
@@ -201,6 +202,7 @@ export function PublicDetailLayout({
           data-public-detail-main
         >
           {children}
+          {!hasAside ? <AffiliateRotatingBanner placement="horizontal" /> : null}
         </div>
         {hasAside ? (
           <aside
@@ -209,6 +211,7 @@ export function PublicDetailLayout({
             data-public-detail-aside
           >
             {aside}
+            <AffiliateRotatingBanner placement="sidebar" />
           </aside>
         ) : null}
       </>
