@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { matchOptionalPublicCache, putOptionalPublicCache } from "../lib/optional-read-recovery.ts";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache.ts";
 import { isExplicitAnonymousHtmlRoute, isSafePublicHtmlVary } from "../lib/public-anonymous-html-cache.ts";
 
@@ -37,7 +38,7 @@ function cacheOps(storage) {
 
   const check = source.indexOf("if (!cache || (!isCacheableHtmlResponse(response) && !isExplicitAnonymousSsrHtml(response, url.pathname))) return response;");
   const rewrite = source.indexOf('const cacheable = responseWithHeaders(response, publicHtmlCacheHeaders("MISS"));');
-  const put = source.indexOf("ctx.waitUntil(cache.storage.put(cache.key, cacheable.clone()))");
+  const put = source.indexOf("ctx.waitUntil(putOptionalPublicCache(cache.storage, cache.key, cacheable.clone(), \"html\"))");
   assert.ok(check >= 0 && rewrite > check && put > rewrite, "Must check upstream response before overwriting and caching");
 
   const setup = "const globalThis = { caches: { default: storage } };\n" +
@@ -113,11 +114,11 @@ test("Worker helpers maintain HIT/MISS while private and authenticated requests 
   async function handle(req, upstream) {
     const candidate = ops.publicHtmlCache(req, new URL(req.url), "fixture-version");
     if (!candidate) return upstream;
-    const cached = await candidate.storage.match(candidate.key);
+    const cached = await matchOptionalPublicCache(candidate.storage, candidate.key, "html");
     if (cached) return ops.responseWithHeaders(cached, ops.publicHtmlCacheHeaders("HIT"));
     if (!ops.isCacheableHtmlResponse(upstream)) return upstream;
     const miss = ops.responseWithHeaders(upstream, ops.publicHtmlCacheHeaders("MISS"));
-    await candidate.storage.put(candidate.key, miss.clone());
+    await putOptionalPublicCache(candidate.storage, candidate.key, miss.clone(), "html");
     return miss;
   }
 
