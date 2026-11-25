@@ -25,17 +25,17 @@ test("Help, Services and Events use the shared category section", () => {
   assert.match(read("components/events-page.tsx"), /icon: eventCategoryIcons\[type\]/);
 });
 
-test("organizer CTA lives above affiliate, categories and calendar exactly once", () => {
+test("categories precede the shared organizer CTA, affiliate and calendar", () => {
   const source = read("components/events-page.tsx");
   const organizer = source.indexOf('title="Organizujete podujatie?"');
   const affiliate = source.indexOf("<AffiliateRotatingBanner");
   const categories = source.indexOf("data-event-category-navigation");
   const calendar = source.indexOf("<EventCalendar");
-  assert.ok(organizer > 0 && organizer < affiliate && affiliate < categories && categories < calendar);
+  assert.ok(categories > 0 && categories < organizer && organizer < affiliate && affiliate < calendar);
   assert.equal(source.match(/Organizujete podujatie\?/g)?.length, 1);
   assert.doesNotMatch(source, /afterCalendar=\{/);
-  assert.match(source, /ctaHref="\/podujatia\/pridat-podujatie"/);
-  assert.match(source, /tone="coral"/);
+  assert.match(source, /href="\/podujatia\/pridat-podujatie"/);
+  assert.match(source, /<PublicMagazineBanner[\s\S]*?testId="events-organizer-cta"/);
 });
 
 test("contextual coral banners use cream rather than pale pink", () => {
