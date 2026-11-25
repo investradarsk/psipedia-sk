@@ -24,6 +24,15 @@ import { selectSafeAutomationMatch, type AutomationMatchCandidate } from "./data
 import { getCanonicalDraftFlag } from "./canonical-draft-flags.ts";
 import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 
+import { directoryServicesSqlExpression } from "./directory-presentation-sql-read.ts";
+import { directory0173QualificationsSqlExpression } from "./directory-0173-editorial-sql-read.ts";
+
+function canonicalRowProjection(table: string) {
+  return table === "directory_profiles"
+    ? `directory_profiles.*, ${directoryServicesSqlExpression()} AS sql_services, ${directory0173QualificationsSqlExpression()} AS sql_qualifications`
+    : "*";
+}
+
 export type AutomationD1Database = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
 
@@ -384,8 +393,8 @@ function directoryBefore(row: Record<string, unknown>) {
   const contacts = readDirectorySqlBackedContacts({}, row);
   return {
     slug: row.slug, name: row.name, category: row.category, status: row.status, excerpt: row.excerpt,
-    description: row.description, services: parseJson(String(row.services_json ?? "[]"), []),
-    qualifications: parseJson(String(row.qualifications_json ?? "[]"), []), city: row.city, district: row.district,
+    description: row.description, services: parseJson(String(row.sql_services ?? "[]"), []),
+    qualifications: parseJson(String(row.sql_qualifications ?? "[]"), []), city: row.city, district: row.district,
     region: row.region, address: row.address, postalCode: row.postal_code, street: row.street,
     houseNumber: row.house_number, addressFormat: row.address_format,
     serviceAddressConfirmation: row.service_address_confirmation,
@@ -516,7 +525,7 @@ async function appendCanonicalRowsById(
   const missing = [...ids].filter((id) => !present.has(id)).slice(0, 20);
   if (!missing.length) return rows;
   const placeholders = missing.map(() => "?").join(",");
-  const extra = await db.prepare(`SELECT * FROM ${table} WHERE id IN (${placeholders}) ORDER BY id ASC`)
+  const extra = await db.prepare(`SELECT ${canonicalRowProjection(table)} FROM ${table} WHERE id IN (${placeholders}) ORDER BY id ASC`)
     .bind(...missing)
     .all<Record<string, unknown>>();
   return [...rows, ...extra.results];
@@ -617,7 +626,7 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
   if (source.entityType === "DIRECTORY") {
     const importKey = String(proposed.importKey ?? proposed.import_key ?? "");
     const provenanceIds = await directEntityProvenanceIds(source, record, db);
-    result = await db.prepare(`SELECT * FROM directory_profiles
+    result = await db.prepare(`SELECT ${canonicalRowProjection("directory_profiles")} FROM directory_profiles
       WHERE import_key=? OR (category=? AND slug=?) OR (category=? AND name=? COLLATE NOCASE)
       ORDER BY id ASC LIMIT 50`).bind(importKey, category, slug, category, name).all<Record<string, unknown>>();
     const rows = await appendCanonicalRowsById(db, "directory_profiles", result.results, provenanceIds);

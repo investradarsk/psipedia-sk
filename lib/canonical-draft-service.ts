@@ -1,3 +1,6 @@
+import { planDirectory0173EditorialSqlMirror } from "./directory-0173-editorial-sql-mirror.ts";
+import { planDirectoryStep3PresentationSqlMirror } from "./directory-sql-step3-live-mirror.ts";
+
 export type CanonicalDraftEntityType =
   | "EVENT"
   | "ORGANIZATION"
@@ -23,7 +26,7 @@ export type CanonicalDraftInput = {
   } | null;
 };
 
-export type CanonicalDraftDatabase = Pick<D1Database, "prepare">;
+export type CanonicalDraftDatabase = Pick<D1Database, "prepare" | "batch">;
 
 export class CanonicalDraftValidationError extends Error {
   constructor(message: string) {
@@ -86,16 +89,24 @@ function searchText(values: unknown[]) {
     .trim();
 }
 
-async function insertCanonicalRow(
+function canonicalInsertStatement(
   database: CanonicalDraftDatabase,
   table: string,
   values: Record<string, unknown>,
 ) {
   const entries = Object.entries(values);
   const columns = entries.map(([column]) => column);
-  const row = await database.prepare(
+  return database.prepare(
     `INSERT INTO ${table} (${columns.join(",")}) VALUES (${columns.map(() => "?").join(",")}) RETURNING id`,
-  ).bind(...entries.map(([, value]) => value)).first<{ id: number }>();
+  ).bind(...entries.map(([, value]) => value));
+}
+
+async function insertCanonicalRow(
+  database: CanonicalDraftDatabase,
+  table: string,
+  values: Record<string, unknown>,
+) {
+  const row = await canonicalInsertStatement(database, table, values).first<{ id: number }>();
   if (!row?.id) throw new Error("canonical_draft_create_failed");
   return Number(row.id);
 }
@@ -266,8 +277,8 @@ export async function createCanonicalDraft(
       status: "draft",
       excerpt: textValue(p.excerpt),
       description: textValue(p.description),
-      services: Array.isArray(p.services) ? p.services : [],
-      qualifications: Array.isArray(p.qualifications) ? p.qualifications : [],
+      services: Array.isArray(p.services) ? p.services.filter((v): v is string => typeof v === "string" && Boolean(v.trim())) : [],
+      qualifications: Array.isArray(p.qualifications) ? p.qualifications.filter((v): v is string => typeof v === "string" && Boolean(v.trim())) : [],
       city: textValue(verifiedAddress?.city ?? p.city),
       district: textValue(verifiedAddress?.district ?? p.district),
       region: textValue(verifiedAddress?.region ?? p.region),
@@ -290,15 +301,13 @@ export async function createCanonicalDraft(
       importKey: nullableText(p.importKey ?? p.import_key),
       verified: Boolean(p.verified),
     };
-    const canonicalEntityId = await insertCanonicalRow(database, "directory_profiles", {
+    const directoryValues = {
       slug: after.slug,
       name: after.name,
       category: after.category,
       status: "draft",
       excerpt: after.excerpt,
       description: after.description,
-      services_json: JSON.stringify(after.services),
-      qualifications_json: JSON.stringify(after.qualifications),
       city: after.city,
       region: after.region,
       address: after.address,
@@ -320,6 +329,7 @@ export async function createCanonicalDraft(
       district: after.district,
       search_text: searchText([
         after.name, after.category, after.city, after.district, after.region,
+        after.excerpt, after.description, ...after.services, ...after.qualifications,
         after.address, after.postalCode, after.street, after.houseNumber,
       ]),
       created_at: at,
@@ -327,7 +337,22 @@ export async function createCanonicalDraft(
       published_at: null,
       created_by: actor,
       updated_by: actor,
-    });
+    };
+    const identity = { kind: "category-slug" as const, category, slug: after.slug, updatedAt: at, actor };
+    const relations = [
+      ...(after.services.length ? planDirectoryStep3PresentationSqlMirror({ identity, services: after.services }) : []),
+      ...(after.qualifications.length ? planDirectory0173EditorialSqlMirror({ identity, qualifications: after.qualifications }) : []),
+    ];
+    if (!relations.length) {
+      const canonicalEntityId = await insertCanonicalRow(database, "directory_profiles", directoryValues);
+      return { canonicalEntityId, after };
+    }
+    const [inserted] = await database.batch<{ id: number }>([
+      canonicalInsertStatement(database, "directory_profiles", directoryValues),
+      ...relations.map((item) => database.prepare(item.sql).bind(...item.bindings)),
+    ]);
+    const canonicalEntityId = Number(inserted.results[0]?.id);
+    if (!canonicalEntityId) throw new Error("canonical_draft_create_failed");
     return { canonicalEntityId, after };
   }
 

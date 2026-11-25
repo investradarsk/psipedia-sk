@@ -195,6 +195,7 @@ jobs:
           mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
           trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file db/isolated/directory_admin_sql_completion.sql
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/canonical-draft-delete-e2e.sql
       - name: DIRECT_ENTITY identity/evidence local D1 E2E
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-direct-entity-d1-e2e.test.mjs

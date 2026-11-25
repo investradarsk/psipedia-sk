@@ -65,8 +65,8 @@ test("all ten Directory categories save Popis, SEO and contacts independently wi
    assert.equal(ctx.writes.length,3,category);
    assert.match(ctx.writes[0].sql,/description = \?/);
    assert.equal(ctx.writes[0].args[0],"x");
-   assert.match(ctx.writes[1].sql,/seo_json = json_set/);
-   assert.equal(ctx.writes[1].args[1],"Test SEO");
+   assert.doesNotMatch(ctx.writes[1].sql,/seo_json/);
+   assert(ctx.sidecarSql.some(row=>row.sql.includes("directory_profile_seo") && row.args.includes("Test SEO")));
    assert(ctx.sidecarSql.some(row=>row.sql.includes("directory_profile_seo")),
      category+" must also save SQL SEO");
    assert.doesNotMatch(ctx.writes[2].sql,/source_data_json/);
@@ -106,7 +106,8 @@ test("legacy free-text service writes never reach V3 and pilot categories reject
        assert(ctx.sidecarSql.some(row=>row.args.includes("Individuálny výcvik")));
        assert.doesNotMatch(ctx.writes[0].sql,/services_json\s*=/);
      }else{
-       assert.match(ctx.writes[0].sql,/services_json = \?/);
+       assert.doesNotMatch(ctx.writes[0].sql,/services_json/);
+       assert(ctx.sidecarSql.some(row=>row.sql.includes("directory_profile_service_texts") && row.args.includes(JSON.stringify(request.services))));
      }
    }
  }

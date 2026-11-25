@@ -41,7 +41,7 @@ test("retired address review redirects to independent Quality workflow", async (
     const response = await page.goto(legacyPath, { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBeLessThan(400);
     await expect(page).toHaveURL(new RegExp(replacementQuality + "/?$"));
-    await expect(page.getByRole("heading", { name: "Kvalita údajov", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Nálezy na schválenie", exact: true })).toBeVisible();
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expectAxeClean(page);

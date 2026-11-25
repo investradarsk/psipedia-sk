@@ -98,8 +98,8 @@ test("public, Admin, partner, automation and Notion organization contacts stay S
   assert.match(automation, /publicPhone: field\("public_phone"\)/);
   // The existing Notion import preserves contact columns, and never imports
   // either value from legacy JSON. Other Notion agenda fields remain unchanged.
-  assert.match(notion, /publicEmail: existing\?\.publicEmail \?\? null/);
-  assert.match(notion, /publicPhone: existing\?\.publicPhone \?\? null/);
+  assert.match(notion, /publicEmail: Object\.hasOwn\(values, "Verejný e-mail"\)\s*\? s\(values\["Verejný e-mail"\]\) \|\| null : existing\?\.publicEmail \?\? null/);
+  assert.match(notion, /publicPhone: Object\.hasOwn\(values, "Verejný telefón"\)\s*\? s\(values\["Verejný telefón"\]\) \|\| null : existing\?\.publicPhone \?\? null/);
   assert.match(partner, /delete source\.publicEmailsRaw;\s*delete source\.publicPhonesRaw;/);
 
   // There are no active JSON contact aliases in read/write paths.

@@ -323,7 +323,8 @@ function breedDatabase() {
       status TEXT NOT NULL DEFAULT 'published',
       fci_number INTEGER,
       import_key TEXT,
-      seo_json TEXT NOT NULL DEFAULT '{}',
+      seo_noindex INTEGER NOT NULL DEFAULT 0,
+      seo_canonical_url TEXT NOT NULL DEFAULT '',
       fci_group INTEGER NOT NULL DEFAULT 8
     )
   `);
@@ -340,9 +341,9 @@ function breedDatabase() {
     prepare,
     add({ id, slug, name, fciNumber = id, importKey = `fci-${id}`, status = "published", seoJson = "{}", fciGroup = 8 }) {
       sqlite.prepare(`INSERT INTO managed_breeds
-        (id, slug, name, status, fci_number, import_key, seo_json, fci_group)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(id, slug, name, status, fciNumber, importKey, seoJson, fciGroup);
+        (id, slug, name, status, fci_number, import_key, seo_noindex, seo_canonical_url, fci_group)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, slug, name, status, fciNumber, importKey, JSON.parse(seoJson).noindex ? 1 : 0, JSON.parse(seoJson).canonicalUrl ?? "", fciGroup);
     },
   };
 }

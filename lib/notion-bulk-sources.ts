@@ -1,3 +1,5 @@
+import { directoryServicesSqlExpression } from "./directory-presentation-sql-read.ts";
+import { directory0173QualificationsSqlExpression, directory0173SeoSqlExpression } from "./directory-0173-editorial-sql-read.ts";
 import { readDirectorySqlBackedContacts } from "./directory-sql-contacts.ts";
 import { HELP_ADMIN_DOMAIN_SQL } from "./help-admin-query.ts";
 import type { EditableSeo } from "./content-seo.ts";
@@ -92,9 +94,10 @@ async function rows(database: D1Database, sql: string, targetId?: number) {
 }
 
 export async function loadNotionBulkServices(database: D1Database) {
-  const sourceRows = await rows(database, `SELECT id,slug,name,category,status,excerpt,description,services_json,qualifications_json,
+  const sourceRows = await rows(database, `SELECT id,slug,name,category,status,excerpt,description,${directoryServicesSqlExpression()} AS services_json,
+    ${directory0173QualificationsSqlExpression()} AS qualifications_json,
     city,district,region,address,postal_code,street,house_number,address_format,service_address_confirmation,price_note,
-    website_url,public_phone,public_email,facebook_url,instagram_url,internal_email,image_url,image_key,verified,featured,created_at,updated_at,published_at,archived_at,seo_json
+    website_url,public_phone,public_email,facebook_url,instagram_url,internal_email,image_url,image_key,verified,featured,created_at,updated_at,published_at,archived_at,${directory0173SeoSqlExpression()} AS seo_json
     FROM directory_profiles ORDER BY id ASC`);
 
   return sourceRows.map((row) => {
@@ -137,7 +140,7 @@ export async function loadNotionBulkServices(database: D1Database) {
       "OG title": s(seo.ogTitle),
       "OG popis": s(seo.ogDescription),
       "OG obrázok": asset(seo.ogImage),
-      "Noindex": seo.noindex === true,
+      "Noindex": seo.noindex === true || seo.noindex === 1,
       "Vytvorené Psipedia": date(row.created_at),
       "Aktualizované Psipedia": date(row.updated_at),
       "Publikované Psipedia": date(row.published_at),

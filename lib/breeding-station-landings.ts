@@ -1,3 +1,4 @@
+import { directoryServicesSqlExpression } from "./directory-presentation-sql-read.ts";
 import { env } from "cloudflare:workers";
 import { canonicalBreedWinnerForRead } from "@/lib/breed-canonical";
 import { publicDirectoryRelationTargetSql } from "@/lib/content-relations";
@@ -182,7 +183,7 @@ export function buildBreedingStationLandingQuery(selector: BreedingStationLandin
       kind: region ? "breed-region" as const : "breed" as const,
       region,
       sql: `SELECT
-        d.id, d.slug, d.name, d.excerpt, d.services_json, d.city, d.district, d.region,
+        d.id, d.slug, d.name, d.excerpt, ${directoryServicesSqlExpression("d")} AS services_json, d.city, d.district, d.region,
         d.price_note, d.image_url, d.featured, d.updated_at,
         b.id AS breed_id, b.slug AS breed_slug, b.name AS breed_name,
         b.fci_group AS breed_fci_group, b.updated_at AS breed_updated_at,
@@ -195,7 +196,7 @@ export function buildBreedingStationLandingQuery(selector: BreedingStationLandin
         AND ${publicCanonicalBreedingStationSql("d")}
         ${regionClause}
       GROUP BY
-        d.id, d.slug, d.name, d.excerpt, d.services_json, d.city, d.district, d.region,
+        d.id, d.slug, d.name, d.excerpt, d.city, d.district, d.region,
         d.price_note, d.image_url, d.featured, d.updated_at,
         b.id, b.slug, b.name, b.fci_group, b.updated_at
       ORDER BY d.featured DESC, d.name COLLATE NOCASE ASC, d.id ASC`,
@@ -207,7 +208,7 @@ export function buildBreedingStationLandingQuery(selector: BreedingStationLandin
     kind: "region" as const,
     region,
     sql: `SELECT
-      d.id, d.slug, d.name, d.excerpt, d.services_json, d.city, d.district, d.region,
+      d.id, d.slug, d.name, d.excerpt, ${directoryServicesSqlExpression("d")} AS services_json, d.city, d.district, d.region,
       d.price_note, d.image_url, d.featured, d.updated_at,
       NULL AS breed_id, NULL AS breed_slug, NULL AS breed_name,
       NULL AS breed_fci_group, NULL AS breed_updated_at,

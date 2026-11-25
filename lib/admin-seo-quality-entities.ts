@@ -397,7 +397,6 @@ export function articleEntity(row: RawRow): AdminSeoQualityEntity {
       excerpt,
       intro,
       seoAuditText(row.takeaway),
-      ...seoStringsFromJson(row.sections_json),
       ...seoStringsFromJson(row.blocks_json),
     ],
     imageUrl: seoAuditText(row.image_url),
@@ -563,7 +562,7 @@ export async function loadSeoQualitySources(
       agenda: "articles",
       async load(database) {
         const rows = checkedRows(await database.prepare(`
-        SELECT id, slug, title, excerpt, category, portal_section, intro, takeaway, sections_json, blocks_json,
+        SELECT id, slug, title, excerpt, category, portal_section, intro, takeaway, blocks_json,
           image_url, image_alt, seo_title, meta_description, canonical_url, noindex
         FROM managed_articles
         WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)

@@ -48,7 +48,8 @@ test("accept is stale-safe, value-versioned and idempotent while reject never ne
   assert.match(source, /valuesEqual\(spec, current, change\.before\)/);
   assert.match(source, /String\(canonical\.updated_at \?\? ""\) !== input\.expectedUpdatedAt/);
   assert.match(source, /WHERE id=\? AND updated_at=\?/);
-  assert.match(source, /db\.batch\(\[updateStatement, decisionStatement\]\)/);
+  assert.match(source, /db\.batch\(\[updateStatement, \.\.\.relationStatements, decisionStatement\]\)/);
+  assert.match(source, /AUTOMATION_DIRECTORY_REVISION_CONFLICT/);
   assert.match(source, /WHERE EXISTS/);
   assert.match(source, /CANONICAL_ALREADY_MATCHES/);
   assert.match(source, /existingDecision/);

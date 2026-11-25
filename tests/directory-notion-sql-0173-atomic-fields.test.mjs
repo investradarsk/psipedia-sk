@@ -21,7 +21,7 @@ const code=ts.transpileModule(source.slice(start,end)+
 function setup(category="veterinari"){
   const sqlite=new DatabaseSync(":memory:");
   sqlite.exec([
-    "CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,category TEXT,status TEXT,updated_at TEXT,updated_by TEXT,seo_json TEXT,qualifications_json TEXT,search_text TEXT)",
+    "CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,category TEXT,status TEXT,updated_at TEXT,updated_by TEXT,search_text TEXT)",
     "CREATE TABLE directory_profile_seo(profile_id INTEGER PRIMARY KEY,title TEXT DEFAULT '',description TEXT DEFAULT '',focus_keyword TEXT DEFAULT '',canonical_url TEXT DEFAULT '',og_title TEXT DEFAULT '',og_description TEXT DEFAULT '',og_image_url TEXT DEFAULT '',noindex INTEGER DEFAULT 0,updated_at TEXT NOT NULL,updated_by TEXT NOT NULL)",
     "CREATE TABLE directory_profile_qualifications(profile_id INTEGER,item_order INTEGER,qualification_text TEXT,updated_at TEXT NOT NULL,updated_by TEXT NOT NULL,PRIMARY KEY(profile_id,item_order))",
   ].join(";")+";");
@@ -29,8 +29,8 @@ function setup(category="veterinari"){
     seo:{title:"Old SEO",description:"Keep description",focusKeyword:"dogs",canonicalUrl:"",
       ogTitle:"Keep OG",ogDescription:"",ogImage:"",noindex:true},
     qualifications:["Old"]};
-  sqlite.prepare("INSERT INTO directory_profiles(id,category,status,updated_at,updated_by,seo_json,qualifications_json,search_text) VALUES(?,?,?,?,?,?,?,?)")
-    .run(84,category,"published",current.updatedAt,"admin",JSON.stringify(current.seo),'["Old"]',"");
+  sqlite.prepare("INSERT INTO directory_profiles(id,category,status,updated_at,updated_by,search_text) VALUES(?,?,?,?,?,?)")
+    .run(84,category,"published",current.updatedAt,"admin","");
   sqlite.prepare("INSERT INTO directory_profile_seo(profile_id,title,description,focus_keyword,canonical_url,og_title,og_description,og_image_url,noindex,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
     .run(84,"Old SEO","Keep description","dogs","","Keep OG","","",1,current.updatedAt,"admin");
   sqlite.prepare("INSERT INTO directory_profile_qualifications VALUES(?,?,?,?,?)")
@@ -74,7 +74,6 @@ test("Notion SEO title atomically updates sidecar while preserving other SQL SEO
     await h.save(h.db,h.current,next,"seo.title");
     const s=h.sqlite.prepare("SELECT title,description,og_title,noindex FROM directory_profile_seo WHERE profile_id=84").get();
     assert.deepEqual({...s},{title:"Notion fresh title",description:"Keep description",og_title:"Keep OG",noindex:1});
-    assert.equal(JSON.parse(h.sqlite.prepare("SELECT seo_json FROM directory_profiles WHERE id=84").get().seo_json).title,"Notion fresh title");
   }finally{h.sqlite.close()}
 });
 
@@ -88,7 +87,7 @@ test("Notion noindex=false updates SQL without changing other SEO",async()=>{
   }finally{h.sqlite.close()}
 });
 
-test("Notion qualifications update and explicit clear preserve SQL/JSON parity",async()=>{
+test("Notion qualifications update and explicit clear persist without legacy columns",async()=>{
   for(const values of [["First","Second"],[]]){
     const h=setup("hotely-a-opatrovanie");
     try{
@@ -96,19 +95,17 @@ test("Notion qualifications update and explicit clear preserve SQL/JSON parity",
       await h.save(h.db,h.current,next,"qualifications");
       assert.deepEqual(h.sqlite.prepare("SELECT qualification_text FROM directory_profile_qualifications WHERE profile_id=84 ORDER BY item_order")
         .all().map(x=>x.qualification_text),values);
-      assert.deepEqual(JSON.parse(h.sqlite.prepare("SELECT qualifications_json FROM directory_profiles WHERE id=84").get().qualifications_json),values);
       assert.equal(h.sqlite.prepare("SELECT title FROM directory_profile_seo WHERE profile_id=84").get().title,"Old SEO");
     }finally{h.sqlite.close()}
   }
 });
 
-test("stale Notion update rolls back both canonical JSON and SQL sidecar",async()=>{
+test("stale Notion update rolls back the canonical SQL update",async()=>{
   const h=setup();
   try{
     h.sqlite.prepare("UPDATE directory_profiles SET updated_at='newer-admin-change' WHERE id=84").run();
     const next=h.desired();next.seo.title="Stale";
     await assert.rejects(()=>h.save(h.db,h.current,next,"seo.title"));
     assert.equal(h.sqlite.prepare("SELECT title FROM directory_profile_seo WHERE profile_id=84").get().title,"Old SEO");
-    assert.equal(JSON.parse(h.sqlite.prepare("SELECT seo_json FROM directory_profiles WHERE id=84").get().seo_json).title,"Old SEO");
   }finally{h.sqlite.close()}
 });
