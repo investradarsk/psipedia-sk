@@ -1,3 +1,5 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { parseEventListing, eventTypeSelectionRedirect, eventListingPageHref } from '@/lib/event-listing';
 import { getPublishedEventListing, getPublicEventCalendar } from '@/lib/event-store';
 import type { Metadata } from "next";
@@ -116,8 +118,8 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     const calendarMonth = resolveCalendarMonth(parseEventListing(rawSearchParams).day?.slice(0, 7) || eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
     const [managedSection, events, calendarEvents] = await Promise.all([
       getManagedPortalSection(section),
-      getPublishedEventListing(parseEventListing(rawSearchParams, eventType)),
-      getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? ''),
+      retryTransientPublicRead(() => getPublishedEventListing(parseEventListing(rawSearchParams, eventType)), { stage: "events_listing" }),
+      settleOptionalRead("events_calendar", retryTransientPublicRead(() => getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? ''), { stage: "events_calendar" }), null),
     ]);
     if (!managedSection?.visible) notFound();
     const path = `/podujatia/${slug}`;
@@ -139,7 +141,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
         .filter((event) => event.eventType === eventType)
         .map((event) => ({ name: event.title, path: eventHref(event) })),
     }) : null;
-    return <>{schema && <StructuredData value={schema} />}<EventsPage listing={events} filters={parseEventListing(rawSearchParams, eventType)} events={events.events} calendarEvents={calendarEvents.events} calendarSummaries={calendarEvents.summaries} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} initialType={eventType} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} /></>;
+    return <>{schema && <StructuredData value={schema} />}<EventsPage listing={events} filters={parseEventListing(rawSearchParams, eventType)} events={events.events} calendarEvents={calendarEvents?.events} calendarSummaries={calendarEvents?.summaries} initialCalendarUnavailable={calendarEvents === null} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} initialType={eventType} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} /></>;
   }
   const managedSection = await getManagedPortalSection(section);
   if (!managedSection?.visible) notFound();
@@ -148,8 +150,8 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     const typeRedirect = eventTypeSelectionRedirect(rawSearchParams);
     if (typeRedirect) redirect(typeRedirect);
     const calendarMonth = resolveCalendarMonth(parseEventListing(rawSearchParams).day?.slice(0, 7) || eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
-    const [events, calendarEvents] = await Promise.all([getPublishedEventListing(parseEventListing(rawSearchParams)), getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? '')]);
-    return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={events.events} calendarEvents={calendarEvents.events} calendarSummaries={calendarEvents.summaries} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
+    const [events, calendarEvents] = await Promise.all([retryTransientPublicRead(() => getPublishedEventListing(parseEventListing(rawSearchParams)), { stage: "events_listing" }), settleOptionalRead("events_calendar", retryTransientPublicRead(() => getPublicEventCalendar(parseEventListing(rawSearchParams, eventType ?? 'Všetky'), calendarMonth, scalar(rawSearchParams.den) ?? ''), { stage: "events_calendar" }), null)]);
+    return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={events.events} calendarEvents={calendarEvents?.events} calendarSummaries={calendarEvents?.summaries} initialCalendarUnavailable={calendarEvents === null} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (portalTopic && section === "novinky") {
@@ -191,7 +193,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
       const canonical = resolvedCanonical(event.seo, eventHref(event));
       const schema = buildEventJsonLd(event, canonical);
       const [related, publicMap] = await Promise.all([
-        getUpcomingEventCards(8).then((events) => selectRelatedEvents(event, events)),
+        settleOptionalRead("related_events", getUpcomingEventCards(8).then((events) => selectRelatedEvents(event, events)), []),
         getPublicMapItemsForEntity({ entityType: "MANAGED_EVENT", entityId: event.id })
           .catch((error) => {
             console.error("Public event map read failed", {
@@ -215,7 +217,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   const [magazine, discovery, authorProfile, relatedBreeds, qualifiedReads, priorityLinks] = await Promise.all([
     getArticleMagazineData(article),
     getArticleDiscoveryData(storedArticle),
-    getPublishedArticleAuthorProfile(article),
+    settleOptionalRead("article_author_profile", getPublishedArticleAuthorProfile(article), null),
     listRelatedBreedsForArticle(article.slug).catch((error) => {
       console.error("Public article breed relations read failed", {
         articleSlug: article.slug,

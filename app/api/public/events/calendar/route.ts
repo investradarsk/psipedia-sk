@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { getPublishedEventListing, getPublicEventCalendar } from "@/lib/event-store";
 import { parseEventListing } from "@/lib/event-listing";
 import { calendarMonthDays, resolveCalendarMonth } from "@/lib/event-calendar-view";
@@ -26,7 +27,10 @@ export async function GET(request: Request) {
     // Month navigation leaves the event listing filters unchanged. Reusing the
     // existing list means only the month aggregate needs a D1 read.
     if (raw.calendarOnly === "1") {
-      const calendar = await getPublicEventCalendar(filters, month, day);
+      const calendar = await retryTransientPublicRead(
+        () => getPublicEventCalendar(filters, month, day),
+        { signal: request.signal, stage: "events_calendar" },
+      );
       return Response.json({
         calendarEvents: calendar.events,
         calendarSummaries: calendar.summaries,
@@ -34,8 +38,8 @@ export async function GET(request: Request) {
       }, { headers: { "Cache-Control": "private, no-store" } });
     }
     const [listing, calendar] = await Promise.all([
-      getPublishedEventListing(filters),
-      getPublicEventCalendar(filters, month, day),
+      retryTransientPublicRead(() => getPublishedEventListing(filters), { signal: request.signal, stage: "events_listing" }),
+      retryTransientPublicRead(() => getPublicEventCalendar(filters, month, day), { signal: request.signal, stage: "events_calendar" }),
     ]);
     return Response.json({
       events: listing.events,

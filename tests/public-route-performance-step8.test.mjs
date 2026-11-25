@@ -189,7 +189,7 @@ test("directory preview read overlaps independent hero and editorial sidebar ins
   );
   assert.match(
     directory,
-    /isOverview \? getDirectoryCategoryPreviews\(5\) : Promise\.resolve\(null\)/,
+    /isOverview \? retryTransientPublicRead\(\(\) => getDirectoryCategoryPreviews\(5\), \{ stage: "directory_category_previews" \}\) : Promise\.resolve\(null\)/,
   );
   assert.match(directory, /getSectionHeroVisual\(/);
   assert.match(directory, /getArticleDiscoveryData\(/);
@@ -225,7 +225,7 @@ test("calendar month summaries are memoized and selected days use the paginated 
   assert.match(calendar, /if \(state\.day\) params\.set\("den", state\.day\)/);
   assert.match(
     calendar,
-    /const calendarOnly = sameListing && !pending && !loadError && !next\.day/,
+    /const calendarOnly = sameListing && !pending && !loadError && \(!next\.day \|\| data\.calendarUnavailable === true\)/,
   );
   assert.match(api, /const filters = parseEventListing\(raw, type\)/);
   assert.match(api, /getPublishedEventListing\(filters\)/);

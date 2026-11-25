@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { observeWorkerResponse } from "../lib/stability-diagnostics.ts";
 import { ensureNoSniffHeader } from "../lib/http-response-security.ts";
 
 const workerSource = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 
 test("all Worker responses cross the security boundary, including early returns", () => {
-  assert.match(workerSource, /async fetch\(request: Request, env: Env, ctx: ExecutionContext\): Promise<Response> \{\s*return ensureNoSniffHeader\(await worker\.fetch\(request, env, ctx\)\)/);
+  assert.match(workerSource, /async fetch\(request: Request, env: Env, ctx: ExecutionContext\): Promise<Response> \{\s*return observeWorkerResponse\(request, async \(\) => \{\s*return ensureNoSniffHeader\(await worker\.fetch\(request, env, ctx\)\);\s*\}\);\s*\}/);
   assert.match(workerSource, /export default securedWorker;/);
   // Cache and redirects run inside worker.fetch; they cannot bypass the wrapper.
   assert.match(workerSource, /if \(cached\) return responseWithHeaders\(cached/);
@@ -63,4 +64,24 @@ test("no-body 304 responses remain valid when security header is attached", () =
   assert.equal(guarded.body, null);
   assert.equal(guarded.headers.get("ETag"), '"unchanged"');
   assert.equal(guarded.headers.get("X-Content-Type-Options"), "nosniff");
+});
+
+test("diagnostic observation preserves security on every returned response", async () => {
+  const request = new Request("https://psipedia.sk/adresar");
+  for (const status of [200, 301, 403, 503]) {
+    const upstream = new Response("fixture", {
+      status,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+    let calls = 0;
+    const result = await observeWorkerResponse(request, async () => {
+      calls++;
+      return ensureNoSniffHeader(upstream);
+    });
+    assert.equal(calls, 1);
+    assert.equal(result.status, status);
+    assert.equal(result.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(result.headers.get("cache-control"), "private, no-store");
+    assert.equal(await result.text(), "fixture");
+  }
 });

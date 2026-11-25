@@ -56,6 +56,7 @@ export async function EventsPage({
   listing,
   calendarEvents = [],
   calendarSummaries,
+  initialCalendarUnavailable = false,
   initialCalendarMonth = "",
   initialDay = "",
   initialType = "Všetky",
@@ -69,6 +70,7 @@ export async function EventsPage({
   listing?: { total: number; page: number; pages: number };
   calendarEvents?: PublicEventDayPreview[];
   calendarSummaries?: { date: string; count: number; types: EventType[] }[];
+  initialCalendarUnavailable?: boolean;
   initialCalendarMonth?: string;
   initialDay?: string;
   initialType?: EventType | "Všetky";
@@ -115,6 +117,7 @@ export async function EventsPage({
   // calendar month/day/type interactions remain in-place while this key is stable.
   const listingIdentity = [
     initialCalendarMonth,
+    initialCalendarUnavailable,
     initialDay,
     initialType,
     initialTime,
@@ -248,6 +251,7 @@ export async function EventsPage({
               events={events}
               calendarEvents={calendarEvents}
               calendarSummaries={calendarSummaries}
+              initialCalendarUnavailable={initialCalendarUnavailable}
               initialCalendarMonth={initialCalendarMonth}
               initialDay={initialDay}
               today={today}

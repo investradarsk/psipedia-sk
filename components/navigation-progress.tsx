@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { NavigationRecovery } from "@/components/navigation-recovery";
 import { navigationProgress } from "@/lib/navigation-progress";
 
 export function NavigationProgress() {
@@ -13,5 +14,8 @@ export function NavigationProgress() {
     window.dispatchEvent(new Event("psipedia:route-committed"));
   }, [pathname, search]);
 
-  return <div className="navigation-progress" data-active={active ? "true" : "false"} aria-hidden="true"><span /></div>;
+  return <>
+    <div className="navigation-progress" data-active={active ? "true" : "false"} aria-hidden="true"><span /></div>
+    <NavigationRecovery />
+  </>;
 }
