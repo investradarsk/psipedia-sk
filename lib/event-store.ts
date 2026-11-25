@@ -383,6 +383,8 @@ export async function getPublishedEventListing(filters: EventListingFilters): Pr
   const total = count?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / EVENT_PAGE_SIZE));
   const page = Math.min(filters.page, pages);
+  // A verified empty count requires no card query (same clamped page contract).
+  if (total === 0) return { events: [], total, page, pages };
   const columns = `id,slug,title,event_type,start_date,start_time,end_date,end_time,
     venue,city,region,cancelled,image_url,image_display,thumbnail_display_json`;
   // Interleave blocks of five by type across all pages, not just within the current page.
