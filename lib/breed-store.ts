@@ -1,8 +1,6 @@
 import {
   breedProfileHref,
-  canonicalBreedIdsSql,
   canonicalBreedIdsSqlV2,
-  canonicalBreedWinnerSql,
   canonicalBreedWinnerSqlV2,
   rotateBreeds,
 } from "./breed-canonical";
@@ -42,13 +40,9 @@ import {
 } from "./admin-breeds";
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 import { cleanBreedCoatDescription, cleanBreedEditorialList } from "./breed-long-description.ts";
-import { compareBreedSqlV2Detail } from "./breed-sql-v2-preview";
-import {breedSqlPrimaryEnabled,breedSqlPrimaryProjection}
+import {breedSqlPrimaryProjection}
   from "./breed-sql-v2-primary-read.mjs";
-import {BREED_LEGACY_OBJECT_COLUMNS,breedSqlV2InsertColumns}
-  from "./breed-sql-v2-legacy-drop.mjs";
 import {
-  breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,
   breedSqlV2FullSnapshotStatements,
   breedSqlV2NewBreedStatements,
 } from "./breed-sql-v2-writer.mjs";
@@ -685,21 +679,6 @@ const select = `SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_
 valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
-// Keep both queries static and independently testable. Legacy is rollback
-// only; SQL-primary never evaluates the old four object JSON documents.
-const legacyBreedSummarySql = `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,intro,updated_at,sports_json,needs,exercise,training,health,
-CASE WHEN json_valid(editorial_json) THEN
-  CASE WHEN json_type(editorial_json, '$.overview') = 'text' THEN json_extract(editorial_json, '$.overview') ELSE '' END
-ELSE '' END AS editorial_overview,
-CASE WHEN json_valid(fci_standard_json) THEN
-  CASE WHEN json_type(fci_standard_json, '$.fci_standard_pdf') = 'text' THEN json_extract(fci_standard_json, '$.fci_standard_pdf') ELSE '' END
-ELSE '' END AS fci_standard_pdf,
-CASE WHEN json_valid(fci_standard_json) THEN
-  CASE WHEN json_type(fci_standard_json, '$.fci_nomenklatura_url') = 'text' THEN json_extract(fci_standard_json, '$.fci_nomenklatura_url') ELSE '' END
-ELSE '' END AS fci_nomenklatura_url,
-(SELECT COUNT(*) FROM breed_article_relations r WHERE r.breed_id=managed_breeds.id) AS article_relation_count,
-(SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
-FROM managed_breeds ORDER BY fci_group,name LIMIT ?`;
 const sqlBreedSummarySql = `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,intro,updated_at,sports_json,needs,exercise,training,health,
 (SELECT COALESCE(e.overview,'') FROM breed_editorial_text e WHERE e.breed_id=managed_breeds.id) AS editorial_overview,
 (SELECT COALESCE(f.fci_fci_standard_pdf,'') FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id) AS fci_standard_pdf,
@@ -711,15 +690,14 @@ export async function listManagedBreedSummaries(limit = 500) {
   const database = requireDb();
   await ensure(database);
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
-  const result = await database.prepare(sqlPrimary?sqlBreedSummarySql:legacyBreedSummarySql)
+  const result = await database.prepare(sqlBreedSummarySql)
     .bind(safeLimit).all<SummaryRow>();
   return result.results.map(fromSummaryRow);
 }
-const sqlPrimary=breedSqlPrimaryEnabled(env);
-const canonicalBreedIdsForRuntime=sqlPrimary?canonicalBreedIdsSqlV2:canonicalBreedIdsSql;
-const canonicalBreedWinnerForRuntime=sqlPrimary?canonicalBreedWinnerSqlV2:canonicalBreedWinnerSql;
-const readSelect=sqlPrimary?breedSqlPrimaryProjection(select):select;
-const primaryProjection=(sql:string)=>sqlPrimary?breedSqlPrimaryProjection(sql):sql;
+const canonicalBreedIdsForRuntime=canonicalBreedIdsSqlV2;
+const canonicalBreedWinnerForRuntime=canonicalBreedWinnerSqlV2;
+const readSelect=breedSqlPrimaryProjection(select);
+const primaryProjection=breedSqlPrimaryProjection;
 // Article relations need only identifiers and FCI labels, not all the
 // completeness, image, editorial JSON and relation-count fields required by
 // the breed administration dashboard. Keep the same 500-row order/limit.
@@ -834,14 +812,10 @@ export async function listPublishedCanonicalBreedAtlasCards(): Promise<BreedAtla
       `
     SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,origin,group_name,
       official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,
-      ${sqlPrimary?"(SELECT f.fci_vyska_pes_cm FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
-`CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.vyska_pes_cm') AS TEXT) ELSE NULL END`} AS standard_dog_height,
-      ${sqlPrimary?"(SELECT f.fci_vyska_suka_cm FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
-`CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.vyska_suka_cm') AS TEXT) ELSE NULL END`} AS standard_bitch_height,
-      ${sqlPrimary?"(SELECT f.fci_hmotnost_pes_kg FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
-`CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.hmotnost_pes_kg') AS TEXT) ELSE NULL END`} AS standard_dog_weight,
-      ${sqlPrimary?"(SELECT f.fci_hmotnost_suka_kg FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id)":
-`CASE WHEN json_valid(fci_standard_json) THEN CAST(json_extract(fci_standard_json, '$.hmotnost_suka_kg') AS TEXT) ELSE NULL END`} AS standard_bitch_weight
+      (SELECT f.fci_vyska_pes_cm FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id) AS standard_dog_height,
+      (SELECT f.fci_vyska_suka_cm FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id) AS standard_bitch_height,
+      (SELECT f.fci_hmotnost_pes_kg FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id) AS standard_dog_weight,
+      (SELECT f.fci_hmotnost_suka_kg FROM breed_fci_standard f WHERE f.breed_id=managed_breeds.id) AS standard_bitch_weight
     FROM managed_breeds WHERE id IN (${canonicalBreedIdsForRuntime}) ORDER BY fci_group,name
   `,
     )
@@ -1111,8 +1085,6 @@ export async function getManagedBreed(id: number) {
   ]);
   const row = (breedResult.results?.[0] ?? null) as unknown as Row | null;
   if (!row) return null;
-  // Read SQL primary when enabled; legacy parity diagnostics run only in rollback mode.
-  if(!sqlPrimary) await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
   return fromRow(row, {
     articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
     directory: (directoryResult.results as RelationIdRow[]).map((item) => item.id),
@@ -1126,8 +1098,6 @@ const getPublishedBreedUncached = async (slug: string) => {
     .bind(slug)
     .first<Row>());
   if (!row) return null;
-  // The public result uses SQL primary in v2 mode; legacy compare is rollback-only.
-  if(!sqlPrimary) await compareBreedSqlV2Detail(database, row, env as {BREED_SQL_V2_COMPARE_MODE?:string});
   const breed = fromRow(row, { public: true });
   breed.image = ownedBreedImage(breed.image);
   breed.gallery = (breed.gallery ?? [])
@@ -1546,10 +1516,7 @@ function values(value: ReturnType<typeof clean>) {
     value.validStandardDate,
     value.workingTrial,
     value.importKey,
-    JSON.stringify(value.fciStandard),
-    JSON.stringify(value.editorial),
     JSON.stringify(value.sports),
-    JSON.stringify(value.relatedBreedIds),
     value.searchText,
     value.editorialComplete ? 1 : 0,
     value.origin,
@@ -1580,29 +1547,18 @@ function values(value: ReturnType<typeof clean>) {
     JSON.stringify(value.consider),
     JSON.stringify(value.sources),
     value.accent,
-    JSON.stringify(value.seo),
   ];
 }
 
-/** The four historic JSON object columns are NOT NULL until the final guarded
- * D1 schema cleanup. SQL-primary UPDATE leaves them unchanged; new rows
- * only receive empty placeholders, never duplicate canonical SQL values. */
-const BREED_ROW_VALUE_COLUMNS="slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json".split(",");
-const BREED_OLD_OBJECT_DEFAULTS:Record<string,string>={
-  fci_standard_json:"{}",editorial_json:"{}",related_breeds_json:"[]",seo_json:"{}",
-};
+/** Only physical canonical scalar and canonical list columns. */
+const BREED_ROW_VALUE_COLUMNS="slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,sports_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent".split(",");
 function breedValueEntries(value:ReturnType<typeof clean>){
   const raw=values(value);
   if(raw.length!==BREED_ROW_VALUE_COLUMNS.length)throw Error("BREED_SQL_ONLY_VALUE_ORDER_MISMATCH");
   return BREED_ROW_VALUE_COLUMNS.map((column,index)=>({column,value:raw[index]}));
 }
-function breedSqlOnlyInsertValues(value:ReturnType<typeof clean>){
-  return breedValueEntries(value).map(({column,value})=>
-    Object.hasOwn(BREED_OLD_OBJECT_DEFAULTS,column)?BREED_OLD_OBJECT_DEFAULTS[column]:value);
-}
 function breedSqlOnlyUpdate(value:ReturnType<typeof clean>){
-  const active=breedValueEntries(value).filter(({column})=>
-    !Object.hasOwn(BREED_OLD_OBJECT_DEFAULTS,column));
+  const active=breedValueEntries(value);
   return {
     sql:"UPDATE managed_breeds SET "+active.map(({column})=>column+"=?").join(",")+
       ",updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=? AND updated_at=? RETURNING id",
@@ -1651,24 +1607,8 @@ export async function createManagedBreed(input: ManagedBreedInput, user: string)
   await ensure(database);
   const value = clean(input);
   const now = new Date().toISOString();
-  // Schema-aware SQL INSERT: before the manual DROP the four NOT NULL
-  // placeholders still exist; after the DROP none may appear in INSERT.
-  const sqlOnly=breedSqlV2PrimaryWriteEnabled(env);
-  const legacyCount=sqlOnly
-    ?(await database.prepare(
-      "SELECT COUNT(*) AS n FROM pragma_table_info('managed_breeds') WHERE name IN ('fci_standard_json','editorial_json','seo_json','related_breeds_json')"
-    ).first<{n:number}>())?.n
-    :4;
-  if(!Number.isSafeInteger(legacyCount))throw Error("BREED_LEGACY_SCHEMA_UNREADABLE");
-  const insertColumns=sqlOnly
-    ?breedSqlV2InsertColumns(BREED_ROW_VALUE_COLUMNS,legacyCount)
-    :BREED_ROW_VALUE_COLUMNS;
-  const insertValues=sqlOnly
-    ?legacyCount===4?breedSqlOnlyInsertValues(value)
-      :breedValueEntries(value)
-        .filter(({column})=>!BREED_LEGACY_OBJECT_COLUMNS.includes(column))
-        .map(({value:cell})=>cell)
-    :values(value);
+  const insertColumns=BREED_ROW_VALUE_COLUMNS;
+  const insertValues=values(value);
   if(insertColumns.length!==insertValues.length)
     throw Error("BREED_SQL_ONLY_INSERT_COLUMNS_MISMATCH");
   const columns=[...insertColumns,"created_at","updated_at","published_at","created_by","updated_by"];
@@ -1676,12 +1616,9 @@ export async function createManagedBreed(input: ManagedBreedInput, user: string)
   const insert=database.prepare(
     `INSERT INTO managed_breeds (${columns.join(",")}) VALUES (${placeholders})`,
   ).bind(...insertValues,now,now,value.status==="published"?now:null,user,user);
-  const structured=breedSqlV2StructuredWritesEnabled(env);
-  const result=structured
-    ?(await database.batch([
-        insert,...breedSqlV2NewBreedStatements(database,value.slug,value),
-      ]))[0]
-    :await insert.run();
+  const [result] = await database.batch([
+    insert, ...breedSqlV2NewBreedStatements(database, value.slug, value),
+  ]);
   const id=Number(result.meta.last_row_id);
   if(!Number.isSafeInteger(id)||id<1)throw Error("BREED_CREATE_ID_INVALID");
   await syncRelations(database, id, value, user);
@@ -1711,32 +1648,16 @@ export function buildManagedBreedUpdateStatements(
   // invalid values. All Admin edits continue to use strict validation.
   const fromNotion = user === "notion-breed-sync@psipedia.sk";
   const value = clean(input, fromNotion ? preserved : undefined, fromNotion);
-  const sqlOnly=breedSqlV2PrimaryWriteEnabled(env)?breedSqlOnlyUpdate(value):null;
+  const sqlOnly=breedSqlOnlyUpdate(value);
   return [
-    (sqlOnly
-      ?database.prepare(sqlOnly.sql).bind(...sqlOnly.params,nextUpdatedAt,value.status,nextUpdatedAt,user,id,expectedUpdatedAt)
-      :database
-      .prepare(
-        `UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_number=?,fci_group=?,fci_section=?,fci_section_number=?,official_fci_name=?,valid_standard_date=?,working_trial=?,import_key=?,fci_standard_json=?,editorial_json=?,sports_json=?,related_breeds_json=?,search_text=?,editorial_complete=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=? AND updated_at=? RETURNING id`,
-      )
-      .bind(
-        ...values(value),
-        nextUpdatedAt,
-        value.status,
-        nextUpdatedAt,
-        user,
-        id,
-        expectedUpdatedAt,
-      )
-    ),
+    database.prepare(sqlOnly.sql).bind(...sqlOnly.params,nextUpdatedAt,value.status,nextUpdatedAt,user,id,expectedUpdatedAt),
     database.prepare(
       "SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('BREED_UPDATE_CONFLICT', '$') END AS breed_update_guard",
     ),
     ...breedRelationStatements(database, id, value, user),
     // Shadow every newly edited FCI/editorial/SEO/relation cell in the SAME
     // CAS-guarded transaction. A stale full form cannot rewrite new SQL.
-    ...(breedSqlV2StructuredWritesEnabled(env)
-      ?breedSqlV2FullSnapshotStatements(database,id,value):[]),
+    ...breedSqlV2FullSnapshotStatements(database,id,value),
     // Read the exact committed version and relations before the batch commits.
     // A later writer must not leak its version into this caller's editor.
     // Return the same canonical SQL projection read by getManagedBreed, never
