@@ -1689,7 +1689,7 @@
 
 /* Match the shared public profile reading scale, not article prose. */
 .page {
-  --ps-reading-size: var(--ps-type-profile, 1rem);
+  --ps-reading-size: var(--ps-type-profile-detail, 0.9rem);
   --ps-reading-leading: 1.6;
 }
 
@@ -1707,5 +1707,5 @@
   font: 600 var(--ps-type-card-heading, 1rem)/1.4 var(--ps-font-body);
 }
 .page {
-  --ps-reading-lead-size: var(--ps-type-profile-lead, 1rem);
+  --ps-reading-lead-size: var(--ps-type-profile-detail-lead, 0.9rem);
 }
