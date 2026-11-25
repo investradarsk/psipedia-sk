@@ -1380,8 +1380,7 @@ export async function listPublishedDirectoryProfiles(options: {
     .prepare("SELECT COUNT(*) AS total FROM sqlite_schema WHERE type='table' AND name IN ('breed_directory_relations','managed_breeds')")
     .first<{ total: number }>();
   const breedRelationsReady = Number(breedRelationTables?.total ?? 0) === 2;
-  const canonicalBreedIds = breedRelationsReady ? await readCanonicalBreedIds(database,
-    (env as {BREED_SQL_V2_READ_MODE?:string}).BREED_SQL_V2_READ_MODE==="sql") : [];
+  const canonicalBreedIds = breedRelationsReady ? await readCanonicalBreedIds(database) : [];
   const canonicalBreedIdsJson = JSON.stringify(canonicalBreedIds);
   const baseClauses = ["status = 'published'"];
   const baseBindings: unknown[] = [];
