@@ -3,6 +3,8 @@ import { CalendarDays, Flag, BookOpen, Dumbbell, UsersRound, LayoutGrid } from "
 import type { EventListingFilters } from "@/lib/event-listing";
 import Link from "next/link";
 import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
+import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
+import { getArticleDiscoveryData } from "@/lib/article-discovery";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import homeStyles from "@/app/home-v2.module.css";
 import { calendarMonthDays, resolveCalendarMonth } from "@/lib/event-calendar-view";
@@ -90,9 +92,10 @@ export async function EventsPage({
     : copy.description;
   const categoryHref = isMainListing ? null : eventTypePortalHref(initialType);
   const categorySlug = categoryHref?.split("/").filter(Boolean).at(-1) ?? "";
-  const heroVisual = await getSectionHeroVisual(
-    isMainListing || !categorySlug ? "section.podujatia" : `events.${categorySlug}`,
-  );
+  const [heroVisual, discovery] = await Promise.all([
+    getSectionHeroVisual(isMainListing || !categorySlug ? "section.podujatia" : `events.${categorySlug}`),
+    getArticleDiscoveryData({ slug: "events-listing", portalSection: "novinky" }),
+  ]);
   const heroVisualForPage = {
     ...heroVisual,
     heroContent: {
@@ -197,29 +200,12 @@ export async function EventsPage({
           </UnifiedSectionHeroShell>
         </div>
 
-        <section className={styles.calendarOrganizer} aria-label="Pre organizátorov">
-          <PublicContentShell variant="listing">
-            <PublicContextBanner
-              eyebrow="PRE ORGANIZÁTOROV"
-              title="Organizujete podujatie?"
-              text="Pridajte výstavu, preteky, tréning alebo inú kynologickú akciu do kalendára Psipedie."
-              ctaLabel="Pridať podujatie"
-              ctaHref="/podujatia/pridat-podujatie"
-              tone="coral"
-              inline
-            />
-          </PublicContentShell>
-        </section>
-
-        <AffiliateRotatingBanner placement="horizontal" />
-
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">
             <div className={styles.eventCategoryNavigator} data-event-category-navigation>
               <PublicCategorySection
                 eyebrow="Kategórie podujatí"
                 title="Vyberte, čo vás zaujíma"
-                description="Výstavy, preteky, semináre, tréningy a stretnutia so psami."
                 id="events-categories-heading"
               >
                 {!isMainListing ? (
@@ -243,6 +229,16 @@ export async function EventsPage({
                 />
               </PublicCategorySection>
             </div>
+            <PublicContextBanner
+              eyebrow="PRE ORGANIZÁTOROV"
+              title="Organizujete podujatie?"
+              text="Pridajte výstavu, preteky, tréning alebo inú kynologickú akciu do kalendára Psipedie."
+              ctaLabel="Pridať podujatie"
+              ctaHref="/podujatia/pridat-podujatie"
+              tone="coral"
+              inline
+            />
+            <AffiliateRotatingBanner placement="horizontal" />
             <EventCalendar
               key={listingIdentity}
               filters={filters}
@@ -258,6 +254,7 @@ export async function EventsPage({
               initialQuery={initialQuery}
               initialRegion={initialRegion}
               initialMonth={initialMonth}
+              sidebar={<ArticlePopularitySidebar popularity={discovery.popularity} initialWindow={discovery.initialWindow} />}
             />
           </PublicContentShell>
         </section>
