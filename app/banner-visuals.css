@@ -77,8 +77,8 @@
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
   display: grid;
-  /* Long action labels wrap while leaving room for the heading and description. */
-  grid-template-columns: minmax(0, 1fr) fit-content(36%);
+  /* Every CTA follows the copy; no competing right-hand action column. */
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 14px 20px;
   width: 100%;
@@ -139,7 +139,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
-  justify-self: end;
+  justify-self: start;
 }
 .ps-public-banner-frame[data-banner-size="small"] [data-public-banner-content] > a {
   justify-self: start;
@@ -244,7 +244,7 @@
     [data-public-banner-content],
   .ps-public-banner-frame[data-banner-visual][data-banner-desktop-size="large"]
     [data-public-banner-content] {
-    grid-template-columns: minmax(0, 1fr) fit-content(36%);
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -342,7 +342,7 @@
     padding: 0 !important;
   }
   .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
-    justify-self: end;
+    justify-self: start;
     width: auto !important;
     max-width: 100%;
   }
@@ -520,4 +520,53 @@
  */
 :where(:root:not(:has([data-admin-workspace]))) .ps-public-banner-frame[data-banner-visual="dark"][data-banner-size]:not([data-banner-semantic="urgent"]):not([data-visual-library-desktop-published]) :is(a[data-public-action="primary"], a.article-block-cta-button) {
   background-image: var(--ps-glass-dark-cta, none) !important;
+}
+
+/* Canonical CTA position: beneath the copy, aligned left in both themes and
+ * all size presets. The right lane is reserved for decorative artwork only.
+ * Existing compact/mobile full-width controls remain accessible. */
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] {
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > :is(div, nav, a) {
+  grid-column: 1 !important;
+  grid-row: auto !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
+  justify-self: start !important;
+  align-self: start;
+  width: fit-content !important;
+  max-width: 100%;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] > :is(a[data-public-action], a.article-block-cta-button) {
+  align-self: flex-start !important;
+  width: fit-content !important;
+  max-width: 100%;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] > [class*="calloutLayout"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start;
+  justify-items: start;
+  gap: 12px;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] > [class*="calloutLayout"] > * {
+  grid-column: 1 !important;
+  grid-row: auto !important;
+}
+.ps-public-banner-frame[data-banner-visual][data-banner-size] :is([data-public-banner-actions], [class*="calloutActions"]) {
+  justify-content: flex-start !important;
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+}
+@container ps-editorial-banner (max-width: 520px) {
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] [data-public-banner-content] > a {
+    width: 100% !important;
+    justify-self: stretch !important;
+  }
+  .ps-public-banner-frame[data-banner-visual][data-banner-size] > :is(a[data-public-action], a.article-block-cta-button) {
+    width: 100% !important;
+    align-self: stretch !important;
+  }
 }
