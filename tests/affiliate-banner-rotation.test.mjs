@@ -131,7 +131,7 @@ test("mobile uses square originals and sidebar uses tall or square originals", (
   assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
 });
 
-test("mobile article shows one original banner after introduction, not at footer", () => {
+test("single-column article shows one compatible banner after introduction, not at footer", () => {
   const article = source("components/article-detail.tsx");
   const articleCSS = source("components/article-detail.module.css");
   const footerCSS = source("components/sitewide-affiliate-banner.module.css");
@@ -141,8 +141,8 @@ test("mobile article shows one original banner after introduction, not at footer
   assert.ok(intro !== -1 && inline > intro && inline < takeaway);
   assert.match(article, /data-article-mobile-affiliate-banner>[\s\S]*?<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
   assert.match(articleCSS, /\.mobileAffiliateBanner\s*\{\s*display:\s*none;/);
-  assert.match(articleCSS, /@media\s*\(max-width:\s*767px\)[\s\S]*?\.mobileAffiliateBanner\s*\{\s*display:\s*block;/);
-  assert.match(footerCSS, /@media\s*\(max-width:\s*767px\)[\s\S]*?body:has\(\[data-article-layout\] \[data-article-mobile-affiliate-banner\] \[data-affiliate-shop\]\)/);
+  assert.match(articleCSS, /@media\s*\(max-width:\s*1199px\)[\s\S]*?\.mobileAffiliateBanner\s*\{\s*display:\s*block;/);
+  assert.match(footerCSS, /@media\s*\(max-width:\s*1199px\)[\s\S]*?body:has\(\[data-article-layout\] \[data-article-mobile-affiliate-banner\] \[data-affiliate-shop\]\)/);
   assert.match(footerCSS, /display:\s*none;/);
   assert.match(article, /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
 });
@@ -201,4 +201,13 @@ test("all public and partner page templates inherit the root banner policy", () 
     const route = "/" + normalized.replace(/(?:^|\/)page\.tsx$/, "").replace(/\[[^\]]+\]/g, "example");
     assert.equal(canShowGlobalAffiliateBanner(route), !normalized.startsWith("admin/"), normalized);
   }
+});
+
+test("empty slots collapse and stacked article layouts never show portrait sidebar ads", () => {
+  const footer = source("components/sitewide-affiliate-banner.module.css");
+  const article = source("components/article-detail.module.css");
+  assert.match(footer, /\.wrapper:not\(:has\(:global\(\[data-affiliate-rotating-banner\]\)\)\)\s*\{\s*display:\s*none;/);
+  assert.match(footer, /@media \(min-width: 1200px\)/);
+  assert.match(article, /@media \(max-width: 1199px\)[\s\S]*?\.sidebar :global\(\[data-affiliate-rotating-banner="sidebar"\]\)\s*\{\s*display:\s*none;/);
+  assert.match(article, /\.mobileAffiliateBanner:has\(:global\(\[data-affiliate-rotating-banner\]\)\)/);
 });
