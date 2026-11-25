@@ -221,7 +221,8 @@ test("portrait placements are in right columns, never in stacked content or foot
   const css = source("components/affiliate-rotating-banner.module.css");
   const railCSS = source("components/sitewide-affiliate-banner.module.css");
   assert.match(article, /className=\{styles\.sidebarSticky\}>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
-  assert.match(home, /<\/HomeMagazineSidebar>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+  assert.match(home, /<AffiliateRotatingBanner placement="sidebar"\s*\/>\s*<HomeMagazineSidebar/);
+  assert.match(source("app/home-v2.module.css"), /\.home-magazine-side\)\s*\{\s*display: flex;\s*flex-direction: column;/);
   assert.match(directory, /className=\{styles\.directorySidebar\}[^>]*>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
   assert.match(calendar, /<AffiliateRotatingBanner placement="sidebar"\s*\/>\s*<div data-events-popularity>/);
   assert.match(sitewide, /data-sitewide-affiliate-rail>\s*<AffiliateRotatingBanner placement="sidebar" sitewide\s*\/>/);
