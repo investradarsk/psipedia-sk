@@ -170,10 +170,9 @@ test("ARTICLE-DISCOVERY-2 popularity empty-state chooses 24h first, then 7d, wit
   assert.equal(selectInitialPopularityWindow([], [item]), "7d");
   assert.equal(selectInitialPopularityWindow([], []), "24h");
 
-  assert.match(discoverySource, /readPopularityWindow\(article\.slug, "24h", now\)/);
-  assert.match(discoverySource, /readPopularityWindow\(article\.slug, "7d", now\)/);
+  assert.match(discoverySource, /getPopularArticlesBothWindows\(\{ excludeSlug: article\.slug, now, limit: 5 \}\)/);
   assert.match(discoverySource, /limit:\s*5/);
-  assert.match(discoverySource, /excludeSlug:\s*articleSlug/);
+  assert.match(discoverySource, /excludeSlug:\s*article\.slug/);
   assert.doesNotMatch(discoverySource, /latest|related/i);
 });
 
