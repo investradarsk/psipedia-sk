@@ -88,9 +88,9 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   const [section, allSections, articles, events, monthEvents] = await Promise.all([
     getManagedPortalSection(slug),
     listManagedPortalSections(),
-    slug === "podujatia" ? Promise.resolve([]) : retryTransientPublicRead(() => getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 })),
-    slug === "podujatia" ? retryTransientPublicRead(() => getPublishedEventListing(parseEventListing(rawSearchParams))) : Promise.resolve(undefined),
-    slug === "podujatia" ? settleOptionalRead("events_calendar", retryTransientPublicRead(() => getPublicEventCalendar(parseEventListing(rawSearchParams), calendarMonth, scalar(rawSearchParams.den) ?? '')), null) : Promise.resolve(undefined),
+    slug === "podujatia" ? Promise.resolve([]) : retryTransientPublicRead(() => getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }), { stage: "section_articles" }),
+    slug === "podujatia" ? retryTransientPublicRead(() => getPublishedEventListing(parseEventListing(rawSearchParams)), { stage: "events_listing" }) : Promise.resolve(undefined),
+    slug === "podujatia" ? settleOptionalRead("events_calendar", retryTransientPublicRead(() => getPublicEventCalendar(parseEventListing(rawSearchParams), calendarMonth, scalar(rawSearchParams.den) ?? ''), { stage: "events_calendar" }), null) : Promise.resolve(undefined),
   ]);
   if (!section?.visible) notFound();
   const eventList = events?.events ?? [];
