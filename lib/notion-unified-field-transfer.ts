@@ -1,4 +1,4 @@
-import { decideUnifiedField, type FieldIdentity, type FieldObservation } from "./notion-unified-field-sync.ts";
+import { decideUnifiedField, type FieldIdentity, type FieldObservation, type ScopedFieldEdit } from "./notion-unified-field-sync.ts";
 import { readUnifiedFieldState, writeUnifiedFieldState } from "./notion-unified-field-state.ts";
 
 export type FieldReservation = {
@@ -17,16 +17,42 @@ export async function reserveUnifiedField(input: {
   notion: FieldObservation;
   psipedia: FieldObservation;
   direction: "pull" | "push";
+  psipediaEdit?: ScopedFieldEdit;
+  notionEdit?: ScopedFieldEdit;
 }): Promise<FieldReservation | null> {
   const { database, identity } = input;
   const old = await readUnifiedFieldState(database, identity);
-  if (old?.status === "PENDING") throw Error("UNIFIED_FIELD_PENDING_RECOVERY");
+  if (old?.status === "PENDING") {
+    const age = Date.now() - Date.parse(old.updatedAt);
+    if (!Number.isFinite(age) || age < 600_000) throw Error("UNIFIED_FIELD_PENDING_RECOVERY");
+    // An expired reservation is not permission to replay a possibly committed
+    // mutation. Verify both live values; otherwise preserve evidence for review.
+    const recovered = decideUnifiedField({
+      identity, baseline: null, notion: input.notion, psipedia: input.psipedia,
+    });
+    const equal = recovered.action === "unchanged";
+    const version = await writeUnifiedFieldState(database, identity, old.version, {
+      baseline: equal ? recovered.value : old.baseline,
+      notion: equal ? recovered.value : old.notion,
+      psipedia: equal ? recovered.value : old.psipedia,
+      notionEdit: old.notionEdit, psipediaEdit: old.psipediaEdit,
+      status: equal ? "SYNCED" : "REVIEW",
+      reason: equal ? null : "RECOVERY_DIVERGED",
+    });
+    if (version === null) throw Error("UNIFIED_FIELD_CONCURRENT_RECOVERY");
+    if (equal) return null;
+    throw Error("UNIFIED_FIELD_RECOVERY_DIVERGED");
+  }
+  if (old?.status === "REVIEW" && old.reason === "RECOVERY_DIVERGED") {
+    const observed = decideUnifiedField({ identity, baseline: null, notion: input.notion, psipedia: input.psipedia });
+    if (observed.action !== "unchanged") throw Error("UNIFIED_FIELD_RECOVERY_DIVERGED");
+  }
   const baseline = old
     ? old.baseline === undefined ? null : { value: old.baseline, version: String(old.version) }
     : input.historicalBaseline;
   const decision = decideUnifiedField({
     identity, baseline, notion: input.notion, psipedia: input.psipedia,
-    notionEdit: old?.notionEdit, psipediaEdit: old?.psipediaEdit,
+    notionEdit: input.notionEdit, psipediaEdit: input.psipediaEdit,
   });
   const notion = input.notion.present ? input.notion.value : undefined;
   const psipedia = input.psipedia.present ? input.psipedia.value : undefined;
@@ -38,7 +64,8 @@ export async function reserveUnifiedField(input: {
     baseline: unchanged ? decision.value : baseline?.value,
     notion, psipedia,
     // Evidence from a previous CAS version must never be recycled.
-    notionEdit: undefined, psipediaEdit: undefined,
+    notionEdit: unchanged ? undefined : input.notionEdit,
+    psipediaEdit: unchanged ? undefined : input.psipediaEdit,
     status: unchanged ? "SYNCED" : allowed ? "PENDING" : "REVIEW",
     reason,
   });
