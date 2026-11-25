@@ -853,3 +853,74 @@ test("V2 field state proposal preserves independent scoped observations with CAS
     assert.equal((await readUnifiedFieldState(adapter, id)).baseline, "new");
   } finally { db.close(); }
 });
+
+test("V2 Admin receipt trigger binds only actual committed selected changes", async () => {
+  const { commitEventAdminEdit, readUnifiedAdminEdit } = await import("../lib/notion-unified-admin-edits.ts");
+  const db = new DatabaseSync(":memory:");
+  try {
+    const columns = "title event_type start_date start_time end_date end_time venue city region address organizer excerpt description practical_info contact_phone contact_email admission_fee website_url registration_url image_url image_alt internal_notes seo_json updated_at updated_by".split(" ");
+    db.exec("CREATE TABLE managed_events(id INTEGER PRIMARY KEY," + columns.map(c => c + " TEXT").join(",") + ");");
+    db.exec("CREATE TABLE event_notion_sync(event_id INTEGER PRIMARY KEY, notion_page_id TEXT, content_hash TEXT);");
+    for (const file of ["notion-unified-field-state", "notion-unified-admin-edits"]) {
+      db.exec(await readFile(new URL("../docs/proposals/" + file + "-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
+    }
+    db.exec("INSERT INTO managed_events(id,title,description,updated_at,updated_by,seo_json) VALUES(1,'old','keep','r1','admin','{}'); INSERT INTO event_notion_sync VALUES(1,'page','hash');");
+    const adapter = {
+      prepare(sql) { return { bind(...args) {
+        return { sql, args, async first() { return db.prepare(sql).get(...args) ?? null; } };
+      } }; },
+      async batch(statements) {
+        db.exec("BEGIN");
+        try {
+          const results = statements.map(({sql,args}) => {
+            const stmt = db.prepare(sql);
+            if (sql.includes("RETURNING")) return { success: true, results: stmt.all(...args) };
+            stmt.run(...args);
+            return { success: true, results: [] };
+          });
+          db.exec("COMMIT");
+          return results;
+        } catch (e) { db.exec("ROLLBACK"); throw e; }
+      },
+    };
+    const update = (expected, next, title) => adapter.prepare("UPDATE managed_events SET title=?,updated_at=?,updated_by='admin' WHERE id=1 AND updated_at=? RETURNING *").bind(title,next,expected);
+    const info = { id: 1, expectedRevision: "r1", nextRevision: "r2", editor: "admin", fields: ["title","description"] };
+    assert.equal(await commitEventAdminEdit(adapter, update("stale","r2","bad"), {...info, expectedRevision:"stale"}), null);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM notion_unified_admin_field_edits").get().n, 0);
+    assert.equal((await commitEventAdminEdit(adapter, update("r1","r2","new"), info)).title,"new");
+    const identity = { agenda:"events",entityId:"1",pageId:"page",field:"title" };
+    const receipt = await readUnifiedAdminEdit(adapter,identity,"r2");
+    assert.equal(receipt.value,"new");
+    assert.equal(receipt.baselineVersion,"hash");
+    assert.match(receipt.observedAt,/Z$/);
+    assert.equal(await readUnifiedAdminEdit(adapter,{...identity,field:"description"},"r2"),undefined);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM notion_event_admin_edit_intent").get().n,0);
+    db.exec("UPDATE managed_events SET title='remote',updated_at='r3',updated_by='notion' WHERE id=1");
+    assert.equal(await readUnifiedAdminEdit(adapter,identity,"r3"),undefined);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM notion_unified_admin_field_edits").get().n,1);
+  } finally { db.close(); }
+});
+
+test("V2 pending recovery verifies convergence without replaying uncertain writes", async () => {
+  const { readUnifiedFieldState, writeUnifiedFieldState } = await import("../lib/notion-unified-field-state.ts");
+  const { reserveUnifiedField } = await import("../lib/notion-unified-field-transfer.ts");
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(await readFile(new URL("../docs/proposals/notion-unified-field-state-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
+    const adapter = { prepare(sql) { return { bind(...args) {
+      return { async first() { return db.prepare(sql).get(...args) ?? null; } };
+    } }; } };
+    const identity = {agenda:"events",entityId:"1",pageId:"p",field:"title"};
+    const pending = {baseline:"old",notion:"old",psipedia:"new",notionEdit:undefined,psipediaEdit:undefined,status:"PENDING",reason:null};
+    const present = value => ({present:true,value});
+    const reserve = (n,p) => reserveUnifiedField({database:adapter,identity,historicalBaseline:null,notion:present(n),psipedia:present(p),direction:"push"});
+    await writeUnifiedFieldState(adapter,identity,null,pending);
+    await assert.rejects(reserve("old","new"),/PENDING_RECOVERY/);
+    db.exec("UPDATE notion_unified_field_state SET updated_at='2000-01-01T00:00:00.000Z'");
+    await assert.rejects(reserve("old","new"),/RECOVERY_DIVERGED/);
+    assert.equal((await readUnifiedFieldState(adapter,identity)).status,"REVIEW");
+    await assert.rejects(reserve("old","new"),/RECOVERY_DIVERGED/);
+    assert.equal(await reserve("new","new"),null);
+    assert.equal((await readUnifiedFieldState(adapter,identity)).baseline,"new");
+  } finally { db.close(); }
+});
