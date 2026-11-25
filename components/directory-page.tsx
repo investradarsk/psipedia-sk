@@ -173,19 +173,31 @@ export async function DirectoryPage({
           />
         </UnifiedSectionHeroShell>
 
-        <AffiliateRotatingBanner placement="horizontal" />
-
         <section className={styles.resultsSection} aria-label="Adresár služieb pre psov">
           <PublicContentShell variant="listing" className={styles.resultsShell}>
             <PublicCategorySection
               eyebrow="Kategórie služieb"
               title="Vyberte, akú službu hľadáte"
-              description="Veterinári, tréneri, salóny a ďalšie služby pre psov."
               id="directory-categories-heading"
             >
               <DirectoryCategoryNavigation items={categoryItems} />
             </PublicCategorySection>
 
+                <div data-directory-provider-cta>
+                  <PublicMagazineBanner
+                    compact
+                    visual="dark"
+                    size="small"
+                    testId="directory-provider-cta"
+                    eyebrow="Pre poskytovateľov"
+                    title="Poskytuješ služby pre psov?"
+                    description="Požiadaj o pridanie alebo úpravu údajov svojho profilu."
+                    label="Pridať alebo upraviť profil"
+                    href="/o-nas#kontakt"
+                  />
+                </div>
+
+            <AffiliateRotatingBanner placement="horizontal" />
             <PublicFilterLayout extra className={styles.directoryColumns} data-directory-columns>
               <PublicFilterPanel
                 title="Filtrovať služby"
@@ -230,6 +242,9 @@ export async function DirectoryPage({
                         <Link className={styles.categoryPreviewMore} href={href}>
                           Zobraziť kategóriu {category.label} <span aria-hidden="true">→</span>
                         </Link>
+                        {category.slug !== directoryCategories.at(-1)?.slug && (
+                          <PublicMagazineBanner compact size="small" testId={`directory-category-${category.slug}`} eyebrow={category.label} title="Nájdite služby vo svojom okolí" description="Pozrite si služby tejto kategórie na mape." label="Zobraziť na mape" href={mapHref(filters, category.slug)} />
+                        )}
                       </section>
                     );
                   })}
@@ -250,39 +265,6 @@ export async function DirectoryPage({
               )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
-                <div data-directory-map-cta>
-                  <PublicMagazineBanner
-                    compact
-                    visual="light"
-                    size="small"
-                    testId="directory-map-cta"
-                    eyebrow="Služby v okolí"
-                    title="Nájdi služby na mape"
-                    description={
-                      filters.canonicalService
-                        ? "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality. Mapa používa rovnaký filter potvrdenej služby ako zoznam."
-                        : "Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality."
-                    }
-                    label="Zobraziť na mape"
-                    href={mapHref(filters, active?.slug)}
-                    anchorId={CTA_DIRECTORY_MAP_ANCHOR}
-                  />
-                </div>
-
-                <div data-directory-provider-cta>
-                  <PublicMagazineBanner
-                    compact
-                    visual="dark"
-                    size="small"
-                    testId="directory-provider-cta"
-                    eyebrow="Pre poskytovateľov"
-                    title="Poskytuješ služby pre psov?"
-                    description="Požiadaj o pridanie alebo úpravu údajov svojho profilu."
-                    label="Pridať alebo upraviť profil"
-                    href="/o-nas#kontakt"
-                  />
-                </div>
-
                 <div className={styles.popularityCard} data-directory-popular-articles data-directory-popular-content>
                   {hasPopularity ? (
                     <ArticlePopularitySidebar
