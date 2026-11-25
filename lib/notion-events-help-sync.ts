@@ -1455,6 +1455,8 @@ await requireVerifiedMappedNotionWriteback({
             : notionSnapshot,
           psipedia: sourceSnapshot, protectedFields,
           canonicalFieldsWin: true, authorities: fieldAuthorities,
+          // Match Directory: a verified actual change outranks stale source preference.
+          changedSideWins: true,
           verifiedDeletes: agenda === "lost-found"
             ? verifiedLostFoundShortDescriptionDeletes(baseline, notionSnapshot, sourceSnapshot)
             : undefined,
