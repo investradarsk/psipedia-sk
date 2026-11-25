@@ -325,19 +325,22 @@ export async function persistLostFoundLifecycle(database: D1Database, now = new 
 function clampPage(value: number | undefined) { return Math.max(1, Math.floor(value || 1)); }
 function clampPageSize(value: number | undefined, fallback: number) { return Math.min(100, Math.max(1, Math.floor(value || fallback))); }
 
-export async function listPublicDogReports(type: DogReportType, filters: DogReportFilters = {}) {
+export async function listPublicDogReports(type: DogReportType | "all", filters: DogReportFilters = {}) {
   const database = getD1Binding();
   const requestedPage = clampPage(filters.page);
   const pageSize = clampPageSize(filters.pageSize, 24);
   if (!database) return { items: [] as PublicDogReport[], total: 0, page: 1, pageSize, pages: 0 };
 
   const where = [
-    "r.type = ?",
     "r.status = 'ACTIVE'",
     "r.published_at IS NOT NULL",
     "(r.expires_at IS NULL OR r.expires_at > ?)",
   ];
-  const args: unknown[] = [type, new Date().toISOString()];
+  const args: unknown[] = [new Date().toISOString()];
+  if (type !== "all") {
+    where.push("r.type = ?");
+    args.push(type);
+  }
   if (filters.region) {
     where.push("r.region = ?");
     args.push(filters.region);
