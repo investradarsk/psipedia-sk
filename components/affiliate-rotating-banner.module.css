@@ -52,7 +52,7 @@
 }
 
 .horizontal .image {
-  max-height: 300px;
+  max-height: 100px;
 }
 
 .sidebar {
@@ -62,7 +62,7 @@
 
 .sidebar .creative,
 .sidebar .placeholder {
-  min-height: 600px;
+  min-height: 0;
 }
 
 @media (max-width: 767px) {
