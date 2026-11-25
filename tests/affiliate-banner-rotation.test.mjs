@@ -211,3 +211,21 @@ test("empty slots collapse and stacked article layouts never show portrait sideb
   assert.match(article, /@media \(max-width: 1199px\)[\s\S]*?\.sidebar :global\(\[data-affiliate-rotating-banner="sidebar"\]\)\s*\{\s*display:\s*none;/);
   assert.match(article, /\.mobileAffiliateBanner:has\(:global\(\[data-affiliate-rotating-banner\]\)\)/);
 });
+
+test("portrait placements are in right columns, never in stacked content or footer", () => {
+  const article = source("components/article-detail.tsx");
+  const home = source("app/page.tsx");
+  const directory = source("components/directory-page.tsx");
+  const calendar = source("components/event-calendar.tsx");
+  const sitewide = source("components/sitewide-affiliate-banner.tsx");
+  const css = source("components/affiliate-rotating-banner.module.css");
+  const railCSS = source("components/sitewide-affiliate-banner.module.css");
+  assert.match(article, /className=\{styles\.sidebarSticky\}>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+  assert.match(home, /<\/HomeMagazineSidebar>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+  assert.match(directory, /className=\{styles\.directorySidebar\}[^>]*>\s*<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
+  assert.match(calendar, /<AffiliateRotatingBanner placement="sidebar"\s*\/>\s*<div data-events-popularity>/);
+  assert.match(sitewide, /data-sitewide-affiliate-rail>\s*<AffiliateRotatingBanner placement="sidebar" sitewide\s*\/>/);
+  assert.match(css, /@media \(max-width: 1199px\)\s*\{\s*\.sidebar\s*\{\s*display: none;/);
+  assert.match(railCSS, /@media \(min-width: 1600px\)/);
+  assert.match(railCSS, /left: calc\(50% \+/);
+});
