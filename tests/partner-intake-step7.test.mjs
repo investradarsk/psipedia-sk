@@ -116,7 +116,12 @@ test("Admin-only page is a compact read-only view; original routes remain edit a
  assert.match(page,/data-admin-submission-inbox/);
  assert.match(page,/aria-label="Stránkovanie podaní"/);
  assert.match(page,/item.reviewHref/);
- assert.match(page,/item.chatHref/);
+ assert.match(page, /adminDetailHref\(item\.partnerHref, returnHref\)/);
+ assert.match(page, /adminDetailHref\(item\.chatHref, returnHref\)/);
+ assert.match(page, /urlFor\(result\?\.page/);
+ const account = read("app/admin/partners/accounts/[id]/page.tsx");
+ assert.match(account, /adminReturnHref\(options\.returnTo, \[partnerListHref, inboxHref\]\)/);
+ assert.match(account, /Späť na podania a dopyty/);
  assert.match(page,/Otvoriť podanie/);
  assert.doesNotMatch(page,/fetch\(|INSERT INTO|UPDATE |DELETE FROM|\.run\(/);
  assert.match(style,/min-width:790px/);

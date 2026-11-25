@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { adminDetailHref } from "@/lib/admin-return-navigation";
 import { listAdminInbox, normalizeInboxFilters, type InboxFilters, type InboxRow } from "@/lib/admin-submission-inbox";
 import { partnerAdminResourceLabel, partnerAdminStatusLabel } from "@/lib/admin-partner-labels";
 import styles from "./podania.module.css";
@@ -36,6 +37,7 @@ async function InboxContent({filters}:{filters:InboxFilters}){
     if(page>1)search.set("page",String(page));
     return "/admin/podania?"+search.toString();
   };
+  const returnHref = urlFor(result?.page ?? filters.page);
   return <>
       {error?<div className={styles.error} role="alert">
         Spoločný prehľad momentálne nie je dostupný. Podania možno naďalej vybaviť v pôvodných sekciách nižšie.
@@ -60,8 +62,8 @@ async function InboxContent({filters}:{filters:InboxFilters}){
                 <td><div className={styles.actions}>
                   <Link href={item.reviewHref}>{item.pending?"Otvoriť podanie":"Detail"}</Link>
                   {item.editorHref&&item.editorHref!==item.reviewHref?<Link href={item.editorHref}>Profil</Link>:null}
-                  {item.partnerHref?<Link href={item.partnerHref}>Partner</Link>:null}
-                  {item.chatHref?<Link href={item.chatHref}>Správy</Link>:null}
+                  {item.partnerHref?<Link href={adminDetailHref(item.partnerHref, returnHref)}>Partner</Link>:null}
+                  {item.chatHref?<Link href={adminDetailHref(item.chatHref, returnHref)}>Správy</Link>:null}
                 </div></td>
               </tr>)}
               {result.items.length===0&&<tr><td colSpan={5} className={styles.empty}>Pre zadané filtre sa nenašli podania ani dopyty.</td></tr>}

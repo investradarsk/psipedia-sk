@@ -100,7 +100,12 @@ export default async function Page({
   const profile=account.contactProfile;
   const mainHref=`/admin/partners/accounts/${encodeURIComponent(id)}`;
   const partnerListHref = "/admin/partners";
-  const returnHref = adminReturnHref(options.returnTo, partnerListHref);
+  const inboxHref = "/admin/podania";
+  const returnHref = adminReturnHref(options.returnTo, [partnerListHref, inboxHref]);
+  const fromInbox = returnHref.split("?")[0] === inboxHref;
+  const backLabel = fromInbox
+    ? "Späť na podania a dopyty"
+    : returnHref === partnerListHref ? "Všetci partneri" : "Späť na zoznam partnerov";
   const tabHref = (next: Tab, number = 1) => {
     const href = `${mainHref}?tab=${next}${number > 1 ? `&page=${number}` : ""}`;
     return returnHref === partnerListHref ? href : adminDetailHref(href, returnHref);
@@ -121,7 +126,7 @@ export default async function Page({
       title={profile?.contactName||account.email}
       description={`${partnerAdminStatusLabel(account.status)} · registrovaný ${new Date(account.createdAt).toLocaleDateString("sk-SK")}`}>
       <div className="admin-partner-v2-back">
-        <Link href={returnHref}>← {returnHref === partnerListHref ? "Všetci partneri" : "Späť na zoznam partnerov"}</Link>
+        <Link href={returnHref}>← {backLabel}</Link>
       </div>
       <section className="admin-form-card admin-partner-v2-summary" aria-label="Prehľad partnera">
         <div className="admin-partner-v2-contact">
