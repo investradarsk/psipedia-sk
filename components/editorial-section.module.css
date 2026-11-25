@@ -1228,11 +1228,10 @@
   }
   .topicStageGrid .topicGroup,
   .topicStageGrid .topicGroup:first-child {
-    padding: 16px 0;
-    border: 0;
-    border-bottom: 1px solid var(--section-border);
-    border-radius: 0;
-    background: transparent;
+    padding: 16px;
+    border: 1px solid var(--ps-border-soft);
+    border-radius: var(--ps-radius-card, 14px);
+    background: var(--paper);
   }
   .topicStageGrid .topicGroupTitle {
     margin-bottom: 12px;
@@ -1250,9 +1249,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .topicStageGrid .topicGroupFooter {
-    border-top: 0;
+    border-top: 1px solid var(--section-border);
     margin-top: 8px;
-    padding-top: 0;
+    padding-top: 7px;
   }
   .topicStageGrid .topicGroup:has(.topicGroupEmpty) .topicGroupTitle {
     margin-bottom: 4px;
