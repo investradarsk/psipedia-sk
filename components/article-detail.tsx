@@ -18,6 +18,8 @@ import { Breadcrumbs } from "@/components/page-system";
 import { PublicContentList } from "@/components/public-visual-system";
 import { ArticleListItem } from "@/components/article-list-item";
 import { ShareButton } from "@/components/share-button";
+import { RelatedEntityLinks } from "@/components/related-entity-links";
+import type { InternalDiscoveryLink } from "@/lib/internal-discovery";
 import { RelatedBreedList } from "@/components/related-entity-list";
 import { AdSlot } from "@/components/ad-slot";
 import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
@@ -74,6 +76,7 @@ export function ArticleDetail({
   portalSection,
   authorProfile,
   relatedBreeds = [],
+  priorityLinks = [],
 }: {
   article: Article;
   magazine: ArticleMagazineData;
@@ -83,6 +86,7 @@ export function ArticleDetail({
   portalSection?: PortalSection;
   authorProfile?: EditorialAuthorProfile | null;
   relatedBreeds?: PublicRelatedBreed[];
+  priorityLinks?: InternalDiscoveryLink[];
 }) {
   const section = articlePortalSection(article);
   const sectionHref = section === "clanky" ? "/clanky" : `/${section}`;
@@ -424,6 +428,15 @@ export function ArticleDetail({
           </aside>
         ) : null}
       </div>
+
+      {priorityLinks.length > 0 ? (
+        <section className={styles.relatedSection} aria-labelledby="article-priority-links">
+          <div className={`${styles.relatedInner} shell`}>
+            <PublicHeading as="h2" role="section" id="article-priority-links">Kam ďalej</PublicHeading>
+            <RelatedEntityLinks links={priorityLinks} label="Súvisiace služby a sprievodcovia" />
+          </div>
+        </section>
+      ) : null}
 
       {relatedBreeds.length > 0 ? (
         <section

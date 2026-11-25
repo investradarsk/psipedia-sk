@@ -12,6 +12,8 @@ import {
 } from "@/components/public-visual-system";
 import { DirectoryCategoryNavigation } from "@/components/directory-category-navigation";
 import { DirectoryFilterForm } from "@/components/directory-filter-form";
+import { RelatedEntityLinks } from "@/components/related-entity-links";
+import type { InternalDiscoveryLink } from "@/lib/internal-discovery";
 import { DirectoryResults } from "@/components/directory-results";
 import { DirectoryCard } from "@/components/directory-card";
 import { HomePortalSearch } from "@/components/home-portal-search";
@@ -57,10 +59,12 @@ export async function DirectoryPage({
   result,
   filters,
   initialCategory = "all",
+  priorityLinks = [],
 }: {
   result: PublicDirectoryProfilePage;
   filters: DirectoryFilters;
   initialCategory?: "all" | DirectoryCategorySlug;
+  priorityLinks?: InternalDiscoveryLink[];
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
   // Only the unfiltered overview uses five bounded profiles per category.
@@ -290,6 +294,12 @@ export async function DirectoryPage({
               )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
+                {priorityLinks.length > 0 ? (
+                  <section className={styles.sidebarCard} aria-labelledby="category-priority-links">
+                    <h2 id="category-priority-links">Tipy z adresára</h2>
+                    <RelatedEntityLinks links={priorityLinks} label="Vybrané profily a prehľady" />
+                  </section>
+                ) : null}
                 <div className={styles.popularityCard} data-directory-popular-articles data-directory-popular-content>
                   {hasPopularity ? (
                     <ArticlePopularitySidebar

@@ -1,6 +1,8 @@
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RelatedEntityLinks } from "@/components/related-entity-links";
+import { listPriorityEditorialLinks } from "@/lib/priority-editorial-links";
 import { ArticlePromo } from "@/components/article-promo";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -128,9 +130,10 @@ export default async function BreedDetailPage({ params }: Props) {
 
   const managedBreed =
     "id" in breed && typeof breed.id === "number" ? (breed as ManagedBreed) : null;
-  const controlledFacts = managedBreed
-    ? await readPublicBreedControlledValues(managedBreed.id)
-    : null;
+  const [controlledFacts, priorityLinks] = await Promise.all([
+    managedBreed ? readPublicBreedControlledValues(managedBreed.id) : Promise.resolve(null),
+    listPriorityEditorialLinks(breedProfileHref(breed.slug, breed.fciGroup)),
+  ]);
   const editorial: BreedEditorial = managedBreed?.editorial ?? {};
   const fci: FciStandard = managedBreed?.fciStandard ?? {};
   const sports = normalizeBreedSports(managedBreed?.sports ?? []);
@@ -161,6 +164,9 @@ export default async function BreedDetailPage({ params }: Props) {
         breedClubs: [],
         similarBreeds: [],
       };
+
+  const stationLinks = new Set(relations.breedingStations.slice(0, 3).map(profile => profile.href));
+  const additionalPriorityLinks = priorityLinks.filter(link => !stationLinks.has(link.href));
 
   const relatedArticleMeta = await getPublicArticleListMeta(
     relations.articles.map((article) => article.slug),
@@ -866,6 +872,16 @@ export default async function BreedDetailPage({ params }: Props) {
                     />
                   ))}
                 </div>
+              </section>
+            ) : null}
+
+            {additionalPriorityLinks.length > 0 ? (
+              <section className={styles.compactRelated} aria-labelledby="breed-priority-links">
+                <PublicHeading role="panel" as="h2" id="breed-priority-links">Výber chovateľa</PublicHeading>
+                <RelatedEntityLinks
+                  links={additionalPriorityLinks}
+                  label="Chovateľské stanice a adresár"
+                />
               </section>
             ) : null}
 
