@@ -459,8 +459,8 @@
 .page [data-detail-block="contact"] dd,
 .page [data-detail-block="expertise"] li > span,
 .page .qualificationsList li {
-  font-size: 1rem;
-  line-height: 1.6;
+  font-size: var(--ps-type-compact, .875rem);
+  line-height: 1.5;
 }
 .page [data-detail-block="contact"] dt,
 .page [data-detail-block="expertise"] li > strong {
@@ -473,7 +473,7 @@
   min-height: 44px;
   padding-block: 10px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: var(--ps-type-compact, .875rem);
 }
 .qualifications > summary:focus-visible {
   outline: 2px solid var(--forest);
@@ -502,4 +502,35 @@
 @media (max-width: 360px) {
   .servicesColumns { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .servicesColumns .servicesList li { font-size: 0.84rem; padding-inline: 4px; }
+}
+
+/* Keep both independently stacked rails in one detail flow. */
+.page .layout {
+  padding-block: 0;
+}
+.page .servicesColumns .servicesList li,
+.page .weekHoursRow dt,
+.page .weekHoursRow dd,
+.page .hours,
+.page .servicesExpand {
+  font-size: var(--ps-type-compact, .875rem);
+  line-height: 1.5;
+}
+.page .singleHeading,
+.page :global([data-detail-block="contact"]) h2,
+.page :global([data-detail-block="expertise"]) h2,
+.page :global([data-detail-block="catalog-attributes"]) h2,
+.page :global([data-detail-block="physio-price"]) h2 {
+  font: 600 var(--ps-type-card-heading, 1rem)/1.4 var(--ps-font-body);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--coral-dark);
+}
+.page .enquiry :global(.directory-contact-form) {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.page .updatedAt {
+  font-size: var(--ps-type-meta, .75rem);
 }

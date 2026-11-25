@@ -1409,3 +1409,34 @@
 .contentMain .section {
   padding: var(--ps-reading-card-padding);
 }
+
+/* Shared public detail scale: editorial descriptions versus compact facts. */
+.section {
+  --ps-reading-size: var(--ps-type-profile, 1rem);
+  --ps-reading-leading: 1.6;
+}
+.section h2.compactHeading,
+.card[data-public-contact-panel] h2 {
+  font: 600 var(--ps-type-card-heading, 1rem)/1.4 var(--ps-font-body);
+  color: var(--coral-dark);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.card[data-public-contact-panel] .facts :is(dt, dd),
+.optionGrid :is(strong, span),
+.facts :is(dt, dd) {
+  font-size: var(--ps-type-compact, .875rem);
+  line-height: 1.5;
+}
+.flowItem[data-detail-block="expertise"] .optionGrid li {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 0;
+}
+.flowItem[data-detail-block="expertise"] .optionGrid li + li {
+  border-top: 1px solid var(--ps-border-soft);
+}
+.flowItem[data-detail-block="expertise"] .optionGrid {
+  grid-template-columns: minmax(0, 1fr);
+}

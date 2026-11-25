@@ -242,3 +242,17 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+
+/* Content kind is a plain brand-accent label, not a redundant profile badge. */
+.itemText small.contentType {
+  color: var(--coral-dark, #b44939);
+  font-size: var(--ps-type-meta, .75rem);
+  font-weight: 600;
+}
+.list strong,
+.contextRow strong {
+  font-size: var(--ps-type-sidebar-title, .9375rem);
+}
+.itemText small {
+  font-size: var(--ps-type-meta, .75rem);
+}

@@ -2541,3 +2541,86 @@
 .partner-shell--workspace .partner-dashboard-header nav a:hover {
   background-image: var(--ps-glass-sheen, none);
 }
+
+/* Grouped workspace navigation: no horizontal scroll, one set of routes. */
+.partner-shell--workspace .partner-dashboard-header {
+  display: block;
+}
+.partner-shell--workspace .partner-dashboard-header nav.partner-workspace-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+  overflow: visible;
+  gap: 4px;
+}
+.partner-workspace-nav details {
+  position: relative;
+  min-width: 0;
+}
+.partner-workspace-nav summary,
+.partner-nav-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--ps-radius-control);
+  background: transparent;
+  color: var(--forest);
+  font: 600 var(--ps-type-compact, .875rem)/1.4 var(--ps-font-body);
+  cursor: pointer;
+  list-style: none;
+}
+.partner-workspace-nav summary::-webkit-details-marker { display: none; }
+.partner-workspace-nav summary svg { flex: none; }
+.partner-workspace-nav details[open] > summary,
+.partner-workspace-nav summary[data-active="true"],
+.partner-workspace-nav a[aria-current="page"] {
+  background: var(--sage-light);
+  color: var(--forest);
+}
+.partner-workspace-nav .partner-nav-group {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 2;
+  display: grid;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--ps-radius-card);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+.partner-workspace-nav .partner-nav-account { margin-left: auto; }
+.partner-workspace-nav .partner-nav-account .partner-nav-group { left: auto; right: 0; }
+.partner-shell--workspace .partner-dashboard-header nav.partner-workspace-nav a,
+.partner-shell--workspace .partner-workspace-nav .partner-shell-logout {
+  font-size: var(--ps-type-compact, .875rem);
+  font-weight: 600;
+}
+.partner-workspace-nav .partner-nav-group a,
+.partner-workspace-nav .partner-nav-group .partner-shell-logout { width: 100%; white-space: normal; }
+.partner-workspace-nav .partner-nav-icon svg { width: 20px; height: 20px; }
+.partner-nav-toggle { display: none; }
+@media (max-width: 760px) {
+  .partner-nav-toggle { display: flex; width: 100%; justify-content: space-between; }
+  .partner-shell--workspace .partner-dashboard-header nav.partner-workspace-nav[data-expanded="false"] { display: none; }
+  .partner-shell--workspace .partner-dashboard-header nav.partner-workspace-nav {
+    flex-direction: column;
+    align-items: stretch;
+    max-height: min(60vh, 480px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .partner-workspace-nav .partner-nav-group {
+    position: static;
+    min-width: 0;
+    margin-left: 10px;
+    box-shadow: none;
+  }
+  .partner-workspace-nav .partner-nav-account { margin-left: 0; }
+  .partner-workspace-nav > a { width: 100%; }
+}

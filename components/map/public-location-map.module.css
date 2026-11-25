@@ -278,3 +278,30 @@
   color: var(--ps-premium-kicker-on-dark, #f7f2e9);
   background: transparent;
 }
+
+/* Detail-rail maps use the same compact paper heading as the contact cards. */
+:global([data-public-detail-aside]) .heading:has(.compactHeading),
+:global([data-public-detail-flow]) .heading:has(.compactHeading) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  margin-bottom: 10px;
+}
+:global([data-public-detail-aside]) .heading h2.compactHeading,
+:global([data-public-detail-flow]) .heading h2.compactHeading {
+  font: 600 var(--ps-type-card-heading, 1rem)/1.4 var(--ps-font-body);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--coral-dark, #b44939);
+}
+:global([data-public-detail-aside]) .section,
+:global([data-public-detail-flow]) .section {
+  margin-block: 0;
+}
+@media (min-width: 801px) {
+  :global([data-public-detail-aside]) .mapWrap,
+  :global([data-public-detail-flow]) .mapWrap {
+    height: 245px;
+    min-height: 245px;
+  }
+}
