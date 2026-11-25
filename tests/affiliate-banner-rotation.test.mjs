@@ -166,7 +166,7 @@ test("an unavailable external artwork never leaves a blank affiliate label", () 
   assert.doesNotMatch(component, /styles\.placeholder/);
 });
 
-test("sitewide fallback reuses the existing component and yields to loaded contextual ads", () => {
+test("sitewide fallback reuses the existing component and yields to contextual ads", () => {
   const sitewide = source("components/sitewide-affiliate-banner.tsx");
   const css = source("components/sitewide-affiliate-banner.module.css");
   assert.match(sitewide, /<AffiliateRotatingBanner placement="horizontal" sitewide\s*\/>/);
