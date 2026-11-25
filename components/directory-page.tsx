@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { PublicFilterLayout, PublicFilterPanel } from "@/components/public-filters";
 import { reportDirectoryPublicReadFailure } from "@/lib/public-directory-read-diagnostics";
 import Link from "next/link";
@@ -87,8 +88,8 @@ export async function DirectoryPage({
   // These three independent D1 reads previously ran in two serial phases
   // on the root overview. Start the conditional previews together with the
   // hero and editorial sidebar without changing the page's result set.
-  const previewsRead = isOverview ? getDirectoryCategoryPreviews(5) : Promise.resolve(null);
-  const heroRead = getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar");
+  const previewsRead = isOverview ? retryTransientPublicRead(() => getDirectoryCategoryPreviews(5)) : Promise.resolve(null);
+  const heroRead = retryTransientPublicRead(() => getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar"));
   const discoveryRead = getArticleDiscoveryData({ slug: "directory-listing", portalSection: "novinky" });
   // Keep all three reads concurrent and identify any failing D1 read boundary
   // in Cloudflare Observability without logging SQL or private input.
