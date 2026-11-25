@@ -58,6 +58,12 @@ function fixture() {
   }
   insert.run(128, "trener-bratislava", "EduDog", "treneri", "draft", JSON.stringify(["Poslušnosť"]), "Bratislava", "Bratislava I", "Bratislavský kraj", null, 1, "128");
   insert.run(129, "salon-trnava", "Psí salón", "salony-a-sluzby", "published", JSON.stringify(["Kúpanie"]), "Trnava", "Trnava", "Trnavský kraj", "https://example.test/salon.jpg", 0, "129");
+  sqlite.exec(`
+    CREATE TABLE directory_profile_service_texts(profile_id INTEGER, item_order INTEGER, service_text TEXT);
+    INSERT INTO directory_profile_service_texts
+      SELECT p.id, CAST(j.key AS INTEGER), j.value FROM directory_profiles p, json_each(p.services_json) j;
+    UPDATE directory_profiles SET services_json = '["Stary historicky udaj"]';
+  `);
   sqlite.prepare("INSERT INTO directory_profile_review_state(profile_id,reviewed_at) VALUES (?,?)").run(27,"2026-10-23T08:00:00Z");
   const db = {
     prepare(query) {
