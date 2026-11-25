@@ -688,3 +688,13 @@ test("editorial callouts and tables retain subtle contrast and existing geometry
   assert.match(globalStyles, /\.article-block-table-wrap th\s*\{[^}]*background: #e1ebe3;/s);
   assert.match(globalStyles, /\.article-block-table-wrap tbody tr:nth-child\(even\)/);
 });
+
+test("shared compact article titles are five percent larger at each breakpoint", () => {
+  const base = readFileSync("components/public-visual-system/public-visual-system.module.css", "utf8");
+  const card = readFileSync("components/public-visual-system/public-article-card.module.css", "utf8");
+  const section = readFileSync("components/editorial-section.module.css", "utf8");
+  assert.match(base, /\.articleListTitle\s*\{[^}]*font-size: clamp\(1\.05rem, 1\.5225vw, 1\.26rem\)/s);
+  assert.match(card, /\.row \[data-article-title\]\s*\{[^}]*font-size: 1\.155rem;/s);
+  assert.match(card, /\.row\.stacked \[data-article-title\]\s*\{[^}]*font-size: clamp\(1\.2075rem, 1\.575vw, 1\.47rem\)/s);
+  assert.match(section, /\.featuredContentList > :first-child \[data-article-title\]\s*\{[^}]*font-size: clamp\(1\.239rem, 2\.1vw, 1\.6275rem\)/s);
+});
