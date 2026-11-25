@@ -67,9 +67,9 @@ export const metadata: Metadata = {
 // articles, events, directory cards and rotating breed previews to complete.
 function loadHomepageContent() {
   return Promise.all([
-    retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 120 })),
-    settleOptionalRead("home_events", retryTransientPublicRead(() => getHomepageUpcomingEventsWithImages(8)), []),
-    settleOptionalRead("home_help", retryTransientPublicRead(() => getHomepageHighlightedHelpCasesWithImages(3)), []),
+    retryTransientPublicRead(() => getPublishedArticleSummaries({ limit: 120 }), { stage: "home_articles" }),
+    settleOptionalRead("home_events", retryTransientPublicRead(() => getHomepageUpcomingEventsWithImages(8), { stage: "home_events" }), []),
+    settleOptionalRead("home_help", retryTransientPublicRead(() => getHomepageHighlightedHelpCasesWithImages(3), { stage: "home_help" }), []),
     settleOptionalRead("home_directory", retryTransientPublicRead(() =>
       getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8),
     ), null),
