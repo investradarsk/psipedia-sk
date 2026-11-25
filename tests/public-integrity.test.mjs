@@ -56,8 +56,15 @@ test("public route contracts cover help, legacy shelters, lost/found hub and can
   const magazine = await fs.readFile(new URL("../app/clanky/page.tsx", import.meta.url), "utf8");
   assert.match(help, /samostatnom prehľade adopcií/);
   assert.match(shelters, /permanentRedirect\("\/pomoc-psom\/utulky"\)/);
-  assert.match(lostFound, /\/pomoc-psom\/stratene-psy/);
-  assert.match(lostFound, /\/pomoc-psom\/najdene-psy/);
+  const reportPage = await fs.readFile(new URL("../components/lost-found-dogs-page.tsx", import.meta.url), "utf8");
+  const reportNav = await fs.readFile(new URL("../components/public-visual-system/public-help-category-nav.tsx", import.meta.url), "utf8");
+  const reportPaths = await fs.readFile(new URL("../lib/lost-found-dogs.ts", import.meta.url), "utf8");
+  assert.match(lostFound, /<LostFoundDogsPage type="all"/);
+  assert.match(reportPage, /reportScope=\{type\}/);
+  assert.match(reportNav, /dogReportBasePath\("LOST"\)/);
+  assert.match(reportNav, /dogReportBasePath\("FOUND"\)/);
+  assert.match(reportPaths, /\/pomoc-psom\/stratene-psy/);
+  assert.match(reportPaths, /\/pomoc-psom\/najdene-psy/);
   // Editorial naming can change between "Novinky" and "Všetky články";
   // keep the search landing's hero and SEO metadata consistent instead of
   // pinning a historical marketing title.

@@ -58,8 +58,10 @@ test("ORGANIZATION public surface exposes canonical Organization identity, sameA
   const schema = read("../lib/organization-seo.ts");
   const sharedHero = read("../components/public-profile/public-profile-hero.tsx");
   assert.match(detail, /title=\{\s*organization\s*\.name\s*\}/);
+  const primitive = read("../components/detail-primitives/detail-primitives.tsx");
+  assert.match(sharedHero, /<DetailProfileTitle\s+title=\{title\}/);
   assert.match(
-    sharedHero,
+    primitive,
     /<PublicHeading[^>]*as="h1"[^>]*data-long-title=\{\s*title\s*\.length\s*>=\s*70\s*\?\s*""\s*:\s*undefined\s*\}>\s*\{\s*title\s*\}\s*<\/PublicHeading>/,
   );
   assert.match(detail, /DetailFactsCard\s*title="Základné\s*informácie"/);
@@ -79,7 +81,9 @@ test("ADOPTION public surface uses a privacy-safe canonical dog main entity", ()
     route,
     /robots:\s*seo\s*\.indexable\s*\?\s*undefined\s*:\s*\{\s*index:\s*false,\s*follow:\s*true\s*\}/,
   );
-  assert.match(detail, /<h1>\{\s*dog\s*\.name\s*\}<\/h1>/);
+  const primitive = read("../components/detail-primitives/detail-primitives.tsx");
+  assert.match(detail, /<DetailProfileTitle\s+title=\{\s*dog\s*\.name\s*\}/);
+  assert.match(primitive, /<PublicHeading[^>]*as="h1"[^>]*>\s*\{\s*title\s*\}\s*<\/PublicHeading>/);
   assert.match(detail, /label:\s*"Aktualizované"/);
   assert.match(schema, /idSuffix:\s*"dog"/);
   assert.match(schema, /mainEntity:\s*\{\s*"@id":\s*dogEntity\[\s*"@id"\s*\]\s*\}/);
