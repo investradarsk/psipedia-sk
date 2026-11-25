@@ -14,7 +14,7 @@
   margin-bottom: 12px;
 }
 
-/* Keep the footer fallback until a contextual ad has actually loaded.
+/* Yield to an existing contextual slot, even while its artwork loads.
  * On articles only the visible placement for the current viewport qualifies. */
 @media (min-width: 1200px) {
   :global(body:has([data-article-layout] [data-affiliate-rotating-banner="sidebar"])) .wrapper {
@@ -43,4 +43,3 @@
     display: none;
   }
 }
-
