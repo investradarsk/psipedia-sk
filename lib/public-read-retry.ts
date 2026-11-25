@@ -1,3 +1,5 @@
+import { logStability, stabilityDuration, type StabilityStage } from "./stability-diagnostics.ts";
+
 /**
  * A single bounded retry for explicitly idempotent data reads after known
  * transient D1 transport/locking failures. Never wrap writes, auth, mutations,
@@ -44,22 +46,50 @@ export function isTransientPublicReadError(error: unknown): boolean {
   return (current === undefined || current === null) && transient;
 }
 
-type ReadRetryOptions = { signal?: AbortSignal };
+type ReadRetryOptions = { signal?: AbortSignal; stage?: StabilityStage };
 
 export async function retryTransientPublicRead<T>(
   read: () => Promise<T>,
-  { signal }: ReadRetryOptions = {},
+  { signal, stage = "unspecified" }: ReadRetryOptions = {},
 ): Promise<T> {
-  signal?.throwIfAborted();
+  const start = performance.now();
+  const report = (outcome: "retrying" | "recovered" | "exhausted" | "aborted" | "not_retryable", attempt: 0 | 1 | 2, transient?: boolean) =>
+    logStability({ stage, dependency: "read", outcome, attempt, transient, durationMs: stabilityDuration(start) });
+  if (signal?.aborted) {
+    report("aborted", 0);
+    signal.throwIfAborted();
+  }
   try {
     return await read();
   } catch (error) {
-    if (signal?.aborted || !isTransientPublicReadError(error)) throw error;
-    // One short delay prevents immediate re-entry into the same failed D1
-    // connection. A second failure remains visible for incident diagnostics.
+    if (signal?.aborted || (error instanceof Error && error.name === "AbortError")) {
+      report("aborted", 1);
+      throw error;
+    }
+    if (!isTransientPublicReadError(error)) {
+      // Framework control-flow is not an operational error.
+      const digest = error instanceof Error ? (error as Error & { digest?: unknown }).digest : undefined;
+      if (!(typeof digest === "string" && digest.startsWith("NEXT_"))) report("not_retryable", 1, false);
+      throw error;
+    }
+    report("retrying", 1, true);
     await new Promise<void>((resolve) => setTimeout(resolve, 120));
-    signal?.throwIfAborted();
-    return read();
+    if (signal?.aborted) {
+      report("aborted", 1);
+      signal.throwIfAborted();
+    }
+    try {
+      const result = await read();
+      report("recovered", 2, true);
+      return result;
+    } catch (retryError) {
+      const aborted = signal?.aborted || (retryError instanceof Error && retryError.name === "AbortError");
+      const digest = retryError instanceof Error ? (retryError as Error & { digest?: unknown }).digest : undefined;
+      if (!(typeof digest === "string" && digest.startsWith("NEXT_"))) {
+        report(aborted ? "aborted" : "exhausted", 2, isTransientPublicReadError(retryError));
+      }
+      throw retryError;
+    }
   }
 }
 
