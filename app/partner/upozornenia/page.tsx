@@ -1,3 +1,4 @@
+import { retryTransientRead } from "@/lib/public-read-retry";
 import Link from "next/link";
 import { PartnerShell } from "@/components/partner-shell";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
@@ -8,8 +9,8 @@ export const dynamic="force-dynamic";
 export default async function Page(){
   const identity=await requirePartnerPageIdentity();
   const [activity,preferences]=await Promise.all([
-    listPartnerActivity({accountId:identity.accountId}),
-    getPartnerNotificationPreferences({accountId:identity.accountId}),
+    retryTransientRead(() => listPartnerActivity({accountId:identity.accountId})),
+    retryTransientRead(() => getPartnerNotificationPreferences({accountId:identity.accountId})),
   ]);
   return <PartnerShell title="Upozornenia" description="Správy a dôležité rozhodnutia týkajúce sa vášho Partner účtu.">
     {!preferences.inAppEnabled&&<p role="status">Interné upozornenia máte vypnuté.
