@@ -194,3 +194,47 @@ export function slovakLandingLocationSqlClause(
 export function directoryLocationSegment(dimension: SlovakLandingDimension) {
   return dimension === "region" ? "kraj" : dimension === "district" ? "okres" : "mesto";
 }
+
+function regionForDistrictName(districtName: string) {
+  for (const [regionName, districts] of Object.entries(SLOVAK_DISTRICTS_BY_REGION)) {
+    if (districts.includes(districtName)) {
+      return getSlovakLandingLocationByRawValue("region", regionName);
+    }
+  }
+  return null;
+}
+
+function parentLocationsForCity(location: SlovakLandingLocation) {
+  const rawNames = new Set(location.sql.values);
+  const districts = Object.entries(SLOVAK_MUNICIPALITIES_BY_DISTRICT)
+    .filter(([, cities]) => cities.some((city) => rawNames.has(city)))
+    .map(([district]) => district);
+
+  const uniqueDistricts = [...new Set(districts)];
+  const district =
+    uniqueDistricts.length === 1
+      ? getSlovakLandingLocationByRawValue("district", uniqueDistricts[0])
+      : null;
+
+  const regions = uniqueDistricts
+    .map((districtName) => regionForDistrictName(districtName)?.name ?? "")
+    .filter(Boolean);
+  const uniqueRegions = [...new Set(regions)];
+  const region =
+    uniqueRegions.length === 1
+      ? getSlovakLandingLocationByRawValue("region", uniqueRegions[0])
+      : null;
+
+  return { district, region };
+}
+
+/** The broadest ancestor comes first, so equivalent pages do not form canonical chains. */
+export function slovakLandingLocationAncestors(location: SlovakLandingLocation) {
+  if (location.dimension === "region") return [];
+  if (location.dimension === "district") {
+    const region = regionForDistrictName(location.name);
+    return region ? [region] : [];
+  }
+  const { region, district } = parentLocationsForCity(location);
+  return [region, district].filter((parent): parent is SlovakLandingLocation => parent !== null);
+}

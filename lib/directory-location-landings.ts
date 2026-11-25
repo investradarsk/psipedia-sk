@@ -9,6 +9,7 @@ import {
   directoryLocationSegment,
   getSlovakLandingLocationBySlug,
   slovakLandingLocationSqlClause,
+  slovakLandingLocationAncestors,
   type SlovakLandingDimension,
   type SlovakLandingLocation,
 } from "@/lib/slovak-location-landings";
@@ -87,6 +88,7 @@ export type DirectoryLocationLanding = {
   dimension: SlovakLandingDimension;
   location: SlovakLandingLocation;
   path: string;
+  canonicalPath: string;
   profiles: PublicDirectoryProfile[];
   total: number;
   indexThreshold: number;
@@ -138,7 +140,10 @@ function safeStringList(value: string | null) {
 }
 
 function newestTimestamp(values: Array<string | null | undefined>) {
-  const candidates = values.map((value) => value?.trim() ?? "").filter(Boolean).sort();
+  const candidates = values
+    .map((value) => value?.trim() ?? "")
+    .filter(Boolean)
+    .sort();
   return candidates.at(-1) ?? null;
 }
 
@@ -182,7 +187,11 @@ export function canonicalDirectoryLocationLandingCategory(
   value: string,
 ): DirectoryLocationLandingCategory | null {
   if (isDirectoryLocationLandingCategory(value)) return value;
-  return DIRECTORY_LOCATION_CATEGORY_ALIASES[value as keyof typeof DIRECTORY_LOCATION_CATEGORY_ALIASES] ?? null;
+  return (
+    DIRECTORY_LOCATION_CATEGORY_ALIASES[
+      value as keyof typeof DIRECTORY_LOCATION_CATEGORY_ALIASES
+    ] ?? null
+  );
 }
 
 export function getDirectoryLocationLandingConfig(category: string) {
@@ -195,7 +204,9 @@ export function directoryLocationLandingSupportsDimension(
   dimension: SlovakLandingDimension,
 ) {
   const config = getDirectoryLocationLandingConfig(category);
-  return Boolean(config && (config.dimensions as readonly SlovakLandingDimension[]).includes(dimension));
+  return Boolean(
+    config && (config.dimensions as readonly SlovakLandingDimension[]).includes(dimension),
+  );
 }
 
 export function directoryLocationLandingPath(
@@ -210,8 +221,9 @@ export function directoryLocationLandingIndexable(
   category: DirectoryLocationLandingCategory,
   profileCount: number,
 ) {
-  const threshold = DIRECTORY_LOCATION_LANDING_REGISTRY[category].indexThreshold
-    ?? DIRECTORY_LOCATION_LANDING_DEFAULT_INDEX_THRESHOLD;
+  const threshold =
+    DIRECTORY_LOCATION_LANDING_REGISTRY[category].indexThreshold ??
+    DIRECTORY_LOCATION_LANDING_DEFAULT_INDEX_THRESHOLD;
   return Number.isFinite(profileCount) && profileCount >= threshold;
 }
 
@@ -226,17 +238,65 @@ function locationColumn(dimension: SlovakLandingDimension) {
   return dimension === "region" ? "d.region" : dimension === "district" ? "d.district" : "d.city";
 }
 
+export function getDirectoryLocationLandingAncestors(
+  category: DirectoryLocationLandingCategory,
+  location: SlovakLandingLocation,
+) {
+  return slovakLandingLocationAncestors(location).filter((parent) =>
+    directoryLocationLandingSupportsDimension(category, parent.dimension),
+  );
+}
+
+export function directoryLocationCanonicalPath(
+  category: DirectoryLocationLandingCategory,
+  location: SlovakLandingLocation,
+  memberships: ReadonlyMap<string, readonly string[]>,
+) {
+  const path = directoryLocationLandingPath(category, location.dimension, location.slug);
+  const profiles = new Set(memberships.get(path));
+  if (!directoryLocationLandingIndexable(category, profiles.size)) return path;
+  for (const parent of getDirectoryLocationLandingAncestors(category, location)) {
+    const parentPath = directoryLocationLandingPath(category, parent.dimension, parent.slug);
+    const parentProfiles = memberships.get(parentPath);
+    if (parentProfiles?.length === profiles.size && parentProfiles.every((id) => profiles.has(id)))
+      return parentPath;
+  }
+  return path;
+}
+
+export function buildDirectoryLocationMembershipQuery(
+  category: DirectoryLocationLandingCategory,
+  locations: readonly SlovakLandingLocation[],
+) {
+  const clauses = locations.map((location) =>
+    slovakLandingLocationSqlClause(locationColumn(location.dimension), location),
+  );
+  const projections = clauses.map(
+    (clause, index) => `GROUP_CONCAT(CASE WHEN ${clause.sql} THEN d.id END) AS profiles_${index}`,
+  );
+  return {
+    sql: `SELECT ${projections.join(", ")}
+      FROM directory_profiles d
+      WHERE ${publicCanonicalDirectoryLocationSql("d")} AND d.category = ?`,
+    bindings: [...clauses.flatMap((clause) => clause.bindings), category],
+  };
+}
+
 export function buildDirectoryLocationLandingQuery(selector: DirectoryLocationLandingSelector) {
   const canonicalCategory = canonicalDirectoryLocationLandingCategory(selector.category);
   if (!canonicalCategory || canonicalCategory !== selector.category) return null;
 
   const config = DIRECTORY_LOCATION_LANDING_REGISTRY[canonicalCategory];
-  if (!(config.dimensions as readonly SlovakLandingDimension[]).includes(selector.dimension)) return null;
+  if (!(config.dimensions as readonly SlovakLandingDimension[]).includes(selector.dimension))
+    return null;
 
   const location = getSlovakLandingLocationBySlug(selector.dimension, selector.locationSlug);
   if (!location) return null;
 
-  const locationClause = slovakLandingLocationSqlClause(locationColumn(selector.dimension), location);
+  const locationClause = slovakLandingLocationSqlClause(
+    locationColumn(selector.dimension),
+    location,
+  );
   return {
     category: canonicalCategory,
     dimension: selector.dimension,
@@ -280,7 +340,10 @@ export async function getDirectoryLocationLanding(
   const query = buildDirectoryLocationLandingQuery(selector);
   if (!database || !query) return null;
 
-  const result = await database.prepare(query.sql).bind(...query.bindings).all<LandingRow>();
+  const result = await database
+    .prepare(query.sql)
+    .bind(...query.bindings)
+    .all<LandingRow>();
   const rows = result.results ?? [];
   if (rows.length === 0) return null;
 
@@ -292,16 +355,43 @@ export async function getDirectoryLocationLanding(
   });
   const indexThreshold = DIRECTORY_LOCATION_LANDING_REGISTRY[query.category].indexThreshold;
 
+  const path = directoryLocationLandingPath(query.category, query.dimension, query.location.slug);
+  const memberships = new Map<string, readonly string[]>([
+    [path, rows.map((row) => String(row.id))],
+  ]);
+  const ancestors =
+    total >= indexThreshold
+      ? getDirectoryLocationLandingAncestors(query.category, query.location)
+      : [];
+  if (ancestors.length > 0) {
+    const parentQuery = buildDirectoryLocationMembershipQuery(query.category, ancestors);
+    const parentResult = await database
+      .prepare(parentQuery.sql)
+      .bind(...parentQuery.bindings)
+      .all<Record<string, string | null>>();
+    const parentRow = parentResult.results[0];
+    for (const [index, parent] of ancestors.entries()) {
+      const ids = parentRow?.[`profiles_${index}`];
+      if (ids)
+        memberships.set(
+          directoryLocationLandingPath(query.category, parent.dimension, parent.slug),
+          ids.split(","),
+        );
+    }
+  }
+  const canonicalPath = directoryLocationCanonicalPath(query.category, query.location, memberships);
+
   return {
     category: query.category,
     ...presentation,
     dimension: query.dimension,
     location: query.location,
-    path: directoryLocationLandingPath(query.category, query.dimension, query.location.slug),
+    path,
+    canonicalPath,
     profiles: rows.map(profileFromRow),
     total,
     indexThreshold,
-    indexable: directoryLocationLandingIndexable(query.category, total),
+    indexable: canonicalPath === path && directoryLocationLandingIndexable(query.category, total),
     lastModified: newestTimestamp(rows.map((row) => row.updated_at)),
   };
 }
