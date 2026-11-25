@@ -123,7 +123,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     normalizeDirectorySearchText: value => value,
     TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
     planDirectoryExtraSqlTextMirror,planDirectoryStep3PresentationSqlMirror,
-    planDirectory0173EditorialSqlMirror: () => [{sql:"INSERT INTO directory_profile_seo",bindings:[]}],
+    planDirectory0173EditorialSqlMirror: (input) => [{sql:"INSERT INTO directory_profile_seo",bindings:[input.seo?.canonicalUrl]}],
     getManagedDirectoryProfileById: async () => current,
   });
   const desired = {
@@ -142,8 +142,8 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.match(queries[1].sql, /public_email = \?/);
   assert.equal(queries[1].values[0], "blaljdljflajsdlfa");
   await exports.saveBreederEditorialValue(db, current, desired, "seo.canonicalUrl");
-  assert.match(queries[2].sql, /seo_json = json_set/);
-  assert.equal(queries[2].values[1], "čistý ľubovoľný text");
+  assert.doesNotMatch(queries[2].sql, /seo_json/);
+  assert(sidecarSql.some(row=>row.sql.includes("directory_profile_seo") && row.values.includes("čistý ľubovoľný text")));
   assert(sidecarSql.some(({sql})=>sql.includes("directory_profile_seo")));
   for (const { sql } of queries) {
     assert.match(sql, /category = 'chovatelske-stanice'/);
@@ -154,17 +154,17 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   // relation or other unrelated metadata may be touched by this D1 write.
   desired.services = ["rodinný; výstavný chov", "Aktívny chov – test"];
   await exports.saveBreederEditorialValue(db, current, desired, "services");
-  assert.match(queries[3].sql, /services_json = \?/);
+  assert.doesNotMatch(queries[3].sql, /services_json/);
   assert.doesNotMatch(queries[3].sql, /source_data_json =/);
-  assert.equal(queries[3].values[0], JSON.stringify(desired.services));
+  assert(sidecarSql.some(row=>row.sql.includes("directory_profile_service_texts") && row.values.includes(JSON.stringify(desired.services))));
   // Salon: one changed free-text service field, no Services V3 mutation.
   current.category = "salony-a-sluzby";
   desired.services = ["Strihanie", "Trimovanie"];
   await exports.saveBreederEditorialValue(db, current, desired, "services");
-  assert.match(queries[4].sql, /services_json = \?/);
+  assert.doesNotMatch(queries[4].sql, /services_json/);
   assert.match(queries[4].sql, /category = \?/);
   assert.equal(queries[4].values.at(-2), "salony-a-sluzby");
-  assert.equal(queries[4].values[0], JSON.stringify(desired.services));
+  assert(sidecarSql.some(row=>row.sql.includes("directory_profile_service_texts") && row.values.includes(JSON.stringify(desired.services))));
   assert.doesNotMatch(queries[4].sql, /directory_service|service_option/);
   current.category = "hotely-a-opatrovanie";
   await exports.saveBreederEditorialValue(db, current, desired, "description");
