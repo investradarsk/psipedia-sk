@@ -1050,7 +1050,7 @@ const getPublishedArticleUncached = async (slug: string): Promise<PublishedArtic
       WHERE slug = ? AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?))
       LIMIT 1`)
     .bind(slug, new Date().toISOString())
-    .first<ArticleRow>());
+    .first<ArticleRow>(), { stage: "article_detail" });
   if (!row) return null;
 
   let topics: ArticleTopic[] = [];
