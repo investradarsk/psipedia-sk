@@ -1,79 +1,47 @@
-# SQL Final Cleanup — work in progress
+# SQL Final Cleanup — PR #1600
 
-Base inspected: `f95b2c26495f9d0a8fe39bee6e97411484fee635`. PR #1597 is open and also modifies directory-location-landings.ts; reconcile the canonical SQL projection after either branch lands. Do not merge/deploy this draft or execute production mutations.
+Base inspected: `f95b2c26495f9d0a8fe39bee6e97411484fee635`. Scope: remove obsolete physical JSON dependencies, not legitimate canonical JSON documents or JSON API transport. No production mutation, deployment or merge in this PR without separate owner approval.
 
-## Inventory (verified candidates, not exhaustive)
+## Owner decision (2026-11-25)
 
-| Directory column | Canonical SQL owner | State |
-| --- | --- | --- |
-| services_json | directory_profile_service_texts (ordered by item_order); service_profile_option_choices is independently authoritative for catalog Services V3 | location/breeder landings, portal search, Admin query, Notion bulk and directory search SQL projection changed; other writers/readers open |
-| qualifications_json | directory_profile_qualifications | Notion bulk and directory search projection changed; other writers/readers open |
-| seo_json | directory_profile_seo | directory sitemap and Notion bulk changed; field-event writes only relational owner; other writers open |
-| source_data_json | contacts on directory_profiles, additional categories, directory_profile_review_state, media, facts and existing relation owners | already retired in production per owner; remaining direct partner/automation paths require review |
-| thumbnail_display_json / detail_display_json | directory_profile_image_display_settings with display_context | existing detail/homepage projections are relational; shared create/update writes removed |
+Current canonical D1 SQL values win, including intentional empty values. Do not compare, recover, copy, or backfill retired JSON. Do not mark historical migration receipts verified merely to make them appear complete. The previous parity requirements for preserving retired data are superseded; functional and schema integrity gates remain mandatory.
 
-Projection aliases such as AS services_json are transport shapes, not reads of the retired physical column. Keep JSON API, technical payloads, JSON-LD, ordered SQL projections, and independently authoritative documents. Identically named SEO and image columns on events, articles, help/adoption/lost-found and organizations are NOT automatically retired: identify their actual SQL owner before touching them. Breed legacy readers, entity sitemap and SEO quality audit require additional verification.
+## Physical storage inventory
 
-## Remaining blockers
+| Table and retired column(s) | Authoritative owner |
+| --- | --- |
+| directory_profiles.source_data_json (already absent in production) | SQL contacts, public facts, categories, review state, media and dedicated relations |
+| directory_profiles.services_json | directory_profile_service_texts; catalog Services V3 remains separate |
+| directory_profiles.qualifications_json | directory_profile_qualifications |
+| directory_profiles.seo_json | directory_profile_seo |
+| directory_profiles.thumbnail_display_json / detail_display_json | directory_profile_image_display_settings |
+| managed_breeds.fci_standard_json / editorial_json / seo_json / related_breeds_json (already absent in production) | breed_fci_standard, breed_editorial_text, scalar SEO columns, breed_related_breeds |
+| managed_articles.sections_json | blocks_json, the canonical article document; historical sections accepted only as explicit import payloads |
 
-- Directory create/update builders no longer bind the five historical columns; the separate partner-new-profile moderation path now adds guarded services, qualifications, SEO and image SQL statements to the same transaction. Verify all callers, fixture compatibility and guarded binding counts in CI. Other partner and import writers remain open.
-- Direct writes/mappings in app/api/admin/import/route.ts, lib/canonical-draft-service.ts, lib/partner-profile-changes.ts, lib/partner-canonical-workflow.ts, lib/data-automation-apply.ts, lib/data-automation-store.ts, lib/data-automation-update-review.ts. Audit exact live call sites, guards, Notion locks, and search_text refresh.
-- Review all references in lib/directory-filter-contract.ts, lib/directory-sql-cutover-contract.ts, lib/admin-seo-quality-entities.ts, lib/breed-audit.ts, lib/entity-sitemap.ts, lib/breed-canonical.ts, lib/content-relations.ts and other scripts/schema. Historical migration/fixture references are not automatically runtime dependencies.
-- Map query inspected: services SQL owner already used. Full runtime route coverage, search derived text parity, synchronization integration, remaining entity agendas and tests are not yet verified. Code search is indexed and bounded; no complete checkout was available.
-- No full lint/build/CI/local repository tests executed in this session; fixtures modified for conflicting historical data; added an isolated Admin test for physical column drop and explicit empty services. Check all fixture schemas, including search and Notion integration, and run required CI. No claim of merge readiness.
+Projection aliases such as AS services_json are SQL-generated transport shapes, not physical reads. Independently canonical JSON documents (including breed list arrays, article blocks and sources, image settings and SEO documents in other entity tables where there is no replacement, organization metadata, moderation and synchronization payloads) are not drop candidates merely because of their names.
 
-## Production read-only preflight (owner runs; no mutation)
+## Implemented runtime changes
 
-First inventory the live schema. Execute the following separately:
+- Directory public location and breeding-station landings, Admin filtering, Notion bulk readers, sitemap, related profiles, portal search and canonical list reads use relational owners.
+- Directory shared create/update, Notion field-sync, partner creation/editing/approval/drafts, automation draft creation and reviewed changes write relational lists and presentation data. Partner and automation list writes use same-batch revision/actor guards.
+- Directory image repair writes the image and relational settings in one batch. Search uses current relational service/qualification text rather than stale persisted text.
+- Removed unreachable legacy bulk directory import writer; production import remains disabled as before.
+- Breed store, identity resolution, selectors, audit and Notion direct/controlled writes use SQL primary unconditionally. FCI import uses canonical relational FCI/editorial values; production remains preview-only and local fixture import is still restricted.
+- Article detail/editor, QA remediation and SEO audit read canonical blocks; writes and imports no longer write sections_json. Import can convert explicit legacy-format input to blocks, never read retired stored sections as a fallback.
 
-```sql
-SELECT name, sql FROM sqlite_schema
-WHERE type IN ('table','view','trigger','index')
-AND (name LIKE 'directory_%' OR name LIKE 'service_profile_%')
-ORDER BY type,name;
-```
+## Validation gate (step 3; not yet passed)
 
-```sql
-SELECT m.name AS table_name,p.name AS column_name,p.type,p."notnull",p.dflt_value
-FROM sqlite_schema m JOIN pragma_table_info(m.name) p
-WHERE m.type='table' AND p.name LIKE '%json%'
-ORDER BY m.name,p.cid;
-```
+- Reconcile with current main, including overlapping PR #1597.
+- Update old test fixtures and assertions to canonical schema. Run formatting, typecheck, required CI, regression and isolated D1 tests with each retired physical column absent. Verify create/edit/publish, explicit clear, search, sitemap, partner authorization/revision guards and bidirectional Notion synchronization.
+- Verify no active SQL statement references retired columns. Indexed GitHub code search is bounded and not a substitute for a complete checkout and runtime test. Historical migration and diagnostic scripts must not run automatically or restore old JSON.
+- Existing SQL data is authoritative. No additional production JSON parity queries are required.
+- No full build, CI or browser regression suite was executed during the connector-only implementation. Existing fixtures may still assume the historical schema.
 
-```sql
-SELECT id,name,applied_at FROM d1_migrations ORDER BY id DESC LIMIT 30;
-```
+## Rollout / physical removal
 
-Only if the inventory confirms services_json and qualifications_json still exist:
-```sql
-SELECT d.id,d.slug,
-  json_array_length(CASE WHEN json_valid(d.services_json) THEN d.services_json ELSE '[]' END) AS old_services,
-  (SELECT count(*) FROM directory_profile_service_texts s WHERE s.profile_id=d.id) AS sql_services,
-  json_array_length(CASE WHEN json_valid(d.qualifications_json) THEN d.qualifications_json ELSE '[]' END) AS old_qualifications,
-  (SELECT count(*) FROM directory_profile_qualifications q WHERE q.profile_id=d.id) AS sql_qualifications
-FROM directory_profiles d
-WHERE old_services <> sql_services OR old_qualifications <> sql_qualifications
-ORDER BY d.id;
-```
+1. After step 3 passes, owner approves merge and deployment. Verify production application with the compatible revision before dropping any columns.
+2. Confirm current schema using a D1-compatible read-only sqlite_schema query, and record recovery point. No legacy value comparison or restoration.
+3. Owner separately approves the targeted physical drop. Do not drop independently canonical documents. Do not edit historical migrations or regenerate snapshots/journal.
+4. Verify post-drop runtime, foreign keys, integrity, permissions and sync. Rollback must be a schema-compatible revision; an old binary that requires retired fields is not a safe rollback. If schema recovery is necessary, preserve intervening canonical writes.
 
-Count differences are candidates only. Equal counts are not value parity; inspect ordered values, invalid JSON, timestamps and explicit clears using the existing field parity/readiness tooling. A historical nonempty value and empty SQL is not permission to restore history. No blanket backfill.
-
-```sql
-SELECT d.id,d.slug
-FROM directory_profiles d
-LEFT JOIN directory_profile_seo s ON s.profile_id=d.id
-WHERE s.profile_id IS NULL
-ORDER BY d.id;
-```
-
-Missing SEO rows may mean defaults rather than missing migration. Check per-field canonical values, approved migration provenance and current writes before deciding. Also validate orphan children, image context values, uniqueness, integrity and foreign keys.
-
-## Deployment / physical removal (not authorized)
-
-1. Resolve blockers, reconcile #1597, run all relevant regressions and compare with latest main.
-2. Owner verifies production schema and per-field parity, records intentional empty values, confirms backup and recovery point, and approves code deploy separately. Code must support both pre-drop and post-drop schemas.
-3. Prove SQL-only reads/writes and permissions in isolated D1 after dropping candidate columns. No old application revision that reads dropped fields is eligible for rollback.
-4. Observe production with the compatible code and verify canonical writes, all routes and sync before proposing a separately reviewed migration. Do not add automatic destructive migrations to this draft. Never regenerate Drizzle journal/snapshots or edit historical migrations.
-5. Owner explicitly approves physical drop only after validation and a tested backup/restore plan. Before drop rollback is a compatible prior revision; after drop rollback requires a compatible revision or a separately reviewed schema/data restore with intervening writes reconciled. Never overwrite canonical SQL from stale legacy JSON.
-
-Status: partial implementation, not merge-ready.
+Status: implementation expanded; regression gate pending. Keep the PR in draft until the gate passes.
