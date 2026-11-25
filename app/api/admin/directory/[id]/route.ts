@@ -2,6 +2,7 @@ import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
 import { readDirectory0170EditorialFields } from "@/lib/directory-0170-editorial-read";
+import { planDirectoryStep3PresentationSqlMirror } from "@/lib/directory-sql-step3-live-mirror";
 import { planDirectory0170FilterSqlMirror } from "@/lib/directory-0170-editorial-sql-mirror";
 import { validateDirectoryFullProfileSave } from "@/lib/directory-full-profile-save";
 import { DIRECTORY_FILTER_CONTRACT_VERSION, getDirectoryFilterDefinition, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
@@ -446,16 +447,21 @@ export async function PUT(request: Request, { params }: Props) {
     // must never return a misleading 200/"Uložené" response.
     if (requestedMedia) {
       if (!directoryMainImageMatches(profile, requestedMedia)) {
-        const saved = await db.prepare(
-          "UPDATE directory_profiles SET image_url=?, image_key=?, " +
-          "thumbnail_display_json=?, detail_display_json=?, updated_at=?, updated_by=? " +
-          "WHERE id=? AND category=? AND status <> 'archived' AND updated_at=? RETURNING id",
-        ).bind(requestedMedia.imageUrl, requestedMedia.imageKey,
-          requestedMedia.imageUrl ? JSON.stringify(payload.thumbnailImageDisplay ?? null) : null,
-          requestedMedia.imageUrl ? JSON.stringify(payload.detailImageDisplay ?? null) : null,
-          new Date().toISOString(), user.email, id, profile.category, profile.updatedAt)
-          .first<{ id: number }>();
-        if (!saved)
+        const updatedAt = new Date(Math.max(Date.now(), Date.parse(profile.updatedAt) + 1)).toISOString();
+        const identity = { kind: "id" as const, profileId: id, updatedAt, actor: user.email };
+        const imageSettings = planDirectoryStep3PresentationSqlMirror({
+          identity,
+          thumbnailImageDisplay: requestedMedia.imageUrl ? payload.thumbnailImageDisplay ?? null : null,
+          detailImageDisplay: requestedMedia.imageUrl ? payload.detailImageDisplay ?? null : null,
+        });
+        const [saved] = await db.batch([
+          db.prepare(
+            "UPDATE directory_profiles SET image_url=?, image_key=?, updated_at=?, updated_by=? " +
+            "WHERE id=? AND category=? AND status <> 'archived' AND updated_at=?",
+          ).bind(requestedMedia.imageUrl, requestedMedia.imageKey, updatedAt, user.email, id, profile.category, profile.updatedAt),
+          ...imageSettings.map((item) => db.prepare(item.sql).bind(...item.bindings)),
+        ]);
+        if (saved.meta.changes !== 1)
           return Response.json({ error: "Zmena hlavnej fotografie nebola potvrdená. Obnov profil a skús to znova." }, { status: 409 });
       }
       const verifiedMedia = await getManagedDirectoryProfileById(id, db);
