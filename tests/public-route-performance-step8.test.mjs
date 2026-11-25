@@ -225,7 +225,7 @@ test("calendar month summaries are memoized and selected days use the paginated 
   assert.match(calendar, /if \(state\.day\) params\.set\("den", state\.day\)/);
   assert.match(
     calendar,
-    /const calendarOnly = sameListing && !pending && !loadError && !next\.day/,
+    /const calendarOnly = sameListing && !pending && !loadError && \(!next\.day \|\| data\.calendarUnavailable === true\)/,
   );
   assert.match(api, /const filters = parseEventListing\(raw, type\)/);
   assert.match(api, /getPublishedEventListing\(filters\)/);
