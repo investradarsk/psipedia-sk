@@ -755,3 +755,35 @@ test("unverified identity and publication differences never auto-push under cano
   assert.deepEqual(result.psipediaFields, []);
   assert.deepEqual(result.merged, psipedia);
 });
+
+test("V2 shared profile adapters enable verified changed-side precedence", async () => {
+  for (const path of [
+    "../lib/notion-directory-sync.ts",
+    "../lib/notion-events-help-sync.ts",
+    "../lib/notion-eshop-sync.ts",
+  ]) {
+    const code = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(code, /reconcileProfileFields\(\{[\s\S]*?changedSideWins: true,[\s\S]*?\}\)/, path);
+  }
+});
+
+test("V2 shared policy preserves independent edits and never trusts obsolete authority", () => {
+  const baseline = { title: "Old title", description: "Old text", status: "published" };
+  for (const mode of ["safe", "notion", "admin", "latest"]) {
+    const result = reconcileProfileFields({
+      baseline,
+      notion: { ...baseline, description: "New Notion text", status: "draft" },
+      psipedia: { ...baseline, title: "New Admin title" },
+      protectedFields: new Set(["status"]),
+      canonicalFieldsWin: true,
+      changedSideWins: true,
+      authorities: { title: mode, description: mode, status: mode },
+    });
+    assert.equal(result.kind, "MERGE");
+    assert.deepEqual(result.merged, {
+      title: "New Admin title",
+      description: "New Notion text",
+      status: "published",
+    });
+  }
+});
