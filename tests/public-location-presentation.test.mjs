@@ -28,7 +28,6 @@ test("all central public location surfaces suppress online placeholders", () => 
     "components/help-details/help-detail-types.tsx",
     "components/event-card.tsx",
     "components/event-detail.tsx",
-    "components/event-calendar.tsx",
     "app/page.tsx",
   ];
   for (const path of files) {
@@ -36,7 +35,15 @@ test("all central public location surfaces suppress online placeholders", () => 
   }
   assert.doesNotMatch(read("components/event-card.tsx"), /Online podujatie/);
   assert.doesNotMatch(read("components/event-detail.tsx"), /Online podujatie/);
-  assert.doesNotMatch(read("components/event-calendar.tsx"), /Online podujatie/);
+  const calendar = read("components/event-calendar.tsx");
+  const listing = read("components/event-listing-results.tsx");
+  const eventCard = read("components/event-card.tsx");
+  // Calendar day selection now renders the main listing through EventCard.
+  // Verify the delegation and the actual location presentation, not an unused import.
+  assert.match(calendar, /<EventListingResults\b/);
+  assert.match(listing, /<EventCard\s+event=\{event\}/);
+  assert.match(eventCard, /publicLocationValue\(event\.city, "city"\)/);
+  assert.doesNotMatch(calendar + listing, /Online podujatie/);
 });
 
 test("past events are marked automatically, registration is hidden and future events remain actionable", () => {
