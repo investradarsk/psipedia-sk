@@ -61,6 +61,9 @@ for (const width of [1280, 1440, 1920]) {
     const rail = page.locator("[data-home-latest] .home-magazine-side");
     const events = rail.locator(".home-magazine-sidebar-block");
     const ad = rail.locator('[data-affiliate-rotating-banner="sidebar"]');
+    await events.scrollIntoViewIfNeeded();
+    await expect(ad).toBeAttached();
+    await ad.scrollIntoViewIfNeeded();
     await expect(ad).toBeVisible();
     await expect(events).toBeVisible();
     const railBox = (await rail.boundingBox())!;
@@ -70,6 +73,6 @@ for (const width of [1280, 1440, 1920]) {
     expect(eventBox.width).toBeGreaterThanOrEqual(258);
     expect(adBox.x).toBeGreaterThanOrEqual(railBox.x - 1);
     expect(adBox.x + adBox.width).toBeLessThanOrEqual(railBox.x + railBox.width + 1);
-    expect(eventBox.y).toBeGreaterThanOrEqual(adBox.y + adBox.height);
+    expect(adBox.y).toBeGreaterThanOrEqual(eventBox.y + eventBox.height);
   });
 }
