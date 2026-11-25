@@ -114,15 +114,15 @@ export async function getAdminDataQualitySummary(): Promise<AdminDataQualitySumm
             )
           )
         )
-    `).first<CountRow>()),
+    `).first<CountRow>(), { stage: "admin_quality" }),
     retryTransientRead(() => database.prepare(
       "SELECT 1 AS count FROM sqlite_master WHERE type='table' AND name='media_source_monitors' LIMIT 1",
-    ).first<CountRow>()),
+    ).first<CountRow>(), { stage: "admin_quality" }),
   ]);
   const mediaRow = monitorTable
     ? await retryTransientRead(() => database.prepare(
         "SELECT COUNT(*) AS count FROM media_source_monitors WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')",
-      ).first<CountRow>())
+      ).first<CountRow>(), { stage: "admin_quality" })
     : null;
 
   return {
