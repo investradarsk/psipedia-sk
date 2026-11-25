@@ -1,11 +1,15 @@
 /* Shared editorial sidebar surface, used by rankings and homepage context panels. */
-.popularity {
+.popularity,
+.panelSurface {
   min-width: 0;
-  overflow: hidden;
   border: 1px solid var(--ps-border-soft, #dfe7e4);
   border-radius: var(--ps-radius-card, 14px);
   background: var(--paper, #fffdf9);
   box-shadow: none;
+}
+
+.popularity {
+  overflow: hidden;
   font-family: var(--ps-font-body, system-ui, sans-serif);
 }
 
