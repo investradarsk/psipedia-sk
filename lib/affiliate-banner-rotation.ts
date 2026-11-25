@@ -28,7 +28,7 @@ export type AffiliateBannerPlacement = "horizontal" | "sidebar";
  * Zoohit: legacy original GIF sources were already in DognetTestBanner.
  * Fera: no confirmed original image URL yet, so it remains excluded.
  */
-export type AffiliateBannerFormat = AffiliateBannerPlacement | "mobile";
+export type AffiliateBannerFormat = AffiliateBannerPlacement | "mobile" | "adaptive";
 export type OriginalAffiliateCreative = {
   src: string;
   width: number;
@@ -69,45 +69,24 @@ export const AFFILIATE_BANNER_ORIGINAL_CREATIVES: Partial<
 };
 
 export function getAvailableAffiliateOriginalBanners(placement: AffiliateBannerFormat) {
+  const formats: readonly AffiliateBannerFormat[] =
+    placement === "adaptive" ? ["horizontal", "mobile", "sidebar"] : [placement];
   return AFFILIATE_BANNER_PARTNERS.flatMap((partner) =>
-    (AFFILIATE_BANNER_ORIGINAL_CREATIVES[partner.id]?.[placement] ?? []).map((creative) => ({
-      ...partner,
-      creative,
-    })),
+    formats.flatMap((format) =>
+      (AFFILIATE_BANNER_ORIGINAL_CREATIVES[partner.id]?.[format] ?? []).map((creative) => ({
+        ...partner,
+        creative,
+      })),
+    ),
   );
 }
 
-const PRIVATE_PREFIXES = [
-  "/admin",
-  "/partner",
-  "/api",
-  "/overenie-profilu",
-  "/odhlasenie-osloveni",
-  "/recenzia/prihlasenie",
-  "/recenzia/overenie",
-  "/recenzia/napisat",
-  "/novinky/poslat-tip",
-  "/pomoc-psom/stratene-a-najdene/nahlasit",
-] as const;
-
-const EXCLUDED_PUBLIC_PAGES = new Set([
-  "/cookies",
-  "/pravne-informacie",
-  "/sukromie",
-  "/podmienky-pouzivania",
-  "/zasady-obsahu",
-  "/opravy-a-podnety",
-]);
-
+// The owner wants affiliate inventory across the public site and partner area.
+// Keep internal administration and non-page API routes ad-free.
 export function canShowGlobalAffiliateBanner(pathname: string | null | undefined) {
-  if (!pathname || !pathname.startsWith("/")) return false;
+  if (!pathname || !pathname.startsWith("/") || pathname.startsWith("//")) return false;
   const path = pathname.replace(/\/+$/, "") || "/";
-  if (EXCLUDED_PUBLIC_PAGES.has(path)) return false;
-  if (PRIVATE_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return false;
-  // Publicly reachable forms for editing profiles and reviews are not ad inventory.
-  if (/^\/adresar\/[^/]+\/[^/]+\/upravit(?:\/|$)/.test(path)) return false;
-  if (/^\/recenzie\/eshopy\/[^/]+\/hodnotit(?:\/|$)/.test(path)) return false;
-  return true;
+  return !["/admin", "/api"].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
 export function nextAffiliateRotation(current: number | null | undefined, availableCount: number = AFFILIATE_BANNER_PARTNERS.length) {

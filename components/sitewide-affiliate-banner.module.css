@@ -9,18 +9,21 @@
   margin-bottom: 12px;
 }
 
-/* A 404 renders through the normal root layout but is not advertising inventory. */
-:global(body:has([data-psipedia-not-found])) .wrapper {
-  display: none;
-}
-
-/*
- * Article detail places the same original creative after the introduction on
- * phones. Hide the global footer copy there to avoid two ads in one mobile read.
- * Other public pages keep their existing sitewide footer placement.
- */
-@media (max-width: 767px) {
-  :global(body:has([data-article-layout])) .wrapper {
+/* Keep the footer fallback until a contextual ad has actually loaded.
+ * On articles only the visible placement for the current viewport qualifies. */
+@media (min-width: 768px) {
+  :global(body:has([data-article-layout] [data-affiliate-rotating-banner="sidebar"][data-affiliate-shop])) .wrapper {
     display: none;
   }
+}
+
+@media (max-width: 767px) {
+  :global(body:has([data-article-layout] [data-article-mobile-affiliate-banner] [data-affiliate-shop])) .wrapper {
+    display: none;
+  }
+}
+
+/* Other pages with their own in-content banner do not need a footer duplicate. */
+:global(body:not(:has([data-article-layout])):has([data-affiliate-rotating-banner][data-affiliate-shop]:not([data-sitewide-affiliate-banner] *))) .wrapper {
+  display: none;
 }

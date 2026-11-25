@@ -11,17 +11,19 @@ import {
 import styles from "./affiliate-rotating-banner.module.css";
 
 // Rotation lives in memory only: no cookies or browser storage.
-let nextBannerIndex: number | null = null;
+const nextBannerIndexBySlot = new Map<string, number>();
 
 /**
  * Renders only original merchant artwork supplied by Dognet.
- * A horizontal slot selects square artwork on phones; tall images stay in
- * article sidebars. Original image aspect ratios are preserved.
+ * Horizontal slots rotate original artwork on desktop and use square artwork on phones.
+ * Sidebar slots keep tall artwork. Original image aspect ratios are preserved.
  */
 export function AffiliateRotatingBanner({
   placement = "horizontal",
+  sitewide = false,
 }: {
   placement?: AffiliateBannerPlacement;
+  sitewide?: boolean;
 }) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
@@ -32,7 +34,7 @@ export function AffiliateRotatingBanner({
 
   useEffect(() => {
     if (placement !== "horizontal") return;
-    const media = window.matchMedia("(max-width: 680px)");
+    const media = window.matchMedia("(max-width: 767px)");
     const sync = () => setIsMobile(media.matches);
     sync();
     media.addEventListener("change", sync);
@@ -45,9 +47,10 @@ export function AffiliateRotatingBanner({
       ? null
       : isMobile
         ? "mobile"
-        : "horizontal";
+        : "adaptive";
   const banners = format ? getAvailableAffiliateOriginalBanners(format) : [];
-  const selectionKey = `${pathname ?? ""}:${format ?? placement}`;
+  const slotKey = `${sitewide ? "sitewide" : placement}:${format ?? placement}`;
+  const selectionKey = `${pathname ?? ""}:${slotKey}`;
   const selected = selection?.key === selectionKey ? banners[selection.index] : null;
   const original = selected?.creative;
   const imageLoaded = Boolean(original && loadedImage === original.src);
@@ -55,14 +58,12 @@ export function AffiliateRotatingBanner({
   useEffect(() => {
     if (!pathname || !format || !banners.length || lastSelectionKey.current === selectionKey) return;
     lastSelectionKey.current = selectionKey;
-    const initialIndex = nextBannerIndex === null
-      ? Math.floor(Math.random() * banners.length)
-      : nextBannerIndex;
+    const initialIndex = nextBannerIndexBySlot.get(slotKey) ?? Math.floor(Math.random() * banners.length);
     const rotation = nextAffiliateRotation(initialIndex, banners.length);
-    nextBannerIndex = rotation.next;
+    nextBannerIndexBySlot.set(slotKey, rotation.next);
     setSelection({ key: selectionKey, index: rotation.selected });
     setFailedImage(null);
-  }, [pathname, format, selectionKey, banners.length]);
+  }, [pathname, format, selectionKey, slotKey, banners.length]);
 
   // Never display a blank ad frame or an affiliate label without a real image.
   // Image decoding and CSP/network errors must not leave empty promotional UI.
@@ -89,6 +90,7 @@ export function AffiliateRotatingBanner({
             alt={`Reklamný banner ${selected.name}`}
             width={original.width}
             height={original.height}
+            referrerPolicy="no-referrer"
             loading="lazy"
             decoding="async"
             onLoad={() => setLoadedImage(original.src)}
