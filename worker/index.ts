@@ -1,3 +1,4 @@
+import { observeWorkerResponse } from "../lib/stability-diagnostics.ts";
 import { matchOptionalPublicCache, putOptionalPublicCache } from "../lib/optional-read-recovery.ts";
 import { ensureNoSniffHeader } from "../lib/http-response-security";
 import { retryTransientPublicRead } from "../lib/public-read-retry.ts";
@@ -1085,7 +1086,9 @@ function isAccessJwk(value: unknown): value is AccessJwk {
 const securedWorker = {
   ...worker,
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    return ensureNoSniffHeader(await worker.fetch(request, env, ctx));
+    return observeWorkerResponse(request, async () => {
+      return ensureNoSniffHeader(await worker.fetch(request, env, ctx));
+    });
   },
 };
 
