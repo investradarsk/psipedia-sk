@@ -1,3 +1,4 @@
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { helpListing, helpListingPage } from "@/lib/help-listing";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
@@ -43,7 +44,7 @@ export default async function HelpCategoryPage({ params, searchParams }: Props) 
   const definition = getHelpCategory(category);
   if (!definition) notFound();
   const [items, rawSearchParams] = await Promise.all([
-    getPublishedHelpCaseCards(category),
+    retryTransientPublicRead(() => getPublishedHelpCaseCards(category), { stage: "help_listing" }),
     searchParams,
   ]);
   const initialQuery = scalar(rawSearchParams.q).trim().slice(0, 120);

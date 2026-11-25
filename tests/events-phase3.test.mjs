@@ -30,7 +30,7 @@ const sitemapSeo = readFileSync(new URL("../lib/sitemap-seo.ts", import.meta.url
 test("/podujatia remains the primary full event listing without mutating canonical records", () => {
   assert.match(portalPage, /slug === "podujatia" \? retryTransientPublicRead\(\(\) => getPublishedEventListing\(parseEventListing/);
   assert.match(portalPage, /slug === "podujatia"\) return <EventsPage/);
-  assert.match(portalPage, /slug === "podujatia" \? retryTransientPublicRead\(\(\) => getPublicEventCalendar/);
+  assert.match(portalPage, /slug === "podujatia" \? settleOptionalRead\("events_calendar", retryTransientPublicRead\(\(\) => getPublicEventCalendar[^\n]+, null\) : Promise\.resolve\(undefined\)/);
   assert.match(
     portalPage,
     /<EventsPage[\s\S]*events=\{eventList\}[\s\S]*calendarSummaries=\{monthEvents\?\.summaries\}/,
@@ -169,11 +169,11 @@ test("legacy calendar URL stays a noindex canonical alias excluded from sitemap"
   );
   assert.match(
     contentPage,
-    /const \[events, calendarEvents\] = await Promise\.all\(\[getPublishedEventListing/,
+    /const \[events, calendarEvents\] = await Promise\.all\(\[retryTransientPublicRead\(\(\) => getPublishedEventListing[^\n]+settleOptionalRead\("events_calendar", retryTransientPublicRead\(\(\) => getPublicEventCalendar[^\n]+, null\)\]\)/,
   );
   assert.match(
     contentPage,
-    /return <EventsPage listing=\{events\}[\s\S]*calendarSummaries=\{calendarEvents.summaries\}/,
+    /return <EventsPage listing=\{events\}[\s\S]*calendarSummaries=\{calendarEvents\?\.summaries\} initialCalendarUnavailable=\{calendarEvents === null\}/,
   );
   assert.doesNotMatch(contentPage, /permanentRedirect\("\/podujatia"\)/);
   assert.match(sitemapSeo, /"\/podujatia\/kalendar"/);

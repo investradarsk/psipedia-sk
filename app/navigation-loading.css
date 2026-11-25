@@ -21,3 +21,40 @@
 @media (prefers-reduced-motion: reduce) {
   .navigation-progress[data-active="true"] > span { animation: none; width: 100%; }
 }
+
+/* Recovery stays below modal/consent layers and appears only after a stall. */
+.navigation-recovery {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 45;
+  box-sizing: border-box;
+  width: min(390px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid #bdd3c6;
+  border-radius: 14px;
+  background: #fffdfa;
+  color: #173f31;
+  box-shadow: 0 12px 36px rgb(21 49 36 / 18%);
+}
+.navigation-recovery p { margin: 8px 0 12px; font-size: .9rem; line-height: 1.5; }
+.navigation-recovery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.navigation-recovery-actions a, .navigation-recovery-actions button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #b8d1c1;
+  border-radius: 8px;
+  background: #eaf3ed;
+  color: #174b38;
+  font: inherit;
+  font-size: .875rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.navigation-recovery-actions a:focus-visible, .navigation-recovery-actions button:focus-visible {
+  outline: 3px solid #c45438;
+  outline-offset: 2px;
+}

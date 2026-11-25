@@ -1,5 +1,5 @@
 import {
-  getPopularArticles,
+  getPopularArticlesBothWindows,
   type ArticlePopularityWindow,
   type PopularArticleSummary,
 } from "@/lib/article-popularity";
@@ -96,38 +96,17 @@ export function selectInitialPopularityWindow(
   return "24h";
 }
 
-async function readPopularityWindow(
-  articleSlug: string,
-  window: ArticlePopularityWindow,
-  now: Date,
-) {
-  try {
-    return await getPopularArticles({
-      window,
-      limit: 5,
-      excludeSlug: articleSlug,
-      now,
-    });
-  } catch (error) {
-    console.error("Article discovery popularity read failed", {
-      articleSlug,
-      window,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return [];
-  }
-}
-
 export async function getArticleDiscoveryData(
   article: ContextualArticlePromoInput,
   now = new Date(),
 ): Promise<ArticleDiscoveryData> {
-  const [popular24h, popular7d, profiles] = await Promise.all([
-    readPopularityWindow(article.slug, "24h", now),
-    readPopularityWindow(article.slug, "7d", now),
+  const [articles, profiles] = await Promise.all([
+    getPopularArticlesBothWindows({ excludeSlug: article.slug, now, limit: 5 }),
     getPopularDirectoryProfilesBothWindows({ now, limit: 5 }),
   ]);
 
+  const popular24h = articles['24h'];
+  const popular7d = articles['7d'];
   const popularity = {
     "24h": mergePopularContent(popular24h.slice(0, 5).map(toPopularItem), profiles["24h"].map(toPopularProfile)),
     "7d": mergePopularContent(popular7d.slice(0, 5).map(toPopularItem), profiles["7d"].map(toPopularProfile)),

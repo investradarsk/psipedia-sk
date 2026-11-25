@@ -4,6 +4,11 @@
   background: var(--cream, #faf9f5);
 }
 
+/* No compatible creative or all candidates failed: do not leave a footer strip. */
+.wrapper:not(:has(:global([data-affiliate-rotating-banner]))) {
+  display: none;
+}
+
 .wrapper :global([data-affiliate-rotating-banner="horizontal"]) {
   margin-top: 12px;
   margin-bottom: 12px;
@@ -11,13 +16,13 @@
 
 /* Keep the footer fallback until a contextual ad has actually loaded.
  * On articles only the visible placement for the current viewport qualifies. */
-@media (min-width: 768px) {
+@media (min-width: 1200px) {
   :global(body:has([data-article-layout] [data-affiliate-rotating-banner="sidebar"][data-affiliate-shop])) .wrapper {
     display: none;
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1199px) {
   :global(body:has([data-article-layout] [data-article-mobile-affiliate-banner] [data-affiliate-shop])) .wrapper {
     display: none;
   }
@@ -26,4 +31,28 @@
 /* Other pages with their own in-content banner do not need a footer duplicate. */
 :global(body:not(:has([data-article-layout])):has([data-affiliate-rotating-banner][data-affiliate-shop]:not([data-sitewide-affiliate-banner] *))) .wrapper {
   display: none;
+}
+
+/* Use the external right gutter only when there is room beside the 1180px shell.
+ * It is not fixed over content, and never becomes a stacked footer placement. */
+.rail {
+  display: none;
+}
+@media (min-width: 1600px) {
+  .rail {
+    display: block;
+    position: absolute;
+    top: 240px;
+    left: calc(50% + var(--ps-content-max, 1180px) / 2 + 20px);
+    width: min(180px, calc((100% - var(--ps-content-max, 1180px)) / 2 - 40px));
+  }
+  .rail :global([data-affiliate-rotating-banner="sidebar"]) {
+    margin: 0;
+  }
+  :global(body:has([data-affiliate-rotating-banner="sidebar"][data-affiliate-shop]:not([data-sitewide-affiliate-banner] *))) .rail {
+    display: none;
+  }
+  :global(body:has([data-sitewide-affiliate-rail] [data-affiliate-shop])) .wrapper {
+    display: none;
+  }
 }

@@ -246,8 +246,8 @@ for (const articleCase of cases) {
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
     }
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 24 + 1);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(13.4);
-    expect(metrics.proseSize).toBeLessThanOrEqual(13.6);
+    // Approved 5% increase from 13.5px; retain the original tight tolerance.
+    expect(Math.abs(metrics.proseSize - 13.5 * 1.05)).toBeLessThanOrEqual(0.1);
     expect(metrics.canvasColor).toBe("rgb(247, 242, 233)");
     expect(metrics.bodyColor).toBe("rgb(41, 72, 62)");
     expect(metrics.proseFontFamily).toMatch(/^"?Psipedia Inter"?,/);

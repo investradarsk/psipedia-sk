@@ -17,7 +17,7 @@ const nextBannerIndexBySlot = new Map<string, number>();
 /**
  * Renders only original merchant artwork supplied by Dognet.
  * Horizontal slots rotate original artwork on desktop and use square artwork on phones.
- * Sidebar slots keep tall artwork. Original image aspect ratios are preserved.
+ * Sidebar slots use tall or square artwork. Original image aspect ratios are preserved.
  */
 export function AffiliateRotatingBanner({
   placement = "horizontal",
@@ -48,7 +48,7 @@ export function AffiliateRotatingBanner({
       ? null
       : isMobile
         ? "mobile"
-        : "adaptive";
+        : "horizontal";
   const banners = format ? getAvailableAffiliateOriginalBanners(format) : [];
   const slotKey = `${sitewide ? "sitewide" : placement}:${format ?? placement}`;
   const selectionKey = `${pathname ?? ""}:${slotKey}`;

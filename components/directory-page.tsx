@@ -1,5 +1,6 @@
+import { settleOptionalRead } from "@/lib/optional-read-recovery";
+import { retryTransientPublicRead } from "@/lib/public-read-retry";
 import { PublicFilterLayout, PublicFilterPanel } from "@/components/public-filters";
-import { reportDirectoryPublicReadFailure } from "@/lib/public-directory-read-diagnostics";
 import Link from "next/link";
 import { AffiliateRotatingBanner } from "@/components/affiliate-rotating-banner";
 import { Breadcrumbs } from "@/components/page-system";
@@ -91,15 +92,15 @@ export async function DirectoryPage({
   // These three independent D1 reads previously ran in two serial phases
   // on the root overview. Start the conditional previews together with the
   // hero and editorial sidebar without changing the page's result set.
-  const previewsRead = isOverview ? getDirectoryCategoryPreviews(5) : Promise.resolve(null);
-  const heroRead = getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar");
+  const previewsRead = isOverview ? retryTransientPublicRead(() => getDirectoryCategoryPreviews(5), { stage: "directory_category_previews" }) : Promise.resolve(null);
+  const heroRead = retryTransientPublicRead(() => getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar"));
   const discoveryRead = getArticleDiscoveryData({ slug: "directory-listing", portalSection: "novinky" });
   // Keep all three reads concurrent and identify any failing D1 read boundary
   // in Cloudflare Observability without logging SQL or private input.
   const [categoryPreviews, heroVisual, discovery] = await Promise.all([
-    previewsRead.catch((error) => reportDirectoryPublicReadFailure("category_previews", error)),
-    heroRead.catch((error) => reportDirectoryPublicReadFailure("hero_visual", error)),
-    discoveryRead.catch((error) => reportDirectoryPublicReadFailure("article_discovery", error)),
+    settleOptionalRead("directory_category_previews", previewsRead, null),
+    heroRead,
+    settleOptionalRead("directory_article_discovery", discoveryRead, null),
   ]);
   // Preserve the established category SEO copy and all stored image/crop values.
   const seoHeroVisual = active
@@ -118,8 +119,8 @@ export async function DirectoryPage({
     })),
   ];
 
-  const hasPopularity =
-    discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
+  const hasPopularity = discovery &&
+    (discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0);
 
   const mapBanner = (
     <div data-directory-map-cta>
@@ -294,14 +295,15 @@ export async function DirectoryPage({
               )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
+                <AffiliateRotatingBanner placement="sidebar" />
                 {priorityLinks.length > 0 ? (
                   <section className={styles.sidebarCard} aria-labelledby="category-priority-links">
                     <h2 id="category-priority-links">Tipy z adresára</h2>
                     <RelatedEntityLinks links={priorityLinks} label="Vybrané profily a prehľady" />
                   </section>
                 ) : null}
-                <div className={styles.popularityCard} data-directory-popular-articles data-directory-popular-content>
-                  {hasPopularity ? (
+                {discovery && <div className={styles.popularityCard} data-directory-popular-articles data-directory-popular-content>
+                  {hasPopularity && discovery ? (
                     <ArticlePopularitySidebar
                       popularity={discovery.popularity}
                       initialWindow={discovery.initialWindow}
@@ -312,7 +314,7 @@ export async function DirectoryPage({
                       <p>Za posledné obdobie zatiaľ nemáme rebríček.</p>
                     </section>
                   )}
-                </div>
+                </div>}
               </aside>
             </PublicFilterLayout>
           </PublicContentShell>
