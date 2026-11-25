@@ -4,6 +4,11 @@
   background: var(--cream, #faf9f5);
 }
 
+/* No compatible creative or all candidates failed: do not leave a footer strip. */
+.wrapper:not(:has(:global([data-affiliate-rotating-banner]))) {
+  display: none;
+}
+
 .wrapper :global([data-affiliate-rotating-banner="horizontal"]) {
   margin-top: 12px;
   margin-bottom: 12px;
@@ -11,13 +16,13 @@
 
 /* Keep the footer fallback until a contextual ad has actually loaded.
  * On articles only the visible placement for the current viewport qualifies. */
-@media (min-width: 768px) {
+@media (min-width: 1200px) {
   :global(body:has([data-article-layout] [data-affiliate-rotating-banner="sidebar"][data-affiliate-shop])) .wrapper {
     display: none;
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1199px) {
   :global(body:has([data-article-layout] [data-article-mobile-affiliate-banner] [data-affiliate-shop])) .wrapper {
     display: none;
   }
