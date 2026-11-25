@@ -2610,6 +2610,7 @@
   .partner-shell--workspace .partner-dashboard-header nav.partner-workspace-nav[data-expanded="false"] { display: none; }
   .partner-shell--workspace .partner-dashboard-header nav.partner-workspace-nav {
     flex-direction: column;
+    flex-wrap: nowrap;
     align-items: stretch;
     max-height: min(60vh, 480px);
     overflow-y: auto;
