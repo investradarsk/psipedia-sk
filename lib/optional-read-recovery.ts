@@ -1,3 +1,4 @@
+import { logStability, stabilityDuration, type StabilityStage } from "./stability-diagnostics.ts";
 import { isTransientPublicReadError } from "./public-read-retry.ts";
 
 /**
@@ -6,15 +7,16 @@ import { isTransientPublicReadError } from "./public-read-retry.ts";
  * Never use an empty fallback for an essential listing or account permission.
  */
 export async function settleOptionalRead<T, F>(
-  stage: string,
+  stage: StabilityStage,
   read: Promise<T>,
   fallback: F,
 ): Promise<T | F> {
+  const start = performance.now();
   try {
     return await read;
   } catch (error) {
     if (!isTransientPublicReadError(error)) throw error;
-    console.warn(JSON.stringify({ event: "optional_read_unavailable", stage }));
+    logStability({ stage, dependency: "read", outcome: "degraded", transient: true, durationMs: stabilityDuration(start) });
     return fallback;
   }
 }
@@ -25,10 +27,11 @@ export async function matchOptionalPublicCache(
   key: Request,
   stage: "html" | "media" | "hero",
 ): Promise<Response | undefined> {
+  const start = performance.now();
   try {
     return await cache.match(key);
   } catch {
-    console.warn(JSON.stringify({ event: "public_cache_unavailable", stage, operation: "match" }));
+    logStability({ stage, dependency: "cache", outcome: "degraded", operation: "match", durationMs: stabilityDuration(start) });
     return undefined;
   }
 }
@@ -39,9 +42,10 @@ export async function putOptionalPublicCache(
   response: Response,
   stage: "html" | "media" | "hero",
 ): Promise<void> {
+  const start = performance.now();
   try {
     await cache.put(key, response);
   } catch {
-    console.warn(JSON.stringify({ event: "public_cache_unavailable", stage, operation: "put" }));
+    logStability({ stage, dependency: "cache", outcome: "degraded", operation: "put", durationMs: stabilityDuration(start) });
   }
 }
