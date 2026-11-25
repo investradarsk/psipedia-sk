@@ -5,6 +5,8 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import vm from "node:vm";
 import { mergeManagedBreedEdit, mergeNotionBreedInput } from "../lib/breed-sync-preservation.ts";
+import { breedSqlPrimaryProjection } from "../lib/breed-sql-v2-primary-read.mjs";
+import { BREED_ADDITIONAL_CANONICAL_SQL_FIELDS } from "../lib/breed-storage-decision.mjs";
 import {breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements}
   from "../lib/breed-sql-v2-writer.mjs";
 
@@ -29,7 +31,7 @@ const factories =
   section(store, "const select =", "export async function listManagedBreedSummaries(") +
   // The standalone VM simulates rollback (env has no SQL flag). Production
   // derives readSelect from the active mode; bind that alias in this fixture.
-  "\nconst readSelect = select;\n" +
+  "\nconst readSelect = breedSqlPrimaryProjection(select);\n" +
   section(
     store,
     "export function buildManagedBreedUpdateStatements(",
@@ -38,7 +40,7 @@ const factories =
 const { buildManagedBreedUpdateStatements } = vm.runInNewContext(
   stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements})"),
   { JSON, Date, clean: (value) => value,
-    env: {},breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements },
+    env: {},breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements,breedSqlPrimaryProjection },
 );
 
 const stamp = "2026-10-15T09:00:00.000Z";
@@ -128,6 +130,12 @@ function adapter() {
       [...new Set(columns)].map((col) => col + " TEXT").join(",") +
       ")",
   );
+  for (const column of BREED_ADDITIONAL_CANONICAL_SQL_FIELDS.managed_breeds) {
+    if (!columns.includes(column)) sqlite.exec("ALTER TABLE managed_breeds ADD COLUMN "+column+" TEXT");
+  }
+  sqlite.exec("CREATE TABLE breed_fci_standard(breed_id INTEGER PRIMARY KEY,"+BREED_ADDITIONAL_CANONICAL_SQL_FIELDS.breed_fci_standard.map(c=>c+" TEXT").join(",")+")");
+  sqlite.exec("CREATE TABLE breed_editorial_text(breed_id INTEGER PRIMARY KEY,"+BREED_ADDITIONAL_CANONICAL_SQL_FIELDS.breed_editorial_text.map(c=>c+" TEXT").join(",")+")");
+  sqlite.exec("CREATE TABLE breed_related_breeds(breed_id INTEGER, related_breed_id INTEGER, position INTEGER)");
   sqlite.exec("CREATE TABLE managed_articles(id INTEGER PRIMARY KEY)");
   sqlite.exec("CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,category TEXT)");
   sqlite.exec(
@@ -188,16 +196,15 @@ function adapter() {
 
 test("SQL-only full save excludes four obsolete object JSON columns and still includes canonical snapshot",()=>{
   const sqlMode=vm.runInNewContext(
-    stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements,breedSqlOnlyInsertValues})"),
+    stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements,values})"),
     {JSON,Date,clean:value=>value,
       env:{BREED_SQL_V2_WRITE_MODE:"sql",BREED_SQL_V2_READ_MODE:"sql"},
-      breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements},
+      breedSqlV2StructuredWritesEnabled,breedSqlV2PrimaryWriteEnabled,breedSqlV2FullSnapshotStatements,breedSqlPrimaryProjection},
   );
   const dummy={prepare(sql){return {sql,bind(...args){return {sql,args}}};}};
   const input=payload();
-  const inserted=sqlMode.breedSqlOnlyInsertValues(input);
-  assert.equal(inserted.length,49);
-  assert.deepEqual([inserted[14],inserted[15],inserted[17],inserted[48]],["{}","{}","[]","{}"]);
+  const inserted=sqlMode.values(input);
+  assert.equal(inserted.length,45);
   assert.notEqual(input.editorial.overview,"");
   const statements=sqlMode.buildManagedBreedUpdateStatements(dummy,1,input,"admin",stamp,later);
   const first=statements[0];
@@ -279,10 +286,11 @@ test("partial patch retains unrelated health, gallery, FCI, sports, SEO and rela
     const row = f.row();
     assert.equal(row.character, "Zmenený charakter");
     assert.equal(row.health, previous.health);
-    assert.deepEqual(JSON.parse(row.fci_standard_json), previous.fciStandard);
+    assert.equal(f.sqlite.prepare("SELECT fci_oci FROM breed_fci_standard WHERE breed_id=1").get().fci_oci, previous.fciStandard.oci);
+    assert.equal(f.sqlite.prepare("SELECT fci_fci_standard_pdf FROM breed_fci_standard WHERE breed_id=1").get().fci_fci_standard_pdf, previous.fciStandard.fci_standard_pdf);
     assert.deepEqual(JSON.parse(row.gallery_json), previous.gallery);
     assert.deepEqual(JSON.parse(row.sports_json), previous.sports);
-    assert.equal(JSON.parse(row.seo_json).description, "Nová metadáta");
+    assert.equal(row.seo_description, "Nová metadáta");
     assert.deepEqual(f.articleLinks(), [10]);
     assert.deepEqual(f.directoryLinks(), [20]);
   } finally {
