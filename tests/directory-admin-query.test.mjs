@@ -376,3 +376,23 @@ test("shared grid has compact density and controlled whole-result sorting contra
   assert.match(directory, /serverSorting=\{\{/);
   assert.match(directory, /direction: desc \? "desc" : "asc"/);
 });
+
+test("Admin SQL services remain authoritative after the physical legacy column is removed", async () => {
+  const { db, sqlite } = fixture();
+  try {
+    const sqlOnly = await queryDirectoryAdmin(db, filters({ q: "Fyzioterapia" }), categories);
+    assert.equal(sqlOnly.resultCount, 1);
+    assert.equal(sqlOnly.items[0].id, 61);
+    assert.deepEqual(JSON.parse(sqlOnly.items[0].services_json), ["Fyzioterapia", "Kúpanie"]);
+    const stale = await queryDirectoryAdmin(db, filters({ q: "Stary historicky udaj" }), categories);
+    assert.equal(stale.resultCount, 0);
+    sqlite.exec("ALTER TABLE directory_profiles DROP COLUMN services_json");
+    const afterDrop = await queryDirectoryAdmin(db, filters({ q: "Fyzioterapia" }), categories);
+    assert.deepEqual(afterDrop.items, sqlOnly.items);
+    sqlite.exec("DELETE FROM directory_profile_service_texts WHERE profile_id=61");
+    const empty = await queryDirectoryAdmin(db, filters({ q: "#61" }), categories);
+    assert.deepEqual(JSON.parse(empty.items[0].services_json), []);
+  } finally {
+    sqlite.close();
+  }
+});
