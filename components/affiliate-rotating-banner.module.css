@@ -57,7 +57,11 @@
 
 .sidebar {
   width: min(100%, 290px);
-  margin: 22px auto 0;
+  margin: 12px auto 0;
+}
+
+.sidebar .image {
+  max-height: 360px;
 }
 
 .sidebar .creative,
