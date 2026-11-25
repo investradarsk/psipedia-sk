@@ -1,3 +1,4 @@
+import { popularArticlesBothWindowsSql } from "./article-popularity-query.ts";
 import { env } from "cloudflare:workers";
 import type { Article } from "@/lib/content";
 import { isArticlePortalSection } from "@/lib/portal";
@@ -158,5 +159,50 @@ export async function getPopularArticles(options: {
       error: error instanceof Error ? error.message : String(error),
     });
     return [];
+  }
+}
+
+/** Both sidebar windows share the same hourly aggregate and bounded result. */
+export async function getPopularArticlesBothWindows(options: {
+  limit?: number;
+  excludeSlug?: string;
+  now?: Date;
+  database?: D1Database | null;
+}): Promise<Record<ArticlePopularityWindow, PopularArticleSummary[]>> {
+  const buckets: Record<ArticlePopularityWindow, PopularArticleSummary[]> = { "24h": [], "7d": [] };
+  const database = options.database === undefined ? getD1Binding() : options.database;
+  if (!database) return buckets;
+  const now = options.now ?? new Date();
+  const limit = Math.max(1, Math.min(20, Math.trunc(options.limit ?? 5)));
+  type RankedRow = Omit<PopularArticleRow, "qualified_reads"> & {
+    reads24h: number | null; reads7d: number; rank24h: number; rank7d: number;
+  };
+  try {
+    const { results } = await database.prepare(popularArticlesBothWindowsSql).bind(
+      articlePopularityWindowStart("7d", now),
+      articlePopularityWindowStart("24h", now),
+      articleReadHourBucket(now), now.toISOString(), options.excludeSlug?.trim() || null, limit,
+    ).all<RankedRow>();
+    for (const window of ["24h", "7d"] as const) {
+      const rank = window === "24h" ? "rank24h" : "rank7d";
+      const reads = window === "24h" ? "reads24h" : "reads7d";
+      buckets[window] = results.filter(row => row[reads] !== null && row[rank] <= limit)
+        .sort((a,b) => a[rank] - b[rank])
+        .map(row => ({
+          id: Number(row.id), slug: row.slug, title: row.title,
+          category: row.category as Article["category"],
+          portalSection: isArticlePortalSection(row.portal_section) ? row.portal_section : "clanky",
+          portalSubpage: row.portal_subpage || undefined,
+          newsCategory: row.news_category && isNewsCategory(row.news_category)
+            ? row.news_category as NewsCategorySlug : undefined,
+          image: row.image_url || undefined,
+          publishedAt: row.published_at || row.updated_at,
+          qualifiedReads: Number(row[reads]),
+        }));
+    }
+    return buckets;
+  } catch {
+    console.error(JSON.stringify({ event: "article_popularity_both_windows_unavailable" }));
+    return { "24h": [], "7d": [] };
   }
 }
