@@ -76,6 +76,7 @@ export function EventCalendar({
   listing,
   calendarEvents = [],
   calendarSummaries,
+  initialCalendarUnavailable = false,
   today,
   initialType = "Všetky",
   initialTime = "upcoming",
@@ -92,6 +93,7 @@ export function EventCalendar({
   calendarEvents?: PublicEventDayPreview[];
   calendarSummaries?: { date: string; count: number; types: EventType[] }[];
   today: string;
+  initialCalendarUnavailable?: boolean;
   initialType?: EventType | "Všetky";
   initialTime?: EventTimeFilter;
   initialQuery?: string;
@@ -130,6 +132,7 @@ export function EventCalendar({
     listing: { total: number; page: number; pages: number };
     calendarEvents: PublicEventDayPreview[];
     calendarSummaries?: { date: string; count: number; types: EventType[] }[];
+    calendarUnavailable?: boolean;
   };
   const [view, setView] = useState<View>(() => ({
     month: resolveCalendarMonth(initialCalendarMonth, initialMonth, today),
@@ -144,6 +147,7 @@ export function EventCalendar({
     listing: listing ?? { total: events.length, page: 1, pages: 1 },
     calendarEvents,
     calendarSummaries,
+    calendarUnavailable: initialCalendarUnavailable,
   }));
   const [pending, setPending] = useState(false);
   const [pendingDay, setPendingDay] = useState(false);
@@ -169,6 +173,7 @@ export function EventCalendar({
     if (cacheRef.current.size > 24) cacheRef.current.delete(cacheRef.current.keys().next().value!);
   }
   useEffect(() => {
+    if (initialCalendarUnavailable) return;
     // Reuse server-rendered data when returning to the initial month/day.
     const current = new URL(window.location.href);
     const endpoint = new URL("/api/public/events/calendar", current.origin);
@@ -248,7 +253,7 @@ export function EventCalendar({
 
     // A day selection changes only the right-hand panel. The list and month
     // aggregates are already loaded, so avoid repeating their expensive D1 reads.
-    if (sameMonth && !pending && !loadError) {
+    if (sameMonth && !pending && !loadError && !data.calendarUnavailable) {
       setPendingDay(false);
       if (next.day === view.day && !pendingDay && !dayLoadError) return;
       if (
@@ -322,6 +327,7 @@ export function EventCalendar({
               ...data,
               calendarEvents: received.calendarEvents,
               calendarSummaries: received.calendarSummaries,
+              calendarUnavailable: false,
             }
           : (received as CalendarData);
         remember(key, payload);
@@ -480,6 +486,12 @@ export function EventCalendar({
         />
       </div>
 
+      {data.calendarUnavailable ? (
+        <p role="status" className={styles.monthHint}>
+          Kalendár je dočasne nedostupný. Zoznam podujatí je dostupný nižšie.{" "}
+          <a href={typePathname + windowSafeQuery(view)}>Načítať kalendár znova</a>
+        </p>
+      ) : (
       <div className={styles.calendarLayout} data-events-calendar-layout>
         <section
           className={styles.monthCalendar}
@@ -812,6 +824,7 @@ export function EventCalendar({
           </div>
         </section>
       </div>
+      )}
       {pending ? (
         <p role="status" className={styles.monthHint}>
           Načítavajú sa podujatia…
