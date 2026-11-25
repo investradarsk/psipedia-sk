@@ -3553,3 +3553,17 @@
     outline-color: Highlight;
   }
 }
+
+/* The existing calendar grid now occupies the shared listing sidebar. */
+.calendar[data-event-workspace] .listingLayout[data-public-filter-layout] { align-items: start; }
+.calendar[data-event-workspace] .listingLayout .calendarLayout { display: block; margin: 0; min-width: 0; }
+.calendar[data-event-workspace] .listingLayout .desktopCalendarColumns { display: block; }
+.calendar[data-event-workspace] .listingLayout .monthCalendar { padding: 8px; min-width: 0; }
+.calendar[data-event-workspace] .listingLayout .monthHeading { display: grid; gap: 6px; padding: 8px; }
+.calendar[data-event-workspace] .listingLayout .monthHeading h2 { font-size: 1.1rem; }
+.calendar[data-event-workspace] .listingLayout .monthGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.calendar[data-event-workspace] .listingLayout :is(.monthDay, .outsideDay) { min-height: 30px; min-width: 0; padding: 2px; }
+.calendar[data-event-workspace] .listingLayout .monthDayNumber { font-size: .72rem; }
+.calendar[data-event-workspace] .listingLayout .dayHeading { display: grid; gap: 0; justify-items: center; }
+.calendar[data-event-workspace] .listingLayout .monthDayCount { font-size: .55rem; min-width: 0; padding: 0; }
+.calendar[data-event-workspace] .listingLayout .calendarLegend { display: flex; flex-wrap: wrap; gap: 4px; }
