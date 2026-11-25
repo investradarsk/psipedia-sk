@@ -142,6 +142,7 @@ function database() {
   // Homepage Directory now reads per-profile image presentation from the
   // isolated SQL sidecar, not from thumbnail_display_json. Without the schema
   // its content promise rejects and the homepage breed section never renders.
+  applyMigration(sqlite, "../drizzle/0173_directory_structured_sql_foundation.sql");
   applyMigration(sqlite, "../db/isolated/directory_admin_sql_completion.sql");
   applyMigration(sqlite, "../drizzle/0174_breeds_sql_json_foundation.sql");
   for (const column of ["fci_standard_json", "editorial_json", "seo_json", "related_breeds_json"]) sqlite.exec("ALTER TABLE managed_breeds DROP COLUMN "+column);
