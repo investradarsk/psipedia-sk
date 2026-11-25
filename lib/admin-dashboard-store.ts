@@ -1,3 +1,4 @@
+import { retryTransientRead } from "@/lib/public-read-retry";
 import { env } from "cloudflare:workers";
 
 export type AdminModuleCounts = {
@@ -98,7 +99,7 @@ export async function getAdminDataQualitySummary(): Promise<AdminDataQualitySumm
   const database = adminDashboardDatabase();
   // Independent D1 reads should not serialize on every admin dashboard load.
   const [profileRow, monitorTable] = await Promise.all([
-    database.prepare(`
+    retryTransientRead(() => database.prepare(`
       SELECT COUNT(*) AS count
       FROM directory_profiles
       WHERE status <> 'archived'
@@ -113,15 +114,15 @@ export async function getAdminDataQualitySummary(): Promise<AdminDataQualitySumm
             )
           )
         )
-    `).first<CountRow>(),
-    database.prepare(
+    `).first<CountRow>()),
+    retryTransientRead(() => database.prepare(
       "SELECT 1 AS count FROM sqlite_master WHERE type='table' AND name='media_source_monitors' LIMIT 1",
-    ).first<CountRow>(),
+    ).first<CountRow>()),
   ]);
   const mediaRow = monitorTable
-    ? await database.prepare(
+    ? await retryTransientRead(() => database.prepare(
         "SELECT COUNT(*) AS count FROM media_source_monitors WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')",
-      ).first<CountRow>()
+      ).first<CountRow>())
     : null;
 
   return {
