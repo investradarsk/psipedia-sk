@@ -38,8 +38,12 @@ test("complete D1 pagination and calendar counts survive beyond 250 results", as
   await page.goto(target + "&zoradenie=najnovsie");
   await expect(page.locator("[data-event-card]").first()).toContainText("600");
   await page.locator('[data-calendar-date="2026-10-15"]').click();
-  await expect(page.locator("[data-selected-day] li")).toHaveCount(12);
-  await expect(page.locator("[data-selected-day]")).toContainText("z 601");
+  await expect(page.locator("#events-list")).toHaveAttribute("data-selected-day", "2026-10-15");
+  await expect(page.locator("#events-list [data-event-card]")).toHaveCount(12);
+  await expect(page.locator("[data-event-range]")).toContainText("1–12 z 601");
+  await page.getByRole("link", { name: "Nasledujúca", exact: true }).click();
+  await expect(page).toHaveURL((url) => url.searchParams.get("den") === "2026-10-15");
+  await expect(page.locator("[data-event-range]")).toContainText("13–24 z 601");
 });
 test("sidebar combines date bounds, location, region and canonical type, preserving search", async ({
   page,
@@ -243,16 +247,20 @@ test.describe("final events acceptance", () => {
       await expect(page.locator("[data-event-card] img[data-event-image-source]")).toHaveCount(12);
       const dayCell = page.locator('[data-calendar-date="2026-10-11"]');
       await expect(dayCell).toBeVisible();
-      // Both the FullCalendar desktop and the compact mobile month grid expose
-      // the same semantic day parts, regardless of their internal DOM structure.
+      // The compact sidebar stacks date and count; detect actual rectangle overlap.
       const indicators = await dayCell.evaluate((element) => {
         const box = element.getBoundingClientRect();
         const first = element.querySelector("[data-event-day-number]")!.getBoundingClientRect();
         const count = element.querySelector("[data-event-day-count]")!.getBoundingClientRect();
         const dots = element.querySelector("[data-event-day-dots]")!.getBoundingClientRect();
         return {
-          overlap: first.right > count.left,
-          outside: count.right > box.right || dots.bottom > box.bottom,
+          overlap:
+            first.left < count.right && first.right > count.left &&
+            first.top < count.bottom && first.bottom > count.top,
+          outside: [first, count, dots].some((part) =>
+            part.left < box.left - 1 || part.right > box.right + 1 ||
+            part.top < box.top - 1 || part.bottom > box.bottom + 1,
+          ),
           width: box.width,
           height: box.height,
         };
@@ -261,20 +269,19 @@ test.describe("final events acceptance", () => {
       expect(indicators.outside).toBe(false);
       expect(indicators.width).toBeGreaterThanOrEqual(24);
       expect(indicators.height).toBeGreaterThanOrEqual(44);
-      if (width > 820) {
-        const calendar = await page
-          .locator("[data-event-workspace] > [data-events-calendar-layout]")
-          .boundingBox();
-        const filters = await page
-          .locator("[data-event-workspace] [data-public-filter-panel]")
-          .boundingBox();
-        expect(calendar).not.toBeNull();
-        expect(filters).not.toBeNull();
-        expect(filters!.y - (calendar!.y + calendar!.height)).toBeGreaterThanOrEqual(0);
-        expect(filters!.y - (calendar!.y + calendar!.height)).toBeLessThanOrEqual(24);
+      const calendar = page.locator("[data-event-sidebar] [data-events-calendar-layout]");
+      await expect(calendar).toBeVisible();
+      const calendarBox = (await calendar.boundingBox())!;
+      const results = (await page.locator("#events-list").boundingBox())!;
+      if (width > 1100) {
+        expect(calendarBox.x).toBeGreaterThanOrEqual(results.x + results.width - 1);
+      } else if (width <= 820) {
+        expect(calendarBox.y + calendarBox.height).toBeLessThanOrEqual(results.y + 1);
       }
-      const banner = await page.locator("[data-public-context-banner]").boundingBox();
-      expect(banner!.height).toBeLessThanOrEqual(width > 820 ? 171 : 260);
+      const banner = page.locator('[data-home-banner="events-organizer-cta"]');
+      await expect(banner.getByRole("link", { name: "Pridať podujatie" })).toBeVisible();
+      const bannerBox = (await banner.boundingBox())!;
+      expect(bannerBox.height).toBeLessThanOrEqual(width > 820 ? 260 : 340);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
@@ -457,12 +464,12 @@ test("category reset retains the active type and all-events link returns to the 
   await expect(page).toHaveURL(/\/podujatia\/vystavy$/);
 });
 
-test("selected desktop day scrolls into view below the sticky header", async ({ page }) => {
+test("selected day results scroll into view below the sticky header", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(target);
   await page.locator('[data-calendar-date="2026-10-15"]').click();
-  await expect(page.locator("#vybrany-den")).toBeVisible();
-  await expect.poll(() => page.locator("#vybrany-den").evaluate((element) => {
+  await expect(page.locator("#events-list")).toBeVisible();
+  await expect.poll(() => page.locator("#events-list").evaluate((element) => {
     const y = element.getBoundingClientRect().top;
     const margin = parseFloat(getComputedStyle(element).scrollMarginTop);
     return y >= margin - 12 && y <= margin + 35;

@@ -379,9 +379,15 @@ test("identical geographic listings share a canonical with sitemap and discovery
   try {
     sqlite.exec(`
       CREATE TABLE directory_profiles (
-        id INTEGER PRIMARY KEY, slug TEXT, name TEXT, category TEXT, excerpt TEXT, services_json TEXT,
+        id INTEGER PRIMARY KEY, slug TEXT, name TEXT, category TEXT, excerpt TEXT,
         city TEXT, district TEXT, region TEXT, price_note TEXT, image_url TEXT, featured INTEGER,
-        updated_at TEXT, status TEXT, archived_at TEXT, seo_json TEXT
+        updated_at TEXT, status TEXT, archived_at TEXT
+      );
+      CREATE TABLE directory_profile_service_texts (
+        profile_id INTEGER, item_order INTEGER, service_text TEXT
+      );
+      CREATE TABLE directory_profile_seo (
+        profile_id INTEGER PRIMARY KEY, noindex INTEGER, canonical_url TEXT
       );
       INSERT INTO directory_profiles(id, slug, name, category, city, district, region, status) VALUES
         (1, 'one', 'One', 'veterinari', 'Nitra', 'Nitra', 'Nitriansky kraj', 'published'),
