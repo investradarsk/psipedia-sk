@@ -11,6 +11,7 @@ function area(path: string): Area {
   if (path.startsWith("//") || /%2f|%5c/i.test(path) || /\.rsc$/i.test(path)) {
     return "excluded";
   }
+  path = decodeURIComponent(path);
   if (["/admin", "/api", "/_next", "/cdn-cgi"].some(
     (prefix) => path === prefix || path.startsWith(prefix + "/"),
   )) return "excluded";
