@@ -1742,7 +1742,7 @@ const getPublishedDirectoryProfileUncached = async (category: string, slug: stri
       `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1`,
     )
     .bind(category, slug)
-    .first<DirectoryProfileRow>());
+    .first<DirectoryProfileRow>(), { stage: "directory_detail" });
   if(!row)return null;
   let profile=rowToPublicProfile(row);
   try {
