@@ -54,7 +54,8 @@ test("directory breed filters use published canonical relations ahead of legacy 
   const breeder = await readFile(new URL("../lib/directory-breeder-card.ts", import.meta.url), "utf8");
   const detail = await readFile(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
   assert.match(store, /DIRECTORY_HAS_CANONICAL_BREEDS/);
-  assert.match(store, /linked_breed\.id IN \(\$\{canonicalBreedIdsForRead\(env\)\}\)/);
+  assert.match(store, /linked_breed\.id IN \(SELECT CAST\(value AS INTEGER\) FROM json_each\(\?\)\)/);
+  assert.match(store, /baseBindings\.push\(canonicalBreedIdsJson, options\.filters\.breed, canonicalBreedIdsJson, options\.filters\.breed\)/);
   assert.match(store, /linked_breed\.name = \?/);
   assert.match(store, /NOT \$\{DIRECTORY_HAS_CANONICAL_BREEDS\}/);
   assert.match(store, /canonicalBreedOptions/);
