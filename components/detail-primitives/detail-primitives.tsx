@@ -227,6 +227,41 @@ export function PublicDetailLayout({
   );
 }
 
+/** Shared title and category row for every public Help profile. */
+export function DetailProfileTitle({
+  title,
+  category,
+  badges,
+  badgeClassName,
+  categoryClassName,
+  id,
+}: {
+  title: string;
+  category: string;
+  badges?: ReactNode;
+  badgeClassName?: string;
+  categoryClassName?: string;
+  id?: string;
+}) {
+  return (
+    <>
+      <div className={[styles.tags, badgeClassName].filter(Boolean).join(" ")} data-help-profile-labels>
+        <span className={categoryClassName}>{category}</span>
+        {badges}
+      </div>
+      <PublicHeading
+        role="page"
+        as="h1"
+        id={id}
+        data-help-profile-title
+        data-long-title={title.length >= 70 ? "" : undefined}
+      >
+        {title}
+      </PublicHeading>
+    </>
+  );
+}
+
 /** One visual frame; callers retain ownership of their data, actions and states. */
 export function DetailHero({
   breadcrumbs,
