@@ -14,7 +14,7 @@ try{
  const breed=db.prepare("SELECT id,name,slug FROM managed_breeds WHERE slug='biely-svajciarsky-ovciak' AND status='published' LIMIT 1").get(); if(!breed)fail("Breed missing.");
  const now="2026-10-06T20:30:00.000Z";
  db.exec("DELETE FROM breed_directory_relations WHERE profile_id IN (SELECT id FROM directory_profiles WHERE slug LIKE 'e2e-discovery-station-%'); DELETE FROM directory_profiles WHERE slug LIKE 'e2e-discovery-station-%';");
- const ins=db.prepare("INSERT INTO directory_profiles (slug,name,category,status,excerpt,description,city,district,region,address,online,price_note,verified,featured,created_at,updated_at,published_at,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+ const ins=db.prepare("INSERT INTO directory_profiles (slug,name,category,status,excerpt,description,city,district,region,address,online,price_note,verified,featured,created_at,updated_at,published_at,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
  for(const [slug,name] of [["e2e-discovery-station-a","E2E Discovery Station A"],["e2e-discovery-station-b","E2E Discovery Station B"]])ins.run(slug,name,"chovatelske-stanice","published","E2E breeder fixture.","Local CI fixture.","Nitra","Nitra","Nitriansky kraj","",0,"",0,0,now,now,now,"e2e@psipedia.local","e2e@psipedia.local");
  const ps=db.prepare("SELECT id FROM directory_profiles WHERE slug LIKE 'e2e-discovery-station-%' ORDER BY slug").all(); if(ps.length!==2)fail("Breeder fixtures missing.");
  const rel=db.prepare("INSERT OR REPLACE INTO breed_directory_relations (breed_id,profile_id,relation_type,source,created_at,created_by) VALUES (?,?,?,?,?,?)"); for(const p of ps)rel.run(breed.id,p.id,"BREED","e2e",now,"e2e@psipedia.local");
