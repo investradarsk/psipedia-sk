@@ -46,14 +46,8 @@ export function buildPublishedDirectorySitemapPageQuery(
       slug,
       category,
       updated_at,
-      CASE
-        WHEN json_valid(seo_json) THEN COALESCE(json_extract(seo_json, '$.canonicalUrl'), '')
-        ELSE ''
-      END AS canonical_url,
-      CASE
-        WHEN json_valid(seo_json) THEN COALESCE(json_extract(seo_json, '$.noindex'), 0)
-        ELSE 0
-      END AS noindex
+      COALESCE((SELECT canonical_url FROM directory_profile_seo WHERE profile_id=directory_profiles.id), '') AS canonical_url,
+      COALESCE((SELECT noindex FROM directory_profile_seo WHERE profile_id=directory_profiles.id), 0) AS noindex
       FROM directory_profiles
       WHERE status = 'published'
         AND archived_at IS NULL
