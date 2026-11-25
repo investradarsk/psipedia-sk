@@ -1100,10 +1100,10 @@
   min-width: 0;
 }
 
-/* Apply the reduced reading scale only inside article content, not its sidebar. */
+/* Increase mobile article body and lead text by 5%; keep desktop and sidebar unchanged. */
 .modernArticle .readingShell {
-  --ps-reading-size: var(--ps-type-article-mobile, 0.84375rem);
-  --ps-reading-lead-size: var(--ps-type-article-lead-mobile, 0.9rem);
+  --ps-reading-size: calc(var(--ps-type-article-mobile, 0.84375rem) * 1.05);
+  --ps-reading-lead-size: calc(var(--ps-type-article-lead-mobile, 0.9rem) * 1.05);
 }
 
 /* Desktop keeps its separate reading scale. */
