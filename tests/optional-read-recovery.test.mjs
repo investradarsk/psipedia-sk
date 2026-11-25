@@ -8,15 +8,15 @@ import {
 
 test("optional read preserves real results and empty results", async () => {
   const rows = [{ id: 1 }];
-  assert.equal(await settleOptionalRead("test", Promise.resolve(rows), null), rows);
-  assert.deepEqual(await settleOptionalRead("test", Promise.resolve([]), null), []);
+  assert.equal(await settleOptionalRead("unspecified", Promise.resolve(rows), null), rows);
+  assert.deepEqual(await settleOptionalRead("unspecified", Promise.resolve([]), null), []);
 });
 
 test("transient optional failure does not hide an independent primary result", async () => {
   const failure = new Error("Network connection lost.");
   const [primary, optional] = await Promise.all([
     Promise.resolve({ total: 42 }),
-    settleOptionalRead("test", Promise.reject(failure), null),
+    settleOptionalRead("unspecified", Promise.reject(failure), null),
   ]);
   assert.deepEqual(primary, { total: 42 });
   assert.equal(optional, null);
@@ -30,7 +30,7 @@ test("unknown, authorization, framework and abort errors propagate unchanged", a
     Object.assign(new Error("Network connection lost."), { name: "AbortError" }),
   ];
   for (const error of errors) {
-    await assert.rejects(settleOptionalRead("test", Promise.reject(error), null), (e) => e === error);
+    await assert.rejects(settleOptionalRead("unspecified", Promise.reject(error), null), (e) => e === error);
   }
 });
 
