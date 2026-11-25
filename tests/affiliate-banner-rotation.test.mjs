@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
 import {
   AFFILIATE_BANNER_PARTNERS,
   AFFILIATE_BANNER_ORIGINAL_CREATIVES,
   getAvailableAffiliateOriginalBanners,
+  getAffiliateBannerCandidates,
   canShowGlobalAffiliateBanner,
   nextAffiliateRotation,
 } from "../lib/affiliate-banner-rotation.ts";
@@ -32,23 +33,24 @@ test("merchant links use the owner's actual Dognet tracking channel", () => {
   }
 });
 
-test("global ad is on editorial pages but not admin, partner, forms, or legal pages", () => {
+test("global ad is on every public and partner page but not admin or API routes", () => {
   for (const path of [
     "/", "/plemena", "/plemena/labradorsky-retriever",
     "/adresar", "/adresar/veterinari/example", "/podujatia",
     "/pomoc-psom", "/novinky", "/zdravie", "/steniatka",
-    "/recenzie", "/clanky", "/kontakt",
-  ]) assert.equal(canShowGlobalAffiliateBanner(path), true, path);
-
-  for (const path of [
-    "/admin", "/admin/clanky", "/partner", "/partner/spravy",
+    "/recenzie", "/clanky", "/kontakt", "/mapa",
+    "/partner", "/partner/spravy", "/partner/profily/novy",
     "/recenzia/napisat", "/recenzia/prihlasenie",
     "/recenzie/eshopy/test/hodnotit",
     "/adresar/veterinari/test/upravit",
     "/novinky/poslat-tip", "/overenie-profilu/test",
     "/cookies", "/sukromie", "/pravne-informacie",
-    "/podmienky-pouzivania",
-  ]) assert.equal(canShowGlobalAffiliateBanner(path), false, path);
+    "/podmienky-pouzivania", "/partner/", "/admin-like",
+  ]) assert.equal(canShowGlobalAffiliateBanner(path), true, path);
+
+  for (const path of ["/admin", "/admin/clanky", "/admin/", "/api", "/api/partner", "//other", "", null, undefined]) {
+    assert.equal(canShowGlobalAffiliateBanner(path), false, String(path));
+  }
 });
 
 test("ads have fixed mobile/desktop geometry, label and sponsored link", () => {
@@ -60,8 +62,8 @@ test("ads have fixed mobile/desktop geometry, label and sponsored link", () => {
   assert.match(component, /nextAffiliateRotation/);
   assert.match(css, /min-height: 100px/);
   assert.match(css, /min-height: 600px/);
-  assert.match(css, /max-width: 680px/);
-  assert.match(component, /let nextBannerIndex/);
+  assert.match(css, /max-width: 767px/);
+  assert.match(component, /nextBannerIndexBySlot/);
   assert.match(component, /<img[\s\S]*src=\{original\.src\}/);
   assert.doesNotMatch(component, /styles\.message|styles\.shop|styles\.title|styles\.description|styles\.cta/);
   assert.match(source("app/layout.tsx"), /<SitewideAffiliateBanner\s*\/>/);
@@ -77,6 +79,10 @@ test("only original Dognet images appear in compatible placements", () => {
   assert.deepEqual(horizontal.map((item) => item.id), ["zoohit"]);
   assert.deepEqual(mobile.map((item) => item.id), ["abc-zoo"]);
   assert.deepEqual(sidebar.map((item) => item.id), ["zoohit", "abc-zoo", "abc-zoo"]);
+  const adaptive = getAvailableAffiliateOriginalBanners("adaptive");
+  assert.equal(adaptive.length, 5);
+  assert.deepEqual(new Set(adaptive.map((item) => item.creative.src)), new Set([...horizontal, ...mobile, ...sidebar].map((item) => item.creative.src)));
+  assert.ok(adaptive.some((item) => item.creative.height === 1920));
   assert.equal(AFFILIATE_BANNER_ORIGINAL_CREATIVES.fera, undefined);
 
   assert.deepEqual(
@@ -116,6 +122,8 @@ test("mobile uses square originals and sidebar uses tall originals", () => {
   const css = source("components/affiliate-rotating-banner.module.css");
   assert.match(component, /matchMedia/);
   assert.match(component, /"mobile"/);
+  assert.match(component, /"adaptive"/);
+  assert.match(component, /referrerPolicy="no-referrer"/);
   assert.match(component, /getAvailableAffiliateOriginalBanners\(format\)/);
   assert.match(css, /min-height: 300px/);
   assert.match(css, /object-fit: contain/);
@@ -133,7 +141,7 @@ test("mobile article shows one original banner after introduction, not at footer
   assert.match(article, /data-article-mobile-affiliate-banner>[\s\S]*?<AffiliateRotatingBanner placement="horizontal"\s*\/>/);
   assert.match(articleCSS, /\.mobileAffiliateBanner\s*\{\s*display:\s*none;/);
   assert.match(articleCSS, /@media\s*\(max-width:\s*767px\)[\s\S]*?\.mobileAffiliateBanner\s*\{\s*display:\s*block;/);
-  assert.match(footerCSS, /@media\s*\(max-width:\s*767px\)[\s\S]*?body:has\(\[data-article-layout\]\)/);
+  assert.match(footerCSS, /@media\s*\(max-width:\s*767px\)[\s\S]*?body:has\(\[data-article-layout\] \[data-article-mobile-affiliate-banner\] \[data-affiliate-shop\]\)/);
   assert.match(footerCSS, /display:\s*none;/);
   assert.match(article, /<AffiliateRotatingBanner placement="sidebar"\s*\/>/);
 });
@@ -152,10 +160,44 @@ test("mapped directory and event details allow only original Dognet image hosts"
 test("an unavailable external artwork never leaves a blank affiliate label", () => {
   const component = source("components/affiliate-rotating-banner.tsx");
   const css = source("components/affiliate-rotating-banner.module.css");
-  assert.match(component, /failedImage === original\.src\) return null/);
-  assert.match(component, /onLoad=\{\(\) => setLoadedImage\(original\.src\)\}/);
-  assert.match(component, /onError=\{\(\) => setFailedImage\(original\.src\)\}/);
+  assert.match(component, /if \(!selected \|\| !original\) return null/);
+  assert.match(component, /!failedSources\.includes\(creative\.src\)/);
+  assert.match(component, /onLoad=\{\(\) => setLoadedImage\(\{ key: selectionKey, src: original\.src \}\)\}/);
+  assert.match(component, /onError=\{\(\) => setFailedImages/);
   assert.match(component, /styles\.pending/);
   assert.match(css, /\.pending\s*\{\s*visibility:\s*hidden;/);
   assert.doesNotMatch(component, /styles\.placeholder/);
+});
+
+test("sitewide fallback reuses the existing component and yields to loaded contextual ads", () => {
+  const sitewide = source("components/sitewide-affiliate-banner.tsx");
+  const css = source("components/sitewide-affiliate-banner.module.css");
+  assert.match(sitewide, /<AffiliateRotatingBanner placement="horizontal" sitewide\s*\/>/);
+  assert.match(sitewide, /canShowGlobalAffiliateBanner\(pathname\)/);
+  assert.match(css, /\[data-affiliate-rotating-banner="sidebar"\]\[data-affiliate-shop\]/);
+  assert.match(css, /:not\(\[data-sitewide-affiliate-banner\] \*\)/);
+});
+
+test("every placement can retry each approved creative exactly once", () => {
+  const all = getAvailableAffiliateOriginalBanners("adaptive");
+  for (const format of ["mobile", "horizontal", "sidebar", "adaptive"]) {
+    const primary = getAvailableAffiliateOriginalBanners(format);
+    for (let index = 0; index < primary.length; index++) {
+      const candidates = getAffiliateBannerCandidates(format, index);
+      assert.equal(candidates[0].creative.src, primary[index].creative.src);
+      assert.equal(candidates.length, all.length);
+      assert.equal(new Set(candidates.map((item) => item.creative.src)).size, all.length);
+    }
+  }
+});
+
+test("all public and partner page templates inherit the root banner policy", () => {
+  const app = new URL("../app/", import.meta.url);
+  const pages = readdirSync(app, { recursive: true }).filter((path) => /(?:^|[/\\\\])page\.tsx$/.test(path));
+  assert.ok(pages.length > 100);
+  for (const page of pages) {
+    const normalized = page.replace(/\\\\/g, "/");
+    const route = "/" + normalized.replace(/(?:^|\/)page\.tsx$/, "").replace(/\[[^\]]+\]/g, "example");
+    assert.equal(canShowGlobalAffiliateBanner(route), !normalized.startsWith("admin/"), normalized);
+  }
 });
