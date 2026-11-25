@@ -28,7 +28,7 @@ export type AffiliateBannerPlacement = "horizontal" | "sidebar";
  * Zoohit: legacy original GIF sources were already in DognetTestBanner.
  * Fera: no confirmed original image URL yet, so it remains excluded.
  */
-export type AffiliateBannerFormat = AffiliateBannerPlacement | "mobile" | "adaptive";
+export type AffiliateBannerFormat = AffiliateBannerPlacement | "mobile";
 export type OriginalAffiliateCreative = {
   src: string;
   width: number;
@@ -70,7 +70,7 @@ export const AFFILIATE_BANNER_ORIGINAL_CREATIVES: Partial<
 
 export function getAvailableAffiliateOriginalBanners(placement: AffiliateBannerFormat) {
   const formats: readonly AffiliateBannerFormat[] =
-    placement === "adaptive" ? ["horizontal", "mobile", "sidebar"] : [placement];
+    placement === "sidebar" ? ["sidebar", "mobile"] : [placement];
   return AFFILIATE_BANNER_PARTNERS.flatMap((partner) =>
     formats.flatMap((format) =>
       (AFFILIATE_BANNER_ORIGINAL_CREATIVES[partner.id]?.[format] ?? []).map((creative) => ({
@@ -78,19 +78,19 @@ export function getAvailableAffiliateOriginalBanners(placement: AffiliateBannerF
         creative,
       })),
     ),
-  );
+  ).filter(({ creative }) => creative.width > 0 && creative.height > 0 && (
+    placement === "horizontal" ? creative.width > creative.height :
+    placement === "mobile" ? creative.width === creative.height :
+    creative.width <= creative.height
+  ));
 }
 
-/** Try the selected creative first, then the remaining originals exactly once.
- * Mobile retains the square original as its first choice; other originals are
- * emergency fallbacks only and use the same bounded, uncropped image styling.
- */
+/** Retry only compatible originals, exactly once; never cross placement formats. */
 export function getAffiliateBannerCandidates(format: AffiliateBannerFormat, selectedIndex: number) {
   const primary = getAvailableAffiliateOriginalBanners(format);
   const ordered = [...primary.slice(selectedIndex), ...primary.slice(0, selectedIndex)];
-  const remaining = getAvailableAffiliateOriginalBanners("adaptive");
   const seen = new Set<string>();
-  return [...ordered, ...remaining].filter(({ creative }) => {
+  return ordered.filter(({ creative }) => {
     if (seen.has(creative.src)) return false;
     seen.add(creative.src);
     return true;
