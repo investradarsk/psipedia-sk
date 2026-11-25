@@ -277,17 +277,16 @@ test("Premium Editorial V2 uses scoped media and control radii without changing 
 });
 
 test("PUBLIC-POLISH-2 homepage section CTAs follow their content", () => {
-  const editorialLayout = homeEditorial.indexOf(
-    "<HomeArticleFeatureLayout articles={articles} testId={testId} />",
+  const layout = homeEditorial.slice(
+    homeEditorial.indexOf("function HomeArticleFeatureLayout("),
+    homeEditorial.indexOf("function HomeMagazineColumns("),
   );
-  const editorialCta = homeEditorial.indexOf("data-home-section-cta={testId}");
-  assert.ok(editorialLayout >= 0 && editorialCta > editorialLayout);
-
-  const latestLayout = homeEditorial.indexOf(
-    '<HomeArticleFeatureLayout articles={articles} testId="latest" />',
-  );
-  const latestCta = homeEditorial.indexOf('data-home-section-cta="latest"');
-  assert.ok(latestLayout >= 0 && latestCta > latestLayout);
+  assert.match(layout, /data-home-article-panel/);
+  assert.ok(layout.indexOf("{action}") > layout.indexOf("secondary.map"));
+  assert.match(homeEditorial, /<HomeArticleFeatureLayout articles=\{articles\} testId=\{testId\} action=\{action\} \/>/);
+  assert.match(homeEditorial, /<HomeArticleFeatureLayout articles=\{articles\} testId="latest" action=\{action\} \/>/);
+  assert.match(homeEditorial, /data-home-section-cta=\{testId\}/);
+  assert.match(homeEditorial, /data-home-section-cta="latest"/);
 
   // PR #815 moved these CTAs to shared magazine components. The sidebar
   // action must follow its children, and editorial section CTAs follow features
