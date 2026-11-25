@@ -29,7 +29,6 @@ import {
   DetailParagraphs,
   DetailSection,
   DetailContactsCard,
-  PublicDetailLayout,
   PublicDetailFlow,
 } from "@/components/detail-primitives/detail-primitives";
 import { directoryProfileCategoryLabels, getDirectoryCategory } from "@/lib/directory";
@@ -576,6 +575,15 @@ export function DirectoryProfileDetail({
       ),
     },
     {
+      key: "enquiry",
+      column: "main" as const,
+      content: (
+        <section className={styles.enquiry} id="kontakt">
+          <DirectoryContactForm profileId={presentation.id} profileName={presentation.name} />
+        </section>
+      ),
+    },
+    {
       key: "nearby",
       column: "main" as const,
       content:
@@ -599,6 +607,11 @@ export function DirectoryProfileDetail({
           </DetailSection>
         ) : null,
     },
+    {
+      key: "management",
+      column: "aside" as const,
+      content: management,
+    },
   ];
 
   return (
@@ -614,16 +627,6 @@ export function DirectoryProfileDetail({
           }
         />
         <PublicDetailFlow blocks={blocks} className={styles.layout} />
-
-        <PublicDetailLayout
-          className={styles.enquiryLayout}
-          aside={management}
-          asideLabel="Správa a oprava profilu"
-        >
-          <section className={styles.enquiry} id="kontakt">
-            <DirectoryContactForm profileId={presentation.id} profileName={presentation.name} />
-          </section>
-        </PublicDetailLayout>
       </PublicFoundation>
     </main>
   );

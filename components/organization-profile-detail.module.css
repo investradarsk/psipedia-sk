@@ -403,3 +403,25 @@
 .locationItem, .fundraisingCard, .adoptionCard { background: var(--paper); }
 .fundraisingCard h3, .adoptionCard h3 { font-family: var(--ps-font-heading, Georgia, serif); font-weight: var(--ps-component-heading-weight, 500); }
 .fundraisingType { color: var(--ps-premium-accent); }
+
+/* Organization-specific cards and practical details share public tokens. */
+.locationHeading h3,
+.fundraisingCard h3,
+.adoptionCard h3 {
+  font-size: var(--ps-type-card-heading, 1rem);
+}
+.locationItem p,
+.fundraisingDetail :is(dt, dd),
+.fundraisingInstructions,
+.actionLink,
+.fundraisingCta,
+.adoptionCta,
+.adoptionReserved {
+  font-size: var(--ps-type-compact, .875rem);
+  line-height: var(--ps-type-compact-leading, 1.5);
+}
+.fundraisingType,
+.adoptionLocation,
+.primaryBadge {
+  font-size: var(--ps-type-meta, .75rem);
+}

@@ -48,3 +48,22 @@
     font-weight: var(--ps-component-label-weight, 750);
   }
 }
+
+/* One visual role across public detail, listing and Partner breakpoints. */
+.heading[data-public-heading][data-heading-role="panel"] {
+  font: var(--ps-type-label-weight, 600) var(--ps-type-card-heading, 1rem)/1.4 var(--ps-font-body);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--coral-dark);
+}
+.heading[data-public-heading][data-heading-role="eyebrow"] {
+  font-size: var(--ps-type-meta, .75rem);
+}
+.heading[data-public-heading][data-heading-role="section"] {
+  font-size: var(--ps-type-section-heading, 1.5rem);
+  line-height: 1.25;
+}
+.heading[data-public-heading][data-heading-role="page"] {
+  font-size: var(--ps-type-page-heading, 1.75rem);
+  line-height: 1.2;
+}

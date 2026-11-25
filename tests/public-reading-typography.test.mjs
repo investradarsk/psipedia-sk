@@ -87,3 +87,51 @@ test("informational pages opt into readability without globally enlarging contro
   assert.match(premium, /:root:not\(:has\(\[data-admin-workspace\]\)\)\s*\{[^}]*--ps-font-body:\s*"Psipedia Inter"/s);
   assert.match(premium, /--ps-reading-font:\s*var\(--ps-font-body\)/);
 });
+
+test("Typography V1 shares semantic roles across public cards, profiles and Partner without changing mobile article prose", () => {
+  const premium = read("app/premium-foundation.css");
+  const tokens = {
+    "article-desktop": "1.1875rem",
+    "article-lead-desktop": "1.25rem",
+    profile: "1rem",
+    compact: ".875rem",
+    "sidebar-title": ".9375rem",
+    meta: ".75rem",
+    control: ".875rem",
+    input: "1rem",
+  };
+  for (const [name, value] of Object.entries(tokens)) {
+    assert.ok(premium.includes("--ps-type-" + name + ": " + value + ";"), name);
+  }
+  assert.ok(premium.includes("--ps-type-card-heading: 1rem;"));
+  assert.ok(premium.includes("--ps-type-card-heading: 1.125rem;"));
+  const desktopReading = articles.match(/@media \(min-width: 801px\)\s*\{\s*\.modernArticle \.readingShell\s*\{([^}]+)\}/);
+  assert.ok(desktopReading, "article override must be desktop-only");
+  assert.ok(desktopReading[1].includes("var(--ps-type-article-desktop"));
+  assert.ok(desktopReading[1].includes("var(--ps-type-article-lead-desktop"));
+  assert.doesNotMatch(premium, /--ps-reading-size:\s*var\(--ps-type-article-desktop/);
+  for (const file of [
+    "components/public-heading.module.css",
+    "components/detail-primitives/detail-primitives.module.css",
+    "components/organization-profile-detail.module.css",
+    "components/help-details/help-detail.module.css",
+    "app/plemena/[slug]/breed-profile.module.css",
+    "components/public-visual-system/public-visual-system.module.css",
+    "app/partner/partner.css",
+  ]) {
+    assert.ok(read(file).includes("var(--ps-type-card-heading"), file);
+  }
+  for (const file of [
+    "components/article-popularity-sidebar.module.css",
+    "components/related-entity-list.module.css",
+    "app/home-v2.module.css",
+  ]) {
+    const css = read(file);
+    assert.ok(css.includes("var(--ps-type-sidebar-title"), file);
+    assert.ok(css.includes("var(--ps-type-meta"), file);
+  }
+  const partner = read("app/partner/partner.css");
+  assert.ok(partner.includes("var(--ps-type-input"));
+  assert.ok(partner.includes("var(--ps-type-control"));
+  assert.doesNotMatch(read("app/admin/admin-editorial-foundation.css"), /--ps-type-/);
+});

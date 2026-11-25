@@ -61,6 +61,7 @@ test("Partner dashboard counts moderation statuses but never closed requests", (
 test("Partner dashboard uses existing authenticated, account-scoped data and real destinations", async () => {
   const home = await read("app/partner/page.tsx");
   const shell = await read("components/partner-shell.tsx");
+  const navigation = await read("components/partner-workspace-navigation.tsx");
   const css = await read("app/partner/partner.css");
   assert.match(home, /requirePartnerPageIdentity\(\)/);
   assert.match(home, /listPartnerResources\(identity\.accountId\)/);
@@ -70,15 +71,20 @@ test("Partner dashboard uses existing authenticated, account-scoped data and rea
   assert.match(home, /buildPartnerDashboardSummary/);
   assert.match(home, /summary\.pendingRequests/);
   assert.match(home, /summary\.recentRequests/);
-  assert.match(home, /\/partner\/profily\/novy/);
-  assert.match(home, /\/partner\/podujatia\/nove/);
+  // The single welcome action group links directly to canonical draft routes.
+  for (const route of ["adresar", "podujatie", "adopcia"]) {
+    const href = '/partner/koncepty/novy/' + route;
+    assert.equal(home.split('href="' + href + '"').length - 1, 1, href);
+  }
+  assert.doesNotMatch(home, /Čo chcete urobiť\?|partner-dashboard-quick-actions/);
   assert.match(home, /\/partner\/ziadosti/);
   assert.match(home, /\/partner\/prevziat/);
-  assert.match(shell, /\/partner\/prevziat/);
+  assert.match(shell, /<PartnerWorkspaceNavigation \/>/);
+  assert.match(navigation, /\/partner\/prevziat/);
   assert.match(home, /resourceEditHref\(item\)/);
   assert.match(home, /resources\.slice\(0, 6\)/);
   assert.match(home, /rel="noopener noreferrer"/);
-  assert.match(shell, /Partner navigácia/);
+  assert.match(navigation, /aria-label="Partner navigácia"/);
   assert.match(css, /@media \(max-width: 640px\)/);
   assert.match(css, /\.partner-dashboard-record-grid/);
   assert.match(css, /\.partner-dashboard-stat:focus-visible/);

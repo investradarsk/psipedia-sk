@@ -75,3 +75,16 @@
     grid-template-columns: 76px minmax(0, 1fr);
   }
 }
+
+/* Related profiles use the same type hierarchy as compact discovery rows. */
+.copy strong {
+  font-family: var(--ps-font-body);
+  font-size: var(--ps-type-sidebar-title, .9375rem);
+  line-height: 1.35;
+}
+.copy small {
+  font-size: var(--ps-type-meta, .75rem);
+}
+.action {
+  font-size: var(--ps-type-compact, .875rem);
+}

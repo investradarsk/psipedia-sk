@@ -45,6 +45,33 @@ async function waitForCanonicalFormHydration(page: Page) {
   });
 }
 
+// The workspace menu is separate from the public header. On phones it is
+// collapsed; on both layouts native details disclose grouped destinations.
+async function openPartnerNavigation(page: Page) {
+  const navigation = page.getByRole("navigation", { name: "Partner navigácia" });
+  const trigger = page.getByRole("button", { name: "Partnerské menu" });
+  if (await trigger.isVisible()) {
+    await expect.poll(async () => {
+      if (await trigger.getAttribute("aria-expanded") === "false") await trigger.click();
+      return trigger.getAttribute("aria-expanded");
+    }).toBe("true");
+  }
+  await expect(navigation).toBeVisible();
+  return navigation;
+}
+
+async function openPartnerGroup(page: Page, group: string) {
+  const navigation = await openPartnerNavigation(page);
+  const summary = navigation.locator("summary").filter({ hasText: group });
+  await expect(summary).toBeVisible();
+  if (!(await summary.evaluate(node => node.parentElement?.hasAttribute("open")))) {
+    await summary.click();
+  }
+  await expect(summary.locator("..")).toHaveAttribute("open", "");
+  await expectNoHorizontalOverflow(page);
+  return navigation;
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const metrics = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -334,7 +361,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page).toHaveURL(/\/partner$/);
   }
   await expect(page.getByRole("heading", { name: "Prehľad" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
+  await openPartnerNavigation(page);
   // Step 2: both desktop and mobile show real self-service destinations.
   const dashboardActions = page.locator(".partner-dashboard-welcome");
   await expect(dashboardActions.getByRole("link", { name: "+ Pridať profil", exact: true })).toHaveAttribute("href", "/partner/koncepty/novy/adresar");
@@ -385,7 +412,10 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(accountLink).toHaveAttribute("href", "/partner");
   }
 
-  await page.getByRole("navigation", { name: "Partner navigácia" }).getByRole("link", { name: "Moje profily" }).click();
+  const recordsNav = await openPartnerGroup(page, "Moje záznamy");
+  await expect(recordsNav.getByRole("link", { name: "Moje podujatia" })).toHaveAttribute("href", "/partner/podujatia");
+  await recordsNav.getByRole("link", { name: "Moje profily" }).click();
+  await expect(page).toHaveURL(/\/partner\/profily$/);
   if (project === "desktop-chromium") {
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
     await expect(page.getByText("Správca profilu")).toBeVisible();
@@ -716,7 +746,8 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("link", { name: "Propagácia" }).click();
+  const promotionNav = await openPartnerNavigation(page);
+  await promotionNav.getByRole("link", { name: "Propagácia" }).click();
   await expect(page.getByRole("heading", { name: "Propagácia" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Premium profil" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sponzorované zvýraznenie" })).toBeVisible();
@@ -736,7 +767,8 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(commercialInterest).not.toContainText("NEW");
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("link", { name: "Nastavenia" }).click();
+  const accountNav = await openPartnerGroup(page, "Môj účet");
+  await accountNav.getByRole("link", { name: "Nastavenia" }).click();
   await expect(page).toHaveURL(/\/partner\/nastavenia$/);
   await expect(page.getByRole("heading", { name: "Nastavenia" })).toBeVisible();
   await expect(page.getByText(expectedEmail)).toBeVisible();
@@ -748,7 +780,8 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByRole("button", { name: "Uložiť kontaktné údaje" }).click();
   await expect(page.getByRole("status")).toContainText("Kontaktné údaje boli uložené.");
   await expect(page.getByRole("heading", { name: "Prihlasovanie a bezpečnosť" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Odhlásiť sa z Partner účtu" })).toBeVisible();
+  const logoutNav = await openPartnerGroup(page, "Môj účet");
+  await expect(logoutNav.getByRole("button", { name: "Odhlásiť sa z Partner účtu" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Odhlásiť sa", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Deaktivovať účet" })).toBeDisabled();
   await expectNoHorizontalOverflow(page);
@@ -756,7 +789,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
 
-  await page.getByRole("button", { name: "Odhlásiť sa", exact: true }).click();
+  await logoutNav.getByRole("button", { name: "Odhlásiť sa z Partner účtu" }).click();
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
   if (project === "mobile-chromium") {
     const loginLink = page.locator("#mobile-menu [data-partner-login-entry]");
