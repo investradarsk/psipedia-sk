@@ -47,7 +47,7 @@ export default async function BreedsPage({ searchParams }: Props) {
     listPublishedCanonicalBreedAtlasCards(),
     retryTransientPublicRead(() => getSectionHeroVisual("section.plemena")),
     retryTransientPublicRead(() => getPublishedDesktopBannerColors("plemena:kluby")),
-    getPublishedArticleSummaries({ portalSection: "clanky", category: "Plemená", limit: 3 }),
+    retryTransientPublicRead(() => getPublishedArticleSummaries({ portalSection: "clanky", category: "Plemená", limit: 3 })),
     getPublishedBreedArticleGroupTeasers().catch((error) => {
       console.error("Breed atlas FCI editorial relations unavailable", error);
       return {};
