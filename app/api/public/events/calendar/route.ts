@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     if (raw.calendarOnly === "1") {
       const calendar = await retryTransientPublicRead(
         () => getPublicEventCalendar(filters, month, day),
-        { signal: request.signal },
+        { signal: request.signal, stage: "events_calendar" },
       );
       return Response.json({
         calendarEvents: calendar.events,
@@ -38,8 +38,8 @@ export async function GET(request: Request) {
       }, { headers: { "Cache-Control": "private, no-store" } });
     }
     const [listing, calendar] = await Promise.all([
-      retryTransientPublicRead(() => getPublishedEventListing(filters), { signal: request.signal }),
-      retryTransientPublicRead(() => getPublicEventCalendar(filters, month, day), { signal: request.signal }),
+      retryTransientPublicRead(() => getPublishedEventListing(filters), { signal: request.signal, stage: "events_listing" }),
+      retryTransientPublicRead(() => getPublicEventCalendar(filters, month, day), { signal: request.signal, stage: "events_calendar" }),
     ]);
     return Response.json({
       events: listing.events,
